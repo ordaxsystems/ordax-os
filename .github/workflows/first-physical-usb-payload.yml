@@ -1,0 +1,497 @@
+name: First Physical USB Payload
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_source_commit:
+        description: Exact canonical Stable v4 source commit.
+        required: true
+        default: b924ff8d74d1761232381ae3f9604bba17497cfd
+        type: string
+      writer_source_commit:
+        description: Exact source commit of the published creator-physical writer.
+        required: true
+        default: 10e859b316e24f72f1bc5f86a7f83dbac800ccdc
+        type: string
+      target_bytes:
+        description: Exact capacity in bytes of the selected removable USB.
+        required: true
+        default: "8053063680"
+        type: string
+      envelope_url:
+        description: Canonical Stable v4 release-envelope URL.
+        required: true
+        default: https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/ordax-stable-v4-b924ff8d74d1761232381ae3f9604bba17497cfd/release-envelope.json
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  payload:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      RELEASE_SOURCE_COMMIT: ${{ inputs.release_source_commit }}
+      WRITER_SOURCE_COMMIT: ${{ inputs.writer_source_commit }}
+      TARGET_BYTES: ${{ inputs.target_bytes }}
+      ENVELOPE_URL: ${{ inputs.envelope_url }}
+
+    steps:
+      - name: Checkout current operator contracts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: operator
+          persist-credentials: false
+
+      - name: Checkout exact canonical release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.release_source_commit }}
+          path: release-source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout exact published writer source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.writer_source_commit }}
+          path: writer-source
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
+      - name: Validate authorization, commits and target geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          from urllib.parse import urlsplit
+
+          release_commit = os.environ['RELEASE_SOURCE_COMMIT']
+          writer_commit = os.environ['WRITER_SOURCE_COMMIT']
+          target_raw = os.environ['TARGET_BYTES']
+          envelope_url = os.environ['ENVELOPE_URL']
+
+          for label, value in (
+              ('release_source_commit', release_commit),
+              ('writer_source_commit', writer_commit),
+          ):
+              if re.fullmatch(r'[0-9a-f]{40}', value) is None:
+                  raise SystemExit(f'{label} must be exact lowercase 40-hex')
+
+          try:
+              target_bytes = int(target_raw)
+          except ValueError as exc:
+              raise SystemExit('target_bytes must be an integer') from exc
+          if target_bytes <= 0 or target_bytes % 512 != 0:
+              raise SystemExit('target_bytes must be positive and 512-byte aligned')
+
+          parsed = urlsplit(envelope_url)
+          if (
+              parsed.scheme != 'https'
+              or not parsed.hostname
+              or parsed.username is not None
+              or parsed.password is not None
+              or parsed.query
+              or parsed.fragment
+          ):
+              raise SystemExit('envelope_url must be stable public HTTPS')
+
+          auth = json.loads(
+              pathlib.Path('operator/docs/contracts/physical-write-authorization.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          if auth.get('$schema') != 'prototype-ordax.physical-write-authorization/3':
+              raise SystemExit('physical-write authorization schema is not v3')
+          if auth.get('status') != 'authorized':
+              raise SystemExit('physical-write authorization is not authorized')
+          if auth.get('physical_write_allowed') is not True:
+              raise SystemExit('physical write is not allowed by current authorization')
+          if auth.get('explicit_owner_authorization') is not True:
+              raise SystemExit('explicit owner authorization is missing')
+          if auth.get('scope') != 'first-real-stable-mvp-usb-proof':
+              raise SystemExit('physical authorization scope mismatch')
+
+          binding = auth.get('release_binding')
+          if not isinstance(binding, dict):
+              raise SystemExit('canonical release binding is missing')
+          if binding.get('source_commit') != release_commit:
+              raise SystemExit('requested release commit differs from current authorization')
+          if binding.get('canonical_envelope_url') != envelope_url:
+              raise SystemExit('requested envelope URL differs from current authorization')
+
+          proof = json.loads(
+              pathlib.Path('operator/docs/evidence/canonical-v4-release-proof.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          if proof.get('source_commit') != release_commit:
+              raise SystemExit('canonical proof source commit mismatch')
+          if proof.get('canonical_envelope_url') != envelope_url:
+              raise SystemExit('canonical proof envelope URL mismatch')
+          if proof.get('signed_handoff_verified') is not True:
+              raise SystemExit('canonical signed handoff proof is not verified')
+          if proof.get('canonical_materialization_verified') is not True:
+              raise SystemExit('canonical materialization proof is not verified')
+
+          print('FIRST_USB_AUTHORIZATION=PASS')
+          print(f'RELEASE_SOURCE_COMMIT={release_commit}')
+          print(f'WRITER_SOURCE_COMMIT={writer_commit}')
+          print(f'TARGET_BYTES={target_bytes}')
+          PY
+
+          test "$(git -C release-source rev-parse HEAD)" = "$RELEASE_SOURCE_COMMIT"
+          test "$(git -C writer-source rev-parse HEAD)" = "$WRITER_SOURCE_COMMIT"
+
+      - name: Install exact build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            binutils bison bzip2 cmake curl dwarves e2fsprogs erofs-utils flex \
+            g++ gcc gcc-13 git gperf kmod libblkid-dev libcap-dev libelf-dev \
+            liblz4-dev libmount-dev libpcre2-dev libssl-dev liblzma-dev \
+            libzstd-dev make meson musl-tools ninja-build openssl perl pkg-config \
+            util-linux xz-utils
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            jinja2 pyelftools
+
+      - name: Build and verify exact kernel
+        shell: bash
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          mkdir -p "$work/kernel" "$work/metadata"
+          export ORDAX_SOURCE_COMMIT="$RELEASE_SOURCE_COMMIT"
+          python bootstrap/kernel/build.py build \
+            --jobs 4 \
+            --work-dir "$work/kernel-work" \
+            --out-dir "$work/kernel"
+          python bootstrap/kernel/verify.py "$work/kernel"
+          test -s "$work/kernel/vmlinuz-6.6.52"
+          test -s "$work/kernel/kernel-modules-6.6.52.tar"
+
+      - name: Build and verify exact Stable Base
+        shell: bash
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          sudo -E env ORDAX_SOURCE_COMMIT="$RELEASE_SOURCE_COMMIT" \
+            python bootstrap/stable-base/build.py build \
+              --kernel-modules "$work/kernel/kernel-modules-6.6.52.tar" \
+              --out-dir "$work/stable-base" \
+              --cache-dir "$work/stable-base-cache" \
+              > "$work/metadata/stable-base-build.json"
+          sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
+          python bootstrap/stable-base/build.py verify \
+            --out-dir "$work/stable-base" \
+            > "$work/metadata/stable-base-verify.json"
+          test -s "$work/stable-base/stable-base.erofs"
+
+      - name: Build and verify exact bootstrap capsule
+        shell: bash
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          mkdir -p "$work/bin" "$work/capsule"
+          (
+            cd bootstrap/release-acquisition
+            go test -count=1 ./...
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o "$work/bin/ordax-release-agent" .
+          )
+          python bootstrap/portable-v2/capsule/build.py build \
+            --release-agent "$work/bin/ordax-release-agent" \
+            --out "$work/capsule/bootstrap.erofs" \
+            > "$work/metadata/capsule-build.json"
+          python bootstrap/portable-v2/capsule/build.py verify \
+            --release-agent "$work/bin/ordax-release-agent" \
+            --image "$work/capsule/bootstrap.erofs" \
+            > "$work/metadata/capsule-verify.json"
+          test -s "$work/capsule/bootstrap.erofs"
+
+      - name: Build and verify initramfs pinned to capsule and Stable Base
+        shell: bash
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          export ORDAX_SOURCE_COMMIT="$RELEASE_SOURCE_COMMIT"
+          python bootstrap/initramfs/build.py build \
+            --jobs 4 \
+            --work-dir "$work/initramfs-work" \
+            --out-dir "$work/initramfs" \
+            --portable-bootstrap-capsule "$work/capsule/bootstrap.erofs" \
+            --portable-stable-base "$work/stable-base/stable-base.erofs" \
+            > "$work/metadata/initramfs-build.json"
+          python bootstrap/initramfs/build.py verify \
+            --out-dir "$work/initramfs" \
+            > "$work/metadata/initramfs-verify.json"
+          test -s "$work/initramfs/initramfs.cpio.gz"
+
+      - name: Build and verify pinned systemd-boot
+        shell: bash
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          python boot/esp/build.py check
+          python boot/esp/build.py build \
+            --work-dir "$work/esp-work" \
+            --out-dir "$work/esp"
+          python boot/esp/build.py verify --out-dir "$work/esp"
+          test -s "$work/esp/systemd-bootx64.efi"
+
+      - name: Build exact persistent state image
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          state="$work/persistent-state.img"
+          current="$work/current.txt"
+          known="$work/known-good.txt"
+          printf '%s\n' "$RELEASE_SOURCE_COMMIT" > "$current"
+          printf '%s\n' "$RELEASE_SOURCE_COMMIT" > "$known"
+
+          truncate -s 268435456 "$state"
+          mkfs.ext4 -q -F -L ORDAX-STATE "$state"
+          debugfs -w -R 'mkdir /ordax' "$state"
+          debugfs -w -R 'mkdir /ordax/base' "$state"
+          debugfs -w -R 'mkdir /ordax/base/upper' "$state"
+          debugfs -w -R 'mkdir /ordax/base/work' "$state"
+          debugfs -w -R 'mkdir /ordax/portable-release' "$state"
+          debugfs -w -R 'mkdir /ordax/runtime' "$state"
+          debugfs -w -R 'mkdir /home' "$state"
+          debugfs -w -R "write $current /ordax/portable-release/current" "$state"
+          debugfs -w -R "write $known /ordax/portable-release/known-good" "$state"
+          e2fsck -fn "$state"
+
+      - name: Materialize and verify canonical Stable v4 release bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          root="$work/canonical"
+          mkdir -m 700 "$root"
+
+          "$work/bin/ordax-release-agent" materialize-portable-v4 \
+            --envelope-url "$ENVELOPE_URL" \
+            --trust operator/bootstrap/trust/release-ed25519.json \
+            --expected-commit "$RELEASE_SOURCE_COMMIT" \
+            --root "$root"
+
+          "$work/bin/ordax-release-agent" verify-portable-v4-exact \
+            --trust operator/bootstrap/trust/release-ed25519.json \
+            --expected-commit "$RELEASE_SOURCE_COMMIT" \
+            --root "$root"
+
+          for forbidden in current known-good candidate activation-transaction.json; do
+            test ! -e "$root/$forbidden"
+          done
+
+      - name: Assemble the exact 17-source physical payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          out="$work/out"
+          release="$work/canonical/releases/$RELEASE_SOURCE_COMMIT"
+          surface_sha="$(tr -d '\r\n' < "$release/surface-runtime.sha256")"
+          ai_sha="$(tr -d '\r\n' < "$release/local-ai-runtime.sha256")"
+
+          mkdir -p "$out/sources"
+          cp "$work/esp/systemd-bootx64.efi" "$out/sources/systemd-boot"
+          cp release-source/boot/portable-v2/loader/loader.conf "$out/sources/loader-config"
+          cp release-source/boot/portable-v2/loader/entries/ordax-portable.conf "$out/sources/loader-normal"
+          cp release-source/boot/portable-v2/loader/entries/ordax-portable-recovery.conf "$out/sources/loader-recovery"
+          cp "$work/kernel/vmlinuz-6.6.52" "$out/sources/kernel"
+          cp "$work/initramfs/initramfs.cpio.gz" "$out/sources/initramfs"
+          cp "$work/capsule/bootstrap.erofs" "$out/sources/bootstrap-capsule"
+          cp operator/bootstrap/trust/release-ed25519.json "$out/sources/release-trust"
+          cp "$work/stable-base/stable-base.erofs" "$out/sources/stable-base"
+          cp "$work/persistent-state.img" "$out/sources/persistent-state"
+          cp "$release/system.erofs" "$out/sources/system-image"
+          cp "$work/canonical/runtimes/sha256/$surface_sha/native-surface-runtime.erofs" "$out/sources/surface-runtime-image"
+          cp "$release/surface-runtime.sha256" "$out/sources/surface-runtime-ref"
+          cp "$work/canonical/ai-runtimes/sha256/$ai_sha/local-ai-runtime.erofs" "$out/sources/local-ai-runtime-image"
+          cp "$release/local-ai-runtime.sha256" "$out/sources/local-ai-runtime-ref"
+          cp "$release/release-manifest.json" "$out/sources/release-manifest"
+          cp "$release/release-envelope.json" "$out/sources/release-envelope"
+
+          python3 - "$out/sources" "$out/bindings.json" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          output = pathlib.Path(sys.argv[2])
+          ids = [
+              'systemd-boot', 'loader-config', 'loader-normal', 'loader-recovery',
+              'kernel', 'initramfs', 'bootstrap-capsule', 'release-trust',
+              'stable-base', 'persistent-state', 'system-image',
+              'surface-runtime-image', 'surface-runtime-ref',
+              'local-ai-runtime-image', 'local-ai-runtime-ref',
+              'release-manifest', 'release-envelope',
+          ]
+          artifacts = []
+          for artifact_id in ids:
+              path = root / artifact_id
+              if not path.is_file():
+                  raise SystemExit(f'missing physical payload source: {artifact_id}')
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              artifacts.append({
+                  'id': artifact_id,
+                  'sha256': digest,
+                  'size_bytes': path.stat().st_size,
+              })
+          output.write_text(
+              json.dumps({
+                  '$schema': 'prototype-ordax.portable-media-bindings/1',
+                  'artifacts': artifacts,
+              }, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print('PHYSICAL_PAYLOAD_SOURCE_COUNT=17')
+          PY
+
+      - name: Generate exact target-specific media and application plans
+        shell: bash
+        working-directory: writer-source/tools/creator
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/first-physical-payload/out"
+
+          go test -count=1 ./core ./cmd/ordax-creator
+
+          go run ./cmd/ordax-creator plan-portable-media \
+            --target-bytes "$TARGET_BYTES" \
+            --source-commit "$RELEASE_SOURCE_COMMIT" \
+            --bindings "$out/bindings.json" \
+            > "$out/portable-media-plan.json"
+
+          go run ./cmd/ordax-creator plan-portable-application \
+            --plan "$out/portable-media-plan.json" \
+            > "$out/portable-application-plan.json"
+
+          python3 - "$out/portable-media-plan.json" "$out/portable-application-plan.json" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          media = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          app = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
+          expected_commit = os.environ['RELEASE_SOURCE_COMMIT']
+          target_bytes = int(os.environ['TARGET_BYTES'])
+
+          assert media['$schema'] == 'prototype-ordax.portable-media-plan/1'
+          assert media['source_commit'] == expected_commit
+          assert media['target_bytes'] == target_bytes
+          assert len(media['artifacts']) == 17
+          assert media['physical_write_authorized'] is False
+
+          assert app['$schema'] == 'prototype-ordax.portable-application-plan/1'
+          assert app['source_commit'] == expected_commit
+          assert app['target_bytes'] == target_bytes
+          assert len(app['operations']) == 39
+          assert app['whole_disk_raw_image_required'] is False
+          assert app['physical_device_bound'] is False
+          assert app['physical_write_authorized'] is False
+          assert app['public_promotion_allowed'] is False
+
+          materialize = [op for op in app['operations'] if op['kind'] == 'materialize-artifact']
+          readback = [op for op in app['operations'] if op['kind'] == 'readback-sha256-size']
+          assert len(materialize) == 17
+          assert len(readback) == 17
+          print('PORTABLE_MEDIA_PLAN=PASS')
+          print('PORTABLE_APPLICATION_OPERATIONS=39')
+          print('PORTABLE_ARTIFACT_READBACKS=17')
+          PY
+
+      - name: Record non-destructive operator bundle provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/first-physical-payload/out"
+          python3 - "$out/provenance.json" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          auth = json.loads(
+              pathlib.Path('operator/docs/contracts/physical-write-authorization.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          proof = json.loads(
+              pathlib.Path('operator/docs/evidence/canonical-v4-release-proof.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          payload = {
+              '$schema': 'prototype-ordax.first-physical-usb-payload/1',
+              'status': 'target-specific-plan-ready-not-written',
+              'release_source_commit': os.environ['RELEASE_SOURCE_COMMIT'],
+              'writer_source_commit': os.environ['WRITER_SOURCE_COMMIT'],
+              'target_bytes': int(os.environ['TARGET_BYTES']),
+              'canonical_envelope_url': os.environ['ENVELOPE_URL'],
+              'release_sequence': auth['release_sequence'],
+              'authorization_context_sha256': auth['authorization_context_sha256'],
+              'canonical_v4_release_proof_sha256': auth['bindings']['canonical_v4_release_proof_sha256'],
+              'canonical_trust_sha256': proof['canonical_trust_sha256'],
+              'artifact_count': 17,
+              'application_operation_count': 39,
+              'whole_disk_raw_image_required': False,
+              'private_key_in_bundle': False,
+              'physical_target_selected': False,
+              'target_specific_destructive_confirmation_recorded': False,
+              'physical_write_performed': False,
+              'public_stable_promoted': False,
+          }
+          pathlib.Path(sys.argv[1]).write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+          (
+            cd "$out"
+            find sources -type f -print0 | sort -z | xargs -0 sha256sum
+            sha256sum bindings.json portable-media-plan.json portable-application-plan.json provenance.json
+          ) > "$out/SHA256SUMS"
+
+          echo 'FIRST_PHYSICAL_USB_PAYLOAD=READY'
+          echo 'PHYSICAL_TARGET_SELECTED=NO'
+          echo 'PHYSICAL_WRITE_PERFORMED=NO'
+
+      - name: Upload first physical USB operator payload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-first-physical-payload-${{ inputs.release_source_commit }}-${{ inputs.target_bytes }}
+          path: ${{ runner.temp }}/first-physical-payload/out/
+          if-no-files-found: error
+          retention-days: 7
