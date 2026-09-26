@@ -170,7 +170,7 @@ jobs:
             g++ gcc gcc-13 git gperf kmod libblkid-dev libcap-dev libelf-dev \
             liblz4-dev libmount-dev libpcre2-dev libssl-dev liblzma-dev \
             libzstd-dev make meson musl-tools ninja-build openssl perl pkg-config \
-            util-linux xz-utils
+            proot util-linux xz-utils
           python -m pip install --disable-pip-version-check --no-cache-dir \
             jinja2 pyelftools
 
