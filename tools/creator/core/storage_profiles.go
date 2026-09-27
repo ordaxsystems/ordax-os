@@ -39,7 +39,18 @@ func planSharedCapacityProfile(targetBytes, espBytes uint64, profile, payloadNam
 	if targetSectors <= storageGPTTailSectors+storageESPStartLBA {
 		return TargetStorageProfile{}, errors.New("target is too small for GPT storage profile")
 	}
-	lastUsable := targetSectors - storageGPTTailSectors - 1
+
+	// Windows Storage exposes removable-GPT free extents on 1 MiB boundaries.
+	// Align the end of the shared-capacity area down to that boundary instead of
+	// consuming bytes up to the bare 33-sector GPT backup tail. This keeps the
+	// canonical plan inside the capacity that New-Partition can actually create
+	// while still leaving the GPT backup structures untouched.
+	rawUsableEndExclusive := targetSectors - storageGPTTailSectors
+	usableEndExclusive := alignDown(rawUsableEndExclusive, storageAlignmentLBA)
+	if usableEndExclusive <= storageESPStartLBA {
+		return TargetStorageProfile{}, errors.New("target has no aligned usable GPT capacity")
+	}
+	lastUsable := usableEndExclusive - 1
 
 	espSectors := espBytes / storageSectorBytes
 	if storageESPStartLBA > ^uint64(0)-(espSectors-1) {
