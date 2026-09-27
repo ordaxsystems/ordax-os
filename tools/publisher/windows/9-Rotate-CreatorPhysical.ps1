@@ -76,6 +76,29 @@ function Get-ReleaseState([string]$Tag) {
     return ($raw | ConvertFrom-Json)
 }
 
+function Test-ReleaseExists([string]$Tag) {
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $diagnostic = & $script:Gh.Source api "repos/$Repository/releases/tags/$Tag" --silent 2>&1
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    if ($exitCode -eq 0) {
+        return $true
+    }
+
+    $diagnosticText = [string]($diagnostic | Out-String)
+    if ($diagnosticText -match '(?i)HTTP\s+404') {
+        $global:LASTEXITCODE = 0
+        return $false
+    }
+
+    throw "Cannot determine whether GitHub release $Tag exists (gh exit $exitCode): $($diagnosticText.Trim())"
+}
+
 function Assert-ReleaseAssets(
     [object]$Release,
     [string]$Directory,
@@ -142,14 +165,12 @@ function Restore-PreviousRelease(
     [string]$TemporaryRoot
 ) {
     Write-Warning 'Rotation failed after the active alias changed; attempting byte-exact rollback.'
-    & $script:Gh.Source release view $ReleaseTag --repo $Repository *> $null
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-ReleaseExists $ReleaseTag) {
         & $script:Gh.Source release delete $ReleaseTag --repo $Repository --cleanup-tag --yes
         if ($LASTEXITCODE -ne 0) {
             throw 'Rollback could not remove the partial creator-physical release.'
         }
     }
-    $global:LASTEXITCODE = 0
 
     & $script:Gh.Source release create $ReleaseTag `
         (Join-Path $PreviousDirectory $BundleName) `
@@ -254,11 +275,9 @@ try {
     }
 
     $ArchiveTag = "creator-physical-archive-$ExpectedCurrentWriterCommit"
-    & $script:Gh.Source release view $ArchiveTag --repo $Repository *> $null
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-ReleaseExists $ArchiveTag) {
         throw "Archive release already exists; refusing ambiguous rotation: $ArchiveTag"
     }
-    $global:LASTEXITCODE = 0
 
     $Receipt = [ordered]@{
         '$schema' = 'prototype-ordax.creator-physical-rotation-receipt/1'
