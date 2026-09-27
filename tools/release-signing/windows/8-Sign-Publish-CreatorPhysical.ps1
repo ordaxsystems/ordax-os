@@ -123,13 +123,21 @@ if ([string]$Authorization.status -ne 'authorized' -or $Authorization.physical_w
 if ([string]$Authorization.scope -ne 'first-real-stable-mvp-usb-proof') { throw 'Physical authorization scope is not the first Stable/MVP USB proof.' }
 if ([int64]$Authorization.release_sequence -ne [int64]$Provenance.release_sequence) { throw 'Authorization and candidate release sequences disagree.' }
 if ([string]$Authorization.release_binding.source_commit -ne $ReleaseSourceCommit) { throw 'Authorization and candidate canonical release commits disagree.' }
+$AuthorizationContextSHA = [string]$Authorization.authorization_context_sha256
+Assert-LowerHex $AuthorizationContextSHA 64 'Candidate authorization context SHA-256'
+$CandidateAuthorizationSHA = Get-Sha256 $AuthorizationPath
+$ProvenanceAuthorizationSHA = [string]$Provenance.physical_write_authorization_sha256
+Assert-LowerHex $ProvenanceAuthorizationSHA 64 'Candidate provenance physical authorization SHA-256'
+if ($ProvenanceAuthorizationSHA -ne $CandidateAuthorizationSHA) {
+    throw 'Candidate physical authorization SHA-256 differs from provenance.'
+}
 
 $ManifestBytes = [IO.File]::ReadAllBytes($ManifestPath)
 $Manifest = Get-Content -LiteralPath $ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ([string]$Manifest.'$schema' -ne $ExpectedManifestSchema) { throw 'Unexpected Creator physical manifest schema.' }
 if ([string]$Manifest.purpose -ne $ExpectedPurpose) { throw 'Unexpected Creator physical manifest purpose.' }
 if ([string]$Manifest.source_repository -ne $Repository) { throw 'Creator physical manifest repository mismatch.' }
-if ([string]$Manifest.created_from_recipe -ne $ExpectedRecipe) { throw 'Creator physical manifest recipe mismatch.' }
+if ([string]$Manifest.created_from_recipe -ne $ExpectedRecipe) { throw 'Unexpected Creator physical manifest recipe.' }
 if ([string]$Manifest.source_commit -ne $WriterSourceCommit) { throw 'Creator physical manifest is not bound to the candidate writer commit.' }
 if ([string]$Manifest.bundle.url -ne "https://github.com/$Repository/releases/download/$ReleaseTag/$ExpectedBundleName") {
     throw 'Creator physical manifest bundle URL is not the canonical creator-physical release URL.'
@@ -153,10 +161,41 @@ foreach ($name in $ExpectedFiles) {
     }
 }
 
+# Bind the signing checkout to the exact candidate source before the private key is resolved.
+$Git = Get-Command git -ErrorAction Stop
+$HeadOutput = @(& $Git.Source -C $RepoRoot rev-parse HEAD)
+if ($LASTEXITCODE -ne 0 -or $HeadOutput.Count -ne 1) {
+    throw 'Cannot resolve the signing checkout HEAD.'
+}
+$SigningHead = ([string]$HeadOutput[0]).Trim()
+Assert-LowerHex $SigningHead 40 'Signing checkout HEAD'
+if ($SigningHead -ne $WriterSourceCommit) {
+    throw "Signing checkout HEAD differs from candidate writer source commit: head=$SigningHead candidate=$WriterSourceCommit"
+}
+$TrackedStatus = @(& $Git.Source -C $RepoRoot status --porcelain=v1 --untracked-files=no)
+if ($LASTEXITCODE -ne 0) {
+    throw 'Cannot inspect the signing checkout for tracked changes.'
+}
+if ($TrackedStatus.Count -ne 0) {
+    throw 'Signing checkout contains tracked changes; refusing to touch the private key.'
+}
+
 # Re-evaluate the exact source-controlled authorization context immediately before the private key is touched.
 $Python = Get-Command python -ErrorAction Stop
-& $Python.Source (Join-Path $RepoRoot 'tools\creator\physical_promotion.py') --require-ready
-if ($LASTEXITCODE -ne 0) { throw 'Current source tree is no longer eligible for authorized physical candidate publication.' }
+$PromotionLines = @(& $Python.Source (Join-Path $RepoRoot 'tools\creator\physical_promotion.py') --require-ready)
+$PromotionExitCode = $LASTEXITCODE
+if ($PromotionExitCode -ne 0) { throw 'Current source tree is no longer eligible for authorized physical candidate publication.' }
+try {
+    $PromotionStatus = (($PromotionLines -join "`n") | ConvertFrom-Json)
+} catch {
+    throw 'Current physical promotion status could not be decoded as JSON.'
+}
+if ([string]$PromotionStatus.computed_authorization_context_sha256 -ne $AuthorizationContextSHA) {
+    throw 'Current authorization context differs from the candidate-authorized context.'
+}
+if ([string]$PromotionStatus.canonical_v4_release_source_commit -ne $ReleaseSourceCommit) {
+    throw 'Current canonical release binding differs from the candidate provenance.'
+}
 
 if ([string]::IsNullOrWhiteSpace($PrivateKeyPath)) {
     if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
