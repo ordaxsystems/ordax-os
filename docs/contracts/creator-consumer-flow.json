@@ -68,7 +68,11 @@
     "physical_release_purpose": "creator-portable-physical-windows-amd64",
     "physical_release_recipe": "creator/physical/portable-windows/2",
     "development_channel_may_promote_writer": false,
-    "offline_canonical_signing_required_before_publication": true
+    "offline_canonical_signing_required_before_publication": true,
+    "existing_release_rotation_requires_explicit_confirmation": true,
+    "existing_release_rotation_must_archive_previous_signed_bytes": true,
+    "active_alias_may_move_only_after_archive_readback": true,
+    "rotation_failure_requires_byte_exact_rollback": true
   },
   "physical_candidate_integrity": {
     "signed_envelope_required": true,
