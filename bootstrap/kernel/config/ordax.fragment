@@ -55,7 +55,9 @@ CONFIG_VIRTIO=y
 CONFIG_VIRTIO_PCI=y
 CONFIG_DRM_VIRTIO_GPU=y
 
-CONFIG_LOGO=y
+# Stable/MVP owns the boot presentation. Do not expose the upstream Linux/Tux
+# logo on end-user hardware; diagnostic visibility is controlled by cmdline.
+# CONFIG_LOGO is not set
 
 # Keyboard, mouse and USB HID.
 CONFIG_INPUT=y
