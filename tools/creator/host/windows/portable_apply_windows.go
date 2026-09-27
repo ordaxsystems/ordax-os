@@ -200,15 +200,46 @@ if ([UInt64]$disk.Size -ne [UInt64]%d -or ([string]$disk.BusType).ToUpperInvaria
 $p=Get-Partition -DiskNumber $d -PartitionNumber $n -ErrorAction Stop
 if ([UInt64]$p.Offset -ne $off -or [UInt64]$p.Size -ne $size) { throw 'Portable partition geometry drift' }
 $null=$p | Format-Volume -FileSystem %s -NewFileSystemLabel %s -Confirm:$false -Force -ErrorAction Stop
-Update-HostStorageCache -ErrorAction SilentlyContinue
-$p=Get-Partition -DiskNumber $d -PartitionNumber $n -ErrorAction Stop
-if ([string]::IsNullOrWhiteSpace([string]$p.DriveLetter)) { $p | Add-PartitionAccessPath -AssignDriveLetter -ErrorAction Stop; Update-HostStorageCache -ErrorAction SilentlyContinue; $p=Get-Partition -DiskNumber $d -PartitionNumber $n -ErrorAction Stop }
-$v=Get-Volume -DriveLetter $p.DriveLetter -ErrorAction Stop
-$observed=[string]$v.FileSystem
-if ([string]::IsNullOrWhiteSpace($observed)) { $observed=[string]$v.FileSystemType }
-if (-not [string]::Equals($observed.Trim(),%s,[System.StringComparison]::OrdinalIgnoreCase)) { throw 'filesystem verification failed' }
-if (-not [string]::Equals(([string]$v.FileSystemLabel).Trim(),%s,[System.StringComparison]::Ordinal)) { throw 'filesystem label verification failed' }
-([string]$p.DriveLetter)+':\'
+$volumeReady=$false
+$last='unobserved'
+for ($i=0; $i -lt 120; $i++) {
+    Update-HostStorageCache -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 250
+    $p=Get-Partition -DiskNumber $d -PartitionNumber $n -ErrorAction Stop
+    $letter=[char]$p.DriveLetter
+    if ([int]$letter -eq 0) {
+        try {
+            $p | Add-PartitionAccessPath -AssignDriveLetter -ErrorAction Stop | Out-Null
+        } catch {
+            $last=('assign-drive-letter: {0}' -f $_.Exception.Message)
+            continue
+        }
+        Update-HostStorageCache -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 250
+        $p=Get-Partition -DiskNumber $d -PartitionNumber $n -ErrorAction Stop
+        $letter=[char]$p.DriveLetter
+    }
+    if ([int]$letter -eq 0) {
+        $last='drive-letter-unassigned'
+        continue
+    }
+    try {
+        $v=$p | Get-Volume -ErrorAction Stop
+    } catch {
+        $last=('get-volume: {0}' -f $_.Exception.Message)
+        continue
+    }
+    $observed=[string]$v.FileSystem
+    if ([string]::IsNullOrWhiteSpace($observed)) { $observed=[string]$v.FileSystemType }
+    $label=([string]$v.FileSystemLabel).Trim()
+    $last=('letter={0} filesystem={1} label={2}' -f [string]$letter,$observed,$label)
+    if ([string]::Equals($observed.Trim(),%s,[System.StringComparison]::OrdinalIgnoreCase) -and [string]::Equals($label,%s,[System.StringComparison]::Ordinal)) {
+        $volumeReady=$true
+        break
+    }
+}
+if (-not $volumeReady) { throw ('Portable volume did not stabilize after format: {0}' -f $last) }
+([string]$letter)+':\'
 `, r.target.DiskNumber, p.Index, off, size, r.target.PhysicalDiskBytes, psSingle(fs), psSingle(p.Name), psSingle(fs), psSingle(p.Name))
 	out, err := runPortablePS(script)
 	if err != nil { return fmt.Errorf("format %s: %w", p.Name, err) }
