@@ -12,13 +12,13 @@ import (
 )
 
 const (
-	fileShareRead                   uintptr = 0x00000001
-	fileShareWrite                  uintptr = 0x00000002
-	openExisting                    uintptr = 3
-	ioctlDiskGetDriveGeometryEx             = 0x000700A0
-	ioctlStorageGetDeviceNumber             = 0x002d1080
-	ioctlStorageQueryProperty               = 0x002d1400
-	physicalRecoveryScanLimit       uint32  = 256
+	fileShareRead               uintptr = 0x00000001
+	fileShareWrite              uintptr = 0x00000002
+	openExisting                uintptr = 3
+	ioctlDiskGetDriveGeometryEx         = 0x000700A0
+	ioctlStorageGetDeviceNumber         = 0x002d1080
+	ioctlStorageQueryProperty           = 0x002d1400
+	physicalRecoveryScanLimit   uint32  = 256
 )
 
 type storageDeviceNumber struct {
@@ -280,10 +280,6 @@ func EnumerateRemovableTargets() ([]Target, error) {
 		if err != nil || busType != BusTypeUSB || diskBytes == 0 {
 			continue
 		}
-		if seenDisk[diskNumber] {
-			continue
-		}
-		seenDisk[diskNumber] = true
 		label, serial := volumeIdentity(root)
 		target := Target{
 			DriveLetter:       letter,
@@ -295,6 +291,16 @@ func EnumerateRemovableTargets() ([]Target, error) {
 			DeviceRemovable:   deviceRemovable,
 			DeviceSerial:      deviceSerial,
 		}
+		// GetLogicalDrives can retain a stale letter after the volume has
+		// disappeared. A zero-capacity result is not a usable logical volume;
+		// do not let it consume seenDisk or suppress physical recovery.
+		if !isUsableLogicalVolume(target.VolumeBytes) {
+			continue
+		}
+		if seenDisk[diskNumber] {
+			continue
+		}
+		seenDisk[diskNumber] = true
 		targets = append(targets, FinalizeTarget(target, typeValue, true, busType, diskNumber == systemDiskNumber))
 	}
 

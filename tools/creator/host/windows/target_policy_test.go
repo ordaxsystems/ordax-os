@@ -147,6 +147,60 @@ func TestFinalizePhysicalRecoveryTargetBindsPhysicalIdentity(t *testing.T) {
 	}
 }
 
+func TestGhostLogicalDriveDoesNotConsumePhysicalRecoveryDisk(t *testing.T) {
+	ghost := FinalizeTarget(Target{
+		DriveLetter:       "D:",
+		DiskNumber:        1,
+		VolumeBytes:       0,
+		VolumeSerial:      0,
+		PhysicalDiskBytes: 8053063680,
+		DeviceRemovable:   true,
+		DeviceSerial:      "6699E36B",
+	}, DriveTypeRemovable, true, BusTypeUSB, false)
+	if isUsableLogicalVolume(ghost.VolumeBytes) {
+		t.Fatal("zero-capacity ghost logical drive must not be treated as a usable volume")
+	}
+
+	recovery := FinalizePhysicalRecoveryTarget(Target{
+		DiskNumber:        ghost.DiskNumber,
+		PhysicalDiskBytes: ghost.PhysicalDiskBytes,
+		DeviceRemovable:   ghost.DeviceRemovable,
+		DeviceSerial:      ghost.DeviceSerial,
+	}, BusTypeUSB, false)
+	if recovery.DriveLetter != "" || recovery.DriveType != "physical-unmounted" {
+		t.Fatalf("ghost logical drive did not fall back to physical recovery identity: %#v", recovery)
+	}
+	if !recovery.PrototypeSafe || recovery.SystemDisk || recovery.BusType != "usb" {
+		t.Fatalf("recovery target lost safety identity: %#v", recovery)
+	}
+	if recovery.ConfirmationToken == ghost.ConfirmationToken {
+		t.Fatal("physical recovery must use a new identity-bound confirmation token")
+	}
+}
+
+func TestUsableLogicalVolumeReservesDiskExactlyOnce(t *testing.T) {
+	seen := map[uint32]bool{}
+	ghost := Target{DiskNumber: 1, VolumeBytes: 0}
+	if isUsableLogicalVolume(ghost.VolumeBytes) {
+		seen[ghost.DiskNumber] = true
+	}
+	if seen[1] {
+		t.Fatal("ghost logical drive unexpectedly reserved PhysicalDrive1")
+	}
+
+	mounted := Target{DiskNumber: 1, VolumeBytes: 1}
+	if !isUsableLogicalVolume(mounted.VolumeBytes) {
+		t.Fatal("positive-capacity mounted volume was rejected")
+	}
+	seen[mounted.DiskNumber] = true
+	if !seen[1] {
+		t.Fatal("usable mounted volume did not reserve PhysicalDrive1")
+	}
+	if isUsableLogicalVolume(0) {
+		t.Fatal("zero-capacity logical entry must never reserve a second target")
+	}
+}
+
 func TestMatchConfirmedTargetRequiresCurrentSafeIdentity(t *testing.T) {
 	target := FinalizeTarget(Target{
 		DriveLetter:       "G:",
@@ -207,6 +261,7 @@ func TestWindowsDiscoverySourceRequiresUSBDescriptorPhysicalCapacityAndSystemDis
 		"windowsSystemDiskNumber",
 		"physicalRecoveryScanLimit",
 		"FinalizePhysicalRecoveryTarget",
+		"isUsableLogicalVolume",
 	} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("read-only discovery is missing safety evidence %q", required)
