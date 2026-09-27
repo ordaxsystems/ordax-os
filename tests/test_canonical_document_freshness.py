@@ -410,7 +410,18 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertNotIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=PASS\n", plan)
         self.assertIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED", promotion)
         self.assertIn("CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE", current)
-        self.assertIn("FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED", current)
+        self.assertIn(
+            "FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING",
+            current,
+        )
+        self.assertIn(
+            "PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO_FRESH_CONSENT_REQUIRED",
+            current,
+        )
+        self.assertNotIn(
+            "FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED",
+            current,
+        )
 
 
 if __name__ == "__main__":
