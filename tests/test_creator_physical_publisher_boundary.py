@@ -7,7 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 CONSUMER_FLOW = ROOT / "docs/contracts/creator-consumer-flow.json"
 PUBLISHER = ROOT / "tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1"
-ROTATOR = ROOT / "tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1"
+ROTATOR = ROOT / "tools/publisher/windows/9-Rotate-CreatorPhysical.ps1"
 AUTHORIZATION = ROOT / "docs/contracts/physical-write-authorization.json"
 PROMOTION = ROOT / "tools/creator/physical_promotion.py"
 
@@ -165,7 +165,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertEqual(len(governed), 73)
         self.assertNotIn("docs/contracts/creator-consumer-flow.json", governed)
         self.assertNotIn("tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1", governed)
-        self.assertNotIn("tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1", governed)
+        self.assertNotIn("tools/publisher/windows/9-Rotate-CreatorPhysical.ps1", governed)
         self.assertNotIn("tests/test_creator_physical_publisher_boundary.py", governed)
         self.assertNotIn(".github/workflows/creator-physical-publisher.yml", governed)
 
