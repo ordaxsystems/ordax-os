@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "tools" / "ops" / "first_mvp_operator_readiness.py"
+AUTHORIZATION_PATH = ROOT / "docs" / "contracts" / "physical-write-authorization.json"
 
 
 def _load():
@@ -24,19 +26,46 @@ readiness = _load()
 class FirstMvpOperatorReadinessTests(unittest.TestCase):
     def test_current_source_separates_first_usb_from_official_creator_publication(self):
         status = readiness.evaluate(ROOT)
+        authorization = json.loads(AUTHORIZATION_PATH.read_text(encoding="utf-8"))
+
+        pending = (
+            authorization["status"] == "blocked-explicit-physical-authorization-pending"
+            and authorization["physical_write_allowed"] is False
+            and authorization["explicit_owner_authorization"] is False
+            and authorization["authorization_context_sha256"] is None
+        )
+        authorized = (
+            authorization["status"] == "authorized"
+            and authorization["physical_write_allowed"] is True
+            and authorization["explicit_owner_authorization"] is True
+            and isinstance(authorization["authorization_context_sha256"], str)
+            and len(authorization["authorization_context_sha256"]) == 64
+        )
+        self.assertNotEqual(pending, authorized)
 
         self.assertEqual(status["$schema"], "prototype-ordax.first-mvp-operator-readiness/1")
-        self.assertEqual(status["status"], "ready-for-operator-handoff")
 
         first_usb = status["first_usb"]
-        self.assertIs(first_usb["source_authorized"], True)
-        self.assertIs(first_usb["publisher_source_ready"], True)
         self.assertIs(first_usb["creator_physical_public_release_required"], True)
         self.assertIs(first_usb["offline_canonical_ed25519_signing_required"], True)
-        self.assertEqual(first_usb["next_stage"], "offline-sign-and-publish-creator-physical")
-        self.assertEqual(first_usb["blockers"], [])
         self.assertIs(first_usb["physical_target_selected"], False)
         self.assertIs(first_usb["physical_write_performed"], False)
+
+        if pending:
+            self.assertEqual(status["status"], "blocked")
+            self.assertIs(first_usb["source_authorized"], False)
+            self.assertIs(first_usb["publisher_source_ready"], False)
+            self.assertEqual(first_usb["next_stage"], "resolve-first-usb-source-blockers")
+            self.assertIn(
+                "explicit-physical-write-authorization-missing",
+                first_usb["blockers"],
+            )
+        else:
+            self.assertEqual(status["status"], "ready-for-operator-handoff")
+            self.assertIs(first_usb["source_authorized"], True)
+            self.assertIs(first_usb["publisher_source_ready"], True)
+            self.assertEqual(first_usb["next_stage"], "offline-sign-and-publish-creator-physical")
+            self.assertEqual(first_usb["blockers"], [])
 
         official = status["official_creator"]
         self.assertIs(official["source_ready"], True)
