@@ -122,10 +122,14 @@ func (r *portableWindowsRuntime) WriteGPT(parts []creatorcore.PortableApplicatio
 	if err := revalidatePortableTarget(r.target); err != nil { return err }
 	espOff, espSize, err := portablePartitionBytes(parts[0]); if err != nil { return err }
 	dataOff, dataSize, err := portablePartitionBytes(parts[1]); if err != nil { return err }
+	if dataOff > ^uint64(0)-dataSize || dataOff+dataSize < espOff {
+		return errors.New("Portable GPT extent overflow")
+	}
+	requiredExtent := dataOff + dataSize - espOff
 	r.progress("partitioning-portable", 0, 1)
 	script := fmt.Sprintf(`
 $ErrorActionPreference='Stop'
-$d=%d; $bytes=[UInt64]%d
+$d=%d; $bytes=[UInt64]%d; $required=[UInt64]%d
 $disk=Get-Disk -Number $d -ErrorAction Stop
 if ([UInt64]$disk.Size -ne $bytes -or ([string]$disk.BusType).ToUpperInvariant() -ne 'USB' -or [bool]$disk.IsSystem -or [bool]$disk.IsBoot) { throw 'unsafe Portable target' }
 try { Set-Disk -Number $d -IsReadOnly $false -ErrorAction Stop } catch {}
@@ -133,18 +137,23 @@ try { Set-Disk -Number $d -IsReadOnly $false -ErrorAction Stop } catch {}
 Clear-Disk -Number $d -RemoveData -RemoveOEM -Confirm:$false -ErrorAction Stop
 'ORDAX_PORTABLE_GPT_STAGE=initialize'
 Initialize-Disk -Number $d -PartitionStyle GPT -ErrorAction Stop
+'ORDAX_PORTABLE_GPT_STAGE=wait-stable'
 $ready=$false
-for ($i=0; $i -lt 20; $i++) {
+$last='unobserved'
+for ($i=0; $i -lt 120; $i++) {
     Update-HostStorageCache -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 250
     $disk=Get-Disk -Number $d -ErrorAction Stop
     $existing=@(Get-Partition -DiskNumber $d -ErrorAction SilentlyContinue)
-    if ([UInt64]$disk.Size -eq $bytes -and ([string]$disk.BusType).ToUpperInvariant() -eq 'USB' -and -not [bool]$disk.IsSystem -and -not [bool]$disk.IsBoot -and ([string]$disk.PartitionStyle).ToUpperInvariant() -eq 'GPT' -and $existing.Count -eq 0) {
+    $largest=[UInt64]$disk.LargestFreeExtent
+    $last=('style={0} partitions={1} largest_free_extent={2} size={3} bus={4}' -f ([string]$disk.PartitionStyle),$existing.Count,$largest,[UInt64]$disk.Size,[string]$disk.BusType)
+    if ([UInt64]$disk.Size -eq $bytes -and ([string]$disk.BusType).ToUpperInvariant() -eq 'USB' -and -not [bool]$disk.IsSystem -and -not [bool]$disk.IsBoot -and ([string]$disk.PartitionStyle).ToUpperInvariant() -eq 'GPT' -and $existing.Count -eq 0 -and $largest -ge $required) {
         $ready=$true
         break
     }
 }
-if (-not $ready) { throw 'Portable GPT initialization did not stabilize before partition creation' }
+if (-not $ready) { throw ('Portable GPT initialization did not stabilize before partition creation: {0} required_extent={1}' -f $last,$required) }
+'ORDAX_PORTABLE_GPT_STAGE=stable'
 'ORDAX_PORTABLE_GPT_STAGE=create-esp'
 $p1=New-Partition -DiskNumber $d -Offset ([UInt64]%d) -Size ([UInt64]%d) -GptType '{C12A7328-F81F-11D2-BA4B-00A0C93EC93B}' -ErrorAction Stop
 Update-HostStorageCache -ErrorAction SilentlyContinue
@@ -158,7 +167,7 @@ if ($parts.Count -ne 2 -or $p1.PartitionNumber -ne 1 -or $p2.PartitionNumber -ne
 if ([UInt64]$parts[0].Offset -ne [UInt64]%d -or [UInt64]$parts[0].Size -ne [UInt64]%d) { throw 'ORDAX-ESP geometry mismatch' }
 if ([UInt64]$parts[1].Offset -ne [UInt64]%d -or [UInt64]$parts[1].Size -ne [UInt64]%d) { throw 'ORDAX-DATA geometry mismatch' }
 'ORDAX_PORTABLE_GPT=PASS'
-`, r.target.DiskNumber, targetBytes, espOff, espSize, dataOff, dataSize, espOff, espSize, dataOff, dataSize)
+`, r.target.DiskNumber, targetBytes, requiredExtent, espOff, espSize, dataOff, dataSize, espOff, espSize, dataOff, dataSize)
 	out, err := runPortablePS(script)
 	if err != nil { return fmt.Errorf("write Portable GPT: %w", err) }
 	if !strings.Contains(out, "ORDAX_PORTABLE_GPT=PASS") { return errors.New("Portable GPT success marker missing") }
