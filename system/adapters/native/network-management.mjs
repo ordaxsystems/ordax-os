@@ -8,6 +8,7 @@ import {
 const SESSION_ENDPOINT = "/__ordax/native/session";
 const NETWORK_ENDPOINT = "/__ordax/native/network-management";
 const TOKEN_HEADER = "X-OrdaX-Network-Token";
+const CONNECTED_EVENT = "ordax-network-connected";
 
 async function readNetworkToken(windowRef) {
   const response = await windowRef.fetch(SESSION_ENDPOINT, {
@@ -21,6 +22,13 @@ async function readNetworkToken(windowRef) {
     throw new Error("Native network token is unavailable");
   }
   return payload.networkToken;
+}
+
+function publishConnected(windowRef) {
+  if (typeof windowRef.dispatchEvent !== "function") return;
+  const EventConstructor = windowRef.Event ?? globalThis.Event;
+  if (typeof EventConstructor !== "function") return;
+  windowRef.dispatchEvent(new EventConstructor(CONNECTED_EVENT));
 }
 
 export async function createNativeNetworkManagement(windowRef = globalThis.window) {
@@ -58,9 +66,11 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
     scan() {
       return request("POST", "scan");
     },
-    connect(credentials) {
+    async connect(credentials) {
       const value = validateWifiCredentials(credentials);
-      return request("POST", "connect", value);
+      const snapshot = await request("POST", "connect", value);
+      publishConnected(windowRef);
+      return snapshot;
     },
     disconnect() {
       return request("POST", "disconnect");
