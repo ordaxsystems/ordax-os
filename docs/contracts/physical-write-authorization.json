@@ -1,12 +1,12 @@
 {
   "$schema": "prototype-ordax.physical-write-authorization/3",
-  "status": "blocked-explicit-physical-authorization-pending",
-  "physical_write_allowed": false,
-  "explicit_owner_authorization": false,
+  "status": "authorized",
+  "physical_write_allowed": true,
+  "explicit_owner_authorization": true,
   "scope": "first-real-stable-mvp-usb-proof",
   "source_repository": "washingtonmsdj/prototipo-ordax-os",
   "release_sequence": 1,
-  "authorization_context_sha256": null,
+  "authorization_context_sha256": "91faedd107469e4c2513937d3ea4f89924dc45155b2d96d2a8b0b7093da0d374",
   "bindings": {
     "minimal_bootstrap_sha256": "5b71a0a520818ecf55f8e18de2938401ee5cb2d6fc636bcaf175da9995242f57",
     "release_trust_sha256": "d2836df77a3d5a54ccf64cc5643cfd5c19052efc83f2e3e2666c6d3197fce250",
