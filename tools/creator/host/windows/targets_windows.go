@@ -18,6 +18,7 @@ const (
 	ioctlDiskGetDriveGeometryEx             = 0x000700A0
 	ioctlStorageGetDeviceNumber             = 0x002d1080
 	ioctlStorageQueryProperty               = 0x002d1400
+	physicalRecoveryScanLimit       uint32  = 256
 )
 
 type storageDeviceNumber struct {
@@ -246,7 +247,9 @@ func windowsSystemDiskNumber() (uint32, error) {
 // for the prototype only after its PhysicalDrive descriptor proves BusType=USB
 // and its physical capacity is measured directly from the same device handle.
 // The physical disk hosting the running Windows installation is always marked
-// unsafe even if Windows itself is booted from USB.
+// unsafe even if Windows itself is booted from USB. If a previous destructive
+// attempt removed the target volume, the same read-only PhysicalDrive identity
+// is exposed as a physical-unmounted recovery target with a fresh token.
 func EnumerateRemovableTargets() ([]Target, error) {
 	mask, _, callErr := procGetLogicalDrives.Call()
 	if mask == 0 {
@@ -294,6 +297,31 @@ func EnumerateRemovableTargets() ([]Target, error) {
 		}
 		targets = append(targets, FinalizeTarget(target, typeValue, true, busType, diskNumber == systemDiskNumber))
 	}
+
+	// A failed physical write can legitimately leave the selected USB with no
+	// partition and therefore no logical drive letter. Scan PhysicalDrive IDs
+	// read-only so that exact USB can be recovered through the same confirmation
+	// and UAC path instead of requiring manual disk-management commands.
+	for diskNumber := uint32(0); diskNumber < physicalRecoveryScanLimit; diskNumber++ {
+		if seenDisk[diskNumber] {
+			continue
+		}
+		busType, deviceRemovable, deviceSerial, diskBytes, err := physicalDeviceIdentity(diskNumber)
+		if err != nil || busType != BusTypeUSB || diskBytes == 0 {
+			continue
+		}
+		target := Target{
+			DiskNumber:        diskNumber,
+			PhysicalDiskBytes: diskBytes,
+			DeviceRemovable:   deviceRemovable,
+			DeviceSerial:      deviceSerial,
+		}
+		target = FinalizePhysicalRecoveryTarget(target, busType, diskNumber == systemDiskNumber)
+		if target.PrototypeSafe {
+			targets = append(targets, target)
+		}
+	}
+
 	sort.Slice(targets, func(i, j int) bool {
 		if targets[i].DiskNumber == targets[j].DiskNumber {
 			return targets[i].DriveLetter < targets[j].DriveLetter
