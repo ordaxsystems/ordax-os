@@ -54,10 +54,22 @@ type PortableApplicationExecutionReceipt struct {
 
 const PortableApplicationExecutionReceiptSchema = "prototype-ordax.portable-application-execution-receipt/1"
 
-func PortableApplicationPlanSHA256(plan PortableApplicationPlan) (string, error) {
-	payload, err := json.Marshal(plan)
+// PortableApplicationPlanCanonicalBytes defines the one byte representation
+// used both for the emitted portable-application-plan.json and for destructive
+// authorization. It intentionally matches json.Encoder with SetIndent("", "  ")
+// followed by Encode, including the final LF byte.
+func PortableApplicationPlanCanonicalBytes(plan PortableApplicationPlan) ([]byte, error) {
+	payload, err := json.MarshalIndent(plan, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("encode portable application plan: %w", err)
+		return nil, fmt.Errorf("encode canonical portable application plan: %w", err)
+	}
+	return append(payload, '\n'), nil
+}
+
+func PortableApplicationPlanSHA256(plan PortableApplicationPlan) (string, error) {
+	payload, err := PortableApplicationPlanCanonicalBytes(plan)
+	if err != nil {
+		return "", err
 	}
 	digest := sha256.Sum256(payload)
 	return hex.EncodeToString(digest[:]), nil
