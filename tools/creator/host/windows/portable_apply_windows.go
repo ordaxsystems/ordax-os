@@ -135,8 +135,20 @@ if ([UInt64]$disk.Size -ne $bytes -or ([string]$disk.BusType).ToUpperInvariant()
 try { Set-Disk -Number $d -IsReadOnly $false -ErrorAction Stop } catch {}
 'ORDAX_PORTABLE_GPT_STAGE=clear'
 Clear-Disk -Number $d -RemoveData -RemoveOEM -Confirm:$false -ErrorAction Stop
-'ORDAX_PORTABLE_GPT_STAGE=initialize'
-Initialize-Disk -Number $d -PartitionStyle GPT -ErrorAction Stop
+Update-HostStorageCache -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 250
+$disk=Get-Disk -Number $d -ErrorAction Stop
+$existing=@(Get-Partition -DiskNumber $d -ErrorAction SilentlyContinue)
+$style=([string]$disk.PartitionStyle).ToUpperInvariant()
+if ($existing.Count -ne 0) { throw 'Portable disk still has partitions after Clear-Disk' }
+if ($style -eq 'RAW') {
+    'ORDAX_PORTABLE_GPT_STAGE=initialize'
+    Initialize-Disk -Number $d -PartitionStyle GPT -ErrorAction Stop
+} elseif ($style -eq 'GPT') {
+    'ORDAX_PORTABLE_GPT_STAGE=reuse-gpt'
+} else {
+    throw ('Portable disk has unsupported partition style after Clear-Disk: {0}' -f $style)
+}
 'ORDAX_PORTABLE_GPT_STAGE=wait-stable'
 $ready=$false
 $last='unobserved'
