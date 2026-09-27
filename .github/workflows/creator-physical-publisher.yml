@@ -6,14 +6,14 @@ on:
     paths:
       - 'docs/contracts/creator-consumer-flow.json'
       - 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
-      - 'tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1'
+      - 'tools/publisher/windows/9-Rotate-CreatorPhysical.ps1'
       - 'tests/test_creator_physical_publisher_boundary.py'
       - '.github/workflows/creator-physical-publisher.yml'
   pull_request:
     paths:
       - 'docs/contracts/creator-consumer-flow.json'
       - 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
-      - 'tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1'
+      - 'tools/publisher/windows/9-Rotate-CreatorPhysical.ps1'
       - 'tests/test_creator_physical_publisher_boundary.py'
       - '.github/workflows/creator-physical-publisher.yml'
 
@@ -51,7 +51,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $paths = @(
             'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1',
-            'tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1'
+            'tools/publisher/windows/9-Rotate-CreatorPhysical.ps1'
           )
           foreach ($path in $paths) {
             $tokens = $null
