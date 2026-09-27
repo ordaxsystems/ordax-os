@@ -5,6 +5,7 @@ import {
 
 const SESSION_ENDPOINT = "/auth/session";
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
+const NETWORK_CONNECTED_EVENT = "ordax-network-connected";
 
 function publicDisplayName(value) {
   if (typeof value !== "string" || !value) return null;
@@ -73,6 +74,12 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     }
   };
 
+  const refreshAfterConnectivity = () => {
+    if (!disposed) void refresh();
+  };
+  windowRef.addEventListener?.("online", refreshAfterConnectivity);
+  windowRef.addEventListener?.(NETWORK_CONNECTED_EVENT, refreshAfterConnectivity);
+
   return Object.freeze({
     schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot() {
@@ -89,6 +96,8 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     refresh,
     dispose() {
       disposed = true;
+      windowRef.removeEventListener?.("online", refreshAfterConnectivity);
+      windowRef.removeEventListener?.(NETWORK_CONNECTED_EVENT, refreshAfterConnectivity);
       listeners.clear();
     },
   });
