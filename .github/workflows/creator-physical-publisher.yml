@@ -8,6 +8,7 @@ on:
       - 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
       - 'tools/publisher/windows/9-Rotate-CreatorPhysical.ps1'
       - 'tests/test_creator_physical_publisher_boundary.py'
+      - 'tests/test_creator_physical_signing_source_boundary.py'
       - '.github/workflows/creator-physical-publisher.yml'
   pull_request:
     paths:
@@ -15,6 +16,7 @@ on:
       - 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
       - 'tools/publisher/windows/9-Rotate-CreatorPhysical.ps1'
       - 'tests/test_creator_physical_publisher_boundary.py'
+      - 'tests/test_creator_physical_signing_source_boundary.py'
       - '.github/workflows/creator-physical-publisher.yml'
 
 permissions:
@@ -35,7 +37,11 @@ jobs:
           python-version: '3.12'
           check-latest: false
       - name: Verify Portable publisher and authorization boundary
-        run: python -m unittest tests.test_creator_physical_publisher_boundary -v
+        run: >-
+          python -m unittest
+          tests.test_creator_physical_publisher_boundary
+          tests.test_creator_physical_signing_source_boundary
+          -v
 
   powershell-parse:
     runs-on: windows-2025
