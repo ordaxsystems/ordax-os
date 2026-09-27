@@ -33,6 +33,18 @@ func TestPrototypeCandidateRequiresUSBAndRejectsSystemDisk(t *testing.T) {
 	}
 }
 
+func TestPrototypePhysicalRecoveryCandidateRequiresUSBAndRejectsSystemDisk(t *testing.T) {
+	if !IsPrototypePhysicalRecoveryCandidate(BusTypeUSB, false) {
+		t.Fatal("expected unmounted non-system USB physical disk to be recoverable")
+	}
+	if IsPrototypePhysicalRecoveryCandidate(11, false) {
+		t.Fatal("non-USB physical disk must not be recoverable")
+	}
+	if IsPrototypePhysicalRecoveryCandidate(BusTypeUSB, true) {
+		t.Fatal("Windows system disk must never be a recovery target")
+	}
+}
+
 func TestConfirmationTokenIsDeterministicAndIdentitySensitive(t *testing.T) {
 	base := FinalizeTarget(Target{
 		DriveLetter:       "E:",
@@ -109,6 +121,32 @@ func TestFinalizeTargetBindsUSBTransportCapacitySafetyAndToken(t *testing.T) {
 	}
 }
 
+func TestFinalizePhysicalRecoveryTargetBindsPhysicalIdentity(t *testing.T) {
+	target := FinalizePhysicalRecoveryTarget(Target{
+		DiskNumber:        4,
+		PhysicalDiskBytes: 16 << 30,
+		DeviceRemovable:   true,
+		DeviceSerial:      "RECOVERY-USB",
+	}, BusTypeUSB, false)
+	if !target.PrototypeSafe {
+		t.Fatal("expected measured non-system USB physical disk to be recovery-safe")
+	}
+	if target.DriveLetter != "" || target.VolumeSerial != 0 || target.VolumeBytes != 0 {
+		t.Fatalf("recovery target unexpectedly depends on volume identity: %#v", target)
+	}
+	if target.DriveType != "physical-unmounted" || target.BusType != "usb" || target.SystemDisk {
+		t.Fatalf("unexpected recovery identity: %#v", target)
+	}
+	if target.ConfirmationToken != ConfirmationToken(target) {
+		t.Fatal("recovery confirmation token mismatch")
+	}
+
+	unsafe := FinalizePhysicalRecoveryTarget(target, BusTypeUSB, true)
+	if unsafe.PrototypeSafe {
+		t.Fatal("system disk must not become recovery-safe")
+	}
+}
+
 func TestMatchConfirmedTargetRequiresCurrentSafeIdentity(t *testing.T) {
 	target := FinalizeTarget(Target{
 		DriveLetter:       "G:",
@@ -167,6 +205,8 @@ func TestWindowsDiscoverySourceRequiresUSBDescriptorPhysicalCapacityAndSystemDis
 		"BusTypeUSB",
 		"procGetWindowsDirectoryW",
 		"windowsSystemDiskNumber",
+		"physicalRecoveryScanLimit",
+		"FinalizePhysicalRecoveryTarget",
 	} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("read-only discovery is missing safety evidence %q", required)
