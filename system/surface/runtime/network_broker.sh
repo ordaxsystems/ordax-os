@@ -23,6 +23,7 @@ IP_BIN=$(command -v ip || true)
 IW_BIN=$(command -v iw || true)
 WPA_BIN=$(command -v wpa_supplicant || true)
 UDHCPC_BIN=$(command -v udhcpc || true)
+MODPROBE_BIN=$(command -v modprobe || true)
 
 [ -n "$IP_BIN" ] && [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
     echo "ordax-network-broker: required host network tools are unavailable" >&2
@@ -56,6 +57,30 @@ find_wifi_interface() {
         return 0
     done
     return 1
+}
+
+load_supported_wifi_modules() {
+    # Stable/MVP deliberately ships only a small, audited Wi-Fi driver set.
+    # The modules are not built into the kernel, so the Native network owner
+    # must load them before the first management/status probe. Owner/Development
+    # already follows the same lazy-load policy in ordax-network.
+    [ -n "$MODPROBE_BIN" ] || {
+        echo "ordax-network-broker: modprobe unavailable; continuing with already-enumerated interfaces" >&2
+        return 0
+    }
+
+    for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc; do
+        "$MODPROBE_BIN" "$module" >/dev/null 2>&1 || true
+    done
+
+    # Give firmware/udev a short bounded window to publish a wireless netdev.
+    attempts=0
+    while [ "$attempts" -lt 30 ]; do
+        find_wifi_interface >/dev/null 2>&1 && return 0
+        attempts=$((attempts + 1))
+        /bin/busybox sleep 0.1
+    done
+    return 0
 }
 
 capture_saved_ssid() {
@@ -249,6 +274,8 @@ handle_request() {
             ;;
     esac
 }
+
+load_supported_wifi_modules
 
 exec 9<>"$CONTROL"
 while :; do
