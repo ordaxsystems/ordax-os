@@ -11,7 +11,6 @@ on:
       writer_source_commit:
         description: Exact source commit of the published creator-physical writer.
         required: true
-        default: 10e859b316e24f72f1bc5f86a7f83dbac800ccdc
         type: string
       target_bytes:
         description: Exact capacity in bytes of the selected removable USB.
@@ -32,6 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
+      ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
       RELEASE_SOURCE_COMMIT: ${{ inputs.release_source_commit }}
       WRITER_SOURCE_COMMIT: ${{ inputs.writer_source_commit }}
       TARGET_BYTES: ${{ inputs.target_bytes }}
@@ -41,6 +41,7 @@ jobs:
       - name: Checkout current operator contracts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: operator
           persist-credentials: false
 
@@ -159,6 +160,7 @@ jobs:
 
           test "$(git -C release-source rev-parse HEAD)" = "$RELEASE_SOURCE_COMMIT"
           test "$(git -C writer-source rev-parse HEAD)" = "$WRITER_SOURCE_COMMIT"
+          test "$(git -C operator rev-parse HEAD)" = "$ORDAX_SOURCE_COMMIT"
 
       - name: Install exact build dependencies
         shell: bash
