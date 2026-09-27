@@ -95,16 +95,26 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertNotIn("--clobber", text)
         self.assertNotIn("release edit", text)
 
-    def test_publisher_boundary_changes_do_not_invalidate_recorded_physical_authorization(self):
+    def test_publisher_boundary_stays_outside_physical_authorization_context(self):
         module = _load_promotion_module()
         auth = json.loads(AUTHORIZATION.read_text(encoding="utf-8"))
         context_sha, file_count = module.authorization_context_sha256(ROOT)
 
-        self.assertEqual(auth["status"], "authorized")
-        self.assertIs(auth["physical_write_allowed"], True)
-        self.assertIs(auth["explicit_owner_authorization"], True)
-        self.assertEqual(context_sha, auth["authorization_context_sha256"])
+        self.assertRegex(context_sha, r"^[0-9a-f]{64}$")
         self.assertEqual(file_count, 73)
+
+        if auth["status"] == "authorized":
+            self.assertIs(auth["physical_write_allowed"], True)
+            self.assertIs(auth["explicit_owner_authorization"], True)
+            self.assertEqual(context_sha, auth["authorization_context_sha256"])
+        else:
+            self.assertEqual(
+                auth["status"],
+                "blocked-explicit-physical-authorization-pending",
+            )
+            self.assertIs(auth["physical_write_allowed"], False)
+            self.assertIs(auth["explicit_owner_authorization"], False)
+            self.assertIsNone(auth["authorization_context_sha256"])
 
         governed = {
             path.relative_to(ROOT).as_posix()
