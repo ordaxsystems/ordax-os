@@ -129,10 +129,30 @@ $d=%d; $bytes=[UInt64]%d
 $disk=Get-Disk -Number $d -ErrorAction Stop
 if ([UInt64]$disk.Size -ne $bytes -or ([string]$disk.BusType).ToUpperInvariant() -ne 'USB' -or [bool]$disk.IsSystem -or [bool]$disk.IsBoot) { throw 'unsafe Portable target' }
 try { Set-Disk -Number $d -IsReadOnly $false -ErrorAction Stop } catch {}
+'ORDAX_PORTABLE_GPT_STAGE=clear'
 Clear-Disk -Number $d -RemoveData -RemoveOEM -Confirm:$false -ErrorAction Stop
+'ORDAX_PORTABLE_GPT_STAGE=initialize'
 Initialize-Disk -Number $d -PartitionStyle GPT -ErrorAction Stop
+$ready=$false
+for ($i=0; $i -lt 20; $i++) {
+    Update-HostStorageCache -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 250
+    $disk=Get-Disk -Number $d -ErrorAction Stop
+    $existing=@(Get-Partition -DiskNumber $d -ErrorAction SilentlyContinue)
+    if ([UInt64]$disk.Size -eq $bytes -and ([string]$disk.BusType).ToUpperInvariant() -eq 'USB' -and -not [bool]$disk.IsSystem -and -not [bool]$disk.IsBoot -and ([string]$disk.PartitionStyle).ToUpperInvariant() -eq 'GPT' -and $existing.Count -eq 0) {
+        $ready=$true
+        break
+    }
+}
+if (-not $ready) { throw 'Portable GPT initialization did not stabilize before partition creation' }
+'ORDAX_PORTABLE_GPT_STAGE=create-esp'
 $p1=New-Partition -DiskNumber $d -Offset ([UInt64]%d) -Size ([UInt64]%d) -GptType '{C12A7328-F81F-11D2-BA4B-00A0C93EC93B}' -ErrorAction Stop
+Update-HostStorageCache -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 250
+'ORDAX_PORTABLE_GPT_STAGE=create-data'
 $p2=New-Partition -DiskNumber $d -Offset ([UInt64]%d) -Size ([UInt64]%d) -GptType '{EBD0A0A2-B9E5-4433-87C0-68B6B72699C7}' -ErrorAction Stop
+Update-HostStorageCache -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 250
 $parts=@(Get-Partition -DiskNumber $d -ErrorAction Stop | Sort-Object PartitionNumber)
 if ($parts.Count -ne 2 -or $p1.PartitionNumber -ne 1 -or $p2.PartitionNumber -ne 2) { throw 'Portable GPT partition count mismatch' }
 if ([UInt64]$parts[0].Offset -ne [UInt64]%d -or [UInt64]$parts[0].Size -ne [UInt64]%d) { throw 'ORDAX-ESP geometry mismatch' }
