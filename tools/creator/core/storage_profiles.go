@@ -27,7 +27,7 @@ type TargetStorageProfile struct {
 	LastUsableLBA uint64 `json:"last_usable_lba"`
 }
 
-func planSharedCapacityProfile(targetBytes, espBytes uint64, profile, payloadName string) (TargetStorageProfile, error) {
+func planSharedCapacityProfile(targetBytes, espBytes uint64, profile, payloadName string, alignUsableEnd bool) (TargetStorageProfile, error) {
 	if targetBytes == 0 || targetBytes%storageSectorBytes != 0 {
 		return TargetStorageProfile{}, errors.New("target capacity must be positive and 512-byte aligned")
 	}
@@ -40,15 +40,16 @@ func planSharedCapacityProfile(targetBytes, espBytes uint64, profile, payloadNam
 		return TargetStorageProfile{}, errors.New("target is too small for GPT storage profile")
 	}
 
-	// Windows Storage exposes removable-GPT free extents on 1 MiB boundaries.
-	// Align the end of the shared-capacity area down to that boundary instead of
-	// consuming bytes up to the bare 33-sector GPT backup tail. This keeps the
-	// canonical plan inside the capacity that New-Partition can actually create
-	// while still leaving the GPT backup structures untouched.
-	rawUsableEndExclusive := targetSectors - storageGPTTailSectors
-	usableEndExclusive := alignDown(rawUsableEndExclusive, storageAlignmentLBA)
+	usableEndExclusive := targetSectors - storageGPTTailSectors
+	if alignUsableEnd {
+		// Windows Storage exposes removable-GPT free extents on 1 MiB boundaries.
+		// Align only Portable media down to that boundary instead of consuming
+		// bytes up to the bare 33-sector GPT backup tail. Native planning keeps
+		// its existing generic GPT geometry and is not changed by the USB fix.
+		usableEndExclusive = alignDown(usableEndExclusive, storageAlignmentLBA)
+	}
 	if usableEndExclusive <= storageESPStartLBA {
-		return TargetStorageProfile{}, errors.New("target has no aligned usable GPT capacity")
+		return TargetStorageProfile{}, errors.New("target has no usable GPT capacity")
 	}
 	lastUsable := usableEndExclusive - 1
 
@@ -93,6 +94,7 @@ func PlanPortableTargetStorage(targetBytes uint64) (TargetStorageProfile, error)
 		portableTargetESPBytes,
 		"portable-usb",
 		"ORDAX-DATA",
+		true,
 	)
 	if err != nil {
 		return TargetStorageProfile{}, err
@@ -113,5 +115,6 @@ func PlanNativeDiskTargetStorage(targetBytes uint64) (TargetStorageProfile, erro
 		nativeTargetESPBytes,
 		"native-disk",
 		"ORDAX-POOL",
+		false,
 	)
 }
