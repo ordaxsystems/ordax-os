@@ -33,6 +33,8 @@
     "schema": "prototype-ordax.portable-application-plan/1",
     "consumes_exact_media_plan": true,
     "canonical_media_plan_sha256_bound": true,
+    "canonical_application_plan_bytes": "encoding/json indent-two-spaces with one trailing LF",
+    "emitted_file_sha256_equals_application_plan_sha256": true,
     "host_neutral": true,
     "physical_device_bound": false,
     "physical_write_authorized": false,
@@ -78,7 +80,8 @@
     "safety_workflow": ".github/workflows/physical-usb-test-toolkit.yml",
     "writer_source_commit_provenance_separate": true,
     "canonical_release_source_commit_from_authorization_binding": true,
-    "portable_plan_source_commit_must_equal_canonical_release_source_commit": true
+    "portable_plan_source_commit_must_equal_canonical_release_source_commit": true,
+    "destructive_authorization_binds_emitted_application_plan_sha256": true
   },
   "local_ai_runtime_preseed": {
     "implemented": true,
