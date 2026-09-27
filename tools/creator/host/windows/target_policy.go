@@ -110,6 +110,15 @@ func FinalizePhysicalRecoveryTarget(target Target, busType uint32, systemDisk bo
 	return target
 }
 
+// isUsableLogicalVolume requires an observable filesystem capacity before a
+// drive-letter candidate can reserve its PhysicalDrive identity. Windows may
+// keep a stale logical-drive letter after a destructive failure; such a ghost
+// entry has no usable volume and must leave the physical recovery fallback
+// available.
+func isUsableLogicalVolume(volumeBytes uint64) bool {
+	return volumeBytes > 0
+}
+
 func MatchConfirmedTarget(targets []Target, token string) (Target, error) {
 	token = strings.TrimSpace(token)
 	if token != strings.ToLower(token) {
