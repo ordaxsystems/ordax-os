@@ -7,6 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 CONSUMER_FLOW = ROOT / "docs/contracts/creator-consumer-flow.json"
 PUBLISHER = ROOT / "tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1"
+ROTATOR = ROOT / "tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1"
 AUTHORIZATION = ROOT / "docs/contracts/physical-write-authorization.json"
 PROMOTION = ROOT / "tools/creator/physical_promotion.py"
 
@@ -25,11 +26,16 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         data = json.loads(CONSUMER_FLOW.read_text(encoding="utf-8"))
 
         self.assertEqual(data["$schema"], "prototype-ordax.creator-consumer-flow/2")
-        self.assertEqual(data["publisher_boundary"]["physical_release_tag"], "creator-physical")
-        self.assertEqual(data["publisher_boundary"]["physical_release_envelope"], "creator-physical-envelope.json")
-        self.assertEqual(data["publisher_boundary"]["physical_release_purpose"], "creator-portable-physical-windows-amd64")
-        self.assertEqual(data["publisher_boundary"]["physical_release_recipe"], "creator/physical/portable-windows/2")
-        self.assertIs(data["publisher_boundary"]["offline_canonical_signing_required_before_publication"], True)
+        publisher = data["publisher_boundary"]
+        self.assertEqual(publisher["physical_release_tag"], "creator-physical")
+        self.assertEqual(publisher["physical_release_envelope"], "creator-physical-envelope.json")
+        self.assertEqual(publisher["physical_release_purpose"], "creator-portable-physical-windows-amd64")
+        self.assertEqual(publisher["physical_release_recipe"], "creator/physical/portable-windows/2")
+        self.assertIs(publisher["offline_canonical_signing_required_before_publication"], True)
+        self.assertIs(publisher["existing_release_rotation_requires_explicit_confirmation"], True)
+        self.assertIs(publisher["existing_release_rotation_must_archive_previous_signed_bytes"], True)
+        self.assertIs(publisher["active_alias_may_move_only_after_archive_readback"], True)
+        self.assertIs(publisher["rotation_failure_requires_byte_exact_rollback"], True)
 
         integrity = data["physical_candidate_integrity"]
         self.assertIs(integrity["whole_disk_raw_image_required"], False)
@@ -95,6 +101,42 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertNotIn("--clobber", text)
         self.assertNotIn("release edit", text)
 
+    def test_physical_rotation_is_separate_explicit_archival_first_and_rollback_gated(self):
+        text = ROTATOR.read_text(encoding="utf-8")
+
+        required = (
+            "ROTATE_CREATOR_PHYSICAL_RELEASE",
+            "ExpectedCurrentWriterCommit",
+            "8-Sign-Publish-CreatorPhysical.ps1",
+            "creator-physical-archive-",
+            "previous_release_archived",
+            "replacement_release_readback_verified",
+            "rotation-failed-previous-release-restored",
+            "Restore-PreviousRelease",
+            "release create $ArchiveTag",
+            "release delete $ReleaseTag",
+            "--cleanup-tag",
+            "Download-ReleaseAssets $ArchiveTag",
+            "Assert-DirectoryEqual $PreviousDirectory $ArchiveReadback 'Archive'",
+            "Assert-ReleaseAssets $CurrentAgain $PreviousDirectory",
+            "PHYSICAL_TARGET_SELECTED=NO",
+            "PHYSICAL_WRITE_PERFORMED=NO",
+            "PUBLIC_STABLE_PROMOTED=NO",
+        )
+        for marker in required:
+            self.assertIn(marker, text)
+
+        self.assertNotIn("--clobber", text)
+        self.assertNotIn("release edit", text)
+        self.assertLess(
+            text.index("# Preserve the old signed bytes under an immutable archival tag"),
+            text.index("# Re-check that the live alias did not change"),
+        )
+        self.assertLess(
+            text.index("# Re-check that the live alias did not change"),
+            text.index("$AliasChanged = $false"),
+        )
+
     def test_publisher_boundary_stays_outside_physical_authorization_context(self):
         module = _load_promotion_module()
         auth = json.loads(AUTHORIZATION.read_text(encoding="utf-8"))
@@ -123,6 +165,9 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertEqual(len(governed), 73)
         self.assertNotIn("docs/contracts/creator-consumer-flow.json", governed)
         self.assertNotIn("tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1", governed)
+        self.assertNotIn("tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1", governed)
+        self.assertNotIn("tests/test_creator_physical_publisher_boundary.py", governed)
+        self.assertNotIn(".github/workflows/creator-physical-publisher.yml", governed)
 
 
 if __name__ == "__main__":
