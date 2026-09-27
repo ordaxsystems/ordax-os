@@ -73,6 +73,10 @@ func TestPlanNativeDiskTargetStorageUsesOneSharedPool(t *testing.T) {
 	if layout.PayloadLastLBA != layout.LastUsableLBA {
 		t.Fatal("native pool must fill the remaining usable GPT capacity")
 	}
+	expectedLastUsable := target/storageSectorBytes - storageGPTTailSectors - 1
+	if layout.LastUsableLBA != expectedLastUsable {
+		t.Fatalf("native GPT geometry changed unexpectedly: got=%d want=%d", layout.LastUsableLBA, expectedLastUsable)
+	}
 	if layout.PayloadBytes <= 62*1024*1024*1024 {
 		t.Fatalf("expected almost all native target capacity in shared pool, got %d", layout.PayloadBytes)
 	}
