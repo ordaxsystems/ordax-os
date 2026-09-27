@@ -6,7 +6,7 @@
   "scope": "first-real-stable-mvp-usb-proof",
   "source_repository": "washingtonmsdj/prototipo-ordax-os",
   "release_sequence": 1,
-  "authorization_context_sha256": "b5803154eed8a85962b5c2dddbfff29f2ff408c92b63247ca62d1c5ca71eda10",
+  "authorization_context_sha256": "195a0bd7755a708b74c24d7cae404fbafc64ef81b46b2e16952588e618688314",
   "bindings": {
     "minimal_bootstrap_sha256": "5b71a0a520818ecf55f8e18de2938401ee5cb2d6fc636bcaf175da9995242f57",
     "release_trust_sha256": "d2836df77a3d5a54ccf64cc5643cfd5c19052efc83f2e3e2666c6d3197fce250",

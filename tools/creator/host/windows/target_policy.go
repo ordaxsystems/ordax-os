@@ -62,6 +62,15 @@ func IsPrototypeCandidate(driveLetter string, driveType uint32, mappedPhysicalDi
 	return letter != "C:"
 }
 
+// IsPrototypePhysicalRecoveryCandidate allows a purpose-bound recovery path for
+// a USB that no longer has a mounted volume after a failed destructive step.
+// The physical device must still be proven USB, must have measurable capacity,
+// and must not host the running Windows installation. Volume identity is not
+// required because the failed write may have already removed the partition.
+func IsPrototypePhysicalRecoveryCandidate(busType uint32, systemDisk bool) bool {
+	return !systemDisk && busType == BusTypeUSB
+}
+
 func ConfirmationToken(target Target) string {
 	identity := fmt.Sprintf(
 		"ordax-target-v3|%s|%08x|%d|%d|%d|%s|%s|%t|%s|%t",
@@ -85,6 +94,18 @@ func FinalizeTarget(target Target, driveType uint32, mappedPhysicalDisk bool, bu
 	target.BusType = busTypeName(busType)
 	target.SystemDisk = systemDisk
 	target.PrototypeSafe = target.PhysicalDiskBytes > 0 && IsPrototypeCandidate(target.DriveLetter, driveType, mappedPhysicalDisk, busType, systemDisk)
+	target.ConfirmationToken = ConfirmationToken(target)
+	return target
+}
+
+// FinalizePhysicalRecoveryTarget binds an unmounted physical USB identity to a
+// fresh confirmation token. It is intentionally distinct from FinalizeTarget so
+// normal mounted-volume discovery keeps the existing drive-letter policy.
+func FinalizePhysicalRecoveryTarget(target Target, busType uint32, systemDisk bool) Target {
+	target.DriveType = "physical-unmounted"
+	target.BusType = busTypeName(busType)
+	target.SystemDisk = systemDisk
+	target.PrototypeSafe = target.PhysicalDiskBytes > 0 && IsPrototypePhysicalRecoveryCandidate(busType, systemDisk)
 	target.ConfirmationToken = ConfirmationToken(target)
 	return target
 }
