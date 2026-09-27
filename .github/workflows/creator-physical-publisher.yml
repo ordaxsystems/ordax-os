@@ -6,12 +6,14 @@ on:
     paths:
       - 'docs/contracts/creator-consumer-flow.json'
       - 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
+      - 'tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1'
       - 'tests/test_creator_physical_publisher_boundary.py'
       - '.github/workflows/creator-physical-publisher.yml'
   pull_request:
     paths:
       - 'docs/contracts/creator-consumer-flow.json'
       - 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
+      - 'tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1'
       - 'tests/test_creator_physical_publisher_boundary.py'
       - '.github/workflows/creator-physical-publisher.yml'
 
@@ -43,23 +45,29 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Parse physical publisher runbook
+      - name: Parse physical publisher runbooks
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $path = 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path -LiteralPath $path),
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
-          if ($errors.Count -ne 0) {
-            $errors | ForEach-Object { Write-Error $_.Message }
-            throw "PowerShell parse failed: $path"
+          $paths = @(
+            'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1',
+            'tools/release-signing/windows/9-Rotate-CreatorPhysical.ps1'
+          )
+          foreach ($path in $paths) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path -LiteralPath $path),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -ne 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              throw "PowerShell parse failed: $path"
+            }
           }
           Write-Host 'CREATOR_PHYSICAL_PUBLISHER_POWERSHELL_PARSE=PASS'
+          Write-Host 'CREATOR_PHYSICAL_ROTATION_POWERSHELL_PARSE=PASS'
           Write-Host 'PRIVATE_KEY_USED=NO'
           Write-Host 'PHYSICAL_TARGET_SELECTED=NO'
           Write-Host 'PHYSICAL_WRITE_PERFORMED=NO'
