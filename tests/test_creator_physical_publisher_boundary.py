@@ -113,6 +113,8 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
             "replacement_release_readback_verified",
             "rotation-failed-previous-release-restored",
             "Restore-PreviousRelease",
+            "Test-ReleaseExists",
+            "HTTP\\s+404",
             "release create $ArchiveTag",
             "release delete $ReleaseTag",
             "--cleanup-tag",
@@ -128,6 +130,8 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
 
         self.assertNotIn("--clobber", text)
         self.assertNotIn("release edit", text)
+        self.assertNotIn("release view $ArchiveTag --repo $Repository *> $null", text)
+        self.assertNotIn("release view $ReleaseTag --repo $Repository *> $null", text)
         self.assertLess(
             text.index("# Preserve the old signed bytes under an immutable archival tag"),
             text.index("# Re-check that the live alias did not change"),
