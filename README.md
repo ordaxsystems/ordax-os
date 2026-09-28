@@ -16,6 +16,8 @@ O [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na rai
 
 A continuacao [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) compara o prototipo com `novo-ordax-os`: o que ja existe, o que falta recuperar e quais ideias merecem evoluir. Inclui 27 capacidades, fontes fixadas por commit, orientacoes por tela, prioridades, dependencias, criterios de aceite e prompts para implementacao. Leia as duas partes; o legado continua sendo referencia, sem copia automatica de codigo ou arquitetura.
 
+O desenho de **Profiles profissionais leves no USB, com payload sob demanda, uso offline após instalação e evolução por atualização** está congelado em [PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md](PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md). Esse plano reimplementa os invariantes úteis do RFC-0009 do `novo-ordax-os` sobre a arquitetura atual, sem carregar todos os perfis na imagem inicial.
+
 ## Um produto, modos evolutivos
 
 A arquitetura continua preparada para Web, Mobile, Desktop, USB e Native sem forks de produto.
