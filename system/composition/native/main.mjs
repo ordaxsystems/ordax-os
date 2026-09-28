@@ -270,8 +270,7 @@ async function start() {
     ? null
     : createMemoryReviewViewModel(memoryReviewSession);
   const identityActions = createWebIdentityActions(window, identitySession);
-  const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
-  const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
+  const identityCredentials = createSameOriginIdentityCredentials(window);
   const spaces = createWebSpacesCatalog(window);
   const syncTransport = createWebSyncTransport(window);
   const appActivation = createAppActivationChannel();
@@ -325,8 +324,7 @@ async function start() {
     browserWebContentAvailable,
     intelligenceSystemAvailable,
     localSessionAvailable,
-    accountIdentityAvailable: identityAvailable,
-    syncSafeStateAvailable: identityAvailable,
+    identitySession,
   });
 
   validateAccountRuntime(

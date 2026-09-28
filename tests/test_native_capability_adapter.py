@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 NATIVE_RUNTIME = ROOT / "system" / "adapters" / "native" / "runtime.mjs"
 NATIVE_COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
 WEB_RUNTIME = ROOT / "system" / "adapters" / "web" / "runtime.mjs"
+WEB_COMPOSITION = ROOT / "system" / "composition" / "web" / "main.mjs"
 
 
 class NativeCapabilityAdapterTests(unittest.TestCase):
@@ -29,6 +30,10 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
         self.assertIn("keyboardLayoutAvailable", text)
         self.assertIn("intelligenceSystemAvailable", text)
         self.assertIn("localSessionAvailable", text)
+        self.assertIn("identitySession = null", text)
+        self.assertIn("assertIdentitySessionPort(identitySession)", text)
+        self.assertIn("identityPort.getSnapshot().state", text)
+        self.assertIn("identityPort?.subscribe(() => notify())", text)
         self.assertIn("validateSurfaceSnapshot", text)
         self.assertIn("navigator.onLine", text)
 
@@ -57,6 +62,7 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
         self.assertIn("keyboardLayoutAvailable,", text)
         self.assertIn("intelligenceSystemAvailable,", text)
         self.assertIn("localSessionAvailable,", text)
+        self.assertIn("identitySession,", text)
         self.assertIn("createNativeSurfaceHost(window, {", text)
 
     def test_native_composes_intelligence_above_local_ai_without_provider_leakage(self):
@@ -97,19 +103,33 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             text.index("void updateWatcher.markHealthy()"),
         )
 
-    def test_native_account_and_sync_capabilities_are_fail_closed_by_default(self):
-        text = NATIVE_RUNTIME.read_text(encoding="utf-8")
-        composition = NATIVE_COMPOSITION.read_text(encoding="utf-8")
-        self.assertIn("accountIdentityAvailable = false", text)
-        self.assertIn("syncSafeStateAvailable = false", text)
-        self.assertIn('if (accountIdentityAvailable) capabilityIds.push("account.identity")', text)
-        self.assertIn('if (syncSafeStateAvailable) capabilityIds.push("sync.safe-state")', text)
-        self.assertIn('throw new TypeError("sync.safe-state requires account.identity")', text)
-        self.assertIn("const identityAvailable = identitySession.getSnapshot().state !== \"unavailable\";", composition)
-        self.assertIn("accountIdentityAvailable: identityAvailable", composition)
-        self.assertIn("syncSafeStateAvailable: identityAvailable", composition)
-        self.assertNotIn('"system.release-activation"', text)
-        self.assertNotIn('"system.recovery"', text)
+    def test_account_and_sync_capabilities_follow_live_identity_without_boot_snapshot_flags(self):
+        native_runtime = NATIVE_RUNTIME.read_text(encoding="utf-8")
+        web_runtime = WEB_RUNTIME.read_text(encoding="utf-8")
+        native_composition = NATIVE_COMPOSITION.read_text(encoding="utf-8")
+        web_composition = WEB_COMPOSITION.read_text(encoding="utf-8")
+
+        for runtime in (native_runtime, web_runtime):
+            self.assertIn("identitySession = null", runtime)
+            self.assertIn("assertIdentitySessionPort(identitySession)", runtime)
+            self.assertIn('identityPort.getSnapshot().state !== "unavailable"', runtime)
+            self.assertNotIn("accountIdentityAvailable = false", runtime)
+            self.assertNotIn("syncSafeStateAvailable = false", runtime)
+
+        self.assertIn('capabilityIds.push("account.identity", "sync.safe-state")', native_runtime)
+        self.assertIn('["account.identity", "sync.safe-state"]', web_runtime)
+        self.assertIn("identitySession,", native_composition)
+        self.assertIn("createWebSurfaceHost(window, { identitySession })", web_composition)
+        self.assertNotIn("accountIdentityAvailable: identityAvailable", native_composition)
+        self.assertNotIn("syncSafeStateAvailable: identityAvailable", native_composition)
+        self.assertNotIn("accountIdentityAvailable: identityAvailable", web_composition)
+        self.assertNotIn("syncSafeStateAvailable: identityAvailable", web_composition)
+        self.assertNotIn('const identityAvailable = identitySession.getSnapshot().state !== "unavailable";', native_composition)
+        self.assertNotIn('const identityAvailable = identitySession.getSnapshot().state !== "unavailable";', web_composition)
+        self.assertIn("const identityCredentials = createSameOriginIdentityCredentials(window);", native_composition)
+        self.assertIn("const identityCredentials = createSameOriginIdentityCredentials(window);", web_composition)
+        self.assertNotIn('"system.release-activation"', native_runtime)
+        self.assertNotIn('"system.recovery"', native_runtime)
 
     def test_web_adapter_remains_independent(self):
         text = WEB_RUNTIME.read_text(encoding="utf-8")

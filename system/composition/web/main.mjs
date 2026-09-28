@@ -42,13 +42,9 @@ if (!root) {
 const identitySession = createWebIdentitySession(window);
 await identitySession.refresh();
 const identityActions = createWebIdentityActions(window, identitySession);
-const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
-const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
+const identityCredentials = createSameOriginIdentityCredentials(window);
 const spaces = createWebSpacesCatalog(window);
-const host = createWebSurfaceHost(window, {
-  accountIdentityAvailable: identityAvailable,
-  syncSafeStateAvailable: identityAvailable,
-});
+const host = createWebSurfaceHost(window, { identitySession });
 const browserSession = createWebBrowserSession();
 const preferenceStore = createWebPreferenceStore(window);
 bootLocale = preferenceStore.load()?.["regional.locale"] ?? "pt-BR";

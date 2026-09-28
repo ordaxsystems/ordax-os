@@ -1,26 +1,32 @@
+import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import {
   SURFACE_HOST_SCHEMA,
   validateSurfaceSnapshot,
 } from "../../contracts/surface-host.mjs";
 
-export function createWebSurfaceHost(windowRef = globalThis.window, { accountIdentityAvailable = false, syncSafeStateAvailable = false } = {}) {
+export function createWebSurfaceHost(
+  windowRef = globalThis.window,
+  { identitySession = null } = {},
+) {
   if (!windowRef?.navigator) {
     throw new TypeError("Web Surface host requires a browser-like window");
   }
 
-  if (syncSafeStateAvailable && !accountIdentityAvailable) {
-    throw new TypeError("sync.safe-state requires account.identity");
-  }
+  const identityPort = identitySession === null
+    ? null
+    : assertIdentitySessionPort(identitySession);
   const listeners = new Set();
-  const readSnapshot = () =>
-    validateSurfaceSnapshot({
+  const readSnapshot = () => {
+    const accountIdentityAvailable = identityPort !== null
+      && identityPort.getSnapshot().state !== "unavailable";
+    return validateSurfaceSnapshot({
       capabilityIds: [
         "network.https",
-        ...(accountIdentityAvailable ? ["account.identity"] : []),
-        ...(syncSafeStateAvailable ? ["sync.safe-state"] : []),
+        ...(accountIdentityAvailable ? ["account.identity", "sync.safe-state"] : []),
       ],
       connectivity: windowRef.navigator.onLine ? "online" : "offline",
     });
+  };
 
   const notify = () => {
     const snapshot = readSnapshot();
@@ -31,6 +37,7 @@ export function createWebSurfaceHost(windowRef = globalThis.window, { accountIde
 
   windowRef.addEventListener("online", notify);
   windowRef.addEventListener("offline", notify);
+  const unsubscribeIdentity = identityPort?.subscribe(() => notify()) ?? (() => {});
 
   return Object.freeze({
     schema: SURFACE_HOST_SCHEMA,
@@ -44,6 +51,7 @@ export function createWebSurfaceHost(windowRef = globalThis.window, { accountIde
     },
     dispose() {
       listeners.clear();
+      unsubscribeIdentity();
       windowRef.removeEventListener("online", notify);
       windowRef.removeEventListener("offline", notify);
     },
