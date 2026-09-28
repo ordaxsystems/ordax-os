@@ -55,6 +55,7 @@ export const componentRuntime = Object.freeze({
     surfaceLifecycle,
     projects = null,
     projectCloudLinks = null,
+    projectWebReferences = null,
     appActivation = null,
     intelligenceContextShare = null,
     deviceAgentCapabilities = null,
@@ -71,6 +72,7 @@ export const componentRuntime = Object.freeze({
         surfaceLifecycle,
         projects,
         projectCloudLinks,
+        projectWebReferences,
         appActivation,
         intelligenceContextShare: contextShare,
       });
