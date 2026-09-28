@@ -529,6 +529,7 @@ async function start() {
       surfaceLifecycle: surface,
       projects,
       projectCloudLinks,
+      projectWebReferences: projectReferences,
       appActivation,
     },
     onError(error) {
