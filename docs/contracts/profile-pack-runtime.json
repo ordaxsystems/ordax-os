@@ -46,8 +46,8 @@
     "external_manifest_egress_allowed": false,
     "multiple_versions_may_coexist": true,
     "bundled_index_source": "system/profile-packs/catalog.json",
-    "runtime_catalog_url": "/profile-packs/catalog.json",
-    "runtime_url_layout": "/profile-packs/<slug>/v<version>/manifest.json"
+    "runtime_catalog_url": "/system/profile-packs/catalog.json",
+    "runtime_url_layout": "/system/profile-packs/<slug>/v<version>/manifest.json"
   },
   "restore": {
     "schema": "ordax.profile-pack-restore/1",
