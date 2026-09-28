@@ -427,3 +427,49 @@ func TestStructuralHealthRejectsInnerHashKindAndSkillAuthority(t *testing.T) {
 		t.Fatalf("skill mutable authority error = %v", err)
 	}
 }
+
+
+func TestStageEvidenceBindsVerifiedArtifactSignatureAndHealth(t *testing.T) {
+	dir, manifestPath, envelopePath, trustPath, contentPath := signedFixture(t)
+	root := filepath.Join(dir, "slots")
+	t.Cleanup(func() { allowStageCleanup(root) })
+
+	manifest, slot, _, err := stageContent(
+		manifestPath,
+		envelopePath,
+		trustPath,
+		contentPath,
+		root,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := stagedSlotEvidence(slot, trustPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evidence.Schema != "ordax.profile-content-stage-evidence/1" {
+		t.Fatalf("unexpected evidence schema: %s", evidence.Schema)
+	}
+	if evidence.Artifact.ID != manifest.ID ||
+		evidence.Artifact.Kind != manifest.Kind ||
+		evidence.Artifact.Version != manifest.Version ||
+		evidence.Artifact.SHA256 != manifest.ContentHash ||
+		evidence.Artifact.SizeBytes != manifest.ContentSize {
+		t.Fatalf("artifact evidence mismatch: %+v", evidence.Artifact)
+	}
+	if evidence.Verification.SignatureAlgorithm != "ed25519" ||
+		evidence.Verification.KeyID != "profile-content-stage-test-1" ||
+		!shaPattern.MatchString(evidence.Verification.ManifestSHA256) {
+		t.Fatalf("verification evidence mismatch: %+v", evidence.Verification)
+	}
+	if evidence.Health.Schema != "ordax.profile-content-health/1" ||
+		evidence.Health.State != "healthy" ||
+		evidence.Health.EntryCount != 1 ||
+		!evidence.Health.PerEntryHashVerified ||
+		!evidence.Health.PerEntryProvenanceVerified ||
+		evidence.Health.ExecutablePayloadAllowed ||
+		evidence.Health.Authority != "none" {
+		t.Fatalf("health evidence mismatch: %+v", evidence.Health)
+	}
+}
