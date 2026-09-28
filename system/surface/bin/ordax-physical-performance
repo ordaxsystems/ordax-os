@@ -1,0 +1,32 @@
+#!/bin/sh
+set -eu
+
+BIN_DIR=${0%/*}
+RUNTIME_RESOLVER=$BIN_DIR/ordax-proof-runtime.sh
+SCRIPT=/srv/ordax-system/diagnostics/physical_surface_performance.py
+
+[ -x /bin/busybox ] || {
+    echo "ordax-physical-performance: /bin/busybox unavailable" >&2
+    exit 2
+}
+[ -r "$RUNTIME_RESOLVER" ] || {
+    echo "ordax-physical-performance: runtime resolver unavailable: $RUNTIME_RESOLVER" >&2
+    exit 2
+}
+. "$RUNTIME_RESOLVER"
+resolve_ordax_proof_runtime_root || exit 2
+
+[ -x "$RUNTIME_ROOT/usr/bin/python3" ] || {
+    echo "ordax-physical-performance: active runtime Python unavailable: $RUNTIME_ROOT/usr/bin/python3" >&2
+    exit 2
+}
+[ -r "$RUNTIME_ROOT$SCRIPT" ] || {
+    echo "ordax-physical-performance: probe unavailable in active runtime" >&2
+    exit 2
+}
+[ -d "$RUNTIME_ROOT/proc" ] || {
+    echo "ordax-physical-performance: active runtime /proc binding unavailable" >&2
+    exit 2
+}
+
+exec /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 "$SCRIPT" "$@"
