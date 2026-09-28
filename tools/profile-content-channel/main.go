@@ -472,7 +472,7 @@ func verify(manifestPath, envelopePath, trustPath, contentPath string) (profileC
 	return manifest, nil
 }
 
-func main() int {
+func run() int {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "PROFILE_CONTENT_ERROR=command required")
 		return 2
@@ -534,11 +534,6 @@ func main() int {
 	}
 }
 
-func mainEntry() {
-	os.Exit(main())
-}
-
-func init() {
-	// Keep the command entrypoint explicit while allowing tests/builds to compile
-	// this single-file tool without external dependencies.
+func main() {
+	os.Exit(run())
 }
