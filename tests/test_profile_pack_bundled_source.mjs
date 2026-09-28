@@ -90,7 +90,7 @@ test("bundled source refuses alternate catalog origins and manifest identity dri
     }],
   };
   const wrong = JSON.parse(
-    await readFile(resolve(ROOT, "system/system/profile-packs/developer/v1/manifest.json"), "utf8"),
+    await readFile(resolve(ROOT, "system/profile-packs/developer/v1/manifest.json"), "utf8"),
   );
   wrong.version = 2;
   const overrides = new Map([
