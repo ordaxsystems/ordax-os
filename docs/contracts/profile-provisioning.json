@@ -31,7 +31,6 @@
   },
   "next_gates": [
     "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
-    "signed-profile-component-artifact-contract",
     "transactional-download-stage-verify",
     "profile-health-and-rollback",
     "surface-profile-catalog-ui",
@@ -68,5 +67,22 @@
     "healthy_activation_required": true,
     "inventory_entry_derived_from_verified_receipt": true,
     "surface_may_issue_receipt": false
+  },
+  "content_proof": {
+    "supported_kinds": [
+      "knowledge-pack",
+      "skill-pack"
+    ],
+    "manifest_schema": "prototype-ordax.profile-content-manifest/1",
+    "envelope_schema": "prototype-ordax.profile-content-envelope/1",
+    "signature_algorithm": "ed25519",
+    "exact_content_hash_required": true,
+    "exact_content_size_required": true,
+    "provenance_required": true,
+    "requested_capabilities_allowed": false,
+    "runtime_network_allowed": false,
+    "mutable_host_access_allowed": false,
+    "public_release_trust_pinned": false,
+    "activation_allowed": false
   }
 }
