@@ -7,11 +7,13 @@ import {
   validateProjectCloudLinksSnapshot,
 } from "../../../contracts/project-cloud-links.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
+import { assertIntelligenceContextSharePort } from "../../../contracts/intelligence-context-share.mjs";
 import { encodeIntelligenceHandoffTarget } from "../../../contracts/intelligence-handoff.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 
 const PROJECTS_WINDOW_SELECTOR = '[data-window-id="projects"]';
 const PROJECTS_EXTENSION_SELECTOR = '[data-app-extension="projects-workspace"]';
+const PROJECT_CONTEXT_SOURCE_ID = "project-selection";
 
 function node(documentObject, tag, className = "", text = undefined) {
   const element = documentObject.createElement(tag);
@@ -30,6 +32,30 @@ function formatActivity(timestamp, locale, unknownLabel) {
     minute: "2-digit",
     hour12: false,
   }).format(new Date(timestamp));
+}
+
+export function createProjectIntelligenceContext(project) {
+  if (!project || typeof project !== "object" || Array.isArray(project)) {
+    throw new TypeError("Project Intelligence context requires a project");
+  }
+  if (typeof project.id !== "string" || !project.id.trim()) {
+    throw new TypeError("Project Intelligence context requires a project id");
+  }
+  if (typeof project.name !== "string" || !project.name.trim()) {
+    throw new TypeError("Project Intelligence context requires a project name");
+  }
+  const lastOpenedAt = Number.isSafeInteger(project.lastOpenedAt) && project.lastOpenedAt >= 0
+    ? project.lastOpenedAt
+    : null;
+  return Object.freeze([Object.freeze({
+    id: `${PROJECT_CONTEXT_SOURCE_ID}-${project.id}`,
+    scope: "workspace",
+    text: JSON.stringify({
+      name: project.name.trim(),
+      lastOpenedAt,
+    }),
+    provenance: "ordax:projects:user-authorized-selection",
+  })]);
 }
 
 export function createProjectsPresentation({
@@ -163,6 +189,7 @@ export function mountProjectsWorkspaceControls(
     projectCloudLinks = null,
     surfaceLifecycle,
     appActivation = null,
+    intelligenceContextShare = null,
   } = {},
 ) {
   if (!root || typeof root.querySelector !== "function" || !root.ownerDocument) {
@@ -174,6 +201,9 @@ export function mountProjectsWorkspaceControls(
     : assertProjectCloudLinksPort(projectCloudLinks);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const activation = appActivation === null ? null : assertAppActivationPort(appActivation);
+  const contextShare = intelligenceContextShare === null
+    ? null
+    : assertIntelligenceContextSharePort(intelligenceContextShare);
   const localization = lifecycle.localization;
   const t = localization.translate;
   const documentObject = root.ownerDocument;
@@ -282,12 +312,25 @@ export function mountProjectsWorkspaceControls(
         (project) => project.id === plan.dataset.projectsPlanWithIntelligence,
       );
       if (item) {
+        const target = { kind: "project", id: item.id };
+        if (contextShare) {
+          contextShare.offer({
+            sourceAppId: "projects",
+            sourceId: PROJECT_CONTEXT_SOURCE_ID,
+            target,
+            displayLabel: item.name,
+            context: createProjectIntelligenceContext(item),
+            authority: "none",
+            executable: false,
+            toolExecution: false,
+          });
+        }
         activation.publish({
           appId: "intelligence",
           target: encodeIntelligenceHandoffTarget({
             sourceAppId: "projects",
             mode: "plan",
-            target: { kind: "project", id: item.id },
+            target,
             displayLabel: item.name,
             suggestedPrompt: t("projects.action.planWithIntelligencePrompt"),
             authority: "none",
