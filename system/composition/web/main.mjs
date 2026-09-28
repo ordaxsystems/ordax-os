@@ -1,5 +1,5 @@
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
-import { createSessionProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
+import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createSameOriginIdentityCredentials } from "../../adapters/web/identity-credentials.mjs";
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
