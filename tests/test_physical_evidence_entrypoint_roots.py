@@ -8,19 +8,25 @@ PERFORMANCE_ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-performanc
 
 
 class PhysicalEvidenceEntrypointRootTests(unittest.TestCase):
-    def test_ata_physical_entrypoint_rejects_test_fixture_root_override(self):
+    def test_ata_physical_entrypoint_has_strict_argument_allowlist(self):
         source = ATA_ENTRYPOINT.read_text(encoding="utf-8")
-        self.assertIn("--sys-class-root|--sys-class-root=*)", source)
-        self.assertIn("--sys-class-root is test-only and is not accepted by the physical entrypoint", source)
+        self.assertIn("validate_arguments()", source)
+        self.assertIn("-h|--help)", source)
+        self.assertIn("unsupported physical entrypoint argument", source)
+        self.assertNotIn("--sys-class-root", source)
         self.assertIn(
             'exec /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 "$SCRIPT" "$@"',
             source,
         )
 
-    def test_performance_physical_entrypoint_rejects_test_fixture_root_override(self):
+    def test_performance_physical_entrypoint_allows_only_sampling_controls(self):
         source = PERFORMANCE_ENTRYPOINT.read_text(encoding="utf-8")
-        self.assertIn("--proc-root|--proc-root=*)", source)
-        self.assertIn("--proc-root is test-only and is not accepted by the physical entrypoint", source)
+        self.assertIn("validate_arguments()", source)
+        self.assertIn("-h|--help)", source)
+        self.assertIn("--samples|--interval-seconds)", source)
+        self.assertIn("--samples=*|--interval-seconds=*)", source)
+        self.assertIn("unsupported physical entrypoint argument", source)
+        self.assertNotIn("--proc-root", source)
         self.assertIn(
             'exec /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 "$SCRIPT" "$@"',
             source,

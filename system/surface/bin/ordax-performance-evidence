@@ -5,14 +5,30 @@ BIN_DIR=${0%/*}
 RUNTIME_RESOLVER=$BIN_DIR/ordax-proof-runtime.sh
 SCRIPT=/srv/ordax-system/surface/runtime/physical_performance_probe.py
 
-for argument in "$@"; do
-    case "$argument" in
-        --proc-root|--proc-root=*)
-            echo "ordax-performance-evidence: --proc-root is test-only and is not accepted by the physical entrypoint" >&2
-            exit 2
-            ;;
-    esac
-done
+validate_arguments() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                shift
+                ;;
+            --samples|--interval-seconds)
+                [ "$#" -ge 2 ] || {
+                    echo "ordax-performance-evidence: missing value for $1" >&2
+                    return 2
+                }
+                shift 2
+                ;;
+            --samples=*|--interval-seconds=*)
+                shift
+                ;;
+            *)
+                echo "ordax-performance-evidence: unsupported physical entrypoint argument: $1" >&2
+                return 2
+                ;;
+        esac
+    done
+}
+validate_arguments "$@" || exit $?
 
 [ -x /bin/busybox ] || {
     echo "ordax-performance-evidence: /bin/busybox unavailable" >&2
