@@ -77,6 +77,19 @@ export function mountFileIntelligenceHandoffControls(
     statusMessageId = messageId;
   };
 
+  const revokeShared = (shared) => {
+    if (!shared) return;
+    try {
+      const authorization = contextShare.take({
+        sourceAppId: "files",
+        target: shared.target,
+      });
+      if (authorization) contextShare.revoke(authorization);
+    } catch {
+      // The grant is short-lived and one-shot; cleanup must not mask the original failure.
+    }
+  };
+
   const scheduleRender = () => {
     if (destroyed || renderQueued) return;
     renderQueued = true;
@@ -136,6 +149,7 @@ export function mountFileIntelligenceHandoffControls(
     if (!path) return;
 
     const ordinal = ++requestOrdinal;
+    let shared = null;
     pending = true;
     clearStatus();
     render();
@@ -163,6 +177,7 @@ export function mountFileIntelligenceHandoffControls(
       const afterEntry = matchingEntry(after, path);
       if (
         !afterEntry
+        || textFile.path !== path
         || afterEntry.size !== beforeEntry.size
         || afterEntry.modifiedAt !== beforeEntry.modifiedAt
         || textFile.size !== afterEntry.size
@@ -171,18 +186,15 @@ export function mountFileIntelligenceHandoffControls(
         return;
       }
 
-      const shared = offerFileSelectionToIntelligence(contextShare, {
+      shared = offerFileSelectionToIntelligence(contextShare, {
         name: afterEntry.name,
         size: afterEntry.size,
         modifiedAt: afterEntry.modifiedAt,
         text: textFile.text,
       });
       if (destroyed || ordinal !== requestOrdinal || selectedFilePath() !== path) {
-        const authorization = contextShare.take({
-          sourceAppId: "files",
-          target: shared.target,
-        });
-        if (authorization) contextShare.revoke(authorization);
+        revokeShared(shared);
+        shared = null;
         return;
       }
 
@@ -190,7 +202,10 @@ export function mountFileIntelligenceHandoffControls(
         appId: "intelligence",
         target: createFileSelectionIntelligenceHandoff(shared),
       });
+      shared = null;
     } catch (error) {
+      revokeShared(shared);
+      shared = null;
       if (destroyed || ordinal !== requestOrdinal) return;
       const detail = error instanceof Error ? error.message : String(error);
       if (/\b413\b/.test(detail)) {
