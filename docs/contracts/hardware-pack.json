@@ -1,0 +1,28 @@
+{
+  "$schema": "prototype-ordax.hardware-pack/1",
+  "status": "foundation-only-activation-disabled",
+  "goal": "extend hardware compatibility after install without reinstalling the USB or bloating Stable Base",
+  "base_policy": {
+    "small_common_boot_critical_set": true,
+    "driver_presence_is_support_claim": false,
+    "unknown_hardware_must_not_block_boot_unless_primary_boot_input_or_storage_path_requires_it": true
+  },
+  "pack_policy": {
+    "signed": true,
+    "content_addressed_sha256": true,
+    "license_and_source_revision_required": true,
+    "modalias_match_required": true,
+    "kernel_abi_compatibility_required_before_activation": true,
+    "component_slot_activation_required": true,
+    "known_good_and_rollback_required": true,
+    "firmware_and_kernel_modules_are_not_loaded_from_unverified_paths": true,
+    "public_store_install_enabled": false
+  },
+  "current_activation_enabled": false,
+  "future_examples": [
+    "wifi-pack",
+    "graphics-pack",
+    "audio-pack",
+    "device-input-pack"
+  ]
+}
