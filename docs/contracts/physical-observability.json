@@ -1,0 +1,46 @@
+{
+  "$schema": "prototype-ordax.physical-observability/1",
+  "status": "diagnostic-only",
+  "runtime_resolution": {
+    "owner": "system/surface/bin/ordax-proof-runtime.sh",
+    "filesystem_shape_inference_allowed": false,
+    "hardcoded_runtime_python_allowed": false
+  },
+  "commands": {
+    "ordax-physical-performance": {
+      "collector": "/srv/ordax-system/diagnostics/physical_surface_performance.py",
+      "schema": "ordax.physical-surface-performance-probe/1",
+      "source": "/proc",
+      "read_only": true
+    },
+    "ordax-physical-boot-storage": {
+      "collector": "/srv/ordax-system/diagnostics/physical_boot_storage.py",
+      "schema": "ordax.physical-boot-storage-probe/1",
+      "source": "/dev/kmsg",
+      "read_only": true
+    }
+  },
+  "evidence_policy": {
+    "physical_verdict_from_probe_allowed": false,
+    "hardware_compatibility_verdict_from_probe_allowed": false,
+    "ci_or_qemu_promotable_to_physical_pass": false,
+    "network_access_allowed": false,
+    "state_mutation_allowed": false,
+    "kernel_configuration_mutation_allowed": false,
+    "storage_mutation_allowed": false,
+    "fallback_evidence_source_allowed": false
+  },
+  "storage_investigation": {
+    "may_observe": [
+      "ahci",
+      "ata",
+      "scsi",
+      "nvme",
+      "usb-storage"
+    ],
+    "may_change_libata_force": false,
+    "may_blacklist_storage_driver": false,
+    "may_reduce_probe_timeout": false,
+    "purpose": "measure the observed physical ATA/AHCI delay before any kernel-policy change"
+  }
+}
