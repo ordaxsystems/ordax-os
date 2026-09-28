@@ -15,7 +15,7 @@ const REGIONAL_DEFAULTS = Object.freeze({
 
 function expectedPreferences(values = {}) {
   return {
-    "appearance.theme": "light",
+    "appearance.theme": "dark",
     "accessibility.contrast": "standard",
     "accessibility.motion": "standard",
     "accessibility.text-scale": "standard",
