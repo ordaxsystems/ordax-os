@@ -43,7 +43,13 @@
       "mt76x2u",
       "ath9k_htc"
     ],
-    "selected_with_dependencies": true
+    "selected_with_dependencies": true,
+    "coldplug_entrypoints": [
+      "iwlwifi",
+      "rtl8xxxu",
+      "mt76x2u",
+      "ath9k_htc"
+    ]
   },
   "rootfs": {
     "format": "erofs",
