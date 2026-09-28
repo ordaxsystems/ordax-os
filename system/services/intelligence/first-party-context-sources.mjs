@@ -11,6 +11,10 @@ const SOURCE_SPECS = Object.freeze([
     id: "file-selection",
     title: "Arquivo selecionado",
   }),
+  Object.freeze({
+    id: "workspace-selection",
+    title: "Área de trabalho atual",
+  }),
 ]);
 
 export function listFirstPartyGrantedIntelligenceContextSources() {
