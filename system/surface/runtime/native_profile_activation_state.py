@@ -35,6 +35,7 @@ _SEMVER_RE = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"
 )
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_SPACE_KINDS = frozenset(("personal", "work", "professional"))
 _COMPONENT_KINDS = frozenset((
     "app",
     "knowledge-pack",
@@ -176,9 +177,12 @@ def validate_profile_activation_state(value: object) -> dict:
     ids: set[str] = set()
     for index, row in enumerate(raw_spaces):
         label = f"Profile activation state spaces[{index}]"
-        if not isinstance(row, dict) or set(row) != {"spaceId", "current", "previous"}:
+        if not isinstance(row, dict) or set(row) != {"spaceId", "spaceKind", "current", "previous"}:
             raise ValueError(f"{label} fields are incompatible")
         space_id = _bounded_text(row["spaceId"], f"{label}.spaceId", 160)
+        space_kind = _bounded_text(row["spaceKind"], f"{label}.spaceKind", 32)
+        if space_kind not in _SPACE_KINDS:
+            raise ValueError(f"{label}.spaceKind is invalid")
         if space_id in ids:
             raise ValueError("Profile activation state contains duplicate Space ids")
         ids.add(space_id)
@@ -202,6 +206,7 @@ def validate_profile_activation_state(value: object) -> dict:
             raise ValueError(f"{label} current and previous must differ")
         spaces.append({
             "spaceId": space_id,
+            "spaceKind": space_kind,
             "current": current,
             "previous": previous,
         })
@@ -406,12 +411,16 @@ def _space_index(state: dict, space_id: str) -> int | None:
 def activate_profile(
     *,
     space_id: str,
+    space_kind: str,
     activation: dict,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
     space_id = _bounded_text(space_id, "Profile activation Space id", 160)
+    space_kind = _bounded_text(space_kind, "Profile activation Space kind", 32)
+    if space_kind not in _SPACE_KINDS:
+        raise ValueError("Profile activation Space kind is invalid")
     candidate = validate_profile_activation_ref(activation)
     _assert_activation_components_installed(candidate, inventory_path)
 
@@ -420,6 +429,8 @@ def activate_profile(
             state = read_profile_activation_state(state_path)
             index = _space_index(state, space_id)
             existing = None if index is None else state["spaces"][index]
+            if existing is not None and existing["spaceKind"] != space_kind:
+                raise ValueError("Profile activation Space kind changed unexpectedly")
             if existing is not None and _activation_identity(existing["current"]) == _activation_identity(candidate):
                 return {"changed": False, "state": state}
 
@@ -428,6 +439,7 @@ def activate_profile(
                 previous = existing["current"] if existing["current"] is not None else existing["previous"]
             row = {
                 "spaceId": space_id,
+                "spaceKind": space_kind,
                 "current": candidate,
                 "previous": previous,
             }
@@ -467,6 +479,7 @@ def deactivate_profile(
             spaces = list(state["spaces"])
             spaces[index] = {
                 "spaceId": space_id,
+                "spaceKind": row["spaceKind"],
                 "current": None,
                 "previous": row["current"],
             }
@@ -502,6 +515,7 @@ def rollback_profile(
             spaces = list(state["spaces"])
             spaces[index] = {
                 "spaceId": space_id,
+                "spaceKind": row["spaceKind"],
                 "current": target,
                 "previous": row["current"],
             }
