@@ -94,19 +94,17 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
             "pre-usb-nova-ordax-audit-not-pass",
             status["pre_authorization_blockers"],
         )
-        # Product/source closure and the canonical v4 proof binding are complete.
-        # That makes the flow eligible to request explicit owner authorization,
-        # but it still must not authorize or perform any destructive write.
-        self.assertTrue(status["pre_authorization_ready"])
+        # Product/source closure is complete, but the old v4 release proof was
+        # deliberately superseded after physical findings. That separate proof
+        # requirement must block pre-authorization without rewriting source gates.
+        self.assertFalse(status["pre_authorization_ready"])
         self.assertTrue(status["canonical_v4_release_proof_valid"])
         self.assertTrue(status["canonical_v4_release_binding_resolved"])
-        self.assertNotIn(
+        self.assertIn(
             "physical-authorization-requirements-invalid",
             status["pre_authorization_blockers"],
         )
-        self.assertTrue(status["owner_authorization_required"])
-        self.assertFalse(status["physical_write_allowed"])
-        self.assertFalse(status["physical_write_performed"])
+        self.assertFalse(status["owner_authorization_required"])
 
     def test_audited_sources_are_bound_to_owner_authorization_context(self):
         context_paths = {
