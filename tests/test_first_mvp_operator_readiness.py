@@ -28,11 +28,19 @@ class FirstMvpOperatorReadinessTests(unittest.TestCase):
         status = readiness.evaluate(ROOT)
         authorization = json.loads(AUTHORIZATION_PATH.read_text(encoding="utf-8"))
 
-        pending = (
+        proof_pending = (
+            authorization["status"] == "blocked-canonical-v4-release-proof-pending"
+            and authorization["physical_write_allowed"] is False
+            and authorization["explicit_owner_authorization"] is False
+            and authorization["authorization_context_sha256"] is None
+            and authorization["requirements"]["canonical_v4_release_proof_bound"] is False
+        )
+        consent_pending = (
             authorization["status"] == "blocked-explicit-physical-authorization-pending"
             and authorization["physical_write_allowed"] is False
             and authorization["explicit_owner_authorization"] is False
             and authorization["authorization_context_sha256"] is None
+            and authorization["requirements"]["canonical_v4_release_proof_bound"] is True
         )
         authorized = (
             authorization["status"] == "authorized"
@@ -40,8 +48,13 @@ class FirstMvpOperatorReadinessTests(unittest.TestCase):
             and authorization["explicit_owner_authorization"] is True
             and isinstance(authorization["authorization_context_sha256"], str)
             and len(authorization["authorization_context_sha256"]) == 64
+            and authorization["requirements"]["canonical_v4_release_proof_bound"] is True
         )
-        self.assertNotEqual(pending, authorized)
+        self.assertEqual(
+            sum((proof_pending, consent_pending, authorized)),
+            1,
+            "physical authorization must be proof-pending, consent-pending, or authorized",
+        )
 
         self.assertEqual(status["$schema"], "prototype-ordax.first-mvp-operator-readiness/1")
 
@@ -51,7 +64,16 @@ class FirstMvpOperatorReadinessTests(unittest.TestCase):
         self.assertIs(first_usb["physical_target_selected"], False)
         self.assertIs(first_usb["physical_write_performed"], False)
 
-        if pending:
+        if proof_pending:
+            self.assertEqual(status["status"], "blocked")
+            self.assertIs(first_usb["source_authorized"], False)
+            self.assertIs(first_usb["publisher_source_ready"], False)
+            self.assertEqual(first_usb["next_stage"], "resolve-first-usb-source-blockers")
+            self.assertIn(
+                "physical-authorization-requirements-invalid",
+                first_usb["blockers"],
+            )
+        elif consent_pending:
             self.assertEqual(status["status"], "blocked")
             self.assertIs(first_usb["source_authorized"], False)
             self.assertIs(first_usb["publisher_source_ready"], False)
