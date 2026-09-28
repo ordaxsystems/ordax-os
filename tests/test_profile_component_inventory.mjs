@@ -25,11 +25,13 @@ test("inventory requires exact content and receipt hashes", () => {
     entries: [{
       id: "knowledge.example",
       kind: "knowledge-pack",
+      version: "1.2.3",
       sha256: "a".repeat(64),
       installedAt: 1234,
       receiptSha256: "b".repeat(64),
     }],
   });
+  assert.equal(value.entries[0].version, "1.2.3");
   assert.equal(value.entries[0].sha256, "a".repeat(64));
   assert.equal(value.entries[0].receiptSha256, "b".repeat(64));
 
