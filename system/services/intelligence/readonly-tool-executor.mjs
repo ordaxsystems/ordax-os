@@ -9,6 +9,14 @@ import {
   validateIntelligenceToolExecutionResult,
 } from "../../contracts/intelligence-tool-execution.mjs";
 import { validateIntelligenceToolGrantClaim } from "../../contracts/intelligence-tool-authorization.mjs";
+import {
+  assertNetworkStatusPort,
+  validateNetworkStatusSnapshot,
+} from "../../contracts/network-status.mjs";
+import {
+  assertPowerStatusPort,
+  validatePowerStatusSnapshot,
+} from "../../contracts/power-status.mjs";
 import { assertSystemMetricsPort, validateSystemMetricsSnapshot } from "../../contracts/system-metrics.mjs";
 import { createIntelligenceToolRegistry } from "./tool-registry.mjs";
 
@@ -71,21 +79,58 @@ function normalizeHandlers(value, registry) {
   return byToolId;
 }
 
+function systemContext(id, provenance, payload) {
+  return validateIntelligenceContext([{
+    id,
+    scope: "system",
+    text: JSON.stringify(payload),
+    provenance,
+  }]);
+}
+
 function executionContextFromSystemMetrics(snapshot) {
   const metrics = validateSystemMetricsSnapshot(snapshot);
-  const text = JSON.stringify({
-    uptimeSeconds: metrics.uptimeSeconds,
-    memoryTotalBytes: metrics.memoryTotalBytes,
-    memoryAvailableBytes: metrics.memoryAvailableBytes,
-    userStorageTotalBytes: metrics.userStorageTotalBytes,
-    userStorageFreeBytes: metrics.userStorageFreeBytes,
-  });
-  return validateIntelligenceContext([{
-    id: "tool-system-metrics-local",
-    scope: "system",
-    text,
-    provenance: "ordax:tool:observe-system-metrics:local-read-only",
-  }]);
+  return systemContext(
+    "tool-system-metrics-local",
+    "ordax:tool:observe-system-metrics:local-read-only",
+    {
+      uptimeSeconds: metrics.uptimeSeconds,
+      memoryTotalBytes: metrics.memoryTotalBytes,
+      memoryAvailableBytes: metrics.memoryAvailableBytes,
+      userStorageTotalBytes: metrics.userStorageTotalBytes,
+      userStorageFreeBytes: metrics.userStorageFreeBytes,
+    },
+  );
+}
+
+function executionContextFromNetworkStatus(snapshot) {
+  const network = validateNetworkStatusSnapshot(snapshot);
+  return systemContext(
+    "tool-network-status-local",
+    "ordax:tool:observe-network-status:local-read-only",
+    {
+      interfaces: network.interfaces.map((entry, index) => ({
+        ordinal: index + 1,
+        kind: entry.kind,
+        state: entry.state,
+        signalDbm: entry.signalDbm,
+      })),
+    },
+  );
+}
+
+function executionContextFromPowerStatus(snapshot) {
+  const power = validatePowerStatusSnapshot(snapshot);
+  return systemContext(
+    "tool-power-status-local",
+    "ordax:tool:observe-power-status:local-read-only",
+    {
+      battery: power.battery === null
+        ? null
+        : { percent: power.battery.percent, state: power.battery.state },
+      externalPower: power.externalPower,
+    },
+  );
 }
 
 export function createSystemMetricsIntelligenceToolHandler(portValue) {
@@ -96,6 +141,30 @@ export function createSystemMetricsIntelligenceToolHandler(portValue) {
     targetScope: "system",
     async execute() {
       return executionContextFromSystemMetrics(await port.read());
+    },
+  });
+}
+
+export function createNetworkStatusIntelligenceToolHandler(portValue) {
+  const port = assertNetworkStatusPort(portValue);
+  return Object.freeze({
+    toolId: "observe-network-status",
+    capabilityId: "network.status",
+    targetScope: "network",
+    async execute() {
+      return executionContextFromNetworkStatus(await port.read());
+    },
+  });
+}
+
+export function createPowerStatusIntelligenceToolHandler(portValue) {
+  const port = assertPowerStatusPort(portValue);
+  return Object.freeze({
+    toolId: "observe-power-status",
+    capabilityId: "power.status",
+    targetScope: "power",
+    async execute() {
+      return executionContextFromPowerStatus(await port.read());
     },
   });
 }
