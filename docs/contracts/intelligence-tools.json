@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.intelligence-tools/1",
-  "status": "governed-read-only-execution-foundation",
+  "status": "governed-read-only-execution-with-audit-foundation",
   "tool_contract": "ordax.intelligence-tool/1",
   "registry_contract": "ordax.intelligence-tool-registry/1",
   "capability_bridge_contract": "ordax.intelligence-capability-bridge/1",
@@ -9,6 +9,8 @@
   "execution_contract": "ordax.intelligence-readonly-tool-executor/1",
   "execution_result_contract": "ordax.intelligence-tool-execution-result/1",
   "execution_receipt_contract": "ordax.intelligence-tool-execution-receipt/1",
+  "audit_journal_contract": "ordax.intelligence-audit-journal/1",
+  "audit_entry_contract": "ordax.intelligence-audit-entry/1",
   "owner": "system/services/intelligence",
   "approved_read_only_capabilities": [
     "system.metrics",
@@ -86,10 +88,23 @@
     "network_egress": false,
     "mutates_state": false
   },
+  "audit": {
+    "authorization_and_execution_correlated": true,
+    "correlation_field": "auditRef",
+    "audit_ref_is_authority": false,
+    "bounded_runtime_journal": true,
+    "default_entries": 256,
+    "maximum_entries": 1024,
+    "contains_bearer_grant_id": false,
+    "contains_target_id": false,
+    "contains_prompt_or_model_response": false,
+    "contains_tool_result_context": false,
+    "durable_native_persistence": false
+  },
   "deferred": [
     "network-status-tool-invocation",
     "power-status-tool-invocation",
-    "persistent-audit-journal",
+    "durable-native-audit-store",
     "user-facing-tool-approval-flow",
     "model-mediated-tool-selection",
     "web-grounding",
