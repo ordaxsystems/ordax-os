@@ -153,14 +153,28 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
             self.assertIs(auth["physical_write_allowed"], True)
             self.assertIs(auth["explicit_owner_authorization"], True)
             self.assertEqual(context_sha, auth["authorization_context_sha256"])
+            self.assertIs(auth["requirements"]["canonical_v4_release_proof_bound"], True)
         else:
-            self.assertEqual(
+            self.assertIn(
                 auth["status"],
-                "blocked-explicit-physical-authorization-pending",
+                {
+                    "blocked-canonical-v4-release-proof-pending",
+                    "blocked-explicit-physical-authorization-pending",
+                },
             )
             self.assertIs(auth["physical_write_allowed"], False)
             self.assertIs(auth["explicit_owner_authorization"], False)
             self.assertIsNone(auth["authorization_context_sha256"])
+            if auth["status"] == "blocked-canonical-v4-release-proof-pending":
+                self.assertIs(
+                    auth["requirements"]["canonical_v4_release_proof_bound"],
+                    False,
+                )
+            else:
+                self.assertIs(
+                    auth["requirements"]["canonical_v4_release_proof_bound"],
+                    True,
+                )
 
         governed = {
             path.relative_to(ROOT).as_posix()

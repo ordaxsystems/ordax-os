@@ -18,8 +18,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 AUDIT_PATH = Path(__file__).with_name("pre_usb_nova_ordax_audit.py")
 PROMOTION_PATH = Path(__file__).with_name("physical_promotion.py")
+AUTHORIZATION_PATH = Path("docs/contracts/physical-write-authorization.json")
 STATUS_SCHEMA = "prototype-ordax.stable-mvp-usb-readiness/1"
 HANDOFF_DOCUMENT = "docs/MVP-PRE-PHYSICAL-HANDOFF.md"
+PRE_PROOF_AUTHORIZATION_STATUS = "blocked-canonical-v4-release-proof-pending"
 
 POST_AUTHORIZATION_PHYSICAL_GATES = (
     "physical-target-selection-and-live-revalidation",
@@ -48,9 +50,15 @@ promotion = _load("ordax_physical_promotion_readiness", PROMOTION_PATH)
 def classify(
     source_status: dict[str, Any],
     promotion_status: dict[str, Any],
+    authorization_status: str | None = None,
 ) -> str:
     if source_status.get("source_ready") is not True:
         return "source-blocked"
+    # A cryptographically valid receipt may remain in evidence after its release
+    # was superseded by source hardening. The authorization state is authoritative
+    # for whether that receipt is current enough to advance toward owner consent.
+    if authorization_status == PRE_PROOF_AUTHORIZATION_STATUS:
+        return "canonical-v4-release-proof-pending"
     if promotion_status.get("canonical_v4_release_proof_valid") is not True:
         return "canonical-v4-release-proof-pending"
     if promotion_status.get("pre_authorization_ready") is not True:
@@ -94,15 +102,40 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
     root = repo_root.resolve()
     source_status = audit.evaluate(root)
     promotion_status = promotion.evaluate(root)
-    stage = classify(source_status, promotion_status)
+    authorization = json.loads((root / AUTHORIZATION_PATH).read_text(encoding="utf-8"))
+    authorization_status = authorization.get("status")
+    proof_requirement_current = (
+        isinstance(authorization.get("requirements"), dict)
+        and authorization["requirements"].get("canonical_v4_release_proof_bound") is True
+    )
+    stage = classify(source_status, promotion_status, authorization_status)
 
     source_blockers = list(source_status.get("blockers", []))
     promotion_blockers = list(promotion_status.get("blockers", []))
     blockers = sorted(set([*source_blockers, *promotion_blockers]))
 
     source_ready = source_status.get("source_ready") is True
-    canonical_proof_ready = promotion_status.get("canonical_v4_release_proof_valid") is True
+    canonical_proof_valid = promotion_status.get("canonical_v4_release_proof_valid") is True
+    canonical_proof_current = (
+        canonical_proof_valid
+        and authorization_status != PRE_PROOF_AUTHORIZATION_STATUS
+        and proof_requirement_current
+    )
     owner_authorization_recorded = promotion_status.get("ready") is True
+
+    if stage == "canonical-v4-release-proof-pending":
+        next_stage = "canonical-v4-release-proof"
+    elif stage == "source-blocked":
+        next_stage = "pre-usb-source-closure"
+    else:
+        next_stage = promotion_status.get("next_stage")
+
+    if canonical_proof_current:
+        release_boundary = "pass"
+    elif canonical_proof_valid:
+        release_boundary = "superseded-replacement-required"
+    else:
+        release_boundary = "pending"
 
     return {
         "$schema": STATUS_SCHEMA,
@@ -111,13 +144,16 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
         "source_ready": source_ready,
         "pre_usb_product_source_complete": source_ready,
         "pre_usb_source_audit_status": source_status.get("status"),
-        "canonical_v4_release_proof_valid": canonical_proof_ready,
+        "physical_authorization_status": authorization_status,
+        "canonical_v4_release_proof_valid": canonical_proof_valid,
+        "canonical_v4_release_proof_current": canonical_proof_current,
+        "canonical_v4_release_proof_bound_requirement": proof_requirement_current,
         "canonical_v4_release_binding_resolved": promotion_status.get("canonical_v4_release_binding_resolved") is True,
         "pre_authorization_ready": promotion_status.get("pre_authorization_ready") is True,
         "owner_authorization_required": promotion_status.get("owner_authorization_required") is True,
         "owner_authorization_recorded": owner_authorization_recorded,
         "authorized_candidate_materialization_allowed": promotion_status.get("authorized_candidate_materialization_allowed") is True,
-        "next_stage": promotion_status.get("next_stage"),
+        "next_stage": next_stage,
         "release_sequence": promotion_status.get("release_sequence"),
         "canonical_v4_release_source_commit": promotion_status.get("canonical_v4_release_source_commit"),
         "blockers": blockers,
@@ -125,7 +161,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
         "handoff_document": HANDOFF_DOCUMENT,
         "proof_boundaries": {
             "pre_usb_product_source": "pass" if source_ready else "blocked",
-            "canonical_v4_release_candidate": "pass" if canonical_proof_ready else "pending",
+            "canonical_v4_release_candidate": release_boundary,
             "physical_write_authorization": "pass" if owner_authorization_recorded else "pending",
             "canonical_stable_graphical_session": "requires-physical-proof",
             "canonical_system_runtime": "requires-physical-proof",

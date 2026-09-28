@@ -112,12 +112,21 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
         self.assertNotIn("public anchor is still not pinned", self.current)
 
     def test_physical_authorization_contract_and_physical_proof_boundary_are_coherent(self):
-        pending = (
+        proof_pending = (
+            self.authorization["status"]
+            == "blocked-canonical-v4-release-proof-pending"
+            and self.authorization["physical_write_allowed"] is False
+            and self.authorization["explicit_owner_authorization"] is False
+            and self.authorization["authorization_context_sha256"] is None
+            and self.authorization["requirements"]["canonical_v4_release_proof_bound"] is False
+        )
+        consent_pending = (
             self.authorization["status"]
             == "blocked-explicit-physical-authorization-pending"
             and self.authorization["physical_write_allowed"] is False
             and self.authorization["explicit_owner_authorization"] is False
             and self.authorization["authorization_context_sha256"] is None
+            and self.authorization["requirements"]["canonical_v4_release_proof_bound"] is True
         )
         authorized = (
             self.authorization["status"] == "authorized"
@@ -125,11 +134,12 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
             and self.authorization["explicit_owner_authorization"] is True
             and isinstance(self.authorization["authorization_context_sha256"], str)
             and len(self.authorization["authorization_context_sha256"]) == 64
+            and self.authorization["requirements"]["canonical_v4_release_proof_bound"] is True
         )
-        self.assertNotEqual(
-            pending,
-            authorized,
-            "authorization contract must be exactly pending or authorized",
+        self.assertEqual(
+            sum((proof_pending, consent_pending, authorized)),
+            1,
+            "authorization contract must be exactly proof-pending, consent-pending, or authorized",
         )
         self.assertEqual(
             self.authorization["scope"],
@@ -145,13 +155,13 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
             self.authorization["release_binding"]["source_commit"],
             "b924ff8d74d1761232381ae3f9604bba17497cfd",
         )
-        self.assertIn("CANONICAL_V4_RELEASE_PROOF_BINDING=PASS", self.current)
-        self.assertIn("PHYSICAL_AUTHORIZATION_ELIGIBLE=YES", self.current)
         self.assertIn(
             "CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_EXACT",
             self.current,
         )
-        if pending:
+        if consent_pending:
+            self.assertIn("CANONICAL_V4_RELEASE_PROOF_BINDING=PASS", self.current)
+            self.assertIn("PHYSICAL_AUTHORIZATION_ELIGIBLE=YES", self.current)
             self.assertIn(
                 "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_FRESH_CONSENT_REQUIRED",
                 self.current,
@@ -159,6 +169,10 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
             self.assertIn(
                 "PHYSICAL_WRITE_ALLOWED=NO_EXPLICIT_OWNER_AUTHORIZATION",
                 self.current,
+            )
+        if proof_pending:
+            self.assertFalse(
+                self.authorization["requirements"]["canonical_v4_release_proof_bound"]
             )
         self.assertIn("PHYSICAL_TARGET_SELECTED=NO", self.current)
         self.assertIn(
