@@ -41,11 +41,13 @@
   },
   "manifest_source": {
     "authority": "versioned-json-manifest",
-    "bundled_index": "system/profile-packs/catalog.json",
     "layout": "system/profile-packs/<slug>/v<version>/manifest.json",
     "runtime_load": "same-origin-only",
     "external_manifest_egress_allowed": false,
-    "multiple_versions_may_coexist": true
+    "multiple_versions_may_coexist": true,
+    "bundled_index_source": "system/profile-packs/catalog.json",
+    "runtime_catalog_url": "/profile-packs/catalog.json",
+    "runtime_url_layout": "/profile-packs/<slug>/v<version>/manifest.json"
   },
   "restore": {
     "schema": "ordax.profile-pack-restore/1",
