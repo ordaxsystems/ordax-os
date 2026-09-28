@@ -333,6 +333,7 @@ async function start() {
   });
   const intelligenceSystemAnalysis = createNativeIntelligenceSystemAnalysis({
     host,
+    intelligence,
     systemMetrics,
     networkStatus,
     powerStatus,
@@ -498,8 +499,7 @@ async function start() {
     appActivation,
     diagnosticReviewController,
     componentManager,
-    intelligence,
-    intelligenceSystemAnalysis.observer,
+    intelligenceSystemAnalysis.intelligence,
     recoveryStatus,
   );
   const workspaceIntelligenceHandoffControls = mountWorkspaceIntelligenceHandoffControls(
