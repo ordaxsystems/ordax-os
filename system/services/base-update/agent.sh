@@ -657,9 +657,9 @@ prepare_dev_base_postboot_promotion() {
     [ -f "$RUNTIME_ROOT$helper" ] || return 0
 
     base_heartbeat=$OWNER_STATE_CHROOT/base-update/base-heartbeat.json
-    surface_heartbeat=$OWNER_STATE_CHROOT/native-state/surface-heartbeat.json
+    surface_heartbeat=/run/ordax-update/surface-heartbeat.json
     [ -s "$base_heartbeat" ] &&
-    [ -s "$surface_heartbeat" ] &&
+    [ -s "$RUNTIME_ROOT$surface_heartbeat" ] &&
     [ -s "$RUNTIME_ROOT/run/ordax-update/base-boot-id" ] &&
     [ -s "$RUNTIME_ROOT/run/ordax-update/healthy-sha" ] || return 0
 
