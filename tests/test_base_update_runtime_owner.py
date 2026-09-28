@@ -935,6 +935,8 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         self.assertIn('--expected-release-sha "$staged_sha"', agent)
         self.assertIn('--source-sha "$source_sha"', agent)
         self.assertIn('--base-heartbeat "$base_heartbeat"', agent)
+        self.assertIn("surface_heartbeat=/run/ordax-update/surface-heartbeat.json", agent)
+        self.assertIn('[ -s "$RUNTIME_ROOT$surface_heartbeat" ]', agent)
         self.assertIn('--surface-heartbeat "$surface_heartbeat"', agent)
         self.assertIn('--healthy-sha /run/ordax-update/healthy-sha', agent)
         self.assertIn('"status": "promoted"', agent)
