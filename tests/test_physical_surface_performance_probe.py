@@ -6,6 +6,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBE = ROOT / "system" / "surface" / "runtime" / "physical_performance_probe.py"
+ENTRYPOINT = ROOT / "system" / "surface" / "bin" / "ordax-performance-evidence"
 
 spec = importlib.util.spec_from_file_location("ordax_physical_performance_probe", PROBE)
 probe = importlib.util.module_from_spec(spec)
@@ -160,6 +161,30 @@ class PhysicalSurfacePerformanceProbeTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, source)
         self.assertIn("json.dump(result, sys.stdout", source)
+
+    def test_stable_entrypoint_runs_probe_in_active_runtime_without_mutation(self):
+        entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
+        self.assertIn("ordax-proof-runtime.sh", entrypoint)
+        self.assertIn("resolve_ordax_proof_runtime_root", entrypoint)
+        self.assertIn(
+            "SCRIPT=/srv/ordax-system/surface/runtime/physical_performance_probe.py",
+            entrypoint,
+        )
+        self.assertIn('[ -d "$RUNTIME_ROOT/proc" ]', entrypoint)
+        self.assertIn(
+            'exec /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 "$SCRIPT" "$@"',
+            entrypoint,
+        )
+        for forbidden in (
+            " mount ",
+            " umount ",
+            ">/proc",
+            "> /proc",
+            "tee /proc",
+            "dd if=",
+            "dd of=",
+        ):
+            self.assertNotIn(forbidden, entrypoint)
 
 
 if __name__ == "__main__":

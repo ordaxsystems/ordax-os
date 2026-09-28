@@ -1,0 +1,33 @@
+#!/bin/sh
+set -eu
+
+BIN_DIR=${0%/*}
+RUNTIME_RESOLVER=$BIN_DIR/ordax-proof-runtime.sh
+SCRIPT=/srv/ordax-system/surface/runtime/physical_performance_probe.py
+
+[ -x /bin/busybox ] || {
+    echo "ordax-performance-evidence: /bin/busybox unavailable" >&2
+    exit 2
+}
+[ -r "$RUNTIME_RESOLVER" ] || {
+    echo "ordax-performance-evidence: runtime resolver unavailable: $RUNTIME_RESOLVER" >&2
+    exit 2
+}
+. "$RUNTIME_RESOLVER"
+resolve_ordax_proof_runtime_root || exit 2
+
+[ -x "$RUNTIME_ROOT/usr/bin/python3" ] || {
+    echo "ordax-performance-evidence: active WebKit runtime Python unavailable: $RUNTIME_ROOT/usr/bin/python3" >&2
+    exit 2
+}
+[ -r "$RUNTIME_ROOT$SCRIPT" ] || {
+    echo "ordax-performance-evidence: performance collector is not mounted in the active runtime; keep the Surface running and retry" >&2
+    exit 2
+}
+[ -d "$RUNTIME_ROOT/proc" ] && [ -d "$RUNTIME_ROOT/srv/ordax-system" ] || {
+    echo "ordax-performance-evidence: active Surface runtime proc/source bindings are unavailable" >&2
+    exit 2
+}
+
+echo "ordax-performance-evidence: proof profile=$ORDAX_PROOF_PROFILE runtime=$RUNTIME_ROOT" >&2
+exec /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 "$SCRIPT" "$@"
