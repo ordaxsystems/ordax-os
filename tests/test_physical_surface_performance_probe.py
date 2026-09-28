@@ -5,7 +5,7 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
-PROBE = ROOT / "system" / "surface" / "runtime" / "physical_performance_probe.py"
+PROBE = ROOT / "system" / "diagnostics" / "physical_surface_performance.py"
 
 spec = importlib.util.spec_from_file_location("ordax_physical_performance_probe", PROBE)
 probe = importlib.util.module_from_spec(spec)
