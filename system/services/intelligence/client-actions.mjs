@@ -16,7 +16,7 @@ function bounded(value, label, max) {
 }
 
 function documentContextText(title, text) {
-  const cleanTitle = bounded(title, "Intelligence document title", 512);
+  const cleanTitle = bounded(title, "Intelligence document title", 1024).slice(0, 512);
   const cleanText = bounded(text, "Intelligence document text", 65536);
   const prefix = `Título: ${cleanTitle}\n\nConteúdo:\n`;
   const available = Math.max(1, MAX_DOCUMENT_CONTEXT_CHARS - prefix.length);
