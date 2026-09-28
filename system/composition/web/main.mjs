@@ -45,8 +45,7 @@ if (!root) {
 const identitySession = createWebIdentitySession(window);
 await identitySession.refresh();
 const identityActions = createWebIdentityActions(window, identitySession);
-const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
-const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
+const identityCredentials = createSameOriginIdentityCredentials(window);
 const spaces = createWebSpacesCatalog(window);
 const profileComponentInventory = createSessionProfileComponentInventory();
 const profileProvisioning = createProfileProvisioningRuntime({
@@ -54,10 +53,12 @@ const profileProvisioning = createProfileProvisioningRuntime({
   inventory: profileComponentInventory,
   readNetworkAvailable: () => window.navigator?.onLine === true,
 });
+const readIdentityAvailable = () => identitySession.getSnapshot().state !== "unavailable";
 const host = createWebSurfaceHost(window, {
-  accountIdentityAvailable: identityAvailable,
-  syncSafeStateAvailable: identityAvailable,
+  readAccountIdentityAvailable: readIdentityAvailable,
+  readSyncSafeStateAvailable: readIdentityAvailable,
 });
+const unsubscribeHostIdentity = identitySession.subscribe(() => host.refresh());
 const browserSession = createWebBrowserSession();
 const preferenceStore = createWebPreferenceStore(window);
 bootLocale = preferenceStore.load()?.["regional.locale"] ?? "pt-BR";
@@ -123,7 +124,8 @@ const resumeAccountConnectivity = async () => {
   await identitySession.refresh();
   await accountSync.refresh();
 };
-window.addEventListener("online", () => void resumeAccountConnectivity(), { passive: true });
+const onOnline = () => void resumeAccountConnectivity();
+window.addEventListener("online", onOnline, { passive: true });
 const accountOverviewControls = mountAccountOverviewControls(
   root,
   identitySession,
@@ -209,6 +211,8 @@ bootScreen.ready();
 window.addEventListener(
   "pagehide",
   () => {
+    window.removeEventListener("online", onOnline);
+    unsubscribeHostIdentity();
     systemOverviewControls.destroy();
     internetComponent?.destroy();
     notesComponent?.destroy();
