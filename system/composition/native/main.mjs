@@ -62,6 +62,7 @@ import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-met
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
+import { createNativeIntelligenceSystemAnalysis } from "./intelligence-system-analysis.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountFileIntelligenceHandoffControls } from "../../surface/ui/file-intelligence-handoff-controls.mjs";
@@ -330,6 +331,12 @@ async function start() {
     accountIdentityAvailable: identityAvailable,
     syncSafeStateAvailable: identityAvailable,
   });
+  const intelligenceSystemAnalysis = createNativeIntelligenceSystemAnalysis({
+    host,
+    systemMetrics,
+    networkStatus,
+    powerStatus,
+  });
 
   validateAccountRuntime(
     host.getSnapshot(),
@@ -492,6 +499,7 @@ async function start() {
     diagnosticReviewController,
     componentManager,
     intelligence,
+    intelligenceSystemAnalysis.observer,
     recoveryStatus,
   );
   const workspaceIntelligenceHandoffControls = mountWorkspaceIntelligenceHandoffControls(
@@ -643,6 +651,7 @@ async function start() {
       updateNotificationBridge.destroy();
       updateDiagnosticRecorder.dispose();
       updateWatcher.dispose();
+      intelligenceSystemAnalysis.dispose();
       unsubscribeIntelligenceHealth();
       unsubscribeLocalAiHealth();
       intelligence.dispose();
