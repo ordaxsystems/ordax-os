@@ -1,6 +1,7 @@
 import { assertIntelligencePort } from "../../contracts/intelligence.mjs";
 import { validateSurfaceSnapshot } from "../../contracts/surface-host.mjs";
 import { validateSystemMetricsSnapshot } from "../../contracts/system-metrics.mjs";
+import { assertIntelligenceSystemObserver } from "./system-observation.mjs";
 
 const MAX_DOCUMENT_CONTEXT_CHARS = 7600;
 
@@ -103,6 +104,26 @@ export async function explainSystemStateWithIntelligence(
       text: systemContext(surface, metrics),
       provenance: "ordax-system-local-snapshot",
     }],
+    maxTokens,
+  });
+}
+
+export async function analyzeSystemWithGovernedObservations(
+  portValue,
+  observerValue,
+  { maxTokens = 512 } = {},
+) {
+  const port = assertIntelligencePort(portValue);
+  const observer = assertIntelligenceSystemObserver(observerValue);
+  const observation = await observer.observe();
+  return port.respond({
+    intent: "diagnose",
+    prompt:
+      "Analise o estado atual do dispositivo em linguagem simples usando somente as observações locais fornecidas. "
+      + "As leituras foram coletadas por ferramentas somente leitura, explicitamente autorizadas por esta ação do usuário. "
+      + "Diferencie fatos observados de limitações ou observações indisponíveis. "
+      + "Não invente dados ausentes, não prescreva operações destrutivas e não trate a análise como autorização para agir.",
+    context: observation.context,
     maxTokens,
   });
 }
