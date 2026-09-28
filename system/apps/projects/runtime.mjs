@@ -56,6 +56,7 @@ export const componentRuntime = Object.freeze({
     projects = null,
     projectCloudLinks = null,
     projectWebReferences = null,
+    projectEvidence = null,
     appActivation = null,
     intelligenceContextShare = null,
     deviceAgentCapabilities = null,
@@ -73,6 +74,7 @@ export const componentRuntime = Object.freeze({
         projects,
         projectCloudLinks,
         projectWebReferences,
+        projectEvidence,
         appActivation,
         intelligenceContextShare: contextShare,
       });
