@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.intelligence-tools/1",
-  "status": "governed-local-observability-with-audit-foundation",
+  "status": "governed-local-observability-with-native-system-analysis",
   "tool_contract": "ordax.intelligence-tool/1",
   "registry_contract": "ordax.intelligence-tool-registry/1",
   "capability_bridge_contract": "ordax.intelligence-capability-bridge/1",
@@ -92,6 +92,21 @@
     "model_direct_access": false,
     "network_egress": false,
     "mutates_state": false
+  },
+  "native_system_analysis": {
+    "composed": true,
+    "trigger": "explicit-system-diagnose-action",
+    "agent_id": "system",
+    "observation_tools": [
+      "observe-system-metrics",
+      "observe-network-status",
+      "observe-power-status"
+    ],
+    "model_selects_tools": false,
+    "consumer_imports_tool_runtime": false,
+    "partial_observation_is_reported_as_limitation_context": true,
+    "all_observations_unavailable_fails_closed": true,
+    "authority": "none"
   },
   "audit": {
     "authorization_and_execution_correlated": true,
