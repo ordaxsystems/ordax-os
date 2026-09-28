@@ -55,7 +55,9 @@ CONFIG_VIRTIO=y
 CONFIG_VIRTIO_PCI=y
 CONFIG_DRM_VIRTIO_GPU=y
 
-CONFIG_LOGO=y
+# OrdaX owns the visible boot identity. Never render the upstream Linux/Tux
+# framebuffer logo in the production kernel.
+# CONFIG_LOGO is not set
 
 # Keyboard, mouse and USB HID.
 CONFIG_INPUT=y
@@ -176,8 +178,8 @@ CONFIG_USB_NET_CDCETHER=y
 CONFIG_USB_NET_CDC_NCM=y
 CONFIG_USB_NET_RNDIS_HOST=y
 
-# Wireless stack and known baseline adapters. These are not the first-acquisition
-# bootstrap path; the full release owns Wi-Fi userspace and firmware policy.
+# Wireless stack and known baseline adapters. Stable Base coldplugs the exact
+# kernel modules after switch_root, once its pinned firmware tree is available.
 CONFIG_MAC80211=y
 CONFIG_CFG80211=y
 CONFIG_CFG80211_WEXT=y
