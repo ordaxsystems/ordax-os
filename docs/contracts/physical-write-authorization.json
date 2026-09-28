@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.physical-write-authorization/3",
-  "status": "blocked-explicit-physical-authorization-pending",
+  "status": "blocked-canonical-v4-release-proof-pending",
   "physical_write_allowed": false,
   "explicit_owner_authorization": false,
   "scope": "first-real-stable-mvp-usb-proof",
