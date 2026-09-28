@@ -1,0 +1,32 @@
+{
+  "$schema": "ordax.profile-distribution/1",
+  "profile": {
+    "slug": "legal-br",
+    "version": 1
+  },
+  "delivery_mode": "on-demand",
+  "metadata_bundled": true,
+  "offline_after_install": true,
+  "public_install_enabled": false,
+  "blocked_reason": "Legal-BR remains unavailable until signed official-source knowledge, domain validation and public provisioning trust are implemented.",
+  "components": [
+    {
+      "id": "knowledge.legal-br-core",
+      "kind": "knowledge-pack",
+      "required": true,
+      "availability": "planned",
+      "sha256": null,
+      "size_bytes": null,
+      "signature_required": true
+    },
+    {
+      "id": "skill.legal-document-review",
+      "kind": "skill-pack",
+      "required": true,
+      "availability": "planned",
+      "sha256": null,
+      "size_bytes": null,
+      "signature_required": true
+    }
+  ]
+}
