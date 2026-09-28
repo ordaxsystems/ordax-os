@@ -110,3 +110,57 @@ def read_profile_component_inventory(
     if not valid_profile_component_inventory(payload):
         raise ValueError("Profile component inventory is invalid")
     return payload
+
+
+def write_profile_component_inventory(
+    inventory: dict,
+    path: str = PROFILE_COMPONENT_INVENTORY_FILE,
+) -> None:
+    """Atomically persist a validated device inventory.
+
+    This function is intentionally not exposed by native_host_server.py. Only a
+    future trusted provisioning executor may call it after package signature,
+    content, compatibility and health verification.
+    """
+    if not valid_profile_component_inventory(inventory):
+        raise ValueError("Profile component inventory is invalid")
+    directory = os.path.dirname(path)
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    os.chmod(directory, 0o700)
+    temporary = f"{path}.tmp.{os.getpid()}"
+    payload = (
+        json.dumps(
+            inventory,
+            separators=(",", ":"),
+            sort_keys=True,
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    if len(payload) > MAX_PROFILE_COMPONENT_INVENTORY_BYTES:
+        raise ValueError("Profile component inventory exceeds maximum size")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    descriptor = os.open(temporary, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=True) as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        os.chmod(path, 0o600)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+    try:
+        directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    except OSError:
+        return
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
