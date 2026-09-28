@@ -126,7 +126,10 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 
 - contrato `ordax.profile-provisioning/1`;
 - catálogo local de distribuição leve;
-- planner que calcula componentes presentes/ausentes;
+- planner que calcula componentes presentes/ausentes por identidade de conteúdo;
+- inventário Native persistente e somente leitura para a Surface;
+- Web usa inventário de sessão vazio e não finge instalação local;
+- mesmo ID com SHA-256 diferente é tratado como ausente/stale;
 - download somente do que falta;
 - metadados de offline/cache;
 - estado installable/blocked explícito;
@@ -167,7 +170,7 @@ Depois da prova MVP:
 
 1. Knowledge Pack contract/runtime;
 2. Skill Pack contract/runtime;
-3. Profile provisioning persistente no Native;
+3. executor confiável de provisioning que grave receipts verificados no inventário Native;
 4. Store/catalog remoto assinado;
 5. downloads transacionais;
 6. Profile Stack;
