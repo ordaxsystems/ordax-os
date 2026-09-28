@@ -120,6 +120,11 @@ jobs:
 
           out/ordax-profile-content-channel verify             --manifest "$proof/manifest.json"             --envelope "$proof/envelope.json"             --trust "$proof/trust.json"             --content "$proof/content.pack"
 
+          stage_root="$proof/staged"
+          out/ordax-profile-content-channel stage             --manifest "$proof/manifest.json"             --envelope "$proof/envelope.json"             --trust "$proof/trust.json"             --content "$proof/content.pack"             --root "$stage_root"
+          test -d "$stage_root/knowledge-pack/knowledge.cross-runtime-proof/versions/0.1.0"
+          test -z "$(find "$stage_root" -type f -perm /222 -print -quit)"
+
           printf '\nTAMPERED\n' >> "$proof/content.pack"
           if out/ordax-profile-content-channel verify             --manifest "$proof/manifest.json"             --envelope "$proof/envelope.json"             --trust "$proof/trust.json"             --content "$proof/content.pack"; then
             echo "tampered Profile content unexpectedly verified" >&2
@@ -130,6 +135,7 @@ jobs:
           test ! -e "$proof"
           echo 'PROFILE_CONTENT_JS_GO_INTEROP=PASS'
           echo 'PROFILE_CONTENT_TAMPER_REJECTION=PASS'
+          echo 'PROFILE_CONTENT_IMMUTABLE_STAGE=PASS'
           echo 'PROFILE_CONTENT_CANONICAL_PRIVATE_KEY_INCLUDED=NO'
           echo 'PROFILE_CONTENT_ACTIVATION_ALLOWED=NO'
 
