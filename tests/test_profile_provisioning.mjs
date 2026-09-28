@@ -12,6 +12,25 @@ import {
 const developer = getLocalProfileDistribution("developer", 1);
 const legal = getLocalProfileDistribution("legal-br", 1);
 
+function inventory(entries = [], persistence = "session") {
+  return {
+    schema: "ordax.profile-component-inventory/1",
+    revision: entries.length,
+    persistence,
+    entries,
+  };
+}
+
+function installedEntry(id, kind, sha256) {
+  return {
+    id,
+    kind,
+    sha256,
+    installedAt: 1234,
+    receiptSha256: "f".repeat(64),
+  };
+}
+
 test("profile metadata can be bundled while professional payload stays on-demand", () => {
   const value = validateProfileDistribution(legal);
   assert.equal(value.profile.slug, "legal-br");
@@ -26,7 +45,7 @@ test("profile metadata can be bundled while professional payload stays on-demand
 test("blocked Legal-BR remains visible without pretending it is installable", () => {
   const plan = planProfileProvisioning({
     distribution: legal,
-    installedComponentIds: [],
+    installedInventory: inventory(),
     networkAvailable: true,
   });
   assert.equal(plan.state, "blocked");
@@ -42,7 +61,7 @@ test("blocked Legal-BR remains visible without pretending it is installable", ()
 test("Developer metadata is tiny local proof and does not imply public install", () => {
   const plan = planProfileProvisioning({
     distribution: developer,
-    installedComponentIds: [],
+    installedInventory: inventory(),
     networkAvailable: false,
   });
   assert.equal(plan.state, "blocked");
@@ -66,7 +85,7 @@ test("available remote component requires exact sha256 and signature policy", ()
   }];
   const noNetwork = planProfileProvisioning({
     distribution: candidate,
-    installedComponentIds: [],
+    installedInventory: inventory(),
     networkAvailable: false,
   });
   assert.equal(noNetwork.state, "network-required");
@@ -75,7 +94,7 @@ test("available remote component requires exact sha256 and signature policy", ()
 
   const online = planProfileProvisioning({
     distribution: candidate,
-    installedComponentIds: [],
+    installedInventory: inventory(),
     networkAvailable: true,
   });
   assert.equal(online.state, "ready");
@@ -84,11 +103,25 @@ test("available remote component requires exact sha256 and signature policy", ()
 
   const installed = planProfileProvisioning({
     distribution: candidate,
-    installedComponentIds: ["knowledge.example"],
+    installedInventory: inventory([
+      installedEntry("knowledge.example", "knowledge-pack", "a".repeat(64)),
+    ], "device"),
     networkAvailable: false,
   });
   assert.equal(installed.state, "already-provisioned");
   assert.equal(installed.mayActivate, true);
+  assert.equal(installed.inventoryPersistence, "device");
+
+  const staleHash = planProfileProvisioning({
+    distribution: candidate,
+    installedInventory: inventory([
+      installedEntry("knowledge.example", "knowledge-pack", "d".repeat(64)),
+    ], "device"),
+    networkAvailable: false,
+  });
+  assert.equal(staleHash.state, "network-required");
+  assert.equal(staleHash.missing.length, 1);
+  assert.equal(staleHash.alreadyInstalled.length, 0);
 });
 
 test("available component without signed content identity fails closed", () => {
