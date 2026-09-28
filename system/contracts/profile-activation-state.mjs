@@ -108,8 +108,13 @@ export function validateProfileActivationRef(value, label = "Profile activation"
     throw new TypeError(`${label}.components must be a bounded array`);
   }
   const components = Object.freeze(
-    activation.components.map((entry, index) =>
-      componentRef(entry, `${label}.components[${index}]`)),
+    activation.components
+      .map((entry, index) =>
+        componentRef(entry, `${label}.components[${index}]`))
+      .sort((left, right) =>
+        `${left.id}@${left.version}@${left.sha256}`.localeCompare(
+          `${right.id}@${right.version}@${right.sha256}`,
+        )),
   );
   const identities = new Set(
     components.map((entry) => `${entry.id}@${entry.version}@${entry.sha256}`),
@@ -126,6 +131,21 @@ export function validateProfileActivationRef(value, label = "Profile activation"
 
 function activationOrNull(value, label) {
   return value === null ? null : validateProfileActivationRef(value, label);
+}
+
+function activationIdentity(value) {
+  if (value === null) return null;
+  return JSON.stringify({
+    profile: value.profile,
+    components: value.components.map((entry) => ({
+      id: entry.id,
+      kind: entry.kind,
+      version: entry.version,
+      sha256: entry.sha256,
+      receiptSha256: entry.receiptSha256,
+      installedAt: entry.installedAt,
+    })),
+  });
 }
 
 export function createEmptyProfileActivationState(persistence = "session") {
@@ -171,6 +191,13 @@ export function validateProfileActivationState(value) {
     const previous = activationOrNull(row.previous, `${label}.previous`);
     if (current === null && previous === null) {
       throw new TypeError(`${label} cannot be empty`);
+    }
+    if (
+      current !== null
+      && previous !== null
+      && activationIdentity(current) === activationIdentity(previous)
+    ) {
+      throw new TypeError(`${label} current and previous must differ`);
     }
     return Object.freeze({
       spaceId: boundedText(row.spaceId, `${label}.spaceId`, 160),
