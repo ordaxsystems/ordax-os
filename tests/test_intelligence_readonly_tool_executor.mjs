@@ -47,10 +47,11 @@ function fixture({ failingHandler = false } = {}) {
       };
     },
   });
+  const metricsHandler = createSystemMetricsIntelligenceToolHandler(systemMetrics);
   const executor = createIntelligenceReadOnlyToolExecutor({
     authorizationBroker: authorization,
     toolRegistry: tools,
-    handlers: [createSystemMetricsIntelligenceToolHandler(systemMetrics)],
+    handlers: [metricsHandler],
     now: () => clock,
     createReceiptId: () => `tool-exec-receipt-${String(++executionReceiptOrdinal).padStart(16, "0")}`,
   });
@@ -58,6 +59,7 @@ function fixture({ failingHandler = false } = {}) {
   return {
     authorization,
     executor,
+    metricsHandler,
     tools,
     getReads: () => reads,
     tick(ms = 1) {
@@ -169,22 +171,15 @@ test("adapter failure consumes the one-shot grant and emits a sanitized failed e
   runtime.authorization.dispose();
 });
 
-test("executor rejects handlers for tools that remain non-invocable", () => {
+test("executor rejects duplicate governed handlers instead of choosing one implicitly", () => {
   const runtime = fixture();
   assert.throws(
     () => createIntelligenceReadOnlyToolExecutor({
       authorizationBroker: runtime.authorization,
       toolRegistry: runtime.tools,
-      handlers: [{
-        toolId: "observe-network-status",
-        capabilityId: "network.status",
-        targetScope: "network",
-        async execute() {
-          return [];
-        },
-      }],
+      handlers: [runtime.metricsHandler, runtime.metricsHandler],
     }),
-    /not enabled for governed invocation/,
+    /Duplicate Intelligence read-only handler/,
   );
   runtime.executor.dispose();
   runtime.authorization.dispose();

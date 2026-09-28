@@ -26,16 +26,16 @@ function descriptor(overrides = {}) {
   };
 }
 
-test("read-only tool registry exposes only canonical observable capabilities", () => {
+test("read-only tool registry exposes the canonical governed observability set", () => {
   const registry = createIntelligenceToolRegistry();
   const tools = registry.list();
 
   assert.deepEqual(
-    tools.map((tool) => [tool.id, tool.capabilityId]),
+    tools.map((tool) => [tool.id, tool.capabilityId, tool.invocationEnabled]),
     [
-      ["observe-system-metrics", "system.metrics"],
-      ["observe-network-status", "network.status"],
-      ["observe-power-status", "power.status"],
+      ["observe-system-metrics", "system.metrics", true],
+      ["observe-network-status", "network.status", true],
+      ["observe-power-status", "power.status", true],
     ],
   );
   for (const tool of tools) {
@@ -44,9 +44,6 @@ test("read-only tool registry exposes only canonical observable capabilities", (
     assert.equal(tool.mutatesState, false);
     assert.equal(tool.authority, "none");
   }
-  assert.equal(registry.get("observe-system-metrics").invocationEnabled, true);
-  assert.equal(registry.get("observe-network-status").invocationEnabled, false);
-  assert.equal(registry.get("observe-power-status").invocationEnabled, false);
   assert.equal(typeof registry.invoke, "undefined");
   assert.equal(typeof registry.register, "undefined");
 });
@@ -91,7 +88,7 @@ test("registry rejects capabilities outside the approved read-only product set",
   );
 });
 
-test("capability bridge reports availability and explicit invocation readiness without invoking", () => {
+test("capability bridge reports availability and governed invocation readiness without invoking", () => {
   const bridge = createIntelligenceCapabilityBridge();
   assert.equal(bridge.schema, INTELLIGENCE_CAPABILITY_BRIDGE_SCHEMA);
   assert.equal(typeof bridge.invoke, "undefined");
@@ -109,9 +106,9 @@ test("capability bridge reports availability and explicit invocation readiness w
     authority: "none",
   });
   assert.equal(network.available, true);
-  assert.equal(network.invocationEnabled, false);
+  assert.equal(network.invocationEnabled, true);
   assert.equal(power.available, false);
-  assert.equal(power.invocationEnabled, false);
+  assert.equal(power.invocationEnabled, true);
   assert.equal(bridge.inspect("unknown-tool", ["system.metrics"]), null);
 });
 
