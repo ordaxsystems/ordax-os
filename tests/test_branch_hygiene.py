@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -8,6 +9,7 @@ MODULE_PATH = ROOT / "tools" / "ops" / "branch_hygiene.py"
 spec = importlib.util.spec_from_file_location("branch_hygiene", MODULE_PATH)
 branch_hygiene = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
+sys.modules[spec.name] = branch_hygiene
 spec.loader.exec_module(branch_hygiene)
 
 
