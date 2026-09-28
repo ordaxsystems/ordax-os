@@ -1,0 +1,15 @@
+{
+  "$schema": "ordax.profile-pack-bundled-catalog/1",
+  "entries": [
+    {
+      "slug": "developer",
+      "version": 1,
+      "manifest": "/system/profile-packs/developer/v1/manifest.json"
+    },
+    {
+      "slug": "legal-br",
+      "version": 1,
+      "manifest": "/system/profile-packs/legal-br/v1/manifest.json"
+    }
+  ]
+}
