@@ -68,7 +68,7 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertNotIn("/__ordax/native/", controls)
         self.assertNotIn("localStorage", controls)
 
-    def test_projects_can_hand_off_a_typed_target_and_optional_one_shot_context_to_intelligence(self):
+    def test_projects_can_hand_off_a_typed_target_and_one_shot_context_to_intelligence(self):
         controls = self.text(PROJECTS / "ui" / "workspace-controls.mjs")
         runtime = self.text(PROJECTS / "runtime.mjs")
 
@@ -83,7 +83,8 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertIn("context: createProjectIntelligenceContext(item)", controls)
         self.assertIn('provenance: "ordax:projects:user-authorized-selection"', controls)
         self.assertIn("intelligenceContextShare = null", runtime)
-        self.assertIn("intelligenceContextShare,", runtime)
+        self.assertIn("getDefaultIntelligenceContextSharingRuntime", runtime)
+        self.assertIn("intelligenceContextShare: contextShare", runtime)
         self.assertNotIn("requestedCapabilities", controls)
         self.assertNotIn("text: project.path", controls)
         context_helper = controls.split("createProjectIntelligenceContext(project)", 1)[1].split(
