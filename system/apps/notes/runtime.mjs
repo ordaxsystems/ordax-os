@@ -2,6 +2,7 @@ import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs"
 import { getDefaultIntelligenceContextSharingRuntime } from "../../services/intelligence/context-sharing-runtime.mjs";
 import { NOTES_VERSION } from "./version.mjs";
 import { createNotesRuntime } from "./domain/runtime.mjs";
+import { mountNotesIntelligenceHandoffControls } from "./ui/intelligence-handoff-controls.mjs";
 import { mountNotesWorkspaceControls } from "./ui/workspace-controls.mjs";
 
 const NOTES_STYLESHEET_URL = new URL("./notes.css", import.meta.url).href;
@@ -64,8 +65,10 @@ export const componentRuntime = Object.freeze({
     const releaseStyles = await mountNotesStyles(root);
     let notesRuntime = null;
     let controls = null;
+    let intelligenceHandoffControls = null;
 
     const cleanup = () => {
+      intelligenceHandoffControls?.destroy();
       controls?.destroy();
       notesRuntime?.destroy();
       releaseStyles();
@@ -84,6 +87,15 @@ export const componentRuntime = Object.freeze({
           fileSpace,
           appActivation,
           intelligence,
+          intelligenceContextShare: contextShare,
+        },
+      );
+      intelligenceHandoffControls = mountNotesIntelligenceHandoffControls(
+        root,
+        notesRuntime,
+        surfaceLifecycle,
+        {
+          appActivation,
           intelligenceContextShare: contextShare,
         },
       );
