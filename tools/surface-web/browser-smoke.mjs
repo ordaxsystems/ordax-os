@@ -384,14 +384,15 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.sameInputAfterRestore = windowBefore.querySelector('[data-proof-draft]') === input;
     result.draftPreservedAfterRestore = input.value === 'rascunho-nao-persistido';
     result.scrollPreservedAfterRestore = bodyBefore.scrollTop === scrollBefore;
+    result.maximizedDatasetAfterRestore = windowBefore.dataset.maximized === 'true';
 
     const maximize = windowBefore.querySelector('[data-window-action="maximize"]');
     maximize.click();
-    result.sameWindowAfterMaximize = root.querySelector('[data-window-id="settings"]') === windowBefore;
-    result.maximizedDatasetAfterClick = windowBefore.dataset.maximized === 'true';
-    maximize.click();
     result.sameWindowAfterUnmaximize = root.querySelector('[data-window-id="settings"]') === windowBefore;
     result.maximizedDatasetAfterUnmaximize = windowBefore.dataset.maximized === 'false';
+    maximize.click();
+    result.sameWindowAfterRemaximize = root.querySelector('[data-window-id="settings"]') === windowBefore;
+    result.maximizedDatasetAfterRemaximize = windowBefore.dataset.maximized === 'true';
 
     root.querySelector('[data-launcher-toggle]').click();
     const systemLaunchBefore = root.querySelector('[data-launch-app="system"]');
@@ -415,10 +416,10 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
       'windowHiddenWhenMinimized', 'minimizedDatasetAfterClick', 'dockOffersRestore',
       'draftPreservedWhileMinimized', 'focusMovedToWorkspaceOnMinimize', 'sameWindowAfterRestore',
       'windowVisibleAfterRestore', 'sameInputAfterRestore', 'draftPreservedAfterRestore',
-      'scrollPreservedAfterRestore', 'sameWindowAfterMaximize', 'maximizedDatasetAfterClick',
-      'sameWindowAfterUnmaximize', 'maximizedDatasetAfterUnmaximize', 'sameLauncherNodeAfterSnapshot',
-      'launcherFocusPreserved', 'windowRemovedAfterClose', 'dockRemovedAfterClose',
-      'focusMovedToWorkspaceOnClose',
+      'scrollPreservedAfterRestore', 'maximizedDatasetAfterRestore', 'sameWindowAfterUnmaximize',
+      'maximizedDatasetAfterUnmaximize', 'sameWindowAfterRemaximize', 'maximizedDatasetAfterRemaximize',
+      'sameLauncherNodeAfterSnapshot', 'launcherFocusPreserved', 'windowRemovedAfterClose',
+      'dockRemovedAfterClose', 'focusMovedToWorkspaceOnClose',
     ];
     result.requiredAssertions = Object.fromEntries(required.map((name) => [name, Boolean(result[name])]));
     result.allCoreAssertions = result.launcherApps >= 4 && Object.values(result.requiredAssertions).every(Boolean);
