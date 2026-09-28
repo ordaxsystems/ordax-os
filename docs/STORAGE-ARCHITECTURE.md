@@ -188,6 +188,12 @@ Native Intelligence memory now coalesces synchronous save bursts before the
 fsync-backed host POST. `flush()` remains the durability barrier, so this
 reduces repeated flash writes without weakening the persistence contract.
 
+Surface liveness is also runtime state rather than user data. Its 15-second
+heartbeat lives under `/run/ordax-update/surface-heartbeat.json`; supervisor,
+telemetry and same-boot promotion consume that shared volatile file. It is
+recreated after boot and must never be persisted merely to detect current-boot
+liveness.
+
 For removable flash the policy allows zram as a volatile optimization but
 disables zram backing-device writeback by default. This follows the kernel's own
 warning that uncontrolled zram writeback can create flash wear. Any future
