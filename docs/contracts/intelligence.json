@@ -22,6 +22,7 @@
     "memory_contract": "ordax.memory/1",
     "memory_context_authority_contract": "ordax.memory-context-auth/1",
     "authorized_memory_bridge": "ordax.intelligence-authorized-memory/1",
+    "task_plan_contract": "ordax.intelligence-task-plan/1",
     "model_and_engine_replaceable": true,
     "cloud_provider_required": false,
     "production_native_composition": true,
@@ -58,7 +59,8 @@
     "ask",
     "explain",
     "summarize",
-    "diagnose"
+    "diagnose",
+    "plan"
   ],
   "deferred_capabilities": [
     "web-grounding",
@@ -83,6 +85,9 @@
     "native_conversational_client_mounted": true,
     "conversational_history_session_only": true,
     "conversational_web_grounding_enabled": false,
+    "consultative_planning_enabled": true,
+    "planning_can_execute": false,
+    "planning_can_grant_capabilities": false,
     "note_summary_is_read_only": true,
     "system_explanation_is_read_only": true,
     "backend_absence_must_not_block_surface": true,

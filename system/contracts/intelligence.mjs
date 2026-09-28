@@ -6,7 +6,7 @@ export const INTELLIGENCE_MAX_CONTEXT_ITEM_CHARS = 8192;
 export const INTELLIGENCE_MAX_CONTEXT_TOTAL_CHARS = 65536;
 
 const STATES = new Set(["degraded", "ready", "busy", "error"]);
-const INTENTS = new Set(["ask", "explain", "summarize", "diagnose"]);
+const INTENTS = new Set(["ask", "explain", "summarize", "diagnose", "plan"]);
 const CONTEXT_SCOPES = new Set(["user", "workspace", "system", "document"]);
 
 function boundedText(value, label, max) {

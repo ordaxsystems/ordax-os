@@ -1,0 +1,43 @@
+{
+  "$schema": "prototype-ordax.intelligence-task-plan/1",
+  "status": "source-foundation-consultative-only",
+  "product_name": "OrdaX Intelligence Task Planning",
+  "owner": "system/services/intelligence",
+  "stable_schema": "ordax.intelligence-task-plan/1",
+  "planner_schema": "ordax.intelligence-task-planner/1",
+  "purpose": "compile a user goal and authorized context into a bounded advisory plan before any future consequential execution",
+  "input": {
+    "goal_required": true,
+    "target_is_explicit_not_model_inferred": true,
+    "constraints_bounded": true,
+    "acceptance_criteria_bounded": true,
+    "context_uses_ordax_intelligence_context_boundary": true,
+    "context_requires_provenance": true
+  },
+  "output": {
+    "risk_default": "unassessed",
+    "requested_capabilities_default": [],
+    "advisory_model_text_allowed": true,
+    "engine_and_model_identity_recorded": true,
+    "authority": "none",
+    "executable": false,
+    "tool_execution": false
+  },
+  "security": {
+    "model_may_grant_capability": false,
+    "prompt_may_grant_capability": false,
+    "plan_may_execute_itself": false,
+    "implicit_file_write": false,
+    "implicit_shell": false,
+    "implicit_network_egress": false,
+    "implicit_system_mutation": false,
+    "future_execution_requires_separate_capability_contract": true,
+    "future_sensitive_action_requires_policy_or_approval": true
+  },
+  "relationship_to_nova_ordax": {
+    "legacy_concept": "Task IR + Context Capsule + verifier",
+    "reuse_mode": "clean-room architectural reimplementation",
+    "current_scope": "planning foundation only; no executor, tool manager or agent authority"
+  },
+  "next_gate": "mount Plan mode in the Intelligence app, then add deterministic risk/capability assessment and Context Capsule without enabling execution"
+}

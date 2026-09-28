@@ -20,6 +20,7 @@ const PURPOSE_BY_INTENT = Object.freeze({
   explain: "reason",
   summarize: "summarize",
   diagnose: "reason",
+  plan: "reason",
 });
 
 const INTELLIGENCE_SYSTEM_PROMPT = [
