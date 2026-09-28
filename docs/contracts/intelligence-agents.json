@@ -1,0 +1,48 @@
+{
+  "$schema": "prototype-ordax.intelligence-agents/1",
+  "status": "source-foundation-read-only",
+  "stable_contract": "ordax.intelligence-agent-registry/1",
+  "owner": "system/services/intelligence",
+  "purpose": "Named consultative identities for future bounded Intelligence orchestration without execution authority.",
+  "initial_agents": [
+    "system",
+    "search",
+    "file",
+    "workspace",
+    "developer"
+  ],
+  "registry": {
+    "immutable_descriptors": true,
+    "duplicate_ids_rejected": true,
+    "unknown_descriptor_fields_rejected": true,
+    "new_ids_require_no_contract_hardcode": true,
+    "runtime_mutation_api": false
+  },
+  "authority": {
+    "read_only": true,
+    "authority": "none",
+    "executable": false,
+    "tool_execution": false,
+    "shell_access": false,
+    "implicit_network_egress": false,
+    "file_write": false,
+    "system_mutation": false
+  },
+  "boundaries": {
+    "model_cannot_create_or_elevate_agents": true,
+    "prompt_cannot_grant_agent_authority": true,
+    "agent_identity_does_not_grant_context": true,
+    "agent_identity_does_not_grant_capability": true,
+    "agent_identity_does_not_grant_tool": true,
+    "context_still_requires_existing_authorization_contracts": true
+  },
+  "deferred": [
+    "agent-manager",
+    "tool-manager",
+    "capability-bridge",
+    "execution-receipts",
+    "web-grounding",
+    "mutating-actions",
+    "multi-agent-coordination"
+  ]
+}
