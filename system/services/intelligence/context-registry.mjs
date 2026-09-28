@@ -32,6 +32,30 @@ function explicitSourceSet(value) {
   return new Set(ids);
 }
 
+function authorizationMap(value) {
+  if (value == null) return new Map();
+  if (!Array.isArray(value) || value.length > MAX_CONTEXT_SOURCES) {
+    throw new TypeError("Intelligence context authorizations must be a bounded array");
+  }
+  const result = new Map();
+  for (const authorization of value) {
+    if (!authorization || typeof authorization !== "object" || Array.isArray(authorization)) {
+      throw new TypeError("Intelligence context authorization must be an object");
+    }
+    const sourceId = typeof authorization.sourceId === "string"
+      ? authorization.sourceId.trim()
+      : "";
+    if (!sourceId) {
+      throw new TypeError("Intelligence context authorization sourceId is invalid");
+    }
+    if (result.has(sourceId)) {
+      throw new TypeError(`Duplicate Intelligence context authorization: ${sourceId}`);
+    }
+    result.set(sourceId, authorization);
+  }
+  return result;
+}
+
 export function createIntelligenceContextRegistry({ sources = [] } = {}) {
   if (!Array.isArray(sources) || sources.length > MAX_CONTEXT_SOURCES) {
     throw new TypeError("Intelligence context registry sources must be a bounded array");
@@ -55,12 +79,35 @@ export function createIntelligenceContextRegistry({ sources = [] } = {}) {
       intent = "ask",
       includeExplicitSourceIds = [],
       authorization = null,
+      authorizations = [],
     } = {}) {
       const explicit = explicitSourceSet(includeExplicitSourceIds);
       for (const sourceId of explicit) {
         if (!sourceIdSet.has(sourceId)) {
           throw new TypeError(`Unknown Intelligence context source: ${sourceId}`);
         }
+      }
+
+      const perSourceAuthorization = authorizationMap(authorizations);
+      for (const sourceId of perSourceAuthorization.keys()) {
+        if (!sourceIdSet.has(sourceId)) {
+          throw new TypeError(`Unknown Intelligence context authorization source: ${sourceId}`);
+        }
+      }
+      if (authorization !== null) {
+        if (!authorization || typeof authorization !== "object" || Array.isArray(authorization)) {
+          throw new TypeError("Intelligence context authorization must be an object");
+        }
+        const sourceId = typeof authorization.sourceId === "string"
+          ? authorization.sourceId.trim()
+          : "";
+        if (!sourceIdSet.has(sourceId)) {
+          throw new TypeError(`Unknown Intelligence context authorization source: ${sourceId}`);
+        }
+        if (perSourceAuthorization.has(sourceId)) {
+          throw new TypeError(`Duplicate Intelligence context authorization: ${sourceId}`);
+        }
+        perSourceAuthorization.set(sourceId, authorization);
       }
 
       const context = [];
@@ -71,7 +118,7 @@ export function createIntelligenceContextRegistry({ sources = [] } = {}) {
         const collected = validateContextSourceResult(await source.collect({
           prompt,
           intent,
-          authorization,
+          authorization: perSourceAuthorization.get(source.id) ?? null,
         }));
         for (const item of collected) {
           if (contextIds.has(item.id)) {
