@@ -1,3 +1,4 @@
+import { assertIntelligenceContextSharePort } from "../../../contracts/intelligence-context-share.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { parseIntelligenceHandoffTarget } from "../../../contracts/intelligence-handoff.mjs";
 import { createIntelligenceChatSession } from "../session.mjs";
@@ -131,12 +132,18 @@ export function mountIntelligenceChatControls(
   root,
   intelligence,
   surfaceLifecycle,
-  { contextRegistry = null } = {},
+  {
+    contextRegistry = null,
+    contextShare: contextShareValue = null,
+  } = {},
 ) {
   if (!root || typeof root.querySelector !== "function" || !root.ownerDocument) {
     throw new TypeError("Intelligence chat requires a Surface root");
   }
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
+  const contextShare = contextShareValue === null
+    ? null
+    : assertIntelligenceContextSharePort(contextShareValue);
   const localization = lifecycle.localization;
   const t = localization.translate;
   const documentObject = root.ownerDocument;
@@ -145,11 +152,22 @@ export function mountIntelligenceChatControls(
   let sessionSnapshot = session.getSnapshot();
   let interactionMode = "chat";
   let activeHandoff = null;
+  let activeContextAuthorization = null;
   let consumedSurfaceTarget = null;
   let destroyed = false;
   let mountedSlot = null;
 
   const findSlot = () => root.querySelector(`${WINDOW_SELECTOR} ${EXTENSION_SELECTOR}`);
+
+  const revokeActiveContext = () => {
+    if (activeContextAuthorization === null) return;
+    try {
+      contextShare?.revoke(activeContextAuthorization);
+    } catch {
+      // A one-shot or expired grant may already be unavailable. Clearing remains safe.
+    }
+    activeContextAuthorization = null;
+  };
 
   const clearConsumedSurfaceTarget = (target) => {
     queueMicrotask(() => {
@@ -169,6 +187,9 @@ export function mountIntelligenceChatControls(
     if (target === consumedSurfaceTarget) return;
     consumedSurfaceTarget = target;
 
+    revokeActiveContext();
+    activeHandoff = null;
+
     let handoff;
     try {
       handoff = parseIntelligenceHandoffTarget(target);
@@ -179,6 +200,10 @@ export function mountIntelligenceChatControls(
     if (handoff === null) return;
 
     activeHandoff = handoff;
+    activeContextAuthorization = contextShare?.take({
+      sourceAppId: handoff.sourceAppId,
+      target: handoff.target,
+    }) ?? null;
     interactionMode = handoff.mode === "plan" ? "plan" : "chat";
     clearConsumedSurfaceTarget(target);
     queueMicrotask(() => {
@@ -255,10 +280,15 @@ export function mountIntelligenceChatControls(
     if (handoffDetail && handoffMatchesMode) {
       const label = activeHandoff.displayLabel
         ?? `${activeHandoff.target.kind}:${activeHandoff.target.id}`;
-      handoffDetail.textContent = t("intelligence.handoff.detail", {
-        label,
-        app: activeHandoff.sourceAppId,
-      });
+      handoffDetail.textContent = activeContextAuthorization === null
+        ? t("intelligence.handoff.detail", {
+            label,
+            app: activeHandoff.sourceAppId,
+          })
+        : t("intelligence.handoff.authorizedDetail", {
+            label: activeContextAuthorization.displayLabel ?? label,
+            app: activeHandoff.sourceAppId,
+          });
     }
 
     const input = view.querySelector("[data-intelligence-chat-input]");
@@ -334,10 +364,27 @@ export function mountIntelligenceChatControls(
     const prompt = input?.value ?? "";
     if (!prompt.trim()) return;
     if (input) input.value = "";
+    const authorizations = activeContextAuthorization === null
+      ? []
+      : [activeContextAuthorization];
+    activeContextAuthorization = null;
     const operation = interactionMode === "plan"
-      ? session.plan({ goal: prompt, target: activeHandoff?.target ?? null })
-      : session.send(prompt);
-    void operation.catch(() => {});
+      ? session.plan(
+          { goal: prompt, target: activeHandoff?.target ?? null },
+          { authorizations },
+        )
+      : session.send(prompt, { authorizations });
+    void operation
+      .catch(() => {})
+      .finally(() => {
+        for (const authorization of authorizations) {
+          try {
+            contextShare?.revoke(authorization);
+          } catch {
+            // Consumed/expired grants are already safe and need no cleanup.
+          }
+        }
+      });
   };
 
   const onClick = (event) => {
@@ -349,6 +396,7 @@ export function mountIntelligenceChatControls(
           activeHandoff !== null
           && (activeHandoff.mode === "plan" ? nextMode !== "plan" : nextMode !== "chat")
         ) {
+          revokeActiveContext();
           activeHandoff = null;
         }
         interactionMode = nextMode;
@@ -358,6 +406,7 @@ export function mountIntelligenceChatControls(
     }
     const clear = event.target?.closest?.("[data-intelligence-chat-clear]");
     if (!clear || !root.contains(clear)) return;
+    revokeActiveContext();
     activeHandoff = null;
     lifecycle.setAppTarget("intelligence", null);
     session.clear();
@@ -386,6 +435,7 @@ export function mountIntelligenceChatControls(
       root.removeEventListener("submit", onSubmit);
       root.removeEventListener("click", onClick);
       findSlot()?.querySelector("[data-ordax-intelligence-chat]")?.remove();
+      revokeActiveContext();
       session.dispose();
       activeHandoff = null;
       mountedSlot = null;
