@@ -45,6 +45,7 @@ test("Projects presentation preserves local identity and reports local-only stat
     linked: false,
     cloudProjectId: null,
     spaceId: null,
+    referenceCount: 0,
   });
   assert.equal(presentation.linkedCount, 0);
 });
@@ -71,6 +72,7 @@ test("Projects presentation overlays optional cloud identity without replacing l
   assert.equal(presentation.items[0].linked, true);
   assert.equal(presentation.items[0].cloudProjectId, CLOUD_A);
   assert.equal(presentation.items[0].spaceId, SPACE_A);
+  assert.equal(presentation.items[0].referenceCount, 0);
   assert.equal(presentation.linkedCount, 1);
 });
 
@@ -94,5 +96,6 @@ test("stale cloud links never fabricate local projects", () => {
   assert.equal(presentation.items.length, 1);
   assert.equal(presentation.items[0].id, "project-1");
   assert.equal(presentation.items[0].linked, false);
+  assert.equal(presentation.items[0].referenceCount, 0);
   assert.equal(presentation.linkedCount, 0);
 });
