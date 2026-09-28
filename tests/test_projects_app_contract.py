@@ -68,17 +68,28 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertNotIn("/__ordax/native/", controls)
         self.assertNotIn("localStorage", controls)
 
-    def test_projects_can_hand_off_a_typed_target_to_intelligence_without_private_content(self):
+    def test_projects_can_hand_off_a_typed_target_and_optional_one_shot_context_to_intelligence(self):
         controls = self.text(PROJECTS / "ui" / "workspace-controls.mjs")
+        runtime = self.text(PROJECTS / "runtime.mjs")
+
         self.assertIn("encodeIntelligenceHandoffTarget", controls)
+        self.assertIn("assertIntelligenceContextSharePort", controls)
         self.assertIn('appId: "intelligence"', controls)
         self.assertIn('sourceAppId: "projects"', controls)
         self.assertIn('mode: "plan"', controls)
-        self.assertIn('target: { kind: "project", id: item.id }', controls)
+        self.assertIn('const target = { kind: "project", id: item.id }', controls)
         self.assertIn("displayLabel: item.name", controls)
-        self.assertNotIn("context:", controls)
+        self.assertIn('sourceId: PROJECT_CONTEXT_SOURCE_ID', controls)
+        self.assertIn("context: createProjectIntelligenceContext(item)", controls)
+        self.assertIn('provenance: "ordax:projects:user-authorized-selection"', controls)
+        self.assertIn("intelligenceContextShare = null", runtime)
+        self.assertIn("intelligenceContextShare,", runtime)
         self.assertNotIn("requestedCapabilities", controls)
-        self.assertNotIn("item.path,\n            suggestedPrompt", controls)
+        self.assertNotIn("text: project.path", controls)
+        context_helper = controls.split("createProjectIntelligenceContext(project)", 1)[1].split(
+            "export function createProjectsPresentation", 1
+        )[0]
+        self.assertNotIn("project.path", context_helper)
 
     def test_projects_is_localized_and_visible_in_shared_shell(self):
         shell = self.text(SHELL)
