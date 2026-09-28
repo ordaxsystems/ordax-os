@@ -1,4 +1,5 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
+import { getDefaultIntelligenceContextSharingRuntime } from "../../services/intelligence/context-sharing-runtime.mjs";
 import { PROJECTS_VERSION } from "./version.mjs";
 import { probeProjectsDeviceAgent } from "./device-agent-status.mjs";
 import { mountProjectsDeviceAgentStatus } from "./ui/device-agent-status.mjs";
@@ -64,12 +65,14 @@ export const componentRuntime = Object.freeze({
 
     try {
       const deviceAgentStatus = await probeProjectsDeviceAgent(deviceAgentCapabilities);
+      const contextShare = intelligenceContextShare
+        ?? getDefaultIntelligenceContextSharingRuntime().share;
       controls = mountProjectsWorkspaceControls(root, {
         surfaceLifecycle,
         projects,
         projectCloudLinks,
         appActivation,
-        intelligenceContextShare,
+        intelligenceContextShare: contextShare,
       });
       if (deviceAgentStatus !== null) {
         deviceAgentControls = mountProjectsDeviceAgentStatus(
