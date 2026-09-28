@@ -25,6 +25,7 @@ const (
 	envelopeSchema = "prototype-ordax.profile-content-envelope/1"
 	trustSchema    = "prototype-ordax.profile-content-trust/1"
 	algorithm      = "ed25519"
+	contentFormat  = "ordax.profile-content-pack/1"
 
 	maxManifestBytes = 256 << 10
 	maxEnvelopeBytes = 16 << 10
@@ -60,6 +61,7 @@ type profileContentManifest struct {
 	Publisher                string           `json:"publisher"`
 	ContentHash              string           `json:"content_hash"`
 	ContentSize              int64            `json:"content_size"`
+	ContentFormat            string           `json:"content_format"`
 	Source                   sourceDescriptor `json:"source"`
 	RequestedCapabilities    []string         `json:"requested_capabilities"`
 	RuntimeNetworkAllowed    bool             `json:"runtime_network_allowed"`
@@ -127,6 +129,9 @@ func validateManifest(value profileContentManifest) error {
 	}
 	if value.ContentSize <= 0 || value.ContentSize > maxContentBytes {
 		return errors.New("Profile content size is outside allowed bounds")
+	}
+	if value.ContentFormat != contentFormat {
+		return errors.New("Profile content format is unsupported")
 	}
 	if err := boundedText(value.Source.URI, "source uri", 512); err != nil {
 		return err
