@@ -9,6 +9,7 @@ const PANEL_KINDS = new Set([
   "preference-choice",
   "extension",
 ]);
+const WINDOW_MODES = new Set(["maximized", "windowed"]);
 
 function freezeCapabilities(appId, label, values) {
   if (!Array.isArray(values)) {
@@ -82,6 +83,10 @@ export function defineFirstPartyApp(spec) {
   if (!Array.isArray(spec.requiredCapabilities) || !Array.isArray(spec.panels)) {
     throw new TypeError(`First-party app ${spec.id} has an invalid contract`);
   }
+  const windowMode = spec.windowMode ?? "maximized";
+  if (!WINDOW_MODES.has(windowMode)) {
+    throw new TypeError(`First-party app ${spec.id} has invalid windowMode: ${String(windowMode)}`);
+  }
   const requiredCapabilities = freezeCapabilities(
     spec.id,
     "required",
@@ -118,6 +123,7 @@ export function defineFirstPartyApp(spec) {
     description: spec.description,
     monogram: spec.monogram,
     singleton: spec.singleton !== false,
+    windowMode,
     component,
     requiredCapabilities,
     optionalCapabilities,
