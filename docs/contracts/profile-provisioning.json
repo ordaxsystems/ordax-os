@@ -25,14 +25,32 @@
     "public_profile_install_enabled": false,
     "store_enabled": false,
     "developer": "internal-proof-only",
-    "legal_br": "catalog-visible-activation-blocked"
+    "legal_br": "catalog-visible-activation-blocked",
+    "persistent_native_inventory_reader": true,
+    "surface_can_write_inventory": false
   },
   "next_gates": [
+    "trusted-profile-provisioning-executor-writes-verified-receipts",
     "signed-profile-component-artifact-contract",
     "transactional-download-stage-verify",
-    "persistent-installed-component-inventory",
     "profile-health-and-rollback",
     "surface-profile-catalog-ui",
     "first-public-profile-proof"
-  ]
+  ],
+  "inventory": {
+    "schema": "ordax.profile-component-inventory/1",
+    "port_schema": "ordax.profile-component-inventory-port/1",
+    "native_persistence": "device",
+    "web_persistence": "session",
+    "native_surface_access": "read-only",
+    "content_identity": [
+      "id",
+      "kind",
+      "sha256"
+    ],
+    "receipt_hash_required": true,
+    "stale_same_id_different_sha_is_installed": false,
+    "missing_inventory_blocks_boot": false,
+    "future_writer_owner": "trusted-profile-provisioning-executor"
+  }
 }
