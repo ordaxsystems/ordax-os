@@ -2,7 +2,7 @@ import {
   assertProfileActivationStatePort,
 } from "../../contracts/profile-activation-state.mjs";
 import {
-  validateProfilePackCatalog,
+  assertValidatedProfilePackCatalog,
 } from "../../contracts/profile-pack.mjs";
 import {
   validateProfilePackRestoreSnapshot,
@@ -50,7 +50,7 @@ export function resolveProfilePackRestore({
   provisioning,
   activationState,
 } = {}) {
-  const validatedPacks = validateProfilePackCatalog(packs);
+  const validatedPacks = assertValidatedProfilePackCatalog(packs);
   const provisioningPort = assertProfileProvisioningPort(provisioning);
   const activationPort = assertProfileActivationStatePort(activationState);
   const persisted = activationPort.getSnapshot();
