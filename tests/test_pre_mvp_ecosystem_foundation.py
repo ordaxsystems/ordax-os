@@ -13,6 +13,7 @@ SPACES = ROOT / "docs" / "contracts" / "spaces-and-profile-packs.json"
 MEMORY = ROOT / "docs" / "contracts" / "memory.json"
 MODEL_ROUTER = ROOT / "docs" / "contracts" / "model-router.json"
 APP_DISTRIBUTION = ROOT / "docs" / "contracts" / "app-distribution.json"
+PROFILE_PROVISIONING = ROOT / "docs" / "contracts" / "profile-provisioning.json"
 EXTERNAL_AI = ROOT / "docs" / "contracts" / "external-ai-bridge.json"
 LEGAL_PACK = ROOT / "system" / "profile-packs" / "legal-br" / "manifest.json"
 DEVELOPER_PACK = ROOT / "system" / "profile-packs" / "developer" / "manifest.json"
@@ -99,6 +100,27 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertTrue(router["rules"]["external_egress_requires_policy_and_user_visibility"])
         self.assertFalse(router["rules"]["memory_is_provider_owned"])
         self.assertTrue(router["rules"]["local_ai_remains_available_when_cloud_provider_unavailable"])
+
+    def test_profile_provisioning_keeps_usb_light_and_install_fail_closed(self):
+        provisioning = self.load(PROFILE_PROVISIONING)
+        architecture = provisioning["architecture"]
+        trust = provisioning["trust"]
+        mvp = provisioning["mvp"]
+        self.assertFalse(architecture["all_profile_payloads_preseeded_on_usb"])
+        self.assertTrue(architecture["lightweight_catalog_metadata_may_be_bundled"])
+        self.assertTrue(architecture["download_only_missing_components"])
+        self.assertTrue(architecture["installed_profile_works_offline_when_local_dependencies_are_present"])
+        self.assertTrue(architecture["space_and_memory_survive_profile_removal"])
+        self.assertTrue(trust["available_remote_component_requires_sha256"])
+        self.assertTrue(trust["available_remote_component_requires_signature"])
+        self.assertFalse(trust["planned_component_is_installable"])
+        self.assertFalse(trust["profile_may_auto_grant_privilege"])
+        self.assertFalse(trust["unsigned_payload_install_allowed"])
+        self.assertTrue(mvp["planner_enabled"])
+        self.assertFalse(mvp["download_executor_enabled"])
+        self.assertFalse(mvp["public_profile_install_enabled"])
+        self.assertFalse(mvp["store_enabled"])
+        self.assertEqual(mvp["legal_br"], "catalog-visible-activation-blocked")
 
     def test_store_foundation_never_bypasses_trust_or_permissions(self):
         distribution = self.load(APP_DISTRIBUTION)
