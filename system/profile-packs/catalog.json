@@ -4,12 +4,12 @@
     {
       "slug": "developer",
       "version": 1,
-      "manifest": "/profile-packs/developer/v1/manifest.json"
+      "manifest": "/system/profile-packs/developer/v1/manifest.json"
     },
     {
       "slug": "legal-br",
       "version": 1,
-      "manifest": "/profile-packs/legal-br/v1/manifest.json"
+      "manifest": "/system/profile-packs/legal-br/v1/manifest.json"
     }
   ]
 }
