@@ -53,6 +53,8 @@ test("blocked Legal-BR remains visible without pretending it is installable", ()
   assert.match(plan.reason, /Legal-BR remains unavailable/);
   assert.equal(plan.mayDownload, false);
   assert.equal(plan.mayActivate, false);
+  assert.equal(plan.componentsSatisfied, false);
+  assert.equal(plan.requiredMissing.length, 2);
   assert.deepEqual(plan.missing.map((item) => item.id), [
     "knowledge.legal-br-core",
     "skill.legal-document-review",
@@ -69,6 +71,9 @@ test("Developer metadata is tiny local proof and does not imply public install",
   assert.equal(plan.metadataBundled, true);
   assert.equal(plan.offlineAfterInstall, true);
   assert.equal(plan.requiredDownloadBytes, 0);
+  assert.equal(plan.componentsSatisfied, true);
+  assert.equal(plan.requiredMissing.length, 0);
+  assert.equal(plan.mayActivate, false);
 });
 
 test("available remote component requires exact sha256 and signature policy", () => {
@@ -113,6 +118,9 @@ test("available remote component requires exact sha256 and signature policy", ()
   assert.equal(installed.state, "already-provisioned");
   assert.equal(installed.mayActivate, true);
   assert.equal(installed.inventoryPersistence, "device");
+  assert.equal(installed.componentsSatisfied, true);
+  assert.equal(installed.alreadyInstalled[0].receiptSha256, "f".repeat(64));
+  assert.equal(installed.alreadyInstalled[0].installedAt, 1234);
 
   const staleHash = planProfileProvisioning({
     distribution: candidate,
