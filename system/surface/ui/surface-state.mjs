@@ -232,7 +232,7 @@ export function reduceSurfaceState(state, action) {
             id: windowId,
             appId: app.id,
             minimized: false,
-            maximized: false,
+            maximized: true,
             placementOrdinal: ordinal,
             positionX: null,
             positionY: null,
