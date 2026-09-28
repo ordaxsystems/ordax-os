@@ -67,7 +67,7 @@ test("default workspace starts with two real independent areas", () => {
   assert.equal(active(state).windows.length, 0);
 });
 
-test("launched windows receive stable placement ordinals inside the active area", () => {
+test("launched windows receive stable placement ordinals and start maximized", () => {
   let state = baseline();
   state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
   state = reduceSurfaceState(state, { type: "app.launch", appId: "settings" });
@@ -75,6 +75,8 @@ test("launched windows receive stable placement ordinals inside the active area"
   assert.equal(active(state).windows.length, 2);
   assert.equal(active(state).windows[0].placementOrdinal, 1);
   assert.equal(active(state).windows[1].placementOrdinal, 2);
+  assert.equal(active(state).windows[0].maximized, true);
+  assert.equal(active(state).windows[1].maximized, true);
   assert.equal(state.areas[1].windows.length, 0);
 });
 
@@ -89,6 +91,7 @@ test("focusing an already-active top window is a no-op", () => {
 test("area switching preserves independent window sets and focus", () => {
   let state = baseline();
   state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
   state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 123.4, y: 87.6 });
   const firstArea = active(state);
   assert.equal(firstArea.windows[0].positionX, 123);
@@ -233,14 +236,26 @@ test("area creation is bounded", () => {
   assert.equal(state.areas.length, MAX_WORKSPACE_AREAS);
 });
 
-test("maximize and movement are isolated to the active area", () => {
+test("maximized windows reject movement and preserve restored geometry", () => {
   let state = baseline();
   state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  assert.equal(active(state).windows[0].maximized, true);
+
+  const initialMaximized = state;
+  state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 300, y: 200 });
+  assert.equal(state, initialMaximized);
+
+  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
+  assert.equal(active(state).windows[0].maximized, false);
   state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 80, y: 64 });
+  assert.equal(active(state).windows[0].positionX, 80);
+  assert.equal(active(state).windows[0].positionY, 64);
+
   state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
   const maximizedState = state;
   state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 300, y: 200 });
   assert.equal(state, maximizedState);
+
   state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
   assert.equal(active(state).windows[0].positionX, 80);
   assert.equal(active(state).windows[0].positionY, 64);
@@ -262,10 +277,10 @@ test("invalid window coordinates fail closed", () => {
 test("workspace snapshot round-trips all areas and active area", () => {
   let state = baseline();
   state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
   state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 144, y: 96 });
   state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-2" });
   state = reduceSurfaceState(state, { type: "app.launch", appId: "settings" });
-  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "settings" });
 
   const snapshot = createWorkspaceSnapshot(state);
   const recovered = baseline(snapshot);

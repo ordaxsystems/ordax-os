@@ -88,7 +88,7 @@
         {
           "source_path": "bootstrap/kernel/vmlinuz-6.6.52",
           "target_path": "/ordax/vmlinuz",
-          "sha256": "43652d59b476e5c1db159ddd39b99bec40cc7e7f1d8879be393ac87534233ee0",
+          "sha256": "cbe9b7421d6d4ece48b6025866c371557e6301fef981336a52a949544e925205",
           "mode": "0644",
           "logical_owner": "kernel",
           "reason": "Shared Linux 6.6.52 candidate with built-in portable USB v2 exFAT/EROFS/loop/OverlayFS prerequisites plus retained post-MVP Native dm-crypt/AES-XTS/Btrfs prerequisites"

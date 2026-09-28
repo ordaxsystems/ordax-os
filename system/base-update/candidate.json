@@ -1,5 +1,5 @@
 {
   "$schema": "prototype-ordax.base-update-candidate/1",
-  "kernel_sha256": "43652d59b476e5c1db159ddd39b99bec40cc7e7f1d8879be393ac87534233ee0",
+  "kernel_sha256": "cbe9b7421d6d4ece48b6025866c371557e6301fef981336a52a949544e925205",
   "initramfs_sha256": "63a504c4349aebc43d9ed642ff14384191fd9804e8a657691ffe997441a9edf0"
 }

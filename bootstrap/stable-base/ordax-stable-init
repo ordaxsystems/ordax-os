@@ -62,6 +62,53 @@ disable_local_ai() {
     echo "ORDAX_LOCAL_AI_BACKEND=DEGRADED"
 }
 
+# Stable Base owns the supported Wi-Fi module coldplug boundary before the product
+# Surface starts. Do not synchronously probe every PCI/USB modalias here: that
+# makes unrelated hardware part of the boot-critical path. The kernel fragment
+# and Stable Base jointly define this bounded module set.
+coldplug_supported_wifi_modules() {
+    [ -x /sbin/modprobe ] || {
+        echo "ordax-stable-init: required modprobe is unavailable" >&2
+        return 1
+    }
+
+    attempted=0
+    loaded=0
+    unresolved=0
+    for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc; do
+        attempted=$((attempted + 1))
+        if /sbin/modprobe "$module" >/dev/null 2>&1; then
+            loaded=$((loaded + 1))
+        else
+            unresolved=$((unresolved + 1))
+        fi
+    done
+
+    wifi_interface=""
+    attempts=0
+    while [ "$attempts" -lt 10 ]; do
+        for netpath in /sys/class/net/*; do
+            [ -d "$netpath/wireless" ] || continue
+            wifi_interface=${netpath##*/}
+            break
+        done
+        [ -n "$wifi_interface" ] && break
+        attempts=$((attempts + 1))
+        [ "$attempts" -lt 10 ] && sleep 0.1
+    done
+
+    echo "ORDAX_WIFI_COLDPLUG=COMPLETE"
+    echo "ORDAX_WIFI_COLDPLUG_ATTEMPTED=$attempted"
+    echo "ORDAX_WIFI_COLDPLUG_LOADED=$loaded"
+    echo "ORDAX_WIFI_COLDPLUG_UNRESOLVED=$unresolved"
+    if [ -n "$wifi_interface" ]; then
+        echo "ORDAX_WIFI_INTERFACE=$wifi_interface"
+    else
+        echo "ORDAX_WIFI_INTERFACE=UNAVAILABLE"
+    fi
+    return 0
+}
+
 probe_local_ai_hardware() {
     LOCAL_AI_PROBE_REASON=
 
@@ -171,6 +218,9 @@ case "${ORDAX_RELEASE_MANIFEST_SCHEMA:-}" in
         fail "verified portable release manifest schema is missing or unsupported"
         ;;
 esac
+
+coldplug_supported_wifi_modules ||
+    fail "supported Wi-Fi coldplug could not be initialized"
 
 echo "ORDAX_STABLE_INIT_HANDOFF=VERIFIED"
 echo "ORDAX_STABLE_INIT_SOURCE_SHA=$ORDAX_SOURCE_SHA"

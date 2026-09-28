@@ -25,7 +25,7 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
     def test_current_kernel_binding_matches_portable_v2_capable_kernel(self):
         artifact = self.artifact("kernel")
         self.assertEqual(artifact["source_path"], "bootstrap/kernel/vmlinuz-6.6.52")
-        self.assertEqual(artifact["sha256"], "43652d59b476e5c1db159ddd39b99bec40cc7e7f1d8879be393ac87534233ee0")
+        self.assertEqual(artifact["sha256"], "cbe9b7421d6d4ece48b6025866c371557e6301fef981336a52a949544e925205")
 
     def test_current_initramfs_binding_matches_transactional_portable_capsule(self):
         artifact = self.artifact("initramfs")
