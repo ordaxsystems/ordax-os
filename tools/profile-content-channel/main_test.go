@@ -35,6 +35,68 @@ func fixtureManifest(content []byte) profileContentManifest {
 	}
 }
 
+func knowledgePackBytes(t *testing.T, content string) []byte {
+	t.Helper()
+	normalized := strings.TrimSpace(content)
+	digest := sha256.Sum256([]byte(normalized))
+	pack := map[string]any{
+		"schema": contentFormat,
+		"kind": "knowledge-pack",
+		"entries": []any{
+			map[string]any{
+				"id": "legal.example",
+				"mediaType": "text/plain",
+				"content": normalized,
+				"contentSha256": hex.EncodeToString(digest[:]),
+				"source": map[string]any{
+					"uri": "https://example.invalid/legal/source",
+					"revision": "rev-1",
+					"license": "test-only",
+					"jurisdiction": "BR",
+					"title": "Fonte jurídica de teste",
+				},
+			},
+		},
+	}
+	payload, err := json.Marshal(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return payload
+}
+
+func skillPackBytes(t *testing.T, instructions string) []byte {
+	t.Helper()
+	normalized := strings.TrimSpace(instructions)
+	digest := sha256.Sum256([]byte(normalized))
+	pack := map[string]any{
+		"schema": contentFormat,
+		"kind": "skill-pack",
+		"entries": []any{
+			map[string]any{
+				"id": "legal.review",
+				"title": "Revisão jurídica",
+				"instructions": normalized,
+				"instructionsSha256": hex.EncodeToString(digest[:]),
+				"authority": "none",
+				"toolIds": []string{},
+				"source": map[string]any{
+					"uri": "https://example.invalid/legal/skill",
+					"revision": "rev-1",
+					"license": "test-only",
+					"jurisdiction": "BR",
+					"title": "Skill jurídica de teste",
+				},
+			},
+		},
+	}
+	payload, err := json.Marshal(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return payload
+}
+
 func writeJSON(t *testing.T, path string, value any) {
 	t.Helper()
 	payload, err := json.MarshalIndent(value, "", "  ")
@@ -49,7 +111,7 @@ func writeJSON(t *testing.T, path string, value any) {
 
 func TestProfileContentRoundTripUsesSeparateTrustDomain(t *testing.T) {
 	dir := t.TempDir()
-	content := []byte("ordax profile content proof\n")
+	content := knowledgePackBytes(t, "ordax profile content proof")
 	contentPath := filepath.Join(dir, "content.pack")
 	if err := os.WriteFile(contentPath, content, 0o644); err != nil {
 		t.Fatal(err)
@@ -92,7 +154,7 @@ func TestProfileContentRoundTripUsesSeparateTrustDomain(t *testing.T) {
 
 func TestTamperedContentAndWrongTrustFailClosed(t *testing.T) {
 	dir := t.TempDir()
-	content := []byte("trusted bytes\n")
+	content := knowledgePackBytes(t, "trusted bytes")
 	contentPath := filepath.Join(dir, "content.pack")
 	if err := os.WriteFile(contentPath, content, 0o644); err != nil {
 		t.Fatal(err)
@@ -166,7 +228,7 @@ func TestManifestRejectsAuthorityAndUnsupportedKinds(t *testing.T) {
 func signedFixture(t *testing.T) (string, string, string, string, string) {
 	t.Helper()
 	dir := t.TempDir()
-	content := []byte("verified profile content slot\n")
+	content := knowledgePackBytes(t, "verified profile content slot")
 	contentPath := filepath.Join(dir, "content.pack")
 	if err := os.WriteFile(contentPath, content, 0o644); err != nil {
 		t.Fatal(err)
@@ -239,6 +301,15 @@ func TestStageCreatesImmutableContentAddressedSlotWithoutActivation(t *testing.T
 	if _, err := verifyStagedSlot(slot, trustPath); err != nil {
 		t.Fatal(err)
 	}
+	health, err := inspectStagedSlotHealth(slot, trustPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if health.State != "healthy" || health.EntryCount != 1 ||
+		!health.PerEntryHashVerified || !health.PerEntryProvenanceVerified ||
+		health.ExecutablePayloadAllowed || health.Authority != "none" {
+		t.Fatalf("unsafe structural health: %+v", health)
+	}
 	if runtime.GOOS != "windows" {
 		info, err := os.Stat(filepath.Join(slot, stageContentName))
 		if err != nil {
@@ -300,5 +371,59 @@ func TestTamperedInstalledStageIsRejected(t *testing.T) {
 		root,
 	); err == nil || !strings.Contains(err.Error(), "existing Profile content slot failed verification") {
 		t.Fatalf("restage over tampered slot error = %v", err)
+	}
+}
+
+
+func TestStructuralHealthRejectsInnerHashKindAndSkillAuthority(t *testing.T) {
+	knowledge := knowledgePackBytes(t, "trusted")
+	var pack map[string]any
+	if err := json.Unmarshal(knowledge, &pack); err != nil {
+		t.Fatal(err)
+	}
+	entries := pack["entries"].([]any)
+	entry := entries[0].(map[string]any)
+	entry["contentSha256"] = strings.Repeat("a", 64)
+	tampered, err := json.Marshal(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateProfileContentPackBytes(tampered, "knowledge-pack"); err == nil ||
+		!strings.Contains(err.Error(), "does not match content") {
+		t.Fatalf("inner hash tamper error = %v", err)
+	}
+
+	validKnowledge := knowledgePackBytes(t, "trusted")
+	if _, err := validateProfileContentPackBytes(validKnowledge, "skill-pack"); err == nil ||
+		!strings.Contains(err.Error(), "kind does not match") {
+		t.Fatalf("kind mismatch error = %v", err)
+	}
+
+	skill := skillPackBytes(t, "Review without mutation.")
+	var skillPack map[string]any
+	if err := json.Unmarshal(skill, &skillPack); err != nil {
+		t.Fatal(err)
+	}
+	skillEntries := skillPack["entries"].([]any)
+	skillEntry := skillEntries[0].(map[string]any)
+	skillEntry["toolIds"] = []string{"filesystem.write"}
+	withTool, err := json.Marshal(skillPack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateProfileContentPackBytes(withTool, "skill-pack"); err == nil ||
+		!strings.Contains(err.Error(), "toolIds must remain empty") {
+		t.Fatalf("skill tool authority error = %v", err)
+	}
+
+	skillEntry["toolIds"] = []string{}
+	skillEntry["authority"] = "mutable"
+	mutable, err := json.Marshal(skillPack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateProfileContentPackBytes(mutable, "skill-pack"); err == nil ||
+		!strings.Contains(err.Error(), "authority must remain none") {
+		t.Fatalf("skill mutable authority error = %v", err)
 	}
 }
