@@ -441,17 +441,45 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED", promotion)
         self.assertIn("CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE", current)
         self.assertIn(
-            "FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING",
+            "FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING",
+            current,
+        )
+        self.assertIn("FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING", current)
+        self.assertIn("FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING", current)
+        self.assertIn(
+            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION",
             current,
         )
         self.assertIn(
             "PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO_FRESH_CONSENT_REQUIRED",
             current,
         )
-        self.assertNotIn(
-            "FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED",
+        self.assertIn(
+            "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
             current,
         )
+        self.assertIn(
+            "PORTABLE_PHYSICAL_USB_BOOT_PRE_HARDENING=PASS_PHYSICAL_STABLE_MVP",
+            current,
+        )
+        self.assertIn(
+            "PORTABLE_PHYSICAL_USB_BOOT_CURRENT_MAIN=PENDING_PHYSICAL_RETEST",
+            current,
+        )
+        self.assertIn(
+            "CANONICAL_SIGNED_RELEASE_BOOT_PRE_HARDENING=PASS_PHYSICAL_STABLE_MVP_USB",
+            current,
+        )
+        self.assertIn(
+            "CANONICAL_SIGNED_RELEASE_BOOT_CURRENT_MAIN=PENDING_PHYSICAL_RETEST",
+            current,
+        )
+        self.assertNotIn(
+            "FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING",
+            current,
+        )
+        self.assertNotIn("FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED", current)
+        self.assertNotIn("PORTABLE_PHYSICAL_USB_BOOT=NO", current)
         self.assertIn(
             "FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING",
             plan,
