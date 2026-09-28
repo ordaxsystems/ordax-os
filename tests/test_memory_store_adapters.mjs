@@ -204,7 +204,7 @@ test("synchronous Native memory bursts coalesce to the newest snapshot", async (
   assert.equal(store.load().items[0].id, "newer");
 });
 
-test("Native memory flush does not report a false failure after a newer queued save became durable", async () => {
+test("Native memory flush retries only the coalesced newest snapshot after a transient failure", async () => {
   const postedIds = [];
   let postCalls = 0;
   let releaseFirst;
@@ -229,7 +229,7 @@ test("Native memory flush does not report a false failure after a newer queued s
   releaseFirst({ ok: false, status: 503 });
 
   assert.equal(await flushing, true);
-  assert.deepEqual(postedIds, ["older", "newer", "newer"]);
+  assert.deepEqual(postedIds, ["newer", "newer"]);
   assert.equal(store.load().items[0].id, "newer");
 });
 
