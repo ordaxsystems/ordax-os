@@ -6,15 +6,23 @@ on:
     paths:
       - 'system/contracts/portable-runtime-policy.mjs'
       - 'system/contracts/hardware-pack.mjs'
+      - 'system/contracts/hardware-inventory.mjs'
+      - 'system/adapters/native/hardware-inventory.mjs'
+      - 'system/surface/runtime/native_hardware_inventory.py'
+      - 'system/surface/runtime/native_host_server.py'
       - 'system/adapters/native/memory.mjs'
       - 'system/surface/runtime/ordax_browser_host.py'
       - 'system/surface/runtime/browser_session_store.py'
       - 'docs/contracts/portable-runtime-policy.json'
       - 'docs/contracts/hardware-pack.json'
       - 'docs/contracts/hardware-support-matrix.json'
+      - 'docs/contracts/product-capabilities.json'
       - 'docs/STORAGE-ARCHITECTURE.md'
       - 'PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md'
       - 'tests/test_portable_runtime_and_hardware_pack.mjs'
+      - 'tests/test_hardware_inventory.mjs'
+      - 'tests/test_native_hardware_inventory.py'
+      - 'tests/test_native_hardware_inventory_contract.py'
       - 'tests/test_memory_store_adapters.mjs'
       - 'tests/test_memory_native_adapter_bounds.mjs'
       - 'tests/test_browser_session_store.py'
@@ -24,15 +32,23 @@ on:
     paths:
       - 'system/contracts/portable-runtime-policy.mjs'
       - 'system/contracts/hardware-pack.mjs'
+      - 'system/contracts/hardware-inventory.mjs'
+      - 'system/adapters/native/hardware-inventory.mjs'
+      - 'system/surface/runtime/native_hardware_inventory.py'
+      - 'system/surface/runtime/native_host_server.py'
       - 'system/adapters/native/memory.mjs'
       - 'system/surface/runtime/ordax_browser_host.py'
       - 'system/surface/runtime/browser_session_store.py'
       - 'docs/contracts/portable-runtime-policy.json'
       - 'docs/contracts/hardware-pack.json'
       - 'docs/contracts/hardware-support-matrix.json'
+      - 'docs/contracts/product-capabilities.json'
       - 'docs/STORAGE-ARCHITECTURE.md'
       - 'PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md'
       - 'tests/test_portable_runtime_and_hardware_pack.mjs'
+      - 'tests/test_hardware_inventory.mjs'
+      - 'tests/test_native_hardware_inventory.py'
+      - 'tests/test_native_hardware_inventory_contract.py'
       - 'tests/test_memory_store_adapters.mjs'
       - 'tests/test_memory_native_adapter_bounds.mjs'
       - 'tests/test_browser_session_store.py'
@@ -62,19 +78,22 @@ jobs:
           set -euo pipefail
           node --check system/contracts/portable-runtime-policy.mjs
           node --check system/contracts/hardware-pack.mjs
+          node --check system/contracts/hardware-inventory.mjs
+          node --check system/adapters/native/hardware-inventory.mjs
           node --check system/adapters/native/memory.mjs
           python -m json.tool docs/contracts/portable-runtime-policy.json >/dev/null
           python -m json.tool docs/contracts/hardware-pack.json >/dev/null
           python -m json.tool docs/contracts/hardware-support-matrix.json >/dev/null
-          python -m py_compile system/surface/runtime/ordax_browser_host.py system/surface/runtime/browser_session_store.py
+          python -m py_compile system/surface/runtime/ordax_browser_host.py system/surface/runtime/browser_session_store.py system/surface/runtime/native_hardware_inventory.py system/surface/runtime/native_host_server.py
 
       - name: Regress low-write runtime and hardware packs
         run: |
           set -euo pipefail
           node --test tests/test_portable_runtime_and_hardware_pack.mjs
+          node --test tests/test_hardware_inventory.mjs
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
-          python -m unittest tests.test_browser_session_store tests.test_browser_session_integration_contract -v
+          python -m unittest tests.test_browser_session_store tests.test_browser_session_integration_contract tests.test_native_hardware_inventory tests.test_native_hardware_inventory_contract -v
 
       - name: Assert fail-closed portable defaults
         run: |
