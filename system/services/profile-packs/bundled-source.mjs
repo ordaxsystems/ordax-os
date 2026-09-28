@@ -6,7 +6,7 @@ import {
 import { validateProfilePack } from "../../contracts/profile-pack.mjs";
 
 export const DEFAULT_BUNDLED_PROFILE_PACK_CATALOG =
-  "/profile-packs/catalog.json";
+  "/system/profile-packs/catalog.json";
 
 function assertCatalogPath(value) {
   if (value !== DEFAULT_BUNDLED_PROFILE_PACK_CATALOG) {
