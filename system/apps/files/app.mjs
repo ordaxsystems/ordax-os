@@ -9,6 +9,9 @@ export const filesApp = defineFirstPartyApp({
   singleton: true,
   component: filesComponent,
   requiredCapabilities: [],
+  intelligence: {
+    contextSourceIds: ["file-selection"],
+  },
   panels: [
     {
       kind: "extension",
