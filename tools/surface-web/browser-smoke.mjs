@@ -334,6 +334,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     const slotBefore = windowBefore?.querySelector('[data-app-extension="settings-overview"]');
     const bodyBefore = windowBefore?.querySelector('.ordax-window-body');
     result.settingsWindowCreated = Boolean(windowBefore && slotBefore && bodyBefore);
+    result.settingsStartsMaximized = windowBefore?.dataset.maximized === 'true';
 
     bodyBefore.style.height = '120px';
     bodyBefore.style.maxHeight = '120px';
@@ -387,11 +388,11 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
 
     const maximize = windowBefore.querySelector('[data-window-action="maximize"]');
     maximize.click();
-    result.sameWindowAfterMaximize = root.querySelector('[data-window-id="settings"]') === windowBefore;
-    result.maximizedDatasetAfterClick = windowBefore.dataset.maximized === 'true';
-    maximize.click();
     result.sameWindowAfterUnmaximize = root.querySelector('[data-window-id="settings"]') === windowBefore;
     result.maximizedDatasetAfterUnmaximize = windowBefore.dataset.maximized === 'false';
+    maximize.click();
+    result.sameWindowAfterRemaximize = root.querySelector('[data-window-id="settings"]') === windowBefore;
+    result.maximizedDatasetAfterRemaximize = windowBefore.dataset.maximized === 'true';
 
     root.querySelector('[data-launcher-toggle]').click();
     const systemLaunchBefore = root.querySelector('[data-launch-app="system"]');
@@ -407,7 +408,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.focusMovedToWorkspaceOnClose = document.activeElement === root.querySelector('[data-workspace]');
 
     const required = [
-      'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
+      'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'settingsStartsMaximized', 'focusBeforeSnapshot',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
       'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
       'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',
@@ -415,8 +416,8 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
       'windowHiddenWhenMinimized', 'minimizedDatasetAfterClick', 'dockOffersRestore',
       'draftPreservedWhileMinimized', 'focusMovedToWorkspaceOnMinimize', 'sameWindowAfterRestore',
       'windowVisibleAfterRestore', 'sameInputAfterRestore', 'draftPreservedAfterRestore',
-      'scrollPreservedAfterRestore', 'sameWindowAfterMaximize', 'maximizedDatasetAfterClick',
-      'sameWindowAfterUnmaximize', 'maximizedDatasetAfterUnmaximize', 'sameLauncherNodeAfterSnapshot',
+      'scrollPreservedAfterRestore', 'sameWindowAfterUnmaximize', 'maximizedDatasetAfterUnmaximize',
+      'sameWindowAfterRemaximize', 'maximizedDatasetAfterRemaximize', 'sameLauncherNodeAfterSnapshot',
       'launcherFocusPreserved', 'windowRemovedAfterClose', 'dockRemovedAfterClose',
       'focusMovedToWorkspaceOnClose',
     ];

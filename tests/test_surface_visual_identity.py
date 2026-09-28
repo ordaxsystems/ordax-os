@@ -12,6 +12,9 @@ PROJECTS_CSS = ROOT / "system" / "apps" / "projects" / "projects.css"
 NOTES_CSS = ROOT / "system" / "apps" / "notes" / "notes.css"
 INTERNET_CSS = ROOT / "system" / "apps" / "internet" / "internet.css"
 SETTINGS_CSS = SURFACE / "settings.css"
+ACCOUNT_CSS = SURFACE / "account.css"
+SYSTEM_CSS = SURFACE / "system.css"
+LOCK_CSS = SURFACE / "local-session-lock.css"
 INTER_FONT = SURFACE / "fonts" / "inter-latin-wght-normal.woff2"
 INTER_SOURCE = ROOT / "third_party" / "fonts" / "Inter-Latin-Variable-SOURCE.md"
 INTER_LICENSE = ROOT / "third_party" / "licenses" / "Inter-OFL-1.1.txt"
@@ -72,6 +75,53 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
             self.assertIn('name="theme-color" content="#080f19"', html)
+
+    def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
+        css = (SURFACE / "identity.css").read_text(encoding="utf-8")
+        for declaration in (
+            ".ordax-launcher {",
+            "top: auto;",
+            "transform: translateX(-50%);",
+            ".ordax-launcher-app .ordax-app-mark {",
+            ".ordax-statusbar {",
+            ".ordax-running-app[data-active=\"true\"] {",
+            ".ordax-quick-panel-layer {",
+            ".ordax-quick-panel-header {",
+        ):
+            self.assertIn(declaration, css)
+
+    def test_local_session_lock_uses_product_tokens_without_legacy_warm_fallback(self):
+        css = LOCK_CSS.read_text(encoding="utf-8")
+        for legacy in ("#efede6", "#f8f6ef"):
+            self.assertNotIn(legacy, css)
+        for declaration in (
+            "var(--ordax-bg-start)",
+            "var(--ordax-panel)",
+            "var(--ordax-button-bg)",
+            "var(--ordax-button-text)",
+            "var(--ordax-focus)",
+            "prefers-reduced-motion",
+        ):
+            self.assertIn(declaration, css)
+
+    def test_account_and_system_views_follow_shared_surface_materials(self):
+        account = ACCOUNT_CSS.read_text(encoding="utf-8")
+        system = SYSTEM_CSS.read_text(encoding="utf-8")
+        for css in (account, system):
+            for declaration in (
+                "var(--ordax-panel)",
+                "var(--ordax-accent)",
+                "var(--ordax-border-soft)",
+                "var(--ordax-focus)",
+                "var(--ordax-motion-fast)",
+                "prefers-reduced-motion",
+            ):
+                self.assertIn(declaration, css)
+        self.assertIn("var(--ordax-button-bg)", account)
+        self.assertIn("var(--ordax-button-text)", account)
+        self.assertIn(".ordax-account-navigation-item[data-active=\"true\"]", account)
+        self.assertIn(".ordax-system-navigation-item[data-active=\"true\"]", system)
+        self.assertIn("box-shadow: 0 0 10px", system)
 
     def test_projects_consumes_semantic_tokens_in_component_css(self):
         css = PROJECTS_CSS.read_text(encoding="utf-8")

@@ -3,8 +3,9 @@
   min-height: 450px;
   overflow: hidden;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-md);
-  background: var(--ordax-surface-strong);
+  border-radius: var(--ordax-radius-lg);
+  background: color-mix(in srgb, var(--ordax-app-bg) 94%, var(--ordax-panel));
+  box-shadow: var(--ordax-shadow-soft);
 }
 
 .ordax-app-extension[data-app-extension="settings-overview"]:not([data-ordax-settings-overview-view]) {
@@ -14,22 +15,25 @@
 .ordax-settings-view {
   display: grid;
   color: var(--ordax-text);
+  background:
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--ordax-accent) 5%, transparent), transparent 24%),
+    var(--ordax-app-bg);
 }
 
 .ordax-settings-navigation {
   display: flex;
-  gap: 4px;
-  padding: 8px 18px;
+  gap: 5px;
+  padding: 9px 18px;
   overflow-x: auto;
   border-bottom: 1px solid var(--ordax-border-soft);
-  background: var(--ordax-subtle-bg);
+  background: color-mix(in srgb, var(--ordax-panel) 58%, transparent);
 }
 
 .ordax-settings-navigation-item {
   min-height: 34px;
   flex: 0 0 auto;
   padding: 0 11px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: var(--ordax-radius-sm);
   background: transparent;
   color: var(--ordax-muted);
@@ -37,10 +41,15 @@
   font-size: 0.72rem;
   font-weight: 620;
   cursor: pointer;
+  transition:
+    color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-settings-navigation-item:hover,
 .ordax-settings-navigation-item:focus-visible {
+  border-color: var(--ordax-border-soft);
   background: var(--ordax-hover-bg);
   color: var(--ordax-text);
   outline: 2px solid var(--ordax-focus);
@@ -48,32 +57,34 @@
 }
 
 .ordax-settings-navigation-item[data-active="true"] {
-  background: var(--ordax-window-bg);
+  border-color: var(--ordax-border-soft);
+  background: var(--ordax-selected-bg);
   color: var(--ordax-text);
   box-shadow: inset 0 -2px 0 var(--ordax-accent);
 }
 
 .ordax-settings-header {
-  padding: 24px 26px 22px;
+  padding: 26px 28px 23px;
   border-bottom: 1px solid var(--ordax-border-soft);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ordax-panel) 24%, transparent), transparent);
 }
 
 .ordax-settings-eyebrow,
 .ordax-settings-section-kicker {
   display: block;
   color: var(--ordax-muted);
-  font-size: 0.65rem;
-  font-weight: 720;
-  letter-spacing: 0.14em;
+  font-size: 0.64rem;
+  font-weight: 650;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
 .ordax-settings-title {
   margin: 7px 0 0;
   font-family: var(--ordax-font-display);
-  font-size: clamp(1.8rem, 3vw, 2.55rem);
-  font-weight: 400;
-  letter-spacing: -0.035em;
+  font-size: clamp(1.9rem, 3vw, 2.65rem);
+  font-weight: 430;
+  letter-spacing: var(--ordax-tracking-tight);
 }
 
 .ordax-settings-subtitle {
@@ -81,11 +92,11 @@
   margin: 8px 0 0;
   color: var(--ordax-muted);
   font-size: 0.8rem;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .ordax-settings-section {
-  padding: 21px 26px 23px;
+  padding: 22px 28px 24px;
   border-bottom: 1px solid var(--ordax-border-soft);
 }
 
@@ -95,8 +106,8 @@
 
 .ordax-settings-section-title {
   margin: 6px 0 0;
-  font-size: 0.98rem;
-  font-weight: 650;
+  font-size: 1rem;
+  font-weight: 620;
 }
 
 .ordax-settings-section-copy {
@@ -104,13 +115,13 @@
   margin: 7px 0 0;
   color: var(--ordax-muted);
   font-size: 0.74rem;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .ordax-settings-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px;
+  gap: 10px;
   margin-top: 16px;
 }
 
@@ -121,26 +132,33 @@
   min-height: 112px;
   align-items: center;
   gap: 14px;
-  padding: 12px;
+  padding: 13px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: transparent;
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 38%, transparent);
   color: var(--ordax-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    transform var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-settings-option:hover,
 .ordax-settings-option:focus-visible {
   border-color: var(--ordax-border);
   background: var(--ordax-hover-bg);
+  transform: translateY(-1px);
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
 }
 
 .ordax-settings-option[data-selected="true"] {
-  border-color: var(--ordax-text);
+  border-color: color-mix(in srgb, var(--ordax-accent) 62%, var(--ordax-border));
+  background: var(--ordax-selected-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ordax-accent) 10%, transparent);
 }
 
 .ordax-settings-theme-preview {
@@ -152,6 +170,7 @@
   border: 1px solid var(--ordax-border);
   border-radius: 8px;
   background: #f7f9fc;
+  box-shadow: var(--ordax-shadow-soft);
 }
 
 .ordax-settings-theme-preview[data-theme-preview="dark"] {
@@ -195,6 +214,7 @@
 
 .ordax-settings-option-copy strong {
   font-size: 0.9rem;
+  font-weight: 620;
 }
 
 .ordax-settings-option-copy small {
@@ -215,9 +235,11 @@
 .ordax-settings-keyboard-message,
 .ordax-settings-keyboard-state {
   margin: 12px 0 0;
-  padding: 9px 11px;
+  padding: 10px 12px;
+  border: 1px solid var(--ordax-border-soft);
   border-left: 3px solid var(--ordax-border);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-sm);
+  background: color-mix(in srgb, var(--ordax-panel) 40%, transparent);
   color: var(--ordax-muted);
   font-size: 0.7rem;
   line-height: 1.45;
@@ -244,12 +266,15 @@
   min-height: 86px;
   padding: 12px 14px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: transparent;
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 34%, transparent);
   color: var(--ordax-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-settings-keyboard-option:hover,
@@ -261,7 +286,8 @@
 }
 
 .ordax-settings-keyboard-option[data-selected="true"] {
-  border-color: var(--ordax-text);
+  border-color: color-mix(in srgb, var(--ordax-accent) 58%, var(--ordax-border));
+  background: var(--ordax-selected-bg);
 }
 
 .ordax-settings-keyboard-option:disabled {
@@ -297,7 +323,6 @@
   text-align: right;
 }
 
-
 .ordax-settings-notification-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -306,8 +331,8 @@
   margin-top: 12px;
   padding: 12px 14px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 38%, transparent);
 }
 
 .ordax-settings-notification-copy {
@@ -356,6 +381,7 @@
 
 .ordax-settings-notification-action[aria-pressed="true"] {
   border-color: var(--ordax-accent);
+  background: var(--ordax-selected-bg);
 }
 
 .ordax-settings-notification-persistence {
@@ -374,8 +400,8 @@
   margin-top: 14px;
   padding: 10px 12px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 38%, transparent);
 }
 
 .ordax-settings-network-list {
@@ -389,7 +415,8 @@
   min-width: 0;
   padding: 11px 12px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 26%, transparent);
 }
 
 .ordax-settings-network-dot {
@@ -402,6 +429,7 @@
 .ordax-settings-network-service[data-state="online"] .ordax-settings-network-dot,
 .ordax-settings-network-item[data-state="connected"] .ordax-settings-network-dot {
   background: var(--ordax-accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ordax-accent) 30%, transparent);
 }
 
 .ordax-settings-network-copy {
@@ -496,14 +524,18 @@
 }
 
 .ordax-settings-network-primary {
-  border-color: var(--ordax-accent);
+  border-color: var(--ordax-button-bg);
+  background: var(--ordax-button-bg);
+  color: var(--ordax-button-text);
 }
 
 .ordax-settings-network-message {
   margin: 0;
   padding: 9px 11px;
+  border: 1px solid var(--ordax-border-soft);
   border-left: 3px solid var(--ordax-accent);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-sm);
+  background: color-mix(in srgb, var(--ordax-panel) 40%, transparent);
   color: var(--ordax-muted);
   font-size: 0.7rem;
   line-height: 1.4;
@@ -523,8 +555,8 @@
   min-width: 0;
   padding: 11px 12px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: transparent;
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 24%, transparent);
   color: var(--ordax-text);
   font: inherit;
   text-align: left;
@@ -532,8 +564,8 @@
 }
 
 .ordax-settings-wifi-network[data-selected="true"] {
-  border-color: var(--ordax-text);
-  background: var(--ordax-subtle-bg);
+  border-color: color-mix(in srgb, var(--ordax-accent) 60%, var(--ordax-border));
+  background: var(--ordax-selected-bg);
 }
 
 .ordax-settings-wifi-network[data-connected="true"] .ordax-settings-network-dot {
@@ -572,8 +604,8 @@
   gap: 9px;
   padding: 12px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 40%, transparent);
 }
 
 .ordax-settings-wifi-password-label {
@@ -592,7 +624,7 @@
   padding: 0 10px;
   border: 1px solid var(--ordax-border);
   border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-surface-strong);
+  background: var(--ordax-window-bg);
   color: var(--ordax-text);
   font: inherit;
   font-size: 0.76rem;
@@ -607,7 +639,8 @@
   margin: 0;
   padding: 12px;
   border: 1px dashed var(--ordax-border);
-  border-radius: var(--ordax-radius-sm);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 24%, transparent);
   color: var(--ordax-muted);
   font-size: 0.74rem;
 }
@@ -652,7 +685,6 @@
   }
 }
 
-
 .ordax-settings-security-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
@@ -667,7 +699,7 @@
   padding: 0 10px;
   border: 1px solid var(--ordax-border);
   border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-surface-strong);
+  background: var(--ordax-window-bg);
   color: var(--ordax-text);
   font: inherit;
   font-size: 0.76rem;
