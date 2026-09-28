@@ -1,0 +1,36 @@
+{
+  "$schema": "prototype-ordax.intelligence-app-integration/1",
+  "status": "canonical-app-owned-metadata-foundation",
+  "owner": "system/apps/app-contract.mjs",
+  "catalog": "system/apps/catalog.mjs",
+  "automatic_context": "first-party-app-catalog",
+  "metadata": {
+    "context_source_ids": "declared-by-app-owner",
+    "tool_ids": "declared-by-app-owner",
+    "defaults_to_empty": true,
+    "duplicate_ids_rejected": true,
+    "invalid_ids_rejected": true,
+    "unknown_fields_rejected": true
+  },
+  "authority": {
+    "metadata_grants_context": false,
+    "metadata_grants_tools": false,
+    "metadata_grants_network": false,
+    "metadata_grants_filesystem": false,
+    "metadata_grants_mutation": false,
+    "prompt_can_change_metadata": false
+  },
+  "current_context_integrations": {
+    "files": [
+      "file-selection"
+    ],
+    "projects": [
+      "project-selection",
+      "project-evidence-selection"
+    ],
+    "notes": [
+      "note-selection"
+    ]
+  },
+  "scalability_rule": "New first-party apps join Intelligence structural knowledge through defineFirstPartyApp; optional context/tool integration is declared on the same canonical app definition instead of a parallel assistant list."
+}
