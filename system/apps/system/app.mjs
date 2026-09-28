@@ -9,6 +9,14 @@ export const systemApp = defineFirstPartyApp({
   singleton: true,
   component: systemComponent,
   requiredCapabilities: [],
+  intelligence: {
+    contextSourceIds: [],
+    toolIds: [
+      "observe-system-metrics",
+      "observe-network-status",
+      "observe-power-status",
+    ],
+  },
   panels: [
     {
       kind: "extension",
