@@ -296,6 +296,12 @@
     "profile_content_publication_enabled": false,
     "profile_activation_state_device_persistent": true,
     "profile_activation_rolls_back_space_data": false,
-    "profile_activation_http_mutation_enabled": false
+    "profile_activation_http_mutation_enabled": false,
+    "profile_manifest_source_of_truth": "system/profile-packs/*/manifest.json",
+    "profile_manifest_generated_projection_checked": true,
+    "profile_device_restore_enabled": true,
+    "profile_device_restore_boot_critical": false,
+    "profile_device_restore_drift_policy": "disabled-safe",
+    "profile_device_restore_rewinds_space_data": false
   }
 }
