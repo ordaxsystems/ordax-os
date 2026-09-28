@@ -224,6 +224,8 @@ export function reduceSurfaceState(state, action) {
 
       const ordinal = area.nextWindowOrdinal;
       const windowId = app.singleton ? app.id : `${app.id}:${ordinal}`;
+      const hasWindowOverride = Object.prototype.hasOwnProperty.call(action, "maximized");
+      const maximized = hasWindowOverride ? action.maximized === true : app.windowMode === "maximized";
       return updateActiveArea(state, (current) => ({
         ...current,
         windows: [
@@ -232,7 +234,7 @@ export function reduceSurfaceState(state, action) {
             id: windowId,
             appId: app.id,
             minimized: false,
-            maximized: action.maximized === true,
+            maximized,
             placementOrdinal: ordinal,
             positionX: null,
             positionY: null,
