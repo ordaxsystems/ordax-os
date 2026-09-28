@@ -82,6 +82,35 @@ def load_contract() -> dict:
         raise StableBaseError("Stable Base may not contain a source checkout")
     if value.get("development_helpers_allowed") is not False:
         raise StableBaseError("Stable Base may not contain development helpers")
+    kernel_modules = value.get("kernel_modules")
+    if not isinstance(kernel_modules, dict):
+        raise StableBaseError("Stable Base kernel module policy is missing")
+    required_modules = kernel_modules.get("required_basenames")
+    coldplug_entrypoints = kernel_modules.get("coldplug_entrypoints")
+    if (
+        not isinstance(required_modules, list)
+        or not required_modules
+        or len(required_modules) != len(set(required_modules))
+        or any(
+            not isinstance(name, str)
+            or re.fullmatch(r"[A-Za-z0-9_+-]{1,80}", name) is None
+            for name in required_modules
+        )
+    ):
+        raise StableBaseError("Stable Base required kernel module list is invalid")
+    if (
+        not isinstance(coldplug_entrypoints, list)
+        or not coldplug_entrypoints
+        or len(coldplug_entrypoints) != len(set(coldplug_entrypoints))
+        or any(
+            not isinstance(name, str)
+            or re.fullmatch(r"[A-Za-z0-9_+-]{1,80}", name) is None
+            for name in coldplug_entrypoints
+        )
+        or not set(coldplug_entrypoints).issubset(required_modules)
+    ):
+        raise StableBaseError("Stable Base coldplug entrypoints are invalid")
+
     if value.get("build", {}).get("physical_artifact_authorized") is not False:
         raise StableBaseError("Stable Base physical artifact must remain unauthorized")
     pinned = alpine.get("archive_sha256")
