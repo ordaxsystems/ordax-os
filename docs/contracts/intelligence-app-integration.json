@@ -10,7 +10,9 @@
     "defaults_to_empty": true,
     "duplicate_ids_rejected": true,
     "invalid_ids_rejected": true,
-    "unknown_fields_rejected": true
+    "unknown_fields_rejected": true,
+    "declared_context_sources_must_resolve_in_canonical_registry": true,
+    "declared_tools_must_resolve_in_canonical_registry": true
   },
   "authority": {
     "metadata_grants_context": false,
@@ -31,6 +33,19 @@
     "notes": [
       "note-selection"
     ]
+  },
+  "current_tool_integrations": {
+    "system": [
+      "observe-system-metrics",
+      "observe-network-status",
+      "observe-power-status"
+    ]
+  },
+  "tool_policy": {
+    "catalog_metadata_is_not_invocation_authority": true,
+    "declared_tools_must_remain_read_only_in_current_foundation": true,
+    "declared_tools_must_have_authority_none_in_current_foundation": true,
+    "actual_execution_still_requires_capability_bridge_and_typed_grant": true
   },
   "scalability_rule": "New first-party apps join Intelligence structural knowledge through defineFirstPartyApp; optional context/tool integration is declared on the same canonical app definition instead of a parallel assistant list."
 }
