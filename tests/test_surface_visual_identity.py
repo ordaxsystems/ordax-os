@@ -129,11 +129,12 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             "color: var(--ordax-text)",
             "color: var(--ordax-muted)",
             "border: 1px solid var(--ordax-border-soft)",
-            "border-radius: var(--ordax-radius-md)",
-            "background: color-mix(in srgb, var(--ordax-panel) 58%, transparent)",
+            "border-radius: var(--ordax-radius-lg)",
+            "background: color-mix(in srgb, var(--ordax-panel) 66%, transparent)",
             "box-shadow: var(--ordax-shadow-soft)",
             "border: 1px solid var(--ordax-border)",
             "outline: 2px solid var(--ordax-focus)",
+            "var(--ordax-accent)",
             "prefers-reduced-motion",
         ):
             self.assertIn(declaration, css)
