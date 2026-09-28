@@ -86,6 +86,12 @@ on:
       - 'system/composition/web/main.mjs'
       - 'tests/test_profile_pack_catalog.mjs'
       - 'tests/test_profile_pack_catalog.py'
+      - 'system/contracts/profile-component-inventory.mjs'
+      - 'system/services/profile-packs/inventory.mjs'
+      - 'system/adapters/native/profile-component-inventory.mjs'
+      - 'system/surface/runtime/native_profile_component_inventory.py'
+      - 'tests/test_profile_component_inventory.mjs'
+      - 'tests/test_native_profile_component_inventory.py'
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
@@ -171,6 +177,12 @@ on:
       - 'system/composition/web/main.mjs'
       - 'tests/test_profile_pack_catalog.mjs'
       - 'tests/test_profile_pack_catalog.py'
+      - 'system/contracts/profile-component-inventory.mjs'
+      - 'system/services/profile-packs/inventory.mjs'
+      - 'system/adapters/native/profile-component-inventory.mjs'
+      - 'system/surface/runtime/native_profile_component_inventory.py'
+      - 'tests/test_profile_component_inventory.mjs'
+      - 'tests/test_native_profile_component_inventory.py'
       - '.github/workflows/intelligence-foundation.yml'
   workflow_dispatch:
 
@@ -208,8 +220,11 @@ jobs:
           node --check system/contracts/profile-pack.mjs
           node --check system/contracts/profile-pack-catalog.mjs
           node --check system/contracts/profile-provisioning.mjs
+          node --check system/contracts/profile-component-inventory.mjs
           node --check system/profile-packs/distributions.mjs
           node --check system/services/profile-packs/catalog.mjs
+          node --check system/services/profile-packs/inventory.mjs
+          node --check system/adapters/native/profile-component-inventory.mjs
           find system/services/intelligence system/services/local-ai system/services/memory system/services/profile-packs -type f -name '*.mjs' -print0 \
             | sort -z \
             | xargs -0 -n1 node --check
@@ -219,6 +234,7 @@ jobs:
           python -m py_compile system/surface/runtime/native_memory_state.py
           python -m py_compile system/surface/runtime/native_memory_endpoint.py
           python -m py_compile system/surface/runtime/native_host_server.py
+          python -m py_compile system/surface/runtime/native_profile_component_inventory.py
           python -m py_compile tools/local-ai-baseline/report.py
           python -m py_compile tools/local-ai-baseline/compare.py
           python -m py_compile tools/local-ai-benchmark/benchmark.py
@@ -265,6 +281,7 @@ jobs:
           node --test tests/test_profile_pack_runtime.mjs
           node --test tests/test_profile_pack_catalog.mjs
           node --test tests/test_profile_provisioning.mjs
+          node --test tests/test_profile_component_inventory.mjs
           node --test tests/test_profile_provisioning_runtime.mjs
           python -m unittest tests.test_local_ai_baseline -v
           python -m unittest tests.test_local_ai_baseline_compare -v
@@ -275,3 +292,4 @@ jobs:
           python -m unittest tests.test_native_memory_integration -v
           python -m unittest tests.test_profile_pack_runtime tests.test_profile_pack_catalog -v
           python -m unittest tests.test_pre_mvp_ecosystem_foundation -v
+          python -m unittest tests.test_native_profile_component_inventory -v
