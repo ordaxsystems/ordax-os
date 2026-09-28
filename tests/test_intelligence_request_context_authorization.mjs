@@ -130,6 +130,65 @@ test("context share keeps private payload out of the handoff and releases it onc
   grants.dispose();
 });
 
+test("authorized document share preserves the selected target in a chat capsule", async () => {
+  const grants = createGrantBroker();
+  const shares = createIntelligenceContextShare(grants);
+  const contextRegistry = createIntelligenceContextRegistry({
+    sources: [
+      createGrantedIntelligenceContextSource({
+        id: "note-selection",
+        title: "Nota selecionada",
+        grants,
+      }),
+    ],
+  });
+  const intelligence = createFakeIntelligence();
+  const session = createIntelligenceChatSession(intelligence, { contextRegistry });
+
+  shares.offer({
+    sourceAppId: "notes",
+    sourceId: "note-selection",
+    target: { kind: "document", id: "note-42" },
+    displayLabel: "Decisões da reunião",
+    context: [{
+      id: "note-42",
+      scope: "document",
+      text: "Título: Decisões da reunião\n\nConteúdo:\nAprovar protótipo offline.",
+      provenance: "ordax:notes:note-42:user-authorized-selection",
+    }],
+  });
+  const authorization = shares.take({
+    sourceAppId: "notes",
+    target: { kind: "document", id: "note-42" },
+  });
+  assert.ok(authorization);
+
+  await session.send(
+    "Resuma esta nota com foco nas decisões.",
+    { authorizations: [authorization] },
+  );
+
+  const capsule = session.getSnapshot().lastContextCapsule;
+  assert.deepEqual(capsule.target, { kind: "document", id: "note-42" });
+  assert.deepEqual(capsule.sourceIds, ["note-selection"]);
+  assert.equal(capsule.context[0].scope, "document");
+  assert.equal(capsule.authority, "none");
+  assert.equal(capsule.executable, false);
+  assert.equal(capsule.toolExecution, false);
+
+  await assert.rejects(
+    () => session.send(
+      "Repita usando o mesmo contexto.",
+      { authorizations: [authorization] },
+    ),
+    /unavailable or already consumed/,
+  );
+
+  session.dispose();
+  shares.dispose();
+  grants.dispose();
+});
+
 test("a newer share from the same app replaces the older pending selection", () => {
   const grants = createGrantBroker();
   const shares = createIntelligenceContextShare(grants);
