@@ -26,7 +26,7 @@ function inspectTool(tool, availableCapabilities) {
     capabilityId: tool.capabilityId,
     available: availableCapabilities.has(tool.capabilityId),
     readOnly: true,
-    invocationEnabled: false,
+    invocationEnabled: tool.invocationEnabled,
     authority: "none",
   });
 }
