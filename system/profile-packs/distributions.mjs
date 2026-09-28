@@ -25,6 +25,7 @@ const legalBr = validateProfileDistribution({
     {
       id: "knowledge.legal-br-core",
       kind: "knowledge-pack",
+      version: "0.1.0",
       required: true,
       availability: "planned",
       sha256: null,
@@ -34,6 +35,7 @@ const legalBr = validateProfileDistribution({
     {
       id: "skill.legal-document-review",
       kind: "skill-pack",
+      version: "0.1.0",
       required: true,
       availability: "planned",
       sha256: null,
