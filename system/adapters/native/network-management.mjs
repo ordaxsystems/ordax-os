@@ -4,6 +4,7 @@ import {
   validateNetworkManagementSnapshot,
   validateWifiCredentials,
 } from "../../contracts/network-management.mjs";
+import { NETWORK_CONNECTIVITY_ESTABLISHED_EVENT } from "../../contracts/connectivity-signal.mjs";
 
 const SESSION_ENDPOINT = "/__ordax/native/session";
 const NETWORK_ENDPOINT = "/__ordax/native/network-management";
@@ -21,6 +22,17 @@ async function readNetworkToken(windowRef) {
     throw new Error("Native network token is unavailable");
   }
   return payload.networkToken;
+}
+
+function signalConnectivityEstablished(windowRef) {
+  if (typeof windowRef.dispatchEvent !== "function") return false;
+  const EventConstructor = windowRef.Event ?? globalThis.Event;
+  if (typeof EventConstructor !== "function") return false;
+  try {
+    return windowRef.dispatchEvent(new EventConstructor(NETWORK_CONNECTIVITY_ESTABLISHED_EVENT));
+  } catch {
+    return false;
+  }
 }
 
 export async function createNativeNetworkManagement(windowRef = globalThis.window) {
@@ -58,9 +70,11 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
     scan() {
       return request("POST", "scan");
     },
-    connect(credentials) {
+    async connect(credentials) {
       const value = validateWifiCredentials(credentials);
-      return request("POST", "connect", value);
+      const snapshot = await request("POST", "connect", value);
+      if (snapshot.currentSsid === value.ssid) signalConnectivityEstablished(windowRef);
+      return snapshot;
     },
     disconnect() {
       return request("POST", "disconnect");
@@ -68,8 +82,16 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
     forget() {
       return request("POST", "forget");
     },
-    reconnect() {
-      return request("POST", "reconnect");
+    async reconnect() {
+      const snapshot = await request("POST", "reconnect");
+      if (
+        snapshot.currentSsid !== null
+        && snapshot.savedSsid !== null
+        && snapshot.currentSsid === snapshot.savedSsid
+      ) {
+        signalConnectivityEstablished(windowRef);
+      }
+      return snapshot;
     },
   };
 

@@ -2,6 +2,7 @@ import {
   IDENTITY_SESSION_SCHEMA,
   validateIdentitySessionSnapshot,
 } from "../../contracts/identity-session.mjs";
+import { NETWORK_CONNECTIVITY_ESTABLISHED_EVENT } from "../../contracts/connectivity-signal.mjs";
 
 const SESSION_ENDPOINT = "/auth/session";
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
@@ -73,6 +74,16 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     }
   };
 
+  const refreshAfterConnectivity = () => {
+    if (!disposed) void refresh();
+  };
+  if (typeof windowRef.addEventListener === "function") {
+    windowRef.addEventListener(
+      NETWORK_CONNECTIVITY_ESTABLISHED_EVENT,
+      refreshAfterConnectivity,
+    );
+  }
+
   return Object.freeze({
     schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot() {
@@ -89,6 +100,12 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     refresh,
     dispose() {
       disposed = true;
+      if (typeof windowRef.removeEventListener === "function") {
+        windowRef.removeEventListener(
+          NETWORK_CONNECTIVITY_ESTABLISHED_EVENT,
+          refreshAfterConnectivity,
+        );
+      }
       listeners.clear();
     },
   });
