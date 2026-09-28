@@ -244,6 +244,16 @@ def bind(repo_root: Path, proof_path: Path) -> dict:
     release_binding = auth.get("release_binding")
     if not isinstance(release_binding, dict):
         raise BindingError("physical authorization release binding is missing")
+    requirements = auth.get("requirements")
+    if (
+        not isinstance(requirements, dict)
+        or "canonical_v4_release_proof_bound" not in requirements
+    ):
+        raise BindingError("physical authorization proof-bound requirement is missing")
+    if auth["status"] == PRE_PROOF_STATUS and requirements.get("canonical_v4_release_proof_bound") is not False:
+        raise BindingError("pre-proof authorization state must not claim a current canonical v4 proof binding")
+    if auth["status"] == POST_PROOF_STATUS and requirements.get("canonical_v4_release_proof_bound") is not True:
+        raise BindingError("post-proof authorization state must retain the current canonical v4 proof binding")
 
     _assert_existing_binding_is_idempotent(
         status=auth["status"],
@@ -264,6 +274,7 @@ def bind(repo_root: Path, proof_path: Path) -> dict:
             "release_envelope_sha256": proof["release_envelope_sha256"],
         }
     )
+    requirements["canonical_v4_release_proof_bound"] = True
     auth["status"] = POST_PROOF_STATUS
 
     destination = root / DESTINATION_PATH
