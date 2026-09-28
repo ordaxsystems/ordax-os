@@ -7,11 +7,12 @@ import {
 import {
   LOCAL_PROFILE_DISTRIBUTIONS,
 } from "../system/profile-packs/distributions.mjs";
+import { createSessionProfileComponentInventory } from "../system/services/profile-packs/inventory.mjs";
 
 test("runtime projects local Profile availability without performing installation", () => {
   const runtime = createProfileProvisioningRuntime({
     distributions: LOCAL_PROFILE_DISTRIBUTIONS,
-    readInstalledComponentIds: () => [],
+    inventory: createSessionProfileComponentInventory(),
     readNetworkAvailable: () => true,
   });
 
@@ -24,7 +25,7 @@ test("runtime projects local Profile availability without performing installatio
 });
 
 test("runtime re-evaluates installed components and network without mutating Profile data", () => {
-  let installed = [];
+  let installedEntries = [];
   let online = false;
   const candidate = structuredClone(LOCAL_PROFILE_DISTRIBUTIONS[1]);
   const raw = {
@@ -46,16 +47,37 @@ test("runtime re-evaluates installed components and network without mutating Pro
     }],
   };
 
+  const inventory = {
+    schema: "ordax.profile-component-inventory-port/1",
+    getSnapshot() {
+      return {
+        schema: "ordax.profile-component-inventory/1",
+        revision: installedEntries.length,
+        persistence: "device",
+        entries: installedEntries,
+      };
+    },
+    async refresh() {
+      return this.getSnapshot();
+    },
+    dispose() {},
+  };
   const runtime = createProfileProvisioningRuntime({
     distributions: [raw],
-    readInstalledComponentIds: () => installed,
+    inventory,
     readNetworkAvailable: () => online,
   });
 
   assert.equal(runtime.get("legal-br", 1).state, "network-required");
   online = true;
   assert.equal(runtime.refresh()[0].state, "ready");
-  installed = ["knowledge.legal-br-core"];
+  installedEntries = [{
+    id: "knowledge.legal-br-core",
+    kind: "knowledge-pack",
+    sha256: "c".repeat(64),
+    installedAt: 1234,
+    receiptSha256: "d".repeat(64),
+  }];
   online = false;
   assert.equal(runtime.get("legal-br", 1).state, "already-provisioned");
   assert.equal(runtime.get("legal-br", 1).offlineAfterInstall, true);
@@ -64,6 +86,7 @@ test("runtime re-evaluates installed components and network without mutating Pro
 test("runtime rejects duplicate profile distribution identity", () => {
   assert.throws(
     () => createProfileProvisioningRuntime({
+      inventory: createSessionProfileComponentInventory(),
       distributions: [
         LOCAL_PROFILE_DISTRIBUTIONS[0],
         LOCAL_PROFILE_DISTRIBUTIONS[0],
@@ -76,6 +99,7 @@ test("runtime rejects duplicate profile distribution identity", () => {
 test("disposed runtime cannot be reused", () => {
   const runtime = createProfileProvisioningRuntime({
     distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+    inventory: createSessionProfileComponentInventory(),
   });
   runtime.dispose();
   assert.throws(() => runtime.list(), /disposed/);
