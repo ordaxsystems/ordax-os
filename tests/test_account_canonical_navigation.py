@@ -101,7 +101,9 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
 
         self.assertIn("assertProfileProvisioningPort", controls)
         self.assertIn("renderProfiles", controls)
-        self.assertIn("account.profiles.state.blocked", controls)
+        self.assertIn("account.profiles.state.${plan.state}", controls)
+        self.assertIn('"account.profiles.state.blocked": "Em breve"', catalog)
+        self.assertIn('"account.profiles.state.blocked": "Coming soon"', catalog)
         self.assertIn('"account.section.profiles": "Perfis"', catalog)
         self.assertIn('"account.section.profiles": "Profiles"', catalog)
         self.assertIn("nenhuma instalação é simulada", catalog)
