@@ -260,8 +260,29 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                     lock_path=str(lock_path),
                 )
 
-    def test_native_http_host_does_not_expose_activation_mutation(self):
+    def test_native_state_rejects_identical_current_and_previous(self):
+        module = load_module()
+        same = activation(components=[])
+        with self.assertRaisesRegex(ValueError, "current and previous must differ"):
+            module.validate_profile_activation_state({
+                "schema": "ordax.profile-activation-state/1",
+                "revision": 1,
+                "persistence": "device",
+                "spaces": [{
+                    "spaceId": "space-1",
+                    "current": same,
+                    "previous": {**same, "activatedAt": 500},
+                }],
+            })
+
+    def test_native_http_host_exposes_only_activation_read(self):
         host = HOST.read_text(encoding="utf-8")
+        self.assertIn(
+            'PROFILE_ACTIVATION_STATE_PATH = "/__ordax/native/profile-activation-state"',
+            host,
+        )
+        self.assertIn("read_profile_activation_state", host)
+        self.assertIn("if self.path == PROFILE_ACTIVATION_STATE_PATH:", host)
         self.assertNotIn("activate_profile(", host)
         self.assertNotIn("deactivate_profile(", host)
         self.assertNotIn("rollback_profile(", host)
