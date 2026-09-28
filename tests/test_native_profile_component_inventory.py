@@ -41,6 +41,7 @@ class NativeProfileComponentInventoryTests(unittest.TestCase):
                 "entries": [{
                     "id": "knowledge.example",
                     "kind": "knowledge-pack",
+                    "version": "1.2.3",
                     "sha256": "a" * 64,
                     "installedAt": 1234,
                     "receiptSha256": "b" * 64,
@@ -59,6 +60,7 @@ class NativeProfileComponentInventoryTests(unittest.TestCase):
             "entries": [{
                 "id": "knowledge.example",
                 "kind": "knowledge-pack",
+                "version": "1.2.3",
                 "sha256": "a" * 64,
                 "installedAt": 1234,
                 "receiptSha256": "b" * 64,
