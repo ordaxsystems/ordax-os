@@ -134,7 +134,10 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - metadados de offline/cache;
 - estado installable/blocked explícito;
 - nenhum download sem artifact identity + versão + SHA-256 + assinatura exigida;
-- Knowledge/Skill possuem proof Ed25519 de bytes e proveniência, ainda sem ativação pública;
+- Knowledge/Skill possuem proof Ed25519, health estrutural por entrada e proveniência, ainda sem ativação pública;
+- stage saudável gera evidence verificável, receipt e inventário Native sob lock;
+- ativação local possui estado Native privado `current/previous` por Space, com rollback da composição;
+- rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
 ### Ainda bloqueado
@@ -169,16 +172,17 @@ O modelo de IA nunca é fonte jurídica autoritativa.
 
 Depois da prova MVP:
 
-1. Knowledge Pack runtime/ingestion sobre o proof assinado já existente;
-2. Skill Pack runtime sobre o proof assinado já existente;
-3. executor confiável de provisioning que verifique pacote, faça stage/health e grave receipts no inventário Native;
-4. Store/catalog remoto assinado;
-5. downloads transacionais;
-6. Profile Stack;
-7. UI de escolha no primeiro uso/Conta;
-8. atualização independente por componente;
-9. compartilhamento de Spaces;
-10. packs adicionais: Comércio, Clínica administrativa, Educação, Creator etc.
+1. conectar Knowledge Pack saudável ao retrieval/Intelligence sem torná-lo memória autoritativa;
+2. conectar Skill Pack declarativo ao contexto de Intelligence sem conceder tools automaticamente;
+3. concluir o comando confiável de ativação por intenção do usuário sobre o estado Native `current/previous`;
+4. restaurar composição ativa no boot sem tornar Profile boot-critical;
+5. Store/catalog remoto assinado;
+6. downloads transacionais;
+7. Profile Stack com resolução de conflitos pela policy mais restritiva;
+8. UI de escolha no primeiro uso/Conta;
+9. atualização independente por componente com permission diff;
+10. compartilhamento de Spaces;
+11. packs adicionais: Comércio, Clínica administrativa, Educação, Creator etc.
 
 ## 9. Regras invariantes
 
