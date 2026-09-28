@@ -18,6 +18,7 @@ MAX_PROFILE_COMPONENT_INVENTORY_BYTES = 256 * 1024
 MAX_PROFILE_COMPONENT_ENTRIES = 256
 _COMPONENT_ID_RE = re.compile(r"^[a-z][a-z0-9._-]{1,127}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
 _COMPONENT_KINDS = frozenset((
     "app",
     "knowledge-pack",
@@ -55,11 +56,12 @@ def valid_profile_component_inventory(value: object) -> bool:
     identities: set[str] = set()
     for entry in entries:
         if not isinstance(entry, dict) or set(entry) != {
-            "id", "kind", "sha256", "installedAt", "receiptSha256"
+            "id", "kind", "version", "sha256", "installedAt", "receiptSha256"
         }:
             return False
         component_id = entry.get("id")
         kind = entry.get("kind")
+        version = entry.get("version")
         artifact_sha = entry.get("sha256")
         receipt_sha = entry.get("receiptSha256")
         installed_at = entry.get("installedAt")
@@ -67,13 +69,15 @@ def valid_profile_component_inventory(value: object) -> bool:
             return False
         if kind not in _COMPONENT_KINDS:
             return False
+        if not isinstance(version, str) or _SEMVER_RE.fullmatch(version) is None:
+            return False
         if not isinstance(artifact_sha, str) or _SHA256_RE.fullmatch(artifact_sha) is None:
             return False
         if not isinstance(receipt_sha, str) or _SHA256_RE.fullmatch(receipt_sha) is None:
             return False
         if isinstance(installed_at, bool) or not isinstance(installed_at, int) or installed_at < 0:
             return False
-        identity = f"{component_id}@{artifact_sha}"
+        identity = f"{component_id}@{version}@{artifact_sha}"
         if identity in identities:
             return False
         identities.add(identity)
