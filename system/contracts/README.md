@@ -31,6 +31,7 @@ The product foundation also defines narrow provider-neutral ports for the next a
 - `spaces.mjs` — Spaces, membership and Profile Pack descriptors;
 - `memory.mjs` — scoped, provenance-bearing OrdaX Memory independent of model provider;
 - `model-router.mjs` — local/external inference route selection with explicit egress for cloud providers;
-- `intelligence-artifact.mjs` — signed/content-addressed identity, provenance, compatibility and resource gates for replaceable engines, models, embeddings, tool runtimes and knowledge packs.
+- `intelligence-artifact.mjs` — signed/content-addressed identity, provenance, compatibility and resource gates for replaceable engines, models, embeddings, tool runtimes and knowledge packs;
+- `intelligence-tool.mjs` — typed local tool declarations and explicit owner/Space/project grants; prompt/model text cannot create authority and dangerous generic host actions remain forbidden.
 
 These contracts prepare architecture only. They do not enable billing, public Store installation, cloud memory, external AI egress or mutating MCP tools by themselves.
