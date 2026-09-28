@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -151,5 +152,146 @@ func TestManifestRejectsAuthorityAndUnsupportedKinds(t *testing.T) {
 	value.Kind = "app"
 	if err := validateManifest(value); err == nil {
 		t.Fatal("unsupported Profile content kind accepted")
+	}
+}
+
+
+func signedFixture(t *testing.T) (string, string, string, string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	content := []byte("verified profile content slot\n")
+	contentPath := filepath.Join(dir, "content.pack")
+	if err := os.WriteFile(contentPath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(dir, "manifest.json")
+	writeJSON(t, manifestPath, fixtureManifest(content))
+	privatePath := filepath.Join(dir, "private.pem")
+	trustPath := filepath.Join(dir, "trust.json")
+	if err := generateKey(privatePath, trustPath, "profile-content-stage-test-1"); err != nil {
+		t.Fatal(err)
+	}
+	envelopePath := filepath.Join(dir, "envelope.json")
+	if err := signManifest(
+		manifestPath,
+		privatePath,
+		trustPath,
+		envelopePath,
+		"profile-content-stage-test-1",
+	); err != nil {
+		t.Fatal(err)
+	}
+	return dir, manifestPath, envelopePath, trustPath, contentPath
+}
+
+func allowStageCleanup(root string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if entry.IsDir() {
+			_ = os.Chmod(path, 0o700)
+		} else {
+			_ = os.Chmod(path, 0o600)
+		}
+		return nil
+	})
+}
+
+func TestStageCreatesImmutableContentAddressedSlotWithoutActivation(t *testing.T) {
+	dir, manifestPath, envelopePath, trustPath, contentPath := signedFixture(t)
+	root := filepath.Join(dir, "slots")
+	t.Cleanup(func() { allowStageCleanup(root) })
+
+	manifest, slot, changed, err := stageContent(
+		manifestPath,
+		envelopePath,
+		trustPath,
+		contentPath,
+		root,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("first stage did not create slot")
+	}
+	expected := filepath.Join(
+		"knowledge-pack",
+		"knowledge.legal-br-proof",
+		"versions",
+		"0.1.0",
+		manifest.ContentHash,
+	)
+	if !strings.HasSuffix(slot, expected) {
+		t.Fatalf("slot = %q", slot)
+	}
+	if _, err := verifyStagedSlot(slot, trustPath); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(slot, stageContentName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o222 != 0 {
+			t.Fatalf("staged content remains writable: %04o", info.Mode().Perm())
+		}
+	}
+
+	_, sameSlot, changed, err := stageContent(
+		manifestPath,
+		envelopePath,
+		trustPath,
+		contentPath,
+		root,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed || sameSlot != slot {
+		t.Fatalf("restage should reuse verified slot: changed=%t slot=%q", changed, sameSlot)
+	}
+}
+
+func TestTamperedInstalledStageIsRejected(t *testing.T) {
+	dir, manifestPath, envelopePath, trustPath, contentPath := signedFixture(t)
+	root := filepath.Join(dir, "slots")
+	t.Cleanup(func() { allowStageCleanup(root) })
+	_, slot, _, err := stageContent(
+		manifestPath,
+		envelopePath,
+		trustPath,
+		contentPath,
+		root,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stagedContent := filepath.Join(slot, stageContentName)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(stagedContent, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(stagedContent, []byte("tampered\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifyStagedSlot(slot, trustPath); err == nil {
+		t.Fatal("tampered installed Profile content unexpectedly verified")
+	}
+
+	if _, _, _, err := stageContent(
+		manifestPath,
+		envelopePath,
+		trustPath,
+		contentPath,
+		root,
+	); err == nil || !strings.Contains(err.Error(), "existing Profile content slot failed verification") {
+		t.Fatalf("restage over tampered slot error = %v", err)
 	}
 }
