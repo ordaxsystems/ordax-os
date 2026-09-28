@@ -1,11 +1,14 @@
 {
   "$schema": "prototype-ordax.intelligence-tools/1",
-  "status": "read-only-registry-inspection-and-authorization-foundation",
+  "status": "governed-read-only-execution-foundation",
   "tool_contract": "ordax.intelligence-tool/1",
   "registry_contract": "ordax.intelligence-tool-registry/1",
   "capability_bridge_contract": "ordax.intelligence-capability-bridge/1",
   "authorization_broker_contract": "ordax.intelligence-tool-authorization-broker/1",
   "authorization_receipt_contract": "ordax.intelligence-tool-authorization-receipt/1",
+  "execution_contract": "ordax.intelligence-readonly-tool-executor/1",
+  "execution_result_contract": "ordax.intelligence-tool-execution-result/1",
+  "execution_receipt_contract": "ordax.intelligence-tool-execution-receipt/1",
   "owner": "system/services/intelligence",
   "approved_read_only_capabilities": [
     "system.metrics",
@@ -15,29 +18,33 @@
   "tools": [
     {
       "id": "observe-system-metrics",
-      "capability_id": "system.metrics"
+      "capability_id": "system.metrics",
+      "invocation_enabled": true
     },
     {
       "id": "observe-network-status",
-      "capability_id": "network.status"
+      "capability_id": "network.status",
+      "invocation_enabled": false
     },
     {
       "id": "observe-power-status",
-      "capability_id": "power.status"
+      "capability_id": "power.status",
+      "invocation_enabled": false
     }
   ],
   "authority": {
     "read_only": true,
     "network_egress": false,
     "mutates_state": false,
-    "invocation_enabled": false,
+    "invocation_enabled": true,
+    "automatic_model_invocation": false,
     "authority": "none",
     "generic_shell": false,
     "arbitrary_path": false,
     "arbitrary_url": false
   },
   "bridge": {
-    "purpose": "Inspect whether an approved read-only product capability is present without invoking adapters.",
+    "purpose": "Inspect whether an approved read-only product capability is present and whether its governed invocation path is enabled.",
     "adapter_calls": false,
     "model_can_invoke": false,
     "agent_identity_grants_tool": false,
@@ -59,13 +66,32 @@
     "receipt_contains_bearer_token": false,
     "receipt_contains_target_id": false,
     "receipt_is_execution_proof": false,
-    "execution_enabled": false
+    "grant_itself_executes": false
+  },
+  "execution": {
+    "enabled_tools": [
+      "observe-system-metrics"
+    ],
+    "claim_required_before_adapter_read": true,
+    "result_context_bounded": true,
+    "result_provenance_required": true,
+    "execution_receipts": [
+      "succeeded",
+      "failed"
+    ],
+    "receipt_contains_bearer_token": false,
+    "receipt_contains_target_id": false,
+    "adapter_error_details_exposed": false,
+    "model_direct_access": false,
+    "network_egress": false,
+    "mutates_state": false
   },
   "deferred": [
-    "tool-invocation",
-    "execution-receipts",
+    "network-status-tool-invocation",
+    "power-status-tool-invocation",
     "persistent-audit-journal",
-    "sanitized-tool-results",
+    "user-facing-tool-approval-flow",
+    "model-mediated-tool-selection",
     "web-grounding",
     "mutating-tools",
     "leases",
