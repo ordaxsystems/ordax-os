@@ -20,10 +20,14 @@ async function fetchJson(fetchImpl, path, label) {
     method: "GET",
     cache: "no-store",
     credentials: "same-origin",
+    redirect: "error",
   });
   if (!response || response.ok !== true) {
     const status = response?.status ?? "unavailable";
     throw new Error(`${label} unavailable: ${status}`);
+  }
+  if (response.redirected === true) {
+    throw new Error(`${label} redirect is not allowed`);
   }
   return response.json();
 }
