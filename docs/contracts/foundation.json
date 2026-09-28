@@ -277,7 +277,8 @@
       "memory": "docs/contracts/memory.json",
       "model_router": "docs/contracts/model-router.json",
       "app_distribution": "docs/contracts/app-distribution.json",
-      "external_ai_bridge": "docs/contracts/external-ai-bridge.json"
+      "external_ai_bridge": "docs/contracts/external-ai-bridge.json",
+      "profile_provisioning": "docs/contracts/profile-provisioning.json"
     },
     "account_profile_is_professional_profile": false,
     "memory_owned_by_ordax": true,
@@ -285,6 +286,8 @@
     "product_mcp_reuses_development_owner_credentials": false,
     "github_project_access_prefers_github_app": true,
     "billing_enabled": false,
-    "public_store_enabled": false
+    "public_store_enabled": false,
+    "profile_catalog_bundled_payloads_on_demand": true,
+    "public_profile_install_enabled": false
   }
 }
