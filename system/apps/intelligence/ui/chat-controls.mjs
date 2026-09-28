@@ -1,12 +1,8 @@
-import {
-  assertIntelligencePort,
-  validateIntelligenceSnapshot,
-} from "../../../contracts/intelligence.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
+import { createIntelligenceChatSession } from "../session.mjs";
 
 const WINDOW_SELECTOR = '[data-window-id="intelligence"]';
 const EXTENSION_SELECTOR = '[data-app-extension="intelligence-chat"]';
-const MAX_SESSION_MESSAGES = 48;
 
 function node(documentObject, tag, className, text) {
   const element = documentObject.createElement(tag);
@@ -20,11 +16,6 @@ function stateMessageId(state) {
   if (state === "busy") return "intelligence.chat.busy";
   if (state === "error") return "intelligence.chat.error";
   return "intelligence.chat.degraded";
-}
-
-function trimSession(messages) {
-  if (messages.length <= MAX_SESSION_MESSAGES) return messages;
-  return messages.slice(messages.length - MAX_SESSION_MESSAGES);
 }
 
 function createView(documentObject, t) {
@@ -97,16 +88,13 @@ export function mountIntelligenceChatControls(root, intelligence, surfaceLifecyc
   if (!root || typeof root.querySelector !== "function" || !root.ownerDocument) {
     throw new TypeError("Intelligence chat requires a Surface root");
   }
-  const port = assertIntelligencePort(intelligence);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
   const documentObject = root.ownerDocument;
+  const session = createIntelligenceChatSession(intelligence);
 
-  let snapshot = validateIntelligenceSnapshot(port.getSnapshot());
-  let messages = [];
-  let pending = false;
-  let failure = false;
+  let sessionSnapshot = session.getSnapshot();
   let destroyed = false;
   let mountedSlot = null;
 
@@ -116,7 +104,7 @@ export function mountIntelligenceChatControls(root, intelligence, surfaceLifecyc
     const transcript = view.querySelector("[data-intelligence-chat-transcript]");
     if (!transcript) return;
     transcript.replaceChildren();
-    if (messages.length === 0) {
+    if (sessionSnapshot.messages.length === 0) {
       const empty = node(documentObject, "section", "ordax-intelligence-chat-empty");
       empty.append(
         node(documentObject, "strong", "", t("intelligence.chat.emptyTitle")),
@@ -126,7 +114,7 @@ export function mountIntelligenceChatControls(root, intelligence, surfaceLifecyc
       return;
     }
 
-    for (const message of messages) {
+    for (const message of sessionSnapshot.messages) {
       const item = node(documentObject, "article", "ordax-intelligence-chat-message");
       item.dataset.role = message.role;
       const author = message.role === "assistant"
@@ -157,50 +145,26 @@ export function mountIntelligenceChatControls(root, intelligence, surfaceLifecyc
       mountedSlot = slot;
     }
 
+    const intelligenceSnapshot = sessionSnapshot.intelligence;
     const state = view.querySelector("[data-intelligence-chat-state]");
     if (state) {
-      state.textContent = failure ? t("intelligence.chat.failure") : t(stateMessageId(snapshot.state));
-      state.dataset.state = failure ? "error" : snapshot.state;
+      state.textContent = sessionSnapshot.failed
+        ? t("intelligence.chat.failure")
+        : t(stateMessageId(intelligenceSnapshot.state));
+      state.dataset.state = sessionSnapshot.failed ? "error" : intelligenceSnapshot.state;
     }
     const model = view.querySelector("[data-intelligence-chat-model]");
     if (model) {
-      model.textContent = snapshot.modelId
-        ? t("intelligence.chat.model", { model: snapshot.modelId })
+      model.textContent = intelligenceSnapshot.modelId
+        ? t("intelligence.chat.model", { model: intelligenceSnapshot.modelId })
         : t("intelligence.chat.modelUnknown");
     }
     const input = view.querySelector("[data-intelligence-chat-input]");
     const send = view.querySelector("[data-intelligence-chat-send]");
-    if (input) input.disabled = pending || snapshot.state !== "ready";
-    if (send) send.disabled = pending || snapshot.state !== "ready";
+    const disabled = sessionSnapshot.pending || intelligenceSnapshot.state !== "ready";
+    if (input) input.disabled = disabled;
+    if (send) send.disabled = disabled;
     renderTranscript(view);
-  };
-
-  const submitPrompt = async (promptValue) => {
-    const prompt = String(promptValue ?? "").trim();
-    if (!prompt || pending || snapshot.state !== "ready") return;
-    messages = trimSession([...messages, Object.freeze({ role: "user", text: prompt })]);
-    pending = true;
-    failure = false;
-    render();
-
-    try {
-      const response = await port.respond({
-        intent: "ask",
-        prompt,
-        context: [],
-        maxTokens: 768,
-      });
-      messages = trimSession([
-        ...messages,
-        Object.freeze({ role: "assistant", text: response.text }),
-      ]);
-    } catch {
-      failure = true;
-    } finally {
-      pending = false;
-      snapshot = validateIntelligenceSnapshot(port.getSnapshot());
-      render();
-    }
   };
 
   const onSubmit = (event) => {
@@ -209,20 +173,19 @@ export function mountIntelligenceChatControls(root, intelligence, surfaceLifecyc
     event.preventDefault();
     const input = form.querySelector("[data-intelligence-chat-input]");
     const prompt = input?.value ?? "";
+    if (!prompt.trim()) return;
     if (input) input.value = "";
-    void submitPrompt(prompt);
+    void session.send(prompt).catch(() => {});
   };
 
   const onClick = (event) => {
     const clear = event.target?.closest?.("[data-intelligence-chat-clear]");
     if (!clear || !root.contains(clear)) return;
-    messages = [];
-    failure = false;
-    render();
+    session.clear();
   };
 
-  const unsubscribeIntelligence = port.subscribe((next) => {
-    snapshot = validateIntelligenceSnapshot(next);
+  const unsubscribeSession = session.subscribe((next) => {
+    sessionSnapshot = next;
     render();
   });
   const unsubscribeLocalization = localization.subscribe(() => {
@@ -240,11 +203,11 @@ export function mountIntelligenceChatControls(root, intelligence, surfaceLifecyc
       destroyed = true;
       unsubscribeRender();
       unsubscribeLocalization();
-      unsubscribeIntelligence();
+      unsubscribeSession();
       root.removeEventListener("submit", onSubmit);
       root.removeEventListener("click", onClick);
       findSlot()?.querySelector("[data-ordax-intelligence-chat]")?.remove();
-      messages = [];
+      session.dispose();
       mountedSlot = null;
     },
   });
