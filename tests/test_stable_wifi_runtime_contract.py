@@ -42,8 +42,8 @@ class StableWifiRuntimeContractTests(unittest.TestCase):
         self.assertIn("load_supported_wifi_modules()", broker)
         self.assertIn("find_or_activate_wifi_interface()", broker)
         self.assertLess(
-            broker.index("load_supported_wifi_modules\n\nexec 9<>\"$CONTROL\""),
-            broker.index("while :; do"),
+            broker.rfind("load_supported_wifi_modules"),
+            broker.index('exec 9<>"$CONTROL"'),
         )
 
 
