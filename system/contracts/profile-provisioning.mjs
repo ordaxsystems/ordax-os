@@ -28,6 +28,12 @@ function boundedText(value, label, max = 240) {
   return value;
 }
 
+function projectedField(object, rawName, canonicalName) {
+  return Object.prototype.hasOwnProperty.call(object, rawName)
+    ? object[rawName]
+    : object[canonicalName];
+}
+
 function slugValue(value, label) {
   const slug = boundedText(value, label, 80);
   if (!SLUG_PATTERN.test(slug)) throw new TypeError(`${label} is invalid`);
@@ -50,7 +56,7 @@ function componentValue(value, label) {
   if (typeof component.required !== "boolean") {
     throw new TypeError(`${label}.required must be boolean`);
   }
-  const signatureRequired = component.signature_required ?? component.signatureRequired;
+  const signatureRequired = projectedField(component, "signature_required", "signatureRequired");
   if (typeof signatureRequired !== "boolean") {
     throw new TypeError(`${label}.signature_required must be boolean`);
   }
@@ -58,7 +64,7 @@ function componentValue(value, label) {
   if (sha256 !== null && !SHA256_PATTERN.test(sha256)) {
     throw new TypeError(`${label}.sha256 is invalid`);
   }
-  const rawSizeBytes = component.size_bytes ?? component.sizeBytes;
+  const rawSizeBytes = projectedField(component, "size_bytes", "sizeBytes");
   const sizeBytes = rawSizeBytes == null ? null : rawSizeBytes;
   if (sizeBytes !== null && (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0)) {
     throw new TypeError(`${label}.size_bytes is invalid`);
@@ -85,17 +91,21 @@ function componentValue(value, label) {
 
 export function validateProfileDistribution(value, label = "Profile distribution") {
   const distribution = objectValue(value, label);
-  const schema = distribution.$schema ?? distribution.schema;
+  const schema = projectedField(distribution, "$schema", "schema");
   if (schema !== PROFILE_DISTRIBUTION_SCHEMA) {
     throw new TypeError(`${label} schema is incompatible`);
   }
   const profile = objectValue(distribution.profile, `${label}.profile`);
   const slug = slugValue(profile.slug, `${label}.profile.slug`);
   const version = versionValue(profile.version, `${label}.profile.version`);
-  const deliveryMode = distribution.delivery_mode ?? distribution.deliveryMode;
-  const metadataBundled = distribution.metadata_bundled ?? distribution.metadataBundled;
-  const offlineAfterInstall = distribution.offline_after_install ?? distribution.offlineAfterInstall;
-  const publicInstallEnabled = distribution.public_install_enabled ?? distribution.publicInstallEnabled;
+  const deliveryMode = projectedField(distribution, "delivery_mode", "deliveryMode");
+  const metadataBundled = projectedField(distribution, "metadata_bundled", "metadataBundled");
+  const offlineAfterInstall = projectedField(distribution, "offline_after_install", "offlineAfterInstall");
+  const publicInstallEnabled = projectedField(
+    distribution,
+    "public_install_enabled",
+    "publicInstallEnabled",
+  );
   if (!DELIVERY_MODES.has(deliveryMode)) {
     throw new TypeError(`${label}.delivery_mode is invalid`);
   }
@@ -108,7 +118,7 @@ export function validateProfileDistribution(value, label = "Profile distribution
   if (typeof publicInstallEnabled !== "boolean") {
     throw new TypeError(`${label}.public_install_enabled must be boolean`);
   }
-  const rawBlockedReason = distribution.blocked_reason ?? distribution.blockedReason;
+  const rawBlockedReason = projectedField(distribution, "blocked_reason", "blockedReason");
   const blockedReason = rawBlockedReason == null
     ? null
     : boundedText(rawBlockedReason, `${label}.blocked_reason`, 320);
