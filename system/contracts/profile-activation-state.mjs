@@ -15,6 +15,7 @@ const COMPONENT_KINDS = new Set([
   "connector",
 ]);
 const PERSISTENCE = new Set(["device", "session"]);
+const SPACE_KINDS = new Set(["personal", "work", "professional"]);
 
 function objectValue(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -186,7 +187,7 @@ export function validateProfileActivationState(value) {
   const spaces = Object.freeze(state.spaces.map((entry, index) => {
     const label = `Profile activation state spaces[${index}]`;
     const row = objectValue(entry, label);
-    exactFields(row, ["spaceId", "current", "previous"], label);
+    exactFields(row, ["spaceId", "spaceKind", "current", "previous"], label);
     const current = activationOrNull(row.current, `${label}.current`);
     const previous = activationOrNull(row.previous, `${label}.previous`);
     if (current === null && previous === null) {
@@ -199,8 +200,13 @@ export function validateProfileActivationState(value) {
     ) {
       throw new TypeError(`${label} current and previous must differ`);
     }
+    const spaceKind = boundedText(row.spaceKind, `${label}.spaceKind`, 32);
+    if (!SPACE_KINDS.has(spaceKind)) {
+      throw new TypeError(`${label}.spaceKind is invalid`);
+    }
     return Object.freeze({
       spaceId: boundedText(row.spaceId, `${label}.spaceId`, 160),
+      spaceKind,
       current,
       previous,
     });
