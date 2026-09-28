@@ -4,6 +4,7 @@ import {
   validateIntelligenceSnapshot,
 } from "../../contracts/intelligence.mjs";
 import { assertIntelligenceContextRegistry } from "../../contracts/intelligence-context.mjs";
+import { createIntelligenceTaskPlanner } from "../../services/intelligence/task-planner.mjs";
 
 export const INTELLIGENCE_CHAT_SESSION_SCHEMA = "ordax.intelligence-chat-session/1";
 export const INTELLIGENCE_CHAT_MAX_MESSAGES = 48;
@@ -46,7 +47,7 @@ function explicitContextSourceIds(value) {
   return Object.freeze(ids);
 }
 
-function freezeSnapshot({ intelligence, messages, pending, failed, contextSources }) {
+function freezeSnapshot({ intelligence, messages, pending, failed, contextSources, lastPlan }) {
   return Object.freeze({
     schema: INTELLIGENCE_CHAT_SESSION_SCHEMA,
     intelligence: validateIntelligenceSnapshot(intelligence),
@@ -58,6 +59,7 @@ function freezeSnapshot({ intelligence, messages, pending, failed, contextSource
     externalProvider: false,
     toolExecution: false,
     contextSources,
+    lastPlan,
   });
 }
 
@@ -70,6 +72,7 @@ export function createIntelligenceChatSession(
   } = {},
 ) {
   const intelligence = assertIntelligencePort(intelligenceValue);
+  const planner = createIntelligenceTaskPlanner(intelligence);
   if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0 || maxTokens > 2048) {
     throw new TypeError("Intelligence chat maxTokens must be between 1 and 2048");
   }
@@ -82,6 +85,7 @@ export function createIntelligenceChatSession(
   let messages = [];
   let pending = false;
   let failed = false;
+  let lastPlan = null;
   let intelligenceSnapshot = validateIntelligenceSnapshot(intelligence.getSnapshot());
   let destroyed = false;
   const listeners = new Set();
@@ -92,6 +96,7 @@ export function createIntelligenceChatSession(
     pending,
     failed,
     contextSources,
+    lastPlan,
   });
 
   const publish = () => {
@@ -104,6 +109,35 @@ export function createIntelligenceChatSession(
     intelligenceSnapshot = validateIntelligenceSnapshot(next);
     publish();
   });
+
+  const begin = (prompt) => {
+    if (destroyed) throw new Error("Intelligence chat session is disposed");
+    if (pending) throw new Error("Intelligence chat already has a request in flight");
+    intelligenceSnapshot = validateIntelligenceSnapshot(intelligence.getSnapshot());
+    if (intelligenceSnapshot.state !== "ready") {
+      throw new Error("Ordax Intelligence is not ready for conversation");
+    }
+    messages = [...messages, freezeMessage("user", prompt)].slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
+    pending = true;
+    failed = false;
+    publish();
+  };
+
+  const collectContext = async (intent, prompt) => (
+    contextRegistry === null
+      ? []
+      : contextRegistry.collect({
+        intent,
+        prompt,
+        includeExplicitSourceIds: explicitSources,
+      })
+  );
+
+  const finish = () => {
+    pending = false;
+    intelligenceSnapshot = validateIntelligenceSnapshot(intelligence.getSnapshot());
+    publish();
+  };
 
   return Object.freeze({
     schema: INTELLIGENCE_CHAT_SESSION_SCHEMA,
@@ -122,48 +156,50 @@ export function createIntelligenceChatSession(
       if (destroyed) return;
       messages = [];
       failed = false;
+      lastPlan = null;
       publish();
     },
     async send(value) {
-      if (destroyed) throw new Error("Intelligence chat session is disposed");
       const prompt = promptText(value);
-      if (pending) throw new Error("Intelligence chat already has a request in flight");
-      intelligenceSnapshot = validateIntelligenceSnapshot(intelligence.getSnapshot());
-      if (intelligenceSnapshot.state !== "ready") {
-        throw new Error("Ordax Intelligence is not ready for conversation");
-      }
-
-      messages = [...messages, freezeMessage("user", prompt)].slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
-      pending = true;
-      failed = false;
-      publish();
-
+      begin(prompt);
+      lastPlan = null;
       try {
-        const context = contextRegistry === null
-          ? []
-          : await contextRegistry.collect({
-            intent: "ask",
-            prompt,
-            includeExplicitSourceIds: explicitSources,
-          });
+        const context = await collectContext("ask", prompt);
         const response = await intelligence.respond({
           intent: "ask",
           prompt,
           context,
           maxTokens,
         });
-        messages = [
-          ...messages,
-          freezeMessage("assistant", response.text),
-        ].slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
+        messages = [...messages, freezeMessage("assistant", response.text)]
+          .slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
         return response;
       } catch (error) {
         failed = true;
         throw error;
       } finally {
-        pending = false;
-        intelligenceSnapshot = validateIntelligenceSnapshot(intelligence.getSnapshot());
-        publish();
+        finish();
+      }
+    },
+    async plan(value) {
+      const goal = promptText(value);
+      begin(goal);
+      try {
+        const context = await collectContext("plan", goal);
+        const plan = await planner.plan({
+          goal,
+          context,
+          maxTokens: Math.max(maxTokens, 1024),
+        });
+        lastPlan = plan;
+        messages = [...messages, freezeMessage("assistant", plan.advisory)]
+          .slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
+        return plan;
+      } catch (error) {
+        failed = true;
+        throw error;
+      } finally {
+        finish();
       }
     },
     dispose() {
@@ -172,6 +208,7 @@ export function createIntelligenceChatSession(
       unsubscribeIntelligence();
       listeners.clear();
       messages = [];
+      lastPlan = null;
     },
   });
 }

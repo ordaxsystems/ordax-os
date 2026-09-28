@@ -74,6 +74,7 @@ test("chat session sends only a local consultative Intelligence request", async 
   assert.equal(snapshot.webGrounding, false);
   assert.equal(snapshot.externalProvider, false);
   assert.equal(snapshot.toolExecution, false);
+  assert.equal(snapshot.lastPlan, null);
   assert.deepEqual(snapshot.contextSources, []);
   assert.deepEqual(snapshot.messages.map(({ role, text }) => ({ role, text })), [
     { role: "user", text: "Explique este sistema" },
@@ -115,12 +116,44 @@ test("chat session forwards only registry-authorized context sources", async () 
   session.dispose();
 });
 
+test("chat session can produce a non-executable consultative plan", async () => {
+  const intelligence = createFakeIntelligence();
+  const source = defineIntelligenceContextSource({
+    id: "system-catalog",
+    title: "System catalog",
+    activation: "automatic",
+    collect({ intent }) {
+      return [{
+        id: `system-catalog-${intent}`,
+        scope: "system",
+        text: "files | projects | intelligence",
+        provenance: "test:system-catalog",
+      }];
+    },
+  });
+  const contextRegistry = createIntelligenceContextRegistry({ sources: [source] });
+  const session = createIntelligenceChatSession(intelligence, { contextRegistry, maxTokens: 640 });
+
+  const plan = await session.plan("Adicionar uma visão nova ao app Projetos");
+  assert.equal(intelligence.requests.length, 1);
+  assert.equal(intelligence.requests[0].intent, "plan");
+  assert.equal(intelligence.requests[0].context[0].id, "system-catalog-plan");
+  assert.equal(plan.authority, "none");
+  assert.equal(plan.executable, false);
+  assert.equal(plan.toolExecution, false);
+  assert.deepEqual(plan.requestedCapabilities, []);
+  assert.equal(session.getSnapshot().lastPlan, plan);
+  assert.equal(session.getSnapshot().messages.at(-1).role, "assistant");
+  session.dispose();
+});
+
 test("chat session fails closed while local Intelligence is unavailable", async () => {
   const intelligence = createFakeIntelligence();
   const session = createIntelligenceChatSession(intelligence);
   intelligence.setState("degraded");
 
   await assert.rejects(() => session.send("Olá"), /not ready/);
+  await assert.rejects(() => session.plan("Planeje"), /not ready/);
   assert.equal(intelligence.requests.length, 0);
   assert.equal(session.getSnapshot().messages.length, 0);
   session.dispose();
@@ -139,5 +172,6 @@ test("chat session keeps bounded session-only transcript and explicit clear", as
 
   session.clear();
   assert.equal(session.getSnapshot().messages.length, 0);
+  assert.equal(session.getSnapshot().lastPlan, null);
   session.dispose();
 });
