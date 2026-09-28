@@ -50,20 +50,22 @@ function componentValue(value, label) {
   if (typeof component.required !== "boolean") {
     throw new TypeError(`${label}.required must be boolean`);
   }
-  if (typeof component.signature_required !== "boolean") {
+  const signatureRequired = signatureRequired ?? component.signatureRequired;
+  if (typeof signatureRequired !== "boolean") {
     throw new TypeError(`${label}.signature_required must be boolean`);
   }
   const sha256 = component.sha256 == null ? null : boundedText(component.sha256, `${label}.sha256`, 64);
   if (sha256 !== null && !SHA256_PATTERN.test(sha256)) {
     throw new TypeError(`${label}.sha256 is invalid`);
   }
-  const sizeBytes = component.size_bytes == null ? null : component.size_bytes;
+  const rawSizeBytes = component.size_bytes ?? component.sizeBytes;
+  const sizeBytes = rawSizeBytes == null ? null : rawSizeBytes;
   if (sizeBytes !== null && (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0)) {
     throw new TypeError(`${label}.size_bytes is invalid`);
   }
   if (component.availability === "available") {
     if (sha256 === null) throw new TypeError(`${label} available artifact requires sha256`);
-    if (!component.signature_required) {
+    if (!signatureRequired) {
       throw new TypeError(`${label} available artifact must require signature`);
     }
   }
@@ -77,37 +79,43 @@ function componentValue(value, label) {
     availability: component.availability,
     sha256,
     sizeBytes,
-    signatureRequired: component.signature_required,
+    signatureRequired: signatureRequired,
   });
 }
 
 export function validateProfileDistribution(value, label = "Profile distribution") {
   const distribution = objectValue(value, label);
-  if (distribution.$schema !== PROFILE_DISTRIBUTION_SCHEMA) {
+  const schema = distribution.$schema ?? distribution.schema;
+  if (schema !== PROFILE_DISTRIBUTION_SCHEMA) {
     throw new TypeError(`${label} schema is incompatible`);
   }
   const profile = objectValue(distribution.profile, `${label}.profile`);
   const slug = slugValue(profile.slug, `${label}.profile.slug`);
   const version = versionValue(profile.version, `${label}.profile.version`);
-  if (!DELIVERY_MODES.has(distribution.delivery_mode)) {
+  const deliveryMode = distribution.delivery_mode ?? distribution.deliveryMode;
+  const metadataBundled = distribution.metadata_bundled ?? distribution.metadataBundled;
+  const offlineAfterInstall = distribution.offline_after_install ?? distribution.offlineAfterInstall;
+  const publicInstallEnabled = distribution.public_install_enabled ?? distribution.publicInstallEnabled;
+  if (!DELIVERY_MODES.has(deliveryMode)) {
     throw new TypeError(`${label}.delivery_mode is invalid`);
   }
-  if (typeof distribution.metadata_bundled !== "boolean") {
+  if (typeof metadataBundled !== "boolean") {
     throw new TypeError(`${label}.metadata_bundled must be boolean`);
   }
-  if (typeof distribution.offline_after_install !== "boolean") {
+  if (typeof offlineAfterInstall !== "boolean") {
     throw new TypeError(`${label}.offline_after_install must be boolean`);
   }
-  if (typeof distribution.public_install_enabled !== "boolean") {
+  if (typeof publicInstallEnabled !== "boolean") {
     throw new TypeError(`${label}.public_install_enabled must be boolean`);
   }
-  const blockedReason = distribution.blocked_reason == null
+  const rawBlockedReason = distribution.blocked_reason ?? distribution.blockedReason;
+  const blockedReason = rawBlockedReason == null
     ? null
-    : boundedText(distribution.blocked_reason, `${label}.blocked_reason`, 320);
-  if (!distribution.public_install_enabled && blockedReason === null) {
+    : boundedText(rawBlockedReason, `${label}.blocked_reason`, 320);
+  if (!publicInstallEnabled && blockedReason === null) {
     throw new TypeError(`${label} blocked distribution requires reason`);
   }
-  if (distribution.public_install_enabled && blockedReason !== null) {
+  if (publicInstallEnabled && blockedReason !== null) {
     throw new TypeError(`${label} enabled distribution cannot carry blocked reason`);
   }
   if (!Array.isArray(distribution.components) || distribution.components.length > 64) {
@@ -122,10 +130,10 @@ export function validateProfileDistribution(value, label = "Profile distribution
   return Object.freeze({
     schema: PROFILE_DISTRIBUTION_SCHEMA,
     profile: Object.freeze({ slug, version }),
-    deliveryMode: distribution.delivery_mode,
-    metadataBundled: distribution.metadata_bundled,
-    offlineAfterInstall: distribution.offline_after_install,
-    publicInstallEnabled: distribution.public_install_enabled,
+    deliveryMode,
+    metadataBundled,
+    offlineAfterInstall,
+    publicInstallEnabled,
     blockedReason,
     components: Object.freeze(components),
   });
