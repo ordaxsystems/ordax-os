@@ -97,19 +97,31 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             text.index("void updateWatcher.markHealthy()"),
         )
 
-    def test_native_account_and_sync_capabilities_are_fail_closed_by_default(self):
-        text = NATIVE_RUNTIME.read_text(encoding="utf-8")
+    def test_native_account_and_sync_capabilities_follow_live_identity_session(self):
+        runtime = NATIVE_RUNTIME.read_text(encoding="utf-8")
         composition = NATIVE_COMPOSITION.read_text(encoding="utf-8")
-        self.assertIn("accountIdentityAvailable = false", text)
-        self.assertIn("syncSafeStateAvailable = false", text)
-        self.assertIn('if (accountIdentityAvailable) capabilityIds.push("account.identity")', text)
-        self.assertIn('if (syncSafeStateAvailable) capabilityIds.push("sync.safe-state")', text)
-        self.assertIn('throw new TypeError("sync.safe-state requires account.identity")', text)
-        self.assertIn("const identityAvailable = identitySession.getSnapshot().state !== \"unavailable\";", composition)
-        self.assertIn("accountIdentityAvailable: identityAvailable", composition)
-        self.assertIn("syncSafeStateAvailable: identityAvailable", composition)
-        self.assertNotIn('"system.release-activation"', text)
-        self.assertNotIn('"system.recovery"', text)
+        self.assertIn("readAccountIdentityAvailable = () => false", runtime)
+        self.assertIn("readSyncSafeStateAvailable = () => false", runtime)
+        self.assertIn("const accountIdentityAvailable = readAccountIdentityAvailable();", runtime)
+        self.assertIn("const syncSafeStateAvailable = readSyncSafeStateAvailable();", runtime)
+        self.assertIn('if (accountIdentityAvailable) capabilityIds.push("account.identity")', runtime)
+        self.assertIn('if (syncSafeStateAvailable) capabilityIds.push("sync.safe-state")', runtime)
+        self.assertIn('throw new TypeError("sync.safe-state requires account.identity")', runtime)
+        self.assertIn("refresh: notify", runtime)
+        self.assertIn(
+            'const readIdentityAvailable = () => identitySession.getSnapshot().state !== "unavailable";',
+            composition,
+        )
+        self.assertIn("readAccountIdentityAvailable: readIdentityAvailable", composition)
+        self.assertIn("readSyncSafeStateAvailable: readIdentityAvailable", composition)
+        self.assertIn("identitySession.subscribe(() => host.refresh())", composition)
+        self.assertIn("const identityCredentials = createSameOriginIdentityCredentials(window);", composition)
+        self.assertNotIn("const identityAvailable =", composition)
+        self.assertNotIn("identityAvailable ? createSameOriginIdentityCredentials", composition)
+        self.assertIn("window.removeEventListener(\"online\", onOnline);", composition)
+        self.assertIn("unsubscribeHostIdentity();", composition)
+        self.assertNotIn('"system.release-activation"', runtime)
+        self.assertNotIn('"system.recovery"', runtime)
 
     def test_web_adapter_remains_independent(self):
         text = WEB_RUNTIME.read_text(encoding="utf-8")
