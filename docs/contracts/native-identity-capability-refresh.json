@@ -1,0 +1,24 @@
+{
+  "$schema": "prototype-ordax.native-identity-capability-refresh/1",
+  "owner": "identity-session",
+  "surface_capability_projection": {
+    "account.identity": "identity-session.state != unavailable",
+    "sync.safe-state": "identity-session.state != unavailable"
+  },
+  "refresh": {
+    "source": "identity-session subscription",
+    "boot_snapshot_is_authority": false,
+    "connectivity_event_is_identity_authority": false
+  },
+  "credentials": {
+    "adapter": "same-origin",
+    "constructed_from_browser_capability": "window.fetch",
+    "action_availability_authority": "identity-actions snapshot",
+    "offline_or_unconfigured_provider_behavior": "fail-closed"
+  },
+  "lifecycle": {
+    "online_listener_removed_on_pagehide": true,
+    "identity_subscription_removed_on_pagehide": true
+  },
+  "legacy_static_identity_booleans": false
+}
