@@ -41,6 +41,7 @@ export const INTELLIGENCE_APP_SOURCE_MESSAGES = Object.freeze({
   "intelligence.plan.resultTitle": "Plano consultivo",
   "intelligence.handoff.badge": "Alvo selecionado",
   "intelligence.handoff.detail": "{label} · origem: {app}. Somente a seleção tipada foi encaminhada; conteúdo privado do app não foi incluído.",
+  "intelligence.handoff.authorizedDetail": "{label} · origem: {app}. O contexto selecionado foi autorizado para um único envio e só será usado quando você confirmar.",
 });
 
 export const INTELLIGENCE_APP_ENGLISH_MESSAGES = Object.freeze({
@@ -86,4 +87,5 @@ export const INTELLIGENCE_APP_ENGLISH_MESSAGES = Object.freeze({
   "intelligence.plan.resultTitle": "Consultative plan",
   "intelligence.handoff.badge": "Selected target",
   "intelligence.handoff.detail": "{label} · source: {app}. Only the typed selection was handed off; private app content was not included.",
+  "intelligence.handoff.authorizedDetail": "{label} · source: {app}. The selected context is authorized for one request and will only be used after you submit.",
 });
