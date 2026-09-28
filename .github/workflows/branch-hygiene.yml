@@ -22,362 +22,46 @@ jobs:
       github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
+      - name: Checkout cleanup implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
       - name: Delete merged branch when it is still unchanged
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           MERGED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
+        run: >-
+          python tools/ops/branch_hygiene.py delete-merged-head
+          --repository "$REPOSITORY"
+          --head-ref "$HEAD_REF"
+          --merged-head-sha "$MERGED_HEAD_SHA"
 
-          case "$HEAD_REF" in
-            main|ordax-rescue)
-              echo "Preserving protected project branch: $HEAD_REF"
-              exit 0
-              ;;
-          esac
-
-          current_sha="$(
-            gh api "repos/$REPOSITORY/branches/$HEAD_REF" --jq '.commit.sha' 2>/dev/null || true
-          )"
-
-          if [[ -z "$current_sha" ]]; then
-            echo "Branch already absent: $HEAD_REF"
-            exit 0
-          fi
-
-          if [[ "$current_sha" != "$MERGED_HEAD_SHA" ]]; then
-            echo "Preserving $HEAD_REF because it changed after the merged PR."
-            exit 0
-          fi
-
-          encoded_ref="$(
-            python -c 'import os, urllib.parse; print(urllib.parse.quote("heads/" + os.environ["HEAD_REF"], safe=""))'
-          )"
-
-          gh api --method DELETE "repos/$REPOSITORY/git/refs/$encoded_ref"
-          echo "Deleted merged branch: $HEAD_REF"
-
-  prune-existing-merged-heads:
+  prune-branches:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - name: Find and delete stale merged branches safely
+      - name: Checkout cleanup implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Plan, revalidate and delete stale branches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          temp_dir="$(mktemp -d)"
-          trap 'rm -rf "$temp_dir"' EXIT
-
-          gh api --paginate --slurp "repos/$REPOSITORY/pulls?state=open&per_page=100" > "$temp_dir/open.json"
-          gh api --paginate --slurp "repos/$REPOSITORY/pulls?state=closed&per_page=100" > "$temp_dir/closed.json"
-          gh api --paginate --slurp "repos/$REPOSITORY/branches?per_page=100" > "$temp_dir/branches.json"
-
-          REPOSITORY="$REPOSITORY" TEMP_DIR="$temp_dir" python <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          repo = os.environ["REPOSITORY"]
-          root = Path(os.environ["TEMP_DIR"])
-
-          def load_pages(name):
-              pages = json.loads((root / name).read_text(encoding="utf-8"))
-              return [item for page in pages for item in page]
-
-          open_prs = load_pages("open.json")
-          closed_prs = load_pages("closed.json")
-          branches = load_pages("branches.json")
-
-          open_heads = {
-              pr["head"]["ref"]
-              for pr in open_prs
-              if pr.get("head", {}).get("repo")
-              and pr["head"]["repo"].get("full_name") == repo
-          }
-
-          latest_merged = {}
-          for pr in closed_prs:
-              head = pr.get("head", {})
-              head_repo = head.get("repo")
-              if not pr.get("merged_at") or not head_repo:
-                  continue
-              if head_repo.get("full_name") != repo:
-                  continue
-
-              ref = head.get("ref")
-              if not ref:
-                  continue
-
-              current = latest_merged.get(ref)
-              if current is None or pr["merged_at"] > current["merged_at"]:
-                  latest_merged[ref] = pr
-
-          current_branches = {
-              branch["name"]: branch["commit"]["sha"]
-              for branch in branches
-          }
-
-          preserve = {"main", "ordax-rescue"} | open_heads
-          candidates = []
-          changed_after_merge = []
-
-          for ref, pr in sorted(latest_merged.items()):
-              if ref in preserve or ref not in current_branches:
-                  continue
-
-              merged_head_sha = pr["head"]["sha"]
-              current_sha = current_branches[ref]
-
-              if current_sha != merged_head_sha:
-                  changed_after_merge.append(ref)
-                  continue
-
-              candidates.append(ref)
-
-          (root / "candidates.txt").write_text(
-              "".join(f"{ref}\n" for ref in candidates),
-              encoding="utf-8",
-          )
-
-          print(f"Open PR heads preserved: {len(open_heads)}")
-          print(f"Merged branches eligible for deletion: {len(candidates)}")
-          print(f"Branches preserved because they changed after merge: {len(changed_after_merge)}")
-          if changed_after_merge:
-              print("Changed-after-merge branches:")
-              for ref in changed_after_merge:
-                  print(f"  - {ref}")
-          PY
-
-          deleted=0
-          failed=0
-
-          while IFS= read -r ref; do
-            [[ -n "$ref" ]] || continue
-
-            encoded_ref="$(
-              REF="$ref" python -c 'import os, urllib.parse; print(urllib.parse.quote("heads/" + os.environ["REF"], safe=""))'
-            )"
-
-            if gh api --method DELETE "repos/$REPOSITORY/git/refs/$encoded_ref"; then
-              echo "Deleted: $ref"
-              deleted=$((deleted + 1))
-            else
-              echo "Skipped after API refusal/race: $ref"
-              failed=$((failed + 1))
-            fi
-          done < "$temp_dir/candidates.txt"
-
-          echo "Cleanup complete. Deleted=$deleted skipped=$failed"
-
-
-  prune-closed-unmerged-heads:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Delete unchanged heads from closed unmerged PRs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY: ${{ github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          temp_dir="$(mktemp -d)"
-          trap 'rm -rf "$temp_dir"' EXIT
-
-          gh api --paginate --slurp "repos/$REPOSITORY/pulls?state=open&per_page=100" > "$temp_dir/open.json"
-          gh api --paginate --slurp "repos/$REPOSITORY/pulls?state=closed&per_page=100" > "$temp_dir/closed.json"
-          gh api --paginate --slurp "repos/$REPOSITORY/branches?per_page=100" > "$temp_dir/branches.json"
-
-          REPOSITORY="$REPOSITORY" TEMP_DIR="$temp_dir" python <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          repo = os.environ["REPOSITORY"]
-          root = Path(os.environ["TEMP_DIR"])
-
-          def load_pages(name):
-              pages = json.loads((root / name).read_text(encoding="utf-8"))
-              return [item for page in pages for item in page]
-
-          open_prs = load_pages("open.json")
-          closed_prs = load_pages("closed.json")
-          branches = load_pages("branches.json")
-
-          open_heads = {
-              pr["head"]["ref"]
-              for pr in open_prs
-              if pr.get("head", {}).get("repo")
-              and pr["head"]["repo"].get("full_name") == repo
-          }
-
-          latest_closed_unmerged = {}
-          for pr in closed_prs:
-              head = pr.get("head", {})
-              head_repo = head.get("repo")
-              if pr.get("merged_at") or not head_repo:
-                  continue
-              if head_repo.get("full_name") != repo:
-                  continue
-
-              ref = head.get("ref")
-              if not ref:
-                  continue
-
-              closed_at = pr.get("closed_at") or pr.get("updated_at") or ""
-              current = latest_closed_unmerged.get(ref)
-              current_closed_at = (
-                  current.get("closed_at") or current.get("updated_at") or ""
-                  if current
-                  else ""
-              )
-              if current is None or closed_at > current_closed_at:
-                  latest_closed_unmerged[ref] = pr
-
-          current_branches = {
-              branch["name"]: branch["commit"]["sha"]
-              for branch in branches
-          }
-
-          preserve = {"main", "ordax-rescue"} | open_heads
-          candidates = []
-          changed_after_close = []
-
-          for ref, pr in sorted(latest_closed_unmerged.items()):
-              if ref in preserve or ref not in current_branches:
-                  continue
-
-              closed_head_sha = pr["head"]["sha"]
-              current_sha = current_branches[ref]
-
-              if current_sha != closed_head_sha:
-                  changed_after_close.append(ref)
-                  continue
-
-              candidates.append(ref)
-
-          (root / "closed-unmerged.txt").write_text(
-              "".join(f"{ref}\n" for ref in candidates),
-              encoding="utf-8",
-          )
-
-          print(f"Open PR heads preserved: {len(open_heads)}")
-          print(f"Closed unmerged branches eligible for deletion: {len(candidates)}")
-          print(f"Branches preserved because they changed after close: {len(changed_after_close)}")
-          if changed_after_close:
-              print("Changed-after-close branches:")
-              for ref in changed_after_close:
-                  print(f"  - {ref}")
-          PY
-
-          deleted=0
-          failed=0
-
-          while IFS= read -r ref; do
-            [[ -n "$ref" ]] || continue
-
-            encoded_ref="$(
-              REF="$ref" python -c 'import os, urllib.parse; print(urllib.parse.quote("heads/" + os.environ["REF"], safe=""))'
-            )"
-
-            if gh api --method DELETE "repos/$REPOSITORY/git/refs/$encoded_ref"; then
-              echo "Deleted closed-unmerged branch: $ref"
-              deleted=$((deleted + 1))
-            else
-              echo "Skipped after API refusal/race: $ref"
-              failed=$((failed + 1))
-            fi
-          done < "$temp_dir/closed-unmerged.txt"
-
-          echo "Closed-unmerged cleanup complete. Deleted=$deleted skipped=$failed"
-
-
-  prune-fully-contained-heads:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Delete branches with no commits outside main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY: ${{ github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          temp_dir="$(mktemp -d)"
-          trap 'rm -rf "$temp_dir"' EXIT
-
-          gh api --paginate --slurp "repos/$REPOSITORY/pulls?state=open&per_page=100" > "$temp_dir/open.json"
-          gh api --paginate --slurp "repos/$REPOSITORY/branches?per_page=100" > "$temp_dir/branches.json"
-
-          REPOSITORY="$REPOSITORY" TEMP_DIR="$temp_dir" python <<'PY'
-          import json
-          import os
-          import subprocess
-          import urllib.parse
-          from pathlib import Path
-
-          repo = os.environ["REPOSITORY"]
-          root = Path(os.environ["TEMP_DIR"])
-
-          def load_pages(name):
-              pages = json.loads((root / name).read_text(encoding="utf-8"))
-              return [item for page in pages for item in page]
-
-          open_prs = load_pages("open.json")
-          branches = load_pages("branches.json")
-
-          open_heads = {
-              pr["head"]["ref"]
-              for pr in open_prs
-              if pr.get("head", {}).get("repo")
-              and pr["head"]["repo"].get("full_name") == repo
-          }
-
-          preserve = {"main", "ordax-rescue"} | open_heads
-          candidates = []
-
-          for branch in branches:
-              ref = branch["name"]
-              if ref in preserve:
-                  continue
-
-              encoded_compare = urllib.parse.quote(f"main...{ref}", safe=".")
-              result = subprocess.run(
-                  ["gh", "api", f"repos/{repo}/compare/{encoded_compare}"],
-                  capture_output=True,
-                  text=True,
-              )
-              if result.returncode != 0:
-                  print(f"Preserving {ref}: compare failed")
-                  continue
-
-              compare = json.loads(result.stdout)
-              if int(compare.get("ahead_by", 1)) == 0:
-                  candidates.append(ref)
-
-          (root / "contained.txt").write_text(
-              "".join(f"{ref}\n" for ref in candidates),
-              encoding="utf-8",
-          )
-          print(f"Fully contained branches eligible for deletion: {len(candidates)}")
-          PY
-
-          while IFS= read -r ref; do
-            [[ -n "$ref" ]] || continue
-            encoded_ref="$(
-              REF="$ref" python -c 'import os, urllib.parse; print(urllib.parse.quote("heads/" + os.environ["REF"], safe=""))'
-            )"
-            gh api --method DELETE "repos/$REPOSITORY/git/refs/$encoded_ref"
-            echo "Deleted fully-contained branch: $ref"
-          done < "$temp_dir/contained.txt"
+        run: python tools/ops/branch_hygiene.py prune --repository "$REPOSITORY"
