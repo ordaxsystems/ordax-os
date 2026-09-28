@@ -14,7 +14,7 @@ export const appearancePreference = Object.freeze({
   label: "Aparência",
   title: "Tema da Surface",
   description: "Escolha como o OrdaX apresenta superfícies, janelas e controles neste dispositivo.",
-  defaultValue: "light",
+  defaultValue: "dark",
   options: OPTIONS,
   validate(value) {
     if (!VALUES.has(value)) {
