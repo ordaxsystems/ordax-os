@@ -279,7 +279,8 @@
       "app_distribution": "docs/contracts/app-distribution.json",
       "external_ai_bridge": "docs/contracts/external-ai-bridge.json",
       "profile_provisioning": "docs/contracts/profile-provisioning.json",
-      "profile_content_trust": "docs/contracts/profile-content-trust-policy.json"
+      "profile_content_trust": "docs/contracts/profile-content-trust-policy.json",
+      "profile_activation_state": "docs/contracts/profile-activation-state.json"
     },
     "account_profile_is_professional_profile": false,
     "memory_owned_by_ordax": true,
@@ -292,6 +293,9 @@
     "public_profile_install_enabled": false,
     "profile_content_trust_domain": "profile-content",
     "profile_content_reuses_runtime_component_key": false,
-    "profile_content_publication_enabled": false
+    "profile_content_publication_enabled": false,
+    "profile_activation_state_device_persistent": true,
+    "profile_activation_rolls_back_space_data": false,
+    "profile_activation_http_mutation_enabled": false
   }
 }
