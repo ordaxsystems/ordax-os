@@ -24,6 +24,36 @@ function freezeCapabilities(appId, label, values) {
   return Object.freeze(capabilities);
 }
 
+function freezeIntegrationIds(appId, label, values) {
+  if (!Array.isArray(values)) {
+    throw new TypeError(`First-party app ${appId} has invalid Intelligence ${label}`);
+  }
+  const ids = [...values];
+  if (
+    ids.some((id) => typeof id !== "string" || !APP_ID_RE.test(id))
+    || new Set(ids).size !== ids.length
+  ) {
+    throw new TypeError(`First-party app ${appId} has invalid Intelligence ${label}`);
+  }
+  return Object.freeze(ids);
+}
+
+function freezeIntelligenceIntegration(appId, value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError(`First-party app ${appId} has invalid Intelligence integration metadata`);
+  }
+  const allowed = new Set(["contextSourceIds", "toolIds"]);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      throw new TypeError(`First-party app ${appId} Intelligence field ${key} is not allowed`);
+    }
+  }
+  return Object.freeze({
+    contextSourceIds: freezeIntegrationIds(appId, "context source ids", value.contextSourceIds ?? []),
+    toolIds: freezeIntegrationIds(appId, "tool ids", value.toolIds ?? []),
+  });
+}
+
 function freezeChoiceOptions(appId, panel) {
   if (!panel.preferenceId || !Array.isArray(panel.options) || panel.options.length === 0) {
     throw new TypeError(`First-party app ${appId} preference panel is invalid`);
@@ -121,6 +151,7 @@ export function defineFirstPartyApp(spec) {
     component,
     requiredCapabilities,
     optionalCapabilities,
+    intelligence: freezeIntelligenceIntegration(spec.id, spec.intelligence ?? {}),
     panels: Object.freeze(spec.panels.map((panel) => freezePanel(spec.id, panel))),
   });
 }
