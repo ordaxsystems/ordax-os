@@ -12,6 +12,7 @@ on:
       - 'docs/contracts/model-router.json'
       - 'docs/contracts/intelligence-artifacts.json'
       - 'docs/contracts/intelligence-tools.json'
+      - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
@@ -20,6 +21,7 @@ on:
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/intelligence-artifact.mjs'
       - 'system/contracts/intelligence-tool.mjs'
+      - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
       - 'system/profile-packs/developer/manifest.json'
       - 'system/services/intelligence/**'
@@ -46,6 +48,7 @@ on:
       - 'tests/test_model_router_runtime.mjs'
       - 'tests/test_intelligence_artifact.mjs'
       - 'tests/test_intelligence_tool.mjs'
+      - 'tests/test_semantic_index.mjs'
       - 'tests/test_local_ai_runtime.mjs'
       - 'tests/test_local_ai_endpoint_policy.mjs'
       - 'tests/test_local_ai_probe_races.mjs'
@@ -81,6 +84,7 @@ on:
       - 'docs/contracts/model-router.json'
       - 'docs/contracts/intelligence-artifacts.json'
       - 'docs/contracts/intelligence-tools.json'
+      - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
@@ -89,6 +93,7 @@ on:
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/intelligence-artifact.mjs'
       - 'system/contracts/intelligence-tool.mjs'
+      - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
       - 'system/profile-packs/developer/manifest.json'
       - 'system/services/intelligence/**'
@@ -115,6 +120,7 @@ on:
       - 'tests/test_model_router_runtime.mjs'
       - 'tests/test_intelligence_artifact.mjs'
       - 'tests/test_intelligence_tool.mjs'
+      - 'tests/test_semantic_index.mjs'
       - 'tests/test_local_ai_runtime.mjs'
       - 'tests/test_local_ai_endpoint_policy.mjs'
       - 'tests/test_local_ai_probe_races.mjs'
@@ -172,6 +178,7 @@ jobs:
           node --check system/contracts/model-router.mjs
           node --check system/contracts/intelligence-artifact.mjs
           node --check system/contracts/intelligence-tool.mjs
+          node --check system/contracts/semantic-index.mjs
           node --check system/contracts/profile-pack.mjs
           find system/services/intelligence system/services/local-ai system/services/memory system/services/profile-packs -type f -name '*.mjs' -print0 \
             | sort -z \
@@ -193,6 +200,7 @@ jobs:
           python -m json.tool docs/contracts/model-router.json >/dev/null
           python -m json.tool docs/contracts/intelligence-artifacts.json >/dev/null
           python -m json.tool docs/contracts/intelligence-tools.json >/dev/null
+          python -m json.tool docs/contracts/semantic-index.json >/dev/null
           python -m json.tool system/profile-packs/developer/manifest.json >/dev/null
 
       - name: Run Intelligence and Local AI contract tests
@@ -204,6 +212,7 @@ jobs:
           node --test tests/test_model_router_runtime.mjs
           node --test tests/test_intelligence_artifact.mjs
           node --test tests/test_intelligence_tool.mjs
+          node --test tests/test_semantic_index.mjs
           node --test tests/test_local_ai_runtime.mjs
           node --test tests/test_local_ai_endpoint_policy.mjs
           node --test tests/test_local_ai_probe_races.mjs
