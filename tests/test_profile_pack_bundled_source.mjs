@@ -19,13 +19,14 @@ function fileFetch(overrides = new Map()) {
     assert.equal(options.method, "GET");
     assert.equal(options.cache, "no-store");
     assert.equal(options.credentials, "same-origin");
+    assert.equal(options.redirect, "error");
     if (overrides.has(path)) {
-      return { ok: true, status: 200, async json() { return overrides.get(path); } };
+      return { ok: true, status: 200, redirected: false, async json() { return overrides.get(path); } };
     }
     const sourcePath = path.replace(/^\//, "");
     const local = resolve(ROOT, sourcePath);
     const raw = JSON.parse(await readFile(local, "utf8"));
-    return { ok: true, status: 200, async json() { return raw; } };
+    return { ok: true, status: 200, redirected: false, async json() { return raw; } };
   };
 }
 
@@ -100,5 +101,23 @@ test("bundled source refuses alternate catalog origins and manifest identity dri
   await assert.rejects(
     () => loadBundledProfilePacks({ fetchImpl: fileFetch(overrides) }),
     /identity mismatch/,
+  );
+});
+
+test("bundled source rejects redirected responses even from a non-compliant fetch adapter", async () => {
+  const redirectedFetch = async (_path, options) => {
+    assert.equal(options.redirect, "error");
+    return {
+      ok: true,
+      status: 200,
+      redirected: true,
+      async json() {
+        return { $schema: "ordax.profile-pack-bundled-catalog/1", entries: [] };
+      },
+    };
+  };
+  await assert.rejects(
+    () => loadBundledProfilePacks({ fetchImpl: redirectedFetch }),
+    /redirect is not allowed/,
   );
 });
