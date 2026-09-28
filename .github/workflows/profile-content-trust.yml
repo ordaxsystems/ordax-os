@@ -13,6 +13,9 @@ on:
       - 'tests/test_profile_content_pack.mjs'
       - 'system/contracts/profile-content-pack.mjs'
       - 'tests/test_profile_content_proof.mjs'
+      - 'system/surface/runtime/native_profile_provisioning_executor.py'
+      - 'system/surface/runtime/native_profile_component_inventory.py'
+      - 'tests/test_native_profile_provisioning_executor.py'
       - '.github/workflows/profile-content-trust.yml'
   pull_request:
     paths:
@@ -25,6 +28,9 @@ on:
       - 'tests/test_profile_content_pack.mjs'
       - 'system/contracts/profile-content-pack.mjs'
       - 'tests/test_profile_content_proof.mjs'
+      - 'system/surface/runtime/native_profile_provisioning_executor.py'
+      - 'system/surface/runtime/native_profile_component_inventory.py'
+      - 'tests/test_native_profile_provisioning_executor.py'
       - '.github/workflows/profile-content-trust.yml'
   workflow_dispatch:
 
@@ -153,6 +159,51 @@ jobs:
           test -n "$slot"
           out/ordax-profile-content-channel health             --slot "$slot"             --trust "$proof/trust.json"
 
+          PYTHONPATH="$PWD/system/surface/runtime"           PROFILE_SLOT="$slot"           PROFILE_TRUST="$proof/trust.json"           PROFILE_CHANNEL="$PWD/out/ordax-profile-content-channel"           PROFILE_STATE="$proof/state"           python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from native_profile_provisioning_executor import provision_verified_stage
+
+          root = Path(os.environ["PROFILE_STATE"])
+          kwargs = {
+              "trust_path": os.environ["PROFILE_TRUST"],
+              "channel_bin": os.environ["PROFILE_CHANNEL"],
+              "inventory_path": str(root / "inventory.json"),
+              "receipt_root": str(root / "receipts"),
+              "lock_path": str(root / "provisioning.lock"),
+              "now_ms": 1234,
+          }
+          first = provision_verified_stage(os.environ["PROFILE_SLOT"], **kwargs)
+          assert first["changed"] is True
+          assert first["inventory"]["revision"] == 1
+          assert len(first["inventory"]["entries"]) == 1
+          second = provision_verified_stage(os.environ["PROFILE_SLOT"], **kwargs)
+          assert second["changed"] is False
+          assert second["inventory"]["revision"] == 1
+          receipt = json.loads(Path(first["receiptPath"]).read_text(encoding="utf-8"))
+          assert receipt["health"]["state"] == "healthy"
+          assert receipt["health"]["perEntryHashVerified"] is True
+          assert receipt["health"]["perEntryProvenanceVerified"] is True
+          assert receipt["health"]["executablePayloadAllowed"] is False
+          assert receipt["health"]["authority"] == "none"
+          print("PROFILE_CONTENT_RECEIPT_INVENTORY_COMMIT=PASS")
+          print(first["receiptPath"])
+          PY
+
+          PROFILE_RECEIPT="$(find "$proof/state/receipts" -type f -name '*.json' -print -quit)"
+          test -n "$PROFILE_RECEIPT"
+          PROFILE_RECEIPT="$PROFILE_RECEIPT" node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          import { validateProfileInstallReceipt } from "./system/contracts/profile-install-receipt.mjs";
+          const receipt = JSON.parse(await readFile(process.env.PROFILE_RECEIPT, "utf8"));
+          const value = validateProfileInstallReceipt(receipt);
+          if (value.health.state !== "healthy" || value.health.authority !== "none") {
+            throw new Error("receipt health evidence mismatch");
+          }
+          console.log("PROFILE_CONTENT_RECEIPT_JS_VALIDATION=PASS");
+          NODE
+
           printf '\nTAMPERED\n' >> "$proof/content.pack"
           if out/ordax-profile-content-channel verify             --manifest "$proof/manifest.json"             --envelope "$proof/envelope.json"             --trust "$proof/trust.json"             --content "$proof/content.pack"; then
             echo "tampered Profile content unexpectedly verified" >&2
@@ -166,6 +217,7 @@ jobs:
           echo 'PROFILE_CONTENT_TAMPER_REJECTION=PASS'
           echo 'PROFILE_CONTENT_IMMUTABLE_STAGE=PASS'
           echo 'PROFILE_CONTENT_STRUCTURAL_HEALTH=PASS'
+          echo 'PROFILE_CONTENT_RECEIPT_INVENTORY=PASS'
           echo 'PROFILE_CONTENT_CANONICAL_PRIVATE_KEY_INCLUDED=NO'
           echo 'PROFILE_CONTENT_ACTIVATION_ALLOWED=NO'
 
