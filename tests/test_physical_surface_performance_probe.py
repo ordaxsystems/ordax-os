@@ -71,6 +71,32 @@ class PhysicalSurfacePerformanceProbeTests(unittest.TestCase):
         self.assertNotIn("cmdline", str(sample))
         self.assertNotIn("native_host_server.py", str(sample))
 
+    def test_local_ai_process_is_aggregated_without_exposing_cmdline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proc_root = Path(directory)
+            self.build_proc_fixture(proc_root)
+            process = proc_root / "456"
+            process.mkdir()
+            (process / "cmdline").write_bytes(
+                b"/run/ordax/runtime/local-ai/bin/llama-server\x00"
+                b"--model\x00/run/ordax/runtime/local-ai/models/model.gguf\x00"
+            )
+            fields = ["S"] + ["0"] * 21
+            fields[11] = "11"
+            fields[12] = "5"
+            fields[21] = "7"
+            write(process / "stat", f"456 (llama-server) {' '.join(fields)}\n")
+
+            sample = probe.collect_sample(proc_root, 0.0)
+
+        local_ai = sample["processRoles"]["local-ai"]
+        self.assertEqual(local_ai["processCount"], 1)
+        self.assertEqual(local_ai["cpuTicks"], 16)
+        self.assertEqual(local_ai["rssBytes"], 7 * probe.PAGE_SIZE)
+        rendered = str(sample)
+        self.assertNotIn("model.gguf", rendered)
+        self.assertNotIn("llama-server", rendered)
+
     def test_probe_never_promotes_observation_to_physical_verdict(self):
         with tempfile.TemporaryDirectory() as directory:
             proc_root = Path(directory)
