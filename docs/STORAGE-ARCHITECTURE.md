@@ -177,6 +177,22 @@ The portable profile should minimize write amplification:
 - no writing zeros across unused USB capacity;
 - no full-device readback when large regions are intentionally unused and will be recreated/formatted separately.
 
+The machine-readable runtime policy is `ordax.portable-runtime-policy/1`.
+Portable runtime state is classified as **ephemeral**, **rebuildable** or
+**durable**. Ephemeral data stays memory-first. Rebuildable data such as semantic
+indexes may be persisted only in bounded/coalesced form and can always be
+discarded/rebuilt. Durable data keeps atomic persistence and explicit flush
+semantics.
+
+Native Intelligence memory now coalesces synchronous save bursts before the
+fsync-backed host POST. `flush()` remains the durability barrier, so this
+reduces repeated flash writes without weakening the persistence contract.
+
+For removable flash the policy allows zram as a volatile optimization but
+disables zram backing-device writeback by default. This follows the kernel's own
+warning that uncontrolled zram writeback can create flash wear. Any future
+writeback path needs a measured write budget and a separate policy change.
+
 This is especially important for low-cost flash drives with weak random-write performance and limited endurance.
 
 ## External SSD connected by USB
