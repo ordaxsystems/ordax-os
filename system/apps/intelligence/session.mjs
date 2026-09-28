@@ -13,6 +13,7 @@ export const INTELLIGENCE_CHAT_MAX_MESSAGES = 48;
 
 const EMPTY_CONTEXT_SOURCES = Object.freeze([]);
 const MESSAGE_KINDS = new Set(["chat", "plan"]);
+const MAX_CONTEXT_AUTHORIZATIONS = 64;
 
 function promptText(value) {
   if (typeof value !== "string" || value.includes("\0")) {
@@ -38,7 +39,7 @@ function boundedMessages(messages) {
 
 function explicitContextSourceIds(value) {
   if (value == null) return Object.freeze([]);
-  if (!Array.isArray(value) || value.length > 64) {
+  if (!Array.isArray(value) || value.length > MAX_CONTEXT_AUTHORIZATIONS) {
     throw new TypeError("Intelligence chat explicit context sources must be a bounded array");
   }
   const ids = value.map((id) => {
@@ -51,6 +52,31 @@ function explicitContextSourceIds(value) {
     throw new TypeError("Intelligence chat explicit context source ids must be unique");
   }
   return Object.freeze(ids);
+}
+
+function contextAuthorizations(value) {
+  if (value == null) return Object.freeze([]);
+  if (!Array.isArray(value) || value.length > MAX_CONTEXT_AUTHORIZATIONS) {
+    throw new TypeError("Intelligence chat context authorizations must be a bounded array");
+  }
+  const seen = new Set();
+  const normalized = value.map((authorization) => {
+    if (!authorization || typeof authorization !== "object" || Array.isArray(authorization)) {
+      throw new TypeError("Intelligence chat context authorization must be an object");
+    }
+    const sourceId = typeof authorization.sourceId === "string"
+      ? authorization.sourceId.trim()
+      : "";
+    if (!sourceId) {
+      throw new TypeError("Intelligence chat context authorization sourceId is invalid");
+    }
+    if (seen.has(sourceId)) {
+      throw new TypeError(`Duplicate Intelligence chat context authorization: ${sourceId}`);
+    }
+    seen.add(sourceId);
+    return Object.freeze({ ...authorization, sourceId });
+  });
+  return Object.freeze(normalized);
 }
 
 function planningInput(value, fallbackMaxTokens) {
@@ -165,16 +191,28 @@ export function createIntelligenceChatSession(
     publish();
   };
 
-  const collectCapsule = async (intent, prompt, target = null) => (
-    capsuleBuilder === null
-      ? null
-      : capsuleBuilder.build({
-        intent,
-        prompt,
-        target,
-        includeExplicitSourceIds: explicitSources,
-      })
-  );
+  const collectCapsule = async (
+    intent,
+    prompt,
+    target = null,
+    authorizationValues = [],
+  ) => {
+    if (capsuleBuilder === null) return null;
+    const authorizations = contextAuthorizations(authorizationValues);
+    const requestSourceIds = Object.freeze([
+      ...new Set([
+        ...explicitSources,
+        ...authorizations.map((authorization) => authorization.sourceId),
+      ]),
+    ]);
+    return capsuleBuilder.build({
+      intent,
+      prompt,
+      target,
+      includeExplicitSourceIds: requestSourceIds,
+      authorizations,
+    });
+  };
 
   const finish = () => {
     pending = false;
@@ -203,12 +241,12 @@ export function createIntelligenceChatSession(
       lastPlan = null;
       publish();
     },
-    async send(value) {
+    async send(value, { authorizations = [] } = {}) {
       const prompt = promptText(value);
       begin(prompt, "chat");
       lastPlan = null;
       try {
-        lastContextCapsule = await collectCapsule("ask", prompt);
+        lastContextCapsule = await collectCapsule("ask", prompt, null, authorizations);
         const response = await intelligence.respond({
           intent: "ask",
           prompt,
@@ -225,11 +263,16 @@ export function createIntelligenceChatSession(
         finish();
       }
     },
-    async plan(value) {
+    async plan(value, { authorizations = [] } = {}) {
       const request = planningInput(value, Math.max(maxTokens, 1024));
       begin(request.goal, "plan");
       try {
-        lastContextCapsule = await collectCapsule("plan", request.goal, request.target);
+        lastContextCapsule = await collectCapsule(
+          "plan",
+          request.goal,
+          request.target,
+          authorizations,
+        );
         const plan = await planner.plan({
           goal: request.goal,
           target: request.target,
