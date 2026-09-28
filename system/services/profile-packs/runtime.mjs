@@ -7,6 +7,7 @@ import {
 import {
   assertProfileProvisioningPort,
 } from "../../contracts/profile-provisioning.mjs";
+import { restoreProfilePackState } from "./restore.mjs";
 
 function identity(slug, version) {
   return `${slug}@${version}`;
@@ -46,11 +47,31 @@ function stateSnapshot(spaceId, current, previous) {
   });
 }
 
-export function createProfilePackRuntime({ packs = [], provisioning } = {}) {
+export function createProfilePackRuntime({
+  packs = [],
+  provisioning,
+  activationState = null,
+} = {}) {
   const provisioningPort = assertProfileProvisioningPort(provisioning);
   const validated = validateProfilePackCatalog(packs);
   const catalog = new Map(validated.map((pack) => [identity(pack.slug, pack.version), pack]));
   const activationStates = new Map();
+  const restoration = activationState === null
+    ? null
+    : restoreProfilePackState({
+        packs,
+        provisioning: provisioningPort,
+        activationState,
+      });
+  if (restoration !== null) {
+    for (const entry of restoration.entries) {
+      if (entry.state !== "restored" || entry.activation === null) continue;
+      activationStates.set(
+        entry.spaceId,
+        stateSnapshot(entry.spaceId, entry.activation, null),
+      );
+    }
+  }
   const listeners = new Set();
   let disposed = false;
 
@@ -70,6 +91,7 @@ export function createProfilePackRuntime({ packs = [], provisioning } = {}) {
         states.flatMap((state) => state.current === null ? [] : [state.current]),
       ),
       activationStates: states,
+      restoration,
     });
   };
 
