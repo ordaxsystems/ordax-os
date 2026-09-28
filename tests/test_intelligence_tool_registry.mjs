@@ -42,24 +42,28 @@ test("read-only tool registry exposes only canonical observable capabilities", (
     assert.equal(tool.readOnly, true);
     assert.equal(tool.networkEgress, false);
     assert.equal(tool.mutatesState, false);
-    assert.equal(tool.invocationEnabled, false);
     assert.equal(tool.authority, "none");
   }
+  assert.equal(registry.get("observe-system-metrics").invocationEnabled, true);
+  assert.equal(registry.get("observe-network-status").invocationEnabled, false);
+  assert.equal(registry.get("observe-power-status").invocationEnabled, false);
   assert.equal(typeof registry.invoke, "undefined");
   assert.equal(typeof registry.register, "undefined");
 });
 
-test("tool descriptors reject mutation, network, invocation and hidden execution fields", () => {
+test("tool descriptors permit explicit read-only invocation but reject unsafe authority", () => {
+  assert.equal(validateIntelligenceToolDescriptor(descriptor({ invocationEnabled: true })).invocationEnabled, true);
+  assert.equal(validateIntelligenceToolDescriptor(descriptor({ invocationEnabled: false })).invocationEnabled, false);
   for (const overrides of [
     { readOnly: false },
     { networkEgress: true },
     { mutatesState: true },
-    { invocationEnabled: true },
+    { invocationEnabled: "yes" },
     { authority: "system" },
   ]) {
     assert.throws(
       () => validateIntelligenceToolDescriptor(descriptor(overrides)),
-      /read-only, offline and non-invocable/,
+      /read-only, offline and explicitly governed/,
     );
   }
   assert.throws(
@@ -87,23 +91,27 @@ test("registry rejects capabilities outside the approved read-only product set",
   );
 });
 
-test("capability bridge only reports availability and never invokes a tool", () => {
+test("capability bridge reports availability and explicit invocation readiness without invoking", () => {
   const bridge = createIntelligenceCapabilityBridge();
   assert.equal(bridge.schema, INTELLIGENCE_CAPABILITY_BRIDGE_SCHEMA);
   assert.equal(typeof bridge.invoke, "undefined");
   assert.equal(typeof bridge.execute, "undefined");
 
   const system = bridge.inspect("observe-system-metrics", ["system.metrics", "network.status"]);
+  const network = bridge.inspect("observe-network-status", ["system.metrics", "network.status"]);
   const power = bridge.inspect("observe-power-status", ["system.metrics", "network.status"]);
   assert.deepEqual(system, {
     toolId: "observe-system-metrics",
     capabilityId: "system.metrics",
     available: true,
     readOnly: true,
-    invocationEnabled: false,
+    invocationEnabled: true,
     authority: "none",
   });
+  assert.equal(network.available, true);
+  assert.equal(network.invocationEnabled, false);
   assert.equal(power.available, false);
+  assert.equal(power.invocationEnabled, false);
   assert.equal(bridge.inspect("unknown-tool", ["system.metrics"]), null);
 });
 
