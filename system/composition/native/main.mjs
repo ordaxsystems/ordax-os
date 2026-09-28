@@ -81,6 +81,7 @@ import { mountSettingsOverviewControls } from "../../surface/ui/settings-overvie
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
+import { mountWorkspaceIntelligenceHandoffControls } from "../../surface/ui/workspace-intelligence-handoff-controls.mjs";
 
 async function optionalNativeProbe(label, factory) {
   try {
@@ -493,6 +494,12 @@ async function start() {
     intelligence,
     recoveryStatus,
   );
+  const workspaceIntelligenceHandoffControls = mountWorkspaceIntelligenceHandoffControls(
+    root,
+    workspaceStore,
+    appActivation,
+    surface,
+  );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface);
 
@@ -609,6 +616,7 @@ async function start() {
       homeContinuation.dispose();
       powerControls.destroy();
       updateControls.destroy();
+      workspaceIntelligenceHandoffControls.destroy();
       systemOverviewControls.destroy();
       settingsOverviewControls.destroy();
       networkTrayControls?.destroy();
