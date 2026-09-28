@@ -11,6 +11,7 @@ import {
   DEFAULT_BUNDLED_PROFILE_PACK_CATALOG,
   loadBundledProfilePacks,
 } from "../system/services/profile-packs/bundled-source.mjs";
+import { resolveProfilePackRestore } from "../system/services/profile-packs/restore.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -120,4 +121,64 @@ test("bundled source rejects redirected responses even from a non-compliant fetc
     () => loadBundledProfilePacks({ fetchImpl: redirectedFetch }),
     /redirect is not allowed/,
   );
+});
+
+
+test("bundled normalized manifests flow directly into restore without raw revalidation", async () => {
+  const source = await loadBundledProfilePacks({ fetchImpl: fileFetch() });
+  const activationSnapshot = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 1,
+    persistence: "device",
+    spaces: [{
+      spaceId: "space-dev",
+      spaceKind: "professional",
+      current: {
+        profile: { slug: "developer", version: 1 },
+        components: [],
+        activatedAt: 1000,
+      },
+      previous: null,
+    }],
+  };
+  const activationState = {
+    schema: "ordax.profile-activation-state-port/1",
+    getSnapshot() { return activationSnapshot; },
+    async refresh() { return activationSnapshot; },
+    dispose() {},
+  };
+  const plan = {
+    schema: "ordax.profile-provisioning/1",
+    profile: { slug: "developer", version: 1 },
+    state: "already-provisioned",
+    reason: null,
+    metadataBundled: true,
+    deliveryMode: "bundled",
+    offlineAfterInstall: true,
+    inventoryPersistence: "device",
+    missing: [],
+    alreadyInstalled: [],
+    componentsSatisfied: true,
+    requiredMissing: [],
+    requiredDownloadBytes: 0,
+    mayDownload: false,
+    mayActivate: true,
+  };
+  const provisioning = {
+    schema: "ordax.profile-provisioning/1",
+    list() { return Object.freeze([plan]); },
+    get(slug, version) {
+      return slug === "developer" && version === 1 ? plan : null;
+    },
+    refresh() { return this.list(); },
+    dispose() {},
+  };
+
+  const restore = resolveProfilePackRestore({
+    packs: source.packs,
+    provisioning,
+    activationState,
+  });
+  assert.equal(restore.entries[0].state, "resolved");
+  assert.deepEqual(restore.entries[0].profile, { slug: "developer", version: 1 });
 });
