@@ -106,7 +106,8 @@ test("available remote component requires exact sha256 and signature policy", ()
   });
   assert.equal(online.state, "ready");
   assert.equal(online.mayDownload, true);
-  assert.equal(online.mayActivate, true);
+  assert.equal(online.componentsSatisfied, false);
+  assert.equal(online.mayActivate, false);
 
   const installed = planProfileProvisioning({
     distribution: candidate,
