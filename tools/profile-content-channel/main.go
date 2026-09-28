@@ -129,6 +129,37 @@ type profileContentHealth struct {
 	Authority                   string
 }
 
+type stageEvidenceArtifact struct {
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Version   string `json:"version"`
+	SHA256    string `json:"sha256"`
+	SizeBytes int64  `json:"sizeBytes"`
+}
+
+type stageEvidenceVerification struct {
+	SignatureAlgorithm string `json:"signatureAlgorithm"`
+	KeyID              string `json:"keyId"`
+	ManifestSHA256     string `json:"manifestSha256"`
+}
+
+type stageEvidenceHealth struct {
+	Schema                      string `json:"schema"`
+	State                       string `json:"state"`
+	EntryCount                  int    `json:"entryCount"`
+	PerEntryHashVerified        bool   `json:"perEntryHashVerified"`
+	PerEntryProvenanceVerified  bool   `json:"perEntryProvenanceVerified"`
+	ExecutablePayloadAllowed    bool   `json:"executablePayloadAllowed"`
+	Authority                   string `json:"authority"`
+}
+
+type profileContentStageEvidence struct {
+	Schema       string                    `json:"schema"`
+	Artifact     stageEvidenceArtifact     `json:"artifact"`
+	Verification stageEvidenceVerification `json:"verification"`
+	Health       stageEvidenceHealth       `json:"health"`
+}
+
 func decodeStrict(data []byte, max int, target any) error {
 	if len(data) == 0 || len(data) > max {
 		return fmt.Errorf("document size outside allowed range: %d", len(data))
@@ -915,6 +946,50 @@ func inspectStagedSlotHealth(slot, trustPath string) (profileContentHealth, erro
 	return validateProfileContentPackFile(filepath.Join(slot, stageContentName), manifest.Kind)
 }
 
+func stagedSlotEvidence(slot, trustPath string) (profileContentStageEvidence, error) {
+	manifest, err := verifyStagedSlot(slot, trustPath)
+	if err != nil {
+		return profileContentStageEvidence{}, err
+	}
+	health, err := validateProfileContentPackFile(filepath.Join(slot, stageContentName), manifest.Kind)
+	if err != nil {
+		return profileContentStageEvidence{}, err
+	}
+	envelopeValue, _, err := readEnvelope(filepath.Join(slot, stageEnvelopeName))
+	if err != nil {
+		return profileContentStageEvidence{}, err
+	}
+	canonical, err := canonicalManifestBytes(manifest)
+	if err != nil {
+		return profileContentStageEvidence{}, err
+	}
+	manifestDigest := sha256.Sum256(canonical)
+	return profileContentStageEvidence{
+		Schema: "ordax.profile-content-stage-evidence/1",
+		Artifact: stageEvidenceArtifact{
+			ID:        manifest.ID,
+			Kind:      manifest.Kind,
+			Version:   manifest.Version,
+			SHA256:    manifest.ContentHash,
+			SizeBytes: manifest.ContentSize,
+		},
+		Verification: stageEvidenceVerification{
+			SignatureAlgorithm: algorithm,
+			KeyID:              envelopeValue.KeyID,
+			ManifestSHA256:     hex.EncodeToString(manifestDigest[:]),
+		},
+		Health: stageEvidenceHealth{
+			Schema:                     "ordax.profile-content-health/1",
+			State:                      health.State,
+			EntryCount:                 health.EntryCount,
+			PerEntryHashVerified:       health.PerEntryHashVerified,
+			PerEntryProvenanceVerified: health.PerEntryProvenanceVerified,
+			ExecutablePayloadAllowed:   health.ExecutablePayloadAllowed,
+			Authority:                  health.Authority,
+		},
+	}, nil
+}
+
 func syncDirectory(path string) {
 	directory, err := os.Open(path)
 	if err != nil {
@@ -1121,6 +1196,25 @@ func run() int {
 		fmt.Println("PROFILE_CONTENT_EXECUTABLE_PAYLOAD_ALLOWED=NO")
 		fmt.Println("PROFILE_CONTENT_AUTHORITY=NONE")
 		fmt.Println("PROFILE_CONTENT_ACTIVATION_ALLOWED=NO")
+		return 0
+	case "evidence":
+		fs := flag.NewFlagSet("evidence", flag.ContinueOnError)
+		slot := fs.String("slot", "", "")
+		trustPath := fs.String("trust", "", "")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			return 2
+		}
+		evidence, err := stagedSlotEvidence(*slot, *trustPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "PROFILE_CONTENT_ERROR=%v\n", err)
+			return 1
+		}
+		payload, err := json.Marshal(evidence)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "PROFILE_CONTENT_ERROR=%v\n", err)
+			return 1
+		}
+		fmt.Println(string(payload))
 		return 0
 	default:
 		fmt.Fprintf(os.Stderr, "PROFILE_CONTENT_ERROR=unknown command %q\n", os.Args[1])
