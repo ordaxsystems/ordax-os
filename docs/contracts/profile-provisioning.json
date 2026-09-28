@@ -1,0 +1,38 @@
+{
+  "$schema": "prototype-ordax.profile-provisioning/1",
+  "status": "mvp-source-planner-download-executor-disabled",
+  "runtime_schema": "ordax.profile-provisioning/1",
+  "distribution_schema": "ordax.profile-distribution/1",
+  "architecture": {
+    "runtime_is_single": true,
+    "all_profile_payloads_preseeded_on_usb": false,
+    "lightweight_catalog_metadata_may_be_bundled": true,
+    "download_only_missing_components": true,
+    "installed_profile_works_offline_when_local_dependencies_are_present": true,
+    "profile_data_owned_by_space_or_memory": false,
+    "space_and_memory_survive_profile_removal": true
+  },
+  "trust": {
+    "available_remote_component_requires_sha256": true,
+    "available_remote_component_requires_signature": true,
+    "planned_component_is_installable": false,
+    "profile_may_auto_grant_privilege": false,
+    "unsigned_payload_install_allowed": false
+  },
+  "mvp": {
+    "planner_enabled": true,
+    "download_executor_enabled": false,
+    "public_profile_install_enabled": false,
+    "store_enabled": false,
+    "developer": "internal-proof-only",
+    "legal_br": "catalog-visible-activation-blocked"
+  },
+  "next_gates": [
+    "signed-profile-component-artifact-contract",
+    "transactional-download-stage-verify",
+    "persistent-installed-component-inventory",
+    "profile-health-and-rollback",
+    "surface-profile-catalog-ui",
+    "first-public-profile-proof"
+  ]
+}
