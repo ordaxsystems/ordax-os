@@ -111,9 +111,15 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         for composition in (native, web):
             self.assertIn("createProfileProvisioningRuntime", composition)
             self.assertIn("LOCAL_PROFILE_DISTRIBUTIONS", composition)
+            self.assertIn("inventory: profileComponentInventory", composition)
             self.assertIn("profileProvisioning,", composition)
             self.assertIn("profileProvisioning.dispose()", composition)
-            self.assertIn("readInstalledComponentIds: () => []", composition)
+            self.assertIn("profileComponentInventory.dispose()", composition)
+        self.assertIn("createNativeProfileComponentInventory", native)
+        self.assertIn("optionalNativeProbe", native)
+        self.assertIn("createSessionProfileComponentInventory", native)
+        self.assertIn("createSessionProfileComponentInventory", web)
+        self.assertNotIn("adapters/native/profile-component-inventory.mjs", web)
 
     def test_memory_section_is_local_first_and_native_only_when_durable(self):
         controls = ACCOUNT.read_text(encoding="utf-8")
