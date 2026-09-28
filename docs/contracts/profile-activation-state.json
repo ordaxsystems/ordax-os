@@ -75,13 +75,16 @@
     "public_activation_enabled": false,
     "profile_stack_enabled": false,
     "space_cloud_write_enabled": false,
-    "offline_restore_compatibility_metadata": true
+    "offline_restore_compatibility_metadata": true,
+    "native_restore_metadata_resolution": true,
+    "native_restore_capability_application": false,
+    "native_restore_drift_result": "disabled-safe"
   },
   "next_gates": [
     "trusted-user-intent-activation-command-boundary",
     "profile-catalog-and-provisioning-revalidation-at-activation-time",
-    "native-composition-restore-from-persisted-current",
     "profile-health-after-activation",
-    "public-profile-trust-and-permission-review-before-public-activation"
+    "public-profile-trust-and-permission-review-before-public-activation",
+    "trusted-capability-application-from-resolved-profile-state"
   ]
 }

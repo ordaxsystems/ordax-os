@@ -19,8 +19,8 @@ async function manifest(path) {
   return JSON.parse(await readFile(resolve(ROOT, path), "utf8"));
 }
 
-const developer = await manifest("system/profile-packs/developer/manifest.json");
-const legalBr = await manifest("system/profile-packs/legal-br/manifest.json");
+const developer = await manifest("system/profile-packs/developer/v1/manifest.json");
+const legalBr = await manifest("system/profile-packs/legal-br/v1/manifest.json");
 
 function localProvisioning() {
   return createProfileProvisioningRuntime({
