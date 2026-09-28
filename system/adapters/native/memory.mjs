@@ -193,7 +193,7 @@ export async function createNativeMemoryStore(
 
   let desiredRevision = 0;
   let durableRevision = 0;
-  let persistQueue = Promise.resolve(true);
+  let drainPromise = null;
   let lastPersistError = null;
 
   const persist = async (snapshot) => {
@@ -224,24 +224,37 @@ export async function createNativeMemoryStore(
     return true;
   };
 
-  const enqueuePersist = (snapshot, revision) => {
-    const operation = persistQueue.then(async () => {
+  const drainDesiredSnapshot = async () => {
+    while (durableRevision < desiredRevision) {
+      const revision = desiredRevision;
+      const snapshot = memory;
       try {
         await persist(snapshot);
         durableRevision = Math.max(durableRevision, revision);
         if (revision === desiredRevision) lastPersistError = null;
-        return true;
       } catch (error) {
-        if (revision === desiredRevision) {
-          lastPersistError = error instanceof Error
-            ? error
-            : new Error("Native Intelligence memory persistence failed");
+        if (revision < desiredRevision) {
+          continue;
         }
+        lastPersistError = error instanceof Error
+          ? error
+          : new Error("Native Intelligence memory persistence failed");
         return false;
       }
-    });
-    persistQueue = operation;
-    return operation;
+    }
+    return true;
+  };
+
+  const scheduleDrain = () => {
+    if (drainPromise !== null) return drainPromise;
+    // Defer one microtask so a burst of synchronous edits collapses into the
+    // newest snapshot instead of issuing one fsync-backed POST per keystroke.
+    drainPromise = Promise.resolve()
+      .then(drainDesiredSnapshot)
+      .finally(() => {
+        drainPromise = null;
+      });
+    return drainPromise;
   };
 
   const store = {
@@ -254,23 +267,19 @@ export async function createNativeMemoryStore(
       const validated = validateDeviceSnapshot(snapshot);
       memory = validated;
       desiredRevision += 1;
-      enqueuePersist(validated, desiredRevision);
+      scheduleDrain();
       return true;
     },
     async flush() {
       const targetRevision = desiredRevision;
       if (durableRevision >= targetRevision) return true;
 
-      await persistQueue;
+      await scheduleDrain();
       if (durableRevision >= targetRevision) return true;
 
-      // A queued POST for the target failed. Retry the current desired snapshot
-      // once for this flush call. A newer queued save may become durable before
-      // this retry runs; durability is therefore decided by revision, not by the
-      // retry operation's standalone result.
-      const retrySnapshot = memory;
-      const retryRevision = desiredRevision;
-      await enqueuePersist(retrySnapshot, retryRevision);
+      // Retry the newest desired snapshot once. Durability remains revision
+      // based, so an obsolete failed snapshot never forces an unnecessary write.
+      await scheduleDrain();
       if (durableRevision < targetRevision) {
         throw lastPersistError ?? new Error("Native Intelligence memory persistence failed");
       }
