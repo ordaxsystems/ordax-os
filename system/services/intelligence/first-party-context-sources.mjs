@@ -4,6 +4,10 @@ const SOURCE_SPECS = Object.freeze([
     title: "Projeto selecionado",
   }),
   Object.freeze({
+    id: "project-evidence-selection",
+    title: "Evidências locais selecionadas do projeto",
+  }),
+  Object.freeze({
     id: "note-selection",
     title: "Nota selecionada",
   }),
