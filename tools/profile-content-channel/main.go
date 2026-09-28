@@ -31,6 +31,11 @@ const (
 	maxTrustBytes    = 16 << 10
 	maxPrivateKey    = 16 << 10
 	maxContentBytes  = int64(256 << 20)
+
+	stageManifestName = "profile-content-manifest.json"
+	stageEnvelopeName = "profile-content-envelope.json"
+	stageContentName  = "content.pack"
+	defaultStageRoot  = "/var/lib/ordax/profile-content"
 )
 
 var (
@@ -472,6 +477,312 @@ func verify(manifestPath, envelopePath, trustPath, contentPath string) (profileC
 	return manifest, nil
 }
 
+
+func ensureSecureDirectory(path string, mode os.FileMode) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(absolute, mode); err != nil {
+		return "", err
+	}
+	info, err := os.Lstat(absolute)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", errors.New("Profile content stage path must be a real directory")
+	}
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", err
+	}
+	resolvedAbs, err := filepath.Abs(resolved)
+	if err != nil {
+		return "", err
+	}
+	if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
+		return "", errors.New("Profile content stage path may not traverse symlinks")
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(absolute, mode); err != nil {
+			return "", err
+		}
+	}
+	return absolute, nil
+}
+
+func writeFileSynced(path string, payload []byte, mode os.FileMode) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
+	if err != nil {
+		return err
+	}
+	remove := true
+	defer func() {
+		if remove {
+			_ = os.Remove(path)
+		}
+	}()
+	if _, err := file.Write(payload); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	remove = false
+	return nil
+}
+
+func copyContentSynced(sourcePath, targetPath string, manifest profileContentManifest) error {
+	source, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	target, err := os.OpenFile(targetPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	remove := true
+	defer func() {
+		if remove {
+			_ = os.Remove(targetPath)
+		}
+	}()
+
+	hash := sha256.New()
+	writer := io.MultiWriter(target, hash)
+	written, err := io.Copy(writer, io.LimitReader(source, maxContentBytes+1))
+	if err != nil {
+		_ = target.Close()
+		return err
+	}
+	if written != manifest.ContentSize {
+		_ = target.Close()
+		return errors.New("Profile content size mismatch during staging")
+	}
+	if hex.EncodeToString(hash.Sum(nil)) != manifest.ContentHash {
+		_ = target.Close()
+		return errors.New("Profile content hash mismatch during staging")
+	}
+	if err := target.Sync(); err != nil {
+		_ = target.Close()
+		return err
+	}
+	if err := target.Close(); err != nil {
+		return err
+	}
+	remove = false
+	return nil
+}
+
+func makeStageReadOnly(root string) error {
+	directories := []string{}
+	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("Profile content stage contains a symlink")
+		}
+		if entry.IsDir() {
+			directories = append(directories, path)
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return errors.New("Profile content stage contains non-regular file")
+		}
+		if runtime.GOOS != "windows" {
+			return os.Chmod(path, 0o400)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if runtime.GOOS != "windows" {
+		for i := len(directories) - 1; i >= 0; i-- {
+			if err := os.Chmod(directories[i], 0o500); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func stagedFileSetIsCanonical(slot string) error {
+	expected := map[string]struct{}{
+		stageManifestName: {},
+		stageEnvelopeName: {},
+		stageContentName:  {},
+	}
+	actual := map[string]struct{}{}
+	if err := filepath.WalkDir(slot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if path == slot {
+			return nil
+		}
+		relative, err := filepath.Rel(slot, path)
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return errors.New("Profile content stage contains unexpected directory")
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return errors.New("Profile content stage contains unsafe entry")
+		}
+		if runtime.GOOS != "windows" && info.Mode().Perm()&0o222 != 0 {
+			return errors.New("Profile content stage file is writable")
+		}
+		actual[relative] = struct{}{}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if len(actual) != len(expected) {
+		return errors.New("Profile content stage file set is not canonical")
+	}
+	for name := range expected {
+		if _, ok := actual[name]; !ok {
+			return fmt.Errorf("Profile content stage missing %s", name)
+		}
+	}
+	return nil
+}
+
+func verifyStagedSlot(slot, trustPath string) (profileContentManifest, error) {
+	absolute, err := filepath.Abs(slot)
+	if err != nil {
+		return profileContentManifest{}, err
+	}
+	info, err := os.Lstat(absolute)
+	if err != nil {
+		return profileContentManifest{}, err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return profileContentManifest{}, errors.New("Profile content slot is not a real directory")
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o222 != 0 {
+		return profileContentManifest{}, errors.New("Profile content slot directory is writable")
+	}
+	if err := stagedFileSetIsCanonical(absolute); err != nil {
+		return profileContentManifest{}, err
+	}
+	return verify(
+		filepath.Join(absolute, stageManifestName),
+		filepath.Join(absolute, stageEnvelopeName),
+		trustPath,
+		filepath.Join(absolute, stageContentName),
+	)
+}
+
+func syncDirectory(path string) {
+	directory, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer directory.Close()
+	_ = directory.Sync()
+}
+
+func stageContent(manifestPath, envelopePath, trustPath, contentPath, root string) (profileContentManifest, string, bool, error) {
+	manifest, canonical, err := readManifest(manifestPath)
+	if err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	if _, err := verify(manifestPath, envelopePath, trustPath, contentPath); err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	envelopeBytes, err := readRegular(envelopePath, maxEnvelopeBytes, false)
+	if err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+
+	root, err = ensureSecureDirectory(root, 0o700)
+	if err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	parent := filepath.Join(
+		root,
+		manifest.Kind,
+		manifest.ID,
+		"versions",
+		manifest.Version,
+	)
+	parent, err = ensureSecureDirectory(parent, 0o700)
+	if err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	slot := filepath.Join(parent, manifest.ContentHash)
+	if _, err := os.Lstat(slot); err == nil {
+		verified, verifyErr := verifyStagedSlot(slot, trustPath)
+		if verifyErr != nil {
+			return profileContentManifest{}, "", false, fmt.Errorf("existing Profile content slot failed verification: %w", verifyErr)
+		}
+		if verified.ID != manifest.ID || verified.Version != manifest.Version || verified.ContentHash != manifest.ContentHash {
+			return profileContentManifest{}, "", false, errors.New("existing Profile content slot identity mismatch")
+		}
+		return verified, slot, false, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return profileContentManifest{}, "", false, err
+	}
+
+	temp, err := os.MkdirTemp(parent, ".stage-")
+	if err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	removeTemp := true
+	defer func() {
+		if removeTemp {
+			_ = os.Chmod(temp, 0o700)
+			_ = os.RemoveAll(temp)
+		}
+	}()
+
+	if err := writeFileSynced(filepath.Join(temp, stageManifestName), canonical, 0o600); err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	if err := writeFileSynced(filepath.Join(temp, stageEnvelopeName), envelopeBytes, 0o600); err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	if err := copyContentSynced(contentPath, filepath.Join(temp, stageContentName), manifest); err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	if err := makeStageReadOnly(temp); err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	if _, err := verifyStagedSlot(temp, trustPath); err != nil {
+		return profileContentManifest{}, "", false, fmt.Errorf("staged Profile content failed verification: %w", err)
+	}
+	if err := os.Rename(temp, slot); err != nil {
+		return profileContentManifest{}, "", false, err
+	}
+	removeTemp = false
+	syncDirectory(parent)
+
+	verified, err := verifyStagedSlot(slot, trustPath)
+	if err != nil {
+		return profileContentManifest{}, "", false, fmt.Errorf("installed Profile content slot failed post-rename verification: %w", err)
+	}
+	return verified, slot, true, nil
+}
+
 func run() int {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "PROFILE_CONTENT_ERROR=command required")
@@ -526,6 +837,38 @@ func run() int {
 		fmt.Printf("PROFILE_CONTENT_ID=%s\n", manifest.ID)
 		fmt.Printf("PROFILE_CONTENT_KIND=%s\n", manifest.Kind)
 		fmt.Printf("PROFILE_CONTENT_VERSION=%s\n", manifest.Version)
+		fmt.Println("PROFILE_CONTENT_ACTIVATION_ALLOWED=NO")
+		return 0
+	case "stage":
+		fs := flag.NewFlagSet("stage", flag.ContinueOnError)
+		manifestPath := fs.String("manifest", "", "")
+		envelopePath := fs.String("envelope", "", "")
+		trustPath := fs.String("trust", "", "")
+		contentPath := fs.String("content", "", "")
+		root := fs.String("root", defaultStageRoot, "")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			return 2
+		}
+		manifest, slot, changed, err := stageContent(
+			*manifestPath,
+			*envelopePath,
+			*trustPath,
+			*contentPath,
+			*root,
+		)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "PROFILE_CONTENT_ERROR=%v\n", err)
+			return 1
+		}
+		fmt.Println("PROFILE_CONTENT_STAGE=PASS")
+		fmt.Printf("PROFILE_CONTENT_ID=%s\n", manifest.ID)
+		fmt.Printf("PROFILE_CONTENT_VERSION=%s\n", manifest.Version)
+		fmt.Printf("PROFILE_CONTENT_SLOT=%s\n", slot)
+		if changed {
+			fmt.Println("PROFILE_CONTENT_SLOT_CHANGED=YES")
+		} else {
+			fmt.Println("PROFILE_CONTENT_SLOT_CHANGED=NO")
+		}
 		fmt.Println("PROFILE_CONTENT_ACTIVATION_ALLOWED=NO")
 		return 0
 	default:
