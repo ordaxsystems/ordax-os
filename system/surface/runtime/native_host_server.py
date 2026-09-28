@@ -46,6 +46,7 @@ from native_memory_endpoint import (
     write_memory_endpoint,
 )
 from native_hardware_inventory import read_hardware_inventory
+from native_profile_component_inventory import read_profile_component_inventory
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -61,6 +62,7 @@ LOCAL_SESSION_PATH = "/__ordax/native/local-session"
 NOTES_PATH = "/__ordax/native/notes"
 MEMORY_PATH = "/__ordax/native/intelligence-memory"
 COMPONENT_STATE_PATH = "/__ordax/native/component-state"
+PROFILE_COMPONENT_INVENTORY_PATH = "/__ordax/native/profile-component-inventory"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
@@ -3361,7 +3363,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
-        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path == METRICS_PATH:
@@ -3791,6 +3793,19 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(500)
                 return
             self._write_json(200, {"payload": payload})
+            return
+        if self.path == PROFILE_COMPONENT_INVENTORY_PATH:
+            try:
+                payload = read_profile_component_inventory()
+            except (OSError, UnicodeError, ValueError) as exc:
+                print(
+                    f"ordax-native-host: could not read Profile component inventory: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(500)
+                return
+            self._write_json(200, payload)
             return
         if self.path == SYNC_STATE_PATH:
             self._write_json(200, {"payload": read_sync_state_payload()})
