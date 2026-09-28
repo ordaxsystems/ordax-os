@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { INTELLIGENCE_PORT_SCHEMA } from "../system/contracts/intelligence.mjs";
 import {
+  createDocumentIntelligenceContext,
   explainSystemStateWithIntelligence,
   summarizeDocumentWithIntelligence,
 } from "../system/services/intelligence/client-actions.mjs";
@@ -57,6 +58,21 @@ test("document summary sends bounded provenance-bearing context without mutation
   assert.equal(request.context[0].provenance, "notes:note-42:device-local");
   assert.ok(request.context[0].text.length <= 8192);
   assert.match(request.context[0].text, /conteúdo truncado/);
+});
+
+test("document context accepts Notes title bounds but clips the model-facing title", () => {
+  const title = "T".repeat(1024);
+  const context = createDocumentIntelligenceContext({
+    id: "note-long-title",
+    title,
+    text: "Corpo da nota",
+    provenance: "ordax:notes:note-long-title:user-authorized-selection",
+  });
+  assert.equal(context.length, 1);
+  assert.equal(context[0].scope, "document");
+  assert.ok(context[0].text.length <= 8192);
+  assert.match(context[0].text, /^Título: T+/);
+  assert.equal(context[0].text.includes("T".repeat(513)), false);
 });
 
 test("system explanation includes only bounded host and metrics observations", async () => {
