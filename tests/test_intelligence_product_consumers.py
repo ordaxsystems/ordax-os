@@ -3,6 +3,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "system/composition/native/main.mjs"
+NATIVE_SYSTEM_ANALYSIS = ROOT / "system/composition/native/intelligence-system-analysis.mjs"
 NOTES_RUNTIME = ROOT / "system/apps/notes/runtime.mjs"
 NOTES_UI = ROOT / "system/apps/notes/ui/workspace-controls.mjs"
 NOTES_HANDOFF = ROOT / "system/apps/notes/ui/intelligence-handoff-controls.mjs"
@@ -21,7 +22,26 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn("componentManager.setCurrentHealth(", text)
         self.assertIn('"local-ai-service"', text)
         self.assertIn('"ordax-intelligence"', text)
+        self.assertIn("createNativeIntelligenceSystemAnalysis({", text)
+        self.assertIn("intelligenceSystemAnalysis.intelligence", text)
+        self.assertIn("intelligenceSystemAnalysis.dispose();", text)
         self.assertIn("intelligence,", text)
+
+    def test_native_system_analysis_uses_governed_read_only_observation_stack(self):
+        text = NATIVE_SYSTEM_ANALYSIS.read_text(encoding="utf-8")
+        self.assertIn("createIntelligenceAuditJournal", text)
+        self.assertIn("createIntelligenceCapabilityBridge", text)
+        self.assertIn("createIntelligenceToolAuthorizationBroker", text)
+        self.assertIn("createIntelligenceReadOnlyToolExecutor", text)
+        self.assertIn("createIntelligenceSystemObserver", text)
+        self.assertIn('"observe-system-metrics"', text)
+        self.assertIn('"observe-network-status"', text)
+        self.assertIn('"observe-power-status"', text)
+        self.assertIn("observer.observe()", text)
+        self.assertIn('request.intent !== "diagnose"', text)
+        self.assertNotIn("network.management", text)
+        self.assertNotIn("power-actions", text)
+        self.assertNotIn("shell", text.lower())
 
     def test_notes_consumes_intelligence_not_local_ai(self):
         runtime = NOTES_RUNTIME.read_text(encoding="utf-8")
