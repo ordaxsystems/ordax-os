@@ -27,11 +27,12 @@
     "developer": "internal-proof-only",
     "legal_br": "catalog-visible-activation-blocked",
     "persistent_native_inventory_reader": true,
-    "surface_can_write_inventory": false
+    "surface_can_write_inventory": false,
+    "immutable_profile_content_staging_source": true,
+    "profile_content_stage_activation": false
   },
   "next_gates": [
     "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
-    "transactional-download-stage-verify",
     "profile-health-and-rollback",
     "surface-profile-catalog-ui",
     "first-public-profile-proof"
@@ -83,6 +84,23 @@
     "runtime_network_allowed": false,
     "mutable_host_access_allowed": false,
     "public_release_trust_pinned": false,
+    "activation_allowed": false
+  },
+  "content_staging": {
+    "tool": "tools/profile-content-channel",
+    "immutable_content_addressed_slot": true,
+    "slot_identity": [
+      "kind",
+      "id",
+      "version",
+      "sha256"
+    ],
+    "exact_file_set": true,
+    "read_only_after_stage": true,
+    "post_stage_reverification": true,
+    "idempotent_restage_requires_existing_slot_reverification": true,
+    "staging_changes_active_profile": false,
+    "staging_writes_inventory": false,
     "activation_allowed": false
   }
 }
