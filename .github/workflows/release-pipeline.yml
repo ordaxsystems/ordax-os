@@ -496,10 +496,13 @@ jobs:
               ).read_text(encoding='utf-8')
           )
           assert authorization['$schema'] == 'prototype-ordax.physical-write-authorization/3'
-          assert authorization['status'] == 'blocked-explicit-physical-authorization-pending'
+          assert authorization['status'] == 'blocked-canonical-v4-release-proof-pending'
           assert authorization['explicit_owner_authorization'] is False
           assert authorization['physical_write_allowed'] is False
           assert authorization['authorization_context_sha256'] is None
+          assert authorization['requirements']['canonical_v4_release_proof_bound'] is False
+          # The superseded pre-hardening proof remains recorded as historical
+          # provenance, but it cannot satisfy the current authorization gate.
           assert authorization['bindings']['canonical_v4_release_proof_sha256'] == (
               '2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b'
           )
@@ -508,7 +511,8 @@ jobs:
           )
           print('CANONICAL_TRUST_ANCHOR=YES')
           print('CANONICAL_TRUST_WORKING_REPOSITORY_VALIDATED=PASS')
-          print('CANONICAL_V4_RELEASE_PROOF=PASS_BOUND_VERSIONED_PRERELEASE')
+          print('CANONICAL_V4_RELEASE_PROOF=SUPERSEDED_PRE_HARDENING_HISTORY')
+          print('CURRENT_CANONICAL_V4_RELEASE_PROOF_BOUND=NO')
           print('EXPLICIT_OWNER_PHYSICAL_AUTHORIZATION=NO')
           PY
 
