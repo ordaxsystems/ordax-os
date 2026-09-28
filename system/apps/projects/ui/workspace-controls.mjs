@@ -6,6 +6,11 @@ import {
   assertProjectCloudLinksPort,
   validateProjectCloudLinksSnapshot,
 } from "../../../contracts/project-cloud-links.mjs";
+import {
+  assertProjectWebReferencePort,
+  validateProjectWebReference,
+  validateProjectWebReferenceSnapshot,
+} from "../../../contracts/project-web-references.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
 import { assertIntelligenceContextSharePort } from "../../../contracts/intelligence-context-share.mjs";
 import { encodeIntelligenceHandoffTarget } from "../../../contracts/intelligence-handoff.mjs";
@@ -14,6 +19,9 @@ import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-
 const PROJECTS_WINDOW_SELECTOR = '[data-window-id="projects"]';
 const PROJECTS_EXTENSION_SELECTOR = '[data-app-extension="projects-workspace"]';
 const PROJECT_CONTEXT_SOURCE_ID = "project-selection";
+const PROJECT_PERSISTENCE = new Set(["device", "session"]);
+const MAX_PROJECT_CONTEXT_REFERENCES = 8;
+const MAX_PROJECT_CONTEXT_REFERENCE_NOTE_CHARS = 600;
 
 function node(documentObject, tag, className = "", text = undefined) {
   const element = documentObject.createElement(tag);
@@ -34,7 +42,30 @@ function formatActivity(timestamp, locale, unknownLabel) {
   }).format(new Date(timestamp));
 }
 
-export function createProjectIntelligenceContext(project) {
+function projectPersistence(value) {
+  if (!PROJECT_PERSISTENCE.has(value)) {
+    throw new TypeError("Project Intelligence catalog persistence is invalid");
+  }
+  return value;
+}
+
+function projectReferenceEvidence(referenceValue) {
+  const reference = validateProjectWebReference(referenceValue);
+  return Object.freeze({
+    title: reference.title,
+    note: reference.note.slice(0, MAX_PROJECT_CONTEXT_REFERENCE_NOTE_CHARS),
+    updatedAt: reference.updatedAt,
+  });
+}
+
+export function createProjectIntelligenceContext(
+  project,
+  {
+    cloudLinked = false,
+    catalogPersistence = "session",
+    webReferences = [],
+  } = {},
+) {
   if (!project || typeof project !== "object" || Array.isArray(project)) {
     throw new TypeError("Project Intelligence context requires a project");
   }
@@ -44,23 +75,37 @@ export function createProjectIntelligenceContext(project) {
   if (typeof project.name !== "string" || !project.name.trim()) {
     throw new TypeError("Project Intelligence context requires a project name");
   }
+  if (typeof cloudLinked !== "boolean") {
+    throw new TypeError("Project Intelligence cloud linkage must be boolean");
+  }
+  if (!Array.isArray(webReferences)) {
+    throw new TypeError("Project Intelligence web references must be an array");
+  }
   const lastOpenedAt = Number.isSafeInteger(project.lastOpenedAt) && project.lastOpenedAt >= 0
     ? project.lastOpenedAt
     : null;
+  const references = webReferences.map(projectReferenceEvidence);
+  const includedReferences = references.slice(0, MAX_PROJECT_CONTEXT_REFERENCES);
   return Object.freeze([Object.freeze({
     id: `${PROJECT_CONTEXT_SOURCE_ID}-${project.id}`,
     scope: "workspace",
     text: JSON.stringify({
       name: project.name.trim(),
       lastOpenedAt,
+      catalogPersistence: projectPersistence(catalogPersistence),
+      cloudLinked,
+      referenceCount: references.length,
+      referencesIncluded: includedReferences.length,
+      references: includedReferences,
     }),
-    provenance: "ordax:projects:user-authorized-selection",
+    provenance: "ordax:projects:user-authorized-selection:catalog-cloud-reference-metadata",
   })]);
 }
 
 export function createProjectsPresentation({
   projects = null,
   cloudLinks = null,
+  webReferences = null,
 } = {}) {
   const projectSnapshot = projects === null
     ? null
@@ -68,6 +113,9 @@ export function createProjectsPresentation({
   const linkSnapshot = cloudLinks === null
     ? null
     : validateProjectCloudLinksSnapshot(cloudLinks);
+  const referenceSnapshot = webReferences === null
+    ? null
+    : validateProjectWebReferenceSnapshot(webReferences);
 
   if (projectSnapshot === null) {
     return Object.freeze({
@@ -81,6 +129,13 @@ export function createProjectsPresentation({
   const linkByLocalId = new Map(
     (linkSnapshot?.links ?? []).map((link) => [link.localProjectId, link]),
   );
+  const referenceCountByProject = new Map();
+  for (const reference of referenceSnapshot?.references ?? []) {
+    referenceCountByProject.set(
+      reference.projectId,
+      (referenceCountByProject.get(reference.projectId) ?? 0) + 1,
+    );
+  }
   const items = projectSnapshot.projects.map((project) => {
     const link = linkByLocalId.get(project.id) ?? null;
     return Object.freeze({
@@ -91,6 +146,7 @@ export function createProjectsPresentation({
       linked: link !== null,
       cloudProjectId: link?.cloudProjectId ?? null,
       spaceId: link?.spaceId ?? null,
+      referenceCount: referenceCountByProject.get(project.id) ?? 0,
     });
   });
 
@@ -128,6 +184,12 @@ function buildShell(documentObject, t) {
   return view;
 }
 
+function projectReferenceLabel(t, count) {
+  if (count === 0) return t("projects.references.none");
+  if (count === 1) return t("projects.references.one");
+  return t("projects.references.many", { count });
+}
+
 function projectCard(documentObject, item, localization, canUseIntelligence) {
   const t = localization.translate;
   const card = node(documentObject, "article", "ordax-project-card");
@@ -159,6 +221,12 @@ function projectCard(documentObject, item, localization, canUseIntelligence) {
       ),
     }),
   );
+  const references = node(
+    documentObject,
+    "p",
+    "ordax-project-card-meta",
+    projectReferenceLabel(t, item.referenceCount),
+  );
 
   const actions = node(documentObject, "div", "ordax-project-card-actions");
   const open = node(documentObject, "button", "ordax-project-action", t("projects.action.openFiles"));
@@ -167,6 +235,14 @@ function projectCard(documentObject, item, localization, canUseIntelligence) {
   actions.append(open);
 
   if (canUseIntelligence) {
+    const ask = node(
+      documentObject,
+      "button",
+      "ordax-project-action",
+      t("projects.action.askIntelligence"),
+    );
+    ask.type = "button";
+    ask.dataset.projectsAskIntelligence = item.id;
     const plan = node(
       documentObject,
       "button",
@@ -175,10 +251,10 @@ function projectCard(documentObject, item, localization, canUseIntelligence) {
     );
     plan.type = "button";
     plan.dataset.projectsPlanWithIntelligence = item.id;
-    actions.append(plan);
+    actions.append(ask, plan);
   }
 
-  card.append(heading, activity, actions);
+  card.append(heading, activity, references, actions);
   return card;
 }
 
@@ -187,6 +263,7 @@ export function mountProjectsWorkspaceControls(
   {
     projects = null,
     projectCloudLinks = null,
+    projectWebReferences = null,
     surfaceLifecycle,
     appActivation = null,
     intelligenceContextShare = null,
@@ -199,6 +276,9 @@ export function mountProjectsWorkspaceControls(
   const cloudPort = projectCloudLinks === null
     ? null
     : assertProjectCloudLinksPort(projectCloudLinks);
+  const referencePort = projectWebReferences === null
+    ? null
+    : assertProjectWebReferencePort(projectWebReferences);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const activation = appActivation === null ? null : assertAppActivationPort(appActivation);
   const contextShare = intelligenceContextShare === null
@@ -210,8 +290,52 @@ export function mountProjectsWorkspaceControls(
 
   let projectSnapshot = projectPort?.getSnapshot() ?? null;
   let linkSnapshot = cloudPort?.getSnapshot() ?? null;
+  let referenceSnapshot = referencePort?.getSnapshot() ?? null;
   let mountedSlot = null;
   let destroyed = false;
+
+  const projectReferencesFor = (projectId) => Object.freeze(
+    (referenceSnapshot?.references ?? []).filter((reference) => reference.projectId === projectId),
+  );
+
+  const projectIsCloudLinked = (projectId) =>
+    (linkSnapshot?.links ?? []).some((link) => link.localProjectId === projectId);
+
+  const offerProjectToIntelligence = (project, mode) => {
+    if (!activation || !contextShare) return;
+    const target = { kind: "project", id: project.id };
+    contextShare.offer({
+      sourceAppId: "projects",
+      sourceId: PROJECT_CONTEXT_SOURCE_ID,
+      target,
+      displayLabel: project.name,
+      context: createProjectIntelligenceContext(project, {
+        cloudLinked: projectIsCloudLinked(project.id),
+        catalogPersistence: projectSnapshot?.persistence ?? "session",
+        webReferences: projectReferencesFor(project.id),
+      }),
+      authority: "none",
+      executable: false,
+      toolExecution: false,
+    });
+    activation.publish({
+      appId: "intelligence",
+      target: encodeIntelligenceHandoffTarget({
+        sourceAppId: "projects",
+        mode,
+        target,
+        displayLabel: project.name,
+        suggestedPrompt: t(
+          mode === "plan"
+            ? "projects.action.planWithIntelligencePrompt"
+            : "projects.action.askIntelligencePrompt",
+        ),
+        authority: "none",
+        executable: false,
+        toolExecution: false,
+      }),
+    });
+  };
 
   const render = () => {
     if (destroyed) return;
@@ -236,6 +360,7 @@ export function mountProjectsWorkspaceControls(
     const presentation = createProjectsPresentation({
       projects: projectSnapshot,
       cloudLinks: linkSnapshot,
+      webReferences: referenceSnapshot,
     });
     const view = slot.querySelector("[data-ordax-projects-view]");
     view.dataset.projectsAvailable = String(presentation.available);
@@ -288,8 +413,9 @@ export function mountProjectsWorkspaceControls(
       }),
     );
     const list = node(documentObject, "div", "ordax-projects-list");
+    const canUseIntelligence = activation !== null && contextShare !== null;
     for (const item of presentation.items) {
-      list.append(projectCard(documentObject, item, localization, activation !== null));
+      list.append(projectCard(documentObject, item, localization, canUseIntelligence));
     }
     body.append(linked, list);
   };
@@ -306,39 +432,21 @@ export function mountProjectsWorkspaceControls(
       return;
     }
 
+    const ask = event.target?.closest?.("[data-projects-ask-intelligence]");
+    if (ask && mountedSlot?.contains(ask)) {
+      const item = projectSnapshot?.projects.find(
+        (project) => project.id === ask.dataset.projectsAskIntelligence,
+      );
+      if (item) offerProjectToIntelligence(item, "chat");
+      return;
+    }
+
     const plan = event.target?.closest?.("[data-projects-plan-with-intelligence]");
-    if (plan && mountedSlot?.contains(plan) && activation) {
+    if (plan && mountedSlot?.contains(plan)) {
       const item = projectSnapshot?.projects.find(
         (project) => project.id === plan.dataset.projectsPlanWithIntelligence,
       );
-      if (item) {
-        const target = { kind: "project", id: item.id };
-        if (contextShare) {
-          contextShare.offer({
-            sourceAppId: "projects",
-            sourceId: PROJECT_CONTEXT_SOURCE_ID,
-            target,
-            displayLabel: item.name,
-            context: createProjectIntelligenceContext(item),
-            authority: "none",
-            executable: false,
-            toolExecution: false,
-          });
-        }
-        activation.publish({
-          appId: "intelligence",
-          target: encodeIntelligenceHandoffTarget({
-            sourceAppId: "projects",
-            mode: "plan",
-            target,
-            displayLabel: item.name,
-            suggestedPrompt: t("projects.action.planWithIntelligencePrompt"),
-            authority: "none",
-            executable: false,
-            toolExecution: false,
-          }),
-        });
-      }
+      if (item) offerProjectToIntelligence(item, "plan");
       return;
     }
 
@@ -356,6 +464,10 @@ export function mountProjectsWorkspaceControls(
     linkSnapshot = validateProjectCloudLinksSnapshot(snapshot);
     render();
   });
+  const unsubscribeReferences = referencePort?.subscribe((snapshot) => {
+    referenceSnapshot = validateProjectWebReferenceSnapshot(snapshot);
+    render();
+  });
   const unsubscribeLocalization = localization.subscribe(() => render());
   const unsubscribeRender = lifecycle.subscribeRender(() => render());
   root.addEventListener("click", onClick);
@@ -367,6 +479,7 @@ export function mountProjectsWorkspaceControls(
       destroyed = true;
       unsubscribeRender();
       unsubscribeLocalization();
+      unsubscribeReferences?.();
       unsubscribeLinks?.();
       unsubscribeProjects?.();
       root.removeEventListener("click", onClick);
