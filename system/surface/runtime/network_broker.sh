@@ -15,6 +15,11 @@ SAVED_SSID_LINE=$SESSION_DIR/network-saved-ssid
 WPA_CONF=$STATE_DIR/wpa.conf
 CANDIDATE=$STATE_DIR/wpa.conf.candidate.$$
 
+# Runtime contract with bootstrap/stable-base/source.json. Stable/MVP keeps
+# wireless drivers modular, so the product-owned network broker activates the
+# exact supported module families before looking for a Wi-Fi interface.
+WIFI_MODULES="iwlwifi iwlmvm rtl8xxxu mt76x2u ath9k_htc"
+
 umask 077
 mkdir -p "$STATE_DIR" "$SESSION_DIR"
 chmod 700 "$STATE_DIR" "$SESSION_DIR"
@@ -23,8 +28,9 @@ IP_BIN=$(command -v ip || true)
 IW_BIN=$(command -v iw || true)
 WPA_BIN=$(command -v wpa_supplicant || true)
 UDHCPC_BIN=$(command -v udhcpc || true)
+MODPROBE_BIN=$(command -v modprobe || true)
 
-[ -n "$IP_BIN" ] && [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
+[ -n "$IP_BIN" ] && [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$UDHCPC_BIN" ] && [ -n "$MODPROBE_BIN" ] || {
     echo "ordax-network-broker: required host network tools are unavailable" >&2
     exit 1
 }
@@ -43,10 +49,16 @@ respond() {
     outcome=$2
     interface_name=$3
     detail=$4
-    temporary=$RESPONSE.tmp.$
+    temporary=$RESPONSE.tmp.$$
     printf '%s\t%s\t%s\t%s\n' "$request_id" "$outcome" "$interface_name" "$detail" >"$temporary"
     chmod 600 "$temporary"
     mv -f "$temporary" "$RESPONSE"
+}
+
+load_supported_wifi_modules() {
+    for module in $WIFI_MODULES; do
+        "$MODPROBE_BIN" "$module" >/dev/null 2>&1 || true
+    done
 }
 
 find_wifi_interface() {
@@ -56,6 +68,16 @@ find_wifi_interface() {
         return 0
     done
     return 1
+}
+
+find_or_activate_wifi_interface() {
+    wifi=$(find_wifi_interface || true)
+    if [ -z "$wifi" ]; then
+        load_supported_wifi_modules
+        wifi=$(find_wifi_interface || true)
+    fi
+    [ -n "$wifi" ] || return 1
+    printf '%s\n' "$wifi"
 }
 
 capture_saved_ssid() {
@@ -166,7 +188,7 @@ handle_request() {
         ''|*[!A-Za-z0-9._:-]*) respond unknown error "" invalid-request; return 0 ;;
     esac
 
-    wifi=$(find_wifi_interface || true)
+    wifi=$(find_or_activate_wifi_interface || true)
     [ -n "$wifi" ] || {
         respond "$request_id" error "" no-wifi-interface
         return 0
@@ -249,6 +271,11 @@ handle_request() {
             ;;
     esac
 }
+
+# Prime module activation once at broker startup. The same activation is retried
+# on demand for late hardware/firmware readiness without introducing a second
+# network manager or a background polling loop.
+load_supported_wifi_modules
 
 exec 9<>"$CONTROL"
 while :; do
