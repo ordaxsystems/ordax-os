@@ -131,6 +131,7 @@ jobs:
             exit 1
           fi
 
+          chmod -R u+rwX "$stage_root"
           rm -rf "$proof"
           test ! -e "$proof"
           echo 'PROFILE_CONTENT_JS_GO_INTEROP=PASS'
