@@ -17,7 +17,8 @@ export function createWebSurfaceHost(
     : assertIdentitySessionPort(identitySession);
   const listeners = new Set();
   const readSnapshot = () => {
-    const accountIdentityAvailable = identityPort?.getSnapshot().state !== "unavailable";
+    const accountIdentityAvailable = identityPort !== null
+      && identityPort.getSnapshot().state !== "unavailable";
     return validateSurfaceSnapshot({
       capabilityIds: [
         "network.https",
