@@ -82,6 +82,8 @@ Nenhum desses itens precisa conceder execução de tools.
 13. modo Planejar no app Intelligence sem executar mudanças;
 14. Project Intelligence read-only baseado em evidência real de Git, testes, contratos e artefatos.
 
+**Estado atual da P2:** Projetos já possui contexto explícito de metadados canônicos e referências Web sanitizadas, além de uma primeira fonte separada de **evidências locais do projeto**. Essa fonte só é lida depois da ação explícita `Analisar evidências`; o app recebe uma porta estreita `ordax.project-evidence/1`, enquanto o acesso ao File Space permanece dentro da composição/serviço. O scanner é deliberadamente bounded: considera somente arquivos de orientação/manifests aprovados no topo do projeto e resumos rasos de diretórios conhecidos de testes, documentação, contratos e artefatos. Não percorre `src`, não faz varredura recursiva, não inspeciona `.git`, não envia o caminho local do projeto e não transforma evidência em authority. A próxima evolução de Project Intelligence deve adicionar Git/testes/contratos/artefatos como capabilities read-only próprias quando precisarem de observação mais profunda, em vez de alargar implicitamente o acesso ao filesystem.
+
 ### P3 — agentes e capabilities read-only
 
 15. Agent Registry com identidades como System, Search, File, Workspace e Developer;
@@ -159,6 +161,7 @@ Knowledge Graph, semantic search e Project Brain podem ser adicionados depois so
 - memória não é injetada automaticamente por login;
 - agentes não recebem root/shell genérico;
 - receipts e audit logs não são capabilities nem bearer tokens;
+- evidência de projeto é contexto explícito e bounded, nunca autoridade de filesystem;
 - mutação oficial do sistema continua subordinada às authorities e gates do OrdaX.
 
 ## 8. Relação com o legado Nova OrdaX
