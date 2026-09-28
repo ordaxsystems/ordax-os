@@ -1,14 +1,14 @@
 {
   "$schema": "prototype-ordax.intelligence-chat-app/1",
-  "status": "source-foundation",
+  "status": "native-integrated-beta",
   "product_name": "OrdaX Intelligence",
   "app_id": "intelligence",
   "version": "0.1.0",
   "owner": "system/apps/intelligence",
   "purpose": "first-party conversational client for ordax.intelligence/1",
   "integration": {
-    "catalog_registered": false,
-    "native_composition_mounted": false,
+    "catalog_registered": true,
+    "native_composition_mounted": true,
     "web_composition_mounted": false,
     "requires_capability": "intelligence.system"
   },
@@ -29,5 +29,5 @@
   },
   "history": "session-only",
   "authority": "none",
-  "next_gate": "register the app and mount its runtime in Native composition without weakening Intelligence authority boundaries"
+  "next_gate": "validate the registered Native conversational app in CI and runtime smoke before adding separately-governed Web grounding or action capabilities"
 }
