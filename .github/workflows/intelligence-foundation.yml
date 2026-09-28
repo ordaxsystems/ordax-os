@@ -92,6 +92,8 @@ on:
       - 'system/surface/runtime/native_profile_component_inventory.py'
       - 'tests/test_profile_component_inventory.mjs'
       - 'tests/test_native_profile_component_inventory.py'
+      - 'system/contracts/profile-install-receipt.mjs'
+      - 'tests/test_profile_install_receipt.mjs'
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
@@ -183,6 +185,8 @@ on:
       - 'system/surface/runtime/native_profile_component_inventory.py'
       - 'tests/test_profile_component_inventory.mjs'
       - 'tests/test_native_profile_component_inventory.py'
+      - 'system/contracts/profile-install-receipt.mjs'
+      - 'tests/test_profile_install_receipt.mjs'
       - '.github/workflows/intelligence-foundation.yml'
   workflow_dispatch:
 
@@ -221,6 +225,7 @@ jobs:
           node --check system/contracts/profile-pack-catalog.mjs
           node --check system/contracts/profile-provisioning.mjs
           node --check system/contracts/profile-component-inventory.mjs
+          node --check system/contracts/profile-install-receipt.mjs
           node --check system/profile-packs/distributions.mjs
           node --check system/services/profile-packs/catalog.mjs
           node --check system/services/profile-packs/inventory.mjs
@@ -282,6 +287,7 @@ jobs:
           node --test tests/test_profile_pack_catalog.mjs
           node --test tests/test_profile_provisioning.mjs
           node --test tests/test_profile_component_inventory.mjs
+          node --test tests/test_profile_install_receipt.mjs
           node --test tests/test_profile_provisioning_runtime.mjs
           python -m unittest tests.test_local_ai_baseline -v
           python -m unittest tests.test_local_ai_baseline_compare -v
