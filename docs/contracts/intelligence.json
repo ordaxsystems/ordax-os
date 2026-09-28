@@ -27,8 +27,7 @@
     "production_native_composition": true,
     "first_party_consultative_consumers": [
       "notes",
-      "system",
-      "intelligence"
+      "system"
     ],
     "direct_provider_access_from_consumers": false,
     "stable_v4_backend_lifecycle": "source-handoff-implemented-signed-stable-materialization-pending"
