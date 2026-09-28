@@ -64,6 +64,7 @@ import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
+import { mountFileIntelligenceHandoffControls } from "../../surface/ui/file-intelligence-handoff-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
 import { mountNetworkTrayControls } from "../../surface/ui/network-tray-controls.mjs";
 import { mountNotificationCenterControls } from "../../surface/ui/notification-center-controls.mjs";
@@ -444,6 +445,12 @@ async function start() {
     surface,
     { recentFiles, projects },
   );
+  const fileIntelligenceHandoffControls = mountFileIntelligenceHandoffControls(
+    root,
+    filesOwnerSpace,
+    appActivation,
+    surface,
+  );
   let settingsOverviewControls;
   try {
     settingsOverviewControls = mountSettingsOverviewControls(
@@ -610,6 +617,7 @@ async function start() {
       notificationCenter.destroy();
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
+      fileIntelligenceHandoffControls.destroy();
       fileSpaceControls.destroy();
       projectsComponent?.destroy();
       notesComponent?.destroy();
