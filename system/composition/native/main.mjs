@@ -270,8 +270,7 @@ async function start() {
     ? null
     : createMemoryReviewViewModel(memoryReviewSession);
   const identityActions = createWebIdentityActions(window, identitySession);
-  const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
-  const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
+  const identityCredentials = createSameOriginIdentityCredentials(window);
   const spaces = createWebSpacesCatalog(window);
   const syncTransport = createWebSyncTransport(window);
   const appActivation = createAppActivationChannel();
@@ -325,8 +324,7 @@ async function start() {
     browserWebContentAvailable,
     intelligenceSystemAvailable,
     localSessionAvailable,
-    accountIdentityAvailable: identityAvailable,
-    syncSafeStateAvailable: identityAvailable,
+    identitySession,
   });
 
   validateAccountRuntime(
@@ -489,9 +487,6 @@ async function start() {
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface);
 
-  // Reaching this point proves that the shared Surface composition mounted.
-  // Optional app runtimes load only after this acknowledgement so an app-level
-  // import or mount failure cannot turn into a failed OrdaX cold boot.
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);

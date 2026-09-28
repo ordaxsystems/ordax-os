@@ -8,6 +8,18 @@ const BASE_CAPABILITIES = Object.freeze([
   "network.https",
 ]);
 
+function validateIdentitySessionPort(identitySession) {
+  if (
+    identitySession === null
+    || typeof identitySession !== "object"
+    || typeof identitySession.getSnapshot !== "function"
+    || typeof identitySession.subscribe !== "function"
+  ) {
+    throw new TypeError("Native Surface host requires an identity session port");
+  }
+  return identitySession;
+}
+
 export function createNativeSurfaceHost(
   windowRef = globalThis.window,
   {
@@ -21,22 +33,21 @@ export function createNativeSurfaceHost(
     browserWebContentAvailable = false,
     intelligenceSystemAvailable = false,
     localSessionAvailable = false,
-    accountIdentityAvailable = false,
-    syncSafeStateAvailable = false,
+    identitySession,
   } = {},
 ) {
   if (!windowRef?.navigator) {
     throw new TypeError("Native Surface host requires a browser-like window");
   }
+  const liveIdentitySession = validateIdentitySessionPort(identitySession);
 
   const listeners = new Set();
   const readSnapshot = () => {
-    if (syncSafeStateAvailable && !accountIdentityAvailable) {
-      throw new TypeError("sync.safe-state requires account.identity");
-    }
+    const identityAvailable = liveIdentitySession.getSnapshot().state !== "unavailable";
     const capabilityIds = [...BASE_CAPABILITIES];
-    if (accountIdentityAvailable) capabilityIds.push("account.identity");
-    if (syncSafeStateAvailable) capabilityIds.push("sync.safe-state");
+    if (identityAvailable) {
+      capabilityIds.push("account.identity", "sync.safe-state");
+    }
     if (userFileSpaceAvailable) {
       capabilityIds.push("filesystem.user-space");
     }
@@ -82,6 +93,7 @@ export function createNativeSurfaceHost(
 
   windowRef.addEventListener("online", notify);
   windowRef.addEventListener("offline", notify);
+  const unsubscribeIdentity = liveIdentitySession.subscribe(notify);
 
   return Object.freeze({
     schema: SURFACE_HOST_SCHEMA,
@@ -95,6 +107,7 @@ export function createNativeSurfaceHost(
     },
     dispose() {
       listeners.clear();
+      unsubscribeIdentity();
       windowRef.removeEventListener("online", notify);
       windowRef.removeEventListener("offline", notify);
     },

@@ -3,24 +3,37 @@ import {
   validateSurfaceSnapshot,
 } from "../../contracts/surface-host.mjs";
 
-export function createWebSurfaceHost(windowRef = globalThis.window, { accountIdentityAvailable = false, syncSafeStateAvailable = false } = {}) {
+function validateIdentitySessionPort(identitySession) {
+  if (
+    identitySession === null
+    || typeof identitySession !== "object"
+    || typeof identitySession.getSnapshot !== "function"
+    || typeof identitySession.subscribe !== "function"
+  ) {
+    throw new TypeError("Web Surface host requires an identity session port");
+  }
+  return identitySession;
+}
+
+export function createWebSurfaceHost(
+  windowRef = globalThis.window,
+  { identitySession } = {},
+) {
   if (!windowRef?.navigator) {
     throw new TypeError("Web Surface host requires a browser-like window");
   }
-
-  if (syncSafeStateAvailable && !accountIdentityAvailable) {
-    throw new TypeError("sync.safe-state requires account.identity");
-  }
+  const liveIdentitySession = validateIdentitySessionPort(identitySession);
   const listeners = new Set();
-  const readSnapshot = () =>
-    validateSurfaceSnapshot({
+  const readSnapshot = () => {
+    const identityAvailable = liveIdentitySession.getSnapshot().state !== "unavailable";
+    return validateSurfaceSnapshot({
       capabilityIds: [
         "network.https",
-        ...(accountIdentityAvailable ? ["account.identity"] : []),
-        ...(syncSafeStateAvailable ? ["sync.safe-state"] : []),
+        ...(identityAvailable ? ["account.identity", "sync.safe-state"] : []),
       ],
       connectivity: windowRef.navigator.onLine ? "online" : "offline",
     });
+  };
 
   const notify = () => {
     const snapshot = readSnapshot();
@@ -31,6 +44,7 @@ export function createWebSurfaceHost(windowRef = globalThis.window, { accountIde
 
   windowRef.addEventListener("online", notify);
   windowRef.addEventListener("offline", notify);
+  const unsubscribeIdentity = liveIdentitySession.subscribe(notify);
 
   return Object.freeze({
     schema: SURFACE_HOST_SCHEMA,
@@ -44,6 +58,7 @@ export function createWebSurfaceHost(windowRef = globalThis.window, { accountIde
     },
     dispose() {
       listeners.clear();
+      unsubscribeIdentity();
       windowRef.removeEventListener("online", notify);
       windowRef.removeEventListener("offline", notify);
     },

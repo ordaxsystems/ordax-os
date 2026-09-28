@@ -1,0 +1,26 @@
+{
+  "$schema": "prototype-ordax.dynamic-identity-capability/1",
+  "owner": "identity-session-port",
+  "availability": {
+    "source": "identity-session.snapshot.state",
+    "unavailable_state": "unavailable",
+    "capabilities_when_available": [
+      "account.identity",
+      "sync.safe-state"
+    ],
+    "boot_time_snapshot_is_authority": false,
+    "network_event_is_authority": false
+  },
+  "composition": {
+    "native": "live-port",
+    "web": "live-port",
+    "credential_adapter_lifecycle": "composition",
+    "credential_adapter_grants_identity": false
+  },
+  "security": {
+    "fake_provider_allowed": false,
+    "provider_fallback_allowed": false,
+    "polling_required": false,
+    "sync_without_identity_allowed": false
+  }
+}
