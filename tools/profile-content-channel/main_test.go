@@ -20,8 +20,9 @@ func fixtureManifest(content []byte) profileContentManifest {
 		Kind:        "knowledge-pack",
 		Version:     "0.1.0",
 		Publisher:   "ordax",
-		ContentHash: hex.EncodeToString(digest[:]),
-		ContentSize: int64(len(content)),
+		ContentHash:   hex.EncodeToString(digest[:]),
+		ContentSize:   int64(len(content)),
+		ContentFormat: contentFormat,
 		Source: sourceDescriptor{
 			URI:          "https://example.invalid/ordax/legal-proof",
 			Revision:     "fixture-1",
@@ -152,6 +153,12 @@ func TestManifestRejectsAuthorityAndUnsupportedKinds(t *testing.T) {
 	value.Kind = "app"
 	if err := validateManifest(value); err == nil {
 		t.Fatal("unsupported Profile content kind accepted")
+	}
+
+	value = fixtureManifest([]byte("x"))
+	value.ContentFormat = "unknown/9"
+	if err := validateManifest(value); err == nil {
+		t.Fatal("unsupported Profile content format accepted")
 	}
 }
 
