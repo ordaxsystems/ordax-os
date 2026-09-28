@@ -1,0 +1,30 @@
+{
+  "$schema": "ordax.profile-pack/1",
+  "slug": "developer",
+  "version": 1,
+  "state": "draft",
+  "title": "Developer",
+  "category": "development",
+  "space_kind": "professional",
+  "apps": [],
+  "templates": [],
+  "knowledge": {
+    "jurisdiction": null,
+    "source_classes": [
+      "project-source",
+      "project-docs",
+      "user-authorized-repository"
+    ],
+    "refresh_policy": "project-owned"
+  },
+  "intelligence": {
+    "memory_scopes": ["space", "project"],
+    "preferred_purpose": "code",
+    "external_provider_required": false
+  },
+  "security": {
+    "auto_grant_privileges": false,
+    "allow_unsigned_apps": false,
+    "generic_shell_implied": false
+  }
+}
