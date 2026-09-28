@@ -283,6 +283,22 @@ def _write_receipt_once(receipt: dict, receipt_root: str) -> tuple[str, str, boo
     return path, digest, True
 
 
+def _read_existing_receipt(path: str, expected_sha256: str) -> bytes:
+    info = os.stat(path, follow_symlinks=False)
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or stat.S_ISLNK(info.st_mode)
+        or stat.S_IMODE(info.st_mode) & 0o077
+        or info.st_size <= 0
+        or info.st_size > MAX_RECEIPT_BYTES
+    ):
+        raise ValueError("Installed Profile component receipt boundary is unsafe")
+    payload = Path(path).read_bytes()
+    if hashlib.sha256(payload).hexdigest() != expected_sha256:
+        raise ValueError("Installed Profile component receipt hash mismatch")
+    return payload
+
+
 def _lock_file(path: str):
     parent = os.path.dirname(path)
     _secure_directory(parent)
@@ -304,9 +320,11 @@ def commit_verified_receipt(
     receipt_root: str = DEFAULT_RECEIPT_ROOT,
     lock_path: str = DEFAULT_LOCK_PATH,
 ) -> dict:
-    artifact = receipt.get("artifact") if isinstance(receipt, dict) else None
-    health = receipt.get("health") if isinstance(receipt, dict) else None
-    verification = receipt.get("verification") if isinstance(receipt, dict) else None
+    if not isinstance(receipt, dict):
+        raise ValueError("Profile install receipt is invalid")
+    artifact = receipt.get("artifact")
+    health = receipt.get("health")
+    verification = receipt.get("verification")
     if (
         receipt.get("schema") != PROFILE_INSTALL_RECEIPT_SCHEMA
         or not isinstance(artifact, dict)
@@ -355,11 +373,10 @@ def commit_verified_receipt(
                         receipt_root,
                         f"{entry['receiptSha256']}.json",
                     )
-                    if not os.path.isfile(receipt_path):
-                        raise ValueError("Installed Profile component receipt is missing")
-                    payload = Path(receipt_path).read_bytes()
-                    if hashlib.sha256(payload).hexdigest() != entry["receiptSha256"]:
-                        raise ValueError("Installed Profile component receipt hash mismatch")
+                    try:
+                        _read_existing_receipt(receipt_path, entry["receiptSha256"])
+                    except FileNotFoundError as exc:
+                        raise ValueError("Installed Profile component receipt is missing") from exc
                     return {
                         "changed": False,
                         "inventory": inventory,
