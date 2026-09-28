@@ -7,6 +7,7 @@ NETWORK_BROKER = ROOT / "system" / "surface" / "runtime" / "network_broker.sh"
 KERNEL_FRAGMENT = ROOT / "bootstrap" / "kernel" / "config" / "ordax.fragment"
 FIRST_RUN_CSS = ROOT / "system" / "surface" / "ui" / "first-run.css"
 SURFACE_STATE = ROOT / "system" / "surface" / "ui" / "surface-state.mjs"
+APP_CONTRACT = ROOT / "system" / "apps" / "app-contract.mjs"
 NORMAL_BOOT = ROOT / "boot" / "portable-v2" / "loader" / "entries" / "ordax-portable.conf"
 RECOVERY_BOOT = ROOT / "boot" / "portable-v2" / "loader" / "entries" / "ordax-portable-recovery.conf"
 
@@ -57,10 +58,16 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         self.assertIn("grid-template-columns: repeat(7, 1fr);", text)
         self.assertNotIn("grid-template-columns: repeat(6, 1fr);", text)
 
-    def test_surface_state_supports_full_work_area_first_launch_without_overriding_restored_windows(self):
-        text = SURFACE_STATE.read_text(encoding="utf-8")
-        self.assertIn("maximized: action.maximized === true", text)
-        self.assertIn("windows.push({ ...windowState });", text)
+    def test_first_party_apps_default_to_full_work_area_without_overriding_restored_windows(self):
+        state = SURFACE_STATE.read_text(encoding="utf-8")
+        contract = APP_CONTRACT.read_text(encoding="utf-8")
+
+        self.assertIn('const WINDOW_MODES = new Set(["maximized", "windowed"]);', contract)
+        self.assertIn('const windowMode = spec.windowMode ?? "maximized";', contract)
+        self.assertIn("windowMode,", contract)
+        self.assertIn('app.windowMode === "maximized"', state)
+        self.assertIn("hasWindowOverride", state)
+        self.assertIn("windows.push({ ...windowState });", state)
 
 
 if __name__ == "__main__":
