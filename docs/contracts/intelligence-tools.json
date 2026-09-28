@@ -1,9 +1,11 @@
 {
   "$schema": "prototype-ordax.intelligence-tools/1",
-  "status": "read-only-registry-and-inspection-foundation",
+  "status": "read-only-registry-inspection-and-authorization-foundation",
   "tool_contract": "ordax.intelligence-tool/1",
   "registry_contract": "ordax.intelligence-tool-registry/1",
   "capability_bridge_contract": "ordax.intelligence-capability-bridge/1",
+  "authorization_broker_contract": "ordax.intelligence-tool-authorization-broker/1",
+  "authorization_receipt_contract": "ordax.intelligence-tool-authorization-receipt/1",
   "owner": "system/services/intelligence",
   "approved_read_only_capabilities": [
     "system.metrics",
@@ -42,13 +44,31 @@
     "prompt_grants_tool": false,
     "unknown_capability_fails_closed": true
   },
+  "authorization": {
+    "explicit_agent_tool_binding_required": true,
+    "one_shot": true,
+    "max_ttl_ms": 300000,
+    "target_bound": true,
+    "trusted_capability_inventory_required": true,
+    "authorization_receipts": [
+      "issued",
+      "claimed",
+      "revoked",
+      "expired"
+    ],
+    "receipt_contains_bearer_token": false,
+    "receipt_contains_target_id": false,
+    "receipt_is_execution_proof": false,
+    "execution_enabled": false
+  },
   "deferred": [
     "tool-invocation",
-    "explicit-tool-grants",
     "execution-receipts",
-    "audit-journal",
+    "persistent-audit-journal",
+    "sanitized-tool-results",
     "web-grounding",
     "mutating-tools",
+    "leases",
     "rollback"
   ]
 }

@@ -1,0 +1,55 @@
+{
+  "$schema": "prototype-ordax.intelligence-tool-authorization/1",
+  "status": "typed-read-only-authorization-foundation",
+  "grant_contract": "ordax.intelligence-tool-grant/1",
+  "broker_contract": "ordax.intelligence-tool-authorization-broker/1",
+  "receipt_contract": "ordax.intelligence-tool-authorization-receipt/1",
+  "owner": "system/services/intelligence",
+  "policy": {
+    "explicit_agent_tool_binding_required": true,
+    "agent_identity_alone_grants_tool": false,
+    "prompt_grants_tool": false,
+    "caller_supplied_capability_id_allowed": false,
+    "capability_must_be_present_in_trusted_inventory": true,
+    "target_scope_must_match_tool_descriptor": true,
+    "one_shot": true,
+    "max_ttl_ms": 300000,
+    "read_only": true,
+    "network_egress": false,
+    "mutates_state": false,
+    "execution_enabled": false,
+    "authority": "none"
+  },
+  "receipts": {
+    "events": [
+      "issued",
+      "claimed",
+      "revoked",
+      "expired"
+    ],
+    "bounded_in_memory_foundation": true,
+    "contains_bearer_grant_id": false,
+    "contains_target_id": false,
+    "uses_non_authorizing_audit_ref": true,
+    "execution_occurred": false,
+    "is_execution_proof": false
+  },
+  "security": {
+    "generic_shell": false,
+    "arbitrary_path": false,
+    "arbitrary_url": false,
+    "adapter_invocation": false,
+    "model_invocation": false,
+    "tool_registry_remains_non_invocable": true,
+    "capability_bridge_remains_inspection_only": true
+  },
+  "deferred": [
+    "read-only-tool-invocation",
+    "execution-receipts",
+    "persistent-audit-journal",
+    "sanitized-tool-results",
+    "mutating-tools",
+    "leases",
+    "rollback"
+  ]
+}

@@ -90,6 +90,8 @@ Nenhum desses itens precisa conceder execução de tools.
 18. receipts/telemetria de cada execução;
 19. nenhuma shell genérica.
 
+**Estado atual da P3:** o Agent Registry já existe como fundação read-only; o Tool Registry e o Capability Bridge já descrevem apenas capabilities de observabilidade aprovadas e continuam sem `invoke`/`execute`; grants tipados agora exigem binding explícito agente→tool, capability realmente presente, alvo compatível, TTL curto e uso único. O lifecycle de autorização gera receipts `issued/claimed/revoked/expired` sem bearer token nem target privado. Esses receipts **não são prova de execução**: leitura real de status/logs e execution receipts continuam pendentes antes de qualquer agente poder operar tools.
+
 ### P4 — Web e modelos externos
 
 20. Web grounding com origem, URL, timestamp e provenance;
