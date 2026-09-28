@@ -3,6 +3,7 @@ export const PROFILE_COMPONENT_INVENTORY_PORT_SCHEMA = "ordax.profile-component-
 
 const COMPONENT_ID_PATTERN = /^[a-z][a-z0-9._-]{1,127}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const SEMVER_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
 const COMPONENT_KINDS = new Set([
   "app",
   "knowledge-pack",
@@ -20,6 +21,13 @@ function objectValue(value, label) {
 
 function componentId(value, label) {
   if (typeof value !== "string" || !COMPONENT_ID_PATTERN.test(value)) {
+    throw new TypeError(`${label} is invalid`);
+  }
+  return value;
+}
+
+function version(value, label) {
+  if (typeof value !== "string" || !SEMVER_PATTERN.test(value)) {
     throw new TypeError(`${label} is invalid`);
   }
   return value;
@@ -51,6 +59,7 @@ export function validateProfileComponentInventoryEntry(
   return Object.freeze({
     id,
     kind: entry.kind,
+    version: version(entry.version, `${label}.version`),
     sha256: sha256(entry.sha256, `${label}.sha256`),
     installedAt: installedAt(entry.installedAt, `${label}.installedAt`),
     receiptSha256: sha256(entry.receiptSha256, `${label}.receiptSha256`),
@@ -85,7 +94,7 @@ export function validateProfileComponentInventory(value) {
       entry,
       `Profile component inventory entry[${index}]`,
     ));
-  const identities = new Set(entries.map((entry) => `${entry.id}@${entry.sha256}`));
+  const identities = new Set(entries.map((entry) => `${entry.id}@${entry.version}@${entry.sha256}`));
   if (identities.size !== entries.length) {
     throw new TypeError("Profile component inventory contains duplicate content identity");
   }
