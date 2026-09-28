@@ -50,7 +50,12 @@ export function createIntelligenceContextRegistry({ sources = [] } = {}) {
     listSources() {
       return metadata;
     },
-    async collect({ prompt = "", intent = "ask", includeExplicitSourceIds = [] } = {}) {
+    async collect({
+      prompt = "",
+      intent = "ask",
+      includeExplicitSourceIds = [],
+      authorization = null,
+    } = {}) {
       const explicit = explicitSourceSet(includeExplicitSourceIds);
       for (const sourceId of explicit) {
         if (!sourceIdSet.has(sourceId)) {
@@ -63,7 +68,11 @@ export function createIntelligenceContextRegistry({ sources = [] } = {}) {
       for (const source of normalized) {
         const enabled = source.activation === "automatic" || explicit.has(source.id);
         if (!enabled) continue;
-        const collected = validateContextSourceResult(await source.collect({ prompt, intent }));
+        const collected = validateContextSourceResult(await source.collect({
+          prompt,
+          intent,
+          authorization,
+        }));
         for (const item of collected) {
           if (contextIds.has(item.id)) {
             throw new TypeError(`Duplicate Intelligence context item id: ${item.id}`);

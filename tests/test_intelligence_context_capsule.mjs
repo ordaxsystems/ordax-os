@@ -9,6 +9,8 @@ import {
 } from "../system/contracts/intelligence-context-capsule.mjs";
 import { createIntelligenceContextRegistry } from "../system/services/intelligence/context-registry.mjs";
 import { createIntelligenceContextCapsuleBuilder } from "../system/services/intelligence/context-capsule.mjs";
+import { createIntelligenceContextGrantBroker } from "../system/services/intelligence/context-grants.mjs";
+import { createGrantedIntelligenceContextSource } from "../system/services/intelligence/granted-context-source.mjs";
 
 function source(id, activation, text) {
   return defineIntelligenceContextSource({
@@ -23,6 +25,14 @@ function source(id, activation, text) {
         provenance: `test:${id}`,
       }];
     },
+  });
+}
+
+function grantBroker() {
+  let ordinal = 0;
+  return createIntelligenceContextGrantBroker({
+    now: () => 1_000_000,
+    createGrantId: () => `grant-${String(++ordinal).padStart(16, "0")}`,
   });
 }
 
@@ -74,6 +84,70 @@ test("explicit context participates only when the caller authorizes its source i
   });
   assert.deepEqual(explicit.sourceIds, ["app-catalog", "selected-project"]);
   assert.equal(explicit.context.some((item) => item.id === "selected-project-ask"), true);
+});
+
+test("grant-backed explicit source requires a valid one-shot authorization", async () => {
+  const grants = grantBroker();
+  const registry = createIntelligenceContextRegistry({
+    sources: [
+      source("app-catalog", "automatic", "public metadata"),
+      createGrantedIntelligenceContextSource({
+        id: "selected-project",
+        title: "Selected project",
+        grants,
+      }),
+    ],
+  });
+  const builder = createIntelligenceContextCapsuleBuilder(registry);
+  const grant = grants.issue({
+    sourceId: "selected-project",
+    target: { kind: "project", id: "project-9" },
+    context: [{
+      id: "selected-project-project-9",
+      scope: "workspace",
+      text: "name=Aurora; continuity=local-only",
+      provenance: "test:selected-project",
+    }],
+  });
+
+  await assert.rejects(
+    () => builder.build({
+      intent: "plan",
+      prompt: "Planeje",
+      target: { kind: "project", id: "project-9" },
+      includeExplicitSourceIds: ["selected-project"],
+    }),
+    /requires an explicit grant/,
+  );
+
+  const capsule = await builder.build({
+    intent: "plan",
+    prompt: "Planeje",
+    target: { kind: "project", id: "project-9" },
+    includeExplicitSourceIds: ["selected-project"],
+    authorization: {
+      grantId: grant.id,
+      sourceId: "selected-project",
+      target: { kind: "project", id: "project-9" },
+    },
+  });
+  assert.deepEqual(capsule.sourceIds, ["app-catalog", "selected-project"]);
+  assert.equal(capsule.context.at(-1).text, "name=Aurora; continuity=local-only");
+  await assert.rejects(
+    () => builder.build({
+      intent: "plan",
+      prompt: "Replay",
+      target: { kind: "project", id: "project-9" },
+      includeExplicitSourceIds: ["selected-project"],
+      authorization: {
+        grantId: grant.id,
+        sourceId: "selected-project",
+        target: { kind: "project", id: "project-9" },
+      },
+    }),
+    /unavailable or already consumed/,
+  );
+  grants.dispose();
 });
 
 test("capsule validation rejects authority-shaped or executable data", () => {

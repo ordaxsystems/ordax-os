@@ -39,6 +39,7 @@ export function createIntelligenceContextCapsuleBuilder(registryValue) {
       prompt = "",
       target = null,
       includeExplicitSourceIds = [],
+      authorization = null,
     } = {}) {
       const explicit = explicitSourceIds(includeExplicitSourceIds);
       for (const sourceId of explicit) {
@@ -51,6 +52,7 @@ export function createIntelligenceContextCapsuleBuilder(registryValue) {
         intent,
         prompt,
         includeExplicitSourceIds: explicit,
+        authorization,
       });
       const explicitSet = new Set(explicit);
       const activatedSourceIds = sources
