@@ -9,6 +9,7 @@ CHAT = APP / "ui" / "chat-controls.mjs"
 HANDOFF = ROOT / "system" / "contracts" / "intelligence-handoff.mjs"
 CONTEXT_SHARE = ROOT / "system" / "contracts" / "intelligence-context-share.mjs"
 CONTEXT_SHARE_RUNTIME = ROOT / "system" / "services" / "intelligence" / "context-sharing-runtime.mjs"
+CONTEXT_SOURCE_CATALOG = ROOT / "system" / "services" / "intelligence" / "first-party-context-sources.mjs"
 CONTRACT = ROOT / "docs" / "contracts" / "intelligence-chat-app.json"
 APP_CATALOG = ROOT / "system" / "apps" / "catalog.mjs"
 COMPONENT_CATALOG = ROOT / "system" / "apps" / "component-catalog.mjs"
@@ -26,6 +27,7 @@ class IntelligenceChatAppFoundationTests(unittest.TestCase):
         runtime = self.text(APP / "runtime.mjs")
         session = self.text(SESSION)
         chat = self.text(CHAT)
+        context_sources = self.text(CONTEXT_SOURCE_CATALOG)
 
         self.assertIn('id: "intelligence"', app)
         self.assertIn('requiredCapabilities: ["intelligence.system"]', app)
@@ -39,7 +41,9 @@ class IntelligenceChatAppFoundationTests(unittest.TestCase):
         self.assertIn("createIntelligenceContextRegistry", runtime)
         self.assertIn("createFirstPartyAppCatalogContextSource", runtime)
         self.assertIn("createGrantedIntelligenceContextSource", runtime)
-        self.assertIn('id: "project-selection"', runtime)
+        self.assertIn("listFirstPartyGrantedIntelligenceContextSources", runtime)
+        self.assertIn('id: "project-selection"', context_sources)
+        self.assertIn('id: "note-selection"', context_sources)
         self.assertIn("parseIntelligenceHandoffTarget", chat)
         self.assertIn("assertIntelligenceContextSharePort", chat)
         self.assertIn("contextShare?.take", chat)
