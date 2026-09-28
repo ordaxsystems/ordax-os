@@ -50,7 +50,7 @@ function componentValue(value, label) {
   if (typeof component.required !== "boolean") {
     throw new TypeError(`${label}.required must be boolean`);
   }
-  const signatureRequired = signatureRequired ?? component.signatureRequired;
+  const signatureRequired = component.signature_required ?? component.signatureRequired;
   if (typeof signatureRequired !== "boolean") {
     throw new TypeError(`${label}.signature_required must be boolean`);
   }
