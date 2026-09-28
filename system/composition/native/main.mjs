@@ -23,6 +23,10 @@ import { createNativePreferenceStore } from "../../adapters/native/preferences.m
 import { createNativeFirstRunStateStore } from "../../adapters/native/first-run-state.mjs";
 import { createNativeLocalSession } from "../../adapters/native/local-session.mjs";
 import { createNativeMemoryStore } from "../../adapters/native/memory.mjs";
+import {
+  createNativeProfileComponentInventory,
+  createSessionProfileComponentInventory,
+} from "../../adapters/native/profile-component-inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
 import { createNativeSystemMetrics } from "../../adapters/native/system-metrics.mjs";
 import { createNativeRecoveryStatus } from "../../adapters/native/recovery-status.mjs";
@@ -275,9 +279,13 @@ async function start() {
   const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
   const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
   const spaces = createWebSpacesCatalog(window);
+  const profileComponentInventory = await optionalNativeProbe(
+    "OrdaX Profile component inventory unavailable; using empty session inventory",
+    () => createNativeProfileComponentInventory(window),
+  ) ?? createSessionProfileComponentInventory();
   const profileProvisioning = createProfileProvisioningRuntime({
     distributions: LOCAL_PROFILE_DISTRIBUTIONS,
-    readInstalledComponentIds: () => [],
+    inventory: profileComponentInventory,
     readNetworkAvailable: () => window.navigator?.onLine === true,
   });
   const syncTransport = createWebSyncTransport(window);
@@ -614,6 +622,7 @@ async function start() {
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
       profileProvisioning.dispose();
+      profileComponentInventory.dispose();
       spaces.dispose();
       accountSync.destroy();
       preferenceSync.destroy();
