@@ -13,6 +13,7 @@ import {
   INTELLIGENCE_MAX_CONTEXT_TOTAL_CHARS,
 } from "../system/contracts/intelligence.mjs";
 import { createIntelligenceContextRegistry } from "../system/services/intelligence/context-registry.mjs";
+import { listFirstPartyGrantedIntelligenceContextSources } from "../system/services/intelligence/first-party-context-sources.mjs";
 
 function item(id, text) {
   return Object.freeze({
@@ -94,5 +95,41 @@ test("first-party app catalog becomes bounded trusted system context automatical
     assert.match(text, new RegExp(`id=${app.id}(?:\\s|\\|)`));
     assert.ok(text.includes(`title=${app.title}`));
     assert.ok(text.includes(`version=${app.component.version}`));
+    const sources = app.intelligence.contextSourceIds.length > 0
+      ? app.intelligence.contextSourceIds.join(",")
+      : "none";
+    const tools = app.intelligence.toolIds.length > 0
+      ? app.intelligence.toolIds.join(",")
+      : "none";
+    assert.ok(text.includes(`context_sources=${sources}`));
+    assert.ok(text.includes(`intelligence_tools=${tools}`));
   }
+  assert.match(text, /Declared context sources describe integration points only; they do not authorize collection\./);
+});
+
+test("app-declared Intelligence context sources are backed by the canonical explicit-source registry", () => {
+  const registered = new Set(
+    listFirstPartyGrantedIntelligenceContextSources().map((source) => source.id),
+  );
+  const declared = [];
+  for (const app of listFirstPartyApps()) {
+    assert.ok(Object.isFrozen(app.intelligence));
+    assert.ok(Object.isFrozen(app.intelligence.contextSourceIds));
+    assert.ok(Object.isFrozen(app.intelligence.toolIds));
+    for (const sourceId of app.intelligence.contextSourceIds) {
+      assert.equal(
+        registered.has(sourceId),
+        true,
+        `${app.id} declares unknown Intelligence context source ${sourceId}`,
+      );
+      declared.push([app.id, sourceId]);
+    }
+  }
+
+  assert.deepEqual(declared, [
+    ["files", "file-selection"],
+    ["projects", "project-selection"],
+    ["projects", "project-evidence-selection"],
+    ["notes", "note-selection"],
+  ]);
 });
