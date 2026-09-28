@@ -7,6 +7,8 @@ on:
       - 'system/contracts/portable-runtime-policy.mjs'
       - 'system/contracts/hardware-pack.mjs'
       - 'system/adapters/native/memory.mjs'
+      - 'system/surface/runtime/ordax_browser_host.py'
+      - 'system/surface/runtime/browser_session_store.py'
       - 'docs/contracts/portable-runtime-policy.json'
       - 'docs/contracts/hardware-pack.json'
       - 'docs/contracts/hardware-support-matrix.json'
@@ -15,12 +17,16 @@ on:
       - 'tests/test_portable_runtime_and_hardware_pack.mjs'
       - 'tests/test_memory_store_adapters.mjs'
       - 'tests/test_memory_native_adapter_bounds.mjs'
+      - 'tests/test_browser_session_store.py'
+      - 'tests/test_browser_session_integration_contract.py'
       - '.github/workflows/portable-runtime-foundation.yml'
   pull_request:
     paths:
       - 'system/contracts/portable-runtime-policy.mjs'
       - 'system/contracts/hardware-pack.mjs'
       - 'system/adapters/native/memory.mjs'
+      - 'system/surface/runtime/ordax_browser_host.py'
+      - 'system/surface/runtime/browser_session_store.py'
       - 'docs/contracts/portable-runtime-policy.json'
       - 'docs/contracts/hardware-pack.json'
       - 'docs/contracts/hardware-support-matrix.json'
@@ -29,6 +35,8 @@ on:
       - 'tests/test_portable_runtime_and_hardware_pack.mjs'
       - 'tests/test_memory_store_adapters.mjs'
       - 'tests/test_memory_native_adapter_bounds.mjs'
+      - 'tests/test_browser_session_store.py'
+      - 'tests/test_browser_session_integration_contract.py'
       - '.github/workflows/portable-runtime-foundation.yml'
   workflow_dispatch:
 
@@ -58,6 +66,7 @@ jobs:
           python -m json.tool docs/contracts/portable-runtime-policy.json >/dev/null
           python -m json.tool docs/contracts/hardware-pack.json >/dev/null
           python -m json.tool docs/contracts/hardware-support-matrix.json >/dev/null
+          python -m py_compile system/surface/runtime/ordax_browser_host.py system/surface/runtime/browser_session_store.py
 
       - name: Regress low-write runtime and hardware packs
         run: |
@@ -65,6 +74,7 @@ jobs:
           node --test tests/test_portable_runtime_and_hardware_pack.mjs
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
+          python -m unittest tests.test_browser_session_store tests.test_browser_session_integration_contract -v
 
       - name: Assert fail-closed portable defaults
         run: |
