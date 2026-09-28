@@ -37,6 +37,13 @@ profile-content-channel verify \
   --envelope envelope.json \
   --trust profile-content-trust.json \
   --content content.pack
+
+profile-content-channel stage \
+  --manifest manifest.json \
+  --envelope envelope.json \
+  --trust profile-content-trust.json \
+  --content content.pack \
+  --root /var/lib/ordax/profile-content
 ```
 
 Verification binds the exact canonical manifest signature, payload SHA-256,
@@ -44,3 +51,19 @@ payload size and provenance fields. A successful verification still prints
 `PROFILE_CONTENT_ACTIVATION_ALLOWED=NO`.
 
 Do not reuse the whole-OS release key or runtime-component key.
+
+
+## Staging boundary
+
+`stage` verifies the signature and exact payload before materializing a slot at:
+
+```text
+<root>/<kind>/<id>/versions/<version>/<sha256>/
+```
+
+The slot contains only the canonical manifest, signed envelope and content payload.
+Files and the slot directory become read-only, then the slot is reverified after
+the atomic rename. Re-staging reuses only an existing slot that still verifies.
+
+Staging does **not** activate a Profile, mutate a Space, write the installed
+component inventory or create an install receipt.
