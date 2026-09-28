@@ -19,7 +19,9 @@ test("runtime projects local Profile availability without performing installatio
   const plans = runtime.list();
   assert.equal(plans.length, 2);
   assert.equal(plans.find((plan) => plan.profile.slug === "developer").state, "blocked");
+  assert.equal(plans.find((plan) => plan.profile.slug === "developer").componentsSatisfied, true);
   assert.equal(plans.find((plan) => plan.profile.slug === "legal-br").state, "blocked");
+  assert.equal(plans.find((plan) => plan.profile.slug === "legal-br").componentsSatisfied, false);
   assert.equal(typeof runtime.install, "undefined");
   assert.equal(typeof runtime.download, "undefined");
 });
@@ -82,6 +84,8 @@ test("runtime re-evaluates installed components and network without mutating Pro
   }];
   online = false;
   assert.equal(runtime.get("legal-br", 1).state, "already-provisioned");
+  assert.equal(runtime.get("legal-br", 1).componentsSatisfied, true);
+  assert.equal(runtime.get("legal-br", 1).alreadyInstalled[0].receiptSha256, "d".repeat(64));
   assert.equal(runtime.get("legal-br", 1).offlineAfterInstall, true);
 });
 
