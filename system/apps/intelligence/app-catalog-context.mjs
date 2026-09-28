@@ -10,7 +10,7 @@ export const FIRST_PARTY_APP_CATALOG_SOURCE_ID = "first-party-app-catalog";
 const CHUNK_TARGET_CHARS = Math.min(3800, INTELLIGENCE_MAX_CONTEXT_ITEM_CHARS);
 const PROVENANCE = "ordax:first-party-app-catalog@system/apps/catalog.mjs";
 
-function capabilityList(values) {
+function idList(values) {
   return values.length > 0 ? values.join(",") : "none";
 }
 
@@ -20,8 +20,10 @@ function appLine(app) {
     `title=${app.title}`,
     `version=${app.component.version}`,
     `description=${app.description}`,
-    `required=${capabilityList(app.requiredCapabilities)}`,
-    `optional=${capabilityList(app.optionalCapabilities)}`,
+    `required=${idList(app.requiredCapabilities)}`,
+    `optional=${idList(app.optionalCapabilities)}`,
+    `context_sources=${idList(app.intelligence.contextSourceIds)}`,
+    `intelligence_tools=${idList(app.intelligence.toolIds)}`,
   ].join(" | ");
 }
 
@@ -30,6 +32,7 @@ function buildCatalogContext() {
   const header = [
     "Trusted OrdaX first-party application catalog.",
     "This is public system metadata, not user content and not permission to read app data.",
+    "Declared context sources describe integration points only; they do not authorize collection.",
     `registered_apps=${apps.length}`,
   ].join(" ");
 
