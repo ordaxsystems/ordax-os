@@ -47,6 +47,7 @@ from native_memory_endpoint import (
 )
 from native_hardware_inventory import read_hardware_inventory
 from native_profile_component_inventory import read_profile_component_inventory
+from native_profile_activation_state import read_profile_activation_state
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -63,6 +64,7 @@ NOTES_PATH = "/__ordax/native/notes"
 MEMORY_PATH = "/__ordax/native/intelligence-memory"
 COMPONENT_STATE_PATH = "/__ordax/native/component-state"
 PROFILE_COMPONENT_INVENTORY_PATH = "/__ordax/native/profile-component-inventory"
+PROFILE_ACTIVATION_STATE_PATH = "/__ordax/native/profile-activation-state"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
@@ -3800,6 +3802,19 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             except (OSError, UnicodeError, ValueError) as exc:
                 print(
                     f"ordax-native-host: could not read Profile component inventory: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(500)
+                return
+            self._write_json(200, payload)
+            return
+        if self.path == PROFILE_ACTIVATION_STATE_PATH:
+            try:
+                payload = read_profile_activation_state()
+            except (OSError, UnicodeError, ValueError) as exc:
+                print(
+                    f"ordax-native-host: could not read Profile activation state: {exc}",
                     file=sys.stderr,
                     flush=True,
                 )
