@@ -21,10 +21,11 @@ function inventory(entries = [], persistence = "session") {
   };
 }
 
-function installedEntry(id, kind, sha256) {
+function installedEntry(id, kind, version, sha256) {
   return {
     id,
     kind,
+    version,
     sha256,
     installedAt: 1234,
     receiptSha256: "f".repeat(64),
@@ -77,6 +78,7 @@ test("available remote component requires exact sha256 and signature policy", ()
   candidate.components = [{
     id: "knowledge.example",
     kind: "knowledge-pack",
+    version: "1.0.0",
     required: true,
     availability: "available",
     sha256: "a".repeat(64),
@@ -104,7 +106,7 @@ test("available remote component requires exact sha256 and signature policy", ()
   const installed = planProfileProvisioning({
     distribution: candidate,
     installedInventory: inventory([
-      installedEntry("knowledge.example", "knowledge-pack", "a".repeat(64)),
+      installedEntry("knowledge.example", "knowledge-pack", "1.0.0", "a".repeat(64)),
     ], "device"),
     networkAvailable: false,
   });
@@ -115,13 +117,23 @@ test("available remote component requires exact sha256 and signature policy", ()
   const staleHash = planProfileProvisioning({
     distribution: candidate,
     installedInventory: inventory([
-      installedEntry("knowledge.example", "knowledge-pack", "d".repeat(64)),
+      installedEntry("knowledge.example", "knowledge-pack", "1.0.0", "d".repeat(64)),
     ], "device"),
     networkAvailable: false,
   });
   assert.equal(staleHash.state, "network-required");
   assert.equal(staleHash.missing.length, 1);
   assert.equal(staleHash.alreadyInstalled.length, 0);
+
+  const staleVersion = planProfileProvisioning({
+    distribution: candidate,
+    installedInventory: inventory([
+      installedEntry("knowledge.example", "knowledge-pack", "0.9.0", "a".repeat(64)),
+    ], "device"),
+    networkAvailable: false,
+  });
+  assert.equal(staleVersion.state, "network-required");
+  assert.equal(staleVersion.missing.length, 1);
 });
 
 test("available component without signed content identity fails closed", () => {
@@ -129,6 +141,8 @@ test("available component without signed content identity fails closed", () => {
   unsafe.components = [{
     id: "knowledge.unsafe",
     kind: "knowledge-pack",
+    version: "1.0.0",
+    version: "1.0.0",
     required: true,
     availability: "available",
     sha256: null,
