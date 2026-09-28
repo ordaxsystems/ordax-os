@@ -78,6 +78,20 @@ test("launched windows receive stable placement ordinals inside the active area"
   assert.equal(state.areas[1].windows.length, 0);
 });
 
+test("first-party apps use the full work area by default and allow an explicit windowed launch", () => {
+  let state = baseline();
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  assert.equal(active(state).windows[0].maximized, true);
+
+  state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-2" });
+  state = reduceSurfaceState(state, {
+    type: "app.launch",
+    appId: "files",
+    maximized: false,
+  });
+  assert.equal(active(state).windows[0].maximized, false);
+});
+
 test("focusing an already-active top window is a no-op", () => {
   let state = baseline();
   state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
@@ -88,7 +102,11 @@ test("focusing an already-active top window is a no-op", () => {
 
 test("area switching preserves independent window sets and focus", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, {
+    type: "app.launch",
+    appId: "files",
+    maximized: false,
+  });
   state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 123.4, y: 87.6 });
   const firstArea = active(state);
   assert.equal(firstArea.windows[0].positionX, 123);
@@ -235,7 +253,11 @@ test("area creation is bounded", () => {
 
 test("maximize and movement are isolated to the active area", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, {
+    type: "app.launch",
+    appId: "files",
+    maximized: false,
+  });
   state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 80, y: 64 });
   state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
   const maximizedState = state;
@@ -261,10 +283,18 @@ test("invalid window coordinates fail closed", () => {
 
 test("workspace snapshot round-trips all areas and active area", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, {
+    type: "app.launch",
+    appId: "files",
+    maximized: false,
+  });
   state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 144, y: 96 });
   state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-2" });
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "settings" });
+  state = reduceSurfaceState(state, {
+    type: "app.launch",
+    appId: "settings",
+    maximized: false,
+  });
   state = reduceSurfaceState(state, { type: "window.maximize", windowId: "settings" });
 
   const snapshot = createWorkspaceSnapshot(state);
