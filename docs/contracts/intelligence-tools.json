@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.intelligence-tools/1",
-  "status": "governed-read-only-execution-with-audit-foundation",
+  "status": "governed-local-observability-with-audit-foundation",
   "tool_contract": "ordax.intelligence-tool/1",
   "registry_contract": "ordax.intelligence-tool-registry/1",
   "capability_bridge_contract": "ordax.intelligence-capability-bridge/1",
@@ -26,12 +26,12 @@
     {
       "id": "observe-network-status",
       "capability_id": "network.status",
-      "invocation_enabled": false
+      "invocation_enabled": true
     },
     {
       "id": "observe-power-status",
       "capability_id": "power.status",
-      "invocation_enabled": false
+      "invocation_enabled": true
     }
   ],
   "authority": {
@@ -72,11 +72,16 @@
   },
   "execution": {
     "enabled_tools": [
-      "observe-system-metrics"
+      "observe-system-metrics",
+      "observe-network-status",
+      "observe-power-status"
     ],
     "claim_required_before_adapter_read": true,
     "result_context_bounded": true,
     "result_provenance_required": true,
+    "network_interface_names_exposed_to_model": false,
+    "network_ip_addresses_exposed_to_model": false,
+    "network_ssids_exposed_to_model": false,
     "execution_receipts": [
       "succeeded",
       "failed"
@@ -102,8 +107,6 @@
     "durable_native_persistence": false
   },
   "deferred": [
-    "network-status-tool-invocation",
-    "power-status-tool-invocation",
     "durable-native-audit-store",
     "user-facing-tool-approval-flow",
     "model-mediated-tool-selection",
