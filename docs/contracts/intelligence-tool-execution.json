@@ -1,0 +1,58 @@
+{
+  "$schema": "prototype-ordax.intelligence-tool-execution/1",
+  "status": "first-governed-read-only-tool",
+  "executor_contract": "ordax.intelligence-readonly-tool-executor/1",
+  "result_contract": "ordax.intelligence-tool-execution-result/1",
+  "receipt_contract": "ordax.intelligence-tool-execution-receipt/1",
+  "authorization_contract": "ordax.intelligence-tool-authorization-broker/1",
+  "enabled_tools": [
+    {
+      "id": "observe-system-metrics",
+      "capability_id": "system.metrics",
+      "scope": "system",
+      "provenance": "ordax:tool:observe-system-metrics:local-read-only"
+    }
+  ],
+  "preconditions": {
+    "explicit_agent_tool_binding": true,
+    "live_one_shot_grant": true,
+    "matching_agent_tool_scope_target": true,
+    "capability_present": true,
+    "tool_invocation_enabled": true,
+    "registered_handler": true
+  },
+  "result_policy": {
+    "bounded_intelligence_context": true,
+    "provenance_required": true,
+    "target_id_in_result": false,
+    "grant_id_in_result": false,
+    "adapter_error_details_exposed": false
+  },
+  "receipt_policy": {
+    "events": [
+      "succeeded",
+      "failed"
+    ],
+    "audit_ref_only": true,
+    "grant_id_in_receipt": false,
+    "target_id_in_receipt": false,
+    "execution_occurred": true,
+    "read_only": true,
+    "network_egress": false,
+    "mutated_state": false,
+    "authority": "none"
+  },
+  "not_exposed_to_model": true,
+  "not_wired_to_automatic_agent_execution": true,
+  "generic_shell": false,
+  "arbitrary_path": false,
+  "arbitrary_url": false,
+  "deferred": [
+    "network-status-execution",
+    "power-status-execution",
+    "persistent-execution-journal",
+    "user-facing-approval-flow",
+    "model-mediated-tool-selection",
+    "mutating-tools"
+  ]
+}
