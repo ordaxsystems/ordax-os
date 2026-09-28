@@ -66,7 +66,7 @@ class NotesNativeTests(unittest.TestCase):
         self.assertIn('NOTES_FILE = "/var/lib/ordax/notes.json"', text)
         self.assertIn("read_notes_payload", text)
         self.assertIn("write_notes_payload", text)
-        self.assertIn("{SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH}", text)
+        self.assertIn("{SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH}", text)
         self.assertIn('if self.path == NOTES_PATH:', text)
         self.assertNotIn("Access-Control-Allow-Origin", text)
 
