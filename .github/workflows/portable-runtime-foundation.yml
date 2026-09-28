@@ -37,6 +37,9 @@ on:
       - 'tests/test_base_update_contract.py'
       - 'tests/test_base_update_runtime_owner.py'
       - 'tests/test_hot_update_supervisor.py'
+      - 'system/surface/runtime/physical_performance_probe.py'
+      - 'tests/test_physical_surface_performance_probe.py'
+      - 'docs/LOCAL-AI-TUNING.md'
       - '.github/workflows/portable-runtime-foundation.yml'
   pull_request:
     paths:
@@ -73,6 +76,9 @@ on:
       - 'tests/test_base_update_contract.py'
       - 'tests/test_base_update_runtime_owner.py'
       - 'tests/test_hot_update_supervisor.py'
+      - 'system/surface/runtime/physical_performance_probe.py'
+      - 'tests/test_physical_surface_performance_probe.py'
+      - 'docs/LOCAL-AI-TUNING.md'
       - '.github/workflows/portable-runtime-foundation.yml'
   workflow_dispatch:
 
@@ -104,7 +110,7 @@ jobs:
           python -m json.tool docs/contracts/portable-runtime-policy.json >/dev/null
           python -m json.tool docs/contracts/hardware-pack.json >/dev/null
           python -m json.tool docs/contracts/hardware-support-matrix.json >/dev/null
-          python -m py_compile system/surface/runtime/ordax_browser_host.py system/surface/runtime/browser_session_store.py system/surface/runtime/native_hardware_inventory.py system/surface/runtime/native_host_server.py
+          python -m py_compile system/surface/runtime/ordax_browser_host.py system/surface/runtime/browser_session_store.py system/surface/runtime/native_hardware_inventory.py system/surface/runtime/native_host_server.py system/surface/runtime/physical_performance_probe.py
 
       - name: Regress low-write runtime and hardware packs
         run: |
@@ -113,7 +119,7 @@ jobs:
           node --test tests/test_hardware_inventory.mjs
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
-          python -m unittest tests.test_browser_session_store tests.test_browser_session_integration_contract tests.test_native_hardware_inventory tests.test_native_hardware_inventory_contract tests.test_native_telemetry tests.test_base_telemetry_agent tests.test_base_update_contract tests.test_base_update_runtime_owner tests.test_hot_update_supervisor -v
+          python -m unittest tests.test_browser_session_store tests.test_browser_session_integration_contract tests.test_native_hardware_inventory tests.test_native_hardware_inventory_contract tests.test_native_telemetry tests.test_base_telemetry_agent tests.test_base_update_contract tests.test_base_update_runtime_owner tests.test_hot_update_supervisor tests.test_physical_surface_performance_probe -v
 
       - name: Assert fail-closed portable defaults
         run: |
