@@ -129,10 +129,11 @@ class NativeProfileProvisioningExecutorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             channel = root / "fake-channel"
+            payload_literal = repr(evidence())
             channel.write_text(textwrap.dedent(f"""\
                 #!/usr/bin/env python3
                 import json
-                print(json.dumps({json.dumps(evidence())}))
+                print(json.dumps({payload_literal}))
             """), encoding="utf-8")
             os.chmod(channel, 0o700)
             value = module.read_stage_evidence(
