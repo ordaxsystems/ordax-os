@@ -11,10 +11,15 @@ import {
   validateProjectWebReference,
   validateProjectWebReferenceSnapshot,
 } from "../../../contracts/project-web-references.mjs";
+import { assertProjectEvidencePort } from "../../../contracts/project-evidence.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
 import { assertIntelligenceContextSharePort } from "../../../contracts/intelligence-context-share.mjs";
 import { encodeIntelligenceHandoffTarget } from "../../../contracts/intelligence-handoff.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
+import {
+  PROJECT_EVIDENCE_CONTEXT_SOURCE_ID,
+  createProjectEvidenceIntelligenceContext,
+} from "../../../services/intelligence/project-evidence-context.mjs";
 
 const PROJECTS_WINDOW_SELECTOR = '[data-window-id="projects"]';
 const PROJECTS_EXTENSION_SELECTOR = '[data-app-extension="projects-workspace"]';
@@ -190,7 +195,12 @@ function projectReferenceLabel(t, count) {
   return t("projects.references.many", { count });
 }
 
-function projectCard(documentObject, item, localization, canUseIntelligence) {
+function projectCard(
+  documentObject,
+  item,
+  localization,
+  { canUseIntelligence, canAnalyzeEvidence, evidencePendingProjectId, evidenceErrorProjectId },
+) {
   const t = localization.translate;
   const card = node(documentObject, "article", "ordax-project-card");
   card.dataset.projectId = item.id;
@@ -254,7 +264,25 @@ function projectCard(documentObject, item, localization, canUseIntelligence) {
     actions.append(ask, plan);
   }
 
+  if (canAnalyzeEvidence) {
+    const pending = evidencePendingProjectId === item.id;
+    const evidence = node(
+      documentObject,
+      "button",
+      "ordax-project-action",
+      t(pending ? "projects.action.analyzeEvidencePending" : "projects.action.analyzeEvidence"),
+    );
+    evidence.type = "button";
+    evidence.dataset.projectsAnalyzeEvidence = item.id;
+    evidence.disabled = evidencePendingProjectId !== null;
+    evidence.title = t("projects.action.analyzeEvidenceTitle");
+    actions.append(evidence);
+  }
+
   card.append(heading, activity, references, actions);
+  if (evidenceErrorProjectId === item.id) {
+    card.append(node(documentObject, "p", "ordax-project-card-meta", t("projects.action.analyzeEvidenceFailed")));
+  }
   return card;
 }
 
@@ -264,6 +292,7 @@ export function mountProjectsWorkspaceControls(
     projects = null,
     projectCloudLinks = null,
     projectWebReferences = null,
+    projectEvidence = null,
     surfaceLifecycle,
     appActivation = null,
     intelligenceContextShare = null,
@@ -279,6 +308,7 @@ export function mountProjectsWorkspaceControls(
   const referencePort = projectWebReferences === null
     ? null
     : assertProjectWebReferencePort(projectWebReferences);
+  const evidencePort = projectEvidence === null ? null : assertProjectEvidencePort(projectEvidence);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const activation = appActivation === null ? null : assertAppActivationPort(appActivation);
   const contextShare = intelligenceContextShare === null
@@ -291,6 +321,8 @@ export function mountProjectsWorkspaceControls(
   let projectSnapshot = projectPort?.getSnapshot() ?? null;
   let linkSnapshot = cloudPort?.getSnapshot() ?? null;
   let referenceSnapshot = referencePort?.getSnapshot() ?? null;
+  let evidencePendingProjectId = null;
+  let evidenceErrorProjectId = null;
   let mountedSlot = null;
   let destroyed = false;
 
@@ -301,19 +333,15 @@ export function mountProjectsWorkspaceControls(
   const projectIsCloudLinked = (projectId) =>
     (linkSnapshot?.links ?? []).some((link) => link.localProjectId === projectId);
 
-  const offerProjectToIntelligence = (project, mode) => {
+  const publishIntelligenceHandoff = (project, mode, sourceId, context, promptMessageId) => {
     if (!activation || !contextShare) return;
     const target = { kind: "project", id: project.id };
     contextShare.offer({
       sourceAppId: "projects",
-      sourceId: PROJECT_CONTEXT_SOURCE_ID,
+      sourceId,
       target,
       displayLabel: project.name,
-      context: createProjectIntelligenceContext(project, {
-        cloudLinked: projectIsCloudLinked(project.id),
-        catalogPersistence: projectSnapshot?.persistence ?? "session",
-        webReferences: projectReferencesFor(project.id),
-      }),
+      context,
       authority: "none",
       executable: false,
       toolExecution: false,
@@ -325,16 +353,53 @@ export function mountProjectsWorkspaceControls(
         mode,
         target,
         displayLabel: project.name,
-        suggestedPrompt: t(
-          mode === "plan"
-            ? "projects.action.planWithIntelligencePrompt"
-            : "projects.action.askIntelligencePrompt",
-        ),
+        suggestedPrompt: t(promptMessageId),
         authority: "none",
         executable: false,
         toolExecution: false,
       }),
     });
+  };
+
+  const offerProjectToIntelligence = (project, mode) => {
+    publishIntelligenceHandoff(
+      project,
+      mode,
+      PROJECT_CONTEXT_SOURCE_ID,
+      createProjectIntelligenceContext(project, {
+        cloudLinked: projectIsCloudLinked(project.id),
+        catalogPersistence: projectSnapshot?.persistence ?? "session",
+        webReferences: projectReferencesFor(project.id),
+      }),
+      mode === "plan"
+        ? "projects.action.planWithIntelligencePrompt"
+        : "projects.action.askIntelligencePrompt",
+    );
+  };
+
+  const offerProjectEvidenceToIntelligence = async (project) => {
+    if (!activation || !contextShare || !evidencePort || evidencePendingProjectId !== null) return;
+    evidencePendingProjectId = project.id;
+    evidenceErrorProjectId = null;
+    render();
+    try {
+      const snapshot = await evidencePort.inspect(project.id);
+      if (destroyed || evidencePendingProjectId !== project.id) return;
+      publishIntelligenceHandoff(
+        project,
+        "chat",
+        PROJECT_EVIDENCE_CONTEXT_SOURCE_ID,
+        createProjectEvidenceIntelligenceContext(snapshot),
+        "projects.action.analyzeEvidencePrompt",
+      );
+    } catch {
+      if (!destroyed) evidenceErrorProjectId = project.id;
+    } finally {
+      if (!destroyed && evidencePendingProjectId === project.id) {
+        evidencePendingProjectId = null;
+        render();
+      }
+    }
   };
 
   const render = () => {
@@ -414,8 +479,14 @@ export function mountProjectsWorkspaceControls(
     );
     const list = node(documentObject, "div", "ordax-projects-list");
     const canUseIntelligence = activation !== null && contextShare !== null;
+    const canAnalyzeEvidence = canUseIntelligence && evidencePort !== null;
     for (const item of presentation.items) {
-      list.append(projectCard(documentObject, item, localization, canUseIntelligence));
+      list.append(projectCard(documentObject, item, localization, {
+        canUseIntelligence,
+        canAnalyzeEvidence,
+        evidencePendingProjectId,
+        evidenceErrorProjectId,
+      }));
     }
     body.append(linked, list);
   };
@@ -450,6 +521,15 @@ export function mountProjectsWorkspaceControls(
       return;
     }
 
+    const evidence = event.target?.closest?.("[data-projects-analyze-evidence]");
+    if (evidence && mountedSlot?.contains(evidence)) {
+      const item = projectSnapshot?.projects.find(
+        (project) => project.id === evidence.dataset.projectsAnalyzeEvidence,
+      );
+      if (item) void offerProjectEvidenceToIntelligence(item);
+      return;
+    }
+
     const openFiles = event.target?.closest?.("[data-projects-open-files]");
     if (openFiles && mountedSlot?.contains(openFiles) && activation) {
       activation.publish({ appId: "files", target: "/Documentos" });
@@ -477,6 +557,7 @@ export function mountProjectsWorkspaceControls(
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      evidencePendingProjectId = null;
       unsubscribeRender();
       unsubscribeLocalization();
       unsubscribeReferences?.();
