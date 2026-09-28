@@ -200,5 +200,16 @@
     "SUPPORTED_HARDWARE_MATRIX": "PASS_SOURCE",
     "CANONICAL_STABLE_TARGET_HARDWARE_PROOF": "PENDING_PHYSICAL",
     "BROAD_HARDWARE_COMPATIBILITY": "NOT_CLAIMED"
+  },
+  "extension_policy": {
+    "strategy": "small-baseline-plus-signed-hardware-packs",
+    "hardware_pack_contract": "ordax.hardware-pack/1",
+    "activation_enabled": false,
+    "exact_modalias_match_required": true,
+    "exact_kernel_abi_match_required": true,
+    "signed_component_slot_required": true,
+    "known_good_and_rollback_required": true,
+    "driver_pack_presence_is_support_claim": false,
+    "purpose": "expand Wi-Fi/graphics/audio/input/storage compatibility by update without reinstalling the USB or bloating Stable Base"
   }
 }
