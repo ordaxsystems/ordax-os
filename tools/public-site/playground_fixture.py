@@ -46,7 +46,12 @@ def _decode(value: str) -> str:
 
 
 def _app_metadata(path: Path) -> dict[str, str]:
-    fields = {name: _decode(value) for name, value in FIELD_RE.findall(path.read_text(encoding="utf-8"))}
+    fields: dict[str, str] = {}
+    for name, value in FIELD_RE.findall(path.read_text(encoding="utf-8")):
+        # First-party app metadata lives at the top level of defineFirstPartyApp().
+        # Nested panel metadata may reuse keys such as title; it must not replace
+        # the canonical app identity used by the public playground fixture.
+        fields.setdefault(name, _decode(value))
     required = {"id", "title", "description", "monogram"}
     missing = sorted(required - fields.keys())
     if missing:
