@@ -28,7 +28,7 @@ CMDLINE="$WORK/cmdline"
 BOOT_ID_FILE="$WORK/base-boot-id"
 HEALTHY_SHA="$WORK/healthy-sha"
 BASE_HEARTBEAT="$STATE_ROOT/base-update/base-heartbeat.json"
-SURFACE_HEARTBEAT="$STATE_ROOT/native-state/surface-heartbeat.json"
+SURFACE_HEARTBEAT="$WORK/surface-heartbeat.json"
 RESULT="$WORK/promotion-result.json"
 ERROR_LOG="$WORK/bad-health.log"
 LOOP=""
@@ -47,7 +47,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p   "$ESP_MOUNT"   "$PROMOTE_MOUNT"   "$LABEL_ROOT"   "$STATE_ROOT/base-update"   "$STATE_ROOT/native-state"   "$(dirname "$PROOF")"
+mkdir -p   "$ESP_MOUNT"   "$PROMOTE_MOUNT"   "$LABEL_ROOT"   "$STATE_ROOT/base-update"   "$(dirname "$PROOF")"
 truncate -s 96M "$IMAGE"
 
 sudo sfdisk "$IMAGE" >/dev/null <<'EOF'
