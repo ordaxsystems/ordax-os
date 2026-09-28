@@ -39,6 +39,7 @@ test("runtime re-evaluates installed components and network without mutating Pro
     components: [{
       id: "knowledge.legal-br-core",
       kind: "knowledge-pack",
+      version: "1.0.0",
       required: true,
       availability: "available",
       sha256: "c".repeat(64),
@@ -74,6 +75,7 @@ test("runtime re-evaluates installed components and network without mutating Pro
   installedEntries = [{
     id: "knowledge.legal-br-core",
     kind: "knowledge-pack",
+    version: "1.0.0",
     sha256: "c".repeat(64),
     installedAt: 1234,
     receiptSha256: "d".repeat(64),
