@@ -94,12 +94,17 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
             "pre-usb-nova-ordax-audit-not-pass",
             status["pre_authorization_blockers"],
         )
-        # This test owns the source/pre-authorization boundary only. Owner consent is
-        # intentionally a separate state machine and may already be recorded.
-        self.assertTrue(status["pre_authorization_ready"])
+        # Product/source closure is complete, but the old v4 release proof was
+        # deliberately superseded after physical findings. That separate proof
+        # requirement must block pre-authorization without rewriting source gates.
+        self.assertFalse(status["pre_authorization_ready"])
         self.assertTrue(status["canonical_v4_release_proof_valid"])
         self.assertTrue(status["canonical_v4_release_binding_resolved"])
-        self.assertEqual(status["pre_authorization_blockers"], [])
+        self.assertIn(
+            "physical-authorization-requirements-invalid",
+            status["pre_authorization_blockers"],
+        )
+        self.assertFalse(status["owner_authorization_required"])
 
     def test_audited_sources_are_bound_to_owner_authorization_context(self):
         context_paths = {
