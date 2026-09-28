@@ -123,7 +123,7 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertIn("projectEvidence = null", runtime)
         self.assertIn("projectEvidence,", runtime)
         self.assertIn("assertProjectEvidencePort", controls)
-        self.assertIn("data-projects-analyze-evidence", controls)
+        self.assertIn("projectsAnalyzeEvidence", controls)
         self.assertIn("evidencePort.inspect(project.id)", controls)
         self.assertIn("PROJECT_EVIDENCE_CONTEXT_SOURCE_ID", controls)
         self.assertIn("createProjectEvidenceIntelligenceContext", controls)
