@@ -1,0 +1,70 @@
+{
+  "$schema": "prototype-ordax.project-intelligence/1",
+  "status": "explicit-bounded-local-evidence-foundation",
+  "owner": "system/services/projects",
+  "evidence_port": "ordax.project-evidence/1",
+  "context_source": "project-evidence-selection",
+  "activation": "explicit-user-action",
+  "target_kind": "project",
+  "authority": {
+    "read_only": true,
+    "authority": "none",
+    "tool_execution": false,
+    "network_egress": false,
+    "mutates_state": false,
+    "arbitrary_path": false,
+    "recursive_scan": false,
+    "git_internal_access": false
+  },
+  "bounds": {
+    "maximum_evidence_items": 24,
+    "maximum_text_chars_per_item": 4096,
+    "maximum_total_text_chars": 32768,
+    "maximum_shallow_directory_entries": 24
+  },
+  "approved_top_level_evidence": [
+    "README",
+    "README.md",
+    "README.txt",
+    "package.json",
+    "pyproject.toml",
+    "Cargo.toml",
+    "go.mod",
+    "requirements.txt",
+    "composer.json",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "AGENTS.md"
+  ],
+  "approved_shallow_directories": [
+    "tests",
+    "test",
+    "spec",
+    "__tests__",
+    "docs",
+    "documentation",
+    "contracts",
+    "schema",
+    "schemas",
+    "dist",
+    "build",
+    "out",
+    "artifacts"
+  ],
+  "privacy": {
+    "project_path_in_context": false,
+    "file_path_in_context": false,
+    "unapproved_file_content": false,
+    "automatic_read_on_project_open": false,
+    "automatic_read_on_chat": false
+  },
+  "deferred": [
+    "git-evidence-capability",
+    "test-run-evidence-capability",
+    "contract-validation-evidence-capability",
+    "artifact-inspection-capability",
+    "semantic-project-index",
+    "recursive-source-indexing"
+  ]
+}
