@@ -5,7 +5,7 @@
   display: grid;
   place-items: center;
   padding: clamp(18px, 4vw, 56px);
-  overflow: auto;
+  overflow: hidden;
   background:
     radial-gradient(circle at 78% 14%, color-mix(in srgb, var(--ordax-accent) 18%, transparent) 0, transparent 34%),
     var(--ordax-bg);
@@ -14,7 +14,9 @@
 
 .ordax-first-run-shell {
   width: min(1080px, 100%);
-  min-height: min(720px, calc(100vh - 72px));
+  height: min(720px, calc(100dvh - 36px));
+  max-height: calc(100dvh - 36px);
+  min-height: 0;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   overflow: hidden;
@@ -25,10 +27,12 @@
 }
 
 .ordax-first-run-progress {
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 44px;
   padding: 34px 28px;
+  overflow: auto;
   border-right: 1px solid var(--ordax-border-soft);
   background: color-mix(in srgb, var(--ordax-bg) 72%, var(--ordax-surface));
 }
@@ -89,16 +93,19 @@
 
 .ordax-first-run-card {
   min-width: 0;
+  min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .ordax-first-run-body {
   width: min(720px, 100%);
+  min-height: 0;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: clamp(42px, 7vw, 82px) clamp(28px, 6vw, 72px) 36px;
+  padding: clamp(32px, 6vh, 72px) clamp(28px, 6vw, 72px) 36px;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .ordax-first-run-header {
@@ -301,12 +308,14 @@
 
 .ordax-first-run-footer {
   min-height: 76px;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
   padding: 16px clamp(28px, 6vw, 72px);
   border-top: 1px solid var(--ordax-border-soft);
+  background: var(--ordax-surface);
 }
 
 .ordax-first-run-footer .ordax-first-run-action:first-child:not(:last-child) {
@@ -319,8 +328,12 @@
   }
 
   .ordax-first-run-shell {
-    min-height: 100vh;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
     border: 0;
     border-radius: 0;
   }
@@ -328,12 +341,13 @@
   .ordax-first-run-progress {
     gap: 14px;
     padding: 20px 24px;
+    overflow: visible;
     border-right: 0;
     border-bottom: 1px solid var(--ordax-border-soft);
   }
 
   .ordax-first-run-steps {
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: 6px;
   }
 
@@ -352,6 +366,35 @@
   .ordax-first-run-form,
   .ordax-first-run-network-list {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 640px) and (min-width: 821px) {
+  .ordax-first-run-shell {
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .ordax-first-run-progress {
+    gap: 22px;
+    padding-block: 24px;
+  }
+
+  .ordax-first-run-steps {
+    gap: 12px;
+  }
+
+  .ordax-first-run-body {
+    padding-top: 28px;
+    padding-bottom: 24px;
+  }
+
+  .ordax-first-run-header {
+    margin-bottom: 24px;
+  }
+
+  .ordax-first-run-header h1 {
+    font-size: clamp(2rem, 6vh, 3.2rem);
   }
 }
 
