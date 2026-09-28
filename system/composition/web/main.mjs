@@ -19,6 +19,8 @@ import { createNotificationsRuntime } from "../../services/notifications/runtime
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-metadata.mjs";
+import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
+import { LOCAL_PROFILE_DISTRIBUTIONS } from "../../profile-packs/distributions.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -45,6 +47,11 @@ const identityActions = createWebIdentityActions(window, identitySession);
 const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
 const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
 const spaces = createWebSpacesCatalog(window);
+const profileProvisioning = createProfileProvisioningRuntime({
+  distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+  readInstalledComponentIds: () => [],
+  readNetworkAvailable: () => window.navigator?.onLine === true,
+});
 const host = createWebSurfaceHost(window, {
   accountIdentityAvailable: identityAvailable,
   syncSafeStateAvailable: identityAvailable,
@@ -125,6 +132,7 @@ const accountOverviewControls = mountAccountOverviewControls(
   appActivation,
   identityCredentials,
   spaces,
+  profileProvisioning,
 );
 const settingsOverviewControls = mountSettingsOverviewControls(
   root,
@@ -208,6 +216,7 @@ window.addEventListener(
     notificationCenter.destroy();
     settingsOverviewControls.destroy();
     accountOverviewControls.destroy();
+    profileProvisioning.dispose();
     spaces.dispose();
     accountSync.destroy();
     preferenceSync.destroy();
