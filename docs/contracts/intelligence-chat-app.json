@@ -22,13 +22,16 @@
       "first-party-app-catalog"
     ],
     "explicit_sources": [
-      "project-selection"
+      "project-selection",
+      "note-selection"
     ],
     "persistent_memory_automatic": false,
     "private_app_state_automatic": false,
     "user_prompt_can_grant_context": false,
     "explicit_sources_require_caller_authorization": true,
     "selected_project_context_one_shot": true,
+    "selected_note_context_one_shot": true,
+    "selected_note_context_excludes_file_references": true,
     "context_grant_ttl_bounded": true,
     "grant_id_in_handoff": false,
     "handoff_carries_private_content": false,
@@ -55,5 +58,5 @@
   },
   "history": "session-only",
   "authority": "none",
-  "next_gate": "extend the same one-shot authorization model to selected document, file and workspace context before Web grounding or action capabilities"
+  "next_gate": "extend the same one-shot authorization model to selected files and workspaces before Web grounding or action capabilities"
 }
