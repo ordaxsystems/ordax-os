@@ -1,22 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import {
   planProfileProvisioning,
   validateProfileDistribution,
 } from "../system/contracts/profile-provisioning.mjs";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+import {
+  getLocalProfileDistribution,
+} from "../system/profile-packs/distributions.mjs";
 
-async function load(path) {
-  return JSON.parse(await readFile(resolve(ROOT, path), "utf8"));
-}
-
-const developer = await load("system/profile-packs/developer/distribution.json");
-const legal = await load("system/profile-packs/legal-br/distribution.json");
+const developer = getLocalProfileDistribution("developer", 1);
+const legal = getLocalProfileDistribution("legal-br", 1);
 
 test("profile metadata can be bundled while professional payload stays on-demand", () => {
   const value = validateProfileDistribution(legal);
