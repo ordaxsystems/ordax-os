@@ -113,3 +113,36 @@ test("Profile activation state rejects duplicate Spaces, duplicate components an
     /cannot be empty/,
   );
 });
+
+
+test("Profile activation component order is canonical and current/previous cannot be identical", () => {
+  const second = component({
+    id: "skill.example",
+    kind: "skill-pack",
+    version: "1.0.0",
+    sha256: "c".repeat(64),
+    receiptSha256: "d".repeat(64),
+    installedAt: 900,
+  });
+  const normalized = validateProfileActivationRef(activation({
+    components: [second, component()],
+  }));
+  assert.deepEqual(
+    normalized.components.map((entry) => entry.id),
+    ["knowledge.example", "skill.example"],
+  );
+
+  assert.throws(
+    () => validateProfileActivationState({
+      schema: "ordax.profile-activation-state/1",
+      revision: 1,
+      persistence: "device",
+      spaces: [{
+        spaceId: "space-professional-1",
+        current: activation(),
+        previous: activation({ activatedAt: 800 }),
+      }],
+    }),
+    /current and previous must differ/,
+  );
+});
