@@ -4,6 +4,9 @@
   min-height: 100%;
   padding: 1.25rem;
   color: var(--ordax-text);
+  background:
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--ordax-accent) 8%, transparent), transparent 28%),
+    var(--ordax-app-bg);
 }
 
 .ordax-projects-header {
@@ -52,6 +55,7 @@
   border: 1px solid var(--ordax-border-soft);
   border-radius: 999px;
   padding: 0.3rem 0.65rem;
+  background: color-mix(in srgb, var(--ordax-panel) 52%, transparent);
   font-size: 0.78rem;
   color: var(--ordax-muted);
 }
@@ -73,9 +77,19 @@
   min-width: 0;
   padding: 1rem;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-md);
-  background: color-mix(in srgb, var(--ordax-panel) 58%, transparent);
+  border-radius: var(--ordax-radius-lg);
+  background: color-mix(in srgb, var(--ordax-panel) 66%, transparent);
   box-shadow: var(--ordax-shadow-soft);
+  transition:
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    transform var(--ordax-motion-fast) var(--ordax-ease-standard);
+}
+
+.ordax-project-card:hover {
+  border-color: color-mix(in srgb, var(--ordax-accent) 32%, var(--ordax-border-soft));
+  background: color-mix(in srgb, var(--ordax-panel) 74%, transparent);
+  transform: translateY(-1px);
 }
 
 .ordax-project-card-heading {
@@ -146,11 +160,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ordax-project-card,
   .ordax-project-action {
     transition: none;
   }
 }
 
+[data-ordax-motion="reduced"] .ordax-project-card,
 [data-ordax-motion="reduced"] .ordax-project-action {
   transition: none;
 }
