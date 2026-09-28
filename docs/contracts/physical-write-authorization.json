@@ -32,7 +32,7 @@
     "end_user_destructive_confirmation_required": true,
     "windows_uac_required": true,
     "post_write_readback_required": true,
-    "canonical_v4_release_proof_bound": true
+    "canonical_v4_release_proof_bound": false
   },
   "consumer_policy": {
     "user_selects_image_file": false,
