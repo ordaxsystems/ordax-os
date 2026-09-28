@@ -23,7 +23,7 @@ on:
       - 'system/contracts/intelligence-tool.mjs'
       - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
-      - 'system/profile-packs/developer/manifest.json'
+      - 'system/profile-packs/**'
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
@@ -107,6 +107,12 @@ on:
       - 'tests/test_profile_activation_state.mjs'
       - 'tests/test_profile_activation_state_adapters.mjs'
       - 'tests/test_native_profile_activation_state.py'
+      - 'system/contracts/profile-pack-source.mjs'
+      - 'system/contracts/profile-pack-restore.mjs'
+      - 'tests/test_profile_pack_bundled_source.mjs'
+      - 'tests/test_profile_pack_restore.mjs'
+      - 'tests/test_profile_pack_manifest_layout.py'
+      - 'tests/test_profile_pack_restore_composition.py'
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
@@ -129,7 +135,7 @@ on:
       - 'system/contracts/intelligence-tool.mjs'
       - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
-      - 'system/profile-packs/developer/manifest.json'
+      - 'system/profile-packs/**'
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
@@ -213,6 +219,12 @@ on:
       - 'tests/test_profile_activation_state.mjs'
       - 'tests/test_profile_activation_state_adapters.mjs'
       - 'tests/test_native_profile_activation_state.py'
+      - 'system/contracts/profile-pack-source.mjs'
+      - 'system/contracts/profile-pack-restore.mjs'
+      - 'tests/test_profile_pack_bundled_source.mjs'
+      - 'tests/test_profile_pack_restore.mjs'
+      - 'tests/test_profile_pack_manifest_layout.py'
+      - 'tests/test_profile_pack_restore_composition.py'
       - '.github/workflows/intelligence-foundation.yml'
   workflow_dispatch:
 
@@ -248,6 +260,8 @@ jobs:
           node --check system/contracts/intelligence-tool.mjs
           node --check system/contracts/semantic-index.mjs
           node --check system/contracts/profile-pack.mjs
+          node --check system/contracts/profile-pack-source.mjs
+          node --check system/contracts/profile-pack-restore.mjs
           node --check system/contracts/profile-pack-catalog.mjs
           node --check system/contracts/profile-provisioning.mjs
           node --check system/contracts/profile-component-inventory.mjs
@@ -285,7 +299,9 @@ jobs:
           python -m json.tool docs/contracts/intelligence-artifacts.json >/dev/null
           python -m json.tool docs/contracts/intelligence-tools.json >/dev/null
           python -m json.tool docs/contracts/semantic-index.json >/dev/null
-          python -m json.tool system/profile-packs/developer/manifest.json >/dev/null
+          python -m json.tool system/profile-packs/catalog.json >/dev/null
+          python -m json.tool system/profile-packs/developer/v1/manifest.json >/dev/null
+          python -m json.tool system/profile-packs/legal-br/v1/manifest.json >/dev/null
           python -m json.tool docs/contracts/profile-provisioning.json >/dev/null
           python -m json.tool docs/contracts/profile-pack-runtime.json >/dev/null
           python -m json.tool docs/contracts/profile-activation-state.json >/dev/null
@@ -317,6 +333,8 @@ jobs:
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
           node --test tests/test_profile_pack_runtime.mjs
+          node --test tests/test_profile_pack_bundled_source.mjs
+          node --test tests/test_profile_pack_restore.mjs
           node --test tests/test_profile_pack_catalog.mjs
           node --test tests/test_profile_provisioning.mjs
           node --test tests/test_profile_component_inventory.mjs
@@ -334,6 +352,8 @@ jobs:
           python -m unittest tests.test_memory_native_endpoint -v
           python -m unittest tests.test_native_memory_integration -v
           python -m unittest tests.test_profile_pack_runtime tests.test_profile_pack_catalog -v
+          python -m unittest tests.test_profile_pack_manifest_layout -v
+          python -m unittest tests.test_profile_pack_restore_composition -v
           python -m unittest tests.test_pre_mvp_ecosystem_foundation -v
           python -m unittest tests.test_native_profile_component_inventory -v
           python -m unittest tests.test_native_profile_provisioning_executor -v
