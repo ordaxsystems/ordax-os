@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 )
 
 const (
@@ -31,7 +32,11 @@ const (
 	maxEnvelopeBytes = 16 << 10
 	maxTrustBytes    = 16 << 10
 	maxPrivateKey    = 16 << 10
-	maxContentBytes  = int64(256 << 20)
+	maxContentBytes        = int64(256 << 20)
+	maxStructuralPackBytes = int64(64 << 20)
+	maxPackEntries         = 2048
+	maxEntryTextBytes      = 1 << 20
+	maxTotalTextBytes      = 32 << 20
 
 	stageManifestName = "profile-content-manifest.json"
 	stageEnvelopeName = "profile-content-envelope.json"
@@ -80,6 +85,48 @@ type trustAnchor struct {
 	Algorithm    string `json:"algorithm"`
 	KeyID        string `json:"key_id"`
 	PublicKeyB64 string `json:"public_key_base64"`
+}
+
+type contentSource struct {
+	URI          string  `json:"uri"`
+	Revision     string  `json:"revision"`
+	License      string  `json:"license"`
+	Jurisdiction *string `json:"jurisdiction"`
+	Title        string  `json:"title"`
+}
+
+type profileContentPack struct {
+	Schema  string            `json:"schema"`
+	Kind    string            `json:"kind"`
+	Entries []json.RawMessage `json:"entries"`
+}
+
+type knowledgeEntry struct {
+	ID            string        `json:"id"`
+	MediaType     string        `json:"mediaType"`
+	Content       string        `json:"content"`
+	ContentSHA256 string        `json:"contentSha256"`
+	Source        contentSource `json:"source"`
+}
+
+type skillEntry struct {
+	ID                 string        `json:"id"`
+	Title              string        `json:"title"`
+	Instructions       string        `json:"instructions"`
+	InstructionsSHA256 string        `json:"instructionsSha256"`
+	Authority          string        `json:"authority"`
+	ToolIDs            []string      `json:"toolIds"`
+	Source             contentSource `json:"source"`
+}
+
+type profileContentHealth struct {
+	State                       string
+	Kind                        string
+	EntryCount                  int
+	PerEntryHashVerified        bool
+	PerEntryProvenanceVerified  bool
+	ExecutablePayloadAllowed    bool
+	Authority                   string
 }
 
 func decodeStrict(data []byte, max int, target any) error {
@@ -164,6 +211,169 @@ func canonicalManifestBytes(value profileContentManifest) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(value)
+}
+
+
+func normalizedText(value, label string, max int) (string, error) {
+	normalized := strings.TrimSpace(value)
+	if err := boundedText(normalized, label, max); err != nil {
+		return "", err
+	}
+	return normalized, nil
+}
+
+func validateContentSource(value contentSource, label string) error {
+	if _, err := normalizedText(value.URI, label+" uri", 512); err != nil {
+		return err
+	}
+	if _, err := normalizedText(value.Revision, label+" revision", 160); err != nil {
+		return err
+	}
+	if _, err := normalizedText(value.License, label+" license", 120); err != nil {
+		return err
+	}
+	if _, err := normalizedText(value.Title, label+" title", 240); err != nil {
+		return err
+	}
+	if value.Jurisdiction != nil {
+		if _, err := normalizedText(*value.Jurisdiction, label+" jurisdiction", 80); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func textDigest(value string) string {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(value)))
+	return hex.EncodeToString(digest[:])
+}
+
+func validateKnowledgeEntry(raw []byte, index int) (string, int, error) {
+	var entry knowledgeEntry
+	if err := decodeStrict(raw, int(maxEntryTextBytes)+4096, &entry); err != nil {
+		return "", 0, fmt.Errorf("Knowledge entry[%d]: %w", index, err)
+	}
+	if !idPattern.MatchString(entry.ID) {
+		return "", 0, fmt.Errorf("Knowledge entry[%d] id is invalid", index)
+	}
+	if entry.MediaType != "text/plain" &&
+		entry.MediaType != "text/markdown" &&
+		entry.MediaType != "application/json" {
+		return "", 0, fmt.Errorf("Knowledge entry[%d] mediaType is unsupported", index)
+	}
+	content, err := normalizedText(entry.Content, fmt.Sprintf("Knowledge entry[%d] content", index), maxEntryTextBytes)
+	if err != nil {
+		return "", 0, err
+	}
+	if !shaPattern.MatchString(entry.ContentSHA256) || textDigest(content) != entry.ContentSHA256 {
+		return "", 0, fmt.Errorf("Knowledge entry[%d] contentSha256 does not match content", index)
+	}
+	if entry.MediaType == "application/json" && !json.Valid([]byte(content)) {
+		return "", 0, fmt.Errorf("Knowledge entry[%d] content is invalid JSON", index)
+	}
+	if err := validateContentSource(entry.Source, fmt.Sprintf("Knowledge entry[%d] source", index)); err != nil {
+		return "", 0, err
+	}
+	return entry.ID, len([]byte(content)), nil
+}
+
+func validateSkillEntry(raw []byte, index int) (string, int, error) {
+	var entry skillEntry
+	if err := decodeStrict(raw, int(maxEntryTextBytes)+4096, &entry); err != nil {
+		return "", 0, fmt.Errorf("Skill entry[%d]: %w", index, err)
+	}
+	if !idPattern.MatchString(entry.ID) {
+		return "", 0, fmt.Errorf("Skill entry[%d] id is invalid", index)
+	}
+	if _, err := normalizedText(entry.Title, fmt.Sprintf("Skill entry[%d] title", index), 160); err != nil {
+		return "", 0, err
+	}
+	instructions, err := normalizedText(
+		entry.Instructions,
+		fmt.Sprintf("Skill entry[%d] instructions", index),
+		maxEntryTextBytes,
+	)
+	if err != nil {
+		return "", 0, err
+	}
+	if !shaPattern.MatchString(entry.InstructionsSHA256) ||
+		textDigest(instructions) != entry.InstructionsSHA256 {
+		return "", 0, fmt.Errorf("Skill entry[%d] instructionsSha256 does not match instructions", index)
+	}
+	if entry.Authority != "none" {
+		return "", 0, fmt.Errorf("Skill entry[%d] authority must remain none", index)
+	}
+	if len(entry.ToolIDs) != 0 {
+		return "", 0, fmt.Errorf("Skill entry[%d] toolIds must remain empty", index)
+	}
+	if err := validateContentSource(entry.Source, fmt.Sprintf("Skill entry[%d] source", index)); err != nil {
+		return "", 0, err
+	}
+	return entry.ID, len([]byte(instructions)), nil
+}
+
+func validateProfileContentPackBytes(payload []byte, expectedKind string) (profileContentHealth, error) {
+	if len(payload) == 0 || int64(len(payload)) > maxStructuralPackBytes {
+		return profileContentHealth{}, errors.New("Profile content pack size is outside structural bounds")
+	}
+	var pack profileContentPack
+	if err := decodeStrict(payload, int(maxStructuralPackBytes), &pack); err != nil {
+		return profileContentHealth{}, fmt.Errorf("Profile content pack: %w", err)
+	}
+	if pack.Schema != contentFormat {
+		return profileContentHealth{}, errors.New("Profile content pack schema is unsupported")
+	}
+	if pack.Kind != expectedKind {
+		return profileContentHealth{}, errors.New("Profile content pack kind does not match signed artifact kind")
+	}
+	if len(pack.Entries) < 1 || len(pack.Entries) > maxPackEntries {
+		return profileContentHealth{}, errors.New("Profile content pack entries are outside bounds")
+	}
+	ids := make(map[string]struct{}, len(pack.Entries))
+	totalText := 0
+	for index, raw := range pack.Entries {
+		var (
+			entryID string
+			size    int
+			err     error
+		)
+		switch pack.Kind {
+		case "knowledge-pack":
+			entryID, size, err = validateKnowledgeEntry(raw, index)
+		case "skill-pack":
+			entryID, size, err = validateSkillEntry(raw, index)
+		default:
+			return profileContentHealth{}, errors.New("Profile content pack kind is unsupported")
+		}
+		if err != nil {
+			return profileContentHealth{}, err
+		}
+		if _, exists := ids[entryID]; exists {
+			return profileContentHealth{}, errors.New("Profile content pack entry ids must be unique")
+		}
+		ids[entryID] = struct{}{}
+		totalText += size
+		if totalText > maxTotalTextBytes {
+			return profileContentHealth{}, errors.New("Profile content pack total text exceeds bounds")
+		}
+	}
+	return profileContentHealth{
+		State:                      "healthy",
+		Kind:                       pack.Kind,
+		EntryCount:                 len(pack.Entries),
+		PerEntryHashVerified:       true,
+		PerEntryProvenanceVerified: true,
+		ExecutablePayloadAllowed:   false,
+		Authority:                  "none",
+	}, nil
+}
+
+func validateProfileContentPackFile(path, expectedKind string) (profileContentHealth, error) {
+	payload, err := readRegular(path, maxStructuralPackBytes, false)
+	if err != nil {
+		return profileContentHealth{}, err
+	}
+	return validateProfileContentPackBytes(payload, expectedKind)
 }
 
 func validateKeyID(value string) error {
@@ -697,6 +907,14 @@ func verifyStagedSlot(slot, trustPath string) (profileContentManifest, error) {
 	)
 }
 
+func inspectStagedSlotHealth(slot, trustPath string) (profileContentHealth, error) {
+	manifest, err := verifyStagedSlot(slot, trustPath)
+	if err != nil {
+		return profileContentHealth{}, err
+	}
+	return validateProfileContentPackFile(filepath.Join(slot, stageContentName), manifest.Kind)
+}
+
 func syncDirectory(path string) {
 	directory, err := os.Open(path)
 	if err != nil {
@@ -713,6 +931,9 @@ func stageContent(manifestPath, envelopePath, trustPath, contentPath, root strin
 	}
 	if _, err := verify(manifestPath, envelopePath, trustPath, contentPath); err != nil {
 		return profileContentManifest{}, "", false, err
+	}
+	if _, err := validateProfileContentPackFile(contentPath, manifest.Kind); err != nil {
+		return profileContentManifest{}, "", false, fmt.Errorf("Profile content structural health failed: %w", err)
 	}
 	envelopeBytes, err := readRegular(envelopePath, maxEnvelopeBytes, false)
 	if err != nil {
@@ -784,6 +1005,9 @@ func stageContent(manifestPath, envelopePath, trustPath, contentPath, root strin
 	verified, err := verifyStagedSlot(slot, trustPath)
 	if err != nil {
 		return profileContentManifest{}, "", false, fmt.Errorf("installed Profile content slot failed post-rename verification: %w", err)
+	}
+	if _, err := inspectStagedSlotHealth(slot, trustPath); err != nil {
+		return profileContentManifest{}, "", false, fmt.Errorf("installed Profile content structural health failed: %w", err)
 	}
 	return verified, slot, true, nil
 }
@@ -874,6 +1098,28 @@ func run() int {
 		} else {
 			fmt.Println("PROFILE_CONTENT_SLOT_CHANGED=NO")
 		}
+		fmt.Println("PROFILE_CONTENT_ACTIVATION_ALLOWED=NO")
+		return 0
+	case "health":
+		fs := flag.NewFlagSet("health", flag.ContinueOnError)
+		slot := fs.String("slot", "", "")
+		trustPath := fs.String("trust", "", "")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			return 2
+		}
+		health, err := inspectStagedSlotHealth(*slot, *trustPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "PROFILE_CONTENT_ERROR=%v\n", err)
+			return 1
+		}
+		fmt.Println("PROFILE_CONTENT_HEALTH=PASS")
+		fmt.Printf("PROFILE_CONTENT_HEALTH_STATE=%s\n", health.State)
+		fmt.Printf("PROFILE_CONTENT_KIND=%s\n", health.Kind)
+		fmt.Printf("PROFILE_CONTENT_ENTRY_COUNT=%d\n", health.EntryCount)
+		fmt.Println("PROFILE_CONTENT_PER_ENTRY_HASH_VERIFIED=YES")
+		fmt.Println("PROFILE_CONTENT_PER_ENTRY_PROVENANCE_VERIFIED=YES")
+		fmt.Println("PROFILE_CONTENT_EXECUTABLE_PAYLOAD_ALLOWED=NO")
+		fmt.Println("PROFILE_CONTENT_AUTHORITY=NONE")
 		fmt.Println("PROFILE_CONTENT_ACTIVATION_ALLOWED=NO")
 		return 0
 	default:
