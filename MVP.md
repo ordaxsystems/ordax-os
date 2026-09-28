@@ -362,6 +362,20 @@ templates e composição de apps, mas não podem conceder privilégios, ignorar 
 transformar resposta de modelo em fonte autoritativa. O pack `legal-br` inicial permanece **draft**
 até existir pipeline de fontes oficiais/versionadas e validação de domínio.
 
+## 10.2 Profiles profissionais no MVP
+
+O MVP inclui a **fundação do sistema de Profiles**, não todos os payloads profissionais.
+
+A imagem USB mantém apenas o catálogo leve e os componentes base. Profile Packs profissionais
+são preparados para provisionamento sob demanda, com cálculo de dependências e uso offline após
+instalação. O runtime não possui executor público de download nesta fase: qualquer payload futuro
+precisa de identidade de artefato, SHA-256, assinatura, stage, health e rollback antes de ser
+instalável.
+
+`Developer` permanece prova interna. `Legal BR` pode aparecer no catálogo como conhecido,
+mas permanece bloqueado até existir knowledge oficial/versionado, validação de domínio e cadeia
+pública de trust. Isso evita inflar o pendrive e preserva a evolução por atualização.
+
 ## 11. Conta OrdaX
 
 A conta OrdaX é **opcional para usar o sistema operacional**. O primeiro uso deve oferecer uma rota explícita **Continuar sem conta**, preservando Arquivos, Notas, Internet, Ajustes, atualizações e preferências locais no USB.
