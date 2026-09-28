@@ -172,9 +172,13 @@ export function planProfileProvisioning({
   const installedByIdentity = new Map(
     inventory.entries.map((entry) => [`${entry.id}@${entry.version}@${entry.sha256}`, entry]),
   );
-  const isInstalled = (component) =>
-    component.sha256 !== null
-    && installedByIdentity.has(`${component.id}@${component.version}@${component.sha256}`);
+  const installedEntry = (component) =>
+    component.sha256 === null
+      ? null
+      : installedByIdentity.get(
+          `${component.id}@${component.version}@${component.sha256}`,
+        ) ?? null;
+  const isInstalled = (component) => installedEntry(component) !== null;
 
   const missing = value.components.filter((component) => !isInstalled(component));
   const plannedMissing = missing.filter((component) => component.availability === "planned");
@@ -183,6 +187,8 @@ export function planProfileProvisioning({
     (total, component) => total + (component.sizeBytes ?? 0),
     0,
   );
+  const requiredMissing = missing.filter((component) => component.required);
+  const componentsSatisfied = requiredMissing.length === 0;
 
   let state = "ready";
   let reason = null;
@@ -210,13 +216,24 @@ export function planProfileProvisioning({
     inventoryPersistence: inventory.persistence,
     missing: Object.freeze(missing),
     alreadyInstalled: Object.freeze(
-      value.components.filter((component) => isInstalled(component)),
+      value.components
+        .filter((component) => isInstalled(component))
+        .map((component) => {
+          const installed = installedEntry(component);
+          return Object.freeze({
+            ...component,
+            installedAt: installed.installedAt,
+            receiptSha256: installed.receiptSha256,
+          });
+        }),
     ),
+    componentsSatisfied,
+    requiredMissing: Object.freeze(requiredMissing),
     requiredDownloadBytes,
     mayDownload: state === "ready" && downloadableMissing.length > 0,
     mayActivate:
-      (state === "ready" || state === "already-provisioned")
-      && plannedMissing.every((component) => !component.required),
+      componentsSatisfied
+      && (state === "ready" || state === "already-provisioned"),
   });
 }
 
