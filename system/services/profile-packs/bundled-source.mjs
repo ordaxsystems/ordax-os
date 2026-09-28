@@ -3,10 +3,7 @@ import {
   assertBundledProfilePackPath,
   validateBundledProfilePackCatalogIndex,
 } from "../../contracts/profile-pack-source.mjs";
-import {
-  validateProfilePack,
-  validateProfilePackCatalog,
-} from "../../contracts/profile-pack.mjs";
+import { validateProfilePack } from "../../contracts/profile-pack.mjs";
 
 export const DEFAULT_BUNDLED_PROFILE_PACK_CATALOG =
   "/profile-packs/catalog.json";
@@ -57,10 +54,9 @@ export async function loadBundledProfilePacks({
     packs.push(pack);
   }
 
-  const validated = validateProfilePackCatalog(packs);
   return Object.freeze({
     schema: PROFILE_PACK_BUNDLED_SOURCE_SCHEMA,
     catalog: index,
-    packs: validated,
+    packs: Object.freeze(packs),
   });
 }
