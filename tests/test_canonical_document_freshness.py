@@ -407,7 +407,11 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertEqual(state["RELEASE_TRUST"], "PASS_CANONICAL_PUBLIC_ANCHOR_PINNED")
         self.assertEqual(state["CANONICAL_V4_RELEASE_PROOF"], "PASS_SIGNED_MATERIALIZED_EXACT")
         self.assertIn("canonical release trust público: **PASS**", mvp)
-        self.assertIn("FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED", mvp)
+        self.assertIn("FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF", mvp)
+        self.assertIn(
+            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_SEPARATE_AUTHORIZATION",
+            mvp,
+        )
         self.assertIn("O MVP público oferece **pt-BR e en-US**", mvp)
         self.assertNotIn("canonical release trust público: pendente", mvp)
         self.assertNotIn("O primeiro uso Native oferece **pt-BR, en-US, es-ES, de-DE e fr-FR**", mvp)
@@ -430,7 +434,11 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED", promotion)
         self.assertIn("CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE", current)
         self.assertIn(
-            "FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING",
+            "FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING",
+            current,
+        )
+        self.assertIn(
+            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING",
             current,
         )
         self.assertIn(
