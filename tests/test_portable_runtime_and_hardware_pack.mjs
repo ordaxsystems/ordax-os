@@ -58,6 +58,7 @@ function pack(overrides = {}) {
     sha256: "a".repeat(64),
     sourceRevision: "linux-6.6.52+firmware-2026-09",
     license: "mixed-reviewed",
+    kernelAbi: "6.6.52-ordax",
     modaliases: ["pci:v00008086d00002723"],
     kernelModules: ["iwlwifi", "iwlmvm"],
     firmwareFiles: ["iwlwifi-example.ucode"],
@@ -77,11 +78,18 @@ test("hardware pack requires signed component-slot semantics and exact modalias 
   assert.equal(value.activation.signedManifestRequired, true);
   assert.equal(hardwarePackMatches(value, {
     architecture: "x86_64",
+    kernelAbi: "6.6.52-ordax",
     modalias: "pci:v00008086d00002723",
   }), true);
   assert.equal(hardwarePackMatches(value, {
     architecture: "x86_64",
+    kernelAbi: "6.6.52-ordax",
     modalias: "pci:v00008086d0000ffff",
+  }), false);
+  assert.equal(hardwarePackMatches(value, {
+    architecture: "x86_64",
+    kernelAbi: "6.6.53-ordax",
+    modalias: "pci:v00008086d00002723",
   }), false);
 });
 
