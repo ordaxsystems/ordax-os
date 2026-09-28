@@ -5,8 +5,10 @@ ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "system/composition/native/main.mjs"
 NOTES_RUNTIME = ROOT / "system/apps/notes/runtime.mjs"
 NOTES_UI = ROOT / "system/apps/notes/ui/workspace-controls.mjs"
+NOTES_HANDOFF = ROOT / "system/apps/notes/ui/intelligence-handoff-controls.mjs"
 SYSTEM_UI = ROOT / "system/surface/ui/system-overview-controls.mjs"
 CLIENT_ACTIONS = ROOT / "system/services/intelligence/client-actions.mjs"
+CONTEXT_SOURCES = ROOT / "system/services/intelligence/first-party-context-sources.mjs"
 
 
 class IntelligenceProductConsumerTests(unittest.TestCase):
@@ -24,12 +26,28 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
     def test_notes_consumes_intelligence_not_local_ai(self):
         runtime = NOTES_RUNTIME.read_text(encoding="utf-8")
         ui = NOTES_UI.read_text(encoding="utf-8")
+        handoff = NOTES_HANDOFF.read_text(encoding="utf-8")
+        actions = CLIENT_ACTIONS.read_text(encoding="utf-8")
+        sources = CONTEXT_SOURCES.read_text(encoding="utf-8")
+
         self.assertIn("intelligence = null", runtime)
-        self.assertIn("{ fileSpace, appActivation, intelligence }", runtime)
+        self.assertIn("getDefaultIntelligenceContextSharingRuntime", runtime)
+        self.assertIn("mountNotesIntelligenceHandoffControls", runtime)
         self.assertIn("assertIntelligencePort", ui)
         self.assertIn("summarizeDocumentWithIntelligence", ui)
         self.assertIn('data.notesIntelligence', ui.replace("dataset", "data"))
         self.assertIn('"intelligence-summary"', ui)
+        self.assertIn("assertIntelligenceContextSharePort", handoff)
+        self.assertIn("createDocumentIntelligenceContext", handoff)
+        self.assertIn('sourceId: NOTE_CONTEXT_SOURCE_ID', handoff)
+        self.assertIn('sourceAppId: "notes"', handoff)
+        self.assertIn('kind: "document"', handoff)
+        self.assertIn('appId: "intelligence"', handoff)
+        self.assertIn('provenance: `ordax:notes:${note.id}:user-authorized-selection`', handoff)
+        self.assertIn("createDocumentIntelligenceContext", actions)
+        self.assertIn('id: "note-selection"', sources)
+        self.assertNotIn("reference.path", handoff)
+        self.assertNotIn("requestedCapabilities", handoff)
         self.assertNotIn("local-ai", runtime)
         self.assertNotIn("services/local-ai", ui)
         self.assertNotIn("contracts/local-ai", ui)
