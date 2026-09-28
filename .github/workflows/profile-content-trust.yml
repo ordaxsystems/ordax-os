@@ -91,6 +91,7 @@ jobs:
             publisher: "ordax",
             content_hash: createHash("sha256").update(content).digest("hex"),
             content_size: content.length,
+            content_format: "ordax.profile-content-pack/1",
             source: {
               uri: "https://example.invalid/ordax/profile-proof",
               revision: "ci-1",
