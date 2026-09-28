@@ -4,15 +4,19 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  assertValidatedProfilePackCatalog,
+  validateProfilePack,
+} from "../system/contracts/profile-pack.mjs";
 import { resolveProfilePackRestore } from "../system/services/profile-packs/restore.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const developer = JSON.parse(
+const developer = validateProfilePack(JSON.parse(
   await readFile(resolve(ROOT, "system/profile-packs/developer/v1/manifest.json"), "utf8"),
-);
-const legalBr = JSON.parse(
+));
+const legalBr = validateProfilePack(JSON.parse(
   await readFile(resolve(ROOT, "system/profile-packs/legal-br/v1/manifest.json"), "utf8"),
-);
+));
 
 function activationState(rows) {
   const snapshot = {
@@ -159,8 +163,36 @@ test("restore fails safe on receipt drift or missing device inventory", () => {
 });
 
 test("restore refuses retired Profile and Space kind drift", () => {
-  const retired = structuredClone(developer);
-  retired.state = "retired";
+  const retired = validateProfilePack({
+    $schema: "ordax.profile-pack/1",
+    slug: "developer",
+    version: 1,
+    state: "retired",
+    title: "Developer",
+    category: "development",
+    space_kind: "professional",
+    apps: [],
+    templates: [],
+    knowledge: {
+      jurisdiction: null,
+      source_classes: [
+        "project-source",
+        "project-docs",
+        "user-authorized-repository",
+      ],
+      refresh_policy: "project-owned",
+    },
+    intelligence: {
+      memory_scopes: ["space", "project"],
+      preferred_purpose: "code",
+      external_provider_required: false,
+    },
+    security: {
+      auto_grant_privileges: false,
+      allow_unsigned_apps: false,
+      generic_shell_implied: false,
+    },
+  });
 
   let restore = resolveProfilePackRestore({
     packs: [retired],
@@ -201,4 +233,26 @@ test("inactive persisted row stays inactive and grants no Profile authority", ()
   assert.equal(restore.entries[0].state, "inactive");
   assert.equal(restore.entries[0].profile, null);
   assert.equal(restore.entries[0].activatedAt, null);
+});
+
+
+test("restore rejects unvalidated normalized-looking Profile objects", () => {
+  const fake = structuredClone(developer);
+  assert.throws(
+    () => assertValidatedProfilePackCatalog([fake]),
+    /must come from validateProfilePack/,
+  );
+  assert.throws(
+    () => resolveProfilePackRestore({
+      packs: [fake],
+      provisioning: provisioning(new Map([["developer@1", plan()]])),
+      activationState: activationState([{
+        spaceId: "space-dev",
+        spaceKind: "professional",
+        current: current("developer"),
+        previous: null,
+      }]),
+    }),
+    /must come from validateProfilePack/,
+  );
 });
