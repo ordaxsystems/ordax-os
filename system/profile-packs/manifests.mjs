@@ -1,5 +1,7 @@
 import { validateProfilePackCatalog } from "../contracts/profile-pack.mjs";
-import { LOCAL_PROFILE_PACK_MANIFESTS } from "./manifests.generated.mjs";
+import { LOCAL_PROFILE_PACK_MANIFESTS as GENERATED_PROFILE_PACK_MANIFESTS } from "./manifests.generated.mjs";
+
+export const LOCAL_PROFILE_PACK_MANIFESTS = GENERATED_PROFILE_PACK_MANIFESTS;
 
 export const LOCAL_PROFILE_PACKS = validateProfilePackCatalog(
   LOCAL_PROFILE_PACK_MANIFESTS,
