@@ -39,6 +39,7 @@
     "audit_journal_contract": "ordax.intelligence-audit-journal/1",
     "audit_entry_contract": "ordax.intelligence-audit-entry/1",
     "bounded_audit_journal_source_complete": true,
+    "native_system_analysis_composition_source_complete": true,
     "model_and_engine_replaceable": true,
     "cloud_provider_required": false,
     "production_native_composition": true,
@@ -115,6 +116,10 @@
       "observe-network-status",
       "observe-power-status"
     ],
+    "native_system_diagnose_uses_governed_observations": true,
+    "native_system_diagnose_requires_explicit_user_action": true,
+    "native_system_diagnose_model_selects_tools": false,
+    "native_system_diagnose_partial_observation_reports_limitations": true,
     "network_status_model_context_exposes_interface_names": false,
     "network_status_model_context_exposes_addresses_or_ssids": false,
     "automatic_model_tool_invocation_enabled": false,
