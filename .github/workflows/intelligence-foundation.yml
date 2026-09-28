@@ -80,6 +80,12 @@ on:
       - 'tests/test_profile_provisioning.mjs'
       - 'tests/test_profile_provisioning_runtime.mjs'
       - 'tests/test_pre_mvp_ecosystem_foundation.py'
+      - 'docs/contracts/profile-pack-runtime.json'
+      - 'system/contracts/profile-pack-catalog.mjs'
+      - 'system/services/profile-packs/catalog.mjs'
+      - 'system/composition/web/main.mjs'
+      - 'tests/test_profile_pack_catalog.mjs'
+      - 'tests/test_profile_pack_catalog.py'
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
@@ -159,6 +165,12 @@ on:
       - 'tests/test_profile_provisioning.mjs'
       - 'tests/test_profile_provisioning_runtime.mjs'
       - 'tests/test_pre_mvp_ecosystem_foundation.py'
+      - 'docs/contracts/profile-pack-runtime.json'
+      - 'system/contracts/profile-pack-catalog.mjs'
+      - 'system/services/profile-packs/catalog.mjs'
+      - 'system/composition/web/main.mjs'
+      - 'tests/test_profile_pack_catalog.mjs'
+      - 'tests/test_profile_pack_catalog.py'
       - '.github/workflows/intelligence-foundation.yml'
   workflow_dispatch:
 
@@ -194,8 +206,10 @@ jobs:
           node --check system/contracts/intelligence-tool.mjs
           node --check system/contracts/semantic-index.mjs
           node --check system/contracts/profile-pack.mjs
+          node --check system/contracts/profile-pack-catalog.mjs
           node --check system/contracts/profile-provisioning.mjs
           node --check system/profile-packs/distributions.mjs
+          node --check system/services/profile-packs/catalog.mjs
           find system/services/intelligence system/services/local-ai system/services/memory system/services/profile-packs -type f -name '*.mjs' -print0 \
             | sort -z \
             | xargs -0 -n1 node --check
@@ -210,6 +224,7 @@ jobs:
           python -m py_compile tools/local-ai-benchmark/benchmark.py
           python -m py_compile tools/local-ai-hardware-probe/probe.py
           node --check system/composition/native/main.mjs
+          node --check system/composition/web/main.mjs
           python -m json.tool docs/contracts/intelligence.json >/dev/null
           python -m json.tool docs/contracts/local-ai.json >/dev/null
           python -m json.tool docs/contracts/memory.json >/dev/null
@@ -219,6 +234,7 @@ jobs:
           python -m json.tool docs/contracts/semantic-index.json >/dev/null
           python -m json.tool system/profile-packs/developer/manifest.json >/dev/null
           python -m json.tool docs/contracts/profile-provisioning.json >/dev/null
+          python -m json.tool docs/contracts/profile-pack-runtime.json >/dev/null
 
       - name: Run Intelligence and Local AI contract tests
         run: |
@@ -247,6 +263,7 @@ jobs:
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
           node --test tests/test_profile_pack_runtime.mjs
+          node --test tests/test_profile_pack_catalog.mjs
           node --test tests/test_profile_provisioning.mjs
           node --test tests/test_profile_provisioning_runtime.mjs
           python -m unittest tests.test_local_ai_baseline -v
@@ -256,5 +273,5 @@ jobs:
           python -m unittest tests.test_memory_native_state -v
           python -m unittest tests.test_memory_native_endpoint -v
           python -m unittest tests.test_native_memory_integration -v
-          python -m unittest tests.test_profile_pack_runtime -v
+          python -m unittest tests.test_profile_pack_runtime tests.test_profile_pack_catalog -v
           python -m unittest tests.test_pre_mvp_ecosystem_foundation -v
