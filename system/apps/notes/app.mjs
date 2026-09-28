@@ -10,6 +10,9 @@ export const notesApp = defineFirstPartyApp({
   component: notesComponent,
   requiredCapabilities: [],
   optionalCapabilities: ["filesystem.user-space"],
+  intelligence: {
+    contextSourceIds: ["note-selection"],
+  },
   panels: [
     {
       kind: "extension",
