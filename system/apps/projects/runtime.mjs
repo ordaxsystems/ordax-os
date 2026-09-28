@@ -55,6 +55,7 @@ export const componentRuntime = Object.freeze({
     projects = null,
     projectCloudLinks = null,
     appActivation = null,
+    intelligenceContextShare = null,
     deviceAgentCapabilities = null,
   } = {}) {
     const releaseStyles = await mountProjectsStyles(root);
@@ -68,6 +69,7 @@ export const componentRuntime = Object.freeze({
         projects,
         projectCloudLinks,
         appActivation,
+        intelligenceContextShare,
       });
       if (deviceAgentStatus !== null) {
         deviceAgentControls = mountProjectsDeviceAgentStatus(
