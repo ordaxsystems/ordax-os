@@ -439,7 +439,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('event.key === "Enter"', overview)
         self.assertIn('event.key === "Escape"', overview)
         self.assertIn('"appearance.theme"', appearance)
-        self.assertIn('defaultValue: "light"', appearance)
+        self.assertIn('defaultValue: "dark"', appearance)
         self.assertIn('value: "dark"', appearance)
         self.assertIn('"accessibility.contrast"', accessibility)
         self.assertIn('"accessibility.motion"', accessibility)
