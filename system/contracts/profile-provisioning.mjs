@@ -1,3 +1,8 @@
+import {
+  createEmptyProfileComponentInventory,
+  validateProfileComponentInventory,
+} from "./profile-component-inventory.mjs";
+
 export const PROFILE_DISTRIBUTION_SCHEMA = "ordax.profile-distribution/1";
 export const PROFILE_PROVISIONING_SCHEMA = "ordax.profile-provisioning/1";
 
@@ -151,22 +156,23 @@ export function validateProfileDistribution(value, label = "Profile distribution
 
 export function planProfileProvisioning({
   distribution,
-  installedComponentIds = [],
+  installedInventory = createEmptyProfileComponentInventory(),
   networkAvailable = false,
 } = {}) {
   const value = validateProfileDistribution(distribution);
-  if (!Array.isArray(installedComponentIds) || installedComponentIds.length > 256) {
-    throw new TypeError("installedComponentIds must be a bounded array");
+  const inventory = validateProfileComponentInventory(installedInventory);
+  if (typeof networkAvailable !== "boolean") {
+    throw new TypeError("networkAvailable must be boolean");
   }
-  const installed = new Set(installedComponentIds.map((id, index) => {
-    const value = boundedText(id, `installedComponentIds[${index}]`, 128);
-    if (!COMPONENT_ID_PATTERN.test(value)) {
-      throw new TypeError(`installedComponentIds[${index}] is invalid`);
-    }
-    return value;
-  }));
 
-  const missing = value.components.filter((component) => !installed.has(component.id));
+  const installedByIdentity = new Map(
+    inventory.entries.map((entry) => [`${entry.id}@${entry.sha256}`, entry]),
+  );
+  const isInstalled = (component) =>
+    component.sha256 !== null
+    && installedByIdentity.has(`${component.id}@${component.sha256}`);
+
+  const missing = value.components.filter((component) => !isInstalled(component));
   const plannedMissing = missing.filter((component) => component.availability === "planned");
   const downloadableMissing = missing.filter((component) => component.availability === "available");
   const requiredDownloadBytes = downloadableMissing.reduce(
@@ -197,9 +203,10 @@ export function planProfileProvisioning({
     metadataBundled: value.metadataBundled,
     deliveryMode: value.deliveryMode,
     offlineAfterInstall: value.offlineAfterInstall,
+    inventoryPersistence: inventory.persistence,
     missing: Object.freeze(missing),
     alreadyInstalled: Object.freeze(
-      value.components.filter((component) => installed.has(component.id)),
+      value.components.filter((component) => isInstalled(component)),
     ),
     requiredDownloadBytes,
     mayDownload: state === "ready" && downloadableMissing.length > 0,
@@ -208,7 +215,6 @@ export function planProfileProvisioning({
       && plannedMissing.every((component) => !component.required),
   });
 }
-
 
 export function assertProfileProvisioningPort(port) {
   if (!port || typeof port !== "object" || port.schema !== PROFILE_PROVISIONING_SCHEMA) {
