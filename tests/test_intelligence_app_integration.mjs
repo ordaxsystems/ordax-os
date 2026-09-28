@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { defineFirstPartyApp } from "../system/apps/app-contract.mjs";
+import { listFirstPartyApps } from "../system/apps/catalog.mjs";
 import { accountApp } from "../system/apps/account/app.mjs";
 import { filesApp } from "../system/apps/files/app.mjs";
 import { notesApp } from "../system/apps/notes/app.mjs";
 import { projectsApp } from "../system/apps/projects/app.mjs";
+import { systemApp } from "../system/apps/system/app.mjs";
+import { listFirstPartyExplicitContextSources } from "../system/services/intelligence/first-party-context-sources.mjs";
+import { createIntelligenceToolRegistry } from "../system/services/intelligence/tool-registry.mjs";
 
 function redefine(app, intelligence) {
   return defineFirstPartyApp({
@@ -35,14 +39,39 @@ test("first-party apps own bounded Intelligence integration metadata", () => {
     contextSourceIds: ["note-selection"],
     toolIds: [],
   });
+  assert.deepEqual(systemApp.intelligence, {
+    contextSourceIds: [],
+    toolIds: [
+      "observe-system-metrics",
+      "observe-network-status",
+      "observe-power-status",
+    ],
+  });
   assert.deepEqual(accountApp.intelligence, {
     contextSourceIds: [],
     toolIds: [],
   });
-  for (const app of [filesApp, projectsApp, notesApp, accountApp]) {
+  for (const app of [filesApp, projectsApp, notesApp, systemApp, accountApp]) {
     assert.ok(Object.isFrozen(app.intelligence));
     assert.ok(Object.isFrozen(app.intelligence.contextSourceIds));
     assert.ok(Object.isFrozen(app.intelligence.toolIds));
+  }
+});
+
+test("canonical app Intelligence integrations resolve against canonical context and tool registries", () => {
+  const sourceIds = new Set(listFirstPartyExplicitContextSources().map((source) => source.id));
+  const tools = createIntelligenceToolRegistry();
+
+  for (const app of listFirstPartyApps()) {
+    for (const sourceId of app.intelligence.contextSourceIds) {
+      assert.ok(sourceIds.has(sourceId), `${app.id} declares unknown Intelligence context source ${sourceId}`);
+    }
+    for (const toolId of app.intelligence.toolIds) {
+      const tool = tools.get(toolId);
+      assert.ok(tool, `${app.id} declares unknown Intelligence tool ${toolId}`);
+      assert.equal(tool.readOnly, true, `${app.id} Intelligence tool ${toolId} must remain read-only`);
+      assert.equal(tool.authority, "none", `${app.id} Intelligence tool ${toolId} must not grant authority`);
+    }
   }
 });
 
