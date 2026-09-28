@@ -23,8 +23,14 @@ function receipt() {
       verifiedAt: 1000,
     },
     health: {
+      schema: "ordax.profile-content-health/1",
       state: "healthy",
       checkedAt: 1100,
+      entryCount: 2,
+      perEntryHashVerified: true,
+      perEntryProvenanceVerified: true,
+      executablePayloadAllowed: false,
+      authority: "none",
     },
     installedAt: 1200,
   };
@@ -37,6 +43,11 @@ test("verified Profile install receipt binds version, bytes, signature and healt
   assert.equal(value.artifact.sha256, "a".repeat(64));
   assert.equal(value.verification.signatureAlgorithm, "ed25519");
   assert.equal(value.health.state, "healthy");
+  assert.equal(value.health.entryCount, 2);
+  assert.equal(value.health.perEntryHashVerified, true);
+  assert.equal(value.health.perEntryProvenanceVerified, true);
+  assert.equal(value.health.executablePayloadAllowed, false);
+  assert.equal(value.health.authority, "none");
 });
 
 test("inventory entry is derived only from a valid healthy receipt", () => {
@@ -59,6 +70,14 @@ test("receipt fails closed on unhealthy activation, unknown fields or invalid si
   const unknown = receipt();
   unknown.surprise = true;
   assert.throws(() => validateProfileInstallReceipt(unknown), /fields are incompatible/);
+
+  const unsafeHealth = receipt();
+  unsafeHealth.health.executablePayloadAllowed = true;
+  assert.throws(() => validateProfileInstallReceipt(unsafeHealth), /health evidence is unsafe/);
+
+  const missingProvenance = receipt();
+  missingProvenance.health.perEntryProvenanceVerified = false;
+  assert.throws(() => validateProfileInstallReceipt(missingProvenance), /health evidence is unsafe/);
 
   const wrongAlgorithm = receipt();
   wrongAlgorithm.verification.signatureAlgorithm = "rsa";
