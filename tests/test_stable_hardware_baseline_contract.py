@@ -25,6 +25,13 @@ class StableHardwareBaselineContractTests(unittest.TestCase):
         )
         expected_modules = wifi["module_basenames"]
         self.assertEqual(source["kernel_modules"]["required_basenames"], expected_modules)
+        self.assertEqual(
+            source["kernel_modules"]["coldplug_entrypoints"],
+            wifi["coldplug_entrypoints"],
+        )
+        self.assertTrue(
+            set(wifi["coldplug_entrypoints"]).issubset(expected_modules),
+        )
 
         coldplug_match = re.search(
             r"for module in ([^;]+); do",
@@ -32,7 +39,9 @@ class StableHardwareBaselineContractTests(unittest.TestCase):
         )
         self.assertIsNotNone(coldplug_match)
         coldplug_modules = coldplug_match.group(1).split()
-        self.assertEqual(coldplug_modules, expected_modules)
+        self.assertEqual(coldplug_modules, wifi["coldplug_entrypoints"])
+        self.assertIn("iwlmvm", expected_modules)
+        self.assertNotIn("iwlmvm", coldplug_modules)
 
         self.assertEqual(
             [package for package in source["packages"] if package.startswith("linux-firmware-")],
