@@ -4,12 +4,15 @@ import {
   validateIntelligenceSnapshot,
 } from "../../contracts/intelligence.mjs";
 import { assertIntelligenceContextRegistry } from "../../contracts/intelligence-context.mjs";
+import { validateIntelligenceTaskPlanningRequest } from "../../contracts/intelligence-task.mjs";
+import { createIntelligenceContextCapsuleBuilder } from "../../services/intelligence/context-capsule.mjs";
 import { createIntelligenceTaskPlanner } from "../../services/intelligence/task-planner.mjs";
 
 export const INTELLIGENCE_CHAT_SESSION_SCHEMA = "ordax.intelligence-chat-session/1";
 export const INTELLIGENCE_CHAT_MAX_MESSAGES = 48;
 
 const EMPTY_CONTEXT_SOURCES = Object.freeze([]);
+const MESSAGE_KINDS = new Set(["chat", "plan"]);
 
 function promptText(value) {
   if (typeof value !== "string" || value.includes("\0")) {
@@ -22,8 +25,11 @@ function promptText(value) {
   return normalized;
 }
 
-function freezeMessage(role, text) {
-  return Object.freeze({ role, text });
+function freezeMessage(role, text, kind = "chat") {
+  if (!MESSAGE_KINDS.has(kind)) {
+    throw new TypeError("Intelligence chat message kind is invalid");
+  }
+  return Object.freeze({ role, text, kind });
 }
 
 function boundedMessages(messages) {
@@ -47,7 +53,36 @@ function explicitContextSourceIds(value) {
   return Object.freeze(ids);
 }
 
-function freezeSnapshot({ intelligence, messages, pending, failed, contextSources, lastPlan }) {
+function planningInput(value, fallbackMaxTokens) {
+  if (typeof value === "string") {
+    return validateIntelligenceTaskPlanningRequest({
+      goal: promptText(value),
+      context: [],
+      maxTokens: fallbackMaxTokens,
+    });
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Intelligence planning input must be text or an object");
+  }
+  return validateIntelligenceTaskPlanningRequest({
+    goal: promptText(value.goal),
+    target: value.target,
+    constraints: value.constraints,
+    acceptance: value.acceptance,
+    context: [],
+    maxTokens: value.maxTokens ?? fallbackMaxTokens,
+  });
+}
+
+function freezeSnapshot({
+  intelligence,
+  messages,
+  pending,
+  failed,
+  contextSources,
+  lastContextCapsule,
+  lastPlan,
+}) {
   return Object.freeze({
     schema: INTELLIGENCE_CHAT_SESSION_SCHEMA,
     intelligence: validateIntelligenceSnapshot(intelligence),
@@ -59,6 +94,7 @@ function freezeSnapshot({ intelligence, messages, pending, failed, contextSource
     externalProvider: false,
     toolExecution: false,
     contextSources,
+    lastContextCapsule,
     lastPlan,
   });
 }
@@ -79,12 +115,16 @@ export function createIntelligenceChatSession(
   const contextRegistry = contextRegistryValue === null
     ? null
     : assertIntelligenceContextRegistry(contextRegistryValue);
+  const capsuleBuilder = contextRegistry === null
+    ? null
+    : createIntelligenceContextCapsuleBuilder(contextRegistry);
   const explicitSources = explicitContextSourceIds(includeExplicitContextSourceIds);
-  const contextSources = contextRegistry?.listSources() ?? EMPTY_CONTEXT_SOURCES;
+  const contextSources = capsuleBuilder?.listSources() ?? EMPTY_CONTEXT_SOURCES;
 
   let messages = [];
   let pending = false;
   let failed = false;
+  let lastContextCapsule = null;
   let lastPlan = null;
   let intelligenceSnapshot = validateIntelligenceSnapshot(intelligence.getSnapshot());
   let destroyed = false;
@@ -96,6 +136,7 @@ export function createIntelligenceChatSession(
     pending,
     failed,
     contextSources,
+    lastContextCapsule,
     lastPlan,
   });
 
@@ -110,25 +151,27 @@ export function createIntelligenceChatSession(
     publish();
   });
 
-  const begin = (prompt) => {
+  const begin = (prompt, kind = "chat") => {
     if (destroyed) throw new Error("Intelligence chat session is disposed");
     if (pending) throw new Error("Intelligence chat already has a request in flight");
     intelligenceSnapshot = validateIntelligenceSnapshot(intelligence.getSnapshot());
     if (intelligenceSnapshot.state !== "ready") {
       throw new Error("Ordax Intelligence is not ready for conversation");
     }
-    messages = [...messages, freezeMessage("user", prompt)].slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
+    messages = [...messages, freezeMessage("user", prompt, kind)]
+      .slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
     pending = true;
     failed = false;
     publish();
   };
 
-  const collectContext = async (intent, prompt) => (
-    contextRegistry === null
-      ? []
-      : contextRegistry.collect({
+  const collectCapsule = async (intent, prompt, target = null) => (
+    capsuleBuilder === null
+      ? null
+      : capsuleBuilder.build({
         intent,
         prompt,
+        target,
         includeExplicitSourceIds: explicitSources,
       })
   );
@@ -156,22 +199,23 @@ export function createIntelligenceChatSession(
       if (destroyed) return;
       messages = [];
       failed = false;
+      lastContextCapsule = null;
       lastPlan = null;
       publish();
     },
     async send(value) {
       const prompt = promptText(value);
-      begin(prompt);
+      begin(prompt, "chat");
       lastPlan = null;
       try {
-        const context = await collectContext("ask", prompt);
+        lastContextCapsule = await collectCapsule("ask", prompt);
         const response = await intelligence.respond({
           intent: "ask",
           prompt,
-          context,
+          context: lastContextCapsule?.context ?? [],
           maxTokens,
         });
-        messages = [...messages, freezeMessage("assistant", response.text)]
+        messages = [...messages, freezeMessage("assistant", response.text, "chat")]
           .slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
         return response;
       } catch (error) {
@@ -182,17 +226,20 @@ export function createIntelligenceChatSession(
       }
     },
     async plan(value) {
-      const goal = promptText(value);
-      begin(goal);
+      const request = planningInput(value, Math.max(maxTokens, 1024));
+      begin(request.goal, "plan");
       try {
-        const context = await collectContext("plan", goal);
+        lastContextCapsule = await collectCapsule("plan", request.goal, request.target);
         const plan = await planner.plan({
-          goal,
-          context,
-          maxTokens: Math.max(maxTokens, 1024),
+          goal: request.goal,
+          target: request.target,
+          constraints: request.constraints,
+          acceptance: request.acceptance,
+          context: lastContextCapsule?.context ?? [],
+          maxTokens: request.maxTokens,
         });
         lastPlan = plan;
-        messages = [...messages, freezeMessage("assistant", plan.advisory)]
+        messages = [...messages, freezeMessage("assistant", plan.advisory, "plan")]
           .slice(-INTELLIGENCE_CHAT_MAX_MESSAGES);
         return plan;
       } catch (error) {
@@ -208,6 +255,7 @@ export function createIntelligenceChatSession(
       unsubscribeIntelligence();
       listeners.clear();
       messages = [];
+      lastContextCapsule = null;
       lastPlan = null;
     },
   });

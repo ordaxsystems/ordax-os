@@ -3,6 +3,7 @@ import { createIntelligenceChatSession } from "../session.mjs";
 
 const WINDOW_SELECTOR = '[data-window-id="intelligence"]';
 const EXTENSION_SELECTOR = '[data-app-extension="intelligence-chat"]';
+const INTERACTION_MODES = new Set(["chat", "plan"]);
 
 function node(documentObject, tag, className, text) {
   const element = documentObject.createElement(tag);
@@ -18,6 +19,14 @@ function stateMessageId(state) {
   return "intelligence.chat.degraded";
 }
 
+function modeButton(documentObject, t, mode, labelId) {
+  const button = node(documentObject, "button", "ordax-intelligence-chat-mode", t(labelId));
+  button.type = "button";
+  button.dataset.intelligenceChatMode = mode;
+  button.setAttribute("aria-pressed", "false");
+  return button;
+}
+
 function createView(documentObject, t) {
   const view = node(documentObject, "div", "ordax-intelligence-chat");
   view.dataset.ordaxIntelligenceChat = "";
@@ -30,10 +39,17 @@ function createView(documentObject, t) {
   );
 
   const controls = node(documentObject, "div", "ordax-intelligence-chat-controls");
+  const modeSwitch = node(documentObject, "div", "ordax-intelligence-chat-mode-switch");
+  modeSwitch.setAttribute("role", "group");
+  modeSwitch.setAttribute("aria-label", t("intelligence.chat.modeAria"));
+  modeSwitch.append(
+    modeButton(documentObject, t, "chat", "intelligence.chat.modeChat"),
+    modeButton(documentObject, t, "plan", "intelligence.chat.modePlan"),
+  );
   const clear = node(documentObject, "button", "ordax-intelligence-chat-clear", t("intelligence.chat.clear"));
   clear.type = "button";
   clear.dataset.intelligenceChatClear = "";
-  controls.append(clear);
+  controls.append(modeSwitch, clear);
   header.append(heading, controls);
 
   const statusGrid = node(documentObject, "section", "ordax-intelligence-chat-status-grid");
@@ -57,7 +73,15 @@ function createView(documentObject, t) {
     node(documentObject, "strong", "ordax-intelligence-chat-status-label", t("intelligence.chat.webDisabled")),
     node(documentObject, "p", "ordax-intelligence-chat-status-detail", t("intelligence.chat.webDisabledDetail")),
   );
-  statusGrid.append(localCard, contextCard, webCard);
+  const planCard = node(documentObject, "article", "ordax-intelligence-chat-status-card");
+  planCard.dataset.mode = "plan";
+  planCard.dataset.intelligenceChatPlanCard = "";
+  planCard.hidden = true;
+  planCard.append(
+    node(documentObject, "strong", "ordax-intelligence-chat-status-label", t("intelligence.plan.badge")),
+    node(documentObject, "p", "ordax-intelligence-chat-status-detail", t("intelligence.plan.nonExecutable")),
+  );
+  statusGrid.append(localCard, contextCard, webCard, planCard);
 
   const runtime = node(documentObject, "div", "ordax-intelligence-chat-runtime");
   const runtimeState = node(documentObject, "span", "ordax-intelligence-chat-runtime-state");
@@ -108,6 +132,7 @@ export function mountIntelligenceChatControls(
   const session = createIntelligenceChatSession(intelligence, { contextRegistry });
 
   let sessionSnapshot = session.getSnapshot();
+  let interactionMode = "chat";
   let destroyed = false;
   let mountedSlot = null;
 
@@ -119,9 +144,15 @@ export function mountIntelligenceChatControls(
     transcript.replaceChildren();
     if (sessionSnapshot.messages.length === 0) {
       const empty = node(documentObject, "section", "ordax-intelligence-chat-empty");
+      const titleId = interactionMode === "plan"
+        ? "intelligence.plan.emptyTitle"
+        : "intelligence.chat.emptyTitle";
+      const bodyId = interactionMode === "plan"
+        ? "intelligence.plan.emptyBody"
+        : "intelligence.chat.emptyBody";
       empty.append(
-        node(documentObject, "strong", "", t("intelligence.chat.emptyTitle")),
-        node(documentObject, "p", "", t("intelligence.chat.emptyBody")),
+        node(documentObject, "strong", "", t(titleId)),
+        node(documentObject, "p", "", t(bodyId)),
       );
       transcript.append(empty);
       return;
@@ -130,16 +161,55 @@ export function mountIntelligenceChatControls(
     for (const message of sessionSnapshot.messages) {
       const item = node(documentObject, "article", "ordax-intelligence-chat-message");
       item.dataset.role = message.role;
+      item.dataset.kind = message.kind ?? "chat";
       const author = message.role === "assistant"
-        ? t("intelligence.chat.assistant")
+        ? message.kind === "plan"
+          ? t("intelligence.plan.resultTitle")
+          : t("intelligence.chat.assistant")
         : t("intelligence.chat.user");
       item.append(
         node(documentObject, "span", "ordax-intelligence-chat-message-author", author),
         node(documentObject, "p", "ordax-intelligence-chat-message-text", message.text),
       );
+      if (message.role === "assistant" && message.kind === "plan") {
+        item.append(node(
+          documentObject,
+          "small",
+          "ordax-intelligence-chat-plan-safety",
+          t("intelligence.plan.nonExecutableShort"),
+        ));
+      }
       transcript.append(item);
     }
     transcript.scrollTop = transcript.scrollHeight;
+  };
+
+  const renderMode = (view) => {
+    for (const button of view.querySelectorAll("[data-intelligence-chat-mode]")) {
+      const active = button.dataset.intelligenceChatMode === interactionMode;
+      button.dataset.active = active ? "true" : "false";
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+    const planCard = view.querySelector("[data-intelligence-chat-plan-card]");
+    if (planCard) planCard.hidden = interactionMode !== "plan";
+    const input = view.querySelector("[data-intelligence-chat-input]");
+    if (input) {
+      input.placeholder = t(
+        interactionMode === "plan"
+          ? "intelligence.plan.inputPlaceholder"
+          : "intelligence.chat.inputPlaceholder",
+      );
+      input.setAttribute(
+        "aria-label",
+        t(interactionMode === "plan" ? "intelligence.plan.inputAria" : "intelligence.chat.inputAria"),
+      );
+    }
+    const send = view.querySelector("[data-intelligence-chat-send]");
+    if (send) {
+      send.textContent = t(
+        interactionMode === "plan" ? "intelligence.plan.send" : "intelligence.chat.send",
+      );
+    }
   };
 
   const render = () => {
@@ -181,6 +251,7 @@ export function mountIntelligenceChatControls(
     const disabled = sessionSnapshot.pending || intelligenceSnapshot.state !== "ready";
     if (input) input.disabled = disabled;
     if (send) send.disabled = disabled;
+    renderMode(view);
     renderTranscript(view);
   };
 
@@ -192,10 +263,20 @@ export function mountIntelligenceChatControls(
     const prompt = input?.value ?? "";
     if (!prompt.trim()) return;
     if (input) input.value = "";
-    void session.send(prompt).catch(() => {});
+    const operation = interactionMode === "plan" ? session.plan(prompt) : session.send(prompt);
+    void operation.catch(() => {});
   };
 
   const onClick = (event) => {
+    const modeControl = event.target?.closest?.("[data-intelligence-chat-mode]");
+    if (modeControl && root.contains(modeControl)) {
+      const nextMode = modeControl.dataset.intelligenceChatMode;
+      if (INTERACTION_MODES.has(nextMode)) {
+        interactionMode = nextMode;
+        render();
+      }
+      return;
+    }
     const clear = event.target?.closest?.("[data-intelligence-chat-clear]");
     if (!clear || !root.contains(clear)) return;
     session.clear();

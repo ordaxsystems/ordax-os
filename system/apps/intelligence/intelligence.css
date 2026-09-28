@@ -34,6 +34,46 @@
   min-width: 0;
 }
 
+.ordax-intelligence-chat-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.ordax-intelligence-chat-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ordax-panel) 52%, transparent);
+}
+
+.ordax-intelligence-chat-mode {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ordax-muted);
+  font: inherit;
+  font-size: 0.73rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    background var(--ordax-motion-fast) var(--ordax-ease-standard);
+}
+
+.ordax-intelligence-chat-mode[data-active="true"] {
+  border-color: color-mix(in srgb, var(--ordax-accent) 32%, var(--ordax-border-soft));
+  background: color-mix(in srgb, var(--ordax-selected-bg) 68%, transparent);
+  color: var(--ordax-text);
+}
+
 .ordax-intelligence-chat-kicker,
 .ordax-intelligence-chat-message-author,
 .ordax-intelligence-chat-status-label {
@@ -87,7 +127,8 @@
 
 .ordax-intelligence-chat-clear:focus-visible,
 .ordax-intelligence-chat-send:focus-visible,
-.ordax-intelligence-chat-input:focus-visible {
+.ordax-intelligence-chat-input:focus-visible,
+.ordax-intelligence-chat-mode:focus-visible {
   outline: 2px solid var(--ordax-focus);
   outline-offset: 2px;
 }
@@ -109,6 +150,13 @@
 .ordax-intelligence-chat-status-card[data-mode="local"] {
   border-color: color-mix(in srgb, var(--ordax-accent) 34%, var(--ordax-border-soft));
   background: color-mix(in srgb, var(--ordax-selected-bg) 58%, transparent);
+}
+
+.ordax-intelligence-chat-status-card[data-mode="plan"] {
+  border-color: color-mix(in srgb, var(--ordax-accent) 26%, var(--ordax-border-soft));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--ordax-selected-bg) 50%, transparent), transparent),
+    color-mix(in srgb, var(--ordax-panel) 50%, transparent);
 }
 
 .ordax-intelligence-chat-status-detail {
@@ -183,11 +231,28 @@
   background: color-mix(in srgb, var(--ordax-selected-bg) 64%, transparent);
 }
 
+.ordax-intelligence-chat-message[data-kind="plan"][data-role="assistant"] {
+  border-color: color-mix(in srgb, var(--ordax-accent) 38%, var(--ordax-border-soft));
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--ordax-selected-bg) 52%, transparent), transparent 70%),
+    color-mix(in srgb, var(--ordax-panel) 58%, transparent);
+}
+
 .ordax-intelligence-chat-message-text {
   margin: 7px 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.58;
+}
+
+.ordax-intelligence-chat-plan-safety {
+  display: block;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ordax-border-soft);
+  color: var(--ordax-muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
 }
 
 .ordax-intelligence-chat-composer {
@@ -241,6 +306,15 @@
     padding: 20px 18px 16px;
   }
 
+  .ordax-intelligence-chat-header,
+  .ordax-intelligence-chat-controls {
+    flex-wrap: wrap;
+  }
+
+  .ordax-intelligence-chat-controls {
+    justify-content: flex-start;
+  }
+
   .ordax-intelligence-chat-status-grid {
     grid-template-columns: 1fr;
     padding: 14px 18px 0;
@@ -263,7 +337,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ordax-intelligence-chat-clear,
-  .ordax-intelligence-chat-send {
+  .ordax-intelligence-chat-send,
+  .ordax-intelligence-chat-mode {
     transition: none;
   }
 }

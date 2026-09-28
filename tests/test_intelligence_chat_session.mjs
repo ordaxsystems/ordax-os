@@ -74,16 +74,17 @@ test("chat session sends only a local consultative Intelligence request", async 
   assert.equal(snapshot.webGrounding, false);
   assert.equal(snapshot.externalProvider, false);
   assert.equal(snapshot.toolExecution, false);
+  assert.equal(snapshot.lastContextCapsule, null);
   assert.equal(snapshot.lastPlan, null);
   assert.deepEqual(snapshot.contextSources, []);
-  assert.deepEqual(snapshot.messages.map(({ role, text }) => ({ role, text })), [
-    { role: "user", text: "Explique este sistema" },
-    { role: "assistant", text: "eco:Explique este sistema" },
+  assert.deepEqual(snapshot.messages.map(({ role, text, kind }) => ({ role, text, kind })), [
+    { role: "user", text: "Explique este sistema", kind: "chat" },
+    { role: "assistant", text: "eco:Explique este sistema", kind: "chat" },
   ]);
   session.dispose();
 });
 
-test("chat session forwards only registry-authorized context sources", async () => {
+test("chat session forwards only registry-authorized context through a data-only capsule", async () => {
   const intelligence = createFakeIntelligence();
   const source = defineIntelligenceContextSource({
     id: "system-catalog",
@@ -113,10 +114,15 @@ test("chat session forwards only registry-authorized context sources", async () 
     session.getSnapshot().contextSources.map(({ id, activation }) => ({ id, activation })),
     [{ id: "system-catalog", activation: "automatic" }],
   );
+  const capsule = session.getSnapshot().lastContextCapsule;
+  assert.deepEqual(capsule.sourceIds, ["system-catalog"]);
+  assert.equal(capsule.authority, "none");
+  assert.equal(capsule.executable, false);
+  assert.equal(capsule.toolExecution, false);
   session.dispose();
 });
 
-test("chat session can produce a non-executable consultative plan", async () => {
+test("chat session can produce a targeted non-executable consultative plan", async () => {
   const intelligence = createFakeIntelligence();
   const source = defineIntelligenceContextSource({
     id: "system-catalog",
@@ -134,16 +140,25 @@ test("chat session can produce a non-executable consultative plan", async () => 
   const contextRegistry = createIntelligenceContextRegistry({ sources: [source] });
   const session = createIntelligenceChatSession(intelligence, { contextRegistry, maxTokens: 640 });
 
-  const plan = await session.plan("Adicionar uma visão nova ao app Projetos");
+  const plan = await session.plan({
+    goal: "Adicionar uma visão nova ao app Projetos",
+    target: { kind: "app", id: "projects" },
+    constraints: ["preservar compatibilidade"],
+    acceptance: ["testes passam"],
+  });
   assert.equal(intelligence.requests.length, 1);
   assert.equal(intelligence.requests[0].intent, "plan");
   assert.equal(intelligence.requests[0].context[0].id, "system-catalog-plan");
+  assert.match(intelligence.requests[0].prompt, /Target: app:projects/);
+  assert.deepEqual(plan.target, { kind: "app", id: "projects" });
   assert.equal(plan.authority, "none");
   assert.equal(plan.executable, false);
   assert.equal(plan.toolExecution, false);
   assert.deepEqual(plan.requestedCapabilities, []);
   assert.equal(session.getSnapshot().lastPlan, plan);
+  assert.deepEqual(session.getSnapshot().lastContextCapsule.target, { kind: "app", id: "projects" });
   assert.equal(session.getSnapshot().messages.at(-1).role, "assistant");
+  assert.equal(session.getSnapshot().messages.at(-1).kind, "plan");
   session.dispose();
 });
 
@@ -172,6 +187,7 @@ test("chat session keeps bounded session-only transcript and explicit clear", as
 
   session.clear();
   assert.equal(session.getSnapshot().messages.length, 0);
+  assert.equal(session.getSnapshot().lastContextCapsule, null);
   assert.equal(session.getSnapshot().lastPlan, null);
   session.dispose();
 });

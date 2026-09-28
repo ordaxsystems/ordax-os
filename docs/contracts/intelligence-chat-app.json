@@ -5,7 +5,7 @@
   "app_id": "intelligence",
   "version": "0.1.0",
   "owner": "system/apps/intelligence",
-  "purpose": "first-party conversational client for ordax.intelligence/1",
+  "purpose": "first-party conversational and consultative planning client for ordax.intelligence/1",
   "integration": {
     "catalog_registered": true,
     "native_composition_mounted": true,
@@ -14,15 +14,20 @@
   },
   "context": {
     "registry_schema": "ordax.intelligence-context-registry/1",
+    "capsule_schema": "ordax.intelligence-context-capsule/1",
     "automatic_sources": [
       "first-party-app-catalog"
     ],
     "persistent_memory_automatic": false,
     "private_app_state_automatic": false,
-    "user_prompt_can_grant_context": false
+    "user_prompt_can_grant_context": false,
+    "explicit_sources_require_caller_authorization": true
   },
   "capabilities": {
     "local_conversation": true,
+    "consultative_planning": true,
+    "planning_is_executable": false,
+    "planning_can_grant_capabilities": false,
     "web_grounding": false,
     "external_provider_runtime": false,
     "voice": false,
@@ -38,5 +43,5 @@
   },
   "history": "session-only",
   "authority": "none",
-  "next_gate": "validate app-catalog context awareness in CI/runtime smoke, then add separately-authorized document/project context sources before Web grounding or action capabilities"
+  "next_gate": "add separately-authorized document, file, project and workspace context sources and app-to-Intelligence target handoff before Web grounding or action capabilities"
 }
