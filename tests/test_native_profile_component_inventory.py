@@ -91,7 +91,7 @@ class NativeProfileComponentInventoryTests(unittest.TestCase):
             host,
         )
         self.assertIn("read_profile_component_inventory", host)
-        self.assertIn("if parsed_path == PROFILE_COMPONENT_INVENTORY_PATH:", host)
+        self.assertIn("if self.path == PROFILE_COMPONENT_INVENTORY_PATH:", host)
         self.assertNotIn("write_profile_component_inventory", host)
         self.assertIn(
             'ENDPOINT = "/__ordax/native/profile-component-inventory"',
