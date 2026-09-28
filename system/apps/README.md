@@ -13,6 +13,7 @@ system/apps/files/app.mjs
 system/apps/projects/app.mjs
 system/apps/notes/app.mjs
 system/apps/internet/app.mjs
+system/apps/intelligence/app.mjs
 system/apps/settings/app.mjs
 system/apps/account/app.mjs
 system/apps/system/app.mjs
@@ -26,6 +27,7 @@ The initial owners are:
 - Projetos;
 - Notas;
 - Internet;
+- OrdaX Intelligence;
 - Ajustes;
 - Conta;
 - Sistema.
@@ -41,13 +43,14 @@ Every first-party app has a component semantic version. This version is differen
 Current app versions are:
 
 ```text
-Arquivos  0.1.0
-Projetos  0.1.0
-Ajustes   0.1.0
-Conta     0.1.0
-Sistema   0.1.0
-Internet  0.3.0
-Notas     0.4.0
+Arquivos             0.1.0
+Projetos             0.1.0
+Ajustes              0.1.0
+Conta                0.1.0
+Sistema              0.1.0
+OrdaX Intelligence   0.1.0
+Internet             0.3.0
+Notas                0.4.0
 ```
 
 For first-party apps, OrdaX treats the `0.x` line as **Beta**. `1.0.0` is reserved for the first stable app release. The Beta label is an app maturity convention; it does not claim that independent production distribution is already enabled.
@@ -56,16 +59,20 @@ Updating OrdaX does not require every app version to change. Updating an app ver
 
 Current release modes are intentionally mixed while the MVP hardens:
 
-- `bundled`: Arquivos, Ajustes, Conta and Sistema currently update with the OrdaX system delivery;
+- `bundled`: Arquivos, OrdaX Intelligence, Ajustes, Conta and Sistema currently update with the OrdaX system delivery;
 - `git-app`: Projetos, Notas and Internet own explicit app versions while the Owner/Development profile still delivers their code through the ordinary Git checkout/reconcile path;
 - `component-slot`: reserved for an app that has completed the signed independent-package path with verification, pending health, promotion and rollback;
 - `git-app` does not claim a production app updater, Store or app-local rollback.
 
 `system/services/components/update-presentation.mjs` derives two update scopes for Sistema: **system** and **applications**. Base, Surface/services and the Sistema app belong to `system`; the other first-party apps belong to `applications`, even when a current app still arrives bundled with the OrdaX delivery.
 
-**Projetos reuses the neutral project domain.** Its stable app id is `projects`; it consumes the existing `ordax.project-catalog/1` and optional cloud-link overlay instead of owning a second project database. Local projects remain usable without account or network.\n\n**Notas is an app, not a Surface/system subsystem.** Its stable app id is `notes`; Native/USB may enrich it through optional filesystem capabilities without changing its app identity.
+**Projetos reuses the neutral project domain.** Its stable app id is `projects`; it consumes the existing `ordax.project-catalog/1` and optional cloud-link overlay instead of owning a second project database. Local projects remain usable without account or network.
+
+**Notas is an app, not a Surface/system subsystem.** Its stable app id is `notes`; Native/USB may enrich it through optional filesystem capabilities without changing its app identity.
 
 **Internet follows the same app boundary.** Its stable app id is `internet`. The shared app owns browser chrome, workspace/tab organization and project context; Native/USB provide the optional browser engine capability through an isolated host, while Web fails closed instead of pretending arbitrary sites can be safely embedded.
+
+**OrdaX Intelligence is the first-party conversational client, not the owner of Intelligence policy or inference.** Its stable app id is `intelligence`; it requires the host capability `intelligence.system` and consumes `ordax.intelligence/1`. Native mounts the app with the already-composed Intelligence port. Web does not currently expose that capability and therefore does not pretend that a local AI backend exists. The current chat remains local, consultative and session-only; Web grounding, external providers, voice and tool/action authority require separate governed contracts.
 
 ## Boundary
 
