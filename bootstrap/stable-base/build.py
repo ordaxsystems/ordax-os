@@ -468,6 +468,8 @@ def build(kernel_modules: Path, out_dir: Path, cache_dir: Path) -> dict:
             "alpine_archive_sha256_pinned_in_contract": pinned is not None,
             "apk_package_versions_pinned": bool(contract["apk_package_versions_pinned"]),
             "kernel_modules_sha256": sha256_file(kernel_modules.resolve()),
+            "kernel_module_basenames": contract["kernel_modules"]["required_basenames"],
+            "coldplug_entrypoints": contract["kernel_modules"]["coldplug_entrypoints"],
             "packages": contract["packages"],
             "apk_install_policy": contract["apk_install_policy"],
             "exact_package_spec_count": len(package_specs),
@@ -528,6 +530,10 @@ def verify(out_dir: Path) -> dict:
         raise StableBaseError("Stable Base provenance claims a Git client")
     if provenance.get("physical_artifact_authorized") is not False:
         raise StableBaseError("Stable Base provenance authorized physical use")
+    if provenance.get("kernel_module_basenames") != contract["kernel_modules"]["required_basenames"]:
+        raise StableBaseError("Stable Base provenance kernel module baseline drifted")
+    if provenance.get("coldplug_entrypoints") != contract["kernel_modules"]["coldplug_entrypoints"]:
+        raise StableBaseError("Stable Base provenance coldplug baseline drifted")
     if sha256_file(image) != provenance.get("erofs_sha256"):
         raise StableBaseError("Stable Base EROFS digest differs from provenance")
     run(["fsck.erofs", str(image)])
