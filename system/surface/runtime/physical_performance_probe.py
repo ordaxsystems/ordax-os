@@ -30,6 +30,7 @@ _ROLE_MATCHERS = (
     ("native-host", ("native_host_server.py",)),
     ("chromium", ("chromium", "chrome")),
     ("surface-launcher", ("ordax-surface",)),
+    ("local-ai", ("llama-server", "ordax-local-ai")),
 )
 
 
