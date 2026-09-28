@@ -246,7 +246,15 @@ export function createIntelligenceChatSession(
       begin(prompt, "chat");
       lastPlan = null;
       try {
-        lastContextCapsule = await collectCapsule("ask", prompt, null, authorizations);
+        const capsuleTarget = Array.isArray(authorizations) && authorizations.length === 1
+          ? authorizations[0]?.target ?? null
+          : null;
+        lastContextCapsule = await collectCapsule(
+          "ask",
+          prompt,
+          capsuleTarget,
+          authorizations,
+        );
         const response = await intelligence.respond({
           intent: "ask",
           prompt,
