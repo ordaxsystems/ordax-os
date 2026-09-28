@@ -90,7 +90,7 @@ Nenhum desses itens precisa conceder execução de tools.
 18. receipts/telemetria de cada execução;
 19. nenhuma shell genérica.
 
-**Estado atual da P3:** o Agent Registry já existe como fundação read-only; o Tool Registry e o Capability Bridge já descrevem apenas capabilities de observabilidade aprovadas e continuam sem `invoke`/`execute`; grants tipados agora exigem binding explícito agente→tool, capability realmente presente, alvo compatível, TTL curto e uso único. O lifecycle de autorização gera receipts `issued/claimed/revoked/expired` sem bearer token nem target privado. Esses receipts **não são prova de execução**: leitura real de status/logs e execution receipts continuam pendentes antes de qualquer agente poder operar tools.
+**Estado atual da P3:** Agent Registry, Tool Registry, Capability Bridge e grants tipados já existem. O broker exige binding explícito agente→tool, capability realmente presente, alvo compatível, TTL curto e uso único. O lifecycle de autorização gera receipts `issued/claimed/revoked/expired` sem bearer token nem target privado. A primeira execução governada também já foi implementada para `observe-system-metrics`: somente após claim válido do grant, usando a porta canônica `ordax.system-metrics/1`, resultado bounded com provenance e execution receipt separado `succeeded/failed`. `observe-network-status` e `observe-power-status` continuam registradas porém não invocáveis. O chat/modelo ainda não recebe seleção automática de tool e nenhuma tool mutável foi habilitada.
 
 ### P4 — Web e modelos externos
 
