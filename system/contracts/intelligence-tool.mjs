@@ -70,10 +70,10 @@ export function validateIntelligenceToolDescriptor(value) {
     value.readOnly !== true
     || value.networkEgress !== false
     || value.mutatesState !== false
-    || value.invocationEnabled !== false
+    || typeof value.invocationEnabled !== "boolean"
     || value.authority !== "none"
   ) {
-    throw new TypeError("Intelligence tool foundation must remain read-only, offline and non-invocable");
+    throw new TypeError("Intelligence tool foundation must remain read-only, offline and explicitly governed");
   }
   return Object.freeze({
     schema: INTELLIGENCE_TOOL_SCHEMA,
@@ -90,7 +90,7 @@ export function validateIntelligenceToolDescriptor(value) {
     readOnly: true,
     networkEgress: false,
     mutatesState: false,
-    invocationEnabled: false,
+    invocationEnabled: value.invocationEnabled,
     authority: "none",
   });
 }
