@@ -1,9 +1,12 @@
 {
   "$schema": "prototype-ordax.intelligence-tools/1",
-  "status": "read-only-registry-and-inspection-foundation",
+  "status": "read-only-registry-inspection-and-authorization-foundation",
   "tool_contract": "ordax.intelligence-tool/1",
   "registry_contract": "ordax.intelligence-tool-registry/1",
   "capability_bridge_contract": "ordax.intelligence-capability-bridge/1",
+  "grant_contract": "ordax.intelligence-tool-grant/1",
+  "grant_broker_contract": "ordax.intelligence-tool-grant-broker/1",
+  "receipt_contract": "ordax.intelligence-tool-receipt/1",
   "owner": "system/services/intelligence",
   "approved_read_only_capabilities": [
     "system.metrics",
@@ -42,11 +45,35 @@
     "prompt_grants_tool": false,
     "unknown_capability_fails_closed": true
   },
+  "authorization": {
+    "explicit_typed_grants": true,
+    "registered_agent_required": true,
+    "registered_tool_required": true,
+    "concrete_target_required": true,
+    "tool_capability_and_scopes_derived_from_registry": true,
+    "one_shot": true,
+    "default_ttl_ms": 60000,
+    "maximum_ttl_ms": 120000,
+    "grant_is_execution": false,
+    "grant_enables_invocation": false,
+    "grant_id_in_receipt": false,
+    "mismatched_agent_tool_or_target_fails_closed": true
+  },
+  "receipts": {
+    "events": [
+      "issued",
+      "consumed",
+      "revoked",
+      "expired"
+    ],
+    "execution_occurred": false,
+    "mutated_state": false,
+    "network_egress": false,
+    "persistent_audit_journal": false
+  },
   "deferred": [
     "tool-invocation",
-    "explicit-tool-grants",
-    "execution-receipts",
-    "audit-journal",
+    "persistent-audit-journal",
     "web-grounding",
     "mutating-tools",
     "rollback"
