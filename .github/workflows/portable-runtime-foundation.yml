@@ -1,0 +1,83 @@
+name: Portable Runtime Foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/portable-runtime-policy.mjs'
+      - 'system/contracts/hardware-pack.mjs'
+      - 'system/adapters/native/memory.mjs'
+      - 'docs/contracts/portable-runtime-policy.json'
+      - 'docs/contracts/hardware-pack.json'
+      - 'docs/contracts/hardware-support-matrix.json'
+      - 'docs/STORAGE-ARCHITECTURE.md'
+      - 'PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md'
+      - 'tests/test_portable_runtime_and_hardware_pack.mjs'
+      - 'tests/test_memory_store_adapters.mjs'
+      - 'tests/test_memory_native_adapter_bounds.mjs'
+      - '.github/workflows/portable-runtime-foundation.yml'
+  pull_request:
+    paths:
+      - 'system/contracts/portable-runtime-policy.mjs'
+      - 'system/contracts/hardware-pack.mjs'
+      - 'system/adapters/native/memory.mjs'
+      - 'docs/contracts/portable-runtime-policy.json'
+      - 'docs/contracts/hardware-pack.json'
+      - 'docs/contracts/hardware-support-matrix.json'
+      - 'docs/STORAGE-ARCHITECTURE.md'
+      - 'PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md'
+      - 'tests/test_portable_runtime_and_hardware_pack.mjs'
+      - 'tests/test_memory_store_adapters.mjs'
+      - 'tests/test_memory_native_adapter_bounds.mjs'
+      - '.github/workflows/portable-runtime-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-runtime-foundation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-runtime-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contracts and policy JSON
+        run: |
+          set -euo pipefail
+          node --check system/contracts/portable-runtime-policy.mjs
+          node --check system/contracts/hardware-pack.mjs
+          node --check system/adapters/native/memory.mjs
+          python -m json.tool docs/contracts/portable-runtime-policy.json >/dev/null
+          python -m json.tool docs/contracts/hardware-pack.json >/dev/null
+          python -m json.tool docs/contracts/hardware-support-matrix.json >/dev/null
+
+      - name: Regress low-write runtime and hardware packs
+        run: |
+          set -euo pipefail
+          node --test tests/test_portable_runtime_and_hardware_pack.mjs
+          node --test tests/test_memory_store_adapters.mjs
+          node --test tests/test_memory_native_adapter_bounds.mjs
+
+      - name: Assert fail-closed portable defaults
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          portable = json.load(open('docs/contracts/portable-runtime-policy.json', encoding='utf-8'))
+          hardware = json.load(open('docs/contracts/hardware-pack.json', encoding='utf-8'))
+          assert portable['principles']['zram_writeback_to_usb_default'] is False
+          assert portable['principles']['persistent_authorization_or_release_state_may_be_delayed_for_batching'] is False
+          assert hardware['current_activation_enabled'] is False
+          assert hardware['pack_policy']['kernel_abi_compatibility_required_before_activation'] is True
+          assert hardware['pack_policy']['known_good_and_rollback_required'] is True
+          print('PORTABLE_RUNTIME_LOW_WRITE_POLICY=PASS')
+          print('HARDWARE_PACK_ACTIVATION=DISABLED')
+          PY
