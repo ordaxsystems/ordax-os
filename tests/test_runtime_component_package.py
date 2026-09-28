@@ -336,6 +336,43 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             ):
                 builder.verify_package(malicious)
 
+    def test_component_manifest_rejects_cross_component_owner_files(self):
+        builder = load_builder()
+        manifest = {
+            "$schema": builder.SCHEMA,
+            "status": "candidate",
+            "component": {
+                "id": "local-ai-service",
+                "version": "0.1.0",
+                "releaseMode": "bundled",
+            },
+            "source_commit": "b" * 40,
+            "entrypoint": "system/components/local-ai-service/runtime.mjs",
+            "self_contained_source_graph": True,
+            "remote_runtime_dependencies": False,
+            "activation_allowed": False,
+            "signature_required_before_activation": True,
+            "native_adapters_packaged": False,
+            "composition_packaged": False,
+            "files": [
+                {
+                    "path": "system/components/local-ai-service/runtime.mjs",
+                    "sha256": "1" * 64,
+                    "size": 1,
+                },
+                {
+                    "path": "system/components/ordax-intelligence/runtime.mjs",
+                    "sha256": "2" * 64,
+                    "size": 1,
+                },
+            ],
+        }
+        with self.assertRaisesRegex(
+            builder.ComponentPackageError,
+            "another component owner",
+        ):
+            builder.validate_manifest_shape(manifest)
+
     def test_shared_source_graph_detects_import_meta_assets(self):
         builder = load_builder()
         with tempfile.TemporaryDirectory() as directory:
