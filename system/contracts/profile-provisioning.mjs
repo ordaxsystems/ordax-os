@@ -9,6 +9,7 @@ export const PROFILE_PROVISIONING_SCHEMA = "ordax.profile-provisioning/1";
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,79}$/;
 const COMPONENT_ID_PATTERN = /^[a-z][a-z0-9._-]{1,127}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const SEMVER_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
 const DELIVERY_MODES = new Set(["bundled", "on-demand"]);
 const COMPONENT_KINDS = new Set([
   "app",
@@ -55,6 +56,8 @@ function componentValue(value, label) {
   const id = boundedText(component.id, `${label}.id`, 128);
   if (!COMPONENT_ID_PATTERN.test(id)) throw new TypeError(`${label}.id is invalid`);
   if (!COMPONENT_KINDS.has(component.kind)) throw new TypeError(`${label}.kind is invalid`);
+  const version = boundedText(component.version, `${label}.version`, 64);
+  if (!SEMVER_PATTERN.test(version)) throw new TypeError(`${label}.version is invalid`);
   if (!AVAILABILITY.has(component.availability)) {
     throw new TypeError(`${label}.availability is invalid`);
   }
@@ -86,6 +89,7 @@ function componentValue(value, label) {
   return Object.freeze({
     id,
     kind: component.kind,
+    version,
     required: component.required,
     availability: component.availability,
     sha256,
@@ -166,11 +170,11 @@ export function planProfileProvisioning({
   }
 
   const installedByIdentity = new Map(
-    inventory.entries.map((entry) => [`${entry.id}@${entry.sha256}`, entry]),
+    inventory.entries.map((entry) => [`${entry.id}@${entry.version}@${entry.sha256}`, entry]),
   );
   const isInstalled = (component) =>
     component.sha256 !== null
-    && installedByIdentity.has(`${component.id}@${component.sha256}`);
+    && installedByIdentity.has(`${component.id}@${component.version}@${component.sha256}`);
 
   const missing = value.components.filter((component) => !isInstalled(component));
   const plannedMissing = missing.filter((component) => component.availability === "planned");
