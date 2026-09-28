@@ -2,7 +2,7 @@ import { validateProjectId } from "./project-catalog.mjs";
 
 export const PROJECT_EVIDENCE_SCHEMA = "ordax.project-evidence/1";
 export const PROJECT_EVIDENCE_SNAPSHOT_SCHEMA = "ordax.project-evidence-snapshot/1";
-export const MAX_PROJECT_EVIDENCE_ITEMS = 24;
+export const MAX_PROJECT_EVIDENCE_ITEMS = 16;
 export const MAX_PROJECT_EVIDENCE_TEXT_CHARS = 4096;
 export const MAX_PROJECT_EVIDENCE_TOTAL_CHARS = 32768;
 
