@@ -25,6 +25,9 @@ class PostHardeningReleaseProofFreshnessTests(unittest.TestCase):
         self.assertEqual(authorization["status"], binder.PRE_PROOF_STATUS)
         self.assertFalse(authorization["physical_write_allowed"])
         self.assertFalse(authorization["explicit_owner_authorization"])
+        self.assertFalse(
+            authorization["requirements"]["canonical_v4_release_proof_bound"]
+        )
         self.assertEqual(
             authorization["release_binding"]["source_commit"],
             proof["source_commit"],
