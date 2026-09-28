@@ -1,0 +1,54 @@
+{
+  "$schema": "prototype-ordax.intelligence-tools/1",
+  "status": "read-only-registry-and-inspection-foundation",
+  "tool_contract": "ordax.intelligence-tool/1",
+  "registry_contract": "ordax.intelligence-tool-registry/1",
+  "capability_bridge_contract": "ordax.intelligence-capability-bridge/1",
+  "owner": "system/services/intelligence",
+  "approved_read_only_capabilities": [
+    "system.metrics",
+    "network.status",
+    "power.status"
+  ],
+  "tools": [
+    {
+      "id": "observe-system-metrics",
+      "capability_id": "system.metrics"
+    },
+    {
+      "id": "observe-network-status",
+      "capability_id": "network.status"
+    },
+    {
+      "id": "observe-power-status",
+      "capability_id": "power.status"
+    }
+  ],
+  "authority": {
+    "read_only": true,
+    "network_egress": false,
+    "mutates_state": false,
+    "invocation_enabled": false,
+    "authority": "none",
+    "generic_shell": false,
+    "arbitrary_path": false,
+    "arbitrary_url": false
+  },
+  "bridge": {
+    "purpose": "Inspect whether an approved read-only product capability is present without invoking adapters.",
+    "adapter_calls": false,
+    "model_can_invoke": false,
+    "agent_identity_grants_tool": false,
+    "prompt_grants_tool": false,
+    "unknown_capability_fails_closed": true
+  },
+  "deferred": [
+    "tool-invocation",
+    "explicit-tool-grants",
+    "execution-receipts",
+    "audit-journal",
+    "web-grounding",
+    "mutating-tools",
+    "rollback"
+  ]
+}
