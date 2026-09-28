@@ -377,6 +377,7 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertNotEqual(promotion["SAME_COMMIT_VISUAL_CHANGE"], "PENDING")
         self.assertNotEqual(promotion["EDIT_SOURCE"], "PENDING_END_TO_END")
         self.assertNotEqual(promotion["WEB_PREVIEW"], "PENDING")
+
     def test_known_stale_version_claims_cannot_return(self):
         current = CURRENT_STATE.read_text(encoding="utf-8")
         agents = AGENTS.read_text(encoding="utf-8")
@@ -407,7 +408,17 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertEqual(state["RELEASE_TRUST"], "PASS_CANONICAL_PUBLIC_ANCHOR_PINNED")
         self.assertEqual(state["CANONICAL_V4_RELEASE_PROOF"], "PASS_SIGNED_MATERIALIZED_EXACT")
         self.assertIn("canonical release trust público: **PASS**", mvp)
-        self.assertIn("FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED", mvp)
+        self.assertIn(
+            "FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING",
+            mvp,
+        )
+        self.assertIn("FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING", mvp)
+        self.assertIn("FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING", mvp)
+        self.assertIn(
+            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION",
+            mvp,
+        )
+        self.assertNotIn("FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED", mvp)
         self.assertIn("O MVP público oferece **pt-BR e en-US**", mvp)
         self.assertNotIn("canonical release trust público: pendente", mvp)
         self.assertNotIn("O primeiro uso Native oferece **pt-BR, en-US, es-ES, de-DE e fr-FR**", mvp)
@@ -441,6 +452,20 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             "FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED",
             current,
         )
+        self.assertIn(
+            "FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING",
+            plan,
+        )
+        self.assertIn(
+            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION",
+            plan,
+        )
+        self.assertIn(
+            "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
+            plan,
+        )
+        self.assertNotIn("AUTHORIZED_CANDIDATE_ONLY_TARGET_CONFIRMATION_REQUIRED", plan)
+        self.assertNotIn("Como não há USB disponível", plan)
 
 
 if __name__ == "__main__":

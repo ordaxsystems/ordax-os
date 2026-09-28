@@ -1,8 +1,8 @@
 # OrdaX — parte 3: fechamento funcional pré-USB da visão Nova OrdaX
 
-**Status:** plano canônico de auditoria pré-USB.  
-**Data:** 22/09/2026.  
-**Protótipo auditado:** `main@8405feedb05421ea321cc277c0b7b912b6da7117`.  
+**Status:** plano canônico de auditoria pré-USB; fechamento de source concluído e preservado como baseline para retestes físicos.  
+**Data:** 28/09/2026.  
+**Protótipo auditado originalmente:** `main@8405feedb05421ea321cc277c0b7b912b6da7117`.  
 **Referência Nova OrdaX:** `washingtonmsdj/novo-ordax-os@49fe41fa67d9032f2e349e86592304e64d6c2d88`.
 
 **Continua, sem substituir:**
@@ -18,7 +18,9 @@ especificação no legado não a torna requisito do MVP; da mesma forma, a exist
 de um backend no protótipo não prova que a experiência de sistema correspondente
 está integrada.
 
-Nenhuma seção deste plano autoriza escrita física.
+Nenhuma seção deste plano autoriza escrita física. O primeiro proof físico governado
+já ocorreu; qualquer reteste ou nova gravação continua subordinado ao contrato de
+autorização corrente e aos gates de `docs/PROMOTION-GATES.md`.
 
 ---
 
@@ -36,8 +38,10 @@ A primeira lacuna P0 já foi atacada na mesma linha arquitetural deste plano:
 Isso fecha `INTELLIGENCE_REAL_SYSTEM_CONSUMER` e o handoff v4 em **source**:
 Portable v2 verifica o manifest v4, monta `local-ai-runtime.erofs` read-only e
 Stable Base inicia o backend loopback quando o runtime verificado está disponível.
-Falha da IA continua degradável e não bloqueia o boot. Permanecem pendentes a
-materialização/assinatura Stable v4 real e as provas descartáveis/físicas correspondentes.
+Falha da IA continua degradável e não bloqueia o boot. A candidata Stable v4 real
+já foi assinada/materializada como prerelease canônica e o primeiro proof físico
+controlado completou 17/17 readback e boot UEFI. O hardening pós-boot foi integrado
+na PR #588; o candidato atual ainda exige reteste físico separado e autorização fresca.
 
 ### 0.2 Sessão local/lock Native — fechamento em source
 
@@ -115,29 +119,35 @@ CANONICAL_STABLE_TARGET_HARDWARE_PROOF=PENDING_PHYSICAL
 
 ## 1. Decisão principal
 
-**Não gerar ainda o primeiro USB Stable/MVP físico.**
+**O primeiro proof físico Stable/MVP já ocorreu; não repetir a escrita com a autorização antiga.**
 
-Antes, fechar o conjunto **A — obrigatório pré-USB** abaixo ou registrar uma decisão
-canônica explícita retirando o item do MVP. O objetivo não é transportar o
-`novo-ordax-os` inteiro; é preservar os invariantes de produto que ainda fazem
-sentido na arquitetura clean-room atual.
+O conjunto **A — obrigatório pré-USB** abaixo foi criado para impedir que lacunas
+estruturais chegassem à primeira mídia física. Essa missão cumpriu sua função: o primeiro
+writer governado executou o plano de 39 operações/17 artefatos, verificou 17/17 por
+readback e chegou a boot UEFI real. Os achados físicos motivaram o hardening integrado
+na PR #588.
 
-A auditoria já fechou em source três omissões estruturais que estavam abertas quando
-este plano foi criado: consumidores reais de Ordax Intelligence, sessão/lock local Native
-e remoção recuperável em Arquivos. O HOLD do primeiro USB Stable/MVP continua porque
-ainda restam itens A independentes: cobertura de idioma coerente, diagnóstico/recovery
-de produto, inventário/matriz mínima de hardware e lifecycle Stable v4 assinado com a
-IA local materializável.
+A decisão corrente é diferente da decisão original deste plano: **qualquer novo reteste
+do candidato pós-hardening permanece bloqueado até autorização explícita fresca**, além
+dos gates de target, UAC e confirmação destrutiva. O proof anterior é evidência histórica,
+não autoridade reutilizável.
 
-Portanto **“boot/release avançado” continua não equivalendo a “produto pré-USB fechado”**.
+A auditoria já fechou em source as omissões estruturais que estavam abertas quando
+este plano foi criado: consumidores reais de Ordax Intelligence, sessão/lock local Native,
+remoção recuperável em Arquivos, cobertura pública PT-BR/en-US, diagnóstico/recovery,
+matriz mínima de hardware e lifecycle Stable v4 canônico. As provas físicas restantes
+são agora do candidato endurecido: Surface completa, rede, cold-health, recovery/rollback
+e Secure Boot quando aplicável.
+
+Portanto **“boot/release avançado” continua não equivalendo a “produto fisicamente promovido”**.
 
 ---
 
 ## 2. Três classes de fechamento
 
-### A — obrigatório antes de gerar o primeiro Stable USB
+### A — obrigatório antes de uma missão física Stable/MVP
 
-Precisa estar implementado e provado em source/CI antes da escrita física.
+Precisa estar implementado e provado em source/CI antes de uma escrita física autorizada.
 
 1. **Ordax Intelligence realmente composta no produto.**
    - inicializar `ordax.local-ai/1` + `ordax.intelligence/1` na composição Native;
@@ -363,7 +373,7 @@ autoridade administrativa a usuários finais.
 
 ## 5. Anti-omission gate
 
-Adicionar esta regra à preparação do primeiro Stable USB:
+Aplicar esta regra a qualquer preparação Stable/MVP física:
 
 ```text
 PRE_USB_NOVA_ORDAX_AUDIT=PASS
@@ -380,7 +390,12 @@ SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED_PASS_BEFORE_PHYSICAL_PREFLIGHT
 PHYSICAL_WRITE=STILL_SEPARATE
 ```
 
-O bloco acima descreve o **estado exigido para liberar o preflight físico**. A candidata v4 versionada já passou por assinatura, materialização/verificação canônica e agregação/vínculo da prova; isso libera somente a etapa separada de consentimento do dono. Como não há USB disponível nem consentimento novo para o contexto atual, `FIRST_STABLE_MVP_USB_WRITE` permanece em HOLD.
+O bloco acima descreve o **estado exigido para liberar o preflight físico**. A candidata
+v4 versionada passou por assinatura, materialização/verificação canônica e agregação/vínculo
+da prova. O primeiro proof físico governado usou uma autorização explícita válida naquele
+contexto, completou 17/17 readback e alcançou UEFI. Depois do hardening da PR #588, essa
+autorização não vale para os bytes/contexto atuais. O contrato voltou corretamente a
+`blocked-explicit-physical-authorization-pending`; nenhuma nova escrita está autorizada.
 
 Os três inputs EROFS reais agora podem ser exportados sem publicação por `workflow_dispatch` nos builders canônicos de System, Surface e Local AI. A exportação é manual-only, retida por 1 dia e não contém chave privada. Cada pacote inclui `operator-receipt.json` com source commit, SHA-256 e tamanho dos bytes exportados; o receipt de Local AI também vincula `source-lock.json`. O preflight local recalcula esses bindings e exige os três receipts no mesmo SHA. Essa barreira passou em CI no run `36166653548`, incluindo rejeição de receipt com commit divergente e bytes adulterados após a emissão. Ela reduz a preparação operacional, mas **não** substitui assinatura com a chave canônica, publicação HTTPS revisada, materialização canônica, agregação do recibo ou autorização física.
 
@@ -417,7 +432,8 @@ O gate é de produto/source. Ele **não** substitui:
 10. Creator físico alinhado ao payload Stable v4. — **PASS_SOURCE_CANDIDATE**: plano final passa de 15 para 17 artefatos e de 35 para 39 operações, incluindo `local-ai-runtime.erofs` content-addressed + `local-ai-runtime.sha256`; o writer mantém seu próprio Git SHA apenas como provenance e vincula o `source_commit` do plano Portable ao release canônico de `release_binding.source_commit`; `prepare-portable`/`apply-portable` exigem exatamente 17 fontes e falham se o commit do plano divergir do release provado; consentimento físico anterior fica inválido por contexto.
 11. Preflight canônico v4 do operador. — **PASS_SOURCE_READ_ONLY**: valida artefatos públicos, source-lock, trust, tooling, commit, URLs HTTPS estáveis e metadados do caminho da chave privada sem ler o PEM, assinar, publicar, materializar ou tocar mídia física.
 12. Gate proof-before-consent. — **PASS_CANONICAL_PRERELEASE_BOUND**: `canonical-v4-release-proof.json` real foi validado contra trust/commit/manifest/envelope/3 artefatos e vinculado por SHA-256 antes de `pre_authorization_ready`.
-13. Próximo passo condicionado ao hardware: novo consentimento explícito para o contexto atual e execução dos gates físicos antes do primeiro USB Stable/MVP.
+13. Primeiro proof físico governado. — **PASS_PRE_HARDENING**: writer 39-op/17-artifact, 17/17 readback e boot UEFI real; evidência preservada sem promover o candidato pós-#588.
+14. Próximo passo condicionado ao hardware: novo consentimento explícito para o contexto pós-hardening atual e execução dos gates físicos antes do reteste Stable/MVP.
 
 ---
 
@@ -451,12 +467,16 @@ Voltar à missão física somente quando:
 2. o manifest v4 real estiver assinado/materializável e o aggregate receipt `canonical-v4-release-proof.json` estiver validado/vinculado — **PASS para a candidata prerelease atual**;
 3. os testes descartáveis/UEFI relevantes estiverem verdes;
 4. documentação canônica e contratos estiverem coerentes;
-5. somente então permitir o novo preflight de consentimento do dono e, depois dele, aplicar novamente os gates físicos já existentes.
+5. somente então permitir um **novo** preflight de consentimento do dono e, depois dele, aplicar novamente os gates físicos já existentes.
 
-Com o consentimento explícito novo já registrado para o contexto atual, até haver USB e confirmação destrutiva específica do alvo:
+O primeiro proof controlado é evidência histórica e não autorização permanente. Para o
+candidato pós-hardening atual, o estado correto é:
 
 ```text
 CANONICAL_V4_RELEASE_PROOF=PASS_BOUND_VERSIONED_PRERELEASE
-FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED
-PHYSICAL_WRITE_AUTHORITY=AUTHORIZED_CANDIDATE_ONLY_TARGET_CONFIRMATION_REQUIRED
+FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING
+FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING
+FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING
+CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION
+PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING
 ```

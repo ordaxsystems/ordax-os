@@ -130,12 +130,17 @@ Um usuário deve conseguir:
 12. acessar login/cadastro somente quando identidade real estiver habilitada;
 13. usar `/conta/` como área autenticada separada da landing quando uma sessão real existir.
 
-## 5.1 Fechamento funcional antes do primeiro USB Stable
+## 5.1 Fechamento funcional que precedeu o primeiro USB Stable
 
-Antes de materializar/gravar o primeiro USB Stable/MVP físico, executar a auditoria de
-`PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md`.
+A auditoria de `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` foi executada antes do
+primeiro proof físico governado do Stable/MVP. Esse primeiro pass já ocorreu com writer
+17-artifact/39-operation, 17/17 readback e boot UEFI real. O checklist continua válido
+como baseline de produto, mas não deve voltar a ser descrito como se nenhuma mídia
+Stable/MVP tivesse sido gravada.
 
-O boot/release estar pronto não é suficiente para iniciar a missão física. O gate
+O boot/release estar pronto não é suficiente para uma nova missão física. Qualquer
+reteste do candidato pós-hardening volta a exigir autorização fresca e todos os gates
+de alvo/UAC/confirmação, sem reaproveitar consentimento destrutivo anterior. O gate
 pré-USB exige, no mínimo:
 
 - Ordax Intelligence realmente composta no runtime Native e consumida por fluxos
@@ -156,7 +161,10 @@ para a primeira prova Stable USB.
 ```text
 PRE_USB_NOVA_ORDAX_AUDIT=PASS_SOURCE
 CANONICAL_V4_RELEASE_PROOF=PASS_BOUND_VERSIONED_PRERELEASE
-FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED
+FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING
+FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING
+FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING
+CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION
 ```
 
 ## 6. Gates do MVP público
@@ -165,9 +173,9 @@ Bloqueiam lançamento:
 
 - publicação/promocão da release Stable no canal `latest` (o proof real da candidata v4 já passou como prerelease);
 - Creator físico promovido e autorizado **para criação do USB**;
-- readback verificável da mídia física (o payload da candidata v4 já foi materializado e verificado);
+- readback verificável da mídia física do candidato atual (o primeiro proof controlado já obteve 17/17 no candidato pré-hardening);
 - known-good/fallback suficientemente provados;
-- primeiro USB canônico Stable/MVP;
+- reteste canônico Stable/MVP pós-hardening no hardware-alvo;
 - boot USB -> OOBE/primeiro uso -> Surface -> apps;
 - primeiro uso persistente com rota oficial **Continuar sem conta** e rede opcional;
 - teclado físico utilizável no layout documentado para o hardware suportado; no MVP PT-BR, ABNT2 é o padrão Native e US é uma alternativa persistente;
@@ -267,7 +275,7 @@ Estado atual do caminho v2:
 - `release-manifest/2`: compatibilidade preservada;
 - `release-manifest/3`: generator + signer + verifier + aquisição não-ativante implementados e verdes em CI, com `system.erofs` + `native-surface-runtime.erofs`;
 - runtime gráfico v3: armazenamento content-addressed por SHA-256 e reuso de bytes verificados entre releases implementados;
-- `release-manifest/4`: caminho de protocolo implementado para acrescentar `local-ai-runtime.erofs`, com binding assinado ao source-lock do engine/modelo e armazenamento da IA por SHA-256 separado do runtime gráfico; o runtime **real** de `llama-server` + Qwen3.5-0.8B-Q4_0 já foi construído duas vezes com bytes idênticos no mesmo job, montado read-only e validado com inferência real tanto no host de CI quanto em Alpine 3.22.5. O engine está pinado por SHA-256/size; boot/handoff v4 e regressão descartável QEMU/UEFI já estão provados em source/CI. A candidata v4 foi assinada e materializada como prerelease, com proof agregado validado e vinculado; promoção do canal estável `latest` e prova física no USB continuam pendentes;
+- `release-manifest/4`: caminho de protocolo implementado para acrescentar `local-ai-runtime.erofs`, com binding assinado ao source-lock do engine/modelo e armazenamento da IA por SHA-256 separado do runtime gráfico; o runtime **real** de `llama-server` + Qwen3.5-0.8B-Q4_0 já foi construído duas vezes com bytes idênticos no mesmo job, montado read-only e validado com inferência real tanto no host de CI quanto em Alpine 3.22.5. O engine está pinado por SHA-256/size; boot/handoff v4 e regressão descartável QEMU/UEFI já estão provados em source/CI. A candidata v4 foi assinada e materializada como prerelease, com proof agregado validado e vinculado; promoção do canal estável `latest` e prova física do candidato **pós-hardening** continuam pendentes, embora a primeira prova física pré-hardening já tenha ocorrido;
 - materialização portátil: implementada sem ativação implícita; v4 também permanece não-ativante;
 - revalidação offline exata da release assinada: implementada para v2, v3 e para o caminho de protocolo v4;
 - mount EROFS + estado ext4 + runtime system read-only: prova descartável verde;
@@ -276,20 +284,20 @@ Estado atual do caminho v2:
 - transação Portable one-shot: `prepare -> select-boot -> commit/rollback`, com replace atômico + fsync e sem ponteiro mutável no exFAT;
 - `candidate` só ganha autoridade de boot quando existe uma transação armada; recebe **uma tentativa** e nunca substitui `current` antes do cold-health;
 - SHA rejeitado fica persistido e não é rearmado enquanto o canal oficial não avançar para outro commit;
-- o supervisor Stable inspeciona o `manifest_schema` assinado e escolhe `materialize/verify-portable-v3` ou `v4` explicitamente; v4 é o caminho MVP atual com Surface + IA local, enquanto v3 permanece apenas para compatibilidade de dispositivos pré-v4. Depois que o boot corrente é v4, uma release remota v3 é bloqueada como downgrade. O fluxo continua `inspect -> materialize/verify exato -> arm -> reboot -> cold-health -> commit/rollback`, sem Git e sem ativação implícita pelo materializador; a prova descartável QEMU/UEFI v4 está fechada e o USB físico continua separado;
+- o supervisor Stable inspeciona o `manifest_schema` assinado e escolhe `materialize/verify-portable-v3` ou `v4` explicitamente; v4 é o caminho MVP atual com Surface + IA local, enquanto v3 permanece apenas para compatibilidade de dispositivos pré-v4. Depois que o boot corrente é v4, uma release remota v3 é bloqueada como downgrade. O fluxo continua `inspect -> materialize/verify exato -> arm -> reboot -> cold-health -> commit/rollback`, sem Git e sem ativação implícita pelo materializador; a prova descartável QEMU/UEFI v4 está fechada e o reteste do candidato atual no USB físico continua separado;
 - bootstrap capsule EROFS: determinística, reprodutível, pinada e verificada pelo PID1 candidato;
-- Stable Base EROFS: Alpine e conjunto APK transitivo pinados; handoff QEMU/UEFI v2-base já provado em CI, prova física ainda pendente;
+- Stable Base EROFS: Alpine e conjunto APK transitivo pinados; handoff QEMU/UEFI v2-base já provado em CI, reteste físico do candidato atual ainda pendente;
 - runtime gráfico offline: lock exato de 253 pacotes e EROFS byte-reprodutível provados em CI; handoff v3, preseed Creator e launcher Stable offline já implementados no candidato atual;
 - Stable/MVP não instala nem atualiza o runtime gráfico via `apk add` durante o boot; o runtime assinado usa EROFS read-only + OverlayFS efêmero em `/run`;
 - handoff do runtime v3 em QEMU direct-kernel e OVMF/UEFI: **revalidado regressivamente como PASS no commit atual da main** `c8c8fe526d03ced7630420cd116dd954b08ef03a` pelo run `35598937763`, com rede desabilitada e sem tocar mídia física;
 - essa prova confirma release v3 + runtime offline + Stable Init, mas **não** declara a Surface gráfica completa em hardware real;
 - writer físico Portable: implementado apenas no backend interno/tagged e continua inacessível ao Creator público;
-- boot físico Stable/MVP v2/v3: não provado;
+- boot físico Stable/MVP pré-hardening: **PASS UEFI em proof controlado**; o candidato pós-#588 continua `PENDING_PHYSICAL_RETEST`;
 - Secure Boot: não provado;
-- canonical release trust público: **PASS** — anchor Ed25519 canônico pinado; proof v4 agregado está **PASS e vinculado** aos bytes do commit `b924ff8d74d1761232381ae3f9604bba17497cfd`. Foi publicada uma prerelease versionada, sem promover o canal estável `latest`; USB real e nova autorização física continuam pendentes;
+- canonical release trust público: **PASS** — anchor Ed25519 canônico pinado; proof v4 agregado está **PASS e vinculado** aos bytes do commit `b924ff8d74d1761232381ae3f9604bba17497cfd`. Foi publicada uma prerelease versionada, sem promover o canal estável `latest`; uma nova escrita/reteste do candidato atual exige autorização física fresca;
 - Native continua fora do MVP.
 
-A mídia transitória atual continua apenas como caminho de validação de hardware. O trust público canônico já está resolvido e o caminho Stable/MVP atual é v4. Não habilitar o writer público antes de **prova canônica v4 assinada/materializável, binding do receipt, nova autorização física explícita e prova física do USB Stable/MVP**.
+A mídia transitória atual continua apenas como caminho de validação de hardware. O trust público canônico já está resolvido e o caminho Stable/MVP atual é v4. O primeiro proof físico governado não transforma o writer interno em capability pública nem autoriza novas gravações. Não habilitar o writer público antes de **prova canônica v4 assinada/materializável, binding do receipt, autorização física explícita válida para o contexto atual e prova física pós-hardening do USB Stable/MVP**.
 
 ## 9. Site público e rotas
 
@@ -373,15 +381,16 @@ O MVP público oferece **pt-BR e en-US** nos seletores de primeiro uso e da Surf
 ```text
 1. **concluído como prerelease:** assinar/publicar o candidato v4 versionado, materializar e verificar os três artefatos; proof agregado produzido no commit `b924ff8d74d1761232381ae3f9604bba17497cfd`
 2. **concluído:** validar e vincular o receipt ao trust, source commit, manifest, envelope e três artefatos v4
-3. obter nova autorização explícita do owner para o contexto atual de 17 artefatos / 39 operações quando for iniciar a preparação física; a autorização antiga de 15 artefatos não vale
-4. selecionar/revalidar o USB real, passar UAC e confirmação destrutiva específica do alvo
-5. gerar a primeira mídia Stable/MVP física
-6. validar UEFI, rede, assinatura, Surface, OOBE e apps no hardware suportado
-7. validar cold-health -> known-good e o rollback/recovery offline físicos
-8. executar o smoke físico estruturado da Surface com FAIL=0
-9. fechar Secure Boot ou registrar explicitamente a política de suporte do MVP sem alegar prova inexistente
-10. conectar Conta OrdaX real apenas se o portal público for ativado, sem torná-la requisito de boot
-11. fechar legal/publicação e publicar o MVP USB-only
+3. **concluído no primeiro proof controlado:** autorizar o contexto físico exato, selecionar/revalidar o USB, passar UAC/confirmação destrutiva, executar o writer 39-op/17-artifact e obter 17/17 readback
+4. **concluído no primeiro proof controlado:** alcançar boot UEFI real e usar os achados físicos para o hardening integrado na PR #588
+5. para o candidato pós-hardening atual, obter nova autorização explícita vinculada aos bytes/contexto correntes antes de qualquer nova preparação ou escrita; não reutilizar consentimento anterior
+6. revalidar o USB real, UAC e confirmação destrutiva específica do alvo somente quando o reteste físico for deliberadamente iniciado
+7. validar UEFI, rede, assinatura, Surface, OOBE e apps no hardware suportado com o candidato pós-hardening
+8. validar cold-health -> known-good e o rollback/recovery offline físicos
+9. executar o smoke físico estruturado da Surface com FAIL=0
+10. fechar Secure Boot ou registrar explicitamente a política de suporte do MVP sem alegar prova inexistente
+11. conectar Conta OrdaX real apenas se o portal público for ativado, sem torná-la requisito de boot
+12. fechar legal/publicação e publicar o MVP USB-only
 ```
 
 Native permanece em trilha técnica pós-MVP, sem bloquear a sequência.
