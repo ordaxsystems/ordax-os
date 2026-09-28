@@ -89,9 +89,32 @@ export function validateProfileInstallReceipt(value) {
   }
 
   const health = objectValue(receipt.health, "Profile install receipt health");
-  exactFields(health, ["state", "checkedAt"], "Profile install receipt health");
+  exactFields(health, [
+    "schema",
+    "state",
+    "checkedAt",
+    "entryCount",
+    "perEntryHashVerified",
+    "perEntryProvenanceVerified",
+    "executablePayloadAllowed",
+    "authority",
+  ], "Profile install receipt health");
+  if (health.schema !== "ordax.profile-content-health/1") {
+    throw new TypeError("Profile install receipt health schema is unsupported");
+  }
   if (health.state !== "healthy") {
     throw new TypeError("Profile install receipt requires healthy activation proof");
+  }
+  if (!Number.isSafeInteger(health.entryCount) || health.entryCount < 1 || health.entryCount > 2048) {
+    throw new TypeError("Profile install receipt health entryCount is invalid");
+  }
+  if (
+    health.perEntryHashVerified !== true
+    || health.perEntryProvenanceVerified !== true
+    || health.executablePayloadAllowed !== false
+    || health.authority !== "none"
+  ) {
+    throw new TypeError("Profile install receipt health evidence is unsafe");
   }
 
   return Object.freeze({
@@ -110,8 +133,14 @@ export function validateProfileInstallReceipt(value) {
       verifiedAt: epoch(verification.verifiedAt, "verification verifiedAt"),
     }),
     health: Object.freeze({
+      schema: "ordax.profile-content-health/1",
       state: "healthy",
       checkedAt: epoch(health.checkedAt, "health checkedAt"),
+      entryCount: health.entryCount,
+      perEntryHashVerified: true,
+      perEntryProvenanceVerified: true,
+      executablePayloadAllowed: false,
+      authority: "none",
     }),
     installedAt: epoch(receipt.installedAt, "installedAt"),
   });
