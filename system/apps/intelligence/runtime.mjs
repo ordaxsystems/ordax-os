@@ -1,5 +1,6 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
 import { createIntelligenceContextRegistry } from "../../services/intelligence/context-registry.mjs";
+import { listFirstPartyGrantedIntelligenceContextSources } from "../../services/intelligence/first-party-context-sources.mjs";
 import { createGrantedIntelligenceContextSource } from "../../services/intelligence/granted-context-source.mjs";
 import { getDefaultIntelligenceContextSharingRuntime } from "../../services/intelligence/context-sharing-runtime.mjs";
 import { createFirstPartyAppCatalogContextSource } from "./app-catalog-context.mjs";
@@ -62,14 +63,15 @@ export const componentRuntime = Object.freeze({
     try {
       const contextSharing = intelligenceContextSharing
         ?? getDefaultIntelligenceContextSharingRuntime();
+      const grantedSources = listFirstPartyGrantedIntelligenceContextSources()
+        .map((source) => createGrantedIntelligenceContextSource({
+          ...source,
+          grants: contextSharing.grants,
+        }));
       const contextRegistry = createIntelligenceContextRegistry({
         sources: [
           createFirstPartyAppCatalogContextSource(),
-          createGrantedIntelligenceContextSource({
-            id: "project-selection",
-            title: "Projeto selecionado",
-            grants: contextSharing.grants,
-          }),
+          ...grantedSources,
         ],
       });
       controls = mountIntelligenceChatControls(
