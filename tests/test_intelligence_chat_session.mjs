@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { defineIntelligenceContextSource } from "../system/contracts/intelligence-context.mjs";
 import { INTELLIGENCE_PORT_SCHEMA } from "../system/contracts/intelligence.mjs";
+import { createIntelligenceContextRegistry } from "../system/services/intelligence/context-registry.mjs";
 import {
   INTELLIGENCE_CHAT_MAX_MESSAGES,
   createIntelligenceChatSession,
@@ -72,10 +74,44 @@ test("chat session sends only a local consultative Intelligence request", async 
   assert.equal(snapshot.webGrounding, false);
   assert.equal(snapshot.externalProvider, false);
   assert.equal(snapshot.toolExecution, false);
+  assert.deepEqual(snapshot.contextSources, []);
   assert.deepEqual(snapshot.messages.map(({ role, text }) => ({ role, text })), [
     { role: "user", text: "Explique este sistema" },
     { role: "assistant", text: "eco:Explique este sistema" },
   ]);
+  session.dispose();
+});
+
+test("chat session forwards only registry-authorized context sources", async () => {
+  const intelligence = createFakeIntelligence();
+  const source = defineIntelligenceContextSource({
+    id: "system-catalog",
+    title: "System catalog",
+    activation: "automatic",
+    collect() {
+      return [{
+        id: "system-catalog-1",
+        scope: "system",
+        text: "files | notes | system",
+        provenance: "test:system-catalog",
+      }];
+    },
+  });
+  const contextRegistry = createIntelligenceContextRegistry({ sources: [source] });
+  const session = createIntelligenceChatSession(intelligence, { contextRegistry });
+
+  await session.send("Quais aplicativos existem?");
+  assert.equal(intelligence.requests.length, 1);
+  assert.deepEqual(intelligence.requests[0].context, [{
+    id: "system-catalog-1",
+    scope: "system",
+    text: "files | notes | system",
+    provenance: "test:system-catalog",
+  }]);
+  assert.deepEqual(
+    session.getSnapshot().contextSources.map(({ id, activation }) => ({ id, activation })),
+    [{ id: "system-catalog", activation: "automatic" }],
+  );
   session.dispose();
 });
 

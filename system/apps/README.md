@@ -36,6 +36,14 @@ App definitions contain platform-neutral metadata, capability requirements and d
 
 Application availability is capability-driven. A future app that requires a capability declares that capability in `requiredCapabilities`; the Surface fails closed when the host does not expose it. An app may also declare `optionalCapabilities`: these enrich the same app when a host exposes them without turning that app into a platform fork or making the optional feature a launch requirement.
 
+## Intelligence discovery
+
+The first-party app catalog is also a bounded system-knowledge source for OrdaX Intelligence. `system/apps/intelligence/app-catalog-context.mjs` projects the registered app id, title, semantic version, description and capability requirements through the shared Intelligence context boundary.
+
+This means a new first-party app becomes discoverable to the conversational Intelligence client by joining the canonical app catalog; no app-name list is copied into a prompt or duplicated in the model runtime. The catalog source is trusted **system metadata only**. It does not grant Intelligence access to that app's files, documents, account state, private storage or actions.
+
+Private or live app state must arrive through a separate context source with explicit authorization. Future document, project, Workspace and memory sources should register through the provider-neutral Intelligence context registry instead of teaching the chat UI bespoke app integrations. Prompt text never activates an explicit context source by itself.
+
 ## Version and update identity
 
 Every first-party app has a component semantic version. This version is different from the OrdaX product version, from the human Entrega number and from the exact Git SHA.

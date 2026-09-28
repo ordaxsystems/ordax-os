@@ -54,7 +54,7 @@ export function validateIntelligenceSnapshot(value) {
   });
 }
 
-function validateContext(value) {
+export function validateIntelligenceContext(value) {
   if (value == null) return Object.freeze([]);
   if (!Array.isArray(value) || value.length > INTELLIGENCE_MAX_CONTEXT_ITEMS) {
     throw new TypeError("Intelligence context must be a bounded array");
@@ -98,7 +98,7 @@ export function validateIntelligenceRequest(value) {
   return Object.freeze({
     intent,
     prompt: boundedText(value.prompt, "Intelligence prompt", INTELLIGENCE_MAX_PROMPT_CHARS),
-    context: validateContext(value.context),
+    context: validateIntelligenceContext(value.context),
     maxTokens:
       Number.isSafeInteger(value.maxTokens)
       && value.maxTokens > 0

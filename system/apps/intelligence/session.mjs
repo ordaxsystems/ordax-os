@@ -3,9 +3,12 @@ import {
   assertIntelligencePort,
   validateIntelligenceSnapshot,
 } from "../../contracts/intelligence.mjs";
+import { assertIntelligenceContextRegistry } from "../../contracts/intelligence-context.mjs";
 
 export const INTELLIGENCE_CHAT_SESSION_SCHEMA = "ordax.intelligence-chat-session/1";
 export const INTELLIGENCE_CHAT_MAX_MESSAGES = 48;
+
+const EMPTY_CONTEXT_SOURCES = Object.freeze([]);
 
 function promptText(value) {
   if (typeof value !== "string" || value.includes("\0")) {
@@ -26,7 +29,24 @@ function boundedMessages(messages) {
   return Object.freeze(messages.slice(-INTELLIGENCE_CHAT_MAX_MESSAGES));
 }
 
-function freezeSnapshot({ intelligence, messages, pending, failed }) {
+function explicitContextSourceIds(value) {
+  if (value == null) return Object.freeze([]);
+  if (!Array.isArray(value) || value.length > 64) {
+    throw new TypeError("Intelligence chat explicit context sources must be a bounded array");
+  }
+  const ids = value.map((id) => {
+    if (typeof id !== "string" || !id.trim()) {
+      throw new TypeError("Intelligence chat explicit context source id is invalid");
+    }
+    return id.trim();
+  });
+  if (new Set(ids).size !== ids.length) {
+    throw new TypeError("Intelligence chat explicit context source ids must be unique");
+  }
+  return Object.freeze(ids);
+}
+
+function freezeSnapshot({ intelligence, messages, pending, failed, contextSources }) {
   return Object.freeze({
     schema: INTELLIGENCE_CHAT_SESSION_SCHEMA,
     intelligence: validateIntelligenceSnapshot(intelligence),
@@ -37,14 +57,27 @@ function freezeSnapshot({ intelligence, messages, pending, failed }) {
     webGrounding: false,
     externalProvider: false,
     toolExecution: false,
+    contextSources,
   });
 }
 
-export function createIntelligenceChatSession(intelligenceValue, { maxTokens = 768 } = {}) {
+export function createIntelligenceChatSession(
+  intelligenceValue,
+  {
+    maxTokens = 768,
+    contextRegistry: contextRegistryValue = null,
+    includeExplicitContextSourceIds = [],
+  } = {},
+) {
   const intelligence = assertIntelligencePort(intelligenceValue);
   if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0 || maxTokens > 2048) {
     throw new TypeError("Intelligence chat maxTokens must be between 1 and 2048");
   }
+  const contextRegistry = contextRegistryValue === null
+    ? null
+    : assertIntelligenceContextRegistry(contextRegistryValue);
+  const explicitSources = explicitContextSourceIds(includeExplicitContextSourceIds);
+  const contextSources = contextRegistry?.listSources() ?? EMPTY_CONTEXT_SOURCES;
 
   let messages = [];
   let pending = false;
@@ -58,6 +91,7 @@ export function createIntelligenceChatSession(intelligenceValue, { maxTokens = 7
     messages,
     pending,
     failed,
+    contextSources,
   });
 
   const publish = () => {
@@ -105,10 +139,17 @@ export function createIntelligenceChatSession(intelligenceValue, { maxTokens = 7
       publish();
 
       try {
+        const context = contextRegistry === null
+          ? []
+          : await contextRegistry.collect({
+            intent: "ask",
+            prompt,
+            includeExplicitSourceIds: explicitSources,
+          });
         const response = await intelligence.respond({
           intent: "ask",
           prompt,
-          context: [],
+          context,
           maxTokens,
         });
         messages = [

@@ -1,4 +1,6 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
+import { createIntelligenceContextRegistry } from "../../services/intelligence/context-registry.mjs";
+import { createFirstPartyAppCatalogContextSource } from "./app-catalog-context.mjs";
 import { mountIntelligenceChatControls } from "./ui/chat-controls.mjs";
 import { INTELLIGENCE_APP_VERSION } from "./version.mjs";
 
@@ -51,7 +53,15 @@ export const componentRuntime = Object.freeze({
     const releaseStyles = await mountStyles(root);
     let controls = null;
     try {
-      controls = mountIntelligenceChatControls(root, intelligence, surfaceLifecycle);
+      const contextRegistry = createIntelligenceContextRegistry({
+        sources: [createFirstPartyAppCatalogContextSource()],
+      });
+      controls = mountIntelligenceChatControls(
+        root,
+        intelligence,
+        surfaceLifecycle,
+        { contextRegistry },
+      );
       let destroyed = false;
       return Object.freeze({
         destroy() {

@@ -43,13 +43,21 @@ function createView(documentObject, t) {
     node(documentObject, "strong", "ordax-intelligence-chat-status-label", t("intelligence.chat.localBadge")),
     node(documentObject, "p", "ordax-intelligence-chat-status-detail", t("intelligence.chat.localDetail")),
   );
+  const contextCard = node(documentObject, "article", "ordax-intelligence-chat-status-card");
+  contextCard.dataset.mode = "system-context";
+  contextCard.dataset.intelligenceChatContextCard = "";
+  contextCard.hidden = true;
+  contextCard.append(
+    node(documentObject, "strong", "ordax-intelligence-chat-status-label", t("intelligence.chat.systemContext")),
+    node(documentObject, "p", "ordax-intelligence-chat-status-detail", t("intelligence.chat.systemContextDetail")),
+  );
   const webCard = node(documentObject, "article", "ordax-intelligence-chat-status-card");
   webCard.dataset.mode = "web-disabled";
   webCard.append(
     node(documentObject, "strong", "ordax-intelligence-chat-status-label", t("intelligence.chat.webDisabled")),
     node(documentObject, "p", "ordax-intelligence-chat-status-detail", t("intelligence.chat.webDisabledDetail")),
   );
-  statusGrid.append(localCard, webCard);
+  statusGrid.append(localCard, contextCard, webCard);
 
   const runtime = node(documentObject, "div", "ordax-intelligence-chat-runtime");
   const runtimeState = node(documentObject, "span", "ordax-intelligence-chat-runtime-state");
@@ -84,7 +92,12 @@ function createView(documentObject, t) {
   return view;
 }
 
-export function mountIntelligenceChatControls(root, intelligence, surfaceLifecycle) {
+export function mountIntelligenceChatControls(
+  root,
+  intelligence,
+  surfaceLifecycle,
+  { contextRegistry = null } = {},
+) {
   if (!root || typeof root.querySelector !== "function" || !root.ownerDocument) {
     throw new TypeError("Intelligence chat requires a Surface root");
   }
@@ -92,7 +105,7 @@ export function mountIntelligenceChatControls(root, intelligence, surfaceLifecyc
   const localization = lifecycle.localization;
   const t = localization.translate;
   const documentObject = root.ownerDocument;
-  const session = createIntelligenceChatSession(intelligence);
+  const session = createIntelligenceChatSession(intelligence, { contextRegistry });
 
   let sessionSnapshot = session.getSnapshot();
   let destroyed = false;
@@ -158,6 +171,10 @@ export function mountIntelligenceChatControls(root, intelligence, surfaceLifecyc
       model.textContent = intelligenceSnapshot.modelId
         ? t("intelligence.chat.model", { model: intelligenceSnapshot.modelId })
         : t("intelligence.chat.modelUnknown");
+    }
+    const contextCard = view.querySelector("[data-intelligence-chat-context-card]");
+    if (contextCard) {
+      contextCard.hidden = sessionSnapshot.contextSources.length === 0;
     }
     const input = view.querySelector("[data-intelligence-chat-input]");
     const send = view.querySelector("[data-intelligence-chat-send]");

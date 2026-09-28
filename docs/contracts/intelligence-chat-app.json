@@ -12,6 +12,15 @@
     "web_composition_mounted": false,
     "requires_capability": "intelligence.system"
   },
+  "context": {
+    "registry_schema": "ordax.intelligence-context-registry/1",
+    "automatic_sources": [
+      "first-party-app-catalog"
+    ],
+    "persistent_memory_automatic": false,
+    "private_app_state_automatic": false,
+    "user_prompt_can_grant_context": false
+  },
   "capabilities": {
     "local_conversation": true,
     "web_grounding": false,
@@ -29,5 +38,5 @@
   },
   "history": "session-only",
   "authority": "none",
-  "next_gate": "validate the registered Native conversational app in CI and runtime smoke before adding separately-governed Web grounding or action capabilities"
+  "next_gate": "validate app-catalog context awareness in CI/runtime smoke, then add separately-authorized document/project context sources before Web grounding or action capabilities"
 }
