@@ -14,14 +14,16 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         controls = ACCOUNT.read_text(encoding="utf-8")
         self.assertIn('id: "overview"', controls)
         self.assertIn('id: "spaces"', controls)
+        self.assertIn('id: "profiles"', controls)
         self.assertIn('id: "memory"', controls)
         self.assertIn('id: "sync"', controls)
         self.assertIn("validAccountSection", controls)
         self.assertIn('activeSection === "overview"', controls)
         self.assertIn('activeSection === "spaces"', controls)
+        self.assertIn('activeSection === "profiles"', controls)
         self.assertIn('activeSection === "memory"', controls)
         self.assertIn('activeSection === "sync"', controls)
-        for unavailable in ("profile", "security", "sessions", "plan"):
+        for unavailable in ("security", "sessions", "plan"):
             self.assertNotIn(f'id: "{unavailable}"', controls)
         self.assertNotIn("sectionId", controls)
         self.assertNotIn("detailId", controls)
@@ -90,6 +92,26 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
             self.assertIn("const spaces = createWebSpacesCatalog(window);", composition)
             self.assertIn("spaces,", composition)
             self.assertIn("spaces.dispose()", composition)
+
+    def test_profiles_section_uses_local_fail_closed_provisioning_in_both_compositions(self):
+        controls = ACCOUNT.read_text(encoding="utf-8")
+        catalog = ACCOUNT_CATALOG.read_text(encoding="utf-8")
+        native = NATIVE.read_text(encoding="utf-8")
+        web = WEB.read_text(encoding="utf-8")
+
+        self.assertIn("assertProfileProvisioningPort", controls)
+        self.assertIn("renderProfiles", controls)
+        self.assertIn("account.profiles.state.blocked", controls)
+        self.assertIn('"account.section.profiles": "Perfis"', catalog)
+        self.assertIn('"account.section.profiles": "Profiles"', catalog)
+        self.assertIn("nenhuma instalação é simulada", catalog)
+        self.assertIn("installation is never simulated", catalog)
+        for composition in (native, web):
+            self.assertIn("createProfileProvisioningRuntime", composition)
+            self.assertIn("LOCAL_PROFILE_DISTRIBUTIONS", composition)
+            self.assertIn("profileProvisioning,", composition)
+            self.assertIn("profileProvisioning.dispose()", composition)
+            self.assertIn("readInstalledComponentIds: () => []", composition)
 
     def test_memory_section_is_local_first_and_native_only_when_durable(self):
         controls = ACCOUNT.read_text(encoding="utf-8")
