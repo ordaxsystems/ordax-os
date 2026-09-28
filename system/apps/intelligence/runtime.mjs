@@ -1,5 +1,7 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
 import { createIntelligenceContextRegistry } from "../../services/intelligence/context-registry.mjs";
+import { createGrantedIntelligenceContextSource } from "../../services/intelligence/granted-context-source.mjs";
+import { getDefaultIntelligenceContextSharingRuntime } from "../../services/intelligence/context-sharing-runtime.mjs";
 import { createFirstPartyAppCatalogContextSource } from "./app-catalog-context.mjs";
 import { mountIntelligenceChatControls } from "./ui/chat-controls.mjs";
 import { INTELLIGENCE_APP_VERSION } from "./version.mjs";
@@ -49,18 +51,35 @@ export const componentRuntime = Object.freeze({
   schema: COMPONENT_RUNTIME_SCHEMA,
   componentId: "intelligence",
   version: INTELLIGENCE_APP_VERSION,
-  async mount({ root, surfaceLifecycle, intelligence } = {}) {
+  async mount({
+    root,
+    surfaceLifecycle,
+    intelligence,
+    intelligenceContextSharing = null,
+  } = {}) {
     const releaseStyles = await mountStyles(root);
     let controls = null;
     try {
+      const contextSharing = intelligenceContextSharing
+        ?? getDefaultIntelligenceContextSharingRuntime();
       const contextRegistry = createIntelligenceContextRegistry({
-        sources: [createFirstPartyAppCatalogContextSource()],
+        sources: [
+          createFirstPartyAppCatalogContextSource(),
+          createGrantedIntelligenceContextSource({
+            id: "project-selection",
+            title: "Projeto selecionado",
+            grants: contextSharing.grants,
+          }),
+        ],
       });
       controls = mountIntelligenceChatControls(
         root,
         intelligence,
         surfaceLifecycle,
-        { contextRegistry },
+        {
+          contextRegistry,
+          contextShare: contextSharing.share,
+        },
       );
       let destroyed = false;
       return Object.freeze({
