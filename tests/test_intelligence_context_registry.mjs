@@ -131,5 +131,6 @@ test("app-declared Intelligence context sources are backed by the canonical expl
     ["projects", "project-selection"],
     ["projects", "project-evidence-selection"],
     ["notes", "note-selection"],
+    ["system", "workspace-selection"],
   ]);
 });
