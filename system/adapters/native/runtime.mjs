@@ -21,16 +21,30 @@ export function createNativeSurfaceHost(
     browserWebContentAvailable = false,
     intelligenceSystemAvailable = false,
     localSessionAvailable = false,
-    accountIdentityAvailable = false,
-    syncSafeStateAvailable = false,
+    readAccountIdentityAvailable = () => false,
+    readSyncSafeStateAvailable = () => false,
   } = {},
 ) {
   if (!windowRef?.navigator) {
     throw new TypeError("Native Surface host requires a browser-like window");
   }
+  if (typeof readAccountIdentityAvailable !== "function") {
+    throw new TypeError("Native Surface host account identity availability reader is required");
+  }
+  if (typeof readSyncSafeStateAvailable !== "function") {
+    throw new TypeError("Native Surface host sync availability reader is required");
+  }
 
   const listeners = new Set();
   const readSnapshot = () => {
+    const accountIdentityAvailable = readAccountIdentityAvailable();
+    const syncSafeStateAvailable = readSyncSafeStateAvailable();
+    if (typeof accountIdentityAvailable !== "boolean") {
+      throw new TypeError("account identity availability reader must return a boolean");
+    }
+    if (typeof syncSafeStateAvailable !== "boolean") {
+      throw new TypeError("sync availability reader must return a boolean");
+    }
     if (syncSafeStateAvailable && !accountIdentityAvailable) {
       throw new TypeError("sync.safe-state requires account.identity");
     }
@@ -78,6 +92,7 @@ export function createNativeSurfaceHost(
     for (const listener of [...listeners]) {
       listener(snapshot);
     }
+    return snapshot;
   };
 
   windowRef.addEventListener("online", notify);
@@ -86,6 +101,7 @@ export function createNativeSurfaceHost(
   return Object.freeze({
     schema: SURFACE_HOST_SCHEMA,
     getSnapshot: readSnapshot,
+    refresh: notify,
     subscribe(listener) {
       if (typeof listener !== "function") {
         throw new TypeError("Surface host listener must be a function");
