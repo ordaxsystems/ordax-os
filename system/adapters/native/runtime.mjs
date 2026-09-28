@@ -34,7 +34,8 @@ export function createNativeSurfaceHost(
     : assertIdentitySessionPort(identitySession);
   const listeners = new Set();
   const readSnapshot = () => {
-    const accountIdentityAvailable = identityPort?.getSnapshot().state !== "unavailable";
+    const accountIdentityAvailable = identityPort !== null
+      && identityPort.getSnapshot().state !== "unavailable";
     const capabilityIds = [...BASE_CAPABILITIES];
     if (accountIdentityAvailable) {
       capabilityIds.push("account.identity", "sync.safe-state");
