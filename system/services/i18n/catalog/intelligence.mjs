@@ -39,6 +39,8 @@ export const INTELLIGENCE_APP_SOURCE_MESSAGES = Object.freeze({
   "intelligence.plan.inputAria": "Objetivo para planejamento consultivo",
   "intelligence.plan.send": "Criar plano",
   "intelligence.plan.resultTitle": "Plano consultivo",
+  "intelligence.handoff.badge": "Alvo selecionado",
+  "intelligence.handoff.detail": "{label} · origem: {app}. Somente a seleção tipada foi encaminhada; conteúdo privado do app não foi incluído.",
 });
 
 export const INTELLIGENCE_APP_ENGLISH_MESSAGES = Object.freeze({
@@ -82,4 +84,6 @@ export const INTELLIGENCE_APP_ENGLISH_MESSAGES = Object.freeze({
   "intelligence.plan.inputAria": "Goal for consultative planning",
   "intelligence.plan.send": "Create plan",
   "intelligence.plan.resultTitle": "Consultative plan",
+  "intelligence.handoff.badge": "Selected target",
+  "intelligence.handoff.detail": "{label} · source: {app}. Only the typed selection was handed off; private app content was not included.",
 });

@@ -1,4 +1,5 @@
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
+import { parseIntelligenceHandoffTarget } from "../../../contracts/intelligence-handoff.mjs";
 import { createIntelligenceChatSession } from "../session.mjs";
 
 const WINDOW_SELECTOR = '[data-window-id="intelligence"]';
@@ -81,7 +82,17 @@ function createView(documentObject, t) {
     node(documentObject, "strong", "ordax-intelligence-chat-status-label", t("intelligence.plan.badge")),
     node(documentObject, "p", "ordax-intelligence-chat-status-detail", t("intelligence.plan.nonExecutable")),
   );
-  statusGrid.append(localCard, contextCard, webCard, planCard);
+  const handoffCard = node(documentObject, "article", "ordax-intelligence-chat-status-card");
+  handoffCard.dataset.mode = "handoff";
+  handoffCard.dataset.intelligenceHandoffCard = "";
+  handoffCard.hidden = true;
+  const handoffDetail = node(documentObject, "p", "ordax-intelligence-chat-status-detail");
+  handoffDetail.dataset.intelligenceHandoffDetail = "";
+  handoffCard.append(
+    node(documentObject, "strong", "ordax-intelligence-chat-status-label", t("intelligence.handoff.badge")),
+    handoffDetail,
+  );
+  statusGrid.append(localCard, contextCard, webCard, planCard, handoffCard);
 
   const runtime = node(documentObject, "div", "ordax-intelligence-chat-runtime");
   const runtimeState = node(documentObject, "span", "ordax-intelligence-chat-runtime-state");
@@ -133,10 +144,53 @@ export function mountIntelligenceChatControls(
 
   let sessionSnapshot = session.getSnapshot();
   let interactionMode = "chat";
+  let activeHandoff = null;
+  let consumedSurfaceTarget = null;
   let destroyed = false;
   let mountedSlot = null;
 
   const findSlot = () => root.querySelector(`${WINDOW_SELECTOR} ${EXTENSION_SELECTOR}`);
+
+  const clearConsumedSurfaceTarget = (target) => {
+    queueMicrotask(() => {
+      if (destroyed) return;
+      if (lifecycle.getAppTarget("intelligence") === target) {
+        lifecycle.setAppTarget("intelligence", null);
+      }
+    });
+  };
+
+  const consumeSurfaceHandoff = () => {
+    const target = lifecycle.getAppTarget("intelligence");
+    if (target === null) {
+      consumedSurfaceTarget = null;
+      return;
+    }
+    if (target === consumedSurfaceTarget) return;
+    consumedSurfaceTarget = target;
+
+    let handoff;
+    try {
+      handoff = parseIntelligenceHandoffTarget(target);
+    } catch {
+      clearConsumedSurfaceTarget(target);
+      return;
+    }
+    if (handoff === null) return;
+
+    activeHandoff = handoff;
+    interactionMode = handoff.mode === "plan" ? "plan" : "chat";
+    clearConsumedSurfaceTarget(target);
+    queueMicrotask(() => {
+      if (destroyed) return;
+      const input = findSlot()?.querySelector("[data-intelligence-chat-input]");
+      if (!input) return;
+      if (handoff.suggestedPrompt && !input.value.trim()) {
+        input.value = handoff.suggestedPrompt;
+      }
+      input.focus({ preventScroll: true });
+    });
+  };
 
   const renderTranscript = (view) => {
     const transcript = view.querySelector("[data-intelligence-chat-transcript]");
@@ -192,6 +246,21 @@ export function mountIntelligenceChatControls(
     }
     const planCard = view.querySelector("[data-intelligence-chat-plan-card]");
     if (planCard) planCard.hidden = interactionMode !== "plan";
+
+    const handoffMatchesMode = activeHandoff !== null
+      && (activeHandoff.mode === "plan" ? interactionMode === "plan" : interactionMode === "chat");
+    const handoffCard = view.querySelector("[data-intelligence-handoff-card]");
+    const handoffDetail = view.querySelector("[data-intelligence-handoff-detail]");
+    if (handoffCard) handoffCard.hidden = !handoffMatchesMode;
+    if (handoffDetail && handoffMatchesMode) {
+      const label = activeHandoff.displayLabel
+        ?? `${activeHandoff.target.kind}:${activeHandoff.target.id}`;
+      handoffDetail.textContent = t("intelligence.handoff.detail", {
+        label,
+        app: activeHandoff.sourceAppId,
+      });
+    }
+
     const input = view.querySelector("[data-intelligence-chat-input]");
     if (input) {
       input.placeholder = t(
@@ -219,6 +288,8 @@ export function mountIntelligenceChatControls(
       mountedSlot = null;
       return;
     }
+
+    consumeSurfaceHandoff();
 
     let view = slot.querySelector("[data-ordax-intelligence-chat]");
     if (!view || mountedSlot !== slot) {
@@ -263,7 +334,9 @@ export function mountIntelligenceChatControls(
     const prompt = input?.value ?? "";
     if (!prompt.trim()) return;
     if (input) input.value = "";
-    const operation = interactionMode === "plan" ? session.plan(prompt) : session.send(prompt);
+    const operation = interactionMode === "plan"
+      ? session.plan({ goal: prompt, target: activeHandoff?.target ?? null })
+      : session.send(prompt);
     void operation.catch(() => {});
   };
 
@@ -272,6 +345,12 @@ export function mountIntelligenceChatControls(
     if (modeControl && root.contains(modeControl)) {
       const nextMode = modeControl.dataset.intelligenceChatMode;
       if (INTERACTION_MODES.has(nextMode)) {
+        if (
+          activeHandoff !== null
+          && (activeHandoff.mode === "plan" ? nextMode !== "plan" : nextMode !== "chat")
+        ) {
+          activeHandoff = null;
+        }
         interactionMode = nextMode;
         render();
       }
@@ -279,6 +358,8 @@ export function mountIntelligenceChatControls(
     }
     const clear = event.target?.closest?.("[data-intelligence-chat-clear]");
     if (!clear || !root.contains(clear)) return;
+    activeHandoff = null;
+    lifecycle.setAppTarget("intelligence", null);
     session.clear();
   };
 
@@ -306,6 +387,7 @@ export function mountIntelligenceChatControls(
       root.removeEventListener("click", onClick);
       findSlot()?.querySelector("[data-ordax-intelligence-chat]")?.remove();
       session.dispose();
+      activeHandoff = null;
       mountedSlot = null;
     },
   });

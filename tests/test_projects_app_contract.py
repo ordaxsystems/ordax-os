@@ -68,6 +68,18 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertNotIn("/__ordax/native/", controls)
         self.assertNotIn("localStorage", controls)
 
+    def test_projects_can_hand_off_a_typed_target_to_intelligence_without_private_content(self):
+        controls = self.text(PROJECTS / "ui" / "workspace-controls.mjs")
+        self.assertIn("encodeIntelligenceHandoffTarget", controls)
+        self.assertIn('appId: "intelligence"', controls)
+        self.assertIn('sourceAppId: "projects"', controls)
+        self.assertIn('mode: "plan"', controls)
+        self.assertIn('target: { kind: "project", id: item.id }', controls)
+        self.assertIn("displayLabel: item.name", controls)
+        self.assertNotIn("context:", controls)
+        self.assertNotIn("requestedCapabilities", controls)
+        self.assertNotIn("item.path,\n            suggestedPrompt", controls)
+
     def test_projects_is_localized_and_visible_in_shared_shell(self):
         shell = self.text(SHELL)
         surface_i18n = self.text(SURFACE_I18N)
@@ -78,6 +90,8 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertIn('"app.projects.title": "Projects"', surface_i18n)
         self.assertIn('"projects.action.openFiles": "Abrir em Arquivos"', projects_i18n)
         self.assertIn('"projects.action.openFiles": "Open in Files"', projects_i18n)
+        self.assertIn('"projects.action.planWithIntelligence": "Planejar com Intelligence"', projects_i18n)
+        self.assertIn('"projects.action.planWithIntelligence": "Plan with Intelligence"', projects_i18n)
         self.assertNotIn('timeZone: "America/Bahia"', self.text(PROJECTS / "ui" / "workspace-controls.mjs"))
 
 

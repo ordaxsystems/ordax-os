@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "system" / "apps" / "intelligence"
 SESSION = APP / "session.mjs"
 CHAT = APP / "ui" / "chat-controls.mjs"
+HANDOFF = ROOT / "system" / "contracts" / "intelligence-handoff.mjs"
 CONTRACT = ROOT / "docs" / "contracts" / "intelligence-chat-app.json"
 APP_CATALOG = ROOT / "system" / "apps" / "catalog.mjs"
 COMPONENT_CATALOG = ROOT / "system" / "apps" / "component-catalog.mjs"
@@ -35,8 +36,10 @@ class IntelligenceChatAppFoundationTests(unittest.TestCase):
         self.assertIn("planner.plan", session)
         self.assertIn("createIntelligenceContextRegistry", runtime)
         self.assertIn("createFirstPartyAppCatalogContextSource", runtime)
-        self.assertIn('dataIntelligenceChatMode', chat.replace(".dataset.intelligenceChatMode", ".dataIntelligenceChatMode"))
-        self.assertIn("session.plan(prompt)", chat)
+        self.assertIn("parseIntelligenceHandoffTarget", chat)
+        self.assertIn('lifecycle.getAppTarget("intelligence")', chat)
+        self.assertIn('lifecycle.setAppTarget("intelligence", null)', chat)
+        self.assertIn("session.plan({ goal: prompt, target: activeHandoff?.target ?? null })", chat)
         self.assertNotIn("fetch(", session)
         self.assertNotIn("local-ai", session)
         self.assertNotIn("fetch(", chat)
@@ -58,9 +61,21 @@ class IntelligenceChatAppFoundationTests(unittest.TestCase):
         self.assertIn("Histórico somente nesta sessão", catalog)
         self.assertIn("Planejar", catalog)
         self.assertIn("não executa ações", catalog)
+        self.assertIn("conteúdo privado do app não foi incluído", catalog)
         self.assertIn('[data-app-extension="intelligence-chat"]', css)
         self.assertIn('.ordax-intelligence-chat-mode[data-active="true"]', css)
         self.assertIn('[data-kind="plan"]', css)
+
+    def test_handoff_contract_is_typed_bounded_and_non_executable(self):
+        handoff = self.text(HANDOFF)
+        self.assertIn('INTELLIGENCE_HANDOFF_SCHEMA = "ordax.intelligence-handoff/1"', handoff)
+        self.assertIn("validateIntelligenceTaskTarget", handoff)
+        self.assertIn('new Set(["ask", "plan"])', handoff)
+        self.assertIn('authority: "none"', handoff)
+        self.assertIn("executable: false", handoff)
+        self.assertIn("toolExecution: false", handoff)
+        self.assertNotIn("context", handoff.lower())
+        self.assertNotIn("requestedCapabilities", handoff)
 
     def test_native_product_wiring_is_explicit_and_web_remains_unclaimed(self):
         app_catalog = self.text(APP_CATALOG)
@@ -87,11 +102,13 @@ class IntelligenceChatAppFoundationTests(unittest.TestCase):
         self.assertFalse(contract["integration"]["web_composition_mounted"])
         self.assertEqual(contract["context"]["registry_schema"], "ordax.intelligence-context-registry/1")
         self.assertEqual(contract["context"]["capsule_schema"], "ordax.intelligence-context-capsule/1")
+        self.assertEqual(contract["context"]["handoff_schema"], "ordax.intelligence-handoff/1")
         self.assertEqual(contract["context"]["automatic_sources"], ["first-party-app-catalog"])
         self.assertFalse(contract["context"]["persistent_memory_automatic"])
         self.assertFalse(contract["context"]["private_app_state_automatic"])
         self.assertFalse(contract["context"]["user_prompt_can_grant_context"])
         self.assertTrue(contract["context"]["explicit_sources_require_caller_authorization"])
+        self.assertFalse(contract["context"]["handoff_carries_private_content"])
         self.assertTrue(contract["capabilities"]["consultative_planning"])
         self.assertFalse(contract["capabilities"]["planning_is_executable"])
         self.assertFalse(contract["capabilities"]["planning_can_grant_capabilities"])

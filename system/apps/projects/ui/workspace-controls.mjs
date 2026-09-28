@@ -7,6 +7,7 @@ import {
   validateProjectCloudLinksSnapshot,
 } from "../../../contracts/project-cloud-links.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
+import { encodeIntelligenceHandoffTarget } from "../../../contracts/intelligence-handoff.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 
 const PROJECTS_WINDOW_SELECTOR = '[data-window-id="projects"]';
@@ -101,7 +102,7 @@ function buildShell(documentObject, t) {
   return view;
 }
 
-function projectCard(documentObject, item, localization) {
+function projectCard(documentObject, item, localization, canUseIntelligence) {
   const t = localization.translate;
   const card = node(documentObject, "article", "ordax-project-card");
   card.dataset.projectId = item.id;
@@ -138,6 +139,18 @@ function projectCard(documentObject, item, localization) {
   open.type = "button";
   open.dataset.projectsOpen = item.id;
   actions.append(open);
+
+  if (canUseIntelligence) {
+    const plan = node(
+      documentObject,
+      "button",
+      "ordax-project-action",
+      t("projects.action.planWithIntelligence"),
+    );
+    plan.type = "button";
+    plan.dataset.projectsPlanWithIntelligence = item.id;
+    actions.append(plan);
+  }
 
   card.append(heading, activity, actions);
   return card;
@@ -246,7 +259,7 @@ export function mountProjectsWorkspaceControls(
     );
     const list = node(documentObject, "div", "ordax-projects-list");
     for (const item of presentation.items) {
-      list.append(projectCard(documentObject, item, localization));
+      list.append(projectCard(documentObject, item, localization, activation !== null));
     }
     body.append(linked, list);
   };
@@ -259,6 +272,29 @@ export function mountProjectsWorkspaceControls(
       );
       if (item && activation) {
         activation.publish({ appId: "files", target: item.path });
+      }
+      return;
+    }
+
+    const plan = event.target?.closest?.("[data-projects-plan-with-intelligence]");
+    if (plan && mountedSlot?.contains(plan) && activation) {
+      const item = projectSnapshot?.projects.find(
+        (project) => project.id === plan.dataset.projectsPlanWithIntelligence,
+      );
+      if (item) {
+        activation.publish({
+          appId: "intelligence",
+          target: encodeIntelligenceHandoffTarget({
+            sourceAppId: "projects",
+            mode: "plan",
+            target: { kind: "project", id: item.id },
+            displayLabel: item.name,
+            suggestedPrompt: t("projects.action.planWithIntelligencePrompt"),
+            authority: "none",
+            executable: false,
+            toolExecution: false,
+          }),
+        });
       }
       return;
     }

@@ -15,17 +15,22 @@
   "context": {
     "registry_schema": "ordax.intelligence-context-registry/1",
     "capsule_schema": "ordax.intelligence-context-capsule/1",
+    "handoff_schema": "ordax.intelligence-handoff/1",
+    "handoff_transport": "typed-app-activation-target",
     "automatic_sources": [
       "first-party-app-catalog"
     ],
     "persistent_memory_automatic": false,
     "private_app_state_automatic": false,
     "user_prompt_can_grant_context": false,
-    "explicit_sources_require_caller_authorization": true
+    "explicit_sources_require_caller_authorization": true,
+    "handoff_carries_private_content": false,
+    "handoff_can_activate_explicit_context": false
   },
   "capabilities": {
     "local_conversation": true,
     "consultative_planning": true,
+    "typed_app_target_handoff": true,
     "planning_is_executable": false,
     "planning_can_grant_capabilities": false,
     "web_grounding": false,
@@ -43,5 +48,5 @@
   },
   "history": "session-only",
   "authority": "none",
-  "next_gate": "add separately-authorized document, file, project and workspace context sources and app-to-Intelligence target handoff before Web grounding or action capabilities"
+  "next_gate": "add separately-authorized selected document, file, project and workspace context sources behind the typed handoff before Web grounding or action capabilities"
 }
