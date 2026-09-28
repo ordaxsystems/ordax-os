@@ -34,7 +34,8 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
     def test_portable_boot_keeps_serial_and_physical_console_with_distinct_normal_and_recovery_policy(self):
         normal = NORMAL_BOOT.read_text(encoding="utf-8")
         recovery = RECOVERY_BOOT.read_text(encoding="utf-8")
-        self.assertIn("console=ttyS0,115200n8 console=tty0", normal)
+        self.assertIn("console=tty0 console=ttyS0,115200n8", normal)
+        self.assertLess(normal.index("console=tty0"), normal.index("console=ttyS0,115200n8"))
         self.assertIn("rdinit=/sbin/ordax-portable-init", normal)
         self.assertIn("quiet", normal)
         self.assertIn("loglevel=3", normal)
