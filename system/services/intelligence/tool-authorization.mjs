@@ -8,6 +8,7 @@ import {
   validateIntelligenceToolGrantClaim,
   validateIntelligenceToolGrantId,
 } from "../../contracts/intelligence-tool-authorization.mjs";
+import { assertIntelligenceAuditJournal } from "../../contracts/intelligence-audit-journal.mjs";
 import { createIntelligenceAgentRegistry } from "./agent-registry.mjs";
 import { createIntelligenceCapabilityBridge } from "./capability-bridge.mjs";
 import { createIntelligenceToolRegistry } from "./tool-registry.mjs";
@@ -84,6 +85,7 @@ export function createIntelligenceToolAuthorizationBroker({
   agentRegistry = null,
   toolRegistry = null,
   capabilityBridge = null,
+  auditJournal = null,
   bindings = [],
   getCapabilityIds = () => [],
   now = Date.now,
@@ -94,6 +96,7 @@ export function createIntelligenceToolAuthorizationBroker({
   const agents = compatibleRegistry(agentRegistry ?? createIntelligenceAgentRegistry(), "Intelligence agent registry");
   const tools = compatibleRegistry(toolRegistry ?? createIntelligenceToolRegistry(), "Intelligence tool registry");
   const bridge = capabilityBridge ?? createIntelligenceCapabilityBridge({ registry: tools });
+  const journal = auditJournal === null ? null : assertIntelligenceAuditJournal(auditJournal);
   if (!bridge || typeof bridge.inspect !== "function") {
     throw new TypeError("Intelligence tool authorization requires a capability bridge with inspect()");
   }
@@ -128,6 +131,7 @@ export function createIntelligenceToolAuthorizationBroker({
     });
     receipts.push(receipt);
     if (receipts.length > MAX_RECEIPTS) receipts.shift();
+    journal?.recordAuthorizationReceipt(receipt);
     return receipt;
   };
 
