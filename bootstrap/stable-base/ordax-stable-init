@@ -62,12 +62,11 @@ disable_local_ai() {
     echo "ORDAX_LOCAL_AI_BACKEND=DEGRADED"
 }
 
-# Stable Base owns physical kernel/firmware readiness before the product Surface
-# starts. The kernel build intentionally keeps broad Wi-Fi families modular so
-# firmware is requested only after the verified Stable Base has made its pinned
-# /lib/firmware tree available. Coldplug every real PCI/USB modalias exactly as
-# a normal init/udev stack would, without hard-coding a specific notebook NIC.
-coldplug_kernel_modules() {
+# Stable Base owns the supported Wi-Fi module coldplug boundary before the product
+# Surface starts. Do not synchronously probe every PCI/USB modalias here: that
+# makes unrelated hardware part of the boot-critical path. The kernel fragment
+# and Stable Base jointly define this bounded module set.
+coldplug_supported_wifi_modules() {
     [ -x /sbin/modprobe ] || {
         echo "ordax-stable-init: required modprobe is unavailable" >&2
         return 1
@@ -76,38 +75,32 @@ coldplug_kernel_modules() {
     attempted=0
     loaded=0
     unresolved=0
-    seen=" "
-
-    for modalias_path in /sys/bus/pci/devices/*/modalias /sys/bus/usb/devices/*/modalias; do
-        [ -r "$modalias_path" ] || continue
-        modalias=$(cat "$modalias_path" 2>/dev/null || true)
-        [ -n "$modalias" ] || continue
-        case "$seen" in
-            *" $modalias "*) continue ;;
-        esac
-        seen="$seen$modalias "
+    for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc; do
         attempted=$((attempted + 1))
-        if /sbin/modprobe "$modalias" >/dev/null 2>&1; then
+        if /sbin/modprobe "$module" >/dev/null 2>&1; then
             loaded=$((loaded + 1))
         else
-            # A device may already be handled by a built-in driver or may not
-            # have a module in the deliberately minimal Stable Base. Keep boot
-            # available and expose the count for diagnostics instead of hiding it.
             unresolved=$((unresolved + 1))
         fi
     done
 
     wifi_interface=""
-    for netpath in /sys/class/net/*; do
-        [ -d "$netpath/wireless" ] || continue
-        wifi_interface=${netpath##*/}
-        break
+    attempts=0
+    while [ "$attempts" -lt 10 ]; do
+        for netpath in /sys/class/net/*; do
+            [ -d "$netpath/wireless" ] || continue
+            wifi_interface=${netpath##*/}
+            break
+        done
+        [ -n "$wifi_interface" ] && break
+        attempts=$((attempts + 1))
+        [ "$attempts" -lt 10 ] && sleep 0.1
     done
 
-    echo "ORDAX_KERNEL_COLDPLUG=COMPLETE"
-    echo "ORDAX_KERNEL_COLDPLUG_ATTEMPTED=$attempted"
-    echo "ORDAX_KERNEL_COLDPLUG_LOADED=$loaded"
-    echo "ORDAX_KERNEL_COLDPLUG_UNRESOLVED=$unresolved"
+    echo "ORDAX_WIFI_COLDPLUG=COMPLETE"
+    echo "ORDAX_WIFI_COLDPLUG_ATTEMPTED=$attempted"
+    echo "ORDAX_WIFI_COLDPLUG_LOADED=$loaded"
+    echo "ORDAX_WIFI_COLDPLUG_UNRESOLVED=$unresolved"
     if [ -n "$wifi_interface" ]; then
         echo "ORDAX_WIFI_INTERFACE=$wifi_interface"
     else
@@ -226,8 +219,8 @@ case "${ORDAX_RELEASE_MANIFEST_SCHEMA:-}" in
         ;;
 esac
 
-coldplug_kernel_modules ||
-    fail "physical hardware coldplug could not be initialized"
+coldplug_supported_wifi_modules ||
+    fail "supported Wi-Fi coldplug could not be initialized"
 
 echo "ORDAX_STABLE_INIT_HANDOFF=VERIFIED"
 echo "ORDAX_STABLE_INIT_SOURCE_SHA=$ORDAX_SOURCE_SHA"
