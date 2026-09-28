@@ -23,10 +23,8 @@ import { createNativePreferenceStore } from "../../adapters/native/preferences.m
 import { createNativeFirstRunStateStore } from "../../adapters/native/first-run-state.mjs";
 import { createNativeLocalSession } from "../../adapters/native/local-session.mjs";
 import { createNativeMemoryStore } from "../../adapters/native/memory.mjs";
-import {
-  createNativeProfileComponentInventory,
-  createSessionProfileComponentInventory,
-} from "../../adapters/native/profile-component-inventory.mjs";
+import { createNativeProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
+import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
 import { createNativeSystemMetrics } from "../../adapters/native/system-metrics.mjs";
 import { createNativeRecoveryStatus } from "../../adapters/native/recovery-status.mjs";
