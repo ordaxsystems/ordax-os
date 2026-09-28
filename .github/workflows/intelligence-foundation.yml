@@ -96,6 +96,8 @@ on:
       - 'tests/test_profile_install_receipt.mjs'
       - 'tools/profile-content-proof/**'
       - 'tests/test_profile_content_proof.mjs'
+      - 'system/contracts/profile-content-pack.mjs'
+      - 'tests/test_profile_content_pack.mjs'
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
@@ -191,6 +193,8 @@ on:
       - 'tests/test_profile_install_receipt.mjs'
       - 'tools/profile-content-proof/**'
       - 'tests/test_profile_content_proof.mjs'
+      - 'system/contracts/profile-content-pack.mjs'
+      - 'tests/test_profile_content_pack.mjs'
       - '.github/workflows/intelligence-foundation.yml'
   workflow_dispatch:
 
@@ -230,6 +234,7 @@ jobs:
           node --check system/contracts/profile-provisioning.mjs
           node --check system/contracts/profile-component-inventory.mjs
           node --check system/contracts/profile-install-receipt.mjs
+          node --check system/contracts/profile-content-pack.mjs
           node --check tools/profile-content-proof/verify.mjs
           node --check system/profile-packs/distributions.mjs
           node --check system/services/profile-packs/catalog.mjs
@@ -294,6 +299,7 @@ jobs:
           node --test tests/test_profile_component_inventory.mjs
           node --test tests/test_profile_install_receipt.mjs
           node --test tests/test_profile_content_proof.mjs
+          node --test tests/test_profile_content_pack.mjs
           node --test tests/test_profile_provisioning_runtime.mjs
           python -m unittest tests.test_local_ai_baseline -v
           python -m unittest tests.test_local_ai_baseline_compare -v
