@@ -1,3 +1,4 @@
+import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import {
   SURFACE_HOST_SCHEMA,
   validateSurfaceSnapshot,
@@ -21,22 +22,23 @@ export function createNativeSurfaceHost(
     browserWebContentAvailable = false,
     intelligenceSystemAvailable = false,
     localSessionAvailable = false,
-    accountIdentityAvailable = false,
-    syncSafeStateAvailable = false,
+    identitySession = null,
   } = {},
 ) {
   if (!windowRef?.navigator) {
     throw new TypeError("Native Surface host requires a browser-like window");
   }
 
+  const identityPort = identitySession === null
+    ? null
+    : assertIdentitySessionPort(identitySession);
   const listeners = new Set();
   const readSnapshot = () => {
-    if (syncSafeStateAvailable && !accountIdentityAvailable) {
-      throw new TypeError("sync.safe-state requires account.identity");
-    }
+    const accountIdentityAvailable = identityPort?.getSnapshot().state !== "unavailable";
     const capabilityIds = [...BASE_CAPABILITIES];
-    if (accountIdentityAvailable) capabilityIds.push("account.identity");
-    if (syncSafeStateAvailable) capabilityIds.push("sync.safe-state");
+    if (accountIdentityAvailable) {
+      capabilityIds.push("account.identity", "sync.safe-state");
+    }
     if (userFileSpaceAvailable) {
       capabilityIds.push("filesystem.user-space");
     }
@@ -82,6 +84,7 @@ export function createNativeSurfaceHost(
 
   windowRef.addEventListener("online", notify);
   windowRef.addEventListener("offline", notify);
+  const unsubscribeIdentity = identityPort?.subscribe(() => notify()) ?? (() => {});
 
   return Object.freeze({
     schema: SURFACE_HOST_SCHEMA,
@@ -95,6 +98,7 @@ export function createNativeSurfaceHost(
     },
     dispose() {
       listeners.clear();
+      unsubscribeIdentity();
       windowRef.removeEventListener("online", notify);
       windowRef.removeEventListener("offline", notify);
     },
