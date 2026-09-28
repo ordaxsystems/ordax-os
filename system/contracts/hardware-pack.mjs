@@ -38,6 +38,7 @@ export function defineHardwarePack(value) {
     sha256: value.sha256,
     sourceRevision: text(value.sourceRevision, "hardware pack source revision", 160),
     license: text(value.license, "hardware pack license", 120),
+    kernelAbi: text(value.kernelAbi, "hardware pack kernel ABI", 120),
     modaliases: stringList(value.modaliases ?? [], "hardware pack modaliases", 128),
     kernelModules: stringList(value.kernelModules ?? [], "hardware pack kernel modules"),
     firmwareFiles: stringList(value.firmwareFiles ?? [], "hardware pack firmware files", 256),
@@ -56,6 +57,7 @@ export function hardwarePackMatches(packValue, device) {
     throw new TypeError("Hardware device descriptor is required");
   }
   if (device.architecture !== pack.architecture) return false;
+  if (device.kernelAbi !== pack.kernelAbi) return false;
   if (pack.modaliases.length === 0) return false;
   return pack.modaliases.includes(device.modalias);
 }
