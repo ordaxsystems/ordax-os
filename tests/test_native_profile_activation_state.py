@@ -75,6 +75,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             "persistence": "device",
             "spaces": [{
                 "spaceId": "space-1",
+                "spaceKind": "professional",
                 "current": {
                     **activation(components=[]),
                     "memory": {"content": "forbidden"},
@@ -100,6 +101,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             "persistence": "device",
             "spaces": [{
                 "spaceId": "space-1",
+                "spaceKind": "professional",
                 "current": activation(components=[]),
                 "previous": None,
             }],
@@ -124,6 +126,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
 
             result = module.activate_profile(
                 space_id="space-1",
+                space_kind="professional",
                 activation=activation(),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
@@ -141,6 +144,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "receipt does not match inventory"):
                 module.activate_profile(
                     space_id="space-2",
+                    space_kind="professional",
                     activation=stale,
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
@@ -159,6 +163,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
 
             first = module.activate_profile(
                 space_id="space-1",
+                space_kind="professional",
                 activation=activation(components=[], activated_at=1000),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
@@ -168,6 +173,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
 
             duplicate = module.activate_profile(
                 space_id="space-1",
+                space_kind="professional",
                 activation=activation(components=[], activated_at=2000),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
@@ -182,6 +188,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
 
             second = module.activate_profile(
                 space_id="space-1",
+                space_kind="professional",
                 activation=activation(
                     slug="business",
                     components=[],
@@ -237,6 +244,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
 
             module.activate_profile(
                 space_id="space-1",
+                space_kind="professional",
                 activation=activation(),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
@@ -244,6 +252,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             )
             module.activate_profile(
                 space_id="space-1",
+                space_kind="professional",
                 activation=activation(slug="business", components=[], activated_at=2000),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
@@ -255,6 +264,34 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not installed"):
                 module.rollback_profile(
                     space_id="space-1",
+                    state_path=str(state_path),
+                    inventory_path=str(inventory_path),
+                    lock_path=str(lock_path),
+                )
+
+    def test_existing_space_kind_cannot_change_silently(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inventory_path = root / "inventory.json"
+            state_path = root / "activation.json"
+            lock_path = root / "activation.lock"
+            inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
+            os.chmod(inventory_path, 0o600)
+
+            module.activate_profile(
+                space_id="space-1",
+                space_kind="professional",
+                activation=activation(components=[]),
+                state_path=str(state_path),
+                inventory_path=str(inventory_path),
+                lock_path=str(lock_path),
+            )
+            with self.assertRaisesRegex(ValueError, "Space kind changed unexpectedly"):
+                module.activate_profile(
+                    space_id="space-1",
+                    space_kind="personal",
+                    activation=activation(slug="business", components=[], activated_at=2000),
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
                     lock_path=str(lock_path),
