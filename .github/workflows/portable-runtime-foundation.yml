@@ -127,6 +127,8 @@ jobs:
           assert hardware['current_activation_enabled'] is False
           assert hardware['pack_policy']['kernel_abi_compatibility_required_before_activation'] is True
           assert hardware['pack_policy']['known_good_and_rollback_required'] is True
+          assert hardware['pack_policy']['non_boot_critical_activation_must_not_block_boot'] is True
+          assert hardware['pack_policy']['firmware_probe_prefer_async_when_supported'] is True
           print('PORTABLE_RUNTIME_LOW_WRITE_POLICY=PASS')
           print('HARDWARE_PACK_ACTIVATION=DISABLED')
           PY
