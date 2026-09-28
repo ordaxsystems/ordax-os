@@ -60,12 +60,12 @@ class BranchHygieneTests(unittest.TestCase):
             branch("main", "0" * 40),
             branch("merged", "a" * 40),
             branch("abandoned", "b" * 40),
-            branch("contained", "c" * 40),
+            branch("feature/contained", "c" * 40),
         ]
         compared = []
 
-        def ahead(ref):
-            compared.append(ref)
+        def ahead(ref, expected_sha):
+            compared.append((ref, expected_sha))
             return 0
 
         candidates = branch_hygiene.plan_deletions(
@@ -77,11 +77,11 @@ class BranchHygieneTests(unittest.TestCase):
         )
         by_ref = {candidate.ref: candidate for candidate in candidates}
 
-        self.assertEqual(set(by_ref), {"merged", "abandoned", "contained"})
+        self.assertEqual(set(by_ref), {"merged", "abandoned", "feature/contained"})
         self.assertEqual(by_ref["merged"].reason, "merged-head-unchanged")
         self.assertEqual(by_ref["abandoned"].reason, "closed-unmerged-head-unchanged")
-        self.assertEqual(by_ref["contained"].reason, "fully-contained-in-main")
-        self.assertEqual(compared, ["contained"])
+        self.assertEqual(by_ref["feature/contained"].reason, "fully-contained-in-main")
+        self.assertEqual(compared, [("feature/contained", "c" * 40)])
         self.assertEqual(len(candidates), len(set(by_ref)))
 
     def test_open_pr_and_protected_branches_are_never_candidates(self):
@@ -96,7 +96,7 @@ class BranchHygieneTests(unittest.TestCase):
             open_prs,
             [],
             branches,
-            lambda _ref: 0,
+            lambda _ref, _sha: 0,
         )
         self.assertEqual(candidates, [])
 
