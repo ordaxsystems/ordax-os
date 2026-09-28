@@ -24,6 +24,7 @@ const baseManifest = {
   publisher: "ordax",
   content_hash: createHash("sha256").update(contentBytes).digest("hex"),
   content_size: contentBytes.length,
+  content_format: "ordax.profile-content-pack/1",
   source: {
     uri: "https://example.invalid/ordax/legal-proof",
     revision: "fixture-1",
@@ -66,6 +67,7 @@ test("signed Profile knowledge proof binds exact bytes and provenance", () => {
   assert.equal(verified.id, "knowledge.legal-br-proof");
   assert.equal(verified.kind, "knowledge-pack");
   assert.equal(verified.version, "0.1.0");
+  assert.equal(verified.content_format, "ordax.profile-content-pack/1");
   assert.equal(verified.source.jurisdiction, "BR");
   assert.equal(verified.runtime_network_allowed, false);
 });
@@ -124,7 +126,11 @@ test("Profile content proof cannot request authority or runtime egress", () => {
   );
 });
 
-test("Profile content manifest rejects unknown fields and unsupported kind", () => {
+test("Profile content manifest rejects unknown fields, unsupported kind and format", () => {
+  assert.throws(
+    () => validateProfileContentManifest({ ...baseManifest, content_format: "unknown/9" }),
+    /format is unsupported/,
+  );
   assert.throws(
     () => validateProfileContentManifest({ ...baseManifest, surprise: true }),
     /fields are incompatible/,
