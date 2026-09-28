@@ -32,7 +32,7 @@
     "profile_content_stage_activation": false
   },
   "next_gates": [
-    "profile-content-structural-health-and-per-source-provenance",
+    "trusted-receipt-and-inventory-commit-after-verified-stage-health",
     "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
     "profile-health-and-rollback",
     "surface-profile-catalog-ui",
@@ -70,7 +70,17 @@
     "healthy_activation_required": true,
     "inventory_entry_derived_from_verified_receipt": true,
     "surface_may_issue_receipt": false,
-    "install_receipt_emission_blocked_until_structural_health": true
+    "install_receipt_emission_blocked_until_structural_health": true,
+    "health_evidence_fields": [
+      "schema",
+      "state",
+      "checkedAt",
+      "entryCount",
+      "perEntryHashVerified",
+      "perEntryProvenanceVerified",
+      "executablePayloadAllowed",
+      "authority"
+    ]
   },
   "content_proof": {
     "supported_kinds": [
@@ -87,7 +97,8 @@
     "runtime_network_allowed": false,
     "mutable_host_access_allowed": false,
     "public_release_trust_pinned": false,
-    "activation_allowed": false
+    "activation_allowed": false,
+    "content_format": "ordax.profile-content-pack/1"
   },
   "content_staging": {
     "tool": "tools/profile-content-channel",
@@ -105,5 +116,29 @@
     "staging_changes_active_profile": false,
     "staging_writes_inventory": false,
     "activation_allowed": false
+  },
+  "structural_health": {
+    "schema": "ordax.profile-content-health/1",
+    "pack_schema": "ordax.profile-content-pack/1",
+    "supported_kinds": [
+      "knowledge-pack",
+      "skill-pack"
+    ],
+    "knowledge_media_types": [
+      "text/plain",
+      "text/markdown",
+      "application/json"
+    ],
+    "per_entry_sha256_required": true,
+    "per_entry_provenance_required": true,
+    "duplicate_entry_ids_allowed": false,
+    "executable_payload_allowed": false,
+    "skill_authority": "none",
+    "skill_tool_ids_allowed": false,
+    "max_entries": 2048,
+    "max_entry_text_bytes": 1048576,
+    "max_total_text_bytes": 33554432,
+    "stage_requires_structural_health": true,
+    "receipt_requires_structural_health_evidence": true
   }
 }
