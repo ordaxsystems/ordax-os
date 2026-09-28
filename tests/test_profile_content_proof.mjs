@@ -15,7 +15,24 @@ import {
   verifyProfileContentProof,
 } from "../tools/profile-content-proof/verify.mjs";
 
-const contentBytes = Buffer.from("ordax legal knowledge proof fixture\n", "utf8");
+const entryContent = "ordax legal knowledge proof fixture";
+const contentBytes = Buffer.from(JSON.stringify({
+  schema: "ordax.profile-content-pack/1",
+  kind: "knowledge-pack",
+  entries: [{
+    id: "legal.proof",
+    mediaType: "text/plain",
+    content: entryContent,
+    contentSha256: createHash("sha256").update(Buffer.from(entryContent, "utf8")).digest("hex"),
+    source: {
+      uri: "https://example.invalid/ordax/legal/source",
+      revision: "fixture-1",
+      license: "test-fixture-only",
+      jurisdiction: "BR",
+      title: "Fonte jurídica de teste",
+    },
+  }],
+}), "utf8");
 const baseManifest = {
   $schema: "prototype-ordax.profile-content-manifest/1",
   id: "knowledge.legal-br-proof",
