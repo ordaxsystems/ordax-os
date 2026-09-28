@@ -112,8 +112,19 @@ presentation plumbing only; a visual review surface is still not claimed as moun
 Secret material is not memory. The contract rejects explicit secret items and known private-key
 or token-shaped material in both **content and provenance** before either can enter persistence or
 model context. Semantic embeddings remain derived indexes: replacing an embedding model does not
-change the identity of the underlying memory item. A local semantic index is still not claimed;
-current local retrieval is intentionally lexical until an approved embedding owner exists.
+change the identity of the underlying memory item.
+
+The source foundation now defines `ordax.semantic-index/1`. The index is explicitly
+not a source of truth: each vector is bound to a source kind/id plus exact content
+SHA-256, and the index descriptor binds the embedding model artifact SHA-256,
+dimensions and distance metric. A model/artifact/dimension/metric change invalidates
+the index and requires rebuild; it never migrates or rewrites Memory items. Structured
+owner/Space/project authorization must still run before semantic ranking. Deleting or
+rebuilding the index must not delete Memory. Secret material remains forbidden, and
+cloud embedding generation would require explicit egress policy.
+
+No semantic runtime is enabled yet; current retrieval remains lexical until an approved
+embedding runtime and persistence owner are implemented and proven.
 
 The source also has explicit persistence and retrieval boundaries. Web uses a local browser
 memory store. If persistent browser storage is unavailable, its fallback is explicitly
