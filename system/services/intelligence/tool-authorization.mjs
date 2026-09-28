@@ -165,10 +165,10 @@ export function createIntelligenceToolAuthorizationBroker({
       }
       if (
         inspection.readOnly !== true
-        || inspection.invocationEnabled !== false
+        || inspection.invocationEnabled !== true
         || inspection.authority !== "none"
       ) {
-        throw new Error("Intelligence capability bridge returned an unsafe tool state");
+        throw new Error("Intelligence capability bridge returned a tool that is not safely invocable");
       }
 
       const issuedAt = nowValue(now);
