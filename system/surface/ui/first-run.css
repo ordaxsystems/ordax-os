@@ -14,7 +14,12 @@
 
 .ordax-first-run-shell {
   width: min(1080px, 100%);
-  min-height: min(720px, calc(100vh - 72px));
+  height: min(720px, calc(100vh - 72px));
+  height: min(720px, calc(100dvh - 72px));
+  max-height: calc(100vh - 72px);
+  max-height: calc(100dvh - 72px);
+  min-height: min(560px, calc(100vh - 72px));
+  min-height: min(560px, calc(100dvh - 72px));
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   overflow: hidden;
@@ -25,10 +30,12 @@
 }
 
 .ordax-first-run-progress {
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 44px;
   padding: 34px 28px;
+  overflow: auto;
   border-right: 1px solid var(--ordax-border-soft);
   background: color-mix(in srgb, var(--ordax-bg) 72%, var(--ordax-surface));
 }
@@ -89,16 +96,20 @@
 
 .ordax-first-run-card {
   min-width: 0;
+  min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
 }
 
 .ordax-first-run-body {
   width: min(720px, 100%);
+  min-height: 0;
   box-sizing: border-box;
   margin: 0 auto;
   padding: clamp(42px, 7vw, 82px) clamp(28px, 6vw, 72px) 36px;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .ordax-first-run-header {
@@ -301,12 +312,14 @@
 
 .ordax-first-run-footer {
   min-height: 76px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
   padding: 16px clamp(28px, 6vw, 72px);
   border-top: 1px solid var(--ordax-border-soft);
+  background: var(--ordax-surface);
 }
 
 .ordax-first-run-footer .ordax-first-run-action:first-child:not(:last-child) {
@@ -319,7 +332,12 @@
   }
 
   .ordax-first-run-shell {
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     min-height: 100vh;
+    min-height: 100dvh;
     grid-template-columns: 1fr;
     border: 0;
     border-radius: 0;
@@ -328,12 +346,13 @@
   .ordax-first-run-progress {
     gap: 14px;
     padding: 20px 24px;
+    overflow: visible;
     border-right: 0;
     border-bottom: 1px solid var(--ordax-border-soft);
   }
 
   .ordax-first-run-steps {
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: 6px;
   }
 
