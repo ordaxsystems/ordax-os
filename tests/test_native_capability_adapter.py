@@ -113,10 +113,11 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             self.assertIn("identitySession = null", runtime)
             self.assertIn("assertIdentitySessionPort(identitySession)", runtime)
             self.assertIn('identityPort.getSnapshot().state !== "unavailable"', runtime)
-            self.assertIn('capabilityIds.push("account.identity", "sync.safe-state")', runtime) if runtime == native_runtime else None
             self.assertNotIn("accountIdentityAvailable = false", runtime)
             self.assertNotIn("syncSafeStateAvailable = false", runtime)
 
+        self.assertIn('capabilityIds.push("account.identity", "sync.safe-state")', native_runtime)
+        self.assertIn('["account.identity", "sync.safe-state"]', web_runtime)
         self.assertIn("identitySession,", native_composition)
         self.assertIn("createWebSurfaceHost(window, { identitySession })", web_composition)
         self.assertNotIn("accountIdentityAvailable: identityAvailable", native_composition)
