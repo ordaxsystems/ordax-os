@@ -1,4 +1,5 @@
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
+import { createSessionProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
 import { createSameOriginIdentityCredentials } from "../../adapters/web/identity-credentials.mjs";
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
@@ -47,9 +48,10 @@ const identityActions = createWebIdentityActions(window, identitySession);
 const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
 const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
 const spaces = createWebSpacesCatalog(window);
+const profileComponentInventory = createSessionProfileComponentInventory();
 const profileProvisioning = createProfileProvisioningRuntime({
   distributions: LOCAL_PROFILE_DISTRIBUTIONS,
-  readInstalledComponentIds: () => [],
+  inventory: profileComponentInventory,
   readNetworkAvailable: () => window.navigator?.onLine === true,
 });
 const host = createWebSurfaceHost(window, {
@@ -217,6 +219,7 @@ window.addEventListener(
     settingsOverviewControls.destroy();
     accountOverviewControls.destroy();
     profileProvisioning.dispose();
+    profileComponentInventory.dispose();
     spaces.dispose();
     accountSync.destroy();
     preferenceSync.destroy();
