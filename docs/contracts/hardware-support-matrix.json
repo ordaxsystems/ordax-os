@@ -142,7 +142,14 @@
         "linux-firmware-mediatek",
         "linux-firmware-ath9k_htc"
       ],
-      "claim_limit": "Presence of these modules/firmware does not claim every adapter in the corresponding vendor families is supported."
+      "claim_limit": "Presence of these modules/firmware does not claim every adapter in the corresponding vendor families is supported.",
+      "coldplug_entrypoints": [
+        "iwlwifi",
+        "rtl8xxxu",
+        "mt76x2u",
+        "ath9k_htc"
+      ],
+      "module_dependency_note": "iwlmvm is packaged as an iwlwifi dependency and is not a direct coldplug entrypoint."
     }
   ],
   "optional_observed_capabilities": [
