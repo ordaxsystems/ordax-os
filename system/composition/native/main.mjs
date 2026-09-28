@@ -270,8 +270,7 @@ async function start() {
     ? null
     : createMemoryReviewViewModel(memoryReviewSession);
   const identityActions = createWebIdentityActions(window, identitySession);
-  const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
-  const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
+  const identityCredentials = createSameOriginIdentityCredentials(window);
   const spaces = createWebSpacesCatalog(window);
   const syncTransport = createWebSyncTransport(window);
   const appActivation = createAppActivationChannel();
@@ -314,6 +313,7 @@ async function start() {
   const browserWebContentAvailable = browserSession.getSnapshot().supported;
   const intelligenceSystemAvailable = true;
   const localSessionAvailable = localSession !== null;
+  const readIdentityAvailable = () => identitySession.getSnapshot().state !== "unavailable";
   const host = createNativeSurfaceHost(window, {
     bootControlAvailable,
     userFileSpaceAvailable,
@@ -325,9 +325,10 @@ async function start() {
     browserWebContentAvailable,
     intelligenceSystemAvailable,
     localSessionAvailable,
-    accountIdentityAvailable: identityAvailable,
-    syncSafeStateAvailable: identityAvailable,
+    readAccountIdentityAvailable: readIdentityAvailable,
+    readSyncSafeStateAvailable: readIdentityAvailable,
   });
+  const unsubscribeHostIdentity = identitySession.subscribe(() => host.refresh());
 
   validateAccountRuntime(
     host.getSnapshot(),
@@ -415,7 +416,8 @@ async function start() {
     await identitySession.refresh();
     await accountSync.refresh();
   };
-  window.addEventListener("online", () => void resumeAccountConnectivity(), { passive: true });
+  const onOnline = () => void resumeAccountConnectivity();
+  window.addEventListener("online", onOnline, { passive: true });
   const accountOverviewControls = mountAccountOverviewControls(
     root,
     identitySession,
@@ -581,6 +583,8 @@ async function start() {
     () => {
       window.removeEventListener("error", onWindowError);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
+      window.removeEventListener("online", onOnline);
+      unsubscribeHostIdentity();
       localSessionLock?.destroy();
       firstRun?.destroy();
       surfaceHeartbeat.dispose();
