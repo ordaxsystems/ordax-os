@@ -36,7 +36,17 @@
       "installedAt"
     ],
     "component_order_canonical": true,
-    "same_current_previous_allowed": false
+    "same_current_previous_allowed": false,
+    "space_identity_fields": [
+      "spaceId",
+      "spaceKind"
+    ],
+    "space_kind_values": [
+      "personal",
+      "work",
+      "professional"
+    ],
+    "space_kind_persisted_for_offline_restore": true
   },
   "safety": {
     "activation_requires_exact_installed_component_receipts": true,
@@ -47,7 +57,8 @@
     "state_directory_mode": "0700",
     "exclusive_mutation_lock": true,
     "http_mutation_exposed": false,
-    "boot_critical": false
+    "boot_critical": false,
+    "space_kind_change_without_explicit_reconciliation_allowed": false
   },
   "data_separation": {
     "documents_allowed": false,
@@ -63,7 +74,8 @@
     "surface_read_source": true,
     "public_activation_enabled": false,
     "profile_stack_enabled": false,
-    "space_cloud_write_enabled": false
+    "space_cloud_write_enabled": false,
+    "offline_restore_compatibility_metadata": true
   },
   "next_gates": [
     "trusted-user-intent-activation-command-boundary",
