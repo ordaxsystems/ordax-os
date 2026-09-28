@@ -23,7 +23,8 @@ on:
       - 'system/contracts/intelligence-tool.mjs'
       - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
-      - 'system/profile-packs/developer/manifest.json'
+      - 'system/profile-packs/**'
+      - 'tools/profile-pack-manifests/**'
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
@@ -73,6 +74,9 @@ on:
       - 'tests/test_memory_native_endpoint.py'
       - 'tests/test_profile_pack_runtime.mjs'
       - 'tests/test_profile_pack_runtime.py'
+      - 'tests/test_profile_pack_manifest_generation.mjs'
+      - 'tests/test_profile_pack_restore.mjs'
+      - 'tests/test_native_profile_restore_composition.py'
       - 'PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md'
       - 'docs/contracts/profile-provisioning.json'
       - 'system/contracts/profile-provisioning.mjs'
@@ -129,7 +133,8 @@ on:
       - 'system/contracts/intelligence-tool.mjs'
       - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
-      - 'system/profile-packs/developer/manifest.json'
+      - 'system/profile-packs/**'
+      - 'tools/profile-pack-manifests/**'
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
@@ -179,6 +184,9 @@ on:
       - 'tests/test_memory_native_endpoint.py'
       - 'tests/test_profile_pack_runtime.mjs'
       - 'tests/test_profile_pack_runtime.py'
+      - 'tests/test_profile_pack_manifest_generation.mjs'
+      - 'tests/test_profile_pack_restore.mjs'
+      - 'tests/test_native_profile_restore_composition.py'
       - 'PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md'
       - 'docs/contracts/profile-provisioning.json'
       - 'system/contracts/profile-provisioning.mjs'
@@ -256,6 +264,8 @@ jobs:
           node --check system/contracts/profile-activation-state.mjs
           node --check tools/profile-content-proof/verify.mjs
           node --check system/profile-packs/distributions.mjs
+          node --check system/profile-packs/manifests.generated.mjs
+          node --check system/profile-packs/manifests.mjs
           node --check system/services/profile-packs/catalog.mjs
           node --check system/services/profile-packs/inventory.mjs
           node --check system/adapters/native/profile-component-inventory.mjs
@@ -272,6 +282,8 @@ jobs:
           python -m py_compile system/surface/runtime/native_profile_component_inventory.py
           python -m py_compile system/surface/runtime/native_profile_provisioning_executor.py
           python -m py_compile system/surface/runtime/native_profile_activation_state.py
+          python -m py_compile tools/profile-pack-manifests/generate.py
+          python tools/profile-pack-manifests/generate.py check
           python -m py_compile tools/local-ai-baseline/report.py
           python -m py_compile tools/local-ai-baseline/compare.py
           python -m py_compile tools/local-ai-benchmark/benchmark.py
@@ -285,7 +297,9 @@ jobs:
           python -m json.tool docs/contracts/intelligence-artifacts.json >/dev/null
           python -m json.tool docs/contracts/intelligence-tools.json >/dev/null
           python -m json.tool docs/contracts/semantic-index.json >/dev/null
-          python -m json.tool system/profile-packs/developer/manifest.json >/dev/null
+          for manifest in system/profile-packs/*/manifest.json; do
+            python -m json.tool "$manifest" >/dev/null
+          done
           python -m json.tool docs/contracts/profile-provisioning.json >/dev/null
           python -m json.tool docs/contracts/profile-pack-runtime.json >/dev/null
           python -m json.tool docs/contracts/profile-activation-state.json >/dev/null
@@ -317,6 +331,8 @@ jobs:
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
           node --test tests/test_profile_pack_runtime.mjs
+          node --test tests/test_profile_pack_manifest_generation.mjs
+          node --test tests/test_profile_pack_restore.mjs
           node --test tests/test_profile_pack_catalog.mjs
           node --test tests/test_profile_provisioning.mjs
           node --test tests/test_profile_component_inventory.mjs
@@ -338,3 +354,4 @@ jobs:
           python -m unittest tests.test_native_profile_component_inventory -v
           python -m unittest tests.test_native_profile_provisioning_executor -v
           python -m unittest tests.test_native_profile_activation_state -v
+          python -m unittest tests.test_native_profile_restore_composition -v
