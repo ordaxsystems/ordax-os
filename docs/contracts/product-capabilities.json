@@ -112,6 +112,11 @@
       "security_boundary": "read-only-device-observability"
     },
     {
+      "id": "hardware.inventory",
+      "owner": "system/adapters/native",
+      "security_boundary": "read-only-bounded-pci-usb-device-observability"
+    },
+    {
       "id": "power.status",
       "owner": "system/adapters/native",
       "security_boundary": "read-only-power-supply-observability"
@@ -228,6 +233,7 @@
         "input.keyboard-layout",
         "filesystem.user-space",
         "system.metrics",
+        "hardware.inventory",
         "power.status",
         "system.release-activation",
         "system.recovery",
@@ -256,6 +262,7 @@
         "input.keyboard-layout",
         "filesystem.user-space",
         "system.metrics",
+        "hardware.inventory",
         "power.status",
         "system.release-activation",
         "system.recovery",
