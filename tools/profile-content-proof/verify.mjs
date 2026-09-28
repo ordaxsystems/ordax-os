@@ -14,6 +14,7 @@ const VERSION_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[
 const KEY_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const KINDS = new Set(["knowledge-pack", "skill-pack"]);
+const CONTENT_FORMAT = "ordax.profile-content-pack/1";
 const MAX_CONTENT_BYTES = 256 * 1024 * 1024;
 
 const MANIFEST_KEYS = Object.freeze([
@@ -24,6 +25,7 @@ const MANIFEST_KEYS = Object.freeze([
   "publisher",
   "content_hash",
   "content_size",
+  "content_format",
   "source",
   "requested_capabilities",
   "runtime_network_allowed",
@@ -117,6 +119,9 @@ export function validateProfileContentManifest(value) {
   ) {
     throw new TypeError("Profile content size is outside allowed bounds");
   }
+  if (manifest.content_format !== CONTENT_FORMAT) {
+    throw new TypeError("Profile content format is unsupported");
+  }
 
   const source = objectValue(manifest.source, "Profile content source");
   exactKeys(source, SOURCE_KEYS, "Profile content source");
@@ -145,6 +150,7 @@ export function validateProfileContentManifest(value) {
     publisher,
     content_hash: contentHash,
     content_size: manifest.content_size,
+    content_format: CONTENT_FORMAT,
     source: normalizedSource,
     requested_capabilities: Object.freeze([]),
     runtime_network_allowed: false,
