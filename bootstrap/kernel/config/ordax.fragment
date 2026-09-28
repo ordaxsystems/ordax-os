@@ -55,7 +55,9 @@ CONFIG_VIRTIO=y
 CONFIG_VIRTIO_PCI=y
 CONFIG_DRM_VIRTIO_GPU=y
 
-CONFIG_LOGO=y
+# The Stable product must never expose the upstream Linux/Tux boot branding.
+# Diagnostic output remains available through the explicit recovery entry.
+# CONFIG_LOGO is not set
 
 # Keyboard, mouse and USB HID.
 CONFIG_INPUT=y
