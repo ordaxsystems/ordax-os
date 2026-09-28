@@ -16,7 +16,10 @@
     "component_slot_activation_required": true,
     "known_good_and_rollback_required": true,
     "firmware_and_kernel_modules_are_not_loaded_from_unverified_paths": true,
-    "public_store_install_enabled": false
+    "public_store_install_enabled": false,
+    "non_boot_critical_activation_must_not_block_boot": true,
+    "firmware_probe_prefer_async_when_supported": true,
+    "boot_critical_exception_requires_explicit_pack_flag": true
   },
   "current_activation_enabled": false,
   "future_examples": [
