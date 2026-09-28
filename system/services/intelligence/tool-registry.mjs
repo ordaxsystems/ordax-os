@@ -35,7 +35,7 @@ const DEFAULT_TOOL_DESCRIPTORS = Object.freeze([
     readOnly: true,
     networkEgress: false,
     mutatesState: false,
-    invocationEnabled: false,
+    invocationEnabled: true,
     authority: "none",
   }),
   Object.freeze({
@@ -48,7 +48,7 @@ const DEFAULT_TOOL_DESCRIPTORS = Object.freeze([
     readOnly: true,
     networkEgress: false,
     mutatesState: false,
-    invocationEnabled: false,
+    invocationEnabled: true,
     authority: "none",
   }),
 ]);
