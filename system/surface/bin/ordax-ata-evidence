@@ -5,6 +5,15 @@ BIN_DIR=${0%/*}
 RUNTIME_RESOLVER=$BIN_DIR/ordax-proof-runtime.sh
 SCRIPT=/srv/ordax-system/surface/runtime/physical_ata_probe.py
 
+for argument in "$@"; do
+    case "$argument" in
+        --sys-class-root|--sys-class-root=*)
+            echo "ordax-ata-evidence: --sys-class-root is test-only and is not accepted by the physical entrypoint" >&2
+            exit 2
+            ;;
+    esac
+done
+
 [ -x /bin/busybox ] || {
     echo "ordax-ata-evidence: /bin/busybox unavailable" >&2
     exit 2
