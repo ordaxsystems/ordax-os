@@ -176,10 +176,25 @@ def _assert_existing_binding_is_idempotent(
     proof: dict,
     proof_sha: str,
 ) -> None:
+    existing_proof_sha = bindings.get("canonical_v4_release_proof_sha256")
+    existing_source_commit = release_binding.get("source_commit")
+
+    if status == PRE_PROOF_STATUS:
+        # PRE_PROOF with a populated historical binding means those exact bytes were
+        # deliberately superseded (for example after a physical proof exposed a
+        # product-level defect). Rebinding the same proof, or merely repackaging a
+        # proof for the same source commit, must not reopen owner authorization.
+        if existing_proof_sha == proof_sha or existing_source_commit == proof.get("source_commit"):
+            raise BindingError(
+                "canonical v4 release proof was superseded by later source hardening; "
+                "a replacement proof from a new source commit is required"
+            )
+        return
+
     if status != POST_PROOF_STATUS:
         return
 
-    if bindings.get("canonical_v4_release_proof_sha256") != proof_sha:
+    if existing_proof_sha != proof_sha:
         raise BindingError(
             "canonical v4 release proof is already bound to different bytes; "
             "reset to the pre-proof state before binding a replacement"
