@@ -177,6 +177,7 @@ export function planProfileProvisioning({
     state,
     reason,
     metadataBundled: value.metadataBundled,
+    deliveryMode: value.deliveryMode,
     offlineAfterInstall: value.offlineAfterInstall,
     missing: Object.freeze(missing),
     alreadyInstalled: Object.freeze(
@@ -188,4 +189,17 @@ export function planProfileProvisioning({
       (state === "ready" || state === "already-provisioned")
       && plannedMissing.every((component) => !component.required),
   });
+}
+
+
+export function assertProfileProvisioningPort(port) {
+  if (!port || typeof port !== "object" || port.schema !== PROFILE_PROVISIONING_SCHEMA) {
+    throw new TypeError("A compatible Profile provisioning port is required");
+  }
+  for (const method of ["list", "get", "refresh", "dispose"]) {
+    if (typeof port[method] !== "function") {
+      throw new TypeError(`Profile provisioning port must implement ${method}()`);
+    }
+  }
+  return port;
 }
