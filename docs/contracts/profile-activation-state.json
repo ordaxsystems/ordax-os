@@ -1,0 +1,87 @@
+{
+  "$schema": "prototype-ordax.profile-activation-state/1",
+  "runtime_schema": "ordax.profile-activation-state/1",
+  "port_schema": "ordax.profile-activation-state-port/1",
+  "status": "mvp-source-internal-proof",
+  "ownership": {
+    "owner": "profile-runtime",
+    "persistence": "device",
+    "native_path": "/var/lib/ordax/profile-activation-state.json",
+    "surface_access": "read-only",
+    "cloud_space_mutation_applied": false,
+    "profile_owns_space_data": false
+  },
+  "state": {
+    "per_space": true,
+    "max_spaces": 64,
+    "slots": [
+      "current",
+      "previous"
+    ],
+    "activation_reference_fields": [
+      "profile",
+      "components",
+      "activatedAt"
+    ],
+    "profile_identity_fields": [
+      "slug",
+      "version"
+    ],
+    "component_identity_fields": [
+      "id",
+      "kind",
+      "version",
+      "sha256",
+      "receiptSha256",
+      "installedAt"
+    ],
+    "component_order_canonical": true,
+    "same_current_previous_allowed": false,
+    "space_identity_fields": [
+      "spaceId",
+      "spaceKind"
+    ],
+    "space_kind_values": [
+      "personal",
+      "work",
+      "professional"
+    ],
+    "space_kind_persisted_for_offline_restore": true
+  },
+  "safety": {
+    "activation_requires_exact_installed_component_receipts": true,
+    "rollback_revalidates_previous_components_against_inventory": true,
+    "missing_previous_component_fails_closed": true,
+    "state_write_atomic": true,
+    "state_file_mode": "0600",
+    "state_directory_mode": "0700",
+    "exclusive_mutation_lock": true,
+    "http_mutation_exposed": false,
+    "boot_critical": false,
+    "space_kind_change_without_explicit_reconciliation_allowed": false
+  },
+  "data_separation": {
+    "documents_allowed": false,
+    "memory_content_allowed": false,
+    "prompts_allowed": false,
+    "credentials_allowed": false,
+    "professional_payload_allowed": false,
+    "rollback_rewinds_space_data": false,
+    "profile_removal_deletes_space_data": false
+  },
+  "mvp": {
+    "native_persistence_source": true,
+    "surface_read_source": true,
+    "public_activation_enabled": false,
+    "profile_stack_enabled": false,
+    "space_cloud_write_enabled": false,
+    "offline_restore_compatibility_metadata": true
+  },
+  "next_gates": [
+    "trusted-user-intent-activation-command-boundary",
+    "profile-catalog-and-provisioning-revalidation-at-activation-time",
+    "native-composition-restore-from-persisted-current",
+    "profile-health-after-activation",
+    "public-profile-trust-and-permission-review-before-public-activation"
+  ]
+}

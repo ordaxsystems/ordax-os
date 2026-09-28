@@ -524,94 +524,114 @@ def boot_qemu_expected(
             stderr=error_stream,
         )
     try:
-        deadline = time.monotonic() + (300.0 if graphical_hardware else 150.0)
-        while time.monotonic() < deadline:
-            text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
-            source_marker = "ORDAX_PORTABLE_V2_SOURCE_SHA=" + expected_commit
-            stable_source_marker = "ORDAX_STABLE_INIT_SOURCE_SHA=" + expected_commit
-            slot_marker = "ORDAX_PORTABLE_V2_SLOT=" + expected_slot
-            schema_marker = f"ORDAX_PORTABLE_RELEASE_MANIFEST_SCHEMA={schema_version}"
-            runtime_marker = "ORDAX_SURFACE_RUNTIME_HANDOFF=VERIFIED"
-            runtime_sha_marker = "ORDAX_SURFACE_RUNTIME_SHA256=" + runtime_sha256
-            ai_marker = "ORDAX_LOCAL_AI_RUNTIME_HANDOFF=VERIFIED"
-            ai_backend_marker = "ORDAX_LOCAL_AI_BACKEND=STARTED"
-            ai_sha_marker = (
-                "ORDAX_LOCAL_AI_RUNTIME_SHA256=" + ai_runtime_sha256
-                if ai_runtime_sha256
-                else ""
-            )
+        source_marker = "ORDAX_PORTABLE_V2_SOURCE_SHA=" + expected_commit
+        stable_source_marker = "ORDAX_STABLE_INIT_SOURCE_SHA=" + expected_commit
+        slot_marker = "ORDAX_PORTABLE_V2_SLOT=" + expected_slot
+        schema_marker = f"ORDAX_PORTABLE_RELEASE_MANIFEST_SCHEMA={schema_version}"
+        runtime_marker = "ORDAX_SURFACE_RUNTIME_HANDOFF=VERIFIED"
+        runtime_sha_marker = "ORDAX_SURFACE_RUNTIME_SHA256=" + runtime_sha256
+        ai_marker = "ORDAX_LOCAL_AI_RUNTIME_HANDOFF=VERIFIED"
+        ai_backend_marker = "ORDAX_LOCAL_AI_BACKEND=STARTED"
+        ai_sha_marker = (
+            "ORDAX_LOCAL_AI_RUNTIME_SHA256=" + ai_runtime_sha256
+            if ai_runtime_sha256
+            else ""
+        )
+
+        def observe(text: str) -> tuple[bool, dict[str, bool]]:
             ai_ok = not ai_required or (
                 ai_marker in text
                 and bool(ai_sha_marker)
                 and ai_sha_marker in text
                 and ai_backend_marker in text
             )
-            if (
-                SUCCESS in text
-                and STABLE in text
-                and ACTIVATION_DURABLE in text
-                and source_marker in text
-                and stable_source_marker in text
-                and slot_marker in text
-                and schema_marker in text
-                and runtime_marker in text
-                and runtime_sha_marker in text
-                and ai_ok
-                and (
+            checks = {
+                "portable_pid1_handoff_marker": SUCCESS in text,
+                "stable_init_handoff_marker": STABLE in text,
+                "activation_state_durable_marker": ACTIVATION_DURABLE in text,
+                "qemu_network_disabled": "-net" in command and "none" in command,
+                "qemu_durable_cache_mode": any(
+                    "cache=directsync" in item for item in command
+                ),
+                "qemu_graphical_hardware_requested": (
+                    (not graphical_hardware)
+                    or ("-vga" in command and "virtio" in command)
+                ),
+                "candidate_rdinit_used": any(
+                    "rdinit=/sbin/ordax-portable-init" in item for item in command
+                ),
+                "expected_slot_selected": slot_marker in text,
+                "portable_source_sha_exact": source_marker in text,
+                "stable_init_source_sha_exact": stable_source_marker in text,
+                "portable_manifest_selected": schema_marker in text,
+                "surface_runtime_handoff_marker": runtime_marker in text,
+                "surface_runtime_sha_exact": runtime_sha_marker in text,
+                "local_ai_runtime_requirement_satisfied": ai_ok,
+                "local_ai_runtime_handoff_marker": (
+                    ai_marker in text
+                ) if ai_required else True,
+                "local_ai_runtime_sha_exact": (
+                    bool(ai_sha_marker) and ai_sha_marker in text
+                ) if ai_required else True,
+                "local_ai_backend_started": (
+                    ai_backend_marker in text
+                ) if ai_required else True,
+                "required_post_marker_seen": (
                     required_post_marker is None
                     or required_post_marker in text
-                )
-            ):
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=5)
-                return text, {
-                    "portable_pid1_handoff_marker": True,
-                    "stable_init_handoff_marker": True,
-                    "activation_state_durable_marker": True,
-                    "qemu_network_disabled": "-net" in command and "none" in command,
-                    "qemu_durable_cache_mode": any(
-                        "cache=directsync" in item for item in command
-                    ),
-                    "qemu_graphical_hardware_requested": (
-                        (not graphical_hardware)
-                        or (
-                            "-vga" in command
-                            and "virtio" in command
-                        )
-                    ),
-                    "candidate_rdinit_used": any(
-                        "rdinit=/sbin/ordax-portable-init" in item for item in command
-                    ),
-                    "expected_slot_selected": slot_marker in text,
-                    "portable_source_sha_exact": source_marker in text,
-                    "stable_init_source_sha_exact": stable_source_marker in text,
-                    "portable_manifest_selected": schema_marker in text,
-                    "surface_runtime_handoff_marker": runtime_marker in text,
-                    "surface_runtime_sha_exact": runtime_sha_marker in text,
-                    "local_ai_runtime_requirement_satisfied": ai_ok,
-                    "local_ai_runtime_handoff_marker": (ai_marker in text) if ai_required else True,
-                    "local_ai_runtime_sha_exact": (ai_sha_marker in text) if ai_required else True,
-                    "local_ai_backend_started": (ai_backend_marker in text) if ai_required else True,
-                    "required_post_marker_seen": (
-                        required_post_marker is None
-                        or required_post_marker in text
-                    ),
-                }
+                ),
+            }
+            required = (
+                checks["portable_pid1_handoff_marker"]
+                and checks["stable_init_handoff_marker"]
+                and checks["activation_state_durable_marker"]
+                and checks["expected_slot_selected"]
+                and checks["portable_source_sha_exact"]
+                and checks["stable_init_source_sha_exact"]
+                and checks["portable_manifest_selected"]
+                and checks["surface_runtime_handoff_marker"]
+                and checks["surface_runtime_sha_exact"]
+                and checks["local_ai_runtime_requirement_satisfied"]
+                and checks["required_post_marker_seen"]
+            )
+            return required, checks
+
+        def finish_success(text: str, checks: dict[str, bool]) -> tuple[str, dict[str, bool]]:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+            return text, checks
+
+        deadline = time.monotonic() + (300.0 if graphical_hardware else 150.0)
+        while time.monotonic() < deadline:
+            text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
+            ready, checks = observe(text)
+            if ready:
+                return finish_success(text, checks)
             if process.poll() is not None:
                 break
             time.sleep(0.25)
 
+        # A marker can be flushed between the final polling read and the
+        # deadline check. Re-observe exactly once before declaring failure.
+        # This does not extend or relax the proof: the same marker/identity
+        # predicate is applied to the bytes already emitted by the guest.
+        final_text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
+        final_ready, final_checks = observe(final_text)
+        if final_ready:
+            return finish_success(final_text, final_checks)
+
         tail = stderr.read_text(encoding="utf-8", errors="replace")[-4000:] if stderr.exists() else ""
-        serial_tail = serial.read_text(encoding="utf-8", errors="replace")[-12000:] if serial.exists() else ""
+        serial_tail = final_text[-12000:]
+        missing_checks = sorted(name for name, passed in final_checks.items() if not passed)
         raise ProofError(
             "QEMU did not reach portable-v2 handoff markers "
             f"(slot={expected_slot}, source={expected_commit}, schema={schema_version}, "
             f"post_marker={required_post_marker!r}, graphical_hardware={graphical_hardware}, "
-            f"exit={process.poll()}, "
+            f"exit={process.poll()}, missing_checks={missing_checks!r}, "
             f"stderr_tail={tail!r}, serial_tail={serial_tail!r})"
         )
     finally:

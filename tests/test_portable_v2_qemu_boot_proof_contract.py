@@ -113,12 +113,15 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
         text = SCRIPT.read_text(encoding="utf-8")
         marker = "ORDAX_PORTABLE_ACTIVATION_STATE_DURABLE=YES"
         self.assertIn(marker, text)
-        self.assertIn("ACTIVATION_DURABLE in text", text)
+        self.assertIn('"activation_state_durable_marker": ACTIVATION_DURABLE in text', text)
         boot = text.split("def boot_qemu_expected", 1)[1].split("def boot_qemu(", 1)[0]
-        success = boot.split("if (\n                SUCCESS in text", 1)[1]
         self.assertLess(
-            success.index("ACTIVATION_DURABLE in text"),
-            success.index("process.terminate()"),
+            boot.index('"activation_state_durable_marker": ACTIVATION_DURABLE in text'),
+            boot.index("def finish_success"),
+        )
+        self.assertIn(
+            'checks["activation_state_durable_marker"]',
+            boot,
         )
 
         runner = CONTRACT["current_runner_invariants"]
@@ -127,6 +130,28 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
         self.assertTrue(runner["qemu_termination_requires_durable_state_marker"])
         self.assertTrue(runner["applies_to_future_proof_runs"])
         self.assertFalse(runner["historical_last_proven_artifact_rewritten"])
+
+
+    def test_runner_reobserves_exact_marker_predicate_once_at_deadline(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        boot = text.split("def boot_qemu_expected", 1)[1].split("def boot_qemu(", 1)[0]
+        self.assertIn("def observe(text: str)", boot)
+        self.assertIn("ready, checks = observe(text)", boot)
+        self.assertIn("final_ready, final_checks = observe(final_text)", boot)
+        self.assertIn("if final_ready:", boot)
+        self.assertIn("return finish_success(final_text, final_checks)", boot)
+        self.assertIn("missing_checks = sorted", boot)
+        self.assertNotIn("time.sleep(1", boot)
+        self.assertNotIn("deadline +=", boot)
+        self.assertEqual(boot.count("150.0"), 1)
+        final_observation = boot.split(
+            "final_ready, final_checks = observe(final_text)",
+            1,
+        )[1]
+        self.assertLess(
+            final_observation.index("if final_ready:"),
+            final_observation.index("raise ProofError("),
+        )
 
     def test_initramfs_mount_understands_security_flags_before_vfat_handoff(self):
         build = INITRAMFS_BUILD.read_text(encoding="utf-8")
