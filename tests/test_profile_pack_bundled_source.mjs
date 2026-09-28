@@ -22,7 +22,10 @@ function fileFetch(overrides = new Map()) {
     if (overrides.has(path)) {
       return { ok: true, status: 200, async json() { return overrides.get(path); } };
     }
-    const local = resolve(ROOT, path.replace(/^\//, ""));
+    const sourcePath = path.startsWith("/profile-packs/")
+      ? `system${path}`
+      : path.replace(/^\//, "");
+    const local = resolve(ROOT, sourcePath);
     const raw = JSON.parse(await readFile(local, "utf8"));
     return { ok: true, status: 200, async json() { return raw; } };
   };
@@ -40,8 +43,8 @@ test("bundled source loads the versioned authoritative Profile manifests", async
   assert.deepEqual(
     source.catalog.entries.map((entry) => entry.manifest),
     [
-      "/system/profile-packs/developer/v1/manifest.json",
-      "/system/profile-packs/legal-br/v1/manifest.json",
+      "/profile-packs/developer/v1/manifest.json",
+      "/profile-packs/legal-br/v1/manifest.json",
     ],
   );
 });
@@ -53,7 +56,7 @@ test("bundled catalog index binds path to exact slug and version", () => {
       entries: [{
         slug: "developer",
         version: 1,
-        manifest: "/system/profile-packs/legal-br/v1/manifest.json",
+        manifest: "/profile-packs/legal-br/v1/manifest.json",
       }],
     }),
     /must match its exact Profile identity/,
@@ -85,7 +88,7 @@ test("bundled source refuses alternate catalog origins and manifest identity dri
     entries: [{
       slug: "developer",
       version: 1,
-      manifest: "/system/profile-packs/developer/v1/manifest.json",
+      manifest: "/profile-packs/developer/v1/manifest.json",
     }],
   };
   const wrong = JSON.parse(
@@ -94,7 +97,7 @@ test("bundled source refuses alternate catalog origins and manifest identity dri
   wrong.version = 2;
   const overrides = new Map([
     [DEFAULT_BUNDLED_PROFILE_PACK_CATALOG, index],
-    ["/system/profile-packs/developer/v1/manifest.json", wrong],
+    ["/profile-packs/developer/v1/manifest.json", wrong],
   ]);
   await assert.rejects(
     () => loadBundledProfilePacks({ fetchImpl: fileFetch(overrides) }),
