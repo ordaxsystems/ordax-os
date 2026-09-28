@@ -30,6 +30,7 @@ class IntelligenceFileSurfaceHandoffTests(unittest.TestCase):
         self.assertIn("beforeEntry.modifiedAt", text)
         self.assertIn("afterEntry.modifiedAt", text)
         self.assertIn("selectedFilePath() !== path", text)
+        self.assertIn("textFile.path !== path", text)
         self.assertNotIn("grantId", text)
 
         offer = text.split("offerFileSelectionToIntelligence(contextShare, {", 1)[1].split("});", 1)[0]
@@ -38,6 +39,19 @@ class IntelligenceFileSurfaceHandoffTests(unittest.TestCase):
         self.assertIn("modifiedAt: afterEntry.modifiedAt", offer)
         self.assertIn("text: textFile.text", offer)
         self.assertNotIn("path:", offer)
+
+    def test_pending_grant_is_revoked_if_navigation_cannot_take_ownership(self):
+        text = CONTROLLER.read_text(encoding="utf-8")
+        self.assertIn("const revokeShared = (shared) =>", text)
+        self.assertIn("contextShare.take({", text)
+        self.assertIn("contextShare.revoke(authorization)", text)
+        self.assertGreaterEqual(text.count("revokeShared(shared);"), 2)
+
+        offer_index = text.index("shared = offerFileSelectionToIntelligence")
+        publish_index = text.index("activation.publish({", offer_index)
+        release_index = text.index("shared = null;", publish_index)
+        self.assertLess(offer_index, publish_index)
+        self.assertLess(publish_index, release_index)
 
     def test_native_composition_mounts_and_destroys_controller(self):
         text = NATIVE.read_text(encoding="utf-8")
