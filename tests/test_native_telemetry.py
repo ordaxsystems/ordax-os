@@ -134,6 +134,13 @@ class NativeTelemetryTests(unittest.TestCase):
         self.assertEqual(host.bounded_telemetry_duration(True), 0)
         self.assertEqual(host.bounded_telemetry_duration("5"), 0)
 
+    def test_surface_heartbeat_default_is_volatile_runtime_state(self):
+        host = load_host()
+        self.assertEqual(
+            host.SURFACE_HEARTBEAT_FILE,
+            "/run/ordax-update/surface-heartbeat.json",
+        )
+
     def test_surface_heartbeat_is_bounded_atomic_and_bound_to_current_boot(self):
         host = load_host()
         with tempfile.TemporaryDirectory() as directory:

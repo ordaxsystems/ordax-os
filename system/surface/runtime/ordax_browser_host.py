@@ -137,11 +137,13 @@ class OrdaXBrowserHost:
         profile_root: str,
         component_channel_bin: str,
         component_slot_root: str,
+        cache_root: str,
     ) -> None:
         self.start_uri = start_uri
         self.profile_root = os.path.abspath(profile_root)
         self.component_channel_bin = component_channel_bin
         self.component_slot_root = component_slot_root
+        self.cache_root = os.path.abspath(cache_root)
         self.component_probation_started = False
         self.component_probation_nonce: str | None = None
         self.session_path = os.path.join(self.profile_root, "session.json")
@@ -149,11 +151,12 @@ class OrdaXBrowserHost:
         self.active_tab_id: str | None = None
         self.viewport = {"visible": False, "x": 0, "y": 0, "width": 0, "height": 0}
         self.restoring_session = False
+        self.last_persisted_session: tuple[tuple[str, ...], int | None] | None = None
         self.accelerator_callbacks = []
 
         os.makedirs(self.profile_root, mode=0o700, exist_ok=True)
         profile_data = os.path.join(self.profile_root, "default", "data")
-        profile_cache = os.path.join(self.profile_root, "default", "cache")
+        profile_cache = os.path.join(self.cache_root, "default")
         os.makedirs(profile_data, mode=0o700, exist_ok=True)
         os.makedirs(profile_cache, mode=0o700, exist_ok=True)
 
@@ -379,14 +382,21 @@ class OrdaXBrowserHost:
             ),
             None,
         )
+        session_key = (
+            tuple(url for _tab_id, url in persisted_tabs),
+            active_index,
+        )
+        if session_key == self.last_persisted_session:
+            return
         try:
-            save_browser_session(
+            saved = save_browser_session(
                 self.session_path,
-                [url for _tab_id, url in persisted_tabs],
+                session_key[0],
                 active_index,
                 allow_url=allowed_external_uri,
                 max_tabs=MAX_TABS,
             )
+            self.last_persisted_session = (saved.urls, saved.active_index)
         except (OSError, ValueError) as exc:
             print(f"ordax-browser-host: could not persist tab session: {exc}", file=sys.stderr, flush=True)
 
@@ -398,6 +408,7 @@ class OrdaXBrowserHost:
         )
         if not state.urls:
             return
+        self.last_persisted_session = (state.urls, state.active_index)
         self.restoring_session = True
         try:
             for index, url in enumerate(state.urls, start=1):
@@ -646,6 +657,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="OrdaX native Surface/browser host")
     parser.add_argument("--start-uri", required=True)
     parser.add_argument("--profile-root", default="/var/lib/ordax-user/browser")
+    parser.add_argument("--cache-root", default="/run/ordax/browser-cache")
     parser.add_argument(
         "--component-channel-bin",
         default="/srv/ordax-system/bin/ordax-runtime-component-channel",
@@ -665,6 +677,7 @@ def main() -> int:
             args.profile_root,
             args.component_channel_bin,
             args.component_slot_root,
+            args.cache_root,
         )
     except Exception as exc:
         print(f"ordax-browser-host: startup failed: {exc}", file=sys.stderr, flush=True)

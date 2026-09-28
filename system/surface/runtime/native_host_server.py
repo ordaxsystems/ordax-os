@@ -45,6 +45,7 @@ from native_memory_endpoint import (
     read_memory_endpoint,
     write_memory_endpoint,
 )
+from native_hardware_inventory import read_hardware_inventory
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -82,6 +83,7 @@ FILE_IMPORT_PATH = "/__ordax/native/file-import"
 METRICS_PATH = "/__ordax/native/metrics"
 RECOVERY_STATUS_PATH = "/__ordax/native/recovery-status"
 POWER_STATUS_PATH = "/__ordax/native/power-status"
+HARDWARE_INVENTORY_PATH = "/__ordax/native/hardware-inventory"
 NETWORK_STATUS_PATH = "/__ordax/native/network-status"
 NETWORK_MANAGEMENT_PATH = "/__ordax/native/network-management"
 UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
@@ -105,7 +107,7 @@ ACCOUNT_SESSION_FILE = "/var/lib/ordax/account/session.json"
 DIAGNOSTIC_JOURNAL_FILE = "/var/lib/ordax/diagnostic-journal.json"
 UPDATE_HISTORY_FILE = "/var/lib/ordax/update-history.tsv"
 RELEASE_HISTORY_FILE = "/var/lib/ordax/release-history.tsv"
-SURFACE_HEARTBEAT_FILE = "/var/lib/ordax/surface-heartbeat.json"
+SURFACE_HEARTBEAT_FILE = "/run/ordax-update/surface-heartbeat.json"
 CLIENT_DIAGNOSTIC_FILE = "/var/lib/ordax/client-diagnostic.json"
 TELEMETRY_DEVICE_ID_FILE = "/var/lib/ordax/telemetry-device-id"
 RESCUE_STATUS_FILE = "/var/lib/ordax/rescue-status.json"
@@ -3353,7 +3355,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -3392,6 +3394,19 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(503)
                 return
             self._write_json(200, power_status)
+            return
+        if parsed_path == HARDWARE_INVENTORY_PATH:
+            try:
+                hardware_inventory = read_hardware_inventory()
+            except (OSError, ValueError) as exc:
+                print(
+                    f"ordax-native-host: could not read hardware inventory: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
+                return
+            self._write_json(200, hardware_inventory)
             return
         if parsed_path == NETWORK_STATUS_PATH:
             try:

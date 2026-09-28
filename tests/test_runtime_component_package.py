@@ -29,7 +29,17 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             "prototype-ordax.runtime-component-package-policy/1",
         )
         self.assertEqual(policy["status"], "signed-slot-staging")
-        self.assertEqual(policy["supported_components"], ["internet"])
+        self.assertEqual(
+            policy["supported_components"],
+            ["internet", "local-ai-service", "ordax-intelligence"],
+        )
+        self.assertEqual(
+            policy["packaging_only_components"],
+            ["local-ai-service", "ordax-intelligence"],
+        )
+        self.assertFalse(policy["intelligence_component_activation_enabled"])
+        self.assertFalse(policy["intelligence_component_health_promotion_proven"])
+        self.assertFalse(policy["intelligence_component_rollback_proven"])
         self.assertEqual(
             policy["release_descriptor_schema"],
             "prototype-ordax.runtime-component-release/1",
@@ -147,6 +157,43 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             metadata["entrypoint"].as_posix(),
             "system/apps/internet/runtime.mjs",
         )
+
+    def test_intelligence_component_metadata_comes_from_canonical_manifests(self):
+        builder = load_builder()
+        cases = {
+            "local-ai-service": "system/components/local-ai-service/runtime.mjs",
+            "ordax-intelligence": "system/components/ordax-intelligence/runtime.mjs",
+        }
+        for component_id, entrypoint in cases.items():
+            with self.subTest(component_id=component_id):
+                metadata = builder.load_component_metadata(component_id)
+                component = metadata["component"]
+                self.assertEqual(component["id"], component_id)
+                self.assertEqual(component["version"], "0.1.0")
+                self.assertEqual(component["releaseMode"], "bundled")
+                self.assertEqual(component["restartScope"], "component")
+                self.assertIn(component["healthMode"], {"process", "runtime"})
+                self.assertEqual(metadata["entrypoint"].as_posix(), entrypoint)
+
+    def test_intelligence_component_packages_are_deterministic_but_not_activatable(self):
+        builder = load_builder()
+        source_commit = "a" * 40
+        for component_id in ("local-ai-service", "ordax-intelligence"):
+            with self.subTest(component_id=component_id), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                first = root / f"{component_id}-a.zip"
+                second = root / f"{component_id}-b.zip"
+                first_manifest = builder.build_package(component_id, source_commit, first)
+                second_manifest = builder.build_package(component_id, source_commit, second)
+                self.assertEqual(first.read_bytes(), second.read_bytes())
+                self.assertEqual(first_manifest, second_manifest)
+                verified = builder.verify_package(first)
+                self.assertEqual(verified["component"]["id"], component_id)
+                self.assertEqual(verified["component"]["releaseMode"], "bundled")
+                self.assertFalse(verified["activation_allowed"])
+                self.assertTrue(verified["signature_required_before_activation"])
+                self.assertFalse(verified["native_adapters_packaged"])
+                self.assertFalse(verified["composition_packaged"])
 
     def test_internet_candidate_graph_is_self_contained_and_excludes_platform_code(self):
         builder = load_builder()
@@ -288,6 +335,43 @@ class RuntimeComponentPackageTests(unittest.TestCase):
                 "unsafe package path",
             ):
                 builder.verify_package(malicious)
+
+    def test_component_manifest_rejects_cross_component_owner_files(self):
+        builder = load_builder()
+        manifest = {
+            "$schema": builder.SCHEMA,
+            "status": "candidate",
+            "component": {
+                "id": "local-ai-service",
+                "version": "0.1.0",
+                "releaseMode": "bundled",
+            },
+            "source_commit": "b" * 40,
+            "entrypoint": "system/components/local-ai-service/runtime.mjs",
+            "self_contained_source_graph": True,
+            "remote_runtime_dependencies": False,
+            "activation_allowed": False,
+            "signature_required_before_activation": True,
+            "native_adapters_packaged": False,
+            "composition_packaged": False,
+            "files": [
+                {
+                    "path": "system/components/local-ai-service/runtime.mjs",
+                    "sha256": "1" * 64,
+                    "size": 1,
+                },
+                {
+                    "path": "system/components/ordax-intelligence/runtime.mjs",
+                    "sha256": "2" * 64,
+                    "size": 1,
+                },
+            ],
+        }
+        with self.assertRaisesRegex(
+            builder.ComponentPackageError,
+            "another component owner",
+        ):
+            builder.validate_manifest_shape(manifest)
 
     def test_shared_source_graph_detects_import_meta_assets(self):
         builder = load_builder()

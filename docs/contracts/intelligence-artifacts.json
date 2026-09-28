@@ -1,0 +1,44 @@
+{
+  "$schema": "prototype-ordax.intelligence-artifacts/1",
+  "status": "foundation-only-no-public-activation",
+  "stable_contract": "ordax.intelligence-artifact/1",
+  "artifact_kinds": [
+    "inference-engine",
+    "model",
+    "embedding-model",
+    "tool-runtime",
+    "knowledge-pack"
+  ],
+  "identity": "id+version+sha256",
+  "content_addressed": true,
+  "signature_required_for_installable_artifacts": true,
+  "provenance_required": true,
+  "license_required": true,
+  "compatibility_checked_before_activation": true,
+  "resource_requirements_checked_before_activation": true,
+  "model_metadata_may_enrich_manifest_but_never_replace_signed_manifest": true,
+  "derived_indexes_are_rebuildable": true,
+  "embedding_model_is_not_memory_identity": true,
+  "tool_runtime_policy": {
+    "preferred_future_isolation": "WASI-component-capability-sandbox",
+    "host_access_default": "deny",
+    "network_default": "deny",
+    "filesystem_default": "deny",
+    "tool_prompt_may_grant_authority": false,
+    "activation_enabled": false
+  },
+  "update_trust_direction": {
+    "tuf_inspired_roles_and_expiry_to_evaluate": true,
+    "separate_component_trust_domain_preserved": true,
+    "rollback_and_freeze_protection_required": true,
+    "whole_os_key_reuse_allowed": false
+  },
+  "distribution_direction": {
+    "oci_style_content_addressing_to_evaluate": true,
+    "artifact_transport_is_not_runtime_authority": true,
+    "registry_vendor_lock_in_allowed": false
+  },
+  "current_local_ai_source_lock": "system/services/local-ai/source-lock.json",
+  "current_activation": "whole-os-v4-bundled",
+  "future_activation": "component-slot-after-health-promotion-rollback-proof"
+}

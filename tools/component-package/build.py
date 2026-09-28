@@ -151,6 +151,12 @@ def component_graph(component_id: str, root: Path = ROOT) -> tuple[dict, list[Pu
             raise ComponentPackageError(
                 f"component package crossed into another app owner: {relative}"
             )
+        if value.startswith("system/components/") and not value.startswith(
+            f"system/components/{component_id}/"
+        ):
+            raise ComponentPackageError(
+                f"component package crossed into another component owner: {relative}"
+            )
     return metadata, graph
 
 
@@ -307,6 +313,10 @@ def validate_manifest_shape(manifest: object) -> dict:
             f"system/apps/{component['id']}/"
         ):
             raise ComponentPackageError("component package contains another app owner")
+        if path.startswith("system/components/") and not path.startswith(
+            f"system/components/{component['id']}/"
+        ):
+            raise ComponentPackageError("component package contains another component owner")
         if not SHA256_RE.fullmatch(str(record["sha256"])):
             raise ComponentPackageError("component package file hash is invalid")
         size = record["size"]

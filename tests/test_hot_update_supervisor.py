@@ -458,7 +458,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         host = NATIVE_HOST_SERVER.read_text(encoding="utf-8")
         adapter = NATIVE_UPDATE_ADAPTER.read_text(encoding="utf-8")
-        self.assertIn("SURFACE_HEARTBEAT_FILE=$STATE_DIR/native-state/surface-heartbeat.json", supervisor)
+        self.assertIn("SURFACE_HEARTBEAT_FILE=$UPDATE_RUN_DIR/surface-heartbeat.json", supervisor)
         self.assertIn("surface_heartbeat_sha()", supervisor)
         self.assertIn('rendered_sha=$(surface_heartbeat_sha)', supervisor)
         self.assertIn('[ "$healthy_sha" = "$expected_sha" ] && [ "$rendered_sha" = "$expected_sha" ]', supervisor)

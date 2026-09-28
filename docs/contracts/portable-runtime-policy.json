@@ -1,0 +1,30 @@
+{
+  "$schema": "prototype-ordax.portable-runtime-policy/1",
+  "status": "source-policy-defined-runtime-integration-in-progress",
+  "media_default": "removable-flash",
+  "principles": {
+    "immutable_system_reads_preferred": true,
+    "ephemeral_cache_prefers_memory": true,
+    "rebuildable_state_may_be_discarded": true,
+    "durable_state_requires_atomic_persistence": true,
+    "persistent_write_coalescing_allowed": true,
+    "persistent_authorization_or_release_state_may_be_delayed_for_batching": false,
+    "zram_writeback_to_usb_default": false,
+    "full_device_periodic_rewrite_allowed": false
+  },
+  "usb_defaults": {
+    "volatile_cache_ratio": 0.1,
+    "volatile_cache_min_bytes": 16777216,
+    "volatile_cache_max_bytes": 268435456,
+    "preserve_available_memory_bytes": 536870912,
+    "persistent_write_batch_ms": 250,
+    "zram_allowed": true,
+    "zram_max_memory_ratio": 0.25,
+    "zram_backing_writeback_allowed": false
+  },
+  "semantic_index": "derived-batched",
+  "logs": "bounded-volatile-first",
+  "memory": "durable-coalesced-with-explicit-flush",
+  "release_state": "immediate-atomic-no-batching",
+  "authorization_state": "immediate-atomic-no-batching"
+}

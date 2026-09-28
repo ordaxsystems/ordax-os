@@ -249,6 +249,8 @@ Os nomes de operações sugeridos nesta seção descrevem contratos a discutir; 
 
 **Suporte distribuído:** pacote de driver/firmware tem origem, licença, compatibilidade com kernel/arquitetura, hash, política de instalação e retorno ao estado anterior. A escolha deve ser verificável e não depender de IA. Drivers não sincronizam com a conta do usuário.
 
+**Fundação atual:** `ordax.hardware-pack/1` reimplementa a parte útil do antigo GDEF/support packs sem portar seu runtime. O pack é content-addressed, exige `modalias` e ABI de kernel exatos, assinatura antes da ativação, `component-slot`, known-good e rollback. A base Stable continua pequena; Wi-Fi/GPU/áudio/entrada adicionais poderão chegar por atualização sem reinstalar o USB. A presença de um pack ou módulo nunca vira automaticamente um claim de suporte físico.
+
 **Aceite:** hotplug, dispositivo desconhecido, driver ausente e reconexão; Web apresenta apenas informações que consegue obter; prova de áudio mede saída real, não só valor de slider; falha de periférico não impede shell. **Parte 1:** E9.
 
 ### 5.8 C08 — Conta de produto e dispositivos vinculados
@@ -436,6 +438,8 @@ O protótipo já definiu o [limite Desktop](system/adapters/desktop/README.md): 
 **Melhoria incremental:** medir tempo por etapa, custo de cache miss e causas de reconstrução; mapa de impacto derivado de dependências reais; cache com chave que inclua fontes/ferramentas relevantes; retenção que preserve releases conhecidas e suas evidências.
 
 **Aceite:** cache não muda saída esperada nem ignora dependência; execução limpa produz os mesmos artefatos; falha de cache permite build normal; descarte de artefato não remove a única versão de recuperação válida. Otimização só entra após medição; análise de IA não decide assinatura ou promoção.
+
+**Portable runtime:** `ordax.portable-runtime-policy/1` classifica estado como efêmero, reconstruível ou durável. Cache/log/index semântico preferem RAM e escrita batched; release/autorizações continuam atômicos e imediatos. O adapter Native de Memory coalesce bursts de saves e mantém `flush()` como barreira de durabilidade. zram pode ser usado como otimização volátil, mas writeback para pendrive fica desabilitado por padrão.
 
 ### 5.22 C23/C24 — Inteligência do projeto, laboratório e federação
 
