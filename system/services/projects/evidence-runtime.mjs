@@ -71,8 +71,23 @@ function appendBounded(items, candidate) {
   return true;
 }
 
-function directorySummary(listingValue) {
-  const listing = validateFileListing(listingValue);
+function matchingListing(value, expectedPath) {
+  const listing = validateFileListing(value);
+  if (listing.path !== expectedPath) {
+    throw new Error("Project evidence listing identity mismatch");
+  }
+  return listing;
+}
+
+function matchingTextFile(value, expectedPath) {
+  const textFile = validateTextFile(value);
+  if (textFile.path !== expectedPath) {
+    throw new Error("Project evidence file identity mismatch");
+  }
+  return textFile;
+}
+
+function directorySummary(listing) {
   const names = listing.entries
     .slice(0, MAX_SHALLOW_NAMES)
     .map((entry) => `${entry.kind === "directory" ? "dir" : "file"}:${entry.name.slice(0, MAX_SHALLOW_NAME_CHARS)}`);
@@ -105,7 +120,7 @@ export function createProjectEvidenceRuntime({
     schema: PROJECT_EVIDENCE_SCHEMA,
     async inspect(projectId) {
       const project = projectById(projectPort, projectId);
-      const root = validateFileListing(await files.list(project.path));
+      const root = matchingListing(await files.list(project.path), project.path);
       const items = [];
 
       for (const entry of root.entries) {
@@ -113,8 +128,9 @@ export function createProjectEvidenceRuntime({
         const normalizedName = entry.name.toLowerCase();
         const fileKind = entry.kind === "file" ? TOP_LEVEL_TEXT_FILES.get(normalizedName) : null;
         if (fileKind) {
+          const expectedPath = joinLogicalPath(project.path, entry.name);
           try {
-            const textFile = validateTextFile(await files.readTextFile(joinLogicalPath(project.path, entry.name)));
+            const textFile = matchingTextFile(await files.readTextFile(expectedPath), expectedPath);
             appendBounded(items, {
               kind: fileKind,
               label: sanitizeLabel(entry.name),
@@ -122,7 +138,7 @@ export function createProjectEvidenceRuntime({
               provenance: `ordax:project-evidence:${fileKind}:top-level-file`,
             });
           } catch {
-            // Evidence collection is best-effort per item. Unreadable files grant no hidden fallback access.
+            // Evidence collection is best-effort per item. Unreadable or mismatched files are omitted.
           }
           continue;
         }
@@ -131,8 +147,9 @@ export function createProjectEvidenceRuntime({
           ? SHALLOW_DIRECTORIES.get(normalizedName)
           : null;
         if (!directoryKind) continue;
+        const expectedPath = joinLogicalPath(project.path, entry.name);
         try {
-          const childListing = await files.list(joinLogicalPath(project.path, entry.name));
+          const childListing = matchingListing(await files.list(expectedPath), expectedPath);
           appendBounded(items, {
             kind: directoryKind,
             label: sanitizeLabel(entry.name),
@@ -140,10 +157,14 @@ export function createProjectEvidenceRuntime({
             provenance: `ordax:project-evidence:${directoryKind}:shallow-directory-summary`,
           });
         } catch {
-          // A missing/unreadable directory is omitted rather than expanded through another path.
+          // A missing/unreadable/mismatched directory is omitted rather than expanded elsewhere.
         }
       }
 
+      const currentProject = projectById(projectPort, project.id);
+      if (currentProject.path !== project.path) {
+        throw new Error("Project evidence target changed during inspection");
+      }
       const capturedAt = now();
       if (!Number.isSafeInteger(capturedAt) || capturedAt < 0) {
         throw new TypeError("Project evidence runtime clock is invalid");
