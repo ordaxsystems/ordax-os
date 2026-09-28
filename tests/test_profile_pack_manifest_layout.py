@@ -16,11 +16,11 @@ class ProfilePackManifestLayoutTests(unittest.TestCase):
             self.assertNotIn(identity, seen)
             seen.add(identity)
             expected = (
-                f"/system/profile-packs/{entry['slug']}/"
+                f"/profile-packs/{entry['slug']}/"
                 f"v{entry['version']}/manifest.json"
             )
             self.assertEqual(entry["manifest"], expected)
-            path = ROOT / entry["manifest"].lstrip("/")
+            path = ROOT / "system" / entry["manifest"].lstrip("/")
             self.assertTrue(path.is_file(), path)
             manifest = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["slug"], entry["slug"])
