@@ -31,18 +31,20 @@ O modelo não é a autoridade. Contexto não concede tools. Tools não concedem 
 
 O catálogo `system/apps/catalog.mjs` é a origem canônica dos aplicativos first-party. A Intelligence não deve manter uma segunda lista de nomes de apps em prompt, configuração ou código do modelo.
 
-A primeira implementação desta etapa projeta automaticamente do catálogo:
+A implementação projeta automaticamente do contrato canônico de cada app:
 
 - app id;
 - título;
 - versão semântica;
 - descrição;
 - capabilities obrigatórias;
-- capabilities opcionais.
+- capabilities opcionais;
+- IDs de fontes de contexto da Intelligence declaradas pelo próprio app;
+- IDs de tools da Intelligence declaradas pelo próprio app quando existirem.
 
-Assim, um novo app first-party passa a fazer parte do conhecimento estrutural da Intelligence quando entra no catálogo canônico.
+Assim, um novo app first-party passa a fazer parte do conhecimento estrutural da Intelligence quando entra no catálogo canônico. Integrações opcionais também ficam anexadas ao mesmo `defineFirstPartyApp`, em vez de criar uma lista paralela no Assistant.
 
-Isso **não** autoriza leitura do conteúdo privado do app. Saber que `Arquivos` existe é diferente de poder ler um arquivo; saber que `Conta` existe é diferente de poder ler uma sessão. Estado privado e conteúdo vivo exigem fontes de contexto próprias e autorização explícita.
+Isso **não** autoriza leitura do conteúdo privado do app. Saber que `Arquivos` existe ou que declara `file-selection` é diferente de poder ler um arquivo; saber que `Conta` existe é diferente de poder ler uma sessão. Metadados de integração descrevem pontos possíveis, mas autorização continua pertencendo ao Context Registry, grants e Capability Bridge.
 
 ## 3. Context Registry
 
@@ -123,9 +125,12 @@ app owner
  -> canonical app catalog
  -> Surface availability by capability
  -> Intelligence structural discovery
+ -> app-owned Intelligence metadata
  -> optional explicit context source
  -> optional typed tools/capabilities
 ```
+
+`defineFirstPartyApp` é também a origem canônica dos IDs de integração da Intelligence. Hoje Arquivos declara `file-selection`, Notas declara `note-selection` e Projetos declara `project-selection` + `project-evidence-selection`. Apps sem integração recebem listas vazias, sem precisar de exceções no Assistant. Testes cruzam fontes declaradas com o registry first-party para impedir referências órfãs.
 
 Adicionar app não deve exigir editar o prompt global da IA, o runtime do modelo ou uma lista paralela no Assistant.
 
@@ -153,6 +158,8 @@ Knowledge Graph, semantic search e Project Brain podem ser adicionados depois so
 - provider é substituível;
 - app não importa backend de modelo diretamente;
 - novo app entra pelo catálogo canônico;
+- integrações de Intelligence pertencem ao contrato do app, não a uma lista paralela do Assistant;
+- declarar fonte/tool não autoriza coleta ou execução;
 - contexto privado exige autorização;
 - prompt não concede autorização;
 - tool não é inferida por nome de agente;
