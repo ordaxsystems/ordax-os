@@ -32,6 +32,7 @@
     "profile_content_stage_activation": false
   },
   "next_gates": [
+    "profile-content-structural-health-and-per-source-provenance",
     "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
     "profile-health-and-rollback",
     "surface-profile-catalog-ui",
@@ -52,7 +53,8 @@
     "receipt_hash_required": true,
     "stale_same_id_different_sha_is_installed": false,
     "missing_inventory_blocks_boot": false,
-    "future_writer_owner": "trusted-profile-provisioning-executor"
+    "future_writer_owner": "trusted-profile-provisioning-executor",
+    "staged_content_counts_as_installed": false
   },
   "receipt": {
     "schema": "ordax.profile-install-receipt/1",
@@ -67,7 +69,8 @@
     "manifest_sha256_required": true,
     "healthy_activation_required": true,
     "inventory_entry_derived_from_verified_receipt": true,
-    "surface_may_issue_receipt": false
+    "surface_may_issue_receipt": false,
+    "install_receipt_emission_blocked_until_structural_health": true
   },
   "content_proof": {
     "supported_kinds": [
