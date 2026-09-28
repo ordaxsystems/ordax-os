@@ -111,8 +111,12 @@
     "tool_authorization_receipts_are_execution_proof": false,
     "governed_read_only_tool_execution_enabled": true,
     "governed_read_only_tool_execution_ids": [
-      "observe-system-metrics"
+      "observe-system-metrics",
+      "observe-network-status",
+      "observe-power-status"
     ],
+    "network_status_model_context_exposes_interface_names": false,
+    "network_status_model_context_exposes_addresses_or_ssids": false,
     "automatic_model_tool_invocation_enabled": false,
     "mutating_tool_invocation_enabled": false,
     "tool_execution_results_require_bounded_provenance": true,
