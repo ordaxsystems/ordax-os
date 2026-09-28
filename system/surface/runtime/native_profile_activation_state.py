@@ -129,10 +129,17 @@ def validate_profile_activation_ref(value: object, label: str = "Profile activat
         or len(raw_components) > MAX_PROFILE_ACTIVATION_COMPONENTS
     ):
         raise ValueError(f"{label}.components are outside bounds")
-    components = [
-        _validate_component(component, f"{label}.components[{index}]")
-        for index, component in enumerate(raw_components)
-    ]
+    components = sorted(
+        (
+            _validate_component(component, f"{label}.components[{index}]")
+            for index, component in enumerate(raw_components)
+        ),
+        key=lambda component: (
+            component["id"],
+            component["version"],
+            component["sha256"],
+        ),
+    )
     identities = {
         (component["id"], component["version"], component["sha256"])
         for component in components
@@ -187,6 +194,12 @@ def validate_profile_activation_state(value: object) -> dict:
         )
         if current is None and previous is None:
             raise ValueError(f"{label} cannot be empty")
+        if (
+            current is not None
+            and previous is not None
+            and _activation_identity(current) == _activation_identity(previous)
+        ):
+            raise ValueError(f"{label} current and previous must differ")
         spaces.append({
             "spaceId": space_id,
             "current": current,
