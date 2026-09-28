@@ -1,0 +1,53 @@
+{
+  "$schema": "prototype-ordax.intelligence-tools/1",
+  "status": "foundation-only-execution-disabled",
+  "stable_tool_contract": "ordax.intelligence-tool/1",
+  "stable_grant_contract": "ordax.intelligence-tool-grant/1",
+  "owner": "system/services/intelligence",
+  "separation": {
+    "intelligence_tool_runtime_is_device_agent": false,
+    "device_agent_grant_may_be_reused_implicitly": false,
+    "product_mcp_may_bypass_tool_grants": false,
+    "prompt_text_may_grant_authority": false,
+    "model_output_may_grant_authority": false
+  },
+  "sandbox": {
+    "preferred_future_runtime": "wasi-component",
+    "native_broker_allowed_for_platform_capabilities": true,
+    "filesystem_default": "deny",
+    "network_default": "deny",
+    "environment_default": "deny",
+    "process_spawn_default": "deny",
+    "generic_shell_allowed": false,
+    "raw_disk_allowed": false,
+    "release_key_access_allowed": false
+  },
+  "authorization": {
+    "typed_action_required": true,
+    "read_and_write_distinct": true,
+    "write_requires_explicit_approval": true,
+    "owner_scope_required": true,
+    "space_project_scope_may_be_required_by_action": true,
+    "grant_expiry_supported": true,
+    "unknown_action": "deny",
+    "unknown_grant": "deny"
+  },
+  "supply_chain": {
+    "tool_artifact_manifest": "ordax.intelligence-artifact/1",
+    "artifact_kind": "tool-runtime",
+    "sha256_binding_required": true,
+    "signature_required_before_installation": true,
+    "provenance_required": true
+  },
+  "resource_limits": {
+    "timeout_required": true,
+    "output_byte_limit_required": true,
+    "host_resource_budget_future": true
+  },
+  "current_runtime": {
+    "tool_execution_enabled": false,
+    "agent_loop_enabled": false,
+    "autonomous_mutation_enabled": false,
+    "public_store_tool_install_enabled": false
+  }
+}
