@@ -111,6 +111,16 @@ class PhysicalSurfacePerformanceProbeTests(unittest.TestCase):
         self.assertFalse(result["networkAccess"])
         self.assertFalse(result["stateMutation"])
         self.assertEqual(len(result["samples"]), 2)
+        self.assertIsInstance(result["logicalCpuCount"], int)
+        self.assertGreater(result["logicalCpuCount"], 0)
+
+    def test_logical_cpu_count_fails_soft_when_runtime_cannot_report_it(self):
+        with mock.patch.object(probe.os, "cpu_count", return_value=None):
+            self.assertIsNone(probe.logical_cpu_count())
+        with mock.patch.object(probe.os, "cpu_count", return_value=0):
+            self.assertIsNone(probe.logical_cpu_count())
+        with mock.patch.object(probe.os, "cpu_count", return_value=4):
+            self.assertEqual(probe.logical_cpu_count(), 4)
 
     def test_measurement_units_are_explicit_and_process_cpu_is_interpretable(self):
         with tempfile.TemporaryDirectory() as directory:
