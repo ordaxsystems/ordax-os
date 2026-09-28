@@ -1,4 +1,5 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
+import { getDefaultIntelligenceContextSharingRuntime } from "../../services/intelligence/context-sharing-runtime.mjs";
 import { NOTES_VERSION } from "./version.mjs";
 import { createNotesRuntime } from "./domain/runtime.mjs";
 import { mountNotesWorkspaceControls } from "./ui/workspace-controls.mjs";
@@ -55,6 +56,7 @@ export const componentRuntime = Object.freeze({
     fileSpace = null,
     appActivation = null,
     intelligence = null,
+    intelligenceContextShare = null,
   } = {}) {
     if (createStore !== null && typeof createStore !== "function") {
       throw new TypeError("Notes createStore must be a function or null");
@@ -72,11 +74,18 @@ export const componentRuntime = Object.freeze({
     try {
       const store = createStore?.() ?? null;
       notesRuntime = createNotesRuntime({ store });
+      const contextShare = intelligenceContextShare
+        ?? getDefaultIntelligenceContextSharingRuntime().share;
       controls = mountNotesWorkspaceControls(
         root,
         notesRuntime,
         surfaceLifecycle,
-        { fileSpace, appActivation, intelligence },
+        {
+          fileSpace,
+          appActivation,
+          intelligence,
+          intelligenceContextShare: contextShare,
+        },
       );
 
       let destroyed = false;
