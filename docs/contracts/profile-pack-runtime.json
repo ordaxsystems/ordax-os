@@ -11,12 +11,24 @@
   "activation": {
     "internal_proof_mode": "internal-proof",
     "authority": "composition-explicit",
-    "persistence": "session-only",
+    "persistence": "session-only-or-device-restored",
     "entitlement_required": false,
     "billing_required": false,
     "cloud_required": false,
     "draft_only": true,
-    "public_activation_enabled": false
+    "public_activation_enabled": false,
+    "device_restore_enabled": true,
+    "device_restore_authority": "native-state-verified",
+    "restore_boot_critical": false,
+    "restore_drift_policy": "disabled-safe",
+    "restore_requires": [
+      "canonical-profile-manifest",
+      "matching-space-kind",
+      "satisfied-provisioning",
+      "exact-installed-component-receipts"
+    ],
+    "restore_applies_privileges": false,
+    "restore_applies_cloud_mutation": false
   },
   "security": {
     "auto_grant_privileges": false,
@@ -38,5 +50,11 @@
     "download_executor_enabled": false,
     "all_profile_payloads_preseeded_on_usb": false,
     "offline_after_install_supported_by_contract": true
+  },
+  "manifest_source": {
+    "source_of_truth": "system/profile-packs/*/manifest.json",
+    "generated_runtime_projection": "system/profile-packs/manifests.generated.mjs",
+    "generator": "tools/profile-pack-manifests/generate.py",
+    "generated_projection_must_match_source": true
   }
 }
