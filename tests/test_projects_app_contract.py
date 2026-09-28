@@ -42,11 +42,13 @@ class ProjectsAppContractTests(unittest.TestCase):
 
         self.assertIn("assertProjectCatalogPort", controls)
         self.assertIn("assertProjectCloudLinksPort", controls)
+        self.assertIn("assertProjectWebReferencePort", controls)
         self.assertNotIn("createProjectCatalogRuntime", controls)
         self.assertNotIn("createProjectCatalogRuntime", runtime)
         self.assertIn('componentId: "projects"', runtime)
         self.assertIn("projects,", native)
         self.assertIn("projectCloudLinks,", native)
+        self.assertIn("projectWebReferences: projectReferences", native)
         self.assertIn('import("../../apps/projects/runtime.mjs")', native)
 
     def test_native_has_real_local_projects_and_web_degrades_honestly(self):
@@ -55,6 +57,9 @@ class ProjectsAppContractTests(unittest.TestCase):
 
         self.assertIn("createProjectCloudLinksRuntime", native)
         self.assertIn("createNativeProjectCloudLinkStore", native)
+        self.assertIn("createProjectWebReferenceRuntime", native)
+        self.assertIn("createNativeProjectWebReferenceStore", native)
+        self.assertIn("projectReferences?.destroy()", native)
         self.assertIn("projectCloudLinks?.destroy()", native)
         self.assertIn('componentId: "projects"', web)
         self.assertIn("projects: null", web)
@@ -68,7 +73,7 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertNotIn("/__ordax/native/", controls)
         self.assertNotIn("localStorage", controls)
 
-    def test_projects_can_hand_off_a_typed_target_and_one_shot_context_to_intelligence(self):
+    def test_projects_can_hand_off_typed_read_only_evidence_to_intelligence(self):
         controls = self.text(PROJECTS / "ui" / "workspace-controls.mjs")
         runtime = self.text(PROJECTS / "runtime.mjs")
 
@@ -76,21 +81,29 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertIn("assertIntelligenceContextSharePort", controls)
         self.assertIn('appId: "intelligence"', controls)
         self.assertIn('sourceAppId: "projects"', controls)
-        self.assertIn('mode: "plan"', controls)
-        self.assertIn('const target = { kind: "project", id: item.id }', controls)
-        self.assertIn("displayLabel: item.name", controls)
+        self.assertIn('offerProjectToIntelligence(item, "chat")', controls)
+        self.assertIn('offerProjectToIntelligence(item, "plan")', controls)
+        self.assertIn('const target = { kind: "project", id: project.id }', controls)
+        self.assertIn("displayLabel: project.name", controls)
         self.assertIn('sourceId: PROJECT_CONTEXT_SOURCE_ID', controls)
-        self.assertIn("context: createProjectIntelligenceContext(item)", controls)
-        self.assertIn('provenance: "ordax:projects:user-authorized-selection"', controls)
-        self.assertIn("intelligenceContextShare = null", runtime)
+        self.assertIn("context: createProjectIntelligenceContext(project, {", controls)
+        self.assertIn(
+            'provenance: "ordax:projects:user-authorized-selection:catalog-cloud-reference-metadata"',
+            controls,
+        )
+        self.assertIn("projectWebReferences = null", runtime)
         self.assertIn("getDefaultIntelligenceContextSharingRuntime", runtime)
         self.assertIn("intelligenceContextShare: contextShare", runtime)
         self.assertNotIn("requestedCapabilities", controls)
-        self.assertNotIn("text: project.path", controls)
-        context_helper = controls.split("createProjectIntelligenceContext(project)", 1)[1].split(
-            "export function createProjectsPresentation", 1
-        )[0]
+
+        context_helper = controls.split(
+            "export function createProjectIntelligenceContext(", 1
+        )[1].split("export function createProjectsPresentation", 1)[0]
         self.assertNotIn("project.path", context_helper)
+        self.assertNotIn("reference.url", context_helper)
+        self.assertNotIn("cloudProjectId", context_helper)
+        self.assertIn("referenceCount", context_helper)
+        self.assertIn("referencesIncluded", context_helper)
 
     def test_projects_is_localized_and_visible_in_shared_shell(self):
         shell = self.text(SHELL)
@@ -102,6 +115,8 @@ class ProjectsAppContractTests(unittest.TestCase):
         self.assertIn('"app.projects.title": "Projects"', surface_i18n)
         self.assertIn('"projects.action.openFiles": "Abrir em Arquivos"', projects_i18n)
         self.assertIn('"projects.action.openFiles": "Open in Files"', projects_i18n)
+        self.assertIn('"projects.action.askIntelligence": "Perguntar à Intelligence"', projects_i18n)
+        self.assertIn('"projects.action.askIntelligence": "Ask Intelligence"', projects_i18n)
         self.assertIn('"projects.action.planWithIntelligence": "Planejar com Intelligence"', projects_i18n)
         self.assertIn('"projects.action.planWithIntelligence": "Plan with Intelligence"', projects_i18n)
         self.assertNotIn('timeZone: "America/Bahia"', self.text(PROJECTS / "ui" / "workspace-controls.mjs"))
