@@ -2,6 +2,7 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import json
 import os
+import stat
 import tempfile
 import unittest
 
@@ -82,6 +83,29 @@ class NativeProfileComponentInventoryTests(unittest.TestCase):
             os.chmod(path, 0o644)
             with self.assertRaisesRegex(ValueError, "boundary is unsafe"):
                 module.read_profile_component_inventory(str(path))
+
+    def test_internal_writer_is_atomic_private_and_round_trips(self):
+        module = load_module()
+        payload = {
+            "schema": "ordax.profile-component-inventory/1",
+            "revision": 2,
+            "persistence": "device",
+            "entries": [{
+                "id": "skill.example",
+                "kind": "skill-pack",
+                "version": "2.0.0",
+                "sha256": "c" * 64,
+                "installedAt": 2000,
+                "receiptSha256": "d" * 64,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "nested" / "inventory.json"
+            module.write_profile_component_inventory(payload, str(path))
+            self.assertEqual(module.read_profile_component_inventory(str(path)), payload)
+            self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+            self.assertEqual(stat.S_IMODE(os.stat(path.parent).st_mode), 0o700)
+            self.assertFalse(list(path.parent.glob("*.tmp.*")))
 
     def test_surface_boundary_is_read_only_and_loopback_scoped(self):
         host = HOST.read_text(encoding="utf-8")
