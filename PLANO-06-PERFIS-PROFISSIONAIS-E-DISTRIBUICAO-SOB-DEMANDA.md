@@ -137,7 +137,10 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - Knowledge/Skill possuem proof Ed25519, health estrutural por entrada e proveniência, ainda sem ativação pública;
 - stage saudável gera evidence verificável, receipt e inventário Native sob lock;
 - ativação local possui estado Native privado `current/previous` por Space, com rollback da composição;
-- rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
+- manifests JSON em `system/profile-packs/*/manifest.json` são a fonte única de verdade; a projeção JS usada no runtime é gerada deterministicamente e verificada pelo CI;
+- a composição Native restaura offline somente Profiles cujo manifest, `spaceKind`, provisioning e receipts continuam compatíveis;
+- qualquer drift na restauração entra em `disabled-safe` e não impede o boot;
+- rollback/restore de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
 ### Ainda bloqueado
@@ -175,7 +178,7 @@ Depois da prova MVP:
 1. conectar Knowledge Pack saudável ao retrieval/Intelligence sem torná-lo memória autoritativa;
 2. conectar Skill Pack declarativo ao contexto de Intelligence sem conceder tools automaticamente;
 3. concluir o comando confiável de ativação por intenção do usuário sobre o estado Native `current/previous`;
-4. restaurar composição ativa no boot sem tornar Profile boot-critical;
+4. aplicar a composição restaurada aos apps/Knowledge/Skills reais apenas depois da revalidação, mantendo falha de Profile fora do caminho crítico de boot;
 5. Store/catalog remoto assinado;
 6. downloads transacionais;
 7. Profile Stack com resolução de conflitos pela policy mais restritiva;
