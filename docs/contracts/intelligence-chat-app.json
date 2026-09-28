@@ -16,14 +16,21 @@
     "registry_schema": "ordax.intelligence-context-registry/1",
     "capsule_schema": "ordax.intelligence-context-capsule/1",
     "handoff_schema": "ordax.intelligence-handoff/1",
+    "share_schema": "ordax.intelligence-context-share/1",
     "handoff_transport": "typed-app-activation-target",
     "automatic_sources": [
       "first-party-app-catalog"
+    ],
+    "explicit_sources": [
+      "project-selection"
     ],
     "persistent_memory_automatic": false,
     "private_app_state_automatic": false,
     "user_prompt_can_grant_context": false,
     "explicit_sources_require_caller_authorization": true,
+    "selected_project_context_one_shot": true,
+    "context_grant_ttl_bounded": true,
+    "grant_id_in_handoff": false,
     "handoff_carries_private_content": false,
     "handoff_can_activate_explicit_context": false
   },
@@ -48,5 +55,5 @@
   },
   "history": "session-only",
   "authority": "none",
-  "next_gate": "add separately-authorized selected document, file, project and workspace context sources behind the typed handoff before Web grounding or action capabilities"
+  "next_gate": "extend the same one-shot authorization model to selected document, file and workspace context before Web grounding or action capabilities"
 }
