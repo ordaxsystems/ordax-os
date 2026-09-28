@@ -55,7 +55,10 @@ CONFIG_VIRTIO=y
 CONFIG_VIRTIO_PCI=y
 CONFIG_DRM_VIRTIO_GPU=y
 
-CONFIG_LOGO=y
+# Product kernels must not expose the upstream Linux/Tux boot logo. OrdaX owns
+# the visible boot identity at the product layer; diagnostic text remains
+# available through explicit diagnostic boot configuration instead.
+# CONFIG_LOGO is not set
 
 # Keyboard, mouse and USB HID.
 CONFIG_INPUT=y
