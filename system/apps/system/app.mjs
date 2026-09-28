@@ -10,7 +10,7 @@ export const systemApp = defineFirstPartyApp({
   component: systemComponent,
   requiredCapabilities: [],
   intelligence: {
-    contextSourceIds: [],
+    contextSourceIds: ["workspace-selection"],
     toolIds: [
       "observe-system-metrics",
       "observe-network-status",
