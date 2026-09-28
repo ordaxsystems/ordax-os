@@ -192,13 +192,31 @@ Depois da prova MVP:
 
 ## 10. Origem da decisão
 
-Esta arquitetura reaproveita os invariantes úteis do antigo `novo-ordax-os`, especialmente:
+A referência legada foi consultada diretamente no repositório
+`washingtonmsdj/novo-ordax-os`, default branch `main`, snapshot observado no
+commit `49fe41fa67d9032f2e349e86592304e64d6c2d88`.
 
-- RFC-0009 Ordax Profiles;
-- Professional Runtime;
+Documentos de referência principais:
+
+- `rfcs/RFC-0009-ordax-profiles.md`;
+- `docs/PROFESSIONAL-RUNTIME.md`;
+- `docs/STORE-VISION.md`;
+- `docs/ECOSYSTEM.md`;
+- `docs/ORDAX-CONSTITUTION.md`;
+- `docs/USER-JOURNEYS.md`.
+
+Os invariantes reaproveitados são:
+
+- Runtime único;
+- Profiles instaláveis, alternáveis e combináveis;
 - Adaptive Workspace;
 - Profile Stack;
 - Store/Package Platform;
-- instalação/atualização com stage, health e rollback.
+- instalação com resolução de dependências;
+- stage, health, rollback e receipts;
+- Profile solicita capacidades, Runtime/Policy decidem e usuário autoriza;
+- remover Profile não apaga automaticamente objetos do usuário.
 
-O runtime legado não é copiado. Os conceitos são reimplementados sobre os contratos atuais do `prototipo-ordax-os`, com USB-only MVP, component slots, assinatura, Spaces, Memory e Intelligence provider-neutral.
+O runtime legado não é copiado. Os conceitos são reimplementados sobre os contratos atuais do
+`prototipo-ordax-os`, com USB-only MVP, component slots, assinatura, Spaces,
+Memory e Intelligence provider-neutral.
