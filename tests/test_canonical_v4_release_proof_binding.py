@@ -67,7 +67,7 @@ class CanonicalV4ReleaseProofBindingTests(unittest.TestCase):
                     "release_manifest_sha256": None,
                     "release_envelope_sha256": None,
                 },
-                "requirements": {"canonical_v4_release_proof_bound": True},
+                "requirements": {"canonical_v4_release_proof_bound": False},
                 "consumer_policy": {},
             },
         )
@@ -117,6 +117,7 @@ class CanonicalV4ReleaseProofBindingTests(unittest.TestCase):
             self.assertFalse(contract["physical_write_allowed"])
             self.assertFalse(contract["explicit_owner_authorization"])
             self.assertIsNone(contract["authorization_context_sha256"])
+            self.assertTrue(contract["requirements"]["canonical_v4_release_proof_bound"])
             self.assertEqual(
                 contract["bindings"]["canonical_v4_release_proof_sha256"],
                 sha256(destination),
