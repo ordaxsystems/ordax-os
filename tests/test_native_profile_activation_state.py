@@ -307,6 +307,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 "persistence": "device",
                 "spaces": [{
                     "spaceId": "space-1",
+                    "spaceKind": "professional",
                     "current": same,
                     "previous": {**same, "activatedAt": 500},
                 }],
