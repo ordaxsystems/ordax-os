@@ -1,0 +1,30 @@
+{
+  "$schema": "prototype-ordax.semantic-index/1",
+  "status": "foundation-only-no-runtime-index-yet",
+  "stable_contract": "ordax.semantic-index/1",
+  "owner": "system/services/memory",
+  "source_of_truth": false,
+  "rebuildable": true,
+  "memory_identity_depends_on_embedding_model": false,
+  "embedding_artifact_manifest": "ordax.intelligence-artifact/1",
+  "embedding_artifact_kind": "embedding-model",
+  "rules": {
+    "structured_authorization_filters_run_before_semantic_ranking": true,
+    "index_may_only_reference_authorized_source_identity": true,
+    "source_content_hash_required": true,
+    "stale_content_hash_invalidates_record": true,
+    "embedding_model_change_invalidates_index": true,
+    "embedding_artifact_change_invalidates_index": true,
+    "dimension_or_distance_change_invalidates_index": true,
+    "rebuild_must_not_modify_memory_items": true,
+    "deleting_index_must_not_delete_memory": true,
+    "secret_material_must_not_enter_index": true,
+    "cloud_embedding_requires_explicit_egress_policy": true,
+    "local_embedding_preferred_for_offline_baseline": true
+  },
+  "current_runtime": {
+    "semantic_search_enabled": false,
+    "embedding_generation_enabled": false,
+    "lexical_search_remains_canonical": true
+  }
+}

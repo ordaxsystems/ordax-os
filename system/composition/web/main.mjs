@@ -1,4 +1,5 @@
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
+import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createSameOriginIdentityCredentials } from "../../adapters/web/identity-credentials.mjs";
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
@@ -19,6 +20,8 @@ import { createNotificationsRuntime } from "../../services/notifications/runtime
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-metadata.mjs";
+import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
+import { LOCAL_PROFILE_DISTRIBUTIONS } from "../../profile-packs/distributions.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -45,6 +48,12 @@ const identityActions = createWebIdentityActions(window, identitySession);
 const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
 const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
 const spaces = createWebSpacesCatalog(window);
+const profileComponentInventory = createSessionProfileComponentInventory();
+const profileProvisioning = createProfileProvisioningRuntime({
+  distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+  inventory: profileComponentInventory,
+  readNetworkAvailable: () => window.navigator?.onLine === true,
+});
 const host = createWebSurfaceHost(window, {
   accountIdentityAvailable: identityAvailable,
   syncSafeStateAvailable: identityAvailable,
@@ -125,6 +134,7 @@ const accountOverviewControls = mountAccountOverviewControls(
   appActivation,
   identityCredentials,
   spaces,
+  profileProvisioning,
 );
 const settingsOverviewControls = mountSettingsOverviewControls(
   root,
@@ -208,6 +218,8 @@ window.addEventListener(
     notificationCenter.destroy();
     settingsOverviewControls.destroy();
     accountOverviewControls.destroy();
+    profileProvisioning.dispose();
+    profileComponentInventory.dispose();
     spaces.dispose();
     accountSync.destroy();
     preferenceSync.destroy();

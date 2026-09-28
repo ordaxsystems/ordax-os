@@ -83,6 +83,27 @@ class StableBaseContractTests(unittest.TestCase):
         self.assertNotIn("pin-alpine-minirootfs-sha256", self.source["promotion_blockers"])
         self.assertNotIn("lock-exact-apk-package-versions", self.source["promotion_blockers"])
 
+    def test_wifi_module_payload_and_coldplug_roots_are_explicit(self):
+        modules = self.source["kernel_modules"]
+        self.assertEqual(
+            modules["required_basenames"],
+            ["iwlwifi", "iwlmvm", "rtl8xxxu", "mt76x2u", "ath9k_htc"],
+        )
+        self.assertEqual(
+            modules["coldplug_entrypoints"],
+            ["iwlwifi", "rtl8xxxu", "mt76x2u", "ath9k_htc"],
+        )
+        self.assertTrue(
+            set(modules["coldplug_entrypoints"]).issubset(modules["required_basenames"])
+        )
+        self.assertIn("iwlmvm", modules["required_basenames"])
+        self.assertNotIn("iwlmvm", modules["coldplug_entrypoints"])
+
+        builder = BUILDER.read_text(encoding="utf-8")
+        self.assertIn("Stable Base required kernel module list is invalid", builder)
+        self.assertIn("Stable Base coldplug entrypoints are invalid", builder)
+        self.assertIn("set(coldplug_entrypoints).issubset(required_modules)", builder)
+
     def test_stable_base_is_complete_os_base_but_not_product_release(self):
         rootfs = self.source["rootfs"]
         self.assertEqual(rootfs["format"], "erofs")

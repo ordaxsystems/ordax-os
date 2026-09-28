@@ -57,19 +57,21 @@ The USB/native-disk runtime uses the WebKitGTK 4.1 engine already appropriate to
 - filtering of external WebView resource requests and redirects so literal/local non-public network targets are not intentionally dispatched by the browser plane;
 - blocked downloads until a dedicated user-space download contract is connected.
 
-The external browsing profile is persisted beneath:
+The external browsing profile separates durable website data from disposable cache:
 
 ```text
 /var/lib/ordax-user/browser/
 ├─ session.json
 └─ default/
-   ├─ data/
-   └─ cache/
+   └─ data/
+
+/run/ordax/browser-cache/
+└─ default/
 ```
 
-`session.json` is a small OrdaX-owned state file. It stores only the filtered public URL list and active-tab index, is written atomically with private permissions, is bounded to 16 tabs, and fails closed on missing, corrupt, oversized, symlinked or unsupported state. It does not serialize page HTML, privileged Surface state or website storage. Website data remains owned by the isolated WebKit profile.
+`session.json` is a small OrdaX-owned state file. It stores only the filtered public URL list and active-tab index, is written atomically with private permissions, is bounded to 16 tabs, and fails closed on missing, corrupt, oversized, symlinked or unsupported state. The host deduplicates canonical session snapshots so unchanged state is not fsync'd repeatedly. It does not serialize page HTML, privileged Surface state or website storage.
 
-That path is backed by the existing OrdaX user-state mount rather than a new physical partition.
+Persistent website data remains owned by the isolated WebKit profile under the existing OrdaX user-state mount. WebKit cache is intentionally rooted under `/run/ordax` so portable USB does not spend flash endurance on rebuildable browser cache.
 
 ### Loopback and DNS-rebinding status
 

@@ -19,6 +19,7 @@ import {
 } from "../../contracts/workspace-metadata-source.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { assertSpacesPort, validateSpacesSnapshot } from "../../contracts/spaces.mjs";
+import { assertProfileProvisioningPort } from "../../contracts/profile-provisioning.mjs";
 import { mountMemoryReviewControls } from "./memory-review-controls.mjs";
 
 const ACCOUNT_WINDOW_SELECTOR = '[data-window-id="account"]';
@@ -27,6 +28,7 @@ const ACCOUNT_EXTENSION_SELECTOR = '[data-app-extension="account-overview"]';
 const ACCOUNT_SECTIONS = Object.freeze([
   Object.freeze({ id: "overview", messageId: "account.section.overview" }),
   Object.freeze({ id: "spaces", messageId: "account.section.spaces" }),
+  Object.freeze({ id: "profiles", messageId: "account.section.profiles" }),
   Object.freeze({ id: "memory", messageId: "account.section.memory" }),
   Object.freeze({ id: "sync", messageId: "account.section.sync" }),
 ]);
@@ -89,6 +91,7 @@ export function mountAccountOverviewControls(
   appActivation = null,
   identityCredentials = null,
   spaces = null,
+  profileProvisioning = null,
   memoryReview = null,
 ) {
   if (!(root instanceof Element)) {
@@ -106,6 +109,9 @@ export function mountAccountOverviewControls(
     : assertWorkspaceMetadataSource(workspaceMetadataSource);
   const activationPort = appActivation === null ? null : assertAppActivationPort(appActivation);
   const spacesPort = spaces === null ? null : assertSpacesPort(spaces);
+  const profileProvisioningPort = profileProvisioning === null
+    ? null
+    : assertProfileProvisioningPort(profileProvisioning);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -120,6 +126,7 @@ export function mountAccountOverviewControls(
   let spacesSnapshot = spacesPort
     ? validateSpacesSnapshot(spacesPort.getSnapshot())
     : null;
+  let profilePlans = profileProvisioningPort ? profileProvisioningPort.list() : null;
   let pendingAction = null;
   let actionMessage = "";
   let credentialEmailDraft = "";
@@ -481,6 +488,56 @@ export function mountAccountOverviewControls(
     view.append(section);
   };
 
+  const renderProfiles = (view) => {
+    const section = node(documentObject, "section", "ordax-account-section");
+    section.append(
+      node(documentObject, "span", "ordax-account-eyebrow", t("account.profiles.eyebrow")),
+      node(documentObject, "h4", "ordax-account-section-title", t("account.profiles.title")),
+      node(documentObject, "p", "ordax-account-subtitle", t("account.profiles.subtitle")),
+    );
+
+    if (!profileProvisioningPort || profilePlans === null) {
+      const grid = node(documentObject, "div", "ordax-account-grid");
+      appendStateCard(
+        documentObject,
+        grid,
+        t("account.profiles.status"),
+        t("account.profiles.unavailable"),
+        t("account.profiles.unavailable.detail"),
+        "unavailable",
+      );
+      section.append(grid);
+      view.append(section);
+      return;
+    }
+
+    const grid = node(documentObject, "div", "ordax-account-grid");
+    for (const plan of profilePlans) {
+      const nameKey = `account.profiles.name.${plan.profile.slug}`;
+      const stateKey = `account.profiles.state.${plan.state}`;
+      const detailKey = plan.offlineAfterInstall
+        ? "account.profiles.detail.offline"
+        : "account.profiles.detail.online";
+      appendStateCard(
+        documentObject,
+        grid,
+        t(nameKey),
+        t(stateKey),
+        t(detailKey, {
+          version: plan.profile.version,
+          delivery: t(`account.profiles.delivery.${plan.deliveryMode}`),
+        }),
+        plan.state === "already-provisioned"
+          ? "available"
+          : plan.state === "blocked"
+            ? "unavailable"
+            : "neutral",
+      );
+    }
+    section.append(grid);
+    view.append(section);
+  };
+
   const renderMemory = (view) => {
     const section = node(documentObject, "section", "ordax-account-section");
     section.append(
@@ -671,6 +728,8 @@ export function mountAccountOverviewControls(
       renderIdentity(view);
     } else if (activeSection === "spaces") {
       renderSpaces(view);
+    } else if (activeSection === "profiles") {
+      renderProfiles(view);
     } else if (activeSection === "memory") {
       renderMemory(view);
     } else if (activeSection === "sync") {

@@ -127,7 +127,7 @@ Os planos longos registram capacidades herdadas como referência de produto, mas
 | C11 Desktop instalado / Creator | **Creator ENTRA; Desktop instalado NÃO** | Creator USB é P0. Instalação permanente/desktop Native continua pós-MVP. |
 | C12 Apps instaláveis/SDK | **FUNDAÇÃO PRÉ-MVP; instalação externa pós-MVP** | Contrato de manifesto/distribuição assinada entra agora para não refazer supply chain depois. Instalar apps terceiros/SDK público continua fora do primeiro USB. |
 | C13 Store | **FUNDAÇÃO PRÉ-MVP; produto Store pós-MVP** | Store futura usa o mesmo manifesto/updater/permissions; UI pública, publicação de terceiros e billing continuam posteriores. |
-| C14 Perfis profissionais | **FUNDAÇÃO PRÉ-MVP via Spaces/Profile Packs** | Conta pessoal é separada. Packs Developer e Legal-BR existem como drafts; ativação comercial/knowledge pipeline completo continua posterior. |
+| C14 Perfis profissionais | **FUNDAÇÃO MVP via Spaces/Profile Packs + provisioning sob demanda** | Conta pessoal é separada. Catálogo leve, planner fail-closed e seção Perfis na Conta já fazem parte da fundação do MVP; Developer continua prova interna e Legal-BR permanece bloqueado até knowledge/trust profissional. Ver `PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md`. |
 | C15 Objetos/proveniência de produto | **PÓS-MVP** | Fora do lançamento básico. |
 | C16 IA nativa | **ENTRA como capability do sistema** | Intelligence + backend local fazem parte do Stable/MVP v4. A fundação `ordax.memory/1` + `ordax.model-router/1` preserva memória OrdaX/provider-neutral e rotas futuras; cloud e tools mutáveis ainda não estão ativos. |
 | C17 Conectores/automações | **BOUNDARY PRÉ-MVP; runtime pós-MVP** | Product MCP/OAuth e separação GitHub App/Space/project ficam definidos agora. Conectores ativos, automações e mutações continuam posteriores. |
@@ -141,7 +141,7 @@ Os planos longos registram capacidades herdadas como referência de produto, mas
 | C26 Onboarding/notificações/acessibilidade | **ENTRA no básico de produto** | OOBE persistente, rota sem conta e localização pública pt-BR/en-US estão PASS_SOURCE; notificações/acessibilidade seguem somente onde há contratos reais. Falta prova física Stable/MVP. |
 | C27 Backup/histórico pessoal | **PÓS-MVP** | Não confundir backup de dados com rollback/known-good do sistema, que é P0. |
 
-Portanto, o fechamento do **primeiro USB físico** continua dominado pelas provas de C02/C03/C07/C16/C20/C21/C26 e por qualquer gap C18 realmente reproduzido. Em paralelo, C08/C12/C13/C14/C16/C17 recebem somente as fundações de domínio definidas no `PLANO-04`; elas evitam dívida arquitetural, mas não transformam Store, billing, sync cloud ou MCP mutável em gates da mídia física.
+Portanto, o fechamento do **primeiro USB físico** continua dominado pelas provas de C02/C03/C07/C16/C20/C21/C26 e por qualquer gap C18 realmente reproduzido. Em paralelo, C08/C12/C13/C16/C17 recebem as fundações de domínio definidas no `PLANO-04`, enquanto C14 segue também o `PLANO-06` de provisioning sob demanda; elas evitam dívida arquitetural, mas não transformam Store, billing, sync cloud ou MCP mutável em gates da mídia física.
 
 ## 3. Regra para trabalho paralelo
 

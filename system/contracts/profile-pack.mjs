@@ -177,7 +177,7 @@ export function assertProfilePackRuntime(port) {
   if (!port || typeof port !== "object" || port.schema !== PROFILE_PACK_RUNTIME_SCHEMA) {
     throw new TypeError("Compatible Profile Pack runtime is required");
   }
-  for (const method of ["getSnapshot", "subscribe", "list", "get", "activate", "deactivate", "dispose"]) {
+  for (const method of ["getSnapshot", "subscribe", "list", "get", "activate", "deactivate", "rollback", "dispose"]) {
     if (typeof port[method] !== "function") {
       throw new TypeError(`Profile Pack runtime must implement ${method}()`);
     }

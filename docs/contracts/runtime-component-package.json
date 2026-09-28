@@ -9,7 +9,9 @@
   "source_repository": "washingtonmsdj/prototipo-ordax-os",
   "component_manifest_source": "system/services/components/manifests/",
   "supported_components": [
-    "internet"
+    "internet",
+    "local-ai-service",
+    "ordax-intelligence"
   ],
   "self_contained_source_graph_required": true,
   "remote_runtime_dependencies_allowed": false,
@@ -29,7 +31,7 @@
   "rollback_slot_activation_available": false,
   "publish_allowed": false,
   "internet_release_mode": "git-app",
-  "next_gate": "After canonical component trust is pinned, add a separate Native promotion/rejection executor that consumes only system policy decisions; keep Internet git-app and production slot activation blocked until promote+rollback proof passes",
+  "next_gate": "Prove Local AI and Ordax Intelligence pending runtime health, promotion and rollback against canonical component trust before changing either releaseMode from bundled to component-slot; no USB reinstall may be required for later component updates.",
   "activation_state_machine_available": true,
   "activation_state_atomic_current_previous_pending_rejected": true,
   "activation_state_revalidates_signed_slots": true,
@@ -100,5 +102,14 @@
   "component_promotion_policy_requires_component_slot_for_promote": true,
   "component_promotion_policy_requires_canonical_trust_for_promote": true,
   "component_promotion_policy_requires_activation_gate_for_promote": true,
-  "component_promotion_policy_healthy_git_app_action": "hold"
+  "component_promotion_policy_healthy_git_app_action": "hold",
+  "packaging_only_components": [
+    "local-ai-service",
+    "ordax-intelligence"
+  ],
+  "local_ai_service_release_mode": "bundled",
+  "ordax_intelligence_release_mode": "bundled",
+  "intelligence_component_activation_enabled": false,
+  "intelligence_component_health_promotion_proven": false,
+  "intelligence_component_rollback_proven": false
 }

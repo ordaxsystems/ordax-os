@@ -4,29 +4,53 @@ import {
   validateProfilePackCatalog,
   validateProfilePackSpace,
 } from "../../contracts/profile-pack.mjs";
+import {
+  assertProfileProvisioningPort,
+} from "../../contracts/profile-provisioning.mjs";
 
 function identity(slug, version) {
   return `${slug}@${version}`;
 }
 
-function activationSnapshot(pack, space) {
+function activationSnapshot(pack, space, plan) {
   return Object.freeze({
     schema: PROFILE_PACK_ACTIVATION_SCHEMA,
     mode: "internal-proof",
     authority: "composition-explicit",
     persistence: "session-only",
+    cloudMutationApplied: false,
     entitlementRequired: false,
     billingRequired: false,
     cloudRequired: false,
     space: Object.freeze({ id: space.id, kind: space.kind }),
+    profile: Object.freeze({ slug: pack.slug, version: pack.version }),
+    components: Object.freeze(
+      plan.alreadyInstalled.map((component) => Object.freeze({
+        id: component.id,
+        kind: component.kind,
+        version: component.version,
+        sha256: component.sha256,
+        receiptSha256: component.receiptSha256,
+        installedAt: component.installedAt,
+      })),
+    ),
     pack,
   });
 }
 
-export function createProfilePackRuntime({ packs = [] } = {}) {
+function stateSnapshot(spaceId, current, previous) {
+  return Object.freeze({
+    spaceId,
+    current,
+    previous,
+  });
+}
+
+export function createProfilePackRuntime({ packs = [], provisioning } = {}) {
+  const provisioningPort = assertProfileProvisioningPort(provisioning);
   const validated = validateProfilePackCatalog(packs);
   const catalog = new Map(validated.map((pack) => [identity(pack.slug, pack.version), pack]));
-  const activations = new Map();
+  const activationStates = new Map();
   const listeners = new Set();
   let disposed = false;
 
@@ -37,16 +61,34 @@ export function createProfilePackRuntime({ packs = [] } = {}) {
     return catalog.get(identity(slug, version)) ?? null;
   };
 
-  const snapshot = () => Object.freeze({
-    schema: PROFILE_PACK_RUNTIME_SCHEMA,
-    packs: Object.freeze([...catalog.values()]),
-    activations: Object.freeze([...activations.values()]),
-  });
+  const snapshot = () => {
+    const states = Object.freeze([...activationStates.values()]);
+    return Object.freeze({
+      schema: PROFILE_PACK_RUNTIME_SCHEMA,
+      packs: Object.freeze([...catalog.values()]),
+      activations: Object.freeze(
+        states.flatMap((state) => state.current === null ? [] : [state.current]),
+      ),
+      activationStates: states,
+    });
+  };
 
   const publish = () => {
     if (disposed) return;
     const current = snapshot();
     for (const listener of [...listeners]) listener(current);
+  };
+
+  const boundedSpaceId = (spaceId) => {
+    if (
+      typeof spaceId !== "string"
+      || spaceId.length < 1
+      || spaceId.length > 160
+      || spaceId.includes("\0")
+    ) {
+      throw new TypeError("Profile Pack operation requires a bounded Space id");
+    }
+    return spaceId;
   };
 
   return Object.freeze({
@@ -92,29 +134,55 @@ export function createProfilePackRuntime({ packs = [] } = {}) {
         throw new Error("Profile Pack is incompatible with the selected Space kind");
       }
 
-      const activation = activationSnapshot(pack, targetSpace);
-      activations.set(targetSpace.id, activation);
+      const plan = provisioningPort.get(slug, version);
+      if (plan === null) {
+        throw new Error("Profile Pack has no provisioning plan");
+      }
+      if (plan.componentsSatisfied !== true || plan.requiredMissing.length !== 0) {
+        throw new Error("Profile Pack required components are not installed");
+      }
+
+      const activation = activationSnapshot(pack, targetSpace, plan);
+      const existing = activationStates.get(targetSpace.id);
+      activationStates.set(
+        targetSpace.id,
+        stateSnapshot(
+          targetSpace.id,
+          activation,
+          existing?.current ?? null,
+        ),
+      );
       publish();
       return activation;
     },
     deactivate(spaceId) {
       if (disposed) throw new Error("Profile Pack runtime is disposed");
-      if (
-        typeof spaceId !== "string"
-        || spaceId.length < 1
-        || spaceId.length > 160
-        || spaceId.includes("\0")
-      ) {
-        throw new TypeError("Profile Pack deactivation requires a bounded Space id");
-      }
-      const changed = activations.delete(spaceId);
-      if (changed) publish();
-      return changed;
+      const id = boundedSpaceId(spaceId);
+      const existing = activationStates.get(id);
+      if (!existing || existing.current === null) return false;
+      activationStates.set(
+        id,
+        stateSnapshot(id, null, existing.current),
+      );
+      publish();
+      return true;
+    },
+    rollback(spaceId) {
+      if (disposed) throw new Error("Profile Pack runtime is disposed");
+      const id = boundedSpaceId(spaceId);
+      const existing = activationStates.get(id);
+      if (!existing || existing.previous === null) return false;
+      activationStates.set(
+        id,
+        stateSnapshot(id, existing.previous, existing.current),
+      );
+      publish();
+      return true;
     },
     dispose() {
       if (disposed) return;
       disposed = true;
-      activations.clear();
+      activationStates.clear();
       listeners.clear();
     },
   });

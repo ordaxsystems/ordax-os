@@ -142,7 +142,25 @@ The comparator does **not** select a winner, apply a performance threshold, muta
 runtime bytes or promote a release. Product acceptance remains a separate human
 and release-policy decision based on measured evidence.
 
-## 5. Tuning workflow
+## 5. Physical runtime correlation
+
+The shared physical Surface probe now also aggregates the `local-ai` process
+role. This means one physical session can correlate:
+
+- Local AI CPU time and RSS growth;
+- system-wide CPU busy and I/O wait ratios;
+- Linux PSI for CPU, memory and I/O;
+- physical block-device read/write deltas;
+- Surface/native-host/chromium resource use.
+
+The probe emits only aggregate counters. It does not expose the Local AI command
+line, model path, prompt, response or user content.
+
+This is the preferred evidence for deciding whether a future tuning candidate
+actually improves the portable product instead of merely increasing raw model
+throughput while making the rest of the OS less responsive.
+
+## 6. Tuning workflow
 
 For a real notebook/hardware target:
 
@@ -159,11 +177,12 @@ For a real notebook/hardware target:
 CPU feature presence is an input to experimentation, not proof that a build or
 threading policy is faster or sufficiently portable.
 
-## 6. What remains
+## 7. What remains
 
 - complete the current CI/QEMU proof of the newly wired production pre-start
   hardware probe;
 - collect the first baseline on the actual target notebook/USB environment;
+- collect a simultaneous physical Surface performance probe with Local AI active;
 - determine whether the portable generic engine meets the UX target;
 - if not, evaluate controlled alternatives without changing the stable
   `ordax.local-ai/1` / `ordax.intelligence/1` APIs;

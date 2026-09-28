@@ -183,31 +183,28 @@ test("Native memory flush still surfaces a persistent POST failure after retry",
   assert.equal(postCalls, 2);
 });
 
-test("newer queued Native memory supersedes an older failed snapshot", async () => {
+test("synchronous Native memory bursts coalesce to the newest snapshot", async () => {
   const postedIds = [];
-  let postCalls = 0;
   const store = await createNativeMemoryStore({
     async fetch(url, options = {}) {
       if (options.method === "GET") {
         return { ok: true, async json() { return { payload: null }; } };
       }
-      postCalls += 1;
       const body = JSON.parse(options.body);
       postedIds.push(JSON.parse(body.payload).items[0].id);
-      return postCalls === 1
-        ? { ok: false, status: 503 }
-        : { ok: true, async json() { return {}; } };
+      return { ok: true, async json() { return {}; } };
     },
   });
 
   store.save(snapshot([memoryItem({ id: "older" })]));
+  store.save(snapshot([memoryItem({ id: "middle" })]));
   store.save(snapshot([memoryItem({ id: "newer" })]));
   assert.equal(await store.flush(), true);
-  assert.deepEqual(postedIds, ["older", "newer"]);
+  assert.deepEqual(postedIds, ["newer"]);
   assert.equal(store.load().items[0].id, "newer");
 });
 
-test("Native memory flush does not report a false failure after a newer queued save became durable", async () => {
+test("Native memory flush retries only the coalesced newest snapshot after a transient failure", async () => {
   const postedIds = [];
   let postCalls = 0;
   let releaseFirst;
@@ -232,7 +229,7 @@ test("Native memory flush does not report a false failure after a newer queued s
   releaseFirst({ ok: false, status: 503 });
 
   assert.equal(await flushing, true);
-  assert.deepEqual(postedIds, ["older", "newer", "newer"]);
+  assert.deepEqual(postedIds, ["newer", "newer"]);
   assert.equal(store.load().items[0].id, "newer");
 });
 

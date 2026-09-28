@@ -1,0 +1,63 @@
+{
+  "$schema": "prototype-ordax.profile-content-trust-policy/1",
+  "status": "operator-ceremony-not-started",
+  "trust_domain": "profile-content",
+  "key_id": "ordax-profile-content-v1",
+  "trust_schema": "prototype-ordax.profile-content-trust/1",
+  "manifest_schema": "prototype-ordax.profile-content-manifest/1",
+  "envelope_schema": "prototype-ordax.profile-content-envelope/1",
+  "signature_algorithm": "ed25519",
+  "scope": {
+    "allowed_kinds": [
+      "knowledge-pack",
+      "skill-pack"
+    ],
+    "apps_use_separate_trust_path": true,
+    "models_use_intelligence_artifact_path": true,
+    "runtime_components_use_separate_trust_domain": true
+  },
+  "public_anchor": {
+    "repository_path": "system/trust/profile-content-ed25519.json",
+    "runtime_path": "/srv/ordax-system/trust/profile-content-ed25519.json",
+    "pinned": false,
+    "sha256": null
+  },
+  "private_key": {
+    "repository_allowed": false,
+    "device_allowed": false,
+    "actions_artifact_allowed": false,
+    "chat_allowed": false,
+    "external_custody_required": true,
+    "encrypted_recovery_copy_required": true,
+    "recovery_proof_required_before_public_anchor_pin": true
+  },
+  "separation": {
+    "whole_os_release_key_reuse_allowed": false,
+    "runtime_component_key_reuse_allowed": false,
+    "external_app_test_key_reuse_allowed": false,
+    "ci_ephemeral_key_may_be_canonical": false,
+    "publisher_authority_separate_from_activation_authority": true
+  },
+  "verification": {
+    "exact_manifest_signature_required": true,
+    "exact_content_sha256_required": true,
+    "exact_content_size_required": true,
+    "provenance_required": true,
+    "requested_capabilities_allowed": false,
+    "runtime_network_allowed": false,
+    "mutable_host_access_allowed": false
+  },
+  "promotion": {
+    "canonical_anchor_pin_requires_operator_ceremony": true,
+    "pinning_enables_publication": false,
+    "pinning_enables_installation": false,
+    "pinning_enables_activation": false,
+    "healthy_stage_and_receipt_required_before_inventory_admission": true
+  },
+  "current_gates": {
+    "canonical_profile_content_trust_anchor_pinned": false,
+    "profile_content_publish_allowed": false,
+    "profile_content_install_allowed": false,
+    "profile_content_activation_allowed": false
+  }
+}

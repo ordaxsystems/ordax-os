@@ -30,6 +30,7 @@ _ROLE_MATCHERS = (
     ("native-host", ("native_host_server.py",)),
     ("chromium", ("chromium", "chrome")),
     ("surface-launcher", ("ordax-surface",)),
+    ("local-ai", ("llama-server", "ordax-local-ai")),
 )
 
 
@@ -306,6 +307,11 @@ def summarize(samples: list[dict]) -> dict:
     }
 
 
+def logical_cpu_count() -> int | None:
+    value = os.cpu_count()
+    return value if isinstance(value, int) and value > 0 else None
+
+
 def run_probe(proc_root: Path, sample_count: int, interval_seconds: float) -> dict:
     if not 1 <= sample_count <= MAX_SAMPLES:
         raise ValueError(f"samples must be between 1 and {MAX_SAMPLES}")
@@ -328,6 +334,7 @@ def run_probe(proc_root: Path, sample_count: int, interval_seconds: float) -> di
         "stateMutation": False,
         "samplesRequested": sample_count,
         "intervalSeconds": interval_seconds,
+        "logicalCpuCount": logical_cpu_count(),
         "measurementUnits": {
             "pageSizeBytes": PAGE_SIZE,
             "clockTicksPerSecond": CLOCK_TICKS_PER_SECOND,

@@ -1,0 +1,144 @@
+{
+  "$schema": "prototype-ordax.profile-provisioning/1",
+  "status": "mvp-source-planner-download-executor-disabled",
+  "runtime_schema": "ordax.profile-provisioning/1",
+  "distribution_schema": "ordax.profile-distribution/1",
+  "architecture": {
+    "runtime_is_single": true,
+    "all_profile_payloads_preseeded_on_usb": false,
+    "lightweight_catalog_metadata_may_be_bundled": true,
+    "download_only_missing_components": true,
+    "installed_profile_works_offline_when_local_dependencies_are_present": true,
+    "profile_data_owned_by_space_or_memory": false,
+    "space_and_memory_survive_profile_removal": true
+  },
+  "trust": {
+    "available_remote_component_requires_sha256": true,
+    "available_remote_component_requires_signature": true,
+    "planned_component_is_installable": false,
+    "profile_may_auto_grant_privilege": false,
+    "unsigned_payload_install_allowed": false
+  },
+  "mvp": {
+    "planner_enabled": true,
+    "download_executor_enabled": false,
+    "public_profile_install_enabled": false,
+    "store_enabled": false,
+    "developer": "internal-proof-only",
+    "legal_br": "catalog-visible-activation-blocked",
+    "persistent_native_inventory_reader": true,
+    "surface_can_write_inventory": false,
+    "immutable_profile_content_staging_source": true,
+    "profile_content_stage_activation": false
+  },
+  "next_gates": [
+    "trusted-receipt-and-inventory-commit-after-verified-stage-health",
+    "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
+    "profile-health-and-rollback",
+    "surface-profile-catalog-ui",
+    "first-public-profile-proof"
+  ],
+  "inventory": {
+    "schema": "ordax.profile-component-inventory/1",
+    "port_schema": "ordax.profile-component-inventory-port/1",
+    "native_persistence": "device",
+    "web_persistence": "session",
+    "native_surface_access": "read-only",
+    "content_identity": [
+      "id",
+      "kind",
+      "version",
+      "sha256"
+    ],
+    "receipt_hash_required": true,
+    "stale_same_id_different_sha_is_installed": false,
+    "missing_inventory_blocks_boot": false,
+    "future_writer_owner": "trusted-profile-provisioning-executor",
+    "staged_content_counts_as_installed": false
+  },
+  "receipt": {
+    "schema": "ordax.profile-install-receipt/1",
+    "artifact_binding": [
+      "id",
+      "kind",
+      "version",
+      "sha256",
+      "sizeBytes"
+    ],
+    "signature_algorithm": "ed25519",
+    "manifest_sha256_required": true,
+    "healthy_activation_required": true,
+    "inventory_entry_derived_from_verified_receipt": true,
+    "surface_may_issue_receipt": false,
+    "install_receipt_emission_blocked_until_structural_health": true,
+    "health_evidence_fields": [
+      "schema",
+      "state",
+      "checkedAt",
+      "entryCount",
+      "perEntryHashVerified",
+      "perEntryProvenanceVerified",
+      "executablePayloadAllowed",
+      "authority"
+    ]
+  },
+  "content_proof": {
+    "supported_kinds": [
+      "knowledge-pack",
+      "skill-pack"
+    ],
+    "manifest_schema": "prototype-ordax.profile-content-manifest/1",
+    "envelope_schema": "prototype-ordax.profile-content-envelope/1",
+    "signature_algorithm": "ed25519",
+    "exact_content_hash_required": true,
+    "exact_content_size_required": true,
+    "provenance_required": true,
+    "requested_capabilities_allowed": false,
+    "runtime_network_allowed": false,
+    "mutable_host_access_allowed": false,
+    "public_release_trust_pinned": false,
+    "activation_allowed": false,
+    "content_format": "ordax.profile-content-pack/1"
+  },
+  "content_staging": {
+    "tool": "tools/profile-content-channel",
+    "immutable_content_addressed_slot": true,
+    "slot_identity": [
+      "kind",
+      "id",
+      "version",
+      "sha256"
+    ],
+    "exact_file_set": true,
+    "read_only_after_stage": true,
+    "post_stage_reverification": true,
+    "idempotent_restage_requires_existing_slot_reverification": true,
+    "staging_changes_active_profile": false,
+    "staging_writes_inventory": false,
+    "activation_allowed": false
+  },
+  "structural_health": {
+    "schema": "ordax.profile-content-health/1",
+    "pack_schema": "ordax.profile-content-pack/1",
+    "supported_kinds": [
+      "knowledge-pack",
+      "skill-pack"
+    ],
+    "knowledge_media_types": [
+      "text/plain",
+      "text/markdown",
+      "application/json"
+    ],
+    "per_entry_sha256_required": true,
+    "per_entry_provenance_required": true,
+    "duplicate_entry_ids_allowed": false,
+    "executable_payload_allowed": false,
+    "skill_authority": "none",
+    "skill_tool_ids_allowed": false,
+    "max_entries": 2048,
+    "max_entry_text_bytes": 1048576,
+    "max_total_text_bytes": 33554432,
+    "stage_requires_structural_health": true,
+    "receipt_requires_structural_health_evidence": true
+  }
+}

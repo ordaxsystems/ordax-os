@@ -10,12 +10,18 @@ on:
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/memory.json'
       - 'docs/contracts/model-router.json'
+      - 'docs/contracts/intelligence-artifacts.json'
+      - 'docs/contracts/intelligence-tools.json'
+      - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
       - 'system/contracts/memory-context.mjs'
       - 'system/contracts/model-router.mjs'
+      - 'system/contracts/intelligence-artifact.mjs'
+      - 'system/contracts/intelligence-tool.mjs'
+      - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
       - 'system/profile-packs/developer/manifest.json'
       - 'system/services/intelligence/**'
@@ -40,6 +46,9 @@ on:
       - 'tests/test_intelligence_runtime.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
       - 'tests/test_model_router_runtime.mjs'
+      - 'tests/test_intelligence_artifact.mjs'
+      - 'tests/test_intelligence_tool.mjs'
+      - 'tests/test_semantic_index.mjs'
       - 'tests/test_local_ai_runtime.mjs'
       - 'tests/test_local_ai_endpoint_policy.mjs'
       - 'tests/test_local_ai_probe_races.mjs'
@@ -64,6 +73,33 @@ on:
       - 'tests/test_memory_native_endpoint.py'
       - 'tests/test_profile_pack_runtime.mjs'
       - 'tests/test_profile_pack_runtime.py'
+      - 'PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md'
+      - 'docs/contracts/profile-provisioning.json'
+      - 'system/contracts/profile-provisioning.mjs'
+      - 'system/profile-packs/distributions.mjs'
+      - 'tests/test_profile_provisioning.mjs'
+      - 'tests/test_profile_provisioning_runtime.mjs'
+      - 'tests/test_pre_mvp_ecosystem_foundation.py'
+      - 'docs/contracts/profile-pack-runtime.json'
+      - 'system/contracts/profile-pack-catalog.mjs'
+      - 'system/services/profile-packs/catalog.mjs'
+      - 'system/composition/web/main.mjs'
+      - 'tests/test_profile_pack_catalog.mjs'
+      - 'tests/test_profile_pack_catalog.py'
+      - 'system/contracts/profile-component-inventory.mjs'
+      - 'system/services/profile-packs/inventory.mjs'
+      - 'system/adapters/native/profile-component-inventory.mjs'
+      - 'system/surface/runtime/native_profile_component_inventory.py'
+      - 'tests/test_profile_component_inventory.mjs'
+      - 'tests/test_native_profile_component_inventory.py'
+      - 'system/contracts/profile-install-receipt.mjs'
+      - 'tests/test_profile_install_receipt.mjs'
+      - 'tools/profile-content-proof/**'
+      - 'tests/test_profile_content_proof.mjs'
+      - 'system/contracts/profile-content-pack.mjs'
+      - 'tests/test_profile_content_pack.mjs'
+      - 'system/surface/runtime/native_profile_provisioning_executor.py'
+      - 'tests/test_native_profile_provisioning_executor.py'
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
@@ -73,12 +109,18 @@ on:
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/memory.json'
       - 'docs/contracts/model-router.json'
+      - 'docs/contracts/intelligence-artifacts.json'
+      - 'docs/contracts/intelligence-tools.json'
+      - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
       - 'system/contracts/memory-context.mjs'
       - 'system/contracts/model-router.mjs'
+      - 'system/contracts/intelligence-artifact.mjs'
+      - 'system/contracts/intelligence-tool.mjs'
+      - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
       - 'system/profile-packs/developer/manifest.json'
       - 'system/services/intelligence/**'
@@ -103,6 +145,9 @@ on:
       - 'tests/test_intelligence_runtime.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
       - 'tests/test_model_router_runtime.mjs'
+      - 'tests/test_intelligence_artifact.mjs'
+      - 'tests/test_intelligence_tool.mjs'
+      - 'tests/test_semantic_index.mjs'
       - 'tests/test_local_ai_runtime.mjs'
       - 'tests/test_local_ai_endpoint_policy.mjs'
       - 'tests/test_local_ai_probe_races.mjs'
@@ -127,6 +172,33 @@ on:
       - 'tests/test_memory_native_endpoint.py'
       - 'tests/test_profile_pack_runtime.mjs'
       - 'tests/test_profile_pack_runtime.py'
+      - 'PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md'
+      - 'docs/contracts/profile-provisioning.json'
+      - 'system/contracts/profile-provisioning.mjs'
+      - 'system/profile-packs/distributions.mjs'
+      - 'tests/test_profile_provisioning.mjs'
+      - 'tests/test_profile_provisioning_runtime.mjs'
+      - 'tests/test_pre_mvp_ecosystem_foundation.py'
+      - 'docs/contracts/profile-pack-runtime.json'
+      - 'system/contracts/profile-pack-catalog.mjs'
+      - 'system/services/profile-packs/catalog.mjs'
+      - 'system/composition/web/main.mjs'
+      - 'tests/test_profile_pack_catalog.mjs'
+      - 'tests/test_profile_pack_catalog.py'
+      - 'system/contracts/profile-component-inventory.mjs'
+      - 'system/services/profile-packs/inventory.mjs'
+      - 'system/adapters/native/profile-component-inventory.mjs'
+      - 'system/surface/runtime/native_profile_component_inventory.py'
+      - 'tests/test_profile_component_inventory.mjs'
+      - 'tests/test_native_profile_component_inventory.py'
+      - 'system/contracts/profile-install-receipt.mjs'
+      - 'tests/test_profile_install_receipt.mjs'
+      - 'tools/profile-content-proof/**'
+      - 'tests/test_profile_content_proof.mjs'
+      - 'system/contracts/profile-content-pack.mjs'
+      - 'tests/test_profile_content_pack.mjs'
+      - 'system/surface/runtime/native_profile_provisioning_executor.py'
+      - 'tests/test_native_profile_provisioning_executor.py'
       - '.github/workflows/intelligence-foundation.yml'
   workflow_dispatch:
 
@@ -158,7 +230,20 @@ jobs:
           node --check system/contracts/memory-store.mjs
           node --check system/contracts/memory-context.mjs
           node --check system/contracts/model-router.mjs
+          node --check system/contracts/intelligence-artifact.mjs
+          node --check system/contracts/intelligence-tool.mjs
+          node --check system/contracts/semantic-index.mjs
           node --check system/contracts/profile-pack.mjs
+          node --check system/contracts/profile-pack-catalog.mjs
+          node --check system/contracts/profile-provisioning.mjs
+          node --check system/contracts/profile-component-inventory.mjs
+          node --check system/contracts/profile-install-receipt.mjs
+          node --check system/contracts/profile-content-pack.mjs
+          node --check tools/profile-content-proof/verify.mjs
+          node --check system/profile-packs/distributions.mjs
+          node --check system/services/profile-packs/catalog.mjs
+          node --check system/services/profile-packs/inventory.mjs
+          node --check system/adapters/native/profile-component-inventory.mjs
           find system/services/intelligence system/services/local-ai system/services/memory system/services/profile-packs -type f -name '*.mjs' -print0 \
             | sort -z \
             | xargs -0 -n1 node --check
@@ -168,16 +253,24 @@ jobs:
           python -m py_compile system/surface/runtime/native_memory_state.py
           python -m py_compile system/surface/runtime/native_memory_endpoint.py
           python -m py_compile system/surface/runtime/native_host_server.py
+          python -m py_compile system/surface/runtime/native_profile_component_inventory.py
+          python -m py_compile system/surface/runtime/native_profile_provisioning_executor.py
           python -m py_compile tools/local-ai-baseline/report.py
           python -m py_compile tools/local-ai-baseline/compare.py
           python -m py_compile tools/local-ai-benchmark/benchmark.py
           python -m py_compile tools/local-ai-hardware-probe/probe.py
           node --check system/composition/native/main.mjs
+          node --check system/composition/web/main.mjs
           python -m json.tool docs/contracts/intelligence.json >/dev/null
           python -m json.tool docs/contracts/local-ai.json >/dev/null
           python -m json.tool docs/contracts/memory.json >/dev/null
           python -m json.tool docs/contracts/model-router.json >/dev/null
+          python -m json.tool docs/contracts/intelligence-artifacts.json >/dev/null
+          python -m json.tool docs/contracts/intelligence-tools.json >/dev/null
+          python -m json.tool docs/contracts/semantic-index.json >/dev/null
           python -m json.tool system/profile-packs/developer/manifest.json >/dev/null
+          python -m json.tool docs/contracts/profile-provisioning.json >/dev/null
+          python -m json.tool docs/contracts/profile-pack-runtime.json >/dev/null
 
       - name: Run Intelligence and Local AI contract tests
         run: |
@@ -186,6 +279,9 @@ jobs:
           node --test tests/test_intelligence_runtime.mjs
           node --test tests/test_intelligence_authorized_memory.mjs
           node --test tests/test_model_router_runtime.mjs
+          node --test tests/test_intelligence_artifact.mjs
+          node --test tests/test_intelligence_tool.mjs
+          node --test tests/test_semantic_index.mjs
           node --test tests/test_local_ai_runtime.mjs
           node --test tests/test_local_ai_endpoint_policy.mjs
           node --test tests/test_local_ai_probe_races.mjs
@@ -203,6 +299,13 @@ jobs:
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
           node --test tests/test_profile_pack_runtime.mjs
+          node --test tests/test_profile_pack_catalog.mjs
+          node --test tests/test_profile_provisioning.mjs
+          node --test tests/test_profile_component_inventory.mjs
+          node --test tests/test_profile_install_receipt.mjs
+          node --test tests/test_profile_content_proof.mjs
+          node --test tests/test_profile_content_pack.mjs
+          node --test tests/test_profile_provisioning_runtime.mjs
           python -m unittest tests.test_local_ai_baseline -v
           python -m unittest tests.test_local_ai_baseline_compare -v
           python -m unittest tests.test_local_ai_benchmark -v
@@ -210,4 +313,7 @@ jobs:
           python -m unittest tests.test_memory_native_state -v
           python -m unittest tests.test_memory_native_endpoint -v
           python -m unittest tests.test_native_memory_integration -v
-          python -m unittest tests.test_profile_pack_runtime -v
+          python -m unittest tests.test_profile_pack_runtime tests.test_profile_pack_catalog -v
+          python -m unittest tests.test_pre_mvp_ecosystem_foundation -v
+          python -m unittest tests.test_native_profile_component_inventory -v
+          python -m unittest tests.test_native_profile_provisioning_executor -v

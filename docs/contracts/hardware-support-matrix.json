@@ -142,7 +142,14 @@
         "linux-firmware-mediatek",
         "linux-firmware-ath9k_htc"
       ],
-      "claim_limit": "Presence of these modules/firmware does not claim every adapter in the corresponding vendor families is supported."
+      "claim_limit": "Presence of these modules/firmware does not claim every adapter in the corresponding vendor families is supported.",
+      "coldplug_entrypoints": [
+        "iwlwifi",
+        "rtl8xxxu",
+        "mt76x2u",
+        "ath9k_htc"
+      ],
+      "module_dependency_note": "iwlmvm is packaged as an iwlwifi dependency and is not a direct coldplug entrypoint."
     }
   ],
   "optional_observed_capabilities": [
@@ -200,5 +207,16 @@
     "SUPPORTED_HARDWARE_MATRIX": "PASS_SOURCE",
     "CANONICAL_STABLE_TARGET_HARDWARE_PROOF": "PENDING_PHYSICAL",
     "BROAD_HARDWARE_COMPATIBILITY": "NOT_CLAIMED"
+  },
+  "extension_policy": {
+    "strategy": "small-baseline-plus-signed-hardware-packs",
+    "hardware_pack_contract": "ordax.hardware-pack/1",
+    "activation_enabled": false,
+    "exact_modalias_match_required": true,
+    "exact_kernel_abi_match_required": true,
+    "signed_component_slot_required": true,
+    "known_good_and_rollback_required": true,
+    "driver_pack_presence_is_support_claim": false,
+    "purpose": "expand Wi-Fi/graphics/audio/input/storage compatibility by update without reinstalling the USB or bloating Stable Base"
   }
 }

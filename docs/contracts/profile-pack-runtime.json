@@ -3,7 +3,11 @@
   "status": "pre-mvp-internal-proof",
   "manifest_schema": "ordax.profile-pack/1",
   "runtime_schema": "ordax.profile-pack-runtime/1",
-  "pack_states": ["draft", "active", "retired"],
+  "pack_states": [
+    "draft",
+    "active",
+    "retired"
+  ],
   "activation": {
     "internal_proof_mode": "internal-proof",
     "authority": "composition-explicit",
@@ -25,5 +29,14 @@
     "developer": "internal-proof-eligible",
     "legal-br": "activation-blocked-by-manifest"
   },
-  "surface_catalog_owner": "dedicated-profile-pack-catalog-front"
+  "surface_catalog_owner": "dedicated-profile-pack-catalog-front",
+  "provisioning": {
+    "contract": "ordax.profile-provisioning/1",
+    "distribution_contract": "ordax.profile-distribution/1",
+    "local_catalog": "system/profile-packs/distributions.mjs",
+    "planner_enabled": true,
+    "download_executor_enabled": false,
+    "all_profile_payloads_preseeded_on_usb": false,
+    "offline_after_install_supported_by_contract": true
+  }
 }

@@ -23,6 +23,8 @@ import { createNativePreferenceStore } from "../../adapters/native/preferences.m
 import { createNativeFirstRunStateStore } from "../../adapters/native/first-run-state.mjs";
 import { createNativeLocalSession } from "../../adapters/native/local-session.mjs";
 import { createNativeMemoryStore } from "../../adapters/native/memory.mjs";
+import { createNativeProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
+import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
 import { createNativeSystemMetrics } from "../../adapters/native/system-metrics.mjs";
 import { createNativeRecoveryStatus } from "../../adapters/native/recovery-status.mjs";
@@ -55,6 +57,8 @@ import { createIntelligenceRuntime } from "../../services/intelligence/runtime.m
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
+import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
+import { LOCAL_PROFILE_DISTRIBUTIONS } from "../../profile-packs/distributions.mjs";
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
@@ -273,6 +277,15 @@ async function start() {
   const identityAvailable = identitySession.getSnapshot().state !== "unavailable";
   const identityCredentials = identityAvailable ? createSameOriginIdentityCredentials(window) : null;
   const spaces = createWebSpacesCatalog(window);
+  const profileComponentInventory = await optionalNativeProbe(
+    "OrdaX Profile component inventory unavailable; using empty session inventory",
+    () => createNativeProfileComponentInventory(window),
+  ) ?? createSessionProfileComponentInventory();
+  const profileProvisioning = createProfileProvisioningRuntime({
+    distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+    inventory: profileComponentInventory,
+    readNetworkAvailable: () => window.navigator?.onLine === true,
+  });
   const syncTransport = createWebSyncTransport(window);
   const appActivation = createAppActivationChannel();
   const updateWatcher = createNativeUpdateWatcher(window);
@@ -426,6 +439,7 @@ async function start() {
     appActivation,
     identityCredentials,
     spaces,
+    profileProvisioning,
     memoryReview,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
@@ -605,6 +619,8 @@ async function start() {
       accountOverviewControls.destroy();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
+      profileProvisioning.dispose();
+      profileComponentInventory.dispose();
       spaces.dispose();
       accountSync.destroy();
       preferenceSync.destroy();
