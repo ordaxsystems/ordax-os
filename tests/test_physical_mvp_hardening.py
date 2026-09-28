@@ -9,6 +9,8 @@ KERNEL_FRAGMENT = ROOT / "bootstrap" / "kernel" / "config" / "ordax.fragment"
 STABLE_INIT = ROOT / "bootstrap" / "stable-base" / "ordax-stable-init"
 SURFACE_STATE = ROOT / "system" / "surface" / "ui" / "surface-state.mjs"
 FIRST_RUN_CSS = ROOT / "system" / "surface" / "ui" / "first-run.css"
+NORMAL_BOOT = ROOT / "boot" / "portable-v2" / "loader" / "entries" / "ordax-portable.conf"
+RECOVERY_BOOT = ROOT / "boot" / "portable-v2" / "loader" / "entries" / "ordax-portable-recovery.conf"
 
 
 class PhysicalMvpHardeningTests(unittest.TestCase):
@@ -17,16 +19,33 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         self.assertIn("# CONFIG_LOGO is not set", text)
         self.assertNotIn("CONFIG_LOGO=y", text)
 
-    def test_stable_init_coldplugs_physical_pci_and_usb_hardware_before_surface(self):
+    def test_stable_init_coldplugs_only_supported_wifi_modules_before_surface(self):
         text = STABLE_INIT.read_text(encoding="utf-8")
-        self.assertIn("coldplug_kernel_modules()", text)
-        self.assertIn("/sys/bus/pci/devices/*/modalias", text)
-        self.assertIn("/sys/bus/usb/devices/*/modalias", text)
-        self.assertIn('/sbin/modprobe "$modalias"', text)
+        self.assertIn("coldplug_supported_wifi_modules()", text)
+        for module in ("iwlwifi", "rtl8xxxu", "mt76x2u", "ath9k_htc"):
+            self.assertIn(module, text)
+        self.assertNotIn("/sys/bus/pci/devices/*/modalias", text)
+        self.assertNotIn("/sys/bus/usb/devices/*/modalias", text)
         self.assertIn("/sys/class/net/*", text)
-        self.assertIn("ORDAX_KERNEL_COLDPLUG=COMPLETE", text)
+        self.assertIn("ORDAX_WIFI_COLDPLUG=COMPLETE", text)
         self.assertIn("ORDAX_WIFI_INTERFACE=", text)
-        self.assertLess(text.index("coldplug_kernel_modules ||"), text.index("exec /system/entrypoint"))
+        self.assertLess(text.index("coldplug_supported_wifi_modules ||"), text.index("exec /system/entrypoint"))
+
+    def test_portable_boot_keeps_serial_and_physical_console_with_distinct_normal_and_recovery_policy(self):
+        normal = NORMAL_BOOT.read_text(encoding="utf-8")
+        recovery = RECOVERY_BOOT.read_text(encoding="utf-8")
+        self.assertIn("console=ttyS0,115200n8 console=tty0", normal)
+        self.assertIn("rdinit=/sbin/ordax-portable-init", normal)
+        self.assertIn("quiet", normal)
+        self.assertIn("loglevel=3", normal)
+        self.assertIn("logo.nologo", normal)
+        self.assertNotIn("ignore_loglevel", normal)
+        self.assertIn("console=ttyS0,115200n8 console=tty0", recovery)
+        self.assertIn("rdinit=/sbin/ordax-portable-init", recovery)
+        self.assertIn("loglevel=7", recovery)
+        self.assertIn("ignore_loglevel", recovery)
+        self.assertIn("logo.nologo", recovery)
+        self.assertIn("ordax.mode=recovery", recovery)
 
     def test_new_product_windows_open_maximized_without_removing_window_controls(self):
         text = SURFACE_STATE.read_text(encoding="utf-8")
