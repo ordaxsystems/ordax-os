@@ -72,6 +72,7 @@ test("Profile activation state preserves current and previous per Space for roll
     persistence: "device",
     spaces: [{
       spaceId: "space-professional-1",
+      spaceKind: "professional",
       current,
       previous,
     }],
@@ -83,6 +84,7 @@ test("Profile activation state preserves current and previous per Space for roll
 test("Profile activation state rejects duplicate Spaces, duplicate components and empty rows", () => {
   const row = {
     spaceId: "space-professional-1",
+    spaceKind: "professional",
     current: activation(),
     previous: null,
   };
@@ -108,7 +110,12 @@ test("Profile activation state rejects duplicate Spaces, duplicate components an
       schema: "ordax.profile-activation-state/1",
       revision: 1,
       persistence: "device",
-      spaces: [{ spaceId: "space-professional-1", current: null, previous: null }],
+      spaces: [{
+        spaceId: "space-professional-1",
+        spaceKind: "professional",
+        current: null,
+        previous: null,
+      }],
     }),
     /cannot be empty/,
   );
@@ -139,6 +146,7 @@ test("Profile activation component order is canonical and current/previous canno
       persistence: "device",
       spaces: [{
         spaceId: "space-professional-1",
+        spaceKind: "professional",
         current: activation(),
         previous: activation({ activatedAt: 800 }),
       }],
