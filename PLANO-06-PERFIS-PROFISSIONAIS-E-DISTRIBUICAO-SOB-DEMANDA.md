@@ -133,7 +133,8 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - download somente do que falta;
 - metadados de offline/cache;
 - estado installable/blocked explícito;
-- nenhum download sem artifact identity + SHA-256 + assinatura exigida;
+- nenhum download sem artifact identity + versão + SHA-256 + assinatura exigida;
+- Knowledge/Skill possuem proof Ed25519 de bytes e proveniência, ainda sem ativação pública;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
 ### Ainda bloqueado
@@ -168,9 +169,9 @@ O modelo de IA nunca é fonte jurídica autoritativa.
 
 Depois da prova MVP:
 
-1. Knowledge Pack contract/runtime;
-2. Skill Pack contract/runtime;
-3. executor confiável de provisioning que grave receipts verificados no inventário Native;
+1. Knowledge Pack runtime/ingestion sobre o proof assinado já existente;
+2. Skill Pack runtime sobre o proof assinado já existente;
+3. executor confiável de provisioning que verifique pacote, faça stage/health e grave receipts no inventário Native;
 4. Store/catalog remoto assinado;
 5. downloads transacionais;
 6. Profile Stack;
