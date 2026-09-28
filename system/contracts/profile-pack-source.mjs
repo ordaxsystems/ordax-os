@@ -3,7 +3,7 @@ export const PROFILE_PACK_BUNDLED_SOURCE_SCHEMA = "ordax.profile-pack-bundled-so
 export const MAX_BUNDLED_PROFILE_PACKS = 128;
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,79}$/;
-const MANIFEST_PATH_PATTERN = /^\/system\/profile-packs\/([a-z0-9][a-z0-9-]{1,79})\/v([1-9][0-9]*)\/manifest\.json$/;
+const MANIFEST_PATH_PATTERN = /^\/profile-packs\/([a-z0-9][a-z0-9-]{1,79})\/v([1-9][0-9]*)\/manifest\.json$/;
 
 function objectValue(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
