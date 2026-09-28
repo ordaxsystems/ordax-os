@@ -7,6 +7,7 @@ export const settingsApp = defineFirstPartyApp({
   description: "Preferências compartilhadas, aparência e rede do OrdaX.",
   monogram: "AJ",
   singleton: true,
+  windowMode: "windowed",
   component: settingsComponent,
   requiredCapabilities: [],
   panels: [
