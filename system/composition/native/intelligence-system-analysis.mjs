@@ -1,3 +1,8 @@
+import {
+  INTELLIGENCE_PORT_SCHEMA,
+  assertIntelligencePort,
+  validateIntelligenceRequest,
+} from "../../contracts/intelligence.mjs";
 import { assertSurfaceHost } from "../../contracts/surface-host.mjs";
 import { createIntelligenceAuditJournal } from "../../services/intelligence/audit-journal.mjs";
 import { createIntelligenceCapabilityBridge } from "../../services/intelligence/capability-bridge.mjs";
@@ -22,8 +27,35 @@ const SYSTEM_TOOL_BINDINGS = Object.freeze([Object.freeze({
   toolIds: Object.freeze(SYSTEM_OBSERVATIONS.map((entry) => entry.toolId)),
 })]);
 
+function createGovernedSystemIntelligenceClient(portValue, observer) {
+  const port = assertIntelligencePort(portValue);
+  return Object.freeze({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot() {
+      return port.getSnapshot();
+    },
+    subscribe(listener) {
+      return port.subscribe(listener);
+    },
+    async respond(value) {
+      const request = validateIntelligenceRequest(value);
+      if (request.intent !== "diagnose") {
+        return port.respond(request);
+      }
+      const observation = await observer.observe();
+      return port.respond({
+        intent: request.intent,
+        prompt: request.prompt,
+        context: observation.context,
+        maxTokens: request.maxTokens,
+      });
+    },
+  });
+}
+
 export function createNativeIntelligenceSystemAnalysis({
   host,
+  intelligence,
   systemMetrics = null,
   networkStatus = null,
   powerStatus = null,
@@ -62,9 +94,11 @@ export function createNativeIntelligenceSystemAnalysis({
     executor,
     observations: SYSTEM_OBSERVATIONS,
   });
+  const systemIntelligence = createGovernedSystemIntelligenceClient(intelligence, observer);
 
   let disposed = false;
   return Object.freeze({
+    intelligence: systemIntelligence,
     observer,
     auditJournal,
     dispose() {
