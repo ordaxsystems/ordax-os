@@ -8,7 +8,7 @@ import { filesApp } from "../system/apps/files/app.mjs";
 import { notesApp } from "../system/apps/notes/app.mjs";
 import { projectsApp } from "../system/apps/projects/app.mjs";
 import { systemApp } from "../system/apps/system/app.mjs";
-import { listFirstPartyExplicitContextSources } from "../system/services/intelligence/first-party-context-sources.mjs";
+import { listFirstPartyGrantedIntelligenceContextSources } from "../system/services/intelligence/first-party-context-sources.mjs";
 import { createIntelligenceToolRegistry } from "../system/services/intelligence/tool-registry.mjs";
 
 function redefine(app, intelligence) {
@@ -59,7 +59,7 @@ test("first-party apps own bounded Intelligence integration metadata", () => {
 });
 
 test("canonical app Intelligence integrations resolve against canonical context and tool registries", () => {
-  const sourceIds = new Set(listFirstPartyExplicitContextSources().map((source) => source.id));
+  const sourceIds = new Set(listFirstPartyGrantedIntelligenceContextSources().map((source) => source.id));
   const tools = createIntelligenceToolRegistry();
 
   for (const app of listFirstPartyApps()) {
