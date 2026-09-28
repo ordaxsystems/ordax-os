@@ -233,7 +233,27 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertEqual(promotion["MVP_SURFACE_SMOKE_HARNESS"], "PASS_SOURCE")
         self.assertEqual(promotion["MVP_SURFACE_SMOKE_PHYSICAL"], "PENDING")
         self.assertEqual(promotion["CANONICAL_RELEASE_TRUST"], "PASS_CANONICAL_PUBLIC_ANCHOR_PINNED")
-        self.assertEqual(promotion["PHYSICAL_USB_WRITE"], "NO")
+        self.assertEqual(
+            promotion["PRIOR_STABLE_MVP_USB_WRITE"],
+            "PASS_AUTHORIZED_CONTROLLED_PROOF",
+        )
+        self.assertEqual(
+            promotion["PRIOR_STABLE_MVP_ARTIFACT_READBACK"],
+            "PASS_17_OF_17",
+        )
+        self.assertEqual(
+            promotion["PRIOR_STABLE_MVP_UEFI_BOOT"],
+            "PASS_PHYSICAL_PRE_HARDENING",
+        )
+        self.assertEqual(
+            promotion["CANONICAL_NOTEBOOK_UEFI_BOOT_CURRENT_MAIN"],
+            "PENDING_PHYSICAL_RETEST",
+        )
+        self.assertEqual(
+            promotion["DESTRUCTIVE_AUTHORIZATION"],
+            "NO_FRESH_AUTHORIZATION",
+        )
+        self.assertEqual(promotion["POST_588_PHYSICAL_REWRITE_AUTHORIZED"], "NO")
 
     def test_portable_update_docs_keep_source_ci_and_physical_evidence_separate(self):
         current = CURRENT_STATE.read_text(encoding="utf-8")
@@ -357,7 +377,6 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertNotEqual(promotion["SAME_COMMIT_VISUAL_CHANGE"], "PENDING")
         self.assertNotEqual(promotion["EDIT_SOURCE"], "PENDING_END_TO_END")
         self.assertNotEqual(promotion["WEB_PREVIEW"], "PENDING")
-
     def test_known_stale_version_claims_cannot_return(self):
         current = CURRENT_STATE.read_text(encoding="utf-8")
         agents = AGENTS.read_text(encoding="utf-8")

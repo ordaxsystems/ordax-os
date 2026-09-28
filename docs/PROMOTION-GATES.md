@@ -111,13 +111,14 @@ RELEASE_TRUST_VALIDATION_WITH_EPHEMERAL_CI_KEY=PASS
 RELEASE_TRUST_VALIDATION_WITH_CANONICAL_KEY=PENDING
 PORTABLE_V4_QEMU_UEFI_BOOT_PROOF=PASS_CI_NON_PHYSICAL
 DEVELOPMENT_PHYSICAL_KERNEL_BOOT=PASS_PHYSICAL_DEVELOPMENT_USB
-CANONICAL_PHYSICAL_KERNEL_BOOT=PENDING
+CANONICAL_PHYSICAL_KERNEL_BOOT_PRE_HARDENING=PASS_PHYSICAL_STABLE_MVP_USB
+CANONICAL_PHYSICAL_KERNEL_BOOT_CURRENT_MAIN=PENDING_PHYSICAL_RETEST
 LEGACY_MEDIA_DEPENDENCY=NO
 EMULATOR_SPECIFIC_DEPENDENCY=NO
 REMOTE_CONTROL_DEPENDENCY=NO
 ```
 
-The existing Owner/Development USB physically boots the pinned kernel path on the target notebook. That closes the development-hardware bring-up fact only. The full-bootstrap-media proof may close byte-complete disposable composition with ephemeral trust, but only canonical trust plus a Stable/MVP physical boot can close `CANONICAL_PHYSICAL_KERNEL_BOOT` and the remaining canonical portions of this gate.
+The Owner/Development USB physically boots the pinned kernel path on the target notebook. The first governed Stable/MVP USB also reached real UEFI/kernel boot before the post-boot hardening merged in PR #588. That is valid historical Stable/MVP evidence, but it does not prove the current hardened `main` bytes. The canonical current-main kernel/boot gate therefore remains pending a non-destructive physical retest of a separately authorized future candidate; CI OVMF proof does not substitute for that retest.
 
 ## Gate 5 - OrdaX Creator host independence and target safety
 
@@ -204,13 +205,13 @@ The source-controlled preflight distinguishes three boundaries without weakening
 
 `pre_authorization_ready` is diagnostic only. It never implies `physical_write_allowed`, never creates a writer artifact, and never substitutes for target-specific confirmation or UAC at execution time.
 
-The Stable/MVP physical payload is now a 17-artifact `release-manifest/4` shape. Moving from the earlier 15-artifact v3 writer invalidates any authorization bound to the old writer/context and initially returns the contract to `blocked-canonical-v4-release-proof-pending`; this source transition never carries destructive consent forward automatically. The exact v4 candidate is now signed, published as a prerelease, materialized and verified through its versioned HTTPS URL, and its aggregate proof is bound. The current contract is `authorized` for the exact bound v4 context; the prerelease did not become the stable `latest` release, no physical target has been selected or written, and Stable promotion remains pending physical proof.
+The Stable/MVP physical payload is a 17-artifact `release-manifest/4` shape. The exact v4 candidate was previously authorized for one controlled physical proof. That authorization was used to create the first governed Stable/MVP USB; the writer completed 17/17 artifact readback and the media reached real UEFI boot on the target notebook. After the physical boot exposed product-level gaps and the writer/source context changed during the resulting hardening, that prior authorization became stale. The structured contract is now deliberately back at `blocked-explicit-physical-authorization-pending` with `physical_write_allowed=false` and `explicit_owner_authorization=false`. No fresh destructive operation is authorized for the post-#588 `main`.
 
-The operator-controlled flow produced `canonical-v4-release-proof.json` from the verified signed handoff plus canonical HTTPS materialization receipt. The non-destructive `tools/creator/bind_canonical_v4_release_proof.py` command validated that public receipt against the pinned trust, required exact v4 artifact identities and safe false physical/activation flags, copied only the public receipt into `docs/evidence/`, and bound its SHA-256/source commit/manifest/envelope identity into authorization schema v3. This advanced the contract through explicit owner authorization; the current bound contract is `authorized`. Target validation, target-specific destructive confirmation, Windows UAC and physical execution remain separate later gates.
+The operator-controlled flow produced `canonical-v4-release-proof.json` from the verified signed handoff plus canonical HTTPS materialization receipt. The non-destructive `tools/creator/bind_canonical_v4_release_proof.py` command validated that public receipt against the pinned trust, required exact v4 artifact identities and safe false physical/activation flags, copied only the public receipt into `docs/evidence/`, and bound its SHA-256/source commit/manifest/envelope identity into authorization schema v3. That proof made explicit owner authorization reachable for the earlier physical pass; it does not make authorization durable across writer/source changes. The current structured contract is authoritative and is not authorized.
 
 The source-controlled `tools/creator/authorize_physical_write.py` command removes manual JSON editing from the later consent step. Its `check` mode is read-only and now refuses to proceed unless the canonical v4 proof is valid and exactly bound. Its `authorize` mode is permitted only after pre-authorization readiness and exact bindings are proven, requires the exact Stable/MVP scope + release sequence + explicit authorization phrase, and changes only the authorization contract. Neither proof binding nor owner authorization opens a physical device or invokes the writer.
 
-Before write:
+Before any new write:
 
 ```text
 TARGET_IDENTITY=PASS
@@ -241,33 +242,38 @@ FULL_BOOTSTRAP_BYTE_COMPLETE_PROOF=PASS_MAIN_CANONICAL_TRUST
 DESTRUCTIVE_OPERATION_EXPLICITLY_AUTHORIZED=NO
 ```
 
-`PASS_TAGGED_UNBOUND` is not an authorization state. It means the implementation exists only behind the explicit internal `ordax_raw_backend` build tag, is excluded from public builds and has no public apply route. No physical-media mutation is permitted until canonical release trust is pinned, the byte-complete canonical-trust media proof passes, a deliberate public apply boundary is implemented and the user explicitly authorizes the exact target operation.
+`PASS_TAGGED_UNBOUND` is not an authorization state. It means the implementation exists only behind the explicit internal `ordax_raw_backend` build tag, is excluded from public builds and has no public apply route. A previous explicitly authorized physical proof does not create standing authority for another write. No new physical-media mutation is permitted until the current contract is deliberately authorized again for the exact current writer/release context and the target-specific confirmation/UAC gates pass.
 
-After a future authorized write:
+Historical physical evidence and current-main retest state:
 
 ```text
-PHYSICAL_GPT_VERIFY=PENDING
-PHYSICAL_FILESYSTEM_VERIFY=PENDING
-BOOT_ARTIFACT_HASH_VERIFY=PENDING
-PHYSICAL_PAYLOAD_MATCHES_MANIFEST=PENDING
+PRIOR_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF
+PRIOR_STABLE_MVP_ARTIFACT_READBACK=PASS_17_OF_17
+PRIOR_STABLE_MVP_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING
+CURRENT_MAIN_PHYSICAL_GPT_VERIFY=PENDING_NEW_AUTHORIZED_CANDIDATE
+CURRENT_MAIN_PHYSICAL_FILESYSTEM_VERIFY=PENDING_NEW_AUTHORIZED_CANDIDATE
+CURRENT_MAIN_BOOT_ARTIFACT_HASH_VERIFY=PENDING_NEW_AUTHORIZED_CANDIDATE
+CURRENT_MAIN_PHYSICAL_PAYLOAD_MATCHES_MANIFEST=PENDING_NEW_AUTHORIZED_CANDIDATE
 UNAPPROVED_FULL_SYSTEM_PRESEED=NO
 ```
 
-Current status:
+Current authorization status:
 
 ```text
-PHYSICAL_USB_WRITE=NO
-PHYSICAL_LAYOUT_CHANGED=NO
-DESTRUCTIVE_AUTHORIZATION=NO
+PHYSICAL_USB_WRITE_HISTORY=YES_PRIOR_CONTROLLED_PROOF
+PHYSICAL_LAYOUT_CHANGED_HISTORY=YES_PRIOR_CONTROLLED_PROOF
+DESTRUCTIVE_AUTHORIZATION=NO_FRESH_AUTHORIZATION
+POST_588_PHYSICAL_REWRITE_AUTHORIZED=NO
 ```
 
 ## Gate 7 - Physical notebook bootstrap
 
-Owner/Development and canonical Stable/MVP are separate evidence scopes:
+Owner/Development, the pre-hardening Stable/MVP proof and the current hardened Stable/MVP source are separate evidence scopes:
 
 ```text
 DEVELOPMENT_NOTEBOOK_UEFI_BOOT=PASS_PHYSICAL_DEVELOPMENT_USB
-CANONICAL_NOTEBOOK_UEFI_BOOT=PENDING
+CANONICAL_NOTEBOOK_UEFI_BOOT_PRE_HARDENING=PASS_PHYSICAL_STABLE_MVP_USB
+CANONICAL_NOTEBOOK_UEFI_BOOT_CURRENT_MAIN=PENDING_PHYSICAL_RETEST
 DEVELOPMENT_NETWORK_READY=PASS_PHYSICAL_DEVELOPMENT_USB
 CANONICAL_NETWORK_READY=PENDING_PHYSICAL
 DEVELOPMENT_GIT_MAIN_REACHABLE=PASS_PHYSICAL_DEVELOPMENT_USB
@@ -280,7 +286,7 @@ REMOTE_CORE_REQUIRED=NO
 CONTROL_PLANE_REQUIRED=NO
 ```
 
-The target notebook has already booted the Owner/Development USB, reached network/Git and exercised the bounded rescue path. These observations prove the development bootstrap on that hardware. They do not prove that a canonical signed Stable/MVP image boots, reaches its release channel, verifies the canonical signature or exercises its canonical recovery path.
+The target notebook has already booted both the Owner/Development USB and the first governed Stable/MVP USB through real UEFI. The Stable/MVP pass exposed the gaps addressed by PR #588, including physical Wi-Fi readiness, launch/window behavior, first-run layout and production boot presentation. Those observations are retained as pre-hardening product evidence only. Because #588 changes the candidate bytes and boot/runtime behavior, the current `main` still requires a separately authorized physical retest before `CANONICAL_NOTEBOOK_UEFI_BOOT_CURRENT_MAIN`, graphical mode, network readiness, cold-health, recovery or rollback can be promoted.
 
 ## Gate 8 - First canonical network release acquisition and activation
 
