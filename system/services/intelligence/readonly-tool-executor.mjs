@@ -1,4 +1,5 @@
 import { validateIntelligenceContext } from "../../contracts/intelligence.mjs";
+import { assertIntelligenceAuditJournal } from "../../contracts/intelligence-audit-journal.mjs";
 import { assertIntelligenceToolAuthorizationBroker } from "../../contracts/intelligence-tool-authorization.mjs";
 import {
   INTELLIGENCE_READ_ONLY_TOOL_EXECUTOR_SCHEMA,
@@ -102,12 +103,14 @@ export function createSystemMetricsIntelligenceToolHandler(portValue) {
 export function createIntelligenceReadOnlyToolExecutor({
   authorizationBroker,
   toolRegistry = null,
+  auditJournal = null,
   handlers = [],
   now = Date.now,
   createReceiptId = secureReceiptId,
 } = {}) {
   const authorization = assertIntelligenceToolAuthorizationBroker(authorizationBroker);
   const registry = toolRegistry ?? createIntelligenceToolRegistry();
+  const journal = auditJournal === null ? null : assertIntelligenceAuditJournal(auditJournal);
   if (!registry || typeof registry.get !== "function") {
     throw new TypeError("Intelligence read-only executor requires a compatible tool registry");
   }
@@ -142,6 +145,7 @@ export function createIntelligenceReadOnlyToolExecutor({
     });
     receipts.push(receipt);
     if (receipts.length > MAX_RECEIPTS) receipts.shift();
+    journal?.recordExecutionReceipt(receipt);
     return receipt;
   };
 
