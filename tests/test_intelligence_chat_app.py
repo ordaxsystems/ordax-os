@@ -7,6 +7,8 @@ APP = ROOT / "system" / "apps" / "intelligence"
 SESSION = APP / "session.mjs"
 CHAT = APP / "ui" / "chat-controls.mjs"
 HANDOFF = ROOT / "system" / "contracts" / "intelligence-handoff.mjs"
+CONTEXT_SHARE = ROOT / "system" / "contracts" / "intelligence-context-share.mjs"
+CONTEXT_SHARE_RUNTIME = ROOT / "system" / "services" / "intelligence" / "context-sharing-runtime.mjs"
 CONTRACT = ROOT / "docs" / "contracts" / "intelligence-chat-app.json"
 APP_CATALOG = ROOT / "system" / "apps" / "catalog.mjs"
 COMPONENT_CATALOG = ROOT / "system" / "apps" / "component-catalog.mjs"
@@ -36,10 +38,15 @@ class IntelligenceChatAppFoundationTests(unittest.TestCase):
         self.assertIn("planner.plan", session)
         self.assertIn("createIntelligenceContextRegistry", runtime)
         self.assertIn("createFirstPartyAppCatalogContextSource", runtime)
+        self.assertIn("createGrantedIntelligenceContextSource", runtime)
+        self.assertIn('id: "project-selection"', runtime)
         self.assertIn("parseIntelligenceHandoffTarget", chat)
+        self.assertIn("assertIntelligenceContextSharePort", chat)
+        self.assertIn("contextShare?.take", chat)
         self.assertIn('lifecycle.getAppTarget("intelligence")', chat)
         self.assertIn('lifecycle.setAppTarget("intelligence", null)', chat)
-        self.assertIn("session.plan({ goal: prompt, target: activeHandoff?.target ?? null })", chat)
+        self.assertIn("{ authorizations }", chat)
+        self.assertIn("contextShare?.revoke", chat)
         self.assertNotIn("fetch(", session)
         self.assertNotIn("local-ai", session)
         self.assertNotIn("fetch(", chat)
@@ -62,6 +69,7 @@ class IntelligenceChatAppFoundationTests(unittest.TestCase):
         self.assertIn("Planejar", catalog)
         self.assertIn("não executa ações", catalog)
         self.assertIn("conteúdo privado do app não foi incluído", catalog)
+        self.assertIn("autorizado para um único envio", catalog)
         self.assertIn('[data-app-extension="intelligence-chat"]', css)
         self.assertIn('.ordax-intelligence-chat-mode[data-active="true"]', css)
         self.assertIn('[data-kind="plan"]', css)
@@ -76,6 +84,22 @@ class IntelligenceChatAppFoundationTests(unittest.TestCase):
         self.assertIn("toolExecution: false", handoff)
         self.assertNotIn("context", handoff.lower())
         self.assertNotIn("requestedCapabilities", handoff)
+
+    def test_request_context_share_is_ephemeral_and_not_encoded_in_handoff(self):
+        share_contract = self.text(CONTEXT_SHARE)
+        runtime = self.text(CONTEXT_SHARE_RUNTIME)
+        chat = self.text(CHAT)
+
+        self.assertIn('INTELLIGENCE_CONTEXT_SHARE_PORT_SCHEMA = "ordax.intelligence-context-share/1"', share_contract)
+        self.assertIn("validateIntelligenceContextShareOffer", share_contract)
+        self.assertIn('authority: "none"', share_contract)
+        self.assertIn("executable: false", share_contract)
+        self.assertIn("createIntelligenceContextGrantBroker", runtime)
+        self.assertIn("createIntelligenceContextShare", runtime)
+        self.assertIn("activeContextAuthorization", chat)
+        self.assertIn("contextShare?.take", chat)
+        self.assertIn("contextShare?.revoke", chat)
+        self.assertNotIn("grantId", self.text(HANDOFF))
 
     def test_native_product_wiring_is_explicit_and_web_remains_unclaimed(self):
         app_catalog = self.text(APP_CATALOG)
