@@ -36,8 +36,10 @@ A primeira lacuna P0 já foi atacada na mesma linha arquitetural deste plano:
 Isso fecha `INTELLIGENCE_REAL_SYSTEM_CONSUMER` e o handoff v4 em **source**:
 Portable v2 verifica o manifest v4, monta `local-ai-runtime.erofs` read-only e
 Stable Base inicia o backend loopback quando o runtime verificado está disponível.
-Falha da IA continua degradável e não bloqueia o boot. Permanecem pendentes a
-materialização/assinatura Stable v4 real e as provas descartáveis/físicas correspondentes.
+Falha da IA continua degradável e não bloqueia o boot. A candidata Stable v4 real já foi assinada, publicada como prerelease, materializada
+e verificada. O primeiro USB Stable/MVP também concluiu escrita/readback e alcançou
+boot UEFI antes do hardening pós-boot. Permanecem pendentes as provas físicas do
+`main` endurecido após a PR #588; essa pendência não autoriza uma nova gravação.
 
 ### 0.2 Sessão local/lock Native — fechamento em source
 
@@ -115,21 +117,20 @@ CANONICAL_STABLE_TARGET_HARDWARE_PROOF=PENDING_PHYSICAL
 
 ## 1. Decisão principal
 
-**Não gerar ainda o primeiro USB Stable/MVP físico.**
+**O primeiro USB Stable/MVP físico já foi gerado em uma prova controlada.**
 
-Antes, fechar o conjunto **A — obrigatório pré-USB** abaixo ou registrar uma decisão
-canônica explícita retirando o item do MVP. O objetivo não é transportar o
-`novo-ordax-os` inteiro; é preservar os invariantes de produto que ainda fazem
-sentido na arquitetura clean-room atual.
+O primeiro writer autorizado concluiu readback de 17/17 artefatos e a mídia alcançou
+boot UEFI real antes do hardening pós-boot da PR #588. Este plano continua canônico
+como registro dos requisitos de fechamento que antecederam essa prova e como checklist
+para as validações físicas restantes do produto.
 
-A auditoria já fechou em source três omissões estruturais que estavam abertas quando
-este plano foi criado: consumidores reais de Ordax Intelligence, sessão/lock local Native
-e remoção recuperável em Arquivos. O HOLD do primeiro USB Stable/MVP continua porque
-ainda restam itens A independentes: cobertura de idioma coerente, diagnóstico/recovery
-de produto, inventário/matriz mínima de hardware e lifecycle Stable v4 assinado com a
-IA local materializável.
+A auditoria fechou em source as omissões estruturais obrigatórias do recorte pré-USB,
+incluindo Intelligence, sessão/lock local, Arquivos, idiomas públicos, diagnóstico/recovery,
+matriz mínima de hardware e lifecycle Stable v4. As mudanças posteriores à primeira prova
+alteraram os bytes do candidato, portanto o `main` atual exige uma nova validação física
+separadamente autorizada; a autorização usada no primeiro USB não é reutilizável.
 
-Portanto **“boot/release avançado” continua não equivalendo a “produto pré-USB fechado”**.
+Portanto **“primeiro USB gravado” não equivale a “Stable/MVP pronto para lançamento”**.
 
 ---
 
