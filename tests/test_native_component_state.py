@@ -68,7 +68,7 @@ class NativeComponentStateTests(unittest.TestCase):
         self.assertIn("write_component_state_payload", text)
         self.assertIn("if self.path == COMPONENT_STATE_PATH:", text)
         self.assertIn(
-            "{SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH}",
+            "{SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH}",
             text,
         )
         self.assertNotIn("Access-Control-Allow-Origin", text)
