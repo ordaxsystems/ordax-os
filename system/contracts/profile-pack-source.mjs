@@ -94,7 +94,7 @@ export function validateBundledProfilePackCatalogIndex(value) {
 
 export function assertBundledProfilePackPath(value, label = "Bundled Profile Pack path") {
   if (typeof value !== "string" || MANIFEST_PATH_PATTERN.exec(value) === null) {
-    throw new TypeError(`${label} must remain under the versioned bundled Profile Pack root`);
+    throw new TypeError(`${label} must remain under the versioned same-origin Profile Pack URL root`);
   }
   return value;
 }
