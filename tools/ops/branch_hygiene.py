@@ -69,7 +69,7 @@ def plan_deletions(
     open_prs: list[dict[str, Any]],
     closed_prs: list[dict[str, Any]],
     branches: list[dict[str, Any]],
-    compare_ahead_by: Callable[[str], int],
+    compare_ahead_by: Callable[[str, str], int],
 ) -> list[DeleteCandidate]:
     """Return each deletable branch at most once, in deterministic order."""
 
@@ -105,7 +105,7 @@ def plan_deletions(
     for ref, expected_sha in sorted(current.items()):
         if ref in preserve or ref in selected:
             continue
-        if compare_ahead_by(ref) == 0:
+        if compare_ahead_by(ref, expected_sha) == 0:
             selected[ref] = DeleteCandidate(ref, expected_sha, "fully-contained-in-main")
 
     return [selected[ref] for ref in sorted(selected)]
@@ -148,19 +148,23 @@ class GitHubApi:
         self._raise(result, f"read branch {ref}")
         raise AssertionError("unreachable")
 
-    def compare_ahead_by(self, ref: str) -> int:
-        compare_ref = urllib.parse.quote(f"main...{ref}", safe=".")
+    def compare_ahead_by(self, ref: str, expected_sha: str) -> int:
+        # Compare the immutable snapshot SHA, not the branch name. This avoids
+        # ref-path escaping ambiguity and keeps the containment decision bound
+        # to the exact value that will later be revalidated before deletion.
         result = self._run(
-            f"repos/{self.repository}/compare/{compare_ref}",
+            f"repos/{self.repository}/compare/main...{expected_sha}",
             "--jq",
             ".ahead_by",
         )
         if result.returncode != 0:
-            self._raise(result, f"compare main...{ref}")
+            self._raise(result, f"compare main...{ref}@{expected_sha}")
         try:
             return int(result.stdout.strip())
         except ValueError as error:
-            raise RuntimeError(f"compare main...{ref} returned an invalid ahead_by") from error
+            raise RuntimeError(
+                f"compare main...{ref}@{expected_sha} returned an invalid ahead_by"
+            ) from error
 
     def delete_branch(self, ref: str) -> bool:
         encoded_ref = urllib.parse.quote(f"heads/{ref}", safe="")
