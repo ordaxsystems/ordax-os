@@ -6,6 +6,7 @@ const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,79}$/;
 const SPACE_KINDS = new Set(["personal", "work", "professional"]);
 const PACK_STATES = new Set(["draft", "active", "retired"]);
 const MEMORY_SCOPES = new Set(["device", "account", "space", "project", "session"]);
+const VALIDATED_PROFILE_PACKS = new WeakSet();
 
 function objectValue(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -122,7 +123,7 @@ export function validateProfilePack(value, label = "Profile Pack") {
     80,
   );
 
-  return Object.freeze({
+  const normalized = Object.freeze({
     schema: PROFILE_PACK_SCHEMA,
     slug,
     version: pack.version,
@@ -149,6 +150,8 @@ export function validateProfilePack(value, label = "Profile Pack") {
     security: normalizeSecurity(pack, label),
     activation: normalizeActivation(pack, label),
   });
+  VALIDATED_PROFILE_PACKS.add(normalized);
+  return normalized;
 }
 
 export function validateProfilePackCatalog(values, label = "Profile Pack catalog") {
@@ -164,6 +167,24 @@ export function validateProfilePackCatalog(values, label = "Profile Pack catalog
     return pack;
   });
   return Object.freeze(packs);
+}
+
+export function assertValidatedProfilePackCatalog(values, label = "Validated Profile Pack catalog") {
+  if (!Array.isArray(values) || values.length > 64) {
+    throw new TypeError(`${label} must be a bounded array`);
+  }
+  const seen = new Set();
+  for (const [index, pack] of values.entries()) {
+    if (!pack || typeof pack !== "object" || !VALIDATED_PROFILE_PACKS.has(pack)) {
+      throw new TypeError(`${label}[${index}] must come from validateProfilePack()`);
+    }
+    const identity = `${pack.slug}@${pack.version}`;
+    if (seen.has(identity)) {
+      throw new TypeError(`${label} contains duplicate ${identity}`);
+    }
+    seen.add(identity);
+  }
+  return Object.freeze([...values]);
 }
 
 export function validateProfilePackSpace(value, label = "Profile Pack Space") {

@@ -26,3 +26,30 @@ network is required and whether activation is allowed.
 The Stable USB does not preseed every professional payload. Planned or unsigned artifacts
 are never installable. Public download/install remains disabled until the package trust,
 transactional staging, health and rollback path is proven.
+
+
+## Canonical manifest layout
+
+Bundled Profile manifests are versioned source artifacts:
+
+```text
+system/profile-packs/
+├── catalog.json
+├── developer/
+│   └── v1/manifest.json
+└── legal-br/
+    └── v1/manifest.json
+```
+
+`catalog.json` maps exact `slug@version` identities to same-origin runtime URLs such as
+`/system/profile-packs/developer/v1/manifest.json`. The Native host serves the OrdaX
+release root (`/srv/ordax-system`) as its HTTP root, so runtime URLs preserve the
+source-tree `system/` prefix.
+
+Old unversioned `<slug>/manifest.json` paths are forbidden. Multiple versions may coexist
+so update and rollback never require overwriting the previous manifest.
+
+At boot, Native may resolve persisted Profile activation metadata against these manifests,
+the Space kind, provisioning state and installed receipts. This restore is currently
+**metadata-only**. Drift is `disabled-safe`; it never silently applies apps, tools,
+Knowledge, policies or privileges.

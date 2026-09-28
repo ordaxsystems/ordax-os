@@ -24,6 +24,7 @@ import { createNativeFirstRunStateStore } from "../../adapters/native/first-run-
 import { createNativeLocalSession } from "../../adapters/native/local-session.mjs";
 import { createNativeMemoryStore } from "../../adapters/native/memory.mjs";
 import { createNativeProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
+import { createNativeProfileActivationState } from "../../adapters/native/profile-activation-state.mjs";
 import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
 import { createNativeSystemMetrics } from "../../adapters/native/system-metrics.mjs";
@@ -58,6 +59,8 @@ import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
+import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
+import { resolveProfilePackRestore } from "../../services/profile-packs/restore.mjs";
 import { LOCAL_PROFILE_DISTRIBUTIONS } from "../../profile-packs/distributions.mjs";
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
@@ -111,6 +114,12 @@ async function start() {
     "OrdaX native local session unavailable",
     () => createNativeLocalSession(window),
   );
+  const bundledProfilePacksPromise = optionalNativeProbe(
+    "OrdaX bundled Profile manifests unavailable",
+    () => loadBundledProfilePacks({
+      fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
+    }),
+  );
   const optionalPortsPromise = Promise.all([
     optionalNativeProbe(
       "OrdaX native client diagnostics unavailable",
@@ -139,6 +148,10 @@ async function start() {
     optionalNativeProbe(
       "OrdaX native component state persistence unavailable",
       () => createNativeComponentStateStore(window),
+    ),
+    optionalNativeProbe(
+      "OrdaX native Profile activation state unavailable",
+      () => createNativeProfileActivationState(window),
     ),
     optionalNativeProbe(
       "OrdaX native notes persistence unavailable",
@@ -178,10 +191,11 @@ async function start() {
     ),
   ]);
 
-  const [preferenceStore, firstRunStateStore, localSession] = await Promise.all([
+  const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] = await Promise.all([
     preferenceStorePromise,
     firstRunStateStorePromise,
     localSessionPromise,
+    bundledProfilePacksPromise,
   ]);
   const regionalRecovery = seedMissingRegionalPreferencesFromFirstRun(
     preferenceStore.load(),
@@ -200,6 +214,7 @@ async function start() {
     syncStateStore,
     syncCheckpointStore,
     componentStateStore,
+    profileActivationState,
     notesStore,
     powerActions,
     fileSpace,
@@ -285,6 +300,34 @@ async function start() {
     inventory: profileComponentInventory,
     readNetworkAvailable: () => window.navigator?.onLine === true,
   });
+  const profileRestore = (
+    bundledProfilePacks !== null
+    && profileActivationState !== null
+  )
+    ? (() => {
+        try {
+          const snapshot = resolveProfilePackRestore({
+            packs: bundledProfilePacks.packs,
+            provisioning: profileProvisioning,
+            activationState: profileActivationState,
+          });
+          for (const entry of snapshot.entries) {
+            if (entry.state === "disabled-safe") {
+              console.warn(
+                `OrdaX Profile restore disabled safely for ${entry.spaceId}: ${entry.reason}`,
+              );
+            }
+          }
+          return snapshot;
+        } catch (error) {
+          console.warn("OrdaX Profile restore metadata unavailable", error);
+          return null;
+        }
+      })()
+    : null;
+  if (profileRestore?.entries.some((entry) => entry.state === "resolved")) {
+    console.info("OrdaX Profile restore metadata resolved; capability application remains disabled");
+  }
   const syncTransport = createWebSyncTransport(window);
   const appActivation = createAppActivationChannel();
   const updateWatcher = createNativeUpdateWatcher(window);
@@ -624,6 +667,7 @@ async function start() {
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
       profileProvisioning.dispose();
+      profileActivationState?.dispose();
       profileComponentInventory.dispose();
       spaces.dispose();
       accountSync.destroy();

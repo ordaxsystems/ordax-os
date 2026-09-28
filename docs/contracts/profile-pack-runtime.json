@@ -38,5 +38,25 @@
     "download_executor_enabled": false,
     "all_profile_payloads_preseeded_on_usb": false,
     "offline_after_install_supported_by_contract": true
+  },
+  "manifest_source": {
+    "authority": "versioned-json-manifest",
+    "layout": "system/profile-packs/<slug>/v<version>/manifest.json",
+    "runtime_load": "same-origin-only",
+    "external_manifest_egress_allowed": false,
+    "multiple_versions_may_coexist": true,
+    "bundled_index_source": "system/profile-packs/catalog.json",
+    "runtime_catalog_url": "/system/profile-packs/catalog.json",
+    "runtime_url_layout": "/system/profile-packs/<slug>/v<version>/manifest.json"
+  },
+  "restore": {
+    "schema": "ordax.profile-pack-restore/1",
+    "persistence_source": "device",
+    "application": "metadata-only",
+    "boot_critical": false,
+    "capability_application_enabled": false,
+    "revalidates_space_kind": true,
+    "revalidates_component_receipts": true,
+    "drift_result": "disabled-safe"
   }
 }

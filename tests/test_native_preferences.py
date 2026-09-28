@@ -85,10 +85,15 @@ class NativePreferenceTests(unittest.TestCase):
         text = NATIVE_COMPOSITION.read_text(encoding="utf-8")
         self.assertIn('../../adapters/native/preferences.mjs', text)
         self.assertIn("const preferenceStorePromise = createNativePreferenceStore(window);", text)
-        self.assertIn("const [preferenceStore, firstRunStateStore, localSession] = await Promise.all([", text)
+        self.assertIn(
+            "const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] = await Promise.all([",
+            text,
+        )
         self.assertIn("preferenceStorePromise,", text)
         self.assertIn("firstRunStateStorePromise,", text)
         self.assertIn("localSessionPromise,", text)
+        self.assertIn("bundledProfilePacksPromise,", text)
+        self.assertIn('"OrdaX bundled Profile manifests unavailable"', text)
         self.assertIn('../../adapters/native/sync-state.mjs', text)
         self.assertIn("() => createNativeSyncStateStore(window)", text)
         self.assertIn('../../adapters/native/sync-checkpoint.mjs', text)
