@@ -17,12 +17,24 @@ class PhysicalPromotionStateContractTest(unittest.TestCase):
         cls.promotion_gates = PROMOTION_GATES_PATH.read_text(encoding="utf-8")
 
     def test_current_authorization_is_fail_closed(self):
-        self.assertEqual(
+        self.assertIn(
             self.authorization["status"],
-            "blocked-explicit-physical-authorization-pending",
+            {
+                "blocked-canonical-v4-release-proof-pending",
+                "blocked-explicit-physical-authorization-pending",
+            },
         )
         self.assertFalse(self.authorization["physical_write_allowed"])
         self.assertFalse(self.authorization["explicit_owner_authorization"])
+        self.assertIsNone(self.authorization["authorization_context_sha256"])
+        if self.authorization["status"] == "blocked-canonical-v4-release-proof-pending":
+            self.assertFalse(
+                self.authorization["requirements"]["canonical_v4_release_proof_bound"]
+            )
+        else:
+            self.assertTrue(
+                self.authorization["requirements"]["canonical_v4_release_proof_bound"]
+            )
 
     def test_promotion_gates_do_not_claim_current_authorization(self):
         gates = self.promotion_gates
