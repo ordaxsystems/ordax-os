@@ -205,7 +205,19 @@ missing backend degrades to `stopped`. It does not silently retry the failed gen
 will not reset a currently `busy` inference, and `dispose()` aborts active fetches and refuses new
 probe/generate work so shutdown cannot leave hidden inference requests running.
 
-Context supplied to Intelligence is bounded and carries provenance. Tool execution, agents and broader capability bridges still require their own explicit contracts and permissions before activation. The memory runtime does not grant tool authority and does not bypass current authorization.
+Context supplied to Intelligence is bounded and carries provenance. Tool execution, agents and broader capability bridges require explicit contracts and permissions before activation. The memory runtime does not grant tool authority and does not bypass current authorization.
+
+The source foundation now defines `ordax.intelligence-tool/1` and
+`ordax.intelligence-tool-grant/1`. A tool declares typed read/write actions,
+sandbox kind, resource limits and narrow filesystem/network needs. Authority is
+a separate grant owned by trusted composition/policy and scoped to an owner plus
+optional Space/project. Prompt text and model output cannot mint grants. Write
+actions require explicit approval, while generic shell, raw-disk access,
+release-key access, trust-anchor mutation and physical-write authorization are
+forbidden by contract. The preferred future portable sandbox is a WASI Component
+runtime; Native brokers remain possible for genuinely platform-specific
+capabilities. This is a source foundation only: tool execution, agent loops and
+autonomous mutation remain disabled.
 
 ## Nova OrdaX reference
 
