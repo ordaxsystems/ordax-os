@@ -40,7 +40,7 @@ test("first-party apps own bounded Intelligence integration metadata", () => {
     toolIds: [],
   });
   assert.deepEqual(systemApp.intelligence, {
-    contextSourceIds: [],
+    contextSourceIds: ["workspace-selection"],
     toolIds: [
       "observe-system-metrics",
       "observe-network-status",
@@ -59,12 +59,16 @@ test("first-party apps own bounded Intelligence integration metadata", () => {
 });
 
 test("canonical app Intelligence integrations resolve against canonical context and tool registries", () => {
-  const sourceIds = new Set(listFirstPartyGrantedIntelligenceContextSources().map((source) => source.id));
+  const sourceSpecs = listFirstPartyGrantedIntelligenceContextSources();
+  const sourceIds = new Set(sourceSpecs.map((source) => source.id));
   const tools = createIntelligenceToolRegistry();
+  const declaredContextOwners = new Map();
 
   for (const app of listFirstPartyApps()) {
     for (const sourceId of app.intelligence.contextSourceIds) {
       assert.ok(sourceIds.has(sourceId), `${app.id} declares unknown Intelligence context source ${sourceId}`);
+      assert.equal(declaredContextOwners.has(sourceId), false, `Intelligence context source ${sourceId} has multiple app owners`);
+      declaredContextOwners.set(sourceId, app.id);
     }
     for (const toolId of app.intelligence.toolIds) {
       const tool = tools.get(toolId);
@@ -73,6 +77,12 @@ test("canonical app Intelligence integrations resolve against canonical context 
       assert.equal(tool.authority, "none", `${app.id} Intelligence tool ${toolId} must not grant authority`);
     }
   }
+
+  assert.deepEqual(
+    [...declaredContextOwners.keys()].sort(),
+    [...sourceIds].sort(),
+    "every canonical explicit Intelligence context source must have exactly one first-party app owner",
+  );
 });
 
 test("app Intelligence metadata rejects duplicates, malformed ids and hidden authority fields", () => {
