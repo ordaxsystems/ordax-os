@@ -267,6 +267,25 @@ Mutações de recursos sujeitos a quota/entitlement são **server-authoritative*
 23. Store pública;
 24. billing/plan bundles.
 
+## 7.1 Perfis profissionais no MVP
+
+A decisão canônica de distribuição está em
+`PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md`.
+
+O MVP passa a incluir a fundação real de provisioning de Profiles:
+
+- catálogo leve local;
+- `ordax.profile-distribution/1`;
+- `ordax.profile-provisioning/1`;
+- planner que calcula componentes já presentes e ausentes;
+- sem preload de todos os perfis profissionais na imagem;
+- funcionamento offline após instalação quando as dependências locais estão presentes;
+- download público ainda desabilitado até existir trust/publicação transacional;
+- Legal-BR continua visível como draft/bloqueado, sem falsa disponibilidade.
+
+Essa fundação é parte do MVP porque evita que Store, Profiles e especializações futuras
+exijam reinstalar o pendrive ou refatorar Spaces/Memory depois do lançamento.
+
 ## 8. Regra de fechamento de escopo
 
 Depois de fechar essas fundações, novas features não entram no primeiro MVP apenas por serem boas ideias. O foco volta para release v4 canônica, primeira mídia Stable física, cold-health, known-good, rollback, recovery, smoke real e publicação.
