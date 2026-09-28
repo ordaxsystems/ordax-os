@@ -46,6 +46,7 @@ import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs"
 import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
+import { createProjectEvidenceRuntime } from "../../services/projects/evidence-runtime.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
@@ -259,6 +260,9 @@ async function start() {
     store: createNativeProjectWebReferenceStore(window),
     projects,
   });
+  const projectEvidence = projects === null || fileSpace === null
+    ? null
+    : createProjectEvidenceRuntime({ projects, fileSpace });
   const workspaceMetadata = createWorkspaceMetadataBridge(localWorkspaceStore);
   const workspaceStore = workspaceMetadata.store;
   const identitySession = createWebIdentitySession(window);
@@ -530,6 +534,7 @@ async function start() {
       projects,
       projectCloudLinks,
       projectWebReferences: projectReferences,
+      projectEvidence,
       appActivation,
     },
     onError(error) {
