@@ -23,6 +23,7 @@ IP_BIN=$(command -v ip || true)
 IW_BIN=$(command -v iw || true)
 WPA_BIN=$(command -v wpa_supplicant || true)
 UDHCPC_BIN=$(command -v udhcpc || true)
+MODPROBE_BIN=$(command -v modprobe || true)
 
 [ -n "$IP_BIN" ] && [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
     echo "ordax-network-broker: required host network tools are unavailable" >&2
@@ -55,6 +56,41 @@ find_wifi_interface() {
         printf '%s\n' "${netpath##*/}"
         return 0
     done
+    return 1
+}
+
+load_supported_wifi_modules() {
+    [ -n "$MODPROBE_BIN" ] || return 0
+
+    # Keep hardware discovery owned by the native network broker. The kernel
+    # deliberately ships supported Wi-Fi families as modules, so boot remains
+    # independent of wireless hardware while the first real network request
+    # activates the drivers that the Stable Base actually carries.
+    for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc; do
+        "$MODPROBE_BIN" "$module" >/dev/null 2>&1 || true
+    done
+}
+
+ensure_wifi_interface() {
+    wifi=$(find_wifi_interface || true)
+    if [ -n "$wifi" ]; then
+        printf '%s\n' "$wifi"
+        return 0
+    fi
+
+    load_supported_wifi_modules
+
+    attempts=0
+    while [ "$attempts" -lt 5 ]; do
+        wifi=$(find_wifi_interface || true)
+        if [ -n "$wifi" ]; then
+            printf '%s\n' "$wifi"
+            return 0
+        fi
+        attempts=$((attempts + 1))
+        [ "$attempts" -lt 5 ] && /bin/busybox sleep 1
+    done
+
     return 1
 }
 
@@ -166,7 +202,7 @@ handle_request() {
         ''|*[!A-Za-z0-9._:-]*) respond unknown error "" invalid-request; return 0 ;;
     esac
 
-    wifi=$(find_wifi_interface || true)
+    wifi=$(ensure_wifi_interface || true)
     [ -n "$wifi" ] || {
         respond "$request_id" error "" no-wifi-interface
         return 0
