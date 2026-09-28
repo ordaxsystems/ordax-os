@@ -42,8 +42,9 @@ system/profile-packs/
 ```
 
 `catalog.json` maps exact `slug@version` identities to same-origin runtime URLs such as
-`/profile-packs/developer/v1/manifest.json`. The Native host serves `system/` as its
-HTTP root, so runtime URLs intentionally omit the source-tree `system/` prefix.
+`/system/profile-packs/developer/v1/manifest.json`. The Native host serves the OrdaX
+release root (`/srv/ordax-system`) as its HTTP root, so runtime URLs preserve the
+source-tree `system/` prefix.
 
 Old unversioned `<slug>/manifest.json` paths are forbidden. Multiple versions may coexist
 so update and rollback never require overwriting the previous manifest.
