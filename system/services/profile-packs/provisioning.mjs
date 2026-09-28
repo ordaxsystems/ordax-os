@@ -1,4 +1,7 @@
 import {
+  assertProfileComponentInventoryPort,
+} from "../../contracts/profile-component-inventory.mjs";
+import {
   PROFILE_PROVISIONING_SCHEMA,
   planProfileProvisioning,
   validateProfileDistribution,
@@ -10,15 +13,13 @@ function identity(distribution) {
 
 export function createProfileProvisioningRuntime({
   distributions = [],
-  readInstalledComponentIds = () => [],
+  inventory,
   readNetworkAvailable = () => false,
 } = {}) {
   if (!Array.isArray(distributions) || distributions.length > 128) {
     throw new TypeError("Profile provisioning runtime requires a bounded distribution catalog");
   }
-  if (typeof readInstalledComponentIds !== "function") {
-    throw new TypeError("Profile provisioning runtime requires readInstalledComponentIds()");
-  }
+  const inventoryPort = assertProfileComponentInventoryPort(inventory);
   if (typeof readNetworkAvailable !== "function") {
     throw new TypeError("Profile provisioning runtime requires readNetworkAvailable()");
   }
@@ -41,26 +42,23 @@ export function createProfileProvisioningRuntime({
   };
 
   const environment = () => {
-    const installed = readInstalledComponentIds();
+    const installedInventory = inventoryPort.getSnapshot();
     const networkAvailable = readNetworkAvailable();
-    if (!Array.isArray(installed)) {
-      throw new TypeError("Installed Profile component reader must return an array");
-    }
     if (typeof networkAvailable !== "boolean") {
       throw new TypeError("Profile network reader must return boolean");
     }
-    return { installed, networkAvailable };
+    return { installedInventory, networkAvailable };
   };
 
   return Object.freeze({
     schema: PROFILE_PROVISIONING_SCHEMA,
     list() {
       requireActive();
-      const { installed, networkAvailable } = environment();
+      const { installedInventory, networkAvailable } = environment();
       return Object.freeze(entries.map((distribution) =>
         planProfileProvisioning({
           distribution,
-          installedComponentIds: installed,
+          installedInventory,
           networkAvailable,
         })));
     },
@@ -71,10 +69,10 @@ export function createProfileProvisioningRuntime({
       }
       const distribution = byIdentity.get(`${slug}@${version}`);
       if (!distribution) return null;
-      const { installed, networkAvailable } = environment();
+      const { installedInventory, networkAvailable } = environment();
       return planProfileProvisioning({
         distribution,
-        installedComponentIds: installed,
+        installedInventory,
         networkAvailable,
       });
     },
