@@ -90,7 +90,7 @@ Nenhum desses itens precisa conceder execução de tools.
 18. receipts/telemetria de cada execução;
 19. nenhuma shell genérica.
 
-**Estado atual da P3:** Agent Registry, Tool Registry, Capability Bridge e grants tipados já existem. O broker exige binding explícito agente→tool, capability realmente presente, alvo compatível, TTL curto e uso único. O lifecycle de autorização gera receipts `issued/claimed/revoked/expired` sem bearer token nem target privado. A primeira execução governada também já foi implementada para `observe-system-metrics`: somente após claim válido do grant, usando a porta canônica `ordax.system-metrics/1`, resultado bounded com provenance e execution receipt separado `succeeded/failed`. `observe-network-status` e `observe-power-status` continuam registradas porém não invocáveis. O chat/modelo ainda não recebe seleção automática de tool e nenhuma tool mutável foi habilitada.
+**Estado atual da P3:** Agent Registry, Tool Registry, Capability Bridge e grants tipados já existem. O broker exige binding explícito agente→tool, capability realmente presente, alvo compatível, TTL curto e uso único. O lifecycle de autorização gera receipts `issued/claimed/revoked/expired` sem bearer token nem target privado. A primeira execução governada também já foi implementada para `observe-system-metrics`: somente após claim válido do grant, usando a porta canônica `ordax.system-metrics/1`, resultado bounded com provenance e execution receipt separado `succeeded/failed`. Os receipts de autorização e execução agora podem ser correlacionados por `auditRef` em um journal dedicado, bounded e append-only de runtime. O journal não guarda grant ID, target ID, prompt, resposta do modelo, conteúdo retornado pela tool nem detalhe interno do adapter; `auditRef` não concede autoridade. Persistência nativa durável desse journal ainda está deliberadamente pendente. `observe-network-status` e `observe-power-status` continuam registradas porém não invocáveis. O chat/modelo ainda não recebe seleção automática de tool e nenhuma tool mutável foi habilitada.
 
 ### P4 — Web e modelos externos
 
@@ -158,6 +158,7 @@ Knowledge Graph, semantic search e Project Brain podem ser adicionados depois so
 - Internet não é fallback silencioso;
 - memória não é injetada automaticamente por login;
 - agentes não recebem root/shell genérico;
+- receipts e audit logs não são capabilities nem bearer tokens;
 - mutação oficial do sistema continua subordinada às authorities e gates do OrdaX.
 
 ## 8. Relação com o legado Nova OrdaX
