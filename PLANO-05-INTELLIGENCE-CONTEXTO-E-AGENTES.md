@@ -171,3 +171,17 @@ Esta etapa recupera de forma clean-room as ideias registradas em:
 - `docs/FOUNDATION/AI-INTEROP/AI-INTEROP-003-INTELLIGENCE-NORMALIZATION.md`.
 
 A meta de longo prazo permanece a mesma: uma experiência progressivamente "Jarvis-like", mas construída sobre contexto, capabilities, policies, evidence e aprovação em vez de entregar autoridade irrestrita a um chatbot.
+
+## 9. Estado incremental da P3
+
+A P3 deve avançar em camadas e não por atalhos:
+
+- **Agent Registry:** fundação source-complete com identidades read-only e sem execução;
+- **Tool Registry / Capability Bridge:** fundação source-complete somente para capabilities canônicas classificadas como observabilidade read-only;
+- **Tool Grants:** autorização tipada, curta, one-shot e presa a agente registrado + tool registrada + target concreto;
+- **Authorization Receipts:** eventos `issued`, `consumed`, `revoked` e `expired` registram o ciclo da autorização sem afirmar que houve execução;
+- **Tool invocation:** continua desativada;
+- **Persistent audit journal:** continua pendente;
+- **Adapters executáveis, shell genérica e mutações:** continuam fora desta fase.
+
+Consumir um grant nesta etapa significa somente consumir a autorização efêmera. Não significa invocar a capability, executar a tool ou alterar estado. A futura invocação read-only terá contrato próprio e deverá produzir receipt de execução separado, com resultado bounded/provenance, antes de qualquer avanço para tools mutáveis.
