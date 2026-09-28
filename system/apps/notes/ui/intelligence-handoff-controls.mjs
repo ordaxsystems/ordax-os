@@ -77,7 +77,9 @@ export function mountNotesIntelligenceHandoffControls(
 
     const titleInput = slot.querySelector("[data-notes-title]");
     const bodyInput = slot.querySelector("[data-notes-body]");
-    const title = titleInput?.value?.trim() || note.title || t("notes.note.untitled");
+    const rawTitle = titleInput?.value?.trim() || note.title || t("notes.note.untitled");
+    const contextTitle = rawTitle.slice(0, 512);
+    const displayLabel = rawTitle.slice(0, 160);
     const text = bodyInput?.innerText?.trim()
       || bodyInput?.textContent?.trim()
       || note.body
@@ -88,10 +90,10 @@ export function mountNotesIntelligenceHandoffControls(
       sourceAppId: "notes",
       sourceId: NOTE_CONTEXT_SOURCE_ID,
       target,
-      displayLabel: title,
+      displayLabel,
       context: createDocumentIntelligenceContext({
         id: note.id,
-        title,
+        title: contextTitle,
         text,
         provenance: `ordax:notes:${note.id}:user-authorized-selection`,
       }),
@@ -106,7 +108,7 @@ export function mountNotesIntelligenceHandoffControls(
         sourceAppId: "notes",
         mode: "ask",
         target,
-        displayLabel: title,
+        displayLabel,
         suggestedPrompt: t("notes.intelligence.summaryAria"),
         authority: "none",
         executable: false,
