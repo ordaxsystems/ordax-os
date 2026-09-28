@@ -9,6 +9,9 @@ export const projectsApp = defineFirstPartyApp({
   singleton: true,
   component: projectsComponent,
   requiredCapabilities: [],
+  intelligence: {
+    contextSourceIds: ["project-selection", "project-evidence-selection"],
+  },
   panels: [
     {
       kind: "extension",
