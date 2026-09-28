@@ -24,6 +24,7 @@ import { createNativeFirstRunStateStore } from "../../adapters/native/first-run-
 import { createNativeLocalSession } from "../../adapters/native/local-session.mjs";
 import { createNativeMemoryStore } from "../../adapters/native/memory.mjs";
 import { createNativeProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
+import { createNativeProfileActivationState } from "../../adapters/native/profile-activation-state.mjs";
 import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
 import { createNativeSystemMetrics } from "../../adapters/native/system-metrics.mjs";
@@ -58,7 +59,9 @@ import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
+import { createProfilePackRuntime } from "../../services/profile-packs/runtime.mjs";
 import { LOCAL_PROFILE_DISTRIBUTIONS } from "../../profile-packs/distributions.mjs";
+import { LOCAL_PROFILE_PACK_MANIFESTS } from "../../profile-packs/manifests.mjs";
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
@@ -285,6 +288,27 @@ async function start() {
     inventory: profileComponentInventory,
     readNetworkAvailable: () => window.navigator?.onLine === true,
   });
+  const profileActivationState = await optionalNativeProbe(
+    "OrdaX Profile activation state unavailable; persisted Profile restore disabled",
+    () => createNativeProfileActivationState(window),
+  );
+  const profilePackRuntime = await optionalNativeProbe(
+    "OrdaX Profile runtime unavailable; continuing without Profile composition",
+    () => createProfilePackRuntime({
+      packs: LOCAL_PROFILE_PACK_MANIFESTS,
+      provisioning: profileProvisioning,
+      activationState: profileActivationState,
+    }),
+  );
+  if (profilePackRuntime?.getSnapshot().restoration) {
+    for (const entry of profilePackRuntime.getSnapshot().restoration.entries) {
+      if (entry.state === "disabled-safe") {
+        console.warn(
+          `OrdaX Profile restore disabled safely for ${entry.spaceId}: ${entry.reason}`,
+        );
+      }
+    }
+  }
   const syncTransport = createWebSyncTransport(window);
   const appActivation = createAppActivationChannel();
   const updateWatcher = createNativeUpdateWatcher(window);
@@ -623,6 +647,8 @@ async function start() {
       accountOverviewControls.destroy();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
+      profilePackRuntime?.dispose();
+      profileActivationState?.dispose();
       profileProvisioning.dispose();
       profileComponentInventory.dispose();
       spaces.dispose();
