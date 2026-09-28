@@ -144,9 +144,13 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
         self.assertNotIn("time.sleep(1", boot)
         self.assertNotIn("deadline +=", boot)
         self.assertEqual(boot.count("150.0"), 1)
+        final_observation = boot.split(
+            "final_ready, final_checks = observe(final_text)",
+            1,
+        )[1]
         self.assertLess(
-            boot.index("final_ready, final_checks = observe(final_text)"),
-            boot.index("raise ProofError("),
+            final_observation.index("if final_ready:"),
+            final_observation.index("raise ProofError("),
         )
 
     def test_initramfs_mount_understands_security_flags_before_vfat_handoff(self):
