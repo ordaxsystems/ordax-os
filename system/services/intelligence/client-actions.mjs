@@ -27,6 +27,22 @@ function documentContextText(title, text) {
   return (prefix + clipped + suffix).slice(0, 8192);
 }
 
+export function createDocumentIntelligenceContext({
+  id,
+  title,
+  text,
+  provenance,
+} = {}) {
+  const documentId = bounded(id, "Intelligence document id", 160);
+  const source = bounded(provenance, "Intelligence document provenance", 512);
+  return Object.freeze([Object.freeze({
+    id: documentId,
+    scope: "document",
+    text: documentContextText(title, text),
+    provenance: source,
+  })]);
+}
+
 export async function summarizeDocumentWithIntelligence(
   portValue,
   {
@@ -39,17 +55,10 @@ export async function summarizeDocumentWithIntelligence(
   } = {},
 ) {
   const port = assertIntelligencePort(portValue);
-  const documentId = bounded(id, "Intelligence document id", 160);
-  const source = bounded(provenance, "Intelligence document provenance", 512);
   return port.respond({
     intent: "summarize",
     prompt,
-    context: [{
-      id: documentId,
-      scope: "document",
-      text: documentContextText(title, text),
-      provenance: source,
-    }],
+    context: createDocumentIntelligenceContext({ id, title, text, provenance }),
     maxTokens,
   });
 }
