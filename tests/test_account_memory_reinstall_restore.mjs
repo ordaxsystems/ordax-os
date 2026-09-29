@@ -160,10 +160,10 @@ function accountSnapshotObjects() {
       serverRevision: 7,
       tombstone: false,
       payload: {
-        activeAreaId: "area-restored",
+        activeAreaId: "area-2",
         areas: [
-          { id: "area-default", ordinal: 1, appIds: ["files"] },
-          { id: "area-restored", ordinal: 2, appIds: ["settings", "internet"] },
+          { id: "area-1", ordinal: 1, appIds: ["files"] },
+          { id: "area-2", ordinal: 2, appIds: ["settings", "internet"] },
         ],
       },
     },
@@ -235,7 +235,7 @@ test("fresh install restores promoted account state and authorized Memory from o
   assert.equal(preferences.getSnapshot()["accessibility.contrast"], "high");
   assert.equal(preferences.getSnapshot()["accessibility.motion"], "reduced");
   assert.equal(preferences.getSnapshot()["accessibility.text-scale"], "large");
-  assert.equal(bridge.source.getSnapshot().activeAreaId, "area-restored");
+  assert.equal(bridge.source.getSnapshot().activeAreaId, "area-2");
   assert.deepEqual(bridge.source.getSnapshot().areas[1].appIds, ["settings", "internet"]);
 
   const restoredMemory = memory.search({ ownerId: SUBJECT, scopes: ["account"] });
