@@ -43,6 +43,7 @@ interface IFoo {}
     def test_contract_keeps_exact_output_and_promotion_boundaries_closed(self):
         contract = self.contract()
         self.assertFalse(contract["trigger_semantics"]["architecture_output_fanout_verified"])
+        self.assertTrue(contract["trigger_semantics"]["parentsrc_fallback_required"])
         self.assertTrue(all(value is False for value in contract["open_boundaries"].values()))
         self.assertTrue(all(value is False for value in contract["promotion"].values()))
         self.assertEqual(len(contract["trigger_semantics"]["producer_ids"]), 9)
@@ -68,6 +69,31 @@ interface IFoo {}
         self.assertEqual(set(counts["by_producer"]), set(self.contract()["trigger_semantics"]["producer_ids"]))
         self.assertTrue(all(value == 1 for value in counts["by_producer"].values()))
         self.assertEqual(len(records), 9)
+
+    def test_parentsrc_fallback_matches_wine_source_lookup(self):
+        makefile = """PARENTSRC = ../shared
+SOURCES = interface.idl
+"""
+        idl = b"#pragma makedep client\n"
+        contents = {
+            "dlls/versioned/Makefile.in": makefile.encode(),
+            "dlls/shared/interface.idl": idl,
+        }
+        members = {
+            "dlls/versioned/Makefile.in": {"is_file": True, "size": len(contents["dlls/versioned/Makefile.in"])},
+            "dlls/shared/interface.idl": {"is_file": True, "size": len(idl)},
+        }
+        records, counts = MODULE.inventory_triggers(members, contents, self.contract())
+        self.assertEqual(counts["trigger_records"], 1)
+        self.assertEqual(records[0]["source"], "dlls/shared/interface.idl")
+        self.assertEqual(records[0]["source_resolution"], "parentsrc")
+        self.assertEqual(records[0]["logical_output"], "dlls/versioned/interface_c.c")
+
+    def test_parentsrc_cannot_escape_archive_root(self):
+        variables = MODULE.parse_make_variables("PARENTSRC = ../../../outside\n")
+        members = {}
+        with self.assertRaisesRegex(MODULE.GeneratedSourceTriggerError, "escapes archive root"):
+            MODULE.resolve_trigger_source("dlls/versioned/Makefile.in", "interface.idl", variables, members)
 
     def test_missing_trigger_source_fails_closed(self):
         with self.assertRaisesRegex(MODULE.GeneratedSourceTriggerError, "IDL trigger source"):

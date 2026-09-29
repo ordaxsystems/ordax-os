@@ -31,7 +31,8 @@
       "widl-ident",
       "widl-proxy",
       "widl-server"
-    ]
+    ],
+    "parentsrc_fallback_required": true
   },
   "open_boundaries": {
     "generated_source_instances_inventoried": false,

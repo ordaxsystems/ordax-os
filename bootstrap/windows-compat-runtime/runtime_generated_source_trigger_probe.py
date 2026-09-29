@@ -72,6 +72,8 @@ def load_contract() -> dict:
         raise GeneratedSourceTriggerError("unresolved make expansion must remain forbidden")
     if semantics.get("regular_source_member_required") is not True:
         raise GeneratedSourceTriggerError("trigger source members must remain regular files")
+    if semantics.get("parentsrc_fallback_required") is not True:
+        raise GeneratedSourceTriggerError("PARENTSRC fallback semantics must remain required")
     if semantics.get("proxy_makefile_produces_single_dlldata") is not True:
         raise GeneratedSourceTriggerError("proxy Makefile dlldata semantics drifted")
     if semantics.get("architecture_output_fanout_verified") is not False:
@@ -230,17 +232,46 @@ def split_make_tokens(value: str, label: str) -> list[str]:
     return tokens
 
 
+def normalize_relative_path(*parts: str) -> str:
+    stack: list[str] = []
+    for raw in parts:
+        if not isinstance(raw, str) or not raw or raw.startswith("/") or "\\" in raw:
+            raise GeneratedSourceTriggerError(f"unsafe relative path component: {raw!r}")
+        for part in PurePosixPath(raw).parts:
+            if part in ("", "."):
+                continue
+            if part == "..":
+                if not stack:
+                    raise GeneratedSourceTriggerError(f"relative path escapes archive root: {parts!r}")
+                stack.pop()
+                continue
+            stack.append(part)
+    if not stack:
+        raise GeneratedSourceTriggerError("relative path normalized to archive root")
+    return PurePosixPath(*stack).as_posix()
+
+
 def normalize_member_path(makefile_relative: str, token: str) -> str:
-    if not token or token.startswith("/") or "\\" in token:
+    if not token or token.startswith("/") or "\\" in token or ".." in PurePosixPath(token).parts:
         raise GeneratedSourceTriggerError(f"unsafe source token: {token!r}")
-    token_path = PurePosixPath(token)
-    if ".." in token_path.parts:
-        raise GeneratedSourceTriggerError(f"source token escapes module directory: {token!r}")
-    parent = PurePosixPath(makefile_relative).parent
-    combined = parent / token_path
-    if ".." in combined.parts or combined.is_absolute():
-        raise GeneratedSourceTriggerError(f"unsafe source path: {combined}")
-    return combined.as_posix()
+    parent = PurePosixPath(makefile_relative).parent.as_posix()
+    return normalize_relative_path(parent, token)
+
+
+def resolve_trigger_source(makefile_relative: str, token: str, variables: dict[str, str], members: dict[str, dict]) -> tuple[str, str]:
+    local = normalize_member_path(makefile_relative, token)
+    if members.get(local, {}).get("is_file") is True:
+        return local, "local"
+    if "PARENTSRC" not in variables:
+        return local, "missing"
+    parent_src = expand_make_value("PARENTSRC", variables)
+    if not parent_src:
+        return local, "missing"
+    make_parent = PurePosixPath(makefile_relative).parent.as_posix()
+    candidate = normalize_relative_path(make_parent, parent_src, token)
+    if members.get(candidate, {}).get("is_file") is True:
+        return candidate, "parentsrc"
+    return candidate, "missing"
 
 
 def replace_suffix(path: str, old: str, new: str) -> str:
@@ -374,8 +405,12 @@ def inventory_triggers(members: dict[str, dict], contents: dict[str, bytes], con
         source_token_count += len(source_tokens)
         proxy_sources: list[str] = []
         for token in source_tokens:
-            source_path = normalize_member_path(makefile, token)
-            suffix = PurePosixPath(source_path).suffix
+            local_source_path = normalize_member_path(makefile, token)
+            suffix = PurePosixPath(local_source_path).suffix
+            source_path = local_source_path
+            source_resolution = "local"
+            if suffix in (".idl", ".y", ".l", ".xml"):
+                source_path, source_resolution = resolve_trigger_source(makefile, token, variables, members)
             producer = None
             output = None
             if suffix == ".idl":
@@ -393,7 +428,7 @@ def inventory_triggers(members: dict[str, dict], contents: dict[str, bytes], con
                     if flag not in flags:
                         continue
                     output_suffix = {"client": "_c.c", "server": "_s.c", "ident": "_i.c", "proxy": "_p.c"}[flag]
-                    trigger_records.append({"producer_id": producer_id, "makefile": makefile, "source": source_path, "source_sha256": hashlib.sha256(raw_source).hexdigest(), "trigger": f"#pragma makedep {flag}", "logical_output": replace_suffix(source_path, ".idl", output_suffix)})
+                    trigger_records.append({"producer_id": producer_id, "makefile": makefile, "source": source_path, "source_resolution": source_resolution, "source_sha256": hashlib.sha256(raw_source).hexdigest(), "trigger": f"#pragma makedep {flag}", "logical_output": replace_suffix(local_source_path, ".idl", output_suffix)})
                     observed.append(flag)
                     if flag == "proxy":
                         proxy_sources.append(source_path)
@@ -401,17 +436,17 @@ def inventory_triggers(members: dict[str, dict], contents: dict[str, bytes], con
                     bound_sources.add(source_path)
                 continue
             if suffix == ".y":
-                producer, output = "bison-parser", replace_suffix(source_path, ".y", ".tab.c")
+                producer, output = "bison-parser", replace_suffix(local_source_path, ".y", ".tab.c")
             elif suffix == ".l":
-                producer, output = "flex-scanner", replace_suffix(source_path, ".l", ".yy.c")
+                producer, output = "flex-scanner", replace_suffix(local_source_path, ".l", ".yy.c")
             elif suffix == ".xml":
-                producer, output = "wayland-protocol", replace_suffix(source_path, ".xml", "-protocol.c")
+                producer, output = "wayland-protocol", replace_suffix(local_source_path, ".xml", "-protocol.c")
             if producer is not None:
                 meta = members.get(source_path)
                 raw_source = contents.get(source_path)
                 if not meta or meta.get("is_file") is not True or raw_source is None:
                     raise GeneratedSourceTriggerError(f"trigger source is not a regular bounded archive member: {source_path}")
-                trigger_records.append({"producer_id": producer, "makefile": makefile, "source": source_path, "source_sha256": hashlib.sha256(raw_source).hexdigest(), "trigger": f"{source_var}:{token}", "logical_output": output})
+                trigger_records.append({"producer_id": producer, "makefile": makefile, "source": source_path, "source_resolution": source_resolution, "source_sha256": hashlib.sha256(raw_source).hexdigest(), "trigger": f"{source_var}:{token}", "logical_output": output})
                 bound_sources.add(source_path)
         if proxy_sources:
             parent = PurePosixPath(makefile).parent
