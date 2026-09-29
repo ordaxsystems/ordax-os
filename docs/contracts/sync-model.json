@@ -106,6 +106,9 @@
       "owner": "system/services/memory",
       "transport_owner": "system/services/sync",
       "reconciliation_orchestrator": "system/services/sync/account-runtime.mjs",
+      "account_orchestrator_dispatch_implemented": true,
+      "account_cursor_advances_after_memory_reconciliation": true,
+      "outbound_uses_account_transport": true,
       "data_class_runtime_owns_cursor": false,
       "data_class_runtime_owns_transport": false,
       "resolver_family": "versioned-memory-domain-resolver",
@@ -116,6 +119,9 @@
       "coordination_state_subject_bound": true,
       "coordination_state_foundation_implemented": true,
       "coordination_state_live_adapter_wiring": false,
+      "gateway_policy_reuses_canonical_validator": true,
+      "backend_guard_migration_source_prepared": true,
+      "backend_guard_migration_applied": false,
       "current_client_integration": false,
       "backend_acceptance_enabled": false,
       "production_enabled": false
@@ -155,7 +161,9 @@
     "memory_sync_implies_telemetry_authorization": false,
     "memory_sync_implies_community_data_authorization": false,
     "memory_sync_grants_tool_authority": false,
-    "memory_coordination_state_may_contain_session_tokens": false
+    "memory_coordination_state_may_contain_session_tokens": false,
+    "memory_backend_must_reject_direct_rpc_never_sync_material": true,
+    "memory_backend_provider_is_semantic_authority": false
   },
   "offline": {
     "offline_local_work_allowed": true,
@@ -213,6 +221,7 @@
     "mutation_rpc": "ordax_apply_sync_mutation_v2",
     "rls_owner_scoped": true,
     "idempotent_mutations": true,
+    "idempotency_key_reuse_must_match_exact_mutation": true,
     "optimistic_conflict_detection": true,
     "tombstones": true,
     "list_rpc": "ordax_list_sync_objects_v1",
@@ -232,6 +241,10 @@
       "preferences",
       "workspace-metadata"
     ],
+    "memory_guard_migration": "20260929122500_account_memory_sync_guard_v1",
+    "memory_guard_migration_status": "source-prepared-not-applied",
+    "memory_gateway_policy": "infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs",
+    "memory_gateway_policy_uses_canonical_validator": true,
     "memory_data_class_enabled": false,
     "native_loopback_gateway_routes": [
       "/auth/session",
