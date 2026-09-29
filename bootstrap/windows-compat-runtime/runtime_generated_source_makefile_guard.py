@@ -12,14 +12,13 @@ closed.
 from __future__ import annotations
 
 import argparse
-import importlib.util
+import json
 from pathlib import Path, PurePosixPath
 import re
 import sys
 
 HERE = Path(__file__).resolve().parent
-PROBE_PATH = HERE / "runtime_generated_source_probe.py"
-PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-generated-source-makefile-guard-proof/1"
+CONTRACT_PATH = HERE / "runtime-generated-source-inventory.json"
 SAFE_LITERAL_RE = re.compile(r"^[A-Za-z0-9_./+@-]+$")
 
 
@@ -27,16 +26,25 @@ class GeneratedSourceMakefileGuardError(RuntimeError):
     pass
 
 
-def load_module(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise GeneratedSourceMakefileGuardError(f"cannot load module: {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-PROBE = load_module("ordax_generated_source_probe_for_makefile_guard", PROBE_PATH)
+def load_contract() -> dict:
+    try:
+        value = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GeneratedSourceMakefileGuardError(f"cannot load generated source contract: {exc}") from exc
+    if not isinstance(value, dict) or value.get("$schema") != "prototype-ordax.windows-compat-runtime-generated-source-inventory/1":
+        raise GeneratedSourceMakefileGuardError("unexpected generated source contract schema")
+    inspection = value.get("inspection", {})
+    for key in (
+        "generated_makefile_c_target_graph_required",
+        "built_object_dependency_check_required",
+        "every_built_object_c_prerequisite_accounted",
+        "unreferenced_materialized_generated_c_allowed",
+    ):
+        if inspection.get(key) is not True:
+            raise GeneratedSourceMakefileGuardError(f"generated Makefile guard contract drifted: {key}")
+    if inspection.get("unmaterialized_c_prerequisite_for_built_object_allowed") is not False:
+        raise GeneratedSourceMakefileGuardError("generated Makefile missing-C boundary drifted")
+    return value
 
 
 def logical_lines(text: str) -> list[str]:
@@ -58,15 +66,6 @@ def logical_lines(text: str) -> list[str]:
     return values
 
 
-def safe_literal(value: str, label: str) -> str:
-    if not SAFE_LITERAL_RE.fullmatch(value):
-        raise GeneratedSourceMakefileGuardError(f"unsafe {label}: {value!r}")
-    pure = PurePosixPath(value)
-    if pure.is_absolute() or not pure.parts:
-        raise GeneratedSourceMakefileGuardError(f"unsafe absolute/empty {label}: {value!r}")
-    return pure.as_posix()
-
-
 def parse_rules(text: str) -> list[dict]:
     rules: list[dict] = []
     for line in logical_lines(text):
@@ -84,14 +83,12 @@ def parse_rules(text: str) -> list[dict]:
             token for token in rhs.split()
             if token != "|" and "$" not in token and "%" not in token and not token.startswith("#")
         ]
-        if not targets:
-            continue
-        rules.append({"targets": targets, "prerequisites": prerequisites})
+        if targets:
+            rules.append({"targets": targets, "prerequisites": prerequisites})
     return rules
 
 
 def normalize_source_reference(value: str, archive_root: str) -> str | None:
-    """Map a Makefile C prerequisite to an archive-relative path when possible."""
     raw = value.replace("\\", "/")
     marker = f"wine-source/{archive_root}/"
     if marker in raw:
@@ -114,9 +111,7 @@ def normalize_source_reference(value: str, archive_root: str) -> str | None:
                 return None
         else:
             parts.append(part)
-    if not parts:
-        return None
-    return PurePosixPath(*parts).as_posix()
+    return PurePosixPath(*parts).as_posix() if parts else None
 
 
 def materialized_object(target: str, build_root: Path) -> bool:
@@ -140,10 +135,7 @@ def validate_compiled_c_graph(
     if not rules:
         raise GeneratedSourceMakefileGuardError("generated Makefile produced no parseable rules")
 
-    built_object_rules = 0
-    c_edges = 0
-    archive_edges = 0
-    generated_edges = 0
+    built_object_rules = c_edges = archive_edges = generated_edges = 0
     unique_c: set[str] = set()
     generated_c: set[str] = set()
     unresolved: list[dict] = []
@@ -158,37 +150,24 @@ def validate_compiled_c_graph(
                 continue
             c_edges += 1
             unique_c.add(prerequisite)
-
-            # Build-tree C references are relative to wine-output and must have
-            # been included in the materialized generated-C scan.
             pure = PurePosixPath(prerequisite)
             if not pure.is_absolute() and ".." not in pure.parts and prerequisite in materialized_c_paths:
                 generated_edges += 1
                 generated_c.add(prerequisite)
                 continue
-
             source_rel = normalize_source_reference(prerequisite, archive_root)
             if source_rel is not None and source_rel in archive_entries:
                 archive_edges += 1
                 continue
-
-            # A direct archive-relative source path can appear without an
-            # explicit wine-source prefix.
             if not pure.is_absolute() and ".." not in pure.parts and prerequisite in archive_entries:
                 archive_edges += 1
                 continue
-
-            unresolved.append({
-                "objects": sorted(built_targets),
-                "c_prerequisite": prerequisite,
-            })
+            unresolved.append({"objects": sorted(built_targets), "c_prerequisite": prerequisite})
 
     if built_object_rules == 0 or c_edges == 0:
         raise GeneratedSourceMakefileGuardError("generated Makefile produced no built object C dependency graph")
     if unresolved:
-        preview = ", ".join(
-            f"{item['objects'][0]} <- {item['c_prerequisite']}" for item in unresolved[:10]
-        )
+        preview = ", ".join(f"{item['objects'][0]} <- {item['c_prerequisite']}" for item in unresolved[:10])
         suffix = "" if len(unresolved) <= 10 else f" (+{len(unresolved) - 10} more)"
         raise GeneratedSourceMakefileGuardError(
             f"built objects depend on C outside archive/materialized build inventory: {preview}{suffix}"
@@ -212,18 +191,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["check"])
     parser.parse_args()
-    contract = PROBE.load_contract()
-    inspection = contract["inspection"]
-    for key in (
-        "generated_makefile_c_target_graph_required",
-        "built_object_dependency_check_required",
-        "every_built_object_c_prerequisite_accounted",
-        "unreferenced_materialized_generated_c_allowed",
-    ):
-        if inspection.get(key) is not True:
-            raise GeneratedSourceMakefileGuardError(f"generated Makefile guard contract drifted: {key}")
-    if inspection.get("unmaterialized_c_prerequisite_for_built_object_allowed") is not False:
-        raise GeneratedSourceMakefileGuardError("generated Makefile missing-C boundary drifted")
+    load_contract()
     print("windows compatibility generated C Makefile graph guard: PASS")
     return 0
 
@@ -231,6 +199,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (GeneratedSourceMakefileGuardError, PROBE.GeneratedSourceProofError) as exc:
+    except GeneratedSourceMakefileGuardError as exc:
         print(f"windows-compat-runtime-generated-source-makefile-guard: {exc}", file=sys.stderr)
         raise SystemExit(2)
