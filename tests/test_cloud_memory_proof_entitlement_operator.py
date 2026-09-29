@@ -48,6 +48,12 @@ class CloudMemoryProofEntitlementOperatorTests(unittest.TestCase):
         self.assertIn("(e.valid_until is null or e.valid_until > v_now)", self.lower)
         self.assertIn("'issued'", self.lower)
         self.assertIn("'revoked'", self.lower)
+        audit_table = self.lower.split(
+            "create table if not exists private.ordax_cloud_memory_proof_entitlement_events",
+            1,
+        )[1].split(");", 1)[0]
+        self.assertNotIn("references auth.users", audit_table)
+        self.assertNotIn("references public.ordax_entitlement_grants", audit_table)
 
     def test_revoke_only_targets_proof_specific_admin_grants(self):
         revoke = self.lower.split(
