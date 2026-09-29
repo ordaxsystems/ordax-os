@@ -9,6 +9,7 @@ helpers and are not exposed by the Native HTTP host.
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -20,6 +21,12 @@ from pathlib import Path
 from native_profile_component_inventory import (
     PROFILE_COMPONENT_INVENTORY_FILE,
     read_profile_component_inventory,
+)
+from native_profile_provisioning_executor import (
+    DEFAULT_RECEIPT_ROOT,
+    MAX_RECEIPT_BYTES,
+    PROFILE_INSTALL_RECEIPT_SCHEMA,
+    validate_stage_evidence,
 )
 
 PROFILE_ACTIVATION_STATE_SCHEMA = "ordax.profile-activation-state/1"
@@ -342,9 +349,70 @@ def _component_key(component: dict) -> tuple[str, str, str]:
     return component["id"], component["version"], component["sha256"]
 
 
+def _validate_component_receipt(component: dict, receipt_root: str) -> None:
+    receipt_path = os.path.join(receipt_root, f"{component['receiptSha256']}.json")
+    try:
+        metadata = os.stat(receipt_path, follow_symlinks=False)
+    except FileNotFoundError as exc:
+        raise ValueError("Profile activation component receipt is missing") from exc
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or stat.S_ISLNK(metadata.st_mode)
+        or stat.S_IMODE(metadata.st_mode) & 0o077
+        or metadata.st_size <= 0
+        or metadata.st_size > MAX_RECEIPT_BYTES
+    ):
+        raise ValueError("Profile activation component receipt boundary is unsafe")
+    raw = Path(receipt_path).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != component["receiptSha256"]:
+        raise ValueError("Profile activation component receipt hash mismatch")
+    try:
+        receipt = json.loads(raw.decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Profile activation component receipt is invalid JSON") from exc
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("schema") != PROFILE_INSTALL_RECEIPT_SCHEMA
+        or not isinstance(receipt.get("artifact"), dict)
+        or not isinstance(receipt.get("verification"), dict)
+        or not isinstance(receipt.get("health"), dict)
+    ):
+        raise ValueError("Profile activation component receipt is invalid")
+    artifact = receipt["artifact"]
+    verification = receipt["verification"]
+    health = receipt["health"]
+    validate_stage_evidence({
+        "schema": "ordax.profile-content-stage-evidence/1",
+        "artifact": artifact,
+        "verification": {
+            "signatureAlgorithm": verification.get("signatureAlgorithm"),
+            "keyId": verification.get("keyId"),
+            "manifestSha256": verification.get("manifestSha256"),
+        },
+        "health": {
+            "schema": health.get("schema"),
+            "state": health.get("state"),
+            "entryCount": health.get("entryCount"),
+            "perEntryHashVerified": health.get("perEntryHashVerified"),
+            "perEntryProvenanceVerified": health.get("perEntryProvenanceVerified"),
+            "executablePayloadAllowed": health.get("executablePayloadAllowed"),
+            "authority": health.get("authority"),
+        },
+    })
+    if (
+        artifact.get("id") != component["id"]
+        or artifact.get("kind") != component["kind"]
+        or artifact.get("version") != component["version"]
+        or artifact.get("sha256") != component["sha256"]
+        or receipt.get("installedAt") != component["installedAt"]
+    ):
+        raise ValueError("Profile activation component receipt identity does not match activation")
+
+
 def _assert_activation_components_installed(
     activation: dict,
     inventory_path: str,
+    receipt_root: str = DEFAULT_RECEIPT_ROOT,
 ) -> None:
     inventory = read_profile_component_inventory(inventory_path)
     installed = {
@@ -361,6 +429,7 @@ def _assert_activation_components_installed(
             or entry["installedAt"] != component["installedAt"]
         ):
             raise ValueError("Profile activation component receipt does not match inventory")
+        _validate_component_receipt(component, receipt_root)
 
 
 def _activation_identity(value: dict | None) -> tuple | None:
@@ -416,6 +485,7 @@ def activate_profile(
     expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
+    receipt_root: str = DEFAULT_RECEIPT_ROOT,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
     space_id = _bounded_text(space_id, "Profile activation Space id", 160)
@@ -423,7 +493,7 @@ def activate_profile(
     if space_kind not in _SPACE_KINDS:
         raise ValueError("Profile activation Space kind is invalid")
     candidate = validate_profile_activation_ref(activation)
-    _assert_activation_components_installed(candidate, inventory_path)
+    _assert_activation_components_installed(candidate, inventory_path, receipt_root)
 
     with _lock(lock_path) as lock_handle:
         try:
@@ -507,6 +577,7 @@ def rollback_profile(
     expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
+    receipt_root: str = DEFAULT_RECEIPT_ROOT,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
     space_id = _bounded_text(space_id, "Profile rollback Space id", 160)
@@ -520,7 +591,7 @@ def rollback_profile(
                 return {"changed": False, "state": state}
             row = state["spaces"][index]
             target = row["previous"]
-            _assert_activation_components_installed(target, inventory_path)
+            _assert_activation_components_installed(target, inventory_path, receipt_root)
             spaces = list(state["spaces"])
             spaces[index] = {
                 "spaceId": space_id,
