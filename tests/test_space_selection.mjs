@@ -148,6 +148,37 @@ test("Space selection never crosses account identities", () => {
   assert.equal(store.peek(), null);
 });
 
+test("direct account switch invalidates stale Spaces until the catalog refreshes", () => {
+  const identity = identityPort({
+    state: "signed-in",
+    subjectId: "user-1",
+    displayName: "User One",
+  });
+  const spaces = spacesPort(readySpaces([developer]));
+  const store = memoryStore();
+  const runtime = createSpaceSelectionRuntime({ identitySession: identity, spaces, store });
+
+  runtime.select("space-developer");
+  assert.equal(runtime.getSnapshot().state, "selected");
+
+  identity.set({
+    state: "signed-in",
+    subjectId: "user-2",
+    displayName: "User Two",
+  });
+  assert.equal(runtime.getSnapshot().state, "unavailable");
+  assert.equal(store.peek(), null);
+  assert.throws(
+    () => runtime.select("space-developer"),
+    /selection is unavailable/,
+  );
+
+  spaces.set(readySpaces([{ ...developer, ownerId: "user-2" }]));
+  assert.equal(runtime.getSnapshot().state, "unselected");
+  assert.equal(runtime.getSnapshot().subjectId, "user-2");
+  assert.equal(runtime.select("space-developer").state, "selected");
+});
+
 test("signed-out identity clears persisted selection while unavailable identity hides it", () => {
   const identity = identityPort({ state: "unavailable" });
   const spaces = spacesPort(readySpaces([developer]));
