@@ -133,7 +133,7 @@ export function createSpaceSelectionRuntime({
       const normalized = spaceId.trim();
       const space = spacesSnapshot.spaces.find((candidate) => candidate.id === normalized);
       if (!space || space.state !== "active") {
-        throw new PermissionError?.();
+        throw new Error("Selected Space is not available to the current account");
       }
       selectionStore.save({
         schema: SPACE_SELECTION_RECORD_SCHEMA,
