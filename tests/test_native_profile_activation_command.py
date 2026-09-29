@@ -232,18 +232,34 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 )
 
             consumed = []
+            resolved = []
+
             class ConsentAuthority:
                 def consume(self, receipt, **kwargs):
-                    self_receipt = receipt
-                    consumed.append((self_receipt, kwargs))
+                    consumed.append((receipt, kwargs))
 
-            activation_payload["humanConsent"] = {"receipt": "native-only-test"}
+            def consent_resolver(**kwargs):
+                resolved.append(kwargs)
+                return {"receipt": "native-only-test"}
+
+            injected = {**activation_payload, "humanConsent": {"receipt": "surface-forged"}}
+            with self.assertRaisesRegex(ValueError, "fields are incompatible"):
+                module.execute_profile_activation_command(
+                    injected,
+                    distribution_profile="owner-development",
+                    human_consent_authority=ConsentAuthority(),
+                    human_consent_resolver=consent_resolver,
+                )
+
             activated = module.execute_profile_activation_command(
                 activation_payload,
                 distribution_profile="owner-development",
                 human_consent_authority=ConsentAuthority(),
+                human_consent_resolver=consent_resolver,
             )
             self.assertTrue(activated["changed"])
+            self.assertEqual(resolved[0]["permission_diff_sha256"], digest)
+            self.assertEqual(resolved[0]["expected_revision"], 7)
             self.assertEqual(consumed[0][0], {"receipt": "native-only-test"})
             self.assertEqual(consumed[0][1]["permission_diff_sha256"], digest)
             self.assertEqual(consumed[0][1]["expected_revision"], 7)
