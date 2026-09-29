@@ -88,7 +88,6 @@ def main() -> int:
             expected_revision=kwargs["expected_revision"],
             space_id=kwargs["space_id"],
             profile=kwargs["profile"],
-            now_ms=2500,
         )
 
     try:
