@@ -1,0 +1,88 @@
+{
+  "$schema": "prototype-ordax.windows-compat-build-environment/1",
+  "status": "configure-proof-discovery-not-promotable",
+  "host": {
+    "distribution": "alpine",
+    "version": "3.22.5",
+    "branch": "v3.22",
+    "arch": "x86_64",
+    "libc": "musl",
+    "rootfs_url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.5-x86_64.tar.gz",
+    "rootfs_sha256": "4b4daa9fe2fc696c4919c4412a4c3d3e770d8fb70292a004a2c72f5096175282"
+  },
+  "packaging_reference": {
+    "repository": "https://github.com/alpinelinux/aports",
+    "commit": "78e9baad1fc91415c7617dc91bd930e21ed068de",
+    "path": "community/wine/APKBUILD",
+    "wine_version": "11.0",
+    "role": "dependency-and-configure-reference-only"
+  },
+  "base_build_packages": [
+    "build-base",
+    "perl",
+    "pkgconf"
+  ],
+  "wine_build_packages": [
+    "alsa-lib-dev",
+    "autoconf",
+    "automake",
+    "bison",
+    "cups-dev",
+    "dbus-dev",
+    "flex-dev",
+    "fontconfig-dev",
+    "freetype-dev",
+    "gnutls-dev",
+    "gstreamer-dev",
+    "gst-plugins-base-dev",
+    "krb5-dev",
+    "libgphoto2-dev",
+    "libpcap-dev",
+    "libusb-dev",
+    "libxcomposite-dev",
+    "libxcursor-dev",
+    "libxi-dev",
+    "libxinerama-dev",
+    "libxkbcommon-dev",
+    "libxrandr-dev",
+    "libxrender-dev",
+    "mesa-dev",
+    "ncurses-dev",
+    "opencl-dev",
+    "pcsc-lite-dev",
+    "pulseaudio-dev",
+    "sane-dev",
+    "sdl2-dev",
+    "udisks2-dev",
+    "v4l-utils-dev",
+    "vulkan-loader-dev",
+    "wayland-dev",
+    "i686-mingw-w64-gcc",
+    "mingw-w64-gcc"
+  ],
+  "configure": {
+    "prefix": "/usr",
+    "libdir": "/usr/lib",
+    "sysconfdir": "/etc",
+    "localstatedir": "/var",
+    "flags": [
+      "--with-dbus",
+      "--with-mingw",
+      "--with-x",
+      "--with-vulkan",
+      "--enable-tools",
+      "--enable-win64",
+      "--enable-archs=x86_64,i386"
+    ],
+    "opencl_header_compat_edit_required": true
+  },
+  "proof": {
+    "package_versions_pinned": false,
+    "configure_proof_passed": false,
+    "full_build_proof_passed": false,
+    "runtime_dependency_inventory_complete": false,
+    "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false
+  }
+}
