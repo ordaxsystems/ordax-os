@@ -60,7 +60,7 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
-import { createSelectedSpaceMemoryIntelligence } from "../../services/intelligence/authorized-memory.mjs";
+import { createIdentityBoundMemoryIntelligence } from "../../services/intelligence/authorized-memory.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
@@ -316,9 +316,10 @@ async function start() {
     : intelligence;
   const selectedSpaceIntelligence = memory === null
     ? consumerIntelligence
-    : createSelectedSpaceMemoryIntelligence({
+    : createIdentityBoundMemoryIntelligence({
         intelligencePort: consumerIntelligence,
         memoryPort: memory,
+        identitySessionPort: identitySession,
         spaceSelectionPort: spaceSelection,
       });
   const profileComponentInventory = await optionalNativeProbe(
