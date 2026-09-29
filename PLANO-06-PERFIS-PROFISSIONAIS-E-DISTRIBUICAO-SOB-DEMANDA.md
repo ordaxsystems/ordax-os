@@ -138,6 +138,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - stage saudável gera evidence verificável, receipt e inventário Native sob lock;
 - ativação local possui estado Native privado `current/previous` por Space, com rollback da composição;
 - manifests canônicos são JSON versionados em `system/profile-packs/<slug>/v<version>/manifest.json`, indexados por catálogo bundled leve;
+- o manifest versionado é a única fonte de composição/componentes; `distributions.mjs` guarda somente política de entrega e deriva componentes do manifest validado, eliminando duplicidade de IDs/versões/hashes;
 - múltiplas versões do mesmo Profile podem coexistir para atualização/rollback sem sobrescrever o manifest anterior;
 - boot Native revalida `current` contra manifest, `spaceKind`, provisioning e receipts; drift entra em `disabled-safe`;
 - restore desta etapa é **metadata-only**: nenhuma app, tool, Knowledge ou policy é aplicada automaticamente;
