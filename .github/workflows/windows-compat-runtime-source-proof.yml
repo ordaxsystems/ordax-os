@@ -5,6 +5,7 @@ on:
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_runtime_source.py'
+      - 'tests/test_windows_compat_runtime_dynamic_load_source.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_runtime_source.py'
+      - 'tests/test_windows_compat_runtime_dynamic_load_source.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -36,27 +38,89 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Validate source contract
-        run: python bootstrap/windows-compat-runtime/build.py check
+      - name: Validate source and dynamic-load discovery contracts
+        run: |
+          set -euo pipefail
+          python bootstrap/windows-compat-runtime/build.py check
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py check
 
       - name: Run fail-closed regressions
-        run: python -m unittest tests.test_windows_compat_runtime_source -v
-
-      - name: Fetch and verify exact upstream Wine source
         run: |
+          set -euo pipefail
+          python -m unittest tests.test_windows_compat_runtime_source -v
+          python -m unittest tests.test_windows_compat_runtime_dynamic_load_source -v
+
+      - name: Fetch exact Wine source and inventory direct host loader sites
+        run: |
+          set -euo pipefail
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-runtime-source-proof"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
           python bootstrap/windows-compat-runtime/build.py fetch-source \
             --cache-dir "$tmp/cache" \
-            --proof-out "$tmp/source-proof.json"
-          python - <<'PY' "$tmp/source-proof.json"
+            --proof-out "$proof_dir/source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py discover \
+            --archive "$tmp/cache/wine-11.0.tar.xz" \
+            --source-proof "$proof_dir/source-proof.json" \
+            --out "$proof_dir/runtime-dynamic-load-source-proof.json"
+          python - <<'PY' \
+            "$proof_dir/source-proof.json" \
+            "$proof_dir/runtime-dynamic-load-source-proof.json"
           import json
           import pathlib
+          import re
           import sys
-          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-          assert proof['build_performed'] is False
-          assert proof['activation_authorized'] is False
-          assert proof['execution_authorized'] is False
-          assert proof['version'] == '11.0'
-          print('Wine source proof:', proof['archive_sha256'])
+
+          source = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          dynamic = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
+          assert source['$schema'] == 'prototype-ordax.windows-compat-source-proof/1'
+          assert source['build_performed'] is False
+          assert source['activation_authorized'] is False
+          assert source['execution_authorized'] is False
+          assert source['version'] == '11.0'
+          assert dynamic['$schema'] == 'prototype-ordax.windows-compat-runtime-dynamic-load-source-proof/1'
+          assert dynamic['runtime_id'] == source['runtime_id']
+          assert dynamic['source_archive_sha256'] == source['archive_sha256']
+          assert re.fullmatch(r'[0-9a-f]{64}', dynamic['source_proof_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', dynamic['c_archive_manifest_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', dynamic['inventory_sha256'])
+          counts = dynamic['counts']
+          assert counts['c_archive_members_scanned'] > 0
+          assert counts['c_source_bytes'] > 0
+          assert counts['direct_loader_calls'] > 0
+          assert counts['direct_loader_calls'] == sum(counts['calls_by_api'].values())
+          gates = dynamic['gates']
+          assert gates['source_lock_verified'] is True
+          assert gates['source_proof_verified'] is True
+          assert gates['c_archive_manifest_bound'] is True
+          assert gates['direct_host_loader_calls_inventoried'] is True
+          assert gates['wrapper_call_graph_complete'] is False
+          assert gates['generated_source_inventory_complete'] is False
+          assert gates['dynamic_load_inventory_complete'] is False
+          assert gates['external_transitive_closure_verified'] is False
+          assert gates['runtime_dependency_inventory_complete'] is False
+          assert gates['runtime_package_content_hashes_pinned'] is False
+          assert gates['binary_artifact_pinned'] is False
+          assert gates['activation_authorized'] is False
+          assert gates['execution_authorized'] is False
+          assert gates['wine_executed'] is False
+          assert gates['windows_payload_executed'] is False
+          print('Wine source proof:', source['archive_sha256'])
+          print('C source members:', counts['c_archive_members_scanned'])
+          print('direct loader calls:', counts['direct_loader_calls'])
+          print('calls by API:', counts['calls_by_api'])
+          print('static string targets:', counts['static_string_targets'])
+          print('dynamic expression targets:', counts['dynamic_expression_targets'])
+          print('dynamic-load inventory:', dynamic['inventory_sha256'])
           PY
+
+      - name: Upload source and direct dynamic-load metadata only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-runtime-source-proof-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/windows-compat-runtime-source-proof/source-proof.json
+            ${{ runner.temp }}/windows-compat-runtime-source-proof/runtime-dynamic-load-source-proof.json
+          if-no-files-found: error
