@@ -25,9 +25,9 @@ Workspace continuity now has a separate portable metadata source. It projects on
 
 ## Account-owned Intelligence Memory foundation
 
-`account-memory-runtime.mjs` is a source-only foundation for carrying eligible `ordax.memory/1` objects through the existing `ordax.sync-transport/1` protocol. It is deliberately **not promoted or wired into Web/Native composition**. The current gateway still does not advertise `memory`, and no public Memory sync capability is claimed.
+`account-memory-runtime.mjs` is a source-only foundation for carrying eligible `ordax.memory/1` objects through the existing `ordax.sync-transport/1` protocol. It is deliberately **not promoted or wired into Web/Native composition**. The current gateway does not advertise live Memory continuity, and no public Memory sync capability is claimed.
 
-Memory cloud semantics are additionally constrained by `docs/contracts/cloud-memory-sync-boundary.json`. The local Memory domain/storage remains the semantic source of truth; sync objects are transport mirrors only and cannot redefine Memory ownership, scope, provenance, sensitivity, retention or authority.
+Memory cloud semantics are additionally constrained by `docs/contracts/cloud-memory-sync-boundary.json`. The Memory domain/storage remains the semantic source of truth; sync objects are transport mirrors only and cannot redefine Memory ownership, scope, provenance, sensitivity, retention or authority.
 
 The v1 boundary is intentionally narrower than the Memory store:
 
@@ -35,10 +35,10 @@ The v1 boundary is intentionally narrower than the Memory store:
 - only account-owned `account` and `space` scopes are eligible;
 - `project`, `device` and `session` scopes remain local;
 - `restricted` sensitivity remains local/fail-closed;
-- stable sync identity is exactly the canonical `memory_id`; the existing `(account, data_class, stable_object_id)` transport namespace means no encoded second Memory identity is created;
-- the payload embeds a validated `ordax.memory/1` item under `ordax.memory-sync-payload/1`;
+- stable sync identity is the canonical `memory_id`; the existing `(account, data_class, stable_object_id)` transport namespace means no encoded second Memory identity is created;
+- the domain adapter validates `ordax.memory/1` before producing a Memory sync mutation;
 - unknown provider fields cannot redefine Memory semantics or authority;
-- delete/forget uses an identity-only tombstone and does not carry deleted Memory content;
+- delete/forget uses an explicit tombstone and does not carry deleted Memory content;
 - server revisions are conflict authority; client wall clocks are not;
 - transport failure leaves local Memory intact and keeps the pending mutation for retry.
 
@@ -57,7 +57,7 @@ Memory does not use the automatic rebase policy used by Appearance/preferences/w
 `memory-conflict-resolution.mjs` defines the source-only `ordax.memory-conflict-resolution/1` primitive with exactly two explicit decisions:
 
 - `preserve-local-intent` creates a new validated mutation based on the authoritative server revision with a new idempotency key;
-- `accept-authoritative-remote` discards the pending local intent but does not apply provider state directly; it requires canonical remote reconciliation.
+- `accept-authoritative-remote` discards the pending local intent but does not apply provider state directly; the runtime persists `reconciliation-required` until canonical remote state is actually reapplied.
 
 Both decisions are manual, `automatic=false`, and neither introduces global last-write-wins.
 
@@ -67,11 +67,15 @@ Both decisions are manual, `automatic=false`, and neither introduces global last
 
 ### Backend enforcement foundation
 
-The source-prepared backend guard extends the existing canonical account mutation RPC; it does not create a Memory RPC or second backend. The server revalidates account ownership, `account`/`space` eligibility, `normal`/`private` sensitivity, canonical `stable_object_id == memory_id`, never-sync material and identity-only tombstones. Its migration remains source-prepared/not applied and gateway live wiring remains disabled.
+The canonical backend now has the dedicated server-authoritative atomic Memory mutation `public.ordax_apply_memory_mutation_v1`. It writes `public.ordax_memory_items` and its private sync mirror in one database transaction, remains entitlement-gated, and public rollout is still disabled. The generic account mutation RPC deliberately does **not** accept `memory`.
+
+`20260929193000_cloud_memory_privacy_hardening_v1.sql` is a later source-prepared migration for two privacy invariants that must hold before promotion: known never-sync secret material aborts the atomic write, and a Memory forget scrubs replayable historical mutation payloads while preserving revisions/change cursors. This hardening migration is not claimed as deployed by this branch.
+
+Live client wiring is also blocked on a real identity-allocation contract. The deployed atomic backend assigns a UUID `memory_id` for a new cloud Memory object, while the local offline-first runtime does not yet have a canonical way to adopt/remap that server identity. The foundation must not invent a parallel identifier or silently rewrite Memory identity to bridge this gap.
 
 Every upload/restore operation still requires explicit authorization supplied by trusted composition. Synchronized Memory is **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization, community-data authorization, model egress, tools or actions.
 
-This remains a source foundation. Live Web/Native Memory wiring, provider promotion, final user-facing conflict review, two-client proof and reinstall proof are still required before promotion.
+This remains a foundation. Live Web/Native Memory wiring, the identity-allocation boundary, canonical full-resync after accept-remote when required, final user-facing conflict review, two-client proof and reinstall proof are still required before promotion.
 
 Core rules remain:
 
