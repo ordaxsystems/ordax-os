@@ -1,0 +1,211 @@
+name: Profile Content Trust Ceremony Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/profile-content-channel/**'
+      - 'docs/contracts/profile-content-trust-policy.json'
+      - 'docs/PROFILE-CONTENT-TRUST-CEREMONY.md'
+      - '.github/workflows/profile-content-trust-ceremony.yml'
+  pull_request:
+    paths:
+      - 'tools/profile-content-channel/**'
+      - 'docs/contracts/profile-content-trust-policy.json'
+      - 'docs/PROFILE-CONTENT-TRUST-CEREMONY.md'
+      - '.github/workflows/profile-content-trust-ceremony.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ceremony-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
+      - name: Test and build Profile content channel
+        run: |
+          set -euo pipefail
+          (
+            cd tools/profile-content-channel
+            go test -count=1 ./...
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o ../../out/ordax-profile-content-channel .
+          )
+          test -s out/ordax-profile-content-channel
+
+      - name: Prove independent trust derivation and recovery
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/profile-content-ceremony"
+          mkdir -m 700 "$root"
+
+          channel="$PWD/out/ordax-profile-content-channel"
+          private="$root/private.pem"
+          recovered="$root/recovered-private.pem"
+          trust="$root/trust.json"
+          derived="$root/trust-derived.json"
+          recovered_trust="$root/trust-recovered.json"
+          content="$root/content.pack"
+          manifest="$root/manifest.json"
+          envelope="$root/envelope.json"
+          recovered_envelope="$root/recovered-envelope.json"
+
+          "$channel" generate-key \
+            --private-key "$private" \
+            --trust "$trust" \
+            --key-id profile-content-ci-ceremony
+
+          "$channel" derive-trust \
+            --private-key "$private" \
+            --out "$derived" \
+            --key-id profile-content-ci-ceremony
+
+          cmp "$trust" "$derived"
+
+          ROOT="$root" python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path(os.environ['ROOT'])
+          entry_text = 'OrdaX Profile content ceremony proof; non-regulated fixture only.'
+          entry_hash = hashlib.sha256(entry_text.encode()).hexdigest()
+          pack = {
+              'schema': 'ordax.profile-content-pack/1',
+              'kind': 'knowledge-pack',
+              'entries': [{
+                  'id': 'knowledge.developer-ceremony-proof',
+                  'mediaType': 'text/plain',
+                  'content': entry_text,
+                  'contentSha256': entry_hash,
+                  'source': {
+                      'uri': 'https://example.invalid/ordax/profile-content-ceremony',
+                      'revision': 'ci-proof-1',
+                      'license': 'test-fixture-only',
+                      'jurisdiction': None,
+                      'title': 'Profile content ceremony proof',
+                  },
+              }],
+          }
+          content = json.dumps(pack, separators=(',', ':')).encode()
+          (root / 'content.pack').write_bytes(content)
+          manifest = {
+              '$schema': 'prototype-ordax.profile-content-manifest/1',
+              'id': 'knowledge.developer-ceremony-proof',
+              'kind': 'knowledge-pack',
+              'version': '0.0.0-ci-proof',
+              'publisher': 'ordax-ci-proof',
+              'content_hash': hashlib.sha256(content).hexdigest(),
+              'content_size': len(content),
+              'content_format': 'ordax.profile-content-pack/1',
+              'source': {
+                  'uri': 'https://example.invalid/ordax/profile-content-ceremony',
+                  'revision': 'ci-proof-1',
+                  'license': 'test-fixture-only',
+                  'jurisdiction': None,
+              },
+              'requested_capabilities': [],
+              'runtime_network_allowed': False,
+              'mutable_host_access_allowed': False,
+          }
+          (root / 'manifest.json').write_text(
+              json.dumps(manifest, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+          "$channel" sign \
+            --manifest "$manifest" \
+            --private-key "$private" \
+            --trust "$trust" \
+            --key-id profile-content-ci-ceremony \
+            --out "$envelope"
+
+          "$channel" verify \
+            --manifest "$manifest" \
+            --envelope "$envelope" \
+            --trust "$trust" \
+            --content "$content"
+
+          cp "$private" "$recovered"
+          chmod 600 "$recovered"
+
+          "$channel" derive-trust \
+            --private-key "$recovered" \
+            --out "$recovered_trust" \
+            --key-id profile-content-ci-ceremony
+
+          cmp "$trust" "$recovered_trust"
+
+          "$channel" sign \
+            --manifest "$manifest" \
+            --private-key "$recovered" \
+            --trust "$trust" \
+            --key-id profile-content-ci-ceremony \
+            --out "$recovered_envelope"
+
+          "$channel" verify \
+            --manifest "$manifest" \
+            --envelope "$recovered_envelope" \
+            --trust "$trust" \
+            --content "$content"
+
+          test "$(stat -c '%a' "$private")" = "600"
+          test "$(stat -c '%a' "$recovered")" = "600"
+          rm -rf "$root"
+
+          echo 'PROFILE_CONTENT_TRUST_INDEPENDENT_DERIVATION=PASS'
+          echo 'PROFILE_CONTENT_TRUST_RECOVERY_PROTOCOL=PASS'
+          echo 'PROFILE_CONTENT_PRIVATE_KEY_PERSISTED=NO'
+
+      - name: Assert production gates remain closed
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          policy = json.load(open('docs/contracts/profile-content-trust-policy.json', encoding='utf-8'))
+          assert policy['trust_domain'] == 'profile-content'
+          assert policy['key_id'] == 'ordax-profile-content-v1'
+          assert policy['public_anchor']['pinned'] is False
+          assert policy['private_key']['repository_allowed'] is False
+          assert policy['private_key']['device_allowed'] is False
+          assert policy['private_key']['actions_artifact_allowed'] is False
+          assert policy['private_key']['chat_allowed'] is False
+          assert policy['private_key']['external_custody_required'] is True
+          assert policy['private_key']['encrypted_recovery_copy_required'] is True
+          assert policy['private_key']['recovery_proof_required_before_public_anchor_pin'] is True
+          assert policy['separation']['whole_os_release_key_reuse_allowed'] is False
+          assert policy['separation']['runtime_component_key_reuse_allowed'] is False
+          assert policy['separation']['ci_ephemeral_key_may_be_canonical'] is False
+          assert policy['current_gates']['canonical_profile_content_trust_anchor_pinned'] is False
+          assert policy['current_gates']['profile_content_publish_allowed'] is False
+          assert policy['current_gates']['profile_content_install_allowed'] is False
+          assert policy['current_gates']['profile_content_activation_allowed'] is False
+          print('CANONICAL_PROFILE_CONTENT_TRUST_ANCHOR_PINNED=NO')
+          print('PROFILE_CONTENT_PUBLISH_ALLOWED=NO')
+          print('PROFILE_CONTENT_INSTALL_ALLOWED=NO')
+          print('PROFILE_CONTENT_ACTIVATION_ALLOWED=NO')
+          PY
+
+      - name: Build Windows ceremony verifier
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+            go build -trimpath -buildvcs=false -ldflags='-s -w' \
+            -o out/ordax-profile-content-channel.exe ./tools/profile-content-channel
+          test -s out/ordax-profile-content-channel.exe
+          test -z "$(find out -type f \( -iname '*.pem' -o -iname '*.key' -o -iname '*.p12' -o -iname '*.pfx' \) -print -quit)"
+          echo 'PROFILE_CONTENT_WINDOWS_CEREMONY_VERIFIER=PASS'
+          echo 'PROFILE_CONTENT_WINDOWS_PRIVATE_KEY_INCLUDED=NO'
