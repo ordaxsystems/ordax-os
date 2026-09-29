@@ -14,7 +14,7 @@ export function validateSyncStatePayload(value) {
   return value;
 }
 
-export function assertSyncStateStore(store) {
+export function assertSyncStateStorePort(store) {
   if (!store || typeof store !== "object" || store.schema !== SYNC_STATE_STORE_SCHEMA) {
     throw new TypeError("A compatible sync-state-store is required");
   }
@@ -24,6 +24,11 @@ export function assertSyncStateStore(store) {
   if (typeof store.load !== "function" || typeof store.save !== "function") {
     throw new TypeError("Sync-state-store must implement load() and save()");
   }
-  validateSyncStatePayload(store.load());
   return store;
+}
+
+export function assertSyncStateStore(store) {
+  const compatible = assertSyncStateStorePort(store);
+  validateSyncStatePayload(compatible.load());
+  return compatible;
 }
