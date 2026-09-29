@@ -385,6 +385,8 @@
 .ordax-memory-review-owner:focus-visible,
 .ordax-memory-review-save:focus-visible,
 .ordax-memory-review-remove:focus-visible,
+.ordax-memory-review-remove-confirm:focus-visible,
+.ordax-memory-review-remove-cancel:focus-visible,
 .ordax-memory-review-page:focus-visible {
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
@@ -402,6 +404,8 @@
 .ordax-memory-review-create-button,
 .ordax-memory-review-save,
 .ordax-memory-review-remove,
+.ordax-memory-review-remove-confirm,
+.ordax-memory-review-remove-cancel,
 .ordax-memory-review-page {
   min-height: 34px;
   padding: 0 11px;
@@ -420,14 +424,32 @@
   color: var(--ordax-bg);
 }
 
-.ordax-memory-review-remove {
+.ordax-memory-review-remove,
+.ordax-memory-review-remove-confirm {
   color: var(--ordax-danger);
+}
+
+.ordax-memory-review-remove-prompt {
+  align-self: center;
+  color: var(--ordax-danger);
+  font-size: 0.7rem;
+  font-weight: 620;
+}
+
+.ordax-memory-review-remove-confirm {
+  border-color: var(--ordax-danger);
+}
+
+.ordax-memory-review-remove-cancel {
+  color: var(--ordax-muted);
 }
 
 .ordax-memory-review-owner:disabled,
 .ordax-memory-review-create-button:disabled,
 .ordax-memory-review-save:disabled,
 .ordax-memory-review-remove:disabled,
+.ordax-memory-review-remove-confirm:disabled,
+.ordax-memory-review-remove-cancel:disabled,
 .ordax-memory-review-page:disabled,
 .ordax-memory-review-toolbar input:disabled,
 .ordax-memory-review-create textarea:disabled,
@@ -504,6 +526,8 @@
 
   .ordax-memory-review-save,
   .ordax-memory-review-remove,
+  .ordax-memory-review-remove-confirm,
+  .ordax-memory-review-remove-cancel,
   .ordax-memory-review-page {
     flex: 1 1 auto;
   }

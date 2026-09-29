@@ -93,6 +93,14 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertTrue(memory["requirements"]["user_can_view"])
         self.assertTrue(memory["requirements"]["user_can_edit"])
         self.assertTrue(memory["requirements"]["user_can_delete"])
+        self.assertTrue(memory["review"]["destructive_delete_confirmation_required"])
+        self.assertTrue(memory["review"]["delete_confirmation_is_surface_control"])
+        self.assertTrue(memory["review"]["delete_uses_existing_owner_scoped_forget"])
+        self.assertFalse(memory["capture"]["per_capture_confirmation_required"])
+        self.assertEqual(
+            memory["capture"]["per_item_confirmation_semantics"],
+            "automatic-capture-only",
+        )
         self.assertFalse(memory["requirements"]["secret_material_as_memory_allowed"])
         self.assertTrue(memory["retrieval"]["semantic_index_is_derived_and_rebuildable"])
 
