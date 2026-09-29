@@ -144,6 +144,9 @@ def main() -> int:
             base_server_revision=0,
             tombstone=False,
         )
+        if created.applied and not created.conflict and not created.tombstone:
+            memory_id = created.memory_id
+            cleanup_revision = created.server_revision
         if (
             not created.applied
             or created.conflict
@@ -153,8 +156,6 @@ def main() -> int:
             or created.change_cursor <= initial_cursor
         ):
             fail("create-result-invalid")
-        memory_id = created.memory_id
-        cleanup_revision = created.server_revision
 
         edited = memory.apply(
             token,
@@ -171,6 +172,8 @@ def main() -> int:
             base_server_revision=created.server_revision,
             tombstone=False,
         )
+        if edited.applied and not edited.conflict and not edited.tombstone:
+            cleanup_revision = edited.server_revision
         if (
             not edited.applied
             or edited.conflict
@@ -180,7 +183,6 @@ def main() -> int:
             or edited.change_cursor <= created.change_cursor
         ):
             fail("edit-result-invalid")
-        cleanup_revision = edited.server_revision
 
         stale = memory.apply(
             token,
@@ -220,6 +222,9 @@ def main() -> int:
             base_server_revision=edited.server_revision,
             tombstone=True,
         )
+        if removed.applied and not removed.conflict and removed.tombstone:
+            deleted = True
+            cleanup_revision = removed.server_revision
         if (
             not removed.applied
             or removed.conflict
@@ -229,8 +234,6 @@ def main() -> int:
             or removed.change_cursor <= edited.change_cursor
         ):
             fail("delete-result-invalid")
-        deleted = True
-        cleanup_revision = removed.server_revision
 
         delivered = sync.pull_changes(token, after_cursor=initial_cursor, limit=500)
         matches = [
