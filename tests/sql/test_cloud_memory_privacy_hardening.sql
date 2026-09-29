@@ -98,6 +98,7 @@ create table private.ordax_sync_mutations (
 \ir ../../infra/supabase/product/migrations/20260929190000_cloud_memory_atomic_mutation_privilege_boundary_v1.sql
 \ir ../../infra/supabase/product/migrations/20260929192000_cloud_memory_atomic_mutation_qualification_v1.sql
 \ir ../../infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql
+\ir ../../infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql
 
 select set_config('ordax.test_uid', '11111111-1111-1111-1111-111111111111', false);
 insert into public.ordax_entitlement_grants values (
@@ -136,9 +137,41 @@ select memory_id from applied
 where applied is true and conflict is false and server_revision = 1;
 
 do $$
+declare
+  v_memory_id uuid := (select proof.memory_id from cloud_memory_proof as proof);
+  v_payload jsonb;
 begin
-  if (select count(*) from cloud_memory_proof) <> 1 then
+  if v_memory_id is null then
     raise exception 'canonical Memory create did not return exactly one stable identity';
+  end if;
+
+  select sync_row.payload into v_payload
+  from private.ordax_sync_objects as sync_row
+  where sync_row.owner_user_id = '11111111-1111-1111-1111-111111111111'
+    and sync_row.data_class = 'memory'
+    and sync_row.stable_object_id = v_memory_id::text;
+
+  if v_payload->>'schema' is distinct from 'ordax.memory-sync-payload/1'
+     or v_payload->'memory'->>'schema' is distinct from 'ordax.memory/1'
+     or v_payload->'memory'->>'id' is distinct from v_memory_id::text
+     or v_payload->'memory'->>'ownerKind' is distinct from 'account'
+     or v_payload->'memory'->>'ownerId' is distinct from '11111111-1111-1111-1111-111111111111'
+     or v_payload->'memory'->>'scope' is distinct from 'account'
+     or v_payload->'memory'->>'kind' is distinct from 'fact'
+     or v_payload->'memory'->>'sensitivity' is distinct from 'private'
+     or v_payload->'memory'->>'content' is distinct from 'Preferencia autorizada para teste'
+     or v_payload->'memory'->>'provenance' is distinct from 'user-confirmed:postgres-privacy-proof'
+     or v_payload->'memory'->'spaceId' <> 'null'::jsonb
+     or v_payload->'memory'->'projectId' <> 'null'::jsonb then
+    raise exception 'cloud Memory transport mirror does not match ordax.memory-sync-payload/1';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_object_keys(v_payload) as key
+    where key not in ('schema', 'memory')
+  ) then
+    raise exception 'cloud Memory transport mirror has non-canonical envelope fields';
   end if;
 end;
 $$;
@@ -193,7 +226,7 @@ end;
 $$;
 
 -- Delete exercises the qualified update path and proves historical cursor rows
--- are preserved but converted into content-free tombstones.
+-- are preserved but converted into canonical identity-only tombstones.
 do $$
 declare
   v_memory_id uuid := (select proof.memory_id from cloud_memory_proof as proof);
@@ -226,7 +259,15 @@ begin
     select 1 from private.ordax_sync_objects as sync_row
     where sync_row.data_class = 'memory'
       and sync_row.stable_object_id = v_memory_id::text
-      and (sync_row.tombstone is distinct from true or sync_row.payload::text like '%Preferencia autorizada%')
+      and (
+        sync_row.tombstone is distinct from true
+        or sync_row.payload::text like '%Preferencia autorizada%'
+        or sync_row.payload->>'schema' is distinct from 'ordax.memory-sync-payload/1'
+        or sync_row.payload->'memoryIdentity'->>'id' is distinct from v_memory_id::text
+        or sync_row.payload->'memoryIdentity'->>'ownerKind' is distinct from 'account'
+        or sync_row.payload->'memoryIdentity'->>'ownerId' is distinct from '11111111-1111-1111-1111-111111111111'
+        or sync_row.payload ? 'memory'
+      )
   ) then raise exception 'forgotten Memory survived in authoritative transport mirror'; end if;
 
   if exists (
@@ -237,7 +278,11 @@ begin
         mutation_row.tombstone is distinct from true
         or mutation_row.mutation_kind <> 'delete'
         or mutation_row.payload::text like '%Preferencia autorizada%'
-        or mutation_row.payload->>'state' is distinct from 'deleted'
+        or mutation_row.payload->>'schema' is distinct from 'ordax.memory-sync-payload/1'
+        or mutation_row.payload->'memoryIdentity'->>'id' is distinct from v_memory_id::text
+        or mutation_row.payload->'memoryIdentity'->>'ownerKind' is distinct from 'account'
+        or mutation_row.payload->'memoryIdentity'->>'ownerId' is distinct from '11111111-1111-1111-1111-111111111111'
+        or mutation_row.payload ? 'memory'
       )
   ) then raise exception 'forgotten Memory survived in incremental mutation history'; end if;
 
@@ -249,7 +294,8 @@ begin
 end;
 $$;
 
--- The actual incremental read path must also be content-free for an old cursor.
+-- The actual incremental read path must expose only canonical content-free
+-- tombstones for an old cursor after forget.
 do $$
 declare
   v_change record;
@@ -258,8 +304,11 @@ begin
     if v_change.data_class = 'memory' then
       if v_change.tombstone is distinct from true
          or v_change.payload::text like '%Preferencia autorizada%'
-         or v_change.payload->>'state' is distinct from 'deleted' then
-        raise exception 'incremental cursor replay exposed forgotten Memory content';
+         or v_change.payload->>'schema' is distinct from 'ordax.memory-sync-payload/1'
+         or v_change.payload->'memoryIdentity'->>'ownerKind' is distinct from 'account'
+         or v_change.payload->'memoryIdentity'->>'ownerId' is distinct from '11111111-1111-1111-1111-111111111111'
+         or v_change.payload ? 'memory' then
+        raise exception 'incremental cursor replay exposed non-canonical forgotten Memory';
       end if;
     end if;
   end loop;
