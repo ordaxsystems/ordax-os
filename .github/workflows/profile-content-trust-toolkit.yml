@@ -259,6 +259,7 @@ jobs:
           Copy-Item tools/profile-content-channel/windows/Complete-OrdaXProfileContentTrust.ps1 $toolkit
           Copy-Item docs/PROFILE-CONTENT-TRUST-CEREMONY.md $toolkit
           Copy-Item docs/contracts/profile-content-trust-policy.json (Join-Path $toolkit 'profile-content-trust-policy.json')
+          Copy-Item tools/profile-content-channel/promote_public_trust.py (Join-Path $toolkit 'promote_public_trust.py')
 
           $signer = Join-Path $toolkit 'ordax-profile-content-channel.exe'
           $initializer = Join-Path $toolkit 'Initialize-OrdaXProfileContentTrust.ps1'
@@ -338,8 +339,20 @@ jobs:
           if (($names -join '|') -ne ($expected -join '|')) {
             throw "Public handoff entries are unexpected: $($names -join ',')"
           }
-          if ($names -match '(?i)(private|secret|seed)|\.(pem|key|p12|pfx)$') {
+          if ($names -match '(?i)(private|secret|seed)|\.(pem|key|p12|pfx)
+          Write-Host 'PROFILE_CONTENT_WINDOWS_OPERATOR_PROTOCOL=PASS'
+          Write-Host 'PROFILE_CONTENT_WINDOWS_CANONICAL_KEY_CREATED=NO'
+          Write-Host 'PROFILE_CONTENT_WINDOWS_PUBLIC_HANDOFF_SECRET_MATERIAL=NO'
+) {
             throw 'Public handoff contains secret-looking material.'
+          }
+
+          python tools/profile-content-channel/promote_public_trust.py check `
+            --repo-root "$PWD" `
+            --promotion-zip "$handoff" `
+            --verifier "$signer"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Public Profile content trust promoter rejected the disposable recovered handoff.'
           }
 
           Remove-Item -LiteralPath $root -Recurse -Force
