@@ -681,3 +681,56 @@ test("invalid remote portable preferences fail closed instead of weakening the p
   sync.destroy();
   preferenceSync.destroy();
 });
+
+
+test("Memory automatic capture preference remains device-local and is not queued for account sync", async () => {
+  const preferences = preferencesRuntime();
+  const preferenceSync = createPreferenceSyncRuntime(preferences, {
+    createIdempotencyKey: keyFactory("pref-memory-local"),
+  });
+  const bridge = createWorkspaceMetadataBridge(workspaceStore());
+  const applied = [];
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    async snapshot() {
+      return { cursor: 0, objects: [] };
+    },
+    async pullChanges({ afterCursor }) {
+      return { afterCursor, nextCursor: afterCursor, changes: [] };
+    },
+    async applyMutation(value) {
+      applied.push(value);
+      return {
+        $schema: "prototype-ordax.sync-ack/1",
+        objectId: value.objectId,
+        dataClass: value.dataClass,
+        serverRevision: value.baseServerRevision + 1,
+        tombstone: false,
+        applied: true,
+        conflict: false,
+        changeCursor: 1,
+      };
+    },
+  };
+  const sync = createAccountSyncRuntime({
+    identitySession: signedInIdentity(),
+    transport,
+    checkpointStore: checkpointStore(),
+    preferenceSync,
+    preferences,
+    workspaceMetadataSource: bridge.source,
+    workspaceStore: bridge.store,
+    createIdempotencyKey: keyFactory("account-memory-local"),
+  });
+
+  await sync.refresh();
+  applied.length = 0;
+  preferences.set("memory.auto-capture", "off");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(preferences.getSnapshot()["memory.auto-capture"], "off");
+  assert.equal(applied.some((item) => item.objectId === "preferences/surface"), false);
+
+  sync.destroy();
+  preferenceSync.destroy();
+});
