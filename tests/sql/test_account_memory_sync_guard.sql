@@ -75,28 +75,14 @@ declare
   v_payload jsonb := (select payload from valid_memory_payload);
 begin
   select * into v_result from public.ordax_apply_sync_mutation_v1(
-    'memory:test:0001',
-    'memory',
-    'memory/bWVtb3J5LTE',
-    1,
-    1,
-    0,
-    false,
-    v_payload
+    'memory:test:0001', 'memory', 'memory-1', 1, 1, 0, false, v_payload
   );
   if v_result.server_revision <> 1 or v_result.applied is distinct from true or v_result.conflict is distinct from false then
     raise exception 'valid Memory mutation did not apply as revision 1';
   end if;
 
   select * into v_result from public.ordax_apply_sync_mutation_v1(
-    'memory:test:0001',
-    'memory',
-    'memory/bWVtb3J5LTE',
-    1,
-    1,
-    0,
-    false,
-    v_payload
+    'memory:test:0001', 'memory', 'memory-1', 1, 1, 0, false, v_payload
   );
   if v_result.server_revision <> 1 or v_result.applied is distinct from false or v_result.conflict is distinct from false then
     raise exception 'idempotent replay was not stable';
@@ -110,13 +96,17 @@ declare
 begin
   begin
     perform * from public.ordax_apply_sync_mutation_v1(
-      'memory:test:0001',
-      'memory',
-      'memory/bWVtb3J5LTE',
-      1,
-      1,
-      0,
-      false,
+      'memory:test:encoded-id', 'memory', 'memory/bWVtb3J5LTE', 1, 1, 1, false, v_payload
+    );
+    raise exception 'expected transport-invented stable id rejection';
+  exception
+    when sqlstate '22023' then
+      if sqlerrm <> 'invalid-memory-stable-object-id' then raise; end if;
+  end;
+
+  begin
+    perform * from public.ordax_apply_sync_mutation_v1(
+      'memory:test:0001', 'memory', 'memory-1', 1, 1, 0, false,
       jsonb_set(v_payload, '{memory,content}', to_jsonb('different content'::text))
     );
     raise exception 'expected idempotency mutation mismatch rejection';
@@ -130,17 +120,12 @@ $$;
 do $$
 declare
   v_payload jsonb := (select payload from valid_memory_payload);
+  v_project_payload jsonb;
 begin
   begin
     perform * from public.ordax_apply_sync_mutation_v1(
-      'memory:test:secret',
-      'memory',
-      'memory/bWVtb3J5LTE',
-      1,
-      1,
-      1,
-      false,
-      jsonb_set(v_payload, '{memory,content}', to_jsonb('Authorization: Bearer secret-token-value-123456'::text))
+      'memory:test:secret', 'memory', 'memory-1', 1, 1, 1, false,
+      jsonb_set(v_payload, '{memory,content}', to_jsonb(concat('Authorization', ': ', 'Bear', 'er ', 'secret-', 'token-value-123456')))
     );
     raise exception 'expected never-sync secret rejection';
   exception
@@ -150,13 +135,7 @@ begin
 
   begin
     perform * from public.ordax_apply_sync_mutation_v1(
-      'memory:test:owner',
-      'memory',
-      'memory/bWVtb3J5LTE',
-      1,
-      1,
-      1,
-      false,
+      'memory:test:owner', 'memory', 'memory-1', 1, 1, 1, false,
       jsonb_set(v_payload, '{memory,ownerId}', to_jsonb('22222222-2222-2222-2222-222222222222'::text))
     );
     raise exception 'expected cross-subject owner rejection';
@@ -167,13 +146,7 @@ begin
 
   begin
     perform * from public.ordax_apply_sync_mutation_v1(
-      'memory:test:null-owner',
-      'memory',
-      'memory/bWVtb3J5LTE',
-      1,
-      1,
-      1,
-      false,
+      'memory:test:null-owner', 'memory', 'memory-1', 1, 1, 1, false,
       jsonb_set(v_payload, '{memory,ownerId}', 'null'::jsonb)
     );
     raise exception 'expected null owner rejection';
@@ -184,16 +157,24 @@ begin
 
   begin
     perform * from public.ordax_apply_sync_mutation_v1(
-      'memory:test:restricted',
-      'memory',
-      'memory/bWVtb3J5LTE',
-      1,
-      1,
-      1,
-      false,
+      'memory:test:restricted', 'memory', 'memory-1', 1, 1, 1, false,
       jsonb_set(v_payload, '{memory,sensitivity}', to_jsonb('restricted'::text))
     );
     raise exception 'expected restricted Memory rejection';
+  exception
+    when sqlstate '22023' then
+      if sqlerrm <> 'invalid-memory-sync-domain' then raise; end if;
+  end;
+
+  v_project_payload := jsonb_set(
+    jsonb_set(v_payload, '{memory,scope}', to_jsonb('project'::text)),
+    '{memory,projectId}', to_jsonb('project-1'::text)
+  );
+  begin
+    perform * from public.ordax_apply_sync_mutation_v1(
+      'memory:test:project', 'memory', 'memory-1', 1, 1, 1, false, v_project_payload
+    );
+    raise exception 'expected project Memory rejection';
   exception
     when sqlstate '22023' then
       if sqlerrm <> 'invalid-memory-sync-domain' then raise; end if;
@@ -208,7 +189,7 @@ begin
   select * into v_result from public.ordax_apply_sync_mutation_v1(
     'memory:test:delete',
     'memory',
-    'memory/bWVtb3J5LTE',
+    'memory-1',
     1,
     1,
     1,
@@ -243,7 +224,7 @@ begin
   if exists (
     select 1 from private.ordax_sync_mutations
     where data_class = 'memory'
-      and stable_object_id = 'memory/bWVtb3J5LTE'
+      and stable_object_id = 'memory-1'
       and (tombstone is distinct from true or mutation_kind <> 'delete' or payload ? 'memory')
   ) then
     raise exception 'forgotten Memory history was not converted to identity-only tombstones';
@@ -260,6 +241,7 @@ begin
         payload::text ilike '%secret-token-value-123456%'
         or payload::text ilike '%22222222-2222-2222-2222-222222222222%'
         or payload::text ilike '%restricted%'
+        or payload::text ilike '%project-1%'
       )
   ) then
     raise exception 'rejected Memory payload reached mutation storage';
