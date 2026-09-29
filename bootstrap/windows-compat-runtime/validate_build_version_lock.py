@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Validate the fail-closed Wine build package version lock."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).resolve().parent
+LOCK_PATH = HERE / "build-version-lock.json"
+SOURCE_PATH = HERE / "source.json"
+ENVIRONMENT_PATH = HERE / "build-environment.json"
+
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+ARTIFACT_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$")
+VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._~:-]{0,255}$")
+
+
+class BuildVersionLockError(RuntimeError):
+    pass
+
+
+def load_json(path: Path) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BuildVersionLockError(f"cannot read {path.name}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise BuildVersionLockError(f"{path.name} must contain an object")
+    return value
+
+
+def validate_package_map(value: object, label: str) -> dict[str, str]:
+    if not isinstance(value, dict) or not value:
+        raise BuildVersionLockError(f"{label} must be a non-empty object")
+    result: dict[str, str] = {}
+    for name, version in value.items():
+        if not isinstance(name, str) or not PACKAGE_RE.fullmatch(name):
+            raise BuildVersionLockError(f"invalid package name in {label}: {name!r}")
+        if not isinstance(version, str) or not VERSION_RE.fullmatch(version):
+            raise BuildVersionLockError(f"invalid package version in {label}: {name}={version!r}")
+        result[name] = version
+    return result
+
+
+def validate_lock(lock: dict, source: dict, environment: dict) -> dict:
+    if lock.get("$schema") != "prototype-ordax.windows-compat-build-version-lock/1":
+        raise BuildVersionLockError("unexpected version lock schema")
+    if lock.get("status") != "version-lock-from-proven-configure-not-content-addressed-not-build-proven":
+        raise BuildVersionLockError("version lock status drifted")
+
+    if lock.get("runtime_id") != source.get("runtime_id") or lock.get("wine_version") != source.get("version"):
+        raise BuildVersionLockError("runtime/source identity drifted")
+    source_lock = lock.get("source")
+    upstream = source.get("upstream")
+    expected_source = {
+        "archive_sha256": upstream.get("archive_sha256") if isinstance(upstream, dict) else None,
+        "archive_size_bytes": upstream.get("archive_size_bytes") if isinstance(upstream, dict) else None,
+    }
+    if source_lock != expected_source:
+        raise BuildVersionLockError("source archive identity drifted")
+    if not isinstance(source_lock, dict) or not SHA256_RE.fullmatch(str(source_lock.get("archive_sha256", ""))):
+        raise BuildVersionLockError("invalid source archive sha256")
+
+    if lock.get("host") != environment.get("host"):
+        raise BuildVersionLockError("host identity drifted")
+
+    configure = lock.get("configure")
+    env_configure = environment.get("configure")
+    if not isinstance(configure, dict) or not isinstance(env_configure, dict):
+        raise BuildVersionLockError("configure identity missing")
+    expected_flags = [
+        f"--prefix={env_configure.get('prefix')}",
+        f"--libdir={env_configure.get('libdir')}",
+        f"--sysconfdir={env_configure.get('sysconfdir')}",
+        f"--localstatedir={env_configure.get('localstatedir')}",
+        *env_configure.get("flags", []),
+    ]
+    if configure.get("flags") != expected_flags:
+        raise BuildVersionLockError("configure flags drifted")
+    if configure.get("native_compiler_triplet") != "x86_64-alpine-linux-musl":
+        raise BuildVersionLockError("native compiler triplet drifted")
+    toolchain = configure.get("toolchain")
+    if not isinstance(toolchain, dict) or set(toolchain) != {"gcc", "x86_64_mingw_gcc", "i686_mingw_gcc"}:
+        raise BuildVersionLockError("toolchain identity incomplete")
+    if any(not isinstance(value, str) or not value.strip() for value in toolchain.values()):
+        raise BuildVersionLockError("toolchain identity invalid")
+
+    requested = validate_package_map(lock.get("requested_build_packages"), "requested_build_packages")
+    expected_requested = environment.get("base_build_packages", []) + environment.get("wine_build_packages", [])
+    if set(requested) != set(expected_requested):
+        raise BuildVersionLockError("requested build package set drifted")
+
+    closure = lock.get("resolved_closure")
+    if not isinstance(closure, dict) or closure.get("canonicalization") != "sorted-object-keys-utf8-json-no-whitespace":
+        raise BuildVersionLockError("closure canonicalization drifted")
+    if not isinstance(closure.get("package_count"), int) or closure["package_count"] < len(requested):
+        raise BuildVersionLockError("closure package count invalid")
+    if not SHA256_RE.fullmatch(str(closure.get("canonical_json_sha256", ""))):
+        raise BuildVersionLockError("closure digest invalid")
+
+    provenance = lock.get("provenance")
+    if not isinstance(provenance, dict):
+        raise BuildVersionLockError("provenance missing")
+    if provenance.get("configure_proof_head_sha") != "07d27226190bb0ba4d516d8d01b281c8ad882ddd":
+        raise BuildVersionLockError("configure proof source commit drifted")
+    if provenance.get("configure_proof_workflow_run_id") != 36510940641:
+        raise BuildVersionLockError("configure proof workflow provenance drifted")
+    if provenance.get("configure_proof_artifact_id") != 11008304540:
+        raise BuildVersionLockError("configure proof artifact provenance drifted")
+    if not ARTIFACT_DIGEST_RE.fullmatch(str(provenance.get("configure_proof_artifact_digest", ""))):
+        raise BuildVersionLockError("configure proof artifact digest invalid")
+
+    expected_gates = {
+        "configure_proof_passed": True,
+        "package_versions_pinned": True,
+        "transitive_closure_digest_pinned": True,
+        "apk_content_hashes_pinned": False,
+        "full_build_proof_passed": False,
+        "runtime_dependency_inventory_complete": False,
+        "binary_artifact_pinned": False,
+        "activation_authorized": False,
+        "execution_authorized": False,
+    }
+    if lock.get("gates") != expected_gates:
+        raise BuildVersionLockError("version lock overclaims readiness")
+    return lock
+
+
+def main() -> int:
+    validate_lock(load_json(LOCK_PATH), load_json(SOURCE_PATH), load_json(ENVIRONMENT_PATH))
+    print("windows compatibility build version lock: PASS")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except BuildVersionLockError as exc:
+        print(f"windows-compat-build-version-lock: {exc}", file=__import__("sys").stderr)
+        raise SystemExit(2)
