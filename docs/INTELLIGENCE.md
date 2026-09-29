@@ -100,14 +100,15 @@ and device stores never persist session-scoped memory. Search is paginated throu
 offset instead of raising the result cap, so user review can reach older items without creating an
 unbounded read.
 
+Manual Memory entry is also explicit and user-owned. Account → Memory may create a new item only for the currently selected personal owner boundary: device owner creates `scope=device`, authenticated account owner creates `scope=account`. Manual entry cannot silently create Space/project/session memory, and persistence still passes through the same `flush()` durability confirmation.
+
 A dedicated memory-review runtime owns the user-review semantics above the stable port. It can
 list, edit and remove only inside one explicit owner/Space/project boundary. Editing may change
 content, provenance and sensitivity, but cannot silently change item identity, owner kind, owner
 id, kind, scope, Space or project. Review of more than one page walks the same bounded search API
 instead of gaining a privileged bypass. A review-session layer switches explicitly between the
 currently available device/account owners, and a Surface-ready view model adds bounded search,
-one-item pagination lookahead and generic `idle/pending/saved/error` persistence state. That is
-presentation plumbing only; a visual review surface is still not claimed as mounted in the MVP.
+one-item pagination lookahead and generic `idle/pending/saved/error` persistence state. That review stack is now mounted in the Native/USB Account → Memory surface when durable Memory is available; the Web composition deliberately does not simulate durable device/account Memory when that persistence boundary is absent.
 
 Secret material is not memory. The contract rejects explicit secret items and known private-key
 or token-shaped material in both **content and provenance** before either can enter persistence or
