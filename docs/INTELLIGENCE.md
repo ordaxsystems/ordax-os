@@ -100,6 +100,8 @@ and device stores never persist session-scoped memory. Search is paginated throu
 offset instead of raising the result cap, so user review can reach older items without creating an
 unbounded read.
 
+Manual Memory entry is also explicit and user-owned. Account → Memory may create a new item only for the currently selected personal owner boundary: device owner creates `scope=device`, authenticated account owner creates `scope=account`. Manual entry cannot silently create Space/project/session memory, and persistence still passes through the same `flush()` durability confirmation.
+
 A dedicated memory-review runtime owns the user-review semantics above the stable port. It can
 list, edit and remove only inside one explicit owner/Space/project boundary. Editing may change
 content, provenance and sensitivity, but cannot silently change item identity, owner kind, owner
@@ -220,6 +222,8 @@ missing backend degrades to `stopped`. It does not silently retry the failed gen
 will not reset a currently `busy` inference, and `dispose()` aborts active fetches and refuses new
 probe/generate work so shutdown cannot leave hidden inference requests running.
 
+Memory capture is a separate write boundary from retrieval, but it does **not** require a confirmation dialog for every item. Intelligence may automatically capture a bounded memory draft when trusted composition has enabled capture for the current owner/scope. The model cannot choose owner, account, Space, project or persistent id; composition supplies the exact `ordax.memory-capture-auth/1` target. Initial automatic capture is limited to device/account/Space targets, normal/private preference|fact|instruction|summary items, and secrets remain rejected by the Memory contract. Project/session/restricted capture stays disabled. A capture is considered successful only after `memory.flush()` confirms durability. The user retains control through Account → Memory to review, edit and delete stored items; disabling capture can stop future automatic writes without deleting existing memory.
+
 Context supplied to Intelligence is bounded and carries provenance. Tool execution, agents and broader capability bridges require explicit contracts and permissions before activation. The memory runtime does not grant tool authority and does not bypass current authorization.
 
 The source foundation now defines `ordax.intelligence-tool/1` and
@@ -241,3 +245,8 @@ Intelligence** from the **AI Runtime / Inference Broker** and treated Surface
 apps as clients. This prototype reimplements those architecture invariants
 clean-room; it does not copy the legacy runtime, agents or permission system.
 The exact reuse decision is recorded in `docs/SOURCE-MIGRATION.md`.
+
+
+### Automatic Memory preference
+
+Native/USB exposes `memory.auto-capture` as an OrdaX preference. It defaults to `on`, is persisted through the canonical preference store, and is read dynamically by the Memory capture runtime before every write. Turning it `off` prevents future automatic Memory capture without deleting existing items. Exact automatic duplicates are coalesced only when owner, scope, Space, kind, sensitivity and normalized stored content are identical; provenance/timestamp differences do not mint another id, and the existing item still must pass `flush()` before success is reported. This is intentionally not semantic supersession: different wording remains distinct until a structured Assistant contract can identify continuity safely. Account → Memory remains the user control surface for review, editing, deletion and manual entry. In the MVP this preference is intentionally device-local and is not included in account preference sync; changing that requires a separate privacy/synchronization policy rather than silently making a local Memory decision portable.

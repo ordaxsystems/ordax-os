@@ -9,6 +9,7 @@ on:
       - 'docs/contracts/intelligence.json'
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/memory.json'
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
       - 'docs/contracts/model-router.json'
       - 'docs/contracts/intelligence-artifacts.json'
       - 'docs/contracts/intelligence-tools.json'
@@ -18,6 +19,7 @@ on:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
       - 'system/contracts/memory-context.mjs'
+      - 'system/contracts/memory-capture.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/intelligence-artifact.mjs'
       - 'system/contracts/intelligence-tool.mjs'
@@ -28,6 +30,7 @@ on:
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
+      - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
       - 'system/surface/ui/memory-review-controls.mjs'
       - 'system/surface/ui/account-overview-controls.mjs'
@@ -61,6 +64,8 @@ on:
       - 'tests/test_local_ai_hardware_probe.py'
       - 'tests/test_memory_runtime.mjs'
       - 'tests/test_memory_context.mjs'
+      - 'tests/test_memory_capture.mjs'
+      - 'tests/test_memory_auto_capture_preference.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_memory_owners.mjs'
       - 'tests/test_memory_review_session.mjs'
@@ -129,6 +134,7 @@ on:
       - 'docs/contracts/intelligence.json'
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/memory.json'
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
       - 'docs/contracts/model-router.json'
       - 'docs/contracts/intelligence-artifacts.json'
       - 'docs/contracts/intelligence-tools.json'
@@ -138,6 +144,7 @@ on:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
       - 'system/contracts/memory-context.mjs'
+      - 'system/contracts/memory-capture.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/intelligence-artifact.mjs'
       - 'system/contracts/intelligence-tool.mjs'
@@ -147,6 +154,7 @@ on:
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
+      - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
       - 'system/surface/ui/memory-review-controls.mjs'
       - 'system/surface/ui/account-overview-controls.mjs'
@@ -180,6 +188,8 @@ on:
       - 'tests/test_local_ai_hardware_probe.py'
       - 'tests/test_memory_runtime.mjs'
       - 'tests/test_memory_context.mjs'
+      - 'tests/test_memory_capture.mjs'
+      - 'tests/test_memory_auto_capture_preference.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_memory_owners.mjs'
       - 'tests/test_memory_review_session.mjs'
@@ -266,6 +276,8 @@ jobs:
           node --check system/contracts/memory.mjs
           node --check system/contracts/memory-store.mjs
           node --check system/contracts/memory-context.mjs
+          node --check system/contracts/memory-capture.mjs
+          node --check system/services/preferences/memory.mjs
           node --check system/contracts/model-router.mjs
           node --check system/contracts/intelligence-artifact.mjs
           node --check system/contracts/intelligence-tool.mjs
@@ -335,6 +347,8 @@ jobs:
           node --test tests/test_local_ai_model_rediscovery.mjs
           node --test tests/test_memory_runtime.mjs
           node --test tests/test_memory_context.mjs
+          node --test tests/test_memory_capture.mjs
+          node --test tests/test_memory_auto_capture_preference.mjs
           node --test tests/test_memory_review.mjs
           node --test tests/test_memory_owners.mjs
           node --test tests/test_memory_review_session.mjs

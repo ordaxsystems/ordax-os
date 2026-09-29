@@ -1,0 +1,78 @@
+name: Windows Compatibility Full Build Dependency Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_full_build_proof.py'
+      - '.github/workflows/windows-compat-full-build-dependency-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Install bounded resolver dependency
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends proot
+          docker version
+
+      - name: Diagnose generated-header and MinGW include boundaries
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-full-build-dependency-diagnostic"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
+          python bootstrap/windows-compat-runtime/full_build_dependency_diagnostic.py \
+            --work-dir "$work" \
+            --out "$proof_dir/dependency-diagnostic.json"
+          python - <<'PY' "$proof_dir/dependency-diagnostic.json"
+          import json
+          import pathlib
+          import sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert proof['$schema'] == 'prototype-ordax.windows-compat-full-build-dependency-diagnostic/2'
+          assert proof['diagnostic_complete'] is True
+          assert proof['mingw_unknwn_preprocess_passed'] is True
+          assert proof['mingw_comcat_preprocess_passed'] is True
+          assert proof['classification'] in {
+              'single-target-build-generates-required-headers',
+              'generated-header-target-failure',
+              'consumer-target-missing-generated-header-prerequisite',
+              'consumer-compile-failure-persists-after-generated-headers',
+          }
+          assert proof['full_build_performed'] is False
+          assert proof['wine_executed'] is False
+          assert proof['windows_payload_executed'] is False
+          assert proof['activation_authorized'] is False
+          assert proof['execution_authorized'] is False
+          print('Wine dependency diagnostic:', proof['classification'])
+          PY
+
+      - name: Upload diagnostic metadata only
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: windows-compat-full-build-dependency-diagnostic
+          path: ${{ runner.temp }}/windows-compat-full-build-dependency-diagnostic/dependency-diagnostic.json
+          if-no-files-found: ignore
+          retention-days: 7

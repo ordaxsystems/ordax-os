@@ -165,6 +165,12 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
+### Gate atual real
+
+Os gates de receipt/inventory, executor confiável, health/rollback e UI de catálogo já estão implementados e cobertos por CI/source tests. O próximo gate real é **first-public-profile-proof**.
+
+Esse gate continua bloqueado até existir um Profile canônico com componente realmente publicado sob trust anchor canônica, receipt real, instalação/health válidos e revisão de domínio. Chave efêmera de CI, fixture de teste ou payload inventado não satisfaz esse gate.
+
 ### Ainda bloqueado
 
 - Store pública;

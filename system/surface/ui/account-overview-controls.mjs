@@ -24,6 +24,11 @@ import {
   validateSpaceSelectionSnapshot,
 } from "../../contracts/space-selection.mjs";
 import { assertProfileProvisioningPort } from "../../contracts/profile-provisioning.mjs";
+import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
+import {
+  MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
+  memoryAutoCaptureEnabled,
+} from "../../services/preferences/memory.mjs";
 import { mountMemoryReviewControls } from "./memory-review-controls.mjs";
 
 const ACCOUNT_WINDOW_SELECTOR = '[data-window-id="account"]';
@@ -99,6 +104,7 @@ export function mountAccountOverviewControls(
   profileProvisioning = null,
   memoryReview = null,
   spaceSelection = null,
+  preferenceRuntime = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -121,6 +127,9 @@ export function mountAccountOverviewControls(
   const spaceSelectionPort = spaceSelection === null
     ? null
     : assertSpaceSelectionPort(spaceSelection);
+  const preferencePort = preferenceRuntime === null
+    ? null
+    : assertPreferenceRuntimePort(preferenceRuntime);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -139,6 +148,7 @@ export function mountAccountOverviewControls(
     ? validateSpaceSelectionSnapshot(spaceSelectionPort.getSnapshot())
     : null;
   let profilePlans = profileProvisioningPort ? profileProvisioningPort.list() : null;
+  let preferenceSnapshot = preferencePort?.getSnapshot() ?? null;
   let pendingAction = null;
   let actionMessage = "";
   let spaceMessage = "";
@@ -603,6 +613,35 @@ export function mountAccountOverviewControls(
       return;
     }
 
+    if (preferencePort && preferenceSnapshot) {
+      const enabled = memoryAutoCaptureEnabled(preferenceSnapshot);
+      const policy = node(documentObject, "article", "ordax-account-card");
+      policy.dataset.state = enabled ? "available" : "neutral";
+      policy.append(
+        node(documentObject, "span", "ordax-account-card-label", t("account.memory.autoCapture.label")),
+        node(
+          documentObject,
+          "strong",
+          "ordax-account-card-value",
+          enabled ? t("account.memory.autoCapture.on") : t("account.memory.autoCapture.off"),
+        ),
+        node(documentObject, "small", "ordax-account-card-detail", t("account.memory.autoCapture.detail")),
+      );
+      const policyActions = node(documentObject, "div", "ordax-account-actions");
+      const toggle = node(
+        documentObject,
+        "button",
+        "ordax-account-action",
+        enabled ? t("account.memory.autoCapture.disable") : t("account.memory.autoCapture.enable"),
+      );
+      toggle.type = "button";
+      toggle.dataset.accountMemoryAutoCapture = enabled ? "off" : "on";
+      toggle.setAttribute("aria-pressed", String(enabled));
+      policyActions.append(toggle);
+      policy.append(policyActions);
+      section.append(policy);
+    }
+
     const host = node(documentObject, "div", "ordax-memory-review-host");
     section.append(host);
     view.append(section);
@@ -613,6 +652,8 @@ export function mountAccountOverviewControls(
       deviceOwner: t("account.memory.review.deviceOwner"),
       accountOwner: t("account.memory.review.accountOwner"),
       empty: t("account.memory.review.empty"),
+      addPlaceholder: t("account.memory.review.addPlaceholder"),
+      add: t("account.memory.review.add"),
       save: t("account.memory.review.save"),
       remove: t("account.memory.review.remove"),
       previous: t("account.memory.review.previous"),
@@ -883,6 +924,15 @@ export function mountAccountOverviewControls(
       return;
     }
 
+    const memoryPolicyButton = event.target.closest("[data-account-memory-auto-capture]");
+    if (memoryPolicyButton && root.contains(memoryPolicyButton) && preferencePort) {
+      preferencePort.set(
+        MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
+        memoryPolicyButton.dataset.accountMemoryAutoCapture,
+      );
+      return;
+    }
+
     const spaceButton = event.target.closest("[data-account-space-select]");
     if (spaceButton && root.contains(spaceButton) && spaceSelectionPort) {
       try {
@@ -958,6 +1008,10 @@ export function mountAccountOverviewControls(
     spaceSelectionSnapshot = validateSpaceSelectionSnapshot(snapshot);
     replaceView();
   });
+  const unsubscribePreferences = preferencePort?.subscribe((snapshot) => {
+    preferenceSnapshot = snapshot;
+    if (activeSection === "memory") replaceView();
+  });
   if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
     refreshSpaces();
   }
@@ -968,6 +1022,7 @@ export function mountAccountOverviewControls(
       actionOrdinal += 1;
       memoryReviewControls?.dispose();
       memoryReviewControls = null;
+      unsubscribePreferences?.();
       unsubscribeSpaceSelection?.();
       unsubscribeSpaces?.();
       unsubscribeWorkspaceMetadata?.();

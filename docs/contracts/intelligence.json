@@ -84,5 +84,21 @@
     "signed_stable_v4_materialization_pending": true,
     "authorized_memory_bridge_source_complete": true,
     "automatic_memory_injection_enabled": false
+  },
+  "memory_capture": {
+    "schema": "ordax.memory-capture-result/1",
+    "automatic_persistence": true,
+    "per_item_confirmation_required": false,
+    "composition_policy_required": true,
+    "capture_can_be_disabled": true,
+    "model_selects_owner_or_scope": false,
+    "user_review_edit_delete_required": true,
+    "preference_id": "memory.auto-capture",
+    "preference_default": "on",
+    "preference_device_local_in_mvp": true,
+    "preference_account_sync": false,
+    "exact_duplicate_coalescing": true,
+    "exact_duplicate_mints_new_id": false,
+    "semantic_supersession_enabled": false
   }
 }

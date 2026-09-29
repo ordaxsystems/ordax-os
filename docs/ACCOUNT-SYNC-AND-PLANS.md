@@ -50,27 +50,11 @@ The architecture remains prepared for future synchronized state such as:
 
 The long-term target is that one identity can continue safely across supported experiences without account silos. This is a future service objective, not an MVP availability claim.
 
-### Account-owned Intelligence Memory foundation — not promoted
+### Cloud Memory source-of-truth boundary
 
-The source now contains a first domain foundation for synchronizable Intelligence Memory in `system/services/sync/account-memory-runtime.mjs`. It reuses the existing `ordax.sync-transport/1` object/revision/tombstone protocol; it does **not** create a second synchronization system and it does not serialize the complete Memory store.
+Cloud Memory remains **disabled for the public MVP**. The canonical persisted source of truth is `public.ordax_memory_items`; `private.ordax_sync_objects` may only become a transport mirror for Memory after a dedicated server-authoritative mutation can update the Memory row and sync stream atomically. Independent client dual-writes are forbidden.
 
-The Memory domain remains authoritative through `ordax.memory/1`. Sync v1 only projects a validated Memory item into a versioned `memory` sync object when all of these conditions hold:
-
-- `ownerKind=account` and `ownerId` matches the active authenticated account subject;
-- scope is `account`, `space` or `project`;
-- sensitivity is `normal` or `private`;
-- the Memory item already passes the canonical secret-material checks and an additional never-sync token/credential boundary;
-- trusted composition explicitly authorizes the synchronization operation.
-
-`ownerKind=device`, `scope=device`, `scope=session` and `sensitivity=restricted` remain local/fail-closed in this foundation. A paid plan cannot make device-private material syncable. Unknown/provider-specific payload fields cannot redefine Memory ownership, scope, provenance, sensitivity or authority. Delete/forget is represented as a tombstone that carries identity only; deleted Memory content is not copied into the tombstone payload.
-
-Memory resolver v1 is intentionally conservative: server revisions are authoritative, client wall clocks are not, and concurrent/divergent state enters an explicit pending conflict. There is no automatic Memory rebase and no global last-write-wins. Until the domain conflict UX/resolver is promoted, conflicted Memory stays pending rather than being silently overwritten.
-
-The Memory handler exposes a bounded remote-batch application primitive only; it does not own `snapshot()`, `pullChanges()`, an account cursor or a transport lifecycle. `system/services/sync/account-runtime.mjs` remains the single reconciliation orchestrator and is the future source of account snapshot/change batches for Memory. That keeps the intended restore path compatible with `fresh install -> sign in -> account snapshot -> portable settings/metadata -> authorized Memory -> rebuild derived indexes/caches -> health` without claiming that full reinstall restore works today.
-
-This source slice is intentionally dormant. The current account gateway/database allow-list does not yet accept the `memory` data class, Web/Native compositions do not instantiate this runtime, its pending queue is session-scoped, and no multi-device Memory proof has been executed. Those are explicit promotion prerequisites rather than hidden fallbacks.
-
-Synchronized Memory is classified as **user cloud state**. Sync does not imply AI-training authorization, telemetry authorization, community-data authorization, model egress permission or tool/action authority. Those remain separate contracts and consent/policy boundaries.
+The initial future-eligible scopes are account and Space only, gated by authenticated ownership/access plus the server-authoritative `memory.cloud.enabled` entitlement. Device/session/project and restricted Memory remain excluded from cloud sync until separate policies exist. Deletion must propagate as an explicit tombstone; wall-clock last-writer-wins is not an acceptable universal conflict rule. The machine-readable gate is `docs/contracts/cloud-memory-sync-boundary.json`.
 
 ## Never-sync boundary
 
@@ -96,7 +80,7 @@ The scalable sync boundary is now machine-readable in `docs/contracts/sync-model
 
 Conflict algorithms are deliberately not frozen globally. Each data class or content type owns a deterministic, versioned resolver. This allows richer future models without rewriting every client and prevents a simplistic global last-writer-wins rule from becoming permanent architecture.
 
-For the three currently integrated portable classes — appearance, preferences and workspace metadata — resolver v1 uses a narrow rule: if a local user change is already pending and the server reports a newer authoritative object revision, the client preserves that local intent, issues a new idempotency key and rebases it onto the observed server revision. A single flush performs at most one rebase retry; a second conflict remains pending for a later synchronization cycle. This rule does **not** apply automatically to Memory, Notes, files or other user-selected cloud content. Memory now has its own resolver v1 boundary, which deliberately fails closed into pending/manual domain resolution with no automatic rebase while the feature is not promoted. Other content classes likewise require their own resolver before cloud synchronization is enabled.
+For the three currently integrated portable classes — appearance, preferences and workspace metadata — resolver v1 uses a narrow rule: if a local user change is already pending and the server reports a newer authoritative object revision, the client preserves that local intent, issues a new idempotency key and rebases it onto the observed server revision. A single flush performs at most one rebase retry; a second conflict remains pending for a later synchronization cycle. This rule does **not** apply automatically to Notes, files or other user-selected cloud content. Those classes require their own resolver before cloud synchronization is enabled.
 
 ## Provider independence
 

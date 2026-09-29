@@ -11,6 +11,7 @@ FOUNDATION = ROOT / "docs" / "contracts" / "foundation.json"
 ENTITLEMENTS = ROOT / "docs" / "contracts" / "entitlements.json"
 SPACES = ROOT / "docs" / "contracts" / "spaces-and-profile-packs.json"
 MEMORY = ROOT / "docs" / "contracts" / "memory.json"
+CLOUD_MEMORY_SYNC = ROOT / "docs" / "contracts" / "cloud-memory-sync-boundary.json"
 MODEL_ROUTER = ROOT / "docs" / "contracts" / "model-router.json"
 APP_DISTRIBUTION = ROOT / "docs" / "contracts" / "app-distribution.json"
 PROFILE_PROVISIONING = ROOT / "docs" / "contracts" / "profile-provisioning.json"
@@ -95,6 +96,27 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertFalse(memory["requirements"]["secret_material_as_memory_allowed"])
         self.assertTrue(memory["retrieval"]["semantic_index_is_derived_and_rebuildable"])
 
+    def test_cloud_memory_sync_boundary_prevents_dual_source_of_truth(self):
+        boundary = self.load(CLOUD_MEMORY_SYNC)
+        self.assertFalse(boundary["public_mvp_enabled"])
+        source = boundary["source_of_truth"]
+        self.assertEqual(source["table"], "public.ordax_memory_items")
+        self.assertEqual(source["sync_object_role"], "transport-mirror-only")
+        self.assertFalse(source["independent_dual_write_allowed"])
+        self.assertTrue(source["server_authoritative_atomic_write_required"])
+        self.assertFalse(boundary["eligible_scopes"]["device"])
+        self.assertFalse(boundary["eligible_scopes"]["project"])
+        self.assertFalse(boundary["eligible_scopes"]["session"])
+        self.assertEqual(
+            boundary["authorization"]["entitlement_required"],
+            "memory.cloud.enabled",
+        )
+        self.assertFalse(boundary["authorization"]["client_claimed_entitlement_trusted"])
+        self.assertTrue(boundary["deletion"]["explicit_tombstone_required"])
+        self.assertFalse(boundary["conflicts"]["silent_global_last_writer_wins"])
+        self.assertEqual(boundary["conflicts"]["same_revision_divergence"], "reject")
+        self.assertFalse(boundary["privacy"]["restricted_memory_cloud_sync_enabled"])
+
     def test_external_models_require_explicit_egress_and_do_not_own_memory(self):
         router = self.load(MODEL_ROUTER)
         self.assertTrue(router["rules"]["external_egress_requires_policy_and_user_visibility"])
@@ -121,6 +143,25 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertFalse(mvp["public_profile_install_enabled"])
         self.assertFalse(mvp["store_enabled"])
         self.assertEqual(mvp["legal_br"], "catalog-visible-activation-blocked")
+
+    def test_profile_provisioning_gate_status_matches_implemented_source(self):
+        provisioning = self.load(PROFILE_PROVISIONING)
+        self.assertEqual(
+            provisioning["completed_gates"],
+            [
+                "trusted-receipt-and-inventory-commit-after-verified-stage-health",
+                "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
+                "profile-health-and-rollback",
+                "surface-profile-catalog-ui",
+            ],
+        )
+        self.assertEqual(
+            provisioning["next_gates"],
+            ["first-public-profile-proof"],
+        )
+        self.assertFalse(provisioning["mvp"]["public_profile_install_enabled"])
+        self.assertFalse(provisioning["content_proof"]["public_release_trust_pinned"])
+        self.assertFalse(provisioning["content_proof"]["activation_allowed"])
 
     def test_store_foundation_never_bypasses_trust_or_permissions(self):
         distribution = self.load(APP_DISTRIBUTION)

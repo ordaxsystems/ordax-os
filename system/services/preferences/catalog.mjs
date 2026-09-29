@@ -4,6 +4,7 @@ import {
   accessibilityTextScalePreference,
 } from "./accessibility.mjs";
 import { appearancePreference } from "./appearance.mjs";
+import { memoryAutoCapturePreference } from "./memory.mjs";
 import {
   regionalLocalePreference,
   regionalTimeZonePreference,
@@ -11,6 +12,7 @@ import {
 
 const DEFINITIONS = Object.freeze([
   appearancePreference,
+  memoryAutoCapturePreference,
   accessibilityContrastPreference,
   accessibilityMotionPreference,
   accessibilityTextScalePreference,
