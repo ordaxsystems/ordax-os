@@ -47,7 +47,7 @@ class DynamicLoadSourceProbeTests(unittest.TestCase):
             "execution_authorized": False,
         }
 
-    def test_scan_text_ignores_comments_and_literals(self):
+    def test_scan_text_ignores_comments_and_classifies_target_sources(self):
         text = r'''
         /* dlopen("ignored-comment.so", 0); */
         static const char *example = "dlopen(\"ignored-string.so\", 0)";
@@ -55,17 +55,24 @@ class DynamicLoadSourceProbeTests(unittest.TestCase):
         {
             dlopen("libfoo.so", 1);
             dlopen("lib" "bar.so", 2);
-            dlopen(name, 3);
-            dlmopen(1, "libbaz.so", 4);
+            dlopen(SONAME_LIBFOO, 3);
+            dlopen(name, 4);
+            dlmopen(1, "libbaz.so", 5);
         }
         '''
         result = MODULE.scan_text("dlls/example.c", text, {"dlopen": 0, "dlmopen": 1})
-        self.assertEqual(len(result), 4)
-        self.assertEqual([item["api"] for item in result], ["dlopen", "dlopen", "dlopen", "dlmopen"])
+        self.assertEqual(len(result), 5)
         self.assertEqual(
             [item["target"]["kind"] for item in result],
-            ["static-string", "static-string", "dynamic-expression", "static-string"],
+            [
+                "static-string",
+                "static-string",
+                "configured-soname-symbol",
+                "dynamic-expression",
+                "static-string",
+            ],
         )
+        self.assertEqual(result[2]["target"]["symbol"], "SONAME_LIBFOO")
 
     def test_dlmopen_uses_second_argument_as_target(self):
         result = MODULE.scan_text(
@@ -78,6 +85,18 @@ class DynamicLoadSourceProbeTests(unittest.TestCase):
             {"kind": "dynamic-expression", "expression": "target_name()"},
         )
         self.assertEqual(result[0]["target_argument_index"], 1)
+
+    def test_configured_soname_classifier_is_strict(self):
+        self.assertEqual(
+            MODULE.classify_target("SONAME_LIBGNUTLS"),
+            {
+                "kind": "configured-soname-symbol",
+                "expression": "SONAME_LIBGNUTLS",
+                "symbol": "SONAME_LIBGNUTLS",
+            },
+        )
+        self.assertEqual(MODULE.classify_target("SONAME_LIBGNUTLS + 1")["kind"], "dynamic-expression")
+        self.assertEqual(MODULE.classify_target("soname_libgnutls")["kind"], "dynamic-expression")
 
     def test_rejects_direct_loader_call_missing_target_argument(self):
         with self.assertRaisesRegex(MODULE.DynamicLoadDiscoveryError, "lacks modeled target"):
@@ -117,8 +136,9 @@ class DynamicLoadSourceProbeTests(unittest.TestCase):
             self.make_archive(
                 archive,
                 {
+                    "wine-11.0/dlls/c.c": b"void h(void) { dlopen(SONAME_LIBX, 0); }\n",
                     "wine-11.0/dlls/b.c": b'void f(void) { dlopen("libx.so", 0); }\n',
-                    "wine-11.0/dlls/a.c": b'void g(void) { dlopen(name, 0); }\n',
+                    "wine-11.0/dlls/a.c": b"void g(void) { dlopen(name, 0); }\n",
                     "wine-11.0/README": b"ignored\n",
                 },
             )
@@ -147,10 +167,14 @@ class DynamicLoadSourceProbeTests(unittest.TestCase):
                 RUNTIME,
             )
             self.assertEqual(result1["inventory_sha256"], result2["inventory_sha256"])
-            self.assertEqual(result1["counts"]["direct_loader_calls"], 2)
-            self.assertEqual(result1["counts"]["static_string_targets"], 1)
-            self.assertEqual(result1["counts"]["dynamic_expression_targets"], 1)
-            self.assertTrue(result1["gates"]["direct_host_loader_calls_inventoried"])
+            counts = result1["counts"]
+            self.assertEqual(counts["direct_loader_calls"], 3)
+            self.assertEqual(counts["static_string_targets"], 1)
+            self.assertEqual(counts["configured_soname_symbol_targets"], 1)
+            self.assertEqual(counts["dynamic_expression_targets"], 1)
+            self.assertEqual(counts["configured_soname_symbols"], {"SONAME_LIBX": 1})
+            self.assertTrue(result1["gates"]["configured_soname_symbols_classified"])
+            self.assertFalse(result1["gates"]["configured_soname_values_resolved"])
             self.assertFalse(result1["gates"]["wrapper_call_graph_complete"])
             self.assertFalse(result1["gates"]["dynamic_load_inventory_complete"])
             self.assertFalse(result1["gates"]["external_transitive_closure_verified"])
