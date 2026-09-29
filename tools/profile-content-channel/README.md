@@ -25,6 +25,11 @@ profile-content-channel generate-key \
   --trust <review>/profile-content-trust.json \
   --key-id profile-proof-test
 
+profile-content-channel derive-trust \
+  --private-key <external>/profile-content-private.pem \
+  --out <second-review>/profile-content-trust.json \
+  --key-id ordax-profile-content-v1
+
 profile-content-channel sign \
   --manifest manifest.json \
   --private-key <external>/profile-content-private.pem \
@@ -67,3 +72,17 @@ the atomic rename. Re-staging reuses only an existing slot that still verifies.
 
 Staging does **not** activate a Profile, mutate a Space, write the installed
 component inventory or create an install receipt.
+
+
+## Canonical trust ceremony boundary
+
+The canonical Profile-content key identity requires the explicit operator process in
+`docs/PROFILE-CONTENT-TRUST-CEREMONY.md`.
+
+`derive-trust` exists only to independently derive a public Ed25519 trust document
+from an externally held private key. It never pins the repository anchor, never
+enables publication, installation or activation, and never accepts a CI-generated
+key as canonical.
+
+The first canonical key id is `ordax-profile-content-v1`. The matching private key
+must stay outside Git, the OrdaX device, Actions artifacts and chat.
