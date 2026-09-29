@@ -1,0 +1,62 @@
+name: Windows Compatibility Runtime Source Proof
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_runtime_source.py'
+      - '.github/workflows/windows-compat-runtime-source-proof.yml'
+      - 'docs/APPLICATION-COMPATIBILITY.md'
+      - 'docs/contracts/application-compatibility.json'
+      - 'platform/compliance/declared-inputs.json'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_runtime_source.py'
+      - '.github/workflows/windows-compat-runtime-source-proof.yml'
+      - 'docs/APPLICATION-COMPATIBILITY.md'
+      - 'docs/contracts/application-compatibility.json'
+      - 'platform/compliance/declared-inputs.json'
+
+permissions:
+  contents: read
+
+jobs:
+  source-proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate source contract
+        run: python bootstrap/windows-compat-runtime/build.py check
+
+      - name: Run fail-closed regressions
+        run: python -m unittest tests.test_windows_compat_runtime_source -v
+
+      - name: Fetch and verify exact upstream Wine source
+        run: |
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          python bootstrap/windows-compat-runtime/build.py fetch-source \
+            --cache-dir "$tmp/cache" \
+            --proof-out "$tmp/source-proof.json"
+          python - <<'PY' "$tmp/source-proof.json"
+          import json
+          import pathlib
+          import sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert proof['build_performed'] is False
+          assert proof['activation_authorized'] is False
+          assert proof['execution_authorized'] is False
+          assert proof['version'] == '11.0'
+          print('Wine source proof:', proof['archive_sha256'])
+          PY
