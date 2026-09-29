@@ -1,0 +1,72 @@
+name: Canonical v4 Operator Inputs
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: Exact lowercase 40-hex source commit selected for the replacement v4 proof.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require dispatch ref to equal expected commit
+        env:
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+
+          expected = os.environ["EXPECTED_COMMIT"]
+          actual = os.environ["DISPATCH_SHA"]
+          if re.fullmatch(r"[0-9a-f]{40}", expected) is None:
+              raise SystemExit("expected_commit must be exact lowercase 40-hex")
+          if actual != expected:
+              raise SystemExit(
+                  f"dispatch ref resolved to {actual}; expected exact commit {expected}"
+              )
+          print(f"CANONICAL_V4_OPERATOR_INPUT_SOURCE={expected}")
+          print("CANONICAL_V4_OPERATOR_INPUT_EXPORT=NON_SIGNING_NON_PUBLICATION")
+          PY
+
+  system:
+    needs: validate-source
+    uses: ./.github/workflows/portable-release-image.yml
+
+  surface:
+    needs: validate-source
+    uses: ./.github/workflows/surface-runtime-lock-discovery.yml
+
+  local-ai:
+    needs: validate-source
+    uses: ./.github/workflows/local-ai-runtime-candidate.yml
+
+  complete:
+    needs: [system, surface, local-ai]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Record unified export boundary
+        env:
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          set -euo pipefail
+          {
+            echo '## Canonical v4 operator inputs exported'
+            echo
+            echo "- Exact source commit: \`$EXPECTED_COMMIT\`"
+            echo '- Artifacts: system, surface runtime, local AI runtime'
+            echo '- Signing: NO'
+            echo '- Publication: NO'
+            echo '- Activation: NO'
+            echo '- Physical authorization/write: NO'
+          } >> "$GITHUB_STEP_SUMMARY"
