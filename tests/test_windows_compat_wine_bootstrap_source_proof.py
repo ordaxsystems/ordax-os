@@ -12,16 +12,11 @@ SPEC.loader.exec_module(MODULE)
 
 VALID_SOURCE = r'''
 #include <dlfcn.h>
-static void *try_dlopen( const char *path, struct strarray *errors )
-{
-    void *handle = dlopen( path, RTLD_NOW );
-    return handle;
-}
 static void *load_ntdll(void)
 {
     const char *arch_dir = get_arch_dir( get_default_target() );
     void *handle;
-    if ((handle = try_dlopen( strmake( "%s/wine%s/ntdll.so", libdir, arch_dir ), &errors )))
+    if ((handle = dlopen( strmake( "%s/wine%s/ntdll.so", libdir, arch_dir ), RTLD_NOW )))
         return handle;
     exit(1);
 }
@@ -48,26 +43,28 @@ class WineBootstrapSourceProofTests(unittest.TestCase):
         self.assertEqual(
             behavior,
             {
-                "try_dlopen_uses_rtld_now": True,
                 "load_ntdll_function_present": True,
-                "installed_arch_ntdll_path_present": True,
+                "installed_arch_ntdll_uses_rtld_now": True,
                 "main_resolves_wine_main_from_load_ntdll": True,
             },
         )
 
     def test_comments_cannot_fake_semantic_anchor(self):
-        source = VALID_SOURCE.replace("void *handle = dlopen( path, RTLD_NOW );", "void *handle = 0; /* dlopen( path, RTLD_NOW ) */")
-        with self.assertRaisesRegex(MODULE.WineBootstrapSourceProofError, "try_dlopen_uses_rtld_now"):
+        source = VALID_SOURCE.replace(
+            'if ((handle = dlopen( strmake( "%s/wine%s/ntdll.so", libdir, arch_dir ), RTLD_NOW )))',
+            'if (handle) /* dlopen( strmake( "%s/wine%s/ntdll.so", libdir, arch_dir ), RTLD_NOW ) */',
+        )
+        with self.assertRaisesRegex(MODULE.WineBootstrapSourceProofError, "installed_arch_ntdll_rtld_now"):
             MODULE.prove_source_text(source)
 
     def test_missing_rtld_now_fails_closed(self):
         source = VALID_SOURCE.replace("RTLD_NOW", "RTLD_LAZY")
-        with self.assertRaisesRegex(MODULE.WineBootstrapSourceProofError, "try_dlopen_uses_rtld_now"):
+        with self.assertRaisesRegex(MODULE.WineBootstrapSourceProofError, "installed_arch_ntdll_rtld_now"):
             MODULE.prove_source_text(source)
 
     def test_installed_ntdll_path_drift_fails_closed(self):
         source = VALID_SOURCE.replace("%s/wine%s/ntdll.so", "%s/other%s/ntdll.so")
-        with self.assertRaisesRegex(MODULE.WineBootstrapSourceProofError, "installed_arch_ntdll_path"):
+        with self.assertRaisesRegex(MODULE.WineBootstrapSourceProofError, "installed_arch_ntdll_rtld_now"):
             MODULE.prove_source_text(source)
 
     def test_wine_main_must_be_resolved_from_load_ntdll(self):
@@ -77,11 +74,11 @@ class WineBootstrapSourceProofTests(unittest.TestCase):
 
     def test_anchor_text_after_main_resolution_does_not_satisfy_ordering(self):
         source = VALID_SOURCE.replace(
-            'if ((handle = try_dlopen( strmake( "%s/wine%s/ntdll.so", libdir, arch_dir ), &errors )))\n        return handle;',
+            'if ((handle = dlopen( strmake( "%s/wine%s/ntdll.so", libdir, arch_dir ), RTLD_NOW )))\n        return handle;',
             'if (handle) return handle;',
         )
-        source += '\nvoid later(void) { try_dlopen( strmake( "%s/wine%s/ntdll.so", libdir, arch_dir ), &errors ); }\n'
-        with self.assertRaisesRegex(MODULE.WineBootstrapSourceProofError, "installed ntdll path is not tried before __wine_main"):
+        source += '\nvoid later(void) { dlopen( strmake( "%s/wine%s/ntdll.so", libdir, arch_dir ), RTLD_NOW ); }\n'
+        with self.assertRaisesRegex(MODULE.WineBootstrapSourceProofError, "installed ntdll RTLD_NOW load is not before __wine_main"):
             MODULE.prove_source_text(source)
 
 
