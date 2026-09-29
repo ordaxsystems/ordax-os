@@ -21,7 +21,10 @@
     "owner_user_id_must_match_session": true,
     "space_access_must_be_server_verified": true,
     "entitlement_required": "memory.cloud.enabled",
-    "client_claimed_entitlement_trusted": false
+    "client_claimed_entitlement_trusted": false,
+    "active_validity_window_required": true,
+    "server_clock_authoritative": true,
+    "client_preflight_is_authorization_authority": false
   },
   "identity": {
     "stable_object_id": "memory_id",
