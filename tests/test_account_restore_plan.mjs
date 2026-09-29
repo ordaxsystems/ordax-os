@@ -23,6 +23,7 @@ function memorySyncSnapshot(overrides = {}) {
     subjectId: SUBJECT,
     pendingMutationCount: 0,
     conflictCount: 0,
+    reconciliationRequiredCount: 0,
     revisionCount: 1,
     recoveryBlocked: false,
     ...overrides,
@@ -80,6 +81,48 @@ test("Memory restore fails closed when coordination recovery or conflict is unre
   });
   assert.equal(conflictBlocked.foundationApplyAllowed, false);
   assert.equal(conflictBlocked.phases[2].reason, "memory-conflict-resolution-required");
+});
+
+test("Memory restore blocks authoritative reconciliation quarantine and rejects inconsistent snapshots", () => {
+  const objects = [syncObject("memory/bWVtb3J5LTE", "memory")];
+  const reconciliationBlocked = buildAccountRestorePlan({
+    subjectId: SUBJECT,
+    snapshotObjects: objects,
+    memorySyncSnapshot: memorySyncSnapshot({
+      conflictCount: 1,
+      reconciliationRequiredCount: 1,
+    }),
+  });
+
+  assert.equal(reconciliationBlocked.foundationApplyAllowed, false);
+  assert.equal(reconciliationBlocked.phases[2].status, "blocked");
+  assert.equal(
+    reconciliationBlocked.phases[2].reason,
+    "memory-authoritative-reconciliation-required",
+  );
+
+  assert.throws(
+    () => buildAccountRestorePlan({
+      subjectId: SUBJECT,
+      snapshotObjects: objects,
+      memorySyncSnapshot: memorySyncSnapshot({
+        conflictCount: 0,
+        reconciliationRequiredCount: 1,
+      }),
+    }),
+    /reconciliation state is inconsistent/,
+  );
+
+  const missingReconciliationCount = memorySyncSnapshot();
+  delete missingReconciliationCount.reconciliationRequiredCount;
+  assert.throws(
+    () => buildAccountRestorePlan({
+      subjectId: SUBJECT,
+      snapshotObjects: objects,
+      memorySyncSnapshot: missingReconciliationCount,
+    }),
+    /reconciliationRequiredCount is invalid/,
+  );
 });
 
 test("fresh restore never overwrites local pending Memory intent", () => {
