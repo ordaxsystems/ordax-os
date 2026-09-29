@@ -62,6 +62,15 @@ class AccountMemoryBackendGuardTests(unittest.TestCase):
         self.assertIn("p_payload ? 'memory'", sql)
         self.assertIn("invalid-memory-sync-tombstone", sql)
 
+    def test_forget_scrubs_memory_content_from_existing_mutation_history_without_deleting_cursor_rows(self):
+        sql = MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("update private.ordax_sync_mutations", sql)
+        self.assertIn("set mutation_kind = 'delete'", sql)
+        self.assertIn("tombstone = true", sql)
+        self.assertIn("payload = p_payload", sql)
+        self.assertIn("and stable_object_id = p_stable_object_id", sql)
+        self.assertNotIn("delete from private.ordax_sync_mutations", sql)
+
     def test_idempotency_key_is_bound_to_exact_mutation(self):
         sql = MIGRATION.read_text(encoding="utf-8").lower()
         self.assertIn("idempotency-key-reused-for-different-mutation", sql)
