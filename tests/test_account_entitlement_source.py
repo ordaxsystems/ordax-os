@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "index.ts"
 MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "0001_product_foundation.sql"
+HARDENING = ROOT / "infra" / "supabase" / "product" / "migrations" / "0004_server_authoritative_mutations.sql"
 ADAPTER = ROOT / "system" / "adapters" / "web" / "entitlements.mjs"
 NATIVE_HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 
@@ -30,8 +31,13 @@ class AccountEntitlementSourceTests(unittest.TestCase):
 
     def test_entitlement_table_is_rls_subject_read_and_authenticated_mutation_is_revoked(self):
         sql = MIGRATION.read_text(encoding="utf-8").lower()
+        hardening = HARDENING.read_text(encoding="utf-8").lower()
         self.assertIn("create policy ordax_entitlement_grants_select_subject", sql)
         self.assertIn("user_id = (select auth.uid())", sql)
+        self.assertIn(
+            "revoke insert, update, delete on table public.ordax_entitlement_grants from authenticated",
+            hardening,
+        )
 
     def test_surface_and_native_share_provider_neutral_same_origin_boundary(self):
         adapter = ADAPTER.read_text(encoding="utf-8")
