@@ -1,0 +1,46 @@
+{
+  "$schema": "prototype-ordax.windows-compat-full-build-toolchain/1",
+  "status": "explicit-native-and-pe-compiler-paths-from-full-build-root-causes",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "canonical_path": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  "native": {
+    "triplet": "x86_64-alpine-linux-musl",
+    "cc": "/usr/bin/gcc",
+    "cxx": "/usr/bin/g++",
+    "gcc_package_version": "14.2.0-r6",
+    "gxx_package_version": "14.2.0-r6"
+  },
+  "mingw": {
+    "x86_64_configure_variable": "x86_64_CC",
+    "x86_64_cc": "/usr/bin/x86_64-w64-mingw32-gcc",
+    "i686_configure_variable": "i386_CC",
+    "i686_cc": "/usr/bin/i686-w64-mingw32-gcc",
+    "x86_64_package_version": "14.2.0-r1",
+    "i686_package_version": "14.2.0-r1"
+  },
+  "root_cause_provenance": [
+    {
+      "failed_workflow_run_id": 36516480648,
+      "failed_job_id": 109239789349,
+      "failure": "configure generated a Makefile that searched for x86_64-alpine-linux-musl-gcc because the bare proof rootfs is not an Alpine abuild environment with native CC/CXX exported",
+      "forbidden_fix": "do-not-create-a-fake-triplet-compiler-symlink",
+      "required_fix": "pass-the-real-native-compiler-paths-explicitly-to-configure"
+    },
+    {
+      "failed_workflow_run_id": 36517018593,
+      "failed_job_id": 109241478785,
+      "failure": "configure discovered the PE compiler by name and the generated Makefile later depended on PATH to execute x86_64-w64-mingw32-gcc",
+      "forbidden_fix": "do-not-add-compiler-symlinks-or-host-path-fallbacks",
+      "required_fix": "bind-x86_64_CC-and-i386_CC-to-verified-absolute-rootfs-paths"
+    }
+  ],
+  "gates": {
+    "compiler_paths_explicit": true,
+    "pe_compiler_variables_explicit": true,
+    "compiler_executability_must_be_proven": true,
+    "compiler_packages_version_bound": true,
+    "full_build_proof_passed": false,
+    "activation_authorized": false,
+    "execution_authorized": false
+  }
+}

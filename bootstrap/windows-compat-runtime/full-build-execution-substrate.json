@@ -1,0 +1,54 @@
+{
+  "$schema": "prototype-ordax.windows-compat-full-build-execution-substrate/1",
+  "status": "container-from-locked-replay-rootfs-not-product-runtime",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "rejected_substrate": {
+    "engine": "proot",
+    "scope": "full-build-process-execution",
+    "diagnostic_workflow_run_id": 36518314519,
+    "diagnostic_job_id": 109245467237,
+    "evidence": {
+      "direct_x86_64_cross_compile": true,
+      "direct_i386_cross_compile": true,
+      "generated_x86_64_pe_machine": "0x8664",
+      "generated_i386_pe_machine": "0x014c",
+      "make_j1_x86_64_cross_compile": false,
+      "make_j1_i386_cross_compile": false,
+      "make_j2_x86_64_cross_compile": false,
+      "failure_class": "child-exec-enoent-under-make"
+    },
+    "decision": "not-acceptable-for-full-build-proof",
+    "forbidden_workarounds": [
+      "reduce-parallelism-and-call-it-fixed",
+      "compiler-symlink",
+      "host-compiler-fallback",
+      "ignore-make-exit-code"
+    ]
+  },
+  "selected_substrate": {
+    "engine": "docker",
+    "image_source": "imported-from-reconstructed-locked-rootfs",
+    "external_base_image": false,
+    "network": "none",
+    "rootfs_read_only": true,
+    "capabilities": "drop-all",
+    "no_new_privileges": true,
+    "writable_mounts": [
+      "/build",
+      "/tmp"
+    ],
+    "build_user": "host-numeric-uid-gid",
+    "image_is_product_artifact": false,
+    "image_identity_is_runtime_identity": false
+  },
+  "gates": {
+    "locked_rootfs_reconstruction_required": true,
+    "offline_apk_replay_required": true,
+    "compiler_execution_reproven_inside_container": true,
+    "network_access_during_build_forbidden": true,
+    "wine_execution_forbidden": true,
+    "windows_payload_execution_forbidden": true,
+    "activation_authorized": false,
+    "execution_authorized": false
+  }
+}
