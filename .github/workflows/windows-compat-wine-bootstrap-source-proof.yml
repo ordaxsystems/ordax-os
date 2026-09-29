@@ -75,9 +75,8 @@ jobs:
           assert re.fullmatch(r'[0-9a-f]{64}', proof['source_file_sha256'])
           assert re.fullmatch(r'[0-9a-f]{64}', proof['evidence_sha256'])
           assert proof['behavior'] == {
-              'try_dlopen_uses_rtld_now': True,
               'load_ntdll_function_present': True,
-              'installed_arch_ntdll_path_present': True,
+              'installed_arch_ntdll_uses_rtld_now': True,
               'main_resolves_wine_main_from_load_ntdll': True,
           }
           gates = proof['gates']
