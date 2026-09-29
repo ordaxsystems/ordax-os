@@ -11,7 +11,7 @@ import {
 import { createProfilePackRuntime } from "../system/services/profile-packs/runtime.mjs";
 import { createProfileProvisioningRuntime } from "../system/services/profile-packs/provisioning.mjs";
 import { createSessionProfileComponentInventory } from "../system/services/profile-packs/inventory.mjs";
-import { LOCAL_PROFILE_DISTRIBUTIONS } from "../system/profile-packs/distributions.mjs";
+import { createLocalProfileDistributions } from "../system/profile-packs/distributions.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -21,10 +21,14 @@ async function manifest(path) {
 
 const developer = await manifest("system/profile-packs/developer/v1/manifest.json");
 const legalBr = await manifest("system/profile-packs/legal-br/v1/manifest.json");
+const localDistributions = createLocalProfileDistributions([
+  validateProfilePack(developer),
+  validateProfilePack(legalBr),
+]);
 
 function localProvisioning() {
   return createProfileProvisioningRuntime({
-    distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+    distributions: localDistributions,
     inventory: createSessionProfileComponentInventory(),
     readNetworkAvailable: () => false,
   });
