@@ -16,6 +16,7 @@ const REGIONAL_DEFAULTS = Object.freeze({
 function expectedPreferences(values = {}) {
   return {
     "appearance.theme": "light",
+    "memory.auto-capture": "on",
     "accessibility.contrast": "standard",
     "accessibility.motion": "standard",
     "accessibility.text-scale": "standard",
@@ -88,6 +89,7 @@ test("accessibility preferences are first-class persisted definitions", () => {
     listPreferenceDefinitions().map((definition) => [definition.id, definition]),
   );
   assert.equal(definitions.get("appearance.theme")?.sectionId, "appearance");
+  assert.equal(definitions.get("memory.auto-capture")?.sectionId, "memory");
   assert.equal(definitions.get("accessibility.contrast")?.sectionId, "accessibility");
   assert.equal(definitions.get("accessibility.motion")?.sectionId, "accessibility");
   assert.equal(definitions.get("accessibility.text-scale")?.sectionId, "accessibility");
@@ -158,5 +160,15 @@ test("regional preferences share the first-run supported values", () => {
   assert.throws(
     () => createPreferenceSnapshot({ "regional.time-zone": "Europe\/London" }),
     /Unsupported regional\.time-zone/,
+  );
+});
+
+
+test("memory automatic capture preference persists through the shared store", () => {
+  const snapshot = createPreferenceSnapshot({ "memory.auto-capture": "off" });
+  assert.equal(snapshot["memory.auto-capture"], "off");
+  assert.equal(
+    recoverPreferenceSnapshot({ "memory.auto-capture": "invalid" })["memory.auto-capture"],
+    "on",
   );
 });
