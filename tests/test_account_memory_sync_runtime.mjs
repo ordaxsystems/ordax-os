@@ -74,7 +74,6 @@ function createRuntime({ memory = createMemoryRuntime(), transport = createTrans
     transport,
     runtime: createAccountMemorySyncRuntime({
       memoryPort: memory,
-      transport,
       subjectId: SUBJECT,
       authorizeSync,
       createIdempotencyKey(kind) {
@@ -117,7 +116,7 @@ test("eligible account-owned Memory becomes a versioned mutation over the existi
   assert.equal("accessToken" in pending.payload.memory, false);
   assert.equal(JSON.stringify(pending).includes("must-not-cross-the-boundary"), false);
 
-  const flushed = await runtime.flush();
+  const flushed = await runtime.flush(transport);
   assert.equal(flushed.accepted, 1);
   assert.equal(flushed.pendingMutationCount, 0);
   assert.equal(transport.mutations.length, 1);
@@ -165,7 +164,7 @@ test("stable Memory object identity survives edits and accepted server revisions
   const { runtime } = createRuntime({ transport });
   const first = runtime.remember(memoryItem({ content: "primeira versão" }));
   const firstId = first.sync.objectId;
-  await runtime.flush();
+  await runtime.flush(transport);
 
   const second = runtime.remember(memoryItem({
     content: "segunda versão",
@@ -173,7 +172,7 @@ test("stable Memory object identity survives edits and accepted server revisions
   }));
   assert.equal(second.sync.objectId, firstId);
   assert.equal(runtime.pendingMutations()[0].baseServerRevision, 4);
-  await runtime.flush();
+  await runtime.flush(transport);
   assert.equal(runtime.getSnapshot().pendingMutationCount, 0);
 });
 
@@ -210,7 +209,7 @@ test("transport failure preserves local Memory and the pending mutation for retr
   const { memory, runtime } = createRuntime({ transport });
   runtime.remember(memoryItem({ content: "offline local state" }));
 
-  const flushed = await runtime.flush();
+  const flushed = await runtime.flush(transport);
   assert.equal(flushed.failures, 1);
   assert.equal(flushed.pendingMutationCount, 1);
   assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "offline local state");
@@ -233,13 +232,13 @@ test("server conflict remains pending and is never silently rebased or overwritt
   const { memory, runtime } = createRuntime({ transport });
   runtime.remember(memoryItem({ content: "local intent must survive" }));
 
-  await runtime.flush();
+  await runtime.flush(transport);
   assert.equal(runtime.getSnapshot().pendingMutationCount, 1);
   assert.equal(runtime.getSnapshot().conflictCount, 1);
   assert.equal(runtime.pendingConflicts()[0].reason, "server-conflict");
   assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "local intent must survive");
 
-  await runtime.flush();
+  await runtime.flush(transport);
   assert.equal(transport.mutations.length, 1, "conflicted Memory must not be retried via implicit rebase");
 });
 
@@ -281,7 +280,7 @@ test("provider/cloud objects cannot redefine Memory ownership, payload fields or
   );
 });
 
-test("fresh-install Memory restore consumes the existing account snapshot transport without touching other data classes", async () => {
+test("canonical account snapshot can feed Memory reconciliation without Memory owning a cursor or transport", async () => {
   const remoteMemory = createMemorySyncObject({ item: memoryItem({ id: "restored-memory" }), serverRevision: 9 });
   const transport = createTransport({
     snapshotObjects: [
@@ -291,11 +290,16 @@ test("fresh-install Memory restore consumes the existing account snapshot transp
   });
   const { memory, runtime } = createRuntime({ transport });
 
-  const restored = await runtime.restore();
-  assert.equal(restored.cursor, 10);
+  const snapshot = await transport.snapshot({ limit: 200 });
+  const restored = await runtime.applyRemoteBatch(snapshot.objects);
   assert.equal(restored.applied, 1);
   assert.equal(restored.ignored, 1);
   assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].id, "restored-memory");
+  assert.equal(runtime.getSnapshot().reconciliationOwnership, "account-runtime");
+  assert.equal(runtime.getSnapshot().ownsCursor, false);
+  assert.equal(runtime.getSnapshot().ownsTransport, false);
+  assert.equal("restore" in runtime, false);
+  assert.equal("pull" in runtime, false);
 });
 
 test("Memory cloud-state contract explicitly does not authorize training, telemetry, community data or tools", async () => {
