@@ -1,5 +1,6 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import re
 import os
 import stat
 import tempfile
@@ -66,7 +67,14 @@ class NotesNativeTests(unittest.TestCase):
         self.assertIn('NOTES_FILE = "/var/lib/ordax/notes.json"', text)
         self.assertIn("read_notes_payload", text)
         self.assertIn("write_notes_payload", text)
-        self.assertIn("{SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH}", text)
+        loopback_guards = re.findall(
+            r'if parsed_path in \\{([^}]+)\\} and self\\.client_address\\[0\\] != "127\\.0\\.0\\.1":',
+            text,
+        )
+        self.assertTrue(
+            any("NOTES_PATH" in guard for guard in loopback_guards),
+            "Notes endpoint must remain inside a loopback-only native guard",
+        )
         self.assertIn('if self.path == NOTES_PATH:', text)
         self.assertNotIn("Access-Control-Allow-Origin", text)
 
