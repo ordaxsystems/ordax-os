@@ -13,7 +13,7 @@ import {
 } from "../system/services/sync/memory-conflict-resolution.mjs";
 
 const SUBJECT = "account-subject-a";
-const OBJECT_ID = "memory/bWVtb3J5LTE";
+const OBJECT_ID = "memory-1";
 
 function pendingMutation(overrides = {}) {
   return {
@@ -73,6 +73,7 @@ test("preserve-local-intent is an explicit manual rebase onto the authoritative 
   assert.equal(resolution.appliesRemoteState, false);
   assert.equal(resolution.requiresRemoteReconciliation, false);
   assert.equal(resolution.discardPendingIntent, false);
+  assert.equal(resolution.replacementMutation.objectId, "memory-1");
   assert.equal(resolution.replacementMutation.baseServerRevision, 7);
   assert.equal(resolution.replacementMutation.idempotencyKey, "memory:resolved:1");
   assert.equal(resolution.replacementMutation.payload.memory.content, "preferência local explícita");
@@ -104,7 +105,7 @@ test("conflict resolution rejects implicit choices, identity mismatch and stale 
   }), /decision is incompatible/);
 
   assert.throws(() => resolveMemorySyncConflict({
-    conflict: conflict({ objectId: "memory/b3RoZXI" }),
+    conflict: conflict({ objectId: "other-memory" }),
     pendingMutation: pendingMutation(),
     decision: "accept-authoritative-remote",
     subjectId: SUBJECT,
