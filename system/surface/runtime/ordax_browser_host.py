@@ -228,7 +228,11 @@ class OrdaXBrowserHost:
                     try:
                         request = self.profile_consent_ipc.receive_request(connection)
                         decision = self.present_profile_consent_from_worker(request)
-                        self.profile_consent_ipc.send_decision(connection, decision)
+                        self.profile_consent_ipc.send_decision(
+                            connection,
+                            decision,
+                            expected_request_id=request["requestId"],
+                        )
                     except (ConnectionError, OSError, PermissionError, TypeError, ValueError) as exc:
                         print(
                             f"ordax-browser-host: Profile consent request rejected: {exc}",
