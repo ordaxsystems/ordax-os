@@ -52,7 +52,7 @@ The long-term target is that one identity can continue safely across supported e
 
 ### Cloud Memory source-of-truth boundary
 
-Cloud Memory remains **disabled for the public MVP**. The canonical persisted source of truth is `public.ordax_memory_items`; `private.ordax_sync_objects` may only become a transport mirror for Memory after a dedicated server-authoritative mutation can update the Memory row and sync stream atomically. Independent client dual-writes are forbidden.
+Cloud Memory remains **disabled for the public MVP**. The canonical persisted source of truth is `public.ordax_memory_items`; `private.ordax_sync_objects` is only a transport mirror for Memory through the deployed server-authoritative `ordax_apply_memory_mutation_v1` boundary, which updates canonical Memory and sync/tombstone state atomically. Independent client dual-writes are forbidden. Public rollout remains gated on authenticated non-admin, tombstone/reconciliation, two-client and entitlement proofs.
 
 The initial future-eligible scopes are account and Space only, gated by authenticated ownership/access plus the server-authoritative `memory.cloud.enabled` entitlement. Device/session/project and restricted Memory remain excluded from cloud sync until separate policies exist. Deletion must propagate as an explicit tombstone; wall-clock last-writer-wins is not an acceptable universal conflict rule. The machine-readable gate is `docs/contracts/cloud-memory-sync-boundary.json`.
 
