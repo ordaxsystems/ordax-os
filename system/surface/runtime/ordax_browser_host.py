@@ -17,6 +17,7 @@ import re
 import socket
 import secrets
 import sys
+import threading
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -24,12 +25,16 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.1")
-from gi.repository import Gtk, WebKit2  # type: ignore  # noqa: E402
+from gi.repository import GLib, Gtk, WebKit2  # type: ignore  # noqa: E402
 
 from browser_session_store import load_browser_session, save_browser_session
 from native_component_probation import (
     ComponentProbationReceiptError,
     record_system_component_probation,
+)
+from native_profile_consent_ipc import (
+    DECISION_SCHEMA as PROFILE_CONSENT_DECISION_SCHEMA,
+    ProfileConsentIpcServer,
 )
 
 BRIDGE_NAME = "ordaxBrowser"
@@ -138,12 +143,16 @@ class OrdaXBrowserHost:
         component_channel_bin: str,
         component_slot_root: str,
         cache_root: str,
+        distribution_profile: str,
     ) -> None:
         self.start_uri = start_uri
         self.profile_root = os.path.abspath(profile_root)
         self.component_channel_bin = component_channel_bin
         self.component_slot_root = component_slot_root
         self.cache_root = os.path.abspath(cache_root)
+        self.distribution_profile = distribution_profile
+        if self.distribution_profile not in {"owner-development", "stable-mvp"}:
+            raise ValueError("invalid OrdaX distribution profile")
         self.component_probation_started = False
         self.component_probation_nonce: str | None = None
         self.session_path = os.path.join(self.profile_root, "session.json")
@@ -153,6 +162,10 @@ class OrdaXBrowserHost:
         self.restoring_session = False
         self.last_persisted_session: tuple[tuple[str, ...], int | None] | None = None
         self.accelerator_callbacks = []
+        self.profile_consent_ipc = ProfileConsentIpcServer()
+        self.profile_consent_listener = None
+        self.profile_consent_thread = None
+        self.profile_consent_stopping = threading.Event()
 
         os.makedirs(self.profile_root, mode=0o700, exist_ok=True)
         profile_data = os.path.join(self.profile_root, "default", "data")
@@ -192,8 +205,124 @@ class OrdaXBrowserHost:
             self.register_shortcut(accelerator, action, focus_surface)
         self.window.fullscreen()
         self.window.show_all()
+        if self.distribution_profile == "owner-development":
+            self.start_profile_consent_listener()
         self.restore_session()
 
+
+    def start_profile_consent_listener(self) -> None:
+        self.profile_consent_listener = self.profile_consent_ipc.open()
+        self.profile_consent_listener.settimeout(1.0)
+
+        def serve() -> None:
+            while not self.profile_consent_stopping.is_set():
+                try:
+                    connection, _ = self.profile_consent_listener.accept()
+                except socket.timeout:
+                    continue
+                except OSError:
+                    if self.profile_consent_stopping.is_set():
+                        return
+                    raise
+                with connection:
+                    try:
+                        request = self.profile_consent_ipc.receive_request(connection)
+                        decision = self.present_profile_consent_from_worker(request)
+                        self.profile_consent_ipc.send_decision(connection, decision)
+                    except (ConnectionError, OSError, PermissionError, TypeError, ValueError) as exc:
+                        print(
+                            f"ordax-browser-host: Profile consent request rejected: {exc}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+
+        self.profile_consent_thread = threading.Thread(
+            target=serve,
+            name="ordax-profile-consent",
+            daemon=True,
+        )
+        self.profile_consent_thread.start()
+
+    def present_profile_consent_from_worker(self, request: dict) -> dict:
+        finished = threading.Event()
+        result: dict[str, bool] = {}
+
+        def present() -> bool:
+            try:
+                result["approved"] = self.present_profile_consent_dialog(request)
+            finally:
+                finished.set()
+            return False
+
+        GLib.idle_add(present)
+        if not finished.wait(timeout=120):
+            raise TimeoutError("Profile consent Native dialog timed out")
+        return {
+            "schema": PROFILE_CONSENT_DECISION_SCHEMA,
+            "requestId": request["requestId"],
+            "approved": bool(result.get("approved", False)),
+        }
+
+    def present_profile_consent_dialog(self, request: dict) -> bool:
+        profile = request["profile"]
+        permission_diff = request["permissionDiff"]
+        additions = permission_diff.get("componentAdds", [])
+        authorities = permission_diff.get("authorityChanges", [])
+
+        dialog = Gtk.Dialog(
+            title="Confirmar ativação do perfil",
+            transient_for=self.window,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        dialog.add_button("Cancelar", Gtk.ResponseType.CANCEL)
+        approve_button = dialog.add_button("Ativar perfil", Gtk.ResponseType.OK)
+        approve_button.get_style_context().add_class("suggested-action")
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        dialog.set_resizable(False)
+
+        content = dialog.get_content_area()
+        content.set_spacing(12)
+        content.set_border_width(24)
+
+        title = Gtk.Label()
+        title.set_markup("<b>Confirme as alterações deste perfil</b>")
+        title.set_xalign(0.0)
+        content.pack_start(title, False, False, 0)
+
+        detail = Gtk.Label(
+            label=(
+                f"Perfil: {profile['slug']} v{profile['version']}\n"
+                f"Espaço: {request['spaceId']}\n"
+                f"Componentes adicionados: {len(additions)}\n"
+                f"Mudanças de autoridade: {len(authorities)}"
+            )
+        )
+        detail.set_xalign(0.0)
+        detail.set_selectable(True)
+        content.pack_start(detail, False, False, 0)
+
+        if additions:
+            component_lines = "\n".join(
+                f"• {entry.get('id', 'componente')} ({entry.get('kind', 'desconhecido')})"
+                for entry in additions
+            )
+            component_label = Gtk.Label(label=component_lines)
+            component_label.set_xalign(0.0)
+            component_label.set_selectable(True)
+            content.pack_start(component_label, False, False, 0)
+
+        warning = Gtk.Label(
+            label="Esta confirmação vale somente para esta revisão e expira automaticamente."
+        )
+        warning.set_xalign(0.0)
+        warning.set_line_wrap(True)
+        content.pack_start(warning, False, False, 0)
+
+        dialog.show_all()
+        response = dialog.run()
+        dialog.destroy()
+        return response == Gtk.ResponseType.OK
 
     def on_surface_load_changed(self, _view: object, load_event: object) -> None:
         if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
@@ -650,6 +779,10 @@ class OrdaXBrowserHost:
 
     def on_window_destroy(self, _window: Gtk.Window) -> None:
         self.persist_session()
+        self.profile_consent_stopping.set()
+        self.profile_consent_ipc.close()
+        if self.profile_consent_thread is not None:
+            self.profile_consent_thread.join(timeout=2)
         Gtk.main_quit()
 
 
@@ -663,6 +796,11 @@ def parse_args() -> argparse.Namespace:
         default="/srv/ordax-system/bin/ordax-runtime-component-channel",
     )
     parser.add_argument("--component-slot-root", default="/var/lib/ordax/components")
+    parser.add_argument(
+        "--distribution-profile",
+        choices=("owner-development", "stable-mvp"),
+        required=True,
+    )
     return parser.parse_args()
 
 
@@ -678,6 +816,7 @@ def main() -> int:
             args.component_channel_bin,
             args.component_slot_root,
             args.cache_root,
+            args.distribution_profile,
         )
     except Exception as exc:
         print(f"ordax-browser-host: startup failed: {exc}", file=sys.stderr, flush=True)
