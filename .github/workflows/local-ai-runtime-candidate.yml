@@ -14,6 +14,7 @@ on:
       - 'tests/test_local_ai_runtime_builder.py'
       - '.github/workflows/local-ai-runtime-candidate.yml'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
