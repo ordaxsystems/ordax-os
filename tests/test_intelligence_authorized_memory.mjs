@@ -9,7 +9,12 @@ import { MEMORY_PORT_SCHEMA } from "../system/contracts/memory.mjs";
 import {
   AUTHORIZED_MEMORY_INTELLIGENCE_SCHEMA,
   createAuthorizedMemoryIntelligence,
+  createSelectedSpaceMemoryIntelligence,
 } from "../system/services/intelligence/authorized-memory.mjs";
+import {
+  SPACE_SELECTION_SCHEMA,
+  validateSpaceSelectionSnapshot,
+} from "../system/contracts/space-selection.mjs";
 
 const deviceAuthorization = Object.freeze({
   authority: "composition",
@@ -49,6 +54,18 @@ function memoryPort(items = [memoryItem()]) {
     remember() { return true; },
     forget() { return false; },
     async flush() { return true; },
+  };
+}
+
+function selectionPort(seed) {
+  let snapshot = validateSpaceSelectionSnapshot(seed);
+  return {
+    schema: SPACE_SELECTION_SCHEMA,
+    getSnapshot() { return snapshot; },
+    subscribe() { return () => {}; },
+    select() { throw new Error("not used by test port"); },
+    clear() { throw new Error("not used by test port"); },
+    set(next) { snapshot = validateSpaceSelectionSnapshot(next); },
   };
 }
 
@@ -204,4 +221,147 @@ test("memory retrieval query is bounded before reaching the memory port", async 
     /query is outside its allowed bounds/,
   );
   assert.equal(memory.searches.length, 1);
+});
+
+
+test("selected Space memory bridge authorizes only current account-owned Space memory", async () => {
+  const searches = [];
+  const memory = {
+    schema: MEMORY_PORT_SCHEMA,
+    search(request) {
+      searches.push(request);
+      return [{
+        id: "space-memory",
+        ownerKind: "account",
+        ownerId: "user-1",
+        scope: "space",
+        kind: "fact",
+        sensitivity: "private",
+        content: "Contexto persistente deste Space.",
+        provenance: "selected-space-test",
+        sourceTimestamp: "2026-09-29T10:00:00Z",
+        spaceId: "space-a",
+        projectId: null,
+      }];
+    },
+    remember() { throw new Error("not used"); },
+    forget() { throw new Error("not used"); },
+    async flush() { return true; },
+  };
+  const intelligence = intelligencePort();
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "selected",
+    subjectId: "user-1",
+    selectedSpace: {
+      id: "space-a",
+      ownerId: "user-1",
+      name: "A",
+      kind: "professional",
+      state: "active",
+      profilePack: "developer",
+    },
+  });
+  const bridge = createSelectedSpaceMemoryIntelligence({
+    intelligencePort: intelligence,
+    memoryPort: memory,
+    spaceSelectionPort: selection,
+  });
+
+  assert.equal(bridge.schema, INTELLIGENCE_PORT_SCHEMA);
+  await bridge.respond({ prompt: "o que você sabe deste espaço?" });
+
+  assert.equal(searches.length, 1);
+  assert.deepEqual(searches[0].scopes, ["space"]);
+  assert.equal(searches[0].ownerKind, "account");
+  assert.equal(searches[0].ownerId, "user-1");
+  assert.equal(searches[0].spaceId, "space-a");
+  assert.equal(searches[0].projectId, null);
+  assert.equal(searches[0].includeRestricted, false);
+  assert.equal(intelligence.requests.length, 1);
+  assert.equal(intelligence.requests[0].context[0].id, "space-memory");
+});
+
+test("selected Space memory bridge performs no memory read without a selected Space", async () => {
+  const memory = memoryPort();
+  const intelligence = intelligencePort();
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unselected",
+    subjectId: "user-1",
+    selectedSpace: null,
+  });
+  const bridge = createSelectedSpaceMemoryIntelligence({
+    intelligencePort: intelligence,
+    memoryPort: memory,
+    spaceSelectionPort: selection,
+  });
+
+  await bridge.respond({ prompt: "teste sem Space" });
+  assert.equal(memory.searches.length, 0);
+  assert.equal(intelligence.requests.length, 1);
+
+  selection.set({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unavailable",
+    subjectId: null,
+    selectedSpace: null,
+  });
+  await bridge.respond({ prompt: "teste indisponível" });
+  assert.equal(memory.searches.length, 0);
+  assert.equal(intelligence.requests.length, 2);
+});
+
+test("selected Space memory bridge follows selection changes without stale authorization", async () => {
+  const searches = [];
+  const memory = {
+    schema: MEMORY_PORT_SCHEMA,
+    search(request) {
+      searches.push(request);
+      return [];
+    },
+    remember() { return true; },
+    forget() { return false; },
+    async flush() { return true; },
+  };
+  const intelligence = intelligencePort();
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "selected",
+    subjectId: "user-1",
+    selectedSpace: {
+      id: "space-a",
+      ownerId: "user-1",
+      name: "A",
+      kind: "professional",
+      state: "active",
+      profilePack: "developer",
+    },
+  });
+  const bridge = createSelectedSpaceMemoryIntelligence({
+    intelligencePort: intelligence,
+    memoryPort: memory,
+    spaceSelectionPort: selection,
+  });
+
+  await bridge.respond({ prompt: "a" });
+  selection.set({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "selected",
+    subjectId: "user-1",
+    selectedSpace: {
+      id: "space-b",
+      ownerId: "user-1",
+      name: "B",
+      kind: "work",
+      state: "active",
+      profilePack: null,
+    },
+  });
+  await bridge.respond({ prompt: "b" });
+
+  assert.deepEqual(
+    searches.map((entry) => [entry.ownerId, entry.spaceId]),
+    [["user-1", "space-a"], ["user-1", "space-b"]],
+  );
 });
