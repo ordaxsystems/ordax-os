@@ -26,6 +26,7 @@
       "files",
       "projects",
       "notes",
+      "assistant",
       "internet",
       "settings",
       "account",
@@ -43,6 +44,10 @@
       {
         "id": "notes",
         "label": "Notas"
+      },
+      {
+        "id": "assistant",
+        "label": "Assistente"
       },
       {
         "id": "internet",
@@ -83,6 +88,13 @@
       "description": "Escrita local, projetos, tarefas e referências disponíveis offline.",
       "monogram": "NO",
       "display_title": "Notas"
+    },
+    {
+      "id": "assistant",
+      "title": "OrdaX Intelligence",
+      "description": "Conversa local com a OrdaX Intelligence, sem autoridade implícita para executar ações.",
+      "monogram": "IA",
+      "display_title": "Assistente"
     },
     {
       "id": "internet",

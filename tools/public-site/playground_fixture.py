@@ -28,6 +28,11 @@ MESSAGE_RE = re.compile(
     r'^\s*"([^"]+)":\s*"((?:\\.|[^"\\])*)",?\s*$',
     re.MULTILINE,
 )
+CATALOG_IMPORT_RE = re.compile(
+    r'import\s+\{([^}]+)\}\s+from\s+"(\./catalog/[a-z0-9-]+\.mjs)";',
+    re.MULTILINE,
+)
+SOURCE_SPREAD_RE = re.compile(r"\.\.\.([A-Z][A-Z0-9_]*_SOURCE_MESSAGES)\s*,?")
 RAIL_RE = re.compile(
     r'railButton\("([a-z][a-z0-9-]*)",\s*t\("([^"]+)"\),\s*ICONS\.[a-zA-Z0-9]+,\s*t\)'
 )
@@ -62,6 +67,23 @@ def _catalog_order() -> list[str]:
     return CATALOG_RE.findall(match.group(1))
 
 
+def _catalog_source_messages(path: Path, symbol: str) -> dict[str, str]:
+    text = path.read_text(encoding="utf-8")
+    match = re.search(
+        rf"export const {re.escape(symbol)} = Object\.freeze\(\{{(.*?)\n\}}\);",
+        text,
+        re.DOTALL,
+    )
+    if not match:
+        raise PlaygroundFixtureError(
+            f"{path.relative_to(ROOT)} has no readable {symbol} catalog"
+        )
+    return {
+        message_id: _decode(value)
+        for message_id, value in MESSAGE_RE.findall(match.group(1))
+    }
+
+
 def _surface_source_messages() -> dict[str, str]:
     text = SURFACE_LOCALIZATION.read_text(encoding="utf-8")
     match = re.search(
@@ -71,7 +93,34 @@ def _surface_source_messages() -> dict[str, str]:
     )
     if not match:
         raise PlaygroundFixtureError("shared Surface localization has no readable source catalog")
-    messages = {message_id: _decode(value) for message_id, value in MESSAGE_RE.findall(match.group(1))}
+
+    source_body = match.group(1)
+    messages = {
+        message_id: _decode(value)
+        for message_id, value in MESSAGE_RE.findall(source_body)
+    }
+
+    imported_catalogs: dict[str, Path] = {}
+    catalog_root = SURFACE_LOCALIZATION.parent / "catalog"
+    for names, relative_path in CATALOG_IMPORT_RE.findall(text):
+        target = (SURFACE_LOCALIZATION.parent / relative_path.removeprefix("./")).resolve()
+        if target.parent != catalog_root.resolve() or not target.is_file():
+            raise PlaygroundFixtureError(
+                f"Surface localization catalog import is outside the approved catalog root: {relative_path}"
+            )
+        for raw_name in names.split(","):
+            symbol = raw_name.strip()
+            if symbol.endswith("_SOURCE_MESSAGES"):
+                imported_catalogs[symbol] = target
+
+    for symbol in SOURCE_SPREAD_RE.findall(source_body):
+        path = imported_catalogs.get(symbol)
+        if path is None:
+            raise PlaygroundFixtureError(
+                f"shared Surface source spread has no readable import: {symbol}"
+            )
+        messages.update(_catalog_source_messages(path, symbol))
+
     if not messages:
         raise PlaygroundFixtureError("shared Surface localization source catalog is empty")
     return messages

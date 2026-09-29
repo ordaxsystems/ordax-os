@@ -633,6 +633,20 @@ async function start() {
     },
   });
 
+  const assistantComponent = await loadOptionalComponentRuntime({
+    componentId: "assistant",
+    importer: () => import("../../apps/assistant/runtime.mjs"),
+    componentManager,
+    context: {
+      root,
+      surfaceLifecycle: surface,
+      intelligence: selectedSpaceIntelligence,
+    },
+    onError(error) {
+      reportClientDiagnostic("assistant-runtime", error);
+    },
+  });
+
   const internetComponent = await loadOptionalComponentRuntime({
     componentId: "internet",
     importer: () => import("../../apps/internet/runtime.mjs"),
@@ -703,6 +717,7 @@ async function start() {
       fileSpaceControls.destroy();
       projectsComponent?.destroy();
       notesComponent?.destroy();
+      assistantComponent?.destroy();
       internetComponent?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();

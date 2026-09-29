@@ -14,6 +14,7 @@ APP_OWNERS = {
     "internet": APPS / "internet" / "app.mjs",
     "settings": APPS / "settings" / "app.mjs",
     "account": APPS / "account" / "app.mjs",
+    "assistant": APPS / "assistant" / "app.mjs",
     "system": APPS / "system" / "app.mjs",
 }
 APPEARANCE = PREFERENCES / "appearance.mjs"
@@ -212,7 +213,7 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertIn(f'id: "{app_id}"', owner)
             self.assertIn("defineFirstPartyApp", owner)
             self.assertIn("component:", owner)
-            if app_id in {"internet", "notes", "projects"}:
+            if app_id in {"assistant", "internet", "notes", "projects"}:
                 self.assertIn("./component.mjs", owner)
             else:
                 self.assertIn("../../services/components/manifests/apps.mjs", owner)
@@ -323,6 +324,50 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("notesComponent?.destroy()", native_main)
         self.assertNotIn("localStorage", controls)
         self.assertNotIn("/__ordax/native/", controls)
+
+    def test_assistant_is_optional_intelligence_client_without_memory_ownership(self):
+        assistant = APP_OWNERS["assistant"].read_text(encoding="utf-8")
+        conversation = (APPS / "assistant" / "conversation.mjs").read_text(encoding="utf-8")
+        runtime = (APPS / "assistant" / "runtime.mjs").read_text(encoding="utf-8")
+        controls = (APPS / "assistant" / "ui" / "conversation-controls.mjs").read_text(encoding="utf-8")
+        component = (APPS / "assistant" / "component.mjs").read_text(encoding="utf-8")
+        shell = DESKTOP_SHELL.read_text(encoding="utf-8")
+        web_main = (COMPOSITION / "main.mjs").read_text(encoding="utf-8")
+        native_main = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
+        localization = SURFACE_LOCALIZATION.read_text(encoding="utf-8")
+        assistant_i18n = (
+            ROOT / "system" / "services" / "i18n" / "catalog" / "assistant.mjs"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id: "assistant"', assistant)
+        self.assertIn('extensionId: "assistant-conversation"', assistant)
+        self.assertIn('releaseMode: "git-app"', component)
+        self.assertIn('"ordax-intelligence"', component)
+        self.assertIn('ASSISTANT_CONVERSATION_SCHEMA', conversation)
+        self.assertIn('persistence: "session"', conversation)
+        self.assertIn('authority: "none"', conversation)
+        self.assertIn('toolExecution: false', conversation)
+        self.assertIn('provenance: "ordax-assistant-session"', conversation)
+        self.assertNotIn('services/memory', conversation)
+        self.assertNotIn('memory-capture', conversation)
+        self.assertNotIn('localStorage', conversation)
+        self.assertNotIn('fetch(', conversation)
+        self.assertNotIn('adapters/', conversation)
+        self.assertIn('mountAssistantConversationControls', runtime)
+        self.assertNotIn('adapters/', controls)
+        self.assertNotIn('/__ordax/native/', controls)
+        self.assertIn('railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)', shell)
+        self.assertIn('ASSISTANT_SOURCE_MESSAGES', localization)
+        self.assertIn('ASSISTANT_ENGLISH_MESSAGES', localization)
+        self.assertIn('"app.assistant.title": "Assistente"', assistant_i18n)
+        self.assertIn('"app.assistant.title": "Assistant"', assistant_i18n)
+        self.assertIn('componentId: "assistant"', web_main)
+        self.assertIn('intelligence: null', web_main)
+        self.assertIn('componentId: "assistant"', native_main)
+        self.assertIn('intelligence: selectedSpaceIntelligence', native_main)
+        self.assertIn('assistantComponent?.destroy()', web_main)
+        self.assertIn('assistantComponent?.destroy()', native_main)
+
 
     def test_internet_uses_shared_browser_session_extension(self):
         internet = APP_OWNERS["internet"].read_text(encoding="utf-8")

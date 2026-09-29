@@ -24,6 +24,7 @@ const CSS_FILES = [
   'system/surface/ui/settings.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
+  'system/apps/assistant/assistant.css': 'text/css',
   'system/apps/internet/internet.css': 'text/css',
   'system/apps/notes/notes.css': 'text/css',
   'system/apps/projects/projects.css': 'text/css',

@@ -1,0 +1,21 @@
+import { defineFirstPartyApp } from "../app-contract.mjs";
+import { assistantComponent } from "./component.mjs";
+
+export const assistantApp = defineFirstPartyApp({
+  id: "assistant",
+  title: "Assistente",
+  description: "Conversa local com a OrdaX Intelligence, sem autoridade implícita para executar ações.",
+  monogram: "IA",
+  singleton: true,
+  component: assistantComponent,
+  requiredCapabilities: [],
+  panels: [
+    {
+      kind: "extension",
+      extensionId: "assistant-conversation",
+      label: "Assistente",
+      title: "OrdaX Intelligence",
+      body: "A conversa não está disponível nesta composição.",
+    },
+  ],
+});
