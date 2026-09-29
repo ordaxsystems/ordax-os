@@ -3,6 +3,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "system" / "surface" / "runtime" / "ordax_browser_host.py"
+CONTROL_SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
+ACTIVATION_COMMAND = ROOT / "system" / "surface" / "runtime" / "native_profile_activation_command.py"
+ACTIVATION_ADAPTER = ROOT / "system" / "adapters" / "native" / "profile-activation-state.mjs"
 LAUNCHER = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 
 
@@ -19,6 +22,17 @@ class NativeProfileGtkConsentContractTests(unittest.TestCase):
         self.assertIn('messages["cancel"]', host)
         self.assertIn("permissionDiff", host)
         self.assertIn("profile_consent_ipc.send_decision", host)
+
+    def test_human_consent_receipt_never_crosses_surface_or_http_boundary(self):
+        adapter = ACTIVATION_ADAPTER.read_text(encoding="utf-8")
+        server = CONTROL_SERVER.read_text(encoding="utf-8")
+        command = ACTIVATION_COMMAND.read_text(encoding="utf-8")
+
+        self.assertNotIn("humanConsent", adapter)
+        self.assertNotIn('payload.get("humanConsent")', command)
+        self.assertIn("human_consent_resolver=self.server.resolve_profile_human_consent", server)
+        self.assertIn("receipt = human_consent_resolver(", command)
+        self.assertIn("human_consent_authority.consume(", command)
 
     def test_stable_mvp_does_not_open_profile_consent_socket(self):
         host = HOST.read_text(encoding="utf-8")
