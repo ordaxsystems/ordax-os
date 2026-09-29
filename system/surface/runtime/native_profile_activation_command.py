@@ -208,6 +208,7 @@ def execute_profile_activation_command(
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
+    human_consent_authority=None,
 ) -> dict:
     if distribution_profile != "owner-development":
         raise PermissionError("Profile activation command is unavailable in this distribution")
@@ -223,6 +224,8 @@ def execute_profile_activation_command(
             activate_fields = {*activate_fields, "activatedAt"}
             if "acceptedPermissionDiffSha256" in payload:
                 activate_fields.add("acceptedPermissionDiffSha256")
+            if "humanConsent" in payload:
+                activate_fields.add("humanConsent")
         if set(payload) != activate_fields:
             raise ValueError("Profile activate command fields are incompatible")
         if payload.get("schema") != COMMAND_SCHEMA:
@@ -262,8 +265,16 @@ def execute_profile_activation_command(
         if permission_diff["requiresExplicitReview"]:
             if not isinstance(accepted_digest, str) or accepted_digest != review_digest:
                 raise PermissionError("Profile permission diff acceptance is missing or stale")
-            raise PermissionError(
-                "Profile component activation awaits a trusted human confirmation surface"
+            if human_consent_authority is None:
+                raise PermissionError(
+                    "Profile component activation awaits a trusted human confirmation surface"
+                )
+            human_consent_authority.consume(
+                payload.get("humanConsent"),
+                permission_diff_sha256=review_digest,
+                expected_revision=expected_revision,
+                space_id=space_id,
+                profile=profile,
             )
         elif accepted_digest is not None and accepted_digest != review_digest:
             raise PermissionError("Profile permission diff acceptance does not match activation intent")
