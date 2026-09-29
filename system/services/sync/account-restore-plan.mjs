@@ -49,10 +49,18 @@ function validateMemorySyncSnapshot(value, subjectId) {
   if (value.subjectId !== subjectId) {
     throw new Error("Account restore Memory sync subject does not match the account snapshot");
   }
-  for (const field of ["pendingMutationCount", "conflictCount", "revisionCount"]) {
+  for (const field of [
+    "pendingMutationCount",
+    "conflictCount",
+    "reconciliationRequiredCount",
+    "revisionCount",
+  ]) {
     if (!Number.isSafeInteger(value[field]) || value[field] < 0) {
       throw new TypeError(`Account restore Memory sync ${field} is invalid`);
     }
+  }
+  if (value.reconciliationRequiredCount > value.conflictCount) {
+    throw new TypeError("Account restore Memory reconciliation state is inconsistent");
   }
   if (typeof value.recoveryBlocked !== "boolean") {
     throw new TypeError("Account restore Memory recovery state is invalid");
@@ -114,6 +122,9 @@ export function buildAccountRestorePlan({
   } else if (memoryState?.recoveryBlocked) {
     memoryStatus = "blocked";
     memoryReason = "memory-coordination-recovery-required";
+  } else if ((memoryState?.reconciliationRequiredCount ?? 0) > 0) {
+    memoryStatus = "blocked";
+    memoryReason = "memory-authoritative-reconciliation-required";
   } else if ((memoryState?.conflictCount ?? 0) > 0) {
     memoryStatus = "blocked";
     memoryReason = "memory-conflict-resolution-required";
