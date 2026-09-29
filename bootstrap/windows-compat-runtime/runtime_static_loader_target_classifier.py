@@ -99,7 +99,17 @@ def validate_dynamic_source(proof: dict, contract: dict) -> str:
     for key in ("source_lock_verified", "source_proof_verified", "c_archive_manifest_bound", "direct_host_loader_calls_inventoried"):
         if gates.get(key) is not True:
             raise StaticTargetClassificationError(f"dynamic source prerequisite is not proven: {key}")
-    for key in ("dynamic_load_inventory_complete", "external_transitive_closure_verified", "runtime_dependency_inventory_complete", "binary_artifact_pinned", "activation_authorized", "execution_authorized", "wine_executed", "windows_payload_executed"):
+    for key in (
+        "dynamic_load_inventory_complete",
+        "external_transitive_closure_verified",
+        "runtime_dependency_inventory_complete",
+        "runtime_package_content_hashes_pinned",
+        "binary_artifact_pinned",
+        "activation_authorized",
+        "execution_authorized",
+        "wine_executed",
+        "windows_payload_executed",
+    ):
         if gates.get(key) is not False:
             raise StaticTargetClassificationError(f"dynamic source proof crossed forbidden boundary: {key}")
     return digest
