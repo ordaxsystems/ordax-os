@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Resolve configured Wine SONAME_* dynamic-loader targets without execution.
+"""Resolve configured Wine SONAME_* values and pinned-rootfs system providers.
 
-Consumes the direct loader source proof, the real configure proof, generated
-config.h, and the exact Alpine rootfs used by configure. Every SONAME_* symbol
-observed at a direct dlopen callsite is classified as either disabled by
-configure or resolved to the first compatible musl system-search pathname and
-its exact Alpine package owner. Runtime-computed loader targets remain a
-separate, explicitly incomplete gate.
+This proof consumes the direct loader source proof, the real configure proof,
+generated config.h, and the exact Alpine rootfs used by configure. It proves
+which SONAME_* symbols are disabled or defined, and for defined symbols proves
+the first compatible provider in the pinned musl system search path plus its
+exact Alpine owner. It does NOT claim the final dlopen caller context, which may
+also depend on the built caller's RPATH/RUNPATH or other runtime state.
 """
 
 from __future__ import annotations
@@ -48,8 +48,8 @@ DEP = load_module("ordax_windows_compat_dependency_for_configured_sonames", DEPE
 
 
 def canonical_sha256(value: object) -> str:
-    data = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-    return hashlib.sha256(data).hexdigest()
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def sha256_file(path: Path) -> str:
@@ -77,8 +77,9 @@ def load_contract() -> dict:
     contract = load_json(CONTRACT, "configured SONAME contract")
     if contract.get("$schema") != "prototype-ordax.windows-compat-runtime-configured-soname-resolution/1":
         raise ConfiguredSonameError("unexpected configured SONAME contract schema")
-    if contract.get("status") != "configured-soname-resolution-only-not-runtime-complete":
+    if contract.get("status") != "configured-soname-system-provider-proof-not-runtime-complete":
         raise ConfiguredSonameError("configured SONAME contract status drifted")
+
     inspection = contract.get("inspection", {})
     required_true = (
         "dynamic_source_digest_binding_required",
@@ -96,6 +97,7 @@ def load_contract() -> dict:
         raise ConfiguredSonameError("configured SONAME verification guarantees drifted")
     required_false = (
         "missing_requested_symbol_allowed",
+        "caller_loader_context_resolution_complete",
         "runtime_computed_target_resolution_complete",
         "wrapper_call_graph_complete",
         "generated_source_inventory_complete",
@@ -103,6 +105,7 @@ def load_contract() -> dict:
     )
     if any(inspection.get(key) is not False for key in required_false):
         raise ConfiguredSonameError("configured SONAME fail-closed boundary drifted")
+
     expected_elf = contract.get("input", {}).get("expected_elf")
     if expected_elf != {"class": 64, "machine": 62, "endianness": "little"}:
         raise ConfiguredSonameError("configured SONAME ELF identity drifted")
@@ -142,9 +145,7 @@ def validate_dynamic_source_proof(proof: dict, contract: dict) -> tuple[str, dic
         if not isinstance(item, dict):
             raise ConfiguredSonameError("dynamic source callsite is invalid")
         target = item.get("target")
-        if not isinstance(target, dict):
-            raise ConfiguredSonameError("dynamic source callsite target is invalid")
-        if target.get("kind") != "configured-soname-symbol":
+        if not isinstance(target, dict) or target.get("kind") != "configured-soname-symbol":
             continue
         symbol = target.get("symbol")
         if not isinstance(symbol, str) or not SYMBOL_RE.fullmatch(symbol) or target.get("expression") != symbol:
@@ -158,6 +159,7 @@ def validate_dynamic_source_proof(proof: dict, contract: dict) -> tuple[str, dic
         raise ConfiguredSonameError("configured SONAME call count drifted")
     if counts.get("configured_soname_symbols") != dict(sorted(symbols.items())):
         raise ConfiguredSonameError("configured SONAME symbol inventory drifted")
+
     gates = proof.get("gates", {})
     for key in (
         "source_lock_verified",
@@ -211,9 +213,11 @@ def validate_configure_proof(proof: dict, contract: dict) -> str:
 
 def parse_config_h(path: Path, requested: dict[str, int]) -> tuple[str, dict[str, dict]]:
     try:
-        text = path.read_text(encoding="utf-8", errors="strict")
+        data = path.read_bytes()
+        text = data.decode("utf-8", errors="strict")
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfiguredSonameError(f"cannot read generated config.h: {exc}") from exc
+
     states: dict[str, dict] = {}
     for line_number, line in enumerate(text.splitlines(), 1):
         defined = DEFINE_RE.match(line)
@@ -248,10 +252,11 @@ def parse_config_h(path: Path, requested: dict[str, int]) -> tuple[str, dict[str
                 "config_line": line_number,
                 "source_calls": requested[symbol],
             }
+
     missing = sorted(set(requested) - set(states))
     if missing:
         raise ConfiguredSonameError(f"requested configured SONAME symbols missing from config.h: {missing}")
-    return hashlib.sha256(text.encode("utf-8")).hexdigest(), dict(sorted(states.items()))
+    return hashlib.sha256(data).hexdigest(), dict(sorted(states.items()))
 
 
 def verify_rootfs_package_graph(rootfs: Path, configure_proof: dict) -> tuple[dict, dict, str]:
@@ -262,11 +267,10 @@ def verify_rootfs_package_graph(rootfs: Path, configure_proof: dict) -> tuple[di
     expected = configure_proof.get("resolved_installed_packages")
     if dict(sorted(versions.items())) != expected:
         raise ConfiguredSonameError("rootfs installed package graph does not match configure proof")
-    database = rootfs / "lib/apk/db/installed"
-    return versions, owners, sha256_file(database)
+    return versions, owners, sha256_file(rootfs / "lib/apk/db/installed")
 
 
-def resolve_defined_symbol(
+def resolve_system_provider(
     symbol: str,
     state: dict,
     rootfs: Path,
@@ -280,6 +284,7 @@ def resolve_defined_symbol(
     except DEP.RuntimeDependencyError as exc:
         raise ConfiguredSonameError(str(exc)) from exc
     expected_identity = DEP.elf_identity(expected_elf)
+
     for position, item in enumerate(search):
         directory = item["directory"]
         relative = PurePosixPath(directory) / soname
@@ -290,28 +295,25 @@ def resolve_defined_symbol(
             canonical = DEP.resolve_rooted_path(rootfs, candidate)
             elf = DEP.parse_elf_dynamic(rootfs / canonical)
         except (DEP.RuntimeDependencyError, OSError) as exc:
-            raise ConfiguredSonameError(f"invalid first pathname for {symbol}={soname}: {exc}") from exc
+            raise ConfiguredSonameError(f"invalid first system pathname for {symbol}={soname}: {exc}") from exc
         if elf is None:
-            raise ConfiguredSonameError(f"non-ELF first pathname for {symbol}={soname}: /{relative}")
+            raise ConfiguredSonameError(f"non-ELF first system pathname for {symbol}={soname}: /{relative}")
         actual_identity = DEP.elf_identity(elf)
         if actual_identity != expected_identity:
             raise ConfiguredSonameError(
-                f"incompatible first pathname for {symbol}={soname}: "
+                f"incompatible first system pathname for {symbol}={soname}: "
                 f"expected={expected_identity} actual={actual_identity} path=/{relative}"
             )
-        candidate_record = {
-            "candidate_paths": [relative.as_posix()],
-            "canonical_path": canonical,
-        }
+        record = {"candidate_paths": [relative.as_posix()], "canonical_path": canonical}
         try:
-            package, version = DEP.require_single_apk_owner(candidate_record, owners)
+            package, version = DEP.require_single_apk_owner(record, owners)
         except DEP.RuntimeDependencyError as exc:
             raise ConfiguredSonameError(str(exc)) from exc
         if versions.get(package) != version:
             raise ConfiguredSonameError(f"package version drifted for {symbol}: {package}")
         return {
             **state,
-            "path": relative.as_posix(),
+            "system_provider_path": relative.as_posix(),
             "canonical_path": canonical,
             "elf": {
                 "class": elf["class"],
@@ -320,24 +322,20 @@ def resolve_defined_symbol(
             },
             "package": package,
             "version": version,
-            "search_directory": "/" + directory,
-            "search_source": item["source"],
-            "search_position": position,
+            "system_search_directory": "/" + directory,
+            "system_search_source": item["source"],
+            "system_search_position": position,
         }
-    raise ConfiguredSonameError(f"configured SONAME has no rootfs pathname: {symbol}={soname}")
+    raise ConfiguredSonameError(f"configured SONAME has no pinned-rootfs system provider: {symbol}={soname}")
 
 
-def resolve(
-    dynamic_source: dict,
-    configure_proof: dict,
-    config_h: Path,
-    rootfs: Path,
-) -> dict:
+def resolve(dynamic_source: dict, configure_proof: dict, config_h: Path, rootfs: Path) -> dict:
     contract = load_contract()
     dynamic_digest, requested = validate_dynamic_source_proof(dynamic_source, contract)
     configure_digest = validate_configure_proof(configure_proof, contract)
     if not rootfs.is_dir():
         raise ConfiguredSonameError("configure rootfs is missing")
+
     config_digest, states = parse_config_h(config_h, requested)
     versions, owners, apk_db_digest = verify_rootfs_package_graph(rootfs, configure_proof)
     expected_elf = contract["input"]["expected_elf"]
@@ -347,21 +345,19 @@ def resolve(
         if state["state"] == "disabled-by-configure":
             resolved[symbol] = state
         else:
-            resolved[symbol] = resolve_defined_symbol(
-                symbol, state, rootfs, expected_elf, versions, owners
-            )
+            resolved[symbol] = resolve_system_provider(symbol, state, rootfs, expected_elf, versions, owners)
 
-    defined_symbols = [value for value in resolved.values() if value["state"] == "defined"]
-    disabled_symbols = [value for value in resolved.values() if value["state"] == "disabled-by-configure"]
-    packages = sorted({value["package"] for value in defined_symbols})
+    defined = [value for value in resolved.values() if value["state"] == "defined"]
+    disabled = [value for value in resolved.values() if value["state"] == "disabled-by-configure"]
+    packages = sorted({value["package"] for value in defined})
     counts = {
         "requested_symbols": len(requested),
         "requested_callsites": sum(requested.values()),
-        "defined_symbols": len(defined_symbols),
-        "disabled_symbols": len(disabled_symbols),
-        "defined_callsites": sum(value["source_calls"] for value in defined_symbols),
-        "disabled_callsites": sum(value["source_calls"] for value in disabled_symbols),
-        "resolved_packages": len(packages),
+        "defined_symbols": len(defined),
+        "disabled_symbols": len(disabled),
+        "defined_callsites": sum(value["source_calls"] for value in defined),
+        "disabled_callsites": sum(value["source_calls"] for value in disabled),
+        "system_provider_packages": len(packages),
     }
     if counts["defined_symbols"] + counts["disabled_symbols"] != counts["requested_symbols"]:
         raise ConfiguredSonameError("configured SONAME symbol count drifted")
@@ -377,11 +373,11 @@ def resolve(
         "expected_elf": expected_elf,
         "symbols": resolved,
         "counts": counts,
-        "resolved_packages": packages,
+        "system_provider_packages": packages,
     }
     return {
         "$schema": PROOF_SCHEMA,
-        "status": "configured-sonames-resolved-runtime-computed-targets-open",
+        "status": "configured-soname-system-providers-verified-caller-context-open",
         **core,
         "evidence_sha256": canonical_sha256(core),
         "gates": {
@@ -390,7 +386,8 @@ def resolve(
             "config_h_bound": True,
             "rootfs_package_graph_verified": True,
             "configured_soname_values_resolved": True,
-            "configured_soname_rootfs_resolution_verified": True,
+            "configured_soname_system_provider_verified": True,
+            "caller_loader_context_resolution_complete": False,
             "runtime_computed_target_resolution_complete": False,
             "wrapper_call_graph_complete": False,
             "generated_source_inventory_complete": False,
@@ -418,7 +415,7 @@ def main() -> int:
     args = parser.parse_args()
     load_contract()
     if args.command == "check":
-        print("windows compatibility configured SONAME resolution contract: PASS")
+        print("windows compatibility configured SONAME system-provider contract: PASS")
         return 0
     if not all((args.dynamic_source_proof, args.configure_proof, args.config_h, args.rootfs, args.out)):
         raise ConfiguredSonameError(
@@ -432,7 +429,7 @@ def main() -> int:
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print("windows compatibility configured SONAME resolution: PASS")
+    print("windows compatibility configured SONAME system providers: PASS")
     print(json.dumps(result["counts"], sort_keys=True))
     return 0
 
