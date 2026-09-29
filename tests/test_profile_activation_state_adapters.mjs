@@ -41,8 +41,9 @@ test("Native Profile activation adapter is read-only and device-persistent", asy
   assert.equal(port.getSnapshot().persistence, "device");
   assert.equal(requests[0].path, "/__ordax/native/profile-activation-state");
   assert.equal(requests[0].options.method, "GET");
-  assert.equal(typeof port.activate, "undefined");
-  assert.equal(typeof port.rollback, "undefined");
+  assert.equal(typeof port.activate, "function");
+  assert.equal(typeof port.deactivate, "function");
+  assert.equal(typeof port.rollback, "function");
   assert.equal(typeof port.save, "undefined");
 
   await port.refresh();
@@ -74,4 +75,59 @@ test("Native Profile activation adapter rejects non-device state and transport f
     }),
     /503/,
   );
+});
+
+
+test("Native Profile activation commands require session token and expected revision", async () => {
+  const requests = [];
+  let state = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 0,
+    persistence: "device",
+    spaces: [],
+  };
+  const windowRef = {
+    async fetch(path, options) {
+      requests.push({ path, options });
+      if (path === "/__ordax/native/profile-activation-state") return response(state);
+      if (path === "/__ordax/native/session") {
+        return response({
+          profileActivationAvailable: true,
+          profileActivationToken: "t".repeat(32),
+        });
+      }
+      if (path === "/__ordax/native/profile-activation-command") {
+        const body = JSON.parse(options.body);
+        assert.equal(body.schema, "ordax.profile-activation-command/1");
+        assert.equal(body.expectedRevision, 0);
+        assert.equal(options.headers["X-OrdaX-Profile-Activation-Token"], "t".repeat(32));
+        state = {
+          schema: "ordax.profile-activation-state/1",
+          revision: 1,
+          persistence: "device",
+          spaces: [{
+            spaceId: body.spaceId,
+            spaceKind: body.spaceKind,
+            current: {
+              profile: body.profile,
+              components: body.components,
+              activatedAt: body.activatedAt,
+            },
+            previous: null,
+          }],
+        };
+        return response({ state });
+      }
+      throw new Error("unexpected request");
+    },
+  };
+  const port = await createNativeProfileActivationState(windowRef);
+  await port.activate({
+    spaceId: "space-1",
+    spaceKind: "professional",
+    profile: { slug: "developer", version: 1 },
+    activatedAt: 1234,
+  });
+  assert.equal(port.getSnapshot().revision, 1);
+  assert.equal(requests.at(-1).options.method, "POST");
 });

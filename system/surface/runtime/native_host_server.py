@@ -48,6 +48,7 @@ from native_memory_endpoint import (
 from native_hardware_inventory import read_hardware_inventory
 from native_profile_component_inventory import read_profile_component_inventory
 from native_profile_activation_state import read_profile_activation_state
+from native_profile_activation_command import execute_profile_activation_command
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -65,6 +66,7 @@ MEMORY_PATH = "/__ordax/native/intelligence-memory"
 COMPONENT_STATE_PATH = "/__ordax/native/component-state"
 PROFILE_COMPONENT_INVENTORY_PATH = "/__ordax/native/profile-component-inventory"
 PROFILE_ACTIVATION_STATE_PATH = "/__ordax/native/profile-activation-state"
+PROFILE_ACTIVATION_COMMAND_PATH = "/__ordax/native/profile-activation-command"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
@@ -119,6 +121,7 @@ BOOT_ID_FILE = "/run/ordax-update/base-boot-id"
 TOKEN_HEADER = "X-OrdaX-Power-Token"
 NETWORK_TOKEN_HEADER = "X-OrdaX-Network-Token"
 NATIVE_INSTALL_TOKEN_HEADER = "X-OrdaX-Native-Install-Token"
+PROFILE_ACTIVATION_TOKEN_HEADER = "X-OrdaX-Profile-Activation-Token"
 DIAGNOSTIC_TOKEN_HEADER = "X-OrdaX-Diagnostic-Token"
 HEALTH_TOKEN_HEADER = "X-OrdaX-Health-Token"
 MAX_CONTROL_BODY = 512
@@ -127,6 +130,7 @@ MAX_NETWORK_SCAN_BYTES = 512 * 1024
 MAX_NETWORKS = 32
 MAX_NATIVE_INSTALL_SNAPSHOT_BYTES = 256 * 1024
 MAX_NATIVE_INSTALL_TARGETS = 64
+MAX_PROFILE_ACTIVATION_COMMAND_BODY = 64 * 1024
 MAX_SURFACE_HEARTBEAT_BODY = 512
 MAX_CLIENT_DIAGNOSTIC_BODY = 512
 MAX_PREFERENCE_BODY = 8192
@@ -3194,6 +3198,11 @@ class NativeHostServer(ThreadingHTTPServer):
         self.native_install_token = (
             secrets.token_urlsafe(32) if self.native_install_available else ""
         )
+        self.profile_activation_available = self.distribution_profile == "owner-development"
+        self.profile_activation_token = (
+            secrets.token_urlsafe(32) if self.profile_activation_available else ""
+        )
+        self.profile_activation_lock = threading.Lock()
         self.component_channel_bin = component_channel_bin
         self.component_trust_path = component_trust_path
         self.component_slot_root = component_slot_root
@@ -3709,6 +3718,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     "productMode": self.server.product_mode,
                     "nativeInstallAvailable": self.server.native_install_available,
                     "nativeInstallToken": self.server.native_install_token,
+                    "profileActivationAvailable": self.server.profile_activation_available,
+                    "profileActivationToken": self.server.profile_activation_token,
                     "componentSlotReadAvailable": self.server.component_slot_read_available,
                     "supportedActions": list(self.server.supported_actions),
                 },
@@ -3908,6 +3919,54 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             except (NativeAccountGatewayError, UnicodeError, json.JSONDecodeError, ValueError):
                 self._empty(503)
                 return
+
+        if parsed_path == PROFILE_ACTIVATION_COMMAND_PATH:
+            if not self.server.profile_activation_available:
+                self._empty(404)
+                return
+            supplied_token = self.headers.get(PROFILE_ACTIVATION_TOKEN_HEADER, "")
+            if not hmac.compare_digest(
+                supplied_token,
+                self.server.profile_activation_token,
+            ):
+                self._empty(403)
+                return
+            payload = self._read_json_body(MAX_PROFILE_ACTIVATION_COMMAND_BODY)
+            if payload is None:
+                self._empty(400)
+                return
+            try:
+                with self.server.profile_activation_lock:
+                    response = execute_profile_activation_command(
+                        payload,
+                        distribution_profile=self.server.distribution_profile,
+                    )
+            except PermissionError as exc:
+                print(
+                    f"ordax-native-host: Profile activation denied safely: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(403)
+                return
+            except RuntimeError as exc:
+                print(
+                    f"ordax-native-host: Profile activation revision conflict: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(409)
+                return
+            except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+                print(
+                    f"ordax-native-host: Profile activation command rejected: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(400)
+                return
+            self._write_json(200, response)
+            return
 
         if parsed_path == LOCAL_SESSION_PATH:
             payload = self._read_json_body(MAX_LOCAL_SESSION_BODY)
