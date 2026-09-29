@@ -56,6 +56,99 @@ def require_digest(value: object, label: str) -> str:
     return value
 
 
+def verify_canonical_digest(proof: dict, digest_key: str, core: dict, label: str) -> str:
+    claimed = require_digest(proof.get(digest_key), f"{label} digest")
+    actual = canonical_sha256(core)
+    if claimed != actual:
+        raise DependencyEvidenceError(
+            f"{label} digest does not bind its canonical proof content: claimed={claimed} actual={actual}"
+        )
+    return claimed
+
+
+def require_nonnegative_int(value: object, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise DependencyEvidenceError(f"invalid {label}")
+    return value
+
+
+def verify_first_hit_proof(first: dict) -> str:
+    counts = first.get("counts")
+    if not isinstance(counts, dict):
+        raise DependencyEvidenceError("first-hit counts are missing")
+    dependencies = require_nonnegative_int(counts.get("dependencies_checked"), "first-hit dependencies_checked")
+    stage_hits = require_nonnegative_int(counts.get("stage_hits"), "first-hit stage_hits")
+    rootfs_hits = require_nonnegative_int(counts.get("rootfs_hits"), "first-hit rootfs_hits")
+    if dependencies <= 0 or dependencies != stage_hits + rootfs_hits:
+        raise DependencyEvidenceError("first-hit counts do not describe a complete direct dependency set")
+    core = {
+        "runtime_id": first.get("runtime_id"),
+        "staging_manifest_sha256": first.get("staging_manifest_sha256"),
+        "counts": counts,
+    }
+    return verify_canonical_digest(first, "validation_sha256", core, "first-hit validation")
+
+
+def verify_loader_invariance_proof(invariance: dict) -> str:
+    needed_targets = invariance.get("needed_targets")
+    if not isinstance(needed_targets, dict) or not needed_targets:
+        raise DependencyEvidenceError("loader-invariance needed_targets are missing")
+    counts = invariance.get("counts")
+    if not isinstance(counts, dict):
+        raise DependencyEvidenceError("loader-invariance counts are missing")
+    pair_count = require_nonnegative_int(
+        counts.get("needed_identity_soname_pairs"), "loader-invariance needed_identity_soname_pairs"
+    )
+    require_nonnegative_int(counts.get("staged_elf_files"), "loader-invariance staged_elf_files")
+    require_nonnegative_int(
+        counts.get("reachable_candidate_pathnames"), "loader-invariance reachable_candidate_pathnames"
+    )
+    if pair_count <= 0 or pair_count != len(needed_targets):
+        raise DependencyEvidenceError("loader-invariance pair count does not match needed_targets")
+    core = {
+        "runtime_id": invariance.get("runtime_id"),
+        "staging_manifest_sha256": invariance.get("staging_manifest_sha256"),
+        "needed_targets": needed_targets,
+    }
+    return verify_canonical_digest(invariance, "validation_sha256", core, "loader-invariance validation")
+
+
+def verify_dependency_inventory_proof(dependency: dict) -> str:
+    elf_files = dependency.get("elf_files")
+    external_packages = dependency.get("external_packages")
+    if not isinstance(elf_files, dict) or not elf_files:
+        raise DependencyEvidenceError("dependency inventory ELF map is missing")
+    if not isinstance(external_packages, dict) or not external_packages:
+        raise DependencyEvidenceError("dependency inventory external package map is missing")
+    counts = dependency.get("counts")
+    if not isinstance(counts, dict):
+        raise DependencyEvidenceError("dependency inventory counts are missing")
+    expected_sonames: set[str] = set()
+    for package, record in external_packages.items():
+        if not isinstance(package, str) or not package or not isinstance(record, dict):
+            raise DependencyEvidenceError("invalid external package inventory entry")
+        sonames = record.get("sonames")
+        if not isinstance(sonames, list) or any(not isinstance(item, str) or not item for item in sonames):
+            raise DependencyEvidenceError(f"invalid external SONAME inventory for package: {package}")
+        expected_sonames.update(sonames)
+    expected_counts = {
+        "elf_files": len(elf_files),
+        "external_packages": len(external_packages),
+        "external_sonames": len(expected_sonames),
+    }
+    if counts != expected_counts:
+        raise DependencyEvidenceError(
+            f"dependency inventory counts do not match canonical content: expected={expected_counts} actual={counts}"
+        )
+    core = {
+        "runtime_id": dependency.get("runtime_id"),
+        "staging_manifest_sha256": dependency.get("staging_manifest_sha256"),
+        "elf_files": elf_files,
+        "external_packages": external_packages,
+    }
+    return verify_canonical_digest(dependency, "inventory_sha256", core, "dependency inventory")
+
+
 def finalize(full: dict, first: dict, invariance: dict, dependency: dict) -> dict:
     contract = load_contract()
     schemas = contract["input"]
@@ -95,12 +188,9 @@ def finalize(full: dict, first: dict, invariance: dict, dependency: dict) -> dic
     if dependency_gates.get("staging_dependency_inventory_complete") is not True:
         raise DependencyEvidenceError("staging dependency inventory is not complete")
 
-    for proof, label in (
-        (first, "first-hit"),
-        (invariance, "loader-invariance"),
-    ):
-        require_digest(proof.get("validation_sha256"), f"{label} validation digest")
-    inventory_sha256 = require_digest(dependency.get("inventory_sha256"), "dependency inventory digest")
+    first_digest = verify_first_hit_proof(first)
+    invariance_digest = verify_loader_invariance_proof(invariance)
+    inventory_sha256 = verify_dependency_inventory_proof(dependency)
 
     forbidden_gates = (
         "runtime_dependency_inventory_complete",
@@ -123,8 +213,8 @@ def finalize(full: dict, first: dict, invariance: dict, dependency: dict) -> dic
     core = {
         "runtime_id": runtime_id,
         "staging_manifest_sha256": stage_digest,
-        "first_hit_validation_sha256": first["validation_sha256"],
-        "loader_invariance_validation_sha256": invariance["validation_sha256"],
+        "first_hit_validation_sha256": first_digest,
+        "loader_invariance_validation_sha256": invariance_digest,
         "dependency_inventory_sha256": inventory_sha256,
         "dependency_counts": dependency.get("counts"),
         "first_hit_counts": first.get("counts"),

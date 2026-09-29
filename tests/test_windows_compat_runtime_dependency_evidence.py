@@ -11,9 +11,6 @@ SPEC.loader.exec_module(MODULE)
 
 RUNTIME = "wine-11.0-wow64-x86_64-candidate"
 STAGE = "a" * 64
-FIRST = "b" * 64
-INVARIANCE = "c" * 64
-INVENTORY = "d" * 64
 
 
 class RuntimeDependencyEvidenceTests(unittest.TestCase):
@@ -36,20 +33,45 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
                 **forbidden,
             },
         }
-        first = {
-            "$schema": "prototype-ordax.windows-compat-runtime-first-hit-proof/1",
+        first_counts = {"dependencies_checked": 1, "stage_hits": 0, "rootfs_hits": 1}
+        first_core = {
             "runtime_id": RUNTIME,
             "staging_manifest_sha256": STAGE,
-            "validation_sha256": FIRST,
-            "counts": {"dependencies_checked": 1, "stage_hits": 0, "rootfs_hits": 1},
+            "counts": first_counts,
+        }
+        first = {
+            "$schema": "prototype-ordax.windows-compat-runtime-first-hit-proof/1",
+            **first_core,
+            "validation_sha256": MODULE.canonical_sha256(first_core),
             "gates": {"first_pathname_hit_verified": True, **forbidden},
+        }
+        needed_targets = {
+            "ELF64:machine=62:little:libexample.so.1": {
+                "soname": "libexample.so.1",
+                "elf": {"class": 64, "machine": 62, "endianness": "little"},
+                "consumers": ["usr/bin/wine"],
+                "directories_considered": [{"directory": "/usr/lib", "sources": ["musl-fallback"]}],
+                "target": {
+                    "scope": "rootfs-external",
+                    "canonical_path": "usr/lib/libexample.so.1",
+                    "candidate_paths": ["usr/lib/libexample.so.1"],
+                },
+            }
+        }
+        invariance_core = {
+            "runtime_id": RUNTIME,
+            "staging_manifest_sha256": STAGE,
+            "needed_targets": needed_targets,
         }
         invariance = {
             "$schema": "prototype-ordax.windows-compat-runtime-loader-invariance-proof/1",
-            "runtime_id": RUNTIME,
-            "staging_manifest_sha256": STAGE,
-            "validation_sha256": INVARIANCE,
-            "counts": {"needed_identity_soname_pairs": 1},
+            **invariance_core,
+            "validation_sha256": MODULE.canonical_sha256(invariance_core),
+            "counts": {
+                "staged_elf_files": 1,
+                "needed_identity_soname_pairs": 1,
+                "reachable_candidate_pathnames": 1,
+            },
             "gates": {
                 "staged_needed_by_chain_invariance_verified": True,
                 "staged_shortname_reuse_invariance_verified": True,
@@ -57,11 +79,43 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
                 **forbidden,
             },
         }
-        dependency = {
-            "$schema": "prototype-ordax.windows-compat-runtime-dependency-proof/1",
+        elf_files = {
+            "usr/bin/wine": {
+                "elf": {"class": 64, "machine": 62, "endianness": "little"},
+                "dt_needed": ["libexample.so.1"],
+                "rpath": None,
+                "runpath": None,
+                "loader_search": [{"directory": "/usr/lib", "source": "musl-fallback"}],
+                "resolutions": [{
+                    "soname": "libexample.so.1",
+                    "scope": "rootfs-external",
+                    "path": "usr/lib/libexample.so.1",
+                    "canonical_path": "usr/lib/libexample.so.1",
+                    "package": "example-libs",
+                    "version": "1.0-r0",
+                    "search_directory": "/usr/lib",
+                    "search_source": "musl-fallback",
+                    "search_position": 0,
+                }],
+            }
+        }
+        external_packages = {
+            "example-libs": {
+                "version": "1.0-r0",
+                "files": {"usr/lib/libexample.so.1": "libexample.so.1"},
+                "sonames": ["libexample.so.1"],
+            }
+        }
+        dependency_core = {
             "runtime_id": RUNTIME,
             "staging_manifest_sha256": STAGE,
-            "inventory_sha256": INVENTORY,
+            "elf_files": elf_files,
+            "external_packages": external_packages,
+        }
+        dependency = {
+            "$schema": "prototype-ordax.windows-compat-runtime-dependency-proof/1",
+            **dependency_core,
+            "inventory_sha256": MODULE.canonical_sha256(dependency_core),
             "counts": {"elf_files": 1, "external_packages": 1, "external_sonames": 1},
             "gates": {
                 "loader_resolution_verified": True,
@@ -73,11 +127,12 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
         return full, first, invariance, dependency
 
     def test_finalize_binds_all_loader_evidence_without_promoting_runtime(self):
-        result = MODULE.finalize(*self.fixtures())
+        full, first, invariance, dependency = self.fixtures()
+        result = MODULE.finalize(full, first, invariance, dependency)
         self.assertEqual(result["$schema"], MODULE.PROOF_SCHEMA)
         self.assertEqual(result["runtime_id"], RUNTIME)
         self.assertEqual(result["staging_manifest_sha256"], STAGE)
-        self.assertEqual(result["dependency_inventory_sha256"], INVENTORY)
+        self.assertEqual(result["dependency_inventory_sha256"], dependency["inventory_sha256"])
         self.assertTrue(result["gates"]["loader_resolution_verified"])
         self.assertTrue(result["gates"]["staging_dependency_inventory_complete"])
         self.assertFalse(result["gates"]["external_transitive_closure_verified"])
@@ -87,6 +142,38 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
         full, first, invariance, dependency = self.fixtures()
         invariance["gates"]["staged_needed_by_chain_invariance_verified"] = False
         with self.assertRaisesRegex(MODULE.DependencyEvidenceError, "needed_by chain invariance"):
+            MODULE.finalize(full, first, invariance, dependency)
+
+    def test_finalize_rejects_tampered_first_hit_content_with_stale_digest(self):
+        full, first, invariance, dependency = self.fixtures()
+        first["counts"]["dependencies_checked"] = 2
+        first["counts"]["rootfs_hits"] = 2
+        with self.assertRaisesRegex(MODULE.DependencyEvidenceError, "first-hit validation digest"):
+            MODULE.finalize(full, first, invariance, dependency)
+
+    def test_finalize_rejects_tampered_loader_invariance_with_stale_digest(self):
+        full, first, invariance, dependency = self.fixtures()
+        target = invariance["needed_targets"]["ELF64:machine=62:little:libexample.so.1"]["target"]
+        target["canonical_path"] = "usr/lib/tampered.so.1"
+        with self.assertRaisesRegex(MODULE.DependencyEvidenceError, "loader-invariance validation digest"):
+            MODULE.finalize(full, first, invariance, dependency)
+
+    def test_finalize_rejects_tampered_dependency_inventory_with_stale_digest(self):
+        full, first, invariance, dependency = self.fixtures()
+        dependency["elf_files"]["usr/bin/wine"]["dt_needed"].append("libtampered.so.1")
+        with self.assertRaisesRegex(MODULE.DependencyEvidenceError, "dependency inventory digest"):
+            MODULE.finalize(full, first, invariance, dependency)
+
+    def test_finalize_rejects_dependency_counts_not_derived_from_inventory(self):
+        full, first, invariance, dependency = self.fixtures()
+        dependency["counts"]["external_sonames"] = 2
+        with self.assertRaisesRegex(MODULE.DependencyEvidenceError, "counts do not match canonical content"):
+            MODULE.finalize(full, first, invariance, dependency)
+
+    def test_finalize_rejects_loader_pair_count_not_derived_from_targets(self):
+        full, first, invariance, dependency = self.fixtures()
+        invariance["counts"]["needed_identity_soname_pairs"] = 2
+        with self.assertRaisesRegex(MODULE.DependencyEvidenceError, "pair count"):
             MODULE.finalize(full, first, invariance, dependency)
 
 
