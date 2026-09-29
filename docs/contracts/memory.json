@@ -125,9 +125,18 @@
     "resolver_version": 1,
     "stable_object_id": "memory/base64url-utf8(memory-id)",
     "stable_object_id_max_chars": 240,
-    "owner_kinds_eligible": ["account"],
-    "portable_scopes": ["account", "space", "project"],
-    "portable_sensitivity": ["normal", "private"],
+    "owner_kinds_eligible": [
+      "account"
+    ],
+    "portable_scopes": [
+      "account",
+      "space",
+      "project"
+    ],
+    "portable_sensitivity": [
+      "normal",
+      "private"
+    ],
     "device_owner_sync_allowed": false,
     "device_scope_sync_allowed": false,
     "session_scope_sync_allowed": false,
@@ -166,6 +175,14 @@
     "backend_guard_migration_applied": false,
     "backend_forget_history_scrub_source_prepared": true,
     "backend_forget_history_scrub_applied": false,
+    "restore_plan_schema": "ordax.account-restore-plan/1",
+    "restore_planner": "system/services/sync/account-restore-plan.mjs",
+    "restore_planning_foundation_implemented": true,
+    "restore_order_keeps_memory_after_portable_state": true,
+    "restore_memory_requires_clean_coordination": true,
+    "restore_never_sync_class_fails_closed": true,
+    "restore_unknown_classes_are_deferred": true,
+    "restore_rebuilds_derived_indexes_instead_of_syncing_cache": true,
     "live_client_integration": false,
     "provider_backend_memory_class_enabled": false,
     "full_restore_enabled": false,
