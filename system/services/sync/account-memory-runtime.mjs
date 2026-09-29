@@ -29,6 +29,32 @@ const CONFLICT_REASONS = new Set([
   "local-change-during-flight",
   "reconciliation-required",
 ]);
+const FORBIDDEN_MEMORY_OBJECT_DOMAIN_FIELDS = new Set([
+  "ownerKind",
+  "ownerId",
+  "scope",
+  "spaceId",
+  "projectId",
+  "kind",
+  "sensitivity",
+  "content",
+  "provenance",
+  "sourceTimestamp",
+  "retention",
+  "retentionPolicy",
+  "expiresAt",
+  "expiry",
+  "expiration",
+  "trainingAuthorization",
+  "telemetryAuthorization",
+  "communityDataAuthorization",
+  "grantsToolAuthority",
+  "toolAuthority",
+  "actionAuthority",
+  "modelEgressPermission",
+  "entitlement",
+  "entitlements",
+]);
 
 const NEVER_SYNC_TEXT_PATTERNS = Object.freeze([
   /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/i,
@@ -60,6 +86,14 @@ function requireIdempotencyKey(value) {
 function exactKeys(value, keys) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   return Object.keys(value).sort().join(",") === [...keys].sort().join(",");
+}
+
+function rejectProviderMemoryDomainFields(value) {
+  for (const field of FORBIDDEN_MEMORY_OBJECT_DOMAIN_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new TypeError("Memory sync object domain authority fields are incompatible");
+    }
+  }
 }
 
 function validateMemorySyncObjectId(value) {
@@ -189,6 +223,7 @@ export function validateMemorySyncObject(value, { subjectId } = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Memory sync object must be an object");
   }
+  rejectProviderMemoryDomainFields(value);
   if (value.$schema != null && value.$schema !== MEMORY_SYNC_OBJECT_SCHEMA) {
     throw new TypeError("Memory sync object envelope schema is incompatible");
   }
