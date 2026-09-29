@@ -3,6 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
+const ACCOUNT_ENTITLEMENT_SCHEMA = "prototype-ordax.account-entitlement/1";
+const ACCOUNT_ENTITLEMENT_KEYS = new Set(["memory.cloud.enabled"]);
 const MAX_VISIBLE_SPACES = 64;
 const SYNC_BATCH_SCHEMA = "prototype-ordax.sync-batch/1";
 const SYNC_SNAPSHOT_SCHEMA = "prototype-ordax.sync-snapshot/1";
@@ -693,6 +695,82 @@ Deno.serve(async (req: Request) => {
       return error(502, "account-export-failed", "Não foi possível gerar a exportação da Conta OrdaX.");
     }
     return json(200, data, session.cookies);
+  }
+
+  if (path === "/account/entitlement" && req.method === "GET") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para verificar este recurso.",
+      }, session.cookies);
+    }
+
+    const key = (url.searchParams.get("key") ?? "").trim();
+    if (!ACCOUNT_ENTITLEMENT_KEYS.has(key)) {
+      return error(400, "unsupported-entitlement", "Entitlement não suportado.");
+    }
+
+    const supabase = client(session.access);
+    const { data, error: grantsError } = await supabase
+      .from("ordax_entitlement_grants")
+      .select("entitlement_value,valid_from,valid_until")
+      .eq("user_id", session.user.id)
+      .eq("entitlement_key", key)
+      .limit(16);
+    if (grantsError || !Array.isArray(data) || data.length > 16) {
+      return error(502, "entitlement-read-failed", "Não foi possível verificar este recurso.");
+    }
+
+    const now = Date.now();
+    let decision: "allowed" | "limited" | "denied" = "denied";
+    let expiresAt: string | null = null;
+    for (const raw of data as Array<Record<string, unknown>>) {
+      const fromRaw = raw.valid_from;
+      const untilRaw = raw.valid_until;
+      if (
+        typeof fromRaw !== "string"
+        || (untilRaw !== null && typeof untilRaw !== "string")
+        || !raw.entitlement_value
+        || typeof raw.entitlement_value !== "object"
+        || Array.isArray(raw.entitlement_value)
+      ) {
+        return error(502, "entitlement-read-failed", "Não foi possível validar este recurso.");
+      }
+      const validFrom = Date.parse(fromRaw);
+      const validUntil = untilRaw === null ? null : Date.parse(untilRaw);
+      if (
+        !Number.isFinite(validFrom)
+        || (validUntil !== null && (!Number.isFinite(validUntil) || validUntil <= validFrom))
+      ) {
+        return error(502, "entitlement-read-failed", "Não foi possível validar este recurso.");
+      }
+      if (validFrom > now || (validUntil !== null && validUntil <= now)) continue;
+      const rawDecision = (raw.entitlement_value as Record<string, unknown>).decision;
+      if (rawDecision !== "allowed" && rawDecision !== "limited") continue;
+
+      if (rawDecision === "allowed") decision = "allowed";
+      else if (decision !== "allowed") decision = "limited";
+
+      if (validUntil === null) {
+        expiresAt = null;
+      } else if (expiresAt !== null || decision !== "denied") {
+        const previous = expiresAt === null ? 0 : Date.parse(expiresAt);
+        if (validUntil > previous) expiresAt = new Date(validUntil).toISOString();
+      }
+    }
+
+    return json(200, {
+      $schema: ACCOUNT_ENTITLEMENT_SCHEMA,
+      subjectType: "account",
+      subjectId: session.user.id,
+      key,
+      decision,
+      value: decision === "allowed" ? true : null,
+      authority: "server",
+      expiresAt,
+    }, session.cookies);
   }
 
   if (path === "/account/spaces" && req.method === "GET") {
