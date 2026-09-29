@@ -186,7 +186,10 @@
       "provenance": "ordax-assistant:auto-capture",
       "extractor_receives_user_turn_only": true,
       "extractor_receives_assistant_response": false,
-      "assistant_response_is_persistence_source": false
+      "assistant_response_is_persistence_source": false,
+      "authorization_bound_at_assistant_send": true,
+      "identity_or_space_change_during_inference_retargets_memory": false,
+      "bound_turn_handle_exposes_owner_or_scope": false
     }
   }
 }
