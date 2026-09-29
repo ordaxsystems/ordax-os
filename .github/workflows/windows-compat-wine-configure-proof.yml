@@ -1,0 +1,65 @@
+name: Windows Compatibility Wine Configure Proof
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_configure_proof.py'
+      - '.github/workflows/windows-compat-wine-configure-proof.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_configure_proof.py'
+      - '.github/workflows/windows-compat-wine-configure-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  configure-proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install proof host dependency
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends proot
+
+      - name: Validate configure proof contract
+        run: |
+          python bootstrap/windows-compat-runtime/configure_probe.py check
+          python -m unittest tests.test_windows_compat_configure_proof -v
+
+      - name: Configure Wine in pinned Alpine 3.22.5 rootfs
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          python bootstrap/windows-compat-runtime/configure_probe.py probe \
+            --work-dir "$tmp/work" \
+            --proof-out "$tmp/configure-proof.json"
+          python - <<'PY' "$tmp/configure-proof.json"
+          import json
+          import pathlib
+          import sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert proof['configure_proof_passed'] is True
+          assert proof['package_versions_pinned'] is False
+          assert proof['full_build_proof_passed'] is False
+          assert proof['binary_artifact_pinned'] is False
+          assert proof['activation_authorized'] is False
+          assert proof['execution_authorized'] is False
+          print('native compiler:', proof['native_compiler_triplet'])
+          print('resolved build packages:', len(proof['resolved_build_packages']))
+          PY
