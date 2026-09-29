@@ -135,6 +135,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - estado installable/blocked explícito;
 - nenhum download sem artifact identity + versão + SHA-256 + assinatura exigida;
 - Knowledge/Skill possuem proof Ed25519, health estrutural por entrada e proveniência, ainda sem ativação pública;
+- fundação da cerimônia canônica de trust de Profile Content está pronta em source: o channel deriva trust público independentemente, CI prova geração/derivação/assinatura/recovery apenas com chave descartável e um toolkit Windows público-only é produzido; a chave canônica `ordax-profile-content-v1` ainda não existe no repositório/dispositivo e exige cerimônia externa do operador com custody + backup criptografado + recovery proof;
 - stage saudável gera evidence verificável, receipt e inventário Native sob lock;
 - ativação local possui estado Native privado `current/previous` por Space, com rollback da composição;
 - manifests canônicos são JSON versionados em `system/profile-packs/<slug>/v<version>/manifest.json`, indexados por catálogo bundled leve;
@@ -162,7 +163,8 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - Legal-BR público;
 - Knowledge jurídico real sem pipeline de fontes oficiais;
 - billing;
-- downloads reais de payload sem trust/publicação canônica.
+- downloads reais de payload sem trust/publicação canônica;
+- pin do anchor público `system/trust/profile-content-ed25519.json` até a cerimônia real do operador produzir e validar um handoff público-only; CI/chave descartável nunca pode satisfazer esse gate.
 
 ## 7. Perfis iniciais
 
@@ -189,15 +191,16 @@ Depois da prova MVP:
 
 1. conectar Knowledge Pack saudável ao retrieval/Intelligence sem torná-lo memória autoritativa;
 2. conectar Skill Pack declarativo ao contexto de Intelligence sem conceder tools automaticamente;
-3. manter a promoção de Profiles com componentes restrita a Owner/Development até existir pelo menos um Profile canônico com componente publicado, receipt real e validação de domínio; a infraestrutura de confirmação humana Native já está fechada ponta a ponta;
-4. promover o restore metadata-only para aplicação real de composição somente após trust/policy e health de cada efeito, mantendo Profile não crítico ao boot;
-5. Store/catalog remoto assinado;
-6. downloads transacionais;
-7. Profile Stack com resolução de conflitos pela policy mais restritiva;
-8. UI de escolha no primeiro uso/Conta;
-9. atualização independente por componente com permission diff;
-10. compartilhamento de Spaces;
-11. packs adicionais: Comércio, Clínica administrativa, Educação, Creator etc.
+3. executar a cerimônia real externa de Profile Content, validar recovery e promover somente o anchor público; pin do anchor não habilita publish/install/activation por si só;
+4. manter a promoção de Profiles com componentes restrita a Owner/Development até existir pelo menos um Profile canônico com componente publicado, receipt real e validação de domínio; a infraestrutura de confirmação humana Native já está fechada ponta a ponta;
+5. promover o restore metadata-only para aplicação real de composição somente após trust/policy e health de cada efeito, mantendo Profile não crítico ao boot;
+6. Store/catalog remoto assinado;
+7. downloads transacionais;
+8. Profile Stack com resolução de conflitos pela policy mais restritiva;
+9. UI de escolha no primeiro uso/Conta;
+10. atualização independente por componente com permission diff;
+11. compartilhamento de Spaces;
+12. packs adicionais: Comércio, Clínica administrativa, Educação, Creator etc.
 
 ## 9. Regras invariantes
 
