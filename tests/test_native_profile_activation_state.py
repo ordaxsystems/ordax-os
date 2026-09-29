@@ -1,5 +1,6 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import hashlib
 import json
 import os
 import stat
@@ -43,6 +44,51 @@ def component():
         "receiptSha256": "b" * 64,
         "installedAt": 1000,
     }
+
+
+def install_receipt(root: Path, entry: dict) -> tuple[Path, dict]:
+    receipt = {
+        "schema": "ordax.profile-install-receipt/1",
+        "artifact": {
+            "id": entry["id"],
+            "kind": entry["kind"],
+            "version": entry["version"],
+            "sha256": entry["sha256"],
+            "sizeBytes": 64,
+        },
+        "verification": {
+            "signatureAlgorithm": "ed25519",
+            "keyId": "test-key",
+            "manifestSha256": "c" * 64,
+            "verifiedAt": 900,
+        },
+        "health": {
+            "schema": "ordax.profile-content-health/1",
+            "state": "healthy",
+            "entryCount": 1,
+            "perEntryHashVerified": True,
+            "perEntryProvenanceVerified": True,
+            "executablePayloadAllowed": False,
+            "authority": "none",
+            "checkedAt": 950,
+        },
+        "installedAt": entry["installedAt"],
+    }
+    raw = (json.dumps(
+        receipt,
+        separators=(",", ":"),
+        sort_keys=True,
+        ensure_ascii=False,
+        allow_nan=False,
+    ) + "\n").encode("utf-8")
+    receipt_sha = hashlib.sha256(raw).hexdigest()
+    updated = {**entry, "receiptSha256": receipt_sha}
+    receipt_root = root / "receipts"
+    receipt_root.mkdir(mode=0o700)
+    path = receipt_root / f"{receipt_sha}.json"
+    path.write_bytes(raw)
+    os.chmod(path, 0o600)
+    return receipt_root, updated
 
 
 def activation(slug="developer", version=1, components=None, activated_at=1200):
@@ -121,26 +167,28 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path = root / "inventory.json"
             state_path = root / "activation.json"
             lock_path = root / "activation.lock"
-            inventory_path.write_text(json.dumps(inventory([component()])), encoding="utf-8")
+            receipt_root, installed = install_receipt(root, component())
+            inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
             result = module.activate_profile(
                 space_id="space-1",
                 space_kind="professional",
-                activation=activation(),
+                activation=activation(components=[installed]),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
+                receipt_root=str(receipt_root),
                 lock_path=str(lock_path),
             )
             self.assertTrue(result["changed"])
             self.assertEqual(result["state"]["revision"], 1)
             self.assertEqual(
                 result["state"]["spaces"][0]["current"]["components"][0]["receiptSha256"],
-                "b" * 64,
+                installed["receiptSha256"],
             )
 
-            stale = activation()
-            stale["components"][0]["receiptSha256"] = "c" * 64
+            stale = activation(components=[dict(installed)])
+            stale["components"][0]["receiptSha256"] = "d" * 64
             with self.assertRaisesRegex(ValueError, "receipt does not match inventory"):
                 module.activate_profile(
                     space_id="space-2",
@@ -148,6 +196,31 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                     activation=stale,
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
+                    receipt_root=str(receipt_root),
+                    lock_path=str(lock_path),
+                )
+
+    def test_activation_fails_closed_when_receipt_file_is_tampered(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inventory_path = root / "inventory.json"
+            state_path = root / "activation.json"
+            lock_path = root / "activation.lock"
+            receipt_root, installed = install_receipt(root, component())
+            inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
+            os.chmod(inventory_path, 0o600)
+            receipt_path = receipt_root / f"{installed['receiptSha256']}.json"
+            receipt_path.write_text("tampered\n", encoding="utf-8")
+            os.chmod(receipt_path, 0o600)
+            with self.assertRaisesRegex(ValueError, "receipt hash mismatch"):
+                module.activate_profile(
+                    space_id="space-1",
+                    space_kind="professional",
+                    activation=activation(components=[installed]),
+                    state_path=str(state_path),
+                    inventory_path=str(inventory_path),
+                    receipt_root=str(receipt_root),
                     lock_path=str(lock_path),
                 )
 
@@ -239,15 +312,17 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path = root / "inventory.json"
             state_path = root / "activation.json"
             lock_path = root / "activation.lock"
-            inventory_path.write_text(json.dumps(inventory([component()])), encoding="utf-8")
+            receipt_root, installed = install_receipt(root, component())
+            inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
             module.activate_profile(
                 space_id="space-1",
                 space_kind="professional",
-                activation=activation(),
+                activation=activation(components=[installed]),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
+                receipt_root=str(receipt_root),
                 lock_path=str(lock_path),
             )
             module.activate_profile(
@@ -266,6 +341,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                     space_id="space-1",
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
+                    receipt_root=str(receipt_root),
                     lock_path=str(lock_path),
                 )
 
