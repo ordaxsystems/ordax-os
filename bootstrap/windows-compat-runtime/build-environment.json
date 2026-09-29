@@ -10,6 +10,10 @@
     "rootfs_url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.5-x86_64.tar.gz",
     "rootfs_sha256": "4b4daa9fe2fc696c4919c4412a4c3d3e770d8fb70292a004a2c72f5096175282"
   },
+  "repositories": [
+    "https://dl-cdn.alpinelinux.org/alpine/v3.22/main",
+    "https://dl-cdn.alpinelinux.org/alpine/v3.22/community"
+  ],
   "packaging_reference": {
     "repository": "https://github.com/alpinelinux/aports",
     "commit": "78e9baad1fc91415c7617dc91bd930e21ed068de",
