@@ -19,8 +19,14 @@ _SEMVER_RE = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"
 )
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-_KEY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
-_KINDS = frozenset(("knowledge-pack", "skill-pack"))
+_KINDS = frozenset((
+    "app",
+    "knowledge-pack",
+    "skill-pack",
+    "model-pack",
+    "connector",
+))
+_MAX_SAFE_INTEGER = (1 << 53) - 1
 
 
 def _exact_keys(value: object, expected: set[str], label: str) -> dict:
@@ -41,7 +47,12 @@ def _bounded_text(value: object, label: str, maximum: int) -> str:
 
 
 def _epoch(value: object, label: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or value < 0
+        or value > _MAX_SAFE_INTEGER
+    ):
         raise ValueError(f"{label} is invalid")
     return value
 
@@ -73,7 +84,12 @@ def validate_profile_install_receipt(value: object) -> dict:
     if _SHA256_RE.fullmatch(artifact_sha) is None:
         raise ValueError("artifact sha256 is invalid")
     size_bytes = artifact["sizeBytes"]
-    if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes <= 0:
+    if (
+        isinstance(size_bytes, bool)
+        or not isinstance(size_bytes, int)
+        or size_bytes <= 0
+        or size_bytes > _MAX_SAFE_INTEGER
+    ):
         raise ValueError("artifact sizeBytes is invalid")
 
     verification = _exact_keys(
@@ -83,9 +99,7 @@ def validate_profile_install_receipt(value: object) -> dict:
     )
     if verification["signatureAlgorithm"] != "ed25519":
         raise ValueError("Profile install receipt signature algorithm is unsupported")
-    key_id = _bounded_text(verification["keyId"], "verification keyId", 64)
-    if _KEY_ID_RE.fullmatch(key_id) is None:
-        raise ValueError("verification keyId is invalid")
+    key_id = _bounded_text(verification["keyId"], "verification keyId", 160)
     manifest_sha = _bounded_text(
         verification["manifestSha256"], "verification manifestSha256", 64
     )
@@ -121,8 +135,6 @@ def validate_profile_install_receipt(value: object) -> dict:
         raise ValueError("Profile install receipt health authority is unsafe")
     checked_at = _epoch(health["checkedAt"], "checkedAt")
     installed_at = _epoch(receipt["installedAt"], "installedAt")
-    if checked_at < verified_at or installed_at < checked_at:
-        raise ValueError("Profile install receipt timestamps are not monotonic")
 
     return {
         "schema": PROFILE_INSTALL_RECEIPT_SCHEMA,

@@ -19,19 +19,19 @@ def load_module():
     return module
 
 
-def receipt(authority="none"):
+def receipt(authority="none", kind="knowledge-pack", key_id="profile-content-test-1"):
     return {
         "schema": "ordax.profile-install-receipt/1",
         "artifact": {
             "id": "knowledge.example",
-            "kind": "knowledge-pack",
+            "kind": kind,
             "version": "1.2.3",
             "sha256": "a" * 64,
             "sizeBytes": 4096,
         },
         "verification": {
             "signatureAlgorithm": "ed25519",
-            "keyId": "profile-content-test-1",
+            "keyId": key_id,
             "manifestSha256": "b" * 64,
             "verifiedAt": 1200,
         },
@@ -50,6 +50,17 @@ def receipt(authority="none"):
 
 
 class NativeProfileInstallReceiptTests(unittest.TestCase):
+    def test_generic_receipt_contract_accepts_all_component_kinds(self):
+        module = load_module()
+        kinds = ("app", "knowledge-pack", "skill-pack", "model-pack", "connector")
+        for kind in kinds:
+            with self.subTest(kind=kind):
+                value = module.validate_profile_install_receipt(
+                    receipt(kind=kind, key_id="K" * 120)
+                )
+                self.assertEqual(value["artifact"]["kind"], kind)
+                self.assertEqual(value["verification"]["keyId"], "K" * 120)
+
     def test_content_addressed_private_canonical_receipt_round_trips(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as directory:
