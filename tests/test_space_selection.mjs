@@ -167,6 +167,7 @@ test("direct account switch invalidates stale Spaces until the catalog refreshes
     displayName: "User Two",
   });
   assert.equal(runtime.getSnapshot().state, "unavailable");
+  assert.equal(spaces.getSnapshot().state, "unavailable");
   assert.equal(store.peek(), null);
   assert.throws(
     () => runtime.select("space-developer"),
