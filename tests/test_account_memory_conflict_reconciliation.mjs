@@ -132,7 +132,7 @@ test("accept-authoritative-remote discards pending intent but keeps the object q
   assert.equal(reconciled.reason, "authoritative-remote-reconciliation");
   assert.equal(runtime.getSnapshot().conflictCount, 0);
   assert.equal(runtime.getSnapshot().reconciliationRequiredCount, 0);
-  assert.equal(memory.search({ ownerKind: "account", scopes: ["account"] })[0].content, "estado remoto canônico");
+  assert.equal(memory.search({ ownerKind: "account", ownerId: SUBJECT, scopes: ["account"] })[0].content, "estado remoto canônico");
 });
 
 test("reconciliation-required survives durable runtime recreation and still blocks mutation replay", async () => {
