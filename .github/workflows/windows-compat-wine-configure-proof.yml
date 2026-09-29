@@ -5,12 +5,14 @@ on:
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_configure_proof.py'
+      - 'tests/test_windows_compat_runtime_configured_sonames.py'
       - '.github/workflows/windows-compat-wine-configure-proof.yml'
   push:
     branches: [main]
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_configure_proof.py'
+      - 'tests/test_windows_compat_runtime_configured_sonames.py'
       - '.github/workflows/windows-compat-wine-configure-proof.yml'
 
 permissions:
@@ -36,12 +38,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends proot
 
-      - name: Validate configure proof contract
+      - name: Validate configure and configured SONAME proof contracts
         run: |
+          set -euo pipefail
           python bootstrap/windows-compat-runtime/configure_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_configure_probe.py check
           python -m unittest tests.test_windows_compat_configure_proof -v
+          python -m unittest tests.test_windows_compat_runtime_configured_sonames -v
 
-      - name: Configure Wine in pinned Alpine 3.22.5 rootfs
+      - name: Configure Wine and resolve configured dynamic-loader SONAMEs
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
@@ -49,34 +55,115 @@ jobs:
           proof_dir="${RUNNER_TEMP}/windows-compat-wine-configure-proof"
           rm -rf "$proof_dir"
           mkdir -p "$proof_dir"
+
           python bootstrap/windows-compat-runtime/configure_probe.py probe \
             --work-dir "$work" \
             --proof-out "$proof_dir/configure-proof.json"
-          python - <<'PY' "$proof_dir/configure-proof.json"
+
+          # configure_probe already downloaded and verified the exact Wine archive
+          # at this cache path. Reuse it to bind the source callsite proof to the
+          # same bytes used for configure; build.py performs no compilation here.
+          python bootstrap/windows-compat-runtime/build.py fetch-source \
+            --cache-dir "$work/cache/wine" \
+            --proof-out "$proof_dir/source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py discover \
+            --archive "$work/cache/wine/wine-11.0.tar.xz" \
+            --source-proof "$proof_dir/source-proof.json" \
+            --out "$proof_dir/runtime-dynamic-load-source-proof.json"
+
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_configure_probe.py resolve \
+            --dynamic-source-proof "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            --configure-proof "$proof_dir/configure-proof.json" \
+            --config-h "$work/rootfs/build/output/include/config.h" \
+            --rootfs "$work/rootfs" \
+            --out "$proof_dir/runtime-configured-soname-proof.json"
+
+          python - <<'PY' \
+            "$proof_dir/configure-proof.json" \
+            "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            "$proof_dir/runtime-configured-soname-proof.json"
           import json
           import pathlib
           import re
           import sys
-          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-          assert proof['configure_proof_passed'] is True
-          assert proof['package_versions_pinned'] is False
-          assert proof['full_build_proof_passed'] is False
-          assert proof['binary_artifact_pinned'] is False
-          assert proof['activation_authorized'] is False
-          assert proof['execution_authorized'] is False
-          assert len(proof['resolved_build_packages']) == 39
-          assert len(proof['resolved_installed_packages']) >= len(proof['resolved_build_packages'])
+
+          configure = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          source = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
+          sonames = json.loads(pathlib.Path(sys.argv[3]).read_text(encoding='utf-8'))
+
+          assert configure['configure_proof_passed'] is True
+          assert configure['package_versions_pinned'] is False
+          assert configure['full_build_proof_passed'] is False
+          assert configure['binary_artifact_pinned'] is False
+          assert configure['activation_authorized'] is False
+          assert configure['execution_authorized'] is False
+          assert len(configure['resolved_build_packages']) == 39
+          assert len(configure['resolved_installed_packages']) >= len(configure['resolved_build_packages'])
           version = re.compile(r'^[A-Za-z0-9][A-Za-z0-9+._~:-]{0,255}$')
-          for name, value in proof['resolved_installed_packages'].items():
+          for name, value in configure['resolved_installed_packages'].items():
               assert name and version.fullmatch(value), (name, value)
-          print('native compiler:', proof['native_compiler_triplet'])
-          print('requested build packages:', len(proof['resolved_build_packages']))
-          print('full installed package graph:', len(proof['resolved_installed_packages']))
+
+          assert source['gates']['configured_soname_symbols_classified'] is True
+          assert source['gates']['configured_soname_values_resolved'] is False
+          assert sonames['$schema'] == 'prototype-ordax.windows-compat-runtime-configured-soname-proof/1'
+          assert sonames['runtime_id'] == configure['runtime_id'] == source['runtime_id']
+          for digest in (
+              sonames['dynamic_source_inventory_sha256'],
+              sonames['configure_proof_sha256'],
+              sonames['config_h_sha256'],
+              sonames['apk_installed_sha256'],
+              sonames['evidence_sha256'],
+          ):
+              assert re.fullmatch(r'[0-9a-f]{64}', digest)
+          counts = sonames['counts']
+          assert counts['requested_symbols'] == len(source['counts']['configured_soname_symbols'])
+          assert counts['requested_callsites'] == source['counts']['configured_soname_symbol_targets']
+          assert counts['requested_symbols'] == counts['defined_symbols'] + counts['disabled_symbols']
+          assert counts['requested_callsites'] == counts['defined_callsites'] + counts['disabled_callsites']
+          gates = sonames['gates']
+          for gate in (
+              'dynamic_source_proof_verified',
+              'configure_proof_verified',
+              'config_h_bound',
+              'rootfs_package_graph_verified',
+              'configured_soname_values_resolved',
+              'configured_soname_rootfs_resolution_verified',
+          ):
+              assert gates[gate] is True, gate
+          for gate in (
+              'runtime_computed_target_resolution_complete',
+              'wrapper_call_graph_complete',
+              'generated_source_inventory_complete',
+              'dynamic_load_inventory_complete',
+              'external_transitive_closure_verified',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert gates[gate] is False, gate
+
+          print('native compiler:', configure['native_compiler_triplet'])
+          print('requested build packages:', len(configure['resolved_build_packages']))
+          print('full installed package graph:', len(configure['resolved_installed_packages']))
+          print('configured SONAME symbols:', counts['requested_symbols'])
+          print('defined SONAME symbols:', counts['defined_symbols'])
+          print('disabled SONAME symbols:', counts['disabled_symbols'])
+          print('defined SONAME callsites:', counts['defined_callsites'])
+          print('resolved SONAME packages:', counts['resolved_packages'])
+          print('configured SONAME evidence:', sonames['evidence_sha256'])
           PY
 
-      - name: Upload configure proof metadata only
+      - name: Upload configure and configured SONAME metadata only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: windows-compat-wine-configure-proof-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/windows-compat-wine-configure-proof/configure-proof.json
+          path: |
+            ${{ runner.temp }}/windows-compat-wine-configure-proof/configure-proof.json
+            ${{ runner.temp }}/windows-compat-wine-configure-proof/source-proof.json
+            ${{ runner.temp }}/windows-compat-wine-configure-proof/runtime-dynamic-load-source-proof.json
+            ${{ runner.temp }}/windows-compat-wine-configure-proof/runtime-configured-soname-proof.json
           if-no-files-found: error
