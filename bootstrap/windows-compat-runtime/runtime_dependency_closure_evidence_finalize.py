@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import hashlib
 import json
 from pathlib import Path
@@ -48,10 +49,13 @@ def load_contract() -> dict:
     if contract.get("status") != "transitive-dt-needed-discovery-only-not-promotable":
         raise ClosureEvidenceError("runtime dependency closure status drifted")
     verification = contract.get("verification", {})
-    if verification.get("closure_guard_proof_required") is not True:
-        raise ClosureEvidenceError("closure contract does not require loader guard proof")
-    if verification.get("closure_evidence_finalizer_required") is not True:
-        raise ClosureEvidenceError("closure contract does not require evidence finalizer")
+    for key in (
+        "context_expansion_completeness_required",
+        "closure_guard_proof_required",
+        "closure_evidence_finalizer_required",
+    ):
+        if verification.get(key) is not True:
+            raise ClosureEvidenceError(f"closure contract does not require {key}")
     if contract.get("classification", {}).get("runtime_dependency_inventory_complete_after_this_gate") is not False:
         raise ClosureEvidenceError("DT_NEEDED closure may not claim complete runtime inventory")
     promotion = contract.get("promotion", {})
@@ -97,6 +101,107 @@ def guard_core(proof: dict) -> dict:
     }
 
 
+def context_id(chain: list[str] | tuple[str, ...]) -> str:
+    return canonical_sha256(tuple(chain))
+
+
+def verify_context_expansion(roots: list, nodes: dict, contexts: dict) -> dict:
+    if not roots or any(not isinstance(root, str) or not root for root in roots):
+        raise ClosureEvidenceError("raw closure roots are invalid")
+    if len(roots) != len(set(roots)):
+        raise ClosureEvidenceError("raw closure roots contain duplicates")
+    if any(root not in nodes for root in roots):
+        raise ClosureEvidenceError("raw closure root references an unknown node")
+
+    child_links: dict[str, set[str]] = {}
+    referenced_nodes: set[str] = set(roots)
+    cycle_edges = 0
+    for cid, context in contexts.items():
+        if not isinstance(cid, str) or not SHA256_RE.fullmatch(cid) or not isinstance(context, dict):
+            raise ClosureEvidenceError("raw closure context entry is invalid")
+        chain = context.get("chain")
+        consumer = context.get("consumer")
+        edges = context.get("edges")
+        if not isinstance(chain, list) or not chain or any(not isinstance(item, str) or not item for item in chain):
+            raise ClosureEvidenceError(f"raw closure context chain is invalid: {cid}")
+        if len(chain) != len(set(chain)):
+            raise ClosureEvidenceError(f"raw closure context chain contains an expanded cycle: {cid}")
+        if consumer != chain[0]:
+            raise ClosureEvidenceError(f"raw closure context consumer does not match chain head: {cid}")
+        if any(item not in nodes for item in chain):
+            raise ClosureEvidenceError(f"raw closure context references an unknown node: {cid}")
+        if cid != context_id(chain):
+            raise ClosureEvidenceError(f"raw closure context id does not bind its chain: {cid}")
+        if not isinstance(edges, list):
+            raise ClosureEvidenceError(f"raw closure context edges are invalid: {cid}")
+        referenced_nodes.update(chain)
+        links = child_links.setdefault(cid, set())
+        for edge in edges:
+            if not isinstance(edge, dict):
+                raise ClosureEvidenceError(f"raw closure edge is invalid: {cid}")
+            target = edge.get("to")
+            cycle = edge.get("cycle")
+            if not isinstance(target, str) or target not in nodes:
+                raise ClosureEvidenceError(f"raw closure edge references an unknown target: {cid}")
+            if not isinstance(cycle, bool):
+                raise ClosureEvidenceError(f"raw closure edge lacks a boolean cycle marker: {cid}")
+            referenced_nodes.add(target)
+            expected_cycle = target in chain
+            if cycle is not expected_cycle:
+                raise ClosureEvidenceError(
+                    f"raw closure cycle marker disagrees with chain membership: {cid} -> {target}"
+                )
+            if cycle:
+                cycle_edges += 1
+                continue
+            child_chain = [target, *chain]
+            child_id = context_id(child_chain)
+            child = contexts.get(child_id)
+            if not isinstance(child, dict):
+                raise ClosureEvidenceError(
+                    f"raw closure omitted descendant context: {cid} -> {target} expected={child_id}"
+                )
+            if child.get("consumer") != target or child.get("chain") != child_chain:
+                raise ClosureEvidenceError(
+                    f"raw closure descendant context does not match required expansion: {cid} -> {target}"
+                )
+            links.add(child_id)
+
+    root_contexts: list[str] = []
+    for root in roots:
+        cid = context_id([root])
+        context = contexts.get(cid)
+        if not isinstance(context, dict) or context.get("consumer") != root or context.get("chain") != [root]:
+            raise ClosureEvidenceError(f"raw closure omitted root context: {root}")
+        root_contexts.append(cid)
+
+    reachable: set[str] = set()
+    queue = deque(root_contexts)
+    while queue:
+        cid = queue.popleft()
+        if cid in reachable:
+            continue
+        reachable.add(cid)
+        queue.extend(sorted(child_links.get(cid, ())))
+    all_contexts = set(contexts)
+    if reachable != all_contexts:
+        extra = sorted(all_contexts - reachable)
+        missing = sorted(reachable - all_contexts)
+        raise ClosureEvidenceError(
+            f"raw closure context graph is not exactly root-reachable: orphaned={extra[:20]} missing={missing[:20]}"
+        )
+    if referenced_nodes != set(nodes):
+        orphaned_nodes = sorted(set(nodes) - referenced_nodes)
+        raise ClosureEvidenceError(f"raw closure contains unreachable nodes: {orphaned_nodes[:20]}")
+
+    return {
+        "root_contexts": len(root_contexts),
+        "reachable_contexts": len(reachable),
+        "reachable_nodes": len(referenced_nodes),
+        "cycle_edges": cycle_edges,
+    }
+
+
 def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
     contract = load_contract()
     schemas = contract.get("input", {})
@@ -133,12 +238,16 @@ def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
     external_packages = closure.get("external_packages")
     if not isinstance(roots, list) or not isinstance(nodes, dict) or not isinstance(contexts, dict) or not isinstance(external_packages, dict):
         raise ClosureEvidenceError("raw closure canonical collections are invalid")
+    expansion_counts = verify_context_expansion(roots, nodes, contexts)
+
     edge_count = cycle_edges = 0
     for context in contexts.values():
         if not isinstance(context, dict) or not isinstance(context.get("edges"), list):
             raise ClosureEvidenceError("raw closure context edges are invalid")
         edge_count += len(context["edges"])
         cycle_edges += sum(1 for edge in context["edges"] if isinstance(edge, dict) and edge.get("cycle") is True)
+    if expansion_counts["cycle_edges"] != cycle_edges:
+        raise ClosureEvidenceError("raw closure cycle count disagrees with verified context expansion")
     sonames: set[str] = set()
     for package, record in external_packages.items():
         if not isinstance(package, str) or not package or not isinstance(record, dict):
@@ -231,6 +340,7 @@ def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
         "closure_sha256": closure_digest,
         "closure_loader_guard_sha256": guard_digest,
         "closure_counts": closure.get("counts"),
+        "context_expansion_counts": expansion_counts,
         "loader_guard_counts": guard.get("counts"),
     }
     return {
@@ -241,6 +351,8 @@ def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
         "gates": {
             "direct_dependency_evidence_verified": True,
             "transitive_dt_needed_closure_verified": True,
+            "closure_context_expansion_verified": True,
+            "closure_cycle_markers_verified": True,
             "closure_first_pathname_hit_verified": True,
             "closure_shortname_reuse_invariance_verified": True,
             "closure_origin_alias_context_verified": True,

@@ -12,6 +12,8 @@ SPEC.loader.exec_module(MODULE)
 RUNTIME = "wine-11.0-wow64-x86_64-candidate"
 STAGE = "a" * 64
 DIRECT = "b" * 64
+ROOT_NODE = "stage-internal:usr/bin/wine"
+CHILD_NODE = "rootfs-external:usr/lib/liba.so.1"
 
 
 class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
@@ -51,30 +53,38 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
                 "windows_payload_executed": False,
             },
         }
+        root_context_id = MODULE.context_id([ROOT_NODE])
+        child_context_id = MODULE.context_id([CHILD_NODE, ROOT_NODE])
         closure_core = {
             "runtime_id": RUNTIME,
             "staging_manifest_sha256": STAGE,
             "direct_inventory_sha256": DIRECT,
-            "roots": ["stage-internal:usr/bin/wine"],
+            "roots": [ROOT_NODE],
             "nodes": {
-                "stage-internal:usr/bin/wine": {"scope": "stage-internal"},
-                "rootfs-external:usr/lib/liba.so.1": {
+                ROOT_NODE: {"scope": "stage-internal"},
+                CHILD_NODE: {
                     "scope": "rootfs-external",
                     "package": "runtime-libs",
                     "version": "1-r0",
                 },
             },
             "contexts": {
-                "c" * 64: {
-                    "consumer": "stage-internal:usr/bin/wine",
+                root_context_id: {
+                    "consumer": ROOT_NODE,
+                    "chain": [ROOT_NODE],
                     "edges": [
                         {
                             "soname": "liba.so.1",
-                            "to": "rootfs-external:usr/lib/liba.so.1",
+                            "to": CHILD_NODE,
                             "cycle": False,
                         }
                     ],
-                }
+                },
+                child_context_id: {
+                    "consumer": CHILD_NODE,
+                    "chain": [CHILD_NODE, ROOT_NODE],
+                    "edges": [],
+                },
             },
             "external_packages": {
                 "runtime-libs": {
@@ -91,7 +101,7 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
             "counts": {
                 "root_elf_files": 1,
                 "nodes": 2,
-                "context_states": 1,
+                "context_states": 2,
                 "edges": 1,
                 "cycle_edges": 0,
                 "external_packages": 1,
@@ -125,7 +135,7 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
                 }
             },
             "counts": {
-                "contexts_checked": 1,
+                "contexts_checked": 2,
                 "edges_checked": 1,
                 "stage_hits": 0,
                 "rootfs_hits": 1,
@@ -157,6 +167,9 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
     def test_finalize_binds_guarded_closure_without_claiming_dynamic_inventory(self):
         result = MODULE.finalize(*self.fixtures())
         self.assertTrue(result["gates"]["external_transitive_dt_needed_closure_verified"])
+        self.assertTrue(result["gates"]["closure_context_expansion_verified"])
+        self.assertTrue(result["gates"]["closure_cycle_markers_verified"])
+        self.assertEqual(result["context_expansion_counts"]["reachable_contexts"], 2)
         self.assertFalse(result["gates"]["external_transitive_closure_verified"])
         self.assertFalse(result["gates"]["dynamic_load_inventory_complete"])
         self.assertFalse(result["gates"]["runtime_dependency_inventory_complete"])
@@ -166,6 +179,26 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
         direct, closure, guard = self.fixtures()
         closure["roots"].append("stage-internal:tampered")
         with self.assertRaisesRegex(MODULE.ClosureEvidenceError, "raw closure digest"):
+            MODULE.finalize(direct, closure, guard)
+
+    def test_finalize_rejects_rehashed_closure_that_omits_descendant_context(self):
+        direct, closure, guard = self.fixtures()
+        child_id = MODULE.context_id([CHILD_NODE, ROOT_NODE])
+        del closure["contexts"][child_id]
+        closure["counts"]["context_states"] = 1
+        core = MODULE.closure_core(closure)
+        closure["closure_sha256"] = MODULE.canonical_sha256(core)
+        with self.assertRaisesRegex(MODULE.ClosureEvidenceError, "omitted descendant context"):
+            MODULE.finalize(direct, closure, guard)
+
+    def test_finalize_rejects_rehashed_wrong_cycle_marker(self):
+        direct, closure, guard = self.fixtures()
+        root_id = MODULE.context_id([ROOT_NODE])
+        closure["contexts"][root_id]["edges"][0]["cycle"] = True
+        closure["counts"]["cycle_edges"] = 1
+        core = MODULE.closure_core(closure)
+        closure["closure_sha256"] = MODULE.canonical_sha256(core)
+        with self.assertRaisesRegex(MODULE.ClosureEvidenceError, "cycle marker"):
             MODULE.finalize(direct, closure, guard)
 
     def test_finalize_rejects_tampered_guard_with_stale_digest(self):
