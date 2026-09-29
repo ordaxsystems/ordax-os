@@ -19,6 +19,16 @@ def write(path: Path, data: bytes) -> Path:
     return path
 
 
+def prepare_roots(root: Path) -> tuple[Path, Path]:
+    stage = root / "stage"
+    rootfs = root / "rootfs"
+    stage.mkdir()
+    rootfs.mkdir()
+    write(rootfs / "usr/lib/libc.so.6", synthetic_elf64(b"ld-musl-x86_64.so.1"))
+    write(rootfs / "lib/ld-musl-x86_64.so.1", synthetic_elf64(b"libc.so.6"))
+    return stage, rootfs
+
+
 def full_build_proof(stage: Path) -> dict:
     return {
         "$schema": "prototype-ordax.windows-compat-full-build-proof/2",
@@ -40,9 +50,7 @@ def full_build_proof(stage: Path) -> dict:
 class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
     def test_two_reachable_targets_fail_needed_by_and_shortname_invariance(self):
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            stage = root / "stage"
-            rootfs = root / "rootfs"
+            stage, rootfs = prepare_roots(Path(temp))
             write(stage / "usr/bin/wine", synthetic_elf64(runpath=b"/opt/a"))
             write(stage / "usr/bin/helper", synthetic_elf64(runpath=b"/opt/b"))
             write(stage / "opt/a/libexample.so.1", synthetic_elf64(b"libc.so.6"))
@@ -52,9 +60,7 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
 
     def test_aliases_to_one_canonical_target_are_invariant(self):
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            stage = root / "stage"
-            rootfs = root / "rootfs"
+            stage, rootfs = prepare_roots(Path(temp))
             write(stage / "usr/bin/wine", synthetic_elf64(runpath=b"/opt/a"))
             write(stage / "usr/bin/helper", synthetic_elf64(runpath=b"/opt/b"))
             target = write(stage / "opt/a/libexample.so.1", synthetic_elf64(b"libc.so.6"))
@@ -65,15 +71,13 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             self.assertEqual(result["$schema"], MODULE.PROOF_SCHEMA)
             self.assertTrue(result["gates"]["staged_needed_by_chain_invariance_verified"])
             self.assertTrue(result["gates"]["staged_shortname_reuse_invariance_verified"])
-            pair = next(iter(result["needed_targets"].values()))
+            pair = result["needed_targets"]["ELF64:machine=62:little:libexample.so.1"]
             self.assertEqual(pair["target"]["canonical_path"], target.relative_to(stage).as_posix())
             self.assertEqual(len(pair["target"]["candidate_paths"]), 2)
 
     def test_incompatible_reachable_ancestor_path_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            stage = root / "stage"
-            rootfs = root / "rootfs"
+            stage, rootfs = prepare_roots(Path(temp))
             write(stage / "usr/bin/wine", synthetic_elf64(runpath=b"/opt/a"))
             write(stage / "usr/bin/helper", synthetic_elf64(runpath=b"/opt/b"))
             write(stage / "opt/a/libexample.so.1", synthetic_elf64(b"libc.so.6"))
