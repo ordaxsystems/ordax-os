@@ -43,6 +43,26 @@ static void helper(void)
         self.assertEqual(len(direct), 1)
         self.assertEqual(mapped[0]["function_name"], "helper")
 
+    def test_preprocessor_logical_lines_do_not_define_c_structure(self):
+        text = r'''#define CHUNK_BEGIN() \
+    do {                 \
+        do
+#define CHUNK_END         \
+        while (0);        \
+    } while (0)
+
+static void helper(void)
+{
+    dlopen(name, 0);
+}
+'''
+        lexical = MODULE.DYNAMIC.lexical_views(text)[1]
+        structural = MODULE.structural_code_view(lexical)
+        self.assertEqual(len(structural), len(text))
+        self.assertNotIn("do {", structural[: structural.index("static void")])
+        funcs = MODULE.parse_functions("macro.c", text)
+        self.assertEqual([(item["name"], item["static"]) for item in funcs], [("helper", True)])
+
     def test_static_callee_is_translation_unit_scoped(self):
         sources = {
             "a.c": "static void load(void) { dlopen(name, 0); }\nvoid local(void) { load(); }\n",
