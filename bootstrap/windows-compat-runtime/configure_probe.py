@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Prove that the pinned Wine source configures on the pinned OrdaX Alpine substrate.
+"""Prove that pinned Wine source configures on the pinned OrdaX Alpine substrate.
 
 This is a discovery gate. It installs build dependencies only inside a temporary
-Alpine rootfs, runs Wine configure, and records the resolved package/toolchain
-versions. It does not compile, package, install, activate, or execute Wine.
+Alpine rootfs, runs Wine configure, and records exact package/toolchain
+identities. It does not compile, package, install a runtime, activate, or execute
+Wine.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ SOURCE_BUILDER = HERE / "build.py"
 ALPINE_CORE = ROOT / "bootstrap/base/alpine_core.py"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$")
+SAFE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._~:-]{0,255}$")
 MAX_ALPINE_ROOTFS_BYTES = 32 * 1024 * 1024
 
 
@@ -83,7 +85,6 @@ def validate_environment(value: dict) -> dict:
     ):
         raise ConfigureProofError("configure proof Alpine identity diverged from canonical OrdaX base core")
 
-    reference = value.get("packaging_reference")
     expected_reference = {
         "repository": "https://github.com/alpinelinux/aports",
         "commit": "78e9baad1fc91415c7617dc91bd930e21ed068de",
@@ -91,23 +92,23 @@ def validate_environment(value: dict) -> dict:
         "wine_version": "11.0",
         "role": "dependency-and-configure-reference-only",
     }
-    if reference != expected_reference:
+    if value.get("packaging_reference") != expected_reference:
         raise ConfigureProofError("Alpine packaging reference drifted")
 
     base_packages = value.get("base_build_packages")
     wine_packages = value.get("wine_build_packages")
     if not isinstance(base_packages, list) or not isinstance(wine_packages, list):
         raise ConfigureProofError("build package lists are missing")
-    if len(set(base_packages + wine_packages)) != len(base_packages + wine_packages):
+    packages = base_packages + wine_packages
+    if len(set(packages)) != len(packages):
         raise ConfigureProofError("build package lists contain duplicates")
-    for package in base_packages + wine_packages:
+    for package in packages:
         if not isinstance(package, str) or not SAFE_PACKAGE_RE.fullmatch(package):
             raise ConfigureProofError(f"unsafe build package name: {package!r}")
     for required in ("build-base", "i686-mingw-w64-gcc", "mingw-w64-gcc"):
-        if required not in base_packages + wine_packages:
+        if required not in packages:
             raise ConfigureProofError(f"required build package missing: {required}")
 
-    configure = value.get("configure")
     expected_flags = [
         "--with-dbus",
         "--with-mingw",
@@ -117,17 +118,17 @@ def validate_environment(value: dict) -> dict:
         "--enable-win64",
         "--enable-archs=x86_64,i386",
     ]
-    if not isinstance(configure, dict) or configure != {
+    expected_configure = {
         "prefix": "/usr",
         "libdir": "/usr/lib",
         "sysconfdir": "/etc",
         "localstatedir": "/var",
         "flags": expected_flags,
         "opencl_header_compat_edit_required": True,
-    }:
+    }
+    if value.get("configure") != expected_configure:
         raise ConfigureProofError("configure intent drifted")
 
-    proof = value.get("proof")
     expected_proof = {
         "package_versions_pinned": False,
         "configure_proof_passed": False,
@@ -137,7 +138,7 @@ def validate_environment(value: dict) -> dict:
         "activation_authorized": False,
         "execution_authorized": False,
     }
-    if proof != expected_proof:
+    if value.get("proof") != expected_proof:
         raise ConfigureProofError("unproven configure environment claims readiness")
     return value
 
@@ -187,11 +188,7 @@ def download_exact(url: str, destination: Path, expected_sha256: str, max_bytes:
 
 
 def safe_extract_foreign_source(archive: Path, destination: Path, expected_root: str) -> None:
-    """Strict extractor for untrusted foreign source bytes.
-
-    Unlike the canonical Alpine rootfs extractor, this never rewrites archive
-    metadata. Foreign source members must already be safe and rooted correctly.
-    """
+    """Extract untrusted source without normalizing foreign archive metadata."""
     destination.mkdir(parents=True, exist_ok=True)
     try:
         with tarfile.open(archive, "r:xz") as tar:
@@ -207,10 +204,11 @@ def safe_extract_foreign_source(archive: Path, destination: Path, expected_root:
                     raise ConfigureProofError(f"foreign source member outside expected root: {member.name}")
                 if member.isdev() or member.isfifo():
                     raise ConfigureProofError(f"unsupported foreign source archive object: {member.name}")
-                if member.issym() and os.path.isabs(member.linkname):
-                    raise ConfigureProofError(f"absolute foreign source symlink forbidden: {member.name}")
-                if member.islnk() and os.path.isabs(member.linkname):
-                    raise ConfigureProofError(f"absolute foreign source hardlink forbidden: {member.name}")
+                if member.issym() or member.islnk():
+                    link = PurePosixPath(member.linkname)
+                    if link.is_absolute() or ".." in link.parts:
+                        kind = "symlink" if member.issym() else "hardlink"
+                        raise ConfigureProofError(f"unsafe foreign source {kind} forbidden: {member.name}")
                 members.append(member)
             tar.extractall(destination, members=members, filter="data")
     except (tarfile.TarError, OSError) as exc:
@@ -222,10 +220,11 @@ def run(argv: list[str], *, cwd: Path | None = None, capture: bool = False) -> s
         return subprocess.run(argv, cwd=cwd, check=True, text=True, capture_output=capture)
     except (OSError, subprocess.CalledProcessError) as exc:
         command = " ".join(argv)
+        detail = ""
         if isinstance(exc, subprocess.CalledProcessError):
-            detail = (exc.stderr or exc.stdout or "").strip()
-            if detail:
-                detail = f": {detail[-4000:]}"
+            output = (exc.stderr or exc.stdout or "").strip()
+            if output:
+                detail = f": {output[-4000:]}"
         else:
             detail = f": {exc}"
         raise ConfigureProofError(f"command failed: {command}{detail}") from exc
@@ -251,12 +250,47 @@ def shell_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
-def package_version(rootfs: Path, package: str) -> str:
-    completed = proot(rootfs, f"apk info -v {shell_quote(package)}", capture=True)
-    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
-    if not lines:
-        raise ConfigureProofError(f"cannot resolve installed package version: {package}")
-    return lines[0]
+def installed_package_versions(rootfs: Path) -> dict[str, str]:
+    """Read exact installed package identities from apk's canonical local DB."""
+    database = rootfs / "lib/apk/db/installed"
+    try:
+        text = database.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigureProofError(f"cannot read Alpine installed package database: {exc}") from exc
+
+    resolved: dict[str, str] = {}
+    name: str | None = None
+    version: str | None = None
+
+    def finish_record() -> None:
+        nonlocal name, version
+        if name is None and version is None:
+            return
+        if name is None or version is None:
+            raise ConfigureProofError("incomplete package identity in Alpine installed database")
+        if not SAFE_PACKAGE_RE.fullmatch(name) or not SAFE_VERSION_RE.fullmatch(version):
+            raise ConfigureProofError(f"unsafe package identity in Alpine installed database: {name}={version}")
+        if name in resolved:
+            raise ConfigureProofError(f"duplicate installed package identity: {name}")
+        resolved[name] = version
+        name = None
+        version = None
+
+    for line in [*text.splitlines(), ""]:
+        if line == "":
+            finish_record()
+        elif line.startswith("P:"):
+            if name is not None:
+                raise ConfigureProofError("duplicate package name field in Alpine installed database")
+            name = line[2:]
+        elif line.startswith("V:"):
+            if version is not None:
+                raise ConfigureProofError("duplicate package version field in Alpine installed database")
+            version = line[2:]
+
+    if not resolved:
+        raise ConfigureProofError("Alpine installed package database is empty")
+    return resolved
 
 
 def tool_version(rootfs: Path, command: str) -> str:
@@ -283,8 +317,7 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
     except ALPINE.BuildError as exc:
         raise ConfigureProofError(f"canonical Alpine rootfs extraction failed: {exc}") from exc
 
-    repositories = rootfs / "etc/apk/repositories"
-    repositories.write_text(
+    (rootfs / "etc/apk/repositories").write_text(
         "https://dl-cdn.alpinelinux.org/alpine/v3.22/main\n"
         "https://dl-cdn.alpinelinux.org/alpine/v3.22/community\n",
         encoding="utf-8",
@@ -294,19 +327,19 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
         (rootfs / "etc/resolv.conf").write_bytes(host_resolv.read_bytes())
 
     packages = environment["base_build_packages"] + environment["wine_build_packages"]
-    install_command = "apk add --no-cache " + " ".join(shell_quote(package) for package in packages)
-    proot(rootfs, install_command)
+    proot(rootfs, "apk add --no-cache " + " ".join(shell_quote(package) for package in packages))
+
+    installed = installed_package_versions(rootfs)
+    missing = sorted(set(packages) - set(installed))
+    if missing:
+        raise ConfigureProofError(f"requested build packages absent after apk transaction: {', '.join(missing)}")
+    requested_versions = {package: installed[package] for package in packages}
 
     wine_archive = SOURCE.download_exact(source_contract, cache / "wine")
     source_root = rootfs / "build/source"
-    safe_extract_foreign_source(
-        wine_archive,
-        source_root,
-        source_contract["upstream"]["archive_root"],
-    )
+    safe_extract_foreign_source(wine_archive, source_root, source_contract["upstream"]["archive_root"])
     wine_source = "/build/source/" + source_contract["upstream"]["archive_root"]
-    build_dir = rootfs / "build/output"
-    build_dir.mkdir(parents=True, exist_ok=True)
+    (rootfs / "build/output").mkdir(parents=True, exist_ok=True)
 
     triplet = proot(rootfs, "gcc -dumpmachine", capture=True).stdout.strip()
     if not triplet or any(ch.isspace() for ch in triplet):
@@ -336,12 +369,9 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
         "{ rc=$?; tail -n 200 configure.log >&2; exit $rc; }",
     )
 
-    config_header = rootfs / "build/output/include/config.h"
-    makefile = rootfs / "build/output/Makefile"
-    if not config_header.is_file() or not makefile.is_file():
+    if not (rootfs / "build/output/include/config.h").is_file() or not (rootfs / "build/output/Makefile").is_file():
         raise ConfigureProofError("Wine configure did not create expected build outputs")
 
-    package_versions = {package: package_version(rootfs, package) for package in packages}
     return {
         "$schema": "prototype-ordax.windows-compat-configure-proof/1",
         "runtime_id": source_contract["runtime_id"],
@@ -353,7 +383,8 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
             "x86_64_mingw_gcc": tool_version(rootfs, "x86_64-w64-mingw32-gcc"),
             "i686_mingw_gcc": tool_version(rootfs, "i686-w64-mingw32-gcc"),
         },
-        "resolved_build_packages": package_versions,
+        "resolved_build_packages": requested_versions,
+        "resolved_installed_packages": dict(sorted(installed.items())),
         "configure_flags": args[3:],
         "configure_proof_passed": True,
         "package_versions_pinned": False,
