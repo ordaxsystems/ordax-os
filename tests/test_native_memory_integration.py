@@ -20,7 +20,7 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("MEMORY_PATH, FILES_PATH", host)
         self.assertNotIn("Access-Control-Allow-Origin", host)
 
-    def test_native_composition_probes_memory_fail_soft_and_keeps_prompt_injection_explicit(self):
+    def test_native_composition_probes_memory_fail_soft_and_keeps_memory_authorization_in_composition(self):
         composition = COMPOSITION.read_text(encoding="utf-8")
 
         self.assertIn("createNativeMemoryStore", composition)
@@ -30,8 +30,12 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("createMemoryRuntime({ store: memoryStore })", composition)
         self.assertIn("createIntelligenceRuntime({ inferencePort: localAi })", composition)
         self.assertNotIn("createIntelligenceRuntime({ inferencePort: localAi, memory", composition)
+        self.assertIn("createSelectedSpaceMemoryIntelligence", composition)
+        self.assertIn("intelligencePort: consumerIntelligence", composition)
+        self.assertIn("memoryPort: memory", composition)
+        self.assertIn("spaceSelectionPort: spaceSelection", composition)
 
-    def test_native_composition_mounts_user_review_without_automatic_ai_memory(self):
+    def test_native_composition_mounts_user_review_and_selected_space_memory_bridge(self):
         composition = COMPOSITION.read_text(encoding="utf-8")
 
         self.assertIn("createMemoryReviewSession", composition)
@@ -43,6 +47,8 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("memoryReviewSession?.dispose()", composition)
         self.assertNotIn("memoryPort: memory,\n    inferencePort", composition)
         self.assertNotIn("memoryReview,\n      intelligence", composition)
+        self.assertIn("const selectedSpaceIntelligence = memory === null", composition)
+        self.assertIn("intelligence: selectedSpaceIntelligence", composition)
 
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
