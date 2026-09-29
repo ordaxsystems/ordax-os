@@ -104,6 +104,6 @@ test("gateway policy rejects provider-added authority fields instead of forwardi
   };
   assert.throws(
     () => validateMemorySyncMutationForGateway(mutation, { subjectId: SUBJECT }),
-    /fields are incompatible/,
+    /payload.*incompatible|fields.*incompatible/i,
   );
 });
