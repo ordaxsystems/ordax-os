@@ -68,6 +68,14 @@ function validateMemorySyncSnapshot(value, subjectId) {
   return value;
 }
 
+function validateMemoryRestoreAuthorizer(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "function") {
+    throw new TypeError("Account restore Memory authorization must be supplied by trusted composition");
+  }
+  return value;
+}
+
 function phase(id, status, objectIds, reason = null) {
   return Object.freeze({
     id,
@@ -81,8 +89,10 @@ export function buildAccountRestorePlan({
   subjectId,
   snapshotObjects,
   memorySyncSnapshot = null,
+  authorizeMemoryRestore = null,
 } = {}) {
   const subject = requireSubjectId(subjectId);
+  const memoryAuthorizer = validateMemoryRestoreAuthorizer(authorizeMemoryRestore);
   if (!Array.isArray(snapshotObjects) || snapshotObjects.length > MAX_SNAPSHOT_OBJECTS) {
     throw new TypeError("Account restore snapshot object collection is invalid");
   }
@@ -131,6 +141,20 @@ export function buildAccountRestorePlan({
   } else if ((memoryState?.pendingMutationCount ?? 0) > 0) {
     memoryStatus = "blocked";
     memoryReason = "local-memory-pending-intent";
+  } else if (memoryObjectIds.length > 0 && memoryAuthorizer === null) {
+    memoryStatus = "blocked";
+    memoryReason = "memory-restore-authorization-required";
+  } else if (memoryObjectIds.length > 0) {
+    const authorized = memoryAuthorizer(Object.freeze({
+      subjectId: subject,
+      dataClass: "memory",
+      operation: "restore-plan",
+      objectIds: Object.freeze([...memoryObjectIds]),
+    })) === true;
+    if (!authorized) {
+      memoryStatus = "blocked";
+      memoryReason = "memory-restore-authorization-denied";
+    }
   }
 
   const phases = Object.freeze([
