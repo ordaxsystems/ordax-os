@@ -149,6 +149,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - autoridade Native one-shot de consentimento já existe como boundary sem endpoint HTTP: receipt curto, HMAC, TTL, vínculo a digest/revisão/Space/Profile e consumo único; a emissão ainda depende de uma futura UI Native confiável, portanto a Surface não consegue autoemitir consentimento;
 - coordinator Native de apresentação/decisão define requests curtos e one-shot; rejeição é terminal, expiração falha fechado e somente decisão Native aprovada pode pedir à authority que emita receipt;
 - host gráfico Native GTK apresenta o permission diff fora do DOM/WebView e responde approve/reject por Unix socket privado 0600;
+- manifests versionados são a fonte única da composição do Profile; o catálogo de distribuição mantém somente política de entrega e deriva componentes dos manifests validados;
 - o receipt humano não atravessa Surface nem HTTP: o Native control server solicita o diálogo, recebe a decisão, emite o receipt one-shot e o consome internamente antes da mutação;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
