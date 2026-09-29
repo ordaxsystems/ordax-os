@@ -1,0 +1,163 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  APPLICATION_COMPATIBILITY_SCHEMA,
+  defineApplicationCompatibilityRuntime,
+} from "../system/contracts/application-compatibility.mjs";
+import { createApplicationCompatibilityManager } from "../system/services/compatibility/manager.mjs";
+
+function peFixture({ machine = 0x8664, dll = false, optionalMagic = 0x020b } = {}) {
+  const bytes = new Uint8Array(256);
+  bytes[0] = 0x4d;
+  bytes[1] = 0x5a;
+  const peOffset = 0x80;
+  bytes[0x3c] = peOffset;
+  bytes[peOffset] = 0x50;
+  bytes[peOffset + 1] = 0x45;
+  bytes[peOffset + 4] = machine & 0xff;
+  bytes[peOffset + 5] = (machine >> 8) & 0xff;
+  bytes[peOffset + 20] = 0x70;
+  bytes[peOffset + 22] = dll ? 0x02 : 0x00;
+  bytes[peOffset + 23] = dll ? 0x20 : 0x00;
+  bytes[peOffset + 24] = optionalMagic & 0xff;
+  bytes[peOffset + 25] = (optionalMagic >> 8) & 0xff;
+  return bytes;
+}
+
+function msiCandidateFixture() {
+  const bytes = new Uint8Array(64);
+  bytes.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1], 0);
+  return bytes;
+}
+
+function runtime(overrides = {}) {
+  return {
+    id: "windows-wine-test",
+    family: "windows",
+    engine: "wine",
+    version: "1.0.0",
+    architectures: ["x86_64"],
+    source: {
+      identity: "fixture://verified/windows-wine-test",
+      digest: `sha256:${"01".repeat(32)}`,
+    },
+    available: true,
+    executionEnabled: true,
+    sandboxed: true,
+    ...overrides,
+  };
+}
+
+test("Windows PE detection trusts bytes rather than executable-looking extension", () => {
+  const manager = createApplicationCompatibilityManager();
+  const architectures = [
+    [0x014c, 0x010b, "x86"],
+    [0x8664, 0x020b, "x86_64"],
+    [0xaa64, 0x020b, "aarch64"],
+  ];
+
+  for (const [machine, optionalMagic, expected] of architectures) {
+    const inspection = manager.inspect({
+      name: "payload.bin",
+      bytes: peFixture({ machine, optionalMagic }),
+    });
+    assert.equal(inspection.family, "windows");
+    assert.equal(inspection.kind, "windows-pe");
+    assert.equal(inspection.architecture, expected);
+    assert.equal(inspection.role, "executable");
+    assert.equal(inspection.launchable, true);
+  }
+
+  const fakeExe = manager.inspect({ name: "fake.exe", bytes: new Uint8Array([1, 2, 3, 4]) });
+  assert.equal(fakeExe.kind, "unknown");
+  assert.equal(fakeExe.launchable, false);
+});
+
+test("DLLs and malformed PE optional headers are never launchable", () => {
+  const manager = createApplicationCompatibilityManager();
+  const dll = manager.inspect({ name: "library.dll", bytes: peFixture({ dll: true }) });
+  assert.equal(dll.kind, "windows-pe");
+  assert.equal(dll.role, "library");
+  assert.equal(dll.launchable, false);
+
+  const malformed = manager.inspect({
+    name: "broken.exe",
+    bytes: peFixture({ optionalMagic: 0x9999 }),
+  });
+  assert.equal(malformed.kind, "windows-pe");
+  assert.equal(malformed.launchable, false);
+  assert.ok(malformed.evidence.includes("invalid-optional-header"));
+});
+
+test("MSI is only recognized as an installer candidate until a real database verifier exists", () => {
+  const manager = createApplicationCompatibilityManager();
+  const inspection = manager.inspect({ name: "setup.msi", bytes: msiCandidateFixture() });
+  assert.equal(inspection.family, "windows");
+  assert.equal(inspection.kind, "windows-msi");
+  assert.equal(inspection.role, "installer");
+  assert.equal(inspection.launchable, false);
+  assert.ok(inspection.evidence.includes("msi-database-verification-pending"));
+
+  const sameBytesWrongName = manager.inspect({ name: "archive.bin", bytes: msiCandidateFixture() });
+  assert.equal(sameBytesWrongName.kind, "unknown");
+});
+
+test("unknown PE machine fails closed rather than guessing architecture", () => {
+  const manager = createApplicationCompatibilityManager();
+  const inspection = manager.inspect({ name: "future.exe", bytes: peFixture({ machine: 0x1337 }) });
+  assert.equal(inspection.family, "windows");
+  assert.equal(inspection.architecture, "unknown");
+  assert.equal(inspection.launchable, false);
+});
+
+test("manager has no fake Wine provider and exposes no execution or installation authority", () => {
+  const manager = createApplicationCompatibilityManager();
+  assert.equal(manager.schema, APPLICATION_COMPATIBILITY_SCHEMA);
+  assert.deepEqual(manager.listRuntimes(), []);
+  assert.equal("execute" in manager, false);
+  assert.equal("install" in manager, false);
+  assert.equal("spawn" in manager, false);
+
+  const inspection = manager.inspect({ name: "hello.exe", bytes: peFixture() });
+  assert.deepEqual(manager.planLaunch({ inspection }), {
+    schema: "ordax.application-compatibility-plan/1",
+    ready: false,
+    runtimeId: null,
+    reason: "runtime-unavailable",
+  });
+});
+
+test("only an explicit verified runtime descriptor can satisfy launch planning", () => {
+  const manager = createApplicationCompatibilityManager({ runtimes: [runtime()] });
+  const inspection = manager.inspect({ name: "hello.exe", bytes: peFixture() });
+  assert.deepEqual(manager.planLaunch({ inspection }), {
+    schema: "ordax.application-compatibility-plan/1",
+    ready: true,
+    runtimeId: "windows-wine-test",
+    reason: "runtime-available",
+  });
+
+  assert.equal(manager.listRuntimes({ family: "windows" }).length, 1);
+  assert.equal(manager.listRuntimes({ family: "linux" }).length, 0);
+
+  const requestedMissing = manager.planLaunch({ inspection, runtimeId: "windows-other" });
+  assert.equal(requestedMissing.ready, false);
+  assert.equal(requestedMissing.reason, "requested-runtime-unavailable");
+});
+
+test("runtime descriptors reject placeholders, unsandboxed providers and hidden command authority", () => {
+  for (const overrides of [
+    { available: false },
+    { executionEnabled: false },
+    { sandboxed: false },
+    { source: { identity: "fixture://runtime", digest: "sha256:not-a-digest" } },
+  ]) {
+    assert.throws(() => defineApplicationCompatibilityRuntime(runtime(overrides)));
+  }
+
+  assert.throws(
+    () => defineApplicationCompatibilityRuntime({ ...runtime(), command: "wine" }),
+    /fields are incompatible/,
+  );
+});
