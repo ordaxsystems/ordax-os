@@ -2,8 +2,9 @@
 """Prove that the pinned Wine source configures on the pinned OrdaX Alpine substrate.
 
 This is a discovery gate. It installs build dependencies only inside a temporary
-Alpine rootfs, runs Wine configure, and records the resolved package/toolchain
-versions. It does not compile, package, install, activate, or execute Wine.
+Alpine rootfs, runs Wine configure, and records the exact installed APK closure
+plus toolchain versions. It does not compile, package, install, activate, or
+execute Wine.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ SOURCE_BUILDER = HERE / "build.py"
 ALPINE_CORE = ROOT / "bootstrap/base/alpine_core.py"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$")
+SAFE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._~:-]{0,255}$")
 MAX_ALPINE_ROOTFS_BYTES = 32 * 1024 * 1024
 
 
@@ -187,11 +189,7 @@ def download_exact(url: str, destination: Path, expected_sha256: str, max_bytes:
 
 
 def safe_extract_foreign_source(archive: Path, destination: Path, expected_root: str) -> None:
-    """Strict extractor for untrusted foreign source bytes.
-
-    Unlike the canonical Alpine rootfs extractor, this never rewrites archive
-    metadata. Foreign source members must already be safe and rooted correctly.
-    """
+    """Strict extractor for untrusted foreign source bytes."""
     destination.mkdir(parents=True, exist_ok=True)
     try:
         with tarfile.open(archive, "r:xz") as tar:
@@ -251,12 +249,41 @@ def shell_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
-def package_version(rootfs: Path, package: str) -> str:
-    completed = proot(rootfs, f"apk info -v {shell_quote(package)}", capture=True)
-    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
-    if not lines:
-        raise ConfigureProofError(f"cannot resolve installed package version: {package}")
-    return lines[0]
+def installed_package_versions(rootfs: Path) -> dict[str, str]:
+    """Read exact package identities from apk's installed database.
+
+    `apk info -v <name>` is intentionally not used: on Alpine it emits verbose
+    package descriptions, which is not an artifact identity. The installed DB
+    is the local authority for the exact name/version closure materialized in
+    this proof rootfs.
+    """
+    database = rootfs / "lib/apk/db/installed"
+    try:
+        text = database.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigureProofError(f"cannot read installed APK database: {exc}") from exc
+
+    result: dict[str, str] = {}
+    for record in text.split("\n\n"):
+        fields: dict[str, str] = {}
+        for line in record.splitlines():
+            if len(line) >= 3 and line[1] == ":":
+                fields[line[0]] = line[2:]
+        name = fields.get("P")
+        version = fields.get("V")
+        if name is None and version is None:
+            continue
+        if not name or not SAFE_PACKAGE_RE.fullmatch(name):
+            raise ConfigureProofError(f"invalid installed APK package name: {name!r}")
+        if not version or not SAFE_VERSION_RE.fullmatch(version):
+            raise ConfigureProofError(f"invalid installed APK package version for {name}: {version!r}")
+        if name in result:
+            raise ConfigureProofError(f"duplicate installed APK package identity: {name}")
+        result[name] = version
+
+    if not result:
+        raise ConfigureProofError("installed APK package closure is empty")
+    return dict(sorted(result.items()))
 
 
 def tool_version(rootfs: Path, command: str) -> str:
@@ -296,6 +323,12 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
     packages = environment["base_build_packages"] + environment["wine_build_packages"]
     install_command = "apk add --no-cache " + " ".join(shell_quote(package) for package in packages)
     proot(rootfs, install_command)
+
+    installed_closure = installed_package_versions(rootfs)
+    missing_requested = [package for package in packages if package not in installed_closure]
+    if missing_requested:
+        raise ConfigureProofError(f"requested build packages missing from installed closure: {missing_requested}")
+    requested_versions = {package: installed_closure[package] for package in packages}
 
     wine_archive = SOURCE.download_exact(source_contract, cache / "wine")
     source_root = rootfs / "build/source"
@@ -341,7 +374,6 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
     if not config_header.is_file() or not makefile.is_file():
         raise ConfigureProofError("Wine configure did not create expected build outputs")
 
-    package_versions = {package: package_version(rootfs, package) for package in packages}
     return {
         "$schema": "prototype-ordax.windows-compat-configure-proof/1",
         "runtime_id": source_contract["runtime_id"],
@@ -353,7 +385,9 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
             "x86_64_mingw_gcc": tool_version(rootfs, "x86_64-w64-mingw32-gcc"),
             "i686_mingw_gcc": tool_version(rootfs, "i686-w64-mingw32-gcc"),
         },
-        "resolved_build_packages": package_versions,
+        "resolved_build_packages": requested_versions,
+        "resolved_package_closure": installed_closure,
+        "resolved_package_closure_count": len(installed_closure),
         "configure_flags": args[3:],
         "configure_proof_passed": True,
         "package_versions_pinned": False,
