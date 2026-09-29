@@ -1,14 +1,16 @@
 {
   "$schema": "prototype-ordax.windows-compat-runtime-dynamic-load-discovery/1",
   "input": {
-    "full_build_proof_schema": "prototype-ordax.windows-compat-full-build-proof/2",
+    "archive_root": "wine-11.0",
     "source_archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
     "source_extensions": [
       ".c"
     ],
-    "source_lock_schema": "prototype-ordax.windows-compat-runtime-source/1"
+    "source_lock_schema": "prototype-ordax.windows-compat-runtime-source/1",
+    "source_proof_schema": "prototype-ordax.windows-compat-source-proof/1"
   },
   "inspection": {
+    "archive_member_manifest_binding_required": true,
     "comments_and_literals_must_not_create_callsites": true,
     "direct_host_loader_apis": {
       "dlmopen": 1,
@@ -18,8 +20,7 @@
     "dynamic_load_inventory_complete": false,
     "generated_source_inventory_complete": false,
     "literal_target_classification_required": true,
-    "relevant_source_symlink_allowed": false,
-    "source_manifest_binding_required": true,
+    "relevant_source_link_allowed": false,
     "unparseable_direct_call_allowed": false,
     "wrapper_call_graph_complete": false
   },
