@@ -1,0 +1,168 @@
+{
+  "$schema": "prototype-ordax.windows-compat-runtime-computed-loader-source-authority/1",
+  "status": "computed-loader-control-source-semantics-proven-targets-not-resolved",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "input": {
+    "source_archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
+    "source_proof_schema": "prototype-ordax.windows-compat-source-proof/1",
+    "dynamic_source_proof_schema": "prototype-ordax.windows-compat-runtime-dynamic-load-source-proof/1",
+    "computed_classification_proof_schema": "prototype-ordax.windows-compat-runtime-computed-loader-target-classification-proof/1"
+  },
+  "verification": {
+    "exact_locked_source_archive_required": true,
+    "dynamic_source_recomputation_required": true,
+    "computed_classification_recomputation_required": true,
+    "comments_must_not_satisfy_semantic_anchors": true,
+    "each_rule_must_reobserve_exact_direct_dlopen": true,
+    "each_control_source_requires_source_evidence": true,
+    "line_numbers_are_not_authority": true,
+    "runtime_value_resolution_complete": false
+  },
+  "rules": [
+    {
+      "id": "ctapi-caller-library",
+      "path": "dlls/ctapi32/unixlib.c",
+      "expression": "libname",
+      "control_source": "ctapi-attach-caller-argument",
+      "source_semantics": "caller-argument-is-used-directly-as-dlopen-name",
+      "required_code_fragments": [
+        "const char *libname = args;",
+        "dlopen( libname, RTLD_NOW )"
+      ]
+    },
+    {
+      "id": "ntdll-so-name",
+      "path": "dlls/ntdll/unix/loader.c",
+      "expression": "so_name",
+      "control_source": "ntdll-internal-dlopen-dll-callers",
+      "source_semantics": "dlopen-dll-parameter-has-multiple-internal-name-producing-callers",
+      "required_code_fragments": [
+        "static NTSTATUS dlopen_dll( const char *so_name",
+        "handle = dlopen( so_name, RTLD_NOW );",
+        "status = dlopen_dll( unix_name, nt_name, params->module, &info, FALSE );",
+        "status = dlopen_dll( name, attr->ObjectName, module, &info, prefer_native );",
+        "status = dlopen_dll( name, nt_name, module, &pe_info, FALSE );"
+      ]
+    },
+    {
+      "id": "ntdll-builtin-unix-path",
+      "path": "dlls/ntdll/unix/virtual.c",
+      "expression": "builtin->unix_path",
+      "control_source": "ntdll-builtin-module-mapping",
+      "source_semantics": "registered-builtin-unix-path-is-lazily-dlopened",
+      "required_code_fragments": [
+        "if (!builtin->unix_path) builtin->unix_path = strdup( name );",
+        "if (builtin->unix_path && !builtin->unix_handle)",
+        "builtin->unix_handle = dlopen( builtin->unix_path, RTLD_NOW );"
+      ]
+    },
+    {
+      "id": "odbc-driver-manager",
+      "path": "dlls/odbc32/unixlib.c",
+      "expression": "s",
+      "control_source": "LIB_ODBC_DRIVER_MANAGER-or-SONAME_LIBODBC",
+      "source_semantics": "environment-override-precedes-configured-soname-fallback",
+      "required_code_fragments": [
+        "const char *s = getenv( \"LIB_ODBC_DRIVER_MANAGER\" );",
+        "if (!s || !s[0]) s = SONAME_LIBODBC;",
+        "dlopen( s, RTLD_NOW )"
+      ]
+    },
+    {
+      "id": "xslt-extension-plugin",
+      "path": "libs/xslt/libxslt/extensions.c",
+      "expression": "module_filename",
+      "control_source": "libxslt-extension-path-construction",
+      "source_semantics": "plugin-directory-and-uri-derived-name-form-runtime-module-path",
+      "required_code_fragments": [
+        "ext_directory = (xmlChar *) getenv(\"LIBXSLT_PLUGINS_PATH\");",
+        "ext_directory = BAD_CAST LIBXSLT_DEFAULT_PLUGINS_PATH();",
+        "\"%s/%s%s\", ext_directory, ext_name, MODULE_EXTENSION);",
+        "dlopen(module_filename, RTLD_LOCAL | RTLD_NOW);"
+      ]
+    },
+    {
+      "id": "loader-self-ntdll",
+      "path": "loader/main.c",
+      "expression": "path",
+      "control_source": "loader-self-path-layout",
+      "source_semantics": "process-or-argv-loader-directory-determines-ntdll-path",
+      "required_code_fragments": [
+        "if (!(dir = realpath_dirname( argv0 ))) return NULL;",
+        "if ((p = remove_tail( dir, \"/loader\" )))",
+        "path = build_path( p, \"dlls/ntdll/ntdll.so\" );",
+        "path = build_path( dir, \"ntdll.so\" );",
+        "handle = dlopen( path, RTLD_NOW );"
+      ]
+    },
+    {
+      "id": "wine-build-tree-ntdll",
+      "path": "tools/wine/wine.c",
+      "expression": "strmake( \"%s/../../dlls/ntdll/ntdll.so\", bindir )",
+      "control_source": "wine-build-tree-layout",
+      "source_semantics": "build-tree-bindir-candidate-precedes-installed-and-environment-candidates",
+      "required_code_fragments": [
+        "bindir = get_bindir( argv[0] );",
+        "if (bindir && strendswith( bindir, \"/tools/wine\" )",
+        "dlopen( strmake( \"%s/../../dlls/ntdll/ntdll.so\", bindir ), RTLD_NOW )"
+      ]
+    },
+    {
+      "id": "wine-installed-libdir-ntdll",
+      "path": "tools/wine/wine.c",
+      "expression": "strmake( \"%s/wine%s/ntdll.so\", libdir, arch_dir )",
+      "control_source": "wine-installed-libdir-layout",
+      "source_semantics": "installed-libdir-and-target-arch-form-primary-installed-candidate",
+      "required_code_fragments": [
+        "const char *arch_dir = get_arch_dir( get_default_target() );",
+        "libdir = get_libdir( bindir );",
+        "dlopen( strmake( \"%s/wine%s/ntdll.so\", libdir, arch_dir ), RTLD_NOW )"
+      ]
+    },
+    {
+      "id": "wine-winedllpath-arch-ntdll",
+      "path": "tools/wine/wine.c",
+      "expression": "strmake( \"%s%s/ntdll.so\", dir, arch_dir )",
+      "control_source": "WINEDLLPATH-with-arch-suffix",
+      "source_semantics": "each-runtime-winedllpath-entry-is-tried-with-target-arch-suffix",
+      "required_code_fragments": [
+        "dllpath = strarray_frompath( getenv( \"WINEDLLPATH\" ) );",
+        "STRARRAY_FOR_EACH( dir, &dllpath )",
+        "dlopen( strmake( \"%s%s/ntdll.so\", dir, arch_dir ), RTLD_NOW )"
+      ]
+    },
+    {
+      "id": "wine-winedllpath-flat-ntdll",
+      "path": "tools/wine/wine.c",
+      "expression": "strmake( \"%s/ntdll.so\", dir )",
+      "control_source": "WINEDLLPATH-flat",
+      "source_semantics": "each-runtime-winedllpath-entry-is-also-tried-as-flat-ntdll-directory",
+      "required_code_fragments": [
+        "dllpath = strarray_frompath( getenv( \"WINEDLLPATH\" ) );",
+        "STRARRAY_FOR_EACH( dir, &dllpath )",
+        "dlopen( strmake( \"%s/ntdll.so\", dir ), RTLD_NOW )"
+      ]
+    }
+  ],
+  "open_boundaries": {
+    "caller_provided_library_policy_complete": false,
+    "environment_override_resolution_complete": false,
+    "plugin_module_resolution_complete": false,
+    "ntdll_internal_path_resolution_complete": false,
+    "ntdll_bootstrap_path_resolution_complete": false,
+    "runtime_computed_target_resolution_complete": false,
+    "wrapper_call_graph_complete": false,
+    "generated_source_inventory_complete": false,
+    "dynamic_load_inventory_complete": false
+  },
+  "promotion": {
+    "external_transitive_closure_verified": false,
+    "runtime_dependency_inventory_complete": false,
+    "runtime_package_content_hashes_pinned": false,
+    "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false,
+    "wine_executed": false,
+    "windows_payload_executed": false
+  }
+}
