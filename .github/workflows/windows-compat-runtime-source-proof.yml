@@ -125,6 +125,7 @@ jobs:
               'ambiguous_global_symbol_resolution_complete',
               'function_pointer_aliases_complete',
               'macro_expansion_call_graph_complete',
+              'conditional_preprocessor_call_graph_complete',
               'generated_source_inventory_complete',
               'wrapper_call_graph_complete',
               'dynamic_load_inventory_complete',
