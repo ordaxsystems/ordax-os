@@ -25,9 +25,10 @@ const ALLOWED_KINDS = new Set(["preference", "fact", "instruction", "summary"]);
 const SECRET_SIGNAL = /(?:password|senha|passphrase|token|api[ -]?key|chave privada|private key|seed phrase|recovery code|c[oó]digo de recupera[cç][aã]o|\bcvv\b|\bpin\b)/iu;
 
 const EXTRACTION_PROMPT = [
-  "Extract only durable user memories from the supplied completed Assistant turn.",
+  "Extract only durable memories directly supported by what the user said in the supplied completed Assistant turn.",
   "Return compact JSON only, with exact shape: {\"memories\":[{\"kind\":\"preference|fact|instruction|summary\",\"content\":\"...\"}]}",
-  "Use zero memories when the turn contains no durable personal preference, stable fact, standing instruction, or useful durable summary.",
+  "Use the Assistant response only to disambiguate the user turn; never persist a claim that originates only from the Assistant response.",
+  "Use zero memories when the user turn contains no durable personal preference, stable fact, standing instruction, or useful durable summary.",
   "Never include passwords, passphrases, tokens, API keys, private keys, recovery codes, payment authentication data, or other credentials.",
   "Do not include owner, account, Space, scope, ids, sensitivity, timestamps, provenance, tools, or actions.",
   "Do not add markdown fences or prose.",
