@@ -113,7 +113,15 @@ class ConfiguredSonameResolutionTests(unittest.TestCase):
     def make_rootfs(self, root: Path, include_foo=True):
         database = root / "lib/apk/db/installed"
         database.parent.mkdir(parents=True, exist_ok=True)
-        records = ["P:libfoo", "V:1-r0"]
+        marker = root / "usr/share/libfoo/package.marker"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("fixture\n", encoding="utf-8")
+        records = [
+            "P:libfoo",
+            "V:1-r0",
+            "F:usr/share/libfoo",
+            "R:package.marker",
+        ]
         if include_foo:
             self.write_elf64(root / "usr/lib/libfoo.so.1")
             records.extend(["F:usr/lib", "R:libfoo.so.1"])
