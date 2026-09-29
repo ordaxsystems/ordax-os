@@ -335,6 +335,9 @@ class SurfaceUiContractTests(unittest.TestCase):
         web_main = (COMPOSITION / "main.mjs").read_text(encoding="utf-8")
         native_main = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
         localization = SURFACE_LOCALIZATION.read_text(encoding="utf-8")
+        assistant_i18n = (
+            ROOT / "system" / "services" / "i18n" / "catalog" / "assistant.mjs"
+        ).read_text(encoding="utf-8")
 
         self.assertIn('id: "assistant"', assistant)
         self.assertIn('extensionId: "assistant-conversation"', assistant)
@@ -354,8 +357,10 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn('adapters/', controls)
         self.assertNotIn('/__ordax/native/', controls)
         self.assertIn('railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)', shell)
-        self.assertIn('"app.assistant.title": "Assistente"', localization)
-        self.assertIn('"app.assistant.title": "Assistant"', localization)
+        self.assertIn('ASSISTANT_SOURCE_MESSAGES', localization)
+        self.assertIn('ASSISTANT_ENGLISH_MESSAGES', localization)
+        self.assertIn('"app.assistant.title": "Assistente"', assistant_i18n)
+        self.assertIn('"app.assistant.title": "Assistant"', assistant_i18n)
         self.assertIn('componentId: "assistant"', web_main)
         self.assertIn('intelligence: null', web_main)
         self.assertIn('componentId: "assistant"', native_main)
