@@ -25,31 +25,53 @@ Workspace continuity now has a separate portable metadata source. It projects on
 
 ## Account-owned Intelligence Memory foundation
 
-`account-memory-runtime.mjs` is the first source foundation for carrying eligible `ordax.memory/1` domain objects through the existing `ordax.sync-transport/1` protocol. It is deliberately **not promoted or wired into Web/Native composition yet**. The current Supabase gateway/backend still rejects the `memory` data class, and no public Memory sync capability is claimed.
+`account-memory-runtime.mjs` is a source-only foundation for carrying eligible `ordax.memory/1` objects through the existing `ordax.sync-transport/1` protocol. It is deliberately **not promoted or wired into Web/Native composition**. The current gateway still does not advertise `memory`, and no public Memory sync capability is claimed.
 
-The boundary is intentionally narrower than the Memory store:
+Memory cloud semantics are additionally constrained by `docs/contracts/cloud-memory-sync-boundary.json`. The local Memory domain/storage remains the semantic source of truth; sync objects are transport mirrors only and cannot redefine Memory ownership, scope, provenance, sensitivity, retention or authority.
 
-- the local Memory store remains the source of Memory semantics; the sync layer never serializes the whole store/snapshot as cloud state;
+The v1 boundary is intentionally narrower than the Memory store:
+
 - `ownerKind=device` never enters account sync;
-- only account-owned `account`, `space` and `project` scopes are eligible in v1;
-- `device` and `session` scopes remain local, and `restricted` sensitivity is fail-closed until a separate policy explicitly promotes it;
-- the payload embeds a validated `ordax.memory/1` item under `ordax.memory-sync-payload/1`; unknown provider fields cannot redefine owner, scope, provenance, sensitivity or authority;
-- stable sync object identity is derived from the Memory ID inside the already account-scoped transport namespace;
-- delete/forget is an explicit tombstone carrying only Memory identity, not deleted content;
-- server revisions are conflict authority; wall clocks are not;
-- concurrent/divergent state becomes an explicit pending conflict and is not silently rebased or resolved by global last-write-wins;
-- transport failure leaves local Memory intact and keeps the mutation pending for retry;
-- bounded remote-batch application accepts objects supplied by canonical account reconciliation and applies authorized Memory through `ordax.memory/1` plus its durability barrier.
+- only account-owned `account` and `space` scopes are eligible;
+- `project`, `device` and `session` scopes remain local;
+- `restricted` sensitivity remains local/fail-closed;
+- stable sync identity is exactly the canonical `memory_id`; the existing `(account, data_class, stable_object_id)` transport namespace means no encoded second Memory identity is created;
+- the payload embeds a validated `ordax.memory/1` item under `ordax.memory-sync-payload/1`;
+- unknown provider fields cannot redefine Memory semantics or authority;
+- delete/forget uses an identity-only tombstone and does not carry deleted Memory content;
+- server revisions are conflict authority; client wall clocks are not;
+- transport failure leaves local Memory intact and keeps the pending mutation for retry.
 
-The Memory handler deliberately does **not** own `snapshot()`, `pullChanges()`, the account cursor or a transport lifecycle. `system/services/sync/account-runtime.mjs` remains the sole account reconciliation orchestrator. A future live integration may feed Memory objects from that existing snapshot/change stream only after the remaining backend and composition promotion gates are satisfied, preserving one synchronization system.
+The Memory handler does **not** own `snapshot()`, `pullChanges()`, the account cursor or transport lifecycle. `system/services/sync/account-runtime.mjs` remains the sole account reconciliation orchestrator, so Memory cannot become a second synchronization loop.
 
-Memory sync coordination now has a versioned local state envelope, `ordax.memory-sync-state/1`, persisted only through the existing `ordax.sync-state-store/1` boundary supplied by composition. The envelope is subject-bound and contains only validated Memory sync mutations plus the server revisions and conflict quarantine needed to resume safely. It does not own a second cursor, transport, provider or backend. Pending idempotency keys survive runtime recreation when the supplied state store is durable; accepted revisions remain the next mutation base; tombstones survive without deleted Memory content; and a quarantined conflict remains quarantined instead of turning into an implicit retry after restart. If the store rejects persistence, the in-process pending intent is preserved and the runtime reports session persistence rather than pretending durability.
+Memory sync coordination uses the existing `ordax.sync-state-store/1` boundary and a subject-bound `ordax.memory-sync-state/1` envelope. It persists only revisions, pending validated mutations and conflict quarantine needed for safe retry. Pending idempotency identity survives durable runtime recreation; accepted revisions remain the next mutation base; tombstones survive without deleted content; and invalid/corrupt persisted coordination blocks replay instead of silently resetting to revision zero.
 
-The persisted coordination envelope is revalidated on recovery. A payload for another account subject is ignored, malformed state is not replayed, and secret-bearing Memory mutations fail the same canonical Memory/never-sync checks used before transport. Session/bearer tokens and device-private credentials are not part of this state schema.
+The shared state registry (`state-store-registry.mjs`) multiplexes logical sync namespaces over the existing bounded physical store. Account-specific Memory coordination uses bounded subject partitions, so one account cannot overwrite another account's queue while Appearance and other sync coordination continue sharing the canonical store.
 
-Every upload/restore operation requires an explicit authorization policy supplied by trusted composition. This foundation does not grant tools, action authority, model egress or a new entitlement. Synchronized Memory is classified as **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization or community-data authorization.
+`account-memory-session-runtime.mjs` binds the Memory runtime to live identity. Signed-out identity has no account Memory sync runtime; account switch creates/reuses the new subject partition instead of mutating one runtime to impersonate another account; switching back recovers that account's durable coordination.
 
-This is still a source foundation, not product activation. Web/Native composition does not yet instantiate the Memory sync runtime or provide a dedicated live state-store instance for it, the provider/backend still rejects `memory`, final domain conflict-resolution UX is absent, and two-client/reinstall proof has not been executed.
+### Conflict boundary
+
+Memory does not use the automatic rebase policy used by Appearance/preferences/workspace metadata. A concurrent/divergent Memory object is quarantined and blocks canonical account cursor advancement until the domain conflict is explicitly resolved.
+
+`memory-conflict-resolution.mjs` defines the source-only `ordax.memory-conflict-resolution/1` primitive with exactly two explicit decisions:
+
+- `preserve-local-intent` creates a new validated mutation based on the authoritative server revision with a new idempotency key;
+- `accept-authoritative-remote` discards the pending local intent but does not apply provider state directly; it requires canonical remote reconciliation.
+
+Both decisions are manual, `automatic=false`, and neither introduces global last-write-wins.
+
+### Restore foundation
+
+`account-restore-plan.mjs` defines `ordax.account-restore-plan/1` for ordering a future reinstall/account restore without claiming that reinstall restore is implemented. Portable state comes before eligible Memory, derived indexes/caches are rebuilt locally, and health verification comes last. Memory restore is blocked when coordination recovery, pending local intent or unresolved conflict makes remote application unsafe. Never-sync classes abort planning; unpromoted metadata classes remain explicitly deferred rather than guessed.
+
+### Backend enforcement foundation
+
+The source-prepared backend guard extends the existing canonical account mutation RPC; it does not create a Memory RPC or second backend. The server revalidates account ownership, `account`/`space` eligibility, `normal`/`private` sensitivity, canonical `stable_object_id == memory_id`, never-sync material and identity-only tombstones. Its migration remains source-prepared/not applied and gateway live wiring remains disabled.
+
+Every upload/restore operation still requires explicit authorization supplied by trusted composition. Synchronized Memory is **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization, community-data authorization, model egress, tools or actions.
+
+This remains a source foundation. Live Web/Native Memory wiring, provider promotion, final user-facing conflict review, two-client proof and reinstall proof are still required before promotion.
 
 Core rules remain:
 
