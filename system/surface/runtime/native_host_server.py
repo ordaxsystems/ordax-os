@@ -81,6 +81,7 @@ ACCOUNT_REGISTER_PATH = "/auth/register"
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
 ACCOUNT_EXPORT_PATH = "/account/export"
 ACCOUNT_SPACES_PATH = "/account/spaces"
+ACCOUNT_ENTITLEMENT_PATH = "/account/entitlement"
 ACCOUNT_SYNC_OBJECTS_PATH = "/sync/objects"
 ACCOUNT_SYNC_SNAPSHOT_PATH = "/sync/snapshot"
 ACCOUNT_SYNC_CHANGES_PATH = "/sync/changes"
@@ -3402,7 +3403,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if not self._request_is_trusted():
             return
         parsed_path = urlsplit(self.path).path
-        if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
+        if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
             if self.client_address[0] != "127.0.0.1":
                 self._empty(403)
                 return
@@ -3424,6 +3425,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     reply = self.server.account_gateway.account_export()
                 elif parsed_path == ACCOUNT_SPACES_PATH:
                     reply = self.server.account_gateway.spaces()
+                elif parsed_path == ACCOUNT_ENTITLEMENT_PATH:
+                    query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                    keys = query.get("key", [])
+                    if keys != ["memory.cloud.enabled"]:
+                        self._empty(400)
+                        return
+                    reply = self.server.account_gateway.entitlement(keys[0])
                 elif parsed_path == ACCOUNT_SYNC_SNAPSHOT_PATH:
                     reply = self.server.account_gateway.sync_snapshot(urlsplit(self.path).query)
                 elif parsed_path == ACCOUNT_SYNC_CHANGES_PATH:
