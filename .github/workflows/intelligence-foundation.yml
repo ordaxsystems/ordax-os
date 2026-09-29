@@ -29,6 +29,7 @@ on:
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
+      - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
       - 'system/surface/ui/memory-review-controls.mjs'
       - 'system/surface/ui/account-overview-controls.mjs'
@@ -63,6 +64,7 @@ on:
       - 'tests/test_memory_runtime.mjs'
       - 'tests/test_memory_context.mjs'
       - 'tests/test_memory_capture.mjs'
+      - 'tests/test_memory_auto_capture_preference.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_memory_owners.mjs'
       - 'tests/test_memory_review_session.mjs'
@@ -150,6 +152,7 @@ on:
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
+      - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
       - 'system/surface/ui/memory-review-controls.mjs'
       - 'system/surface/ui/account-overview-controls.mjs'
@@ -184,6 +187,7 @@ on:
       - 'tests/test_memory_runtime.mjs'
       - 'tests/test_memory_context.mjs'
       - 'tests/test_memory_capture.mjs'
+      - 'tests/test_memory_auto_capture_preference.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_memory_owners.mjs'
       - 'tests/test_memory_review_session.mjs'
@@ -271,6 +275,7 @@ jobs:
           node --check system/contracts/memory-store.mjs
           node --check system/contracts/memory-context.mjs
           node --check system/contracts/memory-capture.mjs
+          node --check system/services/preferences/memory.mjs
           node --check system/contracts/model-router.mjs
           node --check system/contracts/intelligence-artifact.mjs
           node --check system/contracts/intelligence-tool.mjs
@@ -341,6 +346,7 @@ jobs:
           node --test tests/test_memory_runtime.mjs
           node --test tests/test_memory_context.mjs
           node --test tests/test_memory_capture.mjs
+          node --test tests/test_memory_auto_capture_preference.mjs
           node --test tests/test_memory_review.mjs
           node --test tests/test_memory_owners.mjs
           node --test tests/test_memory_review_session.mjs
