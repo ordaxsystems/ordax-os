@@ -6,6 +6,7 @@ on:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_runtime_source.py'
       - 'tests/test_windows_compat_runtime_dynamic_load_source.py'
+      - 'tests/test_windows_compat_runtime_generated_source_producers.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -16,6 +17,7 @@ on:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_runtime_source.py'
       - 'tests/test_windows_compat_runtime_dynamic_load_source.py'
+      - 'tests/test_windows_compat_runtime_generated_source_producers.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -38,19 +40,21 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Validate source and dynamic-load discovery contracts
+      - name: Validate source, dynamic-load, and generated-source producer contracts
         run: |
           set -euo pipefail
           python bootstrap/windows-compat-runtime/build.py check
           python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_generated_source_producer_probe.py check
 
       - name: Run fail-closed regressions
         run: |
           set -euo pipefail
           python -m unittest tests.test_windows_compat_runtime_source -v
           python -m unittest tests.test_windows_compat_runtime_dynamic_load_source -v
+          python -m unittest tests.test_windows_compat_runtime_generated_source_producers -v
 
-      - name: Fetch exact Wine source and inventory direct host loader sites
+      - name: Fetch exact Wine source, inventory direct loader sites, and prove generated C producer classes
         run: |
           set -euo pipefail
           tmp="$(mktemp -d)"
@@ -65,9 +69,13 @@ jobs:
             --archive "$tmp/cache/wine-11.0.tar.xz" \
             --source-proof "$proof_dir/source-proof.json" \
             --out "$proof_dir/runtime-dynamic-load-source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_generated_source_producer_probe.py prove \
+            --source-archive "$tmp/cache/wine-11.0.tar.xz" \
+            --out "$proof_dir/runtime-generated-source-producer-proof.json"
           python - <<'PY' \
             "$proof_dir/source-proof.json" \
-            "$proof_dir/runtime-dynamic-load-source-proof.json"
+            "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            "$proof_dir/runtime-generated-source-producer-proof.json"
           import json
           import pathlib
           import re
@@ -75,6 +83,7 @@ jobs:
 
           source = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
           dynamic = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
+          generated = json.loads(pathlib.Path(sys.argv[3]).read_text(encoding='utf-8'))
           assert source['$schema'] == 'prototype-ordax.windows-compat-source-proof/1'
           assert source['build_performed'] is False
           assert source['activation_authorized'] is False
@@ -83,55 +92,56 @@ jobs:
           assert dynamic['$schema'] == 'prototype-ordax.windows-compat-runtime-dynamic-load-source-proof/1'
           assert dynamic['runtime_id'] == source['runtime_id']
           assert dynamic['source_archive_sha256'] == source['archive_sha256']
-          assert re.fullmatch(r'[0-9a-f]{64}', dynamic['source_proof_sha256'])
-          assert re.fullmatch(r'[0-9a-f]{64}', dynamic['c_archive_manifest_sha256'])
-          assert re.fullmatch(r'[0-9a-f]{64}', dynamic['inventory_sha256'])
           counts = dynamic['counts']
-          assert counts['c_archive_members_scanned'] > 0
-          assert counts['c_source_bytes'] > 0
-          assert counts['direct_loader_calls'] > 0
-          assert counts['direct_loader_calls'] == sum(counts['calls_by_api'].values())
-          assert counts['direct_loader_calls'] == (
-              counts['static_string_targets']
-              + counts['configured_soname_symbol_targets']
-              + counts['dynamic_expression_targets']
-              + counts['null_targets']
-          )
-          assert counts['configured_soname_symbol_targets'] == sum(counts['configured_soname_symbols'].values())
-          gates = dynamic['gates']
-          assert gates['source_lock_verified'] is True
-          assert gates['source_proof_verified'] is True
-          assert gates['c_archive_manifest_bound'] is True
-          assert gates['direct_host_loader_calls_inventoried'] is True
-          assert gates['configured_soname_symbols_classified'] is True
-          assert gates['configured_soname_values_resolved'] is False
-          assert gates['wrapper_call_graph_complete'] is False
-          assert gates['generated_source_inventory_complete'] is False
-          assert gates['dynamic_load_inventory_complete'] is False
-          assert gates['external_transitive_closure_verified'] is False
-          assert gates['runtime_dependency_inventory_complete'] is False
-          assert gates['runtime_package_content_hashes_pinned'] is False
-          assert gates['binary_artifact_pinned'] is False
-          assert gates['activation_authorized'] is False
-          assert gates['execution_authorized'] is False
-          assert gates['wine_executed'] is False
-          assert gates['windows_payload_executed'] is False
+          assert counts['direct_loader_calls'] == 48
+          assert counts['configured_soname_symbol_targets'] == 32
+          assert counts['dynamic_expression_targets'] == 10
+          assert counts['static_string_targets'] == 6
+
+          assert generated['$schema'] == 'prototype-ordax.windows-compat-runtime-generated-source-producer-proof/1'
+          assert generated['runtime_id'] == source['runtime_id']
+          assert generated['source_archive_sha256'] == source['archive_sha256']
+          assert generated['makedep_path'] == 'tools/makedep.c'
+          assert re.fullmatch(r'[0-9a-f]{64}', generated['makedep_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', generated['evidence_sha256'])
+          assert generated['counts'] == {'producer_rules': 9}
+          assert len(generated['producer_rules']) == 9
+          assert len({item['id'] for item in generated['producer_rules']}) == 9
+          gates = generated['gates']
+          for gate in (
+              'source_archive_verified',
+              'makedep_source_bound',
+              'generated_c_producer_classes_classified',
+              'all_producer_rules_observed',
+          ):
+              assert gates[gate] is True, gate
+          for gate in (
+              'generated_source_instances_inventoried',
+              'generated_source_outputs_scanned',
+              'generated_source_inventory_complete',
+              'wrapper_call_graph_complete',
+              'dynamic_load_inventory_complete',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert gates[gate] is False, gate
           print('Wine source proof:', source['archive_sha256'])
-          print('C source members:', counts['c_archive_members_scanned'])
           print('direct loader calls:', counts['direct_loader_calls'])
-          print('calls by API:', counts['calls_by_api'])
-          print('static string targets:', counts['static_string_targets'])
-          print('configured SONAME targets:', counts['configured_soname_symbol_targets'])
-          print('configured SONAME symbols:', counts['configured_soname_symbols'])
-          print('runtime-computed targets:', counts['dynamic_expression_targets'])
-          print('dynamic-load inventory:', dynamic['inventory_sha256'])
+          print('generated C producer rules:', generated['counts']['producer_rules'])
+          print('generated producer evidence:', generated['evidence_sha256'])
           PY
 
-      - name: Upload source and direct dynamic-load metadata only
+      - name: Upload source, direct dynamic-load, and generated-producer metadata only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: windows-compat-runtime-source-proof-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ runner.temp }}/windows-compat-runtime-source-proof/source-proof.json
             ${{ runner.temp }}/windows-compat-runtime-source-proof/runtime-dynamic-load-source-proof.json
+            ${{ runner.temp }}/windows-compat-runtime-source-proof/runtime-generated-source-producer-proof.json
           if-no-files-found: error
