@@ -372,12 +372,14 @@ function validatePersistedConflict(value) {
   });
 }
 
-function emptyRecoveredState() {
+function emptyRecoveredState({ recoveryBlocked = false, recoveryBlockReason = null } = {}) {
   return {
     revisions: new Map(),
     pending: new Map(),
     conflicts: new Map(),
     recovered: false,
+    recoveryBlocked,
+    recoveryBlockReason,
   };
 }
 
@@ -387,7 +389,7 @@ function recoverPersistedState(store, subject) {
   try {
     payload = store.load();
   } catch {
-    return emptyRecoveredState();
+    return emptyRecoveredState({ recoveryBlocked: true, recoveryBlockReason: "state-load-failed" });
   }
   if (payload === null) return emptyRecoveredState();
 
@@ -444,9 +446,16 @@ function recoverPersistedState(store, subject) {
       conflicts.set(conflict.objectId, conflict);
     }
 
-    return { revisions, pending, conflicts, recovered: true };
+    return {
+      revisions,
+      pending,
+      conflicts,
+      recovered: true,
+      recoveryBlocked: false,
+      recoveryBlockReason: null,
+    };
   } catch {
-    return emptyRecoveredState();
+    return emptyRecoveredState({ recoveryBlocked: true, recoveryBlockReason: "invalid-persisted-state" });
   }
 }
 
@@ -484,10 +493,11 @@ export function createAccountMemorySyncRuntime({
   const fingerprints = new Map();
   const pending = recovered.pending;
   const conflicts = recovered.conflicts;
+  const recoveryBlocked = recovered.recoveryBlocked;
   let queuePersistence = stateStore?.scope ?? "session";
 
   const persistCoordinationState = () => {
-    if (!stateStore) return false;
+    if (!stateStore || recoveryBlocked) return false;
     try {
       const saved = stateStore.save(serializePersistedState(subject, revisions, pending, conflicts));
       if (saved === false) queuePersistence = "session";
@@ -505,11 +515,18 @@ export function createAccountMemorySyncRuntime({
     ...descriptor,
   })) === true;
 
+  const recoveryBlockResult = (objectId = null) => Object.freeze({
+    status: "blocked",
+    reason: "coordination-recovery-required",
+    objectId,
+  });
+
   const stageUpsert = (value) => {
     const classification = classifyMemoryForAccountSync(value, { subjectId: subject });
     if (!classification.eligible) {
       return Object.freeze({ status: "local-only", reason: classification.reason, item: classification.item, objectId: null });
     }
+    if (recoveryBlocked) return recoveryBlockResult(classification.objectId);
     if (!isAuthorized({ operation: "upsert", item: classification.item })) {
       return Object.freeze({ status: "blocked", reason: "authorization-required", objectId: classification.objectId });
     }
@@ -538,6 +555,7 @@ export function createAccountMemorySyncRuntime({
     if (objectId === null) {
       return Object.freeze({ status: "local-only", reason: "memory-id-not-portable-v1", objectId: null });
     }
+    if (recoveryBlocked) return recoveryBlockResult(objectId);
     if (!isAuthorized({ operation: "delete", memoryIdentity: request })) {
       return Object.freeze({ status: "blocked", reason: "authorization-required", objectId });
     }
@@ -561,6 +579,7 @@ export function createAccountMemorySyncRuntime({
     if (!value || typeof value !== "object" || value.dataClass !== MEMORY_SYNC_DATA_CLASS) {
       return Object.freeze({ status: "ignored", reason: "other-data-class", objectId: null });
     }
+    if (recoveryBlocked) return recoveryBlockResult(value.objectId ?? null);
     const object = validateMemorySyncObject(value, { subjectId: subject });
     const objectId = object.objectId;
     const operation = object.tombstone ? "restore-delete" : "restore-upsert";
@@ -643,6 +662,9 @@ export function createAccountMemorySyncRuntime({
 
   const flush = async (transport) => {
     const remote = assertSyncTransportPort(transport);
+    if (recoveryBlocked) {
+      return Object.freeze({ ...getSnapshot(), accepted: 0, failures: 0 });
+    }
     let accepted = 0;
     let failures = 0;
     for (const [objectId, mutation] of [...pending]) {
@@ -708,6 +730,8 @@ export function createAccountMemorySyncRuntime({
     revisionCount: revisions.size,
     queuePersistence,
     recoveredCoordinationState: recovered.recovered,
+    recoveryBlocked,
+    recoveryBlockReason: recovered.recoveryBlockReason,
     coordinationStateSchema: MEMORY_SYNC_STATE_SCHEMA,
     reconciliationOwnership: "account-runtime",
     ownsCursor: false,
