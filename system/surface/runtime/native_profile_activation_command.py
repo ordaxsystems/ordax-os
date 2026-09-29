@@ -11,6 +11,7 @@ from pathlib import Path
 from native_profile_activation_state import (
     PROFILE_ACTIVATION_STATE_FILE,
     PROFILE_ACTIVATION_LOCK_FILE,
+    DEFAULT_RECEIPT_ROOT,
     activate_profile,
     deactivate_profile,
     read_profile_activation_state,
@@ -208,6 +209,7 @@ def execute_profile_activation_command(
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
+    receipt_root: str = DEFAULT_RECEIPT_ROOT,
     human_consent_authority=None,
     human_consent_resolver=None,
 ) -> dict:
@@ -296,6 +298,7 @@ def execute_profile_activation_command(
             expected_revision=expected_revision,
             state_path=state_path,
             inventory_path=inventory_path,
+            receipt_root=receipt_root,
             lock_path=lock_path,
         )
     elif action in {"deactivate", "rollback"}:
@@ -321,6 +324,7 @@ def execute_profile_activation_command(
                 expected_revision=expected_revision,
                 state_path=state_path,
                 inventory_path=inventory_path,
+                receipt_root=receipt_root,
                 lock_path=lock_path,
             )
     else:
