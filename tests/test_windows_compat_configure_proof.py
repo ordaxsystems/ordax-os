@@ -68,7 +68,22 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
                 link.type = tarfile.SYMTYPE
                 link.linkname = "/etc/passwd"
                 tar.addfile(link)
-            with self.assertRaisesRegex(probe.ConfigureProofError, "absolute foreign source symlink forbidden"):
+            with self.assertRaisesRegex(probe.ConfigureProofError, "unsafe foreign source symlink forbidden"):
+                probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
+
+    def test_foreign_source_extractor_rejects_parent_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "foreign.tar.xz"
+            destination = Path(tmp) / "out"
+            with tarfile.open(archive, "w:xz") as tar:
+                root = tarfile.TarInfo("wine-11.0")
+                root.type = tarfile.DIRTYPE
+                tar.addfile(root)
+                link = tarfile.TarInfo("wine-11.0/bad-link")
+                link.type = tarfile.SYMTYPE
+                link.linkname = "../../etc/passwd"
+                tar.addfile(link)
+            with self.assertRaisesRegex(probe.ConfigureProofError, "unsafe foreign source symlink forbidden"):
                 probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
 
     def test_foreign_source_extractor_accepts_bounded_regular_member(self):
@@ -85,6 +100,42 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
                 tar.addfile(member, io.BytesIO(payload))
             probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
             self.assertEqual((destination / "wine-11.0/VERSION").read_bytes(), payload)
+
+    def test_installed_package_versions_reads_exact_apk_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            database = rootfs / "lib/apk/db/installed"
+            database.parent.mkdir(parents=True)
+            database.write_text(
+                "C:Q1example\nP:gcc\nV:14.2.0-r6\nA:x86_64\n\n"
+                "C:Q1example2\nP:mingw-w64-gcc\nV:14.2.0-r1\nA:x86_64\n\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                probe.installed_package_versions(rootfs),
+                {"gcc": "14.2.0-r6", "mingw-w64-gcc": "14.2.0-r1"},
+            )
+
+    def test_installed_package_versions_rejects_duplicate_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            database = rootfs / "lib/apk/db/installed"
+            database.parent.mkdir(parents=True)
+            database.write_text(
+                "P:gcc\nV:14.2.0-r6\n\nP:gcc\nV:14.2.0-r7\n\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(probe.ConfigureProofError, "duplicate installed package identity"):
+                probe.installed_package_versions(rootfs)
+
+    def test_installed_package_versions_rejects_incomplete_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            database = rootfs / "lib/apk/db/installed"
+            database.parent.mkdir(parents=True)
+            database.write_text("P:gcc\n\n", encoding="utf-8")
+            with self.assertRaisesRegex(probe.ConfigureProofError, "incomplete package identity"):
+                probe.installed_package_versions(rootfs)
 
 
 if __name__ == "__main__":
