@@ -242,17 +242,33 @@ export function createAccountSyncRuntime({
     return snapshot;
   };
 
+  const requireMemoryReconciliationSettled = (subjectId) => {
+    if (!memoryRuntime) return null;
+    const snapshot = requireMemorySubject(subjectId);
+    if (!Number.isSafeInteger(snapshot.conflictCount) || snapshot.conflictCount < 0) {
+      throw new TypeError("Account sync Memory conflict state is incompatible");
+    }
+    if (snapshot.conflictCount > 0) {
+      throw new Error("Account sync Memory reconciliation remains unresolved");
+    }
+    return snapshot;
+  };
+
   const reconcileMemoryObjects = async (objects, subjectId) => {
     if (!memoryRuntime) return null;
     requireMemorySubject(subjectId);
     const memoryObjects = objects.filter(
       (object) => object && typeof object === "object" && object.dataClass === MEMORY_SYNC_DATA_CLASS,
     );
-    if (memoryObjects.length === 0) return Object.freeze({ applied: 0, ignored: 0, rejected: 0, blocked: 0 });
+    if (memoryObjects.length === 0) {
+      requireMemoryReconciliationSettled(subjectId);
+      return Object.freeze({ applied: 0, ignored: 0, rejected: 0, blocked: 0 });
+    }
     const result = await memoryRuntime.applyRemoteBatch(memoryObjects);
     if (result.rejected > 0 || result.blocked > 0) {
       throw new Error("Account sync Memory reconciliation did not safely consume the remote batch");
     }
+    requireMemoryReconciliationSettled(subjectId);
     return result;
   };
 
