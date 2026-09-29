@@ -138,9 +138,9 @@ jobs:
           print('staged manifest:', staging['canonical_manifest_sha256'])
           PY
 
-          # Reuse the exact archive already downloaded by the full build. Recompute
-          # source callsites and caller-module evidence before binding source
-          # UNIXLIB identities to the actual staged ELF bytes.
+          # Reuse the exact archive and generated config.h from the same full
+          # build. Recompute source callsites/caller-module evidence, then bind
+          # only configure-enabled caller modules to staged ELF bytes.
           python bootstrap/windows-compat-runtime/build.py fetch-source \
             --cache-dir "$work/wine-source-cache" \
             --proof-out "$proof_dir/source-proof.json"
@@ -156,6 +156,7 @@ jobs:
             --source-archive "$work/wine-source-cache/wine-11.0.tar.xz" \
             --caller-module-proof "$proof_dir/runtime-configured-soname-caller-module-proof.json" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
+            --config-h "$work/container-build/wine-output/include/config.h" \
             --stage-dir "$work/container-build/stage" \
             --out "$proof_dir/runtime-configured-soname-staged-caller-proof.json"
           python - <<'PY' \
@@ -168,22 +169,35 @@ jobs:
           import sys
           full, callers, staged = [json.loads(pathlib.Path(p).read_text(encoding='utf-8')) for p in sys.argv[1:]]
           assert staged['$schema'] == 'prototype-ordax.windows-compat-runtime-configured-soname-staged-caller-proof/1'
+          assert staged['status'] == 'configured-soname-enabled-caller-staged-elf-identities-verified-not-loader-context-complete'
           assert staged['runtime_id'] == callers['runtime_id'] == full['runtime_id']
           assert staged['source_archive_sha256'] == full['source_archive_sha256']
           assert staged['caller_module_evidence_sha256'] == callers['evidence_sha256']
           assert staged['staging_manifest_sha256'] == full['staging']['canonical_manifest_sha256']
           assert staged['expected_elf'] == {'class': 64, 'machine': 62, 'endianness': 'little'}
+          assert re.fullmatch(r'[0-9a-f]{64}', staged['config_h_sha256'])
           assert re.fullmatch(r'[0-9a-f]{64}', staged['evidence_sha256'])
           counts = staged['counts']
           assert counts['caller_modules'] == 15
-          assert counts['selected_staged_elfs'] == 15
-          assert counts['same_basename_candidates_inspected'] >= 15
+          assert counts['defined_callsites'] == 30
+          assert counts['disabled_callsites'] == 2
+          assert counts['staged_caller_modules'] == 13
+          assert counts['disabled_only_modules'] == 2
+          assert counts['selected_staged_elfs'] == 13
+          assert counts['same_basename_candidates_inspected'] >= 13
           assert len(staged['modules']) == 15
-          assert len({item['selected']['path'] for item in staged['modules']}) == 15
+          enabled = [item for item in staged['modules'] if item['configured']['staged_elf_required']]
+          disabled = [item for item in staged['modules'] if not item['configured']['staged_elf_required']]
+          assert len(enabled) == 13
+          assert len(disabled) == 2
+          assert len({item['selected']['path'] for item in enabled}) == 13
+          assert all(item['selected'] is None for item in disabled)
+          assert all(item['resolution'] == 'disabled-only-no-staged-elf-required' for item in disabled)
           gates = staged['gates']
           for gate in (
               'caller_module_evidence_verified',
               'full_build_proof_verified',
+              'configured_symbol_states_verified',
               'staging_manifest_recomputed',
               'caller_unixlib_source_identity_verified',
               'caller_binary_staged_identity_verified',
@@ -208,7 +222,8 @@ jobs:
           ):
               assert gates[gate] is False, gate
           print('Configured SONAME staged caller identities: PASS')
-          print('caller modules:', counts['caller_modules'])
+          print('configured callsites defined/disabled:', counts['defined_callsites'], counts['disabled_callsites'])
+          print('caller modules staged/disabled-only:', counts['staged_caller_modules'], counts['disabled_only_modules'])
           print('selected staged ELFs:', counts['selected_staged_elfs'])
           print('same-basename candidates inspected:', counts['same_basename_candidates_inspected'])
           print('staged caller evidence:', staged['evidence_sha256'])
