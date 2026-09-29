@@ -73,8 +73,10 @@ jobs:
           assert data["client_b_entitlement_preexisted"] is True
           assert data["client_b_create_seen"] is True
           assert data["client_b_edit_seen"] is True
+          assert data["client_b_runtime_payload_contract_seen"] is True
           assert data["client_b_stale_conflict_rejected"] is True
           assert data["client_b_delete_tombstone_seen"] is True
+          assert data["client_b_identity_only_tombstone_seen"] is True
           assert data["client_b_canonical_deleted_seen"] is True
           assert data["direct_memory_table_write_used"] is False
           assert data["service_role_used"] is False
