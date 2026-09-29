@@ -22,6 +22,7 @@ on:
       - 'system/services/sync/state-store-registry.mjs'
       - 'tests/sql/test_account_memory_sync_guard.sql'
       - 'tests/test_account_memory_backend_guard.py'
+      - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_gateway_policy.mjs'
       - 'tests/test_account_memory_session_runtime.mjs'
       - 'tests/test_account_memory_sync_runtime.mjs'
@@ -53,6 +54,7 @@ on:
       - 'system/services/sync/state-store-registry.mjs'
       - 'tests/sql/test_account_memory_sync_guard.sql'
       - 'tests/test_account_memory_backend_guard.py'
+      - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_gateway_policy.mjs'
       - 'tests/test_account_memory_session_runtime.mjs'
       - 'tests/test_account_memory_sync_runtime.mjs'
@@ -116,6 +118,7 @@ jobs:
           node --check system/services/sync/memory-conflict-resolution.mjs
           node --check system/services/sync/state-store-registry.mjs
           node --check infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs
+          node --check tests/test_account_memory_conflict_reconciliation.mjs
           node --check tests/test_account_memory_gateway_policy.mjs
           node --check tests/test_account_memory_session_runtime.mjs
           node --check tests/test_account_memory_sync_runtime.mjs
@@ -137,6 +140,7 @@ jobs:
       - name: Run Memory sync foundation tests
         run: |
           set -euo pipefail
+          node --test tests/test_account_memory_conflict_reconciliation.mjs
           node --test tests/test_account_memory_gateway_policy.mjs
           node --test tests/test_account_memory_session_runtime.mjs
           node --test tests/test_account_memory_sync_runtime.mjs
