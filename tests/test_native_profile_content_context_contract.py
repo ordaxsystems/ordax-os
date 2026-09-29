@@ -1,0 +1,40 @@
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
+ADAPTER = ROOT / "system" / "adapters" / "native" / "profile-content-context.mjs"
+READER = ROOT / "system" / "surface" / "runtime" / "native_profile_content_context.py"
+
+
+class NativeProfileContentContextContractTests(unittest.TestCase):
+    def test_profile_content_context_is_read_only_loopback_and_owner_dev_only(self):
+        host = HOST.read_text(encoding="utf-8")
+        adapter = ADAPTER.read_text(encoding="utf-8")
+        reader = READER.read_text(encoding="utf-8")
+
+        self.assertIn(
+            'PROFILE_CONTENT_CONTEXT_PATH = "/__ordax/native/profile-content-context"',
+            host,
+        )
+        self.assertIn("read_active_profile_content_context", host)
+        self.assertIn('self.server.distribution_profile != "owner-development"', host)
+        self.assertIn("requested_profile_content_space_id", host)
+        self.assertIn("PROFILE_CONTENT_CONTEXT_PATH", host)
+        self.assertIn('ENDPOINT = "/__ordax/native/profile-content-context"', adapter)
+        self.assertIn('method: "GET"', adapter)
+        self.assertNotIn('method: "POST"', adapter)
+        self.assertNotIn("urllib", reader)
+        self.assertNotIn("requests.", reader)
+
+    def test_reader_revalidates_active_component_and_exact_payload_hash(self):
+        reader = READER.read_text(encoding="utf-8")
+        self.assertIn("assert_activation_components_installed(", reader)
+        self.assertIn("hashlib.sha256(raw).hexdigest()", reader)
+        self.assertIn('component["sha256"]', reader)
+        self.assertIn('entry.get("authority") != "none"', reader)
+        self.assertIn('entry.get("toolIds") != []', reader)
+
+
+if __name__ == "__main__":
+    unittest.main()
