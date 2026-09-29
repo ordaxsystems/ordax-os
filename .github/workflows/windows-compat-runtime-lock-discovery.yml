@@ -14,37 +14,46 @@ permissions:
 jobs:
   discover:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
+          check-latest: false
 
       - name: Install lock-discovery dependency
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends proot
 
-      - name: Validate non-executable source contract
-        run: python -m unittest tests.test_windows_compat_runtime_source -v
+      - name: Validate pinned non-executable source contract
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_windows_compat_runtime_source -v
+          python -m py_compile bootstrap/windows-compat-runtime/discover_lock.py
 
-      - name: Verify upstream Wine bytes and resolve exact Alpine closures
+      - name: Verify upstream Wine bytes and revalidate exact Alpine closures
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
+          set -euo pipefail
           rm -rf out/windows-compat-runtime-discovery
           mkdir -p out/windows-compat-runtime-discovery/cache
           python bootstrap/windows-compat-runtime/discover_lock.py \
             --out out/windows-compat-runtime-discovery/windows-compat-runtime-lock.json \
             --cache-dir out/windows-compat-runtime-discovery/cache
 
-      - name: Validate discovery evidence is non-promotional
+      - name: Validate revalidation evidence is non-promotional
         run: |
+          set -euo pipefail
           python - <<'PY'
           import json
           from pathlib import Path
@@ -52,13 +61,11 @@ jobs:
           path = Path('out/windows-compat-runtime-discovery/windows-compat-runtime-lock.json')
           data = json.loads(path.read_text(encoding='utf-8'))
           assert data['$schema'] == 'prototype-ordax.windows-compat-runtime-lock-discovery/1'
-          assert data['status'] == 'review-required-not-authoritative'
+          assert data['status'] == 'verified-pinned-lock'
           assert data['wine_source']['sha256'] == 'c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701'
           assert data['wine_source']['size_bytes'] == 33172240
-          assert data['build_apk_package_lock_count'] == len(data['build_apk_package_lock'])
-          assert data['runtime_apk_package_lock_count'] == len(data['runtime_apk_package_lock'])
-          assert data['build_apk_package_lock_count'] > 0
-          assert data['runtime_apk_package_lock_count'] > 0
+          assert data['build_apk_package_lock_count'] == len(data['build_apk_package_lock']) == 239
+          assert data['runtime_apk_package_lock_count'] == len(data['runtime_apk_package_lock']) == 97
           assert data['execution_adapter_connected'] is False
           assert data['installation_adapter_connected'] is False
           assert data['physical_artifact_authorized'] is False
