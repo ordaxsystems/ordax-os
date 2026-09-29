@@ -100,6 +100,8 @@ and device stores never persist session-scoped memory. Search is paginated throu
 offset instead of raising the result cap, so user review can reach older items without creating an
 unbounded read.
 
+Manual Memory entry is also explicit and user-owned. Account → Memory may create a new item only for the currently selected personal owner boundary: device owner creates `scope=device`, authenticated account owner creates `scope=account`. Manual entry cannot silently create Space/project/session memory, and persistence still passes through the same `flush()` durability confirmation.
+
 A dedicated memory-review runtime owns the user-review semantics above the stable port. It can
 list, edit and remove only inside one explicit owner/Space/project boundary. Editing may change
 content, provenance and sensitivity, but cannot silently change item identity, owner kind, owner
