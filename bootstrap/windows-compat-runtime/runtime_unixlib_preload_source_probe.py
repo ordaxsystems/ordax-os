@@ -22,7 +22,6 @@ import tarfile
 HERE = Path(__file__).resolve().parent
 CONTRACT_PATH = HERE / "runtime-unixlib-preload-source.json"
 BUILD_PATH = HERE / "build.py"
-DYNAMIC_PATH = HERE / "runtime_dynamic_load_source_probe.py"
 PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-unixlib-preload-source-proof/1"
 MAX_TEXT_BYTES = 4 * 1024 * 1024
 MAKEFILE_RE = re.compile(r"^dlls/[^/]+/Makefile\.in$")
@@ -44,7 +43,6 @@ def load_module(name: str, path: Path):
 
 
 BUILD = load_module("ordax_unixlib_preload_build", BUILD_PATH)
-DYNAMIC = load_module("ordax_unixlib_preload_dynamic", DYNAMIC_PATH)
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -112,9 +110,52 @@ def load_contract() -> dict:
     return value
 
 
+def lexical_comments_removed(text: str) -> str:
+    """Remove C comments while preserving strings, chars, newlines and offsets."""
+    chars = list(text)
+    index = 0
+    while index < len(text):
+        ch = text[index]
+        nxt = text[index + 1] if index + 1 < len(text) else ""
+        if ch == "/" and nxt == "/":
+            end = text.find("\n", index + 2)
+            if end < 0:
+                end = len(text)
+            for pos in range(index, end):
+                if chars[pos] != "\n":
+                    chars[pos] = " "
+            index = end
+            continue
+        if ch == "/" and nxt == "*":
+            end = text.find("*/", index + 2)
+            if end < 0:
+                raise UnixlibPreloadSourceError("unterminated C block comment")
+            end += 2
+            for pos in range(index, end):
+                if chars[pos] != "\n":
+                    chars[pos] = " "
+            index = end
+            continue
+        if ch in {'"', "'"}:
+            quote = ch
+            index += 1
+            while index < len(text):
+                if text[index] == "\\":
+                    index += 2
+                    continue
+                if text[index] == quote:
+                    index += 1
+                    break
+                index += 1
+            else:
+                raise UnixlibPreloadSourceError("unterminated C string/char literal")
+            continue
+        index += 1
+    return "".join(chars)
+
+
 def normalized_code(text: str) -> str:
-    comments_removed, _ = DYNAMIC.lexical_views(text)
-    return re.sub(r"\s+", " ", comments_removed).strip()
+    return re.sub(r"\s+", " ", lexical_comments_removed(text)).strip()
 
 
 def parse_makefile(text: str) -> dict[str, str]:
@@ -350,7 +391,7 @@ def prove_loader_semantics(sources: dict[str, dict], contract: dict) -> dict:
     if register <= extension:
         raise UnixlibPreloadSourceError("builtin unixlib path is not registered after .so name derivation")
 
-    query = require_fragment(
+    require_fragment(
         winecrt,
         "return NtQueryVirtualMemory( GetCurrentProcess(), image_base(), MemoryWineUnixFuncs, &__wine_unixlib_handle, sizeof(__wine_unixlib_handle), NULL );",
         "winecrt unix init",
@@ -361,9 +402,9 @@ def prove_loader_semantics(sources: dict[str, dict], contract: dict) -> dict:
         "status = get_builtin_unix_funcs( module, info_class == MemoryWineUnixWow64Funcs, &funcs );",
         "builtin unix funcs bridge",
     )
-    dlopen = require_fragment(virtual, "builtin->unix_handle = dlopen( builtin->unix_path, RTLD_NOW );", "builtin unixlib dlopen")
-    if bridge <= case or dlopen <= 0 or query < 0:
-        raise UnixlibPreloadSourceError("Wine unixlib initialization bridge ordering drifted")
+    require_fragment(virtual, "builtin->unix_handle = dlopen( builtin->unix_path, RTLD_NOW );", "builtin unixlib dlopen")
+    if bridge <= case:
+        raise UnixlibPreloadSourceError("MemoryWineUnixFuncs handler does not reach builtin unix funcs after case selection")
 
     return {
         "pe_loader_sha256": sources[pe_path]["sha256"],
@@ -482,10 +523,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (
-        UnixlibPreloadSourceError,
-        BUILD.CompatibilityRuntimeBuildError,
-        DYNAMIC.DynamicLoadDiscoveryError,
-    ) as exc:
+    except (UnixlibPreloadSourceError, BUILD.CompatibilityRuntimeBuildError) as exc:
         print(f"windows-compat-runtime-unixlib-preload-source: {exc}", file=sys.stderr)
         raise SystemExit(2)
