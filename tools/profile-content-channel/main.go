@@ -664,6 +664,36 @@ func generateKey(privatePath, trustPath, keyID string) error {
 	return nil
 }
 
+
+func deriveTrust(privatePath, outputPath, keyID string) error {
+	if err := validateKeyID(keyID); err != nil {
+		return err
+	}
+	if privatePath == outputPath {
+		return errors.New("private key and trust outputs must differ")
+	}
+	if _, err := outputPathAvailable(outputPath); err != nil {
+		return err
+	}
+	private, err := loadPrivateKey(privatePath)
+	if err != nil {
+		return err
+	}
+	public := private.Public().(ed25519.PublicKey)
+	trust := trustAnchor{
+		Schema:       trustSchema,
+		Algorithm:    algorithm,
+		KeyID:        keyID,
+		PublicKeyB64: base64.StdEncoding.EncodeToString(public),
+	}
+	payload, err := json.MarshalIndent(trust, "", "  ")
+	if err != nil {
+		return err
+	}
+	payload = append(payload, '\n')
+	return writeExclusive(outputPath, payload, 0o644)
+}
+
 func signManifest(manifestPath, privatePath, trustPath, outputPath, keyID string) error {
 	_, canonical, err := readManifest(manifestPath)
 	if err != nil {
@@ -698,7 +728,7 @@ func signManifest(manifestPath, privatePath, trustPath, outputPath, keyID string
 	return writeExclusive(outputPath, payload, 0o644)
 }
 
-func verify(manifestPath, envelopePath, trustPath, contentPath string) (profileContentManifest, error) {
+func verifyManifestSignature(manifestPath, envelopePath, trustPath string) (profileContentManifest, error) {
 	manifest, canonical, err := readManifest(manifestPath)
 	if err != nil {
 		return profileContentManifest{}, err
@@ -716,6 +746,14 @@ func verify(manifestPath, envelopePath, trustPath, contentPath string) (profileC
 	}
 	if !ed25519.Verify(public, canonical, signature) {
 		return profileContentManifest{}, errors.New("Profile content manifest signature verification failed")
+	}
+	return manifest, nil
+}
+
+func verify(manifestPath, envelopePath, trustPath, contentPath string) (profileContentManifest, error) {
+	manifest, err := verifyManifestSignature(manifestPath, envelopePath, trustPath)
+	if err != nil {
+		return profileContentManifest{}, err
 	}
 	if err := verifyContent(manifest, contentPath); err != nil {
 		return profileContentManifest{}, err
@@ -1107,6 +1145,21 @@ func run() int {
 		}
 		fmt.Println("PROFILE_CONTENT_KEY_GENERATION=PASS")
 		return 0
+	case "derive-trust":
+		fs := flag.NewFlagSet("derive-trust", flag.ContinueOnError)
+		privatePath := fs.String("private-key", "", "")
+		output := fs.String("out", "", "")
+		keyID := fs.String("key-id", "", "")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			return 2
+		}
+		if err := deriveTrust(*privatePath, *output, *keyID); err != nil {
+			fmt.Fprintf(os.Stderr, "PROFILE_CONTENT_ERROR=%v\n", err)
+			return 1
+		}
+		fmt.Println("PROFILE_CONTENT_TRUST_DERIVATION=PASS")
+		fmt.Println("PROFILE_CONTENT_PUBLICATION_ALLOWED=NO")
+		return 0
 	case "sign":
 		fs := flag.NewFlagSet("sign", flag.ContinueOnError)
 		manifest := fs.String("manifest", "", "")
@@ -1122,6 +1175,25 @@ func run() int {
 			return 1
 		}
 		fmt.Println("PROFILE_CONTENT_SIGN=PASS")
+		return 0
+	case "verify-envelope":
+		fs := flag.NewFlagSet("verify-envelope", flag.ContinueOnError)
+		manifestPath := fs.String("manifest", "", "")
+		envelopePath := fs.String("envelope", "", "")
+		trustPath := fs.String("trust", "", "")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			return 2
+		}
+		manifest, err := verifyManifestSignature(*manifestPath, *envelopePath, *trustPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "PROFILE_CONTENT_ERROR=%v\n", err)
+			return 1
+		}
+		fmt.Println("PROFILE_CONTENT_ENVELOPE_VERIFIED=YES")
+		fmt.Printf("PROFILE_CONTENT_ID=%s\n", manifest.ID)
+		fmt.Printf("PROFILE_CONTENT_KIND=%s\n", manifest.Kind)
+		fmt.Printf("PROFILE_CONTENT_VERSION=%s\n", manifest.Version)
+		fmt.Println("PROFILE_CONTENT_ACTIVATION_ALLOWED=NO")
 		return 0
 	case "verify":
 		fs := flag.NewFlagSet("verify", flag.ContinueOnError)
