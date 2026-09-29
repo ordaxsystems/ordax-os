@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Bind configured SONAME caller source modules to exact staged Unix ELFs.
+"""Bind configure-enabled SONAME caller source modules to exact staged Unix ELFs.
 
 This stage intentionally stops before loader-context resolution. It reopens the
 same pinned Wine Makefile.in bytes already bound by the caller-module proof,
-requires a unique UNIXLIB identity per module, recomputes the exact staged
-manifest from the full build, inspects every staged path sharing that basename,
-and requires exactly one compatible ELF64/x86_64/little caller.
+requires a unique UNIXLIB identity per module, parses the real generated
+config.h with the same parser used by the configured-SONAME proof, recomputes
+the exact staged manifest, and requires exactly one compatible
+ELF64/x86_64/little caller only for modules with at least one defined SONAME.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ HERE = Path(__file__).resolve().parent
 CONTRACT_PATH = HERE / "runtime-configured-soname-staged-callers.json"
 SOURCE_LOCK_PATH = HERE / "source.json"
 CALLER_PATH = HERE / "runtime_configured_soname_caller_module_probe.py"
+CONFIGURED_PATH = HERE / "runtime_dynamic_load_configure_probe.py"
 DEP_PATH = HERE / "runtime_dependency_probe.py"
 CONTAINER_FULL_PATH = HERE / "container_full_build_probe.py"
 PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-configured-soname-staged-caller-proof/1"
@@ -44,6 +46,7 @@ def load_module(name: str, path: Path):
 
 
 CALLER = load_module("ordax_configured_soname_caller_module", CALLER_PATH)
+CONFIGURED = load_module("ordax_configured_soname_state_parser", CONFIGURED_PATH)
 DEP = load_module("ordax_configured_soname_staged_dep", DEP_PATH)
 CONTAINER_FULL = load_module("ordax_configured_soname_staged_full", CONTAINER_FULL_PATH)
 FULL = CONTAINER_FULL.FULL
@@ -75,9 +78,12 @@ def load_contract() -> dict:
         "caller_module_evidence_binding_required",
         "module_makefile_digest_binding_required",
         "unixlib_source_identity_required",
+        "real_generated_config_h_required",
+        "configured_symbol_state_parser_reuse_required",
+        "disabled_only_modules_do_not_require_staged_elf",
         "stage_manifest_recomputation_required",
         "all_same_basename_stage_candidates_inspected",
-        "exactly_one_compatible_staged_elf_required",
+        "exactly_one_compatible_staged_elf_required_for_enabled_modules",
         "rooted_symlink_resolution_required",
     ):
         if verification.get(key) is not True:
@@ -95,6 +101,10 @@ def load_contract() -> dict:
         "caller_modules": 15,
         "configured_soname_callsites": 32,
         "configured_soname_symbols": 24,
+        "defined_callsites": 30,
+        "disabled_callsites": 2,
+        "staged_caller_modules": 13,
+        "disabled_only_modules": 2,
     }:
         raise StagedCallerProofError("staged caller expected counts drifted")
     if not value.get("open_boundaries") or any(item is not False for item in value["open_boundaries"].values()):
@@ -212,6 +222,83 @@ def validate_full_build(proof: dict, stage_dir: Path, contract: dict, source: di
     return digest, manifest
 
 
+def requested_symbols(caller_proof: dict) -> dict[str, int]:
+    requested: dict[str, int] = {}
+    callsites = caller_proof.get("callsites")
+    if not isinstance(callsites, list):
+        raise StagedCallerProofError("caller-module proof has no callsites")
+    for item in callsites:
+        symbol = item.get("symbol") if isinstance(item, dict) else None
+        if not isinstance(symbol, str) or not CONFIGURED.SYMBOL_RE.fullmatch(symbol):
+            raise StagedCallerProofError("caller-module proof contains invalid configured SONAME symbol")
+        requested[symbol] = requested.get(symbol, 0) + 1
+    return dict(sorted(requested.items()))
+
+
+def derive_module_symbol_states(caller_proof: dict, states: dict[str, dict]) -> dict[str, dict]:
+    modules = caller_proof.get("modules")
+    callsites = caller_proof.get("callsites")
+    if not isinstance(modules, list) or not isinstance(callsites, list):
+        raise StagedCallerProofError("caller-module evidence is incomplete")
+    result: dict[str, dict] = {}
+    for module in modules:
+        module_dir = module.get("module_dir") if isinstance(module, dict) else None
+        if not isinstance(module_dir, str) or module_dir in result:
+            raise StagedCallerProofError("invalid or duplicate caller module directory")
+        module_calls = [item for item in callsites if item.get("module_dir") == module_dir]
+        if not module_calls:
+            raise StagedCallerProofError(f"caller module has no configured SONAME callsites: {module_dir}")
+        defined: set[str] = set()
+        disabled: set[str] = set()
+        defined_calls = disabled_calls = 0
+        for item in module_calls:
+            symbol = item["symbol"]
+            state = states.get(symbol)
+            if state is None:
+                raise StagedCallerProofError(f"configured symbol state missing for caller: {symbol}")
+            if state["state"] == "defined":
+                defined.add(symbol)
+                defined_calls += 1
+            elif state["state"] == "disabled-by-configure":
+                disabled.add(symbol)
+                disabled_calls += 1
+            else:
+                raise StagedCallerProofError(f"unexpected configured symbol state: {symbol}:{state.get('state')}")
+        result[module_dir] = {
+            "defined_symbols": sorted(defined),
+            "disabled_symbols": sorted(disabled),
+            "defined_callsites": defined_calls,
+            "disabled_callsites": disabled_calls,
+            "staged_elf_required": defined_calls > 0,
+        }
+    return result
+
+
+def validate_config_h(config_h: Path, caller_proof: dict, contract: dict) -> tuple[str, dict, dict]:
+    requested = requested_symbols(caller_proof)
+    expected = contract["expected"]
+    if len(requested) != expected["configured_soname_symbols"] or sum(requested.values()) != expected["configured_soname_callsites"]:
+        raise StagedCallerProofError("requested configured SONAME inventory drifted")
+    try:
+        digest, states = CONFIGURED.parse_config_h(config_h, requested)
+    except CONFIGURED.ConfiguredSonameError as exc:
+        raise StagedCallerProofError(str(exc)) from exc
+    defined_calls = sum(item["source_calls"] for item in states.values() if item["state"] == "defined")
+    disabled_calls = sum(item["source_calls"] for item in states.values() if item["state"] == "disabled-by-configure")
+    if defined_calls != expected["defined_callsites"] or disabled_calls != expected["disabled_callsites"]:
+        raise StagedCallerProofError(
+            f"configured SONAME state cardinality drifted: defined={defined_calls} disabled={disabled_calls}"
+        )
+    module_states = derive_module_symbol_states(caller_proof, states)
+    staged_modules = sum(1 for item in module_states.values() if item["staged_elf_required"])
+    disabled_only = len(module_states) - staged_modules
+    if staged_modules != expected["staged_caller_modules"] or disabled_only != expected["disabled_only_modules"]:
+        raise StagedCallerProofError(
+            f"configured caller module state drifted: staged={staged_modules} disabled_only={disabled_only}"
+        )
+    return digest, states, module_states
+
+
 def read_unixlibs(archive: Path, source: dict, caller_proof: dict) -> dict[str, dict]:
     upstream = source.get("upstream", {})
     if archive.stat().st_size != upstream.get("archive_size_bytes") or CALLER.sha256_file(archive) != upstream.get("archive_sha256"):
@@ -313,21 +400,49 @@ def bind_staged_elf(stage_dir: Path, stage_manifest: dict, unixlib: str, expecte
     return {"staged_candidates": inspected, "selected": compatible[0]}
 
 
-def prove(archive: Path, caller_proof: dict, full_build_proof: dict, stage_dir: Path) -> dict:
+def prove(
+    archive: Path,
+    caller_proof: dict,
+    full_build_proof: dict,
+    config_h: Path,
+    stage_dir: Path,
+) -> dict:
     contract = load_contract()
     source = source_lock()
     caller_digest = validate_caller_proof(caller_proof, contract, source)
     stage_digest, stage_manifest = validate_full_build(full_build_proof, stage_dir, contract, source)
+    config_h_digest, symbol_states, module_states = validate_config_h(config_h, caller_proof, contract)
     unixlibs = read_unixlibs(archive, source, caller_proof)
     records: list[dict] = []
+    selected_paths: list[str] = []
+    candidate_count = 0
     for module in caller_proof["modules"]:
-        authority = unixlibs[module["module_dir"]]
-        staged = bind_staged_elf(stage_dir, stage_manifest, authority["unixlib"], contract["input"]["expected_elf"])
-        records.append({**authority, **staged})
+        module_dir = module["module_dir"]
+        authority = unixlibs[module_dir]
+        configured = module_states[module_dir]
+        if configured["staged_elf_required"]:
+            staged = bind_staged_elf(stage_dir, stage_manifest, authority["unixlib"], contract["input"]["expected_elf"])
+            selected_paths.append(staged["selected"]["path"])
+            candidate_count += len(staged["staged_candidates"])
+            record = {
+                **authority,
+                "configured": configured,
+                **staged,
+                "resolution": "configure-enabled-staged-elf-verified",
+            }
+        else:
+            record = {
+                **authority,
+                "configured": configured,
+                "staged_candidates": [],
+                "selected": None,
+                "resolution": "disabled-only-no-staged-elf-required",
+            }
+        records.append(record)
     records.sort(key=lambda item: item["module_dir"])
-    if len(records) != contract["expected"]["caller_modules"]:
+    expected = contract["expected"]
+    if len(records) != expected["caller_modules"] or len(selected_paths) != expected["staged_caller_modules"]:
         raise StagedCallerProofError("staged caller module count drifted")
-    selected_paths = [item["selected"]["path"] for item in records]
     if len(selected_paths) != len(set(selected_paths)):
         raise StagedCallerProofError("one staged ELF was selected for multiple distinct caller modules")
     core = {
@@ -335,23 +450,30 @@ def prove(archive: Path, caller_proof: dict, full_build_proof: dict, stage_dir: 
         "source_archive_sha256": contract["input"]["source_archive_sha256"],
         "caller_module_evidence_sha256": caller_digest,
         "full_build_proof_sha256": canonical_sha256(full_build_proof),
+        "config_h_sha256": config_h_digest,
         "staging_manifest_sha256": stage_digest,
         "expected_elf": contract["input"]["expected_elf"],
+        "configured_symbol_states": symbol_states,
         "modules": records,
         "counts": {
             "caller_modules": len(records),
+            "defined_callsites": expected["defined_callsites"],
+            "disabled_callsites": expected["disabled_callsites"],
+            "staged_caller_modules": len(selected_paths),
+            "disabled_only_modules": len(records) - len(selected_paths),
             "selected_staged_elfs": len(selected_paths),
-            "same_basename_candidates_inspected": sum(len(item["staged_candidates"]) for item in records),
+            "same_basename_candidates_inspected": candidate_count,
         },
     }
     return {
         "$schema": PROOF_SCHEMA,
-        "status": "configured-soname-caller-staged-elf-identities-verified-not-loader-context-complete",
+        "status": "configured-soname-enabled-caller-staged-elf-identities-verified-not-loader-context-complete",
         **core,
         "evidence_sha256": canonical_sha256(core),
         "gates": {
             "caller_module_evidence_verified": True,
             "full_build_proof_verified": True,
+            "configured_symbol_states_verified": True,
             "staging_manifest_recomputed": True,
             "caller_unixlib_source_identity_verified": True,
             "caller_binary_staged_identity_verified": True,
@@ -380,6 +502,7 @@ def main() -> int:
     parser.add_argument("--source-archive", type=Path)
     parser.add_argument("--caller-module-proof", type=Path)
     parser.add_argument("--full-build-proof", type=Path)
+    parser.add_argument("--config-h", type=Path)
     parser.add_argument("--stage-dir", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
@@ -387,14 +510,15 @@ def main() -> int:
     if args.command == "check":
         print("windows compatibility configured SONAME staged caller contract: PASS")
         return 0
-    if not all((args.source_archive, args.caller_module_proof, args.full_build_proof, args.stage_dir, args.out)):
+    if not all((args.source_archive, args.caller_module_proof, args.full_build_proof, args.config_h, args.stage_dir, args.out)):
         raise StagedCallerProofError(
-            "prove requires --source-archive, --caller-module-proof, --full-build-proof, --stage-dir and --out"
+            "prove requires --source-archive, --caller-module-proof, --full-build-proof, --config-h, --stage-dir and --out"
         )
     result = prove(
         args.source_archive.resolve(),
         load_json(args.caller_module_proof, "caller-module proof"),
         load_json(args.full_build_proof, "full-build proof"),
+        args.config_h.resolve(),
         args.stage_dir.resolve(),
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -411,6 +535,7 @@ if __name__ == "__main__":
     except (
         StagedCallerProofError,
         CALLER.CallerModuleProofError,
+        CONFIGURED.ConfiguredSonameError,
         DEP.RuntimeDependencyError,
         FULL.FullBuildProofError,
     ) as exc:
