@@ -25,6 +25,11 @@ profile-content-channel generate-key \
   --trust <review>/profile-content-trust.json \
   --key-id profile-proof-test
 
+profile-content-channel derive-trust \\
+  --private-key <external>/profile-content-private.pem \\
+  --out <second-review>/profile-content-trust.json \\
+  --key-id profile-proof-test
+
 profile-content-channel sign \
   --manifest manifest.json \
   --private-key <external>/profile-content-private.pem \
@@ -46,7 +51,7 @@ profile-content-channel stage \
   --root /var/lib/ordax/profile-content
 ```
 
-Verification binds the exact canonical manifest signature, payload SHA-256,
+`derive-trust` reconstructs only the public trust anchor from an existing external private key so an operator can prove independent derivation and recovery without copying private material into Git or CI.\n\nVerification binds the exact canonical manifest signature, payload SHA-256,
 payload size and provenance fields. A successful verification still prints
 `PROFILE_CONTENT_ACTIVATION_ALLOWED=NO`.
 
