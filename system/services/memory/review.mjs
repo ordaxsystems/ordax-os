@@ -25,6 +25,18 @@ function optionalText(value, label, max) {
   return boundedText(value, label, max);
 }
 
+function defaultIdFactory() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  if (typeof globalThis.crypto?.getRandomValues === "function") {
+    const bytes = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  }
+  throw new Error("Memory review requires a cryptographically strong id source");
+}
+
 function isoNow(now) {
   const value = now();
   const date = value instanceof Date ? value : new Date(value);
@@ -47,10 +59,11 @@ export function createMemoryReviewRuntime(memoryPort, {
   spaceId = null,
   projectId = null,
   now = () => new Date(),
+  idFactory = defaultIdFactory,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
-  if (typeof now !== "function") {
-    throw new TypeError("Memory review runtime requires a clock function");
+  if (typeof now !== "function" || typeof idFactory !== "function") {
+    throw new TypeError("Memory review runtime requires clock and id factory functions");
   }
   const owner = validateMemoryOwner({ ownerKind, ownerId }, "Memory review owner");
   const defaultScopes = owner.ownerKind === "device"
@@ -96,6 +109,31 @@ export function createMemoryReviewRuntime(memoryPort, {
   };
 
   return Object.freeze({
+    create(contentValue, {
+      kind = "fact",
+      sensitivity = "private",
+      provenance = "user-manual",
+    } = {}) {
+      const id = boundedText(String(idFactory()), "Memory review new item id", 160);
+      const scope = boundary.ownerKind === "device" ? "device" : "account";
+      if (boundary.spaceId !== null || boundary.projectId !== null) {
+        throw new Error("Manual Memory creation is limited to personal owner scopes");
+      }
+      const item = validateMemoryItem({
+        id,
+        ownerKind: boundary.ownerKind,
+        ownerId: boundary.ownerId,
+        scope,
+        kind,
+        sensitivity,
+        content: boundedText(contentValue, "Memory review new item content", 32768),
+        provenance,
+        sourceTimestamp: isoNow(now),
+        spaceId: null,
+        projectId: null,
+      });
+      return memory.remember(item);
+    },
     list(options = {}) {
       return page(options);
     },
