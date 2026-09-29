@@ -108,7 +108,8 @@ content, provenance and sensitivity, but cannot silently change item identity, o
 id, kind, scope, Space or project. Review of more than one page walks the same bounded search API
 instead of gaining a privileged bypass. A review-session layer switches explicitly between the
 currently available device/account owners, and a Surface-ready view model adds bounded search,
-one-item pagination lookahead and generic `idle/pending/saved/error` persistence state. That review stack is now mounted in the Native/USB Account → Memory surface when durable Memory is available; the Web composition deliberately does not simulate durable device/account Memory when that persistence boundary is absent.
+one-item pagination lookahead and generic `idle/pending/saved/error` persistence state. That is
+presentation plumbing only; a visual review surface is still not claimed as mounted in the MVP.
 
 Secret material is not memory. The contract rejects explicit secret items and known private-key
 or token-shaped material in both **content and provenance** before either can enter persistence or
@@ -244,3 +245,8 @@ Intelligence** from the **AI Runtime / Inference Broker** and treated Surface
 apps as clients. This prototype reimplements those architecture invariants
 clean-room; it does not copy the legacy runtime, agents or permission system.
 The exact reuse decision is recorded in `docs/SOURCE-MIGRATION.md`.
+
+
+### Automatic Memory preference
+
+Native/USB exposes `memory.auto-capture` as an OrdaX preference. It defaults to `on`, is persisted through the canonical preference store, and is read dynamically by the Memory capture runtime before every write. Turning it `off` prevents future automatic Memory capture without deleting existing items. Account → Memory remains the user control surface for review, editing, deletion and manual entry. In the MVP this preference is intentionally device-local and is not included in account preference sync; changing that requires a separate privacy/synchronization policy rather than silently making a local Memory decision portable.
