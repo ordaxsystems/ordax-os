@@ -216,3 +216,134 @@ jobs:
             }
           }
           Write-Host 'PROFILE_CONTENT_TRUST_POWERSHELL_PARSE=PASS'
+
+
+  windows-protocol:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
+      - name: Prove Windows operator ceremony with disposable key
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'profile-content-windows-protocol'
+          $toolkit = Join-Path $root 'toolkit'
+          $private = Join-Path $root 'private\profile-content-private.pem'
+          $recoveryDir = Join-Path $root 'recovery'
+          $recovered = Join-Path $recoveryDir 'profile-content-private-restored.pem'
+          $review = Join-Path $root 'review'
+          New-Item -ItemType Directory -Force $toolkit | Out-Null
+
+          Push-Location tools/profile-content-channel
+          try {
+            $env:CGO_ENABLED = '0'
+            go build -trimpath -buildvcs=false -ldflags='-s -w' -o (Join-Path $toolkit 'ordax-profile-content-channel.exe') .
+            if ($LASTEXITCODE -ne 0) { throw 'Windows Profile content channel build failed.' }
+          } finally {
+            Pop-Location
+          }
+
+          Copy-Item tools/profile-content-channel/windows/Initialize-OrdaXProfileContentTrust.ps1 $toolkit
+          Copy-Item tools/profile-content-channel/windows/Complete-OrdaXProfileContentTrust.ps1 $toolkit
+          Copy-Item docs/PROFILE-CONTENT-TRUST-CEREMONY.md $toolkit
+          Copy-Item docs/contracts/profile-content-trust-policy.json (Join-Path $toolkit 'profile-content-trust-policy.json')
+
+          $signer = Join-Path $toolkit 'ordax-profile-content-channel.exe'
+          $initializer = Join-Path $toolkit 'Initialize-OrdaXProfileContentTrust.ps1'
+          $finalizer = Join-Path $toolkit 'Complete-OrdaXProfileContentTrust.ps1'
+          $policy = Join-Path $toolkit 'profile-content-trust-policy.json'
+          $ceremony = Join-Path $toolkit 'PROFILE-CONTENT-TRUST-CEREMONY.md'
+          $provenancePath = Join-Path $toolkit 'provenance.json'
+
+          $provenance = [ordered]@{
+            '$schema' = 'prototype-ordax.profile-content-trust-toolkit/1'
+            status = 'candidate'
+            source_commit = $env:GITHUB_SHA
+            source_repository = 'washingtonmsdj/prototipo-ordax-os'
+            source_ref = 'refs/heads/main'
+            source_event = 'push'
+            key_id = 'ordax-profile-content-v1'
+            canonical_profile_content_trust_ceremony_eligible = $true
+            canonical_profile_content_trust_prerequisites = [ordered]@{
+              trust_policy_fail_closed = $true
+              external_custody_and_recovery_required = $true
+              trust_domains_separate = $true
+            }
+            private_key_included = $false
+            canonical_public_trust_included = $false
+            key_generation_requires_local_user_action = $true
+            whole_os_release_key_reuse_allowed = $false
+            runtime_component_key_reuse_allowed = $false
+            policy_sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $policy).Hash.ToLowerInvariant()
+            ceremony_doc_sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ceremony).Hash.ToLowerInvariant()
+            components = [ordered]@{
+              profile_content_signer = [ordered]@{
+                name = 'ordax-profile-content-channel.exe'
+                sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $signer).Hash.ToLowerInvariant()
+              }
+              trust_initializer = [ordered]@{
+                name = 'Initialize-OrdaXProfileContentTrust.ps1'
+                sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $initializer).Hash.ToLowerInvariant()
+              }
+              trust_recovery_finalizer = [ordered]@{
+                name = 'Complete-OrdaXProfileContentTrust.ps1'
+                sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $finalizer).Hash.ToLowerInvariant()
+              }
+            }
+          }
+          $provenance | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $provenancePath -Encoding utf8NoBOM
+
+          & $initializer -PreflightOnly -ToolkitProvenancePath $provenancePath
+          if ($LASTEXITCODE -ne 0) { throw 'Profile content trust preflight failed.' }
+
+          & $initializer -GenerateKey -PrivateKeyPath $private -ReviewDirectory $review -ToolkitProvenancePath $provenancePath
+          if ($LASTEXITCODE -ne 0) { throw 'Profile content trust initialization failed.' }
+
+          New-Item -ItemType Directory -Force $recoveryDir | Out-Null
+          Copy-Item -LiteralPath $private -Destination $recovered
+
+          & $finalizer -RecoveredPrivateKeyPath $recovered -PrimaryPrivateKeyPath $private -ReviewDirectory $review -ToolkitProvenancePath $provenancePath
+          if ($LASTEXITCODE -ne 0) { throw 'Profile content trust recovery proof failed.' }
+
+          $handoff = Join-Path $review 'OrdaX-Profile-Content-Public-Trust-Handoff.zip'
+          if (-not (Test-Path -LiteralPath $handoff -PathType Leaf)) {
+            throw 'Public Profile content trust handoff was not created.'
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead($handoff)
+          try {
+            $names = @($archive.Entries | ForEach-Object { $_.FullName } | Sort-Object)
+          } finally {
+            $archive.Dispose()
+          }
+          $expected = @(
+            'ceremony-public-evidence.json',
+            'profile-content-ed25519.json',
+            'profile-content-trust-proof-manifest.json',
+            'profile-content-trust-proof-recovery-envelope.json',
+            'profile-content-trust-proof.pack'
+          ) | Sort-Object
+          if (($names -join '|') -ne ($expected -join '|')) {
+            throw "Public handoff entries are unexpected: $($names -join ',')"
+          }
+          if ($names -match '(?i)(private|secret|seed)|\.(pem|key|p12|pfx)$') {
+            throw 'Public handoff contains secret-looking material.'
+          }
+
+          Remove-Item -LiteralPath $root -Recurse -Force
+          Write-Host 'PROFILE_CONTENT_WINDOWS_OPERATOR_PROTOCOL=PASS'
+          Write-Host 'PROFILE_CONTENT_WINDOWS_CANONICAL_KEY_CREATED=NO'
+          Write-Host 'PROFILE_CONTENT_WINDOWS_PUBLIC_HANDOFF_SECRET_MATERIAL=NO'
