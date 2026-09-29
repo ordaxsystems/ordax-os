@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Inventory direct loader calls in C materialized by the locked Wine full build.
+"""Prove the build-generated C loader surface of the locked Wine full build.
 
-The upstream source proof scans every .c member in the pinned archive. This proof
-covers the complementary out-of-tree build surface: every .c pathname that
-exists under wine-output after the successful full build. Exact source mirrors
-or symlinks are reconciled against the archive proof; every other C file is
-content-addressed and scanned with the exact dlopen/dlmopen parser from the
-source proof.
+The upstream dynamic-source proof scans every .c member in the pinned archive.
+This proof closes the complementary out-of-tree surface by combining three
+independent authorities from the same full-build work directory:
 
-The pinned tools/makedep.c is also inspected to bind the release's generated-C
-target semantics (IDL, bison, flex, Wayland XML, testlist, dlldata and
-EXTRA_OBJS). This prevents silently declaring completeness from filename
-heuristics alone.
+1. every materialized wine-output/**/*.c pathname, content-addressed and scanned
+   with the exact dlopen/dlmopen parser from the source proof;
+2. pinned tools/makedep.c semantics for the release's generated-C families;
+3. the generated Wine Makefile graph, requiring every C prerequisite of every
+   materialized .o target to be either exact archive source or materialized
+   build-tree C.
+
+Only after all three converge does `generated_source_inventory_complete` become
+true. Wrapper closure and overall dynamic-load completeness remain false.
 """
 
 from __future__ import annotations
@@ -20,7 +22,6 @@ import argparse
 import hashlib
 import importlib.util
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import sys
@@ -30,6 +31,7 @@ HERE = Path(__file__).resolve().parent
 CONTRACT_PATH = HERE / "runtime-generated-source-inventory.json"
 DYNAMIC_PATH = HERE / "runtime_dynamic_load_source_probe.py"
 CONTAINER_FULL_PATH = HERE / "container_full_build_probe.py"
+MAKEFILE_GUARD_PATH = HERE / "runtime_generated_source_makefile_guard.py"
 PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-generated-source-proof/1"
 
 
@@ -48,6 +50,7 @@ def load_module(name: str, path: Path):
 
 DYNAMIC = load_module("ordax_dynamic_source_for_generated_inventory", DYNAMIC_PATH)
 CONTAINER_FULL = load_module("ordax_container_full_for_generated_inventory", CONTAINER_FULL_PATH)
+MAKEFILE_GUARD = load_module("ordax_generated_source_makefile_guard", MAKEFILE_GUARD_PATH)
 FULL = CONTAINER_FULL.FULL
 
 
@@ -81,6 +84,10 @@ def load_contract() -> dict:
         "build_tree_c_symlink_must_resolve_within_build_or_source_tree",
         "source_symlink_must_resolve_to_exact_archive_member",
         "makedep_generated_c_semantics_required",
+        "generated_makefile_c_target_graph_required",
+        "built_object_dependency_check_required",
+        "every_built_object_c_prerequisite_accounted",
+        "unreferenced_materialized_generated_c_allowed",
         "direct_host_loader_parser_reuse_required",
         "comments_and_literals_must_not_create_callsites",
         "generated_direct_loader_calls_may_be_reported",
@@ -89,6 +96,7 @@ def load_contract() -> dict:
         raise GeneratedSourceProofError("generated source inspection guarantees drifted")
     required_false = (
         "external_c_symlink_allowed",
+        "unmaterialized_c_prerequisite_for_built_object_allowed",
         "generated_direct_loader_calls_may_be_silently_ignored",
         "unparseable_generated_c_allowed",
         "unmodeled_generated_c_family_allowed",
@@ -102,6 +110,7 @@ def load_contract() -> dict:
         raise GeneratedSourceProofError("generated source open boundaries drifted")
     if not value.get("promotion") or any(item is not False for item in value["promotion"].values()):
         raise GeneratedSourceProofError("generated source contract claims promotion/execution authority")
+    MAKEFILE_GUARD.load_contract()
     return value
 
 
@@ -215,16 +224,15 @@ def read_exact(path: Path, max_bytes: int, label: str) -> bytes:
     return data
 
 
-def archive_c_manifest(archive: Path, contract: dict) -> tuple[dict[str, dict], dict[str, str]]:
+def archive_c_manifest(archive: Path, contract: dict) -> dict[str, dict]:
     dynamic_contract = DYNAMIC.load_contract()
     if dynamic_contract["input"]["source_archive_sha256"] != contract["input"]["source_archive_sha256"]:
         raise GeneratedSourceProofError("dynamic source and generated source archive locks differ")
-    entries, sources, _ = DYNAMIC.read_relevant_members(archive, dynamic_contract)
-    entry_map = {item["path"]: item for item in entries}
-    source_map = {item["path"]: item["text"] for item in sources}
-    if len(entry_map) != len(entries) or len(source_map) != len(sources):
+    entries, _, _ = DYNAMIC.read_relevant_members(archive, dynamic_contract)
+    result = {item["path"]: item for item in entries}
+    if len(result) != len(entries):
         raise GeneratedSourceProofError("source archive C paths are not unique")
-    return entry_map, source_map
+    return result
 
 
 def extract_archive_text(archive: Path, member_name: str, max_bytes: int) -> tuple[str, str]:
@@ -301,13 +309,8 @@ def validate_makedep_semantics(archive: Path, contract: dict) -> dict:
         "makedep_sha256": digest,
         "generated_c_literals": sorted(c_literals),
         "families": [
-            "idl-client-server-ident-proxy",
-            "idl-dlldata",
-            "bison-tab-c",
-            "flex-yy-c",
-            "wayland-xml-protocol-c",
-            "testlist-c",
-            "extra-objs-c",
+            "idl-client-server-ident-proxy", "idl-dlldata", "bison-tab-c", "flex-yy-c",
+            "wayland-xml-protocol-c", "testlist-c", "extra-objs-c",
         ],
         "bison_header_temp_c_removed": True,
         "bison_persistent_tab_c_target_verified": True,
@@ -351,13 +354,14 @@ def inventory_build_c(
     contract: dict,
 ) -> tuple[list[dict], list[dict], dict]:
     inspection = contract["inspection"]
+    api_map = DYNAMIC.load_contract()["inspection"]["direct_host_loader_apis"]
+    source_calls = source_calls_by_path(dynamic_proof)
     paths = sorted(path for path in build_root.rglob("*.c") if path.is_file() or path.is_symlink())
     if not paths:
         raise GeneratedSourceProofError("full build output produced no materialized C files")
     if len(paths) > inspection["max_c_files"]:
         raise GeneratedSourceProofError("build-tree C file count exceeded configured bound")
 
-    source_calls = source_calls_by_path(dynamic_proof)
     manifest: list[dict] = []
     generated_calls: list[dict] = []
     total_bytes = generated_bytes = 0
@@ -366,19 +370,19 @@ def inventory_build_c(
 
     for path in paths:
         relative = safe_relative(build_root, path, "build-tree C path")
+        source_path: str | None = None
         if path.is_symlink():
             symlink_count += 1
             kind, canonical_rel, canonical_path = resolve_c_symlink(path, build_root, source_root)
             data = read_exact(canonical_path, inspection["max_single_c_bytes"], f"C symlink target {relative}")
+            digest = hashlib.sha256(data).hexdigest()
             if kind == "source-symlink":
                 entry = archive_entries.get(canonical_rel)
-                digest = hashlib.sha256(data).hexdigest()
                 if entry is None or entry["size"] != len(data) or entry["sha256"] != digest:
                     raise GeneratedSourceProofError(f"source C symlink target is not exact archive content: {relative}")
                 source_path = canonical_rel
                 source_covered += 1
             else:
-                source_path = None
                 generated += 1
         else:
             regular_count += 1
@@ -392,37 +396,31 @@ def inventory_build_c(
                 source_covered += 1
             else:
                 kind = "build-generated-shadow" if entry is not None else "build-generated"
-                source_path = None
                 generated += 1
 
         total_bytes += len(data)
         if total_bytes > inspection["max_total_c_bytes"]:
             raise GeneratedSourceProofError("build-tree C bytes exceeded configured bound")
-        digest = hashlib.sha256(data).hexdigest()
         try:
             text = data.decode("utf-8", errors="strict")
         except UnicodeDecodeError as exc:
             raise GeneratedSourceProofError(f"build-tree C is not UTF-8: {relative}") from exc
 
         if source_path is not None:
-            observed = DYNAMIC.scan_text(source_path, text, DYNAMIC.load_contract()["inspection"]["direct_host_loader_apis"])
+            observed = DYNAMIC.scan_text(source_path, text, api_map)
             observed.sort(key=lambda item: (item["line"], item["column"], item["api"]))
-            expected = source_calls.get(source_path, [])
-            if observed != expected:
+            if observed != source_calls.get(source_path, []):
                 raise GeneratedSourceProofError(f"source-covered build C diverges from archive loader proof: {relative}")
             source_reconciled_calls += len(observed)
         else:
             generated_bytes += len(data)
-            calls = DYNAMIC.scan_text(
-                f"build-output/{relative}", text, DYNAMIC.load_contract()["inspection"]["direct_host_loader_apis"]
-            )
-            generated_calls.extend(calls)
+            generated_calls.extend(DYNAMIC.scan_text(f"build-output/{relative}", text, api_map))
 
         manifest.append({
             "path": relative,
             "kind": kind,
             "size": len(data),
-            "sha256": digest,
+            "sha256": hashlib.sha256(data).hexdigest(),
             "canonical_path": canonical_rel,
             "source_path": source_path,
         })
@@ -457,19 +455,35 @@ def prove(work_dir: Path, full_build_proof: dict, dynamic_proof: dict) -> dict:
 
     stage_digest = validate_full_build(full_build_proof, work_dir, contract)
     dynamic_digest = validate_dynamic_proof(dynamic_proof, contract)
-
     source_lock = DYNAMIC.load_json(DYNAMIC.SOURCE_LOCK, "source lock")
     upstream = source_lock.get("upstream", {})
     archive = work_dir / "wine-source-cache" / upstream.get("archive_name", "")
     if not archive.is_file() or DYNAMIC.sha256_file(archive) != contract["input"]["source_archive_sha256"]:
         raise GeneratedSourceProofError("full-build Wine archive is missing or does not match the source lock")
-    archive_entries, _ = archive_c_manifest(archive, contract)
+
+    archive_entries = archive_c_manifest(archive, contract)
     makedep = validate_makedep_semantics(archive, contract)
     manifest, generated_calls, counts = inventory_build_c(
         build_root, source_root, archive_entries, dynamic_proof, contract
     )
     if counts["generated_c_files"] <= 0:
         raise GeneratedSourceProofError("full build produced no generated C files; generation model likely drifted")
+
+    try:
+        makefile_text = (build_root / "Makefile").read_text(encoding="utf-8", errors="strict")
+    except OSError as exc:
+        raise GeneratedSourceProofError(f"cannot read generated Wine Makefile: {exc}") from exc
+    generated_paths = {item["path"] for item in manifest if item["source_path"] is None}
+    try:
+        graph = MAKEFILE_GUARD.validate_compiled_c_graph(
+            makefile_text,
+            build_root,
+            archive_entries,
+            generated_paths,
+            contract["input"]["archive_root"],
+        )
+    except MAKEFILE_GUARD.GeneratedSourceMakefileGuardError as exc:
+        raise GeneratedSourceProofError(str(exc)) from exc
 
     generated_manifest = [item for item in manifest if item["source_path"] is None]
     core = {
@@ -480,6 +494,7 @@ def prove(work_dir: Path, full_build_proof: dict, dynamic_proof: dict) -> dict:
         "makedep": makedep,
         "build_tree_c_manifest_sha256": canonical_sha256(manifest),
         "generated_c_manifest_sha256": canonical_sha256(generated_manifest),
+        "makefile_compiled_c_graph": graph,
         "counts": counts,
         "generated_callsites": generated_calls,
     }
@@ -496,6 +511,7 @@ def prove(work_dir: Path, full_build_proof: dict, dynamic_proof: dict) -> dict:
             "build_tree_c_manifest_bound": True,
             "all_materialized_build_tree_c_parsed": True,
             "source_covered_build_c_reconciled": True,
+            "built_object_c_prerequisites_accounted": True,
             "generated_source_inventory_complete": True,
             "wrapper_call_graph_complete": False,
             "runtime_computed_target_resolution_complete": False,
@@ -538,6 +554,7 @@ def main() -> int:
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print("windows compatibility generated C loader inventory: PASS")
     print(json.dumps(result["counts"], sort_keys=True))
+    print("compiled C graph:", json.dumps(result["makefile_compiled_c_graph"], sort_keys=True))
     print("evidence:", result["evidence_sha256"])
     return 0
 
@@ -549,6 +566,7 @@ if __name__ == "__main__":
         GeneratedSourceProofError,
         DYNAMIC.DynamicLoadDiscoveryError,
         CONTAINER_FULL.ContainerFullBuildError,
+        MAKEFILE_GUARD.GeneratedSourceMakefileGuardError,
     ) as exc:
         print(f"windows-compat-runtime-generated-source: {exc}", file=sys.stderr)
         raise SystemExit(2)
