@@ -66,6 +66,7 @@
         "manual_domain_resolution_required": true,
         "client_wall_clock_used": false,
         "universal_last_writer_wins": false,
+        "conflict_quarantine_survives_state_store_recovery": true,
         "production_enabled": false
       },
       "app-state-metadata": {
@@ -110,6 +111,11 @@
       "resolver_family": "versioned-memory-domain-resolver",
       "resolver_version": 1,
       "foundation_implementation": true,
+      "coordination_state_schema": "ordax.memory-sync-state/1",
+      "coordination_state_store_contract": "ordax.sync-state-store/1",
+      "coordination_state_subject_bound": true,
+      "coordination_state_foundation_implemented": true,
+      "coordination_state_live_adapter_wiring": false,
       "current_client_integration": false,
       "backend_acceptance_enabled": false,
       "production_enabled": false
@@ -148,14 +154,17 @@
     "memory_sync_implies_ai_training_authorization": false,
     "memory_sync_implies_telemetry_authorization": false,
     "memory_sync_implies_community_data_authorization": false,
-    "memory_sync_grants_tool_authority": false
+    "memory_sync_grants_tool_authority": false,
+    "memory_coordination_state_may_contain_session_tokens": false
   },
   "offline": {
     "offline_local_work_allowed": true,
     "mutation_queue_must_be_idempotent": true,
     "reconnect_may_resume_from_opaque_cursor": true,
     "server_may_require_safe_full_resync": true,
-    "known_local_data_must_not_be_destroyed_only_because_transport_is_unavailable": true
+    "known_local_data_must_not_be_destroyed_only_because_transport_is_unavailable": true,
+    "memory_coordination_state_reuses_sync_state_store_contract": true,
+    "memory_coordination_state_save_failure_preserves_in_session_pending": true
   },
   "plans_and_quota": {
     "billing_implemented": false,
