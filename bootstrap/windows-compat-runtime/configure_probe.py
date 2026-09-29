@@ -27,6 +27,7 @@ SOURCE_BUILDER = HERE / "build.py"
 ALPINE_CORE = ROOT / "bootstrap/base/alpine_core.py"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$")
+SAFE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+~:-]*-r[0-9]+$")
 MAX_ALPINE_ROOTFS_BYTES = 32 * 1024 * 1024
 
 
@@ -251,12 +252,44 @@ def shell_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
+def installed_package_versions(rootfs: Path) -> dict[str, str]:
+    """Read exact package versions from Alpine's local installed-package database."""
+    database = rootfs / "lib/apk/db/installed"
+    try:
+        text = database.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigureProofError(f"cannot read Alpine installed-package database: {exc}") from exc
+
+    versions: dict[str, str] = {}
+    for record in text.split("\n\n"):
+        name = None
+        version = None
+        for line in record.splitlines():
+            if line.startswith("P:"):
+                name = line[2:]
+            elif line.startswith("V:"):
+                version = line[2:]
+        if name is None and version is None:
+            continue
+        if not name or not SAFE_PACKAGE_RE.fullmatch(name):
+            raise ConfigureProofError(f"invalid package identity in Alpine database: {name!r}")
+        if not version or not SAFE_VERSION_RE.fullmatch(version):
+            raise ConfigureProofError(f"invalid package version in Alpine database for {name}: {version!r}")
+        previous = versions.get(name)
+        if previous is not None and previous != version:
+            raise ConfigureProofError(f"conflicting installed versions for package {name}")
+        versions[name] = version
+    if not versions:
+        raise ConfigureProofError("Alpine installed-package database is empty")
+    return versions
+
+
 def package_version(rootfs: Path, package: str) -> str:
-    completed = proot(rootfs, f"apk info -v {shell_quote(package)}", capture=True)
-    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
-    if not lines:
+    versions = installed_package_versions(rootfs)
+    version = versions.get(package)
+    if version is None:
         raise ConfigureProofError(f"cannot resolve installed package version: {package}")
-    return lines[0]
+    return version
 
 
 def tool_version(rootfs: Path, command: str) -> str:
@@ -341,7 +374,14 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
     if not config_header.is_file() or not makefile.is_file():
         raise ConfigureProofError("Wine configure did not create expected build outputs")
 
-    package_versions = {package: package_version(rootfs, package) for package in packages}
+    installed_versions = installed_package_versions(rootfs)
+    package_versions = {}
+    for package in packages:
+        version = installed_versions.get(package)
+        if version is None:
+            raise ConfigureProofError(f"cannot resolve installed package version: {package}")
+        package_versions[package] = version
+
     return {
         "$schema": "prototype-ordax.windows-compat-configure-proof/1",
         "runtime_id": source_contract["runtime_id"],
