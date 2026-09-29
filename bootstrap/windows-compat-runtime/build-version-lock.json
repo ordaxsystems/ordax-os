@@ -1,0 +1,103 @@
+{
+  "$schema": "prototype-ordax.windows-compat-build-version-lock/1",
+  "status": "version-lock-from-proven-configure-not-content-addressed-not-build-proven",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "wine_version": "11.0",
+  "source": {
+    "archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
+    "archive_size_bytes": 33172240
+  },
+  "host": {
+    "distribution": "alpine",
+    "version": "3.22.5",
+    "branch": "v3.22",
+    "arch": "x86_64",
+    "libc": "musl",
+    "rootfs_url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/alpine-minirootfs-3.22.5-x86_64.tar.gz",
+    "rootfs_sha256": "4b4daa9fe2fc696c4919c4412a4c3d3e770d8fb70292a004a2c72f5096175282"
+  },
+  "configure": {
+    "native_compiler_triplet": "x86_64-alpine-linux-musl",
+    "flags": [
+      "--prefix=/usr",
+      "--libdir=/usr/lib",
+      "--sysconfdir=/etc",
+      "--localstatedir=/var",
+      "--with-dbus",
+      "--with-mingw",
+      "--with-x",
+      "--with-vulkan",
+      "--enable-tools",
+      "--enable-win64",
+      "--enable-archs=x86_64,i386"
+    ],
+    "toolchain": {
+      "gcc": "gcc (Alpine 14.2.0) 14.2.0",
+      "x86_64_mingw_gcc": "x86_64-w64-mingw32-gcc (GCC) 14.2.0",
+      "i686_mingw_gcc": "i686-w64-mingw32-gcc (GCC) 14.2.0"
+    }
+  },
+  "requested_build_packages": {
+    "build-base": "0.5-r3",
+    "perl": "5.40.4-r0",
+    "pkgconf": "2.4.3-r0",
+    "alsa-lib-dev": "1.2.14-r0",
+    "autoconf": "2.72-r1",
+    "automake": "1.17-r1",
+    "bison": "3.8.2-r2",
+    "cups-dev": "2.4.18-r0",
+    "dbus-dev": "1.16.2-r1",
+    "flex-dev": "2.6.4-r7",
+    "fontconfig-dev": "2.15.0-r3",
+    "freetype-dev": "2.13.3-r0",
+    "gnutls-dev": "3.8.13-r0",
+    "gstreamer-dev": "1.26.3-r0",
+    "gst-plugins-base-dev": "1.26.3-r0",
+    "krb5-dev": "1.21.3-r0",
+    "libgphoto2-dev": "2.5.31-r2",
+    "libpcap-dev": "1.10.7-r0",
+    "libusb-dev": "1.0.28-r0",
+    "libxcomposite-dev": "0.4.6-r5",
+    "libxcursor-dev": "1.2.3-r0",
+    "libxi-dev": "1.8.2-r0",
+    "libxinerama-dev": "1.1.5-r4",
+    "libxkbcommon-dev": "1.8.1-r2",
+    "libxrandr-dev": "1.5.4-r1",
+    "libxrender-dev": "0.9.12-r0",
+    "mesa-dev": "25.1.9-r0",
+    "ncurses-dev": "6.5_p20250503-r0",
+    "opencl-dev": "2024.05.08-r0",
+    "pcsc-lite-dev": "2.3.3-r0",
+    "pulseaudio-dev": "17.0-r5",
+    "sane-dev": "1.3.1-r0",
+    "sdl2-dev": "2.32.8-r0",
+    "udisks2-dev": "2.10.1-r3",
+    "v4l-utils-dev": "1.28.1-r1",
+    "vulkan-loader-dev": "1.4.313.0-r0",
+    "wayland-dev": "1.23.1-r3",
+    "i686-mingw-w64-gcc": "14.2.0-r1",
+    "mingw-w64-gcc": "14.2.0-r1"
+  },
+  "resolved_closure": {
+    "package_count": 342,
+    "canonical_json_sha256": "f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff",
+    "canonicalization": "sorted-object-keys-utf8-json-no-whitespace"
+  },
+  "provenance": {
+    "configure_proof_head_sha": "07d27226190bb0ba4d516d8d01b281c8ad882ddd",
+    "configure_proof_workflow_run_id": 36510940641,
+    "configure_proof_artifact_id": 11008304540,
+    "configure_proof_artifact_digest": "sha256:32d1f15b70ae9ac3eca46a2c9223b9f2a375dfd3994ba3386753857d4f515449"
+  },
+  "gates": {
+    "configure_proof_passed": true,
+    "package_versions_pinned": true,
+    "transitive_closure_digest_pinned": true,
+    "apk_content_hashes_pinned": false,
+    "full_build_proof_passed": false,
+    "runtime_dependency_inventory_complete": false,
+    "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false
+  }
+}

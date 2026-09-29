@@ -1,0 +1,94 @@
+name: Windows Compatibility APK Content Discovery
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_apk_content_discovery.py'
+      - '.github/workflows/windows-compat-apk-content-discovery.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_apk_content_discovery.py'
+      - '.github/workflows/windows-compat-apk-content-discovery.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  apk-content-discovery:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install bounded proof host dependency
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends proot
+
+      - name: Validate version lock and content discovery boundary
+        run: |
+          set -euo pipefail
+          python bootstrap/windows-compat-runtime/validate_build_version_lock.py
+          python bootstrap/windows-compat-runtime/discover_apk_content.py check
+          python -m unittest tests.test_windows_compat_build_version_lock -v
+          python -m unittest tests.test_windows_compat_apk_content_discovery -v
+
+      - name: Reproduce exact closure and replay exact APK bytes offline
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-apk-content-discovery"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
+          python bootstrap/windows-compat-runtime/discover_apk_content.py discover \
+            --work-dir "$work" \
+            --out "$proof_dir/apk-content-discovery.json"
+          python - <<'PY' "$proof_dir/apk-content-discovery.json"
+          import json
+          import pathlib
+          import re
+          import sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert proof['gates']['version_lock_verified'] is True
+          assert proof['gates']['closure_reproduced'] is True
+          assert proof['gates']['apk_content_discovered'] is True
+          assert proof['gates']['offline_content_replay_passed'] is True
+          assert proof['gates']['apk_content_hashes_pinned'] is False
+          assert proof['gates']['full_build_proof_passed'] is False
+          assert proof['gates']['activation_authorized'] is False
+          assert proof['gates']['execution_authorized'] is False
+          assert proof['requested_package_count'] == 39
+          assert proof['resolved_package_count'] == 342
+          expected = 'f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff'
+          assert proof['resolved_closure_sha256'] == expected
+          assert proof['offline_replay_closure_sha256'] == expected
+          assert 0 < proof['external_apk_package_count'] <= proof['resolved_package_count']
+          sha = re.compile(r'^[0-9a-f]{64}$')
+          for name, item in proof['external_apk_manifest'].items():
+              assert item['version']
+              assert item['filename'].endswith('.apk')
+              assert item['size_bytes'] > 0
+              assert sha.fullmatch(item['sha256']), (name, item)
+          print('resolved closure:', proof['resolved_package_count'])
+          print('external APK inputs hashed:', proof['external_apk_package_count'])
+          print('offline content replay: PASS')
+          PY
+
+      - name: Upload content discovery metadata only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-apk-content-discovery-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/windows-compat-apk-content-discovery/apk-content-discovery.json
+          if-no-files-found: error
