@@ -89,3 +89,31 @@ Pinning the canonical public anchor is necessary but **not sufficient** for
 component, real publication under the pinned anchor, verified install,
 health/receipt/inventory evidence and domain review. Legal-BR remains blocked
 until its official-source, freshness and professional-review requirements pass.
+
+
+## Repository public promotion
+
+After step 3 produces `OrdaX-Profile-Content-Public-Trust-Handoff.zip`, repository
+promotion is a separate **public-only** operation. The promoter accepts no
+private-key parameter.
+
+Run validation first:
+
+```text
+python tools/profile-content-channel/promote_public_trust.py check \
+  --promotion-zip OrdaX-Profile-Content-Public-Trust-Handoff.zip \
+  --verifier <path-to-ordax-profile-content-channel>
+```
+
+Only after that result is reviewed may the handoff be applied:
+
+```text
+python tools/profile-content-channel/promote_public_trust.py apply \
+  --promotion-zip OrdaX-Profile-Content-Public-Trust-Handoff.zip \
+  --verifier <path-to-ordax-profile-content-channel>
+```
+
+Apply may commit only the public anchor, public ceremony evidence, proof fixture
+and the corresponding fail-closed contract transition. It must leave
+publication, public installation and activation disabled. The remaining product
+gate is still `first-public-profile-proof`.
