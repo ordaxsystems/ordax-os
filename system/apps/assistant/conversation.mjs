@@ -77,10 +77,10 @@ export function createAssistantConversationRuntime({
     memoryCapture !== null
     && (
       typeof memoryCapture !== "object"
-      || typeof memoryCapture.captureTurn !== "function"
+      || typeof memoryCapture.bindTurn !== "function"
     )
   ) {
-    throw new TypeError("Assistant memoryCapture must implement captureTurn()");
+    throw new TypeError("Assistant memoryCapture must implement bindTurn()");
   }
   let messages = Object.freeze([]);
   let state = runtimeState(
@@ -163,6 +163,14 @@ export function createAssistantConversationRuntime({
       }
 
       const priorContext = sessionContext(messages);
+      let boundMemoryTurn = null;
+      if (memoryCapture !== null) {
+        try {
+          boundMemoryTurn = memoryCapture.bindTurn();
+        } catch {
+          memoryCaptureState = "error";
+        }
+      }
       append("user", prompt);
       state = "busy";
       lastError = null;
@@ -184,13 +192,12 @@ export function createAssistantConversationRuntime({
         lastError = null;
         publish();
 
-        if (memoryCapture !== null) {
+        if (boundMemoryTurn !== null) {
           memoryCaptureState = "pending";
           publish();
           try {
-            const captureResult = await memoryCapture.captureTurn({
+            const captureResult = await boundMemoryTurn.capture({
               userText: prompt,
-              assistantText: response.text,
             });
             memoryCaptureState = captureResult?.status ?? "complete";
           } catch {
