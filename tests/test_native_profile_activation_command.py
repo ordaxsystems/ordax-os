@@ -57,6 +57,13 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
             row = result["state"]["spaces"][0]
             self.assertEqual(row["spaceKind"], "professional")
             self.assertEqual(row["current"]["profile"], {"slug": "developer", "version": 1})
+            self.assertEqual(result["permissionDiff"], {
+                "schema": "ordax.profile-permission-diff/1",
+                "componentAdds": [],
+                "componentRemovals": [],
+                "authorityChanges": [],
+                "requiresExplicitReview": False,
+            })
 
     def test_stable_and_manifest_blocked_profiles_fail_closed(self):
         module = load_module()
@@ -101,8 +108,33 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 "receiptSha256": "b" * 64,
                 "installedAt": 1,
             }]
-            with self.assertRaisesRegex(PermissionError, "canonical provisioning receipt"):
+            with self.assertRaisesRegex(ValueError, "outside the canonical manifest"):
                 module.execute_profile_activation_command(payload, **args)
+
+    def test_canonical_component_binding_emits_permission_diff_and_blocks_unreviewed_activation(self):
+        module = load_module()
+        manifest = {
+            "components": [{
+                "id": "knowledge.example",
+                "kind": "knowledge-pack",
+                "version": "1.0.0",
+                "required": True,
+                "availability": "available",
+                "sha256": "a" * 64,
+                "signature_required": True,
+            }]
+        }
+        component = {
+            "id": "knowledge.example",
+            "kind": "knowledge-pack",
+            "version": "1.0.0",
+            "sha256": "a" * 64,
+            "receiptSha256": "b" * 64,
+            "installedAt": 1,
+        }
+        diff = module._canonical_component_binding(manifest, [component])
+        self.assertEqual(diff["componentAdds"][0]["id"], "knowledge.example")
+        self.assertTrue(diff["requiresExplicitReview"])
 
     def test_revision_conflict_is_checked_inside_mutation_lock(self):
         module = load_module()
