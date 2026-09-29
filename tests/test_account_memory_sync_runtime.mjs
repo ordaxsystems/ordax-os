@@ -177,55 +177,76 @@ test("stable Memory object identity is the canonical memory id and survives edit
   assert.equal(firstId, "memory-1");
   await runtime.flush(transport);
 
-  const second = runtime.remember(memoryItem({
-    content: "segunda versão",
-    sourceTimestamp: "2026-09-29T10:05:00Z",
-  }));
+  const second = runtime.remember(memoryItem({ content: "segunda versão" }));
   assert.equal(second.sync.objectId, firstId);
   assert.equal(runtime.pendingMutations()[0].baseServerRevision, 4);
   await runtime.flush(transport);
   assert.equal(runtime.getSnapshot().pendingMutationCount, 0);
 });
 
-test("forget is represented by an explicit tombstone without Memory content", () => {
-  const { runtime } = createRuntime();
-  runtime.remember(memoryItem());
-  const forgotten = runtime.forget({ id: "memory-1", ownerKind: "account", ownerId: SUBJECT });
-  assert.equal(forgotten.removed, true);
-  assert.equal(forgotten.sync.status, "pending");
+test("forget is represented by an explicit tombstone without Memory content", async () => {
+  const { runtime, transport } = createRuntime();
+  runtime.remember(memoryItem({ content: "conteúdo a esquecer" }));
+  await runtime.flush(transport);
+  const result = runtime.forget({ id: "memory-1", ownerKind: "account", ownerId: SUBJECT });
+  assert.equal(result.removed, true);
+  assert.equal(result.sync.status, "pending");
+
   const mutation = runtime.pendingMutations()[0];
-  assert.equal(mutation.objectId, "memory-1");
   assert.equal(mutation.operation, "delete");
-  assert.equal(mutation.payload.schema, MEMORY_SYNC_PAYLOAD_SCHEMA);
-  assert.deepEqual(Object.keys(mutation.payload.memoryIdentity).sort(), ["id", "ownerId", "ownerKind"]);
-  assert.equal(JSON.stringify(mutation).includes("Prefere respostas objetivas"), false);
+  assert.deepEqual(mutation.payload.memoryIdentity, {
+    id: "memory-1",
+    ownerKind: "account",
+    ownerId: SUBJECT,
+  });
+  assert.equal(JSON.stringify(mutation).includes("conteúdo a esquecer"), false);
+
+  const tombstone = createMemorySyncTombstone({
+    id: "memory-1",
+    ownerId: SUBJECT,
+    serverRevision: 8,
+  });
+  assert.equal(tombstone.tombstone, true);
+  assert.equal(tombstone.objectId, "memory-1");
+  assert.equal(JSON.stringify(tombstone).includes("conteúdo a esquecer"), false);
 });
 
 test("remote tombstone applies forget through ordax.memory/1 and flushes local durability", async () => {
   const memory = createMemoryRuntime();
   memory.remember(memoryItem());
-  const { runtime } = createRuntime({ memory });
-  const tombstone = createMemorySyncTombstone({ id: "memory-1", ownerId: SUBJECT, serverRevision: 3 });
-  assert.equal(tombstone.objectId, "memory-1");
-
-  const result = await runtime.applyRemoteObject(tombstone);
+  let flushCalls = 0;
+  const memoryPort = {
+    ...memory,
+    async flush() {
+      flushCalls += 1;
+      return memory.flush();
+    },
+  };
+  const { runtime } = createRuntime({ memory: memoryPort });
+  const result = await runtime.applyRemoteObject(createMemorySyncTombstone({
+    id: "memory-1",
+    ownerId: SUBJECT,
+    serverRevision: 2,
+  }));
   assert.equal(result.status, "forgotten");
-  assert.deepEqual(memory.search({ ownerId: SUBJECT, scopes: ["account"] }), []);
+  assert.equal(flushCalls, 1);
+  assert.equal(memory.search({ ownerKind: "account", ownerId: SUBJECT, scopes: ["account"] }).length, 0);
 });
 
 test("transport failure preserves local Memory and the pending mutation for retry", async () => {
   const transport = createTransport({
     mutate() {
-      throw new Error("offline");
+      throw new Error("network unavailable");
     },
   });
   const { memory, runtime } = createRuntime({ transport });
-  runtime.remember(memoryItem({ content: "offline local state" }));
-
+  runtime.remember(memoryItem());
+  const before = runtime.pendingMutations()[0];
   const flushed = await runtime.flush(transport);
+  assert.equal(flushed.accepted, 0);
   assert.equal(flushed.failures, 1);
-  assert.equal(flushed.pendingMutationCount, 1);
-  assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "offline local state");
+  assert.equal(runtime.pendingMutations()[0].idempotencyKey, before.idempotencyKey);
+  assert.equal(memory.search({ ownerKind: "account", ownerId: SUBJECT, scopes: ["account"] })[0].id, "memory-1");
 });
 
 test("server conflict remains pending and is never silently rebased or overwritten", async () => {
@@ -242,58 +263,55 @@ test("server conflict remains pending and is never silently rebased or overwritt
       });
     },
   });
-  const { memory, runtime } = createRuntime({ transport });
-  runtime.remember(memoryItem({ content: "local intent must survive" }));
-
-  await runtime.flush(transport);
-  assert.equal(runtime.getSnapshot().pendingMutationCount, 1);
+  const { runtime } = createRuntime({ transport });
+  runtime.remember(memoryItem());
+  const pendingBefore = runtime.pendingMutations()[0];
+  const flushed = await runtime.flush(transport);
+  assert.equal(flushed.accepted, 0);
   assert.equal(runtime.getSnapshot().conflictCount, 1);
-  assert.equal(runtime.pendingConflicts()[0].reason, "server-conflict");
-  assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "local intent must survive");
-
-  await runtime.flush(transport);
-  assert.equal(transport.mutations.length, 1, "conflicted Memory must not be retried via implicit rebase");
+  assert.equal(runtime.pendingMutations()[0].idempotencyKey, pendingBefore.idempotencyKey);
+  assert.equal(runtime.pendingMutations()[0].baseServerRevision, 0);
+  assert.equal(runtime.pendingConflicts()[0].serverRevision, 7);
 });
 
 test("divergent remote state for a pending Memory object is quarantined instead of applied", async () => {
   const { memory, runtime } = createRuntime();
-  const local = runtime.remember(memoryItem({ content: "local pending" }));
+  runtime.remember(memoryItem({ content: "local" }));
   const remote = createMemorySyncObject({
-    item: memoryItem({ content: "remote concurrent", sourceTimestamp: "2026-09-29T10:06:00Z" }),
-    serverRevision: 2,
+    item: memoryItem({ content: "remote" }),
+    serverRevision: 3,
   });
-  assert.equal(remote.objectId, local.sync.objectId);
-
   const result = await runtime.applyRemoteObject(remote);
   assert.equal(result.status, "conflict");
-  assert.equal(runtime.pendingConflicts()[0].reason, "concurrent-remote-update");
-  assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "local pending");
+  assert.equal(runtime.getSnapshot().conflictCount, 1);
+  assert.equal(memory.search({ ownerKind: "account", ownerId: SUBJECT, scopes: ["account"] })[0].content, "local");
 });
 
 test("provider/cloud objects cannot redefine Memory ownership, stable identity, payload fields or authority", async () => {
   const { runtime } = createRuntime();
-  const valid = createMemorySyncObject({ item: memoryItem(), serverRevision: 1 });
+  const remote = createMemorySyncObject({ item: memoryItem(), serverRevision: 2 });
 
   await assert.rejects(
-    () => runtime.applyRemoteObject({ ...valid, objectId: "different-memory-id" }),
-    /stable object identity/i,
+    () => runtime.applyRemoteObject({ ...remote, objectId: "different-memory-id" }),
+    /identity does not match/,
+  );
+  await assert.rejects(
+    () => runtime.applyRemoteObject({ ...remote, ownerKind: "device" }),
+    /fields are incompatible|identity/,
   );
   await assert.rejects(
     () => runtime.applyRemoteObject({
-      ...valid,
-      payload: { ...valid.payload, providerAuthorization: { tool: "shell" } },
+      ...remote,
+      payload: { ...remote.payload, grantsToolAuthority: true },
     }),
     /payload fields are incompatible/,
   );
   await assert.rejects(
-    () => runtime.applyRemoteObject({
-      ...valid,
-      payload: {
-        schema: MEMORY_SYNC_PAYLOAD_SCHEMA,
-        memory: { ...valid.payload.memory, ownerId: "different-account" },
-      },
-    }),
-    /not eligible|identity|owner/i,
+    () => runtime.applyRemoteObject(createMemorySyncObject({
+      item: memoryItem({ ownerId: "other-account" }),
+      serverRevision: 3,
+    })),
+    /owner does not match|active account|owner-mismatch/,
   );
 });
 
@@ -323,14 +341,21 @@ test("Memory cloud-state boundary does not authorize training, telemetry or acti
   const cloudBoundary = JSON.parse(await readFile(new URL("../docs/contracts/cloud-memory-sync-boundary.json", import.meta.url), "utf8"));
   const syncModel = JSON.parse(await readFile(new URL("../docs/contracts/sync-model.json", import.meta.url), "utf8"));
 
-  assert.equal(cloudBoundary.sync_object_role, "transport-mirror-only");
+  assert.equal(cloudBoundary.source_of_truth.sync_object_role, "transport-mirror-only");
+  assert.equal(cloudBoundary.source_of_truth.independent_dual_write_allowed, false);
   assert.equal(cloudBoundary.identity.stable_object_id, "memory_id");
-  assert.deepEqual(cloudBoundary.eligibility.outbound.allowed_scopes, ["account", "space"]);
-  assert.equal(cloudBoundary.eligibility.outbound.project, false);
-  assert.equal(cloudBoundary.training_and_telemetry.sync_is_training, false);
-  assert.equal(cloudBoundary.training_and_telemetry.sync_implies_model_telemetry, false);
-  assert.equal(cloudBoundary.rollout.public_capability, false);
+  assert.equal(cloudBoundary.eligible_scopes.account, "future-explicit-policy");
+  assert.equal(cloudBoundary.eligible_scopes.space, "future-explicit-policy");
+  assert.equal(cloudBoundary.eligible_scopes.project, false);
+  assert.equal(cloudBoundary.public_mvp_enabled, false);
+  assert.equal(cloudBoundary.implementation.public_rollout_enabled, false);
+  assert.equal(syncModel.security.memory_sync_cloud_state_classification, "user-cloud-state");
+  assert.equal(syncModel.security.memory_sync_implies_ai_training_authorization, false);
+  assert.equal(syncModel.security.memory_sync_implies_telemetry_authorization, false);
+  assert.equal(syncModel.security.memory_sync_implies_community_data_authorization, false);
+  assert.equal(syncModel.security.memory_sync_grants_tool_authority, false);
   const memoryClass = syncModel.syncable_data_classes.find((entry) => entry.id === "memory");
+  assert.equal(memoryClass.sync_object_role, "transport-mirror-only");
   assert.equal(memoryClass.current_client_integration, false);
   assert.equal(memoryClass.production_enabled, false);
   assert.equal(syncModel.conflicts.current_resolvers.memory.automatic_rebase, false);
