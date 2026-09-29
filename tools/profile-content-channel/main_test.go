@@ -152,6 +152,96 @@ func TestProfileContentRoundTripUsesSeparateTrustDomain(t *testing.T) {
 	}
 }
 
+
+func TestIndependentTrustDerivationMatchesGeneratedTrust(t *testing.T) {
+	dir := t.TempDir()
+	privatePath := filepath.Join(dir, "private.pem")
+	generatedTrust := filepath.Join(dir, "generated-trust.json")
+	derivedTrust := filepath.Join(dir, "derived-trust.json")
+	if err := generateKey(privatePath, generatedTrust, "profile-content-ceremony-test"); err != nil {
+		t.Fatal(err)
+	}
+	if err := deriveTrust(privatePath, derivedTrust, "profile-content-ceremony-test"); err != nil {
+		t.Fatal(err)
+	}
+	generated, err := os.ReadFile(generatedTrust)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derived, err := os.ReadFile(derivedTrust)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(generated) != string(derived) {
+		t.Fatal("independently derived Profile content trust differs from generated trust")
+	}
+
+	other := filepath.Join(dir, "other-private.pem")
+	otherTrust := filepath.Join(dir, "other-trust.json")
+	if err := generateKey(other, otherTrust, "profile-content-ceremony-test"); err != nil {
+		t.Fatal(err)
+	}
+	if err := deriveTrust(other, filepath.Join(dir, "other-derived.json"), "profile-content-ceremony-test"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestManifestSignatureCanBeVerifiedWithoutContentPayload(t *testing.T) {
+	dir := t.TempDir()
+	content := knowledgePackBytes(t, "ceremony signature proof")
+	manifestPath := filepath.Join(dir, "manifest.json")
+	writeJSON(t, manifestPath, fixtureManifest(content))
+	privatePath := filepath.Join(dir, "private.pem")
+	trustPath := filepath.Join(dir, "trust.json")
+	if err := generateKey(privatePath, trustPath, "profile-content-ceremony-test"); err != nil {
+		t.Fatal(err)
+	}
+	envelopePath := filepath.Join(dir, "envelope.json")
+	if err := signManifest(
+		manifestPath,
+		privatePath,
+		trustPath,
+		envelopePath,
+		"profile-content-ceremony-test",
+	); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := verifyManifestSignature(manifestPath, envelopePath, trustPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verified.ID != "knowledge.legal-br-proof" {
+		t.Fatalf("unexpected manifest identity: %s", verified.ID)
+	}
+
+	otherPrivate := filepath.Join(dir, "other-private.pem")
+	otherTrust := filepath.Join(dir, "other-trust.json")
+	if err := generateKey(otherPrivate, otherTrust, "profile-content-ceremony-test"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifyManifestSignature(manifestPath, envelopePath, otherTrust); err == nil {
+		t.Fatal("manifest signature unexpectedly verified with wrong trust")
+	}
+
+	var manifest map[string]any
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest["publisher"] = "tampered"
+	writeJSON(t, filepath.Join(dir, "tampered-manifest.json"), manifest)
+	if _, err := verifyManifestSignature(
+		filepath.Join(dir, "tampered-manifest.json"),
+		envelopePath,
+		trustPath,
+	); err == nil || !strings.Contains(err.Error(), "signature verification failed") {
+		t.Fatalf("tampered manifest signature error = %v", err)
+	}
+}
+
 func TestTamperedContentAndWrongTrustFailClosed(t *testing.T) {
 	dir := t.TempDir()
 	content := knowledgePackBytes(t, "trusted bytes")
