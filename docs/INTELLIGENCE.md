@@ -245,3 +245,8 @@ Intelligence** from the **AI Runtime / Inference Broker** and treated Surface
 apps as clients. This prototype reimplements those architecture invariants
 clean-room; it does not copy the legacy runtime, agents or permission system.
 The exact reuse decision is recorded in `docs/SOURCE-MIGRATION.md`.
+
+
+### Automatic Memory preference
+
+Native/USB exposes `memory.auto-capture` as an OrdaX preference. It defaults to `on`, is persisted through the canonical preference store, and is read dynamically by the Memory capture runtime before every write. Turning it `off` prevents future automatic Memory capture without deleting existing items. Account → Memory remains the user control surface for review, editing, deletion and manual entry. In the MVP this preference is intentionally device-local and is not included in account preference sync; changing that requires a separate privacy/synchronization policy rather than silently making a local Memory decision portable.
