@@ -96,6 +96,9 @@
     "preference_id": "memory.auto-capture",
     "preference_default": "on",
     "preference_device_local_in_mvp": true,
-    "preference_account_sync": false
+    "preference_account_sync": false,
+    "exact_duplicate_coalescing": true,
+    "exact_duplicate_mints_new_id": false,
+    "semantic_supersession_enabled": false
   }
 }
