@@ -40,7 +40,24 @@ class PhysicalPromotionStateContractTest(unittest.TestCase):
         gates = self.promotion_gates
         self.assertNotIn("current contract is `authorized`", gates)
         self.assertNotIn("current bound contract is `authorized`", gates)
-        self.assertIn("DESTRUCTIVE_AUTHORIZATION=NO_FRESH_AUTHORIZATION", gates)
+        if self.authorization["status"] == "blocked-canonical-v4-release-proof-pending":
+            self.assertFalse(
+                self.authorization["requirements"]["canonical_v4_release_proof_bound"]
+            )
+            self.assertIn(
+                "CURRENT_CANONICAL_V4_RELEASE_PROOF=PENDING_POST_HARDENING_REPLACEMENT",
+                gates,
+            )
+            self.assertIn(
+                "DESTRUCTIVE_AUTHORIZATION=NOT_REACHABLE_REPLACEMENT_PROOF_REQUIRED",
+                gates,
+            )
+            self.assertNotIn(
+                "DESTRUCTIVE_AUTHORIZATION=NO_FRESH_AUTHORIZATION",
+                gates,
+            )
+        else:
+            self.assertIn("DESTRUCTIVE_AUTHORIZATION=NO_FRESH_AUTHORIZATION", gates)
         self.assertIn("POST_588_PHYSICAL_REWRITE_AUTHORIZED=NO", gates)
 
     def test_historical_physical_proof_is_not_erased_or_promoted_to_current_main(self):
