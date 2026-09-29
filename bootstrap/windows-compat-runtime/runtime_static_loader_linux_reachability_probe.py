@@ -28,7 +28,7 @@ STATIC_PATH = HERE / "runtime_static_loader_target_classifier.py"
 CONTAINER_FULL_PATH = HERE / "container_full_build_probe.py"
 PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-static-loader-linux-reachability-proof/1"
 MAX_TEXT_MEMBER_BYTES = 2 * 1024 * 1024
-MAX_BUILD_TEXT_BYTES = 16 * 1024 * 1024
+MAX_BUILD_TEXT_BYTES = 64 * 1024 * 1024
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -319,15 +319,17 @@ def config_log_value(text: str, name: str) -> str:
     patterns = (
         rf"(?m)^{re.escape(name)}='([^']*)'$",
         rf'(?m)^{re.escape(name)}="([^"]*)"$',
-        rf"(?m)^{re.escape(name)}=([^\s]+)$",
+        rf"(?m)^{re.escape(name)}=([^\s'\"]+)$",
     )
-    values: list[str] = []
     for pattern in patterns:
-        values.extend(re.findall(pattern, text))
-    unique = sorted(set(values))
-    if len(unique) != 1 or not unique[0]:
-        raise StaticLoaderReachabilityError(f"config.log must expose exactly one {name}")
-    return unique[0]
+        values = re.findall(pattern, text)
+        if not values:
+            continue
+        unique = sorted(set(values))
+        if len(unique) != 1 or not unique[0]:
+            raise StaticLoaderReachabilityError(f"config.log must expose exactly one {name}")
+        return unique[0]
+    raise StaticLoaderReachabilityError(f"config.log must expose exactly one {name}")
 
 
 def validate_full_build(full: dict, source: dict, stage_dir: Path) -> tuple[str, str, dict]:
@@ -339,18 +341,45 @@ def validate_full_build(full: dict, source: dict, stage_dir: Path) -> tuple[str,
         raise StaticLoaderReachabilityError("full-build runtime identity drifted")
     if full.get("source_archive_sha256") != source["upstream"]["archive_sha256"]:
         raise StaticLoaderReachabilityError("full-build source archive identity drifted")
-    gates = full.get("gates", {})
-    for key in (
-        "source_lock_verified", "version_lock_verified", "apk_content_lock_verified",
-        "offline_content_replay_passed", "locked_rootfs_container_imported",
-        "container_network_disabled", "container_rootfs_read_only",
-        "container_capabilities_dropped", "compiler_execution_reproven_inside_container",
-        "configure_completed", "full_build_proof_passed", "staged_install_completed",
-    ):
-        if gates.get(key) is not True:
+    gates = full.get("gates")
+    if not isinstance(gates, dict):
+        raise StaticLoaderReachabilityError("full-build gates are missing")
+    expected_true = {
+        "source_lock_verified",
+        "version_lock_verified",
+        "apk_content_lock_verified",
+        "offline_content_replay_passed",
+        "proot_full_build_rejected_by_diagnostic",
+        "locked_rootfs_container_imported",
+        "container_network_disabled",
+        "container_rootfs_read_only",
+        "container_capabilities_dropped",
+        "compiler_execution_reproven_inside_container",
+        "configure_completed",
+        "generated_idl_header_barrier_completed",
+        "full_build_proof_passed",
+        "staged_install_completed",
+    }
+    expected_false = {
+        "runtime_dependency_inventory_complete",
+        "binary_artifact_pinned",
+        "activation_authorized",
+        "execution_authorized",
+        "wine_executed",
+        "windows_payload_executed",
+    }
+    expected_gate_keys = expected_true | expected_false
+    if set(gates) != expected_gate_keys:
+        missing = sorted(expected_gate_keys - set(gates))
+        unexpected = sorted(set(gates) - expected_gate_keys)
+        raise StaticLoaderReachabilityError(
+            f"full-build gate set drifted: missing={missing} unexpected={unexpected}"
+        )
+    for key in sorted(expected_true):
+        if gates[key] is not True:
             raise StaticLoaderReachabilityError(f"full-build prerequisite is not proven: {key}")
-    for key in ("runtime_dependency_inventory_complete", "binary_artifact_pinned", "activation_authorized", "execution_authorized", "wine_executed", "windows_payload_executed"):
-        if gates.get(key) is not False:
+    for key in sorted(expected_false):
+        if gates[key] is not False:
             raise StaticLoaderReachabilityError(f"full-build proof crossed forbidden boundary: {key}")
     content_lock, version_lock, _, toolchain = FULL.load_inputs()
     triplet = full.get("compiler", {}).get("triplet")
