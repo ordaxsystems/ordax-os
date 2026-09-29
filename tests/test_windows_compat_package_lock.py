@@ -115,6 +115,17 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
                 with self.assertRaisesRegex(probe.PackageLockError, "mutated installed package graph"):
                     probe.refresh_repository_indexes(rootfs)
 
+    def test_expected_archive_names_bind_already_resolved_versions(self):
+        expected = probe.expected_archive_names({"gcc": "14.2.0-r6", "build-base": "0.5-r3"})
+        self.assertEqual(
+            expected,
+            {
+                "gcc-14.2.0-r6.apk": ("gcc", "14.2.0-r6"),
+                "build-base-0.5-r3.apk": ("build-base", "0.5-r3"),
+            },
+        )
+        self.assertNotIn("gcc-14.2.0-r7.apk", expected)
+
     def test_package_set_digest_is_order_sensitive_to_canonical_records(self):
         records = [
             {"name": "a", "version": "1-r0", "sha256": "1" * 64, "size_bytes": 10},
