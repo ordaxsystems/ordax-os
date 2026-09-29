@@ -1,4 +1,3 @@
-import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -20,20 +19,16 @@ class WindowsCompatibilityApkContentDiscoveryTests(unittest.TestCase):
         self.lock = json.loads(LOCK_PATH.read_text(encoding="utf-8"))
 
     def test_canonical_closure_hash_matches_pinned_proof(self):
-        proof = {
-            "b": "2-r0",
-            "a": "1-r0",
-        }
+        proof = {"b": "2-r0", "a": "1-r0"}
         self.assertEqual(
             discovery.canonical_package_map_sha256(proof),
             discovery.canonical_package_map_sha256({"a": "1-r0", "b": "2-r0"}),
         )
 
     def test_exact_specs_are_sorted_and_version_bound(self):
-        self.assertEqual(
-            discovery.exact_specs({"z": "2-r0", "a": "1-r1"}),
-            ["a=1-r1", "z=2-r0"],
-        )
+        packages = {"z": "2-r0", "a": "1-r1"}
+        self.assertEqual(discovery.exact_specs(packages), ["a=1-r1", "z=2-r0"])
+        self.assertEqual(discovery.fetch_names(packages), ["a", "z"])
 
     def test_discovery_contract_is_fail_closed(self):
         lock, source, environment = discovery.validate_discovery_inputs()
