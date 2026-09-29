@@ -25,6 +25,28 @@ function sourceTimestamp(now) {
   return date.toISOString();
 }
 
+function findExactCapturedMemory(memory, draft, authorization) {
+  const matches = memory.search({
+    ownerKind: authorization.ownerKind,
+    ownerId: authorization.ownerId,
+    scopes: [authorization.scope],
+    spaceId: authorization.spaceId,
+    projectId: null,
+    includeRestricted: false,
+    query: draft.content,
+    limit: 32,
+    offset: 0,
+  });
+  return matches.find((item) => (
+    item.scope === authorization.scope
+    && item.kind === draft.kind
+    && item.sensitivity === draft.sensitivity
+    && item.content === draft.content
+    && item.spaceId === authorization.spaceId
+    && item.projectId === null
+  )) ?? null;
+}
+
 export function createMemoryCaptureRuntime(memoryPort, {
   now = () => new Date(),
   idFactory = defaultIdFactory,
@@ -45,6 +67,16 @@ export function createMemoryCaptureRuntime(memoryPort, {
       if (readCaptureEnabled() !== true) return null;
       const draft = validateMemoryCaptureDraft(draftValue);
       const authorization = validateMemoryCaptureAuthorization(authorizationValue);
+      const existing = findExactCapturedMemory(memory, draft, authorization);
+      if (existing !== null) {
+        await memory.flush();
+        return Object.freeze({
+          schema: MEMORY_CAPTURE_RESULT_SCHEMA,
+          item: existing,
+          durable: true,
+        });
+      }
+
       const id = String(idFactory()).trim();
       if (!id || id.length > 160 || id.includes("\0")) {
         throw new TypeError("Memory capture id is invalid");
