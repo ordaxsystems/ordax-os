@@ -1,0 +1,107 @@
+name: Cloud Memory Authenticated Proof
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove-cloud-memory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      ORDAX_SUPABASE_URL: ${{ secrets.ORDAX_SUPABASE_URL }}
+      ORDAX_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.ORDAX_SUPABASE_PUBLISHABLE_KEY }}
+      ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL: ${{ secrets.ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL }}
+      ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD: ${{ secrets.ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD }}
+      ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Require proof inputs without printing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ORDAX_SUPABASE_URL:-}" || {
+            echo 'ORDAX_SUPABASE_URL secret is required.' >&2
+            exit 2
+          }
+          test -n "${ORDAX_SUPABASE_PUBLISHABLE_KEY:-}" || {
+            echo 'ORDAX_SUPABASE_PUBLISHABLE_KEY secret is required.' >&2
+            exit 2
+          }
+          test -n "${ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL:-}" || {
+            echo 'ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL secret is required.' >&2
+            exit 2
+          }
+          test -n "${ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD:-}" || {
+            echo 'ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD secret is required.' >&2
+            exit 2
+          }
+          echo 'CLOUD_MEMORY_PROOF_INPUTS_PRESENT=YES'
+          echo 'CLOUD_MEMORY_PROOF_SECRETS_PRINTED=NO'
+
+      - name: Prove authenticated atomic Memory and tombstone sync
+        run: python tools/cloud-memory/prove_authenticated_atomic_sync.py
+
+      - name: Validate sanitized receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$ORDAX_MEMORY_PROOF_RECEIPT_PATH" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          data = json.loads(path.read_text(encoding="utf-8"))
+          assert data["$schema"] == "prototype-ordax.cloud-memory-authenticated-proof/1"
+          assert data["status"] == "pass"
+          assert data["proof_scope"] == "dedicated-non-admin-account-account-memory"
+          assert data["entitlement_preexisted"] is True
+          assert data["entitlement_created_by_proof"] is False
+          assert data["direct_memory_table_write_used"] is False
+          assert data["service_role_used"] is False
+          assert data["create_revision"] == 1
+          assert data["edit_revision"] == 2
+          assert data["delete_revision"] == 3
+          assert data["stale_revision_conflict_rejected"] is True
+          assert data["tombstone_seen_in_sync"] is True
+          assert data["canonical_memory_state_deleted"] is True
+          assert data["credentials_persisted"] is False
+          assert data["account_identifier_recorded"] is False
+          assert data["memory_identifier_recorded"] is False
+          assert data["memory_content_recorded"] is False
+          assert data["sensitive_auth_material_recorded"] is False
+          assert data["create_cursor"] > data["initial_cursor"]
+          assert data["edit_cursor"] > data["create_cursor"]
+          assert data["delete_cursor"] > data["edit_cursor"]
+          assert isinstance(data["source_commit"], str) and len(data["source_commit"]) == 40
+          int(data["source_commit"], 16)
+
+          serialized = json.dumps(data, sort_keys=True).lower()
+          for forbidden in (
+              "password",
+              "access_token",
+              "refresh_token",
+              "cookie",
+              "memory_id",
+              "subject_id",
+              "account_email",
+          ):
+              assert forbidden not in serialized
+          print("CLOUD_MEMORY_AUTHENTICATED_RECEIPT=PASS_SANITIZED")
+          PY
+
+      - name: Upload sanitized proof only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: cloud-memory-authenticated-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
+          if-no-files-found: error
+          retention-days: 14
