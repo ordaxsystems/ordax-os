@@ -25,6 +25,7 @@ import { createNativeLocalSession } from "../../adapters/native/local-session.mj
 import { createNativeMemoryStore } from "../../adapters/native/memory.mjs";
 import { createNativeProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
 import { createNativeProfileActivationState } from "../../adapters/native/profile-activation-state.mjs";
+import { createNativeSpaceSelectionStore } from "../../adapters/native/space-selection.mjs";
 import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
 import { createNativeSystemMetrics } from "../../adapters/native/system-metrics.mjs";
@@ -59,6 +60,7 @@ import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
+import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
 import { resolveProfilePackRestore } from "../../services/profile-packs/restore.mjs";
 import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
@@ -291,6 +293,11 @@ async function start() {
   const identityActions = createWebIdentityActions(window, identitySession);
   const identityCredentials = createSameOriginIdentityCredentials(window);
   const spaces = createWebSpacesCatalog(window);
+  const spaceSelection = createSpaceSelectionRuntime({
+    identitySession,
+    spaces,
+    store: createNativeSpaceSelectionStore(window),
+  });
   const profileComponentInventory = await optionalNativeProbe(
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
@@ -494,6 +501,7 @@ async function start() {
     spaces,
     profileProvisioning,
     memoryReview,
+    spaceSelection,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -677,6 +685,7 @@ async function start() {
       profileProvisioning.dispose();
       profileActivationState?.dispose();
       profileComponentInventory.dispose();
+      spaceSelection.dispose();
       spaces.dispose();
       accountSync.destroy();
       preferenceSync.destroy();

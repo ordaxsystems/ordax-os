@@ -19,6 +19,10 @@ import {
 } from "../../contracts/workspace-metadata-source.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { assertSpacesPort, validateSpacesSnapshot } from "../../contracts/spaces.mjs";
+import {
+  assertSpaceSelectionPort,
+  validateSpaceSelectionSnapshot,
+} from "../../contracts/space-selection.mjs";
 import { assertProfileProvisioningPort } from "../../contracts/profile-provisioning.mjs";
 import { mountMemoryReviewControls } from "./memory-review-controls.mjs";
 
@@ -79,6 +83,7 @@ function appendStateCard(documentObject, container, label, value, detail, state 
     node(documentObject, "small", "ordax-account-card-detail", detail),
   );
   container.append(card);
+  return card;
 }
 
 export function mountAccountOverviewControls(
@@ -93,6 +98,7 @@ export function mountAccountOverviewControls(
   spaces = null,
   profileProvisioning = null,
   memoryReview = null,
+  spaceSelection = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -112,6 +118,9 @@ export function mountAccountOverviewControls(
   const profileProvisioningPort = profileProvisioning === null
     ? null
     : assertProfileProvisioningPort(profileProvisioning);
+  const spaceSelectionPort = spaceSelection === null
+    ? null
+    : assertSpaceSelectionPort(spaceSelection);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -126,9 +135,13 @@ export function mountAccountOverviewControls(
   let spacesSnapshot = spacesPort
     ? validateSpacesSnapshot(spacesPort.getSnapshot())
     : null;
+  let spaceSelectionSnapshot = spaceSelectionPort
+    ? validateSpaceSelectionSnapshot(spaceSelectionPort.getSnapshot())
+    : null;
   let profilePlans = profileProvisioningPort ? profileProvisioningPort.list() : null;
   let pendingAction = null;
   let actionMessage = "";
+  let spaceMessage = "";
   let credentialEmailDraft = "";
   let credentialPasswordDraft = "";
   let actionOrdinal = 0;
@@ -149,6 +162,9 @@ export function mountAccountOverviewControls(
     }
     if (element.dataset.accountIdentityAction) {
       return Object.freeze({ kind: "identity-action", value: element.dataset.accountIdentityAction });
+    }
+    if (element.dataset.accountSpaceSelect) {
+      return Object.freeze({ kind: "space-select", value: element.dataset.accountSpaceSelect });
     }
     return null;
   };
@@ -475,16 +491,42 @@ export function mountAccountOverviewControls(
             pack: space.profilePack,
           })
         : t("account.spaces.card.detail", { kind, state, access });
-      appendStateCard(
+      const isSelected = (
+        spaceSelectionSnapshot?.state === "selected"
+        && spaceSelectionSnapshot.selectedSpace.id === space.id
+      );
+      const card = appendStateCard(
         documentObject,
         grid,
         t("account.spaces.card.label"),
         space.name,
         detail,
-        space.state === "active" ? "available" : "neutral",
+        isSelected ? "available" : space.state === "active" ? "available" : "neutral",
       );
+      if (spaceSelectionPort && space.state === "active") {
+        const cardActions = node(documentObject, "div", "ordax-account-actions");
+        const select = node(
+          documentObject,
+          "button",
+          isSelected
+            ? "ordax-account-action ordax-account-action-primary"
+            : "ordax-account-action",
+          isSelected
+            ? t("account.spaces.selection.selected")
+            : t("account.spaces.selection.use"),
+        );
+        select.type = "button";
+        select.dataset.accountSpaceSelect = space.id;
+        select.disabled = isSelected || spaceSelectionSnapshot?.state === "unavailable";
+        if (isSelected) select.setAttribute("aria-current", "true");
+        cardActions.append(select);
+        card.append(cardActions);
+      }
     }
     section.append(grid);
+    if (spaceMessage) {
+      section.append(node(documentObject, "p", "ordax-account-message", spaceMessage));
+    }
     view.append(section);
   };
 
@@ -775,6 +817,7 @@ export function mountAccountOverviewControls(
     const ordinal = ++actionOrdinal;
     pendingAction = action;
     actionMessage = "";
+    spaceMessage = "";
     replaceView();
     try {
       let credentialResult = null;
@@ -822,6 +865,7 @@ export function mountAccountOverviewControls(
     ) {
       const nextSection = sectionButton.dataset.accountSection;
       actionMessage = "";
+      spaceMessage = "";
       if (activationPort) {
         activationPort.publish({ appId: "account", target: nextSection });
       } else {
@@ -834,7 +878,20 @@ export function mountAccountOverviewControls(
 
     const refreshButton = event.target.closest("[data-account-spaces-refresh]");
     if (refreshButton && root.contains(refreshButton)) {
+      spaceMessage = "";
       refreshSpaces();
+      return;
+    }
+
+    const spaceButton = event.target.closest("[data-account-space-select]");
+    if (spaceButton && root.contains(spaceButton) && spaceSelectionPort) {
+      try {
+        spaceSelectionPort.select(spaceButton.dataset.accountSpaceSelect);
+        spaceMessage = "";
+      } catch {
+        spaceMessage = t("account.spaces.selection.failed");
+      }
+      replaceView();
       return;
     }
 
@@ -849,7 +906,10 @@ export function mountAccountOverviewControls(
   const unsubscribeRender = lifecycle.subscribeRender(() => {
     const persistedTarget = lifecycle.getAppTarget("account");
     const nextSection = validAccountSection(persistedTarget) ? persistedTarget : "overview";
-    if (nextSection !== activeSection) actionMessage = "";
+    if (nextSection !== activeSection) {
+      actionMessage = "";
+      spaceMessage = "";
+    }
     activeSection = nextSection;
     renderView(false);
   });
@@ -861,6 +921,7 @@ export function mountAccountOverviewControls(
     ) {
       activeSection = activation.target;
       actionMessage = "";
+      spaceMessage = "";
       replaceView();
       if (activeSection === "spaces") refreshSpaces();
     }
@@ -893,6 +954,10 @@ export function mountAccountOverviewControls(
     spacesSnapshot = validateSpacesSnapshot(snapshot);
     replaceView();
   });
+  const unsubscribeSpaceSelection = spaceSelectionPort?.subscribe((snapshot) => {
+    spaceSelectionSnapshot = validateSpaceSelectionSnapshot(snapshot);
+    replaceView();
+  });
   if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
     refreshSpaces();
   }
@@ -903,6 +968,7 @@ export function mountAccountOverviewControls(
       actionOrdinal += 1;
       memoryReviewControls?.dispose();
       memoryReviewControls = null;
+      unsubscribeSpaceSelection?.();
       unsubscribeSpaces?.();
       unsubscribeWorkspaceMetadata?.();
       unsubscribeSync?.();

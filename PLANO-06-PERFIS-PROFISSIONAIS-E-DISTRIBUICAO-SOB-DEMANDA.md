@@ -152,6 +152,11 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - manifests versionados são a fonte única da composição do Profile; o catálogo de distribuição mantém somente política de entrega e deriva componentes dos manifests validados;
 - o receipt humano não atravessa Surface nem HTTP: o Native control server solicita o diálogo, recebe a decisão, emite o receipt one-shot e o consome internamente antes da mutação;
 - o prompt Native confiável reutiliza a preferência persistida `regional.locale` e possui catálogo mínimo próprio apenas para mensagens de segurança (PT-BR, EN-US, ES-ES, DE-DE, FR-FR), com fallback PT-BR; isso não cria uma segunda UI/localização do produto;
+- a seleção de “Space em uso” é explícita e separada das áreas visuais do desktop: somente um Space ativo retornado pelo catálogo autenticado pode ser selecionado;
+- a seleção local é vinculada ao `subjectId` da conta e persiste somente `subjectId + selectedSpaceId`; troca/logout de identidade não pode herdar o Space de outro usuário;
+- o snapshot do catálogo de Spaces também é vinculado ao `subjectId` que o recebeu; uma troca direta de conta reseta/aborta o catálogo anterior e exige nova resposta autenticada, impedindo seleção ou conclusão de refresh com dados stale de outro usuário;
+- indisponibilidade temporária do catálogo oculta o Space selecionado sem convertê-lo em autorização; quando o catálogo autenticado volta, a seleção só é restaurada se o mesmo Space continuar ativo e visível;
+- Space selecionado é contexto/navegação, não membership, permissão, Profile activation nem fonte de autoridade;
 - conteúdo Knowledge/Skill de um Profile ativo possui reader Native read-only que revalida inventário, receipt, slot content-addressed, hash exato e estrutura antes de projetar contexto bounded para Intelligence;
 - a ponte de Intelligence é vinculada explicitamente por `spaceId`; ela nunca escolhe/inventa um Space, preserva contexto do consumidor como prioridade e trata Skill como contexto declarativo com `authority=none` e sem tools;
 - esse caminho permanece Owner/Development-only e dormente enquanto não existir componente Profile canônico realmente publicado/instalado/ativado; Stable/MVP continua sem endpoint de Profile content context;

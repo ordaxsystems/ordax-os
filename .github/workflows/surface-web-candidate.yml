@@ -27,6 +27,7 @@ on:
       - 'system/contracts/identity-credentials.mjs'
       - 'system/contracts/entitlements.mjs'
       - 'system/contracts/spaces.mjs'
+      - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
@@ -53,6 +54,7 @@ on:
       - 'system/surface/**'
       - 'system/apps/**'
       - 'system/services/account/**'
+      - 'system/services/spaces/**'
       - 'system/services/network/**'
       - 'system/services/apps/**'
       - 'system/services/components/**'
@@ -156,6 +158,8 @@ on:
       - 'tests/test_diagnostics_contract.py'
       - 'tests/test_sync_*.mjs'
       - 'tests/test_account_sync_runtime.mjs'
+      - 'tests/test_space_selection.mjs'
+      - 'tests/test_space_selection_surface_contract.py'
       - '.github/workflows/surface-web-candidate.yml'
   pull_request:
     paths:
@@ -182,6 +186,7 @@ on:
       - 'system/contracts/identity-credentials.mjs'
       - 'system/contracts/entitlements.mjs'
       - 'system/contracts/spaces.mjs'
+      - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
@@ -208,6 +213,7 @@ on:
       - 'system/surface/**'
       - 'system/apps/**'
       - 'system/services/account/**'
+      - 'system/services/spaces/**'
       - 'system/services/network/**'
       - 'system/services/apps/**'
       - 'system/services/components/**'
@@ -308,6 +314,8 @@ on:
       - 'tests/test_diagnostics_contract.py'
       - 'tests/test_sync_*.mjs'
       - 'tests/test_account_sync_runtime.mjs'
+      - 'tests/test_space_selection.mjs'
+      - 'tests/test_space_selection_surface_contract.py'
       - '.github/workflows/surface-web-candidate.yml'
   workflow_dispatch:
 
@@ -340,6 +348,7 @@ jobs:
           find \
             system/contracts \
             system/services/account \
+            system/services/spaces \
             system/services/apps \
             system/services/components \
             system/services/files \
@@ -397,6 +406,7 @@ jobs:
           node --test tests/test_power_status.mjs
           node --test tests/test_update_*.mjs
           node --test tests/test_account_runtime.mjs
+          node --test tests/test_space_selection.mjs
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
@@ -432,6 +442,7 @@ jobs:
           python -m unittest tests.test_files_deep_localization -v
           python -m unittest tests.test_notes_native -v
           python -m unittest tests.test_native_component_state -v
+          python -m unittest tests.test_space_selection_surface_contract -v
           python -m unittest tests.test_native_component_probation -v
           python -m unittest tests.test_browser_session_integration_contract -v
           python -m unittest tests.test_browser_session_store -v
