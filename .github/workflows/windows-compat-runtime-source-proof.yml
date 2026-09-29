@@ -91,11 +91,20 @@ jobs:
           assert counts['c_source_bytes'] > 0
           assert counts['direct_loader_calls'] > 0
           assert counts['direct_loader_calls'] == sum(counts['calls_by_api'].values())
+          assert counts['direct_loader_calls'] == (
+              counts['static_string_targets']
+              + counts['configured_soname_symbol_targets']
+              + counts['dynamic_expression_targets']
+              + counts['null_targets']
+          )
+          assert counts['configured_soname_symbol_targets'] == sum(counts['configured_soname_symbols'].values())
           gates = dynamic['gates']
           assert gates['source_lock_verified'] is True
           assert gates['source_proof_verified'] is True
           assert gates['c_archive_manifest_bound'] is True
           assert gates['direct_host_loader_calls_inventoried'] is True
+          assert gates['configured_soname_symbols_classified'] is True
+          assert gates['configured_soname_values_resolved'] is False
           assert gates['wrapper_call_graph_complete'] is False
           assert gates['generated_source_inventory_complete'] is False
           assert gates['dynamic_load_inventory_complete'] is False
@@ -112,7 +121,9 @@ jobs:
           print('direct loader calls:', counts['direct_loader_calls'])
           print('calls by API:', counts['calls_by_api'])
           print('static string targets:', counts['static_string_targets'])
-          print('dynamic expression targets:', counts['dynamic_expression_targets'])
+          print('configured SONAME targets:', counts['configured_soname_symbol_targets'])
+          print('configured SONAME symbols:', counts['configured_soname_symbols'])
+          print('runtime-computed targets:', counts['dynamic_expression_targets'])
           print('dynamic-load inventory:', dynamic['inventory_sha256'])
           PY
 
