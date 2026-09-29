@@ -1,0 +1,167 @@
+name: Windows Compatibility Generated Source Trigger Proof
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/runtime-generated-source-producers.json'
+      - 'bootstrap/windows-compat-runtime/runtime_generated_source_producer_probe.py'
+      - 'bootstrap/windows-compat-runtime/runtime-generated-source-triggers.json'
+      - 'bootstrap/windows-compat-runtime/runtime_generated_source_trigger_probe.py'
+      - 'tests/test_windows_compat_runtime_generated_source_producers.py'
+      - 'tests/test_windows_compat_runtime_generated_source_triggers.py'
+      - '.github/workflows/windows-compat-generated-source-trigger-proof.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/windows-compat-runtime/runtime-generated-source-producers.json'
+      - 'bootstrap/windows-compat-runtime/runtime_generated_source_producer_probe.py'
+      - 'bootstrap/windows-compat-runtime/runtime-generated-source-triggers.json'
+      - 'bootstrap/windows-compat-runtime/runtime_generated_source_trigger_probe.py'
+      - 'tests/test_windows_compat_runtime_generated_source_producers.py'
+      - 'tests/test_windows_compat_runtime_generated_source_triggers.py'
+      - '.github/workflows/windows-compat-generated-source-trigger-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  generated-source-trigger-proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate generated source producer and trigger contracts
+        run: |
+          set -euo pipefail
+          python bootstrap/windows-compat-runtime/build.py check
+          python bootstrap/windows-compat-runtime/runtime_generated_source_producer_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_generated_source_trigger_probe.py check
+
+      - name: Run fail-closed regressions
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_windows_compat_runtime_generated_source_producers -v
+          python -m unittest tests.test_windows_compat_runtime_generated_source_triggers -v
+
+      - name: Fetch exact Wine source and inventory generated C triggers
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-generated-source-trigger-proof"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
+
+          python bootstrap/windows-compat-runtime/build.py fetch-source \
+            --cache-dir "$tmp/cache" \
+            --proof-out "$proof_dir/source-proof.json"
+
+          python bootstrap/windows-compat-runtime/runtime_generated_source_producer_probe.py prove \
+            --source-archive "$tmp/cache/wine-11.0.tar.xz" \
+            --out "$proof_dir/runtime-generated-source-producer-proof.json"
+
+          python bootstrap/windows-compat-runtime/runtime_generated_source_trigger_probe.py prove \
+            --source-archive "$tmp/cache/wine-11.0.tar.xz" \
+            --producer-proof "$proof_dir/runtime-generated-source-producer-proof.json" \
+            --out "$proof_dir/runtime-generated-source-trigger-proof.json"
+
+          python - <<'PY' \
+            "$proof_dir/source-proof.json" \
+            "$proof_dir/runtime-generated-source-producer-proof.json" \
+            "$proof_dir/runtime-generated-source-trigger-proof.json"
+          import json
+          import pathlib
+          import re
+          import sys
+
+          source, producer, trigger = [
+              json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+              for path in sys.argv[1:]
+          ]
+          assert source['$schema'] == 'prototype-ordax.windows-compat-source-proof/1'
+          assert source['build_performed'] is False
+          assert source['activation_authorized'] is False
+          assert source['execution_authorized'] is False
+          assert source['version'] == '11.0'
+
+          assert producer['$schema'] == 'prototype-ordax.windows-compat-runtime-generated-source-producer-proof/1'
+          assert trigger['$schema'] == 'prototype-ordax.windows-compat-runtime-generated-source-trigger-proof/1'
+          assert trigger['runtime_id'] == producer['runtime_id'] == source['runtime_id']
+          assert trigger['source_archive_sha256'] == producer['source_archive_sha256'] == source['archive_sha256']
+          assert trigger['producer_evidence_sha256'] == producer['evidence_sha256']
+          assert re.fullmatch(r'[0-9a-f]{64}', trigger['makefile_manifest_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', trigger['evidence_sha256'])
+
+          counts = trigger['counts']
+          assert counts['makefiles_scanned'] > 0
+          assert counts['source_tokens_inspected'] > 0
+          assert counts['trigger_records'] > 0
+          assert counts['trigger_source_members'] > 0
+          expected_producers = {
+              'bison-parser',
+              'extra-objs-c-fallback',
+              'flex-scanner',
+              'wayland-protocol',
+              'widl-client',
+              'widl-dlldata',
+              'widl-ident',
+              'widl-proxy',
+              'widl-server',
+          }
+          assert set(counts['by_producer']) == expected_producers
+          assert counts['trigger_records'] == sum(counts['by_producer'].values())
+          assert len(trigger['trigger_records']) == counts['trigger_records']
+
+          gates = trigger['gates']
+          for gate in (
+              'producer_proof_verified',
+              'makefile_manifest_bound',
+              'build_source_variables_expanded',
+              'generated_c_trigger_instances_inventoried',
+              'trigger_source_members_bound',
+          ):
+              assert gates[gate] is True, gate
+          for gate in (
+              'generated_source_instances_inventoried',
+              'generated_source_output_fanout_verified',
+              'generated_source_outputs_scanned',
+              'generated_source_inventory_complete',
+              'wrapper_call_graph_complete',
+              'dynamic_load_inventory_complete',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert gates[gate] is False, gate
+
+          print('Wine source proof:', source['archive_sha256'])
+          print('generated producer evidence:', producer['evidence_sha256'])
+          print('makefiles scanned:', counts['makefiles_scanned'])
+          print('source tokens inspected:', counts['source_tokens_inspected'])
+          print('generated C trigger records:', counts['trigger_records'])
+          print('trigger source members:', counts['trigger_source_members'])
+          print('triggers by producer:', counts['by_producer'])
+          print('generated trigger evidence:', trigger['evidence_sha256'])
+          PY
+
+      - name: Upload generated source trigger metadata only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-generated-source-trigger-proof-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/windows-compat-generated-source-trigger-proof/source-proof.json
+            ${{ runner.temp }}/windows-compat-generated-source-trigger-proof/runtime-generated-source-producer-proof.json
+            ${{ runner.temp }}/windows-compat-generated-source-trigger-proof/runtime-generated-source-trigger-proof.json
+          if-no-files-found: error
