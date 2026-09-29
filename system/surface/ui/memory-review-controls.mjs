@@ -18,6 +18,7 @@ function requireViewModel(value) {
     "subscribe",
     "setQuery",
     "selectOwner",
+    "create",
     "nextPage",
     "previousPage",
     "update",
@@ -38,6 +39,8 @@ function requireCopy(copy) {
     "deviceOwner",
     "accountOwner",
     "empty",
+    "addPlaceholder",
+    "add",
     "save",
     "remove",
     "previous",
@@ -125,6 +128,24 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
       toolbar.append(owners);
     }
     container.append(toolbar);
+
+    const createBox = node(documentObject, "div", "ordax-memory-review-create");
+    const createInput = documentObject.createElement("textarea");
+    createInput.maxLength = 32768;
+    createInput.placeholder = copy.addPlaceholder;
+    createInput.dataset.memoryReviewNew = "";
+    createInput.disabled = mutationPending;
+    const createButton = node(
+      documentObject,
+      "button",
+      "ordax-memory-review-create-button",
+      copy.add,
+    );
+    createButton.type = "button";
+    createButton.dataset.memoryReviewCreate = "";
+    createButton.disabled = mutationPending;
+    createBox.append(createInput, createButton);
+    container.append(createBox);
 
     const status = node(documentObject, "p", "ordax-memory-review-status");
     status.setAttribute("role", "status");
@@ -218,6 +239,12 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
         ownerKind: target.dataset.ownerKind,
         ownerId: target.dataset.ownerKind === "device" ? null : target.dataset.ownerId,
       });
+      return;
+    }
+    if (target.dataset.memoryReviewCreate !== undefined) {
+      const textarea = container.querySelector("textarea[data-memory-review-new]");
+      if (!textarea || textarea.value.trim().length === 0) return;
+      void runMutation(() => viewModel.create(textarea.value));
       return;
     }
     if (target.dataset.memoryReviewPage === "previous") {
