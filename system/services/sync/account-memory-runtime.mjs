@@ -15,13 +15,12 @@ export const MEMORY_SYNC_PAYLOAD_SCHEMA = "ordax.memory-sync-payload/1";
 export const MEMORY_SYNC_STATE_SCHEMA = "ordax.memory-sync-state/1";
 export const MEMORY_SYNC_OBJECT_SCHEMA_VERSION = 1;
 export const MEMORY_SYNC_RESOLVER_VERSION = 1;
-export const MEMORY_SYNC_OBJECT_PREFIX = "memory/";
 
-const MAX_SYNC_OBJECT_ID_CHARS = 240;
+const MAX_SYNC_OBJECT_ID_CHARS = 160;
 const MAX_REMOTE_BATCH = 500;
 const MAX_COORDINATION_ENTRIES = 500;
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._:-]{8,128}$/;
-const PORTABLE_SCOPES = new Set(["account", "space", "project"]);
+const PORTABLE_SCOPES = new Set(["account", "space"]);
 const PORTABLE_SENSITIVITY = new Set(["normal", "private"]);
 const CONFLICT_REASONS = new Set([
   "same-revision-divergence",
@@ -29,8 +28,6 @@ const CONFLICT_REASONS = new Set([
   "server-conflict",
   "local-change-during-flight",
 ]);
-const BASE64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-const encoder = new TextEncoder();
 
 const NEVER_SYNC_TEXT_PATTERNS = Object.freeze([
   /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/i,
@@ -64,39 +61,23 @@ function exactKeys(value, keys) {
   return Object.keys(value).sort().join(",") === [...keys].sort().join(",");
 }
 
-function base64UrlUtf8(value) {
-  const bytes = encoder.encode(value);
-  let output = "";
-  for (let index = 0; index < bytes.length; index += 3) {
-    const a = bytes[index];
-    const hasB = index + 1 < bytes.length;
-    const hasC = index + 2 < bytes.length;
-    const b = hasB ? bytes[index + 1] : 0;
-    const c = hasC ? bytes[index + 2] : 0;
-    const triple = (a << 16) | (b << 8) | c;
-    output += BASE64URL[(triple >>> 18) & 63];
-    output += BASE64URL[(triple >>> 12) & 63];
-    if (hasB) output += BASE64URL[(triple >>> 6) & 63];
-    if (hasC) output += BASE64URL[triple & 63];
+function validateMemorySyncObjectId(value) {
+  if (typeof value !== "string" || value.includes("\0")) {
+    throw new TypeError("Memory sync object id is invalid");
   }
-  return output;
+  const normalized = value.trim();
+  if (!normalized || normalized !== value || normalized.length > MAX_SYNC_OBJECT_ID_CHARS) {
+    throw new TypeError("Memory sync object id is invalid");
+  }
+  return normalized;
 }
 
 function objectIdForMemoryId(id) {
-  const value = `${MEMORY_SYNC_OBJECT_PREFIX}${base64UrlUtf8(id)}`;
-  return value.length <= MAX_SYNC_OBJECT_ID_CHARS ? value : null;
-}
-
-function validateMemorySyncObjectId(value) {
-  if (
-    typeof value !== "string"
-    || !value.startsWith(MEMORY_SYNC_OBJECT_PREFIX)
-    || value.length <= MEMORY_SYNC_OBJECT_PREFIX.length
-    || value.length > MAX_SYNC_OBJECT_ID_CHARS
-  ) {
-    throw new TypeError("Memory sync object id is invalid");
+  try {
+    return validateMemorySyncObjectId(id);
+  } catch {
+    return null;
   }
-  return value;
 }
 
 function containsNeverSyncText(item) {
