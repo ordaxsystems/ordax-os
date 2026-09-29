@@ -100,7 +100,15 @@
     "owner_switching_is_explicit": true,
     "sign_out_falls_back_to_device_owner": true,
     "pagination_uses_bounded_lookahead": true,
-    "persistence_state_is_exposed_without_host_error_details": true
+    "persistence_state_is_exposed_without_host_error_details": true,
+    "manual_create_enabled": true,
+    "manual_create_scope_by_selected_owner": {
+      "device": "device",
+      "account": "account"
+    },
+    "manual_create_space_scope_enabled": false,
+    "manual_create_project_scope_enabled": false,
+    "manual_create_requires_durable_flush": true
   },
   "external_models": {
     "local_ai": "may-receive-authorized-context",
