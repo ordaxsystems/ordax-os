@@ -15,6 +15,8 @@ on:
       - 'infra/supabase/product/migrations/20260929192000_cloud_memory_atomic_mutation_qualification_v1.sql'
       - 'infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql'
       - 'infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql'
+      - 'services/public-identity/supabase_memory.py'
+      - 'services/public-identity/supabase_sync.py'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/sync-state-store.mjs'
       - 'system/contracts/sync-transport.mjs'
@@ -25,8 +27,10 @@ on:
       - 'system/services/sync/account-runtime.mjs'
       - 'system/services/sync/memory-conflict-resolution.mjs'
       - 'system/services/sync/state-store-registry.mjs'
+      - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
       - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
       - 'tests/test_cloud_memory_atomic_mutation.py'
+      - 'tests/test_cloud_memory_authenticated_proof.py'
       - 'tests/test_cloud_memory_privacy_hardening.py'
       - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_gateway_policy.mjs'
@@ -41,6 +45,7 @@ on:
       - 'tests/test_account_sync_runtime.mjs'
       - 'tests/test_sync_model_contract.py'
       - '.github/workflows/account-memory-sync-foundation.yml'
+      - '.github/workflows/cloud-memory-authenticated-proof.yml'
   pull_request:
     paths:
       - 'docs/ACCOUNT-SYNC-AND-PLANS.md'
@@ -54,6 +59,8 @@ on:
       - 'infra/supabase/product/migrations/20260929192000_cloud_memory_atomic_mutation_qualification_v1.sql'
       - 'infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql'
       - 'infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql'
+      - 'services/public-identity/supabase_memory.py'
+      - 'services/public-identity/supabase_sync.py'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/sync-state-store.mjs'
       - 'system/contracts/sync-transport.mjs'
@@ -64,8 +71,10 @@ on:
       - 'system/services/sync/account-runtime.mjs'
       - 'system/services/sync/memory-conflict-resolution.mjs'
       - 'system/services/sync/state-store-registry.mjs'
+      - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
       - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
       - 'tests/test_cloud_memory_atomic_mutation.py'
+      - 'tests/test_cloud_memory_authenticated_proof.py'
       - 'tests/test_cloud_memory_privacy_hardening.py'
       - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_gateway_policy.mjs'
@@ -80,6 +89,7 @@ on:
       - 'tests/test_account_sync_runtime.mjs'
       - 'tests/test_sync_model_contract.py'
       - '.github/workflows/account-memory-sync-foundation.yml'
+      - '.github/workflows/cloud-memory-authenticated-proof.yml'
   workflow_dispatch:
 
 permissions:
@@ -142,7 +152,11 @@ jobs:
           node --check tests/test_account_restore_plan.mjs
           node --check tests/test_memory_conflict_resolution.mjs
           node --check tests/test_sync_state_namespace_registry.mjs
+          python -m py_compile services/public-identity/supabase_memory.py
+          python -m py_compile services/public-identity/supabase_sync.py
+          python -m py_compile tools/cloud-memory/prove_authenticated_atomic_sync.py
           python -m py_compile tests/test_cloud_memory_atomic_mutation.py
+          python -m py_compile tests/test_cloud_memory_authenticated_proof.py
           python -m py_compile tests/test_cloud_memory_privacy_hardening.py
           python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
           python -m json.tool docs/contracts/foundation.json >/dev/null
@@ -169,5 +183,6 @@ jobs:
           node --test tests/test_sync_state_namespace_registry.mjs
           node --test tests/test_account_sync_runtime.mjs
           python -m unittest tests.test_cloud_memory_atomic_mutation -v
+          python -m unittest tests.test_cloud_memory_authenticated_proof -v
           python -m unittest tests.test_cloud_memory_privacy_hardening -v
           python -m unittest tests.test_sync_model_contract -v
