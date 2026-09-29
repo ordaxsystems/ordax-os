@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import json
 from pathlib import Path, PurePosixPath
 import re
 import sys
@@ -212,21 +211,19 @@ def validate_compiled_c_graph(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["check"])
-    args = parser.parse_args()
+    parser.parse_args()
     contract = PROBE.load_contract()
     inspection = contract["inspection"]
     for key in (
         "generated_makefile_c_target_graph_required",
         "built_object_dependency_check_required",
+        "every_built_object_c_prerequisite_accounted",
+        "unreferenced_materialized_generated_c_allowed",
     ):
         if inspection.get(key) is not True:
             raise GeneratedSourceMakefileGuardError(f"generated Makefile guard contract drifted: {key}")
-    for key in (
-        "generated_c_without_makefile_target_allowed",
-        "unmaterialized_c_target_with_built_dependent_allowed",
-    ):
-        if inspection.get(key) is not False:
-            raise GeneratedSourceMakefileGuardError(f"generated Makefile fail-closed boundary drifted: {key}")
+    if inspection.get("unmaterialized_c_prerequisite_for_built_object_allowed") is not False:
+        raise GeneratedSourceMakefileGuardError("generated Makefile missing-C boundary drifted")
     print("windows compatibility generated C Makefile graph guard: PASS")
     return 0
 
