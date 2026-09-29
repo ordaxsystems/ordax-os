@@ -147,6 +147,9 @@ const accountOverviewControls = mountAccountOverviewControls(
   identityCredentials,
   spaces,
   profileProvisioning,
+  null,
+  null,
+  surface.preferences,
 );
 const settingsOverviewControls = mountSettingsOverviewControls(
   root,
