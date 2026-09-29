@@ -171,6 +171,7 @@
       "appearance",
       "preferences",
       "workspace-metadata",
+      "memory",
       "app-state-metadata",
       "user-selected-cloud-content"
     ],
