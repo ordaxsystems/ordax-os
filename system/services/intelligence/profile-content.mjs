@@ -49,26 +49,26 @@ export function createProfileContentIntelligence({
   const profileContext = assertProfileContentContextPort(profileContentContextPort);
 
   const respondForSpace = async (value, spaceId) => {
-      const request = validateIntelligenceRequest(value);
-      const normalizedSpaceId = boundedSpaceId(spaceId);
-      const profile = await profileContext.read(normalizedSpaceId);
+    const request = validateIntelligenceRequest(value);
+    const normalizedSpaceId = boundedSpaceId(spaceId);
+    const profile = await profileContext.read(normalizedSpaceId);
 
-      const remainingItems = INTELLIGENCE_MAX_CONTEXT_ITEMS - request.context.length;
-      const usedChars = request.context.reduce((total, entry) => total + entry.text.length, 0);
-      const remainingChars = INTELLIGENCE_MAX_CONTEXT_TOTAL_CHARS - usedChars;
-      const additions = (
-        remainingItems > 0 && remainingChars > 0
-          ? fitEntries(profile.entries, remainingItems, remainingChars)
-          : []
-      );
+    const remainingItems = INTELLIGENCE_MAX_CONTEXT_ITEMS - request.context.length;
+    const usedChars = request.context.reduce((total, entry) => total + entry.text.length, 0);
+    const remainingChars = INTELLIGENCE_MAX_CONTEXT_TOTAL_CHARS - usedChars;
+    const additions = (
+      remainingItems > 0 && remainingChars > 0
+        ? fitEntries(profile.entries, remainingItems, remainingChars)
+        : []
+    );
 
-      const merged = validateIntelligenceRequest({
-        intent: request.intent,
-        prompt: request.prompt,
-        context: [...request.context, ...additions],
-        maxTokens: request.maxTokens,
-      });
-      return intelligence.respond(merged);
+    const merged = validateIntelligenceRequest({
+      intent: request.intent,
+      prompt: request.prompt,
+      context: [...request.context, ...additions],
+      maxTokens: request.maxTokens,
+    });
+    return intelligence.respond(merged);
   };
 
   return Object.freeze({
@@ -80,7 +80,7 @@ export function createProfileContentIntelligence({
       return intelligence.subscribe(listener);
     },
     respond(value, { spaceId } = {}) {
-      return respondForSpace(value, boundedSpaceId(spaceId));
+      return respondForSpace(value, spaceId);
     },
     forSpace(spaceId) {
       const boundSpaceId = boundedSpaceId(spaceId);
