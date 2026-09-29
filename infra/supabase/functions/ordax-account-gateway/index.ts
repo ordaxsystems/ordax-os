@@ -724,8 +724,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const now = Date.now();
-    let decision: "allowed" | "limited" | "denied" = "denied";
-    let expiresAt: string | null = null;
+    const activeAllowed: Array<number | null> = [];
+    const activeLimited: Array<number | null> = [];
     for (const raw of data as Array<Record<string, unknown>>) {
       const fromRaw = raw.valid_from;
       const untilRaw = raw.valid_until;
@@ -748,18 +748,19 @@ Deno.serve(async (req: Request) => {
       }
       if (validFrom > now || (validUntil !== null && validUntil <= now)) continue;
       const rawDecision = (raw.entitlement_value as Record<string, unknown>).decision;
-      if (rawDecision !== "allowed" && rawDecision !== "limited") continue;
-
-      if (rawDecision === "allowed") decision = "allowed";
-      else if (decision !== "allowed") decision = "limited";
-
-      if (validUntil === null) {
-        expiresAt = null;
-      } else if (expiresAt !== null || decision !== "denied") {
-        const previous = expiresAt === null ? 0 : Date.parse(expiresAt);
-        if (validUntil > previous) expiresAt = new Date(validUntil).toISOString();
-      }
+      if (rawDecision === "allowed") activeAllowed.push(validUntil);
+      else if (rawDecision === "limited") activeLimited.push(validUntil);
     }
+
+    const selected = activeAllowed.length > 0 ? activeAllowed : activeLimited;
+    const decision: "allowed" | "limited" | "denied" = activeAllowed.length > 0
+      ? "allowed"
+      : activeLimited.length > 0
+        ? "limited"
+        : "denied";
+    const expiresAt = selected.length === 0 || selected.some((value) => value === null)
+      ? null
+      : new Date(Math.max(...selected.map((value) => Number(value)))).toISOString();
 
     return json(200, {
       $schema: ACCOUNT_ENTITLEMENT_SCHEMA,
