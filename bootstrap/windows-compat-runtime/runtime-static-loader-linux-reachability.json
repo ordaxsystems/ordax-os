@@ -1,0 +1,80 @@
+{
+  "$schema": "prototype-ordax.windows-compat-runtime-static-loader-linux-reachability/1",
+  "status": "linux-build-reachability-only-not-dynamic-inventory-complete",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "input": {
+    "source_proof_schema": "prototype-ordax.windows-compat-source-proof/1",
+    "dynamic_source_proof_schema": "prototype-ordax.windows-compat-runtime-dynamic-load-source-proof/1",
+    "static_classification_proof_schema": "prototype-ordax.windows-compat-runtime-static-loader-target-classification-proof/1",
+    "full_build_proof_schema": "prototype-ordax.windows-compat-full-build-proof/2",
+    "source_archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
+    "source_archive_root": "wine-11.0"
+  },
+  "source_authority": {
+    "configure_path": "configure.ac",
+    "makefile_macro_path": "aclocal.m4",
+    "host_selector": "$host_os",
+    "generated_makefile_variable": "DISABLED_SUBDIRS",
+    "generated_subdirs_variable": "SUBDIRS",
+    "disabled_subdir_semantics_required": true,
+    "staging_manifest_recomputation_required": true
+  },
+  "modules": [
+    {
+      "id": "wineandroid-driver",
+      "source_subdir": "dlls/wineandroid.drv",
+      "makefile_source_path": "dlls/wineandroid.drv/Makefile.in",
+      "enable_variable": "enable_wineandroid_drv",
+      "host_os_enable_pattern": "linux-android*",
+      "expected_module": "wineandroid.drv",
+      "expected_unixlib": "wineandroid.so",
+      "static_rule_ids": [
+        "android-libhardware",
+        "android-libandroid",
+        "android-liblog",
+        "android-ntdll-bootstrap"
+      ]
+    },
+    {
+      "id": "winemac-driver",
+      "source_subdir": "dlls/winemac.drv",
+      "makefile_source_path": "dlls/winemac.drv/Makefile.in",
+      "enable_variable": "enable_winemac_drv",
+      "host_os_enable_pattern": "darwin*",
+      "expected_module": "winemac.drv",
+      "expected_unixlib": "winemac.so",
+      "static_rule_ids": [
+        "macos-opengl-framework"
+      ]
+    }
+  ],
+  "verification": {
+    "exact_locked_source_archive_required": true,
+    "dynamic_source_recomputation_required": true,
+    "static_classification_recomputation_required": true,
+    "full_build_runtime_identity_required": true,
+    "configure_host_os_required": true,
+    "configure_host_rule_required": true,
+    "generated_disabled_subdirs_required": true,
+    "module_makefile_identity_required": true,
+    "staged_module_absence_required_when_host_disabled": true,
+    "absence_without_host_disable_evidence_allowed": false
+  },
+  "open_boundaries": {
+    "configured_soname_caller_loader_context_complete": false,
+    "runtime_computed_target_resolution_complete": false,
+    "wrapper_call_graph_complete": false,
+    "generated_source_inventory_complete": false,
+    "dynamic_load_inventory_complete": false,
+    "external_transitive_closure_verified": false,
+    "runtime_dependency_inventory_complete": false
+  },
+  "promotion": {
+    "runtime_package_content_hashes_pinned": false,
+    "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false,
+    "wine_executed": false,
+    "windows_payload_executed": false
+  }
+}
