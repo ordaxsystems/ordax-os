@@ -1,17 +1,19 @@
 {
   "$schema": "prototype-ordax.application-compatibility-contract/1",
   "port": "ordax.application-compatibility/1",
-  "status": "source-foundation-inspection-only",
+  "status": "source-foundation-profile-planning",
   "public_availability": false,
   "execution_available": false,
   "installation_available": false,
+  "profile_creation_available": false,
   "boot_critical": false,
   "foreign_payload_default_trust": "untrusted",
   "foreign_payload_becomes_native_trust": false,
   "implemented_operations": [
     "inspect",
     "runtime.list",
-    "launch.plan"
+    "launch.plan",
+    "profile.create.plan"
   ],
   "reserved_future_operations": [
     "profile.create",
@@ -50,6 +52,16 @@
       "sandbox_required": true,
       "execution_enabled_descriptor_required": true,
       "content_addressed_source_required": true
+    },
+    "profile": {
+      "planner_schema": "ordax.application-compatibility-profile-planner/1",
+      "profile_schema": "ordax.application-compatibility-profile/1",
+      "durable_user_storage_key_prefix": "application-compatibility/windows/",
+      "absolute_host_path_exposed_by_contract": false,
+      "payload_sha256_bound": true,
+      "runtime_id_bound": true,
+      "host_authority": "none",
+      "planner_has_mutation_authority": false
     }
   },
   "security": {
@@ -60,7 +72,10 @@
     "current_port_exposes_install": false,
     "current_port_exposes_shell": false,
     "current_port_exposes_spawn": false,
-    "current_port_exposes_filesystem_write": false
+    "current_port_exposes_filesystem_write": false,
+    "profile_planner_exposes_create": false,
+    "profile_planner_exposes_execute": false,
+    "profile_planner_exposes_filesystem_write": false
   },
   "legacy_reference": {
     "repository": "washingtonmsdj/novo-ordax-os",
