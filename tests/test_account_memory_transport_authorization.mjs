@@ -32,7 +32,7 @@ function stateStore() {
   };
 }
 
-function item() {
+function item(overrides = {}) {
   return {
     id: "memory-a",
     ownerKind: "account",
@@ -45,6 +45,7 @@ function item() {
     sourceTimestamp: "2026-09-29T23:00:00Z",
     spaceId: null,
     projectId: null,
+    ...overrides,
   };
 }
 
@@ -74,26 +75,35 @@ function transport() {
   };
 }
 
+function createSession({ memory = createMemoryRuntime(), authorizeSync } = {}) {
+  let ordinal = 0;
+  return createAccountMemorySessionRuntime({
+    identitySession: identitySession(),
+    memoryPort: memory,
+    createSyncStateStore: () => stateStore(),
+    authorizeSync,
+    createIdempotencyKey(kind) {
+      ordinal += 1;
+      return `memory:${kind}:${ordinal}:transport-boundary`;
+    },
+  });
+}
+
 test("a pending upsert is not transported after authorization is revoked", async () => {
   let allowed = true;
-  let ordinal = 0;
   const descriptors = [];
-  const session = createAccountMemorySessionRuntime({
-    identitySession: identitySession(),
-    memoryPort: createMemoryRuntime(),
-    createSyncStateStore: () => stateStore(),
+  const memory = createMemoryRuntime();
+  const current = memory.remember(item());
+  const session = createSession({
+    memory,
     authorizeSync(descriptor) {
       descriptors.push(descriptor);
       return allowed;
     },
-    createIdempotencyKey(kind) {
-      ordinal += 1;
-      return `memory:${kind}:${ordinal}:reauth`;
-    },
   });
   const remote = transport();
 
-  const staged = session.stageUpsert(item());
+  const staged = session.stageUpsert(current);
   assert.equal(staged.status, "pending");
   assert.equal(session.pendingMutations().length, 1);
 
@@ -118,23 +128,55 @@ test("a pending upsert is not transported after authorization is revoked", async
   assert.equal(session.pendingMutations().length, 0);
 });
 
-test("delete mutations are also reauthorized with identity-only payload", async () => {
+test("an old portable upsert cannot leave the device after the local item becomes restricted", async () => {
+  const memory = createMemoryRuntime();
+  const portable = memory.remember(item());
+  const session = createSession({ memory, authorizeSync: () => true });
+  const remote = transport();
+
+  assert.equal(session.stageUpsert(portable).status, "pending");
+  memory.remember(item({
+    sensitivity: "restricted",
+    content: "now restricted and local only",
+    sourceTimestamp: "2026-09-29T23:01:00Z",
+  }));
+
+  const result = await session.flush(remote);
+  assert.equal(result.accepted, 0);
+  assert.equal(result.failures, 1);
+  assert.equal(remote.mutations.length, 0, "stale portable payload must never cross the transport boundary");
+  assert.equal(session.pendingMutations().length, 1, "stale intent remains quarantined until local coordination resolves it");
+});
+
+test("an old upsert cannot overwrite a newer portable local edit", async () => {
+  const memory = createMemoryRuntime();
+  const original = memory.remember(item());
+  const session = createSession({ memory, authorizeSync: () => true });
+  const remote = transport();
+
+  assert.equal(session.stageUpsert(original).status, "pending");
+  memory.remember(item({
+    content: "newer local edit",
+    sourceTimestamp: "2026-09-29T23:02:00Z",
+  }));
+
+  const result = await session.flush(remote);
+  assert.equal(result.accepted, 0);
+  assert.equal(result.failures, 1);
+  assert.equal(remote.mutations.length, 0);
+});
+
+test("delete mutations are reauthorized with identity-only payload after the local item is gone", async () => {
   let allowed = true;
-  let ordinal = 0;
   const descriptors = [];
   const memory = createMemoryRuntime();
   memory.remember(item());
-  const session = createAccountMemorySessionRuntime({
-    identitySession: identitySession(),
-    memoryPort: memory,
-    createSyncStateStore: () => stateStore(),
+  memory.forget({ id: "memory-a", ownerKind: "account", ownerId: "account-a" });
+  const session = createSession({
+    memory,
     authorizeSync(descriptor) {
       descriptors.push(descriptor);
       return allowed;
-    },
-    createIdempotencyKey(kind) {
-      ordinal += 1;
-      return `memory:${kind}:${ordinal}:delete-reauth`;
     },
   });
   const remote = transport();
@@ -152,4 +194,18 @@ test("delete mutations are also reauthorized with identity-only payload", async 
     ownerId: "account-a",
   });
   assert.equal("item" in descriptor, false);
+});
+
+test("a stale delete cannot remove cloud state after portable local Memory is recreated", async () => {
+  const memory = createMemoryRuntime();
+  const session = createSession({ memory, authorizeSync: () => true });
+  const remote = transport();
+
+  assert.equal(session.stageForget({ id: "memory-a", ownerKind: "account", ownerId: "account-a" }).status, "pending");
+  memory.remember(item({ content: "recreated before delete transport" }));
+
+  const result = await session.flush(remote);
+  assert.equal(result.accepted, 0);
+  assert.equal(result.failures, 1);
+  assert.equal(remote.mutations.length, 0);
 });
