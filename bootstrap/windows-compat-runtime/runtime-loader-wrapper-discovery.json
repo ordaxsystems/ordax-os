@@ -1,0 +1,32 @@
+{
+  "$schema": "prototype-ordax.windows-compat-runtime-loader-wrapper-discovery/1",
+  "status": "named-wrapper-discovery-only-not-call-graph-complete",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "input": {
+    "source_archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
+    "dynamic_source_proof_schema": "prototype-ordax.windows-compat-runtime-dynamic-load-source-proof/1",
+    "source_extensions": [".c"]
+  },
+  "discovery": {
+    "direct_loader_calls_must_map_to_exactly_one_top_level_function": true,
+    "static_function_callers_are_translation_unit_scoped": true,
+    "global_function_callers_may_cross_translation_units": true,
+    "named_calls_are_followed_transitively_to_fixpoint": true,
+    "line_numbers_are_not_independent_authority": true,
+    "function_pointer_aliases_complete": false,
+    "macro_expansion_call_graph_complete": false,
+    "generated_source_inventory_complete": false,
+    "wrapper_call_graph_complete": false,
+    "dynamic_load_inventory_complete": false
+  },
+  "promotion": {
+    "external_transitive_closure_verified": false,
+    "runtime_dependency_inventory_complete": false,
+    "runtime_package_content_hashes_pinned": false,
+    "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false,
+    "wine_executed": false,
+    "windows_payload_executed": false
+  }
+}
