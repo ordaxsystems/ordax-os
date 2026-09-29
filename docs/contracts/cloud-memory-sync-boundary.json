@@ -1,0 +1,57 @@
+{
+  "$schema": "prototype-ordax.cloud-memory-sync-boundary/1",
+  "status": "post-mvp-boundary-only",
+  "public_mvp_enabled": false,
+  "source_of_truth": {
+    "table": "public.ordax_memory_items",
+    "sync_object_table": "private.ordax_sync_objects",
+    "sync_object_role": "transport-mirror-only",
+    "independent_dual_write_allowed": false,
+    "server_authoritative_atomic_write_required": true
+  },
+  "eligible_scopes": {
+    "device": false,
+    "account": "future-explicit-policy",
+    "space": "future-explicit-policy",
+    "project": false,
+    "session": false
+  },
+  "authorization": {
+    "authenticated_account_required": true,
+    "owner_user_id_must_match_session": true,
+    "space_access_must_be_server_verified": true,
+    "entitlement_required": "memory.cloud.enabled",
+    "client_claimed_entitlement_trusted": false
+  },
+  "identity": {
+    "stable_object_id": "memory_id",
+    "client_generated_stable_ids_allowed": "future-contract-only",
+    "server_revision_required": true,
+    "wall_clock_authoritative": false
+  },
+  "deletion": {
+    "hard_delete_as_sync_signal": false,
+    "explicit_tombstone_required": true,
+    "tombstone_must_reach_all_reconciled_clients_before_compaction": true
+  },
+  "conflicts": {
+    "resolver_version_required": true,
+    "silent_global_last_writer_wins": false,
+    "same_revision_divergence": "reject",
+    "memory_semantic_merge": "not-defined-yet"
+  },
+  "privacy": {
+    "restricted_memory_cloud_sync_enabled": false,
+    "device_memory_cloud_sync_enabled": false,
+    "provider_tokens_in_memory_payload_allowed": false,
+    "embeddings_are_source_of_truth": false
+  },
+  "activation_gates": [
+    "atomic memory+sync mutation exists",
+    "RLS and explicit grants verified",
+    "delete/edit tombstone reconciliation tests pass",
+    "two-client proof passes with dedicated non-admin account",
+    "quota/entitlement behavior is server-authoritative",
+    "public copy remains disabled until rollout gates pass"
+  ]
+}
