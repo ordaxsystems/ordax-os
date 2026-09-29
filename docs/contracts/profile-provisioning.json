@@ -32,10 +32,6 @@
     "profile_content_stage_activation": false
   },
   "next_gates": [
-    "trusted-receipt-and-inventory-commit-after-verified-stage-health",
-    "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
-    "profile-health-and-rollback",
-    "surface-profile-catalog-ui",
     "first-public-profile-proof"
   ],
   "inventory": {
@@ -140,5 +136,11 @@
     "max_total_text_bytes": 33554432,
     "stage_requires_structural_health": true,
     "receipt_requires_structural_health_evidence": true
-  }
+  },
+  "completed_gates": [
+    "trusted-receipt-and-inventory-commit-after-verified-stage-health",
+    "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
+    "profile-health-and-rollback",
+    "surface-profile-catalog-ui"
+  ]
 }
