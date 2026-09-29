@@ -71,6 +71,7 @@ COMPONENT_STATE_PATH = "/__ordax/native/component-state"
 PROFILE_COMPONENT_INVENTORY_PATH = "/__ordax/native/profile-component-inventory"
 PROFILE_ACTIVATION_STATE_PATH = "/__ordax/native/profile-activation-state"
 PROFILE_CONTENT_CONTEXT_PATH = "/__ordax/native/profile-content-context"
+PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH = "/__ordax/native/profile-content-context-capability"
 PROFILE_ACTIVATION_COMMAND_PATH = "/__ordax/native/profile-activation-command"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
@@ -3446,7 +3447,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
-        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path == METRICS_PATH:
@@ -3904,6 +3905,15 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(500)
                 return
             self._write_json(200, payload)
+            return
+        if parsed_path == PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH:
+            self._write_json(
+                200,
+                {
+                    "schema": "ordax.profile-content-context-capability/1",
+                    "available": self.server.distribution_profile == "owner-development",
+                },
+            )
             return
         if parsed_path == PROFILE_CONTENT_CONTEXT_PATH:
             if self.server.distribution_profile != "owner-development":
