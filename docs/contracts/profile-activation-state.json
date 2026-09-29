@@ -56,9 +56,10 @@
     "state_file_mode": "0600",
     "state_directory_mode": "0700",
     "exclusive_mutation_lock": true,
-    "http_mutation_exposed": false,
+    "http_mutation_exposed": true,
     "boot_critical": false,
-    "space_kind_change_without_explicit_reconciliation_allowed": false
+    "space_kind_change_without_explicit_reconciliation_allowed": false,
+    "http_mutation_scope": "token-bound-explicit-profile-command-only"
   },
   "data_separation": {
     "documents_allowed": false,
@@ -78,13 +79,31 @@
     "offline_restore_compatibility_metadata": true,
     "native_restore_metadata_resolution": true,
     "native_restore_capability_application": false,
-    "native_restore_drift_result": "disabled-safe"
+    "native_restore_drift_result": "disabled-safe",
+    "trusted_user_intent_command_boundary": true
   },
   "next_gates": [
-    "trusted-user-intent-activation-command-boundary",
+    "canonical-provisioning-receipt-for-component-bearing-profile-activation",
     "profile-catalog-and-provisioning-revalidation-at-activation-time",
     "profile-health-after-activation",
     "public-profile-trust-and-permission-review-before-public-activation",
     "trusted-capability-application-from-resolved-profile-state"
-  ]
+  ],
+  "command_boundary": {
+    "schema": "ordax.profile-activation-command/1",
+    "endpoint": "/__ordax/native/profile-activation-command",
+    "token_header": "X-OrdaX-Profile-Activation-Token",
+    "loopback_only": true,
+    "same_origin_trust_required": true,
+    "distribution_scope": [
+      "owner-development"
+    ],
+    "stable_mvp_enabled": false,
+    "expected_revision_required": true,
+    "revision_check_atomic_with_file_lock": true,
+    "canonical_bundled_manifest_revalidation": true,
+    "arbitrary_profile_manifest_accepted": false,
+    "component_bearing_activation_enabled": false,
+    "public_activation_enabled": false
+  }
 }
