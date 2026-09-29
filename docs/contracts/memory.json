@@ -107,5 +107,22 @@
     "openai": "may-receive-authorized-context-after-egress-policy",
     "xai": "may-receive-authorized-context-after-egress-policy",
     "future_providers": "adapter-only"
+  },
+  "capture": {
+    "automatic_model_persistence_allowed": false,
+    "model_may_choose_owner_or_scope": false,
+    "composition_authorization_schema": "ordax.memory-capture-auth/1",
+    "proposal_schema": "ordax.memory-capture-proposal/1",
+    "confirmation_schema": "ordax.memory-capture-confirmation/1",
+    "explicit_user_confirmation_required": true,
+    "initial_scopes": [
+      "device",
+      "account",
+      "space"
+    ],
+    "project_capture_enabled": false,
+    "session_capture_enabled": false,
+    "restricted_capture_enabled": false,
+    "durable_flush_required_after_confirmation": true
   }
 }
