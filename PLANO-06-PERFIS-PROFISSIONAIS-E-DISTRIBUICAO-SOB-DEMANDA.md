@@ -151,6 +151,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - host gráfico Native GTK apresenta o permission diff fora do DOM/WebView e responde approve/reject por Unix socket privado 0600;
 - manifests versionados são a fonte única da composição do Profile; o catálogo de distribuição mantém somente política de entrega e deriva componentes dos manifests validados;
 - o receipt humano não atravessa Surface nem HTTP: o Native control server solicita o diálogo, recebe a decisão, emite o receipt one-shot e o consome internamente antes da mutação;
+- o prompt Native confiável reutiliza a preferência persistida `regional.locale` e possui catálogo mínimo próprio apenas para mensagens de segurança (PT-BR, EN-US, ES-ES, DE-DE, FR-FR), com fallback PT-BR; isso não cria uma segunda UI/localização do produto;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
