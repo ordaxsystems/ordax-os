@@ -272,22 +272,13 @@ function createDeleteMutation(request, baseServerRevision, idempotencyKey) {
   });
 }
 
-function validateBatchLimit(value) {
-  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_REMOTE_BATCH) {
-    throw new TypeError("Memory sync batch limit must be between 1 and 500");
-  }
-  return value;
-}
-
 export function createAccountMemorySyncRuntime({
   memoryPort,
-  transport,
   subjectId,
   authorizeSync,
   createIdempotencyKey,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
-  const remote = assertSyncTransportPort(transport);
   const subject = boundedSubjectId(subjectId);
   if (typeof authorizeSync !== "function") {
     throw new TypeError("Memory account sync requires an explicit authorization policy");
@@ -438,18 +429,8 @@ export function createAccountMemorySyncRuntime({
     return Object.freeze({ applied, ignored, rejected, blocked, conflictCount: conflicts.size });
   };
 
-  const getSnapshot = () => Object.freeze({
-    schema: MEMORY_SYNC_RUNTIME_SCHEMA,
-    subjectId: subject,
-    pendingMutationCount: pending.size,
-    conflictCount: conflicts.size,
-    revisionCount: revisions.size,
-    queuePersistence: "session",
-    liveClientIntegration: false,
-    productionPromoted: false,
-  });
-
-  const flush = async () => {
+  const flush = async (transport) => {
+    const remote = assertSyncTransportPort(transport);
     let accepted = 0;
     let failures = 0;
     for (const [objectId, mutation] of [...pending]) {
@@ -505,6 +486,20 @@ export function createAccountMemorySyncRuntime({
     return Object.freeze({ ...getSnapshot(), accepted, failures });
   };
 
+  const getSnapshot = () => Object.freeze({
+    schema: MEMORY_SYNC_RUNTIME_SCHEMA,
+    subjectId: subject,
+    pendingMutationCount: pending.size,
+    conflictCount: conflicts.size,
+    revisionCount: revisions.size,
+    queuePersistence: "session",
+    reconciliationOwnership: "account-runtime",
+    ownsCursor: false,
+    ownsTransport: false,
+    liveClientIntegration: false,
+    productionPromoted: false,
+  });
+
   return Object.freeze({
     schema: MEMORY_SYNC_RUNTIME_SCHEMA,
     remember(value) {
@@ -519,17 +514,7 @@ export function createAccountMemorySyncRuntime({
     stageUpsert,
     stageForget,
     applyRemoteObject,
-    async restore({ limit = 200 } = {}) {
-      const snapshot = await remote.snapshot({ limit: validateBatchLimit(limit) });
-      const result = await applyRemoteBatch(snapshot.objects);
-      return Object.freeze({ cursor: snapshot.cursor, ...result });
-    },
-    async pull({ afterCursor = 0, limit = 200 } = {}) {
-      const cursor = requireRevision(afterCursor, "Memory sync pull cursor");
-      const changes = await remote.pullChanges({ afterCursor: cursor, limit: validateBatchLimit(limit) });
-      const result = await applyRemoteBatch(changes.changes);
-      return Object.freeze({ afterCursor: changes.afterCursor, nextCursor: changes.nextCursor, ...result });
-    },
+    applyRemoteBatch,
     flush,
     getSnapshot,
     pendingMutations() {
