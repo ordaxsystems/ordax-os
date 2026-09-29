@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.cloud-memory-sync-boundary/1",
-  "status": "post-mvp-boundary-only",
+  "status": "backend-mutation-deployed-rollout-disabled",
   "public_mvp_enabled": false,
   "source_of_truth": {
     "table": "public.ordax_memory_items",
@@ -47,11 +47,18 @@
     "embeddings_are_source_of_truth": false
   },
   "activation_gates": [
-    "atomic memory+sync mutation exists",
-    "RLS and explicit grants verified",
+    "RLS and explicit grants verified with dedicated authenticated proof account",
     "delete/edit tombstone reconciliation tests pass",
     "two-client proof passes with dedicated non-admin account",
-    "quota/entitlement behavior is server-authoritative",
+    "quota/entitlement behavior is server-authoritative under real authenticated sessions",
     "public copy remains disabled until rollout gates pass"
-  ]
+  ],
+  "implementation": {
+    "atomic_mutation": "deployed-v1",
+    "rpc": "public.ordax_apply_memory_mutation_v1",
+    "migration": "infra/supabase/product/migrations/20260929184500_cloud_memory_atomic_mutation_v1.sql",
+    "security_mode": "invoker-plus-rls",
+    "public_rollout_enabled": false,
+    "generic_sync_rpc_accepts_memory": false
+  }
 }
