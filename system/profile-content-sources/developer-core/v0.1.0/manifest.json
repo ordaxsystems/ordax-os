@@ -1,0 +1,19 @@
+{
+  "$schema": "prototype-ordax.profile-content-manifest/1",
+  "id": "knowledge.developer-core",
+  "kind": "knowledge-pack",
+  "version": "0.1.0",
+  "publisher": "ordax",
+  "content_hash": "f0b61f2bf03e3ba5e99548c97de60541dc89691dca91c092db8b30f1fb464e5b",
+  "content_size": 1544,
+  "content_format": "ordax.profile-content-pack/1",
+  "source": {
+    "uri": "https://github.com/washingtonmsdj/prototipo-ordax-os/commit/13520d1403d21c9435b42ae476acb0352a4f1ffb",
+    "revision": "13520d1403d21c9435b42ae476acb0352a4f1ffb",
+    "license": "project-owned",
+    "jurisdiction": null
+  },
+  "requested_capabilities": [],
+  "runtime_network_allowed": false,
+  "mutable_host_access_allowed": false
+}
