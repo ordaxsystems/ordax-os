@@ -23,6 +23,28 @@ Offline preference sync state is persisted behind the neutral `ordax.sync-state-
 
 Workspace continuity now has a separate portable metadata source. It projects only active area identity, area identities/order and open app IDs. Window coordinates, minimized/maximized flags and other display-specific geometry are deliberately excluded, and geometry-only local changes do not emit a metadata change. This prepares cross-device workspace continuity without treating one device's screen layout as portable state.
 
+## Account-owned Intelligence Memory foundation
+
+`account-memory-runtime.mjs` is the first source foundation for carrying eligible `ordax.memory/1` domain objects through the existing `ordax.sync-transport/1` protocol. It is deliberately **not promoted or wired into Web/Native composition yet**. The current Supabase gateway/backend still rejects the `memory` data class, and no public Memory sync capability is claimed.
+
+The boundary is intentionally narrower than the Memory store:
+
+- the local Memory store remains the source of Memory semantics; the sync layer never serializes the whole store/snapshot as cloud state;
+- `ownerKind=device` never enters account sync;
+- only account-owned `account`, `space` and `project` scopes are eligible in v1;
+- `device` and `session` scopes remain local, and `restricted` sensitivity is fail-closed until a separate policy explicitly promotes it;
+- the payload embeds a validated `ordax.memory/1` item under `ordax.memory-sync-payload/1`; unknown provider fields cannot redefine owner, scope, provenance, sensitivity or authority;
+- stable sync object identity is derived from the Memory ID inside the already account-scoped transport namespace;
+- delete/forget is an explicit tombstone carrying only Memory identity, not deleted content;
+- server revisions are conflict authority; wall clocks are not;
+- concurrent/divergent state becomes an explicit pending conflict and is not silently rebased or resolved by global last-write-wins;
+- transport failure leaves local Memory intact and keeps the mutation pending for retry;
+- snapshot/pull restore primitives can apply authorized account Memory through `ordax.memory/1` and its durability barrier, preparing the later fresh-install restore pipeline without claiming that full restore exists now.
+
+Every upload/restore operation requires an explicit authorization policy supplied by trusted composition. This foundation does not grant tools, action authority, model egress or a new entitlement. Synchronized Memory is classified as **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization or community-data authorization.
+
+The current pending queue for this Memory foundation is session-scoped. Durable offline queue/checkpoint integration, provider/backend acceptance, live Web/Native wiring, final domain conflict-resolution UX, two-client proof and reinstall proof remain required before promotion.
+
 Core rules remain:
 
 - one OrdaX identity spans Web, Mobile, Desktop, USB and native-disk modes;
