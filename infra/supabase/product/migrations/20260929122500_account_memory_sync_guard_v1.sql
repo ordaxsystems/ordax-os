@@ -278,6 +278,21 @@ begin
     returning * into v_existing;
   end if;
 
+  -- A Memory tombstone is a forget operation, not a normal history event. Keep
+  -- the opaque cursor/revision rows so incremental sync remains monotonic, but
+  -- replace prior payloads for this Memory identity with the identity-only
+  -- tombstone. This prevents deleted private content from surviving in the sync
+  -- mutation log or being replayed to a client that resumes from an old cursor.
+  if p_data_class = 'memory' and p_tombstone then
+    update private.ordax_sync_mutations
+       set mutation_kind = 'delete',
+           tombstone = true,
+           payload = p_payload
+     where owner_user_id = v_user_id
+       and data_class = 'memory'
+       and stable_object_id = p_stable_object_id;
+  end if;
+
   insert into private.ordax_sync_mutations(
     owner_user_id, idempotency_key, data_class, stable_object_id,
     base_server_revision, resulting_server_revision, mutation_kind,
