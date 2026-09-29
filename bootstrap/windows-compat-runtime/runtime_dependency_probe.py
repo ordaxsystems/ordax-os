@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Discover staged Wine runtime dependencies without executing Wine.
 
-The probe parses ELF metadata directly, models musl loader search semantics for
-DT_RPATH/DT_RUNPATH plus the locked system search path, resolves rooted symlinks,
-and maps external files to exact Alpine package owners. It never executes Wine
-or a Windows payload.
+The probe parses ELF metadata directly, models the explicit Wine bootstrap state
+plus musl loader search semantics for DT_RPATH/DT_RUNPATH and the locked system
+search path, resolves rooted symlinks, and maps external files to exact Alpine
+package owners. It never executes Wine or a Windows payload.
 """
 
 from __future__ import annotations
@@ -35,6 +35,7 @@ MUSL_ARCH = {
     (64, 62): "x86_64",
     (32, 3): "i386",
 }
+BOOTSTRAP_SEARCH_SOURCE = "wine-bootstrap-preloaded-shortname"
 
 
 class RuntimeDependencyError(RuntimeError):
@@ -53,6 +54,50 @@ def load_module(name: str, path: Path):
 FULL_BUILD = load_module("ordax_windows_compat_full_build_for_runtime_dependencies", FULL_BUILD_PROBE_PATH)
 
 
+def _validate_bootstrap_contract(value: dict) -> None:
+    inspection = value.get("inspection", {})
+    if inspection.get("wine_bootstrap_shortname_reuse_required") is not True:
+        raise RuntimeDependencyError("runtime dependency contract does not require Wine bootstrap shortname reuse")
+    bootstrap = value.get("loader_bootstrap")
+    if not isinstance(bootstrap, dict) or bootstrap.get("model") != "wine-explicit-ntdll-dlopen-before-main":
+        raise RuntimeDependencyError("runtime dependency Wine bootstrap model drifted")
+    authority = bootstrap.get("source_authority")
+    if not isinstance(authority, dict):
+        raise RuntimeDependencyError("runtime dependency Wine bootstrap source authority is missing")
+    if authority.get("source_lock") != "source.json" or authority.get("wine_version") != "11.0":
+        raise RuntimeDependencyError("runtime dependency Wine bootstrap source authority drifted")
+    if authority.get("source_path") != "tools/wine/wine.c":
+        raise RuntimeDependencyError("runtime dependency Wine bootstrap source path drifted")
+    records = bootstrap.get("preloaded_shortnames")
+    if not isinstance(records, list) or not records:
+        raise RuntimeDependencyError("runtime dependency Wine bootstrap shortname set is missing")
+    seen: set[tuple[str, int, int, str]] = set()
+    for record in records:
+        if not isinstance(record, dict):
+            raise RuntimeDependencyError("invalid Wine bootstrap shortname record")
+        soname = record.get("soname")
+        path = record.get("path")
+        identity = record.get("elf")
+        if not isinstance(soname, str) or not soname or "/" in soname or "\\" in soname:
+            raise RuntimeDependencyError("invalid Wine bootstrap SONAME")
+        if not isinstance(path, str) or not path:
+            raise RuntimeDependencyError("invalid Wine bootstrap staged path")
+        pure = PurePosixPath(path)
+        if pure.is_absolute() or ".." in pure.parts or pure.name != soname:
+            raise RuntimeDependencyError("unsafe Wine bootstrap staged path")
+        if not isinstance(identity, dict):
+            raise RuntimeDependencyError("Wine bootstrap ELF identity is missing")
+        elf_class = identity.get("class")
+        machine = identity.get("machine")
+        endianness = identity.get("endianness")
+        if elf_class not in (32, 64) or not isinstance(machine, int) or endianness not in ("little", "big"):
+            raise RuntimeDependencyError("invalid Wine bootstrap ELF identity")
+        key = (soname, elf_class, machine, endianness)
+        if key in seen:
+            raise RuntimeDependencyError("duplicate Wine bootstrap shortname identity")
+        seen.add(key)
+
+
 def load_contract() -> dict:
     try:
         value = json.loads(CONTRACT.read_text(encoding="utf-8"))
@@ -69,6 +114,7 @@ def load_contract() -> dict:
         "rooted_symlink_resolution_required",
         "elf_loader_search_path_required",
         "musl_system_path_required",
+        "wine_bootstrap_shortname_reuse_required",
     )
     if any(inspection.get(key) is not True for key in required_true):
         raise RuntimeDependencyError("runtime dependency discovery identity/loader boundary drifted")
@@ -83,6 +129,7 @@ def load_contract() -> dict:
     )
     if any(inspection.get(key) is not False for key in expected_false):
         raise RuntimeDependencyError("runtime dependency discovery fail-closed boundary drifted")
+    _validate_bootstrap_contract(value)
     promotion = value.get("promotion", {})
     if any(promotion.get(key) is not False for key in promotion):
         raise RuntimeDependencyError("discovery contract claims promotion or execution authority")
@@ -105,10 +152,9 @@ def read_dynamic_string(blob: bytes, offset: int, limit: int, label: str) -> str
     if end < 0:
         raise RuntimeDependencyError(f"ELF {label} string is not NUL terminated")
     try:
-        value = blob[offset:end].decode("utf-8")
+        return blob[offset:end].decode("utf-8")
     except UnicodeDecodeError as exc:
         raise RuntimeDependencyError(f"ELF {label} string is not UTF-8") from exc
-    return value
 
 
 def read_c_string(blob: bytes, offset: int, limit: int) -> str:
@@ -152,8 +198,7 @@ def parse_elf_dynamic(path: Path) -> dict | None:
     dyn_size = struct.calcsize(dyn_fmt)
     if e_phentsize < ph_size or e_phnum > 4096:
         raise RuntimeDependencyError(f"invalid ELF program-header table: {path}")
-    table_end = e_phoff + e_phentsize * e_phnum
-    if table_end > len(data):
+    if e_phoff + e_phentsize * e_phnum > len(data):
         raise RuntimeDependencyError(f"ELF program-header table out of bounds: {path}")
 
     loads: list[tuple[int, int, int]] = []
@@ -260,7 +305,6 @@ def resolve_rooted_path(root: Path, path: Path) -> str:
         relative = normalize_rooted_relative(PurePosixPath(path.relative_to(root).as_posix()))
     except ValueError as exc:
         raise RuntimeDependencyError(f"path is outside dependency tree: {path}") from exc
-
     for _ in range(41):
         parts = list(relative.parts)
         prefix: list[str] = []
@@ -411,13 +455,10 @@ def musl_system_search_directories(rootfs: Path, elf: dict) -> list[dict]:
     else:
         raw = MUSL_FALLBACK_SEARCH_PATH
         source = "musl-built-in-fallback"
-    result = []
-    for item in split_path_list(raw, source):
-        result.append({
-            "directory": expand_loader_directory(item, "usr/bin/placeholder", source),
-            "source": source,
-        })
-    return result
+    return [
+        {"directory": expand_loader_directory(item, "usr/bin/placeholder", source), "source": source}
+        for item in split_path_list(raw, source)
+    ]
 
 
 def loader_search_directories(consumer_relative: str, elf: dict, rootfs: Path) -> list[dict]:
@@ -471,6 +512,52 @@ def candidates_in_directory(
     }
 
 
+def resolve_bootstrap_shortname(stage: Path, soname: str, consumer: dict, contract: dict | None = None) -> dict | None:
+    contract = contract or load_contract()
+    identity = elf_identity(consumer)
+    records = []
+    for record in contract["loader_bootstrap"]["preloaded_shortnames"]:
+        expected = record["elf"]
+        if record["soname"] == soname and (
+            expected["class"], expected["machine"], expected["endianness"]
+        ) == identity:
+            records.append(record)
+    if not records:
+        return None
+    if len(records) != 1:
+        raise RuntimeDependencyError(f"ambiguous Wine bootstrap shortname declaration: {soname} {identity}")
+    record = records[0]
+    relative = PurePosixPath(record["path"])
+    candidate = stage.joinpath(*relative.parts)
+    if not (candidate.exists() or candidate.is_symlink()):
+        raise RuntimeDependencyError(f"Wine bootstrap shortname target is missing: {record['path']}")
+    try:
+        canonical = resolve_rooted_path(stage, candidate)
+        info = parse_elf_dynamic(stage / canonical)
+    except (RuntimeDependencyError, OSError) as exc:
+        raise RuntimeDependencyError(f"invalid Wine bootstrap shortname target {record['path']}: {exc}") from exc
+    if info is None:
+        raise RuntimeDependencyError(f"Wine bootstrap shortname target is not ELF: {record['path']}")
+    actual = elf_identity(info)
+    if actual != identity:
+        raise RuntimeDependencyError(
+            f"Wine bootstrap shortname ELF identity mismatch for {soname}: expected={identity} actual={actual}"
+        )
+    return {
+        "path": record["path"],
+        "candidate_paths": [record["path"]],
+        "canonical_path": canonical,
+        "class": identity[0],
+        "machine": identity[1],
+        "endianness": identity[2],
+        "scope": "stage-internal",
+        "resolution_kind": "bootstrap-shortname-reuse",
+        "search_directory": None,
+        "search_source": BOOTSTRAP_SEARCH_SOURCE,
+        "search_position": None,
+    }
+
+
 def resolve_loader_dependency(
     stage_index: dict[str, list[dict]],
     rootfs_index: dict[str, list[dict]],
@@ -478,8 +565,15 @@ def resolve_loader_dependency(
     consumer: dict,
     consumer_relative: str,
     rootfs: Path,
+    *,
+    stage: Path | None = None,
+    contract: dict | None = None,
 ) -> tuple[dict | None, list[dict]]:
     search = loader_search_directories(consumer_relative, consumer, rootfs)
+    if stage is not None:
+        bootstrap = resolve_bootstrap_shortname(stage, soname, consumer, contract)
+        if bootstrap is not None:
+            return bootstrap, search
     for position, item in enumerate(search):
         directory = item["directory"]
         staged = candidates_in_directory(stage_index, soname, consumer, directory, "stage")
@@ -494,6 +588,7 @@ def resolve_loader_dependency(
             return {
                 **selected,
                 "scope": "stage-internal" if staged is not None else "rootfs-external",
+                "resolution_kind": "loader-pathname",
                 "search_directory": "/" + directory,
                 "search_source": item["source"],
                 "search_position": position,
@@ -592,7 +687,14 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
         loader_search = loader_search_directories(relative, elf, rootfs) if needed else []
         for soname in needed:
             candidate, search = resolve_loader_dependency(
-                stage_index, rootfs_index, soname, elf, relative, rootfs
+                stage_index,
+                rootfs_index,
+                soname,
+                elf,
+                relative,
+                rootfs,
+                stage=stage,
+                contract=contract,
             )
             if candidate is None:
                 unresolved.append({
@@ -611,6 +713,7 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
                 "scope": candidate["scope"],
                 "path": candidate["path"],
                 "canonical_path": candidate["canonical_path"],
+                "resolution_kind": candidate["resolution_kind"],
                 "search_directory": candidate["search_directory"],
                 "search_source": candidate["search_source"],
                 "search_position": candidate["search_position"],

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Validate raw transitive DT_NEEDED closure against actual loader first hits.
+"""Validate raw transitive DT_NEEDED closure against actual loader state.
 
 The raw closure probe is intentionally candidate-producing. This guard makes it
 authoritative for DT_NEEDED traversal only by independently checking every
-context against the staged/rootfs bytes, enforcing first-pathname semantics and
-proving that a SONAME + ELF identity has one logical target across all reachable
-loader contexts. Dynamic dlopen/plugin discovery remains out of scope.
+context against staged/rootfs bytes. It models the locked Wine bootstrap
+shortname state before strict musl first-pathname semantics and proves that a
+SONAME + ELF identity has one logical target across all reachable contexts.
+Dynamic dlopen/plugin discovery remains out of scope.
 """
 
 from __future__ import annotations
@@ -75,6 +76,7 @@ def load_contract() -> dict:
     promotion = contract.get("promotion", {})
     if not promotion or any(value is not False for value in promotion.values()):
         raise ClosureLoaderGuardError("closure contract claims promotion/execution authority")
+    DIRECT.load_contract()
     return contract
 
 
@@ -273,7 +275,7 @@ def recompute_search(chain: list[dict], rootfs: Path) -> list[dict]:
     return deduped
 
 
-def first_hit(stage: Path, rootfs: Path, soname: str, consumer: dict, search: list[dict]) -> tuple[dict, int]:
+def first_pathname_if_any(stage: Path, rootfs: Path, soname: str, consumer: dict, search: list[dict]) -> dict | None:
     expected_identity = DIRECT.elf_identity(consumer["elf"])
     for position, item in enumerate(search):
         directory = item["directory"]
@@ -294,15 +296,39 @@ def first_hit(stage: Path, rootfs: Path, soname: str, consumer: dict, search: li
             raise ClosureLoaderGuardError(
                 f"incompatible first pathname hit for {soname}: expected={expected_identity} actual={actual_identity} path=/{hit['path']}"
             )
-        return ({
+        return {
             **hit,
             "scope": "stage-internal" if staged is not None else "rootfs-external",
+            "resolution_kind": "loader-pathname",
             "search_directory": "/" + directory,
             "search_source": item["source"],
             "search_position": position,
             "needed_by_depth": item.get("needed_by_depth"),
-        }, position)
-    raise ClosureLoaderGuardError(f"no first pathname hit for {soname}")
+        }
+    return None
+
+
+def first_hit(stage: Path, rootfs: Path, soname: str, consumer: dict, search: list[dict]) -> dict:
+    try:
+        bootstrap = DIRECT.resolve_bootstrap_shortname(stage, soname, consumer["elf"])
+    except DIRECT.RuntimeDependencyError as exc:
+        raise ClosureLoaderGuardError(str(exc)) from exc
+    pathname = first_pathname_if_any(stage, rootfs, soname, consumer, search)
+    if bootstrap is not None:
+        target = ("stage-internal", bootstrap["canonical_path"])
+        if pathname is not None and (pathname["scope"], pathname["canonical_path"]) != target:
+            raise ClosureLoaderGuardError(
+                f"bootstrap shortname target conflicts with reachable pathname for {soname}: "
+                f"bootstrap=stage-internal:/{bootstrap['canonical_path']} "
+                f"pathname={pathname['scope']}:/{pathname['canonical_path']}"
+            )
+        return {
+            **bootstrap,
+            "needed_by_depth": None,
+        }
+    if pathname is None:
+        raise ClosureLoaderGuardError(f"no first pathname hit for {soname}")
+    return pathname
 
 
 def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, closure: dict) -> dict:
@@ -366,11 +392,12 @@ def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, 
             raise ClosureLoaderGuardError(f"closure edge set does not match DT_NEEDED: {context_id}")
         for soname in needed:
             edge = edge_map[soname]
-            hit, _ = first_hit(stage, rootfs, soname, chain[0], search)
+            hit = first_hit(stage, rootfs, soname, chain[0], search)
             expected_fields = {
                 "scope": hit["scope"],
                 "path": hit["path"],
                 "canonical_path": hit["canonical_path"],
+                "resolution_kind": hit["resolution_kind"],
                 "search_directory": hit["search_directory"],
                 "search_source": hit["search_source"],
                 "search_position": hit["search_position"],
@@ -379,7 +406,7 @@ def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, 
             for field, expected_value in expected_fields.items():
                 if edge.get(field) != expected_value:
                     raise ClosureLoaderGuardError(
-                        f"closure edge disagrees with first pathname on {field}: {consumer_key} -> {soname}"
+                        f"closure edge disagrees with authoritative loader state on {field}: {consumer_key} -> {soname}"
                     )
             target_key = f"ELF{chain[0]['elf']['class']}:machine={chain[0]['elf']['machine']}:{chain[0]['elf']['endianness']}:{soname}"
             target_sets.setdefault(target_key, set()).add((hit["scope"], hit["canonical_path"]))

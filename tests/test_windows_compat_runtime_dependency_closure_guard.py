@@ -128,6 +128,61 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
             with self.assertRaisesRegex(MODULE.ClosureLoaderGuardError, "loaded-shortname/context state"):
                 MODULE.verify(stage, rootfs, full, direct, evidence, closure)
 
+    def test_wine_bootstrap_shortname_is_preserved_through_raw_and_guarded_closure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            write(
+                stage / "usr/lib/wine/x86_64-unix/avicap32.so",
+                synthetic_elf64((b"ntdll.so",)),
+            )
+            write(
+                stage / "usr/lib/wine/x86_64-unix/ntdll.so",
+                synthetic_elf64((b"libc.so.6",)),
+            )
+            write(rootfs / "usr/lib/libc.so.6", synthetic_elf64())
+            write_apk_database(rootfs, [("usr/lib", "libc.so.6")])
+            full = full_build_proof(stage)
+            direct = direct_proof(stage, rootfs, full)
+            evidence = direct_evidence(full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct)
+            bootstrap_edges = [
+                edge
+                for context in closure["contexts"].values()
+                for edge in context["edges"]
+                if edge["soname"] == "ntdll.so"
+            ]
+            self.assertTrue(bootstrap_edges)
+            self.assertTrue(all(edge["resolution_kind"] == "bootstrap-shortname-reuse" for edge in bootstrap_edges))
+            self.assertTrue(all(edge["search_directory"] is None for edge in bootstrap_edges))
+            proof = MODULE.verify(stage, rootfs, full, direct, evidence, closure)
+            self.assertGreater(proof["counts"]["stage_hits"], 0)
+            self.assertTrue(proof["gates"]["closure_shortname_reuse_invariance_verified"])
+
+    def test_bootstrap_shortname_conflicting_reachable_pathname_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            write(
+                stage / "usr/lib/wine/x86_64-unix/avicap32.so",
+                synthetic_elf64((b"ntdll.so",)),
+            )
+            write(
+                stage / "usr/lib/wine/x86_64-unix/ntdll.so",
+                synthetic_elf64((b"libc.so.6",)),
+            )
+            write(rootfs / "usr/lib/libc.so.6", synthetic_elf64())
+            write(rootfs / "usr/lib/ntdll.so", synthetic_elf64())
+            write_apk_database(rootfs, [("usr/lib", "libc.so.6"), ("usr/lib", "ntdll.so")])
+            full = full_build_proof(stage)
+            direct = direct_proof(stage, rootfs, full)
+            evidence = direct_evidence(full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct)
+            with self.assertRaisesRegex(MODULE.ClosureLoaderGuardError, "bootstrap shortname target conflicts"):
+                MODULE.verify(stage, rootfs, full, direct, evidence, closure)
+
 
 if __name__ == "__main__":
     unittest.main()

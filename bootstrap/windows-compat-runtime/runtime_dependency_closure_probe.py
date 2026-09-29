@@ -2,9 +2,9 @@
 """Discover the transitive DT_NEEDED closure of staged Wine without execution.
 
 This gate consumes the already-proven direct dependency inventory, then walks
-ELF DT_NEEDED edges through staged and locked-rootfs DSOs using modeled musl
-loader search semantics. It deliberately does not claim dlopen/plugin coverage
-or runtime readiness.
+ELF DT_NEEDED edges through staged and locked-rootfs DSOs using the locked Wine
+bootstrap shortname state followed by modeled musl loader search semantics. It
+deliberately does not claim dlopen/plugin coverage or runtime readiness.
 """
 
 from __future__ import annotations
@@ -78,6 +78,7 @@ def load_contract() -> dict:
     promotion = value.get("promotion", {})
     if not promotion or any(item is not False for item in promotion.values()):
         raise RuntimeDependencyClosureError("closure contract claims promotion/execution authority")
+    DIRECT.load_contract()
     return value
 
 
@@ -223,6 +224,7 @@ def dynamic_chain_search_directories(chain: list[dict], rootfs: Path) -> list[di
 
 
 def resolve_with_chain(
+    stage: Path,
     stage_index: dict,
     rootfs_index: dict,
     soname: str,
@@ -231,6 +233,12 @@ def resolve_with_chain(
 ) -> tuple[dict | None, list[dict]]:
     current = chain[0]
     search = dynamic_chain_search_directories(chain, rootfs)
+    try:
+        bootstrap = DIRECT.resolve_bootstrap_shortname(stage, soname, current["elf"])
+    except DIRECT.RuntimeDependencyError as exc:
+        raise RuntimeDependencyClosureError(str(exc)) from exc
+    if bootstrap is not None:
+        return {**bootstrap, "needed_by_depth": None}, search
     for position, item in enumerate(search):
         directory = item["directory"]
         try:
@@ -248,6 +256,7 @@ def resolve_with_chain(
             return {
                 **selected,
                 "scope": "stage-internal" if staged is not None else "rootfs-external",
+                "resolution_kind": "loader-pathname",
                 "search_directory": "/" + directory,
                 "search_source": item["source"],
                 "search_position": position,
@@ -276,7 +285,15 @@ def compare_direct_root_edge(consumer: str, soname: str, candidate: dict, direct
     expected = direct_map.get(soname)
     if expected is None:
         raise RuntimeDependencyClosureError(f"direct dependency proof omitted root edge: {consumer} -> {soname}")
-    fields = ("scope", "path", "canonical_path", "search_directory", "search_source", "search_position")
+    fields = (
+        "scope",
+        "path",
+        "canonical_path",
+        "resolution_kind",
+        "search_directory",
+        "search_source",
+        "search_position",
+    )
     for field in fields:
         if candidate.get(field) != expected.get(field):
             raise RuntimeDependencyClosureError(
@@ -391,7 +408,7 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict, direct_proof: di
         search_trace = dynamic_chain_search_directories(chain, rootfs) if current["elf"]["dt_needed"] else []
         edges: list[dict] = []
         for soname in current["elf"]["dt_needed"]:
-            candidate, search = resolve_with_chain(stage_index, rootfs_index, soname, chain, rootfs)
+            candidate, search = resolve_with_chain(stage, stage_index, rootfs_index, soname, chain, rootfs)
             if candidate is None:
                 unresolved.append({
                     "context": context_id,
@@ -407,6 +424,7 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict, direct_proof: di
                 "scope": candidate["scope"],
                 "path": candidate["path"],
                 "canonical_path": candidate["canonical_path"],
+                "resolution_kind": candidate["resolution_kind"],
                 "search_directory": candidate["search_directory"],
                 "search_source": candidate["search_source"],
                 "search_position": candidate["search_position"],
