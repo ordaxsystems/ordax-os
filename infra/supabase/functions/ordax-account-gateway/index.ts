@@ -718,7 +718,7 @@ Deno.serve(async (req: Request) => {
       .select("entitlement_value,valid_from,valid_until")
       .eq("user_id", session.user.id)
       .eq("entitlement_key", key)
-      .limit(16);
+      .limit(17);
     if (grantsError || !Array.isArray(data) || data.length > 16) {
       return error(502, "entitlement-read-failed", "Não foi possível verificar este recurso.");
     }
