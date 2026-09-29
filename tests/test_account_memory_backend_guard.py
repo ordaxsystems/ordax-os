@@ -4,6 +4,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260929122500_account_memory_sync_guard_v1.sql"
 CURSOR_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260925013355_account_sync_incremental_cursor_v1.sql"
+CLOUD_BOUNDARY = ROOT / "docs" / "contracts" / "cloud-memory-sync-boundary.json"
 GATEWAY_POLICY = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "memory-sync-policy.mjs"
 GATEWAY = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "index.ts"
 
@@ -26,20 +27,25 @@ class AccountMemoryBackendGuardTests(unittest.TestCase):
         self.assertIn("from public.ordax_apply_sync_mutation_v1", cursor_sql)
         self.assertIn("ordax_apply_sync_mutation_v2", cursor_sql)
 
-    def test_sql_guard_binds_owner_versions_scope_sensitivity_and_stable_identity(self):
+    def test_sql_guard_binds_owner_versions_scope_sensitivity_and_canonical_identity(self):
         sql = MIGRATION.read_text(encoding="utf-8").lower()
+        boundary = CLOUD_BOUNDARY.read_text(encoding="utf-8").lower()
         self.assertIn("p_object_schema_version <> 1", sql)
         self.assertIn("p_resolver_version <> 1", sql)
         self.assertIn("v_memory->>'ownerkind' is distinct from 'account'", sql)
         self.assertIn("v_memory->>'ownerid' is distinct from v_user_id::text", sql)
         self.assertIn("v_identity->>'ownerid' is distinct from v_user_id::text", sql)
-        self.assertIn("v_memory->>'scope' not in ('account','space','project')", sql)
+        self.assertIn("v_memory->>'scope' not in ('account','space')", sql)
+        self.assertNotIn("v_memory->>'scope' not in ('account','space','project')", sql)
         self.assertIn("v_memory->>'sensitivity' not in ('normal','private')", sql)
         self.assertIn("'ordax.memory-sync-payload/1'", sql)
         self.assertIn("'ordax.memory/1'", sql)
-        self.assertIn("'memory/' || rtrim", sql)
-        self.assertIn("convert_to(v_memory_id, 'utf8')", sql)
+        self.assertIn("v_expected_object_id := v_memory_id", sql)
+        self.assertNotIn("'memory/' || rtrim", sql)
+        self.assertNotIn("convert_to(v_memory_id, 'utf8')", sql)
         self.assertIn("invalid-memory-stable-object-id", sql)
+        self.assertIn('"stable_object_id": "memory_id"', boundary)
+        self.assertIn('"project": false', boundary)
 
     def test_sql_guard_is_null_safe_and_requires_exact_json_types(self):
         sql = MIGRATION.read_text(encoding="utf-8").lower()
