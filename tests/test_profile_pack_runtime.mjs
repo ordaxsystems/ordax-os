@@ -82,35 +82,30 @@ test("runtime catalog rejects duplicate version identity and privilege broadenin
   );
 });
 
-test("Developer activates only when provisioning dependencies are satisfied", () => {
-  const runtime = createProfilePackRuntime({ packs: [developer, legalBr], provisioning: localProvisioning() });
-  const activation = runtime.activate({
-    slug: "developer",
-    version: 1,
-    mode: "internal-proof",
-    space: { id: "space-dev-proof", kind: "professional" },
+test("Developer stays blocked while its real required component is only planned", () => {
+  const provisioning = localProvisioning();
+  const plan = provisioning.get("developer", 1);
+  assert.equal(plan.state, "blocked");
+  assert.equal(plan.reason, "required-profile-components-not-published");
+  assert.equal(plan.componentsSatisfied, false);
+  assert.equal(plan.missing.length, 1);
+  assert.equal(plan.missing[0].id, "knowledge.developer-core");
+  assert.equal(plan.missing[0].availability, "planned");
+  assert.equal(plan.mayActivate, false);
+
+  const runtime = createProfilePackRuntime({
+    packs: [developer, legalBr],
+    provisioning,
   });
-
-  assert.equal(activation.schema, "ordax.profile-pack-activation/1");
-  assert.equal(activation.authority, "composition-explicit");
-  assert.equal(activation.persistence, "session-only");
-  assert.equal(activation.cloudMutationApplied, false);
-  assert.equal(activation.entitlementRequired, false);
-  assert.equal(activation.billingRequired, false);
-  assert.equal(activation.cloudRequired, false);
-  assert.equal(activation.pack.slug, "developer");
-  assert.deepEqual(activation.components, []);
-  assert.equal(runtime.getSnapshot().activations.length, 1);
-  assert.equal(runtime.getSnapshot().activationStates[0].previous, null);
-
-  assert.equal(runtime.deactivate("space-dev-proof"), true);
-  assert.equal(runtime.getSnapshot().activations.length, 0);
-  assert.equal(runtime.getSnapshot().activationStates[0].previous.pack.slug, "developer");
-
-  assert.equal(runtime.rollback("space-dev-proof"), true);
-  assert.equal(runtime.getSnapshot().activations.length, 1);
-  assert.equal(runtime.getSnapshot().activations[0].pack.slug, "developer");
-  assert.equal(runtime.getSnapshot().activations[0].cloudMutationApplied, false);
+  assert.throws(
+    () => runtime.activate({
+      slug: "developer",
+      version: 1,
+      mode: "internal-proof",
+      space: { id: "space-dev-proof", kind: "professional" },
+    }),
+    /required components are not installed/,
+  );
 });
 
 test("internal proof fails closed for incompatible spaces, Legal-BR and non-draft states", () => {
@@ -198,6 +193,9 @@ test("runtime refuses activation when required verified components are missing",
 });
 
 test("activation snapshot binds exact installed receipt identities from provisioning", () => {
+  const availableDeveloper = structuredClone(developer);
+  availableDeveloper.components[0].availability = "available";
+  availableDeveloper.components[0].sha256 = "a".repeat(64);
   const plan = {
     schema: "ordax.profile-provisioning/1",
     profile: Object.freeze({ slug: "developer", version: 1 }),
@@ -209,9 +207,9 @@ test("activation snapshot binds exact installed receipt identities from provisio
     inventoryPersistence: "device",
     missing: Object.freeze([]),
     alreadyInstalled: Object.freeze([{
-      id: "knowledge.example",
+      id: "knowledge.developer-core",
       kind: "knowledge-pack",
-      version: "1.2.3",
+      version: "0.1.0",
       required: true,
       availability: "available",
       sha256: "a".repeat(64),
@@ -227,7 +225,7 @@ test("activation snapshot binds exact installed receipt identities from provisio
     mayActivate: true,
   };
   const runtime = createProfilePackRuntime({
-    packs: [developer],
+    packs: [availableDeveloper],
     provisioning: provisioningStub(plan),
   });
   const activation = runtime.activate({
@@ -238,7 +236,7 @@ test("activation snapshot binds exact installed receipt identities from provisio
   });
 
   assert.deepEqual(activation.components, [{
-    id: "knowledge.example",
+    id: "knowledge.developer-core",
     kind: "knowledge-pack",
     version: "1.2.3",
     sha256: "a".repeat(64),
