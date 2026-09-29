@@ -127,11 +127,56 @@ def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
     closure_digest = require_digest(closure.get("closure_sha256"), "raw closure digest")
     if canonical_sha256(closure_core(closure)) != closure_digest:
         raise ClosureEvidenceError("raw closure digest does not verify")
+    roots = closure.get("roots")
+    nodes = closure.get("nodes")
+    contexts = closure.get("contexts")
+    external_packages = closure.get("external_packages")
+    if not isinstance(roots, list) or not isinstance(nodes, dict) or not isinstance(contexts, dict) or not isinstance(external_packages, dict):
+        raise ClosureEvidenceError("raw closure canonical collections are invalid")
+    edge_count = cycle_edges = 0
+    for context in contexts.values():
+        if not isinstance(context, dict) or not isinstance(context.get("edges"), list):
+            raise ClosureEvidenceError("raw closure context edges are invalid")
+        edge_count += len(context["edges"])
+        cycle_edges += sum(1 for edge in context["edges"] if isinstance(edge, dict) and edge.get("cycle") is True)
+    sonames: set[str] = set()
+    for package, record in external_packages.items():
+        if not isinstance(package, str) or not package or not isinstance(record, dict):
+            raise ClosureEvidenceError("raw closure external package entry is invalid")
+        values = record.get("sonames")
+        if not isinstance(values, list) or any(not isinstance(item, str) or not item for item in values):
+            raise ClosureEvidenceError(f"raw closure external SONAME set is invalid: {package}")
+        sonames.update(values)
+    expected_closure_counts = {
+        "root_elf_files": len(roots),
+        "nodes": len(nodes),
+        "context_states": len(contexts),
+        "edges": edge_count,
+        "cycle_edges": cycle_edges,
+        "external_packages": len(external_packages),
+        "external_sonames": len(sonames),
+    }
+    if closure.get("counts") != expected_closure_counts:
+        raise ClosureEvidenceError(
+            f"raw closure counts do not match canonical content: expected={expected_closure_counts} actual={closure.get('counts')}"
+        )
     if guard.get("closure_sha256") != closure_digest:
         raise ClosureEvidenceError("closure guard is not bound to raw closure")
     guard_digest = require_digest(guard.get("validation_sha256"), "closure guard digest")
     if canonical_sha256(guard_core(guard)) != guard_digest:
         raise ClosureEvidenceError("closure loader guard digest does not verify")
+    guard_counts = guard.get("counts")
+    shortname_targets = guard.get("shortname_targets")
+    if not isinstance(guard_counts, dict) or not isinstance(shortname_targets, dict) or not shortname_targets:
+        raise ClosureEvidenceError("closure loader guard canonical counts/targets are invalid")
+    expected_guard_relations = (
+        guard_counts.get("contexts_checked") == len(contexts),
+        guard_counts.get("edges_checked") == edge_count,
+        guard_counts.get("edges_checked") == guard_counts.get("stage_hits", -1) + guard_counts.get("rootfs_hits", -1),
+        guard_counts.get("identity_soname_pairs") == len(shortname_targets),
+    )
+    if not all(expected_guard_relations):
+        raise ClosureEvidenceError("closure loader guard counts do not match closure/target content")
 
     direct_gates = direct_evidence.get("gates", {})
     for key in (
