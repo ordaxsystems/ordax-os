@@ -152,6 +152,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - manifests versionados são a fonte única da composição do Profile; o catálogo de distribuição mantém somente política de entrega e deriva componentes dos manifests validados;
 - o receipt humano não atravessa Surface nem HTTP: o Native control server solicita o diálogo, recebe a decisão, emite o receipt one-shot e o consome internamente antes da mutação;
 - o prompt Native confiável reutiliza a preferência persistida `regional.locale` e possui catálogo mínimo próprio apenas para mensagens de segurança (PT-BR, EN-US, ES-ES, DE-DE, FR-FR), com fallback PT-BR; isso não cria uma segunda UI/localização do produto;
+- CI possui prova descartável ponta a ponta de Profile com componente: chave Ed25519 efêmera -> verify -> stage imutável -> health -> receipt -> inventory -> permission diff -> consentimento Native one-shot -> activate -> deactivate -> rollback; a mesma prova confirma que Stable/MVP continua negando mutação e que nenhuma trust anchor de produção foi promovida;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
@@ -189,15 +190,16 @@ Depois da prova MVP:
 
 1. conectar Knowledge Pack saudável ao retrieval/Intelligence sem torná-lo memória autoritativa;
 2. conectar Skill Pack declarativo ao contexto de Intelligence sem conceder tools automaticamente;
-3. manter a promoção de Profiles com componentes restrita a Owner/Development até existir pelo menos um Profile canônico com componente publicado, receipt real e validação de domínio; a infraestrutura de confirmação humana Native já está fechada ponta a ponta;
-4. promover o restore metadata-only para aplicação real de composição somente após trust/policy e health de cada efeito, mantendo Profile não crítico ao boot;
-5. Store/catalog remoto assinado;
-6. downloads transacionais;
-7. Profile Stack com resolução de conflitos pela policy mais restritiva;
-8. UI de escolha no primeiro uso/Conta;
-9. atualização independente por componente com permission diff;
-10. compartilhamento de Spaces;
-11. packs adicionais: Comércio, Clínica administrativa, Educação, Creator etc.
+3. realizar a cerimônia de chave Profile Content e fixar a trust anchor canônica antes de qualquer publicação real; a prova E2E descartável Owner/Development já valida o mecanismo sem promover trust de produção;
+4. publicar primeiro um componente canônico não regulado do Developer Profile e só então exercitar a ativação real Owner/Development;
+5. promover o restore metadata-only para aplicação real de composição somente após trust/policy e health de cada efeito, mantendo Profile não crítico ao boot;
+6. Store/catalog remoto assinado;
+7. downloads transacionais;
+8. Profile Stack com resolução de conflitos pela policy mais restritiva;
+9. UI de escolha no primeiro uso/Conta;
+10. atualização independente por componente com permission diff;
+11. compartilhamento de Spaces;
+12. packs adicionais: Comércio, Clínica administrativa, Educação, Creator etc.
 
 ## 9. Regras invariantes
 
