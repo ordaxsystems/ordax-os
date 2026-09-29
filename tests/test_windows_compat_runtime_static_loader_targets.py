@@ -40,7 +40,8 @@ class StaticLoaderTargetTests(unittest.TestCase):
                 "source_lock_verified": True, "source_proof_verified": True, "c_archive_manifest_bound": True,
                 "direct_host_loader_calls_inventoried": True, "dynamic_load_inventory_complete": False,
                 "external_transitive_closure_verified": False, "runtime_dependency_inventory_complete": False,
-                "binary_artifact_pinned": False, "activation_authorized": False, "execution_authorized": False,
+                "runtime_package_content_hashes_pinned": False, "binary_artifact_pinned": False,
+                "activation_authorized": False, "execution_authorized": False,
                 "wine_executed": False, "windows_payload_executed": False,
             },
         }
@@ -83,6 +84,11 @@ class StaticLoaderTargetTests(unittest.TestCase):
     def test_rejects_scope_overclaim_outside_digest(self):
         proof = self.fixture(); proof["gates"]["dynamic_load_inventory_complete"] = True
         with self.assertRaisesRegex(MODULE.StaticTargetClassificationError, "forbidden boundary"):
+            MODULE.classify(proof)
+
+    def test_rejects_runtime_package_content_pin_overclaim_outside_digest(self):
+        proof = self.fixture(); proof["gates"]["runtime_package_content_hashes_pinned"] = True
+        with self.assertRaisesRegex(MODULE.StaticTargetClassificationError, "runtime_package_content_hashes_pinned"):
             MODULE.classify(proof)
 
 
