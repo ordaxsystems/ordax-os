@@ -124,6 +124,24 @@ func TestProfileContentRoundTripUsesSeparateTrustDomain(t *testing.T) {
 	if err := generateKey(privatePath, trustPath, "profile-content-test-1"); err != nil {
 		t.Fatal(err)
 	}
+	derivedPath := filepath.Join(dir, "trust-derived.json")
+	if err := deriveTrust(privatePath, derivedPath, "profile-content-test-1"); err != nil {
+		t.Fatal(err)
+	}
+	generatedTrust, err := os.ReadFile(trustPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivedTrust, err := os.ReadFile(derivedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(generatedTrust, derivedTrust) {
+		t.Fatal("independent Profile content trust derivation differs from generated public trust")
+	}
+	if err := deriveTrust(privatePath, derivedPath, "profile-content-test-1"); err == nil {
+		t.Fatal("derive-trust unexpectedly overwrote an existing output")
+	}
 	trustBytes, err := os.ReadFile(trustPath)
 	if err != nil {
 		t.Fatal(err)
