@@ -169,10 +169,26 @@ def compile_wine(build_root: Path, contract: dict, source_archive: Path, jobs: i
     stage_dir.mkdir()
 
     configure_args = " ".join(shlex.quote(item) for item in contract["engine"]["configure_args"])
+    i386_cc = "/usr/bin/i686-w64-mingw32-gcc"
+    x86_64_cc = "/usr/bin/x86_64-w64-mingw32-gcc"
     command = (
-        "export SOURCE_DATE_EPOCH=0 TZ=UTC LC_ALL=C LANG=C ZERO_AR_DATE=1; "
+        "export PATH=/usr/bin:/bin SOURCE_DATE_EPOCH=0 TZ=UTC LC_ALL=C LANG=C ZERO_AR_DATE=1; "
+        f"test -x {shlex.quote(i386_cc)}; "
+        f"test -x {shlex.quote(x86_64_cc)}; "
+        "printf 'int ordax_mingw_probe(void) { return 0; }\\n' > /tmp/ordax-mingw-probe.c; "
+        f"{shlex.quote(i386_cc)} -c /tmp/ordax-mingw-probe.c -o /tmp/ordax-mingw-i386.o; "
+        f"{shlex.quote(x86_64_cc)} -c /tmp/ordax-mingw-probe.c -o /tmp/ordax-mingw-x86_64.o; "
+        "test -s /tmp/ordax-mingw-i386.o; test -s /tmp/ordax-mingw-x86_64.o; "
         "cd /build/wine-build; "
+        f"i386_CC={shlex.quote(i386_cc)} x86_64_CC={shlex.quote(x86_64_cc)} "
         f"/build/wine-source/configure {configure_args}; "
+        f"grep -F {shlex.quote(i386_cc)} Makefile >/dev/null; "
+        f"grep -F {shlex.quote(x86_64_cc)} Makefile >/dev/null; "
+        f"test -x {shlex.quote(i386_cc)}; test -x {shlex.quote(x86_64_cc)}; "
+        f"{shlex.quote(i386_cc)} -c /tmp/ordax-mingw-probe.c -o /tmp/ordax-mingw-i386-after-configure.o; "
+        f"{shlex.quote(x86_64_cc)} -c /tmp/ordax-mingw-probe.c -o /tmp/ordax-mingw-x86_64-after-configure.o; "
+        "test -s /tmp/ordax-mingw-i386-after-configure.o; "
+        "test -s /tmp/ordax-mingw-x86_64-after-configure.o; "
         f"make -j{jobs}; "
         "make DESTDIR=/build/wine-stage install"
     )
