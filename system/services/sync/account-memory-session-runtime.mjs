@@ -5,6 +5,11 @@ import {
 import { assertMemoryPort } from "../../contracts/memory.mjs";
 import { assertSyncStateStorePort } from "../../contracts/sync-state-store.mjs";
 import {
+  SYNC_TRANSPORT_SCHEMA,
+  assertSyncTransportPort,
+} from "../../contracts/sync-transport.mjs";
+import {
+  MEMORY_SYNC_DATA_CLASS,
   MEMORY_SYNC_RUNTIME_SCHEMA,
   createAccountMemorySyncRuntime,
 } from "./account-memory-runtime.mjs";
@@ -50,6 +55,53 @@ function inactiveSnapshot(state) {
     ownsTransport: false,
     liveClientIntegration: false,
     productionPromoted: false,
+  });
+}
+
+function mutationAuthorizationDescriptor(subjectId, mutation) {
+  if (
+    !mutation
+    || typeof mutation !== "object"
+    || mutation.dataClass !== MEMORY_SYNC_DATA_CLASS
+  ) {
+    throw new TypeError("Account Memory transport received an incompatible mutation");
+  }
+  if (mutation.operation === "upsert") {
+    return Object.freeze({
+      subjectId,
+      dataClass: MEMORY_SYNC_DATA_CLASS,
+      operation: "upsert",
+      item: mutation.payload?.memory,
+    });
+  }
+  if (mutation.operation === "delete") {
+    return Object.freeze({
+      subjectId,
+      dataClass: MEMORY_SYNC_DATA_CLASS,
+      operation: "delete",
+      memoryIdentity: mutation.payload?.memoryIdentity,
+    });
+  }
+  throw new TypeError("Account Memory transport received an unsupported mutation operation");
+}
+
+function createAuthorizationGatedTransport({ transport, subjectId, authorizeSync }) {
+  const remote = assertSyncTransportPort(transport);
+  return Object.freeze({
+    schema: SYNC_TRANSPORT_SCHEMA,
+    snapshot(request) {
+      return remote.snapshot(request);
+    },
+    pullChanges(request) {
+      return remote.pullChanges(request);
+    },
+    async applyMutation(mutation) {
+      const descriptor = mutationAuthorizationDescriptor(subjectId, mutation);
+      if (authorizeSync(descriptor) !== true) {
+        throw new Error("Account Memory sync authorization is required at the transport boundary");
+      }
+      return remote.applyMutation(mutation);
+    },
   });
 }
 
@@ -124,7 +176,12 @@ export function createAccountMemorySessionRuntime({
     async flush(transport) {
       const runtime = resolve();
       if (!runtime) return Object.freeze({ ...inactiveSnapshot(validateIdentitySessionSnapshot(identity.getSnapshot()).state), accepted: 0, failures: 0 });
-      return runtime.flush(transport);
+      const gatedTransport = createAuthorizationGatedTransport({
+        transport,
+        subjectId: activeSubjectId,
+        authorizeSync: authorization,
+      });
+      return runtime.flush(gatedTransport);
     },
     stageUpsert(value) {
       const runtime = resolve();
