@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Discover exact Alpine package locks for the OrdaX Windows compatibility runtime.
+"""Revalidate exact Alpine package locks for the OrdaX Windows compatibility runtime.
 
-This tool is intentionally non-promotional. It verifies the pinned Wine source
-bytes and resolves build/runtime APK closures, but it does not compile Wine,
-create a launchable runtime, authorize execution, or mutate physical media.
+The committed locks are authority only after the initial review. This tool
+re-resolves both package closures from the canonical Alpine source and requires
+byte-for-byte package identity equality. It never compiles Wine, creates a
+launchable runtime, authorizes execution, or mutates physical media.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "bootstrap/windows-compat-runtime/source.json"
 STABLE_BASE = ROOT / "bootstrap/stable-base/source.json"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+_.-]*$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -68,17 +70,44 @@ def require_unique_packages(value, label: str) -> list[str]:
     return result
 
 
+def require_lock(value, count, label: str, requested: list[str]) -> dict[str, str]:
+    if not isinstance(value, dict) or not value:
+        raise DiscoveryError(f"{label} must be a non-empty object")
+    if count != len(value) or not isinstance(count, int):
+        raise DiscoveryError(f"{label} count disagrees with lock")
+    normalized: dict[str, str] = {}
+    for name, version in value.items():
+        if (
+            not isinstance(name, str)
+            or PACKAGE_RE.fullmatch(name) is None
+            or not isinstance(version, str)
+            or not version
+            or any(ch.isspace() for ch in version)
+        ):
+            raise DiscoveryError(f"{label} contains unsafe entry")
+        normalized[name] = version
+    if not set(requested).issubset(normalized):
+        raise DiscoveryError(f"{label} does not contain every requested package")
+    return dict(sorted(normalized.items()))
+
+
 def load_contract() -> dict:
     value = load_json(CONTRACT, "Windows compatibility runtime source contract")
     if value.get("$schema") != "prototype-ordax.windows-compat-runtime-source/1":
         raise DiscoveryError("unexpected Windows compatibility runtime source schema")
-    if value.get("status") != "lock-discovery-required":
-        raise DiscoveryError("lock discovery is only valid before package locks are pinned")
+    if value.get("status") != "candidate-build-locked-not-executable":
+        raise DiscoveryError("Windows compatibility runtime is not in pinned build-candidate state")
     if value.get("product_scope") != "owner-development-only":
         raise DiscoveryError("initial Windows compatibility runtime must remain Owner/Development only")
-    for field in ("public_availability", "stable_mvp_enabled", "execution_adapter_connected", "installation_adapter_connected", "boot_critical"):
+    for field in (
+        "public_availability",
+        "stable_mvp_enabled",
+        "execution_adapter_connected",
+        "installation_adapter_connected",
+        "boot_critical",
+    ):
         if value.get(field) is not False:
-            raise DiscoveryError(f"{field} must remain false during lock discovery")
+            raise DiscoveryError(f"{field} must remain false before runtime execution proof")
 
     engine = value.get("engine")
     if not isinstance(engine, dict):
@@ -103,7 +132,12 @@ def load_contract() -> dict:
         raise DiscoveryError("Wine source SHA-256 is invalid")
 
     configure = engine.get("configure_args")
-    if not isinstance(configure, list) or not configure or any(not isinstance(item, str) or not item for item in configure):
+    if (
+        not isinstance(configure, list)
+        or not configure
+        or any(not isinstance(item, str) or not item for item in configure)
+        or len(configure) != len(set(configure))
+    ):
         raise DiscoveryError("Wine configure arguments are invalid")
     required = {
         "--enable-archs=i386,x86_64",
@@ -123,8 +157,6 @@ def load_contract() -> dict:
     }
     if not required.issubset(configure):
         raise DiscoveryError("Wine configure policy lost a required capability or deny-by-default boundary")
-    if len(configure) != len(set(configure)):
-        raise DiscoveryError("Wine configure arguments must be unique")
 
     stable = load_json(STABLE_BASE, "Stable Base source contract")
     stable_alpine = stable.get("alpine", {})
@@ -149,14 +181,43 @@ def load_contract() -> dict:
     ):
         raise DiscoveryError("shared Alpine build core and runtime contract disagree")
 
-    require_unique_packages(value.get("build_packages"), "build_packages")
-    require_unique_packages(value.get("runtime_packages"), "runtime_packages")
-    if value.get("apk_locks_pinned") is not False:
-        raise DiscoveryError("discovery contract must not claim pinned APK locks")
-    if value.get("build_apk_package_lock") != {} or value.get("runtime_apk_package_lock") != {}:
-        raise DiscoveryError("unreviewed discovered APK locks must not be committed as authoritative")
+    build_requested = require_unique_packages(value.get("build_packages"), "build_packages")
+    runtime_requested = require_unique_packages(value.get("runtime_packages"), "runtime_packages")
+    if value.get("apk_locks_pinned") is not True:
+        raise DiscoveryError("APK locks must be pinned before candidate build")
+    require_lock(
+        value.get("build_apk_package_lock"),
+        value.get("build_apk_package_lock_count"),
+        "build_apk_package_lock",
+        build_requested,
+    )
+    require_lock(
+        value.get("runtime_apk_package_lock"),
+        value.get("runtime_apk_package_lock_count"),
+        "runtime_apk_package_lock",
+        runtime_requested,
+    )
 
-    security = value.get("security")
+    evidence = value.get("lock_discovery_evidence")
+    if not isinstance(evidence, dict):
+        raise DiscoveryError("reviewed lock discovery evidence is missing")
+    if evidence.get("workflow") != "Windows Compatibility Runtime Lock Discovery":
+        raise DiscoveryError("lock discovery workflow identity drifted")
+    if COMMIT_RE.fullmatch(str(evidence.get("source_commit", ""))) is None:
+        raise DiscoveryError("lock discovery source commit is invalid")
+    if evidence.get("wine_source_sha256") != engine["source_sha256"]:
+        raise DiscoveryError("lock discovery Wine digest differs from engine identity")
+    if evidence.get("wine_source_size_bytes") != engine["source_size_bytes"]:
+        raise DiscoveryError("lock discovery Wine size differs from engine identity")
+    if evidence.get("alpine_archive_sha256") != alpine["archive_sha256"]:
+        raise DiscoveryError("lock discovery Alpine digest differs from canonical identity")
+    if evidence.get("build_apk_package_lock_count") != value["build_apk_package_lock_count"]:
+        raise DiscoveryError("lock discovery build count differs from pinned lock")
+    if evidence.get("runtime_apk_package_lock_count") != value["runtime_apk_package_lock_count"]:
+        raise DiscoveryError("lock discovery runtime count differs from pinned lock")
+    if DIGEST_RE.fullmatch(str(evidence.get("artifact_digest", ""))) is None:
+        raise DiscoveryError("lock discovery artifact digest is invalid")
+
     expected_security = {
         "runtime_network_download_allowed": False,
         "raw_usb_passthrough_allowed": False,
@@ -168,7 +229,7 @@ def load_contract() -> dict:
         "profile_storage_required": True,
         "sandbox_required": True,
     }
-    if security != expected_security:
+    if value.get("security") != expected_security:
         raise DiscoveryError("Windows compatibility runtime security policy drifted")
 
     artifact = value.get("artifact")
@@ -178,7 +239,7 @@ def load_contract() -> dict:
         raise DiscoveryError("runtime artifact identity drifted")
     for field in ("physical_artifact_authorized", "release_manifest_connected", "component_slot_connected"):
         if artifact.get(field) is not False:
-            raise DiscoveryError(f"{field} must remain false during discovery")
+            raise DiscoveryError(f"{field} must remain false before promotion path exists")
     if artifact.get("read_only") is not True:
         raise DiscoveryError("compatibility runtime artifact must remain read-only")
     return value
@@ -188,7 +249,9 @@ def source_commit() -> str:
     value = os.environ.get("ORDAX_SOURCE_COMMIT", "").strip().lower()
     if not value:
         try:
-            value = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip().lower()
+            value = subprocess.check_output(
+                ["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True
+            ).strip().lower()
         except (OSError, subprocess.CalledProcessError) as exc:
             raise DiscoveryError("source commit is unavailable") from exc
     if COMMIT_RE.fullmatch(value) is None:
@@ -206,7 +269,11 @@ def sha256_file(path: Path) -> str:
 
 def download_exact(url: str, destination: Path, expected_sha256: str, expected_size: int) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    if destination.is_file() and destination.stat().st_size == expected_size and sha256_file(destination) == expected_sha256:
+    if (
+        destination.is_file()
+        and destination.stat().st_size == expected_size
+        and sha256_file(destination) == expected_sha256
+    ):
         return destination
     if destination.exists() or destination.is_symlink():
         destination.unlink()
@@ -214,7 +281,9 @@ def download_exact(url: str, destination: Path, expected_sha256: str, expected_s
     partial.unlink(missing_ok=True)
     digest = hashlib.sha256()
     total = 0
-    request = urllib.request.Request(url, headers={"User-Agent": "OrdaX-windows-compat-lock-discovery/1"})
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "OrdaX-windows-compat-lock-revalidation/1"}
+    )
     try:
         with urllib.request.urlopen(request, timeout=180) as response, partial.open("wb") as output:
             while True:
@@ -233,11 +302,15 @@ def download_exact(url: str, destination: Path, expected_sha256: str, expected_s
         raise DiscoveryError(f"Wine source download failed: {exc}") from exc
     if total != expected_size:
         partial.unlink(missing_ok=True)
-        raise DiscoveryError(f"Wine source size mismatch: expected={expected_size} actual={total}")
+        raise DiscoveryError(
+            f"Wine source size mismatch: expected={expected_size} actual={total}"
+        )
     actual = digest.hexdigest()
     if actual != expected_sha256:
         partial.unlink(missing_ok=True)
-        raise DiscoveryError(f"Wine source digest mismatch: expected={expected_sha256} actual={actual}")
+        raise DiscoveryError(
+            f"Wine source digest mismatch: expected={expected_sha256} actual={actual}"
+        )
     partial.replace(destination)
     return destination
 
@@ -266,11 +339,18 @@ def installed_lock(rootfs: Path) -> dict[str, str]:
     return dict(sorted(packages.items()))
 
 
-def resolve_package_lock(contract: dict, packages: list[str], work: Path, cache_dir: Path, label: str) -> tuple[dict[str, str], str]:
+def resolve_package_lock(
+    contract: dict,
+    packages: list[str],
+    work: Path,
+    cache_dir: Path,
+    label: str,
+) -> tuple[dict[str, str], str]:
     archive, actual_alpine_sha = CORE.download_verified(cache_dir)
     if actual_alpine_sha != contract["alpine"]["archive_sha256"]:
         raise DiscoveryError(
-            f"pinned Alpine archive mismatch: expected={contract['alpine']['archive_sha256']} actual={actual_alpine_sha}"
+            "pinned Alpine archive mismatch: "
+            f"expected={contract['alpine']['archive_sha256']} actual={actual_alpine_sha}"
         )
     rootfs = work / label
     rootfs.mkdir()
@@ -288,14 +368,29 @@ def resolve_package_lock(contract: dict, packages: list[str], work: Path, cache_
     resolved = installed_lock(rootfs)
     missing_requested = sorted(set(packages) - set(resolved))
     if missing_requested:
-        raise DiscoveryError(f"{label} lock did not contain requested packages: {missing_requested}")
+        raise DiscoveryError(
+            f"{label} lock did not contain requested packages: {missing_requested}"
+        )
     return resolved, actual_alpine_sha
 
 
-def discover(out: Path, cache_dir: Path) -> dict:
+def compare_lock(actual: dict[str, str], expected: dict[str, str], label: str) -> None:
+    if actual == expected:
+        return
+    missing = sorted(set(expected) - set(actual))
+    extra = sorted(set(actual) - set(expected))
+    changed = sorted(
+        name for name in set(actual) & set(expected) if actual[name] != expected[name]
+    )
+    raise DiscoveryError(
+        f"{label} drift: missing={missing[:12]} extra={extra[:12]} changed={changed[:12]}"
+    )
+
+
+def revalidate(out: Path, cache_dir: Path) -> dict:
     contract = load_contract()
     if shutil.which("proot") is None:
-        raise DiscoveryError("proot is required for APK lock discovery")
+        raise DiscoveryError("proot is required for APK lock revalidation")
     cache_dir = cache_dir.resolve()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -326,9 +421,19 @@ def discover(out: Path, cache_dir: Path) -> dict:
         )
         if runtime_alpine_sha != alpine_sha:
             raise DiscoveryError("build/runtime Alpine source identities disagree")
+        compare_lock(
+            build_lock,
+            dict(sorted(contract["build_apk_package_lock"].items())),
+            "build APK lock",
+        )
+        compare_lock(
+            runtime_lock,
+            dict(sorted(contract["runtime_apk_package_lock"].items())),
+            "runtime APK lock",
+        )
         result = {
             "$schema": "prototype-ordax.windows-compat-runtime-lock-discovery/1",
-            "status": "review-required-not-authoritative",
+            "status": "verified-pinned-lock",
             "source_commit": source_commit(),
             "runtime_id": contract["runtime_id"],
             "wine_source": {
@@ -359,9 +464,9 @@ def main() -> int:
     parser.add_argument("--cache-dir", type=Path, required=True)
     args = parser.parse_args()
     try:
-        result = discover(args.out, args.cache_dir)
+        result = revalidate(args.out, args.cache_dir)
     except (DiscoveryError, OSError, json.JSONDecodeError, CORE.BuildError) as exc:
-        print(f"windows-compat-runtime-lock-discovery: ERROR: {exc}", file=sys.stderr)
+        print(f"windows-compat-runtime-lock-revalidation: ERROR: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
