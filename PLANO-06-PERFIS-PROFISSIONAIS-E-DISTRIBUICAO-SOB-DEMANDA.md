@@ -152,6 +152,9 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - manifests versionados são a fonte única da composição do Profile; o catálogo de distribuição mantém somente política de entrega e deriva componentes dos manifests validados;
 - o receipt humano não atravessa Surface nem HTTP: o Native control server solicita o diálogo, recebe a decisão, emite o receipt one-shot e o consome internamente antes da mutação;
 - o prompt Native confiável reutiliza a preferência persistida `regional.locale` e possui catálogo mínimo próprio apenas para mensagens de segurança (PT-BR, EN-US, ES-ES, DE-DE, FR-FR), com fallback PT-BR; isso não cria uma segunda UI/localização do produto;
+- conteúdo Knowledge/Skill de um Profile ativo possui reader Native read-only que revalida inventário, receipt, slot content-addressed, hash exato e estrutura antes de projetar contexto bounded para Intelligence;
+- a ponte de Intelligence é vinculada explicitamente por `spaceId`; ela nunca escolhe/inventa um Space, preserva contexto do consumidor como prioridade e trata Skill como contexto declarativo com `authority=none` e sem tools;
+- esse caminho permanece Owner/Development-only e dormente enquanto não existir componente Profile canônico realmente publicado/instalado/ativado; Stable/MVP continua sem endpoint de Profile content context;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
@@ -187,8 +190,8 @@ O modelo de IA nunca é fonte jurídica autoritativa.
 
 Depois da prova MVP:
 
-1. conectar Knowledge Pack saudável ao retrieval/Intelligence sem torná-lo memória autoritativa;
-2. conectar Skill Pack declarativo ao contexto de Intelligence sem conceder tools automaticamente;
+1. promover o reader/bridge já implementado para Knowledge Pack ao uso de produto somente após existir componente canônico realmente publicado, instalado e ativado; Knowledge continua contexto derivado, nunca memória autoritativa;
+2. promover o mesmo caminho para Skill Pack declarativo somente com `authority=none`, sem tools e com Space explícito; a ponte de contexto já está implementada;
 3. manter a promoção de Profiles com componentes restrita a Owner/Development até existir pelo menos um Profile canônico com componente publicado, receipt real e validação de domínio; a infraestrutura de confirmação humana Native já está fechada ponta a ponta;
 4. promover o restore metadata-only para aplicação real de composição somente após trust/policy e health de cada efeito, mantendo Profile não crítico ao boot;
 5. Store/catalog remoto assinado;

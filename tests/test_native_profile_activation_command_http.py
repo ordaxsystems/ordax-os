@@ -249,6 +249,53 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
             native_host.execute_profile_activation_command = original
             self.stop_server(temporary, server, thread)
 
+    def test_owner_development_reads_profile_content_context_for_explicit_space(self):
+        temporary, server, thread = self.start_server()
+        original = native_host.read_active_profile_content_context
+        seen = []
+        native_host.read_active_profile_content_context = lambda space_id: (
+            seen.append(space_id)
+            or {
+                "schema": "ordax.profile-content-context/1",
+                "spaceId": space_id,
+                "profile": {"slug": "developer", "version": 1},
+                "entries": [],
+            }
+        )
+        try:
+            status, body = self.request(
+                server,
+                "GET",
+                f"{native_host.PROFILE_CONTENT_CONTEXT_PATH}?spaceId=space-professional-1",
+                headers=self.trusted_headers(server),
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(seen, ["space-professional-1"])
+            payload = json.loads(body.decode("utf-8"))
+            self.assertEqual(payload["spaceId"], "space-professional-1")
+        finally:
+            native_host.read_active_profile_content_context = original
+            self.stop_server(temporary, server, thread)
+
+    def test_stable_mvp_keeps_profile_content_context_endpoint_absent(self):
+        temporary, server, thread = self.start_server("stable-mvp")
+        original = native_host.read_active_profile_content_context
+        seen = []
+        native_host.read_active_profile_content_context = lambda space_id: seen.append(space_id)
+        try:
+            status, body = self.request(
+                server,
+                "GET",
+                f"{native_host.PROFILE_CONTENT_CONTEXT_PATH}?spaceId=space-professional-1",
+                headers=self.trusted_headers(server),
+            )
+            self.assertEqual(status, 404)
+            self.assertEqual(body, b"")
+            self.assertEqual(seen, [])
+        finally:
+            native_host.read_active_profile_content_context = original
+            self.stop_server(temporary, server, thread)
+
     def test_revision_conflict_maps_to_http_409_with_valid_token(self):
         temporary, server, thread = self.start_server()
         original = native_host.execute_profile_activation_command

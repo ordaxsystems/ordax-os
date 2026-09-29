@@ -1,5 +1,6 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import ast
 import os
 import stat
 import tempfile
@@ -67,9 +68,38 @@ class NativeComponentStateTests(unittest.TestCase):
         self.assertIn("read_component_state_payload", text)
         self.assertIn("write_component_state_payload", text)
         self.assertIn("if self.path == COMPONENT_STATE_PATH:", text)
-        self.assertIn(
-            "{SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH}",
-            text,
+        tree = ast.parse(text)
+        loopback_guard_found = False
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.If) or not isinstance(node.test, ast.BoolOp):
+                continue
+            membership = next((
+                value for value in node.test.values
+                if isinstance(value, ast.Compare)
+                and len(value.ops) == 1
+                and isinstance(value.ops[0], ast.In)
+                and isinstance(value.left, ast.Name)
+                and value.left.id == "parsed_path"
+                and isinstance(value.comparators[0], ast.Set)
+                and any(
+                    isinstance(item, ast.Name) and item.id == "COMPONENT_STATE_PATH"
+                    for item in value.comparators[0].elts
+                )
+            ), None)
+            loopback = next((
+                value for value in node.test.values
+                if isinstance(value, ast.Compare)
+                and len(value.ops) == 1
+                and isinstance(value.ops[0], ast.NotEq)
+                and isinstance(value.comparators[0], ast.Constant)
+                and value.comparators[0].value == "127.0.0.1"
+            ), None)
+            if membership is not None and loopback is not None:
+                loopback_guard_found = True
+                break
+        self.assertTrue(
+            loopback_guard_found,
+            "Component-state endpoint must remain inside a loopback-only native guard",
         )
         self.assertNotIn("Access-Control-Allow-Origin", text)
 

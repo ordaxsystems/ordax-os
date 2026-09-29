@@ -174,6 +174,8 @@ External routes require an explicit egress decision. Local AI remains the offlin
 
 Professional Profile Packs may influence retrieval sources and preferred model purpose, but they cannot bypass Space membership, memory authorization or tool permissions.
 
+The source runtime now has a Profile-content context bridge for verified active Knowledge/Skill components. Native revalidates the active component against inventory/receipt, requires the exact immutable content-addressed payload hash, rechecks bounded pack structure and rejects Skill entries carrying tools or authority. The Surface receives only a bounded context projection. Consumers must bind the bridge to an explicit real `spaceId`; no global/current Space is inferred. Existing app-selected context keeps priority in the Intelligence budget. This bridge is currently Owner/Development-only and does not publish or promote any Profile content: the canonical Profile-content trust anchor is still unpinned, and Stable/MVP exposes no Profile-content context endpoint.
+
 ## Authority and input boundary
 
 The MVP Intelligence runtime is consultative:
