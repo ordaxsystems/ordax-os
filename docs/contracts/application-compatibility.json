@@ -1,0 +1,71 @@
+{
+  "$schema": "prototype-ordax.application-compatibility-contract/1",
+  "port": "ordax.application-compatibility/1",
+  "status": "source-foundation-inspection-only",
+  "public_availability": false,
+  "execution_available": false,
+  "installation_available": false,
+  "boot_critical": false,
+  "foreign_payload_default_trust": "untrusted",
+  "foreign_payload_becomes_native_trust": false,
+  "implemented_operations": [
+    "inspect",
+    "runtime.list",
+    "launch.plan"
+  ],
+  "reserved_future_operations": [
+    "profile.create",
+    "install.plan",
+    "install",
+    "launch",
+    "health",
+    "rollback",
+    "remove"
+  ],
+  "windows": {
+    "pe_detection": {
+      "content_based": true,
+      "extension_only_trusted": false,
+      "architectures": [
+        "x86",
+        "x86_64",
+        "aarch64"
+      ],
+      "dll_launchable": false,
+      "malformed_optional_header_launchable": false
+    },
+    "msi": {
+      "container_candidate_detection": true,
+      "database_verification": false,
+      "install_enabled": false
+    },
+    "runtime": {
+      "selected_engine": null,
+      "provider_must_be_explicit": true,
+      "allowed_engine_classes": [
+        "wine",
+        "proton",
+        "other"
+      ],
+      "sandbox_required": true,
+      "execution_enabled_descriptor_required": true,
+      "content_addressed_source_required": true
+    }
+  },
+  "security": {
+    "extension_grants_trust": false,
+    "payload_grants_system_authority": false,
+    "runtime_failure_blocks_boot": false,
+    "current_port_exposes_execute": false,
+    "current_port_exposes_install": false,
+    "current_port_exposes_shell": false,
+    "current_port_exposes_spawn": false,
+    "current_port_exposes_filesystem_write": false
+  },
+  "legacy_reference": {
+    "repository": "washingtonmsdj/novo-ordax-os",
+    "commit": "49fe41fa67d9032f2e349e86592304e64d6c2d88",
+    "path": "docs/FOUNDATION/COMPATIBILITY/COMPATIBILITY-001.md",
+    "decision": "REIMPLEMENTED"
+  }
+}
