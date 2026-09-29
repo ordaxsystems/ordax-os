@@ -5,11 +5,14 @@ on:
     branches: [main]
     paths:
       - 'docs/ACCOUNT-SYNC-AND-PLANS.md'
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
       - 'docs/contracts/foundation.json'
       - 'docs/contracts/memory.json'
       - 'docs/contracts/sync-model.json'
       - 'infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs'
-      - 'infra/supabase/product/migrations/20260929122500_account_memory_sync_guard_v1.sql'
+      - 'infra/supabase/product/migrations/20260929184500_cloud_memory_atomic_mutation_v1.sql'
+      - 'infra/supabase/product/migrations/20260929190000_cloud_memory_atomic_mutation_privilege_boundary_v1.sql'
+      - 'infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/sync-state-store.mjs'
       - 'system/contracts/sync-transport.mjs'
@@ -20,8 +23,9 @@ on:
       - 'system/services/sync/account-runtime.mjs'
       - 'system/services/sync/memory-conflict-resolution.mjs'
       - 'system/services/sync/state-store-registry.mjs'
-      - 'tests/sql/test_account_memory_sync_guard.sql'
-      - 'tests/test_account_memory_backend_guard.py'
+      - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
+      - 'tests/test_cloud_memory_atomic_mutation.py'
+      - 'tests/test_cloud_memory_privacy_hardening.py'
       - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_gateway_policy.mjs'
       - 'tests/test_account_memory_session_runtime.mjs'
@@ -37,11 +41,14 @@ on:
   pull_request:
     paths:
       - 'docs/ACCOUNT-SYNC-AND-PLANS.md'
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
       - 'docs/contracts/foundation.json'
       - 'docs/contracts/memory.json'
       - 'docs/contracts/sync-model.json'
       - 'infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs'
-      - 'infra/supabase/product/migrations/20260929122500_account_memory_sync_guard_v1.sql'
+      - 'infra/supabase/product/migrations/20260929184500_cloud_memory_atomic_mutation_v1.sql'
+      - 'infra/supabase/product/migrations/20260929190000_cloud_memory_atomic_mutation_privilege_boundary_v1.sql'
+      - 'infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/sync-state-store.mjs'
       - 'system/contracts/sync-transport.mjs'
@@ -52,8 +59,9 @@ on:
       - 'system/services/sync/account-runtime.mjs'
       - 'system/services/sync/memory-conflict-resolution.mjs'
       - 'system/services/sync/state-store-registry.mjs'
-      - 'tests/sql/test_account_memory_sync_guard.sql'
-      - 'tests/test_account_memory_backend_guard.py'
+      - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
+      - 'tests/test_cloud_memory_atomic_mutation.py'
+      - 'tests/test_cloud_memory_privacy_hardening.py'
       - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_gateway_policy.mjs'
       - 'tests/test_account_memory_session_runtime.mjs'
@@ -127,15 +135,17 @@ jobs:
           node --check tests/test_account_restore_plan.mjs
           node --check tests/test_memory_conflict_resolution.mjs
           node --check tests/test_sync_state_namespace_registry.mjs
-          python -m py_compile tests/test_account_memory_backend_guard.py
+          python -m py_compile tests/test_cloud_memory_atomic_mutation.py
+          python -m py_compile tests/test_cloud_memory_privacy_hardening.py
+          python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
           python -m json.tool docs/contracts/foundation.json >/dev/null
           python -m json.tool docs/contracts/memory.json >/dev/null
           python -m json.tool docs/contracts/sync-model.json >/dev/null
 
-      - name: Execute Memory backend guard on PostgreSQL
+      - name: Execute canonical cloud Memory privacy proof on PostgreSQL
         run: |
           set -euo pipefail
-          psql -v ON_ERROR_STOP=1 -f tests/sql/test_account_memory_sync_guard.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_cloud_memory_privacy_hardening.sql
 
       - name: Run Memory sync foundation tests
         run: |
@@ -150,5 +160,6 @@ jobs:
           node --test tests/test_memory_conflict_resolution.mjs
           node --test tests/test_sync_state_namespace_registry.mjs
           node --test tests/test_account_sync_runtime.mjs
-          python -m unittest tests.test_account_memory_backend_guard -v
+          python -m unittest tests.test_cloud_memory_atomic_mutation -v
+          python -m unittest tests.test_cloud_memory_privacy_hardening -v
           python -m unittest tests.test_sync_model_contract -v
