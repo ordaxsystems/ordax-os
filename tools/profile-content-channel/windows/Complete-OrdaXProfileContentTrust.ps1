@@ -204,6 +204,10 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw 'Recovered Profile content signing proof did not verify.'
 }
+& $Signer verify-envelope --manifest $ManifestPath --envelope $RecoveryEnvelopePath --trust $TrustPath
+if ($LASTEXITCODE -ne 0) {
+    throw 'Recovered Profile content envelope-only proof did not verify.'
+}
 
 $RecoveryEnvelopeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $RecoveryEnvelopePath).Hash.ToLowerInvariant()
 $Evidence = [ordered]@{
@@ -213,7 +217,6 @@ $Evidence = [ordered]@{
     key_id = $KeyId
     public_trust_sha256 = $CurrentTrustHash
     proof_manifest_sha256 = $CurrentManifestHash
-    proof_content_sha256 = $CurrentContentHash
     recovery_envelope_sha256 = $RecoveryEnvelopeHash
     primary_public_derivation_match = $true
     recovered_public_derivation_match = $true
@@ -233,19 +236,16 @@ $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $PromotionTrustPath = Join-Path $PromotionDirectory 'profile-content-ed25519.json'
 $PromotionEvidencePath = Join-Path $PromotionDirectory 'ceremony-public-evidence.json'
 $PromotionManifestPath = Join-Path $PromotionDirectory 'profile-content-trust-proof-manifest.json'
-$PromotionContentPath = Join-Path $PromotionDirectory 'profile-content-trust-proof.pack'
 $PromotionEnvelopePath = Join-Path $PromotionDirectory 'profile-content-trust-proof-recovery-envelope.json'
 Copy-Item -LiteralPath $TrustPath -Destination $PromotionTrustPath
 Copy-Item -LiteralPath $EvidencePath -Destination $PromotionEvidencePath
 Copy-Item -LiteralPath $ManifestPath -Destination $PromotionManifestPath
-Copy-Item -LiteralPath $ContentPath -Destination $PromotionContentPath
 Copy-Item -LiteralPath $RecoveryEnvelopePath -Destination $PromotionEnvelopePath
 
 $ExpectedNames = @(
     'profile-content-ed25519.json',
     'ceremony-public-evidence.json',
     'profile-content-trust-proof-manifest.json',
-    'profile-content-trust-proof.pack',
     'profile-content-trust-proof-recovery-envelope.json'
 ) | Sort-Object
 $ActualNames = @(Get-ChildItem -LiteralPath $PromotionDirectory -Force | ForEach-Object { $_.Name } | Sort-Object)
@@ -268,7 +268,6 @@ Compress-Archive -LiteralPath @(
     $PromotionTrustPath,
     $PromotionEvidencePath,
     $PromotionManifestPath,
-    $PromotionContentPath,
     $PromotionEnvelopePath
 ) -DestinationPath $HandoffZipPath -CompressionLevel Optimal
 
