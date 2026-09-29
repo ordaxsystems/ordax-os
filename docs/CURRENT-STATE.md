@@ -915,7 +915,7 @@ MEMORY_EXACT_CAPTURE_DEDUP=PASS_SOURCE_EXACT_ONLY
 
 CLOUD_MEMORY_SYNC_BOUNDARY=PASS_SOURCE_DISABLED
 
-Account-owned and Space-owned Memory are currently local OrdaX Memory ownership domains, not a released cloud-sync claim. The dedicated control-plane database already contains RLS-protected `ordax_memory_items` and a separate generic sync-object stream, but cloud Memory remains disabled until a server-authoritative mutation can update the canonical Memory row and its sync/tombstone stream atomically. Independent client dual-write is forbidden; device/session/project/restricted Memory remain outside the initial cloud-sync eligibility boundary.
+Account-owned and Space-owned Memory are currently local OrdaX Memory ownership domains, not a released cloud-sync claim. The dedicated control-plane database contains RLS-protected `ordax_memory_items` plus a separate sync-object stream, and the server-authoritative `ordax_apply_memory_mutation_v1` boundary is now deployed so canonical Memory and its sync/tombstone mirror can advance atomically. Public cloud Memory remains disabled: the authenticated non-admin proof, edit/delete tombstone reconciliation, two-client delivery and real entitlement behavior still have to pass before rollout. Independent client dual-write remains forbidden; device/session/project/restricted Memory remain outside the initial cloud-sync eligibility boundary.
 
 
 PROFILE_PROVISIONING_COMPLETED_GATES=RECEIPT_INVENTORY,TRUSTED_EXECUTOR,HEALTH_ROLLBACK,SURFACE_CATALOG_UI

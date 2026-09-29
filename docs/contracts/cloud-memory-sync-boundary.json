@@ -59,6 +59,15 @@
     "migration": "infra/supabase/product/migrations/20260929184500_cloud_memory_atomic_mutation_v1.sql",
     "security_mode": "invoker-plus-rls",
     "public_rollout_enabled": false,
-    "generic_sync_rpc_accepts_memory": false
+    "generic_sync_rpc_accepts_memory": false,
+    "authenticated_proof": {
+      "status": "source-ready-execution-pending",
+      "provider": "services/public-identity/supabase_memory.py",
+      "proof": "tools/cloud-memory/prove_authenticated_atomic_sync.py",
+      "workflow": ".github/workflows/cloud-memory-authenticated-proof.yml",
+      "requires_preprovisioned_entitlement": true,
+      "creates_entitlement": false,
+      "service_role_allowed": false
+    }
   }
 }
