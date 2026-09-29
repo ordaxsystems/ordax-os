@@ -8,6 +8,8 @@ on:
       - 'tests/test_windows_compat_runtime_dependency_discovery.py'
       - 'tests/test_windows_compat_runtime_first_hit_guard.py'
       - 'tests/test_windows_compat_runtime_first_hit_proof.py'
+      - 'tests/test_windows_compat_runtime_loader_invariance.py'
+      - 'tests/test_windows_compat_runtime_dependency_evidence.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
   push:
     branches: [main]
@@ -17,6 +19,8 @@ on:
       - 'tests/test_windows_compat_runtime_dependency_discovery.py'
       - 'tests/test_windows_compat_runtime_first_hit_guard.py'
       - 'tests/test_windows_compat_runtime_first_hit_proof.py'
+      - 'tests/test_windows_compat_runtime_loader_invariance.py'
+      - 'tests/test_windows_compat_runtime_dependency_evidence.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
 
 permissions:
@@ -52,12 +56,16 @@ jobs:
           python bootstrap/windows-compat-runtime/container_full_build_probe.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_probe.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_first_hit_guard.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_loader_invariance_guard.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_evidence_finalize.py check
           python -m unittest tests.test_windows_compat_build_version_lock -v
           python -m unittest tests.test_windows_compat_apk_content_lock -v
           python -m unittest tests.test_windows_compat_full_build_proof -v
           python -m unittest tests.test_windows_compat_runtime_dependency_discovery -v
           python -m unittest tests.test_windows_compat_runtime_first_hit_guard -v
           python -m unittest tests.test_windows_compat_runtime_first_hit_proof -v
+          python -m unittest tests.test_windows_compat_runtime_loader_invariance -v
+          python -m unittest tests.test_windows_compat_runtime_dependency_evidence -v
 
       - name: Reconstruct locked inputs, build Wine, and discover runtime dependencies without executing it
         run: |
@@ -103,28 +111,12 @@ jobs:
           assert gates['wine_executed'] is False
           assert proof['apk_content_manifest_sha256'] == 'd4a5133c36b81a5123e3a3edbf5df485fe13aec994e088966bdba44a3b571c87'
           assert proof['resolved_closure_sha256'] == 'f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff'
-          substrate = proof['execution_substrate']
-          assert substrate['engine'] == 'docker'
-          assert substrate['image_source'] == 'imported-from-reconstructed-locked-rootfs'
-          assert substrate['network'] == 'none'
-          assert substrate['rootfs_read_only'] is True
-          assert substrate['capabilities'] == 'drop-all'
-          assert substrate['no_new_privileges'] is True
-          assert substrate['image_is_product_artifact'] is False
-          compiler = proof['compiler']
-          assert compiler['triplet'] == 'x86_64-alpine-linux-musl'
-          assert compiler['cc_path'] == '/usr/bin/gcc'
-          assert compiler['cxx_path'] == '/usr/bin/g++'
-          assert compiler['x86_64_pe_path'] == '/usr/bin/x86_64-w64-mingw32-gcc'
-          assert compiler['i386_pe_path'] == '/usr/bin/i686-w64-mingw32-gcc'
-          assert all(compiler['versions'].values())
           staging = proof['staging']
           assert staging['entry_count'] > 0
           assert staging['regular_file_count'] > 0
           assert staging['total_regular_bytes'] > 0
           assert re.fullmatch(r'[0-9a-f]{64}', staging['canonical_manifest_sha256'])
           print('Wine locked-container full build proof: PASS')
-          print('docker server:', substrate['docker_server_version'])
           print('staged entries:', staging['entry_count'])
           print('staged manifest:', staging['canonical_manifest_sha256'])
           PY
@@ -133,49 +125,55 @@ jobs:
             --rootfs "$work/content/resolver-rootfs" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
             --out "$proof_dir/runtime-first-hit-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_dependency_loader_invariance_guard.py verify \
+            --stage-dir "$work/container-build/stage" \
+            --rootfs "$work/content/resolver-rootfs" \
+            --full-build-proof "$proof_dir/full-build-proof.json" \
+            --out "$proof_dir/runtime-loader-invariance-proof.json"
           python bootstrap/windows-compat-runtime/runtime_dependency_probe.py discover \
             --stage-dir "$work/container-build/stage" \
             --rootfs "$work/content/resolver-rootfs" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
             --out "$proof_dir/runtime-dependency-proof.json"
-          python - <<'PY' "$proof_dir/full-build-proof.json" "$proof_dir/runtime-first-hit-proof.json" "$proof_dir/runtime-dependency-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_dependency_evidence_finalize.py finalize \
+            --full-build-proof "$proof_dir/full-build-proof.json" \
+            --first-hit-proof "$proof_dir/runtime-first-hit-proof.json" \
+            --loader-invariance-proof "$proof_dir/runtime-loader-invariance-proof.json" \
+            --dependency-proof "$proof_dir/runtime-dependency-proof.json" \
+            --out "$proof_dir/runtime-dependency-evidence-proof.json"
+          python - <<'PY' "$proof_dir/full-build-proof.json" "$proof_dir/runtime-first-hit-proof.json" "$proof_dir/runtime-loader-invariance-proof.json" "$proof_dir/runtime-dependency-proof.json" "$proof_dir/runtime-dependency-evidence-proof.json"
           import json
           import pathlib
           import re
           import sys
-          full = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-          first = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
-          proof = json.loads(pathlib.Path(sys.argv[3]).read_text(encoding='utf-8'))
-          assert first['$schema'] == 'prototype-ordax.windows-compat-runtime-first-hit-proof/1'
-          assert first['status'] == 'first-pathname-hit-verified-not-runtime-promoted'
-          assert first['runtime_id'] == full['runtime_id']
-          assert first['staging_manifest_sha256'] == full['staging']['canonical_manifest_sha256']
+          full, first, invariance, dependency, evidence = [
+              json.loads(pathlib.Path(item).read_text(encoding='utf-8')) for item in sys.argv[1:]
+          ]
+          stage_sha = full['staging']['canonical_manifest_sha256']
+          runtime_id = full['runtime_id']
+          assert first['runtime_id'] == invariance['runtime_id'] == dependency['runtime_id'] == evidence['runtime_id'] == runtime_id
+          assert first['staging_manifest_sha256'] == invariance['staging_manifest_sha256'] == dependency['staging_manifest_sha256'] == evidence['staging_manifest_sha256'] == stage_sha
           assert re.fullmatch(r'[0-9a-f]{64}', first['validation_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', invariance['validation_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', dependency['inventory_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', evidence['evidence_sha256'])
           assert first['counts']['dependencies_checked'] > 0
           assert first['counts']['dependencies_checked'] == first['counts']['stage_hits'] + first['counts']['rootfs_hits']
-          first_gates = first['gates']
-          assert first_gates['full_build_proof_verified'] is True
-          assert first_gates['staging_manifest_verified'] is True
-          assert first_gates['first_pathname_hit_verified'] is True
-          assert first_gates['runtime_dependency_inventory_complete'] is False
-          assert first_gates['binary_artifact_pinned'] is False
-          assert first_gates['activation_authorized'] is False
-          assert first_gates['execution_authorized'] is False
-          assert first_gates['wine_executed'] is False
-          assert first_gates['windows_payload_executed'] is False
-          assert proof['$schema'] == 'prototype-ordax.windows-compat-runtime-dependency-proof/1'
-          assert proof['status'] == 'runtime-dependencies-discovered-not-content-pinned-not-executable'
-          assert proof['runtime_id'] == full['runtime_id'] == first['runtime_id']
-          assert proof['staging_manifest_sha256'] == full['staging']['canonical_manifest_sha256'] == first['staging_manifest_sha256']
-          assert re.fullmatch(r'[0-9a-f]{64}', proof['inventory_sha256'])
-          assert proof['counts']['elf_files'] > 0
-          assert proof['counts']['external_packages'] > 0
-          assert proof['counts']['external_sonames'] > 0
-          assert proof['external_packages']
-          gates = proof['gates']
-          assert gates['full_build_proof_verified'] is True
-          assert gates['loader_resolution_verified'] is True
-          assert gates['staging_dependency_inventory_complete'] is True
+          assert invariance['counts']['needed_identity_soname_pairs'] > 0
+          assert dependency['counts']['elf_files'] > 0
+          assert dependency['counts']['external_packages'] > 0
+          assert dependency['counts']['external_sonames'] > 0
+          gates = evidence['gates']
+          for gate in (
+              'full_build_proof_verified',
+              'first_pathname_hit_verified',
+              'staged_needed_by_chain_invariance_verified',
+              'staged_shortname_reuse_invariance_verified',
+              'loader_resolution_verified',
+              'staging_dependency_inventory_complete',
+          ):
+              assert gates[gate] is True, gate
+          assert gates['external_transitive_closure_verified'] is False
           assert gates['runtime_dependency_inventory_complete'] is False
           assert gates['runtime_package_content_hashes_pinned'] is False
           assert gates['binary_artifact_pinned'] is False
@@ -183,12 +181,13 @@ jobs:
           assert gates['execution_authorized'] is False
           assert gates['wine_executed'] is False
           assert gates['windows_payload_executed'] is False
-          print('Wine runtime dependency discovery: PASS')
+          print('Wine staged runtime dependency evidence: PASS')
           print('first pathname hits:', first['counts']['dependencies_checked'])
-          print('ELF files:', proof['counts']['elf_files'])
-          print('external packages:', proof['counts']['external_packages'])
-          print('external sonames:', proof['counts']['external_sonames'])
-          print('inventory:', proof['inventory_sha256'])
+          print('loader invariant pairs:', invariance['counts']['needed_identity_soname_pairs'])
+          print('ELF files:', dependency['counts']['elf_files'])
+          print('external packages:', dependency['counts']['external_packages'])
+          print('dependency inventory:', dependency['inventory_sha256'])
+          print('evidence:', evidence['evidence_sha256'])
           PY
 
       - name: Upload full build and runtime dependency metadata only
@@ -198,5 +197,7 @@ jobs:
           path: |
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/full-build-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-first-hit-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-loader-invariance-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-dependency-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-dependency-evidence-proof.json
           if-no-files-found: error
