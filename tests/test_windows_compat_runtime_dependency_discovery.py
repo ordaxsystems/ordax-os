@@ -35,6 +35,17 @@ def synthetic_elf64(needed: bytes = b"libexample.so.1") -> bytes:
     return bytes(data)
 
 
+def stage_metadata(stage: Path) -> dict:
+    manifest, total_regular_bytes = MODULE.FULL_BUILD.staging_manifest(stage)
+    return {
+        "entry_count": len(manifest),
+        "regular_file_count": sum(1 for item in manifest.values() if item.get("type") == "file"),
+        "symlink_count": sum(1 for item in manifest.values() if item.get("type") == "symlink"),
+        "total_regular_bytes": total_regular_bytes,
+        "canonical_manifest_sha256": MODULE.FULL_BUILD.canonical_manifest_sha256(manifest),
+    }
+
+
 class RuntimeDependencyDiscoveryTests(unittest.TestCase):
     def test_contract_is_discovery_only(self):
         contract = MODULE.load_contract()
@@ -68,6 +79,29 @@ class RuntimeDependencyDiscoveryTests(unittest.TestCase):
             versions, owners = MODULE.parse_apk_installed(root)
             self.assertEqual(versions["example-libs"], "1.2.3-r4")
             self.assertEqual(owners["usr/lib/libexample.so.1"], ("example-libs", "1.2.3-r4"))
+
+    def test_stage_binding_recomputes_exact_full_build_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp) / "stage"
+            payload = stage / "usr/lib/wine/sample.so"
+            payload.parent.mkdir(parents=True)
+            payload.write_bytes(b"exact-stage-bytes")
+            proof = {"staging": stage_metadata(stage)}
+            self.assertEqual(
+                MODULE.verify_stage_binding(stage, proof),
+                proof["staging"]["canonical_manifest_sha256"],
+            )
+
+    def test_stage_binding_rejects_stage_mutated_after_full_build_proof(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp) / "stage"
+            payload = stage / "usr/lib/wine/sample.so"
+            payload.parent.mkdir(parents=True)
+            payload.write_bytes(b"original-stage-bytes")
+            proof = {"staging": stage_metadata(stage)}
+            payload.write_bytes(b"mutated-after-proof")
+            with self.assertRaisesRegex(MODULE.RuntimeDependencyError, "does not match full build proof"):
+                MODULE.verify_stage_binding(stage, proof)
 
     def test_discovery_rejects_unproven_full_build(self):
         with tempfile.TemporaryDirectory() as temp:
