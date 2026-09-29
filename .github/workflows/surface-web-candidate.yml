@@ -26,6 +26,8 @@ on:
       - 'system/contracts/identity-actions.mjs'
       - 'system/contracts/identity-credentials.mjs'
       - 'system/contracts/entitlements.mjs'
+      - 'system/adapters/web/entitlements.mjs'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
@@ -135,6 +137,8 @@ on:
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
       - 'tests/test_native_account_gateway.py'
+      - 'tests/test_account_entitlement_source.py'
+      - 'tests/test_account_entitlements.mjs'
       - 'tests/test_native_request_boundary.py'
       - 'tests/test_native_capability_adapter.py'
       - 'tests/test_native_profile_content_context_contract.py'
@@ -187,6 +191,8 @@ on:
       - 'system/contracts/identity-actions.mjs'
       - 'system/contracts/identity-credentials.mjs'
       - 'system/contracts/entitlements.mjs'
+      - 'system/adapters/web/entitlements.mjs'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
@@ -459,6 +465,8 @@ jobs:
           python -m unittest tests.test_internet_deep_localization -v
           python -m unittest tests.test_native_host_module_integrity -v
           python -m unittest tests.test_native_account_gateway -v
+          python -m unittest tests.test_account_entitlement_source -v
+          node --test tests/test_account_entitlements.mjs
           python -m unittest tests.test_native_request_boundary -v
           python -m unittest tests.test_native_capability_adapter -v
           python -m unittest tests.test_native_profile_content_context_contract -v
