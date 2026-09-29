@@ -183,7 +183,10 @@
       "signed_out_target": "device",
       "signed_in_unselected_target": "account",
       "signed_in_selected_space_target": "space",
-      "provenance": "ordax-assistant:auto-capture"
+      "provenance": "ordax-assistant:auto-capture",
+      "extractor_receives_user_turn_only": true,
+      "extractor_receives_assistant_response": false,
+      "assistant_response_is_persistence_source": false
     }
   }
 }
