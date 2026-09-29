@@ -175,9 +175,13 @@ test("Assistant invokes automatic Memory capture after a successful response wit
   const intelligence = intelligencePort({ responses: ["ok"] });
   const turns = [];
   const memoryCapture = {
-    async captureTurn(turn) {
-      turns.push(turn);
-      return { status: "captured", captured: 1 };
+    bindTurn() {
+      return {
+        async capture(turn) {
+          turns.push(turn);
+          return { status: "captured", captured: 1 };
+        },
+      };
     },
   };
   const conversation = createAssistantConversationRuntime({
@@ -189,7 +193,6 @@ test("Assistant invokes automatic Memory capture after a successful response wit
   assert.equal(response.text, "ok");
   assert.deepEqual(turns, [{
     userText: "Prefiro respostas curtas.",
-    assistantText: "ok",
   }]);
   assert.equal(conversation.getSnapshot().memoryCaptureState, "captured");
   conversation.dispose();
@@ -200,8 +203,12 @@ test("Assistant response succeeds even when automatic Memory capture fails", asy
   const conversation = createAssistantConversationRuntime({
     intelligencePort: intelligence,
     memoryCapture: {
-      async captureTurn() {
-        throw new Error("memory unavailable");
+      bindTurn() {
+        return {
+          async capture() {
+            throw new Error("memory unavailable");
+          },
+        };
       },
     },
   });
@@ -210,5 +217,34 @@ test("Assistant response succeeds even when automatic Memory capture fails", asy
   assert.equal(response.text, "resposta");
   assert.equal(conversation.getSnapshot().memoryCaptureState, "error");
   assert.equal(conversation.getSnapshot().lastError, null);
+  conversation.dispose();
+});
+
+
+test("Assistant binds Memory ownership before starting Intelligence inference", async () => {
+  const events = [];
+  const intelligence = intelligencePort({ responses: ["ok"] });
+  const originalRespond = intelligence.respond.bind(intelligence);
+  intelligence.respond = async (request) => {
+    events.push("inference");
+    return originalRespond(request);
+  };
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    memoryCapture: {
+      bindTurn() {
+        events.push("bind-memory");
+        return {
+          async capture() {
+            events.push("capture-memory");
+            return { status: "captured", captured: 1 };
+          },
+        };
+      },
+    },
+  });
+
+  await conversation.send("mensagem");
+  assert.deepEqual(events, ["bind-memory", "inference", "capture-memory"]);
   conversation.dispose();
 });
