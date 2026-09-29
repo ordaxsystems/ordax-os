@@ -11,6 +11,7 @@ BROWSER_SMOKE = ROOT / "tools" / "surface-web" / "browser-smoke.mjs"
 PROJECTS_CSS = ROOT / "system" / "apps" / "projects" / "projects.css"
 NOTES_CSS = ROOT / "system" / "apps" / "notes" / "notes.css"
 INTERNET_CSS = ROOT / "system" / "apps" / "internet" / "internet.css"
+ASSISTANT_CSS = ROOT / "system" / "apps" / "assistant" / "assistant.css"
 SETTINGS_CSS = SURFACE / "settings.css"
 INTER_FONT = SURFACE / "fonts" / "inter-latin-wght-normal.woff2"
 INTER_SOURCE = ROOT / "third_party" / "fonts" / "Inter-Latin-Variable-SOURCE.md"
@@ -103,6 +104,21 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             "background: var(--ordax-danger-bg)",
         ):
             self.assertIn(declaration, css)
+
+    def test_assistant_consumes_semantic_tokens_in_component_css(self):
+        assistant = ASSISTANT_CSS.read_text(encoding="utf-8")
+        for token in (
+            "var(--ordax-text)",
+            "var(--ordax-muted)",
+            "var(--ordax-border)",
+            "var(--ordax-border-soft)",
+            "var(--ordax-window-bg)",
+            "var(--ordax-subtle-bg)",
+            "var(--ordax-focus)",
+            "var(--ordax-danger)",
+        ):
+            self.assertIn(token, assistant)
+
 
     def test_internet_consumes_semantic_tokens_in_component_css(self):
         css = INTERNET_CSS.read_text(encoding="utf-8")
