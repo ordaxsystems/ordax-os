@@ -220,6 +220,8 @@ missing backend degrades to `stopped`. It does not silently retry the failed gen
 will not reset a currently `busy` inference, and `dispose()` aborts active fetches and refuses new
 probe/generate work so shutdown cannot leave hidden inference requests running.
 
+Memory capture is a separate write boundary from memory retrieval. Intelligence/model output may only produce a bounded draft; it cannot choose owner, scope, Space, project or persistent id. Trusted composition supplies an explicit `ordax.memory-capture-auth/1` target, and persistence occurs only after a separate `explicit-user-confirmation` through the capture runtime. The initial capture boundary permits only device/account/Space targets and normal/private preference|fact|instruction|summary items; project/session/restricted capture remains disabled. Rejection/discard performs no write, and successful confirmation requires `memory.flush()` durability confirmation.
+
 Context supplied to Intelligence is bounded and carries provenance. Tool execution, agents and broader capability bridges require explicit contracts and permissions before activation. The memory runtime does not grant tool authority and does not bypass current authorization.
 
 The source foundation now defines `ordax.intelligence-tool/1` and
