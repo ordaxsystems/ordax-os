@@ -47,7 +47,7 @@ jobs:
           python -m unittest tests.test_windows_compat_configure_proof -v
           python -m unittest tests.test_windows_compat_runtime_configured_sonames -v
 
-      - name: Configure Wine and resolve configured dynamic-loader SONAMEs
+      - name: Configure Wine and prove configured SONAME system providers
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
@@ -127,10 +127,11 @@ jobs:
               'config_h_bound',
               'rootfs_package_graph_verified',
               'configured_soname_values_resolved',
-              'configured_soname_rootfs_resolution_verified',
+              'configured_soname_system_provider_verified',
           ):
               assert gates[gate] is True, gate
           for gate in (
+              'caller_loader_context_resolution_complete',
               'runtime_computed_target_resolution_complete',
               'wrapper_call_graph_complete',
               'generated_source_inventory_complete',
@@ -153,7 +154,7 @@ jobs:
           print('defined SONAME symbols:', counts['defined_symbols'])
           print('disabled SONAME symbols:', counts['disabled_symbols'])
           print('defined SONAME callsites:', counts['defined_callsites'])
-          print('resolved SONAME packages:', counts['resolved_packages'])
+          print('system-provider packages:', counts['system_provider_packages'])
           print('configured SONAME evidence:', sonames['evidence_sha256'])
           PY
 
