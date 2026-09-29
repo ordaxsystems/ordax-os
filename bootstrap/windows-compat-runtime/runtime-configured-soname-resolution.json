@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.windows-compat-runtime-configured-soname-resolution/1",
-  "status": "configured-soname-resolution-only-not-runtime-complete",
+  "status": "configured-soname-system-provider-proof-not-runtime-complete",
   "runtime_id": "wine-11.0-wow64-x86_64-candidate",
   "input": {
     "dynamic_source_proof_schema": "prototype-ordax.windows-compat-runtime-dynamic-load-source-proof/1",
@@ -23,6 +23,7 @@
     "musl_system_search_order_required": true,
     "first_existing_pathname_must_be_compatible_elf": true,
     "exact_alpine_owner_required": true,
+    "caller_loader_context_resolution_complete": false,
     "runtime_computed_target_resolution_complete": false,
     "wrapper_call_graph_complete": false,
     "generated_source_inventory_complete": false,
