@@ -166,6 +166,9 @@ export function createMemoryReviewViewModel(reviewSessionValue, {
     refresh() {
       return refresh();
     },
+    async create(content, options = {}) {
+      return persistMutation(() => review.create(content, options));
+    },
     async update(id, patch = {}) {
       return persistMutation(() => review.update(id, patch));
     },
