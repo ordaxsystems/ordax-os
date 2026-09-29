@@ -3,6 +3,7 @@ import {
   INTELLIGENCE_MAX_PROMPT_CHARS,
   INTELLIGENCE_PORT_SCHEMA,
   assertIntelligencePort,
+  validateIntelligenceResponse,
   validateIntelligenceSnapshot,
 } from "../../contracts/intelligence.mjs";
 
@@ -154,12 +155,13 @@ export function createAssistantConversationRuntime({ intelligencePort = null } =
       publish();
 
       try {
-        const response = await intelligence.respond({
+        const response = validateIntelligenceResponse(await intelligence.respond({
           intent: "ask",
           prompt,
           context: priorContext,
           maxTokens: 512,
-        });
+        }));
+        if (disposed) return response;
         append("assistant", response.text, {
           engineId: response.engineId,
           modelId: response.modelId,
@@ -169,6 +171,7 @@ export function createAssistantConversationRuntime({ intelligencePort = null } =
         publish();
         return response;
       } catch {
+        if (disposed) throw new Error("Assistant response failed");
         state = runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()));
         if (state === "ready") state = "error";
         lastError = "response-failed";
@@ -178,6 +181,9 @@ export function createAssistantConversationRuntime({ intelligencePort = null } =
     },
     clear() {
       assertAlive();
+      if (state === "busy") {
+        throw new Error("Assistant conversation cannot be cleared while a response is pending");
+      }
       messages = Object.freeze([]);
       lastError = null;
       state = runtimeState(
