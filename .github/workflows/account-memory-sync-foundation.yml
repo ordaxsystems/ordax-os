@@ -16,12 +16,14 @@ on:
       - 'system/services/memory/**'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-runtime.mjs'
+      - 'system/services/sync/state-store-registry.mjs'
       - 'tests/sql/test_account_memory_sync_guard.sql'
       - 'tests/test_account_memory_backend_guard.py'
       - 'tests/test_account_memory_gateway_policy.mjs'
       - 'tests/test_account_memory_sync_runtime.mjs'
       - 'tests/test_account_memory_sync_state.mjs'
       - 'tests/test_account_memory_sync_orchestration.mjs'
+      - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_account_sync_runtime.mjs'
       - 'tests/test_sync_model_contract.py'
       - '.github/workflows/account-memory-sync-foundation.yml'
@@ -39,12 +41,14 @@ on:
       - 'system/services/memory/**'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-runtime.mjs'
+      - 'system/services/sync/state-store-registry.mjs'
       - 'tests/sql/test_account_memory_sync_guard.sql'
       - 'tests/test_account_memory_backend_guard.py'
       - 'tests/test_account_memory_gateway_policy.mjs'
       - 'tests/test_account_memory_sync_runtime.mjs'
       - 'tests/test_account_memory_sync_state.mjs'
       - 'tests/test_account_memory_sync_orchestration.mjs'
+      - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_account_sync_runtime.mjs'
       - 'tests/test_sync_model_contract.py'
       - '.github/workflows/account-memory-sync-foundation.yml'
@@ -95,11 +99,13 @@ jobs:
           node --check system/contracts/sync-transport.mjs
           node --check system/services/sync/account-memory-runtime.mjs
           node --check system/services/sync/account-runtime.mjs
+          node --check system/services/sync/state-store-registry.mjs
           node --check infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs
           node --check tests/test_account_memory_gateway_policy.mjs
           node --check tests/test_account_memory_sync_runtime.mjs
           node --check tests/test_account_memory_sync_state.mjs
           node --check tests/test_account_memory_sync_orchestration.mjs
+          node --check tests/test_sync_state_namespace_registry.mjs
           python -m py_compile tests/test_account_memory_backend_guard.py
           python -m json.tool docs/contracts/foundation.json >/dev/null
           python -m json.tool docs/contracts/memory.json >/dev/null
@@ -117,6 +123,7 @@ jobs:
           node --test tests/test_account_memory_sync_runtime.mjs
           node --test tests/test_account_memory_sync_state.mjs
           node --test tests/test_account_memory_sync_orchestration.mjs
+          node --test tests/test_sync_state_namespace_registry.mjs
           node --test tests/test_account_sync_runtime.mjs
           python -m unittest tests.test_account_memory_backend_guard -v
           python -m unittest tests.test_sync_model_contract -v
