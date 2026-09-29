@@ -7,6 +7,7 @@ on:
       - 'tools/profile-content-proof/**'
       - 'tools/profile-content-channel/**'
       - 'docs/contracts/profile-content-trust-policy.json'
+      - 'docs/PROFILE-CONTENT-TRUST-CEREMONY.md'
       - 'docs/contracts/foundation.json'
       - 'docs/contracts/profile-provisioning.json'
       - 'system/contracts/profile-install-receipt.mjs'
@@ -22,6 +23,7 @@ on:
       - 'tools/profile-content-proof/**'
       - 'tools/profile-content-channel/**'
       - 'docs/contracts/profile-content-trust-policy.json'
+      - 'docs/PROFILE-CONTENT-TRUST-CEREMONY.md'
       - 'docs/contracts/foundation.json'
       - 'docs/contracts/profile-provisioning.json'
       - 'system/contracts/profile-install-receipt.mjs'
@@ -81,6 +83,172 @@ jobs:
           mkdir -m 700 "$proof"
 
           out/ordax-profile-content-channel generate-key             --private-key "$proof/private.pem"             --trust "$proof/trust.json"             --key-id profile-content-ci-1
+
+          out/ordax-profile-content-channel derive-trust             --private-key "$proof/private.pem"             --out "$proof/trust-derived.json"             --key-id profile-content-ci-1             | tee "$proof/derive.log"
+          cmp "$proof/trust.json" "$proof/trust-derived.json"
+          grep -qx 'PROFILE_CONTENT_TRUST_DERIVATION=PASS' "$proof/derive.log"
+          grep -Eq '^PROFILE_CONTENT_PUBLIC_KEY_SHA256=[0-9a-f]{64}          PROOF_DIR="$proof" node --input-type=module <<'NODE'
+          import { createHash, createPrivateKey, sign } from "node:crypto";
+          import { readFile, writeFile } from "node:fs/promises";
+          import {
+            PROFILE_CONTENT_ENVELOPE_SCHEMA,
+            PROFILE_CONTENT_SIGNATURE_ALGORITHM,
+            canonicalProfileContentManifestBytes,
+          } from "./tools/profile-content-proof/verify.mjs";
+
+          const root = process.env.PROOF_DIR;
+          const entryContent = "ordax profile content cross-runtime proof";
+          const pack = {
+            schema: "ordax.profile-content-pack/1",
+            kind: "knowledge-pack",
+            entries: [{
+              id: "knowledge.cross-runtime-entry",
+              mediaType: "text/plain",
+              content: entryContent,
+              contentSha256: createHash("sha256").update(Buffer.from(entryContent, "utf8")).digest("hex"),
+              source: {
+                uri: "https://example.invalid/ordax/profile-proof/source",
+                revision: "ci-1",
+                license: "test-fixture-only",
+                jurisdiction: "BR",
+                title: "Cross-runtime source",
+              },
+            }],
+          };
+          const content = Buffer.from(JSON.stringify(pack), "utf8");
+          await writeFile(`${root}/content.pack`, content);
+
+          const manifest = {
+            $schema: "prototype-ordax.profile-content-manifest/1",
+            id: "knowledge.cross-runtime-proof",
+            kind: "knowledge-pack",
+            version: "0.1.0",
+            publisher: "ordax",
+            content_hash: createHash("sha256").update(content).digest("hex"),
+            content_size: content.length,
+            content_format: "ordax.profile-content-pack/1",
+            source: {
+              uri: "https://example.invalid/ordax/profile-proof",
+              revision: "ci-1",
+              license: "test-fixture-only",
+              jurisdiction: "BR",
+            },
+            requested_capabilities: [],
+            runtime_network_allowed: false,
+            mutable_host_access_allowed: false,
+          };
+          await writeFile(`${root}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
+
+          const privatePem = await readFile(`${root}/private.pem`, "utf8");
+          const signature = sign(
+            null,
+            canonicalProfileContentManifestBytes(manifest),
+            createPrivateKey(privatePem),
+          );
+          const envelope = {
+            $schema: PROFILE_CONTENT_ENVELOPE_SCHEMA,
+            algorithm: PROFILE_CONTENT_SIGNATURE_ALGORITHM,
+            key_id: "profile-content-ci-1",
+            signature_base64: signature.toString("base64"),
+          };
+          await writeFile(`${root}/envelope.json`, JSON.stringify(envelope, null, 2) + "\n");
+          NODE
+
+          out/ordax-profile-content-channel verify             --manifest "$proof/manifest.json"             --envelope "$proof/envelope.json"             --trust "$proof/trust.json"             --content "$proof/content.pack"
+
+          stage_root="$proof/staged"
+          out/ordax-profile-content-channel stage             --manifest "$proof/manifest.json"             --envelope "$proof/envelope.json"             --trust "$proof/trust.json"             --content "$proof/content.pack"             --root "$stage_root"
+          test -d "$stage_root/knowledge-pack/knowledge.cross-runtime-proof/versions/0.1.0"
+          test -z "$(find "$stage_root" -type f -perm /222 -print -quit)"
+          slot="$(find "$stage_root/knowledge-pack/knowledge.cross-runtime-proof/versions/0.1.0" -mindepth 1 -maxdepth 1 -type d -print -quit)"
+          test -n "$slot"
+          out/ordax-profile-content-channel health             --slot "$slot"             --trust "$proof/trust.json"
+
+          PYTHONPATH="$PWD/system/surface/runtime"           PROFILE_SLOT="$slot"           PROFILE_TRUST="$proof/trust.json"           PROFILE_CHANNEL="$PWD/out/ordax-profile-content-channel"           PROFILE_STATE="$proof/state"           python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from native_profile_provisioning_executor import provision_verified_stage
+
+          root = Path(os.environ["PROFILE_STATE"])
+          kwargs = {
+              "trust_path": os.environ["PROFILE_TRUST"],
+              "channel_bin": os.environ["PROFILE_CHANNEL"],
+              "inventory_path": str(root / "inventory.json"),
+              "receipt_root": str(root / "receipts"),
+              "lock_path": str(root / "provisioning.lock"),
+              "now_ms": 1234,
+          }
+          first = provision_verified_stage(os.environ["PROFILE_SLOT"], **kwargs)
+          assert first["changed"] is True
+          assert first["inventory"]["revision"] == 1
+          assert len(first["inventory"]["entries"]) == 1
+          second = provision_verified_stage(os.environ["PROFILE_SLOT"], **kwargs)
+          assert second["changed"] is False
+          assert second["inventory"]["revision"] == 1
+          receipt = json.loads(Path(first["receiptPath"]).read_text(encoding="utf-8"))
+          assert receipt["health"]["state"] == "healthy"
+          assert receipt["health"]["perEntryHashVerified"] is True
+          assert receipt["health"]["perEntryProvenanceVerified"] is True
+          assert receipt["health"]["executablePayloadAllowed"] is False
+          assert receipt["health"]["authority"] == "none"
+          print("PROFILE_CONTENT_RECEIPT_INVENTORY_COMMIT=PASS")
+          print(first["receiptPath"])
+          PY
+
+          PROFILE_RECEIPT="$(find "$proof/state/receipts" -type f -name '*.json' -print -quit)"
+          test -n "$PROFILE_RECEIPT"
+          PROFILE_RECEIPT="$PROFILE_RECEIPT" node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          import { validateProfileInstallReceipt } from "./system/contracts/profile-install-receipt.mjs";
+          const receipt = JSON.parse(await readFile(process.env.PROFILE_RECEIPT, "utf8"));
+          const value = validateProfileInstallReceipt(receipt);
+          if (value.health.state !== "healthy" || value.health.authority !== "none") {
+            throw new Error("receipt health evidence mismatch");
+          }
+          console.log("PROFILE_CONTENT_RECEIPT_JS_VALIDATION=PASS");
+          NODE
+
+          printf '\nTAMPERED\n' >> "$proof/content.pack"
+          if out/ordax-profile-content-channel verify             --manifest "$proof/manifest.json"             --envelope "$proof/envelope.json"             --trust "$proof/trust.json"             --content "$proof/content.pack"; then
+            echo "tampered Profile content unexpectedly verified" >&2
+            exit 1
+          fi
+
+          chmod -R u+rwX "$stage_root"
+          rm -rf "$proof"
+          test ! -e "$proof"
+          echo 'PROFILE_CONTENT_JS_GO_INTEROP=PASS'
+          echo 'PROFILE_CONTENT_TAMPER_REJECTION=PASS'
+          echo 'PROFILE_CONTENT_IMMUTABLE_STAGE=PASS'
+          echo 'PROFILE_CONTENT_STRUCTURAL_HEALTH=PASS'
+          echo 'PROFILE_CONTENT_RECEIPT_INVENTORY=PASS'
+          echo 'PROFILE_CONTENT_CANONICAL_PRIVATE_KEY_INCLUDED=NO'
+          echo 'PROFILE_CONTENT_ACTIVATION_ALLOWED=NO'
+
+      - name: Assert production trust remains blocked
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          policy = json.load(open('docs/contracts/profile-content-trust-policy.json', encoding='utf-8'))
+          assert policy['trust_domain'] == 'profile-content'
+          assert policy['public_anchor']['pinned'] is False
+          assert policy['separation']['whole_os_release_key_reuse_allowed'] is False
+          assert policy['separation']['runtime_component_key_reuse_allowed'] is False
+          assert policy['current_gates']['profile_content_publish_allowed'] is False
+          assert policy['current_gates']['profile_content_install_allowed'] is False
+          assert policy['current_gates']['profile_content_activation_allowed'] is False
+          print('PROFILE_CONTENT_PUBLICATION_ALLOWED=NO')
+          print('PROFILE_CONTENT_INSTALL_ALLOWED=NO')
+          print('PROFILE_CONTENT_ACTIVATION_ALLOWED=NO')
+          PY
+ "$proof/derive.log"
+          grep -qx 'PROFILE_CONTENT_CANONICAL_ANCHOR_PINNED=NO' "$proof/derive.log"
+          grep -qx 'PROFILE_CONTENT_PUBLICATION_ALLOWED=NO' "$proof/derive.log"
+          grep -qx 'PROFILE_CONTENT_INSTALL_ALLOWED=NO' "$proof/derive.log"
+          grep -qx 'PROFILE_CONTENT_ACTIVATION_ALLOWED=NO' "$proof/derive.log"
+          echo 'PROFILE_CONTENT_INDEPENDENT_TRUST_DERIVATION=PASS'
 
           PROOF_DIR="$proof" node --input-type=module <<'NODE'
           import { createHash, createPrivateKey, sign } from "node:crypto";
