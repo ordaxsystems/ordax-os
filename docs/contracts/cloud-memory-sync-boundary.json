@@ -77,6 +77,24 @@
       "client_b_reads_incremental_sync": true,
       "client_b_attempts_stale_mutation": true,
       "client_b_reads_canonical_deleted_state": true
+    },
+    "proof_entitlement_operator": {
+      "status": "source-ready-not-executed",
+      "migration": "infra/supabase/product/migrations/20260929195000_cloud_memory_proof_entitlement_operator_v1.sql",
+      "issue_function": "private.ordax_issue_cloud_memory_proof_entitlement_v1",
+      "revoke_function": "private.ordax_revoke_cloud_memory_proof_entitlement_v1",
+      "entitlement_key": "memory.cloud.enabled",
+      "scope": "account-only",
+      "purpose": "cloud-memory-two-client-proof",
+      "ttl_seconds_min": 300,
+      "ttl_seconds_max": 1800,
+      "source_commit_required": true,
+      "audit_required": true,
+      "executable_by_public": false,
+      "executable_by_anon": false,
+      "executable_by_authenticated": false,
+      "executable_by_service_role": false,
+      "issues_grant_on_migration": false
     }
   }
 }

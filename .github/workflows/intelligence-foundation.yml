@@ -15,6 +15,8 @@ on:
       - 'services/public-identity/supabase_password.py'
       - 'tools/cloud-memory/**'
       - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_proof_entitlement_operator.py'
+      - 'infra/supabase/product/migrations/20260929195000_cloud_memory_proof_entitlement_operator_v1.sql'
       - '.github/workflows/cloud-memory-authenticated-proof.yml'
       - 'docs/contracts/model-router.json'
       - 'docs/contracts/intelligence-artifacts.json'
@@ -146,6 +148,8 @@ on:
       - 'services/public-identity/supabase_password.py'
       - 'tools/cloud-memory/**'
       - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_proof_entitlement_operator.py'
+      - 'infra/supabase/product/migrations/20260929195000_cloud_memory_proof_entitlement_operator_v1.sql'
       - '.github/workflows/cloud-memory-authenticated-proof.yml'
       - 'docs/contracts/model-router.json'
       - 'docs/contracts/intelligence-artifacts.json'
@@ -400,6 +404,7 @@ jobs:
           python -m unittest tests.test_profile_pack_restore_composition -v
           python -m unittest tests.test_pre_mvp_ecosystem_foundation -v
           python -m unittest tests.test_cloud_memory_authenticated_proof -v
+          python -m unittest tests.test_cloud_memory_proof_entitlement_operator -v
           python -m unittest tests.test_native_profile_component_inventory -v
           python -m unittest tests.test_native_profile_provisioning_executor -v
           python -m unittest tests.test_native_profile_activation_state -v

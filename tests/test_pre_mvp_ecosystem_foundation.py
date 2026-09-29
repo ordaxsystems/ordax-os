@@ -130,6 +130,18 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertTrue(proof["client_b_reads_incremental_sync"])
         self.assertTrue(proof["client_b_attempts_stale_mutation"])
         self.assertTrue(proof["client_b_reads_canonical_deleted_state"])
+        operator = boundary["implementation"]["proof_entitlement_operator"]
+        self.assertEqual(operator["status"], "source-ready-not-executed")
+        self.assertEqual(operator["entitlement_key"], "memory.cloud.enabled")
+        self.assertEqual(operator["scope"], "account-only")
+        self.assertEqual(operator["purpose"], "cloud-memory-two-client-proof")
+        self.assertEqual(operator["ttl_seconds_min"], 300)
+        self.assertEqual(operator["ttl_seconds_max"], 1800)
+        self.assertTrue(operator["source_commit_required"])
+        self.assertTrue(operator["audit_required"])
+        self.assertFalse(operator["executable_by_authenticated"])
+        self.assertFalse(operator["executable_by_service_role"])
+        self.assertFalse(operator["issues_grant_on_migration"])
 
     def test_external_models_require_explicit_egress_and_do_not_own_memory(self):
         router = self.load(MODEL_ROUTER)
