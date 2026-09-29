@@ -97,6 +97,34 @@ def load_contract() -> dict:
     return contract
 
 
+def structural_code_view(code_only: str) -> str:
+    """Blank preprocessor logical lines while preserving every byte offset.
+
+    Macro bodies can intentionally contain structurally unmatched C fragments
+    that only become balanced when paired with another macro during expansion.
+    They therefore cannot be interpreted as top-level C structure here. Direct
+    loader discovery still sees the original source independently; if a loader
+    call lives in a macro, function mapping will fail closed because no function
+    body in this structural view owns that offset.
+    """
+    chars = list(code_only)
+    offset = 0
+    in_directive = False
+    for line in code_only.splitlines(keepends=True):
+        logical = line.rstrip("\r\n")
+        if not in_directive and logical.lstrip().startswith("#"):
+            in_directive = True
+        if in_directive:
+            for index in range(offset, offset + len(line)):
+                if chars[index] not in {"\r", "\n"}:
+                    chars[index] = " "
+            continued = logical.rstrip().endswith("\\")
+            if not continued:
+                in_directive = False
+        offset += len(line)
+    return "".join(chars)
+
+
 def _matching_open_paren(text: str, close_index: int) -> int | None:
     depth = 0
     for index in range(close_index, -1, -1):
@@ -149,7 +177,8 @@ def _function_header(code_only: str, brace_index: int) -> tuple[str, bool, int] 
 
 
 def parse_functions(path: str, text: str) -> list[dict]:
-    _, code_only = DYNAMIC.lexical_views(text)
+    _, lexical_code = DYNAMIC.lexical_views(text)
+    code_only = structural_code_view(lexical_code)
     functions: list[dict] = []
     index = 0
     while index < len(code_only):
