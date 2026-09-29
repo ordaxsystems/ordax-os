@@ -361,6 +361,7 @@ jobs:
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_intelligence_runtime.mjs
           node --test tests/test_assistant_conversation.mjs
+          node --test tests/test_assistant_auto_memory_capture.mjs
           node --test tests/test_intelligence_authorized_memory.mjs
           node --test tests/test_model_router_runtime.mjs
           node --test tests/test_intelligence_artifact.mjs
