@@ -56,6 +56,8 @@ def load_contract() -> dict:
     if value.get("status") != "discovery-only-not-promotable":
         raise RuntimeDependencyError("runtime dependency discovery status drifted")
     inspection = value.get("inspection", {})
+    if inspection.get("stage_manifest_binding_required") is not True:
+        raise RuntimeDependencyError("runtime dependency discovery must bind to the exact staged manifest")
     expected_false = (
         "host_readelf_allowed",
         "network_allowed",
