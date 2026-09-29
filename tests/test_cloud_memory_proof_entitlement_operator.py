@@ -28,6 +28,8 @@ class CloudMemoryProofEntitlementOperatorTests(unittest.TestCase):
         self.assertIn("'temporary', true", self.lower)
         self.assertNotIn("grant execute on function private.ordax_issue", self.lower)
         self.assertNotIn("grant execute on function private.ordax_revoke", self.lower)
+        self.assertNotIn("create table if not exists", self.lower)
+        self.assertNotIn("create or replace function", self.lower)
 
     def test_client_and_service_roles_cannot_execute_operator_functions(self):
         for signature in (
@@ -49,7 +51,7 @@ class CloudMemoryProofEntitlementOperatorTests(unittest.TestCase):
         self.assertIn("'issued'", self.lower)
         self.assertIn("'revoked'", self.lower)
         audit_table = self.lower.split(
-            "create table if not exists private.ordax_cloud_memory_proof_entitlement_events",
+            "create table private.ordax_cloud_memory_proof_entitlement_events",
             1,
         )[1].split(");", 1)[0]
         self.assertNotIn("references auth.users", audit_table)
@@ -57,7 +59,7 @@ class CloudMemoryProofEntitlementOperatorTests(unittest.TestCase):
 
     def test_revoke_only_targets_proof_specific_admin_grants(self):
         revoke = self.lower.split(
-            "create or replace function private.ordax_revoke_cloud_memory_proof_entitlement_v1",
+            "create function private.ordax_revoke_cloud_memory_proof_entitlement_v1",
             1,
         )[1]
         self.assertIn("e.entitlement_key = 'memory.cloud.enabled'", revoke)
