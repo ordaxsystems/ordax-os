@@ -61,7 +61,7 @@ import { createMemoryReviewViewModel } from "../../services/memory/review-view-m
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
 import { resolveProfilePackRestore } from "../../services/profile-packs/restore.mjs";
-import { LOCAL_PROFILE_DISTRIBUTIONS } from "../../profile-packs/distributions.mjs";
+import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
@@ -295,8 +295,16 @@ async function start() {
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
   ) ?? createSessionProfileComponentInventory();
+  let profileDistributions = [];
+  if (bundledProfilePacks !== null) {
+    try {
+      profileDistributions = createLocalProfileDistributions(bundledProfilePacks.packs);
+    } catch (error) {
+      console.warn("OrdaX Profile distribution metadata unavailable; continuing without Profiles", error);
+    }
+  }
   const profileProvisioning = createProfileProvisioningRuntime({
-    distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+    distributions: profileDistributions,
     inventory: profileComponentInventory,
     readNetworkAvailable: () => window.navigator?.onLine === true,
   });
