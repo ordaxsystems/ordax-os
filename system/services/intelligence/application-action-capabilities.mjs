@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA,
   APPLICATION_ACTION_PROPOSAL_SCHEMA,
@@ -19,6 +21,19 @@ const EMPTY_LIST = Object.freeze([]);
 
 function capabilityKey(appId, actionId) {
   return `${appId}\u0000${actionId}`;
+}
+
+function canonicalJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+    .join(",")}}`;
+}
+
+function capabilitySha256(capability) {
+  return createHash("sha256").update(canonicalJson(capability), "utf8").digest("hex");
 }
 
 function validateArgument(parameter, value) {
@@ -158,10 +173,12 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
 
   const byKey = new Map();
   const byApp = new Map();
+  const digestByKey = new Map();
   for (const capability of frozen) {
     const key = capabilityKey(capability.appId, capability.actionId);
     if (byKey.has(key)) throw new TypeError(`Duplicate application action capability: ${capability.appId}/${capability.actionId}`);
     byKey.set(key, capability);
+    digestByKey.set(key, capabilitySha256(capability));
     const values = byApp.get(capability.appId) ?? [];
     values.push(capability);
     byApp.set(capability.appId, values);
@@ -182,7 +199,8 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
       return byApp.get(appId) ?? EMPTY_LIST;
     },
     propose(appId, actionId, argumentsValue = {}) {
-      const capability = byKey.get(capabilityKey(appId, actionId));
+      const key = capabilityKey(appId, actionId);
+      const capability = byKey.get(key);
       if (!capability) throw new TypeError("Application action capability is not declared for this app");
       const normalizedArguments = validateArguments(capability, argumentsValue);
       return validateApplicationActionProposal({
@@ -192,6 +210,7 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
         arguments: normalizedArguments,
         riskClass: capability.riskClass,
         confirmation: capability.confirmation,
+        capabilitySha256: digestByKey.get(key),
         capabilityProvenance: capability.provenance,
         executionAuthorized: false,
         modelDirectExecutionAuthorized: false,
