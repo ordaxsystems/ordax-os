@@ -49,6 +49,7 @@ from native_hardware_inventory import read_hardware_inventory
 from native_profile_component_inventory import read_profile_component_inventory
 from native_profile_activation_state import read_profile_activation_state
 from native_profile_activation_command import execute_profile_activation_command
+from native_profile_human_consent import ProfileHumanConsentAuthority
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -3203,6 +3204,11 @@ class NativeHostServer(ThreadingHTTPServer):
             secrets.token_urlsafe(32) if self.profile_activation_available else ""
         )
         self.profile_activation_lock = threading.Lock()
+        self.profile_human_consent_authority = (
+            ProfileHumanConsentAuthority()
+            if self.profile_activation_available
+            else None
+        )
         self.component_channel_bin = component_channel_bin
         self.component_trust_path = component_trust_path
         self.component_slot_root = component_slot_root
@@ -3940,6 +3946,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     response = execute_profile_activation_command(
                         payload,
                         distribution_profile=self.server.distribution_profile,
+                        human_consent_authority=self.server.profile_human_consent_authority,
                     )
             except PermissionError as exc:
                 print(
