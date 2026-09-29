@@ -46,6 +46,8 @@ on:
       - 'system/surface/ui/account.css'
       - 'system/services/i18n/catalog/account.mjs'
       - 'system/adapters/web/memory.mjs'
+      - 'system/adapters/web/entitlements.mjs'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'system/adapters/native/memory.mjs'
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
@@ -85,6 +87,8 @@ on:
       - 'tests/test_memory_store_adapters.mjs'
       - 'tests/test_memory_native_adapter_bounds.mjs'
       - 'tests/test_memory_native_state.py'
+      - 'tests/test_account_entitlements.mjs'
+      - 'tests/test_account_entitlement_source.py'
       - 'tests/test_memory_native_endpoint.py'
       - 'tests/test_profile_pack_runtime.mjs'
       - 'tests/test_profile_pack_runtime.py'
@@ -179,6 +183,8 @@ on:
       - 'system/surface/ui/account.css'
       - 'system/services/i18n/catalog/account.mjs'
       - 'system/adapters/web/memory.mjs'
+      - 'system/adapters/web/entitlements.mjs'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'system/adapters/native/memory.mjs'
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
@@ -218,6 +224,8 @@ on:
       - 'tests/test_memory_store_adapters.mjs'
       - 'tests/test_memory_native_adapter_bounds.mjs'
       - 'tests/test_memory_native_state.py'
+      - 'tests/test_account_entitlements.mjs'
+      - 'tests/test_account_entitlement_source.py'
       - 'tests/test_memory_native_endpoint.py'
       - 'tests/test_profile_pack_runtime.mjs'
       - 'tests/test_profile_pack_runtime.py'
@@ -340,6 +348,7 @@ jobs:
           node --check system/services/memory/assistant-auto-capture.mjs
           node --check system/apps/assistant/runtime.mjs
           node --check system/apps/assistant/ui/conversation-controls.mjs
+          node --check system/adapters/web/entitlements.mjs
           node --check system/composition/native/main.mjs
           node --check system/composition/web/main.mjs
           python -m json.tool docs/contracts/intelligence.json >/dev/null
@@ -363,6 +372,8 @@ jobs:
           node --test tests/test_intelligence_runtime.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_assistant_auto_memory_capture.mjs
+          node --test tests/test_account_entitlements.mjs
+          python -m unittest tests.test_account_entitlement_source -v
           node --test tests/test_intelligence_authorized_memory.mjs
           node --test tests/test_model_router_runtime.mjs
           node --test tests/test_intelligence_artifact.mjs
