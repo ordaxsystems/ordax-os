@@ -16,6 +16,8 @@ on:
       - 'system/surface/runtime/native_profile_provisioning_executor.py'
       - 'system/surface/runtime/native_profile_component_inventory.py'
       - 'tests/test_native_profile_provisioning_executor.py'
+      - 'tests/test_developer_profile_publication_handoff.py'
+      - 'system/profile-content-sources/developer-core/**'
       - '.github/workflows/profile-content-trust.yml'
   pull_request:
     paths:
@@ -31,6 +33,8 @@ on:
       - 'system/surface/runtime/native_profile_provisioning_executor.py'
       - 'system/surface/runtime/native_profile_component_inventory.py'
       - 'tests/test_native_profile_provisioning_executor.py'
+      - 'tests/test_developer_profile_publication_handoff.py'
+      - 'system/profile-content-sources/developer-core/**'
       - '.github/workflows/profile-content-trust.yml'
   workflow_dispatch:
 
@@ -63,6 +67,7 @@ jobs:
           node --check system/contracts/profile-content-pack.mjs
           node --test tests/test_profile_content_proof.mjs
           node --test tests/test_profile_content_pack.mjs
+          python3 -m unittest tests.test_developer_profile_publication_handoff
 
       - name: Test and build device verifier
         run: |
