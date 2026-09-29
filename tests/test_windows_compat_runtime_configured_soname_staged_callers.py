@@ -39,11 +39,18 @@ def minimal_elf32(machine=3):
 
 
 class StagedConfiguredSonameCallerTests(unittest.TestCase):
-    def test_contract_keeps_loader_context_closed(self):
+    def test_contract_keeps_loader_context_closed_and_separates_disabled_callers(self):
         contract = MODULE.load_contract()
-        self.assertEqual(contract["expected"]["caller_modules"], 15)
-        self.assertTrue(contract["verification"]["exactly_one_compatible_staged_elf_required"])
-        self.assertFalse(contract["verification"]["first_basename_candidate_selection_allowed"])
+        expected = contract["expected"]
+        self.assertEqual(expected["caller_modules"], 15)
+        self.assertEqual(expected["staged_caller_modules"], 13)
+        self.assertEqual(expected["disabled_only_modules"], 2)
+        self.assertEqual(expected["defined_callsites"], 30)
+        self.assertEqual(expected["disabled_callsites"], 2)
+        verification = contract["verification"]
+        self.assertTrue(verification["exactly_one_compatible_staged_elf_required_for_enabled_modules"])
+        self.assertTrue(verification["disabled_only_modules_do_not_require_staged_elf"])
+        self.assertFalse(verification["first_basename_candidate_selection_allowed"])
         self.assertTrue(all(value is False for value in contract["open_boundaries"].values()))
         self.assertTrue(all(value is False for value in contract["promotion"].values()))
 
@@ -85,6 +92,39 @@ class StagedConfiguredSonameCallerTests(unittest.TestCase):
                 MODULE.bind_staged_elf(
                     Path(temp), {}, "caller.so", {"class": 64, "machine": 62, "endianness": "little"}
                 )
+
+    def test_module_state_requires_staged_elf_when_any_symbol_is_defined(self):
+        caller = {
+            "modules": [
+                {"module_dir": "dlls/a"},
+                {"module_dir": "dlls/b"},
+            ],
+            "callsites": [
+                {"module_dir": "dlls/a", "symbol": "SONAME_A"},
+                {"module_dir": "dlls/a", "symbol": "SONAME_B"},
+                {"module_dir": "dlls/b", "symbol": "SONAME_C"},
+            ],
+        }
+        states = {
+            "SONAME_A": {"state": "defined"},
+            "SONAME_B": {"state": "disabled-by-configure"},
+            "SONAME_C": {"state": "disabled-by-configure"},
+        }
+        result = MODULE.derive_module_symbol_states(caller, states)
+        self.assertTrue(result["dlls/a"]["staged_elf_required"])
+        self.assertEqual(result["dlls/a"]["defined_callsites"], 1)
+        self.assertEqual(result["dlls/a"]["disabled_callsites"], 1)
+        self.assertFalse(result["dlls/b"]["staged_elf_required"])
+        self.assertEqual(result["dlls/b"]["defined_callsites"], 0)
+        self.assertEqual(result["dlls/b"]["disabled_callsites"], 1)
+
+    def test_missing_configured_symbol_state_fails_closed(self):
+        caller = {
+            "modules": [{"module_dir": "dlls/a"}],
+            "callsites": [{"module_dir": "dlls/a", "symbol": "SONAME_A"}],
+        }
+        with self.assertRaisesRegex(MODULE.StagedCallerProofError, "state missing"):
+            MODULE.derive_module_symbol_states(caller, {})
 
     def test_full_build_gate_set_is_exact(self):
         gates = MODULE.expected_full_build_gates()
