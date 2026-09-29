@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -152,6 +153,34 @@ def _canonical_component_binding(manifest: dict, components: list) -> dict:
     }
 
 
+def _permission_review_digest(
+    *,
+    expected_revision: int,
+    space_id: str,
+    space_kind: str,
+    profile: dict,
+    components: list,
+    permission_diff: dict,
+) -> str:
+    payload = {
+        "schema": "ordax.profile-permission-review/1",
+        "expectedRevision": expected_revision,
+        "spaceId": space_id,
+        "spaceKind": space_kind,
+        "profile": profile,
+        "components": components,
+        "permissionDiff": permission_diff,
+    }
+    canonical = json.dumps(
+        payload,
+        separators=(",", ":"),
+        sort_keys=True,
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def _assert_internal_activation_allowed(manifest: dict, space_kind: str, components: list) -> dict:
     if manifest.get("space_kind") != space_kind:
         raise ValueError("Profile Space kind does not match canonical manifest")
@@ -169,12 +198,7 @@ def _assert_internal_activation_allowed(manifest: dict, space_kind: str, compone
     for field in ("auto_grant_privileges", "allow_unsigned_apps", "generic_shell_implied", "cross_space_memory"):
         if security.get(field, False) is True:
             raise PermissionError("Profile attempts to broaden authority")
-    permission_diff = _canonical_component_binding(manifest, components)
-    if components:
-        raise PermissionError(
-            "Component-bearing Profile activation requires explicit permission diff acceptance"
-        )
-    return permission_diff
+    return _canonical_component_binding(manifest, components)
 
 
 def execute_profile_activation_command(
@@ -193,8 +217,13 @@ def execute_profile_activation_command(
     expected_revision = payload.get("expectedRevision")
     if isinstance(expected_revision, bool) or not isinstance(expected_revision, int) or expected_revision < 0:
         raise ValueError("Profile activation expected revision is invalid")
-    if action == "activate":
-        if set(payload) != {"schema", "action", "expectedRevision", "spaceId", "spaceKind", "profile", "components", "activatedAt"}:
+    if action in {"preview-activate", "activate"}:
+        activate_fields = {"schema", "action", "expectedRevision", "spaceId", "spaceKind", "profile", "components"}
+        if action == "activate":
+            activate_fields = {*activate_fields, "activatedAt"}
+            if "acceptedPermissionDiffSha256" in payload:
+                activate_fields.add("acceptedPermissionDiffSha256")
+        if set(payload) != activate_fields:
             raise ValueError("Profile activate command fields are incompatible")
         if payload.get("schema") != COMMAND_SCHEMA:
             raise ValueError("Profile activation command schema is incompatible")
@@ -212,6 +241,32 @@ def execute_profile_activation_command(
             raise ValueError("Profile activation components are invalid")
         manifest = _canonical_manifest(profile.get("slug"), profile.get("version"))
         permission_diff = _assert_internal_activation_allowed(manifest, space_kind, components)
+        review_digest = _permission_review_digest(
+            expected_revision=expected_revision,
+            space_id=space_id,
+            space_kind=space_kind,
+            profile=profile,
+            components=components,
+            permission_diff=permission_diff,
+        )
+        if action == "preview-activate":
+            return {
+                "schema": COMMAND_SCHEMA,
+                "action": action,
+                "changed": False,
+                "state": read_profile_activation_state(state_path),
+                "permissionDiff": permission_diff,
+                "permissionDiffSha256": review_digest,
+            }
+        accepted_digest = payload.get("acceptedPermissionDiffSha256")
+        if permission_diff["requiresExplicitReview"]:
+            if not isinstance(accepted_digest, str) or accepted_digest != review_digest:
+                raise PermissionError("Profile permission diff acceptance is missing or stale")
+            raise PermissionError(
+                "Profile component activation awaits a trusted human confirmation surface"
+            )
+        elif accepted_digest is not None and accepted_digest != review_digest:
+            raise PermissionError("Profile permission diff acceptance does not match activation intent")
         result = activate_profile(
             space_id=space_id,
             space_kind=space_kind,
@@ -227,6 +282,7 @@ def execute_profile_activation_command(
         )
     elif action in {"deactivate", "rollback"}:
         permission_diff = None
+        review_digest = None
         if set(payload) != {"schema", "action", "expectedRevision", "spaceId"}:
             raise ValueError("Profile mutation command fields are incompatible")
         if payload.get("schema") != COMMAND_SCHEMA:
