@@ -42,6 +42,7 @@ on:
       - 'tests/test_account_memory_reinstall_restore.mjs'
       - 'tests/test_account_restore_plan.mjs'
       - 'tests/test_memory_conflict_resolution.mjs'
+      - 'tests/test_memory_review.mjs'
       - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_account_sync_runtime.mjs'
       - 'tests/test_sync_model_contract.py'
@@ -87,6 +88,7 @@ on:
       - 'tests/test_account_memory_reinstall_restore.mjs'
       - 'tests/test_account_restore_plan.mjs'
       - 'tests/test_memory_conflict_resolution.mjs'
+      - 'tests/test_memory_review.mjs'
       - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_account_sync_runtime.mjs'
       - 'tests/test_sync_model_contract.py'
@@ -143,6 +145,7 @@ jobs:
           node --check system/services/sync/account-runtime.mjs
           node --check system/services/sync/memory-conflict-resolution.mjs
           node --check system/services/sync/state-store-registry.mjs
+          node --check system/services/memory/review.mjs
           node --check infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs
           node --check tests/test_account_memory_conflict_reconciliation.mjs
           node --check tests/test_account_memory_gateway_policy.mjs
@@ -153,6 +156,7 @@ jobs:
           node --check tests/test_account_memory_reinstall_restore.mjs
           node --check tests/test_account_restore_plan.mjs
           node --check tests/test_memory_conflict_resolution.mjs
+          node --check tests/test_memory_review.mjs
           node --check tests/test_sync_state_namespace_registry.mjs
           python -m py_compile services/public-identity/supabase_memory.py
           python -m py_compile services/public-identity/supabase_sync.py
@@ -182,6 +186,7 @@ jobs:
           node --test tests/test_account_memory_reinstall_restore.mjs
           node --test tests/test_account_restore_plan.mjs
           node --test tests/test_memory_conflict_resolution.mjs
+          node --test tests/test_memory_review.mjs
           node --test tests/test_sync_state_namespace_registry.mjs
           node --test tests/test_account_sync_runtime.mjs
           python -m unittest tests.test_cloud_memory_atomic_mutation -v
