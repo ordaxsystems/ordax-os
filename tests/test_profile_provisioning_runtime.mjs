@@ -4,14 +4,14 @@ import test from "node:test";
 import {
   createProfileProvisioningRuntime,
 } from "../system/services/profile-packs/provisioning.mjs";
-import {
-  LOCAL_PROFILE_DISTRIBUTIONS,
-} from "../system/profile-packs/distributions.mjs";
 import { createSessionProfileComponentInventory } from "../system/services/profile-packs/inventory.mjs";
+import { loadLocalProfileDistributionsForTest } from "./helpers/profile-packs.mjs";
+
+const localProfileDistributions = await loadLocalProfileDistributionsForTest();
 
 test("runtime projects local Profile availability without performing installation", () => {
   const runtime = createProfileProvisioningRuntime({
-    distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+    distributions: localProfileDistributions,
     inventory: createSessionProfileComponentInventory(),
     readNetworkAvailable: () => true,
   });
@@ -29,7 +29,7 @@ test("runtime projects local Profile availability without performing installatio
 test("runtime re-evaluates installed components and network without mutating Profile data", () => {
   let installedEntries = [];
   let online = false;
-  const candidate = structuredClone(LOCAL_PROFILE_DISTRIBUTIONS[1]);
+  const candidate = structuredClone(localProfileDistributions[1]);
   const raw = {
     $schema: candidate.schema,
     profile: candidate.profile,
@@ -94,8 +94,8 @@ test("runtime rejects duplicate profile distribution identity", () => {
     () => createProfileProvisioningRuntime({
       inventory: createSessionProfileComponentInventory(),
       distributions: [
-        LOCAL_PROFILE_DISTRIBUTIONS[0],
-        LOCAL_PROFILE_DISTRIBUTIONS[0],
+        localProfileDistributions[0],
+        localProfileDistributions[0],
       ],
     }),
     /Duplicate Profile distribution developer@1/,
@@ -104,7 +104,7 @@ test("runtime rejects duplicate profile distribution identity", () => {
 
 test("disposed runtime cannot be reused", () => {
   const runtime = createProfileProvisioningRuntime({
-    distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+    distributions: localProfileDistributions,
     inventory: createSessionProfileComponentInventory(),
   });
   runtime.dispose();
