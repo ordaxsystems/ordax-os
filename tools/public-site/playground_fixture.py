@@ -25,7 +25,15 @@ FIELD_RE = re.compile(
 )
 CATALOG_RE = re.compile(r"\b([a-z][a-z0-9-]*)App\b")
 MESSAGE_RE = re.compile(
-    r'^\s*"([^"]+)":\s*"((?:\\.|[^"\\])*)",?\s*RAIL_RE = re.compile(
+    r'^\s*"([^"]+)":\s*"((?:\\.|[^"\\])*)",?\s*$',
+    re.MULTILINE,
+)
+CATALOG_IMPORT_RE = re.compile(
+    r'import\s+\{([^}]+)\}\s+from\s+"(\./catalog/[a-z0-9-]+\.mjs)";',
+    re.MULTILINE,
+)
+SOURCE_SPREAD_RE = re.compile(r"\.\.\.([A-Z][A-Z0-9_]*_SOURCE_MESSAGES)\s*,?")
+RAIL_RE = re.compile(
     r'railButton\("([a-z][a-z0-9-]*)",\s*t\("([^"]+)"\),\s*ICONS\.[a-zA-Z0-9]+,\s*t\)'
 )
 SPACE_RE = re.compile(r'spaceLink\("([^"]+)",\s*"([^"]+)",\s*t\)')
