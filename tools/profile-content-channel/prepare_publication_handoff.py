@@ -16,6 +16,8 @@ from pathlib import Path
 HANDOFF_SCHEMA = "prototype-ordax.profile-content-publication-handoff/1"
 MANIFEST_SCHEMA = "prototype-ordax.profile-content-manifest/1"
 PACK_SCHEMA = "ordax.profile-content-pack/1"
+TRUST_POLICY_SCHEMA = "prototype-ordax.profile-content-trust-policy/1"
+DEFAULT_POLICY = Path(__file__).resolve().parents[2] / "docs/contracts/profile-content-trust-policy.json"
 
 
 class HandoffError(ValueError):
@@ -36,7 +38,32 @@ def _read_json(path: Path) -> dict:
     return value
 
 
-def build_handoff(source_dir: Path) -> dict:
+def _read_policy(policy_path: Path) -> dict:
+    policy = _read_json(policy_path)
+    if policy.get("$schema") != TRUST_POLICY_SCHEMA:
+        raise HandoffError("unsupported Profile-content trust policy schema")
+    key_id = policy.get("key_id")
+    anchor = policy.get("public_anchor")
+    gates = policy.get("current_gates")
+    if not isinstance(key_id, str) or not key_id:
+        raise HandoffError("Profile-content trust key id is invalid")
+    if not isinstance(anchor, dict) or not isinstance(gates, dict):
+        raise HandoffError("Profile-content trust policy is incomplete")
+    if anchor.get("pinned") is not False:
+        raise HandoffError("unsigned handoff is only valid before canonical trust pinning")
+    expected = {
+        "profile_content_publish_allowed": False,
+        "profile_content_install_allowed": False,
+        "profile_content_activation_allowed": False,
+    }
+    for field, value in expected.items():
+        if gates.get(field) is not value:
+            raise HandoffError(f"unsigned handoff requires {field}=false")
+    return policy
+
+
+def build_handoff(source_dir: Path, policy_path: Path = DEFAULT_POLICY) -> dict:
+    policy = _read_policy(policy_path)
     if not source_dir.is_dir():
         raise HandoffError("source directory does not exist")
 
@@ -116,22 +143,22 @@ def build_handoff(source_dir: Path) -> dict:
         },
         "signing": {
             "required": True,
-            "keyId": "ordax-profile-content-v1",
+            "keyId": policy["key_id"],
             "envelopePresent": False,
-            "canonicalTrustAnchorPinned": False,
+            "canonicalTrustAnchorPinned": policy["public_anchor"]["pinned"],
         },
         "gates": {
-            "publicationAllowed": False,
-            "installationAllowed": False,
-            "activationAllowed": False,
+            "publicationAllowed": policy["current_gates"]["profile_content_publish_allowed"],
+            "installationAllowed": policy["current_gates"]["profile_content_install_allowed"],
+            "activationAllowed": policy["current_gates"]["profile_content_activation_allowed"],
         },
     }
 
 
-def write_handoff(source_dir: Path, output_path: Path) -> dict:
+def write_handoff(source_dir: Path, output_path: Path, policy_path: Path = DEFAULT_POLICY) -> dict:
     if output_path.exists():
         raise HandoffError("refusing to overwrite publication handoff")
-    handoff = build_handoff(source_dir)
+    handoff = build_handoff(source_dir, policy_path)
     payload = (
         json.dumps(handoff, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False)
         + "\n"
@@ -145,9 +172,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--policy", default=str(DEFAULT_POLICY))
     args = parser.parse_args()
     try:
-        handoff = write_handoff(Path(args.source), Path(args.out))
+        handoff = write_handoff(Path(args.source), Path(args.out), Path(args.policy))
     except HandoffError as exc:
         print(f"PROFILE_CONTENT_PUBLICATION_HANDOFF_ERROR={exc}")
         return 1
