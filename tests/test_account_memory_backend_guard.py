@@ -30,9 +30,9 @@ class AccountMemoryBackendGuardTests(unittest.TestCase):
         sql = MIGRATION.read_text(encoding="utf-8").lower()
         self.assertIn("p_object_schema_version <> 1", sql)
         self.assertIn("p_resolver_version <> 1", sql)
-        self.assertIn("v_memory->>'ownerkind' <> 'account'", sql)
-        self.assertIn("v_memory->>'ownerid' <> v_user_id::text", sql)
-        self.assertIn("v_identity->>'ownerid' <> v_user_id::text", sql)
+        self.assertIn("v_memory->>'ownerkind' is distinct from 'account'", sql)
+        self.assertIn("v_memory->>'ownerid' is distinct from v_user_id::text", sql)
+        self.assertIn("v_identity->>'ownerid' is distinct from v_user_id::text", sql)
         self.assertIn("v_memory->>'scope' not in ('account','space','project')", sql)
         self.assertIn("v_memory->>'sensitivity' not in ('normal','private')", sql)
         self.assertIn("'ordax.memory-sync-payload/1'", sql)
@@ -40,6 +40,16 @@ class AccountMemoryBackendGuardTests(unittest.TestCase):
         self.assertIn("'memory/' || rtrim", sql)
         self.assertIn("convert_to(v_memory_id, 'utf8')", sql)
         self.assertIn("invalid-memory-stable-object-id", sql)
+
+    def test_sql_guard_is_null_safe_and_requires_exact_json_types(self):
+        sql = MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("not (p_payload ? 'schema')", sql)
+        self.assertIn("jsonb_typeof(p_payload->'schema') is distinct from 'string'", sql)
+        self.assertIn("jsonb_typeof(v_identity->'ownerid') is distinct from 'string'", sql)
+        self.assertIn("jsonb_typeof(v_memory->'ownerid') is distinct from 'string'", sql)
+        self.assertIn("jsonb_typeof(v_memory->'content') is distinct from 'string'", sql)
+        self.assertIn("jsonb_typeof(v_memory->'spaceid') is distinct from 'null'", sql)
+        self.assertIn("p_stable_object_id is distinct from v_expected_object_id", sql)
 
     def test_sql_guard_rejects_never_sync_material_and_tombstones_never_carry_content(self):
         sql = MIGRATION.read_text(encoding="utf-8").lower()
@@ -55,10 +65,10 @@ class AccountMemoryBackendGuardTests(unittest.TestCase):
     def test_idempotency_key_is_bound_to_exact_mutation(self):
         sql = MIGRATION.read_text(encoding="utf-8").lower()
         self.assertIn("idempotency-key-reused-for-different-mutation", sql)
-        self.assertIn("v_mutation.data_class <> p_data_class", sql)
-        self.assertIn("v_mutation.stable_object_id <> p_stable_object_id", sql)
-        self.assertIn("v_mutation.payload <> p_payload", sql)
-        self.assertIn("v_mutation.tombstone <> p_tombstone", sql)
+        self.assertIn("v_mutation.data_class is distinct from p_data_class", sql)
+        self.assertIn("v_mutation.stable_object_id is distinct from p_stable_object_id", sql)
+        self.assertIn("v_mutation.payload is distinct from p_payload", sql)
+        self.assertIn("v_mutation.tombstone is distinct from p_tombstone", sql)
 
     def test_gateway_policy_reuses_canonical_memory_sync_validator_but_memory_remains_disabled(self):
         policy = GATEWAY_POLICY.read_text(encoding="utf-8")
