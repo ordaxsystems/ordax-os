@@ -204,6 +204,19 @@ const notesComponent = await loadOptionalComponentRuntime({
     console.warn("OrdaX Notes runtime unavailable", error);
   },
 });
+const assistantComponent = await loadOptionalComponentRuntime({
+  componentId: "assistant",
+  importer: () => import("../../apps/assistant/runtime.mjs"),
+  componentManager,
+  context: {
+    root,
+    surfaceLifecycle: surface,
+    intelligence: null,
+  },
+  onError(error) {
+    console.warn("OrdaX Assistant runtime unavailable", error);
+  },
+});
 const internetComponent = await loadOptionalComponentRuntime({
   componentId: "internet",
   importer: () => import("../../apps/internet/runtime.mjs"),
@@ -227,6 +240,7 @@ window.addEventListener(
     window.removeEventListener("online", onOnline);
     unsubscribeHostIdentity();
     systemOverviewControls.destroy();
+    assistantComponent?.destroy();
     internetComponent?.destroy();
     notesComponent?.destroy();
     projectsComponent?.destroy();
