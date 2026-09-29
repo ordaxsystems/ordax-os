@@ -267,3 +267,34 @@ test("Native Space selection store rejects corrupt persisted state", () => {
   assert.equal(store.load(), null);
   assert.equal(values.has("ordax.native.space-selection.v1"), false);
 });
+
+
+test("Native Space selection store falls back to session memory when storage becomes unavailable", () => {
+  let failWrites = true;
+  const values = new Map();
+  const storage = {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) {
+      if (failWrites) throw new Error("storage denied");
+      values.set(key, value);
+    },
+    removeItem(key) { values.delete(key); },
+  };
+  const store = createNativeSpaceSelectionStore({ localStorage: storage });
+  const record = {
+    schema: SPACE_SELECTION_RECORD_SCHEMA,
+    subjectId: "user-1",
+    selectedSpaceId: "space-developer",
+  };
+
+  assert.equal(store.save(record), false);
+  assert.equal(store.load().selectedSpaceId, "space-developer");
+  assert.equal(values.size, 0);
+
+  store.clear();
+  assert.equal(store.load(), null);
+
+  failWrites = false;
+  assert.equal(store.save(record), false);
+  assert.equal(store.load().selectedSpaceId, "space-developer");
+});
