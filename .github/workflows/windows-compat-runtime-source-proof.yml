@@ -7,6 +7,7 @@ on:
       - 'tests/test_windows_compat_runtime_source.py'
       - 'tests/test_windows_compat_runtime_dynamic_load_source.py'
       - 'tests/test_windows_compat_runtime_configured_soname_caller_modules.py'
+      - 'tests/test_windows_compat_runtime_configured_soname_staged_callers.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -18,6 +19,7 @@ on:
       - 'tests/test_windows_compat_runtime_source.py'
       - 'tests/test_windows_compat_runtime_dynamic_load_source.py'
       - 'tests/test_windows_compat_runtime_configured_soname_caller_modules.py'
+      - 'tests/test_windows_compat_runtime_configured_soname_staged_callers.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -40,12 +42,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Validate source, dynamic-load, and caller-module contracts
+      - name: Validate source, dynamic-load, caller-module, and staged-caller contracts
         run: |
           set -euo pipefail
           python bootstrap/windows-compat-runtime/build.py check
           python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py check
           python bootstrap/windows-compat-runtime/runtime_configured_soname_caller_module_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_configured_soname_staged_caller_probe.py check
 
       - name: Run fail-closed regressions
         run: |
@@ -53,6 +56,7 @@ jobs:
           python -m unittest tests.test_windows_compat_runtime_source -v
           python -m unittest tests.test_windows_compat_runtime_dynamic_load_source -v
           python -m unittest tests.test_windows_compat_runtime_configured_soname_caller_modules -v
+          python -m unittest tests.test_windows_compat_runtime_configured_soname_staged_callers -v
 
       - name: Fetch exact Wine source and prove configured SONAME caller source modules
         run: |
