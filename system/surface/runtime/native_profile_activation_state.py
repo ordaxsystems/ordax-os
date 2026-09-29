@@ -409,7 +409,7 @@ def _validate_component_receipt(component: dict, receipt_root: str) -> None:
         raise ValueError("Profile activation component receipt identity does not match activation")
 
 
-def _assert_activation_components_installed(
+def assert_activation_components_installed(
     activation: dict,
     inventory_path: str,
     receipt_root: str = DEFAULT_RECEIPT_ROOT,
@@ -493,7 +493,7 @@ def activate_profile(
     if space_kind not in _SPACE_KINDS:
         raise ValueError("Profile activation Space kind is invalid")
     candidate = validate_profile_activation_ref(activation)
-    _assert_activation_components_installed(candidate, inventory_path, receipt_root)
+    assert_activation_components_installed(candidate, inventory_path, receipt_root)
 
     with _lock(lock_path) as lock_handle:
         try:
@@ -591,7 +591,7 @@ def rollback_profile(
                 return {"changed": False, "state": state}
             row = state["spaces"][index]
             target = row["previous"]
-            _assert_activation_components_installed(target, inventory_path, receipt_root)
+            assert_activation_components_installed(target, inventory_path, receipt_root)
             spaces = list(state["spaces"])
             spaces[index] = {
                 "spaceId": space_id,
