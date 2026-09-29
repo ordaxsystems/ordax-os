@@ -6,7 +6,10 @@
     "requires_full_build_proof": true,
     "requires_staged_install": true,
     "requires_locked_rootfs": true,
-    "full_build_proof_schema": "prototype-ordax.windows-compat-full-build-proof/2"
+    "full_build_proof_schema": "prototype-ordax.windows-compat-full-build-proof/2",
+    "first_hit_proof_schema": "prototype-ordax.windows-compat-runtime-first-hit-proof/1",
+    "loader_invariance_proof_schema": "prototype-ordax.windows-compat-runtime-loader-invariance-proof/1",
+    "authoritative_evidence_proof_schema": "prototype-ordax.windows-compat-runtime-dependency-evidence-proof/1"
   },
   "inspection": {
     "format": "elf-dt-needed-with-musl-loader-search",
@@ -19,6 +22,10 @@
     "musl_system_path_required": true,
     "first_pathname_hit_validation_required": true,
     "first_pathname_hit_proof_required": true,
+    "musl_needed_by_chain_invariance_required": true,
+    "musl_shortname_reuse_invariance_required": true,
+    "loader_invariance_proof_required": true,
+    "authoritative_evidence_proof_required": true,
     "host_readelf_allowed": false,
     "network_allowed": false,
     "stage_mutation_allowed": false,
@@ -34,8 +41,12 @@
     "loader_system_path": "locked /etc/ld-musl-$ARCH.path when present, otherwise musl built-in /lib:/usr/local/lib:/usr/lib fallback",
     "loader_first_pathname_hit": "the first existing SONAME pathname in modeled search order must itself be a compatible ELF; non-ELF or incompatible objects fail instead of being skipped",
     "loader_first_pathname_hit_evidence": "a content-addressed JSON proof bound to the same runtime id and staged manifest must accompany dependency discovery",
+    "loader_needed_by_chain": "musl searches rpath/runpath through the needed_by chain before its system path; this discovery must prove the staged direct dependency target is invariant to any modeled staged ancestor path or fail closed",
+    "loader_shortname_reuse": "musl may reuse an already loaded shortname before path search; this discovery must prove one reachable logical target per SONAME and ELF identity within the staged direct-dependency scope or fail closed",
+    "authoritative_evidence": "a final content-addressed proof binds the full-build proof, first-hit proof, loader-invariance proof and direct dependency inventory before loader_resolution_verified may be treated as authoritative",
     "ambient_ld_library_path": "forbidden for deterministic discovery and future runtime assembly",
     "build_only_is_not_runtime_by_default": true,
+    "external_transitive_closure_is_separate_gate": true,
     "external_package_owner_required": true,
     "external_package_version_required": true
   },
