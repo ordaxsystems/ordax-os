@@ -632,7 +632,7 @@ export function createAccountMemorySyncRuntime({
       try {
         const result = await applyRemoteObject(value);
         if (["applied", "forgotten"].includes(result.status)) applied += 1;
-        else if (result.status === "blocked") blocked += 1;
+        else if (result.status === "blocked" || result.status === "conflict") blocked += 1;
         else ignored += 1;
       } catch {
         rejected += 1;
