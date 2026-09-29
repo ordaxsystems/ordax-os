@@ -7,10 +7,13 @@ import {
 
 import {
   getLocalProfileDistribution,
+  LOCAL_PROFILE_DELIVERY_POLICIES,
 } from "../system/profile-packs/distributions.mjs";
+import { loadLocalProfileDistributionsForTest } from "./helpers/profile-packs.mjs";
 
-const developer = getLocalProfileDistribution("developer", 1);
-const legal = getLocalProfileDistribution("legal-br", 1);
+const localDistributions = await loadLocalProfileDistributionsForTest();
+const developer = getLocalProfileDistribution(localDistributions, "developer", 1);
+const legal = getLocalProfileDistribution(localDistributions, "legal-br", 1);
 
 function inventory(entries = [], persistence = "session") {
   return {
@@ -151,7 +154,6 @@ test("available component without signed content identity fails closed", () => {
     id: "knowledge.unsafe",
     kind: "knowledge-pack",
     version: "1.0.0",
-    version: "1.0.0",
     required: true,
     availability: "available",
     sha256: null,
@@ -163,4 +165,16 @@ test("available component without signed content identity fails closed", () => {
   unsafe.components[0].sha256 = "b".repeat(64);
   unsafe.components[0].signature_required = false;
   assert.throws(() => validateProfileDistribution(unsafe), /must require signature/);
+});
+
+
+test("delivery policy never duplicates canonical Profile components", () => {
+  assert.ok(LOCAL_PROFILE_DELIVERY_POLICIES.length > 0);
+  for (const policy of LOCAL_PROFILE_DELIVERY_POLICIES) {
+    assert.equal(Object.prototype.hasOwnProperty.call(policy, "components"), false);
+  }
+  assert.deepEqual(
+    legal.components.map((component) => component.id),
+    ["knowledge.legal-br-core", "skill.legal-document-review"],
+  );
 });
