@@ -11,8 +11,16 @@
     "downgrade_may_silently_delete_user_data": false,
     "professional_profile_names_are_not_paywalled_by_category": true
   },
-  "subject_types": ["account", "space"],
-  "value_types": ["boolean", "integer", "string", "quota"],
+  "subject_types": [
+    "account",
+    "space"
+  ],
+  "value_types": [
+    "boolean",
+    "integer",
+    "string",
+    "quota"
+  ],
   "prepared_keys": [
     "spaces.active.max",
     "spaces.shared.create",
@@ -43,5 +51,23 @@
       "connectors-and-automations",
       "enhanced-support"
     ]
+  },
+  "implementation": {
+    "account_gateway_preflight": {
+      "status": "source-ready",
+      "route": "GET /account/entitlement?key=memory.cloud.enabled",
+      "initial_keys": [
+        "memory.cloud.enabled"
+      ],
+      "subject_id_source": "authenticated-server-session",
+      "client_subject_override_allowed": false,
+      "transport": "same-origin-cookie-session",
+      "surface_provider_specific_tokens_exposed": false,
+      "rls_user_bearer_read": true,
+      "mutation_allowed": false,
+      "authority": "server",
+      "cloud_memory_mutation_rpc_remains_final_authorization": true,
+      "public_rollout_enabled": false
+    }
   }
 }
