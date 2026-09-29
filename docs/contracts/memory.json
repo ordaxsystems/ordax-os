@@ -5,10 +5,29 @@
   "stable_port": "ordax.memory/1",
   "provider_neutral": true,
   "model_owns_memory": false,
-  "owner_kinds": ["device", "account"],
-  "scopes": ["device", "account", "space", "project", "session"],
-  "kinds": ["preference", "fact", "instruction", "summary", "artifact-reference"],
-  "sensitivity": ["normal", "private", "restricted"],
+  "owner_kinds": [
+    "device",
+    "account"
+  ],
+  "scopes": [
+    "device",
+    "account",
+    "space",
+    "project",
+    "session"
+  ],
+  "kinds": [
+    "preference",
+    "fact",
+    "instruction",
+    "summary",
+    "artifact-reference"
+  ],
+  "sensitivity": [
+    "normal",
+    "private",
+    "restricted"
+  ],
   "ownership": {
     "identity_key": "owner-kind+owner-id+memory-id",
     "memory_id_is_globally_unique_across_owners": false,
@@ -70,7 +89,12 @@
     "multi_owner_context_requires_explicit_authorization_per_owner": true,
     "multi_owner_context_budget_is_shared_and_bounded": true,
     "multi_owner_dedup_identity": "owner-kind+owner-id+memory-id",
-    "same_memory_id_from_distinct_authorized_owners_is_preserved": true
+    "same_memory_id_from_distinct_authorized_owners_is_preserved": true,
+    "identity_bound_native_context_requires_explicit_device_authorization": true,
+    "authenticated_account_context_requires_explicit_account_authorization": true,
+    "selected_space_context_requires_identity_match": true,
+    "identity_bound_context_infers_project_scope": false,
+    "identity_bound_context_includes_restricted": false
   },
   "review": {
     "owner_switching_is_explicit": true,
