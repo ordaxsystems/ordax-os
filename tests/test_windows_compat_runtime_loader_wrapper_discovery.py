@@ -63,6 +63,45 @@ static void helper(void)
         funcs = MODULE.parse_functions("macro.c", text)
         self.assertEqual([(item["name"], item["static"]) for item in funcs], [("helper", True)])
 
+    def test_conditional_branches_do_not_create_impossible_combined_braces(self):
+        text = '''
+static void helper(int x
+#ifdef FEATURE
+    , int y
+#endif
+    )
+{
+#ifdef FEATURE
+    for (;;) {
+#else
+    if (x) {
+#endif
+        consume(x);
+    }
+    dlopen(name, 0);
+}
+'''
+        funcs = MODULE.parse_functions("conditional.c", text)
+        self.assertEqual(len(funcs), 1)
+        self.assertEqual(funcs[0]["name"], "helper")
+        line = next(i for i, value in enumerate(text.splitlines(), 1) if "dlopen" in value)
+        column = text.splitlines()[line - 1].index("dlopen") + 1
+        dynamic = {
+            "callsites": [{
+                "path": "conditional.c", "line": line, "column": column, "api": "dlopen",
+                "target": {"kind": "dynamic-expression", "expression": "name"},
+            }],
+            "counts": {"direct_loader_calls": 1},
+        }
+        mapped, _ = MODULE.map_direct_calls(dynamic, {"conditional.c": text}, {"conditional.c": funcs})
+        self.assertEqual(mapped[0]["function_name"], "helper")
+
+    def test_unmatched_conditional_directive_fails_closed(self):
+        with self.assertRaisesRegex(MODULE.LoaderWrapperDiscoveryError, "unmatched preprocessor #endif"):
+            MODULE.structural_code_view("#endif\n", "broken.c")
+        with self.assertRaisesRegex(MODULE.LoaderWrapperDiscoveryError, "unterminated conditional"):
+            MODULE.structural_code_view("#ifdef X\nint x;\n", "broken.c")
+
     def test_static_callee_is_translation_unit_scoped(self):
         sources = {
             "a.c": "static void load(void) { dlopen(name, 0); }\nvoid local(void) { load(); }\n",
@@ -135,6 +174,7 @@ static void helper(void)
         contract = MODULE.load_contract()
         self.assertFalse(contract["discovery"]["function_pointer_aliases_complete"])
         self.assertFalse(contract["discovery"]["macro_expansion_call_graph_complete"])
+        self.assertFalse(contract["discovery"]["conditional_preprocessor_call_graph_complete"])
         self.assertFalse(contract["discovery"]["generated_source_inventory_complete"])
         self.assertFalse(contract["discovery"]["wrapper_call_graph_complete"])
         self.assertFalse(contract["discovery"]["dynamic_load_inventory_complete"])
