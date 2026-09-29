@@ -10,8 +10,8 @@ Static functions are translation-unit scoped. Cross-translation-unit calls to
 non-static functions are followed only when the function name has exactly one
 global definition in the scanned C source. Ambiguous global names are recorded
 as an open boundary instead of being guessed by source order or module layout.
-Function-pointer aliases, macro-expanded calls and generated sources also remain
-explicitly open boundaries.
+Function-pointer aliases, macro-expanded calls, conditional-preprocessor call
+graphs and generated sources remain explicit open boundaries.
 """
 
 from __future__ import annotations
@@ -30,6 +30,9 @@ DYNAMIC_PATH = HERE / "runtime_dynamic_load_source_probe.py"
 BUILD_PATH = HERE / "build.py"
 PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-loader-wrapper-discovery-proof/1"
 CONTROL_WORDS = {"if", "for", "while", "switch", "return", "sizeof", "_Static_assert"}
+DIRECTIVE_RE = re.compile(r"^#\s*([A-Za-z_][A-Za-z0-9_]*)")
+CONDITIONAL_START = {"if", "ifdef", "ifndef"}
+CONDITIONAL_BRANCH = {"elif", "else"}
 
 
 class LoaderWrapperDiscoveryError(RuntimeError):
@@ -76,6 +79,8 @@ def load_contract() -> dict:
         "global_function_callers_may_cross_translation_units",
         "named_calls_are_followed_transitively_to_fixpoint",
         "line_numbers_are_not_independent_authority",
+        "preprocessor_logical_lines_excluded_from_c_structure",
+        "conditional_preprocessor_regions_excluded_from_c_structure",
     )
     discovery = contract.get("discovery", {})
     if any(discovery.get(key) is not True for key in required_true):
@@ -83,6 +88,7 @@ def load_contract() -> dict:
     required_false = (
         "function_pointer_aliases_complete",
         "macro_expansion_call_graph_complete",
+        "conditional_preprocessor_call_graph_complete",
         "generated_source_inventory_complete",
         "wrapper_call_graph_complete",
         "dynamic_load_inventory_complete",
@@ -97,31 +103,64 @@ def load_contract() -> dict:
     return contract
 
 
-def structural_code_view(code_only: str) -> str:
-    """Blank preprocessor logical lines while preserving every byte offset.
+def _blank_range(chars: list[str], start: int, end: int) -> None:
+    for index in range(start, end):
+        if chars[index] not in {"\r", "\n"}:
+            chars[index] = " "
 
-    Macro bodies can intentionally contain structurally unmatched C fragments
-    that only become balanced when paired with another macro during expansion.
-    They therefore cannot be interpreted as top-level C structure here. Direct
-    loader discovery still sees the original source independently; if a loader
-    call lives in a macro, function mapping will fail closed because no function
-    body in this structural view owns that offset.
+
+def structural_code_view(code_only: str, path: str = "<fixture>") -> str:
+    """Return an offset-preserving C-structure view.
+
+    Preprocessor logical lines are not C structure. Conditional regions are
+    also removed because concatenating mutually-exclusive branches can create
+    impossible brace/parenthesis structures. This proof does not evaluate a
+    configure-specific preprocessor environment, so calls that exist only in
+    those regions remain part of the explicit conditional call-graph boundary.
     """
     chars = list(code_only)
     offset = 0
-    in_directive = False
-    for line in code_only.splitlines(keepends=True):
+    conditional_depth = 0
+    macro_continuation = False
+
+    for line_number, line in enumerate(code_only.splitlines(keepends=True), 1):
         logical = line.rstrip("\r\n")
-        if not in_directive and logical.lstrip().startswith("#"):
-            in_directive = True
-        if in_directive:
-            for index in range(offset, offset + len(line)):
-                if chars[index] not in {"\r", "\n"}:
-                    chars[index] = " "
-            continued = logical.rstrip().endswith("\\")
-            if not continued:
-                in_directive = False
+        stripped = logical.lstrip()
+        directive = None
+        if not macro_continuation and stripped.startswith("#"):
+            match = DIRECTIVE_RE.match(stripped)
+            directive = match.group(1) if match else ""
+
+        if macro_continuation or conditional_depth > 0 or directive is not None:
+            _blank_range(chars, offset, offset + len(line))
+
+        if macro_continuation:
+            macro_continuation = logical.rstrip().endswith("\\")
+            offset += len(line)
+            continue
+
+        if directive in CONDITIONAL_START:
+            conditional_depth += 1
+        elif directive in CONDITIONAL_BRANCH:
+            if conditional_depth == 0:
+                raise LoaderWrapperDiscoveryError(
+                    f"unmatched preprocessor #{directive}: {path}:{line_number}"
+                )
+        elif directive == "endif":
+            if conditional_depth == 0:
+                raise LoaderWrapperDiscoveryError(
+                    f"unmatched preprocessor #endif: {path}:{line_number}"
+                )
+            conditional_depth -= 1
+        elif directive == "define" and logical.rstrip().endswith("\\"):
+            macro_continuation = True
+
         offset += len(line)
+
+    if macro_continuation:
+        raise LoaderWrapperDiscoveryError(f"unterminated preprocessor macro continuation: {path}")
+    if conditional_depth:
+        raise LoaderWrapperDiscoveryError(f"unterminated conditional preprocessor region: {path}")
     return "".join(chars)
 
 
@@ -178,7 +217,7 @@ def _function_header(code_only: str, brace_index: int) -> tuple[str, bool, int] 
 
 def parse_functions(path: str, text: str) -> list[dict]:
     _, lexical_code = DYNAMIC.lexical_views(text)
-    code_only = structural_code_view(lexical_code)
+    code_only = structural_code_view(lexical_code, path)
     functions: list[dict] = []
     index = 0
     while index < len(code_only):
@@ -372,6 +411,7 @@ def build_proof(dynamic_proof: dict, entries: list[dict], sources: list[dict], c
             "ambiguous_global_symbol_resolution_complete": False,
             "function_pointer_aliases_complete": False,
             "macro_expansion_call_graph_complete": False,
+            "conditional_preprocessor_call_graph_complete": False,
             "generated_source_inventory_complete": False,
             "wrapper_call_graph_complete": False,
             "dynamic_load_inventory_complete": False,
