@@ -8,6 +8,36 @@ import {
   createMemoryCaptureRuntime,
 } from "../system/services/memory/capture.mjs";
 
+function searchableMemoryPort({ flushError = null } = {}) {
+  const remembered = [];
+  let flushes = 0;
+  return {
+    schema: MEMORY_PORT_SCHEMA,
+    remembered,
+    get flushes() { return flushes; },
+    search(request) {
+      return remembered.filter((item) => (
+        item.ownerKind === request.ownerKind
+        && item.ownerId === request.ownerId
+        && request.scopes.includes(item.scope)
+        && (item.scope !== "space" || item.spaceId === request.spaceId)
+        && (item.scope !== "project" || item.projectId === request.projectId)
+        && (!request.query || item.content.includes(request.query))
+      ));
+    },
+    remember(item) {
+      remembered.push(item);
+      return item;
+    },
+    forget() { return false; },
+    async flush() {
+      flushes += 1;
+      if (flushError) throw flushError;
+      return true;
+    },
+  };
+}
+
 function memoryPort({ flushError = null } = {}) {
   const remembered = [];
   let flushes = 0;
@@ -215,4 +245,113 @@ test("Memory capture policy is reevaluated for every capture", async () => {
   assert.equal(blocked, null);
   assert.deepEqual(memory.remembered.map((item) => item.content), ["primeira", "terceira"]);
   assert.equal(memory.flushes, 2);
+});
+
+
+test("exact duplicate automatic capture reuses the existing memory identity", async () => {
+  const memory = searchableMemoryPort();
+  let ids = 0;
+  const runtime = createMemoryCaptureRuntime(memory, {
+    now: () => new Date("2026-09-29T12:00:00Z"),
+    idFactory: () => `dedup-${++ids}`,
+  });
+  const draft = {
+    content: "Prefere respostas objetivas.",
+    kind: "preference",
+    sensitivity: "private",
+    provenance: "intelligence:conversation",
+  };
+
+  const first = await runtime.capture(draft, accountAuthorization);
+  const second = await runtime.capture(
+    { ...draft, provenance: "intelligence:conversation-later" },
+    accountAuthorization,
+  );
+
+  assert.equal(first.item.id, "dedup-1");
+  assert.equal(second.item.id, "dedup-1");
+  assert.equal(ids, 1, "duplicate capture must not mint another persistent id");
+  assert.equal(memory.remembered.length, 1);
+  assert.equal(memory.flushes, 2, "existing memory must still pass the durability barrier");
+});
+
+test("exact capture dedup does not merge different kinds or Space boundaries", async () => {
+  const memory = searchableMemoryPort();
+  let ids = 0;
+  const runtime = createMemoryCaptureRuntime(memory, {
+    idFactory: () => `boundary-${++ids}`,
+  });
+  const baseDraft = {
+    content: "Usa respostas curtas.",
+    kind: "preference",
+    sensitivity: "private",
+    provenance: "intelligence",
+  };
+  const spaceA = {
+    schema: MEMORY_CAPTURE_AUTH_SCHEMA,
+    authority: "composition",
+    ownerKind: "account",
+    ownerId: "user-1",
+    scope: "space",
+    spaceId: "space-a",
+  };
+  const spaceB = { ...spaceA, spaceId: "space-b" };
+
+  await runtime.capture(baseDraft, spaceA);
+  await runtime.capture({ ...baseDraft, kind: "fact" }, spaceA);
+  await runtime.capture(baseDraft, spaceB);
+
+  assert.equal(memory.remembered.length, 3);
+  assert.deepEqual(
+    memory.remembered.map((item) => [item.id, item.kind, item.spaceId]),
+    [
+      ["boundary-1", "preference", "space-a"],
+      ["boundary-2", "fact", "space-a"],
+      ["boundary-3", "preference", "space-b"],
+    ],
+  );
+});
+
+test("deduplicated capture still fails closed when durability cannot be confirmed", async () => {
+  let failFlush = false;
+  const remembered = [];
+  let ids = 0;
+  const memory = {
+    schema: MEMORY_PORT_SCHEMA,
+    search(request) {
+      return remembered.filter((item) => (
+        item.ownerKind === request.ownerKind
+        && item.ownerId === request.ownerId
+        && request.scopes.includes(item.scope)
+        && item.content === request.query
+      ));
+    },
+    remember(item) {
+      remembered.push(item);
+      return item;
+    },
+    forget() { return false; },
+    async flush() {
+      if (failFlush) throw new Error("dedup durability unavailable");
+      return true;
+    },
+  };
+  const runtime = createMemoryCaptureRuntime(memory, {
+    idFactory: () => `durable-${++ids}`,
+  });
+  const draft = {
+    content: "Lembrança já existente",
+    kind: "fact",
+    sensitivity: "private",
+    provenance: "intelligence",
+  };
+
+  await runtime.capture(draft, accountAuthorization);
+  failFlush = true;
+  await assert.rejects(
+    () => runtime.capture(draft, accountAuthorization),
+    /dedup durability unavailable/,
+  );
+  assert.equal(ids, 1);
+  assert.equal(remembered.length, 1);
 });
