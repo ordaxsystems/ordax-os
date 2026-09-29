@@ -5,12 +5,14 @@ on:
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_full_build_proof.py'
+      - 'tests/test_windows_compat_runtime_dependency_discovery.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
   push:
     branches: [main]
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_full_build_proof.py'
+      - 'tests/test_windows_compat_runtime_dependency_discovery.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
 
 permissions:
@@ -38,17 +40,19 @@ jobs:
           sudo apt-get install -y --no-install-recommends proot
           docker version
 
-      - name: Validate locked container full build boundary
+      - name: Validate locked container full build and dependency discovery boundaries
         run: |
           set -euo pipefail
           python bootstrap/windows-compat-runtime/validate_build_version_lock.py
           python bootstrap/windows-compat-runtime/validate_apk_content_lock.py
           python bootstrap/windows-compat-runtime/container_full_build_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_probe.py check
           python -m unittest tests.test_windows_compat_build_version_lock -v
           python -m unittest tests.test_windows_compat_apk_content_lock -v
           python -m unittest tests.test_windows_compat_full_build_proof -v
+          python -m unittest tests.test_windows_compat_runtime_dependency_discovery -v
 
-      - name: Reconstruct locked inputs and build Wine without executing it
+      - name: Reconstruct locked inputs, build Wine, and discover runtime dependencies without executing it
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
@@ -117,10 +121,49 @@ jobs:
           print('staged entries:', staging['entry_count'])
           print('staged manifest:', staging['canonical_manifest_sha256'])
           PY
+          python bootstrap/windows-compat-runtime/runtime_dependency_probe.py discover \
+            --stage-dir "$work/container-build/stage" \
+            --rootfs "$work/content/resolver-rootfs" \
+            --full-build-proof "$proof_dir/full-build-proof.json" \
+            --out "$proof_dir/runtime-dependency-proof.json"
+          python - <<'PY' "$proof_dir/full-build-proof.json" "$proof_dir/runtime-dependency-proof.json"
+          import json
+          import pathlib
+          import re
+          import sys
+          full = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          proof = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
+          assert proof['$schema'] == 'prototype-ordax.windows-compat-runtime-dependency-proof/1'
+          assert proof['status'] == 'runtime-dependencies-discovered-not-content-pinned-not-executable'
+          assert proof['runtime_id'] == full['runtime_id']
+          assert proof['staging_manifest_sha256'] == full['staging']['canonical_manifest_sha256']
+          assert re.fullmatch(r'[0-9a-f]{64}', proof['inventory_sha256'])
+          assert proof['counts']['elf_files'] > 0
+          assert proof['counts']['external_packages'] > 0
+          assert proof['counts']['external_sonames'] > 0
+          assert proof['external_packages']
+          gates = proof['gates']
+          assert gates['full_build_proof_verified'] is True
+          assert gates['staging_dependency_inventory_complete'] is True
+          assert gates['runtime_dependency_inventory_complete'] is False
+          assert gates['runtime_package_content_hashes_pinned'] is False
+          assert gates['binary_artifact_pinned'] is False
+          assert gates['activation_authorized'] is False
+          assert gates['execution_authorized'] is False
+          assert gates['wine_executed'] is False
+          assert gates['windows_payload_executed'] is False
+          print('Wine runtime dependency discovery: PASS')
+          print('ELF files:', proof['counts']['elf_files'])
+          print('external packages:', proof['counts']['external_packages'])
+          print('external sonames:', proof['counts']['external_sonames'])
+          print('inventory:', proof['inventory_sha256'])
+          PY
 
-      - name: Upload full build metadata only
+      - name: Upload full build and runtime dependency metadata only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: windows-compat-wine-full-build-proof-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/windows-compat-wine-full-build-proof/full-build-proof.json
+          name: windows-compat-wine-runtime-dependency-proof-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/full-build-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-dependency-proof.json
           if-no-files-found: error
