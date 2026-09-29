@@ -126,6 +126,8 @@ def validate_configure_proof(proof: dict) -> dict:
         raise PackageLockError("configure proof runtime identity drifted")
     if proof.get("host") != environment.get("host"):
         raise PackageLockError("configure proof host identity drifted")
+    if proof.get("repositories") != environment.get("repositories"):
+        raise PackageLockError("configure proof repository origins drifted")
 
     requested = validate_package_map(proof.get("resolved_build_packages"), "resolved_build_packages")
     installed = validate_package_map(proof.get("resolved_installed_packages"), "resolved_installed_packages")
