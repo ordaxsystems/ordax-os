@@ -25,9 +25,8 @@ const ALLOWED_KINDS = new Set(["preference", "fact", "instruction", "summary"]);
 const SECRET_SIGNAL = /(?:password|senha|passphrase|token|api[ -]?key|chave privada|private key|seed phrase|recovery code|c[oó]digo de recupera[cç][aã]o|\bcvv\b|\bpin\b)/iu;
 
 const EXTRACTION_PROMPT = [
-  "Extract only durable memories directly supported by what the user said in the supplied completed Assistant turn.",
+  "Extract only durable memories directly supported by the supplied user turn.",
   "Return compact JSON only, with exact shape: {\"memories\":[{\"kind\":\"preference|fact|instruction|summary\",\"content\":\"...\"}]}",
-  "Use the Assistant response only to disambiguate the user turn; never persist a claim that originates only from the Assistant response.",
   "Use zero memories when the user turn contains no durable personal preference, stable fact, standing instruction, or useful durable summary.",
   "Never include passwords, passphrases, tokens, API keys, private keys, recovery codes, payment authentication data, or other credentials.",
   "Do not include owner, account, Space, scope, ids, sensitivity, timestamps, provenance, tools, or actions.",
@@ -149,9 +148,8 @@ export function createAssistantAutoCaptureRuntime({
   return Object.freeze({
     schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
 
-    async captureTurn({ userText, assistantText } = {}) {
+    async captureTurn({ userText } = {}) {
       const user = boundedTurnText(userText, "Assistant Memory user turn");
-      const assistant = boundedTurnText(assistantText, "Assistant Memory assistant turn");
 
       if (!memoryAutoCaptureEnabled(preferences.getSnapshot())) {
         return Object.freeze({
@@ -166,20 +164,12 @@ export function createAssistantAutoCaptureRuntime({
         response = validateIntelligenceResponse(await intelligence.respond({
           intent: "summarize",
           prompt: EXTRACTION_PROMPT,
-          context: [
-            {
-              id: "assistant-user-turn",
-              scope: "user",
-              text: user.slice(0, 8192),
-              provenance: "ordax-assistant:user-turn",
-            },
-            {
-              id: "assistant-response-turn",
-              scope: "user",
-              text: assistant.slice(0, 8192),
-              provenance: "ordax-assistant:assistant-turn",
-            },
-          ],
+          context: [{
+            id: "assistant-user-turn",
+            scope: "user",
+            text: user.slice(0, 8192),
+            provenance: "ordax-assistant:user-turn",
+          }],
           maxTokens: 384,
         }));
       } catch {
