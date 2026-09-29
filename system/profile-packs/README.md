@@ -19,9 +19,9 @@ The user account profile remains separate from Profile Packs.
 
 Profile manifests describe composition. Distribution is a separate boundary.
 
-`system/profile-packs/distributions.mjs` is the lightweight local distribution catalog.
-`ordax.profile-provisioning/1` plans what is already present, what is missing, whether
-network is required and whether activation is allowed.
+`system/profile-packs/<slug>/v<version>/manifest.json` is the **single source of truth** for component composition and artifact identity. `system/profile-packs/distributions.mjs` owns only delivery policy (bundled/on-demand, offline behavior and public-install gating) and deterministically projects its component list from validated manifests. It must never repeat component IDs, versions, hashes or signature requirements.
+
+`ordax.profile-provisioning/1` plans what is already present, what is missing, whether network is required and whether activation is allowed.
 
 The Stable USB does not preseed every professional payload. Planned or unsigned artifacts
 are never installable. Public download/install remains disabled until the package trust,
