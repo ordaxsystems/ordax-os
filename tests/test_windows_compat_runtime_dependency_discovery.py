@@ -50,6 +50,7 @@ class RuntimeDependencyDiscoveryTests(unittest.TestCase):
     def test_contract_is_discovery_only(self):
         contract = MODULE.load_contract()
         self.assertEqual(contract["status"], "discovery-only-not-promotable")
+        self.assertTrue(contract["inspection"]["stage_manifest_binding_required"])
         self.assertFalse(contract["inspection"]["host_readelf_allowed"])
         self.assertFalse(contract["inspection"]["network_allowed"])
         self.assertTrue(all(value is False for value in contract["promotion"].values()))
