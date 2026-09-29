@@ -138,10 +138,13 @@ primeiro proof físico governado do Stable/MVP. Esse primeiro pass já ocorreu c
 como baseline de produto, mas não deve voltar a ser descrito como se nenhuma mídia
 Stable/MVP tivesse sido gravada.
 
-O boot/release estar pronto não é suficiente para uma nova missão física. Qualquer
-reteste do candidato pós-hardening volta a exigir autorização fresca e todos os gates
-de alvo/UAC/confirmação, sem reaproveitar consentimento destrutivo anterior. O gate
-pré-USB exige, no mínimo:
+O boot/release histórico estar pronto não é suficiente para uma nova missão física. O
+proof agregado de `b924ff8d74d1761232381ae3f9604bba17497cfd` é evidência
+pré-hardening e foi supersedido pelo hardening posterior. Antes de qualquer nova
+autorização física, o candidato pós-hardening precisa de um **replacement canonical v4
+release proof** assinado/materializado a partir de outro source commit e vinculado ao
+contrato atual. Só depois desse binding o consentimento do dono volta a ser alcançável;
+alvo/UAC/confirmação continuam gates separados. O gate pré-USB exige, no mínimo:
 
 - Ordax Intelligence realmente composta no runtime Native e consumida por fluxos
   first-party consultivos, em vez de existir apenas como backend/modelo e teste;
@@ -160,18 +163,20 @@ para a primeira prova Stable USB.
 
 ```text
 PRE_USB_NOVA_ORDAX_AUDIT=PASS_SOURCE
-CANONICAL_V4_RELEASE_PROOF=PASS_BOUND_VERSIONED_PRERELEASE
+CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_BOUND_VERSIONED_PRERELEASE_PRE_HARDENING
+CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT
 FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING
 FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING
 FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING
-CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION
+CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=BLOCKED_REPLACEMENT_RELEASE_PROOF
 ```
 
 ## 6. Gates do MVP público
 
 Bloqueiam lançamento:
 
-- publicação/promocão da release Stable no canal `latest` (o proof real da candidata v4 já passou como prerelease);
+- replacement canonical v4 release proof para o candidato pós-hardening atual; o proof de `b924ff…` continua apenas como evidência histórica pré-hardening;
+- publicação/promocão da release Stable no canal `latest`, somente depois do proof e da prova física correntes;
 - Creator físico promovido e autorizado **para criação do USB**;
 - readback verificável da mídia física do candidato atual (o primeiro proof controlado já obteve 17/17 no candidato pré-hardening);
 - known-good/fallback suficientemente provados;
@@ -294,7 +299,7 @@ Estado atual do caminho v2:
 - writer físico Portable: implementado apenas no backend interno/tagged e continua inacessível ao Creator público;
 - boot físico Stable/MVP pré-hardening: **PASS UEFI em proof controlado**; o candidato pós-#588 continua `PENDING_PHYSICAL_RETEST`;
 - Secure Boot: não provado;
-- canonical release trust público: **PASS** — anchor Ed25519 canônico pinado; proof v4 agregado está **PASS e vinculado** aos bytes do commit `b924ff8d74d1761232381ae3f9604bba17497cfd`. Foi publicada uma prerelease versionada, sem promover o canal estável `latest`; uma nova escrita/reteste do candidato atual exige autorização física fresca;
+- canonical release trust público: **PASS** — anchor Ed25519 canônico pinado. O proof v4 agregado de `b924ff8d74d1761232381ae3f9604bba17497cfd` permanece **PASS como evidência histórica pré-hardening**, mas foi supersedido para a promoção da `main` atual. O candidato pós-hardening precisa de outro proof assinado/materializado e binding antes de qualquer autorização física fresca; o canal `latest` continua não promovido;
 - Native continua fora do MVP.
 
 A mídia transitória atual continua apenas como caminho de validação de hardware. O trust público canônico já está resolvido e o caminho Stable/MVP atual é v4. O primeiro proof físico governado não transforma o writer interno em capability pública nem autoriza novas gravações. Não habilitar o writer público antes de **prova canônica v4 assinada/materializável, binding do receipt, autorização física explícita válida para o contexto atual e prova física pós-hardening do USB Stable/MVP**.
@@ -393,18 +398,19 @@ O MVP público oferece **pt-BR e en-US** nos seletores de primeiro uso e da Surf
 ## 12. Ordem recomendada de lançamento
 
 ```text
-1. **concluído como prerelease:** assinar/publicar o candidato v4 versionado, materializar e verificar os três artefatos; proof agregado produzido no commit `b924ff8d74d1761232381ae3f9604bba17497cfd`
-2. **concluído:** validar e vincular o receipt ao trust, source commit, manifest, envelope e três artefatos v4
-3. **concluído no primeiro proof controlado:** autorizar o contexto físico exato, selecionar/revalidar o USB, passar UAC/confirmação destrutiva, executar o writer 39-op/17-artifact e obter 17/17 readback
-4. **concluído no primeiro proof controlado:** alcançar boot UEFI real e usar os achados físicos para o hardening integrado na PR #588
-5. para o candidato pós-hardening atual, obter nova autorização explícita vinculada aos bytes/contexto correntes antes de qualquer nova preparação ou escrita; não reutilizar consentimento anterior
-6. revalidar o USB real, UAC e confirmação destrutiva específica do alvo somente quando o reteste físico for deliberadamente iniciado
-7. validar UEFI, rede, assinatura, Surface, OOBE e apps no hardware suportado com o candidato pós-hardening
-8. validar cold-health -> known-good e o rollback/recovery offline físicos
-9. executar o smoke físico estruturado da Surface com FAIL=0
-10. fechar Secure Boot ou registrar explicitamente a política de suporte do MVP sem alegar prova inexistente
-11. conectar Conta OrdaX real apenas se o portal público for ativado, sem torná-la requisito de boot
-12. fechar legal/publicação e publicar o MVP USB-only
+1. **histórico concluído:** o candidato v4 `b924ff8d74d1761232381ae3f9604bba17497cfd` foi assinado/publicado como prerelease, materializado, vinculado e usado no primeiro proof físico pré-hardening
+2. **histórico concluído:** o primeiro proof controlado obteve 17/17 readback e boot UEFI, expondo os pontos corrigidos pelo hardening posterior
+3. gerar um **novo** candidato v4 a partir de um source commit pós-hardening, sem reutilizar o proof histórico
+4. assinar/publicar esse candidato como prerelease versionada, materializar/verificar os três artefatos e produzir um replacement `canonical-v4-release-proof.json`
+5. validar e vincular o replacement proof ao trust, source commit, manifest, envelope e três artefatos; somente então o preflight de consentimento pode voltar a ficar alcançável
+6. obter nova autorização explícita do dono para esse contexto exato, sem reutilizar consentimento anterior
+7. revalidar o USB real, UAC e confirmação destrutiva específica do alvo somente quando o reteste físico for deliberadamente iniciado
+8. validar UEFI, rede, assinatura, Surface, OOBE e apps no hardware suportado com o candidato pós-hardening
+9. validar cold-health -> known-good e o rollback/recovery offline físicos
+10. executar o smoke físico estruturado da Surface com FAIL=0
+11. fechar Secure Boot ou registrar explicitamente a política de suporte do MVP sem alegar prova inexistente
+12. conectar Conta OrdaX real apenas se o portal público for ativado, sem torná-la requisito de boot
+13. fechar legal/publicação e publicar o MVP USB-only
 ```
 
 Native permanece em trilha técnica pós-MVP, sem bloquear a sequência.
