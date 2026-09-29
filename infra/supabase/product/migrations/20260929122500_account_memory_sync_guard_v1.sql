@@ -253,15 +253,15 @@ begin
       return;
     end if;
     v_revision := v_existing.server_revision + 1;
-    update private.ordax_sync_objects
+    update private.ordax_sync_objects as sync_object
       set object_schema_version = p_object_schema_version,
           resolver_version = p_resolver_version,
           server_revision = v_revision,
           tombstone = p_tombstone,
           payload = p_payload,
           updated_at = timezone('utc', now())
-      where sync_object_id = v_existing.sync_object_id
-      returning * into v_existing;
+      where sync_object.sync_object_id = v_existing.sync_object_id
+      returning sync_object.* into v_existing;
   else
     if coalesce(p_base_server_revision, 0) <> 0 then
       return query select null::uuid, 0::bigint, false, false, true;
