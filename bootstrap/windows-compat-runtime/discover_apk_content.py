@@ -3,9 +3,9 @@
 
 This is a CI-only discovery proof. It never builds Wine, creates a compatibility
 profile, installs a runtime into OrdaX, or authorizes execution. The pinned
-Alpine rootfs already content-addresses its initial package set; this tool only
-fetches APK bytes for packages added or version-changed by the exact build
-transaction.
+Alpine rootfs already content-addresses its initial package set; this tool
+resolves the exact build closure, fetches the additional signed APK bytes, and
+then replays those bytes into a second fresh rootfs with repositories disabled.
 """
 
 from __future__ import annotations
@@ -14,9 +14,9 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -45,7 +45,11 @@ PROBE = load_module("ordax_windows_compat_configure_probe_for_content", CONFIGUR
 
 
 def canonical_package_map_sha256(packages: dict[str, str]) -> str:
-    encoded = json.dumps(dict(sorted(packages.items())), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    encoded = json.dumps(
+        dict(sorted(packages.items())),
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -80,24 +84,11 @@ def validate_discovery_inputs() -> tuple[dict, dict, dict]:
     return lock, source, environment
 
 
-def reproduce_and_discover(work_dir: Path) -> dict:
-    lock, _, environment = validate_discovery_inputs()
-    host = lock["host"]
-    cache = work_dir / "cache"
-    rootfs_archive = PROBE.download_exact(
-        host["rootfs_url"],
-        cache / Path(host["rootfs_url"]).name,
-        host["rootfs_sha256"],
-        PROBE.MAX_ALPINE_ROOTFS_BYTES,
-    )
-
-    rootfs = work_dir / "rootfs"
+def prepare_networked_rootfs(rootfs_archive: Path, rootfs: Path) -> None:
     try:
         PROBE.ALPINE.safe_extract(rootfs_archive, rootfs)
     except PROBE.ALPINE.BuildError as exc:
         raise ContentDiscoveryError(f"canonical Alpine rootfs extraction failed: {exc}") from exc
-
-    initial = PROBE.installed_package_versions(rootfs)
     (rootfs / "etc/apk/repositories").write_text(
         "https://dl-cdn.alpinelinux.org/alpine/v3.22/main\n"
         "https://dl-cdn.alpinelinux.org/alpine/v3.22/community\n",
@@ -107,21 +98,72 @@ def reproduce_and_discover(work_dir: Path) -> dict:
     if host_resolv.is_file():
         shutil.copy2(host_resolv, rootfs / "etc/resolv.conf", follow_symlinks=True)
 
+
+def prepare_offline_replay_rootfs(rootfs_archive: Path, rootfs: Path) -> None:
+    try:
+        PROBE.ALPINE.safe_extract(rootfs_archive, rootfs)
+    except PROBE.ALPINE.BuildError as exc:
+        raise ContentDiscoveryError(f"offline replay rootfs extraction failed: {exc}") from exc
+    repositories = rootfs / "etc/apk/repositories"
+    repositories.write_text("", encoding="utf-8")
+    cache = rootfs / "var/cache/apk"
+    if cache.exists():
+        for child in cache.iterdir():
+            if child.is_dir() and not child.is_symlink():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+
+
+def hardlink_apk_set(source: Path, destination: Path, filenames: list[str]) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    for filename in filenames:
+        source_path = source / filename
+        destination_path = destination / filename
+        if source_path.is_symlink() or not source_path.is_file():
+            raise ContentDiscoveryError(f"cannot replay missing APK archive: {filename}")
+        if destination_path.exists() or destination_path.is_symlink():
+            raise ContentDiscoveryError(f"duplicate replay APK destination: {filename}")
+        try:
+            os.link(source_path, destination_path)
+        except OSError:
+            shutil.copy2(source_path, destination_path, follow_symlinks=False)
+
+
+def verify_closure(resolved: dict[str, str], lock: dict, label: str) -> str:
+    expected = lock["resolved_closure"]
+    digest = canonical_package_map_sha256(resolved)
+    if len(resolved) != expected["package_count"] or digest != expected["canonical_json_sha256"]:
+        raise ContentDiscoveryError(
+            f"{label} package closure drifted: "
+            f"expected_count={expected['package_count']} actual_count={len(resolved)} "
+            f"expected_sha256={expected['canonical_json_sha256']} actual_sha256={digest}"
+        )
+    return digest
+
+
+def reproduce_and_discover(work_dir: Path) -> dict:
+    lock, _, _ = validate_discovery_inputs()
+    host = lock["host"]
+    cache = work_dir / "cache"
+    rootfs_archive = PROBE.download_exact(
+        host["rootfs_url"],
+        cache / Path(host["rootfs_url"]).name,
+        host["rootfs_sha256"],
+        PROBE.MAX_ALPINE_ROOTFS_BYTES,
+    )
+
+    resolver_rootfs = work_dir / "resolver-rootfs"
+    prepare_networked_rootfs(rootfs_archive, resolver_rootfs)
+    initial = PROBE.installed_package_versions(resolver_rootfs)
+
     requested = lock["requested_build_packages"]
     PROBE.proot(
-        rootfs,
+        resolver_rootfs,
         "apk add --no-cache " + " ".join(shell_quote(spec) for spec in exact_specs(requested)),
     )
-    resolved = PROBE.installed_package_versions(rootfs)
-
-    expected_closure = lock["resolved_closure"]
-    actual_digest = canonical_package_map_sha256(resolved)
-    if len(resolved) != expected_closure["package_count"] or actual_digest != expected_closure["canonical_json_sha256"]:
-        raise ContentDiscoveryError(
-            "resolved package closure drifted: "
-            f"expected_count={expected_closure['package_count']} actual_count={len(resolved)} "
-            f"expected_sha256={expected_closure['canonical_json_sha256']} actual_sha256={actual_digest}"
-        )
+    resolved = PROBE.installed_package_versions(resolver_rootfs)
+    actual_digest = verify_closure(resolved, lock, "network resolution")
 
     missing_requested = sorted(name for name, version in requested.items() if resolved.get(name) != version)
     if missing_requested:
@@ -139,10 +181,15 @@ def reproduce_and_discover(work_dir: Path) -> dict:
     if not package_inputs:
         raise ContentDiscoveryError("APK transaction produced no external package inputs")
 
-    package_dir = rootfs / "build/apks"
+    # `apk add --no-cache` intentionally does not preserve repository indexes.
+    # Refresh them explicitly only for this discovery rootfs before fetching the
+    # exact package bytes. The following offline replay proves that these fetched
+    # bytes, not a later network resolution, reconstruct the locked closure.
+    PROBE.proot(resolver_rootfs, "apk update")
+    package_dir = resolver_rootfs / "build/apks"
     package_dir.mkdir(parents=True, exist_ok=True)
     PROBE.proot(
-        rootfs,
+        resolver_rootfs,
         "apk fetch --output /build/apks "
         + " ".join(shell_quote(spec) for spec in exact_specs(package_inputs)),
     )
@@ -165,21 +212,42 @@ def reproduce_and_discover(work_dir: Path) -> dict:
             "sha256": sha256_file(path),
         }
 
-    actual_filenames = {path.name for path in package_dir.iterdir() if path.is_file() and not path.is_symlink()}
+    actual_filenames = {
+        path.name
+        for path in package_dir.iterdir()
+        if path.is_file() and not path.is_symlink()
+    }
     extra = sorted(actual_filenames - expected_filenames)
     missing = sorted(expected_filenames - actual_filenames)
     if extra or missing:
         raise ContentDiscoveryError(f"APK fetch output set drifted: missing={missing[:8]} extra={extra[:8]}")
 
+    replay_rootfs = work_dir / "offline-replay-rootfs"
+    prepare_offline_replay_rootfs(rootfs_archive, replay_rootfs)
+    replay_package_dir = replay_rootfs / "build/apks"
+    filenames = sorted(expected_filenames)
+    hardlink_apk_set(package_dir, replay_package_dir, filenames)
+
+    local_paths = [f"/build/apks/{filename}" for filename in filenames]
+    PROBE.proot(
+        replay_rootfs,
+        "apk add " + " ".join(shell_quote(path) for path in local_paths),
+    )
+    replay_resolved = PROBE.installed_package_versions(replay_rootfs)
+    replay_digest = verify_closure(replay_resolved, lock, "offline content replay")
+    if replay_resolved != resolved:
+        raise ContentDiscoveryError("offline APK content replay differs from network-resolved package map")
+
     return {
         "$schema": "prototype-ordax.windows-compat-apk-content-discovery/1",
-        "status": "content-discovered-not-pinned-not-build-proven",
+        "status": "content-discovered-offline-replayed-not-pinned-not-build-proven",
         "runtime_id": lock["runtime_id"],
         "wine_version": lock["wine_version"],
         "host_rootfs_sha256": host["rootfs_sha256"],
         "requested_package_count": len(requested),
         "resolved_package_count": len(resolved),
         "resolved_closure_sha256": actual_digest,
+        "offline_replay_closure_sha256": replay_digest,
         "initial_rootfs_package_count": len(initial),
         "external_apk_package_count": len(manifest),
         "external_apk_manifest": manifest,
@@ -187,6 +255,7 @@ def reproduce_and_discover(work_dir: Path) -> dict:
             "version_lock_verified": True,
             "closure_reproduced": True,
             "apk_content_discovered": True,
+            "offline_content_replay_passed": True,
             "apk_content_hashes_pinned": False,
             "full_build_proof_passed": False,
             "runtime_dependency_inventory_complete": False,
