@@ -313,14 +313,25 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 }],
             })
 
-    def test_native_http_host_exposes_only_activation_read(self):
+    def test_native_http_host_separates_read_state_from_token_bound_commands(self):
         host = HOST.read_text(encoding="utf-8")
         self.assertIn(
             'PROFILE_ACTIVATION_STATE_PATH = "/__ordax/native/profile-activation-state"',
             host,
         )
+        self.assertIn(
+            'PROFILE_ACTIVATION_COMMAND_PATH = "/__ordax/native/profile-activation-command"',
+            host,
+        )
+        self.assertIn(
+            'PROFILE_ACTIVATION_TOKEN_HEADER = "X-OrdaX-Profile-Activation-Token"',
+            host,
+        )
         self.assertIn("read_profile_activation_state", host)
         self.assertIn("if self.path == PROFILE_ACTIVATION_STATE_PATH:", host)
+        self.assertIn("if parsed_path == PROFILE_ACTIVATION_COMMAND_PATH:", host)
+        self.assertIn("execute_profile_activation_command", host)
+        self.assertIn('self.distribution_profile == "owner-development"', host)
         self.assertNotIn("activate_profile(", host)
         self.assertNotIn("deactivate_profile(", host)
         self.assertNotIn("rollback_profile(", host)
