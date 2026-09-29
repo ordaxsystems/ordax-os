@@ -144,6 +144,25 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertFalse(mvp["store_enabled"])
         self.assertEqual(mvp["legal_br"], "catalog-visible-activation-blocked")
 
+    def test_profile_provisioning_gate_status_matches_implemented_source(self):
+        provisioning = self.load(PROFILE_PROVISIONING)
+        self.assertEqual(
+            provisioning["completed_gates"],
+            [
+                "trusted-receipt-and-inventory-commit-after-verified-stage-health",
+                "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
+                "profile-health-and-rollback",
+                "surface-profile-catalog-ui",
+            ],
+        )
+        self.assertEqual(
+            provisioning["next_gates"],
+            ["first-public-profile-proof"],
+        )
+        self.assertFalse(provisioning["mvp"]["public_profile_install_enabled"])
+        self.assertFalse(provisioning["content_proof"]["public_release_trust_pinned"])
+        self.assertFalse(provisioning["content_proof"]["activation_allowed"])
+
     def test_store_foundation_never_bypasses_trust_or_permissions(self):
         distribution = self.load(APP_DISTRIBUTION)
         security = distribution["security"]
