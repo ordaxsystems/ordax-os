@@ -1,0 +1,100 @@
+name: Windows Compatibility Wine Build Input Lock Proof
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_configure_proof.py'
+      - 'tests/test_windows_compat_package_lock.py'
+      - '.github/workflows/windows-compat-wine-build-input-lock.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_configure_proof.py'
+      - 'tests/test_windows_compat_package_lock.py'
+      - '.github/workflows/windows-compat-wine-build-input-lock.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-input-lock-proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install proof host dependency
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends proot
+
+      - name: Validate build input lock contracts
+        run: |
+          set -euo pipefail
+          python bootstrap/windows-compat-runtime/configure_probe.py check
+          python bootstrap/windows-compat-runtime/package_lock_probe.py check
+          python -m unittest tests.test_windows_compat_configure_proof -v
+          python -m unittest tests.test_windows_compat_package_lock -v
+
+      - name: Resolve exact configure environment
+        run: |
+          set -euo pipefail
+          work="${RUNNER_TEMP}/windows-compat-build-input-work"
+          proof_dir="${RUNNER_TEMP}/windows-compat-build-input-proof"
+          rm -rf "$work" "$proof_dir"
+          mkdir -p "$proof_dir"
+          python bootstrap/windows-compat-runtime/configure_probe.py probe \
+            --work-dir "$work" \
+            --proof-out "$proof_dir/configure-proof.json"
+
+      - name: Fetch verify and hash exact Alpine build APKs
+        run: |
+          set -euo pipefail
+          work="${RUNNER_TEMP}/windows-compat-build-input-work"
+          proof_dir="${RUNNER_TEMP}/windows-compat-build-input-proof"
+          python bootstrap/windows-compat-runtime/package_lock_probe.py probe \
+            --configure-proof "$proof_dir/configure-proof.json" \
+            --rootfs "$work/rootfs" \
+            --work-dir "$work" \
+            --manifest-out "$proof_dir/build-input-lock-candidate.json"
+          python - <<'PY' "$proof_dir/build-input-lock-candidate.json"
+          import json
+          import pathlib
+          import re
+          import sys
+          manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert manifest['status'] == 'candidate-not-committed-not-build-authorized'
+          assert manifest['trust']['alpine_apk_verify_passed'] is True
+          assert manifest['trust']['archive_sha256_recorded'] is True
+          assert manifest['changed_package_count'] == len(manifest['changed_packages'])
+          assert manifest['changed_package_count'] == len(manifest['package_archives'])
+          assert re.fullmatch(r'[0-9a-f]{64}', manifest['package_set_sha256'])
+          assert manifest['promotion']['committed_lock'] is False
+          assert manifest['promotion']['full_build_proof_passed'] is False
+          assert manifest['promotion']['binary_artifact_pinned'] is False
+          assert manifest['promotion']['activation_authorized'] is False
+          assert manifest['promotion']['execution_authorized'] is False
+          print('pristine package count:', manifest['pristine_rootfs_package_count'])
+          print('resolved package count:', manifest['resolved_installed_package_count'])
+          print('content-addressed APK delta:', manifest['changed_package_count'])
+          print('package-set sha256:', manifest['package_set_sha256'])
+          PY
+
+      - name: Upload build input proof metadata only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-wine-build-input-lock-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/windows-compat-build-input-proof/configure-proof.json
+            ${{ runner.temp }}/windows-compat-build-input-proof/build-input-lock-candidate.json
+          if-no-files-found: error
