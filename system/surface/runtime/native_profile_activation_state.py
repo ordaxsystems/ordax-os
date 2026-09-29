@@ -413,6 +413,7 @@ def activate_profile(
     space_id: str,
     space_kind: str,
     activation: dict,
+    expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
@@ -427,6 +428,8 @@ def activate_profile(
     with _lock(lock_path) as lock_handle:
         try:
             state = read_profile_activation_state(state_path)
+            if expected_revision is not None and state["revision"] != expected_revision:
+                raise RuntimeError("Profile activation state revision changed")
             index = _space_index(state, space_id)
             existing = None if index is None else state["spaces"][index]
             if existing is not None and existing["spaceKind"] != space_kind:
@@ -465,6 +468,7 @@ def activate_profile(
 def deactivate_profile(
     *,
     space_id: str,
+    expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
@@ -472,6 +476,8 @@ def deactivate_profile(
     with _lock(lock_path) as lock_handle:
         try:
             state = read_profile_activation_state(state_path)
+            if expected_revision is not None and state["revision"] != expected_revision:
+                raise RuntimeError("Profile activation state revision changed")
             index = _space_index(state, space_id)
             if index is None or state["spaces"][index]["current"] is None:
                 return {"changed": False, "state": state}
@@ -498,6 +504,7 @@ def deactivate_profile(
 def rollback_profile(
     *,
     space_id: str,
+    expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
@@ -506,6 +513,8 @@ def rollback_profile(
     with _lock(lock_path) as lock_handle:
         try:
             state = read_profile_activation_state(state_path)
+            if expected_revision is not None and state["revision"] != expected_revision:
+                raise RuntimeError("Profile activation state revision changed")
             index = _space_index(state, space_id)
             if index is None or state["spaces"][index]["previous"] is None:
                 return {"changed": False, "state": state}
