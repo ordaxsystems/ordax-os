@@ -129,7 +129,7 @@ test("Memory capture can be disabled without writing anything", async () => {
   const memory = memoryPort();
   const runtime = createMemoryCaptureRuntime(memory, {
     idFactory: () => "capture-disabled",
-    captureEnabled: false,
+    readCaptureEnabled: () => false,
   });
 
   const result = await runtime.capture({
@@ -182,4 +182,37 @@ test("Memory capture accepts exact account-owned Space target only from composit
   assert.equal(result.item.ownerId, "user-1");
   assert.equal(result.item.scope, "space");
   assert.equal(result.item.spaceId, "space-a");
+});
+
+
+test("Memory capture policy is reevaluated for every capture", async () => {
+  const memory = memoryPort();
+  let enabled = true;
+  let ordinal = 0;
+  const runtime = createMemoryCaptureRuntime(memory, {
+    idFactory: () => `dynamic-${++ordinal}`,
+    readCaptureEnabled: () => enabled,
+  });
+
+  await runtime.capture({
+    content: "primeira",
+    kind: "fact",
+    provenance: "intelligence",
+  }, accountAuthorization);
+  enabled = false;
+  const blocked = await runtime.capture({
+    content: "segunda",
+    kind: "fact",
+    provenance: "intelligence",
+  }, accountAuthorization);
+  enabled = true;
+  await runtime.capture({
+    content: "terceira",
+    kind: "fact",
+    provenance: "intelligence",
+  }, accountAuthorization);
+
+  assert.equal(blocked, null);
+  assert.deepEqual(memory.remembered.map((item) => item.content), ["primeira", "terceira"]);
+  assert.equal(memory.flushes, 2);
 });
