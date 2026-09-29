@@ -181,6 +181,8 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
         self.assertIn('data["client_b_stale_conflict_rejected"] is True', text)
         self.assertIn('data["client_b_delete_tombstone_seen"] is True', text)
         self.assertIn("retention-days: 14", text)
+        self.assertIn("assert forbidden not in data", text)
+        self.assertNotIn("assert forbidden not in serialized", text)
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL"', text)
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD"', text)
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", text)
