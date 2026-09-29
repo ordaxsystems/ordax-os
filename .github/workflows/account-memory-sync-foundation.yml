@@ -32,6 +32,7 @@ on:
       - 'tests/test_account_memory_sync_runtime.mjs'
       - 'tests/test_account_memory_sync_state.mjs'
       - 'tests/test_account_memory_sync_orchestration.mjs'
+      - 'tests/test_account_memory_reinstall_restore.mjs'
       - 'tests/test_account_restore_plan.mjs'
       - 'tests/test_memory_conflict_resolution.mjs'
       - 'tests/test_sync_state_namespace_registry.mjs'
@@ -68,6 +69,7 @@ on:
       - 'tests/test_account_memory_sync_runtime.mjs'
       - 'tests/test_account_memory_sync_state.mjs'
       - 'tests/test_account_memory_sync_orchestration.mjs'
+      - 'tests/test_account_memory_reinstall_restore.mjs'
       - 'tests/test_account_restore_plan.mjs'
       - 'tests/test_memory_conflict_resolution.mjs'
       - 'tests/test_sync_state_namespace_registry.mjs'
@@ -132,6 +134,7 @@ jobs:
           node --check tests/test_account_memory_sync_runtime.mjs
           node --check tests/test_account_memory_sync_state.mjs
           node --check tests/test_account_memory_sync_orchestration.mjs
+          node --check tests/test_account_memory_reinstall_restore.mjs
           node --check tests/test_account_restore_plan.mjs
           node --check tests/test_memory_conflict_resolution.mjs
           node --check tests/test_sync_state_namespace_registry.mjs
@@ -156,6 +159,7 @@ jobs:
           node --test tests/test_account_memory_sync_runtime.mjs
           node --test tests/test_account_memory_sync_state.mjs
           node --test tests/test_account_memory_sync_orchestration.mjs
+          node --test tests/test_account_memory_reinstall_restore.mjs
           node --test tests/test_account_restore_plan.mjs
           node --test tests/test_memory_conflict_resolution.mjs
           node --test tests/test_sync_state_namespace_registry.mjs
