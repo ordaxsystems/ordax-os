@@ -9,6 +9,7 @@ import {
   createAccountMemorySyncRuntime,
   createMemorySyncObject,
 } from "../system/services/sync/account-memory-runtime.mjs";
+import { createSyncStateNamespaceRegistry } from "../system/services/sync/state-store-registry.mjs";
 
 const SUBJECT = "account-subject-a";
 
@@ -188,6 +189,36 @@ test("coordination state is subject-bound and never imports another account pend
   assert.equal(other.getSnapshot().recoveryBlocked, false);
   assert.equal(other.getSnapshot().pendingMutationCount, 0);
   assert.equal(other.getSnapshot().revisionCount, 0);
+});
+
+test("account-partitioned Memory runtimes share one physical sync-state store without cross-account overwrite", () => {
+  const root = createStateStore();
+  const registry = createSyncStateNamespaceRegistry(root, { legacyNamespace: "appearance" });
+  const storeA = registry.open("memory", { partitionKey: "account-subject-a" });
+  const storeB = registry.open("memory", { partitionKey: "account-subject-b" });
+
+  const runtimeA = createRuntime({ subjectId: "account-subject-a", stateStore: storeA });
+  runtimeA.remember(memoryItem({ id: "memory-a", ownerId: "account-subject-a", content: "fila A" }));
+
+  const runtimeB = createRuntime({ subjectId: "account-subject-b", stateStore: storeB });
+  runtimeB.remember(memoryItem({ id: "memory-b", ownerId: "account-subject-b", content: "fila B" }));
+
+  const recoveredA = createRuntime({ subjectId: "account-subject-a", stateStore: storeA });
+  const recoveredB = createRuntime({ subjectId: "account-subject-b", stateStore: storeB });
+
+  assert.equal(recoveredA.getSnapshot().recoveredCoordinationState, true);
+  assert.equal(recoveredB.getSnapshot().recoveredCoordinationState, true);
+  assert.equal(recoveredA.pendingMutations().length, 1);
+  assert.equal(recoveredB.pendingMutations().length, 1);
+  assert.equal(recoveredA.pendingMutations()[0].payload.memory.ownerId, "account-subject-a");
+  assert.equal(recoveredB.pendingMutations()[0].payload.memory.ownerId, "account-subject-b");
+  assert.equal(recoveredA.pendingMutations()[0].payload.memory.id, "memory-a");
+  assert.equal(recoveredB.pendingMutations()[0].payload.memory.id, "memory-b");
+
+  const container = JSON.parse(root.read());
+  assert.equal(Object.keys(container.slots).length, 2);
+  assert.equal(Object.keys(container.slots).some((key) => key.includes("account-subject-a")), false);
+  assert.equal(Object.keys(container.slots).some((key) => key.includes("account-subject-b")), false);
 });
 
 test("persisted coordination state contains no extra token fields and store failure preserves in-session pending intent", () => {
