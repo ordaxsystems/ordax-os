@@ -10,6 +10,12 @@ on:
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/memory.json'
       - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'services/public-identity/supabase_memory.py'
+      - 'services/public-identity/supabase_sync.py'
+      - 'services/public-identity/supabase_password.py'
+      - 'tools/cloud-memory/**'
+      - 'tests/test_cloud_memory_authenticated_proof.py'
+      - '.github/workflows/cloud-memory-authenticated-proof.yml'
       - 'docs/contracts/model-router.json'
       - 'docs/contracts/intelligence-artifacts.json'
       - 'docs/contracts/intelligence-tools.json'
@@ -135,6 +141,12 @@ on:
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/memory.json'
       - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'services/public-identity/supabase_memory.py'
+      - 'services/public-identity/supabase_sync.py'
+      - 'services/public-identity/supabase_password.py'
+      - 'tools/cloud-memory/**'
+      - 'tests/test_cloud_memory_authenticated_proof.py'
+      - '.github/workflows/cloud-memory-authenticated-proof.yml'
       - 'docs/contracts/model-router.json'
       - 'docs/contracts/intelligence-artifacts.json'
       - 'docs/contracts/intelligence-tools.json'
@@ -306,6 +318,10 @@ jobs:
           python -m py_compile system/surface/runtime/native_memory_state.py
           python -m py_compile system/surface/runtime/native_memory_endpoint.py
           python -m py_compile system/surface/runtime/native_host_server.py
+          python -m py_compile services/public-identity/supabase_memory.py
+          python -m py_compile services/public-identity/supabase_sync.py
+          python -m py_compile services/public-identity/supabase_password.py
+          python -m py_compile tools/cloud-memory/prove_authenticated_atomic_sync.py
           python -m py_compile system/surface/runtime/native_profile_component_inventory.py
           python -m py_compile system/surface/runtime/native_profile_provisioning_executor.py
           python -m py_compile system/surface/runtime/native_profile_activation_state.py
@@ -383,6 +399,7 @@ jobs:
           python -m unittest tests.test_profile_pack_manifest_layout -v
           python -m unittest tests.test_profile_pack_restore_composition -v
           python -m unittest tests.test_pre_mvp_ecosystem_foundation -v
+          python -m unittest tests.test_cloud_memory_authenticated_proof -v
           python -m unittest tests.test_native_profile_component_inventory -v
           python -m unittest tests.test_native_profile_provisioning_executor -v
           python -m unittest tests.test_native_profile_activation_state -v

@@ -116,6 +116,17 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertFalse(boundary["conflicts"]["silent_global_last_writer_wins"])
         self.assertEqual(boundary["conflicts"]["same_revision_divergence"], "reject")
         self.assertFalse(boundary["privacy"]["restricted_memory_cloud_sync_enabled"])
+        proof = boundary["implementation"]["authenticated_proof"]
+        self.assertEqual(proof["status"], "two-client-source-ready-execution-pending")
+        self.assertEqual(proof["mode"], "same-account-two-independent-auth-sessions")
+        self.assertTrue(proof["requires_preprovisioned_entitlement"])
+        self.assertFalse(proof["creates_entitlement"])
+        self.assertFalse(proof["service_role_allowed"])
+        self.assertTrue(proof["same_subject_required"])
+        self.assertTrue(proof["distinct_access_tokens_required"])
+        self.assertTrue(proof["client_b_reads_incremental_sync"])
+        self.assertTrue(proof["client_b_attempts_stale_mutation"])
+        self.assertTrue(proof["client_b_reads_canonical_deleted_state"])
 
     def test_external_models_require_explicit_egress_and_do_not_own_memory(self):
         router = self.load(MODEL_ROUTER)

@@ -61,13 +61,19 @@
     "public_rollout_enabled": false,
     "generic_sync_rpc_accepts_memory": false,
     "authenticated_proof": {
-      "status": "source-ready-execution-pending",
+      "status": "two-client-source-ready-execution-pending",
       "provider": "services/public-identity/supabase_memory.py",
       "proof": "tools/cloud-memory/prove_authenticated_atomic_sync.py",
       "workflow": ".github/workflows/cloud-memory-authenticated-proof.yml",
       "requires_preprovisioned_entitlement": true,
       "creates_entitlement": false,
-      "service_role_allowed": false
+      "service_role_allowed": false,
+      "mode": "same-account-two-independent-auth-sessions",
+      "same_subject_required": true,
+      "distinct_access_tokens_required": true,
+      "client_b_reads_incremental_sync": true,
+      "client_b_attempts_stale_mutation": true,
+      "client_b_reads_canonical_deleted_state": true
     }
   }
 }

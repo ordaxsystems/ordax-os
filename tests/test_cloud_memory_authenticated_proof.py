@@ -13,6 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PROVIDER_PATH = ROOT / "services" / "public-identity" / "supabase_memory.py"
 PROOF = ROOT / "tools" / "cloud-memory" / "prove_authenticated_atomic_sync.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "cloud-memory-authenticated-proof.yml"
+PROOF_SPEC = importlib.util.spec_from_file_location("ordax_cloud_memory_proof", PROOF)
+proof_module = importlib.util.module_from_spec(PROOF_SPEC)
+assert PROOF_SPEC.loader is not None
+PROOF_SPEC.loader.exec_module(proof_module)
 
 spec = importlib.util.spec_from_file_location("ordax_supabase_memory", PROVIDER_PATH)
 memory_module = importlib.util.module_from_spec(spec)
@@ -115,20 +119,52 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
         self.assertIn("memory.cloud.enabled", url)
         self.assertIsNone(body)
 
-    def test_manual_proof_never_grants_entitlement_or_uses_admin_authority(self):
+    def test_manual_proof_uses_two_independent_sessions_without_admin_authority(self):
         text = PROOF.read_text(encoding="utf-8")
         lower = text.lower()
-        self.assertIn("memory.has_account_cloud_entitlement(token)", text)
-        self.assertIn("memory-cloud-entitlement-not-preprovisioned", text)
-        self.assertIn("stale-revision-not-rejected", text)
-        self.assertIn("delete-tombstone-not-delivered", text)
-        self.assertIn("canonical-memory-delete-state-invalid", text)
+        self.assertIn("identity_a.sign_in_with_password", text)
+        self.assertIn("identity_b.sign_in_with_password", text)
+        self.assertIn("same-account-subject-mismatch", text)
+        self.assertIn("sessions-not-independent", text)
+        self.assertIn("memory_a.has_account_cloud_entitlement(token_a)", text)
+        self.assertIn("memory_b.has_account_cloud_entitlement(token_b)", text)
+        self.assertIn("sync_b.pull_changes", text)
+        self.assertIn("stale = memory_b.apply", text)
+        self.assertIn("client-b-stale-revision-not-rejected", text)
+        self.assertIn("client-b-canonical-memory-delete-state-invalid", text)
         self.assertNotIn("supabase_service_role_key", lower)
         self.assertIn('"service_role_used": False', text)
         self.assertNotIn("ordax_entitlement_grants", lower)
         self.assertNotIn("insert into", lower)
         self.assertNotIn("update public.ordax_memory_items", lower)
         self.assertNotIn("delete from", lower)
+
+    def test_client_b_change_validation_binds_revision_tombstone_and_cursor(self):
+        delivered = {
+            "changes": [{
+                "objectId": "memory-1",
+                "dataClass": "memory",
+                "serverRevision": 2,
+                "tombstone": False,
+                "cursor": 44,
+            }]
+        }
+        item = proof_module.memory_change(
+            delivered,
+            memory_id="memory-1",
+            revision=2,
+            tombstone=False,
+            expected_cursor=44,
+        )
+        self.assertEqual(item["cursor"], 44)
+        with self.assertRaises(SystemExit):
+            proof_module.memory_change(
+                delivered,
+                memory_id="memory-1",
+                revision=2,
+                tombstone=False,
+                expected_cursor=45,
+            )
 
     def test_workflow_is_manual_secret_backed_and_receipt_only(self):
         text = WORKFLOW.read_text(encoding="utf-8")
@@ -140,7 +176,13 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
         self.assertIn("secrets.ORDAX_SUPABASE_PUBLISHABLE_KEY", text)
         self.assertIn("cloud-memory-authenticated-proof.json", text)
         self.assertIn("CLOUD_MEMORY_AUTHENTICATED_RECEIPT=PASS_SANITIZED", text)
+        self.assertIn("dedicated-non-admin-account-two-independent-sessions", text)
+        self.assertIn('data["client_sessions_independent"] is True', text)
+        self.assertIn('data["client_b_stale_conflict_rejected"] is True', text)
+        self.assertIn('data["client_b_delete_tombstone_seen"] is True', text)
         self.assertIn("retention-days: 14", text)
+        self.assertIn("assert forbidden not in data", text)
+        self.assertNotIn("assert forbidden not in serialized", text)
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL"', text)
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD"', text)
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", text)

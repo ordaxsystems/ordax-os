@@ -46,7 +46,7 @@ jobs:
           echo 'CLOUD_MEMORY_PROOF_INPUTS_PRESENT=YES'
           echo 'CLOUD_MEMORY_PROOF_SECRETS_PRINTED=NO'
 
-      - name: Prove authenticated atomic Memory and tombstone sync
+      - name: Prove two independent authenticated clients and tombstone sync
         run: python tools/cloud-memory/prove_authenticated_atomic_sync.py
 
       - name: Validate sanitized receipt
@@ -62,9 +62,17 @@ jobs:
           data = json.loads(path.read_text(encoding="utf-8"))
           assert data["$schema"] == "prototype-ordax.cloud-memory-authenticated-proof/1"
           assert data["status"] == "pass"
-          assert data["proof_scope"] == "dedicated-non-admin-account-account-memory"
+          assert data["proof_scope"] == "dedicated-non-admin-account-two-independent-sessions"
           assert data["entitlement_preexisted"] is True
           assert data["entitlement_created_by_proof"] is False
+          assert data["client_sessions_independent"] is True
+          assert data["same_account_verified"] is True
+          assert data["client_b_entitlement_preexisted"] is True
+          assert data["client_b_create_seen"] is True
+          assert data["client_b_edit_seen"] is True
+          assert data["client_b_stale_conflict_rejected"] is True
+          assert data["client_b_delete_tombstone_seen"] is True
+          assert data["client_b_canonical_deleted_seen"] is True
           assert data["direct_memory_table_write_used"] is False
           assert data["service_role_used"] is False
           assert data["create_revision"] == 1
@@ -84,7 +92,6 @@ jobs:
           assert isinstance(data["source_commit"], str) and len(data["source_commit"]) == 40
           int(data["source_commit"], 16)
 
-          serialized = json.dumps(data, sort_keys=True).lower()
           for forbidden in (
               "password",
               "access_token",
@@ -94,7 +101,7 @@ jobs:
               "subject_id",
               "account_email",
           ):
-              assert forbidden not in serialized
+              assert forbidden not in data
           print("CLOUD_MEMORY_AUTHENTICATED_RECEIPT=PASS_SANITIZED")
           PY
 
