@@ -10,6 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools/profile-content-channel/prepare_publication_handoff.py"
 SOURCE = ROOT / "system/profile-content-sources/developer-core/v0.1.0"
+POLICY = ROOT / "docs/contracts/profile-content-trust-policy.json"
 
 spec = importlib.util.spec_from_file_location("prepare_publication_handoff", TOOL)
 module = importlib.util.module_from_spec(spec)
@@ -19,7 +20,7 @@ spec.loader.exec_module(module)
 
 class DeveloperProfilePublicationHandoffTests(unittest.TestCase):
     def test_real_developer_source_produces_unsigned_fail_closed_handoff(self):
-        handoff = module.build_handoff(SOURCE)
+        handoff = module.build_handoff(SOURCE, POLICY)
         self.assertEqual(
             handoff["$schema"],
             "prototype-ordax.profile-content-publication-handoff/1",
@@ -51,9 +52,9 @@ class DeveloperProfilePublicationHandoffTests(unittest.TestCase):
     def test_writer_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "handoff.json"
-            module.write_handoff(SOURCE, out)
+            module.write_handoff(SOURCE, out, POLICY)
             with self.assertRaisesRegex(module.HandoffError, "overwrite"):
-                module.write_handoff(SOURCE, out)
+                module.write_handoff(SOURCE, out, POLICY)
 
     def test_source_with_extra_file_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -63,7 +64,17 @@ class DeveloperProfilePublicationHandoffTests(unittest.TestCase):
                 (clone / name).write_bytes((SOURCE / name).read_bytes())
             (clone / "envelope.json").write_text("{}\n", encoding="utf-8")
             with self.assertRaisesRegex(module.HandoffError, "exactly"):
-                module.build_handoff(clone)
+                module.build_handoff(clone, POLICY)
+
+
+    def test_handoff_uses_canonical_policy_and_rejects_promoted_state(self):
+        policy = json.loads(POLICY.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "policy.json"
+            policy["public_anchor"]["pinned"] = True
+            path.write_text(json.dumps(policy) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(module.HandoffError, "before canonical trust pinning"):
+                module.build_handoff(SOURCE, path)
 
 
 if __name__ == "__main__":
