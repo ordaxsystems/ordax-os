@@ -64,6 +64,9 @@ export const ACCOUNT_SOURCE_MESSAGES = Object.freeze({
   "account.spaces.state.archived": "Arquivado",
   "account.spaces.access.owner": "Proprietário",
   "account.spaces.access.member": "Membro",
+  "account.spaces.selection.use": "Usar este Space",
+  "account.spaces.selection.selected": "Space em uso",
+  "account.spaces.selection.failed": "Este Space não pôde ser selecionado com a sessão atual.",
 
   "account.profiles.eyebrow": "Ambiente profissional",
   "account.profiles.title": "Perfis disponíveis",
@@ -216,6 +219,9 @@ export const ACCOUNT_ENGLISH_MESSAGES = Object.freeze({
   "account.spaces.state.archived": "Archived",
   "account.spaces.access.owner": "Owner",
   "account.spaces.access.member": "Member",
+  "account.spaces.selection.use": "Use this Space",
+  "account.spaces.selection.selected": "Space in use",
+  "account.spaces.selection.failed": "This Space could not be selected with the current session.",
 
   "account.profiles.eyebrow": "Professional environment",
   "account.profiles.title": "Available Profiles",
