@@ -86,6 +86,43 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
             probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
             self.assertEqual((destination / "wine-11.0/VERSION").read_bytes(), payload)
 
+    def test_installed_apk_database_returns_exact_versions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            database = rootfs / "lib/apk/db/installed"
+            database.parent.mkdir(parents=True)
+            database.write_text(
+                "P:gcc\nV:14.2.0-r6\nA:x86_64\n\n"
+                "P:i686-mingw-w64-gcc\nV:14.2.0-r1\nA:x86_64\n\n",
+                encoding="utf-8",
+            )
+            versions = probe.installed_package_versions(rootfs)
+            self.assertEqual(
+                versions,
+                {"gcc": "14.2.0-r6", "i686-mingw-w64-gcc": "14.2.0-r1"},
+            )
+
+    def test_installed_apk_database_rejects_duplicate_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            database = rootfs / "lib/apk/db/installed"
+            database.parent.mkdir(parents=True)
+            database.write_text(
+                "P:gcc\nV:14.2.0-r6\n\nP:gcc\nV:14.2.0-r5\n\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(probe.ConfigureProofError, "duplicate installed APK package identity"):
+                probe.installed_package_versions(rootfs)
+
+    def test_installed_apk_database_rejects_invalid_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            database = rootfs / "lib/apk/db/installed"
+            database.parent.mkdir(parents=True)
+            database.write_text("P:gcc\nV:bad version\n\n", encoding="utf-8")
+            with self.assertRaisesRegex(probe.ConfigureProofError, "invalid installed APK package version"):
+                probe.installed_package_versions(rootfs)
+
 
 if __name__ == "__main__":
     unittest.main()
