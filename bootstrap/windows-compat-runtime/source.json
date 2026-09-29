@@ -1,0 +1,54 @@
+{
+  "$schema": "prototype-ordax.windows-compat-runtime-source/1",
+  "status": "source-candidate-not-built-not-activatable",
+  "product_scope": "owner-development-only",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "engine": "wine",
+  "version": "11.0",
+  "host": {
+    "os": "linux",
+    "arch": "x86_64",
+    "libc_target": "musl"
+  },
+  "windows_architectures_targeted": [
+    "x86_64",
+    "x86"
+  ],
+  "upstream": {
+    "release_page": "https://www.winehq.org/news/2026011301",
+    "source_url": "https://dl.winehq.org/wine/source/11.0/wine-11.0.tar.xz",
+    "archive_name": "wine-11.0.tar.xz",
+    "archive_size_bytes": 33172240,
+    "archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
+    "archive_root": "wine-11.0",
+    "version_file": "VERSION",
+    "version_file_expected": "Wine version 11.0"
+  },
+  "build_intent": {
+    "configure_archs": [
+      "x86_64",
+      "i386"
+    ],
+    "configure_flag": "--enable-archs=x86_64,i386",
+    "new_wow64_required": true,
+    "pure_win32_prefixes_supported": false,
+    "build_recipe_validated": false,
+    "binary_artifact_pinned": false
+  },
+  "distribution": {
+    "committed_binary_allowed": false,
+    "network_download_at_runtime_allowed": false,
+    "stable_base_inclusion_allowed": false,
+    "stable_mvp_activation_allowed": false,
+    "signed_component_required_before_activation": true,
+    "content_addressed_artifact_required_before_activation": true
+  },
+  "security": {
+    "boot_critical": false,
+    "source_proof_grants_execution": false,
+    "source_proof_grants_installation": false,
+    "runtime_must_be_sandboxed": true,
+    "profile_isolation_required": true,
+    "host_authority": "none"
+  }
+}
