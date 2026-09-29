@@ -25,11 +25,18 @@ function resolveStorage(windowRef) {
 
 export function createNativeSpaceSelectionStore(windowRef = globalThis.window) {
   const storage = resolveStorage(windowRef);
+  let storageOperational = storage !== null;
   let memory = null;
 
   const load = () => {
-    if (!storage) return memory;
-    const raw = storage.getItem(STORAGE_KEY);
+    if (!storage || !storageOperational) return memory;
+    let raw;
+    try {
+      raw = storage.getItem(STORAGE_KEY);
+    } catch {
+      storageOperational = false;
+      return memory;
+    }
     if (raw === null) {
       memory = null;
       return null;
@@ -42,7 +49,7 @@ export function createNativeSpaceSelectionStore(windowRef = globalThis.window) {
       try {
         storage.removeItem(STORAGE_KEY);
       } catch {
-        // Corrupt storage stays unusable, but no stale selection is exposed.
+        storageOperational = false;
       }
       return null;
     }
@@ -57,21 +64,23 @@ export function createNativeSpaceSelectionStore(windowRef = globalThis.window) {
         throw new TypeError("Space selection store cannot save an empty record");
       }
       memory = validated;
-      if (!storage) return false;
+      if (!storage || !storageOperational) return false;
       try {
         storage.setItem(STORAGE_KEY, JSON.stringify(validated));
         return true;
       } catch {
+        storageOperational = false;
         return false;
       }
     },
     clear() {
       memory = null;
-      if (!storage) return false;
+      if (!storage || !storageOperational) return false;
       try {
         storage.removeItem(STORAGE_KEY);
         return true;
       } catch {
+        storageOperational = false;
         return false;
       }
     },
