@@ -43,6 +43,9 @@ function requireCopy(copy) {
     "add",
     "save",
     "remove",
+    "removePrompt",
+    "removeConfirm",
+    "removeCancel",
     "previous",
     "next",
     "saving",
@@ -77,6 +80,11 @@ function findItemTextarea(container, id) {
     .find((entry) => entry.dataset.memoryReviewContent === id) ?? null;
 }
 
+function findItemActionButton(container, datasetKey, id) {
+  return Array.from(container.querySelectorAll("button"))
+    .find((entry) => entry.dataset?.[datasetKey] === id) ?? null;
+}
+
 export function mountMemoryReviewControls(containerValue, viewModelValue, copyValue) {
   const container = requireElement(containerValue, "Memory review container");
   const viewModel = requireViewModel(viewModelValue);
@@ -84,9 +92,16 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
   const documentObject = container.ownerDocument;
   let destroyed = false;
   let mutationPending = false;
+  let pendingRemovalId = null;
 
   const render = (snapshot = viewModel.getSnapshot()) => {
     if (destroyed) return;
+    if (
+      pendingRemovalId !== null
+      && !snapshot.items.some((item) => item.id === pendingRemovalId)
+    ) {
+      pendingRemovalId = null;
+    }
     container.replaceChildren();
     container.dataset.memoryReview = "";
 
@@ -186,11 +201,41 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
       save.type = "button";
       save.dataset.memoryReviewSave = item.id;
       save.disabled = mutationPending;
-      const remove = node(documentObject, "button", "ordax-memory-review-remove", copy.remove);
-      remove.type = "button";
-      remove.dataset.memoryReviewRemove = item.id;
-      remove.disabled = mutationPending;
-      actions.append(save, remove);
+      actions.append(save);
+
+      if (pendingRemovalId === item.id) {
+        const prompt = node(
+          documentObject,
+          "span",
+          "ordax-memory-review-remove-prompt",
+          copy.removePrompt,
+        );
+        const confirm = node(
+          documentObject,
+          "button",
+          "ordax-memory-review-remove-confirm",
+          copy.removeConfirm,
+        );
+        confirm.type = "button";
+        confirm.dataset.memoryReviewRemoveConfirm = item.id;
+        confirm.disabled = mutationPending;
+        const cancel = node(
+          documentObject,
+          "button",
+          "ordax-memory-review-remove-cancel",
+          copy.removeCancel,
+        );
+        cancel.type = "button";
+        cancel.dataset.memoryReviewRemoveCancel = item.id;
+        cancel.disabled = mutationPending;
+        actions.append(prompt, confirm, cancel);
+      } else {
+        const remove = node(documentObject, "button", "ordax-memory-review-remove", copy.remove);
+        remove.type = "button";
+        remove.dataset.memoryReviewRemove = item.id;
+        remove.disabled = mutationPending;
+        actions.append(remove);
+      }
       article.append(meta, label, actions);
       list.append(article);
     }
@@ -212,6 +257,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
   const onInput = (event) => {
     const target = event.target;
     if (!target || target.dataset?.memoryReviewSearch === undefined) return;
+    pendingRemovalId = null;
     viewModel.setQuery(target.value);
   };
 
@@ -235,6 +281,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     const target = source?.closest?.("button") ?? null;
     if (!target || !container.contains(target)) return;
     if (target.dataset.memoryReviewOwner) {
+      pendingRemovalId = null;
       viewModel.selectOwner({
         ownerKind: target.dataset.ownerKind,
         ownerId: target.dataset.ownerKind === "device" ? null : target.dataset.ownerId,
@@ -242,20 +289,24 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
       return;
     }
     if (target.dataset.memoryReviewCreate !== undefined) {
+      pendingRemovalId = null;
       const textarea = container.querySelector("textarea[data-memory-review-new]");
       if (!textarea || textarea.value.trim().length === 0) return;
       void runMutation(() => viewModel.create(textarea.value));
       return;
     }
     if (target.dataset.memoryReviewPage === "previous") {
+      pendingRemovalId = null;
       viewModel.previousPage();
       return;
     }
     if (target.dataset.memoryReviewPage === "next") {
+      pendingRemovalId = null;
       viewModel.nextPage();
       return;
     }
     if (target.dataset.memoryReviewSave) {
+      pendingRemovalId = null;
       const id = target.dataset.memoryReviewSave;
       const textarea = findItemTextarea(container, id);
       if (!textarea) return;
@@ -263,7 +314,32 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
       return;
     }
     if (target.dataset.memoryReviewRemove) {
-      const id = target.dataset.memoryReviewRemove;
+      pendingRemovalId = target.dataset.memoryReviewRemove;
+      render();
+      findItemActionButton(
+        container,
+        "memoryReviewRemoveConfirm",
+        pendingRemovalId,
+      )?.focus({ preventScroll: true });
+      return;
+    }
+    if (target.dataset.memoryReviewRemoveCancel) {
+      const id = target.dataset.memoryReviewRemoveCancel;
+      if (pendingRemovalId === id) {
+        pendingRemovalId = null;
+        render();
+        findItemActionButton(
+          container,
+          "memoryReviewRemove",
+          id,
+        )?.focus({ preventScroll: true });
+      }
+      return;
+    }
+    if (target.dataset.memoryReviewRemoveConfirm) {
+      const id = target.dataset.memoryReviewRemoveConfirm;
+      if (pendingRemovalId !== id) return;
+      pendingRemovalId = null;
       void runMutation(() => viewModel.remove(id));
     }
   };
@@ -281,6 +357,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     dispose() {
       if (destroyed) return;
       destroyed = true;
+      pendingRemovalId = null;
       unsubscribe();
       container.removeEventListener("input", onInput);
       container.removeEventListener("click", onClick);

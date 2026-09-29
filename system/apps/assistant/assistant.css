@@ -1,0 +1,177 @@
+.ordax-assistant-host {
+  display: grid;
+  gap: 14px;
+}
+
+.ordax-assistant-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.ordax-assistant-eyebrow {
+  display: block;
+  color: var(--ordax-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ordax-assistant-title {
+  margin: 5px 0 0;
+  font-size: 1rem;
+}
+
+.ordax-assistant-description,
+.ordax-assistant-footnote {
+  margin: 6px 0 0;
+  color: var(--ordax-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.ordax-assistant-status {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid var(--ordax-border);
+  border-radius: 999px;
+  color: var(--ordax-muted);
+  font-size: 0.66rem;
+}
+
+.ordax-assistant-status[data-state="ready"] {
+  color: var(--ordax-accent);
+}
+
+.ordax-assistant-transcript {
+  display: grid;
+  gap: 9px;
+  max-height: min(48vh, 520px);
+  overflow: auto;
+  padding: 4px;
+}
+
+.ordax-assistant-empty {
+  margin: 0;
+  padding: 20px;
+  border: 1px dashed var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-sm);
+  color: var(--ordax-muted);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.ordax-assistant-message {
+  max-width: 88%;
+  padding: 11px 12px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-subtle-bg);
+}
+
+.ordax-assistant-message-user {
+  justify-self: end;
+}
+
+.ordax-assistant-message-assistant {
+  justify-self: start;
+}
+
+.ordax-assistant-message-role {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ordax-muted);
+  font-size: 0.65rem;
+}
+
+.ordax-assistant-message-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.ordax-assistant-error {
+  margin: 0;
+  color: var(--ordax-danger);
+  font-size: 0.72rem;
+}
+
+.ordax-assistant-compose {
+  display: grid;
+  gap: 8px;
+}
+
+.ordax-assistant-compose textarea {
+  width: 100%;
+  min-height: 84px;
+  box-sizing: border-box;
+  padding: 10px 11px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-window-bg);
+  color: var(--ordax-text);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.ordax-assistant-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ordax-assistant-clear,
+.ordax-assistant-send {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: transparent;
+  color: var(--ordax-text);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.ordax-assistant-send {
+  border-color: var(--ordax-text);
+  background: var(--ordax-text);
+  color: var(--ordax-bg);
+}
+
+.ordax-assistant-compose textarea:focus-visible,
+.ordax-assistant-clear:focus-visible,
+.ordax-assistant-send:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 1px;
+}
+
+.ordax-assistant-clear:disabled,
+.ordax-assistant-send:disabled,
+.ordax-assistant-compose textarea:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+@media (max-width: 760px) {
+  .ordax-assistant-header {
+    flex-direction: column;
+  }
+
+  .ordax-assistant-message {
+    max-width: 96%;
+  }
+
+  .ordax-assistant-actions {
+    justify-content: stretch;
+  }
+
+  .ordax-assistant-clear,
+  .ordax-assistant-send {
+    flex: 1 1 auto;
+  }
+}

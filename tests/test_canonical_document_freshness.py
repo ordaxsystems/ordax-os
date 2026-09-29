@@ -18,6 +18,8 @@ MINIMAL_USB_BOOTSTRAP = ROOT / "docs" / "MINIMAL-USB-BOOTSTRAP.md"
 PORTABLE_BOOTSTRAP = ROOT / "docs" / "contracts" / "portable-bootstrap-v2.json"
 PORTABLE_MAIN_EVIDENCE = ROOT / "docs" / "evidence" / "portable-runtime-v3-main-proof.json"
 PORTABLE_ONE_SHOT_EVIDENCE = ROOT / "docs" / "evidence" / "portable-v3-one-shot-qemu-proof.json"
+PHYSICAL_WRITE_AUTHORIZATION = ROOT / "docs" / "contracts" / "physical-write-authorization.json"
+HISTORICAL_V4_RELEASE_PROOF = ROOT / "docs" / "evidence" / "canonical-v4-release-proof.json"
 
 
 def assignment_map(text):
@@ -195,7 +197,18 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertEqual(state["EXTERNAL_OFFLINE_BACKUP_CUSTODY_CONFIRMED"], "NO")
         self.assertEqual(state["EXTERNAL_OFFLINE_BACKUP_REQUIRED_BEFORE_BROAD_DISTRIBUTION"], "YES")
         self.assertEqual(state["MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED"], "YES")
-        self.assertEqual(state["PHYSICAL_AUTHORIZATION_ELIGIBLE"], "YES")
+        authorization = json.loads(PHYSICAL_WRITE_AUTHORIZATION.read_text(encoding="utf-8"))
+        self.assertEqual(
+            authorization["status"],
+            "blocked-canonical-v4-release-proof-pending",
+        )
+        self.assertFalse(
+            authorization["requirements"]["canonical_v4_release_proof_bound"]
+        )
+        self.assertEqual(
+            state["PHYSICAL_AUTHORIZATION_ELIGIBLE"],
+            "NO_REPLACEMENT_CANONICAL_V4_PROOF_REQUIRED",
+        )
         self.assertEqual(promotion["NATIVE_GRAPHICAL_MODE"], "PASS_PHYSICAL_DEVELOPMENT_USB")
         self.assertEqual(promotion["CANONICAL_STABLE_GRAPHICAL_MODE"], "PENDING")
 
@@ -249,9 +262,14 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             promotion["CANONICAL_NOTEBOOK_UEFI_BOOT_CURRENT_MAIN"],
             "PENDING_PHYSICAL_RETEST",
         )
+        expected_destructive_state = (
+            "NOT_REACHABLE_REPLACEMENT_PROOF_REQUIRED"
+            if authorization["status"] == "blocked-canonical-v4-release-proof-pending"
+            else "NO_FRESH_AUTHORIZATION"
+        )
         self.assertEqual(
             promotion["DESTRUCTIVE_AUTHORIZATION"],
-            "NO_FRESH_AUTHORIZATION",
+            expected_destructive_state,
         )
         self.assertEqual(promotion["POST_588_PHYSICAL_REWRITE_AUTHORIZED"], "NO")
 
@@ -404,10 +422,42 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         mvp = (ROOT / "MVP.md").read_text(encoding="utf-8")
         agents = AGENTS.read_text(encoding="utf-8")
         plan = (ROOT / "PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md").read_text(encoding="utf-8")
+        authorization = json.loads(PHYSICAL_WRITE_AUTHORIZATION.read_text(encoding="utf-8"))
+        historical = json.loads(HISTORICAL_V4_RELEASE_PROOF.read_text(encoding="utf-8"))
 
         self.assertEqual(state["RELEASE_TRUST"], "PASS_CANONICAL_PUBLIC_ANCHOR_PINNED")
-        self.assertEqual(state["CANONICAL_V4_RELEASE_PROOF"], "PASS_SIGNED_MATERIALIZED_EXACT")
+        self.assertEqual(
+            authorization["status"],
+            "blocked-canonical-v4-release-proof-pending",
+        )
+        self.assertFalse(
+            authorization["requirements"]["canonical_v4_release_proof_bound"]
+        )
+        self.assertEqual(
+            authorization["release_binding"]["source_commit"],
+            historical["source_commit"],
+        )
+        self.assertEqual(
+            state["CANONICAL_V4_RELEASE_PROOF_HISTORY"],
+            "PASS_SIGNED_MATERIALIZED_EXACT_PRE_HARDENING",
+        )
+        self.assertEqual(
+            state["CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN"],
+            "PENDING_POST_HARDENING_REPLACEMENT",
+        )
+        self.assertEqual(
+            state["PHYSICAL_AUTHORIZATION_ELIGIBLE"],
+            "NO_REPLACEMENT_CANONICAL_V4_PROOF_REQUIRED",
+        )
         self.assertIn("canonical release trust público: **PASS**", mvp)
+        self.assertIn(
+            "CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_BOUND_VERSIONED_PRERELEASE_PRE_HARDENING",
+            mvp,
+        )
+        self.assertIn(
+            "CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT",
+            mvp,
+        )
         self.assertIn(
             "FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING",
             mvp,
@@ -415,10 +465,10 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn("FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING", mvp)
         self.assertIn("FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING", mvp)
         self.assertIn(
-            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION",
+            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=BLOCKED_REPLACEMENT_RELEASE_PROOF",
             mvp,
         )
-        self.assertNotIn("FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED", mvp)
+        self.assertNotIn("CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION", mvp)
         self.assertIn("O MVP público oferece **pt-BR e en-US**", mvp)
         self.assertNotIn("canonical release trust público: pendente", mvp)
         self.assertNotIn("O primeiro uso Native oferece **pt-BR, en-US, es-ES, de-DE e fr-FR**", mvp)
@@ -427,29 +477,42 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertNotIn("canonical v4 signed/materialized release aggregate proof + binding", agents)
         self.assertNotIn("canonical Ed25519 release trust ceremony/public anchor", agents)
         self.assertIn("| C16 IA nativa | **ENTRA como capability do sistema** |", plan)
-        self.assertIn("trust e proof canônico v4 resolvidos; consentimento físico pendente", plan)
+        self.assertIn("replacement proof v4 pós-hardening pendente", plan)
+        self.assertNotIn("trust e proof canônico v4 resolvidos; consentimento físico pendente", plan)
 
-    def test_pre_usb_v4_gate_distinguishes_requirement_from_current_pending_state(self):
+    def test_pre_usb_v4_gate_distinguishes_history_from_current_replacement_proof(self):
         plan = (ROOT / "PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md").read_text(encoding="utf-8")
         promotion = (ROOT / "docs/PROMOTION-GATES.md").read_text(encoding="utf-8")
         current = (ROOT / "docs/CURRENT-STATE.md").read_text(encoding="utf-8")
+        authorization = json.loads(PHYSICAL_WRITE_AUTHORIZATION.read_text(encoding="utf-8"))
         self.assertIn(
             "SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED_PASS_BEFORE_PHYSICAL_PREFLIGHT",
             plan,
         )
         self.assertNotIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=PASS\n", plan)
         self.assertIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED", promotion)
-        self.assertIn("CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE", current)
+        self.assertEqual(
+            authorization["status"],
+            "blocked-canonical-v4-release-proof-pending",
+        )
+        self.assertFalse(
+            authorization["requirements"]["canonical_v4_release_proof_bound"]
+        )
         self.assertIn(
-            "FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING",
+            "CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT",
             current,
         )
         self.assertIn(
-            "PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO_FRESH_CONSENT_REQUIRED",
+            "FIRST_STABLE_MVP_USB_WRITE=HOLD_CANONICAL_V4_RELEASE_PROOF_PENDING",
             current,
         )
-        self.assertNotIn(
-            "FIRST_STABLE_MVP_USB_WRITE=HOLD_NO_PHYSICAL_TARGET_SELECTED",
+        self.assertIn("PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO", current)
+        self.assertIn(
+            "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED",
+            current,
+        )
+        self.assertIn(
+            "PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING",
             current,
         )
         self.assertIn(
@@ -457,12 +520,24 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             plan,
         )
         self.assertIn(
-            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION",
+            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=BLOCKED_REPLACEMENT_RELEASE_PROOF",
             plan,
         )
         self.assertIn(
-            "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
+            "PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING",
             plan,
+        )
+        for stale in (
+            "CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE",
+            "FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING",
+            "PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO_FRESH_CONSENT_REQUIRED",
+            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION",
+            "PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
+        ):
+            self.assertNotIn(stale, current + "\n" + plan)
+        self.assertIn(
+            "blocked-canonical-v4-release-proof-pending",
+            promotion,
         )
         self.assertNotIn("AUTHORIZED_CANDIDATE_ONLY_TARGET_CONFIRMATION_REQUIRED", plan)
         self.assertNotIn("Como não há USB disponível", plan)

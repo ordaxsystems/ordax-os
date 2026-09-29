@@ -385,6 +385,7 @@ jobs:
           node --test tests/test_project_file_space_continuity.mjs
           node --test tests/test_home_continuation.mjs
           node --test tests/test_notifications.mjs
+          node --test tests/test_assistant_conversation.mjs
           node --test tests/test_notes_runtime.mjs
           node --test tests/test_notes_image_previews.mjs
           node --test tests/test_notes_list_model.mjs

@@ -36,6 +36,7 @@ on:
       - 'system/contracts/space-selection.mjs'
       - 'system/profile-packs/**'
       - 'system/services/intelligence/**'
+      - 'system/apps/assistant/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
       - 'system/services/preferences/memory.mjs'
@@ -168,6 +169,7 @@ on:
       - 'system/contracts/profile-pack.mjs'
       - 'system/profile-packs/**'
       - 'system/services/intelligence/**'
+      - 'system/apps/assistant/**'
       - 'system/services/local-ai/**'
       - 'system/services/memory/**'
       - 'system/services/preferences/memory.mjs'
@@ -334,6 +336,9 @@ jobs:
           python -m py_compile tools/local-ai-baseline/compare.py
           python -m py_compile tools/local-ai-benchmark/benchmark.py
           python -m py_compile tools/local-ai-hardware-probe/probe.py
+          node --check system/apps/assistant/conversation.mjs
+          node --check system/apps/assistant/runtime.mjs
+          node --check system/apps/assistant/ui/conversation-controls.mjs
           node --check system/composition/native/main.mjs
           node --check system/composition/web/main.mjs
           python -m json.tool docs/contracts/intelligence.json >/dev/null
@@ -355,6 +360,7 @@ jobs:
           set -euo pipefail
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_intelligence_runtime.mjs
+          node --test tests/test_assistant_conversation.mjs
           node --test tests/test_intelligence_authorized_memory.mjs
           node --test tests/test_model_router_runtime.mjs
           node --test tests/test_intelligence_artifact.mjs

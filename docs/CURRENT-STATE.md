@@ -142,17 +142,22 @@ physical USB. `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` is now the active
 pre-USB closure plan. Physical media work is intentionally held while the remaining
 class-A product gaps are closed. Ordax Intelligence consumers, Native local
 session/lock, safe Files removal and PT-BR/en-US launch-language coverage are now
-source-complete. The canonical v4 candidate carrying the proven local-AI runtime is
-signed, materialized, exactly verified and bound by a non-activating proof. It remains
-a public prerelease, so the repository's stable `latest` channel has not been promoted.
+source-complete. The historical v4 candidate carrying the proven local-AI runtime was
+signed, materialized, exactly verified and bound by a non-activating proof at source
+`b924ff8d74d1761232381ae3f9604bba17497cfd`. It remains a public prerelease and valid
+historical pre-hardening evidence, but PR #588 and later source hardening superseded it
+for current-main physical promotion. The stable `latest` channel has not been promoted.
 Diagnostics/recovery presentation and the conservative MVP hardware-support matrix
 are source-complete; their target-hardware/physical proofs remain later gates.
 
-The v4 Creator payload change deliberately revokes the stale 15-artifact authorization
-context instead of widening it. The read-only owner-consent preflight now passes because
-the operator-controlled canonical v4 signing/materialization sequence produced
-`canonical-v4-release-proof.json` and the public receipt was validated and bound to the
-authorization contract. The exact 17-artifact v4 release remains eligible for a fresh owner authorization, but that authorization has not been re-recorded after the current writer changed. The contract therefore remains fail-closed and no destructive candidate may be prepared or applied from this state. No USB target is selected, no target-specific destructive confirmation is current and no new physical write/proof is authorized. The physical Creator
+The v4 Creator payload change deliberately revoked the stale 15-artifact authorization
+context instead of widening it. The structured physical-authorization contract is now
+authoritative at `blocked-canonical-v4-release-proof-pending`: the historical
+`canonical-v4-release-proof.json` cannot be rebound to reopen consent. A replacement
+signed/materialized v4 proof from a different post-hardening source commit must be
+produced, verified and bound before owner consent becomes reachable. The 17-artifact
+writer remains fail-closed, no USB target is selected, no target-specific destructive
+confirmation is current and no new physical write/proof is authorized. The physical Creator
 now keeps writer/tooling provenance separate from release identity: the writer embeds its own
 Git SHA as provenance plus the canonical v4 release source commit from
 `physical-write-authorization.json -> release_binding.source_commit`. Target-specific
@@ -191,14 +196,15 @@ CANONICAL_V4_OPERATOR_RECEIPT_SCHEMA=prototype-ordax.canonical-v4-operator-artif
 CANONICAL_V4_OPERATOR_RECEIPTS=PASS_CI_SAME_SHA_SHA256_SIZE_REVERIFIED
 CANONICAL_V4_OPERATOR_RECEIPT_TAMPER_REJECTION=PASS_CI_WRONG_COMMIT_AND_BYTE_TAMPER
 CANONICAL_V4_OPERATOR_RECEIPT_WORKFLOW_RUN_ID=36166653548
-CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE
+CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE_PRE_HARDENING
+CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT
 STABLE_MVP_USB_READINESS_GATE=PASS_SOURCE_AGGREGATES_PRE_USB_AND_PHYSICAL_PROMOTION
-STABLE_MVP_USB_READINESS_CURRENT_STAGE=EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING
-CANONICAL_V4_RELEASE_PROOF_BINDING=PASS
-PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO_FRESH_CONSENT_REQUIRED
-PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_FRESH_CONSENT_REQUIRED
-FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING
-PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING
+STABLE_MVP_USB_READINESS_CURRENT_STAGE=CANONICAL_V4_RELEASE_PROOF_PENDING
+CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=NO_SUPERSEDED_HISTORY_RETAINED
+PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO
+PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED
+FIRST_STABLE_MVP_USB_WRITE=HOLD_CANONICAL_V4_RELEASE_PROOF_PENDING
+PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING
 ```
 
 ### Pre-MVP ecosystem foundation
@@ -273,7 +279,7 @@ PUBLIC_IDENTITY=DISABLED_FAIL_CLOSED
 BILLING=NO
 PUBLIC_STORE=NO
 PRODUCT_MCP_DEPLOYED=NO
-FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING
+FIRST_STABLE_MVP_USB_WRITE=HOLD_CANONICAL_V4_RELEASE_PROOF_PENDING
 ```
 
 ### System diagnostics and recovery presentation
@@ -673,15 +679,16 @@ EXTERNAL_OFFLINE_BACKUP_CUSTODY_CONFIRMED=NO
 EXTERNAL_OFFLINE_BACKUP_REQUIRED_BEFORE_BROAD_DISTRIBUTION=YES
 PUBLIC_TRUST_PROMOTION=PASS_PUBLIC_HANDOFF_VALIDATED
 MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED=YES
-PHYSICAL_AUTHORIZATION_ELIGIBLE=YES
-CANONICAL_V4_SOURCE_COMMIT=b924ff8d74d1761232381ae3f9604bba17497cfd
-CANONICAL_V4_RELEASE_STATUS=PUBLIC_PRERELEASE_NOT_LATEST
-CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_EXACT
-CANONICAL_V4_RELEASE_PROOF_SHA256=2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b
-CANONICAL_V4_RELEASE_PROOF_BINDING=PASS
-PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO_FRESH_CONSENT_REQUIRED
-PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_FRESH_CONSENT_REQUIRED
-PHYSICAL_WRITE_ALLOWED=NO_EXPLICIT_OWNER_AUTHORIZATION
+PHYSICAL_AUTHORIZATION_ELIGIBLE_BY_TRUST=YES
+CANONICAL_V4_HISTORICAL_SOURCE_COMMIT=b924ff8d74d1761232381ae3f9604bba17497cfd
+CANONICAL_V4_RELEASE_STATUS=PUBLIC_PRERELEASE_NOT_LATEST_HISTORICAL
+CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_SIGNED_MATERIALIZED_EXACT_PRE_HARDENING
+CANONICAL_V4_RELEASE_PROOF_HISTORY_SHA256=2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b
+CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT
+CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=NO
+PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO
+PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED
+PHYSICAL_WRITE_ALLOWED=NO_CANONICAL_V4_RELEASE_PROOF_PENDING
 PHYSICAL_WRITE_SCOPE=first-real-stable-mvp-usb-proof
 PHYSICAL_WRITE_RELEASE_SEQUENCE=1
 PHYSICAL_TARGET_SELECTED=NO
@@ -765,8 +772,8 @@ CANONICAL_SIGNED_RELEASE_BOOT_PROVEN=NO_PHYSICAL_STABLE_MVP_PENDING
 CANONICAL_NATIVE_DISK_INSTALL_PROVEN=NO_POST_MVP
 CREATOR_PUBLIC_PHYSICAL_APPLY_IMPLEMENTED=NO
 RELEASE_TRUST=PASS_CANONICAL_PUBLIC_ANCHOR_PINNED
-PHYSICAL_AUTHORIZATION_ELIGIBLE=YES
-PHYSICAL_WRITE_AUTHORIZED=NO_EXPLICIT_OWNER_AUTHORIZATION
+PHYSICAL_AUTHORIZATION_ELIGIBLE=NO_REPLACEMENT_CANONICAL_V4_PROOF_REQUIRED
+PHYSICAL_WRITE_AUTHORIZED=NO_CANONICAL_V4_RELEASE_PROOF_PENDING
 PHYSICAL_TARGET_SELECTED=NO
 PHYSICAL_TARGET_DESTRUCTIVE_CONFIRMATION=PENDING
 MVP_SURFACE_SMOKE_HARNESS=PASS_SOURCE
