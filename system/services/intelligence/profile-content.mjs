@@ -1,6 +1,7 @@
 import {
   INTELLIGENCE_MAX_CONTEXT_ITEMS,
   INTELLIGENCE_MAX_CONTEXT_TOTAL_CHARS,
+  INTELLIGENCE_PORT_SCHEMA,
   assertIntelligencePort,
   validateIntelligenceRequest,
 } from "../../contracts/intelligence.mjs";
@@ -47,15 +48,7 @@ export function createProfileContentIntelligence({
   const intelligence = assertIntelligencePort(intelligencePort);
   const profileContext = assertProfileContentContextPort(profileContentContextPort);
 
-  return Object.freeze({
-    schema: PROFILE_CONTENT_INTELLIGENCE_SCHEMA,
-    getSnapshot() {
-      return intelligence.getSnapshot();
-    },
-    subscribe(listener) {
-      return intelligence.subscribe(listener);
-    },
-    async respond(value, { spaceId } = {}) {
+  const respondForSpace = async (value, spaceId) => {
       const request = validateIntelligenceRequest(value);
       const normalizedSpaceId = boundedSpaceId(spaceId);
       const profile = await profileContext.read(normalizedSpaceId);
@@ -76,6 +69,33 @@ export function createProfileContentIntelligence({
         maxTokens: request.maxTokens,
       });
       return intelligence.respond(merged);
+  };
+
+  return Object.freeze({
+    schema: PROFILE_CONTENT_INTELLIGENCE_SCHEMA,
+    getSnapshot() {
+      return intelligence.getSnapshot();
+    },
+    subscribe(listener) {
+      return intelligence.subscribe(listener);
+    },
+    respond(value, { spaceId } = {}) {
+      return respondForSpace(value, boundedSpaceId(spaceId));
+    },
+    forSpace(spaceId) {
+      const boundSpaceId = boundedSpaceId(spaceId);
+      return Object.freeze({
+        schema: INTELLIGENCE_PORT_SCHEMA,
+        getSnapshot() {
+          return intelligence.getSnapshot();
+        },
+        subscribe(listener) {
+          return intelligence.subscribe(listener);
+        },
+        respond(value) {
+          return respondForSpace(value, boundSpaceId);
+        },
+      });
     },
   });
 }
