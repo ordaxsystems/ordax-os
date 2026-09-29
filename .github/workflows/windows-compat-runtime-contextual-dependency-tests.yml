@@ -1,0 +1,60 @@
+name: Windows Compatibility Contextual Dependency Tests
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_runtime_dependency_discovery.py'
+      - 'tests/test_windows_compat_runtime_first_hit_guard.py'
+      - 'tests/test_windows_compat_runtime_first_hit_proof.py'
+      - 'tests/test_windows_compat_runtime_loader_invariance.py'
+      - 'tests/test_windows_compat_runtime_dependency_evidence.py'
+      - 'tests/test_windows_compat_runtime_contextual_dependencies.py'
+      - 'tests/test_windows_compat_runtime_contextual_evidence.py'
+      - '.github/workflows/windows-compat-runtime-contextual-dependency-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_runtime_contextual_dependencies.py'
+      - 'tests/test_windows_compat_runtime_contextual_evidence.py'
+      - '.github/workflows/windows-compat-runtime-contextual-dependency-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contextual-regressions:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate primitive and contextual dependency contracts
+        run: |
+          set -euo pipefail
+          python bootstrap/windows-compat-runtime/runtime_dependency_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_first_hit_guard.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_loader_invariance_guard.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_evidence_finalize.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_first_hit_guard.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_evidence_finalize.py check
+
+      - name: Run fail-closed dependency regressions
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_windows_compat_runtime_dependency_discovery -v
+          python -m unittest tests.test_windows_compat_runtime_first_hit_guard -v
+          python -m unittest tests.test_windows_compat_runtime_first_hit_proof -v
+          python -m unittest tests.test_windows_compat_runtime_loader_invariance -v
+          python -m unittest tests.test_windows_compat_runtime_dependency_evidence -v
+          python -m unittest tests.test_windows_compat_runtime_contextual_dependencies -v
+          python -m unittest tests.test_windows_compat_runtime_contextual_evidence -v
