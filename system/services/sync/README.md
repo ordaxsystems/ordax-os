@@ -39,7 +39,9 @@ The boundary is intentionally narrower than the Memory store:
 - server revisions are conflict authority; wall clocks are not;
 - concurrent/divergent state becomes an explicit pending conflict and is not silently rebased or resolved by global last-write-wins;
 - transport failure leaves local Memory intact and keeps the mutation pending for retry;
-- snapshot/pull restore primitives can apply authorized account Memory through `ordax.memory/1` and its durability barrier, preparing the later fresh-install restore pipeline without claiming that full restore exists now.
+- bounded remote-batch application accepts objects supplied by canonical account reconciliation and applies authorized Memory through `ordax.memory/1` plus its durability barrier.
+
+The Memory handler deliberately does **not** own `snapshot()`, `pullChanges()`, the account cursor or a transport lifecycle. `system/services/sync/account-runtime.mjs` remains the sole account reconciliation orchestrator. A future live integration may feed Memory objects from that existing snapshot/change stream only after the remaining durable-state and backend promotion gates are satisfied, preserving one synchronization system.
 
 Every upload/restore operation requires an explicit authorization policy supplied by trusted composition. This foundation does not grant tools, action authority, model egress or a new entitlement. Synchronized Memory is classified as **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization or community-data authorization.
 
