@@ -18,6 +18,7 @@ import {
   createAccountMemorySyncRuntime,
   createMemorySyncObject,
 } from "../system/services/sync/account-memory-runtime.mjs";
+import { resolveMemorySyncConflict } from "../system/services/sync/memory-conflict-resolution.mjs";
 import { createPreferenceSyncRuntime } from "../system/services/sync/preference-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../system/services/sync/workspace-metadata.mjs";
 
@@ -296,6 +297,62 @@ test("unresolved Memory conflict prevents canonical cursor advancement", async (
   assert.equal(memorySync.getSnapshot().conflictCount, 1);
   assert.equal(memorySync.getSnapshot().pendingMutationCount, 1);
   assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "intenção local pendente");
+
+  harness.destroy();
+});
+
+test("accepting authoritative Memory keeps the canonical cursor blocked until that remote state is consumed", async () => {
+  const { memory, memorySync } = createMemorySync();
+  memorySync.remember(memoryItem({ content: "intenção local pendente" }));
+  const remoteMemory = createMemorySyncObject({
+    item: memoryItem({
+      content: "estado remoto autoritativo",
+      sourceTimestamp: "2026-09-29T12:22:00Z",
+    }),
+    serverRevision: 8,
+  });
+  const remote = transport({ pullChanges: [remoteMemory], nextCursor: 11 });
+  const checkpoint = checkpointStore(existingCheckpoint(10));
+  const harness = createAccountHarness({ memorySync, remote, checkpoint });
+
+  const conflicted = await harness.accountSync.refresh();
+  assert.equal(conflicted.accountContinuity, "not-active");
+  assert.equal(checkpoint.peek().cursor, 10);
+
+  const resolution = resolveMemorySyncConflict({
+    conflict: memorySync.pendingConflicts()[0],
+    pendingMutation: memorySync.pendingMutations()[0],
+    decision: "accept-authoritative-remote",
+    subjectId: SUBJECT,
+  });
+  const accepted = memorySync.applyConflictResolution(resolution);
+  assert.equal(accepted.status, "reconciliation-required");
+  assert.equal(memorySync.getSnapshot().reconciliationRequiredCount, 1);
+  assert.equal(memorySync.getSnapshot().pendingMutationCount, 0);
+
+  const canonicalPull = remote.pullChanges.bind(remote);
+  remote.pullChanges = async ({ afterCursor }) => {
+    remote.pullCalls += 1;
+    return Object.freeze({
+      afterCursor,
+      nextCursor: 11,
+      changes: Object.freeze([]),
+    });
+  };
+
+  const stillBlocked = await harness.accountSync.refresh();
+  assert.equal(stillBlocked.accountContinuity, "not-active");
+  assert.equal(checkpoint.peek().cursor, 10);
+  assert.equal(memorySync.getSnapshot().reconciliationRequiredCount, 1);
+  assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "intenção local pendente");
+
+  remote.pullChanges = canonicalPull;
+  const reconciled = await harness.accountSync.refresh();
+  assert.equal(reconciled.accountContinuity, "active");
+  assert.equal(checkpoint.peek().cursor, 11);
+  assert.equal(memorySync.getSnapshot().conflictCount, 0);
+  assert.equal(memorySync.getSnapshot().reconciliationRequiredCount, 0);
+  assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "estado remoto autoritativo");
 
   harness.destroy();
 });
