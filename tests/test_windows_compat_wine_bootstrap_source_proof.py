@@ -36,6 +36,10 @@ class WineBootstrapSourceProofTests(unittest.TestCase):
         source, authority = MODULE.validate_contract_binding(MODULE.SOURCE.load_source(), contract)
         self.assertEqual(authority["archive_sha256"], source["upstream"]["archive_sha256"])
         self.assertEqual(authority["source_path"], "tools/wine/wine.c")
+        self.assertEqual(
+            authority["source_file_sha256"],
+            "ba334a46681e6121f9344852fbde2a097bc08bb7777922594e1bbe509a4d85ce",
+        )
         self.assertEqual(contract["loader_bootstrap"]["preloaded_shortnames"][0]["soname"], "ntdll.so")
 
     def test_source_semantics_prove_bootstrap_without_execution(self):
