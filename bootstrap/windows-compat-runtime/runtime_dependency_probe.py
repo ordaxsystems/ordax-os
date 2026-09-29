@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 from pathlib import Path, PurePosixPath
 import struct
@@ -18,6 +19,7 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 CONTRACT = HERE / "runtime-dependency-discovery.json"
+FULL_BUILD_PROBE_PATH = HERE / "full_build_probe.py"
 
 PT_LOAD = 1
 PT_DYNAMIC = 2
@@ -30,6 +32,18 @@ ELF_MAGIC = b"\x7fELF"
 
 class RuntimeDependencyError(RuntimeError):
     pass
+
+
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeDependencyError(f"cannot load module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+FULL_BUILD = load_module("ordax_windows_compat_full_build_for_runtime_dependencies", FULL_BUILD_PROBE_PATH)
 
 
 def load_contract() -> dict:
@@ -245,6 +259,42 @@ def resolve_candidate(index: dict[str, list[str]], soname: str, scope: str) -> s
     return unique[0]
 
 
+def verify_stage_binding(stage: Path, full_build_proof: dict) -> str:
+    staging = full_build_proof.get("staging")
+    if not isinstance(staging, dict):
+        raise RuntimeDependencyError("full build proof staging metadata is missing")
+    expected_digest = staging.get("canonical_manifest_sha256")
+    if not isinstance(expected_digest, str) or len(expected_digest) != 64 or any(ch not in "0123456789abcdef" for ch in expected_digest):
+        raise RuntimeDependencyError("full build proof staging manifest digest is invalid")
+    try:
+        manifest, total_regular_bytes = FULL_BUILD.staging_manifest(stage)
+    except (FULL_BUILD.FullBuildProofError, OSError) as exc:
+        raise RuntimeDependencyError(f"cannot verify staged tree against full build proof: {exc}") from exc
+    actual_digest = FULL_BUILD.canonical_manifest_sha256(manifest)
+    regular_files = sum(1 for item in manifest.values() if item.get("type") == "file")
+    symlinks = sum(1 for item in manifest.values() if item.get("type") == "symlink")
+    actual_metadata = {
+        "entry_count": len(manifest),
+        "regular_file_count": regular_files,
+        "symlink_count": symlinks,
+        "total_regular_bytes": total_regular_bytes,
+        "canonical_manifest_sha256": actual_digest,
+    }
+    expected_metadata = {
+        "entry_count": staging.get("entry_count"),
+        "regular_file_count": staging.get("regular_file_count"),
+        "symlink_count": staging.get("symlink_count"),
+        "total_regular_bytes": staging.get("total_regular_bytes"),
+        "canonical_manifest_sha256": expected_digest,
+    }
+    if actual_metadata != expected_metadata:
+        raise RuntimeDependencyError(
+            "staged tree does not match full build proof metadata: "
+            f"expected={expected_metadata} actual={actual_metadata}"
+        )
+    return actual_digest
+
+
 def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
     contract = load_contract()
     if full_build_proof.get("$schema") != contract["input"]["full_build_proof_schema"]:
@@ -259,6 +309,7 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
     if not stage.is_dir() or not rootfs.is_dir():
         raise RuntimeDependencyError("staged tree or locked rootfs is missing")
 
+    stage_manifest_sha256 = verify_stage_binding(stage, full_build_proof)
     stage_index = build_soname_index(stage)
     rootfs_index = build_soname_index(rootfs)
     package_versions, owners = parse_apk_installed(rootfs)
@@ -322,7 +373,7 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
     }
     inventory_core = {
         "runtime_id": full_build_proof["runtime_id"],
-        "staging_manifest_sha256": full_build_proof["staging"]["canonical_manifest_sha256"],
+        "staging_manifest_sha256": stage_manifest_sha256,
         "elf_files": elf_files,
         "external_packages": external_json,
     }
