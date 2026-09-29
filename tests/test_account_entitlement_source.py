@@ -17,6 +17,8 @@ class AccountEntitlementSourceTests(unittest.TestCase):
         self.assertIn('.from("ordax_entitlement_grants")', source)
         self.assertIn('.eq("user_id", session.user.id)', source)
         self.assertIn('.eq("entitlement_key", key)', source)
+        self.assertIn('.limit(17)', source)
+        self.assertIn('data.length > 16', source)
         self.assertIn('authority: "server"', source)
         start = source.index('if (path === "/account/entitlement" && req.method === "GET")')
         end = source.index('if (path === "/account/spaces"', start)
