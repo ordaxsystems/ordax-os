@@ -1,8 +1,9 @@
-import copy
 import importlib.util
 import json
 from pathlib import Path
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBE_PATH = ROOT / "bootstrap/windows-compat-runtime/package_lock_probe.py"
@@ -43,6 +44,10 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
             "activation_authorized": False,
             "execution_authorized": False,
         }
+
+    def test_environment_declares_exact_alpine_repositories(self):
+        environment = probe.validated_environment()
+        self.assertEqual(tuple(environment["repositories"]), probe.EXPECTED_REPOSITORIES)
 
     def test_configure_proof_must_remain_non_activating(self):
         value = self.configure_proof()
@@ -89,6 +94,27 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
         with self.assertRaisesRegex(probe.PackageLockError, "removed pinned base packages"):
             probe.changed_packages({"busybox": "1.37.0-r20"}, {"gcc": "14.2.0-r6"})
 
+    def test_repository_index_refresh_preserves_installed_graph(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            graph = {"busybox": "1.37.0-r20", "apk-tools": "2.14.10-r0"}
+            with mock.patch.object(probe.CONFIGURE, "installed_package_versions", side_effect=[graph, dict(graph)]), mock.patch.object(
+                probe.CONFIGURE, "proot"
+            ) as proot:
+                probe.refresh_repository_indexes(rootfs)
+            proot.assert_called_once_with(rootfs, "apk update")
+
+    def test_repository_index_refresh_rejects_installed_graph_mutation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rootfs = Path(tmp)
+            before = {"busybox": "1.37.0-r20"}
+            after = {"busybox": "1.37.0-r21"}
+            with mock.patch.object(probe.CONFIGURE, "installed_package_versions", side_effect=[before, after]), mock.patch.object(
+                probe.CONFIGURE, "proot"
+            ):
+                with self.assertRaisesRegex(probe.PackageLockError, "mutated installed package graph"):
+                    probe.refresh_repository_indexes(rootfs)
+
     def test_package_set_digest_is_order_sensitive_to_canonical_records(self):
         records = [
             {"name": "a", "version": "1-r0", "sha256": "1" * 64, "size_bytes": 10},
@@ -114,6 +140,8 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
             archives,
             "b" * 64,
         )
+        self.assertEqual(tuple(manifest["repositories"]), probe.EXPECTED_REPOSITORIES)
+        self.assertEqual(manifest["repository_index_status"], "mutable-discovery-input-not-build-authority")
         self.assertTrue(manifest["trust"]["alpine_apk_verify_passed"])
         self.assertTrue(manifest["promotion"]["package_archive_bytes_pinned"])
         self.assertFalse(manifest["promotion"]["committed_lock"])
