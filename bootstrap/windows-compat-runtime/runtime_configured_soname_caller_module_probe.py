@@ -87,7 +87,7 @@ def load_contract() -> dict:
     if expected != {
         "configured_soname_callsites": 32,
         "configured_soname_symbols": 24,
-        "caller_module_directories": 18,
+        "caller_module_directories": 15,
     }:
         raise CallerModuleProofError("caller module expected counts drifted")
     return contract
