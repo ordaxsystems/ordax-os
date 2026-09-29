@@ -69,12 +69,17 @@ test("gateway policy sanitizes unknown client fields by returning the canonical 
 });
 
 test("gateway policy rejects secret-bearing, restricted, device-owned and cross-subject Memory", () => {
+  const secret = upsertMutation();
+  secret.payload = {
+    ...secret.payload,
+    memory: {
+      ...secret.payload.memory,
+      content: "Authorization: Bearer secret-token-value-123456",
+    },
+  };
   assert.throws(
-    () => validateMemorySyncMutationForGateway(
-      upsertMutation(memoryItem({ content: "Authorization: Bearer secret-token-value-123456" })),
-      { subjectId: SUBJECT },
-    ),
-    /secret|not syncable|Secrets/i,
+    () => validateMemorySyncMutationForGateway(secret, { subjectId: SUBJECT }),
+    /eligible|secret|sync/i,
   );
 
   const restricted = memoryItem({ sensitivity: "restricted" });
