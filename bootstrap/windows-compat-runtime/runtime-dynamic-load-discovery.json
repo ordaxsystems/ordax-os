@@ -1,0 +1,39 @@
+{
+  "$schema": "prototype-ordax.windows-compat-runtime-dynamic-load-discovery/1",
+  "input": {
+    "full_build_proof_schema": "prototype-ordax.windows-compat-full-build-proof/2",
+    "source_archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
+    "source_extensions": [
+      ".c"
+    ],
+    "source_lock_schema": "prototype-ordax.windows-compat-runtime-source/1"
+  },
+  "inspection": {
+    "comments_and_literals_must_not_create_callsites": true,
+    "direct_host_loader_apis": {
+      "dlmopen": 1,
+      "dlopen": 0
+    },
+    "dynamic_expression_classification_required": true,
+    "dynamic_load_inventory_complete": false,
+    "generated_source_inventory_complete": false,
+    "literal_target_classification_required": true,
+    "relevant_source_symlink_allowed": false,
+    "source_manifest_binding_required": true,
+    "unparseable_direct_call_allowed": false,
+    "wrapper_call_graph_complete": false
+  },
+  "promotion": {
+    "activation_authorized": false,
+    "binary_artifact_pinned": false,
+    "dynamic_load_inventory_complete": false,
+    "execution_authorized": false,
+    "external_transitive_closure_verified": false,
+    "runtime_dependency_inventory_complete": false,
+    "runtime_package_content_hashes_pinned": false,
+    "windows_payload_executed": false,
+    "wine_executed": false
+  },
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "status": "source-callsite-discovery-only-not-runtime-complete"
+}
