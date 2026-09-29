@@ -77,7 +77,7 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
     }
     const result = await response.json();
     snapshot = validateProfileActivationState(result.state);
-    return snapshot;
+    return result;
   };
 
   await refresh();
@@ -88,8 +88,30 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       return snapshot;
     },
     refresh,
-    activate({ spaceId, spaceKind, profile, components = [], activatedAt = Date.now() }) {
-      return command({
+    async previewActivation({ spaceId, spaceKind, profile, components = [] }) {
+      const result = await command({
+        action: "preview-activate",
+        expectedRevision: snapshot.revision,
+        spaceId,
+        spaceKind,
+        profile,
+        components,
+      });
+      return Object.freeze({
+        expectedRevision: snapshot.revision,
+        permissionDiff: result.permissionDiff,
+        permissionDiffSha256: result.permissionDiffSha256,
+      });
+    },
+    async activate({
+      spaceId,
+      spaceKind,
+      profile,
+      components = [],
+      activatedAt = Date.now(),
+      acceptedPermissionDiffSha256 = null,
+    }) {
+      const body = {
         action: "activate",
         expectedRevision: snapshot.revision,
         spaceId,
@@ -97,21 +119,28 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
         profile,
         components,
         activatedAt,
-      });
+      };
+      if (acceptedPermissionDiffSha256 !== null) {
+        body.acceptedPermissionDiffSha256 = acceptedPermissionDiffSha256;
+      }
+      await command(body);
+      return snapshot;
     },
-    deactivate(spaceId) {
-      return command({
+    async deactivate(spaceId) {
+      await command({
         action: "deactivate",
         expectedRevision: snapshot.revision,
         spaceId,
       });
+      return snapshot;
     },
-    rollback(spaceId) {
-      return command({
+    async rollback(spaceId) {
+      await command({
         action: "rollback",
         expectedRevision: snapshot.revision,
         spaceId,
       });
+      return snapshot;
     },
     dispose() {
       disposed = true;
