@@ -4,8 +4,7 @@ import {
 } from "./memory.mjs";
 
 export const MEMORY_CAPTURE_AUTH_SCHEMA = "ordax.memory-capture-auth/1";
-export const MEMORY_CAPTURE_PROPOSAL_SCHEMA = "ordax.memory-capture-proposal/1";
-export const MEMORY_CAPTURE_CONFIRMATION_SCHEMA = "ordax.memory-capture-confirmation/1";
+export const MEMORY_CAPTURE_RESULT_SCHEMA = "ordax.memory-capture-result/1";
 
 const CAPTURE_SCOPES = new Set(["device", "account", "space"]);
 const CAPTURE_KINDS = new Set(["preference", "fact", "instruction", "summary"]);
@@ -84,40 +83,20 @@ export function validateMemoryCaptureDraft(value) {
   });
 }
 
-export function validateMemoryCaptureProposal(value) {
+export function validateMemoryCaptureResult(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("Memory capture proposal must be an object");
+    throw new TypeError("Memory capture result must be an object");
   }
-  if (value.schema !== MEMORY_CAPTURE_PROPOSAL_SCHEMA) {
-    throw new TypeError("Memory capture proposal schema is invalid");
+  if (value.schema !== MEMORY_CAPTURE_RESULT_SCHEMA) {
+    throw new TypeError("Memory capture result schema is invalid");
   }
-  const proposalId = boundedText(value.proposalId, "Memory capture proposal id", 160);
   const item = validateMemoryItem(value.item);
   if (item.scope === "project" || item.scope === "session" || item.sensitivity === "restricted") {
-    throw new TypeError("Memory capture proposal contains a forbidden target");
+    throw new TypeError("Memory capture result contains a forbidden target");
   }
   return Object.freeze({
-    schema: MEMORY_CAPTURE_PROPOSAL_SCHEMA,
-    proposalId,
+    schema: MEMORY_CAPTURE_RESULT_SCHEMA,
     item,
-  });
-}
-
-export function validateMemoryCaptureConfirmation(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("Memory capture confirmation must be an object");
-  }
-  if (
-    value.schema !== MEMORY_CAPTURE_CONFIRMATION_SCHEMA
-    || value.authority !== "explicit-user-confirmation"
-    || value.approved !== true
-  ) {
-    throw new TypeError("Memory capture requires explicit user confirmation");
-  }
-  return Object.freeze({
-    schema: MEMORY_CAPTURE_CONFIRMATION_SCHEMA,
-    authority: "explicit-user-confirmation",
-    proposalId: boundedText(value.proposalId, "Memory capture proposal id", 160),
-    approved: true,
+    durable: value.durable === true,
   });
 }
