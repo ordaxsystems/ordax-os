@@ -49,6 +49,7 @@ from native_hardware_inventory import read_hardware_inventory
 from native_profile_component_inventory import read_profile_component_inventory
 from native_profile_activation_state import read_profile_activation_state
 from native_profile_activation_command import execute_profile_activation_command
+from native_profile_content_context import read_active_profile_content_context
 from native_profile_human_consent import ProfileHumanConsentAuthority
 from native_profile_consent_presenter import ProfileHumanConsentCoordinator
 from native_profile_consent_ipc import request_native_decision
@@ -69,6 +70,7 @@ MEMORY_PATH = "/__ordax/native/intelligence-memory"
 COMPONENT_STATE_PATH = "/__ordax/native/component-state"
 PROFILE_COMPONENT_INVENTORY_PATH = "/__ordax/native/profile-component-inventory"
 PROFILE_ACTIVATION_STATE_PATH = "/__ordax/native/profile-activation-state"
+PROFILE_CONTENT_CONTEXT_PATH = "/__ordax/native/profile-content-context"
 PROFILE_ACTIVATION_COMMAND_PATH = "/__ordax/native/profile-activation-command"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
@@ -3065,6 +3067,19 @@ def ensure_standard_user_directories(user_root: str) -> tuple[str, ...]:
     return tuple(ready)
 
 
+def requested_profile_content_space_id(request_target: str) -> str:
+    parsed = urlsplit(request_target)
+    if parsed.path != PROFILE_CONTENT_CONTEXT_PATH:
+        raise ValueError("not a Profile content context request")
+    query = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
+    if set(query) != {"spaceId"} or len(query["spaceId"]) != 1:
+        raise ValueError("Profile content context requires exactly one Space id")
+    space_id = query["spaceId"][0].strip()
+    if not space_id or len(space_id) > 160 or "\0" in space_id:
+        raise ValueError("Profile content context Space id is invalid")
+    return space_id
+
+
 def requested_file_path(request_target: str, endpoint: str = FILES_PATH) -> str:
     parsed = urlsplit(request_target)
     if parsed.path != endpoint:
@@ -3431,7 +3446,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
-        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, NOTES_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path == METRICS_PATH:
@@ -3887,6 +3902,23 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     flush=True,
                 )
                 self._empty(500)
+                return
+            self._write_json(200, payload)
+            return
+        if parsed_path == PROFILE_CONTENT_CONTEXT_PATH:
+            if self.server.distribution_profile != "owner-development":
+                self._empty(404)
+                return
+            try:
+                space_id = requested_profile_content_space_id(self.path)
+                payload = read_active_profile_content_context(space_id)
+            except (OSError, UnicodeError, ValueError) as exc:
+                print(
+                    f"ordax-native-host: Profile content context unavailable safely: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(409)
                 return
             self._write_json(200, payload)
             return
