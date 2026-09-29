@@ -263,3 +263,27 @@ test("Native composition creates Assistant Memory capture only after Surface pre
     /surface\.preferences/,
   );
 });
+
+
+test("automatic Memory extraction never sends Assistant-generated text to the extractor", async () => {
+  const ai = intelligence('{"memories":[]}');
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: ai,
+    captureRuntime: captureRuntime(),
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity(),
+    spaceSelectionPort: selection(),
+  });
+  await runtime.captureTurn({
+    userText: "Meu idioma preferido é português.",
+    assistantText: "Afirmativa inventada que não pode virar fonte de Memory.",
+  });
+  assert.equal(ai.requests.length, 1);
+  assert.equal(ai.requests[0].context.length, 1);
+  assert.equal(ai.requests[0].context[0].id, "assistant-user-turn");
+  assert.match(ai.requests[0].context[0].text, /idioma preferido/);
+  assert.doesNotMatch(
+    JSON.stringify(ai.requests[0]),
+    /Afirmativa inventada/,
+  );
+});
