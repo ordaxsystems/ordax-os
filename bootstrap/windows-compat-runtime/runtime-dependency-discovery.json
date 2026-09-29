@@ -12,6 +12,7 @@
     "format": "elf-dt-needed",
     "supported_elf_classes": [32, 64],
     "supported_endianness": ["little", "big"],
+    "stage_manifest_binding_required": true,
     "host_readelf_allowed": false,
     "network_allowed": false,
     "stage_mutation_allowed": false,
