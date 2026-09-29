@@ -202,9 +202,12 @@ jobs:
       - name: Build Windows ceremony verifier
         run: |
           set -euo pipefail
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -trimpath -buildvcs=false -ldflags='-s -w' \
-            -o out/ordax-profile-content-channel.exe ./tools/profile-content-channel
+          (
+            cd tools/profile-content-channel
+            CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o ../../out/ordax-profile-content-channel.exe .
+          )
           test -s out/ordax-profile-content-channel.exe
           test -z "$(find out -type f \( -iname '*.pem' -o -iname '*.key' -o -iname '*.p12' -o -iname '*.pfx' \) -print -quit)"
           echo 'PROFILE_CONTENT_WINDOWS_CEREMONY_VERIFIER=PASS'
