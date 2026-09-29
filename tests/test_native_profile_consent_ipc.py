@@ -59,11 +59,15 @@ class NativeProfileConsentIpcTests(unittest.TestCase):
                 connection, _ = listener.accept()
                 with connection:
                     request = server.receive_request(connection)
-                    server.send_decision(connection, {
-                        "schema": "ordax.profile-human-consent-decision/1",
-                        "requestId": request["requestId"],
-                        "approved": True,
-                    })
+                    server.send_decision(
+                        connection,
+                        {
+                            "schema": "ordax.profile-human-consent-decision/1",
+                            "requestId": request["requestId"],
+                            "approved": True,
+                        },
+                        expected_request_id=request["requestId"],
+                    )
 
             thread = threading.Thread(target=serve)
             thread.start()
@@ -85,6 +89,23 @@ class NativeProfileConsentIpcTests(unittest.TestCase):
                 "requestId": "c" * 32,
                 "approved": True,
             }, expected_request_id="a" * 32)
+
+        left, right = socket.socketpair()
+        try:
+            server = module.ProfileConsentIpcServer(socket_path="/tmp/not-opened.sock")
+            with self.assertRaisesRegex(PermissionError, "does not match"):
+                server.send_decision(
+                    left,
+                    {
+                        "schema": "ordax.profile-human-consent-decision/1",
+                        "requestId": "c" * 32,
+                        "approved": True,
+                    },
+                    expected_request_id="a" * 32,
+                )
+        finally:
+            left.close()
+            right.close()
 
     def test_existing_non_socket_path_fails_closed(self):
         module = load_module()
