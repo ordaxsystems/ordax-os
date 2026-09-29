@@ -2,8 +2,9 @@
 """Native-only one-shot authority for Profile permission consent.
 
 This module deliberately exposes no HTTP entrypoint. A trusted Native UI may
-mint a receipt after an explicit human confirmation gesture. The Surface can
-only submit a previously minted receipt for one-time consumption.
+authorize receipt minting only after an explicit human confirmation gesture.
+The receipt remains inside the Native control boundary and is consumed there;
+the Surface never transports or receives it.
 """
 
 from __future__ import annotations
