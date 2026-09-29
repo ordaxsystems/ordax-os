@@ -60,6 +60,7 @@
       "id": "odbc-driver-manager",
       "path": "dlls/odbc32/unixlib.c",
       "expression": "s",
+      "category": "environment-override-or-configured-fallback",
       "control_source": "LIB_ODBC_DRIVER_MANAGER-or-SONAME_LIBODBC",
       "source_semantics": "environment-override-precedes-configured-soname-fallback",
       "required_code_fragments": [
@@ -126,7 +127,7 @@
       "control_source": "WINEDLLPATH-with-arch-suffix",
       "source_semantics": "each-runtime-winedllpath-entry-is-tried-with-target-arch-suffix",
       "required_code_fragments": [
-        "dllpath = strarray_frompath( getenv( \"WINEDLLPATH\" ) );",
+        "dllpath = strarray_frompath( getenv( \"WINEDLLPATH\" ));",
         "STRARRAY_FOR_EACH( dir, &dllpath )",
         "dlopen( strmake( \"%s%s/ntdll.so\", dir, arch_dir ), RTLD_NOW )"
       ]
@@ -138,7 +139,7 @@
       "control_source": "WINEDLLPATH-flat",
       "source_semantics": "each-runtime-winedllpath-entry-is-also-tried-as-flat-ntdll-directory",
       "required_code_fragments": [
-        "dllpath = strarray_frompath( getenv( \"WINEDLLPATH\" ) );",
+        "dllpath = strarray_frompath( getenv( \"WINEDLLPATH\" ));",
         "STRARRAY_FOR_EACH( dir, &dllpath )",
         "dlopen( strmake( \"%s/ntdll.so\", dir ), RTLD_NOW )"
       ]
