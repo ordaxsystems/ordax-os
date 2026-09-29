@@ -75,6 +75,11 @@ function normalizeComponents(pack, label) {
       `${label} components[${index}].sha256`,
       64,
     );
+    const rawSizeBytes = component.size_bytes ?? component.sizeBytes ?? null;
+    const sizeBytes = rawSizeBytes == null ? null : rawSizeBytes;
+    if (sizeBytes !== null && (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0)) {
+      throw new TypeError(`${label} component size_bytes is invalid`);
+    }
     if (sha256 !== null && !SHA256_PATTERN.test(sha256)) {
       throw new TypeError(`${label} component sha256 is invalid`);
     }
@@ -87,7 +92,7 @@ function normalizeComponents(pack, label) {
     if (seen.has(id)) throw new TypeError(`${label} contains duplicate component id ${id}`);
     seen.add(id);
     return Object.freeze({
-      id, kind, version, required, availability, sha256, signatureRequired,
+      id, kind, version, required, availability, sha256, sizeBytes, signatureRequired,
     });
   }));
 }
