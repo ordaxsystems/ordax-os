@@ -135,9 +135,14 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
 
         self.assertIn("mountMemoryReviewControls", controls)
         self.assertIn("account.memory.review.description", controls)
+        self.assertIn("dataset.accountMemoryAutoCapture", controls)
+        self.assertIn("MEMORY_AUTO_CAPTURE_PREFERENCE_ID", controls)
+        self.assertIn("memoryAutoCaptureEnabled", controls)
         self.assertIn("memoryReviewControls?.dispose()", controls)
         self.assertIn('"account.section.memory": "Memória"', catalog)
         self.assertIn('"account.section.memory": "Memory"', catalog)
+        self.assertIn('"account.memory.autoCapture.label": "Memória automática"', catalog)
+        self.assertIn('"account.memory.autoCapture.label": "Automatic memory"', catalog)
         self.assertIn("não envia memória automaticamente para a IA", catalog)
         self.assertIn("does not automatically send memory to AI", catalog)
         self.assertIn(".ordax-memory-review-host", css)
@@ -145,10 +150,12 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("createMemoryReviewViewModel", native)
         self.assertIn("identitySessionPort: identitySession", native)
         self.assertIn("memoryReview,", native)
+        self.assertIn("spaceSelection,\n    surface.preferences,", native)
         self.assertIn("memoryReview?.dispose()", native)
         self.assertIn("memoryReviewSession?.dispose()", native)
         self.assertNotIn("createMemoryReviewSession", web)
         self.assertNotIn("createMemoryReviewViewModel", web)
+        self.assertIn("profileProvisioning,\n  null,\n  null,\n  surface.preferences,", web)
 
     def test_account_no_longer_consumes_host_capability_inventory(self):
         controls = ACCOUNT.read_text(encoding="utf-8")
