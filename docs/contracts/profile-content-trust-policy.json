@@ -52,11 +52,7 @@
     "pinning_enables_publication": false,
     "pinning_enables_installation": false,
     "pinning_enables_activation": false,
-    "healthy_stage_and_receipt_required_before_inventory_admission": true,
-    "public_promoter_source_path": "tools/profile-content-channel/promote_public_trust.py",
-    "public_handoff_required": true,
-    "public_reverification_required": true,
-    "check_before_apply_required": true
+    "healthy_stage_and_receipt_required_before_inventory_admission": true
   },
   "current_gates": {
     "canonical_profile_content_trust_anchor_pinned": false,
