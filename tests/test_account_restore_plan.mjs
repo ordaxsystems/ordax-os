@@ -30,7 +30,9 @@ function memorySyncSnapshot(overrides = {}) {
   };
 }
 
-test("restore plan orders portable state before authorized Memory and derived rebuild", () => {
+const allowMemoryRestore = () => true;
+
+test("restore plan orders portable state before explicitly authorized Memory and derived rebuild", () => {
   const plan = buildAccountRestorePlan({
     subjectId: SUBJECT,
     snapshotObjects: [
@@ -40,6 +42,7 @@ test("restore plan orders portable state before authorized Memory and derived re
       syncObject("appearance/theme", "appearance"),
     ],
     memorySyncSnapshot: memorySyncSnapshot(),
+    authorizeMemoryRestore: allowMemoryRestore,
   });
 
   assert.equal(plan.schema, ACCOUNT_RESTORE_PLAN_SCHEMA);
@@ -137,10 +140,65 @@ test("fresh restore never overwrites local pending Memory intent", () => {
   assert.equal(plan.phases[2].reason, "local-memory-pending-intent");
 });
 
+test("healthy Memory restore requires explicit trusted authorization and never self-grants", () => {
+  const objects = [syncObject("memory/bWVtb3J5LTE", "memory")];
+  const memoryState = memorySyncSnapshot();
+
+  const missingAuthorization = buildAccountRestorePlan({
+    subjectId: SUBJECT,
+    snapshotObjects: objects,
+    memorySyncSnapshot: memoryState,
+  });
+  assert.equal(missingAuthorization.foundationApplyAllowed, false);
+  assert.equal(missingAuthorization.phases[2].reason, "memory-restore-authorization-required");
+  assert.equal(missingAuthorization.grantsAuthority, false);
+
+  const denied = buildAccountRestorePlan({
+    subjectId: SUBJECT,
+    snapshotObjects: objects,
+    memorySyncSnapshot: memoryState,
+    authorizeMemoryRestore: () => false,
+  });
+  assert.equal(denied.foundationApplyAllowed, false);
+  assert.equal(denied.phases[2].reason, "memory-restore-authorization-denied");
+  assert.equal(denied.grantsAuthority, false);
+
+  let descriptor = null;
+  const allowed = buildAccountRestorePlan({
+    subjectId: SUBJECT,
+    snapshotObjects: objects,
+    memorySyncSnapshot: memoryState,
+    authorizeMemoryRestore(value) {
+      descriptor = value;
+      return true;
+    },
+  });
+  assert.equal(allowed.foundationApplyAllowed, true);
+  assert.equal(allowed.phases[2].status, "ready");
+  assert.deepEqual(descriptor, {
+    subjectId: SUBJECT,
+    dataClass: "memory",
+    operation: "restore-plan",
+    objectIds: ["memory/bWVtb3J5LTE"],
+  });
+  assert.equal(allowed.grantsAuthority, false);
+
+  assert.throws(
+    () => buildAccountRestorePlan({
+      subjectId: SUBJECT,
+      snapshotObjects: objects,
+      memorySyncSnapshot: memoryState,
+      authorizeMemoryRestore: true,
+    }),
+    /authorization must be supplied by trusted composition/,
+  );
+});
+
 test("Memory objects require the subject-bound Memory sync runtime before restore", () => {
   const plan = buildAccountRestorePlan({
     subjectId: SUBJECT,
     snapshotObjects: [syncObject("memory/bWVtb3J5LTE", "memory")],
+    authorizeMemoryRestore: allowMemoryRestore,
   });
 
   assert.equal(plan.foundationApplyAllowed, false);
@@ -199,6 +257,7 @@ test("restore planning rejects duplicate object identity and cross-account Memor
       subjectId: SUBJECT,
       snapshotObjects: [syncObject("memory/bWVtb3J5LTE", "memory")],
       memorySyncSnapshot: memorySyncSnapshot({ subjectId: "different-account" }),
+      authorizeMemoryRestore: allowMemoryRestore,
     }),
     /subject does not match/,
   );
