@@ -174,6 +174,10 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
         self.assertIn("stale = memory_b.apply", text)
         self.assertIn("client-b-stale-revision-not-rejected", text)
         self.assertIn("client-b-canonical-memory-delete-state-invalid", text)
+        self.assertIn('MEMORY_SYNC_SCHEMA = "ordax.memory-sync-payload/1"', text)
+        self.assertIn('MEMORY_SCHEMA = "ordax.memory/1"', text)
+        self.assertIn("client-b-memory-tombstone-envelope-invalid", text)
+        self.assertIn("client-b-memory-active-authority-invalid", text)
         self.assertNotIn("supabase_service_role_key", lower)
         self.assertIn('"service_role_used": False', text)
         self.assertNotIn("ordax_entitlement_grants", lower)
@@ -181,34 +185,107 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
         self.assertNotIn("update public.ordax_memory_items", lower)
         self.assertNotIn("delete from", lower)
 
-    def test_client_b_change_validation_binds_revision_tombstone_and_cursor(self):
-        delivered = {
-            "changes": [{
-                "objectId": "memory-1",
-                "dataClass": "memory",
-                "serverRevision": 2,
-                "tombstone": False,
-                "cursor": 44,
-            }]
+    @staticmethod
+    def _active_change(*, cursor: int = 44) -> dict:
+        return {
+            "objectId": "11111111-1111-1111-1111-111111111111",
+            "dataClass": "memory",
+            "serverRevision": 2,
+            "tombstone": False,
+            "cursor": cursor,
+            "payload": {
+                "schema": "ordax.memory-sync-payload/1",
+                "memory": {
+                    "schema": "ordax.memory/1",
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "ownerKind": "account",
+                    "ownerId": "22222222-2222-2222-2222-222222222222",
+                    "scope": "account",
+                    "kind": "fact",
+                    "sensitivity": "private",
+                    "content": "proof-content",
+                    "provenance": "ordax-cloud-memory-authenticated-proof/1",
+                    "sourceTimestamp": "2026-09-29T00:00:00Z",
+                    "spaceId": None,
+                    "projectId": None,
+                },
+            },
         }
+
+    def test_client_b_change_validation_binds_revision_cursor_and_runtime_payload(self):
+        delivered = {"changes": [self._active_change()]}
         item = proof_module.memory_change(
             delivered,
-            memory_id="memory-1",
+            memory_id="11111111-1111-1111-1111-111111111111",
+            owner_id="22222222-2222-2222-2222-222222222222",
             revision=2,
             tombstone=False,
             expected_cursor=44,
+            expected_content="proof-content",
         )
         self.assertEqual(item["cursor"], 44)
+
         with self.assertRaises(SystemExit):
             proof_module.memory_change(
                 delivered,
-                memory_id="memory-1",
+                memory_id="11111111-1111-1111-1111-111111111111",
+                owner_id="22222222-2222-2222-2222-222222222222",
                 revision=2,
                 tombstone=False,
                 expected_cursor=45,
+                expected_content="proof-content",
             )
 
-    def test_workflow_is_manual_secret_backed_and_receipt_only(self):
+        wrong_owner = self._active_change()
+        wrong_owner["payload"]["memory"]["ownerId"] = "33333333-3333-3333-3333-333333333333"
+        with self.assertRaises(SystemExit):
+            proof_module.memory_change(
+                {"changes": [wrong_owner]},
+                memory_id="11111111-1111-1111-1111-111111111111",
+                owner_id="22222222-2222-2222-2222-222222222222",
+                revision=2,
+                tombstone=False,
+                expected_cursor=44,
+                expected_content="proof-content",
+            )
+
+    def test_client_b_tombstone_must_be_identity_only(self):
+        tombstone = {
+            "objectId": "11111111-1111-1111-1111-111111111111",
+            "dataClass": "memory",
+            "serverRevision": 3,
+            "tombstone": True,
+            "cursor": 45,
+            "payload": {
+                "schema": "ordax.memory-sync-payload/1",
+                "memoryIdentity": {
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "ownerKind": "account",
+                    "ownerId": "22222222-2222-2222-2222-222222222222",
+                },
+            },
+        }
+        proof_module.memory_change(
+            {"changes": [tombstone]},
+            memory_id="11111111-1111-1111-1111-111111111111",
+            owner_id="22222222-2222-2222-2222-222222222222",
+            revision=3,
+            tombstone=True,
+            expected_cursor=45,
+        )
+
+        tombstone["payload"]["memory"] = {"content": "must-not-survive-forget"}
+        with self.assertRaises(SystemExit):
+            proof_module.memory_change(
+                {"changes": [tombstone]},
+                memory_id="11111111-1111-1111-1111-111111111111",
+                owner_id="22222222-2222-2222-2222-222222222222",
+                revision=3,
+                tombstone=True,
+                expected_cursor=45,
+            )
+
+    def test_workflow_is_manual_secret_backed_receipt_only_and_context_valid(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", text)
         self.assertNotIn("pull_request:", text)
@@ -228,6 +305,16 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL"', text)
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD"', text)
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", text)
+        self.assertNotIn(
+            "\n      ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}",
+            text,
+            "runner context is unavailable in jobs.<job_id>.env",
+        )
+        self.assertGreaterEqual(
+            text.count("ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}"),
+            2,
+            "receipt path must be resolved only inside step-level contexts",
+        )
 
 
 if __name__ == "__main__":

@@ -59,6 +59,23 @@
         "client_wall_clock_used": false,
         "universal_last_writer_wins": false
       },
+      "memory": {
+        "resolver_version": 1,
+        "policy": "fail-closed-pending-on-concurrent-divergence",
+        "automatic_rebase": false,
+        "manual_domain_resolution_required": true,
+        "explicit_resolution_schema": "ordax.memory-conflict-resolution/1",
+        "explicit_resolution_decisions": [
+          "preserve-local-intent",
+          "accept-authoritative-remote"
+        ],
+        "accept_remote_requires_reconciliation": true,
+        "preserve_local_requires_new_idempotency_key": true,
+        "client_wall_clock_used": false,
+        "universal_last_writer_wins": false,
+        "conflict_quarantine_survives_state_store_recovery": true,
+        "production_enabled": false
+      },
       "app-state-metadata": {
         "resolver_version": null,
         "policy": "not-implemented"
@@ -92,6 +109,54 @@
       "current_client_integration": true
     },
     {
+      "id": "memory",
+      "owner": "system/services/memory",
+      "transport_owner": "system/services/sync",
+      "cloud_boundary_contract": "docs/contracts/cloud-memory-sync-boundary.json",
+      "sync_object_role": "transport-mirror-only",
+      "stable_object_id": "memory_id",
+      "eligible_owner_kinds": [
+        "account"
+      ],
+      "eligible_scopes": [
+        "account",
+        "space"
+      ],
+      "project_scope_enabled": false,
+      "session_scope_enabled": false,
+      "device_scope_enabled": false,
+      "restricted_sensitivity_enabled": false,
+      "reconciliation_orchestrator": "system/services/sync/account-runtime.mjs",
+      "account_orchestrator_dispatch_implemented": true,
+      "account_cursor_advances_after_memory_reconciliation": true,
+      "outbound_uses_account_transport": true,
+      "data_class_runtime_owns_cursor": false,
+      "data_class_runtime_owns_transport": false,
+      "resolver_family": "versioned-memory-domain-resolver",
+      "resolver_version": 1,
+      "foundation_implementation": true,
+      "coordination_state_schema": "ordax.memory-sync-state/1",
+      "coordination_state_store_contract": "ordax.sync-state-store/1",
+      "coordination_state_subject_bound": true,
+      "coordination_state_foundation_implemented": true,
+      "coordination_state_live_adapter_wiring": false,
+      "gateway_policy_reuses_canonical_validator": true,
+      "gateway_policy_live_wiring": false,
+      "backend_atomic_mutation_rpc": "ordax_apply_memory_mutation_v1",
+      "backend_atomic_mutation_deployed": true,
+      "backend_generic_sync_rpc_accepts_memory": false,
+      "backend_never_sync_guard_source_prepared": true,
+      "backend_never_sync_guard_applied": false,
+      "backend_forget_history_scrub_source_prepared": true,
+      "backend_forget_history_scrub_applied": false,
+      "backend_identity_allocation": "server-generated-uuid-for-create",
+      "client_generated_backend_memory_id_allowed": false,
+      "live_backend_identity_binding_implemented": false,
+      "live_backend_identity_compatibility": "blocked-until-memory-id-allocation-contract",
+      "current_client_integration": false,
+      "production_enabled": false
+    },
+    {
       "id": "app-state-metadata",
       "owner": "system/services/sync",
       "resolver_family": "versioned-app-domain-resolver",
@@ -120,14 +185,25 @@
     "secure_local_token_storage_delegated_to_adapter": true,
     "tokens_inside_sync_objects_allowed": false,
     "private_device_material_inside_sync_payload_allowed": false,
-    "client_claimed_entitlements_are_authoritative": false
+    "client_claimed_entitlements_are_authoritative": false,
+    "memory_sync_cloud_state_classification": "user-cloud-state",
+    "memory_sync_implies_ai_training_authorization": false,
+    "memory_sync_implies_telemetry_authorization": false,
+    "memory_sync_implies_community_data_authorization": false,
+    "memory_sync_grants_tool_authority": false,
+    "memory_coordination_state_may_contain_session_tokens": false,
+    "memory_backend_must_reject_direct_rpc_never_sync_material": true,
+    "memory_backend_provider_is_semantic_authority": false
   },
   "offline": {
     "offline_local_work_allowed": true,
     "mutation_queue_must_be_idempotent": true,
     "reconnect_may_resume_from_opaque_cursor": true,
     "server_may_require_safe_full_resync": true,
-    "known_local_data_must_not_be_destroyed_only_because_transport_is_unavailable": true
+    "known_local_data_must_not_be_destroyed_only_because_transport_is_unavailable": true,
+    "memory_coordination_state_reuses_sync_state_store_contract": true,
+    "memory_coordination_state_save_failure_preserves_in_session_pending": true,
+    "memory_offline_create_backend_identity_contract_complete": false
   },
   "plans_and_quota": {
     "billing_implemented": false,
@@ -174,8 +250,17 @@
     "object_table": "private.ordax_sync_objects",
     "mutation_table": "private.ordax_sync_mutations",
     "mutation_rpc": "ordax_apply_sync_mutation_v2",
+    "generic_mutation_rpc_accepts_memory": false,
+    "memory_atomic_mutation_rpc": "ordax_apply_memory_mutation_v1",
+    "memory_atomic_mutation_migration": "20260929184500_cloud_memory_atomic_mutation_v1",
+    "memory_atomic_mutation_privilege_boundary_migration": "20260929190000_cloud_memory_atomic_mutation_privilege_boundary_v1",
+    "memory_atomic_mutation_status": "deployed-rollout-disabled",
+    "memory_privacy_hardening_migration": "20260929193000_cloud_memory_privacy_hardening_v1",
+    "memory_privacy_hardening_status": "source-prepared-not-applied",
     "rls_owner_scoped": true,
     "idempotent_mutations": true,
+    "idempotency_key_exact_match_guard_source_prepared": true,
+    "idempotency_key_exact_match_guard_applied": false,
     "optimistic_conflict_detection": true,
     "tombstones": true,
     "list_rpc": "ordax_list_sync_objects_v1",
@@ -195,6 +280,18 @@
       "preferences",
       "workspace-metadata"
     ],
+    "memory_never_sync_guard_source_prepared": true,
+    "memory_never_sync_guard_applied": false,
+    "memory_forget_history_scrub_source_prepared": true,
+    "memory_forget_history_scrub_applied": false,
+    "memory_gateway_policy": "infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs",
+    "memory_gateway_policy_uses_canonical_validator": true,
+    "memory_gateway_policy_live_wiring": false,
+    "memory_backend_data_class_storage_enabled": true,
+    "memory_live_client_data_class_enabled": false,
+    "memory_server_generated_identity_for_create": true,
+    "memory_client_generated_identity_enabled": false,
+    "memory_live_identity_binding_implemented": false,
     "native_loopback_gateway_routes": [
       "/auth/session",
       "/auth/login",

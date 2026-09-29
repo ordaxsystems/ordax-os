@@ -1,0 +1,220 @@
+name: Account Memory Sync Foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/ACCOUNT-SYNC-AND-PLANS.md'
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'docs/contracts/foundation.json'
+      - 'docs/contracts/memory.json'
+      - 'docs/contracts/sync-model.json'
+      - 'infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs'
+      - 'infra/supabase/product/migrations/20260929184500_cloud_memory_atomic_mutation_v1.sql'
+      - 'infra/supabase/product/migrations/20260929190000_cloud_memory_atomic_mutation_privilege_boundary_v1.sql'
+      - 'infra/supabase/product/migrations/20260929192000_cloud_memory_atomic_mutation_qualification_v1.sql'
+      - 'infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql'
+      - 'infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql'
+      - 'infra/supabase/product/migrations/20260929214500_cloud_memory_local_first_identity_v1.sql'
+      - 'services/public-identity/memory_entitlements.py'
+      - 'services/public-identity/supabase_memory.py'
+      - 'services/public-identity/supabase_sync.py'
+      - 'system/contracts/memory.mjs'
+      - 'system/contracts/sync-state-store.mjs'
+      - 'system/contracts/sync-transport.mjs'
+      - 'system/services/memory/**'
+      - 'system/services/sync/account-memory-authorization.mjs'
+      - 'system/services/sync/account-memory-continuity.mjs'
+      - 'system/services/sync/account-memory-runtime.mjs'
+      - 'system/services/sync/account-memory-session-runtime.mjs'
+      - 'system/services/sync/account-restore-plan.mjs'
+      - 'system/services/sync/account-runtime.mjs'
+      - 'system/services/sync/memory-conflict-resolution.mjs'
+      - 'system/services/sync/state-store-registry.mjs'
+      - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
+      - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
+      - 'tests/test_cloud_memory_atomic_mutation.py'
+      - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_privacy_hardening.py'
+      - 'tests/test_memory_entitlements.py'
+      - 'tests/test_account_memory_authorization.mjs'
+      - 'tests/test_account_memory_conflict_reconciliation.mjs'
+      - 'tests/test_account_memory_continuity.mjs'
+      - 'tests/test_account_memory_gateway_policy.mjs'
+      - 'tests/test_account_memory_session_runtime.mjs'
+      - 'tests/test_account_memory_transport_authorization.mjs'
+      - 'tests/test_account_memory_sync_runtime.mjs'
+      - 'tests/test_account_memory_sync_state.mjs'
+      - 'tests/test_account_memory_sync_orchestration.mjs'
+      - 'tests/test_account_memory_reinstall_restore.mjs'
+      - 'tests/test_account_restore_plan.mjs'
+      - 'tests/test_memory_conflict_resolution.mjs'
+      - 'tests/test_memory_review.mjs'
+      - 'tests/test_sync_state_namespace_registry.mjs'
+      - 'tests/test_account_sync_runtime.mjs'
+      - 'tests/test_sync_model_contract.py'
+      - '.github/workflows/account-memory-sync-foundation.yml'
+      - '.github/workflows/cloud-memory-authenticated-proof.yml'
+  pull_request:
+    paths:
+      - 'docs/ACCOUNT-SYNC-AND-PLANS.md'
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'docs/contracts/foundation.json'
+      - 'docs/contracts/memory.json'
+      - 'docs/contracts/sync-model.json'
+      - 'infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs'
+      - 'infra/supabase/product/migrations/20260929184500_cloud_memory_atomic_mutation_v1.sql'
+      - 'infra/supabase/product/migrations/20260929190000_cloud_memory_atomic_mutation_privilege_boundary_v1.sql'
+      - 'infra/supabase/product/migrations/20260929192000_cloud_memory_atomic_mutation_qualification_v1.sql'
+      - 'infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql'
+      - 'infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql'
+      - 'infra/supabase/product/migrations/20260929214500_cloud_memory_local_first_identity_v1.sql'
+      - 'services/public-identity/memory_entitlements.py'
+      - 'services/public-identity/supabase_memory.py'
+      - 'services/public-identity/supabase_sync.py'
+      - 'system/contracts/memory.mjs'
+      - 'system/contracts/sync-state-store.mjs'
+      - 'system/contracts/sync-transport.mjs'
+      - 'system/services/memory/**'
+      - 'system/services/sync/account-memory-authorization.mjs'
+      - 'system/services/sync/account-memory-continuity.mjs'
+      - 'system/services/sync/account-memory-runtime.mjs'
+      - 'system/services/sync/account-memory-session-runtime.mjs'
+      - 'system/services/sync/account-restore-plan.mjs'
+      - 'system/services/sync/account-runtime.mjs'
+      - 'system/services/sync/memory-conflict-resolution.mjs'
+      - 'system/services/sync/state-store-registry.mjs'
+      - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
+      - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
+      - 'tests/test_cloud_memory_atomic_mutation.py'
+      - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_privacy_hardening.py'
+      - 'tests/test_memory_entitlements.py'
+      - 'tests/test_account_memory_authorization.mjs'
+      - 'tests/test_account_memory_conflict_reconciliation.mjs'
+      - 'tests/test_account_memory_continuity.mjs'
+      - 'tests/test_account_memory_gateway_policy.mjs'
+      - 'tests/test_account_memory_session_runtime.mjs'
+      - 'tests/test_account_memory_transport_authorization.mjs'
+      - 'tests/test_account_memory_sync_runtime.mjs'
+      - 'tests/test_account_memory_sync_state.mjs'
+      - 'tests/test_account_memory_sync_orchestration.mjs'
+      - 'tests/test_account_memory_reinstall_restore.mjs'
+      - 'tests/test_account_restore_plan.mjs'
+      - 'tests/test_memory_conflict_resolution.mjs'
+      - 'tests/test_memory_review.mjs'
+      - 'tests/test_sync_state_namespace_registry.mjs'
+      - 'tests/test_account_sync_runtime.mjs'
+      - 'tests/test_sync_model_contract.py'
+      - '.github/workflows/account-memory-sync-foundation.yml'
+      - '.github/workflows/cloud-memory-authenticated-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  account-memory-sync-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Validate Memory sync contracts and source syntax
+        run: |
+          set -euo pipefail
+          node --check system/contracts/memory.mjs
+          node --check system/contracts/sync-state-store.mjs
+          node --check system/contracts/sync-transport.mjs
+          node --check system/services/sync/account-memory-authorization.mjs
+          node --check system/services/sync/account-memory-continuity.mjs
+          node --check system/services/sync/account-memory-runtime.mjs
+          node --check system/services/sync/account-memory-session-runtime.mjs
+          node --check system/services/sync/account-restore-plan.mjs
+          node --check system/services/sync/account-runtime.mjs
+          node --check system/services/sync/memory-conflict-resolution.mjs
+          node --check system/services/sync/state-store-registry.mjs
+          node --check system/services/memory/review.mjs
+          node --check infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs
+          node --check tests/test_account_memory_authorization.mjs
+          node --check tests/test_account_memory_conflict_reconciliation.mjs
+          node --check tests/test_account_memory_continuity.mjs
+          node --check tests/test_account_memory_gateway_policy.mjs
+          node --check tests/test_account_memory_session_runtime.mjs
+          node --check tests/test_account_memory_transport_authorization.mjs
+          node --check tests/test_account_memory_sync_runtime.mjs
+          node --check tests/test_account_memory_sync_state.mjs
+          node --check tests/test_account_memory_sync_orchestration.mjs
+          node --check tests/test_account_memory_reinstall_restore.mjs
+          node --check tests/test_account_restore_plan.mjs
+          node --check tests/test_memory_conflict_resolution.mjs
+          node --check tests/test_memory_review.mjs
+          node --check tests/test_sync_state_namespace_registry.mjs
+          python -m py_compile services/public-identity/memory_entitlements.py
+          python -m py_compile services/public-identity/supabase_memory.py
+          python -m py_compile services/public-identity/supabase_sync.py
+          python -m py_compile tools/cloud-memory/prove_authenticated_atomic_sync.py
+          python -m py_compile tests/test_cloud_memory_atomic_mutation.py
+          python -m py_compile tests/test_cloud_memory_authenticated_proof.py
+          python -m py_compile tests/test_cloud_memory_privacy_hardening.py
+          python -m py_compile tests/test_memory_entitlements.py
+          python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
+          python -m json.tool docs/contracts/foundation.json >/dev/null
+          python -m json.tool docs/contracts/memory.json >/dev/null
+          python -m json.tool docs/contracts/sync-model.json >/dev/null
+
+      - name: Execute canonical cloud Memory privacy proof on PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_cloud_memory_privacy_hardening.sql
+
+      - name: Run Memory sync foundation tests
+        run: |
+          set -euo pipefail
+          node --test tests/test_account_memory_authorization.mjs
+          node --test tests/test_account_memory_conflict_reconciliation.mjs
+          node --test tests/test_account_memory_continuity.mjs
+          node --test tests/test_account_memory_gateway_policy.mjs
+          node --test tests/test_account_memory_session_runtime.mjs
+          node --test tests/test_account_memory_transport_authorization.mjs
+          node --test tests/test_account_memory_sync_runtime.mjs
+          node --test tests/test_account_memory_sync_state.mjs
+          node --test tests/test_account_memory_sync_orchestration.mjs
+          node --test tests/test_account_memory_reinstall_restore.mjs
+          node --test tests/test_account_restore_plan.mjs
+          node --test tests/test_memory_conflict_resolution.mjs
+          node --test tests/test_memory_review.mjs
+          node --test tests/test_sync_state_namespace_registry.mjs
+          node --test tests/test_account_sync_runtime.mjs
+          python -m unittest tests.test_cloud_memory_atomic_mutation -v
+          python -m unittest tests.test_cloud_memory_authenticated_proof -v
+          python -m unittest tests.test_cloud_memory_privacy_hardening -v
+          python -m unittest tests.test_memory_entitlements -v
+          python -m unittest tests.test_sync_model_contract -v

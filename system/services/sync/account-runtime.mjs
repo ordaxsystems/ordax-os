@@ -23,6 +23,10 @@ import {
 } from "../preferences/accessibility.mjs";
 import { getPreferenceDefinition } from "../preferences/catalog.mjs";
 import {
+  MEMORY_SYNC_DATA_CLASS,
+  MEMORY_SYNC_RUNTIME_SCHEMA,
+} from "./account-memory-runtime.mjs";
+import {
   APPEARANCE_SYNC_OBJECT_ID,
   createAppearanceSyncObject,
   SYNC_MUTATION_SCHEMA,
@@ -53,6 +57,21 @@ function requireIdFactory(value) {
 function requireRevision(value) {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new TypeError("Sync server revision must be a non-negative safe integer");
+  }
+  return value;
+}
+
+function optionalMemorySyncRuntime(value) {
+  if (value === null || value === undefined) return null;
+  if (
+    !value
+    || typeof value !== "object"
+    || value.schema !== MEMORY_SYNC_RUNTIME_SCHEMA
+    || typeof value.getSnapshot !== "function"
+    || typeof value.applyRemoteBatch !== "function"
+    || typeof value.flush !== "function"
+  ) {
+    throw new TypeError("Account sync Memory reconciler is incompatible");
   }
   return value;
 }
@@ -141,6 +160,7 @@ export function createAccountSyncRuntime({
   preferences,
   workspaceMetadataSource,
   workspaceStore,
+  memorySync = null,
   createIdempotencyKey,
 }) {
   const identity = assertIdentitySessionPort(identitySession);
@@ -151,6 +171,7 @@ export function createAccountSyncRuntime({
   const preferencePort = assertPreferenceRuntimePort(preferences);
   const workspaceSource = assertWorkspaceMetadataSource(workspaceMetadataSource);
   const workspaceState = assertWorkspaceStore(workspaceStore);
+  const memoryRuntime = optionalMemorySyncRuntime(memorySync);
   const nextKey = requireIdFactory(createIdempotencyKey);
 
   const revisions = new Map(TRACKED_OBJECT_IDS.map((id) => [id, 0]));
@@ -212,17 +233,62 @@ export function createAccountSyncRuntime({
     return true;
   };
 
+  const requireMemorySubject = (subjectId) => {
+    if (!memoryRuntime) return null;
+    const snapshot = memoryRuntime.getSnapshot();
+    if (snapshot.subjectId !== subjectId) {
+      throw new Error("Account sync Memory reconciler subject does not match the active account");
+    }
+    return snapshot;
+  };
+
+  const requireMemoryReconciliationSettled = (subjectId) => {
+    if (!memoryRuntime) return null;
+    const snapshot = requireMemorySubject(subjectId);
+    if (!Number.isSafeInteger(snapshot.conflictCount) || snapshot.conflictCount < 0) {
+      throw new TypeError("Account sync Memory conflict state is incompatible");
+    }
+    if (snapshot.conflictCount > 0) {
+      throw new Error("Account sync Memory reconciliation remains unresolved");
+    }
+    return snapshot;
+  };
+
+  const reconcileMemoryObjects = async (objects, subjectId) => {
+    if (!memoryRuntime) return null;
+    requireMemorySubject(subjectId);
+    const memoryObjects = objects.filter(
+      (object) => object && typeof object === "object" && object.dataClass === MEMORY_SYNC_DATA_CLASS,
+    );
+    if (memoryObjects.length === 0) {
+      requireMemoryReconciliationSettled(subjectId);
+      return Object.freeze({ applied: 0, ignored: 0, rejected: 0, blocked: 0 });
+    }
+    const result = await memoryRuntime.applyRemoteBatch(memoryObjects);
+    if (result.rejected > 0 || result.blocked > 0) {
+      throw new Error("Account sync Memory reconciliation did not safely consume the remote batch");
+    }
+    requireMemoryReconciliationSettled(subjectId);
+    return result;
+  };
+
   const currentSnapshot = () => {
     const identitySnapshot = identity.getSnapshot();
     const preferenceSnapshot = preferenceSync.getSnapshot();
+    const memorySnapshot = memoryRuntime?.getSnapshot() ?? null;
     const otherPending = pending.size + Number(preferencesDirty) + Number(workspaceDirty);
+    const memoryPending = memorySnapshot?.pendingMutationCount ?? 0;
+    const anySessionPending = otherPending > 0
+      || (memoryPending > 0 && memorySnapshot?.queuePersistence === "session");
     return validateSyncRuntimeSnapshot({
       transport: identitySnapshot.state === "unavailable" ? "host-required" : "available",
       accountContinuity:
         identitySnapshot.state === "signed-in" && initialized ? "active" : "not-active",
-      pendingMutationCount: preferenceSnapshot.pendingMutationCount + otherPending,
-      queuePersistence: otherPending > 0 ? "session" : preferenceSnapshot.queuePersistence,
-      trackedDataClasses: ["appearance", "preferences", "workspace-metadata"],
+      pendingMutationCount: preferenceSnapshot.pendingMutationCount + otherPending + memoryPending,
+      queuePersistence: anySessionPending ? "session" : preferenceSnapshot.queuePersistence,
+      trackedDataClasses: memoryRuntime
+        ? ["appearance", "preferences", "workspace-metadata", MEMORY_SYNC_DATA_CLASS]
+        : ["appearance", "preferences", "workspace-metadata"],
     });
   };
 
@@ -327,8 +393,6 @@ export function createAccountSyncRuntime({
 
       const acknowledged = preferenceSync.acknowledge(current.idempotencyKey, revision);
       if (!acknowledged && preferenceSync.pendingMutations().length > 0) {
-        // Local intent changed while this request was in flight. Rebase the
-        // newest compacted value on the revision that the server accepted.
         preferenceSync.rebasePending(revision);
         retryRequested = true;
       }
@@ -371,8 +435,6 @@ export function createAccountSyncRuntime({
       if (latest?.idempotencyKey === current.idempotencyKey) {
         pending.delete(objectId);
       } else if (latest) {
-        // A newer local value replaced the in-flight mutation. Keep that value
-        // and rebase it on the accepted authoritative revision.
         rebasePortablePending(objectId, revision);
         retryRequested = true;
       }
@@ -382,7 +444,8 @@ export function createAccountSyncRuntime({
   };
 
   async function flush() {
-    if (destroyed || syncing || identity.getSnapshot().state !== "signed-in" || !initialized) {
+    const identitySnapshot = identity.getSnapshot();
+    if (destroyed || syncing || identitySnapshot.state !== "signed-in" || !initialized) {
       return;
     }
     syncing = true;
@@ -391,6 +454,10 @@ export function createAccountSyncRuntime({
       await flushAppearance();
       for (const [objectId, pendingMutation] of [...pending]) {
         await flushPortableObject(objectId, pendingMutation);
+      }
+      if (memoryRuntime) {
+        requireMemorySubject(identitySnapshot.subjectId);
+        await memoryRuntime.flush(remote);
       }
     } finally {
       syncing = false;
@@ -462,7 +529,7 @@ export function createAccountSyncRuntime({
     return false;
   };
 
-  const applyInitialSnapshot = (objects) => {
+  const applyInitialSnapshot = async (objects, subjectId) => {
     const byId = new Map(objects.map((object) => [object.objectId, object]));
 
     const appearance = byId.get(APPEARANCE_SYNC_OBJECT_ID);
@@ -506,15 +573,18 @@ export function createAccountSyncRuntime({
     } else {
       queueWorkspace();
     }
+
+    await reconcileMemoryObjects(objects, subjectId);
   };
 
-  async function pullRemoteChanges() {
+  async function pullRemoteChanges(subjectId) {
     for (let page = 0; page < MAX_PULL_PAGES_PER_REFRESH; page += 1) {
       const result = await remote.pullChanges({
         afterCursor: checkpointCursor,
         limit: PULL_PAGE_SIZE,
       });
       for (const change of result.changes) applyRemoteObject(change);
+      await reconcileMemoryObjects(result.changes, subjectId);
       checkpointCursor = result.nextCursor;
       checkpointLoaded = true;
       persistCheckpoint();
@@ -537,15 +607,16 @@ export function createAccountSyncRuntime({
 
     const subjectId = identitySnapshot.subjectId;
     if (activeSubjectId !== subjectId) recoverCheckpoint(subjectId);
+    if (memoryRuntime) requireMemorySubject(subjectId);
 
     initialized = false;
     emit();
     try {
       if (checkpointLoaded) {
-        await pullRemoteChanges();
+        await pullRemoteChanges(subjectId);
       } else {
         const snapshot = await remote.snapshot({ limit: 200 });
-        applyInitialSnapshot(snapshot.objects);
+        await applyInitialSnapshot(snapshot.objects, subjectId);
         checkpointCursor = snapshot.cursor;
         checkpointLoaded = true;
         persistCheckpoint();

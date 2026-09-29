@@ -3,8 +3,9 @@
 
 The proof signs the same dedicated non-admin account into two independent
 sessions. Client A mutates canonical Memory; Client B proves delivery through
-the sync stream, attempts a stale concurrent edit, and observes the final
-tombstone/canonical deleted state.
+the sync stream, validates the exact payload contract consumed by the account
+Memory runtime, attempts a stale concurrent edit, and observes the final
+identity-only tombstone/canonical deleted state.
 
 The memory.cloud.enabled entitlement must already exist. This proof never
 creates grants, never uses service-role authority, never prints credentials or
@@ -31,6 +32,11 @@ from supabase_password import SupabasePasswordProvider  # noqa: E402
 from supabase_sync import SupabaseSyncProvider  # noqa: E402
 
 
+MEMORY_SYNC_SCHEMA = "ordax.memory-sync-payload/1"
+MEMORY_SCHEMA = "ordax.memory/1"
+MEMORY_PROVENANCE = "ordax-cloud-memory-authenticated-proof/1"
+
+
 def fail(reason: str) -> NoReturn:
     raise SystemExit(f"CLOUD_MEMORY_AUTHENTICATED_PROOF=FAIL reason={reason}")
 
@@ -46,13 +52,78 @@ def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def validate_memory_transport_payload(
+    item: dict,
+    *,
+    memory_id: str,
+    owner_id: str,
+    tombstone: bool,
+    expected_content: str | None,
+) -> None:
+    payload = item.get("payload")
+    if not isinstance(payload, dict) or payload.get("schema") != MEMORY_SYNC_SCHEMA:
+        fail("client-b-memory-sync-payload-schema-invalid")
+
+    if tombstone:
+        if set(payload) != {"schema", "memoryIdentity"}:
+            fail("client-b-memory-tombstone-envelope-invalid")
+        identity = payload.get("memoryIdentity")
+        if not isinstance(identity, dict) or set(identity) != {"id", "ownerKind", "ownerId"}:
+            fail("client-b-memory-tombstone-identity-invalid")
+        if (
+            identity.get("id") != memory_id
+            or identity.get("ownerKind") != "account"
+            or identity.get("ownerId") != owner_id
+        ):
+            fail("client-b-memory-tombstone-authority-invalid")
+        return
+
+    if set(payload) != {"schema", "memory"}:
+        fail("client-b-memory-active-envelope-invalid")
+    memory = payload.get("memory")
+    expected_keys = {
+        "schema",
+        "id",
+        "ownerKind",
+        "ownerId",
+        "scope",
+        "kind",
+        "sensitivity",
+        "content",
+        "provenance",
+        "sourceTimestamp",
+        "spaceId",
+        "projectId",
+    }
+    if not isinstance(memory, dict) or set(memory) != expected_keys:
+        fail("client-b-memory-active-shape-invalid")
+    if (
+        memory.get("schema") != MEMORY_SCHEMA
+        or memory.get("id") != memory_id
+        or memory.get("ownerKind") != "account"
+        or memory.get("ownerId") != owner_id
+        or memory.get("scope") != "account"
+        or memory.get("kind") != "fact"
+        or memory.get("sensitivity") != "private"
+        or memory.get("content") != expected_content
+        or memory.get("provenance") != MEMORY_PROVENANCE
+        or memory.get("spaceId") is not None
+        or memory.get("projectId") is not None
+        or not isinstance(memory.get("sourceTimestamp"), str)
+        or not memory.get("sourceTimestamp")
+    ):
+        fail("client-b-memory-active-authority-invalid")
+
+
 def memory_change(
     delivered: dict,
     *,
     memory_id: str,
+    owner_id: str,
     revision: int,
     tombstone: bool,
     expected_cursor: int,
+    expected_content: str | None = None,
 ) -> dict:
     changes = delivered.get("changes")
     if not isinstance(changes, list):
@@ -71,6 +142,13 @@ def memory_change(
         fail(f"client-b-memory-revision-{revision}-tombstone-invalid")
     if item.get("cursor") != expected_cursor:
         fail(f"client-b-memory-revision-{revision}-cursor-mismatch")
+    validate_memory_transport_payload(
+        item,
+        memory_id=memory_id,
+        owner_id=owner_id,
+        tombstone=tombstone,
+        expected_content=expected_content,
+    )
     return item
 
 
@@ -112,8 +190,10 @@ def write_receipt(
         "client_b_entitlement_preexisted": True,
         "client_b_create_seen": True,
         "client_b_edit_seen": True,
+        "client_b_runtime_payload_contract_seen": True,
         "client_b_stale_conflict_rejected": True,
         "client_b_delete_tombstone_seen": True,
+        "client_b_identity_only_tombstone_seen": True,
         "client_b_canonical_deleted_seen": True,
         "direct_memory_table_write_used": False,
         "service_role_used": False,
@@ -169,6 +249,7 @@ def main() -> int:
             fail("session-missing")
         if auth_a.subject_id != auth_b.subject_id:
             fail("same-account-subject-mismatch")
+        account_subject = auth_a.subject_id
 
         token_a = auth_a.session.access_token
         token_b = auth_b.session.access_token
@@ -184,6 +265,7 @@ def main() -> int:
         initial_cursor = before_b["cursor"]
 
         unique = secrets.token_hex(18)
+        create_content = f"OrdaX cloud Memory two-client proof {unique}"
         created = memory_a.apply(
             token_a,
             idempotency_key=f"memory-proof-create-{unique}",
@@ -192,8 +274,8 @@ def main() -> int:
             space_id=None,
             kind="fact",
             sensitivity="private",
-            content=f"OrdaX cloud Memory two-client proof {unique}",
-            provenance="ordax-cloud-memory-authenticated-proof/1",
+            content=create_content,
+            provenance=MEMORY_PROVENANCE,
             source_timestamp=iso_now(),
             confidence=1.0,
             base_server_revision=0,
@@ -221,11 +303,14 @@ def main() -> int:
         create_seen = memory_change(
             create_delivery,
             memory_id=memory_id,
+            owner_id=account_subject,
             revision=1,
             tombstone=False,
             expected_cursor=created.change_cursor,
+            expected_content=create_content,
         )
 
+        edit_content = f"OrdaX cloud Memory two-client proof edited {unique}"
         edited = memory_a.apply(
             token_a,
             idempotency_key=f"memory-proof-edit-{unique}",
@@ -234,8 +319,8 @@ def main() -> int:
             space_id=None,
             kind="fact",
             sensitivity="private",
-            content=f"OrdaX cloud Memory two-client proof edited {unique}",
-            provenance="ordax-cloud-memory-authenticated-proof/1",
+            content=edit_content,
+            provenance=MEMORY_PROVENANCE,
             source_timestamp=iso_now(),
             confidence=1.0,
             base_server_revision=created.server_revision,
@@ -261,9 +346,11 @@ def main() -> int:
         edit_seen = memory_change(
             edit_delivery,
             memory_id=memory_id,
+            owner_id=account_subject,
             revision=2,
             tombstone=False,
             expected_cursor=edited.change_cursor,
+            expected_content=edit_content,
         )
 
         stale = memory_b.apply(
@@ -275,7 +362,7 @@ def main() -> int:
             kind="fact",
             sensitivity="private",
             content=f"OrdaX cloud Memory client B stale edit {unique}",
-            provenance="ordax-cloud-memory-authenticated-proof/1",
+            provenance=MEMORY_PROVENANCE,
             source_timestamp=iso_now(),
             confidence=1.0,
             base_server_revision=created.server_revision,
@@ -298,7 +385,7 @@ def main() -> int:
             kind="fact",
             sensitivity="private",
             content="deleted-proof-placeholder",
-            provenance="ordax-cloud-memory-authenticated-proof/1",
+            provenance=MEMORY_PROVENANCE,
             source_timestamp=iso_now(),
             confidence=1.0,
             base_server_revision=edited.server_revision,
@@ -325,6 +412,7 @@ def main() -> int:
         memory_change(
             delete_delivery,
             memory_id=memory_id,
+            owner_id=account_subject,
             revision=3,
             tombstone=True,
             expected_cursor=removed.change_cursor,
@@ -351,7 +439,7 @@ def main() -> int:
         )
         print(
             "CLOUD_MEMORY_AUTHENTICATED_PROOF=PASS "
-            "two_clients=YES "
+            "two_clients=YES runtime_payload=YES identity_only_tombstone=YES "
             f"create_revision={created.server_revision} "
             f"edit_revision={edited.server_revision} "
             f"delete_revision={removed.server_revision}"
@@ -374,7 +462,7 @@ def main() -> int:
                     kind="fact",
                     sensitivity="private",
                     content="cleanup-proof-placeholder",
-                    provenance="ordax-cloud-memory-authenticated-proof/1",
+                    provenance=MEMORY_PROVENANCE,
                     source_timestamp=iso_now(),
                     confidence=1.0,
                     base_server_revision=cleanup_revision,
