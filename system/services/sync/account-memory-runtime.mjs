@@ -27,6 +27,7 @@ const CONFLICT_REASONS = new Set([
   "concurrent-remote-update",
   "server-conflict",
   "local-change-during-flight",
+  "reconciliation-required",
 ]);
 
 const NEVER_SYNC_TEXT_PATTERNS = Object.freeze([
@@ -556,6 +557,64 @@ export function createAccountMemorySyncRuntime({
     return Object.freeze({ status: "pending", reason: "queued", objectId });
   };
 
+  const applyConflictResolution = (resolution) => {
+    if (!resolution || typeof resolution !== "object" || Array.isArray(resolution)) {
+      throw new TypeError("Memory conflict resolution result must be an object");
+    }
+    if (resolution.schema !== "ordax.memory-conflict-resolution/1" || resolution.automatic !== false) {
+      throw new TypeError("Memory conflict resolution result is incompatible");
+    }
+    const objectId = validateMemorySyncObjectId(resolution.objectId);
+    const conflict = conflicts.get(objectId);
+    if (!conflict) throw new Error("Memory conflict is no longer pending");
+    const authoritativeRevision = requireRevision(
+      resolution.authoritativeServerRevision,
+      "Memory conflict authoritative revision",
+      { allowZero: false },
+    );
+    if (authoritativeRevision !== conflict.serverRevision) {
+      throw new Error("Memory conflict resolution revision does not match quarantine state");
+    }
+
+    if (resolution.decision === "preserve-local-intent") {
+      const replacement = validateMemorySyncMutation(resolution.replacementMutation, { subjectId: subject });
+      if (
+        replacement.objectId !== objectId
+        || replacement.baseServerRevision !== authoritativeRevision
+        || resolution.discardPendingIntent !== false
+        || resolution.requiresRemoteReconciliation !== false
+        || resolution.appliesRemoteState !== false
+      ) {
+        throw new TypeError("Memory preserve-local conflict resolution is incompatible");
+      }
+      pending.set(objectId, replacement);
+      conflicts.delete(objectId);
+      revisions.set(objectId, authoritativeRevision);
+      persistCoordinationState();
+      return Object.freeze({ status: "pending", reason: "local-intent-rebased", objectId });
+    }
+
+    if (
+      resolution.decision !== "accept-authoritative-remote"
+      || resolution.replacementMutation !== null
+      || resolution.discardPendingIntent !== true
+      || resolution.requiresRemoteReconciliation !== true
+      || resolution.appliesRemoteState !== false
+    ) {
+      throw new TypeError("Memory accept-remote conflict resolution is incompatible");
+    }
+
+    pending.delete(objectId);
+    revisions.set(objectId, authoritativeRevision);
+    conflicts.set(objectId, Object.freeze({
+      objectId,
+      reason: "reconciliation-required",
+      serverRevision: authoritativeRevision,
+    }));
+    persistCoordinationState();
+    return Object.freeze({ status: "reconciliation-required", reason: "authoritative-remote-not-yet-applied", objectId });
+  };
+
   const applyRemoteObject = async (value) => {
     if (!value || typeof value !== "object" || value.dataClass !== MEMORY_SYNC_DATA_CLASS) {
       return Object.freeze({ status: "ignored", reason: "other-data-class", objectId: null });
@@ -573,8 +632,30 @@ export function createAccountMemorySyncRuntime({
 
     const knownRevision = revisions.get(objectId) ?? 0;
     const incomingFingerprint = objectFingerprint(object);
+    const quarantined = conflicts.get(objectId);
     if (object.serverRevision < knownRevision) {
       return Object.freeze({ status: "ignored", reason: "stale-revision", objectId });
+    }
+    if (quarantined?.reason === "reconciliation-required") {
+      if (object.serverRevision < quarantined.serverRevision) {
+        return Object.freeze({ status: "ignored", reason: "stale-reconciliation-revision", objectId });
+      }
+      if (object.tombstone) {
+        memory.forget(object.payload.memoryIdentity);
+      } else {
+        memory.remember(object.payload.memory);
+      }
+      await memory.flush();
+      pending.delete(objectId);
+      conflicts.delete(objectId);
+      revisions.set(objectId, object.serverRevision);
+      fingerprints.set(objectId, incomingFingerprint);
+      persistCoordinationState();
+      return Object.freeze({
+        status: object.tombstone ? "forgotten" : "applied",
+        reason: "authoritative-remote-reconciliation",
+        objectId,
+      });
     }
     if (object.serverRevision === knownRevision && knownRevision !== 0) {
       if (fingerprints.get(objectId) === incomingFingerprint) {
@@ -708,6 +789,9 @@ export function createAccountMemorySyncRuntime({
     subjectId: subject,
     pendingMutationCount: pending.size,
     conflictCount: conflicts.size,
+    reconciliationRequiredCount: [...conflicts.values()].filter(
+      (conflict) => conflict.reason === "reconciliation-required",
+    ).length,
     revisionCount: revisions.size,
     queuePersistence,
     recoveredCoordinationState: recovered.recovered,
@@ -734,6 +818,7 @@ export function createAccountMemorySyncRuntime({
     },
     stageUpsert,
     stageForget,
+    applyConflictResolution,
     applyRemoteObject,
     applyRemoteBatch,
     flush,
