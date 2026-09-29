@@ -16,9 +16,12 @@
     "caller_module_evidence_binding_required": true,
     "module_makefile_digest_binding_required": true,
     "unixlib_source_identity_required": true,
+    "real_generated_config_h_required": true,
+    "configured_symbol_state_parser_reuse_required": true,
+    "disabled_only_modules_do_not_require_staged_elf": true,
     "stage_manifest_recomputation_required": true,
     "all_same_basename_stage_candidates_inspected": true,
-    "exactly_one_compatible_staged_elf_required": true,
+    "exactly_one_compatible_staged_elf_required_for_enabled_modules": true,
     "rooted_symlink_resolution_required": true,
     "first_basename_candidate_selection_allowed": false,
     "rpath_runpath_resolution_complete": false,
@@ -27,7 +30,11 @@
   "expected": {
     "caller_modules": 15,
     "configured_soname_callsites": 32,
-    "configured_soname_symbols": 24
+    "configured_soname_symbols": 24,
+    "defined_callsites": 30,
+    "disabled_callsites": 2,
+    "staged_caller_modules": 13,
+    "disabled_only_modules": 2
   },
   "open_boundaries": {
     "caller_rpath_runpath_verified": false,
