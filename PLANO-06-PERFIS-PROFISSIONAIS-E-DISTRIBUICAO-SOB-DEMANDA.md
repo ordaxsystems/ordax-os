@@ -186,6 +186,16 @@ Esse gate continua bloqueado até existir um Profile canônico com componente re
 
 Serve como prova da composição e pode continuar interno no MVP enquanto apps/capabilities reais são conectados.
 
+O primeiro conteúdo técnico real já possui **source canônico determinístico** em
+`system/profile-content-sources/developer-core/v0.1.0/`, com manifest de
+Profile content, hashes por entrada e binding a fontes versionadas do próprio
+repositório. O componente `knowledge.developer-core@0.1.0` permanece
+`planned`, sem publish hash no Profile Pack e sem envelope assinado. Isso
+prepara o candidato para a primeira prova pública sem confundir source pronto
+com publicação/trust concluídos. A transição para `available` exige artefato
+assinado sob a âncora canônica, publicação real, receipt/install/health e revisão
+do conteúdo.
+
 ### Legal BR / Advocacia Brasil
 
 O catálogo pode conhecer o Profile, mas a ativação pública permanece bloqueada até existir:

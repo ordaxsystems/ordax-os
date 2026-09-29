@@ -30,5 +30,15 @@
     "allow_unsigned_apps": false,
     "generic_shell_implied": false
   },
-  "components": []
+  "components": [
+    {
+      "id": "knowledge.developer-core",
+      "kind": "knowledge-pack",
+      "version": "0.1.0",
+      "required": true,
+      "availability": "planned",
+      "sha256": null,
+      "signature_required": true
+    }
+  ]
 }
