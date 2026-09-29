@@ -152,6 +152,10 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - manifests versionados são a fonte única da composição do Profile; o catálogo de distribuição mantém somente política de entrega e deriva componentes dos manifests validados;
 - o receipt humano não atravessa Surface nem HTTP: o Native control server solicita o diálogo, recebe a decisão, emite o receipt one-shot e o consome internamente antes da mutação;
 - o prompt Native confiável reutiliza a preferência persistida `regional.locale` e possui catálogo mínimo próprio apenas para mensagens de segurança (PT-BR, EN-US, ES-ES, DE-DE, FR-FR), com fallback PT-BR; isso não cria uma segunda UI/localização do produto;
+- a seleção de “Space em uso” é explícita e separada das áreas visuais do desktop: somente um Space ativo retornado pelo catálogo autenticado pode ser selecionado;
+- a seleção local é vinculada ao `subjectId` da conta e persiste somente `subjectId + selectedSpaceId`; troca/logout de identidade não pode herdar o Space de outro usuário;
+- indisponibilidade temporária do catálogo oculta o Space selecionado sem convertê-lo em autorização; quando o catálogo autenticado volta, a seleção só é restaurada se o mesmo Space continuar ativo e visível;
+- Space selecionado é contexto/navegação, não membership, permissão, Profile activation nem fonte de autoridade;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
