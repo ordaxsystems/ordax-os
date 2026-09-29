@@ -161,8 +161,13 @@ insert into cloud_memory_proof(memory_id)
 select memory_id from applied
 where applied is true and conflict is false and server_revision = 1;
 
-select case when count(*) = 1 then 1 else 1 / 0 end
-from cloud_memory_proof;
+do $$
+begin
+  if (select count(*) from cloud_memory_proof) <> 1 then
+    raise exception 'canonical Memory create did not return exactly one stable identity';
+  end if;
+end;
+$$;
 
 -- Known never-sync material must fail inside the atomic write transaction. No
 -- Memory item, sync object or mutation may survive the rejected statement.
@@ -203,27 +208,31 @@ begin
 end;
 $$;
 
-if exists (
-  select 1
-  from public.ordax_memory_items
-  where content ilike '%secret-token-value-123456%'
-     or content ilike '%not-a-cloud-memory-secret%'
-     or content ilike '%abcdef0123456789abcdef%'
-     or content ilike '%private-material%'
-) then
-  \quit 31
-end if
+do $$
+begin
+  if exists (
+    select 1
+    from public.ordax_memory_items
+    where content ilike '%secret-token-value-123456%'
+       or content ilike '%not-a-cloud-memory-secret%'
+       or content ilike '%abcdef0123456789abcdef%'
+       or content ilike '%private-material%'
+  ) then
+    raise exception 'rejected never-sync material reached Memory source of truth';
+  end if;
 
-if exists (
-  select 1
-  from private.ordax_sync_mutations
-  where payload::text ilike '%secret-token-value-123456%'
-     or payload::text ilike '%not-a-cloud-memory-secret%'
-     or payload::text ilike '%abcdef0123456789abcdef%'
-     or payload::text ilike '%private-material%'
-) then
-  \quit 32
-end if
+  if exists (
+    select 1
+    from private.ordax_sync_mutations
+    where payload::text ilike '%secret-token-value-123456%'
+       or payload::text ilike '%not-a-cloud-memory-secret%'
+       or payload::text ilike '%abcdef0123456789abcdef%'
+       or payload::text ilike '%private-material%'
+  ) then
+    raise exception 'rejected never-sync material reached mutation history';
+  end if;
+end;
+$$;
 
 -- Forget is atomic and must make every replayable historical mutation for that
 -- identity content-free while preserving rows/change cursors.
