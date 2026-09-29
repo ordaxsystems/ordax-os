@@ -240,3 +240,14 @@ export function assertProfileActivationStatePort(port) {
   validateProfileActivationState(port.getSnapshot());
   return port;
 }
+
+
+export function assertMutableProfileActivationStatePort(port) {
+  assertProfileActivationStatePort(port);
+  for (const method of ["previewActivation", "activate", "deactivate", "rollback"]) {
+    if (typeof port[method] !== "function") {
+      throw new TypeError(`Mutable Profile activation state port must implement ${method}()`);
+    }
+  }
+  return port;
+}
