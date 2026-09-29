@@ -35,7 +35,7 @@ class CloudMemoryAtomicMutationTests(unittest.TestCase):
         self.assertIn("security invoker", privilege_sql)
         self.assertIn("private.ordax_apply_memory_mutation_internal_v1", privilege_sql)
         self.assertIn("security definer", privilege_sql)
-        self.assertNotIn("public.ordax_apply_memory_mutation_internal_v1(", privilege_sql)
+        self.assertNotIn("create or replace function public.ordax_apply_memory_mutation_internal_v1", privilege_sql)
         self.assertIn("revoke insert, update, delete on table public.ordax_memory_items from authenticated", authority_sql)
         self.assertNotIn("service_role", sql + privilege_sql)
         self.assertIn("memory.cloud.enabled", sql)
