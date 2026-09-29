@@ -209,6 +209,7 @@ def execute_profile_activation_command(
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
     human_consent_authority=None,
+    human_consent_resolver=None,
 ) -> dict:
     if distribution_profile != "owner-development":
         raise PermissionError("Profile activation command is unavailable in this distribution")
@@ -224,8 +225,6 @@ def execute_profile_activation_command(
             activate_fields = {*activate_fields, "activatedAt"}
             if "acceptedPermissionDiffSha256" in payload:
                 activate_fields.add("acceptedPermissionDiffSha256")
-            if "humanConsent" in payload:
-                activate_fields.add("humanConsent")
         if set(payload) != activate_fields:
             raise ValueError("Profile activate command fields are incompatible")
         if payload.get("schema") != COMMAND_SCHEMA:
@@ -265,12 +264,22 @@ def execute_profile_activation_command(
         if permission_diff["requiresExplicitReview"]:
             if not isinstance(accepted_digest, str) or accepted_digest != review_digest:
                 raise PermissionError("Profile permission diff acceptance is missing or stale")
-            if human_consent_authority is None:
+            if human_consent_authority is None or human_consent_resolver is None:
                 raise PermissionError(
                     "Profile component activation awaits a trusted human confirmation surface"
                 )
+            consent_receipt = human_consent_resolver(
+                permission_diff=permission_diff,
+                permission_diff_sha256=review_digest,
+                expected_revision=expected_revision,
+                space_id=space_id,
+                space_kind=space_kind,
+                profile=profile,
+            )
+            if consent_receipt is None:
+                raise PermissionError("Profile component activation was rejected by the user")
             human_consent_authority.consume(
-                payload.get("humanConsent"),
+                consent_receipt,
                 permission_diff_sha256=review_digest,
                 expected_revision=expected_revision,
                 space_id=space_id,
