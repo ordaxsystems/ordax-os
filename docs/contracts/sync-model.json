@@ -59,6 +59,15 @@
         "client_wall_clock_used": false,
         "universal_last_writer_wins": false
       },
+      "memory": {
+        "resolver_version": 1,
+        "policy": "fail-closed-pending-on-concurrent-divergence",
+        "automatic_rebase": false,
+        "manual_domain_resolution_required": true,
+        "client_wall_clock_used": false,
+        "universal_last_writer_wins": false,
+        "production_enabled": false
+      },
       "app-state-metadata": {
         "resolver_version": null,
         "policy": "not-implemented"
@@ -92,6 +101,17 @@
       "current_client_integration": true
     },
     {
+      "id": "memory",
+      "owner": "system/services/memory",
+      "transport_owner": "system/services/sync",
+      "resolver_family": "versioned-memory-domain-resolver",
+      "resolver_version": 1,
+      "foundation_implementation": true,
+      "current_client_integration": false,
+      "backend_acceptance_enabled": false,
+      "production_enabled": false
+    },
+    {
       "id": "app-state-metadata",
       "owner": "system/services/sync",
       "resolver_family": "versioned-app-domain-resolver",
@@ -120,7 +140,12 @@
     "secure_local_token_storage_delegated_to_adapter": true,
     "tokens_inside_sync_objects_allowed": false,
     "private_device_material_inside_sync_payload_allowed": false,
-    "client_claimed_entitlements_are_authoritative": false
+    "client_claimed_entitlements_are_authoritative": false,
+    "memory_sync_cloud_state_classification": "user-cloud-state",
+    "memory_sync_implies_ai_training_authorization": false,
+    "memory_sync_implies_telemetry_authorization": false,
+    "memory_sync_implies_community_data_authorization": false,
+    "memory_sync_grants_tool_authority": false
   },
   "offline": {
     "offline_local_work_allowed": true,
@@ -195,6 +220,7 @@
       "preferences",
       "workspace-metadata"
     ],
+    "memory_data_class_enabled": false,
     "native_loopback_gateway_routes": [
       "/auth/session",
       "/auth/login",
