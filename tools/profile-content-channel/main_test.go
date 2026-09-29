@@ -152,6 +152,37 @@ func TestProfileContentRoundTripUsesSeparateTrustDomain(t *testing.T) {
 	}
 }
 
+
+func TestDeriveTrustReproducesGeneratedPublicAnchor(t *testing.T) {
+	dir := t.TempDir()
+	privatePath := filepath.Join(dir, "private.pem")
+	trustPath := filepath.Join(dir, "trust.json")
+	derivedPath := filepath.Join(dir, "derived-trust.json")
+	const keyID = "ordax-profile-content-v1"
+
+	if err := generateKey(privatePath, trustPath, keyID); err != nil {
+		t.Fatal(err)
+	}
+	if err := deriveTrust(privatePath, derivedPath, keyID); err != nil {
+		t.Fatal(err)
+	}
+	trustBytes, err := os.ReadFile(trustPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivedBytes, err := os.ReadFile(derivedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(trustBytes) != string(derivedBytes) {
+		t.Fatal("independently derived Profile content trust differs from generated public anchor")
+	}
+	if err := deriveTrust(privatePath, derivedPath, keyID); err == nil ||
+		!strings.Contains(err.Error(), "overwrite is forbidden") {
+		t.Fatalf("derive-trust overwrite error = %v", err)
+	}
+}
+
 func TestTamperedContentAndWrongTrustFailClosed(t *testing.T) {
 	dir := t.TempDir()
 	content := knowledgePackBytes(t, "trusted bytes")
