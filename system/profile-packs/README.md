@@ -17,9 +17,9 @@ The user account profile remains separate from Profile Packs.
 
 ## Distribution and provisioning
 
-Profile manifests describe composition. Distribution is a separate boundary.
+Profile manifests are the single source of truth for composition. Distribution is a separate boundary that owns only delivery policy such as bundled/on-demand mode, public-install gating, offline expectations and artifact size metadata.
 
-`system/profile-packs/distributions.mjs` is the lightweight local distribution catalog.
+`system/profile-packs/distributions.mjs` is the lightweight local delivery-policy catalog. Component composition is never duplicated there: it is derived from the validated versioned manifests.
 `ordax.profile-provisioning/1` plans what is already present, what is missing, whether
 network is required and whether activation is allowed.
 

@@ -57,6 +57,13 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
             row = result["state"]["spaces"][0]
             self.assertEqual(row["spaceKind"], "professional")
             self.assertEqual(row["current"]["profile"], {"slug": "developer", "version": 1})
+            self.assertEqual(result["permissionDiff"], {
+                "schema": "ordax.profile-permission-diff/1",
+                "componentAdds": [],
+                "componentRemovals": [],
+                "authorityChanges": [],
+                "requiresExplicitReview": False,
+            })
 
     def test_stable_and_manifest_blocked_profiles_fail_closed(self):
         module = load_module()
@@ -101,8 +108,171 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 "receiptSha256": "b" * 64,
                 "installedAt": 1,
             }]
-            with self.assertRaisesRegex(PermissionError, "canonical provisioning receipt"):
+            with self.assertRaisesRegex(ValueError, "outside the canonical manifest"):
                 module.execute_profile_activation_command(payload, **args)
+
+    def test_canonical_component_binding_emits_permission_diff_and_blocks_unreviewed_activation(self):
+        module = load_module()
+        manifest = {
+            "components": [{
+                "id": "knowledge.example",
+                "kind": "knowledge-pack",
+                "version": "1.0.0",
+                "required": True,
+                "availability": "available",
+                "sha256": "a" * 64,
+                "signature_required": True,
+            }]
+        }
+        component = {
+            "id": "knowledge.example",
+            "kind": "knowledge-pack",
+            "version": "1.0.0",
+            "sha256": "a" * 64,
+            "receiptSha256": "b" * 64,
+            "installedAt": 1,
+        }
+        diff = module._canonical_component_binding(manifest, [component])
+        self.assertEqual(diff["componentAdds"][0]["id"], "knowledge.example")
+        self.assertTrue(diff["requiresExplicitReview"])
+        digest = module._permission_review_digest(
+            expected_revision=1,
+            space_id="space-professional-1",
+            space_kind="professional",
+            profile={"slug": "developer", "version": 1},
+            components=[component],
+            permission_diff=diff,
+        )
+        self.assertRegex(digest, r"^[0-9a-f]{64}$")
+
+    def test_permission_diff_acceptance_is_bound_to_exact_revision_and_components(self):
+        module = load_module()
+        manifest = {
+            "space_kind": "professional",
+            "state": "draft",
+            "intelligence": {"external_provider_required": False},
+            "security": {
+                "auto_grant_privileges": False,
+                "allow_unsigned_apps": False,
+                "generic_shell_implied": False,
+                "cross_space_memory": False,
+            },
+            "components": [{
+                "id": "knowledge.example",
+                "kind": "knowledge-pack",
+                "version": "1.0.0",
+                "required": True,
+                "availability": "available",
+                "sha256": "a" * 64,
+                "signature_required": True,
+            }],
+        }
+        component = {
+            "id": "knowledge.example",
+            "kind": "knowledge-pack",
+            "version": "1.0.0",
+            "sha256": "a" * 64,
+            "receiptSha256": "b" * 64,
+            "installedAt": 1,
+        }
+        original_manifest = module._canonical_manifest
+        original_activate = module.activate_profile
+        original_read = module.read_profile_activation_state
+        try:
+            module._canonical_manifest = lambda slug, version: manifest
+            module.read_profile_activation_state = lambda path: {
+                "schema": "ordax.profile-activation-state/1",
+                "revision": 7,
+                "persistence": "device",
+                "spaces": [],
+            }
+            module.activate_profile = lambda **kwargs: {
+                "changed": True,
+                "state": {
+                    "schema": "ordax.profile-activation-state/1",
+                    "revision": 8,
+                    "persistence": "device",
+                    "spaces": [],
+                },
+            }
+            preview = {
+                "schema": "ordax.profile-activation-command/1",
+                "action": "preview-activate",
+                "expectedRevision": 7,
+                "spaceId": "space-professional-1",
+                "spaceKind": "professional",
+                "profile": {"slug": "developer", "version": 1},
+                "components": [component],
+            }
+            result = module.execute_profile_activation_command(
+                preview,
+                distribution_profile="owner-development",
+            )
+            self.assertTrue(result["permissionDiff"]["requiresExplicitReview"])
+            digest = result["permissionDiffSha256"]
+            self.assertEqual(len(digest), 64)
+
+            activation_payload = {
+                **preview,
+                "action": "activate",
+                "activatedAt": 1234,
+                "acceptedPermissionDiffSha256": "0" * 64,
+            }
+            with self.assertRaisesRegex(PermissionError, "missing or stale"):
+                module.execute_profile_activation_command(
+                    activation_payload,
+                    distribution_profile="owner-development",
+                )
+
+            activation_payload["acceptedPermissionDiffSha256"] = digest
+            with self.assertRaisesRegex(PermissionError, "trusted human confirmation surface"):
+                module.execute_profile_activation_command(
+                    activation_payload,
+                    distribution_profile="owner-development",
+                )
+
+            consumed = []
+            resolved = []
+            class ConsentAuthority:
+                def consume(self, receipt, **kwargs):
+                    consumed.append((receipt, kwargs))
+
+            def consent_resolver(**kwargs):
+                resolved.append(kwargs)
+                return {"receipt": "native-only-test"}
+
+            activated = module.execute_profile_activation_command(
+                activation_payload,
+                distribution_profile="owner-development",
+                human_consent_authority=ConsentAuthority(),
+                human_consent_resolver=consent_resolver,
+            )
+            self.assertTrue(activated["changed"])
+            self.assertEqual(consumed[0][0], {"receipt": "native-only-test"})
+            self.assertEqual(consumed[0][1]["permission_diff_sha256"], digest)
+            self.assertEqual(consumed[0][1]["expected_revision"], 7)
+            self.assertEqual(resolved[0]["permission_diff_sha256"], digest)
+            self.assertEqual(resolved[0]["space_id"], "space-professional-1")
+
+            forged = {**activation_payload, "humanConsent": {"receipt": "forged"}}
+            with self.assertRaisesRegex(ValueError, "fields are incompatible"):
+                module.execute_profile_activation_command(
+                    forged,
+                    distribution_profile="owner-development",
+                    human_consent_authority=ConsentAuthority(),
+                    human_consent_resolver=consent_resolver,
+                )
+
+            changed_revision = {**preview, "expectedRevision": 8}
+            changed = module.execute_profile_activation_command(
+                changed_revision,
+                distribution_profile="owner-development",
+            )
+            self.assertNotEqual(changed["permissionDiffSha256"], digest)
+        finally:
+            module._canonical_manifest = original_manifest
+            module.activate_profile = original_activate
+            module.read_profile_activation_state = original_read
 
     def test_revision_conflict_is_checked_inside_mutation_lock(self):
         module = load_module()

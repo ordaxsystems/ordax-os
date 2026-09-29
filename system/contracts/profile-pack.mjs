@@ -6,6 +6,10 @@ const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,79}$/;
 const SPACE_KINDS = new Set(["personal", "work", "professional"]);
 const PACK_STATES = new Set(["draft", "active", "retired"]);
 const MEMORY_SCOPES = new Set(["device", "account", "space", "project", "session"]);
+const COMPONENT_KINDS = new Set(["app", "knowledge-pack", "skill-pack", "model-pack", "connector"]);
+const COMPONENT_AVAILABILITY = new Set(["available", "planned"]);
+const SEMVER_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const VALIDATED_PROFILE_PACKS = new WeakSet();
 
 function objectValue(value, label) {
@@ -42,6 +46,50 @@ function textArray(value, label, maxItems = 32) {
     throw new TypeError(`${label} must be a bounded array`);
   }
   return Object.freeze(value.map((entry, index) => boundedText(entry, `${label}[${index}]`)));
+}
+
+function normalizeComponents(pack, label) {
+  const value = pack.components ?? [];
+  if (!Array.isArray(value) || value.length > 64) {
+    throw new TypeError(`${label} components must be a bounded array`);
+  }
+  const seen = new Set();
+  return Object.freeze(value.map((raw, index) => {
+    const component = objectValue(raw, `${label} components[${index}]`);
+    const id = boundedText(component.id, `${label} components[${index}].id`, 128);
+    const kind = boundedText(component.kind, `${label} components[${index}].kind`, 32);
+    const version = boundedText(component.version, `${label} components[${index}].version`, 64);
+    const availability = boundedText(component.availability, `${label} components[${index}].availability`, 16);
+    const required = booleanValue(component.required, `${label} components[${index}].required`);
+    const signatureRequired = booleanValue(
+      component.signature_required,
+      `${label} components[${index}].signature_required`,
+    );
+    if (!COMPONENT_KINDS.has(kind)) throw new TypeError(`${label} component kind is invalid`);
+    if (!SEMVER_PATTERN.test(version)) throw new TypeError(`${label} component version is invalid`);
+    if (!COMPONENT_AVAILABILITY.has(availability)) {
+      throw new TypeError(`${label} component availability is invalid`);
+    }
+    const sha256 = component.sha256 == null ? null : boundedText(
+      component.sha256,
+      `${label} components[${index}].sha256`,
+      64,
+    );
+    if (sha256 !== null && !SHA256_PATTERN.test(sha256)) {
+      throw new TypeError(`${label} component sha256 is invalid`);
+    }
+    if (availability === "available" && (sha256 === null || !signatureRequired)) {
+      throw new TypeError(`${label} available component requires hash and signature`);
+    }
+    if (availability === "planned" && sha256 !== null) {
+      throw new TypeError(`${label} planned component cannot claim a publish hash`);
+    }
+    if (seen.has(id)) throw new TypeError(`${label} contains duplicate component id ${id}`);
+    seen.add(id);
+    return Object.freeze({
+      id, kind, version, required, availability, sha256, signatureRequired,
+    });
+  }));
 }
 
 function normalizeSecurity(pack, label) {
@@ -133,6 +181,7 @@ export function validateProfilePack(value, label = "Profile Pack") {
     spaceKind: pack.space_kind,
     apps: textArray(pack.apps, `${label} apps`),
     templates: textArray(pack.templates, `${label} templates`),
+    components: normalizeComponents(pack, label),
     knowledge: Object.freeze({
       jurisdiction,
       sourceClasses: textArray(knowledge.source_classes, `${label} knowledge.source_classes`),

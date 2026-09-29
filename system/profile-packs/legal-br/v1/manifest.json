@@ -23,7 +23,10 @@
     "refresh_policy": "source-specific-versioned"
   },
   "intelligence": {
-    "memory_scopes": ["space", "project"],
+    "memory_scopes": [
+      "space",
+      "project"
+    ],
     "external_provider_required": false,
     "model_output_is_authoritative_source": false,
     "professional_judgment_replaced": false
@@ -36,5 +39,25 @@
   "activation": {
     "publicly_available": false,
     "reason": "knowledge ingestion/update pipeline and professional-domain validation not implemented"
-  }
+  },
+  "components": [
+    {
+      "id": "knowledge.legal-br-core",
+      "kind": "knowledge-pack",
+      "version": "0.1.0",
+      "required": true,
+      "availability": "planned",
+      "sha256": null,
+      "signature_required": true
+    },
+    {
+      "id": "skill.legal-document-review",
+      "kind": "skill-pack",
+      "version": "0.1.0",
+      "required": true,
+      "availability": "planned",
+      "sha256": null,
+      "signature_required": true
+    }
+  ]
 }

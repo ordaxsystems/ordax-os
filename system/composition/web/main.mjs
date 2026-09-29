@@ -21,7 +21,8 @@ import { createPreferenceSyncRuntime } from "../../services/sync/preference-runt
 import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-metadata.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
-import { LOCAL_PROFILE_DISTRIBUTIONS } from "../../profile-packs/distributions.mjs";
+import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
+import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -48,8 +49,17 @@ const identityActions = createWebIdentityActions(window, identitySession);
 const identityCredentials = createSameOriginIdentityCredentials(window);
 const spaces = createWebSpacesCatalog(window);
 const profileComponentInventory = createSessionProfileComponentInventory();
+let profileDistributions = [];
+try {
+  const bundledProfilePacks = await loadBundledProfilePacks({
+    fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
+  });
+  profileDistributions = createLocalProfileDistributions(bundledProfilePacks.packs);
+} catch (error) {
+  console.warn("OrdaX Profile catalog unavailable; continuing without Profiles", error);
+}
 const profileProvisioning = createProfileProvisioningRuntime({
-  distributions: LOCAL_PROFILE_DISTRIBUTIONS,
+  distributions: profileDistributions,
   inventory: profileComponentInventory,
   readNetworkAvailable: () => window.navigator?.onLine === true,
 });

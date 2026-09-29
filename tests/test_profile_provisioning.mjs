@@ -1,16 +1,30 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   planProfileProvisioning,
   validateProfileDistribution,
 } from "../system/contracts/profile-provisioning.mjs";
 
+import { validateProfilePack } from "../system/contracts/profile-pack.mjs";
 import {
+  createLocalProfileDistributions,
   getLocalProfileDistribution,
 } from "../system/profile-packs/distributions.mjs";
 
-const developer = getLocalProfileDistribution("developer", 1);
-const legal = getLocalProfileDistribution("legal-br", 1);
+function readManifest(relativePath, label) {
+  return validateProfilePack(
+    JSON.parse(readFileSync(new URL(relativePath, import.meta.url), "utf8")),
+    label,
+  );
+}
+
+const distributions = createLocalProfileDistributions([
+  readManifest("../system/profile-packs/developer/v1/manifest.json", "Developer manifest"),
+  readManifest("../system/profile-packs/legal-br/v1/manifest.json", "Legal-BR manifest"),
+]);
+const developer = getLocalProfileDistribution(distributions, "developer", 1);
+const legal = getLocalProfileDistribution(distributions, "legal-br", 1);
 
 function inventory(entries = [], persistence = "session") {
   return {
@@ -31,6 +45,33 @@ function installedEntry(id, kind, version, sha256) {
     receiptSha256: "f".repeat(64),
   };
 }
+
+test("distribution components are derived from canonical manifests", () => {
+  assert.deepEqual(
+    legal.components.map(({ id, kind, version, availability, sha256, signatureRequired }) => ({
+      id, kind, version, availability, sha256, signatureRequired,
+    })),
+    [
+      {
+        id: "knowledge.legal-br-core",
+        kind: "knowledge-pack",
+        version: "0.1.0",
+        availability: "planned",
+        sha256: null,
+        signatureRequired: true,
+      },
+      {
+        id: "skill.legal-document-review",
+        kind: "skill-pack",
+        version: "0.1.0",
+        availability: "planned",
+        sha256: null,
+        signatureRequired: true,
+      },
+    ],
+  );
+  assert.equal(developer.components.length, 0);
+});
 
 test("profile metadata can be bundled while professional payload stays on-demand", () => {
   const value = validateProfileDistribution(legal);

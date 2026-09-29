@@ -1,13 +1,27 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
   createProfileProvisioningRuntime,
 } from "../system/services/profile-packs/provisioning.mjs";
+import { validateProfilePack } from "../system/contracts/profile-pack.mjs";
 import {
-  LOCAL_PROFILE_DISTRIBUTIONS,
+  createLocalProfileDistributions,
 } from "../system/profile-packs/distributions.mjs";
 import { createSessionProfileComponentInventory } from "../system/services/profile-packs/inventory.mjs";
+
+function manifest(relativePath, label) {
+  return validateProfilePack(
+    JSON.parse(readFileSync(new URL(relativePath, import.meta.url), "utf8")),
+    label,
+  );
+}
+
+const LOCAL_PROFILE_DISTRIBUTIONS = createLocalProfileDistributions([
+  manifest("../system/profile-packs/developer/v1/manifest.json", "Developer manifest"),
+  manifest("../system/profile-packs/legal-br/v1/manifest.json", "Legal-BR manifest"),
+]);
 
 test("runtime projects local Profile availability without performing installation", () => {
   const runtime = createProfileProvisioningRuntime({

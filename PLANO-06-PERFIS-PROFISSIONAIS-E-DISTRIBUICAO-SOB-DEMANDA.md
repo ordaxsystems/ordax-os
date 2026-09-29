@@ -143,7 +143,15 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - restore desta etapa é **metadata-only**: nenhuma app, tool, Knowledge ou policy é aplicada automaticamente;
 - comando Native de ativação interna exige intenção explícita, token efêmero específico, loopback/same-origin e revisão esperada validada dentro do lock;
 - comando revalida o Profile contra catálogo/manifest bundled canônico e continua bloqueado no Stable/MVP;
-- Profiles com componentes continuam bloqueados até existir receipt canônico de provisioning para a ativação;
+- nenhum Profile com componentes está promovido para uso real no MVP; a ativação interna só pode prosseguir quando os componentes publicados coincidirem com o manifest canônico, possuírem receipts de provisioning válidos e passarem pela revisão/consentimento Native;
+- permission diff é derivado do manifest canônico e pode ser pré-visualizado com digest SHA-256 vinculado a Space/Profile/componentes/revisão;
+- o digest impede aceitar uma composição diferente da revisada e não é tratado como prova de gesto humano; quando houver componentes ativáveis, a confirmação explícita ocorre na superfície Native GTK confiável já implementada em Owner/Development;
+- autoridade Native one-shot de consentimento existe sem endpoint HTTP: receipt curto, HMAC, TTL, vínculo a digest/revisão/Space/Profile e consumo único; a emissão ocorre somente após aprovação na UI Native GTK confiável, portanto a Surface não consegue autoemitir nem transportar consentimento;
+- coordinator Native de apresentação/decisão define requests curtos e one-shot; rejeição é terminal, expiração falha fechado e somente decisão Native aprovada pode pedir à authority que emita receipt;
+- host gráfico Native GTK apresenta o permission diff fora do DOM/WebView e responde approve/reject por Unix socket privado 0600;
+- manifests versionados são a fonte única da composição do Profile; o catálogo de distribuição mantém somente política de entrega e deriva componentes dos manifests validados;
+- o receipt humano não atravessa Surface nem HTTP: o Native control server solicita o diálogo, recebe a decisão, emite o receipt one-shot e o consome internamente antes da mutação;
+- o prompt Native confiável reutiliza a preferência persistida `regional.locale` e possui catálogo mínimo próprio apenas para mensagens de segurança (PT-BR, EN-US, ES-ES, DE-DE, FR-FR), com fallback PT-BR; isso não cria uma segunda UI/localização do produto;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
@@ -181,7 +189,7 @@ Depois da prova MVP:
 
 1. conectar Knowledge Pack saudável ao retrieval/Intelligence sem torná-lo memória autoritativa;
 2. conectar Skill Pack declarativo ao contexto de Intelligence sem conceder tools automaticamente;
-3. promover o comando interno de ativação para Profiles com componentes somente após receipt canônico de provisioning e permission diff;
+3. manter a promoção de Profiles com componentes restrita a Owner/Development até existir pelo menos um Profile canônico com componente publicado, receipt real e validação de domínio; a infraestrutura de confirmação humana Native já está fechada ponta a ponta;
 4. promover o restore metadata-only para aplicação real de composição somente após trust/policy e health de cada efeito, mantendo Profile não crítico ao boot;
 5. Store/catalog remoto assinado;
 6. downloads transacionais;
