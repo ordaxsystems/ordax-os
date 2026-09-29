@@ -5,7 +5,7 @@
 
 begin;
 
-create table if not exists private.ordax_cloud_memory_proof_entitlement_events (
+create table private.ordax_cloud_memory_proof_entitlement_events (
   event_id uuid primary key default gen_random_uuid(),
   grant_id uuid not null,
   user_id uuid not null,
@@ -19,7 +19,7 @@ create table if not exists private.ordax_cloud_memory_proof_entitlement_events (
 revoke all on table private.ordax_cloud_memory_proof_entitlement_events
 from public, anon, authenticated, service_role;
 
-create or replace function private.ordax_issue_cloud_memory_proof_entitlement_v1(
+create function private.ordax_issue_cloud_memory_proof_entitlement_v1(
   p_user_id uuid,
   p_ttl_seconds integer,
   p_reason text,
@@ -118,7 +118,7 @@ begin
 end;
 $$;
 
-create or replace function private.ordax_revoke_cloud_memory_proof_entitlement_v1(
+create function private.ordax_revoke_cloud_memory_proof_entitlement_v1(
   p_grant_id uuid,
   p_reason text,
   p_source_commit text
