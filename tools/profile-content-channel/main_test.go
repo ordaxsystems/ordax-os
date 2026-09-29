@@ -473,3 +473,68 @@ func TestStageEvidenceBindsVerifiedArtifactSignatureAndHealth(t *testing.T) {
 		t.Fatalf("health evidence mismatch: %+v", evidence.Health)
 	}
 }
+
+
+func TestDeriveTrustMatchesGeneratedPublicAnchor(t *testing.T) {
+	dir := t.TempDir()
+	privatePath := filepath.Join(dir, "private.pem")
+	generatedTrust := filepath.Join(dir, "generated-trust.json")
+	if err := generateKey(privatePath, generatedTrust, "ordax-profile-content-v1"); err != nil {
+		t.Fatal(err)
+	}
+
+	derivedTrust := filepath.Join(dir, "derived-trust.json")
+	digest, err := deriveTrust(privatePath, derivedTrust, "ordax-profile-content-v1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(digest) != 64 {
+		t.Fatalf("public key digest length = %d", len(digest))
+	}
+	generated, err := os.ReadFile(generatedTrust)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derived, err := os.ReadFile(derivedTrust)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(generated) != string(derived) {
+		t.Fatal("independent trust derivation differs from generated public anchor")
+	}
+
+	var trust trustAnchor
+	if err := json.Unmarshal(derived, &trust); err != nil {
+		t.Fatal(err)
+	}
+	if trust.Schema != trustSchema || trust.Algorithm != algorithm ||
+		trust.KeyID != "ordax-profile-content-v1" {
+		t.Fatalf("derived trust identity mismatch: %+v", trust)
+	}
+}
+
+func TestDeriveTrustRefusesOverwriteAndInvalidKeyID(t *testing.T) {
+	dir := t.TempDir()
+	privatePath := filepath.Join(dir, "private.pem")
+	trustPath := filepath.Join(dir, "trust.json")
+	if err := generateKey(privatePath, trustPath, "ordax-profile-content-v1"); err != nil {
+		t.Fatal(err)
+	}
+
+	existing := filepath.Join(dir, "existing.json")
+	if err := os.WriteFile(existing, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := deriveTrust(privatePath, existing, "ordax-profile-content-v1"); err == nil ||
+		!strings.Contains(err.Error(), "overwrite is forbidden") {
+		t.Fatalf("derive trust overwrite error = %v", err)
+	}
+
+	output := filepath.Join(dir, "invalid.json")
+	if _, err := deriveTrust(privatePath, output, "INVALID KEY"); err == nil {
+		t.Fatal("derive trust accepted invalid key id")
+	}
+	if _, err := os.Stat(output); !os.IsNotExist(err) {
+		t.Fatal("invalid derive-trust call created output")
+	}
+}
