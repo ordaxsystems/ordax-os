@@ -24,8 +24,11 @@ class WindowsCompatRuntimeSourceTests(unittest.TestCase):
         cls.stable = json.loads(STABLE.read_text(encoding="utf-8"))
         cls.discovery = load_module("ordax_windows_compat_discovery_test", DISCOVERY)
 
-    def test_contract_is_discovery_only_and_non_executable(self):
-        self.assertEqual(self.contract["status"], "lock-discovery-required")
+    def test_contract_is_build_locked_but_still_non_executable(self):
+        self.assertEqual(
+            self.contract["status"],
+            "candidate-build-locked-not-executable",
+        )
         self.assertEqual(self.contract["product_scope"], "owner-development-only")
         self.assertFalse(self.contract["public_availability"])
         self.assertFalse(self.contract["stable_mvp_enabled"])
@@ -78,12 +81,51 @@ class WindowsCompatRuntimeSourceTests(unittest.TestCase):
             self.assertEqual(alpine[field], canonical[field])
         self.assertEqual(alpine["identity_owner"], "bootstrap/stable-base/source.json")
 
-    def test_discovery_contract_validation_passes_but_no_lock_is_authoritative(self):
+    def test_reviewed_package_locks_are_complete_and_exactly_counted(self):
+        self.assertTrue(self.contract["apk_locks_pinned"])
+        build_lock = self.contract["build_apk_package_lock"]
+        runtime_lock = self.contract["runtime_apk_package_lock"]
+        self.assertEqual(self.contract["build_apk_package_lock_count"], len(build_lock))
+        self.assertEqual(self.contract["runtime_apk_package_lock_count"], len(runtime_lock))
+        self.assertEqual(len(build_lock), 239)
+        self.assertEqual(len(runtime_lock), 97)
+        self.assertTrue(set(self.contract["build_packages"]).issubset(build_lock))
+        self.assertTrue(set(self.contract["runtime_packages"]).issubset(runtime_lock))
+        self.assertEqual(build_lock["mingw-w64-gcc"], "14.2.0-r1")
+        self.assertEqual(build_lock["i686-mingw-w64-gcc"], "14.2.0-r1")
+        self.assertEqual(runtime_lock["musl"], "1.2.5-r12")
+        self.assertNotIn("wine", build_lock)
+        self.assertNotIn("wine", runtime_lock)
+
+    def test_discovery_evidence_is_bound_to_reviewed_source_and_locks(self):
+        evidence = self.contract["lock_discovery_evidence"]
+        self.assertEqual(
+            evidence["wine_source_sha256"],
+            self.contract["engine"]["source_sha256"],
+        )
+        self.assertEqual(
+            evidence["alpine_archive_sha256"],
+            self.contract["alpine"]["archive_sha256"],
+        )
+        self.assertEqual(
+            evidence["build_apk_package_lock_count"],
+            self.contract["build_apk_package_lock_count"],
+        )
+        self.assertEqual(
+            evidence["runtime_apk_package_lock_count"],
+            self.contract["runtime_apk_package_lock_count"],
+        )
+        self.assertRegex(evidence["source_commit"], r"^[0-9a-f]{40}$")
+        self.assertRegex(evidence["artifact_digest"], r"^sha256:[0-9a-f]{64}$")
+
+    def test_revalidation_contract_accepts_only_pinned_non_executable_state(self):
         loaded = self.discovery.load_contract()
         self.assertEqual(loaded["runtime_id"], "wine-11.0-wow64-x86_64-v1")
-        self.assertFalse(loaded["apk_locks_pinned"])
-        self.assertEqual(loaded["build_apk_package_lock"], {})
-        self.assertEqual(loaded["runtime_apk_package_lock"], {})
+        self.assertTrue(loaded["apk_locks_pinned"])
+        self.assertEqual(len(loaded["build_apk_package_lock"]), 239)
+        self.assertEqual(len(loaded["runtime_apk_package_lock"]), 97)
+        self.assertFalse(loaded["execution_adapter_connected"])
+        self.assertFalse(loaded["installation_adapter_connected"])
 
 
 if __name__ == "__main__":
