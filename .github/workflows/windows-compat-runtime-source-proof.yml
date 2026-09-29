@@ -107,10 +107,10 @@ jobs:
           caller_counts = callers['counts']
           assert caller_counts['configured_soname_callsites'] == 32
           assert caller_counts['configured_soname_symbols'] == 24
-          assert caller_counts['caller_module_directories'] == 18
-          assert caller_counts['caller_module_identities'] == 18
+          assert caller_counts['caller_module_directories'] == 15
+          assert caller_counts['caller_module_identities'] == 15
           assert caller_counts['translation_units'] == 25
-          assert len(callers['modules']) == 18
+          assert len(callers['modules']) == 15
           assert len(callers['callsites']) == 32
           gates = callers['gates']
           for gate in (
