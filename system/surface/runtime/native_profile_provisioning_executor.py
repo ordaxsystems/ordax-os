@@ -16,7 +16,6 @@ import re
 import stat
 import subprocess
 import time
-from pathlib import Path
 
 from native_profile_component_inventory import (
     PROFILE_COMPONENT_INVENTORY_FILE,
@@ -254,8 +253,8 @@ def _write_receipt_once(receipt: dict, receipt_root: str) -> tuple[str, str, boo
     try:
         descriptor = os.open(path, flags, 0o600)
     except FileExistsError:
-        existing = Path(path).read_bytes()
-        if hashlib.sha256(existing).hexdigest() != digest or existing != payload:
+        existing = read_verified_profile_install_receipt(digest, receipt_root)
+        if canonical_profile_install_receipt_bytes(existing) != payload:
             raise ValueError("Existing Profile receipt does not match its content address")
         return path, digest, False
     try:
@@ -279,14 +278,6 @@ def _write_receipt_once(receipt: dict, receipt_root: str) -> tuple[str, str, boo
     finally:
         os.close(directory_fd)
     return path, digest, True
-
-
-def _read_existing_receipt(path: str, expected_sha256: str) -> bytes:
-    receipt = read_verified_profile_install_receipt(
-        expected_sha256,
-        os.path.dirname(path),
-    )
-    return canonical_profile_install_receipt_bytes(receipt)
 
 
 def _lock_file(path: str):

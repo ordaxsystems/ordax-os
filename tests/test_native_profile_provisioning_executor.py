@@ -124,6 +124,31 @@ class NativeProfileProvisioningExecutorTests(unittest.TestCase):
                     lock_path=str(lock),
                 )
 
+    def test_commit_rejects_symlink_at_existing_receipt_address(self):
+        module = load_module()
+        receipt = module.receipt_from_stage_evidence(evidence(), 1234)
+        payload = module._canonical_json_bytes(receipt)
+        digest = hashlib.sha256(payload).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inventory = root / "state" / "inventory.json"
+            receipts = root / "state" / "receipts"
+            lock = root / "state" / "provisioning.lock"
+            receipts.mkdir(parents=True, mode=0o700)
+            victim = root / "victim.json"
+            victim.write_bytes(payload)
+            os.chmod(victim, 0o600)
+            os.symlink(victim, receipts / f"{digest}.json")
+
+            with self.assertRaises(OSError):
+                module.commit_verified_receipt(
+                    receipt,
+                    inventory_path=str(inventory),
+                    receipt_root=str(receipts),
+                    lock_path=str(lock),
+                )
+            self.assertFalse(inventory.exists())
+
     def test_read_stage_evidence_uses_exec_argv_not_shell_and_validates_output(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as directory:
