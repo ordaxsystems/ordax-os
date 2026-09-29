@@ -116,6 +116,7 @@ export function createSpaceSelectionRuntime({
     );
     if (previousSubjectId !== nextSubjectId) {
       catalogSubjectId = null;
+      spacesPort.reset();
     }
     reconcile();
   });
