@@ -147,6 +147,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - permission diff é derivado do manifest canônico e pode ser pré-visualizado com digest SHA-256 vinculado a Space/Profile/componentes/revisão;
 - o digest impede aceitar uma composição diferente da revisada, mas não é tratado como prova de gesto humano; ativação com componentes permanece bloqueada até existir uma superfície confiável de confirmação do usuário;
 - autoridade Native one-shot de consentimento já existe como boundary sem endpoint HTTP: receipt curto, HMAC, TTL, vínculo a digest/revisão/Space/Profile e consumo único; a emissão ainda depende de uma futura UI Native confiável, portanto a Surface não consegue autoemitir consentimento;
+- coordinator Native de apresentação/decisão define requests curtos e one-shot para a futura UI confiável; rejeição é terminal, expiração falha fechado e somente decisão Native aprovada pode pedir à authority que emita receipt;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
