@@ -24,11 +24,7 @@ import { createWorkspaceMetadataBridge } from "../system/services/sync/workspace
 const SUBJECT = "restore-user-1";
 
 function signedInIdentity() {
-  const snapshot = Object.freeze({
-    state: "signed-in",
-    subjectId: SUBJECT,
-    displayName: "Pessoa",
-  });
+  const snapshot = Object.freeze({ state: "signed-in", subjectId: SUBJECT, displayName: "Pessoa" });
   return {
     schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot: () => snapshot,
@@ -76,16 +72,12 @@ function checkpointStore() {
   return {
     schema: SYNC_CHECKPOINT_STORE_SCHEMA,
     scope: "device",
-    load() {
-      return value;
-    },
+    load: () => value,
     save(next) {
       value = next;
       return true;
     },
-    peek() {
-      return value;
-    },
+    peek: () => value,
   };
 }
 
@@ -94,9 +86,7 @@ function syncStateStore() {
   return {
     schema: SYNC_STATE_STORE_SCHEMA,
     scope: "device",
-    load() {
-      return value;
-    },
+    load: () => value,
     save(next) {
       value = next;
       return true;
@@ -128,7 +118,7 @@ function remoteMemory() {
   });
 }
 
-function accountSnapshotObjects() {
+function accountSnapshotObjects(memoryObject = remoteMemory()) {
   return [
     {
       objectId: "appearance/theme",
@@ -167,11 +157,11 @@ function accountSnapshotObjects() {
         ],
       },
     },
-    remoteMemory(),
+    memoryObject,
   ];
 }
 
-test("fresh install restores promoted account state and authorized Memory from one canonical snapshot without echo", async () => {
+function createRestoreHarness(objects) {
   const preferences = preferencesRuntime();
   const preferenceSync = createPreferenceSyncRuntime(preferences, {
     createIdempotencyKey: keyFactory("restore-preference"),
@@ -194,10 +184,7 @@ test("fresh install restores promoted account state and authorized Memory from o
     schema: SYNC_TRANSPORT_SCHEMA,
     async snapshot() {
       snapshotCalls += 1;
-      return Object.freeze({
-        cursor: 31,
-        objects: Object.freeze(accountSnapshotObjects()),
-      });
+      return Object.freeze({ cursor: 31, objects: Object.freeze(objects) });
     },
     async pullChanges({ afterCursor }) {
       pullCalls += 1;
@@ -221,13 +208,33 @@ test("fresh install restores promoted account state and authorized Memory from o
     createIdempotencyKey: keyFactory("restore-account"),
   });
 
+  return {
+    preferences,
+    preferenceSync,
+    bridge,
+    memory,
+    memorySync,
+    checkpoint,
+    mutations,
+    accountSync,
+    counters: () => ({ snapshotCalls, pullCalls }),
+    destroy() {
+      accountSync.destroy();
+      preferenceSync.destroy();
+    },
+  };
+}
+
+test("fresh install restores promoted account state and authorized Memory from one canonical snapshot without echo", async () => {
+  const harness = createRestoreHarness(accountSnapshotObjects());
+  const { preferences, bridge, memory, memorySync, checkpoint, mutations, accountSync } = harness;
+
   assert.equal(checkpoint.peek(), null, "simulated reinstall starts without a local account checkpoint");
   assert.deepEqual(memory.search({ ownerId: SUBJECT, scopes: ["account"] }), []);
 
   await accountSync.refresh();
 
-  assert.equal(snapshotCalls, 1);
-  assert.equal(pullCalls, 0);
+  assert.deepEqual(harness.counters(), { snapshotCalls: 1, pullCalls: 0 });
   assert.equal(mutations.length, 0);
   assert.equal(checkpoint.peek().subjectId, SUBJECT);
   assert.equal(checkpoint.peek().cursor, 31);
@@ -241,10 +248,7 @@ test("fresh install restores promoted account state and authorized Memory from o
   const restoredMemory = memory.search({ ownerId: SUBJECT, scopes: ["account"] });
   assert.equal(restoredMemory.length, 1);
   assert.equal(restoredMemory[0].id, "restored-memory-1");
-  assert.equal(
-    restoredMemory[0].content,
-    "memória autorizada restaurada após reinstalação simulada",
-  );
+  assert.equal(restoredMemory[0].content, "memória autorizada restaurada após reinstalação simulada");
   assert.equal(memorySync.getSnapshot().pendingMutationCount, 0);
   assert.equal(memorySync.getSnapshot().conflictCount, 0);
   assert.equal(memorySync.getSnapshot().reconciliationRequiredCount, 0);
@@ -252,6 +256,28 @@ test("fresh install restores promoted account state and authorized Memory from o
   assert.equal(memorySync.getSnapshot().ownsTransport, false);
   assert.equal(accountSync.getSnapshot().accountContinuity, "active");
 
-  accountSync.destroy();
-  preferenceSync.destroy();
+  harness.destroy();
+});
+
+test("fresh install rejects non-portable remote Memory and does not advance the account checkpoint", async () => {
+  const valid = remoteMemory();
+  const restricted = Object.freeze({
+    ...valid,
+    payload: Object.freeze({
+      ...valid.payload,
+      memory: Object.freeze({ ...valid.payload.memory, sensitivity: "restricted" }),
+    }),
+  });
+  const harness = createRestoreHarness(accountSnapshotObjects(restricted));
+
+  await harness.accountSync.refresh();
+
+  assert.deepEqual(harness.counters(), { snapshotCalls: 1, pullCalls: 0 });
+  assert.equal(harness.checkpoint.peek(), null, "unsafe snapshot must not become a durable restore checkpoint");
+  assert.deepEqual(harness.memory.search({ ownerId: SUBJECT, scopes: ["account"] }), []);
+  assert.equal(harness.memorySync.getSnapshot().pendingMutationCount, 0);
+  assert.equal(harness.accountSync.getSnapshot().accountContinuity, "not-active");
+  assert.equal(harness.mutations.length, 0);
+
+  harness.destroy();
 });
