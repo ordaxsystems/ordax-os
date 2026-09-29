@@ -202,6 +202,14 @@ def verify_context_expansion(roots: list, nodes: dict, contexts: dict) -> dict:
     }
 
 
+def require_scope_boundaries_false(label: str, gates: dict) -> None:
+    if not isinstance(gates, dict):
+        raise ClosureEvidenceError(f"{label} gates must be an object")
+    for key in ("dynamic_load_inventory_complete", "external_transitive_closure_verified"):
+        if key in gates and gates[key] is not False:
+            raise ClosureEvidenceError(f"{label} crossed forbidden scope boundary: {key}")
+
+
 def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
     contract = load_contract()
     schemas = contract.get("input", {})
@@ -313,6 +321,13 @@ def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
     ):
         if guard_gates.get(key) is not True:
             raise ClosureEvidenceError(f"closure guard prerequisite is not proven: {key}")
+
+    for label, gates in (
+        ("direct evidence", direct_gates),
+        ("raw closure", closure_gates),
+        ("closure guard", guard_gates),
+    ):
+        require_scope_boundaries_false(label, gates)
 
     forbidden = (
         "runtime_dependency_inventory_complete",
