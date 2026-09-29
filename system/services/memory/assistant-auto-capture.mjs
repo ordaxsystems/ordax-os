@@ -22,7 +22,7 @@ export const ASSISTANT_AUTO_CAPTURE_SCHEMA = "ordax.assistant-auto-memory-captur
 const MAX_CANDIDATES = 4;
 const MAX_CONTENT = 2048;
 const ALLOWED_KINDS = new Set(["preference", "fact", "instruction", "summary"]);
-const SECRET_SIGNAL = /(?:password|senha|passphrase|token|api[ -]?key|chave privada|private key|seed phrase|recovery code|c[oó]digo de recupera[cç][aã]o|\bcvv\b|\bpin\b)/iu;
+const SECRET_SIGNAL = /(?:password|senha|passphrase|token|api[ -]?key|chave privada|private key|seed phrase|recovery code|c[oó]digo de recupera[cç][aã]o|\bcvv\b|\bpin\b|-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----|\bsk-[A-Za-z0-9_-]{16,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bxox[baprs]-[A-Za-z0-9-]{16,}\b|\bsb_secret_[A-Za-z0-9_-]{16,}\b)/iu;
 
 const EXTRACTION_PROMPT = [
   "Extract only durable memories directly supported by the supplied user turn.",
@@ -83,12 +83,12 @@ function parseCandidates(text) {
     if (typeof candidate.content !== "string" || candidate.content.includes("\0")) {
       return Object.freeze([]);
     }
-    const content = candidate.content.trim();
-    if (!content || content.length > MAX_CONTENT) return Object.freeze([]);
-    if (SECRET_SIGNAL.test(content)) continue;
+    const candidateContent = candidate.content.trim();
+    if (!candidateContent || candidateContent.length > MAX_CONTENT) return Object.freeze([]);
+    if (SECRET_SIGNAL.test(candidateContent)) continue;
     result.push(Object.freeze({
       kind: candidate.kind,
-      content,
+      content: candidateContent,
     }));
   }
   return Object.freeze(result);
@@ -148,78 +148,87 @@ export function createAssistantAutoCaptureRuntime({
   return Object.freeze({
     schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
 
-    async captureTurn({ userText } = {}) {
-      const user = boundedTurnText(userText, "Assistant Memory user turn");
-
-      if (!memoryAutoCaptureEnabled(preferences.getSnapshot())) {
-        return Object.freeze({
-          schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
-          status: "disabled",
-          captured: 0,
-        });
-      }
-
-      let response;
-      try {
-        response = validateIntelligenceResponse(await intelligence.respond({
-          intent: "summarize",
-          prompt: EXTRACTION_PROMPT,
-          context: [{
-            id: "assistant-user-turn",
-            scope: "user",
-            text: user.slice(0, 8192),
-            provenance: "ordax-assistant:user-turn",
-          }],
-          maxTokens: 384,
-        }));
-      } catch {
-        return Object.freeze({
-          schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
-          status: "extract-error",
-          captured: 0,
-        });
-      }
-
-      const candidates = parseCandidates(response.text);
-      if (candidates.length === 0) {
-        return Object.freeze({
-          schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
-          status: "no-candidates",
-          captured: 0,
-        });
-      }
-
+    bindTurn() {
       const authorization = captureAuthorization(identity, spaces);
-      let captured = 0;
-      for (const candidate of candidates) {
-        try {
-          const result = await capture.capture({
-            content: candidate.content,
-            kind: candidate.kind,
-            sensitivity: "private",
-            provenance: "ordax-assistant:auto-capture",
-          }, authorization);
-          if (result === null) {
+      const enabledAtBind = memoryAutoCaptureEnabled(preferences.getSnapshot());
+
+      return Object.freeze({
+        async capture({ userText } = {}) {
+          const user = boundedTurnText(userText, "Assistant Memory user turn");
+
+          if (
+            !enabledAtBind
+            || !memoryAutoCaptureEnabled(preferences.getSnapshot())
+          ) {
             return Object.freeze({
               schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
               status: "disabled",
-              captured,
+              captured: 0,
             });
           }
-          captured += 1;
-        } catch {
+
+          let response;
+          try {
+            response = validateIntelligenceResponse(await intelligence.respond({
+              intent: "summarize",
+              prompt: EXTRACTION_PROMPT,
+              context: [{
+                id: "assistant-user-turn",
+                scope: "user",
+                text: user.slice(0, 8192),
+                provenance: "ordax-assistant:user-turn",
+              }],
+              maxTokens: 384,
+            }));
+          } catch {
+            return Object.freeze({
+              schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+              status: "extract-error",
+              captured: 0,
+            });
+          }
+
+          const candidates = parseCandidates(response.text);
+          if (candidates.length === 0) {
+            return Object.freeze({
+              schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+              status: "no-candidates",
+              captured: 0,
+            });
+          }
+
+          let captured = 0;
+          for (const candidate of candidates) {
+            try {
+              const result = await capture.capture({
+                content: candidate.content,
+                kind: candidate.kind,
+                sensitivity: "private",
+                provenance: "ordax-assistant:auto-capture",
+              }, authorization);
+              if (result === null) {
+                return Object.freeze({
+                  schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+                  status: "disabled",
+                  captured,
+                });
+              }
+              captured += 1;
+            } catch {
+              return Object.freeze({
+                schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+                status: "capture-error",
+                captured,
+              });
+            }
+          }
+
           return Object.freeze({
             schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
-            status: "capture-error",
+            status: "captured",
             captured,
           });
-        }
-      }
-
-      return Object.freeze({
-        schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
-        status: "captured",
-        captured,
+        },
       });
     },
   });
