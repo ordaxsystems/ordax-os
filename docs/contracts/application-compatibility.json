@@ -1,7 +1,7 @@
 {
   "$schema": "prototype-ordax.application-compatibility-contract/1",
   "port": "ordax.application-compatibility/1",
-  "status": "source-foundation-profile-planning",
+  "status": "source-foundation-profile-planning-runtime-source-proof",
   "public_availability": false,
   "execution_available": false,
   "installation_available": false,
@@ -9,30 +9,13 @@
   "boot_critical": false,
   "foreign_payload_default_trust": "untrusted",
   "foreign_payload_becomes_native_trust": false,
-  "implemented_operations": [
-    "inspect",
-    "runtime.list",
-    "launch.plan",
-    "profile.create.plan"
-  ],
-  "reserved_future_operations": [
-    "profile.create",
-    "install.plan",
-    "install",
-    "launch",
-    "health",
-    "rollback",
-    "remove"
-  ],
+  "implemented_operations": ["inspect", "runtime.list", "launch.plan", "profile.create.plan"],
+  "reserved_future_operations": ["profile.create", "install.plan", "install", "launch", "health", "rollback", "remove"],
   "windows": {
     "pe_detection": {
       "content_based": true,
       "extension_only_trusted": false,
-      "architectures": [
-        "x86",
-        "x86_64",
-        "aarch64"
-      ],
+      "architectures": ["x86", "x86_64", "aarch64"],
       "dll_launchable": false,
       "malformed_optional_header_launchable": false
     },
@@ -44,14 +27,21 @@
     "runtime": {
       "selected_engine": null,
       "provider_must_be_explicit": true,
-      "allowed_engine_classes": [
-        "wine",
-        "proton",
-        "other"
-      ],
+      "allowed_engine_classes": ["wine", "proton", "other"],
       "sandbox_required": true,
       "execution_enabled_descriptor_required": true,
-      "content_addressed_source_required": true
+      "content_addressed_source_required": true,
+      "source_candidate": {
+        "engine": "wine",
+        "version": "11.0",
+        "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+        "source_lock": "bootstrap/windows-compat-runtime/source.json",
+        "source_proof_workflow": ".github/workflows/windows-compat-runtime-source-proof.yml",
+        "build_performed": false,
+        "binary_artifact_pinned": false,
+        "activation_authorized": false,
+        "owner_development_only": true
+      }
     },
     "profile": {
       "planner_schema": "ordax.application-compatibility-profile-planner/1",
@@ -75,7 +65,9 @@
     "current_port_exposes_filesystem_write": false,
     "profile_planner_exposes_create": false,
     "profile_planner_exposes_execute": false,
-    "profile_planner_exposes_filesystem_write": false
+    "profile_planner_exposes_filesystem_write": false,
+    "runtime_source_proof_grants_execution": false,
+    "runtime_source_proof_grants_activation": false
   },
   "legacy_reference": {
     "repository": "washingtonmsdj/novo-ordax-os",
