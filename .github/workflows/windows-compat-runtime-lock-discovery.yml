@@ -1,0 +1,73 @@
+name: Windows Compatibility Runtime Lock Discovery
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'tests/test_windows_compat_runtime_source.py'
+      - '.github/workflows/windows-compat-runtime-lock-discovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install lock-discovery dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends proot
+
+      - name: Validate non-executable source contract
+        run: python -m unittest tests.test_windows_compat_runtime_source -v
+
+      - name: Verify upstream Wine bytes and resolve exact Alpine closures
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          rm -rf out/windows-compat-runtime-discovery
+          mkdir -p out/windows-compat-runtime-discovery/cache
+          python bootstrap/windows-compat-runtime/discover_lock.py \
+            --out out/windows-compat-runtime-discovery/windows-compat-runtime-lock.json \
+            --cache-dir out/windows-compat-runtime-discovery/cache
+
+      - name: Validate discovery evidence is non-promotional
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('out/windows-compat-runtime-discovery/windows-compat-runtime-lock.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          assert data['$schema'] == 'prototype-ordax.windows-compat-runtime-lock-discovery/1'
+          assert data['status'] == 'review-required-not-authoritative'
+          assert data['wine_source']['sha256'] == 'c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701'
+          assert data['wine_source']['size_bytes'] == 33172240
+          assert data['build_apk_package_lock_count'] == len(data['build_apk_package_lock'])
+          assert data['runtime_apk_package_lock_count'] == len(data['runtime_apk_package_lock'])
+          assert data['build_apk_package_lock_count'] > 0
+          assert data['runtime_apk_package_lock_count'] > 0
+          assert data['execution_adapter_connected'] is False
+          assert data['installation_adapter_connected'] is False
+          assert data['physical_artifact_authorized'] is False
+          PY
+
+      - name: Upload review-only lock evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-runtime-lock-${{ github.event.pull_request.head.sha || github.sha }}
+          path: out/windows-compat-runtime-discovery/windows-compat-runtime-lock.json
+          if-no-files-found: error
+          retention-days: 7
