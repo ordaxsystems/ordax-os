@@ -198,11 +198,30 @@ IMPLEMENTATION=COMPLETE_BACKEND_APPLIED
 NOTES=Legacy source is protocol reference/provenance only. The prototype owns the new ordax.dev.adapter.invoke extension and GitHub OIDC development-device enrollment, both applied to ordax-control-plane, while infra/supabase/product authority remains separate.
 ```
 
+## Ledger 006 - Application compatibility architecture invariants
+
+```text
+COMPONENT=application-compatibility-foundation
+LEGACY_REPOSITORY=washingtonmsdj/novo-ordax-os
+LEGACY_COMMIT=49fe41fa67d9032f2e349e86592304e64d6c2d88
+LEGACY_PATH=docs/FOUNDATION/COMPATIBILITY/COMPATIBILITY-001.md
+RESPONSIBILITY=detect foreign application formats and select an explicitly available compatibility runtime without granting execution authority
+WHY_NEEDED=preserve the Windows/Linux compatibility direction while the prototype already has signed external-app distribution foundations but no Windows runtime path
+DEPENDENCIES=shared system contracts; future content-addressed compatibility runtime component; future sandbox/permissions/profile lifecycle
+SECURITY_REVIEW=no legacy runtime/code copied; foreign payloads remain untrusted; extension alone grants no trust; there is no default/fake Wine or Proton provider; the current port exposes no install/execute/shell/spawn/write authority; runtime descriptors must represent a real available sandboxed execution-enabled runtime and bind an immutable source identity to SHA-256
+TESTS=tests/test_application_compatibility.mjs + tests/test_application_compatibility.py
+ARTIFACT_SHA256=NOT_APPLICABLE_SOURCE_REIMPLEMENTATION
+DECISION=REIMPLEMENTED
+TARGET_PATH=system/contracts/application-compatibility.mjs + system/services/compatibility + docs/contracts/application-compatibility.json
+IMPLEMENTATION=COMPLETE_FOUNDATION
+NOTES=Reimplements the legacy Compatibility Manager inspection/runtime-selection invariants clean-room. Windows execution remains unavailable until a real verified runtime adapter and sandbox/profile lifecycle are implemented.
+```
+
 ## Current ledger state
 
 ```text
-REVIEWED_COMPONENT_COUNT=5
-IMPLEMENTED_MIGRATION_COUNT=2
+REVIEWED_COMPONENT_COUNT=6
+IMPLEMENTED_MIGRATION_COUNT=3
 BULK_LEGACY_IMPORT=NO
 LEGACY_REPOSITORY_CHANGED_BY_MIGRATION=NO
 ```
