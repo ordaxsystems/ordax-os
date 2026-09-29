@@ -34,6 +34,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends proot erofs-utils util-linux
           proot --version
+          docker version
+          docker info >/dev/null
           command -v mkfs.erofs
           command -v fsck.erofs
           command -v blkid
@@ -95,6 +97,9 @@ jobs:
           assert data['$schema'] == 'prototype-ordax.windows-compat-runtime-provenance/1'
           assert data['status'] == 'owner-development-candidate-not-executable'
           assert data['runtime_id'] == 'wine-11.0-wow64-x86_64-v1'
+          assert data['compile_executor'] == 'docker-imported-pinned-alpine-rootfs'
+          assert data['compile_network'] == 'none'
+          assert data['compile_capabilities'] == 'none'
           assert data['wine_runtime']['version'] == 'wine-11.0'
           assert data['wine_runtime']['forbidden_unix_drivers_present'] is False
           assert data['build_apk_package_lock_count'] == 239
@@ -122,14 +127,22 @@ jobs:
           rm -f "$work/windows-compat-runtime.erofs"
           test ! -e "$work/windows-compat-runtime.erofs"
 
-      - name: Upload proof metadata only
+      - name: Upload lock evidence
         if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-runtime-lock-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/windows-compat-runtime/windows-compat-runtime-lock.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload successful candidate metadata only
+        if: success()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: windows-compat-runtime-candidate-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            ${{ runner.temp }}/windows-compat-runtime/windows-compat-runtime-lock.json
             ${{ runner.temp }}/windows-compat-runtime/build/windows-compat-runtime-provenance.json
             ${{ runner.temp }}/windows-compat-runtime/build/windows-compat-runtime-tree.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
