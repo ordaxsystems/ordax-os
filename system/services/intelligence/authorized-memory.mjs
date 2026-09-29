@@ -12,6 +12,10 @@ import {
 } from "../../contracts/memory-context.mjs";
 import { assertMemoryPort } from "../../contracts/memory.mjs";
 import {
+  assertIdentitySessionPort,
+  validateIdentitySessionSnapshot,
+} from "../../contracts/identity-session.mjs";
+import {
   assertSpaceSelectionPort,
   validateSpaceSelectionSnapshot,
 } from "../../contracts/space-selection.mjs";
@@ -161,6 +165,81 @@ export function createSelectedSpaceMemoryIntelligence({
           includeRestricted: false,
         }],
       });
+    },
+  });
+}
+
+
+export function createIdentityBoundMemoryIntelligence({
+  intelligencePort,
+  memoryPort,
+  identitySessionPort,
+  spaceSelectionPort,
+} = {}) {
+  const intelligence = assertIntelligencePort(intelligencePort);
+  const memory = assertMemoryPort(memoryPort);
+  const identity = assertIdentitySessionPort(identitySessionPort);
+  const selection = assertSpaceSelectionPort(spaceSelectionPort);
+  const authorized = createAuthorizedMemoryIntelligence({
+    intelligencePort: intelligence,
+    memoryPort: memory,
+  });
+
+  return Object.freeze({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot() {
+      return intelligence.getSnapshot();
+    },
+    subscribe(listener) {
+      return intelligence.subscribe(listener);
+    },
+    async respond(value) {
+      const identitySnapshot = validateIdentitySessionSnapshot(identity.getSnapshot());
+      const selectionSnapshot = validateSpaceSelectionSnapshot(selection.getSnapshot());
+      const authorizations = [{
+        schema: "ordax.memory-context-auth/1",
+        authority: "composition",
+        ownerKind: "device",
+        ownerId: null,
+        scopes: ["device"],
+        spaceId: null,
+        projectId: null,
+        includeRestricted: false,
+      }];
+
+      if (identitySnapshot.state === "signed-in") {
+        authorizations.push({
+          schema: "ordax.memory-context-auth/1",
+          authority: "composition",
+          ownerKind: "account",
+          ownerId: identitySnapshot.subjectId,
+          scopes: ["account"],
+          spaceId: null,
+          projectId: null,
+          includeRestricted: false,
+        });
+      }
+
+      if (selectionSnapshot.state === "selected") {
+        if (
+          identitySnapshot.state !== "signed-in"
+          || selectionSnapshot.subjectId !== identitySnapshot.subjectId
+        ) {
+          throw new Error("Selected Space memory requires the current authenticated identity");
+        }
+        authorizations.push({
+          schema: "ordax.memory-context-auth/1",
+          authority: "composition",
+          ownerKind: "account",
+          ownerId: identitySnapshot.subjectId,
+          scopes: ["space"],
+          spaceId: selectionSnapshot.selectedSpace.id,
+          projectId: null,
+          includeRestricted: false,
+        });
+      }
+
+      return authorized.respond(value, { authorizations });
     },
   });
 }
