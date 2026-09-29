@@ -155,10 +155,31 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
             self.authorization["release_binding"]["source_commit"],
             "b924ff8d74d1761232381ae3f9604bba17497cfd",
         )
-        self.assertIn(
-            "CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_EXACT",
-            self.current,
-        )
+        if proof_pending:
+            self.assertFalse(
+                self.authorization["requirements"]["canonical_v4_release_proof_bound"]
+            )
+            self.assertIn(
+                "CANONICAL_V4_RELEASE_PROOF=PASS_HISTORICAL_PRE_HARDENING_SUPERSEDED",
+                self.current,
+            )
+            self.assertIn(
+                "CANONICAL_V4_RELEASE_PROOF_BINDING=NO_CURRENT_REPLACEMENT_REQUIRED",
+                self.current,
+            )
+            self.assertIn(
+                "STABLE_MVP_USB_READINESS_CURRENT_STAGE=CANONICAL_V4_RELEASE_PROOF_PENDING",
+                self.current,
+            )
+            self.assertIn(
+                "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED",
+                self.current,
+            )
+            self.assertIn(
+                "PHYSICAL_WRITE_ALLOWED=NO_CANONICAL_V4_REPLACEMENT_PROOF_PENDING",
+                self.current,
+            )
+            self.assertNotIn("CANONICAL_V4_RELEASE_PROOF_BINDING=PASS", self.current)
         if consent_pending:
             self.assertIn("CANONICAL_V4_RELEASE_PROOF_BINDING=PASS", self.current)
             self.assertIn("PHYSICAL_AUTHORIZATION_ELIGIBLE=YES", self.current)
@@ -170,10 +191,8 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
                 "PHYSICAL_WRITE_ALLOWED=NO_EXPLICIT_OWNER_AUTHORIZATION",
                 self.current,
             )
-        if proof_pending:
-            self.assertFalse(
-                self.authorization["requirements"]["canonical_v4_release_proof_bound"]
-            )
+        if authorized:
+            self.assertIn("PHYSICAL_WRITE_ALLOWED=YES", self.current)
         self.assertIn("PHYSICAL_TARGET_SELECTED=NO", self.current)
         self.assertIn(
             "PHYSICAL_TARGET_DESTRUCTIVE_CONFIRMATION=PENDING",
