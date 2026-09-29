@@ -2,7 +2,6 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
-import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +19,9 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
     def configure_proof(self):
         source = json.loads(SOURCE_PATH.read_text(encoding="utf-8"))
         environment = json.loads(ENV_PATH.read_text(encoding="utf-8"))
+        declared = environment["base_build_packages"] + environment["wine_build_packages"]
+        requested = {name: "1-r0" for name in declared}
+        installed = {"alpine-baselayout": "3.7.0-r0", **requested}
         return {
             "$schema": "prototype-ordax.windows-compat-configure-proof/1",
             "runtime_id": source["runtime_id"],
@@ -31,11 +33,8 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
                 "x86_64_mingw_gcc": "x86_64-w64-mingw32-gcc (GCC) 14.2.0",
                 "i686_mingw_gcc": "i686-w64-mingw32-gcc (GCC) 14.2.0",
             },
-            "resolved_build_packages": {"build-base": "0.5-r3"},
-            "resolved_installed_packages": {
-                "alpine-baselayout": "3.7.0-r0",
-                "build-base": "0.5-r3",
-            },
+            "resolved_build_packages": requested,
+            "resolved_installed_packages": installed,
             "configure_flags": ["--prefix=/usr", "--enable-archs=x86_64,i386"],
             "configure_proof_passed": True,
             "package_versions_pinned": False,
@@ -53,9 +52,26 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
 
     def test_configure_proof_requested_package_must_match_installed_graph(self):
         value = self.configure_proof()
-        value["resolved_installed_packages"]["build-base"] = "0.5-r2"
+        value["resolved_installed_packages"]["build-base"] = "2-r0"
         with self.assertRaisesRegex(probe.PackageLockError, "requested package identity"):
             probe.validate_configure_proof(value)
+
+    def test_configure_proof_must_contain_every_declared_build_package(self):
+        value = self.configure_proof()
+        value["resolved_build_packages"].pop("build-base")
+        with self.assertRaisesRegex(probe.PackageLockError, "diverged from declaration"):
+            probe.validate_configure_proof(value)
+
+    def test_configure_proof_rejects_undeclared_build_package(self):
+        value = self.configure_proof()
+        value["resolved_build_packages"]["surprise-package"] = "1-r0"
+        value["resolved_installed_packages"]["surprise-package"] = "1-r0"
+        with self.assertRaisesRegex(probe.PackageLockError, "diverged from declaration"):
+            probe.validate_configure_proof(value)
+
+    def test_declared_build_package_count_is_exact(self):
+        value = probe.validate_configure_proof(self.configure_proof())
+        self.assertEqual(len(value["resolved_build_packages"]), 39)
 
     def test_changed_packages_tracks_added_and_upgraded_only(self):
         pristine = {"busybox": "1.37.0-r20", "libgcc": "14.2.0-r5"}
@@ -86,15 +102,15 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
         proof = self.configure_proof()
         archives = [{
             "name": "build-base",
-            "version": "0.5-r3",
-            "filename": "build-base-0.5-r3.apk",
+            "version": "1-r0",
+            "filename": "build-base-1-r0.apk",
             "size_bytes": 12,
             "sha256": "a" * 64,
         }]
         manifest = probe.build_candidate_manifest(
             proof,
             {"alpine-baselayout": "3.7.0-r0"},
-            {"build-base": "0.5-r3"},
+            {"build-base": "1-r0"},
             archives,
             "b" * 64,
         )
@@ -104,6 +120,24 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
         self.assertFalse(manifest["promotion"]["full_build_proof_passed"])
         self.assertFalse(manifest["promotion"]["activation_authorized"])
         self.assertFalse(manifest["promotion"]["execution_authorized"])
+
+    def test_candidate_manifest_rejects_archive_identity_mismatch(self):
+        proof = self.configure_proof()
+        archives = [{
+            "name": "other",
+            "version": "1-r0",
+            "filename": "other-1-r0.apk",
+            "size_bytes": 12,
+            "sha256": "a" * 64,
+        }]
+        with self.assertRaisesRegex(probe.PackageLockError, "archive identities"):
+            probe.build_candidate_manifest(
+                proof,
+                {"alpine-baselayout": "3.7.0-r0"},
+                {"build-base": "1-r0"},
+                archives,
+                "b" * 64,
+            )
 
     def test_package_map_rejects_unsafe_version(self):
         with self.assertRaisesRegex(probe.PackageLockError, "unsafe package version"):
