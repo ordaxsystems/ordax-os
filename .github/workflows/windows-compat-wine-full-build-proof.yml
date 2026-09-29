@@ -13,6 +13,7 @@ on:
       - 'tests/test_windows_compat_runtime_dependency_closure.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_guard.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_evidence.py'
+      - 'tests/test_windows_compat_runtime_static_loader_linux_reachability.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
   push:
     branches: [main]
@@ -27,6 +28,7 @@ on:
       - 'tests/test_windows_compat_runtime_dependency_closure.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_guard.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_evidence.py'
+      - 'tests/test_windows_compat_runtime_static_loader_linux_reachability.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
 
 permissions:
@@ -67,6 +69,7 @@ jobs:
           python bootstrap/windows-compat-runtime/runtime_dependency_closure_probe.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_closure_loader_guard.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_closure_evidence_finalize.py check
+          python bootstrap/windows-compat-runtime/runtime_static_loader_linux_reachability_probe.py check
           python -m unittest tests.test_windows_compat_build_version_lock -v
           python -m unittest tests.test_windows_compat_apk_content_lock -v
           python -m unittest tests.test_windows_compat_full_build_proof -v
@@ -78,6 +81,7 @@ jobs:
           python -m unittest tests.test_windows_compat_runtime_dependency_closure -v
           python -m unittest tests.test_windows_compat_runtime_dependency_closure_guard -v
           python -m unittest tests.test_windows_compat_runtime_dependency_closure_evidence -v
+          python -m unittest tests.test_windows_compat_runtime_static_loader_linux_reachability -v
 
       - name: Reconstruct locked inputs, build Wine, and prove guarded DT_NEEDED closure without executing it
         run: |
@@ -132,6 +136,86 @@ jobs:
           print('staged entries:', staging['entry_count'])
           print('staged manifest:', staging['canonical_manifest_sha256'])
           PY
+
+          # Reuse the exact archive already downloaded by the full-build probe.
+          # Recompute the source/dynamic/static chain in this same job before
+          # proving reachability against the generated Makefile and exact stage.
+          python bootstrap/windows-compat-runtime/build.py fetch-source \
+            --cache-dir "$work/wine-source-cache" \
+            --proof-out "$proof_dir/source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py discover \
+            --archive "$work/wine-source-cache/wine-11.0.tar.xz" \
+            --source-proof "$proof_dir/source-proof.json" \
+            --out "$proof_dir/runtime-dynamic-load-source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_static_loader_target_classifier.py classify \
+            --dynamic-source-proof "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            --out "$proof_dir/runtime-static-loader-target-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_static_loader_linux_reachability_probe.py verify \
+            --source-archive "$work/wine-source-cache/wine-11.0.tar.xz" \
+            --source-proof "$proof_dir/source-proof.json" \
+            --dynamic-source-proof "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            --static-classification-proof "$proof_dir/runtime-static-loader-target-proof.json" \
+            --full-build-proof "$proof_dir/full-build-proof.json" \
+            --build-output-dir "$work/container-build/wine-output" \
+            --stage-dir "$work/container-build/stage" \
+            --out "$proof_dir/runtime-static-loader-linux-reachability-proof.json"
+          python - <<'PY' "$proof_dir/runtime-static-loader-linux-reachability-proof.json"
+          import json
+          import pathlib
+          import re
+          import sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert proof['$schema'] == 'prototype-ordax.windows-compat-runtime-static-loader-linux-reachability-proof/1'
+          assert proof['status'] == 'static-loader-linux-reachability-verified-all-static-callsites-host-disabled-not-dynamic-inventory-complete'
+          assert proof['configure_host_os'].startswith('linux')
+          assert 'musl' in proof['configure_host_os']
+          assert proof['counts'] == {
+              'modules': 2,
+              'reachable_static_callsites': 0,
+              'static_callsites': 6,
+              'unreachable_host_disabled_static_callsites': 6,
+          }
+          assert all(item['reachability'] == 'unreachable-host-disabled' for item in proof['modules'])
+          assert all(not item['staged_artifact_hits'] for item in proof['modules'])
+          assert all(item['reachability'] == 'unreachable-host-disabled' for item in proof['callsites'])
+          assert re.fullmatch(r'[0-9a-f]{64}', proof['evidence_sha256'])
+          gates = proof['gates']
+          for gate in (
+              'source_archive_verified',
+              'dynamic_source_recomputed',
+              'static_classification_recomputed',
+              'full_build_proof_verified',
+              'configure_host_identity_verified',
+              'configure_host_selection_semantics_verified',
+              'generated_disabled_subdirs_verified',
+              'staging_manifest_recomputed',
+              'linux_build_reachability_verified',
+              'static_target_runtime_resolution_complete',
+          ):
+              assert gates[gate] is True, gate
+          for gate in (
+              'configured_soname_caller_loader_context_complete',
+              'runtime_computed_target_resolution_complete',
+              'wrapper_call_graph_complete',
+              'generated_source_inventory_complete',
+              'dynamic_load_inventory_complete',
+              'external_transitive_closure_verified',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert gates[gate] is False, gate
+          print('Wine static loader Linux reachability: PASS')
+          print('configure host:', proof['configure_host'])
+          print('configure host_os:', proof['configure_host_os'])
+          print('static callsites proven unreachable:', proof['counts']['unreachable_host_disabled_static_callsites'])
+          print('evidence:', proof['evidence_sha256'])
+          PY
+
           python bootstrap/windows-compat-runtime/runtime_dependency_first_hit_guard.py verify \
             --stage-dir "$work/container-build/stage" \
             --rootfs "$work/content/resolver-rootfs" \
@@ -234,6 +318,10 @@ jobs:
           name: windows-compat-wine-runtime-dependency-proof-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/full-build-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/source-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-dynamic-load-source-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-static-loader-target-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-static-loader-linux-reachability-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-first-hit-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-loader-invariance-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-dependency-proof.json
