@@ -20,6 +20,7 @@ export function createNativeSurfaceHost(
     keyboardLayoutAvailable = false,
     browserWebContentAvailable = false,
     intelligenceSystemAvailable = false,
+    profileContentContextAvailable = false,
     localSessionAvailable = false,
     readAccountIdentityAvailable = () => false,
     readSyncSafeStateAvailable = () => false,
@@ -74,6 +75,9 @@ export function createNativeSurfaceHost(
     }
     if (intelligenceSystemAvailable) {
       capabilityIds.push("intelligence.system");
+    }
+    if (profileContentContextAvailable) {
+      capabilityIds.push("profile.content-context");
     }
     if (localSessionAvailable) {
       capabilityIds.push("session.local-lock");

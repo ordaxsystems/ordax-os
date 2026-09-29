@@ -1,6 +1,7 @@
 import {
   INTELLIGENCE_MAX_CONTEXT_ITEMS,
   INTELLIGENCE_MAX_CONTEXT_TOTAL_CHARS,
+  INTELLIGENCE_PORT_SCHEMA,
   assertIntelligencePort,
   validateIntelligenceRequest,
 } from "../../contracts/intelligence.mjs";
@@ -10,6 +11,10 @@ import {
   validateMemoryContextAuthorization,
 } from "../../contracts/memory-context.mjs";
 import { assertMemoryPort } from "../../contracts/memory.mjs";
+import {
+  assertSpaceSelectionPort,
+  validateSpaceSelectionSnapshot,
+} from "../../contracts/space-selection.mjs";
 import { retrieveAuthorizedMemoryContextSet } from "../memory/context.mjs";
 
 export const AUTHORIZED_MEMORY_INTELLIGENCE_SCHEMA = "ordax.intelligence-authorized-memory/1";
@@ -113,6 +118,49 @@ export function createAuthorizedMemoryIntelligence({ intelligencePort, memoryPor
         maxTokens: request.maxTokens,
       });
       return intelligence.respond(merged);
+    },
+  });
+}
+
+
+export function createSelectedSpaceMemoryIntelligence({
+  intelligencePort,
+  memoryPort,
+  spaceSelectionPort,
+} = {}) {
+  const intelligence = assertIntelligencePort(intelligencePort);
+  const memory = assertMemoryPort(memoryPort);
+  const selection = assertSpaceSelectionPort(spaceSelectionPort);
+  const authorized = createAuthorizedMemoryIntelligence({
+    intelligencePort: intelligence,
+    memoryPort: memory,
+  });
+
+  return Object.freeze({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot() {
+      return intelligence.getSnapshot();
+    },
+    subscribe(listener) {
+      return intelligence.subscribe(listener);
+    },
+    respond(value) {
+      const snapshot = validateSpaceSelectionSnapshot(selection.getSnapshot());
+      if (snapshot.state !== "selected") {
+        return intelligence.respond(validateIntelligenceRequest(value));
+      }
+      return authorized.respond(value, {
+        authorizations: [{
+          schema: "ordax.memory-context-auth/1",
+          authority: "composition",
+          ownerKind: "account",
+          ownerId: snapshot.subjectId,
+          scopes: ["space"],
+          spaceId: snapshot.selectedSpace.id,
+          projectId: null,
+          includeRestricted: false,
+        }],
+      });
     },
   });
 }

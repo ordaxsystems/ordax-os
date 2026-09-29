@@ -136,6 +136,8 @@ on:
       - 'tests/test_native_host_module_integrity.py'
       - 'tests/test_native_account_gateway.py'
       - 'tests/test_native_request_boundary.py'
+      - 'tests/test_native_capability_adapter.py'
+      - 'tests/test_native_profile_content_context_contract.py'
       - 'tests/test_system_runtime_contract.py'
       - 'tests/test_third_party_inventory.py'
       - 'tests/test_identity_session.mjs'
@@ -292,6 +294,8 @@ on:
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
       - 'tests/test_native_request_boundary.py'
+      - 'tests/test_native_capability_adapter.py'
+      - 'tests/test_native_profile_content_context_contract.py'
       - 'tests/test_system_runtime_contract.py'
       - 'tests/test_third_party_inventory.py'
       - 'tests/test_identity_session.mjs'
@@ -455,6 +459,8 @@ jobs:
           python -m unittest tests.test_native_host_module_integrity -v
           python -m unittest tests.test_native_account_gateway -v
           python -m unittest tests.test_native_request_boundary -v
+          python -m unittest tests.test_native_capability_adapter -v
+          python -m unittest tests.test_native_profile_content_context_contract -v
           python -m unittest tests.test_native_install_runtime -v
           python -m unittest tests.test_system_runtime_contract -v
           python -m unittest tests.test_third_party_inventory -v

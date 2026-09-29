@@ -159,6 +159,8 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - Space selecionado é contexto/navegação, não membership, permissão, Profile activation nem fonte de autoridade;
 - conteúdo Knowledge/Skill de um Profile ativo possui reader Native read-only que revalida inventário, receipt, slot content-addressed, hash exato e estrutura antes de projetar contexto bounded para Intelligence;
 - a ponte de Intelligence é vinculada explicitamente por `spaceId`; ela nunca escolhe/inventa um Space, preserva contexto do consumidor como prioridade e trata Skill como contexto declarativo com `authority=none` e sem tools;
+- a composição de Intelligence agora usa o `Space em uso` explicitamente selecionado e validado pela sessão; sem seleção, a Intelligence continua sem conteúdo de Profile, nunca escolhe o primeiro Space nem converte seleção em autorização;
+- a mesma seleção pode autorizar contexto de Memory apenas no escopo `space`, com owner igual ao `subjectId` atual, `spaceId` exato e `includeRestricted=false`; sem Space selecionado não há leitura de Memory, e Profile nunca amplia essa autorização;
 - esse caminho permanece Owner/Development-only e dormente enquanto não existir componente Profile canônico realmente publicado/instalado/ativado; Stable/MVP continua sem endpoint de Profile content context;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.

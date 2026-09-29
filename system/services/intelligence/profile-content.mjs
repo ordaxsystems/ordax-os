@@ -8,6 +8,10 @@ import {
 import {
   assertProfileContentContextPort,
 } from "../../contracts/profile-content-context.mjs";
+import {
+  assertSpaceSelectionPort,
+  validateSpaceSelectionSnapshot,
+} from "../../contracts/space-selection.mjs";
 
 export const PROFILE_CONTENT_INTELLIGENCE_SCHEMA = "ordax.intelligence-profile-content/1";
 
@@ -96,6 +100,37 @@ export function createProfileContentIntelligence({
           return respondForSpace(value, boundSpaceId);
         },
       });
+    },
+  });
+}
+
+
+export function createSelectedSpaceProfileContentIntelligence({
+  intelligencePort,
+  profileContentContextPort,
+  spaceSelectionPort,
+} = {}) {
+  const intelligence = assertIntelligencePort(intelligencePort);
+  const selection = assertSpaceSelectionPort(spaceSelectionPort);
+  const profileIntelligence = createProfileContentIntelligence({
+    intelligencePort: intelligence,
+    profileContentContextPort,
+  });
+
+  return Object.freeze({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot() {
+      return intelligence.getSnapshot();
+    },
+    subscribe(listener) {
+      return intelligence.subscribe(listener);
+    },
+    respond(value) {
+      const snapshot = validateSpaceSelectionSnapshot(selection.getSnapshot());
+      if (snapshot.state !== "selected") {
+        return intelligence.respond(validateIntelligenceRequest(value));
+      }
+      return profileIntelligence.forSpace(snapshot.selectedSpace.id).respond(value);
     },
   });
 }
