@@ -914,8 +914,9 @@ MEMORY_EXACT_CAPTURE_DEDUP=PASS_SOURCE_EXACT_ONLY
 
 
 CLOUD_MEMORY_SYNC_BOUNDARY=PASS_SOURCE_DISABLED
+CLOUD_MEMORY_TWO_CLIENT_PROOF=PASS_SOURCE_EXECUTION_PENDING_PREPROVISIONED_ENTITLEMENT
 
-Account-owned and Space-owned Memory are currently local OrdaX Memory ownership domains, not a released cloud-sync claim. The dedicated control-plane database contains RLS-protected `ordax_memory_items` plus a separate sync-object stream, and the server-authoritative `ordax_apply_memory_mutation_v1` boundary is now deployed so canonical Memory and its sync/tombstone mirror can advance atomically. Public cloud Memory remains disabled: the authenticated non-admin proof, edit/delete tombstone reconciliation, two-client delivery and real entitlement behavior still have to pass before rollout. Independent client dual-write remains forbidden; device/session/project/restricted Memory remain outside the initial cloud-sync eligibility boundary.
+Account-owned and Space-owned Memory are currently local OrdaX Memory ownership domains, not a released cloud-sync claim. The dedicated control-plane database contains RLS-protected `ordax_memory_items` plus a separate sync-object stream, and the server-authoritative `ordax_apply_memory_mutation_v1` boundary is deployed so canonical Memory and its sync/tombstone mirror advance atomically. The manual proof harness is now source-ready for two independent authenticated sessions of the same dedicated non-admin account: Client A creates/edits/deletes while Client B independently consumes the incremental sync stream, attempts a stale mutation that must be rejected, and verifies the canonical deleted state. Public cloud Memory remains disabled because execution still requires a deliberately preprovisioned `memory.cloud.enabled` entitlement and a real authenticated run; the proof itself never creates that grant or uses service-role authority. Independent client dual-write remains forbidden; device/session/project/restricted Memory remain outside the initial cloud-sync eligibility boundary.
 
 
 PROFILE_PROVISIONING_COMPLETED_GATES=RECEIPT_INVENTORY,TRUSTED_EXECUTOR,HEALTH_ROLLBACK,SURFACE_CATALOG_UI
