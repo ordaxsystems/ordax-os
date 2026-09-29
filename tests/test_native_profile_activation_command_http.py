@@ -153,6 +153,67 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
         finally:
             self.stop_server(temporary, server, thread)
 
+    def test_native_consent_presenter_unavailable_maps_to_http_503(self):
+        temporary, server, thread = self.start_server()
+        original = native_host.execute_profile_activation_command
+
+        def unavailable(*_args, **_kwargs):
+            raise native_host.ProfileConsentPresenterUnavailableError("presenter unavailable")
+
+        native_host.execute_profile_activation_command = unavailable
+        try:
+            token = self.session(server)["profileActivationToken"]
+            headers = self.trusted_headers(server)
+            headers[native_host.PROFILE_ACTIVATION_TOKEN_HEADER] = token
+            status, body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=headers,
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 503)
+            self.assertEqual(body, b"")
+        finally:
+            native_host.execute_profile_activation_command = original
+            self.stop_server(temporary, server, thread)
+
+    def test_server_resolves_consent_only_through_native_presenter(self):
+        temporary, server, thread = self.start_server()
+        original = native_host.request_native_decision
+        seen = []
+
+        def approve(request):
+            seen.append(request)
+            return {
+                "schema": "ordax.profile-human-consent-decision/1",
+                "requestId": request["requestId"],
+                "approved": True,
+            }
+
+        native_host.request_native_decision = approve
+        try:
+            receipt = server.resolve_profile_human_consent(
+                permission_diff={
+                    "schema": "ordax.profile-permission-diff/1",
+                    "componentAdds": [{"id": "knowledge.example"}],
+                    "componentRemovals": [],
+                    "authorityChanges": [],
+                    "requiresExplicitReview": True,
+                },
+                permission_diff_sha256="a" * 64,
+                expected_revision=4,
+                space_id="space-professional-1",
+                space_kind="professional",
+                profile={"slug": "developer", "version": 1},
+            )
+            self.assertEqual(len(seen), 1)
+            self.assertEqual(receipt["schema"], "ordax.profile-human-consent/1")
+            self.assertEqual(receipt["permissionDiffSha256"], "a" * 64)
+        finally:
+            native_host.request_native_decision = original
+            self.stop_server(temporary, server, thread)
+
     def test_revision_conflict_maps_to_http_409_with_valid_token(self):
         temporary, server, thread = self.start_server()
         original = native_host.execute_profile_activation_command
