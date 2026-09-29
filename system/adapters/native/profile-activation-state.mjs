@@ -110,6 +110,7 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       components = [],
       activatedAt = Date.now(),
       acceptedPermissionDiffSha256 = null,
+      humanConsent = null,
     }) {
       const body = {
         action: "activate",
@@ -122,6 +123,9 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       };
       if (acceptedPermissionDiffSha256 !== null) {
         body.acceptedPermissionDiffSha256 = acceptedPermissionDiffSha256;
+      }
+      if (humanConsent !== null) {
+        body.humanConsent = humanConsent;
       }
       await command(body);
       return snapshot;
