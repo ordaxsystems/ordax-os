@@ -110,7 +110,8 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("installation is never simulated", catalog)
         for composition in (native, web):
             self.assertIn("createProfileProvisioningRuntime", composition)
-            self.assertIn("LOCAL_PROFILE_DISTRIBUTIONS", composition)
+            self.assertIn("createLocalProfileDistributions", composition)
+            self.assertIn("loadBundledProfilePacks", composition)
             self.assertIn("inventory: profileComponentInventory", composition)
             self.assertIn("profileProvisioning,", composition)
             self.assertIn("profileProvisioning.dispose()", composition)
@@ -119,6 +120,10 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("optionalNativeProbe", native)
         self.assertIn("createSessionProfileComponentInventory", native)
         self.assertIn("createSessionProfileComponentInventory", web)
+        self.assertIn("continuing without Profiles", web)
+        self.assertIn("continuing without Profiles", native)
+        self.assertNotIn("LOCAL_PROFILE_DISTRIBUTIONS", native)
+        self.assertNotIn("LOCAL_PROFILE_DISTRIBUTIONS", web)
         self.assertNotIn("adapters/native/profile-component-inventory.mjs", web)
 
     def test_memory_section_is_local_first_and_native_only_when_durable(self):
