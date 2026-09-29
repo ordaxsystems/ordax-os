@@ -70,8 +70,7 @@ def load_runtime_contract() -> dict:
 
 def validate_contract_binding(source: dict, contract: dict) -> tuple[dict, dict]:
     source = SOURCE.validate_source(source)
-    bootstrap = contract["loader_bootstrap"]
-    authority = bootstrap["source_authority"]
+    authority = contract["loader_bootstrap"]["source_authority"]
     upstream = source["upstream"]
     expected = {
         "source_lock": "source.json",
@@ -95,14 +94,14 @@ def _without_comments(text: str) -> str:
 
 
 def prove_source_text(text: str) -> dict:
-    """Prove the minimal source semantics needed by the bootstrap model."""
-    code = _without_comments(text)
-    normalized = re.sub(r"\s+", " ", code).strip()
-
+    """Prove only the Wine 11.0 semantics required by the bootstrap model."""
+    normalized = re.sub(r"\s+", " ", _without_comments(text)).strip()
     anchors = {
-        "try_dlopen_uses_rtld_now": r"dlopen\s*\(\s*path\s*,\s*RTLD_NOW\s*\)",
         "load_ntdll_function": r"static\s+void\s*\*\s*load_ntdll\s*\(\s*void\s*\)",
-        "installed_arch_ntdll_path": r'try_dlopen\s*\(\s*strmake\s*\(\s*"%s/wine%s/ntdll\.so"\s*,\s*libdir\s*,\s*arch_dir\s*\)',
+        "installed_arch_ntdll_rtld_now": (
+            r'dlopen\s*\(\s*strmake\s*\(\s*"%s/wine%s/ntdll\.so"\s*,\s*libdir\s*,\s*arch_dir\s*\)'
+            r"\s*,\s*RTLD_NOW\s*\)"
+        ),
         "main_resolves_from_load_ntdll": r'dlsym\s*\(\s*load_ntdll\s*\(\s*\)\s*,\s*"__wine_main"\s*\)',
     }
     positions: dict[str, int] = {}
@@ -112,23 +111,19 @@ def prove_source_text(text: str) -> dict:
             raise WineBootstrapSourceProofError(f"locked Wine source does not prove bootstrap anchor: {label}")
         positions[label] = match.start()
 
-    if positions["try_dlopen_uses_rtld_now"] >= positions["main_resolves_from_load_ntdll"]:
-        raise WineBootstrapSourceProofError("Wine bootstrap ordering drifted: dlopen proof is not before __wine_main resolution")
     if positions["load_ntdll_function"] >= positions["main_resolves_from_load_ntdll"]:
         raise WineBootstrapSourceProofError("Wine bootstrap ordering drifted: load_ntdll is not defined before main resolution")
-    if positions["installed_arch_ntdll_path"] >= positions["main_resolves_from_load_ntdll"]:
-        raise WineBootstrapSourceProofError("Wine bootstrap ordering drifted: installed ntdll path is not tried before __wine_main")
+    if positions["installed_arch_ntdll_rtld_now"] >= positions["main_resolves_from_load_ntdll"]:
+        raise WineBootstrapSourceProofError("Wine bootstrap ordering drifted: installed ntdll RTLD_NOW load is not before __wine_main")
 
     return {
-        "try_dlopen_uses_rtld_now": True,
         "load_ntdll_function_present": True,
-        "installed_arch_ntdll_path_present": True,
+        "installed_arch_ntdll_uses_rtld_now": True,
         "main_resolves_wine_main_from_load_ntdll": True,
     }
 
 
 def extract_bootstrap_source(source: dict, archive: Path, authority: dict) -> tuple[bytes, int]:
-    # Existing validator proves archive size/hash/root/VERSION before we inspect wine.c.
     archive_proof = SOURCE.validate_archive(source, archive)
     upstream = source["upstream"]
     member_name = f"{upstream['archive_root']}/{authority['source_path']}"
