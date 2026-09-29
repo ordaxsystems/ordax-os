@@ -138,6 +138,19 @@
     "preference_persistence": "canonical-device-preference-store",
     "preference_read_per_capture": true,
     "preference_account_sync_enabled": false,
-    "disabling_preference_deletes_existing_memory": false
+    "disabling_preference_deletes_existing_memory": false,
+    "exact_duplicate_coalescing": true,
+    "exact_duplicate_identity_fields": [
+      "ownerKind",
+      "ownerId",
+      "scope",
+      "spaceId",
+      "kind",
+      "sensitivity",
+      "content"
+    ],
+    "exact_duplicate_mints_new_id": false,
+    "exact_duplicate_requires_flush": true,
+    "semantic_supersession_enabled": false
   }
 }
