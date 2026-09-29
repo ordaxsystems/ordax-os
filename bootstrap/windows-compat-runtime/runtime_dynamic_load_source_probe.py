@@ -2,9 +2,10 @@
 """Inventory direct host dynamic-loader callsites in the locked Wine archive.
 
 This proof is intentionally limited to direct dlopen/dlmopen callsites in the
-exact pinned upstream C sources. It does not claim wrapper closure, generated
-source coverage, plugin naming coverage, or complete runtime dependency
-inventory.
+exact pinned upstream C sources. It distinguishes source literals, configure-
+resolved SONAME_* symbols, and truly computed runtime expressions, but does not
+claim wrapper closure, generated-source coverage, plugin naming coverage, or a
+complete runtime dependency inventory.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ SOURCE_LOCK = HERE / "source.json"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 CALL_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 STRING_TOKEN_RE = re.compile(r'(?:u8|u|U|L)?"(?:\\.|[^"\\])*"')
+CONFIGURED_SONAME_RE = re.compile(r"^SONAME_[A-Z0-9_]+$")
 PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-dynamic-load-source-proof/1"
 
 
@@ -59,11 +61,13 @@ def load_contract() -> dict:
         raise DynamicLoadDiscoveryError("unexpected dynamic-load discovery contract schema")
     if contract.get("status") != "source-callsite-discovery-only-not-runtime-complete":
         raise DynamicLoadDiscoveryError("dynamic-load discovery status drifted")
+
     inspection = contract.get("inspection", {})
     required_true = (
         "comments_and_literals_must_not_create_callsites",
         "archive_member_manifest_binding_required",
         "literal_target_classification_required",
+        "configured_soname_symbol_classification_required",
         "dynamic_expression_classification_required",
     )
     if any(inspection.get(key) is not True for key in required_true):
@@ -79,6 +83,7 @@ def load_contract() -> dict:
         raise DynamicLoadDiscoveryError("dynamic-load source discovery scope drifted")
     if inspection.get("direct_host_loader_apis") != {"dlopen": 0, "dlmopen": 1}:
         raise DynamicLoadDiscoveryError("direct host loader API model drifted")
+
     inputs = contract.get("input", {})
     if inputs.get("archive_root") != "wine-11.0" or inputs.get("source_extensions") != [".c"]:
         raise DynamicLoadDiscoveryError("dynamic-load archive scan surface drifted")
@@ -126,6 +131,7 @@ def validate_source_proof(proof: dict, source: dict, contract: dict) -> str:
         raise DynamicLoadDiscoveryError("source proof runtime identity drifted")
     if proof.get("engine") != "wine" or proof.get("version") != "11.0":
         raise DynamicLoadDiscoveryError("source proof engine/version drifted")
+
     upstream = source["upstream"]
     expected = {
         "archive_name": upstream["archive_name"],
@@ -151,17 +157,17 @@ def _replace_span(chars: list[str], start: int, end: int) -> None:
 
 
 def lexical_views(text: str) -> tuple[str, str]:
+    """Return comment-removed and code-only views while preserving offsets."""
     comments_removed = list(text)
     code_only = list(text)
     i = 0
-    length = len(text)
-    while i < length:
+    while i < len(text):
         ch = text[i]
-        nxt = text[i + 1] if i + 1 < length else ""
+        nxt = text[i + 1] if i + 1 < len(text) else ""
         if ch == "/" and nxt == "/":
             end = text.find("\n", i + 2)
             if end < 0:
-                end = length
+                end = len(text)
             _replace_span(comments_removed, i, end)
             _replace_span(code_only, i, end)
             i = end
@@ -179,7 +185,7 @@ def lexical_views(text: str) -> tuple[str, str]:
             quote = ch
             start = i
             i += 1
-            while i < length:
+            while i < len(text):
                 if text[i] == "\\":
                     i += 2
                     continue
@@ -264,6 +270,8 @@ def classify_target(expression: str) -> dict:
             cursor = token.end()
         if valid and not value[cursor:].strip():
             return {"kind": "static-string", "expression": value, "literal_tokens": literals}
+    if CONFIGURED_SONAME_RE.fullmatch(value):
+        return {"kind": "configured-soname-symbol", "expression": value, "symbol": value}
     return {"kind": "dynamic-expression", "expression": value}
 
 
@@ -305,6 +313,7 @@ def read_relevant_members(archive: Path, contract: dict) -> tuple[list[dict], li
     expected_sha = contract["input"]["source_archive_sha256"]
     if sha256_file(archive) != expected_sha:
         raise DynamicLoadDiscoveryError("Wine source archive digest does not match dynamic-load contract")
+
     archive_root = contract["input"]["archive_root"]
     extensions = set(contract["input"]["source_extensions"])
     entries: list[dict] = []
@@ -367,20 +376,42 @@ def build_inventory(
     callsites.sort(key=lambda item: (item["path"], item["line"], item["column"], item["api"]))
     if not callsites:
         raise DynamicLoadDiscoveryError("locked Wine C source produced no modeled direct host loader callsites")
-    kinds = {"static-string": 0, "dynamic-expression": 0, "null": 0}
+
+    kinds = {
+        "static-string": 0,
+        "configured-soname-symbol": 0,
+        "dynamic-expression": 0,
+        "null": 0,
+    }
     apis: dict[str, int] = {name: 0 for name in api_map}
+    symbols: dict[str, int] = {}
     for item in callsites:
-        kinds[item["target"]["kind"]] += 1
+        target = item["target"]
+        kinds[target["kind"]] += 1
         apis[item["api"]] += 1
+        if target["kind"] == "configured-soname-symbol":
+            symbol = target["symbol"]
+            symbols[symbol] = symbols.get(symbol, 0) + 1
+
     counts = {
         "c_archive_members_scanned": len(entries),
         "c_source_bytes": total_bytes,
         "direct_loader_calls": len(callsites),
         "static_string_targets": kinds["static-string"],
+        "configured_soname_symbol_targets": kinds["configured-soname-symbol"],
         "dynamic_expression_targets": kinds["dynamic-expression"],
         "null_targets": kinds["null"],
         "calls_by_api": dict(sorted(apis.items())),
+        "configured_soname_symbols": dict(sorted(symbols.items())),
     }
+    if len(callsites) != (
+        counts["static_string_targets"]
+        + counts["configured_soname_symbol_targets"]
+        + counts["dynamic_expression_targets"]
+        + counts["null_targets"]
+    ):
+        raise DynamicLoadDiscoveryError("dynamic-load target classification count drifted")
+
     core = {
         "runtime_id": runtime_id,
         "source_archive_sha256": source_archive_sha256,
@@ -399,6 +430,8 @@ def build_inventory(
             "source_proof_verified": True,
             "c_archive_manifest_bound": True,
             "direct_host_loader_calls_inventoried": True,
+            "configured_soname_symbols_classified": True,
+            "configured_soname_values_resolved": False,
             "wrapper_call_graph_complete": False,
             "generated_source_inventory_complete": False,
             "dynamic_load_inventory_complete": False,
@@ -438,6 +471,7 @@ def main() -> int:
     parser.add_argument("--source-proof", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
+
     contract = load_contract()
     source_lock = load_json(args.source_lock, "source lock")
     validate_source_lock(source_lock, contract)
