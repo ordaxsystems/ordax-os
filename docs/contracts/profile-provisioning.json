@@ -29,12 +29,15 @@
     "persistent_native_inventory_reader": true,
     "surface_can_write_inventory": false,
     "immutable_profile_content_staging_source": true,
-    "profile_content_stage_activation": false
+    "profile_content_stage_activation": false,
+    "internal_component_activation_e2e_proof": true,
+    "internal_component_activation_e2e_distribution": "owner-development",
+    "internal_component_activation_e2e_uses_ephemeral_trust": true,
+    "stable_component_activation_enabled": false
   },
   "next_gates": [
-    "trusted-receipt-and-inventory-commit-after-verified-stage-health",
-    "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
-    "profile-health-and-rollback",
+    "operator-profile-content-key-ceremony-and-canonical-anchor-pin",
+    "canonical-developer-content-publication-candidate",
     "surface-profile-catalog-ui",
     "first-public-profile-proof"
   ],
@@ -98,7 +101,9 @@
     "mutable_host_access_allowed": false,
     "public_release_trust_pinned": false,
     "activation_allowed": false,
-    "content_format": "ordax.profile-content-pack/1"
+    "content_format": "ordax.profile-content-pack/1",
+    "internal_owner_development_e2e_proven": true,
+    "production_trust_promoted": false
   },
   "content_staging": {
     "tool": "tools/profile-content-channel",
