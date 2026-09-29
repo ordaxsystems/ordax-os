@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Discover staged Wine runtime dependencies without executing Wine.
 
-The probe parses ELF metadata directly, models the explicit Wine bootstrap state
-plus musl loader search semantics for DT_RPATH/DT_RUNPATH and the locked system
+The probe parses ELF metadata directly, models explicit Wine preload state plus
+musl loader search semantics for DT_RPATH/DT_RUNPATH and the locked system
 search path, resolves rooted symlinks, and maps external files to exact Alpine
 package owners. It never executes Wine or a Windows payload.
 """
@@ -20,6 +20,7 @@ import sys
 HERE = Path(__file__).resolve().parent
 CONTRACT = HERE / "runtime-dependency-discovery.json"
 FULL_BUILD_PROBE_PATH = HERE / "full_build_probe.py"
+PRELOAD_RUNTIME_PATH = HERE / "runtime_unixlib_preload_runtime_guard.py"
 
 PT_LOAD = 1
 PT_DYNAMIC = 2
@@ -52,6 +53,7 @@ def load_module(name: str, path: Path):
 
 
 FULL_BUILD = load_module("ordax_windows_compat_full_build_for_runtime_dependencies", FULL_BUILD_PROBE_PATH)
+PRELOAD_RUNTIME = load_module("ordax_windows_compat_unixlib_preload_runtime", PRELOAD_RUNTIME_PATH)
 
 
 def _validate_bootstrap_contract(value: dict) -> None:
@@ -558,6 +560,28 @@ def resolve_bootstrap_shortname(stage: Path, soname: str, consumer: dict, contra
     }
 
 
+def resolve_dependency_attach_preload(
+    stage: Path,
+    consumer_relative: str,
+    soname: str,
+    consumer: dict,
+    preload_source_proof: dict,
+) -> dict | None:
+    try:
+        return PRELOAD_RUNTIME.resolve_preloaded_unixlib(
+            stage,
+            consumer_relative,
+            soname,
+            consumer,
+            preload_source_proof,
+            parse_elf=parse_elf_dynamic,
+            elf_identity=elf_identity,
+            resolve_rooted_path=resolve_rooted_path,
+        )
+    except PRELOAD_RUNTIME.UnixlibPreloadRuntimeError as exc:
+        raise RuntimeDependencyError(str(exc)) from exc
+
+
 def resolve_loader_dependency(
     stage_index: dict[str, list[dict]],
     rootfs_index: dict[str, list[dict]],
@@ -568,12 +592,17 @@ def resolve_loader_dependency(
     *,
     stage: Path | None = None,
     contract: dict | None = None,
+    preload_source_proof: dict | None = None,
 ) -> tuple[dict | None, list[dict]]:
     search = loader_search_directories(consumer_relative, consumer, rootfs)
     if stage is not None:
         bootstrap = resolve_bootstrap_shortname(stage, soname, consumer, contract)
         if bootstrap is not None:
             return bootstrap, search
+        if preload_source_proof is not None:
+            preload = resolve_dependency_attach_preload(stage, consumer_relative, soname, consumer, preload_source_proof)
+            if preload is not None:
+                return preload, search
     for position, item in enumerate(search):
         directory = item["directory"]
         staged = candidates_in_directory(stage_index, soname, consumer, directory, "stage")
@@ -645,7 +674,7 @@ def verify_stage_binding(stage: Path, full_build_proof: dict) -> str:
     return actual_digest
 
 
-def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
+def discover(stage: Path, rootfs: Path, full_build_proof: dict, preload_source_proof: dict) -> dict:
     contract = load_contract()
     if full_build_proof.get("$schema") != contract["input"]["full_build_proof_schema"]:
         raise RuntimeDependencyError("unexpected full build proof schema")
@@ -664,6 +693,10 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
         raise RuntimeDependencyError("full build proof crossed a forbidden promotion/execution boundary")
     if full_build_proof.get("runtime_id") != contract.get("runtime_id"):
         raise RuntimeDependencyError("runtime identity drifted")
+    try:
+        PRELOAD_RUNTIME.validate_source_proof(preload_source_proof, contract["runtime_id"])
+    except PRELOAD_RUNTIME.UnixlibPreloadRuntimeError as exc:
+        raise RuntimeDependencyError(str(exc)) from exc
     if not stage.is_dir() or not rootfs.is_dir():
         raise RuntimeDependencyError("staged tree or locked rootfs is missing")
 
@@ -695,6 +728,7 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
                 rootfs,
                 stage=stage,
                 contract=contract,
+                preload_source_proof=preload_source_proof,
             )
             if candidate is None:
                 unresolved.append({
@@ -718,6 +752,11 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
                 "search_source": candidate["search_source"],
                 "search_position": candidate["search_position"],
             }
+            if candidate["resolution_kind"] == "source-proven-dependency-attach-preload":
+                resolution["unixlib_preload_source_evidence_sha256"] = candidate[
+                    "unixlib_preload_source_evidence_sha256"
+                ]
+                resolution["preload_relation"] = candidate["preload_relation"]
             if candidate["scope"] == "rootfs-external":
                 package, version = require_single_apk_owner(candidate, owners)
                 if package_versions.get(package) != version:
@@ -789,25 +828,39 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
     }
 
 
+def load_json(path: Path, label: str) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeDependencyError(f"cannot load {label}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise RuntimeDependencyError(f"{label} must be an object")
+    return value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["check", "discover"])
     parser.add_argument("--stage-dir", type=Path)
     parser.add_argument("--rootfs", type=Path)
     parser.add_argument("--full-build-proof", type=Path)
+    parser.add_argument("--unixlib-preload-source-proof", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     load_contract()
     if args.command == "check":
         print("windows compatibility runtime dependency discovery contract: PASS")
         return 0
-    if not all((args.stage_dir, args.rootfs, args.full_build_proof, args.out)):
-        raise RuntimeDependencyError("discover requires --stage-dir, --rootfs, --full-build-proof and --out")
-    try:
-        proof = json.loads(args.full_build_proof.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeDependencyError(f"cannot load full build proof: {exc}") from exc
-    result = discover(args.stage_dir.resolve(), args.rootfs.resolve(), proof)
+    if not all((args.stage_dir, args.rootfs, args.full_build_proof, args.unixlib_preload_source_proof, args.out)):
+        raise RuntimeDependencyError(
+            "discover requires --stage-dir, --rootfs, --full-build-proof, --unixlib-preload-source-proof and --out"
+        )
+    result = discover(
+        args.stage_dir.resolve(),
+        args.rootfs.resolve(),
+        load_json(args.full_build_proof, "full build proof"),
+        load_json(args.unixlib_preload_source_proof, "unixlib preload source proof"),
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2, sort_keys=True))
@@ -817,6 +870,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except RuntimeDependencyError as exc:
+    except (RuntimeDependencyError, PRELOAD_RUNTIME.UnixlibPreloadRuntimeError) as exc:
         print(f"windows-compat-runtime-dependencies: {exc}", file=sys.stderr)
         raise SystemExit(2)
