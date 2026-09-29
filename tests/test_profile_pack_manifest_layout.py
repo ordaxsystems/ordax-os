@@ -26,6 +26,8 @@ class ProfilePackManifestLayoutTests(unittest.TestCase):
             manifest = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["slug"], entry["slug"])
             self.assertEqual(manifest["version"], entry["version"])
+            self.assertIn("components", manifest)
+            self.assertIsInstance(manifest["components"], list)
 
     def test_runtime_urls_match_native_release_http_root(self):
         catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
