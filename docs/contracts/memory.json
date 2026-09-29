@@ -81,6 +81,12 @@
   "sync": {
     "foundation_status": "implemented-not-promoted",
     "runtime": "system/services/sync/account-memory-runtime.mjs",
+    "identity_lifecycle_runtime": "system/services/sync/account-memory-session-runtime.mjs",
+    "identity_lifecycle_foundation_implemented": true,
+    "signed_out_sync_inactive": true,
+    "account_switch_rebinds_subject_runtime": true,
+    "account_switch_reuses_subject_partition": true,
+    "sign_out_erases_durable_coordination": false,
     "reconciliation_orchestrator": "system/services/sync/account-runtime.mjs",
     "account_orchestrator_memory_dispatch_implemented": true,
     "account_cursor_advances_after_memory_reconciliation": true,
