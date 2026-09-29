@@ -231,6 +231,23 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                     distribution_profile="owner-development",
                 )
 
+            consumed = []
+            class ConsentAuthority:
+                def consume(self, receipt, **kwargs):
+                    self_receipt = receipt
+                    consumed.append((self_receipt, kwargs))
+
+            activation_payload["humanConsent"] = {"receipt": "native-only-test"}
+            activated = module.execute_profile_activation_command(
+                activation_payload,
+                distribution_profile="owner-development",
+                human_consent_authority=ConsentAuthority(),
+            )
+            self.assertTrue(activated["changed"])
+            self.assertEqual(consumed[0][0], {"receipt": "native-only-test"})
+            self.assertEqual(consumed[0][1]["permission_diff_sha256"], digest)
+            self.assertEqual(consumed[0][1]["expected_revision"], 7)
+
             changed_revision = {**preview, "expectedRevision": 8}
             changed = module.execute_profile_activation_command(
                 changed_revision,
