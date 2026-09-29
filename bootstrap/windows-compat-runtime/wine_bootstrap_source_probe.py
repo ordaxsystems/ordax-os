@@ -23,6 +23,7 @@ SOURCE_HELPER_PATH = HERE / "build.py"
 RUNTIME_CONTRACT = HERE / "runtime-dependency-discovery.json"
 PROOF_SCHEMA = "prototype-ordax.windows-compat-wine-bootstrap-source-proof/1"
 MAX_BOOTSTRAP_SOURCE_BYTES = 256 * 1024
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class WineBootstrapSourceProofError(RuntimeError):
@@ -84,6 +85,8 @@ def validate_contract_binding(source: dict, contract: dict) -> tuple[dict, dict]
     for key, value in expected.items():
         if authority.get(key) != value:
             raise WineBootstrapSourceProofError(f"Wine bootstrap source authority mismatch: {key}")
+    if not SHA256_RE.fullmatch(str(authority.get("source_file_sha256", ""))):
+        raise WineBootstrapSourceProofError("Wine bootstrap source file digest is missing or invalid")
     return source, authority
 
 
@@ -161,6 +164,11 @@ def verify(archive: Path) -> dict:
     contract = load_runtime_contract()
     source, authority = validate_contract_binding(SOURCE.load_source(), contract)
     raw, member_count = extract_bootstrap_source(source, archive.resolve(), authority)
+    source_file_sha256 = hashlib.sha256(raw).hexdigest()
+    if source_file_sha256 != authority["source_file_sha256"]:
+        raise WineBootstrapSourceProofError(
+            f"Wine bootstrap source file digest mismatch: expected={authority['source_file_sha256']} actual={source_file_sha256}"
+        )
     try:
         text = raw.decode("utf-8", errors="strict")
     except UnicodeDecodeError as exc:
@@ -172,7 +180,7 @@ def verify(archive: Path) -> dict:
         "archive_sha256": source["upstream"]["archive_sha256"],
         "archive_member_count": member_count,
         "source_path": authority["source_path"],
-        "source_file_sha256": hashlib.sha256(raw).hexdigest(),
+        "source_file_sha256": source_file_sha256,
         "bootstrap_model": contract["loader_bootstrap"]["model"],
         "preloaded_shortnames": contract["loader_bootstrap"]["preloaded_shortnames"],
         "behavior": behavior,
@@ -185,6 +193,7 @@ def verify(archive: Path) -> dict:
         "gates": {
             "source_lock_verified": True,
             "source_archive_verified": True,
+            "wine_bootstrap_source_file_verified": True,
             "wine_bootstrap_source_behavior_verified": True,
             "runtime_dependency_inventory_complete": False,
             "runtime_package_content_hashes_pinned": False,
