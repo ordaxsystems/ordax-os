@@ -1,0 +1,41 @@
+{
+  "$schema": "prototype-ordax.windows-compat-apk-content-lock/1",
+  "status": "content-locked-from-offline-replayed-discovery-not-build-proven",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "wine_version": "11.0",
+  "host_rootfs_sha256": "4b4daa9fe2fc696c4919c4412a4c3d3e770d8fb70292a004a2c72f5096175282",
+  "resolved_closure": {
+    "package_count": 342,
+    "canonical_json_sha256": "f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff"
+  },
+  "external_apk_set": {
+    "package_count": 326,
+    "total_size_bytes": 595127154,
+    "canonical_manifest_sha256": "d4a5133c36b81a5123e3a3edbf5df485fe13aec994e088966bdba44a3b571c87",
+    "canonicalization": "sorted-package-map-json-no-whitespace",
+    "manifest_entry_fields": [
+      "filename",
+      "sha256",
+      "size_bytes",
+      "version"
+    ],
+    "meaning": "the canonical digest commits to every external APK package name, exact version, filename, byte size and SHA-256"
+  },
+  "provenance": {
+    "discovery_head_sha": "ce86331f0ff1e885e48baa4408600f553b7a9097",
+    "workflow_run_id": 36515782046,
+    "artifact_id": 11011685089,
+    "artifact_digest": "sha256:b406c7e4c61cf0714e8dc0c28226758fd4aca22532e3ff8f38b2ee8a3d2b0eb8"
+  },
+  "gates": {
+    "version_lock_verified": true,
+    "closure_reproduced": true,
+    "offline_content_replay_passed": true,
+    "apk_content_hashes_pinned": true,
+    "full_build_proof_passed": false,
+    "runtime_dependency_inventory_complete": false,
+    "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false
+  }
+}
