@@ -80,6 +80,11 @@ function findItemTextarea(container, id) {
     .find((entry) => entry.dataset.memoryReviewContent === id) ?? null;
 }
 
+function findItemActionButton(container, datasetKey, id) {
+  return Array.from(container.querySelectorAll("button"))
+    .find((entry) => entry.dataset?.[datasetKey] === id) ?? null;
+}
+
 export function mountMemoryReviewControls(containerValue, viewModelValue, copyValue) {
   const container = requireElement(containerValue, "Memory review container");
   const viewModel = requireViewModel(viewModelValue);
@@ -311,12 +316,23 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     if (target.dataset.memoryReviewRemove) {
       pendingRemovalId = target.dataset.memoryReviewRemove;
       render();
+      findItemActionButton(
+        container,
+        "memoryReviewRemoveConfirm",
+        pendingRemovalId,
+      )?.focus({ preventScroll: true });
       return;
     }
     if (target.dataset.memoryReviewRemoveCancel) {
-      if (pendingRemovalId === target.dataset.memoryReviewRemoveCancel) {
+      const id = target.dataset.memoryReviewRemoveCancel;
+      if (pendingRemovalId === id) {
         pendingRemovalId = null;
         render();
+        findItemActionButton(
+          container,
+          "memoryReviewRemove",
+          id,
+        )?.focus({ preventScroll: true });
       }
       return;
     }
