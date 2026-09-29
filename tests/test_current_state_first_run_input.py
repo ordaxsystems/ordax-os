@@ -156,12 +156,18 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
             "b924ff8d74d1761232381ae3f9604bba17497cfd",
         )
         self.assertIn(
-            "CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_EXACT",
+            "CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_SIGNED_MATERIALIZED_EXACT_PRE_HARDENING",
             self.current,
         )
         if consent_pending:
-            self.assertIn("CANONICAL_V4_RELEASE_PROOF_BINDING=PASS", self.current)
-            self.assertIn("PHYSICAL_AUTHORIZATION_ELIGIBLE=YES", self.current)
+            self.assertIn(
+                "CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=PASS",
+                self.current,
+            )
+            self.assertIn(
+                "PHYSICAL_AUTHORIZATION_ELIGIBLE=YES_CURRENT_BOUND_PROOF",
+                self.current,
+            )
             self.assertIn(
                 "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_FRESH_CONSENT_REQUIRED",
                 self.current,
@@ -173,6 +179,26 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
         if proof_pending:
             self.assertFalse(
                 self.authorization["requirements"]["canonical_v4_release_proof_bound"]
+            )
+            self.assertIn(
+                "CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT",
+                self.current,
+            )
+            self.assertIn(
+                "CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=NO",
+                self.current,
+            )
+            self.assertIn(
+                "PHYSICAL_AUTHORIZATION_ELIGIBLE=NO_REPLACEMENT_CANONICAL_V4_PROOF_REQUIRED",
+                self.current,
+            )
+            self.assertIn(
+                "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED",
+                self.current,
+            )
+            self.assertIn(
+                "PHYSICAL_WRITE_ALLOWED=NO_CANONICAL_V4_RELEASE_PROOF_PENDING",
+                self.current,
             )
         self.assertIn("PHYSICAL_TARGET_SELECTED=NO", self.current)
         self.assertIn(
