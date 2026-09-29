@@ -54,7 +54,10 @@ begin
   if p_object_schema_version is null or p_object_schema_version <= 0 or p_resolver_version is null or p_resolver_version <= 0 then
     raise exception 'invalid-schema-version' using errcode = '22023';
   end if;
-  if p_payload is null or jsonb_typeof(p_payload) <> 'object' then
+  if p_tombstone is null then
+    raise exception 'invalid-tombstone-state' using errcode = '22023';
+  end if;
+  if p_payload is null or jsonb_typeof(p_payload) is distinct from 'object' then
     raise exception 'payload-must-be-object' using errcode = '22023';
   end if;
 
@@ -68,12 +71,17 @@ begin
     end if;
 
     select count(*) into v_key_count from jsonb_object_keys(p_payload);
-    if v_key_count <> 2 or p_payload->>'schema' <> 'ordax.memory-sync-payload/1' then
+    if v_key_count <> 2
+       or not (p_payload ? 'schema')
+       or jsonb_typeof(p_payload->'schema') is distinct from 'string'
+       or p_payload->>'schema' is distinct from 'ordax.memory-sync-payload/1' then
       raise exception 'invalid-memory-sync-payload' using errcode = '22023';
     end if;
 
     if p_tombstone then
-      if not (p_payload ? 'memoryIdentity') or p_payload ? 'memory' or jsonb_typeof(p_payload->'memoryIdentity') <> 'object' then
+      if not (p_payload ? 'memoryIdentity')
+         or p_payload ? 'memory'
+         or jsonb_typeof(p_payload->'memoryIdentity') is distinct from 'object' then
         raise exception 'invalid-memory-sync-tombstone' using errcode = '22023';
       end if;
       v_identity := p_payload->'memoryIdentity';
@@ -82,8 +90,11 @@ begin
          or not (v_identity ? 'id')
          or not (v_identity ? 'ownerKind')
          or not (v_identity ? 'ownerId')
-         or v_identity->>'ownerKind' <> 'account'
-         or v_identity->>'ownerId' <> v_user_id::text then
+         or jsonb_typeof(v_identity->'id') is distinct from 'string'
+         or jsonb_typeof(v_identity->'ownerKind') is distinct from 'string'
+         or jsonb_typeof(v_identity->'ownerId') is distinct from 'string'
+         or v_identity->>'ownerKind' is distinct from 'account'
+         or v_identity->>'ownerId' is distinct from v_user_id::text then
         raise exception 'invalid-memory-sync-tombstone' using errcode = '22023';
       end if;
       v_memory_id := v_identity->>'id';
@@ -91,7 +102,9 @@ begin
         raise exception 'invalid-memory-id' using errcode = '22023';
       end if;
     else
-      if not (p_payload ? 'memory') or p_payload ? 'memoryIdentity' or jsonb_typeof(p_payload->'memory') <> 'object' then
+      if not (p_payload ? 'memory')
+         or p_payload ? 'memoryIdentity'
+         or jsonb_typeof(p_payload->'memory') is distinct from 'object' then
         raise exception 'invalid-memory-sync-payload' using errcode = '22023';
       end if;
       v_memory := p_payload->'memory';
@@ -108,12 +121,24 @@ begin
          or not (v_memory ? 'provenance')
          or not (v_memory ? 'sourceTimestamp')
          or not (v_memory ? 'spaceId')
-         or not (v_memory ? 'projectId') then
+         or not (v_memory ? 'projectId')
+         or jsonb_typeof(v_memory->'schema') is distinct from 'string'
+         or jsonb_typeof(v_memory->'id') is distinct from 'string'
+         or jsonb_typeof(v_memory->'ownerKind') is distinct from 'string'
+         or jsonb_typeof(v_memory->'ownerId') is distinct from 'string'
+         or jsonb_typeof(v_memory->'scope') is distinct from 'string'
+         or jsonb_typeof(v_memory->'kind') is distinct from 'string'
+         or jsonb_typeof(v_memory->'sensitivity') is distinct from 'string'
+         or jsonb_typeof(v_memory->'content') is distinct from 'string'
+         or jsonb_typeof(v_memory->'provenance') is distinct from 'string'
+         or jsonb_typeof(v_memory->'sourceTimestamp') is distinct from 'string'
+         or (jsonb_typeof(v_memory->'spaceId') is distinct from 'string' and jsonb_typeof(v_memory->'spaceId') is distinct from 'null')
+         or (jsonb_typeof(v_memory->'projectId') is distinct from 'string' and jsonb_typeof(v_memory->'projectId') is distinct from 'null') then
         raise exception 'invalid-memory-sync-payload' using errcode = '22023';
       end if;
-      if v_memory->>'schema' <> 'ordax.memory/1'
-         or v_memory->>'ownerKind' <> 'account'
-         or v_memory->>'ownerId' <> v_user_id::text
+      if v_memory->>'schema' is distinct from 'ordax.memory/1'
+         or v_memory->>'ownerKind' is distinct from 'account'
+         or v_memory->>'ownerId' is distinct from v_user_id::text
          or v_memory->>'scope' not in ('account','space','project')
          or v_memory->>'kind' not in ('preference','fact','instruction','summary','artifact-reference')
          or v_memory->>'sensitivity' not in ('normal','private') then
@@ -194,7 +219,7 @@ begin
       ),
       '='
     );
-    if p_stable_object_id <> v_expected_object_id or char_length(v_expected_object_id) > 240 then
+    if p_stable_object_id is distinct from v_expected_object_id or char_length(v_expected_object_id) > 240 then
       raise exception 'invalid-memory-stable-object-id' using errcode = '22023';
     end if;
   end if;
@@ -203,13 +228,13 @@ begin
   where owner_user_id = v_user_id and idempotency_key = p_idempotency_key;
 
   if found then
-    if v_mutation.data_class <> p_data_class
-       or v_mutation.stable_object_id <> p_stable_object_id
+    if v_mutation.data_class is distinct from p_data_class
+       or v_mutation.stable_object_id is distinct from p_stable_object_id
        or v_mutation.base_server_revision is distinct from p_base_server_revision
-       or v_mutation.object_schema_version <> p_object_schema_version
-       or v_mutation.resolver_version <> p_resolver_version
-       or v_mutation.tombstone <> p_tombstone
-       or v_mutation.payload <> p_payload then
+       or v_mutation.object_schema_version is distinct from p_object_schema_version
+       or v_mutation.resolver_version is distinct from p_resolver_version
+       or v_mutation.tombstone is distinct from p_tombstone
+       or v_mutation.payload is distinct from p_payload then
       raise exception 'idempotency-key-reused-for-different-mutation' using errcode = '22023';
     end if;
     select * into v_existing from private.ordax_sync_objects
