@@ -118,6 +118,18 @@
       "entitlement_ttl_seconds_min": 300,
       "entitlement_ttl_seconds_max": 1800,
       "backend_mutation_on_source_merge": false
+    },
+    "account_entitlement_preflight": {
+      "status": "source-ready-not-live-composed",
+      "route": "GET /account/entitlement?key=memory.cloud.enabled",
+      "adapter": "system/adapters/web/entitlements.mjs",
+      "native_proxy": "system/surface/runtime/native_host_server.py",
+      "session_subject_server_derived": true,
+      "service_role_allowed": false,
+      "rls_read": true,
+      "client_claim_is_authority": false,
+      "mutation_rpc_is_final_authority": true,
+      "public_rollout_enabled": false
     }
   }
 }
