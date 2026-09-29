@@ -83,7 +83,6 @@
     "trusted_user_intent_command_boundary": true
   },
   "next_gates": [
-    "single-source-profile-component-composition",
     "published-trusted-profile-content-for-real-component-activation",
     "profile-health-after-activation",
     "physical-native-gtk-consent-proof",
@@ -133,6 +132,8 @@
     "human_consent_receipt_native_only": true,
     "human_consent_receipt_one_shot": true,
     "human_consent_receipt_ttl_bounded": true,
-    "human_consent_presenter_unavailable_result": "503-safe-unavailable"
+    "human_consent_presenter_unavailable_result": "503-safe-unavailable",
+    "canonical_component_source": "versioned-profile-manifest",
+    "delivery_policy_component_duplication_allowed": false
   }
 }
