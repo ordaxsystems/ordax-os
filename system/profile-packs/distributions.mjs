@@ -38,6 +38,18 @@ function distributionFromPack(pack, policy) {
     }
   }
 
+  for (const component of pack.components) {
+    if (
+      component.availability === "available"
+      && policy.deliveryMode === "on-demand"
+      && !Object.prototype.hasOwnProperty.call(policy.componentSizes, component.id)
+    ) {
+      throw new TypeError(
+        `On-demand published Profile component ${component.id} requires delivery size metadata`,
+      );
+    }
+  }
+
   return validateProfileDistribution({
     $schema: "ordax.profile-distribution/1",
     profile: { slug: pack.slug, version: pack.version },
