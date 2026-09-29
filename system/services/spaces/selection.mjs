@@ -115,6 +115,9 @@ export function createSpaceSelectionRuntime({
       identitySnapshot.state === "signed-in" ? identitySnapshot.subjectId : null
     );
     if (previousSubjectId !== nextSubjectId) {
+      if (previousSubjectId !== null) {
+        selectionStore.clear();
+      }
       catalogSubjectId = null;
       spacesPort.reset();
     }
