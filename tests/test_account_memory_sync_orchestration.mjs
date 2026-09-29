@@ -275,6 +275,31 @@ test("blocked Memory remote state prevents canonical cursor advancement instead 
   harness.destroy();
 });
 
+test("unresolved Memory conflict prevents canonical cursor advancement", async () => {
+  const { memory, memorySync } = createMemorySync();
+  memorySync.remember(memoryItem({ content: "intenção local pendente" }));
+  const remoteMemory = createMemorySyncObject({
+    item: memoryItem({
+      content: "alteração remota concorrente",
+      sourceTimestamp: "2026-09-29T12:21:00Z",
+    }),
+    serverRevision: 8,
+  });
+  const remote = transport({ pullChanges: [remoteMemory], nextCursor: 11 });
+  const checkpoint = checkpointStore(existingCheckpoint(10));
+  const harness = createAccountHarness({ memorySync, remote, checkpoint });
+
+  const result = await harness.accountSync.refresh();
+
+  assert.equal(result.accountContinuity, "not-active");
+  assert.equal(checkpoint.peek().cursor, 10);
+  assert.equal(memorySync.getSnapshot().conflictCount, 1);
+  assert.equal(memorySync.getSnapshot().pendingMutationCount, 1);
+  assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "intenção local pendente");
+
+  harness.destroy();
+});
+
 test("pending Memory mutation flushes through the exact transport owned by the account runtime", async () => {
   const { memorySync } = createMemorySync();
   memorySync.remember(memoryItem({ id: "outbound-memory", content: "alteração offline" }));
