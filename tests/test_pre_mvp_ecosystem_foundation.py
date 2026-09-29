@@ -162,6 +162,24 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertFalse(provisioning["mvp"]["public_profile_install_enabled"])
         self.assertFalse(provisioning["content_proof"]["public_release_trust_pinned"])
         self.assertFalse(provisioning["content_proof"]["activation_allowed"])
+        handoff = provisioning["publication_handoff"]
+        self.assertEqual(
+            handoff["schema"],
+            "prototype-ordax.profile-content-publication-handoff/1",
+        )
+        self.assertEqual(
+            handoff["trust_policy"],
+            "docs/contracts/profile-content-trust-policy.json",
+        )
+        self.assertTrue(handoff["exact_manifest_sha256_required"])
+        self.assertTrue(handoff["exact_content_sha256_required"])
+        self.assertFalse(handoff["private_key_access"])
+        self.assertFalse(handoff["envelope_emitted"])
+        self.assertTrue(handoff["canonical_anchor_must_be_unpinned"])
+        self.assertTrue(handoff["publication_must_remain_disabled"])
+        self.assertTrue(handoff["installation_must_remain_disabled"])
+        self.assertTrue(handoff["activation_must_remain_disabled"])
+        self.assertFalse(handoff["output_is_publication_evidence"])
 
     def test_store_foundation_never_bypasses_trust_or_permissions(self):
         distribution = self.load(APP_DISTRIBUTION)
