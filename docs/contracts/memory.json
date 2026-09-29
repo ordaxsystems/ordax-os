@@ -132,6 +132,12 @@
     "project_capture_enabled": false,
     "session_capture_enabled": false,
     "restricted_capture_enabled": false,
-    "durable_flush_required": true
+    "durable_flush_required": true,
+    "preference_id": "memory.auto-capture",
+    "preference_default": "on",
+    "preference_persistence": "canonical-device-preference-store",
+    "preference_read_per_capture": true,
+    "preference_account_sync_enabled": false,
+    "disabling_preference_deletes_existing_memory": false
   }
 }
