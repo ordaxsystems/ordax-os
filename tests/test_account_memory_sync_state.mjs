@@ -7,6 +7,7 @@ import { createMemoryRuntime } from "../system/services/memory/runtime.mjs";
 import {
   MEMORY_SYNC_STATE_SCHEMA,
   createAccountMemorySyncRuntime,
+  createMemorySyncObject,
 } from "../system/services/sync/account-memory-runtime.mjs";
 
 const SUBJECT = "account-subject-a";
@@ -28,12 +29,13 @@ function memoryItem(overrides = {}) {
   };
 }
 
-function createStateStore({ initial = null, scope = "device", saveResult = true } = {}) {
+function createStateStore({ initial = null, scope = "device", saveResult = true, loadError = false } = {}) {
   let payload = initial;
   return {
     schema: SYNC_STATE_STORE_SCHEMA,
     scope,
     load() {
+      if (loadError) throw new Error("durable state unavailable");
       return payload;
     },
     save(value) {
@@ -115,6 +117,7 @@ test("pending Memory mutation survives sync-runtime recreation with the same ide
   const second = createRuntime({ memory, stateStore });
   const recovered = second.pendingMutations()[0];
   assert.equal(second.getSnapshot().recoveredCoordinationState, true);
+  assert.equal(second.getSnapshot().recoveryBlocked, false);
   assert.equal(second.getSnapshot().pendingMutationCount, 1);
   assert.equal(recovered.objectId, before.objectId);
   assert.equal(recovered.idempotencyKey, before.idempotencyKey);
@@ -182,6 +185,7 @@ test("coordination state is subject-bound and never imports another account pend
 
   const other = createRuntime({ stateStore, subjectId: "account-subject-b" });
   assert.equal(other.getSnapshot().recoveredCoordinationState, false);
+  assert.equal(other.getSnapshot().recoveryBlocked, false);
   assert.equal(other.getSnapshot().pendingMutationCount, 0);
   assert.equal(other.getSnapshot().revisionCount, 0);
 });
@@ -201,7 +205,7 @@ test("persisted coordination state contains no extra token fields and store fail
   assert.equal(rejectingStore.read(), null);
 });
 
-test("malformed or secret-bearing persisted state fails closed instead of being replayed", () => {
+test("malformed or secret-bearing persisted state blocks synchronization instead of becoming an empty queue", async () => {
   const validStore = createStateStore();
   const runtime = createRuntime({ stateStore: validStore });
   runtime.remember(memoryItem());
@@ -209,8 +213,38 @@ test("malformed or secret-bearing persisted state fails closed instead of being 
   persisted.pending[0].payload.memory.content = "Authorization: Bearer secret-token-value-123456";
 
   const poisonedStore = createStateStore({ initial: JSON.stringify(persisted) });
-  const recovered = createRuntime({ stateStore: poisonedStore });
+  const memory = createMemoryRuntime();
+  const recovered = createRuntime({ stateStore: poisonedStore, memory });
   assert.equal(recovered.getSnapshot().recoveredCoordinationState, false);
+  assert.equal(recovered.getSnapshot().recoveryBlocked, true);
+  assert.equal(recovered.getSnapshot().recoveryBlockReason, "invalid-persisted-state");
   assert.equal(recovered.getSnapshot().pendingMutationCount, 0);
-  assert.equal(recovered.getSnapshot().conflictCount, 0);
+
+  const local = recovered.remember(memoryItem({ id: "local-while-recovery-blocked" }));
+  assert.equal(local.sync.status, "blocked");
+  assert.equal(local.sync.reason, "coordination-recovery-required");
+  assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] }).length, 1);
+
+  const transport = createTransport({ acceptedRevision: 9 });
+  await recovered.flush(transport);
+  assert.equal(transport.mutations.length, 0, "corrupt durable coordination must never fall back to revision zero upload");
+
+  const remote = createMemorySyncObject({ item: memoryItem({ id: "remote-while-recovery-blocked" }), serverRevision: 5 });
+  const result = await recovered.applyRemoteBatch([remote]);
+  assert.equal(result.blocked, 1);
+  assert.equal(result.applied, 0);
+  assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] }).some((item) => item.id === "remote-while-recovery-blocked"), false);
+});
+
+test("sync-state load failure also blocks reconciliation instead of pretending there is no prior coordination", async () => {
+  const stateStore = createStateStore({ loadError: true });
+  const runtime = createRuntime({ stateStore });
+  assert.equal(runtime.getSnapshot().recoveryBlocked, true);
+  assert.equal(runtime.getSnapshot().recoveryBlockReason, "state-load-failed");
+
+  const transport = createTransport();
+  const local = runtime.remember(memoryItem({ id: "after-load-failure" }));
+  assert.equal(local.sync.status, "blocked");
+  await runtime.flush(transport);
+  assert.equal(transport.mutations.length, 0);
 });
