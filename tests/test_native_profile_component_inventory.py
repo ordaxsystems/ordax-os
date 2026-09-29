@@ -64,7 +64,7 @@ def write_receipt(root: Path, installed_at=1234):
     return digest, path
 
 
-class NativeProfileComponentInventoryTestsclass NativeProfileComponentInventoryTests(unittest.TestCase):
+class NativeProfileComponentInventoryTests(unittest.TestCase):
     def test_missing_inventory_is_empty_device_state(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as directory:
