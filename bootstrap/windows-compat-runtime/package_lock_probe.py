@@ -3,9 +3,10 @@
 
 The probe consumes a successful configure proof and its temporary Alpine rootfs.
 It compares that rootfs with the pinned pristine minirootfs, refreshes only the
-repository indexes, fetches every APK whose installed identity differs from the
-pristine base, verifies the APKs with Alpine's package verifier, and records
-SHA-256 + size for every fetched archive.
+repository indexes, fetches the named APK candidates, verifies that every
+returned filename is the exact already-resolved name+version identity, verifies
+the APKs with Alpine's package verifier, and records SHA-256 + size for every
+accepted archive.
 
 This command does not compile Wine, install a runtime into OrdaX, materialize a
 compatibility profile, or authorize foreign application execution.
@@ -186,6 +187,10 @@ def refresh_repository_indexes(rootfs: Path) -> None:
         raise PackageLockError("repository index refresh mutated installed package graph")
 
 
+def expected_archive_names(package_map: dict[str, str]) -> dict[str, tuple[str, str]]:
+    return {f"{name}-{version}.apk": (name, version) for name, version in package_map.items()}
+
+
 def fetch_and_verify_archives(rootfs: Path, package_map: dict[str, str]) -> list[dict]:
     cache = rootfs / "build/package-cache"
     if cache.exists():
@@ -194,19 +199,26 @@ def fetch_and_verify_archives(rootfs: Path, package_map: dict[str, str]) -> list
 
     refresh_repository_indexes(rootfs)
 
-    specs = [f"{name}={version}" for name, version in package_map.items()]
-    command = "apk fetch --output /build/package-cache " + " ".join(shell_quote(spec) for spec in specs)
+    # apk-tools 2.14.x does not support version constraints in `apk fetch`.
+    # Fetch by exact package *name*, then enforce the already-resolved version by
+    # requiring the output filename set to match name-version.apk one-for-one.
+    # A repository update selecting any other version therefore fails closed.
+    names = list(package_map)
+    command = "apk fetch --output /build/package-cache " + " ".join(shell_quote(name) for name in names)
     try:
         CONFIGURE.proot(rootfs, command)
     except CONFIGURE.ConfigureProofError as exc:
-        raise PackageLockError(f"exact APK fetch failed: {exc}") from exc
+        raise PackageLockError(f"named APK fetch failed: {exc}") from exc
 
-    expected = {f"{name}-{version}.apk": (name, version) for name, version in package_map.items()}
+    expected = expected_archive_names(package_map)
     actual_paths = {path.name: path for path in cache.iterdir() if path.is_file()}
     missing = sorted(set(expected) - set(actual_paths))
     unexpected = sorted(set(actual_paths) - set(expected))
     if missing or unexpected:
-        raise PackageLockError(f"APK fetch set mismatch: missing={missing} unexpected={unexpected}")
+        raise PackageLockError(
+            "APK identity mismatch after name-only fetch; repository versions drifted: "
+            f"missing={missing} unexpected={unexpected}"
+        )
 
     verify_paths = " ".join(shell_quote(f"/build/package-cache/{filename}") for filename in sorted(expected))
     try:
