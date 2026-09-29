@@ -84,6 +84,7 @@ def _canonical_component_binding(manifest: dict, components: list) -> dict:
         required = requirement.get("required")
         signature_required = requirement.get("signature_required")
         sha256 = requirement.get("sha256")
+        size_bytes = requirement.get("size_bytes")
         if (
             not isinstance(component_id, str)
             or not component_id
@@ -95,6 +96,14 @@ def _canonical_component_binding(manifest: dict, components: list) -> dict:
             or availability not in {"available", "planned"}
             or not isinstance(required, bool)
             or not isinstance(signature_required, bool)
+            or (
+                size_bytes is not None
+                and (
+                    isinstance(size_bytes, bool)
+                    or not isinstance(size_bytes, int)
+                    or size_bytes < 0
+                )
+            )
         ):
             raise ValueError(f"Profile canonical component declaration[{index}] is invalid")
         if availability == "available":
