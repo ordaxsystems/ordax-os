@@ -16,13 +16,16 @@ Implemented in source:
 - bounded MSI container-candidate recognition without claiming MSI database verification;
 - explicit compatibility-runtime descriptors bound to a source identity and SHA-256 digest;
 - fail-closed launch planning when no real runtime is supplied;
-- tests proving there is no implicit/fake Wine or Proton provider;
-- no execution, installation, shell, spawn or filesystem-write authority on the current port.
+- `ordax.application-compatibility-profile-planner/1` for side-effect-free isolated profile planning;
+- profile plans bind the inspected payload SHA-256, architecture and selected runtime to a safe relative durable-user storage key;
+- tests proving there is no implicit/fake Wine or Proton provider and no profile path escape;
+- no execution, installation, profile creation, shell, spawn or filesystem-write authority on the current ports.
 
 Not implemented yet:
 
 - a packaged Wine, Proton or alternative Windows runtime;
-- compatibility-profile/prefix lifecycle;
+- physical compatibility-profile/prefix materialization;
+- explicit filesystem/network/device/audio/clipboard grant policy;
 - Windows application installation;
 - Windows application launch;
 - graphics/audio/clipboard/device adapters for Windows applications;
@@ -35,6 +38,8 @@ Therefore:
 ```text
 WINDOWS_APP_EXECUTION_AVAILABLE=NO
 WINDOWS_APP_INSTALLATION_AVAILABLE=NO
+WINDOWS_PROFILE_CREATION_AVAILABLE=NO
+WINDOWS_PROFILE_PLANNING_AVAILABLE=YES_SOURCE
 WINDOWS_COMPATIBILITY_FOUNDATION=PASS_SOURCE
 PUBLIC_COMPATIBILITY_AVAILABILITY=NO
 ```
@@ -51,10 +56,17 @@ Application Compatibility Manager
         |
         +--> format inspection
         +--> runtime inventory
-        +--> launch/install planning
+        +--> launch planning
         |
         v
-explicit compatibility runtime adapter
+Compatibility Profile Planner
+        |
+        +--> payload hash binding
+        +--> runtime binding
+        +--> isolated durable-user storage key
+        |
+        v
+future explicit compatibility runtime adapter
         |
         v
 OrdaX policy / HOME / capabilities / audit
@@ -67,7 +79,8 @@ EXE / PE / MSI candidate
   -> content inspection
   -> ordax.application-compatibility/1
   -> verified runtime descriptor
-  -> future isolated compatibility profile
+  -> isolated compatibility profile plan
+  -> future profile materialization
   -> future Win32/Win64 translation runtime
   -> future graphics/audio/network/filesystem/clipboard adapters
   -> OrdaX policy + HOME boundary
@@ -86,6 +99,7 @@ Recognizing a PE or MSI-looking payload does not:
 - grant filesystem or network access;
 - authorize installation;
 - authorize execution;
+- authorize profile creation;
 - authorize access to `/workspace`, Boot Capsule, ESP, Recovery, Trust Root or signing material;
 - turn an `.exe`/`.msi` into a trusted `.ordx` package.
 
@@ -143,7 +157,26 @@ Unknown fields are rejected. A descriptor cannot smuggle a raw command, URL or s
 
 The current manager only uses this inventory to answer whether launch planning has a compatible runtime. It does not execute the runtime.
 
-## 6. User experience target
+## 6. Compatibility profiles
+
+A compatibility profile is the OrdaX-owned identity and durable state boundary for one foreign application/runtime relationship. It is not a raw Wine-prefix API.
+
+The current profile planner is deliberately side-effect-free. It accepts only a validated compatibility inspection and asks the Compatibility Manager itself to resolve the requested runtime. Callers cannot bypass runtime availability by constructing a synthetic ready plan.
+
+A ready profile plan binds:
+
+- a safe OrdaX profile id;
+- foreign family;
+- resolved compatibility runtime id;
+- inspected architecture;
+- original payload name;
+- original payload SHA-256;
+- a safe relative durable-user storage key under `application-compatibility/<family>/<profile-id>`;
+- `hostAuthority=none`.
+
+The shared contract never exposes an absolute host filesystem path. Native/Web adapters may later map the relative key to their own storage boundary. The planner has no create/delete/write/install/execute authority.
+
+## 7. User experience target
 
 The target experience remains the useful Nova OrdaX direction:
 
@@ -152,7 +185,7 @@ Downloads/setup.exe
  -> OrdaX identifies the foreign format
  -> Compatibility Manager inspects requirements
  -> OrdaX presents real permissions/storage impact
- -> an isolated compatibility profile is created
+ -> an isolated compatibility profile is authorized and materialized
  -> the verified runtime performs the install
  -> the app appears in normal OrdaX application surfaces
 ```
@@ -161,7 +194,7 @@ Users should not need to administer raw Wine prefixes during ordinary use.
 
 This target is future behavior, not current availability.
 
-## 7. Expected limitations
+## 8. Expected limitations
 
 Compatibility must never be marketed as universal. Difficult or unsupported classes may include:
 
@@ -175,13 +208,13 @@ Compatibility must never be marketed as universal. Difficult or unsupported clas
 
 Support must be proven per application/profile/runtime class.
 
-## 8. Implementation sequence
+## 9. Implementation sequence
 
 The next safe sequence is:
 
 1. package one real Windows compatibility runtime as a verified, content-addressed OrdaX component;
 2. keep the runtime adapter replaceable and development-only initially;
-3. implement compatibility-profile state under HOME, never as boot/system authority;
+3. materialize planned compatibility-profile state under the durable user HOME boundary, never as boot/system authority;
 4. define explicit filesystem/network/device/audio/clipboard grants;
 5. add install planning without installation side effects;
 6. implement a narrow install executor behind explicit authorization;
@@ -192,7 +225,7 @@ The next safe sequence is:
 
 No step may require compatibility runtime success for normal OrdaX boot, Recovery or Surface availability.
 
-## 9. Relationship with external-app distribution
+## 10. Relationship with external-app distribution
 
 The repository already contains a signed, non-privileged external-app proof for the future Store/distribution architecture. That proof is currently a Web payload proof and is separate from Windows binary compatibility.
 
@@ -202,10 +235,11 @@ The two responsibilities converge later at application identity, provenance, req
 signed external app proof != Windows compatibility runtime
 recognized PE bytes        != trusted application package
 runtime available          != installation authorized
-launch plan ready          != process executed
+profile plan ready          != profile created
+launch plan ready           != process executed
 ```
 
-## 10. Legacy provenance
+## 11. Legacy provenance
 
 The architectural reference is:
 
