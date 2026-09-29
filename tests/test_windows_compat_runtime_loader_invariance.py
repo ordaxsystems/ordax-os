@@ -74,6 +74,7 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             pair = result["needed_targets"]["ELF64:machine=62:little:libexample.so.1"]
             self.assertEqual(pair["target"]["canonical_path"], target.relative_to(stage).as_posix())
             self.assertEqual(len(pair["target"]["candidate_paths"]), 2)
+            self.assertFalse(pair["bootstrap_preloaded"])
 
     def test_incompatible_reachable_ancestor_path_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -83,6 +84,38 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             write(stage / "opt/a/libexample.so.1", synthetic_elf64(b"libc.so.6"))
             write(stage / "opt/b/libexample.so.1", synthetic_elf32(b"libc.so.6"))
             with self.assertRaisesRegex(MODULE.LoaderInvarianceError, "incompatible pathname"):
+                MODULE.verify(stage, rootfs, full_build_proof(stage))
+
+    def test_wine_bootstrap_shortname_is_an_explicit_invariant_target(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stage, rootfs = prepare_roots(Path(temp))
+            write(
+                stage / "usr/lib/wine/x86_64-unix/avicap32.so",
+                synthetic_elf64(b"ntdll.so"),
+            )
+            target = write(
+                stage / "usr/lib/wine/x86_64-unix/ntdll.so",
+                synthetic_elf64(b"libc.so.6"),
+            )
+            result = MODULE.verify(stage, rootfs, full_build_proof(stage))
+            pair = result["needed_targets"]["ELF64:machine=62:little:ntdll.so"]
+            self.assertTrue(pair["bootstrap_preloaded"])
+            self.assertEqual(pair["target"]["canonical_path"], target.relative_to(stage).as_posix())
+            self.assertEqual(result["counts"]["bootstrap_shortname_pairs"], 1)
+
+    def test_bootstrap_shortname_conflicting_pathname_target_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stage, rootfs = prepare_roots(Path(temp))
+            write(
+                stage / "usr/lib/wine/x86_64-unix/avicap32.so",
+                synthetic_elf64(b"ntdll.so"),
+            )
+            write(
+                stage / "usr/lib/wine/x86_64-unix/ntdll.so",
+                synthetic_elf64(b"libc.so.6"),
+            )
+            write(rootfs / "usr/lib/ntdll.so", synthetic_elf64(b"libc.so.6"))
+            with self.assertRaisesRegex(MODULE.LoaderInvarianceError, "depends on needed_by/shortname state"):
                 MODULE.verify(stage, rootfs, full_build_proof(stage))
 
 

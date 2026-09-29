@@ -20,6 +20,7 @@
     "rooted_symlink_resolution_required": true,
     "elf_loader_search_path_required": true,
     "musl_system_path_required": true,
+    "wine_bootstrap_shortname_reuse_required": true,
     "first_pathname_hit_validation_required": true,
     "first_pathname_hit_proof_required": true,
     "musl_needed_by_chain_invariance_required": true,
@@ -34,15 +35,40 @@
     "unresolved_dependency_allowed": false,
     "ambiguous_external_owner_allowed": false
   },
+  "loader_bootstrap": {
+    "model": "wine-explicit-ntdll-dlopen-before-main",
+    "source_authority": {
+      "source_lock": "source.json",
+      "source_schema": "prototype-ordax.windows-compat-runtime-source/1",
+      "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+      "engine": "wine",
+      "wine_version": "11.0",
+      "archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
+      "source_path": "tools/wine/wine.c",
+      "behavior": "load_ntdll explicitly dlopens the installed architecture ntdll.so with RTLD_NOW before resolving and calling __wine_main"
+    },
+    "preloaded_shortnames": [
+      {
+        "soname": "ntdll.so",
+        "path": "usr/lib/wine/x86_64-unix/ntdll.so",
+        "elf": {
+          "class": 64,
+          "machine": 62,
+          "endianness": "little"
+        }
+      }
+    ]
+  },
   "classification": {
-    "stage_internal": "dependency resolves from the staged Wine tree at the first modeled musl loader search directory with matching ELF class/machine/endianness",
+    "stage_internal": "dependency resolves from the staged Wine tree either through an explicitly proven preloaded Wine bootstrap shortname or at the first modeled musl loader search directory with matching ELF class/machine/endianness",
     "rootfs_external": "dependency resolves from the locked Alpine rootfs at the first modeled musl loader search directory with matching ELF class/machine/endianness",
+    "loader_bootstrap_shortname": "only shortnames declared by the locked Wine bootstrap contract may be treated as already loaded; the exact staged path, rooted canonical target and ELF identity are revalidated before reuse",
     "loader_dynamic_path": "DT_RUNPATH when present, otherwise DT_RPATH, with only rooted absolute paths or $ORIGIN expansion accepted",
     "loader_system_path": "locked /etc/ld-musl-$ARCH.path when present, otherwise musl built-in /lib:/usr/local/lib:/usr/lib fallback",
-    "loader_first_pathname_hit": "the first existing SONAME pathname in modeled search order must itself be a compatible ELF; non-ELF or incompatible objects fail instead of being skipped",
+    "loader_first_pathname_hit": "after any explicitly proven preloaded-shortname reuse, the first existing SONAME pathname in modeled search order must itself be a compatible ELF; non-ELF or incompatible objects fail instead of being skipped",
     "loader_first_pathname_hit_evidence": "a content-addressed JSON proof bound to the same runtime id and staged manifest must accompany dependency discovery",
     "loader_needed_by_chain": "musl searches rpath/runpath through the needed_by chain before its system path; this discovery must prove the staged direct dependency target is invariant to any modeled staged ancestor path or fail closed",
-    "loader_shortname_reuse": "musl may reuse an already loaded shortname before path search; this discovery must prove one reachable logical target per SONAME and ELF identity within the staged direct-dependency scope or fail closed",
+    "loader_shortname_reuse": "musl may reuse an already loaded shortname before path search; this discovery proves declared Wine bootstrap shortnames and one reachable logical target per SONAME and ELF identity within staged direct-dependency scope or fails closed",
     "authoritative_evidence": "a final content-addressed proof binds the full-build proof, first-hit proof, loader-invariance proof and direct dependency inventory before loader_resolution_verified may be treated as authoritative",
     "ambient_ld_library_path": "forbidden for deterministic discovery and future runtime assembly",
     "build_only_is_not_runtime_by_default": true,

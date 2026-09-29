@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Fail closed when musl's first pathname hit would not be loadable.
+"""Fail closed on Wine bootstrap reuse and musl first-pathname resolution.
 
-The runtime dependency probe models search directories. This guard enforces the
-next loader invariant: once a SONAME pathname exists in the first searched
-directory, the loader does not get to skip that object merely because a later
-path contains a compatible ELF. Non-ELF, wrong-identity, broken/escaping symlink
-and cross-scope first hits therefore fail the proof before dependency inventory.
+Wine 11.0 explicitly loads the architecture ntdll.so before __wine_main. That
+preloaded shortname is modeled from the locked runtime contract. All remaining
+DT_NEEDED edges retain strict first-existing-pathname semantics: an incompatible,
+non-ELF, broken or escaping first pathname may never be skipped for a later hit.
 """
 
 from __future__ import annotations
@@ -44,6 +43,8 @@ def load_contract() -> dict:
         raise FirstHitGuardError("runtime dependency contract does not require first-pathname-hit validation")
     if inspection.get("first_pathname_hit_proof_required") is not True:
         raise FirstHitGuardError("runtime dependency contract does not require durable first-hit proof")
+    if inspection.get("wine_bootstrap_shortname_reuse_required") is not True:
+        raise FirstHitGuardError("runtime dependency contract does not require Wine bootstrap shortname reuse")
     return contract
 
 
@@ -136,7 +137,7 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
         raise FirstHitGuardError("staged tree or locked rootfs is missing")
 
     stage_manifest_sha256 = PROBE.verify_stage_binding(stage, full_build_proof)
-    dependencies = stage_hits = rootfs_hits = 0
+    dependencies = stage_hits = rootfs_hits = bootstrap_shortname_hits = 0
     for path in sorted(stage.rglob("*")):
         if not path.is_file() or path.is_symlink():
             continue
@@ -146,6 +147,14 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
         relative = PROBE.safe_relative(stage, path)
         for soname in elf["dt_needed"]:
             dependencies += 1
+            try:
+                bootstrap = PROBE.resolve_bootstrap_shortname(stage, soname, elf, contract)
+            except PROBE.RuntimeDependencyError as exc:
+                raise FirstHitGuardError(str(exc)) from exc
+            if bootstrap is not None:
+                stage_hits += 1
+                bootstrap_shortname_hits += 1
+                continue
             hit, search = resolve_first_pathname_hit(stage, rootfs, soname, elf, relative)
             if hit is None:
                 raise FirstHitGuardError(
@@ -165,11 +174,12 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
             "dependencies_checked": dependencies,
             "stage_hits": stage_hits,
             "rootfs_hits": rootfs_hits,
+            "bootstrap_shortname_hits": bootstrap_shortname_hits,
         },
     }
     return {
         "$schema": PROOF_SCHEMA,
-        "status": "first-pathname-hit-verified-not-runtime-promoted",
+        "status": "first-pathname-and-bootstrap-shortname-verified-not-runtime-promoted",
         **core,
         "validation_sha256": PROBE.canonical_sha256(core),
         "gates": {

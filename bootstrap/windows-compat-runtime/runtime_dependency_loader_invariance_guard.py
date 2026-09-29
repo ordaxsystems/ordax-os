@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-"""Prove staged direct dependency targets are invariant to musl loader state.
+"""Prove staged direct dependency targets are invariant to loader state.
 
-musl searches LD_LIBRARY_PATH, then rpath/runpath through the needed_by chain,
-then its system path, and can reuse an already loaded library by shortname before
-performing a new path search. OrdaX forbids ambient LD_LIBRARY_PATH. For the
-remaining staged direct-dependency scope, this guard proves that every required
-SONAME + ELF identity has exactly one reachable logical target across every
-modeled staged dynamic path and the locked musl system path. If an ancestor path
-or shortname load order could change the target, discovery fails closed.
+The proof models the locked Wine bootstrap shortname state, musl needed_by
+RPATH/RUNPATH search, the locked musl system path and shortname reuse. Every
+required SONAME + ELF identity must converge to one logical target. If a
+bootstrap target and any reachable pathname disagree, discovery fails closed.
 """
 
 from __future__ import annotations
@@ -45,6 +42,7 @@ def load_contract() -> dict:
     contract = PROBE.load_contract()
     inspection = contract.get("inspection", {})
     for key in (
+        "wine_bootstrap_shortname_reuse_required",
         "musl_needed_by_chain_invariance_required",
         "musl_shortname_reuse_invariance_required",
         "loader_invariance_proof_required",
@@ -141,12 +139,25 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
 
     resolved: dict[str, dict] = {}
     total_pathnames = 0
+    bootstrap_pairs = 0
     for (*identity_parts, soname), consumers in sorted(needed.items(), key=lambda item: item[0]):
         identity = tuple(identity_parts)
         expected = identity
         by_dir = directories.get(identity, {})
         targets: dict[tuple[str, str], dict] = {}
         checked_dirs = []
+        try:
+            bootstrap = PROBE.resolve_bootstrap_shortname(stage, soname, samples[identity], contract)
+        except PROBE.RuntimeDependencyError as exc:
+            raise LoaderInvarianceError(str(exc)) from exc
+        if bootstrap is not None:
+            bootstrap_pairs += 1
+            targets[("stage-internal", bootstrap["canonical_path"])] = {
+                "scope": "stage-internal",
+                "canonical_path": bootstrap["canonical_path"],
+                "candidate_paths": {bootstrap["path"]},
+            }
+
         for directory in sorted(by_dir):
             checked_dirs.append({
                 "directory": "/" + directory,
@@ -203,6 +214,7 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
             "elf": {"class": identity[0], "machine": identity[1], "endianness": identity[2]},
             "consumers": sorted(consumers),
             "directories_considered": checked_dirs,
+            "bootstrap_preloaded": bootstrap is not None,
             "target": target,
         }
 
@@ -223,6 +235,7 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
             "staged_elf_files": len(staged_elfs),
             "needed_identity_soname_pairs": len(resolved),
             "reachable_candidate_pathnames": total_pathnames,
+            "bootstrap_shortname_pairs": bootstrap_pairs,
         },
         "gates": {
             "full_build_proof_verified": True,
