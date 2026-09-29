@@ -4,6 +4,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 ADAPTER = ROOT / "system" / "adapters" / "native" / "profile-content-context.mjs"
+CAPABILITY_ADAPTER = ROOT / "system" / "adapters" / "native" / "profile-content-context-capability.mjs"
 READER = ROOT / "system" / "surface" / "runtime" / "native_profile_content_context.py"
 
 
@@ -26,6 +27,25 @@ class NativeProfileContentContextContractTests(unittest.TestCase):
         self.assertNotIn('method: "POST"', adapter)
         self.assertNotIn("urllib", reader)
         self.assertNotIn("requests.", reader)
+
+    def test_capability_is_explicit_and_stable_mvp_remains_disabled(self):
+        host = HOST.read_text(encoding="utf-8")
+        adapter = CAPABILITY_ADAPTER.read_text(encoding="utf-8")
+
+        self.assertIn(
+            'PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH = "/__ordax/native/profile-content-context-capability"',
+            host,
+        )
+        self.assertIn(
+            '"available": self.server.distribution_profile == "owner-development"',
+            host,
+        )
+        self.assertIn(
+            'ENDPOINT = "/__ordax/native/profile-content-context-capability"',
+            adapter,
+        )
+        self.assertIn('method: "GET"', adapter)
+        self.assertNotIn('method: "POST"', adapter)
 
     def test_reader_revalidates_active_component_and_exact_payload_hash(self):
         reader = READER.read_text(encoding="utf-8")
