@@ -154,3 +154,21 @@ test("disposed review session rejects further work", async () => {
   assert.throws(() => review.selectOwner({ ownerKind: "device", ownerId: null }), /disposed/);
   await assert.rejects(() => review.flush(), /disposed/);
 });
+
+
+test("review session creates manual memory for the selected owner", () => {
+  const memory = createMemoryRuntime();
+  const review = createMemoryReviewSession({
+    memoryPort: memory,
+    identitySessionPort: identityPort(signedIn()),
+    now: () => new Date("2026-09-29T11:35:00Z"),
+    idFactory: () => "manual-session",
+  });
+  review.selectOwner({ ownerKind: "account", ownerId: "account-1" });
+  const created = review.create("Lembrar desta preferência");
+  assert.equal(created.ownerKind, "account");
+  assert.equal(created.ownerId, "account-1");
+  assert.equal(created.scope, "account");
+  assert.deepEqual(review.list().map((item) => item.id), ["manual-session"]);
+  review.dispose();
+});
