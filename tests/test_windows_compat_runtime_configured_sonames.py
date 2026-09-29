@@ -119,7 +119,7 @@ class ConfiguredSonameResolutionTests(unittest.TestCase):
             records.extend(["F:usr/lib", "R:libfoo.so.1"])
         database.write_text("\n".join(records) + "\n\n", encoding="utf-8")
 
-    def test_resolves_defined_symbol_and_records_disabled_symbol(self):
+    def test_resolves_defined_symbol_system_provider_and_records_disabled_symbol(self):
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp) / "rootfs"
             self.make_rootfs(rootfs)
@@ -129,14 +129,12 @@ class ConfiguredSonameResolutionTests(unittest.TestCase):
                 '/* #undef SONAME_LIBBAR */\n',
                 encoding="utf-8",
             )
-            result = MODULE.resolve(
-                self.dynamic_source(), self.configure_proof(), config_h, rootfs
-            )
+            result = MODULE.resolve(self.dynamic_source(), self.configure_proof(), config_h, rootfs)
             foo = result["symbols"]["SONAME_LIBFOO"]
             bar = result["symbols"]["SONAME_LIBBAR"]
             self.assertEqual(foo["state"], "defined")
             self.assertEqual(foo["soname"], "libfoo.so.1")
-            self.assertEqual(foo["path"], "usr/lib/libfoo.so.1")
+            self.assertEqual(foo["system_provider_path"], "usr/lib/libfoo.so.1")
             self.assertEqual(foo["package"], "libfoo")
             self.assertEqual(foo["version"], "1-r0")
             self.assertEqual(bar["state"], "disabled-by-configure")
@@ -145,7 +143,8 @@ class ConfiguredSonameResolutionTests(unittest.TestCase):
             self.assertEqual(result["counts"]["defined_callsites"], 2)
             self.assertEqual(result["counts"]["disabled_callsites"], 1)
             self.assertTrue(result["gates"]["configured_soname_values_resolved"])
-            self.assertTrue(result["gates"]["configured_soname_rootfs_resolution_verified"])
+            self.assertTrue(result["gates"]["configured_soname_system_provider_verified"])
+            self.assertFalse(result["gates"]["caller_loader_context_resolution_complete"])
             self.assertFalse(result["gates"]["runtime_computed_target_resolution_complete"])
             self.assertFalse(result["gates"]["dynamic_load_inventory_complete"])
             self.assertFalse(result["gates"]["execution_authorized"])
@@ -159,7 +158,7 @@ class ConfiguredSonameResolutionTests(unittest.TestCase):
             with self.assertRaisesRegex(MODULE.ConfiguredSonameError, "missing from config.h"):
                 MODULE.resolve(self.dynamic_source(), self.configure_proof(), config_h, rootfs)
 
-    def test_rejects_defined_soname_without_rootfs_path(self):
+    def test_rejects_defined_soname_without_system_provider(self):
         with tempfile.TemporaryDirectory() as tmp:
             rootfs = Path(tmp) / "rootfs"
             self.make_rootfs(rootfs, include_foo=False)
@@ -169,7 +168,7 @@ class ConfiguredSonameResolutionTests(unittest.TestCase):
                 '/* #undef SONAME_LIBBAR */\n',
                 encoding="utf-8",
             )
-            with self.assertRaisesRegex(MODULE.ConfiguredSonameError, "no rootfs pathname"):
+            with self.assertRaisesRegex(MODULE.ConfiguredSonameError, "no pinned-rootfs system provider"):
                 MODULE.resolve(self.dynamic_source(), self.configure_proof(), config_h, rootfs)
 
     def test_rejects_dynamic_source_tampering_with_stale_digest(self):
