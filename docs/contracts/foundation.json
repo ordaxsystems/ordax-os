@@ -281,7 +281,8 @@
       "profile_provisioning": "docs/contracts/profile-provisioning.json",
       "profile_content_trust": "docs/contracts/profile-content-trust-policy.json",
       "profile_activation_state": "docs/contracts/profile-activation-state.json",
-      "profile_pack_runtime": "docs/contracts/profile-pack-runtime.json"
+      "profile_pack_runtime": "docs/contracts/profile-pack-runtime.json",
+      "cloud_memory_sync_boundary": "docs/contracts/cloud-memory-sync-boundary.json"
     },
     "account_profile_is_professional_profile": false,
     "memory_owned_by_ordax": true,
@@ -304,6 +305,8 @@
     "profile_restore_metadata_only_enabled": true,
     "profile_restore_capability_application_enabled": false,
     "profile_restore_boot_critical": false,
-    "profile_restore_drift_result": "disabled-safe"
+    "profile_restore_drift_result": "disabled-safe",
+    "cloud_memory_sync_public_mvp_enabled": false,
+    "cloud_memory_requires_atomic_server_authoritative_write": true
   }
 }
