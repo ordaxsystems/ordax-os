@@ -242,6 +242,15 @@ class NativeAccountGateway:
         with self._lock:
             return self._request("GET", "/account/spaces")
 
+    def entitlement(self, key: str) -> GatewayReply:
+        if not isinstance(key, str) or key != "memory.cloud.enabled":
+            raise ValueError("unsupported entitlement key")
+        with self._lock:
+            return self._request(
+                "GET",
+                "/account/entitlement?" + urlencode({"key": key}),
+            )
+
     def list_sync_objects(self, query: str = "") -> GatewayReply:
         suffix = f"?{query}" if query else ""
         with self._lock:
