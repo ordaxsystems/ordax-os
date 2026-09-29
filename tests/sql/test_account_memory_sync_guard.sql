@@ -1,7 +1,10 @@
 \set ON_ERROR_STOP on
 
+create extension if not exists pgcrypto;
 create schema if not exists auth;
 create schema if not exists private;
+create role anon;
+create role authenticated;
 
 create or replace function auth.uid()
 returns uuid
@@ -228,6 +231,22 @@ begin
     where data_class = 'memory' and payload::text like '%Preferencia autorizada%'
   ) then
     raise exception 'deleted Memory content survived in authoritative object payload';
+  end if;
+
+  if exists (
+    select 1 from private.ordax_sync_mutations
+    where data_class = 'memory' and payload::text like '%Preferencia autorizada%'
+  ) then
+    raise exception 'deleted Memory content survived in mutation history';
+  end if;
+
+  if exists (
+    select 1 from private.ordax_sync_mutations
+    where data_class = 'memory'
+      and stable_object_id = 'memory/bWVtb3J5LTE'
+      and (tombstone is distinct from true or mutation_kind <> 'delete' or payload ? 'memory')
+  ) then
+    raise exception 'forgotten Memory history was not converted to identity-only tombstones';
   end if;
 end;
 $$;
