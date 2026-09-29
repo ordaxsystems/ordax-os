@@ -205,9 +205,9 @@ The source-controlled preflight distinguishes three boundaries without weakening
 
 `pre_authorization_ready` is diagnostic only. It never implies `physical_write_allowed`, never creates a writer artifact, and never substitutes for target-specific confirmation or UAC at execution time.
 
-The Stable/MVP physical payload is a 17-artifact `release-manifest/4` shape. The exact v4 candidate was previously authorized for one controlled physical proof. That authorization was used to create the first governed Stable/MVP USB; the writer completed 17/17 artifact readback and the media reached real UEFI boot on the target notebook. After the physical boot exposed product-level gaps and the writer/source context changed during the resulting hardening, that prior authorization became stale. The structured contract is now deliberately back at `blocked-explicit-physical-authorization-pending` with `physical_write_allowed=false` and `explicit_owner_authorization=false`. No fresh destructive operation is authorized for the post-#588 `main`.
+The Stable/MVP physical payload is a 17-artifact `release-manifest/4` shape. The exact v4 candidate at `b924ff8d74d1761232381ae3f9604bba17497cfd` was previously authorized for one controlled physical proof. That authorization was used to create the first governed Stable/MVP USB; the writer completed 17/17 artifact readback and the media reached real UEFI boot on the target notebook. After the physical boot exposed product-level gaps and the writer/source context changed during the resulting hardening, that prior proof/authorization became historical. The structured contract is now deliberately back at `blocked-canonical-v4-release-proof-pending`, with `canonical_v4_release_proof_bound=false`, `physical_write_allowed=false` and `explicit_owner_authorization=false`. Owner consent is not reachable until a replacement signed/materialized proof from a different post-hardening source commit is validated and bound. No fresh destructive operation is authorized for the post-#588 `main`.
 
-The operator-controlled flow produced `canonical-v4-release-proof.json` from the verified signed handoff plus canonical HTTPS materialization receipt. The non-destructive `tools/creator/bind_canonical_v4_release_proof.py` command validated that public receipt against the pinned trust, required exact v4 artifact identities and safe false physical/activation flags, copied only the public receipt into `docs/evidence/`, and bound its SHA-256/source commit/manifest/envelope identity into authorization schema v3. That proof made explicit owner authorization reachable for the earlier physical pass; it does not make authorization durable across writer/source changes. The current structured contract is authoritative and is not authorized.
+The operator-controlled historical flow produced `canonical-v4-release-proof.json` from the verified signed handoff plus canonical HTTPS materialization receipt. The non-destructive `tools/creator/bind_canonical_v4_release_proof.py` command validated that public receipt against the pinned trust, required exact v4 artifact identities and safe false physical/activation flags, copied only the public receipt into `docs/evidence/`, and bound its SHA-256/source commit/manifest/envelope identity into authorization schema v3. That proof made explicit owner authorization reachable for the earlier physical pass. In the current PRE_PROOF state, the binder explicitly rejects rebinding either the same proof bytes or another proof for the same superseded source commit. A genuinely new post-hardening source/proof is required before the state machine may advance to `blocked-explicit-physical-authorization-pending`.
 
 The source-controlled `tools/creator/authorize_physical_write.py` command removes manual JSON editing from the later consent step. Its `check` mode is read-only and now refuses to proceed unless the canonical v4 proof is valid and exactly bound. Its `authorize` mode is permitted only after pre-authorization readiness and exact bindings are proven, requires the exact Stable/MVP scope + release sequence + explicit authorization phrase, and changes only the authorization contract. Neither proof binding nor owner authorization opens a physical device or invokes the writer.
 
@@ -242,7 +242,7 @@ FULL_BOOTSTRAP_BYTE_COMPLETE_PROOF=PASS_MAIN_CANONICAL_TRUST
 DESTRUCTIVE_OPERATION_EXPLICITLY_AUTHORIZED=NO
 ```
 
-`PASS_TAGGED_UNBOUND` is not an authorization state. It means the implementation exists only behind the explicit internal `ordax_raw_backend` build tag, is excluded from public builds and has no public apply route. A previous explicitly authorized physical proof does not create standing authority for another write. No new physical-media mutation is permitted until the current contract is deliberately authorized again for the exact current writer/release context and the target-specific confirmation/UAC gates pass.
+`PASS_TAGGED_UNBOUND` is not an authorization state. It means the implementation exists only behind the explicit internal `ordax_raw_backend` build tag, is excluded from public builds and has no public apply route. A previous explicitly authorized physical proof does not create standing authority for another write. No new physical-media mutation is permitted until a replacement post-hardening v4 proof is produced and bound, the resulting exact context is deliberately authorized, and the target-specific confirmation/UAC gates pass.
 
 Historical physical evidence and current-main retest state:
 
@@ -262,7 +262,8 @@ Current authorization status:
 ```text
 PHYSICAL_USB_WRITE_HISTORY=YES_PRIOR_CONTROLLED_PROOF
 PHYSICAL_LAYOUT_CHANGED_HISTORY=YES_PRIOR_CONTROLLED_PROOF
-DESTRUCTIVE_AUTHORIZATION=NO_FRESH_AUTHORIZATION
+CURRENT_CANONICAL_V4_RELEASE_PROOF=PENDING_POST_HARDENING_REPLACEMENT
+DESTRUCTIVE_AUTHORIZATION=NOT_REACHABLE_REPLACEMENT_PROOF_REQUIRED
 POST_588_PHYSICAL_REWRITE_AUTHORIZED=NO
 ```
 
