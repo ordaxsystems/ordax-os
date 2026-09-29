@@ -1,4 +1,4 @@
-name: Windows Compatibility Runtime Lock Discovery
+name: Windows Compatibility Runtime Candidate
 
 on:
   pull_request:
@@ -12,9 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  discover:
+  candidate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -28,38 +28,39 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
-      - name: Install lock-discovery dependency
+      - name: Install bounded runtime build dependencies
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends proot
+          sudo apt-get install -y --no-install-recommends proot erofs-utils util-linux
+          proot --version
+          command -v mkfs.erofs
+          command -v fsck.erofs
+          command -v blkid
 
       - name: Validate pinned non-executable source contract
         run: |
           set -euo pipefail
           python -m unittest tests.test_windows_compat_runtime_source -v
-          python -m py_compile bootstrap/windows-compat-runtime/discover_lock.py
+          python -m py_compile \
+            bootstrap/windows-compat-runtime/discover_lock.py \
+            bootstrap/windows-compat-runtime/build.py
 
       - name: Verify upstream Wine bytes and revalidate exact Alpine closures
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          rm -rf out/windows-compat-runtime-discovery
-          mkdir -p out/windows-compat-runtime-discovery/cache
+          work="$RUNNER_TEMP/windows-compat-runtime"
+          rm -rf "$work"
+          mkdir -p "$work/cache"
           python bootstrap/windows-compat-runtime/discover_lock.py \
-            --out out/windows-compat-runtime-discovery/windows-compat-runtime-lock.json \
-            --cache-dir out/windows-compat-runtime-discovery/cache
+            --out "$work/windows-compat-runtime-lock.json" \
+            --cache-dir "$work/cache"
 
-      - name: Validate revalidation evidence is non-promotional
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          path = Path('out/windows-compat-runtime-discovery/windows-compat-runtime-lock.json')
-          data = json.loads(path.read_text(encoding='utf-8'))
+          python - "$work/windows-compat-runtime-lock.json" <<'PY'
+          import json, pathlib, sys
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
           assert data['$schema'] == 'prototype-ordax.windows-compat-runtime-lock-discovery/1'
           assert data['status'] == 'verified-pinned-lock'
           assert data['wine_source']['sha256'] == 'c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701'
@@ -71,10 +72,64 @@ jobs:
           assert data['physical_artifact_authorized'] is False
           PY
 
-      - name: Upload review-only lock evidence
+      - name: Compile Wine and build isolated EROFS candidate
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/windows-compat-runtime"
+          python bootstrap/windows-compat-runtime/build.py build \
+            --cache-dir "$work/cache" \
+            --out-dir "$work/build" \
+            --jobs 2
+          python bootstrap/windows-compat-runtime/build.py verify \
+            --out-dir "$work/build"
+
+      - name: Validate candidate remains non-executable and non-promotional
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/windows-compat-runtime"
+          python - "$work/build/windows-compat-runtime-provenance.json" <<'PY'
+          import json, pathlib, sys
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert data['$schema'] == 'prototype-ordax.windows-compat-runtime-provenance/1'
+          assert data['status'] == 'owner-development-candidate-not-executable'
+          assert data['runtime_id'] == 'wine-11.0-wow64-x86_64-v1'
+          assert data['wine_runtime']['version'] == 'wine-11.0'
+          assert data['wine_runtime']['forbidden_unix_drivers_present'] is False
+          assert data['build_apk_package_lock_count'] == 239
+          assert data['runtime_apk_package_lock_count'] == 97
+          for field in (
+              'execution_adapter_connected',
+              'installation_adapter_connected',
+              'stable_mvp_enabled',
+              'public_availability',
+              'release_manifest_connected',
+              'component_slot_connected',
+              'physical_artifact_authorized',
+          ):
+              assert data[field] is False, field
+          print('WINDOWS_COMPAT_RUNTIME_COMPILE=PASS')
+          print('WINDOWS_COMPAT_RUNTIME_EXECUTION_AVAILABLE=NO')
+          print('WINDOWS_COMPAT_RUNTIME_PROMOTABLE=NO')
+          PY
+
+      - name: Remove unproven runtime image bytes
+        if: always()
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/windows-compat-runtime/build"
+          rm -f "$work/windows-compat-runtime.erofs"
+          test ! -e "$work/windows-compat-runtime.erofs"
+
+      - name: Upload proof metadata only
+        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: windows-compat-runtime-lock-${{ github.event.pull_request.head.sha || github.sha }}
-          path: out/windows-compat-runtime-discovery/windows-compat-runtime-lock.json
-          if-no-files-found: error
+          name: windows-compat-runtime-candidate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/windows-compat-runtime/windows-compat-runtime-lock.json
+            ${{ runner.temp }}/windows-compat-runtime/build/windows-compat-runtime-provenance.json
+            ${{ runner.temp }}/windows-compat-runtime/build/windows-compat-runtime-tree.json
+          if-no-files-found: warn
           retention-days: 7
