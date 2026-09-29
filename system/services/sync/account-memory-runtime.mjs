@@ -4,7 +4,7 @@ import {
   validateMemoryItem,
   validateMemoryOwner,
 } from "../../contracts/memory.mjs";
-import { assertSyncStateStore } from "../../contracts/sync-state-store.mjs";
+import { assertSyncStateStorePort } from "../../contracts/sync-state-store.mjs";
 import { assertSyncTransportPort } from "../../contracts/sync-transport.mjs";
 
 export const MEMORY_SYNC_RUNTIME_SCHEMA = "ordax.memory-sync-runtime/1";
@@ -480,7 +480,7 @@ export function createAccountMemorySyncRuntime({
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
   const subject = boundedSubjectId(subjectId);
-  const stateStore = syncStateStore === null ? null : assertSyncStateStore(syncStateStore);
+  const stateStore = syncStateStore === null ? null : assertSyncStateStorePort(syncStateStore);
   if (typeof authorizeSync !== "function") {
     throw new TypeError("Memory account sync requires an explicit authorization policy");
   }
