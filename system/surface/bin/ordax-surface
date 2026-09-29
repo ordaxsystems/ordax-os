@@ -1323,6 +1323,7 @@ START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SH
     --start-uri "$START_URI" --profile-root /var/lib/ordax-user/browser \
     --component-channel-bin /srv/ordax-system/bin/ordax-runtime-component-channel \
     --component-slot-root /var/lib/ordax/components \
+    --distribution-profile "$DISTRIBUTION_PROFILE" \
     >"$HOST_LOG" 2>&1 &
 GRAPHICS_PID=$!
 host_rc=0
