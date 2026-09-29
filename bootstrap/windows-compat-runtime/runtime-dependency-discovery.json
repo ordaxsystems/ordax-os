@@ -45,6 +45,7 @@
       "wine_version": "11.0",
       "archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
       "source_path": "tools/wine/wine.c",
+      "source_file_sha256": "ba334a46681e6121f9344852fbde2a097bc08bb7777922594e1bbe509a4d85ce",
       "behavior": "load_ntdll explicitly dlopens the installed architecture ntdll.so with RTLD_NOW before resolving and calling __wine_main"
     },
     "preloaded_shortnames": [
@@ -62,7 +63,7 @@
   "classification": {
     "stage_internal": "dependency resolves from the staged Wine tree either through an explicitly proven preloaded Wine bootstrap shortname or at the first modeled musl loader search directory with matching ELF class/machine/endianness",
     "rootfs_external": "dependency resolves from the locked Alpine rootfs at the first modeled musl loader search directory with matching ELF class/machine/endianness",
-    "loader_bootstrap_shortname": "only shortnames declared by the locked Wine bootstrap contract may be treated as already loaded; the exact staged path, rooted canonical target and ELF identity are revalidated before reuse",
+    "loader_bootstrap_shortname": "only shortnames declared by the locked Wine bootstrap contract may be treated as already loaded; the exact source file digest, staged path, rooted canonical target and ELF identity are verified before reuse",
     "loader_dynamic_path": "DT_RUNPATH when present, otherwise DT_RPATH, with only rooted absolute paths or $ORIGIN expansion accepted",
     "loader_system_path": "locked /etc/ld-musl-$ARCH.path when present, otherwise musl built-in /lib:/usr/local/lib:/usr/lib fallback",
     "loader_first_pathname_hit": "after any explicitly proven preloaded-shortname reuse, the first existing SONAME pathname in modeled search order must itself be a compatible ELF; non-ELF or incompatible objects fail instead of being skipped",
