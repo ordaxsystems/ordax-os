@@ -4,6 +4,8 @@ import test from "node:test";
 import { createMemoryRuntime } from "../system/services/memory/runtime.mjs";
 import { createMemoryReviewRuntime } from "../system/services/memory/review.mjs";
 
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 function item(overrides = {}) {
   return {
     id: "mem-1",
@@ -190,6 +192,21 @@ test("manual Memory creation stays inside the selected personal owner scope", ()
   assert.equal(createdAccount.scope, "account");
   assert.equal(createdAccount.spaceId, null);
   assert.equal(createdAccount.projectId, null);
+});
+
+test("default manual account Memory identity is a portable UUID v4", () => {
+  const memory = createMemoryRuntime();
+  const review = createMemoryReviewRuntime(memory, {
+    ownerKind: "account",
+    ownerId: "user-1",
+    now: () => new Date("2026-09-29T11:32:00Z"),
+  });
+
+  const created = review.create("Memória criada offline com identidade estável");
+  assert.match(created.id, UUID_V4_RE);
+  assert.equal(created.ownerKind, "account");
+  assert.equal(created.ownerId, "user-1");
+  assert.equal(created.scope, "account");
 });
 
 test("manual Memory creation refuses structural Space/project review boundaries", () => {
