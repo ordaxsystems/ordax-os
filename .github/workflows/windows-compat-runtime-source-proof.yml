@@ -6,6 +6,7 @@ on:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_runtime_source.py'
       - 'tests/test_windows_compat_runtime_dynamic_load_source.py'
+      - 'tests/test_windows_compat_runtime_computed_loader_targets.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -16,6 +17,7 @@ on:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_runtime_source.py'
       - 'tests/test_windows_compat_runtime_dynamic_load_source.py'
+      - 'tests/test_windows_compat_runtime_computed_loader_targets.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -43,14 +45,16 @@ jobs:
           set -euo pipefail
           python bootstrap/windows-compat-runtime/build.py check
           python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_computed_loader_target_classifier.py check
 
       - name: Run fail-closed regressions
         run: |
           set -euo pipefail
           python -m unittest tests.test_windows_compat_runtime_source -v
           python -m unittest tests.test_windows_compat_runtime_dynamic_load_source -v
+          python -m unittest tests.test_windows_compat_runtime_computed_loader_targets -v
 
-      - name: Fetch exact Wine source and inventory direct host loader sites
+      - name: Fetch exact Wine source and classify direct host loader sites
         run: |
           set -euo pipefail
           tmp="$(mktemp -d)"
@@ -65,9 +69,13 @@ jobs:
             --archive "$tmp/cache/wine-11.0.tar.xz" \
             --source-proof "$proof_dir/source-proof.json" \
             --out "$proof_dir/runtime-dynamic-load-source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_computed_loader_target_classifier.py classify \
+            --dynamic-source-proof "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            --out "$proof_dir/runtime-computed-loader-target-proof.json"
           python - <<'PY' \
             "$proof_dir/source-proof.json" \
-            "$proof_dir/runtime-dynamic-load-source-proof.json"
+            "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            "$proof_dir/runtime-computed-loader-target-proof.json"
           import json
           import pathlib
           import re
@@ -75,6 +83,7 @@ jobs:
 
           source = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
           dynamic = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
+          computed = json.loads(pathlib.Path(sys.argv[3]).read_text(encoding='utf-8'))
           assert source['$schema'] == 'prototype-ordax.windows-compat-source-proof/1'
           assert source['build_performed'] is False
           assert source['activation_authorized'] is False
@@ -116,22 +125,65 @@ jobs:
           assert gates['execution_authorized'] is False
           assert gates['wine_executed'] is False
           assert gates['windows_payload_executed'] is False
+
+          assert computed['$schema'] == 'prototype-ordax.windows-compat-runtime-computed-loader-target-classification-proof/1'
+          assert computed['runtime_id'] == dynamic['runtime_id']
+          assert computed['dynamic_source_inventory_sha256'] == dynamic['inventory_sha256']
+          assert re.fullmatch(r'[0-9a-f]{64}', computed['evidence_sha256'])
+          computed_counts = computed['counts']
+          assert computed_counts['runtime_computed_callsites'] == counts['dynamic_expression_targets']
+          assert computed_counts['runtime_computed_callsites'] == 10
+          assert computed_counts['classification_rules'] == 10
+          assert computed_counts['categories'] == {
+              'caller-provided-library': 1,
+              'environment-override-or-configured-fallback': 1,
+              'ntdll-bootstrap-path': 5,
+              'ntdll-internal-module-path': 2,
+              'plugin-module-path': 1,
+          }
+          computed_gates = computed['gates']
+          assert computed_gates['dynamic_source_proof_verified'] is True
+          assert computed_gates['all_runtime_computed_targets_classified'] is True
+          assert computed_gates['all_classification_rules_observed'] is True
+          for gate in (
+              'caller_provided_library_policy_complete',
+              'environment_override_resolution_complete',
+              'plugin_module_resolution_complete',
+              'ntdll_internal_path_resolution_complete',
+              'ntdll_bootstrap_path_resolution_complete',
+              'runtime_computed_target_resolution_complete',
+              'wrapper_call_graph_complete',
+              'generated_source_inventory_complete',
+              'dynamic_load_inventory_complete',
+              'external_transitive_closure_verified',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert computed_gates[gate] is False, gate
+
           print('Wine source proof:', source['archive_sha256'])
           print('C source members:', counts['c_archive_members_scanned'])
           print('direct loader calls:', counts['direct_loader_calls'])
           print('calls by API:', counts['calls_by_api'])
           print('static string targets:', counts['static_string_targets'])
           print('configured SONAME targets:', counts['configured_soname_symbol_targets'])
-          print('configured SONAME symbols:', counts['configured_soname_symbols'])
           print('runtime-computed targets:', counts['dynamic_expression_targets'])
+          print('runtime-computed categories:', computed_counts['categories'])
           print('dynamic-load inventory:', dynamic['inventory_sha256'])
+          print('computed-target evidence:', computed['evidence_sha256'])
           PY
 
-      - name: Upload source and direct dynamic-load metadata only
+      - name: Upload source and dynamic-loader metadata only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: windows-compat-runtime-source-proof-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ runner.temp }}/windows-compat-runtime-source-proof/source-proof.json
             ${{ runner.temp }}/windows-compat-runtime-source-proof/runtime-dynamic-load-source-proof.json
+            ${{ runner.temp }}/windows-compat-runtime-source-proof/runtime-computed-loader-target-proof.json
           if-no-files-found: error
