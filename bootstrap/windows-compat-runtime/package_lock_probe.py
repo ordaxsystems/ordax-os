@@ -167,7 +167,12 @@ def fetch_and_verify_archives(rootfs: Path, package_map: dict[str, str]) -> list
         shutil.rmtree(cache)
     cache.mkdir(parents=True)
     specs = [f"{name}={version}" for name, version in package_map.items()]
-    command = "apk fetch --output /build/package-cache " + " ".join(shell_quote(spec) for spec in specs)
+    # configure uses apk add --no-cache, so repository indexes are intentionally
+    # absent afterwards. Refresh indexes only; package selection remains pinned
+    # to exact name=version identities and there is no fallback to latest.
+    command = "apk --update-cache fetch --output /build/package-cache " + " ".join(
+        shell_quote(spec) for spec in specs
+    )
     try:
         CONFIGURE.proot(rootfs, command)
     except CONFIGURE.ConfigureProofError as exc:
