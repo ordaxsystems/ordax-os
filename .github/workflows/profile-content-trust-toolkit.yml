@@ -333,8 +333,7 @@ jobs:
             'ceremony-public-evidence.json',
             'profile-content-ed25519.json',
             'profile-content-trust-proof-manifest.json',
-            'profile-content-trust-proof-recovery-envelope.json',
-            'profile-content-trust-proof.pack'
+            'profile-content-trust-proof-recovery-envelope.json'
           ) | Sort-Object
           if (($names -join '|') -ne ($expected -join '|')) {
             throw "Public handoff entries are unexpected: $($names -join ',')"
