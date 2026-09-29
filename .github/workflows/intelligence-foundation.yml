@@ -115,6 +115,7 @@ on:
       - 'tests/test_profile_pack_restore_composition.py'
       - 'system/surface/runtime/native_profile_activation_command.py'
       - 'tests/test_native_profile_activation_command.py'
+      - 'tests/test_native_profile_activation_command_http.py'
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
@@ -229,6 +230,7 @@ on:
       - 'tests/test_profile_pack_restore_composition.py'
       - 'system/surface/runtime/native_profile_activation_command.py'
       - 'tests/test_native_profile_activation_command.py'
+      - 'tests/test_native_profile_activation_command_http.py'
       - '.github/workflows/intelligence-foundation.yml'
   workflow_dispatch:
 
@@ -364,3 +366,4 @@ jobs:
           python -m unittest tests.test_native_profile_provisioning_executor -v
           python -m unittest tests.test_native_profile_activation_state -v
           python -m unittest tests.test_native_profile_activation_command -v
+          python -m unittest tests.test_native_profile_activation_command_http -v
