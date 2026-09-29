@@ -41,11 +41,15 @@ The boundary is intentionally narrower than the Memory store:
 - transport failure leaves local Memory intact and keeps the mutation pending for retry;
 - bounded remote-batch application accepts objects supplied by canonical account reconciliation and applies authorized Memory through `ordax.memory/1` plus its durability barrier.
 
-The Memory handler deliberately does **not** own `snapshot()`, `pullChanges()`, the account cursor or a transport lifecycle. `system/services/sync/account-runtime.mjs` remains the sole account reconciliation orchestrator. A future live integration may feed Memory objects from that existing snapshot/change stream only after the remaining durable-state and backend promotion gates are satisfied, preserving one synchronization system.
+The Memory handler deliberately does **not** own `snapshot()`, `pullChanges()`, the account cursor or a transport lifecycle. `system/services/sync/account-runtime.mjs` remains the sole account reconciliation orchestrator. A future live integration may feed Memory objects from that existing snapshot/change stream only after the remaining backend and composition promotion gates are satisfied, preserving one synchronization system.
+
+Memory sync coordination now has a versioned local state envelope, `ordax.memory-sync-state/1`, persisted only through the existing `ordax.sync-state-store/1` boundary supplied by composition. The envelope is subject-bound and contains only validated Memory sync mutations plus the server revisions and conflict quarantine needed to resume safely. It does not own a second cursor, transport, provider or backend. Pending idempotency keys survive runtime recreation when the supplied state store is durable; accepted revisions remain the next mutation base; tombstones survive without deleted Memory content; and a quarantined conflict remains quarantined instead of turning into an implicit retry after restart. If the store rejects persistence, the in-process pending intent is preserved and the runtime reports session persistence rather than pretending durability.
+
+The persisted coordination envelope is revalidated on recovery. A payload for another account subject is ignored, malformed state is not replayed, and secret-bearing Memory mutations fail the same canonical Memory/never-sync checks used before transport. Session/bearer tokens and device-private credentials are not part of this state schema.
 
 Every upload/restore operation requires an explicit authorization policy supplied by trusted composition. This foundation does not grant tools, action authority, model egress or a new entitlement. Synchronized Memory is classified as **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization or community-data authorization.
 
-The current pending queue for this Memory foundation is session-scoped. Durable offline queue/checkpoint integration, provider/backend acceptance, live Web/Native wiring, final domain conflict-resolution UX, two-client proof and reinstall proof remain required before promotion.
+This is still a source foundation, not product activation. Web/Native composition does not yet instantiate the Memory sync runtime or provide a dedicated live state-store instance for it, the provider/backend still rejects `memory`, final domain conflict-resolution UX is absent, and two-client/reinstall proof has not been executed.
 
 Core rules remain:
 
