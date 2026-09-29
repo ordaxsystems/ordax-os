@@ -103,10 +103,6 @@ def execute_profile_activation_command(
     expected_revision = payload.get("expectedRevision")
     if isinstance(expected_revision, bool) or not isinstance(expected_revision, int) or expected_revision < 0:
         raise ValueError("Profile activation expected revision is invalid")
-    current = read_profile_activation_state(state_path)
-    if current["revision"] != expected_revision:
-        raise RuntimeError("Profile activation state revision changed")
-
     if action == "activate":
         if set(payload) != {"schema", "action", "expectedRevision", "spaceId", "spaceKind", "profile", "components", "activatedAt"}:
             raise ValueError("Profile activate command fields are incompatible")
@@ -134,6 +130,7 @@ def execute_profile_activation_command(
                 "components": components,
                 "activatedAt": payload.get("activatedAt"),
             },
+            expected_revision=expected_revision,
             state_path=state_path,
             inventory_path=inventory_path,
             lock_path=lock_path,
@@ -149,12 +146,14 @@ def execute_profile_activation_command(
         if action == "deactivate":
             result = deactivate_profile(
                 space_id=space_id,
+                expected_revision=expected_revision,
                 state_path=state_path,
                 lock_path=lock_path,
             )
         else:
             result = rollback_profile(
                 space_id=space_id,
+                expected_revision=expected_revision,
                 state_path=state_path,
                 inventory_path=inventory_path,
                 lock_path=lock_path,
