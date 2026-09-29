@@ -79,7 +79,7 @@
       "client_b_reads_canonical_deleted_state": true
     },
     "proof_entitlement_operator": {
-      "status": "source-ready-not-executed",
+      "status": "deployed-operator-only-no-grant",
       "migration": "infra/supabase/product/migrations/20260929195000_cloud_memory_proof_entitlement_operator_v1.sql",
       "issue_function": "private.ordax_issue_cloud_memory_proof_entitlement_v1",
       "revoke_function": "private.ordax_revoke_cloud_memory_proof_entitlement_v1",
@@ -94,7 +94,16 @@
       "executable_by_anon": false,
       "executable_by_authenticated": false,
       "executable_by_service_role": false,
-      "issues_grant_on_migration": false
+      "issues_grant_on_migration": false,
+      "backend": "ordax-control-plane",
+      "security_definer": true,
+      "function_owner": "postgres",
+      "live_execute_privileges_verified": {
+        "anon": false,
+        "authenticated": false,
+        "service_role": false
+      },
+      "deployment_verified_date": "2026-09-29"
     }
   }
 }
