@@ -9,6 +9,7 @@ atomic server-authoritative RPC.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 from typing import Mapping, Protocol
 from urllib.error import HTTPError, URLError
@@ -95,6 +96,26 @@ def _json(raw: bytes, status: int):
         raise SupabaseMemoryError("provider-invalid-response", status=status) from exc
 
 
+def _provider_timestamp(value: object, label: str) -> datetime:
+    if not isinstance(value, str) or not value:
+        raise SupabaseMemoryError(f"provider-invalid-{label}")
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise SupabaseMemoryError(f"provider-invalid-{label}") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise SupabaseMemoryError(f"provider-invalid-{label}")
+    return parsed.astimezone(timezone.utc)
+
+
+def _utc_now(value: datetime | None) -> datetime:
+    current = datetime.now(timezone.utc) if value is None else value
+    if not isinstance(current, datetime) or current.tzinfo is None or current.utcoffset() is None:
+        raise ValueError("now must be timezone-aware")
+    return current.astimezone(timezone.utc)
+
+
 @dataclass(frozen=True)
 class MemoryApplyResult:
     memory_id: str
@@ -148,7 +169,13 @@ class SupabaseMemoryProvider:
             raise SupabaseMemoryError("provider-memory-failed", status=status)
         return value
 
-    def has_account_cloud_entitlement(self, access_token: str) -> bool:
+    def has_account_cloud_entitlement(
+        self,
+        access_token: str,
+        *,
+        now: datetime | None = None,
+    ) -> bool:
+        """Read-only preflight; the mutation RPC remains the authorization authority."""
         query = urlencode(
             {
                 "select": "entitlement_value,valid_from,valid_until",
@@ -164,11 +191,26 @@ class SupabaseMemoryProvider:
         )
         if not isinstance(value, list):
             raise SupabaseMemoryError("provider-invalid-entitlement-response")
+        current = _utc_now(now)
         for row in value:
             if not isinstance(row, dict):
                 raise SupabaseMemoryError("provider-invalid-entitlement-response")
             entitlement = row.get("entitlement_value")
-            if isinstance(entitlement, dict) and entitlement.get("decision") == "allowed":
+            valid_from = _provider_timestamp(row.get("valid_from"), "entitlement-valid-from")
+            raw_until = row.get("valid_until")
+            valid_until = (
+                None
+                if raw_until is None
+                else _provider_timestamp(raw_until, "entitlement-valid-until")
+            )
+            if valid_until is not None and valid_until <= valid_from:
+                raise SupabaseMemoryError("provider-invalid-entitlement-window")
+            if (
+                isinstance(entitlement, dict)
+                and entitlement.get("decision") == "allowed"
+                and valid_from <= current
+                and (valid_until is None or valid_until > current)
+            ):
                 return True
         return False
 

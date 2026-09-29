@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from datetime import datetime, timezone
 import sys
 from pathlib import Path
 import unittest
@@ -90,7 +91,8 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
         self.assertEqual(payload["p_base_server_revision"], 0)
         self.assertNotIn("owner_user_id", payload)
 
-    def test_entitlement_check_is_read_only_and_does_not_create_grants(self):
+    def test_entitlement_check_is_read_only_and_requires_active_window(self):
+        now = datetime(2026, 9, 29, 19, 0, tzinfo=timezone.utc)
         transport = FakeTransport(
             [
                 (
@@ -100,7 +102,7 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
                             {
                                 "entitlement_value": {"decision": "allowed"},
                                 "valid_from": "2026-09-01T00:00:00Z",
-                                "valid_until": None,
+                                "valid_until": "2026-10-01T00:00:00+00:00",
                             }
                         ]
                     ).encode(),
@@ -112,12 +114,52 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
             "sb_publishable_1234567890",
             transport=transport,
         )
-        self.assertTrue(provider.has_account_cloud_entitlement("user-access-token"))
+        self.assertTrue(
+            provider.has_account_cloud_entitlement("user-access-token", now=now)
+        )
         method, url, _, body = transport.calls[0]
         self.assertEqual(method, "GET")
         self.assertIn("/rest/v1/ordax_entitlement_grants?", url)
         self.assertIn("memory.cloud.enabled", url)
         self.assertIsNone(body)
+
+    def test_entitlement_preflight_rejects_expired_future_and_malformed_windows(self):
+        now = datetime(2026, 9, 29, 19, 0, tzinfo=timezone.utc)
+        rows = [
+            {
+                "entitlement_value": {"decision": "allowed"},
+                "valid_from": "2026-09-01T00:00:00Z",
+                "valid_until": "2026-09-29T18:59:59Z",
+            },
+            {
+                "entitlement_value": {"decision": "allowed"},
+                "valid_from": "2026-09-29T19:00:01Z",
+                "valid_until": None,
+            },
+        ]
+        provider = SupabaseMemoryProvider(
+            "https://example.supabase.co",
+            "sb_publishable_1234567890",
+            transport=FakeTransport([(200, json.dumps(rows).encode())]),
+        )
+        self.assertFalse(
+            provider.has_account_cloud_entitlement("user-access-token", now=now)
+        )
+
+        malformed = SupabaseMemoryProvider(
+            "https://example.supabase.co",
+            "sb_publishable_1234567890",
+            transport=FakeTransport([(
+                200,
+                json.dumps([{
+                    "entitlement_value": {"decision": "allowed"},
+                    "valid_from": "not-a-timestamp",
+                    "valid_until": None,
+                }]).encode(),
+            )]),
+        )
+        with self.assertRaises(memory_module.SupabaseMemoryError):
+            malformed.has_account_cloud_entitlement("user-access-token", now=now)
 
     def test_manual_proof_uses_two_independent_sessions_without_admin_authority(self):
         text = PROOF.read_text(encoding="utf-8")
