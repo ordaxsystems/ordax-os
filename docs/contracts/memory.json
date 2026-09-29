@@ -81,6 +81,9 @@
   "sync": {
     "foundation_status": "implemented-not-promoted",
     "runtime": "system/services/sync/account-memory-runtime.mjs",
+    "reconciliation_orchestrator": "system/services/sync/account-runtime.mjs",
+    "runtime_owns_account_cursor": false,
+    "runtime_owns_transport": false,
     "transport_contract": "ordax.sync-transport/1",
     "data_class": "memory",
     "object_schema_version": 1,
@@ -107,7 +110,7 @@
     "live_client_integration": false,
     "provider_backend_memory_class_enabled": false,
     "full_restore_enabled": false,
-    "restore_primitive_available": true,
+    "remote_batch_apply_primitive_available": true,
     "retention_expiry_fields_defined": false,
     "transport_may_invent_retention_expiry": false,
     "cloud_state_classification": "user-cloud-state",
