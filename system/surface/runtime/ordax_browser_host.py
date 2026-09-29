@@ -36,6 +36,10 @@ from native_profile_consent_ipc import (
     DECISION_SCHEMA as PROFILE_CONSENT_DECISION_SCHEMA,
     ProfileConsentIpcServer,
 )
+from native_security_prompt_i18n import (
+    profile_consent_messages,
+    read_native_security_locale,
+)
 
 BRIDGE_NAME = "ordaxBrowser"
 TAB_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
@@ -272,15 +276,16 @@ class OrdaXBrowserHost:
         permission_diff = request["permissionDiff"]
         additions = permission_diff.get("componentAdds", [])
         authorities = permission_diff.get("authorityChanges", [])
+        messages = profile_consent_messages(read_native_security_locale())
 
         dialog = Gtk.Dialog(
-            title="Confirmar ativação do perfil",
+            title=messages["windowTitle"],
             transient_for=self.window,
             modal=True,
             destroy_with_parent=True,
         )
-        dialog.add_button("Cancelar", Gtk.ResponseType.CANCEL)
-        approve_button = dialog.add_button("Ativar perfil", Gtk.ResponseType.OK)
+        dialog.add_button(messages["cancel"], Gtk.ResponseType.CANCEL)
+        approve_button = dialog.add_button(messages["approve"], Gtk.ResponseType.OK)
         approve_button.get_style_context().add_class("suggested-action")
         dialog.set_default_response(Gtk.ResponseType.CANCEL)
         dialog.set_resizable(False)
@@ -290,16 +295,16 @@ class OrdaXBrowserHost:
         content.set_border_width(24)
 
         title = Gtk.Label()
-        title.set_markup("<b>Confirme as alterações deste perfil</b>")
+        title.set_markup(f"<b>{messages['heading']}</b>")
         title.set_xalign(0.0)
         content.pack_start(title, False, False, 0)
 
         detail = Gtk.Label(
             label=(
-                f"Perfil: {profile['slug']} v{profile['version']}\n"
-                f"Espaço: {request['spaceId']}\n"
-                f"Componentes adicionados: {len(additions)}\n"
-                f"Mudanças de autoridade: {len(authorities)}"
+                f"{messages['profile']}: {profile['slug']} v{profile['version']}\n"
+                f"{messages['space']}: {request['spaceId']}\n"
+                f"{messages['componentsAdded']}: {len(additions)}\n"
+                f"{messages['authorityChanges']}: {len(authorities)}"
             )
         )
         detail.set_xalign(0.0)
@@ -308,7 +313,8 @@ class OrdaXBrowserHost:
 
         if additions:
             component_lines = "\n".join(
-                f"• {entry.get('id', 'componente')} ({entry.get('kind', 'desconhecido')})"
+                f"• {entry.get('id', messages['component'])} "
+                f"({entry.get('kind', messages['unknown'])})"
                 for entry in additions
             )
             component_label = Gtk.Label(label=component_lines)
@@ -317,7 +323,7 @@ class OrdaXBrowserHost:
             content.pack_start(component_label, False, False, 0)
 
         warning = Gtk.Label(
-            label="Esta confirmação vale somente para esta revisão e expira automaticamente."
+            label=messages["warning"]
         )
         warning.set_xalign(0.0)
         warning.set_line_wrap(True)
