@@ -60,6 +60,7 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
+import { createSelectedSpaceMemoryIntelligence } from "../../services/intelligence/authorized-memory.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
@@ -313,6 +314,13 @@ async function start() {
         spaceSelectionPort: spaceSelection,
       })
     : intelligence;
+  const selectedSpaceIntelligence = memory === null
+    ? consumerIntelligence
+    : createSelectedSpaceMemoryIntelligence({
+        intelligencePort: consumerIntelligence,
+        memoryPort: memory,
+        spaceSelectionPort: spaceSelection,
+      });
   const profileComponentInventory = await optionalNativeProbe(
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
@@ -575,7 +583,7 @@ async function start() {
     appActivation,
     diagnosticReviewController,
     componentManager,
-    consumerIntelligence,
+    selectedSpaceIntelligence,
     recoveryStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
@@ -616,7 +624,7 @@ async function start() {
       surfaceLifecycle: surface,
       fileSpace,
       appActivation,
-      intelligence: consumerIntelligence,
+      intelligence: selectedSpaceIntelligence,
     },
     onError(error) {
       reportClientDiagnostic("notes-runtime", error);
