@@ -60,7 +60,6 @@
       "id": "odbc-driver-manager",
       "path": "dlls/odbc32/unixlib.c",
       "expression": "s",
-      "category": "environment-override-or-configured-fallback",
       "control_source": "LIB_ODBC_DRIVER_MANAGER-or-SONAME_LIBODBC",
       "source_semantics": "environment-override-precedes-configured-soname-fallback",
       "required_code_fragments": [
