@@ -148,6 +148,17 @@
     "forget_uses_explicit_tombstone": true,
     "automatic_conflict_rebase": false,
     "conflict_state": "pending-manual-domain-resolution",
+    "conflict_resolution_schema": "ordax.memory-conflict-resolution/1",
+    "conflict_resolution_module": "system/services/sync/memory-conflict-resolution.mjs",
+    "conflict_resolution_decisions": [
+      "preserve-local-intent",
+      "accept-authoritative-remote"
+    ],
+    "conflict_resolution_is_explicit": true,
+    "conflict_resolution_applies_remote_state_directly": false,
+    "accept_remote_requires_reconciliation": true,
+    "preserve_local_requires_new_idempotency_key": true,
+    "global_last_write_wins_allowed": false,
     "transport_failure_preserves_local_state_and_pending_intent": true,
     "coordination_state_schema": "ordax.memory-sync-state/1",
     "coordination_state_store_contract": "ordax.sync-state-store/1",
