@@ -144,6 +144,8 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - comando Native de ativação interna exige intenção explícita, token efêmero específico, loopback/same-origin e revisão esperada validada dentro do lock;
 - comando revalida o Profile contra catálogo/manifest bundled canônico e continua bloqueado no Stable/MVP;
 - Profiles com componentes continuam bloqueados até existir receipt canônico de provisioning para a ativação;
+- permission diff é derivado do manifest canônico e pode ser pré-visualizado com digest SHA-256 vinculado a Space/Profile/componentes/revisão;
+- o digest impede aceitar uma composição diferente da revisada, mas não é tratado como prova de gesto humano; ativação com componentes permanece bloqueada até existir uma superfície confiável de confirmação do usuário;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
@@ -181,7 +183,7 @@ Depois da prova MVP:
 
 1. conectar Knowledge Pack saudável ao retrieval/Intelligence sem torná-lo memória autoritativa;
 2. conectar Skill Pack declarativo ao contexto de Intelligence sem conceder tools automaticamente;
-3. promover o comando interno de ativação para Profiles com componentes somente após receipt canônico de provisioning e permission diff;
+3. promover o comando interno de ativação para Profiles com componentes somente após receipt canônico, permission diff e confirmação confiável de intenção humana; o digest de revisão sozinho não autoriza;
 4. promover o restore metadata-only para aplicação real de composição somente após trust/policy e health de cada efeito, mantendo Profile não crítico ao boot;
 5. Store/catalog remoto assinado;
 6. downloads transacionais;
