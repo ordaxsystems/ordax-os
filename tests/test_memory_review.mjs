@@ -160,3 +160,44 @@ test("review update still enforces memory secret rejection", () => {
     /Secrets are not valid/,
   );
 });
+
+
+test("manual Memory creation stays inside the selected personal owner scope", () => {
+  const memory = createMemoryRuntime();
+  const device = createMemoryReviewRuntime(memory, {
+    ownerKind: "device",
+    ownerId: null,
+    now: () => new Date("2026-09-29T11:30:00Z"),
+    idFactory: () => "manual-device",
+  });
+  const createdDevice = device.create("Preferência local");
+  assert.equal(createdDevice.ownerKind, "device");
+  assert.equal(createdDevice.ownerId, null);
+  assert.equal(createdDevice.scope, "device");
+  assert.equal(createdDevice.kind, "fact");
+  assert.equal(createdDevice.sensitivity, "private");
+  assert.equal(createdDevice.provenance, "user-manual");
+
+  const account = createMemoryReviewRuntime(memory, {
+    ownerKind: "account",
+    ownerId: "user-1",
+    now: () => new Date("2026-09-29T11:31:00Z"),
+    idFactory: () => "manual-account",
+  });
+  const createdAccount = account.create("Preferência da conta");
+  assert.equal(createdAccount.ownerKind, "account");
+  assert.equal(createdAccount.ownerId, "user-1");
+  assert.equal(createdAccount.scope, "account");
+  assert.equal(createdAccount.spaceId, null);
+  assert.equal(createdAccount.projectId, null);
+});
+
+test("manual Memory creation refuses structural Space/project review boundaries", () => {
+  const review = createMemoryReviewRuntime(createMemoryRuntime(), {
+    ownerKind: "account",
+    ownerId: "user-1",
+    spaceId: "space-a",
+    idFactory: () => "manual-space",
+  });
+  assert.throws(() => review.create("não criar aqui"), /personal owner scopes/);
+});

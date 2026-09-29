@@ -613,6 +613,8 @@ export function mountAccountOverviewControls(
       deviceOwner: t("account.memory.review.deviceOwner"),
       accountOwner: t("account.memory.review.accountOwner"),
       empty: t("account.memory.review.empty"),
+      addPlaceholder: t("account.memory.review.addPlaceholder"),
+      add: t("account.memory.review.add"),
       save: t("account.memory.review.save"),
       remove: t("account.memory.review.remove"),
       previous: t("account.memory.review.previous"),
