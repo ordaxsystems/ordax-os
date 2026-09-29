@@ -1,0 +1,183 @@
+from functools import partial
+import http.client
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import threading
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
+
+host_spec = importlib.util.spec_from_file_location("ordax_profile_activation_http_test", HOST)
+native_host = importlib.util.module_from_spec(host_spec)
+assert host_spec.loader is not None
+host_spec.loader.exec_module(native_host)
+
+
+class ProfileActivationCommandHttpTests(unittest.TestCase):
+    def start_server(self, distribution_profile="owner-development"):
+        temporary = tempfile.TemporaryDirectory()
+        root = Path(temporary.name)
+        (root / "index.html").write_text("<!doctype html><title>OrdaX</title>", encoding="utf-8")
+        handler = partial(native_host.NativeHostHandler, directory=str(root))
+        server = native_host.NativeHostServer(
+            ("127.0.0.1", 0),
+            handler,
+            user_root=str(root),
+            power_request_path=str(root / "power-request"),
+            network_session_dir=str(root),
+            distribution_profile=distribution_profile,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        return temporary, server, thread
+
+    def stop_server(self, temporary, server, thread):
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+        temporary.cleanup()
+
+    def request(self, server, method, path, *, headers=None, payload=None):
+        port = server.server_address[1]
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+        request_headers = dict(headers or {})
+        body = None
+        if payload is not None:
+            body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            request_headers["Content-Type"] = "application/json"
+        try:
+            connection.request(method, path, body=body, headers=request_headers)
+            response = connection.getresponse()
+            response_body = response.read()
+            return response.status, response_body
+        finally:
+            connection.close()
+
+    def trusted_headers(self, server):
+        origin = f"http://127.0.0.1:{server.server_address[1]}"
+        return {
+            "Origin": origin,
+            "Sec-Fetch-Site": "same-origin",
+        }
+
+    def session(self, server):
+        status, body = self.request(
+            server,
+            "GET",
+            native_host.SESSION_PATH,
+            headers=self.trusted_headers(server),
+        )
+        self.assertEqual(status, 200)
+        return json.loads(body.decode("utf-8"))
+
+    def command_payload(self):
+        return {
+            "schema": "ordax.profile-activation-command/1",
+            "action": "deactivate",
+            "expectedRevision": 0,
+            "spaceId": "space-professional-1",
+        }
+
+    def test_owner_development_requires_valid_ephemeral_command_token(self):
+        temporary, server, thread = self.start_server()
+        try:
+            session = self.session(server)
+            self.assertTrue(session["profileActivationAvailable"])
+            token = session["profileActivationToken"]
+            self.assertGreaterEqual(len(token), 24)
+
+            status, _body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=self.trusted_headers(server),
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 403)
+
+            wrong_headers = self.trusted_headers(server)
+            wrong_headers[native_host.PROFILE_ACTIVATION_TOKEN_HEADER] = "wrong-token"
+            status, _body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=wrong_headers,
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 403)
+        finally:
+            self.stop_server(temporary, server, thread)
+
+    def test_foreign_browser_origin_is_rejected_before_command_dispatch(self):
+        temporary, server, thread = self.start_server()
+        original = native_host.execute_profile_activation_command
+        dispatched = []
+        native_host.execute_profile_activation_command = lambda *args, **kwargs: dispatched.append(True)
+        try:
+            token = self.session(server)["profileActivationToken"]
+            status, _body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers={
+                    "Origin": "https://attacker.example",
+                    "Sec-Fetch-Site": "cross-site",
+                    native_host.PROFILE_ACTIVATION_TOKEN_HEADER: token,
+                },
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 403)
+            self.assertEqual(dispatched, [])
+        finally:
+            native_host.execute_profile_activation_command = original
+            self.stop_server(temporary, server, thread)
+
+    def test_stable_mvp_keeps_profile_mutation_endpoint_absent(self):
+        temporary, server, thread = self.start_server("stable-mvp")
+        try:
+            session = self.session(server)
+            self.assertFalse(session["profileActivationAvailable"])
+            self.assertEqual(session["profileActivationToken"], "")
+            status, _body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=self.trusted_headers(server),
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 404)
+        finally:
+            self.stop_server(temporary, server, thread)
+
+    def test_revision_conflict_maps_to_http_409_with_valid_token(self):
+        temporary, server, thread = self.start_server()
+        original = native_host.execute_profile_activation_command
+
+        def conflict(*_args, **_kwargs):
+            raise RuntimeError("Profile activation state revision changed")
+
+        native_host.execute_profile_activation_command = conflict
+        try:
+            token = self.session(server)["profileActivationToken"]
+            headers = self.trusted_headers(server)
+            headers[native_host.PROFILE_ACTIVATION_TOKEN_HEADER] = token
+            status, body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=headers,
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 409)
+            self.assertEqual(body, b"")
+        finally:
+            native_host.execute_profile_activation_command = original
+            self.stop_server(temporary, server, thread)
+
+
+if __name__ == "__main__":
+    unittest.main()
