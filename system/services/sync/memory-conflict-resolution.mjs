@@ -18,7 +18,11 @@ function requireConflict(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Memory conflict resolution requires a conflict object");
   }
-  if (typeof value.objectId !== "string" || !value.objectId.startsWith("memory/")) {
+  if (typeof value.objectId !== "string" || value.objectId.includes("\0")) {
+    throw new TypeError("Memory conflict object id is invalid");
+  }
+  const objectId = value.objectId.trim();
+  if (!objectId || objectId !== value.objectId || objectId.length > 160) {
     throw new TypeError("Memory conflict object id is invalid");
   }
   if (!CONFLICT_REASONS.has(value.reason)) {
@@ -28,7 +32,7 @@ function requireConflict(value) {
     throw new TypeError("Memory conflict server revision must be a positive safe integer");
   }
   return Object.freeze({
-    objectId: value.objectId,
+    objectId,
     reason: value.reason,
     serverRevision: value.serverRevision,
   });
