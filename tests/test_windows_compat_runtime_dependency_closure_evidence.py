@@ -207,6 +207,18 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(MODULE.ClosureEvidenceError, "closure loader guard digest"):
             MODULE.finalize(direct, closure, guard)
 
+    def test_finalize_rejects_dynamic_inventory_overclaim_in_guard_without_digest_change(self):
+        direct, closure, guard = self.fixtures()
+        guard["gates"]["dynamic_load_inventory_complete"] = True
+        with self.assertRaisesRegex(MODULE.ClosureEvidenceError, "dynamic_load_inventory_complete"):
+            MODULE.finalize(direct, closure, guard)
+
+    def test_finalize_rejects_generic_external_closure_overclaim_in_direct_evidence_without_digest_change(self):
+        direct, closure, guard = self.fixtures()
+        direct["gates"]["external_transitive_closure_verified"] = True
+        with self.assertRaisesRegex(MODULE.ClosureEvidenceError, "external_transitive_closure_verified"):
+            MODULE.finalize(direct, closure, guard)
+
     def test_finalize_rejects_runtime_promotion_in_any_input(self):
         direct, closure, guard = self.fixtures()
         closure["gates"]["runtime_dependency_inventory_complete"] = True
