@@ -160,11 +160,11 @@ para a primeira prova Stable USB.
 
 ```text
 PRE_USB_NOVA_ORDAX_AUDIT=PASS_SOURCE
-CANONICAL_V4_RELEASE_PROOF=PASS_BOUND_VERSIONED_PRERELEASE
+CANONICAL_V4_RELEASE_PROOF=PASS_HISTORICAL_PRE_HARDENING_SUPERSEDED
 FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING
 FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING
 FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING
-CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION
+CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_REPLACEMENT_PROOF_THEN_FRESH_AUTHORIZATION
 ```
 
 ## 6. Gates do MVP público
@@ -275,7 +275,7 @@ Estado atual do caminho v2:
 - `release-manifest/2`: compatibilidade preservada;
 - `release-manifest/3`: generator + signer + verifier + aquisição não-ativante implementados e verdes em CI, com `system.erofs` + `native-surface-runtime.erofs`;
 - runtime gráfico v3: armazenamento content-addressed por SHA-256 e reuso de bytes verificados entre releases implementados;
-- `release-manifest/4`: caminho de protocolo implementado para acrescentar `local-ai-runtime.erofs`, com binding assinado ao source-lock do engine/modelo e armazenamento da IA por SHA-256 separado do runtime gráfico; o runtime **real** de `llama-server` + Qwen3.5-0.8B-Q4_0 já foi construído duas vezes com bytes idênticos no mesmo job, montado read-only e validado com inferência real tanto no host de CI quanto em Alpine 3.22.5. O engine está pinado por SHA-256/size; boot/handoff v4 e regressão descartável QEMU/UEFI já estão provados em source/CI. A candidata v4 foi assinada e materializada como prerelease, com proof agregado validado e vinculado; promoção do canal estável `latest` e prova física do candidato **pós-hardening** continuam pendentes, embora a primeira prova física pré-hardening já tenha ocorrido;
+- `release-manifest/4`: caminho de protocolo implementado para acrescentar `local-ai-runtime.erofs`, com binding assinado ao source-lock do engine/modelo e armazenamento da IA por SHA-256 separado do runtime gráfico; o runtime **real** de `llama-server` + Qwen3.5-0.8B-Q4_0 já foi construído duas vezes com bytes idênticos no mesmo job, montado read-only e validado com inferência real tanto no host de CI quanto em Alpine 3.22.5. O engine está pinado por SHA-256/size; boot/handoff v4 e regressão descartável QEMU/UEFI já estão provados em source/CI. A candidata v4 histórica foi assinada e materializada como prerelease e seu proof agregado permanece evidência válida do contexto **pré-hardening**. PR #588 alterou os bytes e PR #602 marcou esse proof como superseded para o `main` atual; um replacement proof pós-hardening precisa ser criado e vinculado antes de novo consentimento físico. O canal estável `latest` e a prova física do candidato atual continuam pendentes;
 - materialização portátil: implementada sem ativação implícita; v4 também permanece não-ativante;
 - revalidação offline exata da release assinada: implementada para v2, v3 e para o caminho de protocolo v4;
 - mount EROFS + estado ext4 + runtime system read-only: prova descartável verde;
@@ -294,7 +294,7 @@ Estado atual do caminho v2:
 - writer físico Portable: implementado apenas no backend interno/tagged e continua inacessível ao Creator público;
 - boot físico Stable/MVP pré-hardening: **PASS UEFI em proof controlado**; o candidato pós-#588 continua `PENDING_PHYSICAL_RETEST`;
 - Secure Boot: não provado;
-- canonical release trust público: **PASS** — anchor Ed25519 canônico pinado; proof v4 agregado está **PASS e vinculado** aos bytes do commit `b924ff8d74d1761232381ae3f9604bba17497cfd`. Foi publicada uma prerelease versionada, sem promover o canal estável `latest`; uma nova escrita/reteste do candidato atual exige autorização física fresca;
+- canonical release trust público: **PASS** — anchor Ed25519 canônico pinado; o proof v4 agregado do commit `b924ff8d74d1761232381ae3f9604bba17497cfd` permanece evidência **histórica pré-hardening**, mas está superseded para o `main` atual e não conta como proof bound. Foi publicada uma prerelease versionada, sem promover o canal estável `latest`; o candidato atual exige primeiro um replacement proof pós-hardening e somente depois uma autorização física fresca;
 - Native continua fora do MVP.
 
 A mídia transitória atual continua apenas como caminho de validação de hardware. O trust público canônico já está resolvido e o caminho Stable/MVP atual é v4. O primeiro proof físico governado não transforma o writer interno em capability pública nem autoriza novas gravações. Não habilitar o writer público antes de **prova canônica v4 assinada/materializável, binding do receipt, autorização física explícita válida para o contexto atual e prova física pós-hardening do USB Stable/MVP**.
