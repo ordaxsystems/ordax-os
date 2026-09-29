@@ -15,7 +15,7 @@ class ConfiguredSonameCallerModuleTests(unittest.TestCase):
         contract = MODULE.load_contract()
         self.assertEqual(contract["expected"]["configured_soname_callsites"], 32)
         self.assertEqual(contract["expected"]["configured_soname_symbols"], 24)
-        self.assertEqual(contract["expected"]["caller_module_directories"], 18)
+        self.assertEqual(contract["expected"]["caller_module_directories"], 15)
         self.assertTrue(all(value is False for value in contract["open_boundaries"].values()))
         self.assertTrue(all(value is False for value in contract["promotion"].values()))
 
