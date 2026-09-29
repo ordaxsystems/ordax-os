@@ -237,8 +237,11 @@ def _project_pack(component: dict, raw: bytes) -> list[dict]:
         clipped = text[:MAX_CONTEXT_ITEM_CHARS].strip()
         if not clipped:
             raise ValueError("Profile content projection produced empty text")
+        component_tag = hashlib.sha256(
+            f"{component['id']}@{component['version']}@{component['sha256']}".encode("utf-8")
+        ).hexdigest()[:12]
         projected.append({
-            "id": f"profile.{component['id']}.{entry_id}",
+            "id": f"profile.{component_tag}.{entry_id}",
             "scope": "workspace",
             "text": clipped,
             "provenance": _entry_provenance(component, entry_id, source["revision"]),
