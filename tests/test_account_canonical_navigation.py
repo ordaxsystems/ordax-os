@@ -110,7 +110,9 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("installation is never simulated", catalog)
         for composition in (native, web):
             self.assertIn("createProfileProvisioningRuntime", composition)
-            self.assertIn("LOCAL_PROFILE_DISTRIBUTIONS", composition)
+            self.assertIn("createLocalProfileDistributions", composition)
+            self.assertIn("loadBundledProfilePacks", composition)
+            self.assertNotIn("LOCAL_PROFILE_DISTRIBUTIONS", composition)
             self.assertIn("inventory: profileComponentInventory", composition)
             self.assertIn("profileProvisioning,", composition)
             self.assertIn("profileProvisioning.dispose()", composition)
