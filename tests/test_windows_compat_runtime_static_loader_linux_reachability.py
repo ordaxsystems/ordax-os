@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "bootstrap/windows-compat-runtime/runtime_static_loader_linux_reachability_probe.py"
@@ -104,6 +106,63 @@ class StaticLoaderLinuxReachabilityTests(unittest.TestCase):
             self.contract(), static, host_os, subdirs, disabled, stage, self.authority()
         )
 
+    def full_build_fixture(self):
+        source = MODULE.BUILD.validate_source(MODULE.BUILD.load_source())
+        gates = {
+            "source_lock_verified": True,
+            "version_lock_verified": True,
+            "apk_content_lock_verified": True,
+            "offline_content_replay_passed": True,
+            "proot_full_build_rejected_by_diagnostic": True,
+            "locked_rootfs_container_imported": True,
+            "container_network_disabled": True,
+            "container_rootfs_read_only": True,
+            "container_capabilities_dropped": True,
+            "compiler_execution_reproven_inside_container": True,
+            "configure_completed": True,
+            "generated_idl_header_barrier_completed": True,
+            "full_build_proof_passed": True,
+            "staged_install_completed": True,
+            "runtime_dependency_inventory_complete": False,
+            "binary_artifact_pinned": False,
+            "activation_authorized": False,
+            "execution_authorized": False,
+            "wine_executed": False,
+            "windows_payload_executed": False,
+        }
+        full = {
+            "$schema": "prototype-ordax.windows-compat-full-build-proof/2",
+            "status": "full-build-proven-in-locked-container-staged-not-runtime-pinned-not-executable",
+            "runtime_id": source["runtime_id"],
+            "wine_version": source["version"],
+            "source_archive_sha256": source["upstream"]["archive_sha256"],
+            "compiler": {"triplet": "x86_64-alpine-linux-musl"},
+            "staging": {
+                "entry_count": 1,
+                "regular_file_count": 1,
+                "symlink_count": 0,
+                "total_regular_bytes": 123,
+                "canonical_manifest_sha256": "f" * 64,
+            },
+            "gates": gates,
+        }
+        inputs = (
+            {"runtime_id": source["runtime_id"]},
+            {"configure": {"native_compiler_triplet": "x86_64-alpine-linux-musl"}},
+            {},
+            {"native": {"triplet": "x86_64-alpine-linux-musl"}},
+        )
+        manifest = {"usr/bin/wine": {"type": "file", "sha256": "e" * 64}}
+        return source, full, inputs, manifest
+
+    def validate_full_build_fixture(self, full):
+        source, _, inputs, manifest = self.full_build_fixture()
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(MODULE.FULL, "load_inputs", return_value=inputs), \
+             patch.object(MODULE.FULL, "staging_manifest", return_value=(manifest, 123)), \
+             patch.object(MODULE.FULL, "canonical_manifest_sha256", return_value="f" * 64):
+            return MODULE.validate_full_build(full, source, Path(tmp))
+
     def test_source_authority_proves_host_rules_module_identity_and_disable_macro(self):
         result = self.authority()
         self.assertTrue(result["disabled_subdir_macro_verified"])
@@ -177,8 +236,28 @@ class StaticLoaderLinuxReachabilityTests(unittest.TestCase):
         text = "host='x86_64-alpine-linux-musl'\nhost_os='linux-musl'\n"
         self.assertEqual(MODULE.config_log_value(text, "host"), "x86_64-alpine-linux-musl")
         self.assertEqual(MODULE.config_log_value(text, "host_os"), "linux-musl")
+        self.assertEqual(MODULE.config_log_value("host=x86_64-alpine-linux-musl\n", "host"), "x86_64-alpine-linux-musl")
         with self.assertRaisesRegex(MODULE.StaticLoaderReachabilityError, "exactly one host_os"):
             MODULE.config_log_value("host_os='linux-musl'\nhost_os='darwin'\n", "host_os")
+
+    def test_full_build_exact_gate_set_is_accepted(self):
+        _, full, _, _ = self.full_build_fixture()
+        digest, triplet, manifest = self.validate_full_build_fixture(full)
+        self.assertEqual(digest, "f" * 64)
+        self.assertEqual(triplet, "x86_64-alpine-linux-musl")
+        self.assertEqual(set(manifest), {"usr/bin/wine"})
+
+    def test_full_build_missing_gate_fails_closed(self):
+        _, full, _, _ = self.full_build_fixture()
+        del full["gates"]["generated_idl_header_barrier_completed"]
+        with self.assertRaisesRegex(MODULE.StaticLoaderReachabilityError, "full-build gate set drifted"):
+            self.validate_full_build_fixture(full)
+
+    def test_full_build_unexpected_gate_fails_closed(self):
+        _, full, _, _ = self.full_build_fixture()
+        full["gates"]["runtime_package_content_hashes_pinned"] = True
+        with self.assertRaisesRegex(MODULE.StaticLoaderReachabilityError, "full-build gate set drifted"):
+            self.validate_full_build_fixture(full)
 
 
 if __name__ == "__main__":
