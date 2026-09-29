@@ -139,7 +139,7 @@ begin
       if v_memory->>'schema' is distinct from 'ordax.memory/1'
          or v_memory->>'ownerKind' is distinct from 'account'
          or v_memory->>'ownerId' is distinct from v_user_id::text
-         or v_memory->>'scope' not in ('account','space','project')
+         or v_memory->>'scope' not in ('account','space')
          or v_memory->>'kind' not in ('preference','fact','instruction','summary','artifact-reference')
          or v_memory->>'sensitivity' not in ('normal','private') then
         raise exception 'invalid-memory-sync-domain' using errcode = '22023';
@@ -168,9 +168,6 @@ begin
       end if;
       if v_memory->>'scope' = 'space' and v_space_id is null then
         raise exception 'invalid-memory-space' using errcode = '22023';
-      end if;
-      if v_memory->>'scope' = 'project' and v_project_id is null then
-        raise exception 'invalid-memory-project' using errcode = '22023';
       end if;
       if v_memory->>'sourceTimestamp' is null or char_length(v_memory->>'sourceTimestamp') > 64 then
         raise exception 'invalid-memory-source-timestamp' using errcode = '22023';
@@ -211,15 +208,11 @@ begin
       end if;
     end if;
 
-    v_expected_object_id := 'memory/' || rtrim(
-      translate(
-        replace(replace(encode(convert_to(v_memory_id, 'UTF8'), 'base64'), E'\n', ''), E'\r', ''),
-        '+/',
-        '-_'
-      ),
-      '='
-    );
-    if p_stable_object_id is distinct from v_expected_object_id or char_length(v_expected_object_id) > 240 then
+    -- The canonical sync object table is already namespaced by data_class, so
+    -- Memory's stable object identity is the domain memory_id itself. The
+    -- transport must not invent an encoded second identity.
+    v_expected_object_id := v_memory_id;
+    if p_stable_object_id is distinct from v_expected_object_id or char_length(v_expected_object_id) > 160 then
       raise exception 'invalid-memory-stable-object-id' using errcode = '22023';
     end if;
   end if;
