@@ -15,7 +15,9 @@
     "all_materialized_build_tree_c_required": true,
     "build_tree_c_manifest_binding_required": true,
     "source_archive_counterpart_comparison_required": true,
+    "build_tree_c_symlink_must_resolve_within_build_or_source_tree": true,
     "source_symlink_must_resolve_to_exact_archive_member": true,
+    "external_c_symlink_allowed": false,
     "makedep_generated_c_semantics_required": true,
     "direct_host_loader_parser_reuse_required": true,
     "comments_and_literals_must_not_create_callsites": true,
@@ -23,7 +25,6 @@
     "generated_direct_loader_calls_may_be_silently_ignored": false,
     "unparseable_generated_c_allowed": false,
     "unmodeled_generated_c_family_allowed": false,
-    "build_tree_c_symlink_outside_source_tree_allowed": false,
     "max_c_files": 20000,
     "max_single_c_bytes": 67108864,
     "max_total_c_bytes": 1073741824
