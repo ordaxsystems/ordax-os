@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Inventory direct host dynamic-loader callsites in locked Wine C sources.
+"""Inventory direct host dynamic-loader callsites in the locked Wine archive.
 
-This is deliberately a source-callsite discovery proof, not a complete runtime
-dependency inventory. It binds direct dlopen/dlmopen sites to the exact locked
-Wine source archive and to a deterministic manifest of the scanned C files.
-Wrappers, generated sources, plugin naming conventions, and computed runtime
-targets remain separate gates.
+This proof is intentionally limited to direct dlopen/dlmopen callsites in the
+exact pinned upstream C sources. It does not claim wrapper closure, generated
+source coverage, plugin naming coverage, or complete runtime dependency
+inventory.
 """
 
 from __future__ import annotations
@@ -13,9 +12,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import sys
+import tarfile
 
 HERE = Path(__file__).resolve().parent
 CONTRACT = HERE / "runtime-dynamic-load-discovery.json"
@@ -33,6 +33,14 @@ class DynamicLoadDiscoveryError(RuntimeError):
 def canonical_sha256(value: object) -> str:
     payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_json(path: Path, label: str) -> dict:
@@ -54,7 +62,7 @@ def load_contract() -> dict:
     inspection = contract.get("inspection", {})
     required_true = (
         "comments_and_literals_must_not_create_callsites",
-        "source_manifest_binding_required",
+        "archive_member_manifest_binding_required",
         "literal_target_classification_required",
         "dynamic_expression_classification_required",
     )
@@ -62,16 +70,18 @@ def load_contract() -> dict:
         raise DynamicLoadDiscoveryError("dynamic-load source inspection guarantees drifted")
     required_false = (
         "unparseable_direct_call_allowed",
-        "relevant_source_symlink_allowed",
+        "relevant_source_link_allowed",
         "wrapper_call_graph_complete",
         "generated_source_inventory_complete",
         "dynamic_load_inventory_complete",
     )
     if any(inspection.get(key) is not False for key in required_false):
         raise DynamicLoadDiscoveryError("dynamic-load source discovery scope drifted")
-    apis = inspection.get("direct_host_loader_apis")
-    if apis != {"dlopen": 0, "dlmopen": 1}:
+    if inspection.get("direct_host_loader_apis") != {"dlopen": 0, "dlmopen": 1}:
         raise DynamicLoadDiscoveryError("direct host loader API model drifted")
+    inputs = contract.get("input", {})
+    if inputs.get("archive_root") != "wine-11.0" or inputs.get("source_extensions") != [".c"]:
+        raise DynamicLoadDiscoveryError("dynamic-load archive scan surface drifted")
     promotion = contract.get("promotion", {})
     if not promotion or any(value is not False for value in promotion.values()):
         raise DynamicLoadDiscoveryError("dynamic-load source discovery claims promotion or execution authority")
@@ -89,29 +99,49 @@ def validate_source_lock(source: dict, contract: dict) -> None:
         raise DynamicLoadDiscoveryError("source archive digest is invalid")
     if digest != contract["input"]["source_archive_sha256"]:
         raise DynamicLoadDiscoveryError("source archive digest drifted from dynamic-load contract")
+    if upstream.get("archive_root") != contract["input"]["archive_root"]:
+        raise DynamicLoadDiscoveryError("source archive root drifted from dynamic-load contract")
 
 
-def validate_full_build_proof(proof: dict, contract: dict) -> None:
-    if proof.get("$schema") != contract["input"]["full_build_proof_schema"]:
-        raise DynamicLoadDiscoveryError("unexpected full build proof schema")
+def source_proof_core(proof: dict) -> dict:
+    return {
+        "runtime_id": proof.get("runtime_id"),
+        "engine": proof.get("engine"),
+        "version": proof.get("version"),
+        "archive_name": proof.get("archive_name"),
+        "archive_size_bytes": proof.get("archive_size_bytes"),
+        "archive_sha256": proof.get("archive_sha256"),
+        "archive_member_count": proof.get("archive_member_count"),
+        "version_file_value": proof.get("version_file_value"),
+        "build_performed": proof.get("build_performed"),
+        "activation_authorized": proof.get("activation_authorized"),
+        "execution_authorized": proof.get("execution_authorized"),
+    }
+
+
+def validate_source_proof(proof: dict, source: dict, contract: dict) -> str:
+    if proof.get("$schema") != contract["input"]["source_proof_schema"]:
+        raise DynamicLoadDiscoveryError("unexpected source proof schema")
     if proof.get("runtime_id") != contract.get("runtime_id"):
-        raise DynamicLoadDiscoveryError("full build runtime identity drifted")
-    gates = proof.get("gates")
-    if not isinstance(gates, dict):
-        raise DynamicLoadDiscoveryError("full build gates must be an object")
-    for key in ("source_lock_verified", "full_build_proof_passed", "staged_install_completed"):
-        if gates.get(key) is not True:
-            raise DynamicLoadDiscoveryError(f"full build prerequisite is not proven: {key}")
-    for key in (
-        "runtime_dependency_inventory_complete",
-        "binary_artifact_pinned",
-        "activation_authorized",
-        "execution_authorized",
-        "wine_executed",
-        "windows_payload_executed",
-    ):
-        if gates.get(key) is not False:
-            raise DynamicLoadDiscoveryError(f"full build crossed forbidden runtime boundary: {key}")
+        raise DynamicLoadDiscoveryError("source proof runtime identity drifted")
+    if proof.get("engine") != "wine" or proof.get("version") != "11.0":
+        raise DynamicLoadDiscoveryError("source proof engine/version drifted")
+    upstream = source["upstream"]
+    expected = {
+        "archive_name": upstream["archive_name"],
+        "archive_size_bytes": upstream["archive_size_bytes"],
+        "archive_sha256": upstream["archive_sha256"],
+        "version_file_value": upstream["version_file_expected"],
+    }
+    for key, value in expected.items():
+        if proof.get(key) != value:
+            raise DynamicLoadDiscoveryError(f"source proof {key} drifted")
+    if not isinstance(proof.get("archive_member_count"), int) or proof["archive_member_count"] < 1000:
+        raise DynamicLoadDiscoveryError("source proof archive member count is invalid")
+    for key in ("build_performed", "activation_authorized", "execution_authorized"):
+        if proof.get(key) is not False:
+            raise DynamicLoadDiscoveryError(f"source proof crossed forbidden boundary: {key}")
+    return canonical_sha256(source_proof_core(proof))
 
 
 def _replace_span(chars: list[str], start: int, end: int) -> None:
@@ -121,7 +151,6 @@ def _replace_span(chars: list[str], start: int, end: int) -> None:
 
 
 def lexical_views(text: str) -> tuple[str, str]:
-    """Return comments-removed and code-only views with preserved positions."""
     comments_removed = list(text)
     code_only = list(text)
     i = 0
@@ -238,45 +267,8 @@ def classify_target(expression: str) -> dict:
     return {"kind": "dynamic-expression", "expression": value}
 
 
-def relevant_sources(source_root: Path, extensions: set[str]) -> list[Path]:
-    if not source_root.is_dir():
-        raise DynamicLoadDiscoveryError("Wine source root is missing")
-    files: list[Path] = []
-    for path in sorted(source_root.rglob("*")):
-        if path.suffix not in extensions:
-            continue
-        if path.is_symlink():
-            raise DynamicLoadDiscoveryError(f"relevant source symlink is not modeled: {path}")
-        if path.is_file():
-            files.append(path)
-    if not files:
-        raise DynamicLoadDiscoveryError("locked Wine source produced no relevant C files")
-    return files
-
-
-def source_manifest(source_root: Path, files: list[Path]) -> tuple[str, int]:
-    entries = []
-    total_bytes = 0
-    root = source_root.resolve()
-    for path in files:
-        resolved = path.resolve()
-        try:
-            relative = resolved.relative_to(root).as_posix()
-        except ValueError as exc:
-            raise DynamicLoadDiscoveryError(f"source file escaped root: {path}") from exc
-        data = path.read_bytes()
-        total_bytes += len(data)
-        entries.append({"path": relative, "size": len(data), "sha256": hashlib.sha256(data).hexdigest()})
-    return canonical_sha256(entries), total_bytes
-
-
-def scan_file(source_root: Path, path: Path, api_map: dict[str, int]) -> list[dict]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="strict")
-    except (OSError, UnicodeDecodeError) as exc:
-        raise DynamicLoadDiscoveryError(f"cannot read C source {path}: {exc}") from exc
+def scan_text(path: str, text: str, api_map: dict[str, int]) -> list[dict]:
     comments_removed, code_only = lexical_views(text)
-    relative = path.resolve().relative_to(source_root.resolve()).as_posix()
     records: list[dict] = []
     for match in CALL_RE.finditer(code_only):
         api = match.group(1)
@@ -284,22 +276,21 @@ def scan_file(source_root: Path, path: Path, api_map: dict[str, int]) -> list[di
             continue
         open_paren = code_only.find("(", match.start(1) + len(api), match.end())
         if open_paren < 0:
-            raise DynamicLoadDiscoveryError(f"cannot locate loader call parenthesis: {relative}")
+            raise DynamicLoadDiscoveryError(f"cannot locate loader call parenthesis: {path}")
         args = extract_arguments(comments_removed, open_paren)
         target_index = api_map[api]
         if target_index >= len(args):
             line = text.count("\n", 0, match.start()) + 1
             raise DynamicLoadDiscoveryError(
-                f"direct host loader call lacks modeled target argument: {relative}:{line}:{api}"
+                f"direct host loader call lacks modeled target argument: {path}:{line}:{api}"
             )
         line = text.count("\n", 0, match.start()) + 1
         line_start = text.rfind("\n", 0, match.start()) + 1
-        column = match.start() - line_start + 1
         records.append(
             {
-                "path": relative,
+                "path": path,
                 "line": line,
-                "column": column,
+                "column": match.start() - line_start + 1,
                 "api": api,
                 "target_argument_index": target_index,
                 "target": classify_target(args[target_index]),
@@ -308,19 +299,71 @@ def scan_file(source_root: Path, path: Path, api_map: dict[str, int]) -> list[di
     return records
 
 
-def discover(source_root: Path, source_lock: dict, full_build_proof: dict) -> dict:
-    contract = load_contract()
-    validate_source_lock(source_lock, contract)
-    validate_full_build_proof(full_build_proof, contract)
+def read_relevant_members(archive: Path, contract: dict) -> tuple[list[dict], list[dict], int]:
+    if not archive.is_file():
+        raise DynamicLoadDiscoveryError("locked Wine source archive is missing")
+    expected_sha = contract["input"]["source_archive_sha256"]
+    if sha256_file(archive) != expected_sha:
+        raise DynamicLoadDiscoveryError("Wine source archive digest does not match dynamic-load contract")
+    archive_root = contract["input"]["archive_root"]
     extensions = set(contract["input"]["source_extensions"])
-    if extensions != {".c"}:
-        raise DynamicLoadDiscoveryError("dynamic-load source extension model drifted")
-    files = relevant_sources(source_root, extensions)
-    manifest_sha, total_bytes = source_manifest(source_root, files)
-    api_map = contract["inspection"]["direct_host_loader_apis"]
+    entries: list[dict] = []
+    sources: list[dict] = []
+    total_bytes = 0
+    try:
+        with tarfile.open(archive, "r:xz") as tar:
+            for member in tar:
+                path = PurePosixPath(member.name)
+                if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] != archive_root:
+                    raise DynamicLoadDiscoveryError(f"unsafe or unexpected archive member: {member.name}")
+                relative = PurePosixPath(*path.parts[1:])
+                if relative.suffix not in extensions:
+                    continue
+                if member.issym() or member.islnk():
+                    raise DynamicLoadDiscoveryError(f"relevant source link is not modeled: {member.name}")
+                if not member.isfile():
+                    continue
+                handle = tar.extractfile(member)
+                if handle is None:
+                    raise DynamicLoadDiscoveryError(f"cannot read relevant archive member: {member.name}")
+                data = handle.read()
+                if len(data) != member.size:
+                    raise DynamicLoadDiscoveryError(f"relevant archive member size drifted: {member.name}")
+                try:
+                    text = data.decode("utf-8")
+                except UnicodeDecodeError as exc:
+                    raise DynamicLoadDiscoveryError(f"C source is not UTF-8: {member.name}") from exc
+                relative_name = relative.as_posix()
+                entries.append(
+                    {
+                        "path": relative_name,
+                        "size": len(data),
+                        "sha256": hashlib.sha256(data).hexdigest(),
+                    }
+                )
+                sources.append({"path": relative_name, "text": text})
+                total_bytes += len(data)
+    except (tarfile.TarError, OSError) as exc:
+        raise DynamicLoadDiscoveryError(f"cannot inspect Wine source archive: {exc}") from exc
+    if not entries:
+        raise DynamicLoadDiscoveryError("locked Wine archive produced no relevant C source members")
+    entries.sort(key=lambda item: item["path"])
+    sources.sort(key=lambda item: item["path"])
+    return entries, sources, total_bytes
+
+
+def build_inventory(
+    source_proof_sha256: str,
+    source_archive_sha256: str,
+    entries: list[dict],
+    sources: list[dict],
+    total_bytes: int,
+    api_map: dict[str, int],
+    runtime_id: str,
+) -> dict:
     callsites: list[dict] = []
-    for path in files:
-        callsites.extend(scan_file(source_root, path, api_map))
+    for source in sources:
+        callsites.extend(scan_text(source["path"], source["text"], api_map))
     callsites.sort(key=lambda item: (item["path"], item["line"], item["column"], item["api"]))
     if not callsites:
         raise DynamicLoadDiscoveryError("locked Wine C source produced no modeled direct host loader callsites")
@@ -330,7 +373,7 @@ def discover(source_root: Path, source_lock: dict, full_build_proof: dict) -> di
         kinds[item["target"]["kind"]] += 1
         apis[item["api"]] += 1
     counts = {
-        "c_files_scanned": len(files),
+        "c_archive_members_scanned": len(entries),
         "c_source_bytes": total_bytes,
         "direct_loader_calls": len(callsites),
         "static_string_targets": kinds["static-string"],
@@ -339,9 +382,10 @@ def discover(source_root: Path, source_lock: dict, full_build_proof: dict) -> di
         "calls_by_api": dict(sorted(apis.items())),
     }
     core = {
-        "runtime_id": contract["runtime_id"],
-        "source_archive_sha256": source_lock["upstream"]["archive_sha256"],
-        "c_source_manifest_sha256": manifest_sha,
+        "runtime_id": runtime_id,
+        "source_archive_sha256": source_archive_sha256,
+        "source_proof_sha256": source_proof_sha256,
+        "c_archive_manifest_sha256": canonical_sha256(entries),
         "counts": counts,
         "callsites": callsites,
     }
@@ -352,8 +396,8 @@ def discover(source_root: Path, source_lock: dict, full_build_proof: dict) -> di
         "inventory_sha256": canonical_sha256(core),
         "gates": {
             "source_lock_verified": True,
-            "full_build_proof_verified": True,
-            "c_source_manifest_bound": True,
+            "source_proof_verified": True,
+            "c_archive_manifest_bound": True,
             "direct_host_loader_calls_inventoried": True,
             "wrapper_call_graph_complete": False,
             "generated_source_inventory_complete": False,
@@ -370,25 +414,42 @@ def discover(source_root: Path, source_lock: dict, full_build_proof: dict) -> di
     }
 
 
+def discover(archive: Path, source_lock: dict, source_proof: dict) -> dict:
+    contract = load_contract()
+    validate_source_lock(source_lock, contract)
+    proof_sha = validate_source_proof(source_proof, source_lock, contract)
+    entries, sources, total_bytes = read_relevant_members(archive, contract)
+    return build_inventory(
+        proof_sha,
+        source_lock["upstream"]["archive_sha256"],
+        entries,
+        sources,
+        total_bytes,
+        contract["inspection"]["direct_host_loader_apis"],
+        contract["runtime_id"],
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["check", "discover"])
-    parser.add_argument("--source-dir", type=Path)
+    parser.add_argument("--archive", type=Path)
     parser.add_argument("--source-lock", type=Path, default=SOURCE_LOCK)
-    parser.add_argument("--full-build-proof", type=Path)
+    parser.add_argument("--source-proof", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     contract = load_contract()
+    source_lock = load_json(args.source_lock, "source lock")
+    validate_source_lock(source_lock, contract)
     if args.command == "check":
-        validate_source_lock(load_json(args.source_lock, "source lock"), contract)
         print("windows compatibility dynamic-load source discovery contract: PASS")
         return 0
-    if not all((args.source_dir, args.full_build_proof, args.out)):
-        raise DynamicLoadDiscoveryError("discover requires --source-dir, --full-build-proof and --out")
+    if not all((args.archive, args.source_proof, args.out)):
+        raise DynamicLoadDiscoveryError("discover requires --archive, --source-proof and --out")
     result = discover(
-        args.source_dir.resolve(),
-        load_json(args.source_lock, "source lock"),
-        load_json(args.full_build_proof, "full build proof"),
+        args.archive.resolve(),
+        source_lock,
+        load_json(args.source_proof, "source proof"),
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
