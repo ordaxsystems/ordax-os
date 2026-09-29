@@ -64,6 +64,13 @@
         "policy": "fail-closed-pending-on-concurrent-divergence",
         "automatic_rebase": false,
         "manual_domain_resolution_required": true,
+        "explicit_resolution_schema": "ordax.memory-conflict-resolution/1",
+        "explicit_resolution_decisions": [
+          "preserve-local-intent",
+          "accept-authoritative-remote"
+        ],
+        "accept_remote_requires_reconciliation": true,
+        "preserve_local_requires_new_idempotency_key": true,
         "client_wall_clock_used": false,
         "universal_last_writer_wins": false,
         "conflict_quarantine_survives_state_store_recovery": true,
@@ -105,6 +112,20 @@
       "id": "memory",
       "owner": "system/services/memory",
       "transport_owner": "system/services/sync",
+      "cloud_boundary_contract": "docs/contracts/cloud-memory-sync-boundary.json",
+      "sync_object_role": "transport-mirror-only",
+      "stable_object_id": "memory_id",
+      "eligible_owner_kinds": [
+        "account"
+      ],
+      "eligible_scopes": [
+        "account",
+        "space"
+      ],
+      "project_scope_enabled": false,
+      "session_scope_enabled": false,
+      "device_scope_enabled": false,
+      "restricted_sensitivity_enabled": false,
       "reconciliation_orchestrator": "system/services/sync/account-runtime.mjs",
       "account_orchestrator_dispatch_implemented": true,
       "account_cursor_advances_after_memory_reconciliation": true,
