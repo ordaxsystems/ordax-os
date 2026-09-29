@@ -169,3 +169,46 @@ test("Assistant fails closed when Intelligence is not ready", async () => {
   assert.equal(intelligence.requests.length, 1);
   conversation.dispose();
 });
+
+
+test("Assistant invokes automatic Memory capture after a successful response without owning persistence", async () => {
+  const intelligence = intelligencePort({ responses: ["ok"] });
+  const turns = [];
+  const memoryCapture = {
+    async captureTurn(turn) {
+      turns.push(turn);
+      return { status: "captured", captured: 1 };
+    },
+  };
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    memoryCapture,
+  });
+
+  const response = await conversation.send("Prefiro respostas curtas.");
+  assert.equal(response.text, "ok");
+  assert.deepEqual(turns, [{
+    userText: "Prefiro respostas curtas.",
+    assistantText: "ok",
+  }]);
+  assert.equal(conversation.getSnapshot().memoryCaptureState, "captured");
+  conversation.dispose();
+});
+
+test("Assistant response succeeds even when automatic Memory capture fails", async () => {
+  const intelligence = intelligencePort({ responses: ["resposta"] });
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    memoryCapture: {
+      async captureTurn() {
+        throw new Error("memory unavailable");
+      },
+    },
+  });
+
+  const response = await conversation.send("continue");
+  assert.equal(response.text, "resposta");
+  assert.equal(conversation.getSnapshot().memoryCaptureState, "error");
+  assert.equal(conversation.getSnapshot().lastError, null);
+  conversation.dispose();
+});
