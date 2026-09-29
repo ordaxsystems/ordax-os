@@ -50,6 +50,8 @@ from native_profile_component_inventory import read_profile_component_inventory
 from native_profile_activation_state import read_profile_activation_state
 from native_profile_activation_command import execute_profile_activation_command
 from native_profile_human_consent import ProfileHumanConsentAuthority
+from native_profile_consent_presenter import ProfileHumanConsentCoordinator
+from native_profile_consent_ipc import request_native_decision
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -204,6 +206,10 @@ DEFAULT_POWER_REQUEST_PATH = "/run/ordax-surface/power-request"
 DEFAULT_NETWORK_SESSION_DIR = "/run/ordax-surface"
 SURFACE_HOST_RECOVERY_GENERATION = 1
 RENAME_NOREPLACE = 1
+
+
+class ProfileConsentPresenterUnavailableError(RuntimeError):
+    """Trusted Native Profile consent presenter is unavailable."""
 
 
 def read_small_text(path: str, max_chars: int = 4096) -> str:
@@ -3209,6 +3215,11 @@ class NativeHostServer(ThreadingHTTPServer):
             if self.profile_activation_available
             else None
         )
+        self.profile_human_consent_coordinator = (
+            ProfileHumanConsentCoordinator(self.profile_human_consent_authority)
+            if self.profile_human_consent_authority is not None
+            else None
+        )
         self.component_channel_bin = component_channel_bin
         self.component_trust_path = component_trust_path
         self.component_slot_root = component_slot_root
@@ -3228,6 +3239,35 @@ class NativeHostServer(ThreadingHTTPServer):
                 )
             except (TypeError, ValueError):
                 self.account_gateway = None
+
+    def resolve_profile_human_consent(
+        self,
+        *,
+        permission_diff: dict,
+        permission_diff_sha256: str,
+        expected_revision: int,
+        space_id: str,
+        space_kind: str,
+        profile: dict,
+    ) -> dict | None:
+        coordinator = self.profile_human_consent_coordinator
+        if coordinator is None:
+            raise PermissionError("Profile human consent authority is unavailable")
+        request = coordinator.prepare(
+            permission_diff=permission_diff,
+            permission_diff_sha256=permission_diff_sha256,
+            expected_revision=expected_revision,
+            space_id=space_id,
+            space_kind=space_kind,
+            profile=profile,
+        )
+        try:
+            decision = request_native_decision(request)
+            return coordinator.decide(decision)
+        except (ConnectionError, OSError, PermissionError, TimeoutError, ValueError) as exc:
+            raise ProfileConsentPresenterUnavailableError(
+                "Trusted Native Profile consent presenter is unavailable"
+            ) from exc
 
 
 class NativeHostHandler(SimpleHTTPRequestHandler):
@@ -3947,6 +3987,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         payload,
                         distribution_profile=self.server.distribution_profile,
                         human_consent_authority=self.server.profile_human_consent_authority,
+                        human_consent_resolver=self.server.resolve_profile_human_consent,
                     )
             except PermissionError as exc:
                 print(
@@ -3955,6 +3996,14 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     flush=True,
                 )
                 self._empty(403)
+                return
+            except ProfileConsentPresenterUnavailableError as exc:
+                print(
+                    f"ordax-native-host: Profile consent presenter unavailable: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
                 return
             except RuntimeError as exc:
                 print(
