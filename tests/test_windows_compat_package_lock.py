@@ -28,6 +28,7 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
             "runtime_id": source["runtime_id"],
             "wine_version": source["version"],
             "host": environment["host"],
+            "repositories": environment["repositories"],
             "native_compiler_triplet": "x86_64-alpine-linux-musl",
             "toolchain": {
                 "gcc": "gcc (Alpine 14.2.0) 14.2.0",
@@ -53,6 +54,12 @@ class WindowsCompatibilityPackageLockTests(unittest.TestCase):
         value = self.configure_proof()
         value["activation_authorized"] = True
         with self.assertRaisesRegex(probe.PackageLockError, "overclaims readiness"):
+            probe.validate_configure_proof(value)
+
+    def test_configure_proof_repositories_must_match_environment(self):
+        value = self.configure_proof()
+        value["repositories"] = ["https://example.invalid/alpine/main"]
+        with self.assertRaisesRegex(probe.PackageLockError, "repository origins drifted"):
             probe.validate_configure_proof(value)
 
     def test_configure_proof_requested_package_must_match_installed_graph(self):
