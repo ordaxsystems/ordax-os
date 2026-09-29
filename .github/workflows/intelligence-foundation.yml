@@ -337,6 +337,7 @@ jobs:
           python -m py_compile tools/local-ai-benchmark/benchmark.py
           python -m py_compile tools/local-ai-hardware-probe/probe.py
           node --check system/apps/assistant/conversation.mjs
+          node --check system/services/memory/assistant-auto-capture.mjs
           node --check system/apps/assistant/runtime.mjs
           node --check system/apps/assistant/ui/conversation-controls.mjs
           node --check system/composition/native/main.mjs
