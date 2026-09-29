@@ -72,7 +72,7 @@ jobs:
           assert proof['wine_version'] == '11.0'
           assert proof['archive_sha256'] == 'c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701'
           assert proof['source_path'] == 'tools/wine/wine.c'
-          assert re.fullmatch(r'[0-9a-f]{64}', proof['source_file_sha256'])
+          assert proof['source_file_sha256'] == 'ba334a46681e6121f9344852fbde2a097bc08bb7777922594e1bbe509a4d85ce'
           assert re.fullmatch(r'[0-9a-f]{64}', proof['evidence_sha256'])
           assert proof['behavior'] == {
               'load_ntdll_function_present': True,
@@ -80,7 +80,12 @@ jobs:
               'main_resolves_wine_main_from_load_ntdll': True,
           }
           gates = proof['gates']
-          for gate in ('source_lock_verified', 'source_archive_verified', 'wine_bootstrap_source_behavior_verified'):
+          for gate in (
+              'source_lock_verified',
+              'source_archive_verified',
+              'wine_bootstrap_source_file_verified',
+              'wine_bootstrap_source_behavior_verified',
+          ):
               assert gates[gate] is True, gate
           for gate in (
               'runtime_dependency_inventory_complete',
