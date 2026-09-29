@@ -44,14 +44,18 @@ jobs:
       - name: Configure Wine in pinned Alpine 3.22.5 rootfs
         run: |
           set -euo pipefail
-          tmp="$(mktemp -d)"
-          trap 'rm -rf "$tmp"' EXIT
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-wine-configure-proof"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
           python bootstrap/windows-compat-runtime/configure_probe.py probe \
-            --work-dir "$tmp/work" \
-            --proof-out "$tmp/configure-proof.json"
-          python - <<'PY' "$tmp/configure-proof.json"
+            --work-dir "$work" \
+            --proof-out "$proof_dir/configure-proof.json"
+          python - <<'PY' "$proof_dir/configure-proof.json"
           import json
           import pathlib
+          import re
           import sys
           proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
           assert proof['configure_proof_passed'] is True
@@ -60,6 +64,19 @@ jobs:
           assert proof['binary_artifact_pinned'] is False
           assert proof['activation_authorized'] is False
           assert proof['execution_authorized'] is False
+          assert len(proof['resolved_build_packages']) == 39
+          assert len(proof['resolved_installed_packages']) >= len(proof['resolved_build_packages'])
+          version = re.compile(r'^[A-Za-z0-9][A-Za-z0-9+._~:-]{0,255}$')
+          for name, value in proof['resolved_installed_packages'].items():
+              assert name and version.fullmatch(value), (name, value)
           print('native compiler:', proof['native_compiler_triplet'])
-          print('resolved build packages:', len(proof['resolved_build_packages']))
+          print('requested build packages:', len(proof['resolved_build_packages']))
+          print('full installed package graph:', len(proof['resolved_installed_packages']))
           PY
+
+      - name: Upload configure proof metadata only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-wine-configure-proof-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/windows-compat-wine-configure-proof/configure-proof.json
+          if-no-files-found: error
