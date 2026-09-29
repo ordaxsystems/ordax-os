@@ -86,7 +86,10 @@ test("Developer stays blocked while its real required component is only planned"
   const provisioning = localProvisioning();
   const plan = provisioning.get("developer", 1);
   assert.equal(plan.state, "blocked");
-  assert.equal(plan.reason, "required-profile-components-not-published");
+  assert.equal(
+    plan.reason,
+    "MVP Developer Profile remains an internal composition proof until persistent provisioning and public package trust are promoted.",
+  );
   assert.equal(plan.componentsSatisfied, false);
   assert.equal(plan.missing.length, 1);
   assert.equal(plan.missing[0].id, "knowledge.developer-core");
@@ -238,7 +241,7 @@ test("activation snapshot binds exact installed receipt identities from provisio
   assert.deepEqual(activation.components, [{
     id: "knowledge.developer-core",
     kind: "knowledge-pack",
-    version: "1.2.3",
+    version: "0.1.0",
     sha256: "a".repeat(64),
     receiptSha256: "b".repeat(64),
     installedAt: 1234,
