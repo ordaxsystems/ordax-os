@@ -25,7 +25,7 @@
       "path": "dlls/ntdll/unix/loader.c",
       "expression": "so_name",
       "category": "ntdll-internal-module-path",
-      "control_source": "ntdll-unix-name-resolution",
+      "control_source": "ntdll-internal-dlopen-dll-callers",
       "expected_callsites": 1
     },
     {
