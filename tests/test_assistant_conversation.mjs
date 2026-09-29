@@ -125,6 +125,34 @@ test("Assistant conversation history is bounded and clear is non-persistent", as
   conversation.dispose();
 });
 
+test("Assistant refuses clear while a response is pending", async () => {
+  let resolveResponse;
+  const intelligence = intelligencePort();
+  intelligence.respond = async (request) => {
+    intelligence.requests.push(request);
+    return new Promise((resolve) => {
+      resolveResponse = () => resolve({
+        schema: INTELLIGENCE_RESPONSE_SCHEMA,
+        text: "ok",
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+      });
+    });
+  };
+  const conversation = createAssistantConversationRuntime({ intelligencePort: intelligence });
+  const pending = conversation.send("aguarde");
+  assert.equal(conversation.getSnapshot().state, "busy");
+  assert.throws(
+    () => conversation.clear(),
+    /cannot be cleared/,
+  );
+  resolveResponse();
+  await pending;
+  assert.equal(conversation.getSnapshot().messages.length, 2);
+  conversation.dispose();
+});
+
 test("Assistant fails closed when Intelligence is not ready", async () => {
   const intelligence = intelligencePort({ state: "degraded" });
   const conversation = createAssistantConversationRuntime({ intelligencePort: intelligence });
