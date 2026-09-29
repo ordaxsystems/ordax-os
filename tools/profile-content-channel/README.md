@@ -25,12 +25,22 @@ profile-content-channel generate-key \
   --trust <review>/profile-content-trust.json \
   --key-id profile-proof-test
 
+profile-content-channel derive-trust \
+  --private-key <external>/profile-content-private.pem \
+  --out <independent-review>/profile-content-trust.json \
+  --key-id ordax-profile-content-v1
+
 profile-content-channel sign \
   --manifest manifest.json \
   --private-key <external>/profile-content-private.pem \
   --trust profile-content-trust.json \
   --key-id profile-proof-test \
   --out envelope.json
+
+profile-content-channel verify-envelope \
+  --manifest manifest.json \
+  --envelope envelope.json \
+  --trust profile-content-trust.json
 
 profile-content-channel verify \
   --manifest manifest.json \
@@ -67,3 +77,18 @@ the atomic rename. Re-staging reuses only an existing slot that still verifies.
 
 Staging does **not** activate a Profile, mutate a Space, write the installed
 component inventory or create an install receipt.
+
+
+## Trust ceremony primitives
+
+`derive-trust` exists so an operator can independently derive the exact public
+Ed25519 trust document from a custodied private key into a separate review path.
+It never reads or modifies repository trust state.
+
+`verify-envelope` verifies the signed canonical Profile content manifest using
+only the public trust document. It deliberately does not require or install the
+content payload, which lets a recovery ceremony prove that a restored private
+key still controls the same public identity.
+
+Neither command pins the canonical anchor or enables publication, installation,
+activation, Store access or Stable/MVP Profile mutation.
