@@ -16,6 +16,7 @@ on:
       - 'system/services/memory/**'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-runtime.mjs'
+      - 'tests/sql/test_account_memory_sync_guard.sql'
       - 'tests/test_account_memory_backend_guard.py'
       - 'tests/test_account_memory_gateway_policy.mjs'
       - 'tests/test_account_memory_sync_runtime.mjs'
@@ -38,6 +39,7 @@ on:
       - 'system/services/memory/**'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-runtime.mjs'
+      - 'tests/sql/test_account_memory_sync_guard.sql'
       - 'tests/test_account_memory_backend_guard.py'
       - 'tests/test_account_memory_gateway_policy.mjs'
       - 'tests/test_account_memory_sync_runtime.mjs'
@@ -55,6 +57,24 @@ jobs:
   account-memory-sync-foundation:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -84,6 +104,11 @@ jobs:
           python -m json.tool docs/contracts/foundation.json >/dev/null
           python -m json.tool docs/contracts/memory.json >/dev/null
           python -m json.tool docs/contracts/sync-model.json >/dev/null
+
+      - name: Execute Memory backend guard on PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_account_memory_sync_guard.sql
 
       - name: Run Memory sync foundation tests
         run: |
