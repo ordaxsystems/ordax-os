@@ -4,6 +4,7 @@ import {
   validateMemoryItem,
   validateMemoryOwner,
 } from "../../contracts/memory.mjs";
+import { assertSyncStateStore } from "../../contracts/sync-state-store.mjs";
 import { assertSyncTransportPort } from "../../contracts/sync-transport.mjs";
 
 export const MEMORY_SYNC_RUNTIME_SCHEMA = "ordax.memory-sync-runtime/1";
@@ -11,15 +12,23 @@ export const MEMORY_SYNC_DATA_CLASS = "memory";
 export const MEMORY_SYNC_OBJECT_SCHEMA = "ordax.sync-object/1";
 export const MEMORY_SYNC_MUTATION_SCHEMA = "ordax.sync-mutation/1";
 export const MEMORY_SYNC_PAYLOAD_SCHEMA = "ordax.memory-sync-payload/1";
+export const MEMORY_SYNC_STATE_SCHEMA = "ordax.memory-sync-state/1";
 export const MEMORY_SYNC_OBJECT_SCHEMA_VERSION = 1;
 export const MEMORY_SYNC_RESOLVER_VERSION = 1;
 export const MEMORY_SYNC_OBJECT_PREFIX = "memory/";
 
 const MAX_SYNC_OBJECT_ID_CHARS = 240;
 const MAX_REMOTE_BATCH = 500;
+const MAX_COORDINATION_ENTRIES = 500;
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._:-]{8,128}$/;
 const PORTABLE_SCOPES = new Set(["account", "space", "project"]);
 const PORTABLE_SENSITIVITY = new Set(["normal", "private"]);
+const CONFLICT_REASONS = new Set([
+  "same-revision-divergence",
+  "concurrent-remote-update",
+  "server-conflict",
+  "local-change-during-flight",
+]);
 const BASE64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 const encoder = new TextEncoder();
 
@@ -76,6 +85,18 @@ function base64UrlUtf8(value) {
 function objectIdForMemoryId(id) {
   const value = `${MEMORY_SYNC_OBJECT_PREFIX}${base64UrlUtf8(id)}`;
   return value.length <= MAX_SYNC_OBJECT_ID_CHARS ? value : null;
+}
+
+function validateMemorySyncObjectId(value) {
+  if (
+    typeof value !== "string"
+    || !value.startsWith(MEMORY_SYNC_OBJECT_PREFIX)
+    || value.length <= MEMORY_SYNC_OBJECT_PREFIX.length
+    || value.length > MAX_SYNC_OBJECT_ID_CHARS
+  ) {
+    throw new TypeError("Memory sync object id is invalid");
+  }
+  return value;
 }
 
 function containsNeverSyncText(item) {
@@ -272,14 +293,185 @@ function createDeleteMutation(request, baseServerRevision, idempotencyKey) {
   });
 }
 
+export function validateMemorySyncMutation(value, { subjectId } = {}) {
+  const subject = boundedSubjectId(subjectId);
+  if (!exactKeys(value, [
+    "$schema",
+    "operation",
+    "objectId",
+    "dataClass",
+    "objectSchemaVersion",
+    "resolverVersion",
+    "baseServerRevision",
+    "idempotencyKey",
+    "payload",
+  ])) {
+    throw new TypeError("Memory sync mutation fields are incompatible");
+  }
+  if (value.$schema !== MEMORY_SYNC_MUTATION_SCHEMA || value.dataClass !== MEMORY_SYNC_DATA_CLASS) {
+    throw new TypeError("Memory sync mutation schema/data class is incompatible");
+  }
+  if (
+    value.objectSchemaVersion !== MEMORY_SYNC_OBJECT_SCHEMA_VERSION
+    || value.resolverVersion !== MEMORY_SYNC_RESOLVER_VERSION
+  ) {
+    throw new TypeError("Memory sync mutation version is incompatible");
+  }
+  const baseServerRevision = requireRevision(value.baseServerRevision, "Memory sync base server revision");
+  const idempotencyKey = requireIdempotencyKey(value.idempotencyKey);
+
+  if (value.operation === "upsert") {
+    if (!exactKeys(value.payload, ["schema", "memory"]) || value.payload.schema !== MEMORY_SYNC_PAYLOAD_SCHEMA) {
+      throw new TypeError("Memory sync upsert payload is incompatible");
+    }
+    const classification = classifyMemoryForAccountSync(value.payload.memory, { subjectId: subject });
+    if (!classification.eligible || value.objectId !== classification.objectId) {
+      throw new Error("Memory sync upsert identity is not eligible for the active account");
+    }
+    return createUpsertMutation(classification, baseServerRevision, idempotencyKey);
+  }
+
+  if (value.operation === "delete") {
+    if (
+      !exactKeys(value.payload, ["schema", "memoryIdentity"])
+      || value.payload.schema !== MEMORY_SYNC_PAYLOAD_SCHEMA
+      || !exactKeys(value.payload.memoryIdentity, ["id", "ownerKind", "ownerId"])
+    ) {
+      throw new TypeError("Memory sync delete payload is incompatible");
+    }
+    const request = validateMemoryForgetRequest(value.payload.memoryIdentity);
+    if (request.ownerKind !== "account" || request.ownerId !== subject) {
+      throw new Error("Memory sync delete owner does not match the active account");
+    }
+    const mutation = createDeleteMutation(request, baseServerRevision, idempotencyKey);
+    if (mutation === null || value.objectId !== mutation.objectId) {
+      throw new Error("Memory sync delete stable object identity is invalid");
+    }
+    return mutation;
+  }
+
+  throw new TypeError("Memory sync mutation operation is incompatible");
+}
+
+function validatePersistedConflict(value) {
+  if (!exactKeys(value, ["objectId", "reason", "serverRevision"])) {
+    throw new TypeError("Persisted Memory sync conflict fields are incompatible");
+  }
+  const objectId = validateMemorySyncObjectId(value.objectId);
+  if (!CONFLICT_REASONS.has(value.reason)) {
+    throw new TypeError("Persisted Memory sync conflict reason is incompatible");
+  }
+  return Object.freeze({
+    objectId,
+    reason: value.reason,
+    serverRevision: requireRevision(
+      value.serverRevision,
+      "Persisted Memory sync conflict revision",
+      { allowZero: false },
+    ),
+  });
+}
+
+function emptyRecoveredState() {
+  return {
+    revisions: new Map(),
+    pending: new Map(),
+    conflicts: new Map(),
+    recovered: false,
+  };
+}
+
+function recoverPersistedState(store, subject) {
+  if (!store) return emptyRecoveredState();
+  let payload;
+  try {
+    payload = store.load();
+  } catch {
+    return emptyRecoveredState();
+  }
+  if (payload === null) return emptyRecoveredState();
+
+  try {
+    const value = JSON.parse(payload);
+    if (!exactKeys(value, ["$schema", "subjectId", "revisions", "pending", "conflicts"])) {
+      throw new TypeError("Persisted Memory sync state fields are incompatible");
+    }
+    if (value.$schema !== MEMORY_SYNC_STATE_SCHEMA) {
+      throw new TypeError("Persisted Memory sync state schema is incompatible");
+    }
+    const persistedSubject = boundedSubjectId(value.subjectId);
+    if (persistedSubject !== subject) return emptyRecoveredState();
+    if (!Array.isArray(value.revisions) || !Array.isArray(value.pending) || !Array.isArray(value.conflicts)) {
+      throw new TypeError("Persisted Memory sync coordination collections are invalid");
+    }
+    if (
+      value.revisions.length > MAX_COORDINATION_ENTRIES
+      || value.pending.length > MAX_COORDINATION_ENTRIES
+      || value.conflicts.length > MAX_COORDINATION_ENTRIES
+    ) {
+      throw new TypeError("Persisted Memory sync coordination state is too large");
+    }
+
+    const revisions = new Map();
+    for (const entry of value.revisions) {
+      if (!exactKeys(entry, ["objectId", "serverRevision"])) {
+        throw new TypeError("Persisted Memory sync revision fields are incompatible");
+      }
+      const objectId = validateMemorySyncObjectId(entry.objectId);
+      if (revisions.has(objectId)) throw new TypeError("Duplicate persisted Memory sync revision");
+      revisions.set(objectId, requireRevision(entry.serverRevision, "Persisted Memory sync revision"));
+    }
+
+    const pending = new Map();
+    for (const rawMutation of value.pending) {
+      const mutation = validateMemorySyncMutation(rawMutation, { subjectId: subject });
+      if (pending.has(mutation.objectId)) throw new TypeError("Duplicate persisted Memory sync mutation");
+      const knownRevision = revisions.get(mutation.objectId) ?? 0;
+      if (mutation.baseServerRevision > knownRevision) {
+        throw new TypeError("Persisted Memory sync mutation is ahead of its known revision");
+      }
+      pending.set(mutation.objectId, mutation);
+    }
+
+    const conflicts = new Map();
+    for (const rawConflict of value.conflicts) {
+      const conflict = validatePersistedConflict(rawConflict);
+      if (conflicts.has(conflict.objectId)) throw new TypeError("Duplicate persisted Memory sync conflict");
+      const knownRevision = revisions.get(conflict.objectId) ?? 0;
+      if (knownRevision !== conflict.serverRevision) {
+        throw new TypeError("Persisted Memory sync conflict revision is inconsistent");
+      }
+      conflicts.set(conflict.objectId, conflict);
+    }
+
+    return { revisions, pending, conflicts, recovered: true };
+  } catch {
+    return emptyRecoveredState();
+  }
+}
+
+function serializePersistedState(subject, revisions, pending, conflicts) {
+  return JSON.stringify({
+    $schema: MEMORY_SYNC_STATE_SCHEMA,
+    subjectId: subject,
+    revisions: [...revisions.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([objectId, serverRevision]) => ({ objectId, serverRevision })),
+    pending: [...pending.values()].sort((left, right) => left.objectId.localeCompare(right.objectId)),
+    conflicts: [...conflicts.values()].sort((left, right) => left.objectId.localeCompare(right.objectId)),
+  });
+}
+
 export function createAccountMemorySyncRuntime({
   memoryPort,
   subjectId,
   authorizeSync,
   createIdempotencyKey,
+  syncStateStore = null,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
   const subject = boundedSubjectId(subjectId);
+  const stateStore = syncStateStore === null ? null : assertSyncStateStore(syncStateStore);
   if (typeof authorizeSync !== "function") {
     throw new TypeError("Memory account sync requires an explicit authorization policy");
   }
@@ -287,10 +479,25 @@ export function createAccountMemorySyncRuntime({
     throw new TypeError("Memory account sync requires createIdempotencyKey()");
   }
 
-  const revisions = new Map();
+  const recovered = recoverPersistedState(stateStore, subject);
+  const revisions = recovered.revisions;
   const fingerprints = new Map();
-  const pending = new Map();
-  const conflicts = new Map();
+  const pending = recovered.pending;
+  const conflicts = recovered.conflicts;
+  let queuePersistence = stateStore?.scope ?? "session";
+
+  const persistCoordinationState = () => {
+    if (!stateStore) return false;
+    try {
+      const saved = stateStore.save(serializePersistedState(subject, revisions, pending, conflicts));
+      if (saved === false) queuePersistence = "session";
+      else queuePersistence = stateStore.scope;
+      return saved;
+    } catch {
+      queuePersistence = "session";
+      return false;
+    }
+  };
 
   const isAuthorized = (descriptor) => authorizeSync(Object.freeze({
     subjectId: subject,
@@ -301,7 +508,7 @@ export function createAccountMemorySyncRuntime({
   const stageUpsert = (value) => {
     const classification = classifyMemoryForAccountSync(value, { subjectId: subject });
     if (!classification.eligible) {
-      return Object.freeze({ status: "local-only", reason: classification.reason, objectId: null });
+      return Object.freeze({ status: "local-only", reason: classification.reason, item: classification.item, objectId: null });
     }
     if (!isAuthorized({ operation: "upsert", item: classification.item })) {
       return Object.freeze({ status: "blocked", reason: "authorization-required", objectId: classification.objectId });
@@ -315,6 +522,7 @@ export function createAccountMemorySyncRuntime({
       createIdempotencyKey("memory-upsert"),
     );
     pending.set(classification.objectId, mutation);
+    persistCoordinationState();
     return Object.freeze({ status: "pending", reason: "queued", objectId: classification.objectId });
   };
 
@@ -345,6 +553,7 @@ export function createAccountMemorySyncRuntime({
       return Object.freeze({ status: "local-only", reason: "memory-id-not-portable-v1", objectId: null });
     }
     pending.set(objectId, mutation);
+    persistCoordinationState();
     return Object.freeze({ status: "pending", reason: "queued", objectId });
   };
 
@@ -376,6 +585,7 @@ export function createAccountMemorySyncRuntime({
         reason: "same-revision-divergence",
         serverRevision: object.serverRevision,
       }));
+      persistCoordinationState();
       return Object.freeze({ status: "conflict", reason: "same-revision-divergence", objectId });
     }
 
@@ -386,6 +596,7 @@ export function createAccountMemorySyncRuntime({
         reason: "concurrent-remote-update",
         serverRevision: object.serverRevision,
       }));
+      persistCoordinationState();
       return Object.freeze({ status: "conflict", reason: "concurrent-remote-update", objectId });
     }
 
@@ -397,6 +608,7 @@ export function createAccountMemorySyncRuntime({
     await memory.flush();
     revisions.set(objectId, object.serverRevision);
     fingerprints.set(objectId, incomingFingerprint);
+    persistCoordinationState();
     return Object.freeze({
       status: object.tombstone ? "forgotten" : "applied",
       reason: "authoritative-remote-revision",
@@ -463,6 +675,7 @@ export function createAccountMemorySyncRuntime({
           reason: "server-conflict",
           serverRevision,
         }));
+        persistCoordinationState();
         continue;
       }
       if (ack.conflict !== false) {
@@ -482,6 +695,7 @@ export function createAccountMemorySyncRuntime({
           serverRevision,
         }));
       }
+      persistCoordinationState();
     }
     return Object.freeze({ ...getSnapshot(), accepted, failures });
   };
@@ -492,7 +706,9 @@ export function createAccountMemorySyncRuntime({
     pendingMutationCount: pending.size,
     conflictCount: conflicts.size,
     revisionCount: revisions.size,
-    queuePersistence: "session",
+    queuePersistence,
+    recoveredCoordinationState: recovered.recovered,
+    coordinationStateSchema: MEMORY_SYNC_STATE_SCHEMA,
     reconciliationOwnership: "account-runtime",
     ownsCursor: false,
     ownsTransport: false,
