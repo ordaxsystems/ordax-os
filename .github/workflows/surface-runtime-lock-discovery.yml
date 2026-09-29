@@ -9,6 +9,7 @@ on:
       - 'tests/test_surface_runtime_source_contract.py'
       - '.github/workflows/surface-runtime-lock-discovery.yml'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
