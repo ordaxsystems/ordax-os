@@ -154,6 +154,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - o prompt Native confiável reutiliza a preferência persistida `regional.locale` e possui catálogo mínimo próprio apenas para mensagens de segurança (PT-BR, EN-US, ES-ES, DE-DE, FR-FR), com fallback PT-BR; isso não cria uma segunda UI/localização do produto;
 - a seleção de “Space em uso” é explícita e separada das áreas visuais do desktop: somente um Space ativo retornado pelo catálogo autenticado pode ser selecionado;
 - a seleção local é vinculada ao `subjectId` da conta e persiste somente `subjectId + selectedSpaceId`; troca/logout de identidade não pode herdar o Space de outro usuário;
+- o snapshot do catálogo de Spaces também é vinculado ao `subjectId` que o recebeu; uma troca direta de conta invalida o catálogo anterior até nova resposta autenticada, impedindo seleção com dados stale de outro usuário;
 - indisponibilidade temporária do catálogo oculta o Space selecionado sem convertê-lo em autorização; quando o catálogo autenticado volta, a seleção só é restaurada se o mesmo Space continuar ativo e visível;
 - Space selecionado é contexto/navegação, não membership, permissão, Profile activation nem fonte de autoridade;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
