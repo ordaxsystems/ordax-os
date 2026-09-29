@@ -83,9 +83,10 @@
     "trusted_user_intent_command_boundary": true
   },
   "next_gates": [
-    "trusted-human-profile-permission-confirmation-surface",
-    "profile-catalog-and-provisioning-revalidation-at-activation-time",
+    "single-source-profile-component-composition",
+    "published-trusted-profile-content-for-real-component-activation",
     "profile-health-after-activation",
+    "physical-native-gtk-consent-proof",
     "public-profile-trust-and-permission-review-before-public-activation",
     "trusted-capability-application-from-resolved-profile-state"
   ],
@@ -119,6 +120,19 @@
     ],
     "permission_review_digest_is_human_intent_proof": false,
     "component_activation_requires_trusted_human_confirmation_surface": true,
-    "component_activation_enabled": false
+    "component_activation_enabled": false,
+    "internal_component_activation_path_implemented": true,
+    "human_confirmation_presenter": "native-gtk",
+    "human_confirmation_transport": "private-unix-socket",
+    "human_confirmation_socket": "/run/ordax-surface/profile-consent.sock",
+    "human_confirmation_socket_mode": "0600",
+    "human_confirmation_owner_distribution_only": true,
+    "human_consent_receipt_schema": "ordax.profile-human-consent/1",
+    "human_consent_receipt_surface_visible": false,
+    "human_consent_receipt_surface_writable": false,
+    "human_consent_receipt_native_only": true,
+    "human_consent_receipt_one_shot": true,
+    "human_consent_receipt_ttl_bounded": true,
+    "human_consent_presenter_unavailable_result": "503-safe-unavailable"
   }
 }
