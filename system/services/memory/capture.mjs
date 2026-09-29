@@ -1,4 +1,6 @@
 import { assertMemoryPort, validateMemoryItem } from "../../contracts/memory.mjs";
+import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
+import { memoryAutoCaptureEnabled } from "../preferences/memory.mjs";
 import {
   MEMORY_CAPTURE_RESULT_SCHEMA,
   validateMemoryCaptureAuthorization,
@@ -26,21 +28,21 @@ function sourceTimestamp(now) {
 export function createMemoryCaptureRuntime(memoryPort, {
   now = () => new Date(),
   idFactory = defaultIdFactory,
-  captureEnabled = true,
+  readCaptureEnabled = () => true,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
   if (typeof now !== "function" || typeof idFactory !== "function") {
     throw new TypeError("Memory capture runtime requires clock and id factory functions");
   }
-  if (typeof captureEnabled !== "boolean") {
-    throw new TypeError("Memory capture enabled state must be boolean");
+  if (typeof readCaptureEnabled !== "function") {
+    throw new TypeError("Memory capture requires a capture policy reader");
   }
 
   return Object.freeze({
     schema: MEMORY_CAPTURE_RUNTIME_SCHEMA,
 
     async capture(draftValue, authorizationValue) {
-      if (!captureEnabled) return null;
+      if (readCaptureEnabled() !== true) return null;
       const draft = validateMemoryCaptureDraft(draftValue);
       const authorization = validateMemoryCaptureAuthorization(authorizationValue);
       const id = String(idFactory()).trim();
@@ -69,5 +71,18 @@ export function createMemoryCaptureRuntime(memoryPort, {
         durable: true,
       });
     },
+  });
+}
+
+
+export function createPreferenceBoundMemoryCaptureRuntime(
+  memoryPort,
+  preferenceRuntime,
+  options = {},
+) {
+  const preferences = assertPreferenceRuntimePort(preferenceRuntime);
+  return createMemoryCaptureRuntime(memoryPort, {
+    ...options,
+    readCaptureEnabled: () => memoryAutoCaptureEnabled(preferences.getSnapshot()),
   });
 }
