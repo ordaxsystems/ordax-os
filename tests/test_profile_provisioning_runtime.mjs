@@ -33,7 +33,12 @@ test("runtime projects local Profile availability without performing installatio
   const plans = runtime.list();
   assert.equal(plans.length, 2);
   assert.equal(plans.find((plan) => plan.profile.slug === "developer").state, "blocked");
-  assert.equal(plans.find((plan) => plan.profile.slug === "developer").componentsSatisfied, true);
+  const developerPlan = plans.find((plan) => plan.profile.slug === "developer");
+  assert.equal(developerPlan.componentsSatisfied, false);
+  assert.equal(developerPlan.requiredMissing.length, 1);
+  assert.equal(developerPlan.requiredMissing[0].id, "knowledge.developer-core");
+  assert.equal(developerPlan.mayDownload, false);
+  assert.equal(developerPlan.mayActivate, false);
   assert.equal(plans.find((plan) => plan.profile.slug === "legal-br").state, "blocked");
   assert.equal(plans.find((plan) => plan.profile.slug === "legal-br").componentsSatisfied, false);
   assert.equal(typeof runtime.install, "undefined");
