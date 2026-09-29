@@ -105,8 +105,10 @@ test("eligible account-owned Memory becomes a versioned mutation over the existi
   const result = runtime.remember(memoryItem({ accessToken: "must-not-cross-the-boundary" }));
 
   assert.equal(result.sync.status, "pending");
+  assert.equal(result.sync.objectId, "memory-1");
   assert.equal(runtime.getSnapshot().pendingMutationCount, 1);
   const pending = runtime.pendingMutations()[0];
+  assert.equal(pending.objectId, pending.payload.memory.id);
   assert.equal(pending.dataClass, MEMORY_SYNC_DATA_CLASS);
   assert.equal(pending.objectSchemaVersion, MEMORY_SYNC_OBJECT_SCHEMA_VERSION);
   assert.equal(pending.resolverVersion, MEMORY_SYNC_RESOLVER_VERSION);
@@ -122,7 +124,15 @@ test("eligible account-owned Memory becomes a versioned mutation over the existi
   assert.equal(transport.mutations.length, 1);
 });
 
-test("Memory sync v1 fails closed for session, restricted and never-sync secret material", () => {
+test("Memory sync v1 fails closed for project, session, restricted and never-sync secret material", () => {
+  const project = classifyMemoryForAccountSync(memoryItem({
+    id: "project-memory",
+    scope: "project",
+    projectId: "project-1",
+  }), { subjectId: SUBJECT });
+  assert.equal(project.eligible, false);
+  assert.equal(project.reason, "project-scope-local-only");
+
   const session = classifyMemoryForAccountSync(memoryItem({ id: "session", scope: "session" }), { subjectId: SUBJECT });
   assert.equal(session.eligible, false);
   assert.equal(session.reason, "session-scope-local-only");
@@ -147,7 +157,7 @@ test("Memory sync v1 fails closed for session, restricted and never-sync secret 
   );
 });
 
-test("stable Memory object identity survives edits and accepted server revisions become the next base", async () => {
+test("stable Memory object identity is the canonical memory id and survives edits", async () => {
   const transport = createTransport({
     mutate(mutation, attempt) {
       return Object.freeze({
@@ -164,6 +174,7 @@ test("stable Memory object identity survives edits and accepted server revisions
   const { runtime } = createRuntime({ transport });
   const first = runtime.remember(memoryItem({ content: "primeira versão" }));
   const firstId = first.sync.objectId;
+  assert.equal(firstId, "memory-1");
   await runtime.flush(transport);
 
   const second = runtime.remember(memoryItem({
@@ -183,6 +194,7 @@ test("forget is represented by an explicit tombstone without Memory content", ()
   assert.equal(forgotten.removed, true);
   assert.equal(forgotten.sync.status, "pending");
   const mutation = runtime.pendingMutations()[0];
+  assert.equal(mutation.objectId, "memory-1");
   assert.equal(mutation.operation, "delete");
   assert.equal(mutation.payload.schema, MEMORY_SYNC_PAYLOAD_SCHEMA);
   assert.deepEqual(Object.keys(mutation.payload.memoryIdentity).sort(), ["id", "ownerId", "ownerKind"]);
@@ -194,6 +206,7 @@ test("remote tombstone applies forget through ordax.memory/1 and flushes local d
   memory.remember(memoryItem());
   const { runtime } = createRuntime({ memory });
   const tombstone = createMemorySyncTombstone({ id: "memory-1", ownerId: SUBJECT, serverRevision: 3 });
+  assert.equal(tombstone.objectId, "memory-1");
 
   const result = await runtime.applyRemoteObject(tombstone);
   assert.equal(result.status, "forgotten");
@@ -257,10 +270,14 @@ test("divergent remote state for a pending Memory object is quarantined instead 
   assert.equal(memory.search({ ownerId: SUBJECT, scopes: ["account"] })[0].content, "local pending");
 });
 
-test("provider/cloud objects cannot redefine Memory ownership, payload fields or authority", async () => {
+test("provider/cloud objects cannot redefine Memory ownership, stable identity, payload fields or authority", async () => {
   const { runtime } = createRuntime();
   const valid = createMemorySyncObject({ item: memoryItem(), serverRevision: 1 });
 
+  await assert.rejects(
+    () => runtime.applyRemoteObject({ ...valid, objectId: "different-memory-id" }),
+    /stable object identity/i,
+  );
   await assert.rejects(
     () => runtime.applyRemoteObject({
       ...valid,
@@ -302,15 +319,17 @@ test("canonical account snapshot can feed Memory reconciliation without Memory o
   assert.equal("pull" in runtime, false);
 });
 
-test("Memory cloud-state contract explicitly does not authorize training, telemetry, community data or tools", async () => {
-  const memoryContract = JSON.parse(await readFile(new URL("../docs/contracts/memory.json", import.meta.url), "utf8"));
+test("Memory cloud-state boundary does not authorize training, telemetry or action authority", async () => {
+  const cloudBoundary = JSON.parse(await readFile(new URL("../docs/contracts/cloud-memory-sync-boundary.json", import.meta.url), "utf8"));
   const syncModel = JSON.parse(await readFile(new URL("../docs/contracts/sync-model.json", import.meta.url), "utf8"));
 
-  assert.equal(memoryContract.sync.cloud_state_classification, "user-cloud-state");
-  assert.equal(memoryContract.sync.sync_implies_ai_training_authorization, false);
-  assert.equal(memoryContract.sync.sync_implies_telemetry_authorization, false);
-  assert.equal(memoryContract.sync.sync_implies_community_data_authorization, false);
-  assert.equal(memoryContract.sync.sync_grants_tool_authority, false);
+  assert.equal(cloudBoundary.sync_object_role, "transport-mirror-only");
+  assert.equal(cloudBoundary.identity.stable_object_id, "memory_id");
+  assert.deepEqual(cloudBoundary.eligibility.outbound.allowed_scopes, ["account", "space"]);
+  assert.equal(cloudBoundary.eligibility.outbound.project, false);
+  assert.equal(cloudBoundary.training_and_telemetry.sync_is_training, false);
+  assert.equal(cloudBoundary.training_and_telemetry.sync_implies_model_telemetry, false);
+  assert.equal(cloudBoundary.rollout.public_capability, false);
   const memoryClass = syncModel.syncable_data_classes.find((entry) => entry.id === "memory");
   assert.equal(memoryClass.current_client_integration, false);
   assert.equal(memoryClass.production_enabled, false);
