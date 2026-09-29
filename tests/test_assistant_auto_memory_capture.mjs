@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -243,4 +244,22 @@ test("extractor is bounded to four candidates and exact schema", async () => {
   const result = await runtime.captureTurn({ userText: "u", assistantText: "a" });
   assert.equal(result.status, "no-candidates");
   assert.equal(capture.calls.length, 0);
+});
+
+
+test("Native composition creates Assistant Memory capture only after Surface preferences exist", () => {
+  const native = readFileSync(
+    new URL("../system/composition/native/main.mjs", import.meta.url),
+    "utf8",
+  );
+  const surfaceIndex = native.indexOf("const surface = mountSurface(");
+  const captureIndex = native.indexOf("const assistantMemoryCapture =");
+  const assistantIndex = native.indexOf('componentId: "assistant"');
+  assert.ok(surfaceIndex >= 0);
+  assert.ok(captureIndex > surfaceIndex);
+  assert.ok(assistantIndex > captureIndex);
+  assert.match(
+    native.slice(captureIndex, assistantIndex),
+    /surface\.preferences/,
+  );
 });
