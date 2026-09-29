@@ -56,15 +56,47 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
             "staging_manifest_sha256": STAGE,
             "direct_inventory_sha256": DIRECT,
             "roots": ["stage-internal:usr/bin/wine"],
-            "nodes": {"stage-internal:usr/bin/wine": {"scope": "stage-internal"}},
-            "contexts": {"c" * 64: {"consumer": "stage-internal:usr/bin/wine", "edges": []}},
-            "external_packages": {"runtime-libs": {"version": "1-r0", "files": {}, "sonames": []}},
+            "nodes": {
+                "stage-internal:usr/bin/wine": {"scope": "stage-internal"},
+                "rootfs-external:usr/lib/liba.so.1": {
+                    "scope": "rootfs-external",
+                    "package": "runtime-libs",
+                    "version": "1-r0",
+                },
+            },
+            "contexts": {
+                "c" * 64: {
+                    "consumer": "stage-internal:usr/bin/wine",
+                    "edges": [
+                        {
+                            "soname": "liba.so.1",
+                            "to": "rootfs-external:usr/lib/liba.so.1",
+                            "cycle": False,
+                        }
+                    ],
+                }
+            },
+            "external_packages": {
+                "runtime-libs": {
+                    "version": "1-r0",
+                    "files": {"usr/lib/liba.so.1": "usr/lib/liba.so.1"},
+                    "sonames": ["liba.so.1"],
+                }
+            },
         }
         closure = {
             "$schema": "prototype-ordax.windows-compat-runtime-dependency-closure-proof/1",
             **closure_core,
             "closure_sha256": MODULE.canonical_sha256(closure_core),
-            "counts": {"root_elf_files": 1, "nodes": 1, "context_states": 1, "edges": 1, "cycle_edges": 0, "external_packages": 1, "external_sonames": 1},
+            "counts": {
+                "root_elf_files": 1,
+                "nodes": 2,
+                "context_states": 1,
+                "edges": 1,
+                "cycle_edges": 0,
+                "external_packages": 1,
+                "external_sonames": 1,
+            },
             "gates": {
                 "full_build_proof_verified": True,
                 "direct_dependency_proof_verified": True,
@@ -86,8 +118,19 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
             "direct_inventory_sha256": DIRECT,
             "direct_evidence_sha256": direct["evidence_sha256"],
             "closure_sha256": closure["closure_sha256"],
-            "shortname_targets": {"ELF64:machine=62:little:liba.so.1": {"scope": "rootfs-external", "canonical_path": "usr/lib/liba.so.1"}},
-            "counts": {"contexts_checked": 1, "edges_checked": 1, "stage_hits": 0, "rootfs_hits": 1, "identity_soname_pairs": 1},
+            "shortname_targets": {
+                "ELF64:machine=62:little:liba.so.1": {
+                    "scope": "rootfs-external",
+                    "canonical_path": "usr/lib/liba.so.1",
+                }
+            },
+            "counts": {
+                "contexts_checked": 1,
+                "edges_checked": 1,
+                "stage_hits": 0,
+                "rootfs_hits": 1,
+                "identity_soname_pairs": 1,
+            },
         }
         guard = {
             "$schema": "prototype-ordax.windows-compat-runtime-closure-loader-guard-proof/1",
