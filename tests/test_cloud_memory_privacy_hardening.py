@@ -53,8 +53,18 @@ class CloudMemoryPrivacyHardeningTests(unittest.TestCase):
         backend = sync["backend"]
         self.assertFalse(memory["current_client_integration"])
         self.assertFalse(memory["production_enabled"])
-        self.assertFalse(backend["memory_data_class_enabled"])
+        self.assertTrue(memory["backend_atomic_mutation_deployed"])
+        self.assertFalse(memory["backend_generic_sync_rpc_accepts_memory"])
+        self.assertFalse(memory["live_backend_identity_binding_implemented"])
+        self.assertEqual(
+            memory["live_backend_identity_compatibility"],
+            "blocked-until-memory-id-allocation-contract",
+        )
+        self.assertTrue(backend["memory_backend_data_class_storage_enabled"])
+        self.assertFalse(backend["memory_live_client_data_class_enabled"])
         self.assertFalse(backend["memory_gateway_policy_live_wiring"])
+        self.assertEqual(backend["memory_atomic_mutation_rpc"], "ordax_apply_memory_mutation_v1")
+        self.assertEqual(backend["memory_privacy_hardening_status"], "source-prepared-not-applied")
 
 
 if __name__ == "__main__":
