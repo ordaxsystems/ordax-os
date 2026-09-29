@@ -25,6 +25,7 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
         value = probe.validate_environment(copy.deepcopy(self.environment))
         self.assertEqual(value["host"]["version"], "3.22.5")
         self.assertEqual(value["host"]["libc"], "musl")
+        self.assertEqual(value["repositories"], probe.EXPECTED_REPOSITORIES)
         self.assertIn("i686-mingw-w64-gcc", value["wine_build_packages"])
         self.assertIn("mingw-w64-gcc", value["wine_build_packages"])
         self.assertIn("--enable-archs=x86_64,i386", value["configure"]["flags"])
@@ -38,6 +39,12 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
         value = copy.deepcopy(self.environment)
         value["host"]["rootfs_sha256"] = "0" * 64
         with self.assertRaisesRegex(probe.ConfigureProofError, "host identity drifted"):
+            probe.validate_environment(value)
+
+    def test_repository_origin_drift_is_rejected(self):
+        value = copy.deepcopy(self.environment)
+        value["repositories"] = ["https://example.invalid/alpine/main"]
+        with self.assertRaisesRegex(probe.ConfigureProofError, "repository set drifted"):
             probe.validate_environment(value)
 
     def test_missing_cross_compiler_is_rejected(self):
