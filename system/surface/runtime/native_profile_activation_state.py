@@ -19,8 +19,9 @@ from pathlib import Path
 
 from native_profile_component_inventory import (
     PROFILE_COMPONENT_INVENTORY_FILE,
-    read_profile_component_inventory,
+    read_verified_profile_component_inventory,
 )
+from native_profile_install_receipt import DEFAULT_PROFILE_RECEIPT_ROOT
 
 PROFILE_ACTIVATION_STATE_SCHEMA = "ordax.profile-activation-state/1"
 PROFILE_ACTIVATION_STATE_FILE = "/var/lib/ordax/profile-activation-state.json"
@@ -345,8 +346,12 @@ def _component_key(component: dict) -> tuple[str, str, str]:
 def _assert_activation_components_installed(
     activation: dict,
     inventory_path: str,
+    receipt_root: str,
 ) -> None:
-    inventory = read_profile_component_inventory(inventory_path)
+    inventory = read_verified_profile_component_inventory(
+        inventory_path,
+        receipt_root,
+    )
     installed = {
         _component_key(entry): entry
         for entry in inventory["entries"]
@@ -416,6 +421,7 @@ def activate_profile(
     expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
+    receipt_root: str = DEFAULT_PROFILE_RECEIPT_ROOT,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
     space_id = _bounded_text(space_id, "Profile activation Space id", 160)
@@ -423,7 +429,7 @@ def activate_profile(
     if space_kind not in _SPACE_KINDS:
         raise ValueError("Profile activation Space kind is invalid")
     candidate = validate_profile_activation_ref(activation)
-    _assert_activation_components_installed(candidate, inventory_path)
+    _assert_activation_components_installed(candidate, inventory_path, receipt_root)
 
     with _lock(lock_path) as lock_handle:
         try:
@@ -507,6 +513,7 @@ def rollback_profile(
     expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
+    receipt_root: str = DEFAULT_PROFILE_RECEIPT_ROOT,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
     space_id = _bounded_text(space_id, "Profile rollback Space id", 160)
@@ -520,7 +527,7 @@ def rollback_profile(
                 return {"changed": False, "state": state}
             row = state["spaces"][index]
             target = row["previous"]
-            _assert_activation_components_installed(target, inventory_path)
+            _assert_activation_components_installed(target, inventory_path, receipt_root)
             spaces = list(state["spaces"])
             spaces[index] = {
                 "spaceId": space_id,

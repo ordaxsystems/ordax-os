@@ -90,8 +90,10 @@ on:
       - 'system/services/profile-packs/inventory.mjs'
       - 'system/adapters/native/profile-component-inventory.mjs'
       - 'system/surface/runtime/native_profile_component_inventory.py'
+      - 'system/surface/runtime/native_profile_install_receipt.py'
       - 'tests/test_profile_component_inventory.mjs'
       - 'tests/test_native_profile_component_inventory.py'
+      - 'tests/test_native_profile_install_receipt.py'
       - 'system/contracts/profile-install-receipt.mjs'
       - 'tests/test_profile_install_receipt.mjs'
       - 'tools/profile-content-proof/**'
@@ -205,8 +207,10 @@ on:
       - 'system/services/profile-packs/inventory.mjs'
       - 'system/adapters/native/profile-component-inventory.mjs'
       - 'system/surface/runtime/native_profile_component_inventory.py'
+      - 'system/surface/runtime/native_profile_install_receipt.py'
       - 'tests/test_profile_component_inventory.mjs'
       - 'tests/test_native_profile_component_inventory.py'
+      - 'tests/test_native_profile_install_receipt.py'
       - 'system/contracts/profile-install-receipt.mjs'
       - 'tests/test_profile_install_receipt.mjs'
       - 'tools/profile-content-proof/**'
@@ -290,6 +294,7 @@ jobs:
           python -m py_compile system/surface/runtime/native_memory_endpoint.py
           python -m py_compile system/surface/runtime/native_host_server.py
           python -m py_compile system/surface/runtime/native_profile_component_inventory.py
+          python -m py_compile system/surface/runtime/native_profile_install_receipt.py
           python -m py_compile system/surface/runtime/native_profile_provisioning_executor.py
           python -m py_compile system/surface/runtime/native_profile_activation_state.py
           python -m py_compile system/surface/runtime/native_profile_activation_command.py
@@ -363,6 +368,7 @@ jobs:
           python -m unittest tests.test_profile_pack_restore_composition -v
           python -m unittest tests.test_pre_mvp_ecosystem_foundation -v
           python -m unittest tests.test_native_profile_component_inventory -v
+          python -m unittest tests.test_native_profile_install_receipt -v
           python -m unittest tests.test_native_profile_provisioning_executor -v
           python -m unittest tests.test_native_profile_activation_state -v
           python -m unittest tests.test_native_profile_activation_command -v

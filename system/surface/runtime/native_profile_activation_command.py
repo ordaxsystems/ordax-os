@@ -16,6 +16,7 @@ from native_profile_activation_state import (
     rollback_profile,
 )
 from native_profile_component_inventory import PROFILE_COMPONENT_INVENTORY_FILE
+from native_profile_install_receipt import DEFAULT_PROFILE_RECEIPT_ROOT
 
 COMMAND_SCHEMA = "ordax.profile-activation-command/1"
 MAX_COMMAND_COMPONENTS = 64
@@ -83,7 +84,7 @@ def _assert_internal_activation_allowed(manifest: dict, space_kind: str, compone
             raise PermissionError("Profile attempts to broaden authority")
     if components:
         raise PermissionError(
-            "Component-bearing Profile activation requires a future canonical provisioning receipt"
+            "Component-bearing Profile activation awaits canonical distribution permission diff"
         )
 
 
@@ -93,6 +94,7 @@ def execute_profile_activation_command(
     distribution_profile: str,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
+    receipt_root: str = DEFAULT_PROFILE_RECEIPT_ROOT,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
     if distribution_profile != "owner-development":
@@ -133,6 +135,7 @@ def execute_profile_activation_command(
             expected_revision=expected_revision,
             state_path=state_path,
             inventory_path=inventory_path,
+            receipt_root=receipt_root,
             lock_path=lock_path,
         )
     elif action in {"deactivate", "rollback"}:
@@ -156,6 +159,7 @@ def execute_profile_activation_command(
                 expected_revision=expected_revision,
                 state_path=state_path,
                 inventory_path=inventory_path,
+                receipt_root=receipt_root,
                 lock_path=lock_path,
             )
     else:

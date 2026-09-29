@@ -12,6 +12,11 @@ import os
 import re
 import stat
 
+from native_profile_install_receipt import (
+    DEFAULT_PROFILE_RECEIPT_ROOT,
+    read_verified_profile_install_receipt,
+)
+
 PROFILE_COMPONENT_INVENTORY_FILE = "/var/lib/ordax/profile-component-inventory.json"
 PROFILE_COMPONENT_INVENTORY_SCHEMA = "ordax.profile-component-inventory/1"
 MAX_PROFILE_COMPONENT_INVENTORY_BYTES = 256 * 1024
@@ -110,6 +115,31 @@ def read_profile_component_inventory(
     if not valid_profile_component_inventory(payload):
         raise ValueError("Profile component inventory is invalid")
     return payload
+
+
+def read_verified_profile_component_inventory(
+    path: str = PROFILE_COMPONENT_INVENTORY_FILE,
+    receipt_root: str = DEFAULT_PROFILE_RECEIPT_ROOT,
+) -> dict:
+    inventory = read_profile_component_inventory(path)
+    for entry in inventory["entries"]:
+        try:
+            receipt = read_verified_profile_install_receipt(
+                entry["receiptSha256"],
+                receipt_root,
+            )
+        except FileNotFoundError as exc:
+            raise ValueError("Installed Profile component receipt is missing") from exc
+        artifact = receipt["artifact"]
+        if (
+            artifact["id"] != entry["id"]
+            or artifact["kind"] != entry["kind"]
+            or artifact["version"] != entry["version"]
+            or artifact["sha256"] != entry["sha256"]
+            or receipt["installedAt"] != entry["installedAt"]
+        ):
+            raise ValueError("Installed Profile component receipt does not match inventory")
+    return inventory
 
 
 def write_profile_component_inventory(

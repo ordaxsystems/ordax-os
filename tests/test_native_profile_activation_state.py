@@ -1,5 +1,6 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import hashlib
 import json
 import os
 import stat
@@ -34,15 +35,52 @@ def inventory(entries=None):
     }
 
 
-def component():
+def component(receipt_sha="b" * 64):
     return {
         "id": "knowledge.example",
         "kind": "knowledge-pack",
         "version": "1.2.3",
         "sha256": "a" * 64,
-        "receiptSha256": "b" * 64,
+        "receiptSha256": receipt_sha,
         "installedAt": 1000,
     }
+
+
+def write_receipt(root: Path, installed_at=1000):
+    receipt = {
+        "schema": "ordax.profile-install-receipt/1",
+        "artifact": {
+            "id": "knowledge.example",
+            "kind": "knowledge-pack",
+            "version": "1.2.3",
+            "sha256": "a" * 64,
+            "sizeBytes": 4096,
+        },
+        "verification": {
+            "signatureAlgorithm": "ed25519",
+            "keyId": "profile-content-test-1",
+            "manifestSha256": "c" * 64,
+            "verifiedAt": installed_at - 20,
+        },
+        "health": {
+            "schema": "ordax.profile-content-health/1",
+            "state": "healthy",
+            "entryCount": 1,
+            "perEntryHashVerified": True,
+            "perEntryProvenanceVerified": True,
+            "executablePayloadAllowed": False,
+            "authority": "none",
+            "checkedAt": installed_at - 10,
+        },
+        "installedAt": installed_at,
+    }
+    payload = (json.dumps(receipt, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
+    digest = hashlib.sha256(payload).hexdigest()
+    root.mkdir(mode=0o700)
+    path = root / f"{digest}.json"
+    path.write_bytes(payload)
+    os.chmod(path, 0o600)
+    return digest
 
 
 def activation(slug="developer", version=1, components=None, activated_at=1200):
@@ -121,26 +159,30 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path = root / "inventory.json"
             state_path = root / "activation.json"
             lock_path = root / "activation.lock"
-            inventory_path.write_text(json.dumps(inventory([component()])), encoding="utf-8")
+            receipt_root = root / "receipts"
+            receipt_sha = write_receipt(receipt_root)
+            installed = component(receipt_sha)
+            inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
             result = module.activate_profile(
                 space_id="space-1",
                 space_kind="professional",
-                activation=activation(),
+                activation=activation(components=[installed]),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
+                receipt_root=str(receipt_root),
                 lock_path=str(lock_path),
             )
             self.assertTrue(result["changed"])
             self.assertEqual(result["state"]["revision"], 1)
             self.assertEqual(
                 result["state"]["spaces"][0]["current"]["components"][0]["receiptSha256"],
-                "b" * 64,
+                receipt_sha,
             )
 
-            stale = activation()
-            stale["components"][0]["receiptSha256"] = "c" * 64
+            stale = activation(components=[dict(installed)])
+            stale["components"][0]["receiptSha256"] = "d" * 64
             with self.assertRaisesRegex(ValueError, "receipt does not match inventory"):
                 module.activate_profile(
                     space_id="space-2",
@@ -148,6 +190,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                     activation=stale,
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
+                    receipt_root=str(receipt_root),
                     lock_path=str(lock_path),
                 )
 
@@ -239,15 +282,19 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path = root / "inventory.json"
             state_path = root / "activation.json"
             lock_path = root / "activation.lock"
-            inventory_path.write_text(json.dumps(inventory([component()])), encoding="utf-8")
+            receipt_root = root / "receipts"
+            receipt_sha = write_receipt(receipt_root)
+            installed = component(receipt_sha)
+            inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
             module.activate_profile(
                 space_id="space-1",
                 space_kind="professional",
-                activation=activation(),
+                activation=activation(components=[installed]),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
+                receipt_root=str(receipt_root),
                 lock_path=str(lock_path),
             )
             module.activate_profile(
@@ -256,6 +303,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 activation=activation(slug="business", components=[], activated_at=2000),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
+                receipt_root=str(receipt_root),
                 lock_path=str(lock_path),
             )
 
@@ -266,6 +314,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                     space_id="space-1",
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
+                    receipt_root=str(receipt_root),
                     lock_path=str(lock_path),
                 )
 

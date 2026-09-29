@@ -46,7 +46,7 @@ from native_memory_endpoint import (
     write_memory_endpoint,
 )
 from native_hardware_inventory import read_hardware_inventory
-from native_profile_component_inventory import read_profile_component_inventory
+from native_profile_component_inventory import read_verified_profile_component_inventory
 from native_profile_activation_state import read_profile_activation_state
 from native_profile_activation_command import execute_profile_activation_command
 
@@ -3809,7 +3809,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
         if self.path == PROFILE_COMPONENT_INVENTORY_PATH:
             try:
-                payload = read_profile_component_inventory()
+                payload = read_verified_profile_component_inventory()
             except (OSError, UnicodeError, ValueError) as exc:
                 print(
                     f"ordax-native-host: could not read Profile component inventory: {exc}",

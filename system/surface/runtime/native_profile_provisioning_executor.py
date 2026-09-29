@@ -20,19 +20,26 @@ from pathlib import Path
 
 from native_profile_component_inventory import (
     PROFILE_COMPONENT_INVENTORY_FILE,
-    read_profile_component_inventory,
+    read_verified_profile_component_inventory,
     write_profile_component_inventory,
+)
+from native_profile_install_receipt import (
+    DEFAULT_PROFILE_RECEIPT_ROOT,
+    MAX_PROFILE_RECEIPT_BYTES,
+    PROFILE_INSTALL_RECEIPT_SCHEMA,
+    canonical_profile_install_receipt_bytes,
+    read_verified_profile_install_receipt,
+    validate_profile_install_receipt,
 )
 
 PROFILE_STAGE_EVIDENCE_SCHEMA = "ordax.profile-content-stage-evidence/1"
-PROFILE_INSTALL_RECEIPT_SCHEMA = "ordax.profile-install-receipt/1"
 PROFILE_CONTENT_HEALTH_SCHEMA = "ordax.profile-content-health/1"
 DEFAULT_PROFILE_CONTENT_CHANNEL = "/srv/ordax-system/bin/ordax-profile-content-channel"
 DEFAULT_PROFILE_CONTENT_TRUST = "/srv/ordax-system/trust/profile-content-ed25519.json"
-DEFAULT_RECEIPT_ROOT = "/var/lib/ordax/profile-content-receipts"
+DEFAULT_RECEIPT_ROOT = DEFAULT_PROFILE_RECEIPT_ROOT
 DEFAULT_LOCK_PATH = "/var/lib/ordax/profile-provisioning.lock"
 MAX_EVIDENCE_BYTES = 64 * 1024
-MAX_RECEIPT_BYTES = 64 * 1024
+MAX_RECEIPT_BYTES = MAX_PROFILE_RECEIPT_BYTES
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9._-]{1,127}$")
 _SEMVER_RE = re.compile(
@@ -223,16 +230,7 @@ def receipt_from_stage_evidence(evidence: object, now_ms: int) -> dict:
 
 
 def _canonical_json_bytes(value: object) -> bytes:
-    return (
-        json.dumps(
-            value,
-            separators=(",", ":"),
-            sort_keys=True,
-            ensure_ascii=False,
-            allow_nan=False,
-        )
-        + "\n"
-    ).encode("utf-8")
+    return canonical_profile_install_receipt_bytes(value)
 
 
 def _secure_directory(path: str) -> None:
@@ -284,19 +282,11 @@ def _write_receipt_once(receipt: dict, receipt_root: str) -> tuple[str, str, boo
 
 
 def _read_existing_receipt(path: str, expected_sha256: str) -> bytes:
-    info = os.stat(path, follow_symlinks=False)
-    if (
-        not stat.S_ISREG(info.st_mode)
-        or stat.S_ISLNK(info.st_mode)
-        or stat.S_IMODE(info.st_mode) & 0o077
-        or info.st_size <= 0
-        or info.st_size > MAX_RECEIPT_BYTES
-    ):
-        raise ValueError("Installed Profile component receipt boundary is unsafe")
-    payload = Path(path).read_bytes()
-    if hashlib.sha256(payload).hexdigest() != expected_sha256:
-        raise ValueError("Installed Profile component receipt hash mismatch")
-    return payload
+    receipt = read_verified_profile_install_receipt(
+        expected_sha256,
+        os.path.dirname(path),
+    )
+    return canonical_profile_install_receipt_bytes(receipt)
 
 
 def _lock_file(path: str):
@@ -320,47 +310,16 @@ def commit_verified_receipt(
     receipt_root: str = DEFAULT_RECEIPT_ROOT,
     lock_path: str = DEFAULT_LOCK_PATH,
 ) -> dict:
-    if not isinstance(receipt, dict):
-        raise ValueError("Profile install receipt is invalid")
-    artifact = receipt.get("artifact")
-    health = receipt.get("health")
-    verification = receipt.get("verification")
-    if (
-        receipt.get("schema") != PROFILE_INSTALL_RECEIPT_SCHEMA
-        or not isinstance(artifact, dict)
-        or not isinstance(health, dict)
-        or not isinstance(verification, dict)
-    ):
-        raise ValueError("Profile install receipt is invalid")
-    # Reuse the evidence validator for every security-sensitive field, dropping
-    # only timestamps that belong to the durable receipt layer.
-    validate_stage_evidence({
-        "schema": PROFILE_STAGE_EVIDENCE_SCHEMA,
-        "artifact": artifact,
-        "verification": {
-            "signatureAlgorithm": verification.get("signatureAlgorithm"),
-            "keyId": verification.get("keyId"),
-            "manifestSha256": verification.get("manifestSha256"),
-        },
-        "health": {
-            "schema": health.get("schema"),
-            "state": health.get("state"),
-            "entryCount": health.get("entryCount"),
-            "perEntryHashVerified": health.get("perEntryHashVerified"),
-            "perEntryProvenanceVerified": health.get("perEntryProvenanceVerified"),
-            "executablePayloadAllowed": health.get("executablePayloadAllowed"),
-            "authority": health.get("authority"),
-        },
-    })
-    verified_at = _epoch(verification.get("verifiedAt"), "verifiedAt")
-    checked_at = _epoch(health.get("checkedAt"), "checkedAt")
-    installed_at = _epoch(receipt.get("installedAt"), "installedAt")
-    if checked_at < verified_at or installed_at < checked_at:
-        raise ValueError("Profile install receipt timestamps are not monotonic")
+    receipt = validate_profile_install_receipt(receipt)
+    artifact = receipt["artifact"]
+    installed_at = receipt["installedAt"]
 
     with _lock_file(lock_path) as lock_handle:
         try:
-            inventory = read_profile_component_inventory(inventory_path)
+            inventory = read_verified_profile_component_inventory(
+                inventory_path,
+                receipt_root,
+            )
             identity = (
                 artifact["id"],
                 artifact["version"],
@@ -373,10 +332,6 @@ def commit_verified_receipt(
                         receipt_root,
                         f"{entry['receiptSha256']}.json",
                     )
-                    try:
-                        _read_existing_receipt(receipt_path, entry["receiptSha256"])
-                    except FileNotFoundError as exc:
-                        raise ValueError("Installed Profile component receipt is missing") from exc
                     return {
                         "changed": False,
                         "inventory": inventory,

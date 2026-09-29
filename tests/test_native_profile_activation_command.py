@@ -101,7 +101,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 "receiptSha256": "b" * 64,
                 "installedAt": 1,
             }]
-            with self.assertRaisesRegex(PermissionError, "canonical provisioning receipt"):
+            with self.assertRaisesRegex(PermissionError, "canonical distribution permission diff"):
                 module.execute_profile_activation_command(payload, **args)
 
     def test_revision_conflict_is_checked_inside_mutation_lock(self):
