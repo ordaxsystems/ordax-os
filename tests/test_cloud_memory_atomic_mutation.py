@@ -10,6 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260929184500_cloud_memory_atomic_mutation_v1.sql"
 PRIVILEGE_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260929190000_cloud_memory_atomic_mutation_privilege_boundary_v1.sql"
+PAYLOAD_CONTRACT_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260929212500_cloud_memory_sync_payload_contract_v1.sql"
 SERVER_AUTHORITY_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "0004_server_authoritative_mutations.sql"
 BOUNDARY = ROOT / "docs" / "contracts" / "cloud-memory-sync-boundary.json"
 
@@ -60,6 +61,23 @@ class CloudMemoryAtomicMutationTests(unittest.TestCase):
         self.assertIn("memory-cloud-entitlement-required", sql)
         self.assertIn("'state', 'deleted'", sql)
         self.assertNotIn("ordax_apply_sync_mutation_v2(", sql)
+
+    def test_transport_mirror_is_normalized_to_the_runtime_payload_contract(self):
+        sql = PAYLOAD_CONTRACT_MIGRATION.read_text(encoding="utf-8")
+        lower = sql.lower()
+        self.assertIn("ordax.memory-sync-payload/1", sql)
+        self.assertIn("ordax.memory/1", sql)
+        self.assertIn("'memoryIdentity'", sql)
+        self.assertIn("'ownerKind', 'account'", sql)
+        self.assertIn("'ownerId', new.owner_user_id::text", sql)
+        self.assertIn("'id', v_memory_uuid::text", sql)
+        self.assertIn("update private.ordax_sync_objects", lower)
+        self.assertIn("update private.ordax_sync_mutations", lower)
+        self.assertIn("ordax_memory_canonical_sync_object_payload_v1", lower)
+        self.assertIn("ordax_memory_canonical_sync_mutation_payload_v1", lower)
+        self.assertIn("ordax_memory_scrub_forgotten_sync_history_v1", lower)
+        self.assertNotIn("service_role", lower)
+        self.assertNotIn("memory.cloud.enabled', '{\"decision\":\"allowed\"}", lower)
 
 
 if __name__ == "__main__":
