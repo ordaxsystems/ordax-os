@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Fail closed on Wine bootstrap reuse and musl first-pathname resolution.
+"""Fail closed on Wine preloads and musl first-pathname resolution.
 
-Wine 11.0 explicitly loads the architecture ntdll.so before __wine_main. That
-preloaded shortname is modeled from the locked runtime contract. All remaining
-DT_NEEDED edges retain strict first-existing-pathname semantics: an incompatible,
-non-ELF, broken or escaping first pathname may never be skipped for a later hit.
+Wine 11.0 explicitly loads architecture ntdll.so before __wine_main and may
+also preload builtin Unix libraries through normal PE dependency attach. Both
+shortname mechanisms require independent source authority plus exact staged ELF
+bytes. All remaining DT_NEEDED edges retain strict first-existing-pathname
+semantics: an incompatible, non-ELF, broken or escaping first pathname may never
+be skipped for a later hit.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 PROBE_PATH = HERE / "runtime_dependency_probe.py"
+PRELOAD_PATH = HERE / "runtime_unixlib_preload_runtime_guard.py"
 PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-first-hit-proof/1"
 
 
@@ -34,6 +37,7 @@ def load_module(name: str, path: Path):
 
 
 PROBE = load_module("ordax_windows_compat_runtime_dependency_probe_for_first_hit", PROBE_PATH)
+PRELOAD = load_module("ordax_windows_compat_unixlib_preload_for_first_hit", PRELOAD_PATH)
 
 
 def load_contract() -> dict:
@@ -114,12 +118,38 @@ def resolve_first_pathname_hit(
     return None, search
 
 
-def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
+def resolve_dependency_attach_preload(
+    stage: Path,
+    consumer_relative: str,
+    soname: str,
+    consumer: dict,
+    preload_source_proof: dict,
+) -> dict | None:
+    try:
+        return PRELOAD.resolve_preloaded_unixlib(
+            stage,
+            consumer_relative,
+            soname,
+            consumer,
+            preload_source_proof,
+            parse_elf=PROBE.parse_elf_dynamic,
+            elf_identity=PROBE.elf_identity,
+            resolve_rooted_path=PROBE.resolve_rooted_path,
+        )
+    except PRELOAD.UnixlibPreloadRuntimeError as exc:
+        raise FirstHitGuardError(str(exc)) from exc
+
+
+def verify(stage: Path, rootfs: Path, full_build_proof: dict, preload_source_proof: dict) -> dict:
     contract = load_contract()
     if full_build_proof.get("$schema") != contract["input"]["full_build_proof_schema"]:
         raise FirstHitGuardError("unexpected full build proof schema")
     if full_build_proof.get("runtime_id") != contract.get("runtime_id"):
         raise FirstHitGuardError("runtime identity drifted")
+    try:
+        preload_evidence = PRELOAD.validate_source_proof(preload_source_proof, contract["runtime_id"])
+    except PRELOAD.UnixlibPreloadRuntimeError as exc:
+        raise FirstHitGuardError(str(exc)) from exc
     gates = full_build_proof.get("gates", {})
     if gates.get("full_build_proof_passed") is not True or gates.get("staged_install_completed") is not True:
         raise FirstHitGuardError("first-hit validation requires a proven staged full build")
@@ -137,7 +167,7 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
         raise FirstHitGuardError("staged tree or locked rootfs is missing")
 
     stage_manifest_sha256 = PROBE.verify_stage_binding(stage, full_build_proof)
-    dependencies = stage_hits = rootfs_hits = bootstrap_shortname_hits = 0
+    dependencies = stage_hits = rootfs_hits = bootstrap_shortname_hits = dependency_attach_preload_hits = 0
     for path in sorted(stage.rglob("*")):
         if not path.is_file() or path.is_symlink():
             continue
@@ -155,6 +185,11 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
                 stage_hits += 1
                 bootstrap_shortname_hits += 1
                 continue
+            preload = resolve_dependency_attach_preload(stage, relative, soname, elf, preload_source_proof)
+            if preload is not None:
+                stage_hits += 1
+                dependency_attach_preload_hits += 1
+                continue
             hit, search = resolve_first_pathname_hit(stage, rootfs, soname, elf, relative)
             if hit is None:
                 raise FirstHitGuardError(
@@ -170,21 +205,24 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
     core = {
         "runtime_id": full_build_proof["runtime_id"],
         "staging_manifest_sha256": stage_manifest_sha256,
+        "unixlib_preload_source_evidence_sha256": preload_evidence,
         "counts": {
             "dependencies_checked": dependencies,
             "stage_hits": stage_hits,
             "rootfs_hits": rootfs_hits,
             "bootstrap_shortname_hits": bootstrap_shortname_hits,
+            "dependency_attach_preload_hits": dependency_attach_preload_hits,
         },
     }
     return {
         "$schema": PROOF_SCHEMA,
-        "status": "first-pathname-and-bootstrap-shortname-verified-not-runtime-promoted",
+        "status": "first-pathname-and-source-proven-preloads-verified-not-runtime-promoted",
         **core,
         "validation_sha256": PROBE.canonical_sha256(core),
         "gates": {
             "full_build_proof_verified": True,
             "staging_manifest_verified": True,
+            "source_derived_unixlib_preload_runtime_verified": True,
             "first_pathname_hit_verified": True,
             "runtime_dependency_inventory_complete": False,
             "binary_artifact_pinned": False,
@@ -196,25 +234,39 @@ def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
     }
 
 
+def load_json(path: Path, label: str) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise FirstHitGuardError(f"cannot load {label}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise FirstHitGuardError(f"{label} must be an object")
+    return value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["check", "verify"])
     parser.add_argument("--stage-dir", type=Path)
     parser.add_argument("--rootfs", type=Path)
     parser.add_argument("--full-build-proof", type=Path)
+    parser.add_argument("--unixlib-preload-source-proof", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     load_contract()
     if args.command == "check":
         print("windows compatibility runtime dependency first-hit guard: PASS")
         return 0
-    if not all((args.stage_dir, args.rootfs, args.full_build_proof, args.out)):
-        raise FirstHitGuardError("verify requires --stage-dir, --rootfs, --full-build-proof and --out")
-    try:
-        proof = json.loads(args.full_build_proof.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise FirstHitGuardError(f"cannot load full build proof: {exc}") from exc
-    result = verify(args.stage_dir.resolve(), args.rootfs.resolve(), proof)
+    if not all((args.stage_dir, args.rootfs, args.full_build_proof, args.unixlib_preload_source_proof, args.out)):
+        raise FirstHitGuardError(
+            "verify requires --stage-dir, --rootfs, --full-build-proof, --unixlib-preload-source-proof and --out"
+        )
+    result = verify(
+        args.stage_dir.resolve(),
+        args.rootfs.resolve(),
+        load_json(args.full_build_proof, "full build proof"),
+        load_json(args.unixlib_preload_source_proof, "unixlib preload source proof"),
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print("windows compatibility runtime dependency first-hit validation: PASS")
@@ -225,6 +277,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (FirstHitGuardError, PROBE.RuntimeDependencyError) as exc:
+    except (FirstHitGuardError, PROBE.RuntimeDependencyError, PRELOAD.UnixlibPreloadRuntimeError) as exc:
         print(f"windows-compat-runtime-first-hit: {exc}", file=sys.stderr)
         raise SystemExit(2)
