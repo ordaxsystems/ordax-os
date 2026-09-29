@@ -142,17 +142,24 @@ physical USB. `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` is now the active
 pre-USB closure plan. Physical media work is intentionally held while the remaining
 class-A product gaps are closed. Ordax Intelligence consumers, Native local
 session/lock, safe Files removal and PT-BR/en-US launch-language coverage are now
-source-complete. The canonical v4 candidate carrying the proven local-AI runtime is
-signed, materialized, exactly verified and bound by a non-activating proof. It remains
-a public prerelease, so the repository's stable `latest` channel has not been promoted.
+source-complete. The historical v4 candidate carrying the proven local-AI runtime was signed,
+materialized and exactly verified for its pre-hardening source. Its aggregate proof
+remains valid historical evidence, but PR #588 changed the candidate bytes and PR #602
+made that proof explicitly superseded for current-main authorization. A replacement
+post-hardening v4 proof is not yet bound. The historical release remains a public
+prerelease, so the repository's stable `latest` channel has not been promoted.
 Diagnostics/recovery presentation and the conservative MVP hardware-support matrix
 are source-complete; their target-hardware/physical proofs remain later gates.
 
 The v4 Creator payload change deliberately revokes the stale 15-artifact authorization
-context instead of widening it. The read-only owner-consent preflight now passes because
-the operator-controlled canonical v4 signing/materialization sequence produced
-`canonical-v4-release-proof.json` and the public receipt was validated and bound to the
-authorization contract. The exact 17-artifact v4 release remains eligible for a fresh owner authorization, but that authorization has not been re-recorded after the current writer changed. The contract therefore remains fail-closed and no destructive candidate may be prepared or applied from this state. No USB target is selected, no target-specific destructive confirmation is current and no new physical write/proof is authorized. The physical Creator
+context instead of widening it. The historical operator-controlled signing/materialization
+sequence produced `canonical-v4-release-proof.json`, but that proof belongs to source
+`b924ff8d74d1761232381ae3f9604bba17497cfd`, which predates the post-boot hardening in
+PR #588. PR #602 therefore returned the authorization state to replacement-proof pending:
+`canonical_v4_release_proof_bound=false`. Owner consent is not reachable for the current
+candidate until a genuinely new post-hardening proof is signed, materialized, verified
+and bound. No USB target is selected, no target-specific destructive confirmation is
+current and no new physical write/proof is authorized. The physical Creator
 now keeps writer/tooling provenance separate from release identity: the writer embeds its own
 Git SHA as provenance plus the canonical v4 release source commit from
 `physical-write-authorization.json -> release_binding.source_commit`. Target-specific
@@ -191,14 +198,14 @@ CANONICAL_V4_OPERATOR_RECEIPT_SCHEMA=prototype-ordax.canonical-v4-operator-artif
 CANONICAL_V4_OPERATOR_RECEIPTS=PASS_CI_SAME_SHA_SHA256_SIZE_REVERIFIED
 CANONICAL_V4_OPERATOR_RECEIPT_TAMPER_REJECTION=PASS_CI_WRONG_COMMIT_AND_BYTE_TAMPER
 CANONICAL_V4_OPERATOR_RECEIPT_WORKFLOW_RUN_ID=36166653548
-CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE
+CANONICAL_V4_RELEASE_PROOF=PASS_HISTORICAL_PRE_HARDENING_SUPERSEDED
 STABLE_MVP_USB_READINESS_GATE=PASS_SOURCE_AGGREGATES_PRE_USB_AND_PHYSICAL_PROMOTION
-STABLE_MVP_USB_READINESS_CURRENT_STAGE=EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING
-CANONICAL_V4_RELEASE_PROOF_BINDING=PASS
-PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO_FRESH_CONSENT_REQUIRED
-PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_FRESH_CONSENT_REQUIRED
-FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING
-PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING
+STABLE_MVP_USB_READINESS_CURRENT_STAGE=CANONICAL_V4_RELEASE_PROOF_PENDING
+CANONICAL_V4_RELEASE_PROOF_BINDING=NO_REPLACEMENT_REQUIRED
+PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO
+PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED
+FIRST_STABLE_MVP_USB_WRITE=HOLD_REPLACEMENT_CANONICAL_V4_RELEASE_PROOF_PENDING
+PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING
 ```
 
 ### Pre-MVP ecosystem foundation
@@ -648,7 +655,7 @@ FULL_BOOTSTRAP_CANONICAL_TRUST_PROOF_ARTIFACT_SHA256=079aad05492867000989fa2c276
 
 The canonical release channel resolves `release-envelope.json`; the URL selects bytes and Ed25519 verification decides authenticity. The release acquisition code remains fail-closed with SHA-256 verification, exact source-commit binding, safe materialization, atomic activation and known-good preservation.
 
-### Canonical release trust — public anchor and v4 candidate proof bound; physical consent pending
+### Canonical release trust — public anchor resolved; historical v4 proof superseded
 
 ```text
 RELEASE_TRUST_POLICY=RESOLVED
@@ -675,20 +682,33 @@ PUBLIC_TRUST_PROMOTION=PASS_PUBLIC_HANDOFF_VALIDATED
 MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED=YES
 PHYSICAL_AUTHORIZATION_ELIGIBLE=YES
 CANONICAL_V4_SOURCE_COMMIT=b924ff8d74d1761232381ae3f9604bba17497cfd
-CANONICAL_V4_RELEASE_STATUS=PUBLIC_PRERELEASE_NOT_LATEST
-CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_MATERIALIZED_EXACT
+CANONICAL_V4_RELEASE_STATUS=HISTORICAL_PUBLIC_PRERELEASE_NOT_LATEST
+CANONICAL_V4_RELEASE_PROOF=PASS_HISTORICAL_PRE_HARDENING_SUPERSEDED
 CANONICAL_V4_RELEASE_PROOF_SHA256=2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b
-CANONICAL_V4_RELEASE_PROOF_BINDING=PASS
-PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO_FRESH_CONSENT_REQUIRED
-PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_FRESH_CONSENT_REQUIRED
-PHYSICAL_WRITE_ALLOWED=NO_EXPLICIT_OWNER_AUTHORIZATION
+CANONICAL_V4_RELEASE_PROOF_BINDING=NO_CURRENT_REPLACEMENT_REQUIRED
+PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO
+PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED
+PHYSICAL_WRITE_ALLOWED=NO_CANONICAL_V4_REPLACEMENT_PROOF_PENDING
 PHYSICAL_WRITE_SCOPE=first-real-stable-mvp-usb-proof
 PHYSICAL_WRITE_RELEASE_SEQUENCE=1
 PHYSICAL_TARGET_SELECTED=NO
 PHYSICAL_TARGET_DESTRUCTIVE_CONFIRMATION=PENDING
 ```
 
-The eligible Windows trust toolkit from canonical `main` source `2172eb6a18430910afd036199ec492ad63dc185d` (workflow run `35617567458`) completed operator steps 1, 2 and 3 on 2026-09-21. The uploaded `OrdaX-Public-Trust-Handoff.zip` was then independently revalidated: archive shape, exact public hashes and the recovered Ed25519 signing proof all passed. The exact public anchor is pinned at `bootstrap/trust/release-ed25519.json`, and the minimal bootstrap trust group is resolved. The private key remains outside Git/USB/Actions artifacts and is not recorded here. A same-host encrypted backup copy was verified byte-for-byte; this is accepted for the first controlled prototype but is not independent off-device custody, which remains required before broad public distribution. Public trust promotion itself did not authorize destructive media writes. On 2026-09-22 the owner provided the exact Stable/MVP authorization phrase for scope `first-real-stable-mvp-usb-proof`, release sequence 1, bound to the then-current 15-artifact writer context; later writer changes invalidated that consent. On 2026-09-26 the exact v4 candidate was signed, published as a prerelease, materialized and verified by the source-owned agent, aggregated with the signed-handoff proof, and bound to the physical authorization contract. The proof binds source commit `b924ff8d74d1761232381ae3f9604bba17497cfd`, manifest SHA-256 `ddab1681ffecacca000ff1014d3b354978c1f4a785985998b673816e18e65b85`, envelope SHA-256 `cc89cf7436357c5d479624d74e32325d4eb249a6fc1334385fb55827c313f5c9` and proof SHA-256 `2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b`. The prerelease did not move GitHub's stable `latest` channel. The current writer change invalidates the previously recorded owner consent, so the authorization contract is fail-closed with `physical_write_allowed=false`; fresh explicit owner authorization is required before any target-specific preparation or application. No USB is selected or currently authorized for a new destructive write; live USB revalidation, Windows UAC and target-specific destructive confirmation remain later independent gates.
+The eligible Windows trust toolkit from canonical `main` source `2172eb6a18430910afd036199ec492ad63dc185d` (workflow run `35617567458`) completed operator steps 1, 2 and 3 on 2026-09-21. The uploaded `OrdaX-Public-Trust-Handoff.zip` was then independently revalidated: archive shape, exact public hashes and the recovered Ed25519 signing proof all passed. The exact public anchor is pinned at `bootstrap/trust/release-ed25519.json`, and the minimal bootstrap trust group is resolved. The private key remains outside Git/USB/Actions artifacts and is not recorded here. A same-host encrypted backup copy was verified byte-for-byte; this is accepted for the first controlled prototype but is not independent off-device custody, which remains required before broad public distribution. Public trust promotion itself did not authorize destructive media writes. On 2026-09-22 the owner provided the exact Stable/MVP authorization phrase for scope `first-real-stable-mvp-usb-proof`, release sequence 1, bound to the then-current 15-artifact writer context; later writer changes invalidated that consent. On 2026-09-26 the then-current v4 candidate was signed, published as a prerelease,
+materialized and verified by the source-owned agent, aggregated with the signed-handoff
+proof, and used by the earlier controlled physical context. The proof binds source commit
+`b924ff8d74d1761232381ae3f9604bba17497cfd`, manifest SHA-256
+`ddab1681ffecacca000ff1014d3b354978c1f4a785985998b673816e18e65b85`, envelope SHA-256
+`cc89cf7436357c5d479624d74e32325d4eb249a6fc1334385fb55827c313f5c9` and proof SHA-256
+`2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b`. The prerelease did
+not move GitHub's stable `latest` channel. PR #588 subsequently changed the candidate
+bytes and PR #602 deliberately made that historical proof non-current for destructive
+authorization. The authoritative contract is now
+`status=blocked-canonical-v4-release-proof-pending`,
+`canonical_v4_release_proof_bound=false` and `physical_write_allowed=false`. A new
+post-hardening canonical v4 proof must be created and bound before fresh owner
+authorization can even become reachable. No USB is selected or currently authorized for a new destructive write; live USB revalidation, Windows UAC and target-specific destructive confirmation remain later independent gates.
 
 ## Creator and physical-write boundary
 
@@ -765,8 +785,8 @@ CANONICAL_SIGNED_RELEASE_BOOT_PROVEN=NO_PHYSICAL_STABLE_MVP_PENDING
 CANONICAL_NATIVE_DISK_INSTALL_PROVEN=NO_POST_MVP
 CREATOR_PUBLIC_PHYSICAL_APPLY_IMPLEMENTED=NO
 RELEASE_TRUST=PASS_CANONICAL_PUBLIC_ANCHOR_PINNED
-PHYSICAL_AUTHORIZATION_ELIGIBLE=YES
-PHYSICAL_WRITE_AUTHORIZED=NO_EXPLICIT_OWNER_AUTHORIZATION
+PHYSICAL_AUTHORIZATION_ELIGIBLE_FOR_CURRENT_CANDIDATE=NO_REPLACEMENT_PROOF_REQUIRED
+PHYSICAL_WRITE_AUTHORIZED=NO_CANONICAL_V4_REPLACEMENT_PROOF_PENDING
 PHYSICAL_TARGET_SELECTED=NO
 PHYSICAL_TARGET_DESTRUCTIVE_CONFIRMATION=PENDING
 MVP_SURFACE_SMOKE_HARNESS=PASS_SOURCE
