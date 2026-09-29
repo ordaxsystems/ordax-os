@@ -25,6 +25,11 @@ profile-content-channel generate-key \
   --trust <review>/profile-content-trust.json \
   --key-id profile-proof-test
 
+profile-content-channel derive-trust \
+  --private-key <external>/profile-content-private.pem \
+  --out <review>/profile-content-trust-derived.json \
+  --key-id profile-proof-test
+
 profile-content-channel sign \
   --manifest manifest.json \
   --private-key <external>/profile-content-private.pem \
@@ -45,6 +50,9 @@ profile-content-channel stage \
   --content content.pack \
   --root /var/lib/ordax/profile-content
 ```
+
+Independent `derive-trust` exists for operator/recovery ceremonies and writes
+only public trust material. It never overwrites an existing output.
 
 Verification binds the exact canonical manifest signature, payload SHA-256,
 payload size and provenance fields. A successful verification still prints
