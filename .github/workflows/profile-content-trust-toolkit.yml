@@ -1,0 +1,349 @@
+name: Profile Content Trust Toolkit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/profile-content-channel/**'
+      - 'docs/contracts/profile-content-trust-policy.json'
+      - 'docs/PROFILE-CONTENT-TRUST-CEREMONY.md'
+      - '.github/workflows/profile-content-trust-toolkit.yml'
+  pull_request:
+    paths:
+      - 'tools/profile-content-channel/**'
+      - 'docs/contracts/profile-content-trust-policy.json'
+      - 'docs/PROFILE-CONTENT-TRUST-CEREMONY.md'
+      - '.github/workflows/profile-content-trust-toolkit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  toolkit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
+      - name: Test Profile content channel
+        run: |
+          set -euo pipefail
+          (cd tools/profile-content-channel && go test -count=1 ./...)
+
+      - name: Build Windows Profile content trust toolkit
+        run: |
+          set -euo pipefail
+          out="$PWD/out/profile-content-trust-toolkit"
+          mkdir -p "$out"
+          (
+            cd tools/profile-content-channel
+            CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o ../../out/profile-content-trust-toolkit/ordax-profile-content-channel.exe .
+          )
+          cp tools/profile-content-channel/windows/1-Verify-OrdaXProfileContentTrustToolkit.cmd "$out/"
+          cp tools/profile-content-channel/windows/2-Initialize-OrdaXProfileContentTrust.cmd "$out/"
+          cp tools/profile-content-channel/windows/3-Verify-OrdaXProfileContentTrustRecovery.cmd "$out/"
+          cp tools/profile-content-channel/windows/Initialize-OrdaXProfileContentTrust.ps1 "$out/"
+          cp tools/profile-content-channel/windows/Complete-OrdaXProfileContentTrust.ps1 "$out/"
+          cp docs/PROFILE-CONTENT-TRUST-CEREMONY.md "$out/"
+          cp docs/contracts/profile-content-trust-policy.json "$out/profile-content-trust-policy.json"
+
+      - name: Emit toolkit provenance
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+
+          root = pathlib.Path('out/profile-content-trust-toolkit')
+          def digest(name):
+              return hashlib.sha256((root / name).read_bytes()).hexdigest()
+
+          policy = json.loads(
+              pathlib.Path('docs/contracts/profile-content-trust-policy.json').read_text(encoding='utf-8')
+          )
+          prerequisites = {
+              'trust_policy_fail_closed': (
+                  policy.get('$schema') == 'prototype-ordax.profile-content-trust-policy/1'
+                  and policy.get('key_id') == 'ordax-profile-content-v1'
+                  and policy.get('public_anchor', {}).get('pinned') is False
+                  and policy.get('current_gates', {}).get('canonical_profile_content_trust_anchor_pinned') is False
+                  and policy.get('current_gates', {}).get('profile_content_publish_allowed') is False
+                  and policy.get('current_gates', {}).get('profile_content_install_allowed') is False
+                  and policy.get('current_gates', {}).get('profile_content_activation_allowed') is False
+              ),
+              'external_custody_and_recovery_required': (
+                  policy.get('private_key', {}).get('repository_allowed') is False
+                  and policy.get('private_key', {}).get('device_allowed') is False
+                  and policy.get('private_key', {}).get('actions_artifact_allowed') is False
+                  and policy.get('private_key', {}).get('chat_allowed') is False
+                  and policy.get('private_key', {}).get('external_custody_required') is True
+                  and policy.get('private_key', {}).get('encrypted_recovery_copy_required') is True
+                  and policy.get('private_key', {}).get('recovery_proof_required_before_public_anchor_pin') is True
+              ),
+              'trust_domains_separate': (
+                  policy.get('separation', {}).get('whole_os_release_key_reuse_allowed') is False
+                  and policy.get('separation', {}).get('runtime_component_key_reuse_allowed') is False
+                  and policy.get('separation', {}).get('external_app_test_key_reuse_allowed') is False
+                  and policy.get('separation', {}).get('ci_ephemeral_key_may_be_canonical') is False
+              ),
+          }
+          canonical_main_push = (
+              os.environ['GITHUB_REPOSITORY'] == 'washingtonmsdj/prototipo-ordax-os'
+              and os.environ['GITHUB_EVENT_NAME'] == 'push'
+              and os.environ['GITHUB_REF'] == 'refs/heads/main'
+          )
+          data = {
+              '$schema': 'prototype-ordax.profile-content-trust-toolkit/1',
+              'status': 'candidate',
+              'source_commit': os.environ['GITHUB_SHA'],
+              'source_repository': os.environ['GITHUB_REPOSITORY'],
+              'source_ref': os.environ['GITHUB_REF'],
+              'source_event': os.environ['GITHUB_EVENT_NAME'],
+              'key_id': 'ordax-profile-content-v1',
+              'canonical_profile_content_trust_ceremony_eligible': (
+                  canonical_main_push and all(prerequisites.values())
+              ),
+              'canonical_profile_content_trust_prerequisites': prerequisites,
+              'go_version': subprocess.check_output(['go', 'version'], text=True).strip(),
+              'private_key_included': False,
+              'canonical_public_trust_included': False,
+              'key_generation_requires_local_user_action': True,
+              'whole_os_release_key_reuse_allowed': False,
+              'runtime_component_key_reuse_allowed': False,
+              'policy_sha256': digest('profile-content-trust-policy.json'),
+              'ceremony_doc_sha256': digest('PROFILE-CONTENT-TRUST-CEREMONY.md'),
+              'components': {
+                  'profile_content_signer': {
+                      'name': 'ordax-profile-content-channel.exe',
+                      'sha256': digest('ordax-profile-content-channel.exe'),
+                  },
+                  'trust_initializer': {
+                      'name': 'Initialize-OrdaXProfileContentTrust.ps1',
+                      'sha256': digest('Initialize-OrdaXProfileContentTrust.ps1'),
+                  },
+                  'trust_recovery_finalizer': {
+                      'name': 'Complete-OrdaXProfileContentTrust.ps1',
+                      'sha256': digest('Complete-OrdaXProfileContentTrust.ps1'),
+                  },
+              },
+          }
+          (root / 'provenance.json').write_text(
+              json.dumps(data, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          (
+            cd out/profile-content-trust-toolkit
+            sha256sum * > SHA256SUMS
+          )
+
+      - name: Assert toolkit is public-only and fail-closed
+        run: |
+          set -euo pipefail
+          out="$PWD/out/profile-content-trust-toolkit"
+          test -z "$(find "$out" -type f \( -iname '*.pem' -o -iname '*.key' -o -iname '*.p12' -o -iname '*.pfx' \) -print -quit)"
+          python3 - <<'PY'
+          import json, os, pathlib
+          root = pathlib.Path('out/profile-content-trust-toolkit')
+          provenance = json.loads((root / 'provenance.json').read_text(encoding='utf-8'))
+          assert provenance['private_key_included'] is False
+          assert provenance['canonical_public_trust_included'] is False
+          assert provenance['key_generation_requires_local_user_action'] is True
+          assert provenance['whole_os_release_key_reuse_allowed'] is False
+          assert provenance['runtime_component_key_reuse_allowed'] is False
+          prerequisites = provenance['canonical_profile_content_trust_prerequisites']
+          assert all(isinstance(value, bool) for value in prerequisites.values())
+          canonical_main_push = (
+              os.environ['GITHUB_REPOSITORY'] == 'washingtonmsdj/prototipo-ordax-os'
+              and os.environ['GITHUB_EVENT_NAME'] == 'push'
+              and os.environ['GITHUB_REF'] == 'refs/heads/main'
+          )
+          assert provenance['canonical_profile_content_trust_ceremony_eligible'] is (
+              canonical_main_push and all(prerequisites.values())
+          )
+          print('PROFILE_CONTENT_TRUST_TOOLKIT_SECRET_MATERIAL=NONE')
+          print('PROFILE_CONTENT_TRUST_TOOLKIT_CANONICAL_KEY_INCLUDED=NO')
+          print('PROFILE_CONTENT_TRUST_TOOLKIT_KEY_GENERATION_LOCAL_ONLY=YES')
+          PY
+
+      - name: Upload Profile content trust toolkit
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-profile-content-trust-toolkit-${{ github.sha }}
+          path: out/profile-content-trust-toolkit/
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-parse:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Parse Profile content trust PowerShell natively
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @(
+            'tools/profile-content-channel/windows/Initialize-OrdaXProfileContentTrust.ps1',
+            'tools/profile-content-channel/windows/Complete-OrdaXProfileContentTrust.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -ne 0) {
+              throw "PowerShell parse failed for ${path}: $($errors | Out-String)"
+            }
+          }
+          Write-Host 'PROFILE_CONTENT_TRUST_POWERSHELL_PARSE=PASS'
+
+
+  windows-protocol:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
+      - name: Prove Windows operator ceremony with disposable key
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'profile-content-windows-protocol'
+          $toolkit = Join-Path $root 'toolkit'
+          $private = Join-Path $root 'private\profile-content-private.pem'
+          $recoveryDir = Join-Path $root 'recovery'
+          $recovered = Join-Path $recoveryDir 'profile-content-private-restored.pem'
+          $review = Join-Path $root 'review'
+          New-Item -ItemType Directory -Force $toolkit | Out-Null
+
+          Push-Location tools/profile-content-channel
+          try {
+            $env:CGO_ENABLED = '0'
+            go build -trimpath -buildvcs=false -ldflags='-s -w' -o (Join-Path $toolkit 'ordax-profile-content-channel.exe') .
+            if ($LASTEXITCODE -ne 0) { throw 'Windows Profile content channel build failed.' }
+          } finally {
+            Pop-Location
+          }
+
+          Copy-Item tools/profile-content-channel/windows/Initialize-OrdaXProfileContentTrust.ps1 $toolkit
+          Copy-Item tools/profile-content-channel/windows/Complete-OrdaXProfileContentTrust.ps1 $toolkit
+          Copy-Item docs/PROFILE-CONTENT-TRUST-CEREMONY.md $toolkit
+          Copy-Item docs/contracts/profile-content-trust-policy.json (Join-Path $toolkit 'profile-content-trust-policy.json')
+
+          $signer = Join-Path $toolkit 'ordax-profile-content-channel.exe'
+          $initializer = Join-Path $toolkit 'Initialize-OrdaXProfileContentTrust.ps1'
+          $finalizer = Join-Path $toolkit 'Complete-OrdaXProfileContentTrust.ps1'
+          $policy = Join-Path $toolkit 'profile-content-trust-policy.json'
+          $ceremony = Join-Path $toolkit 'PROFILE-CONTENT-TRUST-CEREMONY.md'
+          $provenancePath = Join-Path $toolkit 'provenance.json'
+
+          $provenance = [ordered]@{
+            '$schema' = 'prototype-ordax.profile-content-trust-toolkit/1'
+            status = 'candidate'
+            source_commit = $env:GITHUB_SHA
+            source_repository = 'washingtonmsdj/prototipo-ordax-os'
+            source_ref = 'refs/heads/main'
+            source_event = 'push'
+            key_id = 'ordax-profile-content-v1'
+            canonical_profile_content_trust_ceremony_eligible = $true
+            canonical_profile_content_trust_prerequisites = [ordered]@{
+              trust_policy_fail_closed = $true
+              external_custody_and_recovery_required = $true
+              trust_domains_separate = $true
+            }
+            private_key_included = $false
+            canonical_public_trust_included = $false
+            key_generation_requires_local_user_action = $true
+            whole_os_release_key_reuse_allowed = $false
+            runtime_component_key_reuse_allowed = $false
+            policy_sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $policy).Hash.ToLowerInvariant()
+            ceremony_doc_sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ceremony).Hash.ToLowerInvariant()
+            components = [ordered]@{
+              profile_content_signer = [ordered]@{
+                name = 'ordax-profile-content-channel.exe'
+                sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $signer).Hash.ToLowerInvariant()
+              }
+              trust_initializer = [ordered]@{
+                name = 'Initialize-OrdaXProfileContentTrust.ps1'
+                sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $initializer).Hash.ToLowerInvariant()
+              }
+              trust_recovery_finalizer = [ordered]@{
+                name = 'Complete-OrdaXProfileContentTrust.ps1'
+                sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $finalizer).Hash.ToLowerInvariant()
+              }
+            }
+          }
+          $provenance | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $provenancePath -Encoding utf8NoBOM
+
+          & $initializer -PreflightOnly -ToolkitProvenancePath $provenancePath
+          if ($LASTEXITCODE -ne 0) { throw 'Profile content trust preflight failed.' }
+
+          & $initializer -GenerateKey -PrivateKeyPath $private -ReviewDirectory $review -ToolkitProvenancePath $provenancePath
+          if ($LASTEXITCODE -ne 0) { throw 'Profile content trust initialization failed.' }
+
+          New-Item -ItemType Directory -Force $recoveryDir | Out-Null
+          Copy-Item -LiteralPath $private -Destination $recovered
+
+          & $finalizer -RecoveredPrivateKeyPath $recovered -PrimaryPrivateKeyPath $private -ReviewDirectory $review -ToolkitProvenancePath $provenancePath
+          if ($LASTEXITCODE -ne 0) { throw 'Profile content trust recovery proof failed.' }
+
+          $handoff = Join-Path $review 'OrdaX-Profile-Content-Public-Trust-Handoff.zip'
+          if (-not (Test-Path -LiteralPath $handoff -PathType Leaf)) {
+            throw 'Public Profile content trust handoff was not created.'
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead($handoff)
+          try {
+            $names = @($archive.Entries | ForEach-Object { $_.FullName } | Sort-Object)
+          } finally {
+            $archive.Dispose()
+          }
+          $expected = @(
+            'ceremony-public-evidence.json',
+            'profile-content-ed25519.json',
+            'profile-content-trust-proof-manifest.json',
+            'profile-content-trust-proof-recovery-envelope.json',
+            'profile-content-trust-proof.pack'
+          ) | Sort-Object
+          if (($names -join '|') -ne ($expected -join '|')) {
+            throw "Public handoff entries are unexpected: $($names -join ',')"
+          }
+          if ($names -match '(?i)(private|secret|seed)|\.(pem|key|p12|pfx)$') {
+            throw 'Public handoff contains secret-looking material.'
+          }
+
+          Remove-Item -LiteralPath $root -Recurse -Force
+          Write-Host 'PROFILE_CONTENT_WINDOWS_OPERATOR_PROTOCOL=PASS'
+          Write-Host 'PROFILE_CONTENT_WINDOWS_CANONICAL_KEY_CREATED=NO'
+          Write-Host 'PROFILE_CONTENT_WINDOWS_PUBLIC_HANDOFF_SECRET_MATERIAL=NO'
