@@ -101,6 +101,11 @@ class RuntimeComputedLoaderTargetTests(unittest.TestCase):
         self.assertFalse(result["gates"]["dynamic_load_inventory_complete"])
         self.assertFalse(result["gates"]["execution_authorized"])
 
+    def test_ntdll_so_name_control_source_models_all_internal_callers(self):
+        contract = MODULE.load_contract()
+        rule = next(item for item in contract["rules"] if item["id"] == "ntdll-so-name")
+        self.assertEqual(rule["control_source"], "ntdll-internal-dlopen-dll-callers")
+
     def test_rejects_unknown_runtime_expression_even_with_valid_digest(self):
         proof = self.fixture()
         proof["callsites"][0]["target"]["expression"] = "unknown_runtime_value"
