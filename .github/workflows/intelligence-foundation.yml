@@ -23,6 +23,7 @@ on:
       - 'system/contracts/intelligence-tool.mjs'
       - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
+      - 'system/contracts/space-selection.mjs'
       - 'system/profile-packs/**'
       - 'system/services/intelligence/**'
       - 'system/services/local-ai/**'
@@ -98,6 +99,10 @@ on:
       - 'tests/test_profile_content_proof.mjs'
       - 'system/contracts/profile-content-pack.mjs'
       - 'tests/test_profile_content_pack.mjs'
+      - 'tests/test_profile_content_intelligence.mjs'
+      - 'tests/test_native_profile_content_context_contract.py'
+      - 'system/adapters/native/profile-content-context-capability.mjs'
+      - 'system/contracts/profile-content-context-capability.mjs'
       - 'system/surface/runtime/native_profile_provisioning_executor.py'
       - 'tests/test_native_profile_provisioning_executor.py'
       - 'docs/contracts/profile-activation-state.json'
@@ -348,6 +353,8 @@ jobs:
           node --test tests/test_profile_install_receipt.mjs
           node --test tests/test_profile_content_proof.mjs
           node --test tests/test_profile_content_pack.mjs
+          node --test tests/test_profile_content_intelligence.mjs
+          python -m unittest tests.test_native_profile_content_context_contract -v
           node --test tests/test_profile_activation_state.mjs
           node --test tests/test_profile_activation_state_adapters.mjs
           node --test tests/test_profile_provisioning_runtime.mjs

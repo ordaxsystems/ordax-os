@@ -52,6 +52,11 @@
       "security_boundary": "consultative-provider-neutral-no-implicit-authority"
     },
     {
+      "id": "profile.content-context",
+      "owner": "system/adapters/native",
+      "security_boundary": "read-only-owner-development-profile-context-availability"
+    },
+    {
       "id": "browser.web-content",
       "owner": "system/adapters",
       "security_boundary": "isolated-unprivileged-web-content"

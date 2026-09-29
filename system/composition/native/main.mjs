@@ -25,6 +25,8 @@ import { createNativeLocalSession } from "../../adapters/native/local-session.mj
 import { createNativeMemoryStore } from "../../adapters/native/memory.mjs";
 import { createNativeProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
 import { createNativeProfileActivationState } from "../../adapters/native/profile-activation-state.mjs";
+import { createNativeProfileContentContext } from "../../adapters/native/profile-content-context.mjs";
+import { readNativeProfileContentContextCapability } from "../../adapters/native/profile-content-context-capability.mjs";
 import { createNativeSpaceSelectionStore } from "../../adapters/native/space-selection.mjs";
 import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
@@ -56,6 +58,7 @@ import { createUpdateNotificationBridge } from "../../services/notifications/upd
 import { createDiagnosticJournalRuntime } from "../../services/diagnostics/runtime.mjs";
 import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
+import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
@@ -156,6 +159,10 @@ async function start() {
       () => createNativeProfileActivationState(window),
     ),
     optionalNativeProbe(
+      "OrdaX Profile content context capability unavailable",
+      () => readNativeProfileContentContextCapability(window),
+    ),
+    optionalNativeProbe(
       "OrdaX native notes persistence unavailable",
       () => createNativeNotesStore(window),
     ),
@@ -217,6 +224,7 @@ async function start() {
     syncCheckpointStore,
     componentStateStore,
     profileActivationState,
+    profileContentContextCapability,
     notesStore,
     powerActions,
     fileSpace,
@@ -298,6 +306,13 @@ async function start() {
     spaces,
     store: createNativeSpaceSelectionStore(window),
   });
+  const consumerIntelligence = profileContentContextCapability?.available === true
+    ? createSelectedSpaceProfileContentIntelligence({
+        intelligencePort: intelligence,
+        profileContentContextPort: createNativeProfileContentContext(window),
+        spaceSelectionPort: spaceSelection,
+      })
+    : intelligence;
   const profileComponentInventory = await optionalNativeProbe(
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
@@ -383,6 +398,7 @@ async function start() {
   const keyboardLayoutAvailable = keyboardLayout !== null;
   const browserWebContentAvailable = browserSession.getSnapshot().supported;
   const intelligenceSystemAvailable = true;
+  const profileContentContextAvailable = profileContentContextCapability?.available === true;
   const localSessionAvailable = localSession !== null;
   const readIdentityAvailable = () => identitySession.getSnapshot().state !== "unavailable";
   const host = createNativeSurfaceHost(window, {
@@ -395,6 +411,7 @@ async function start() {
     keyboardLayoutAvailable,
     browserWebContentAvailable,
     intelligenceSystemAvailable,
+    profileContentContextAvailable,
     localSessionAvailable,
     readAccountIdentityAvailable: readIdentityAvailable,
     readSyncSafeStateAvailable: readIdentityAvailable,
@@ -558,7 +575,7 @@ async function start() {
     appActivation,
     diagnosticReviewController,
     componentManager,
-    intelligence,
+    consumerIntelligence,
     recoveryStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
@@ -599,7 +616,7 @@ async function start() {
       surfaceLifecycle: surface,
       fileSpace,
       appActivation,
-      intelligence,
+      intelligence: consumerIntelligence,
     },
     onError(error) {
       reportClientDiagnostic("notes-runtime", error);
