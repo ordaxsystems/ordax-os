@@ -1,0 +1,160 @@
+name: Windows Compatibility Runtime Computed Source Authority
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/runtime-computed-loader-targets.json'
+      - 'bootstrap/windows-compat-runtime/runtime_computed_loader_target_classifier.py'
+      - 'bootstrap/windows-compat-runtime/runtime-computed-loader-source-authority.json'
+      - 'bootstrap/windows-compat-runtime/runtime_computed_loader_source_authority_probe.py'
+      - 'bootstrap/windows-compat-runtime/runtime-dynamic-load-discovery.json'
+      - 'bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py'
+      - 'bootstrap/windows-compat-runtime/source.json'
+      - 'bootstrap/windows-compat-runtime/build.py'
+      - 'tests/test_windows_compat_runtime_computed_loader_targets.py'
+      - 'tests/test_windows_compat_runtime_computed_source_authority.py'
+      - '.github/workflows/windows-compat-runtime-computed-source-authority.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/windows-compat-runtime/runtime-computed-loader-targets.json'
+      - 'bootstrap/windows-compat-runtime/runtime_computed_loader_target_classifier.py'
+      - 'bootstrap/windows-compat-runtime/runtime-computed-loader-source-authority.json'
+      - 'bootstrap/windows-compat-runtime/runtime_computed_loader_source_authority_probe.py'
+      - 'bootstrap/windows-compat-runtime/runtime-dynamic-load-discovery.json'
+      - 'bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py'
+      - 'bootstrap/windows-compat-runtime/source.json'
+      - 'bootstrap/windows-compat-runtime/build.py'
+      - 'tests/test_windows_compat_runtime_computed_loader_targets.py'
+      - 'tests/test_windows_compat_runtime_computed_source_authority.py'
+      - '.github/workflows/windows-compat-runtime-computed-source-authority.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-authority:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate computed source authority contracts
+        run: |
+          set -euo pipefail
+          python bootstrap/windows-compat-runtime/build.py check
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_computed_loader_target_classifier.py check
+          python bootstrap/windows-compat-runtime/runtime_computed_loader_source_authority_probe.py check
+
+      - name: Run fail-closed regressions
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_windows_compat_runtime_computed_loader_targets -v
+          python -m unittest tests.test_windows_compat_runtime_computed_source_authority -v
+
+      - name: Recompute exact Wine source chain and prove control-source semantics
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-runtime-computed-source-authority"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
+
+          python bootstrap/windows-compat-runtime/build.py fetch-source \
+            --cache-dir "$tmp/cache" \
+            --proof-out "$proof_dir/source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py discover \
+            --archive "$tmp/cache/wine-11.0.tar.xz" \
+            --source-proof "$proof_dir/source-proof.json" \
+            --out "$proof_dir/runtime-dynamic-load-source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_computed_loader_target_classifier.py classify \
+            --dynamic-source-proof "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            --out "$proof_dir/runtime-computed-loader-target-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_computed_loader_source_authority_probe.py verify \
+            --source-archive "$tmp/cache/wine-11.0.tar.xz" \
+            --source-proof "$proof_dir/source-proof.json" \
+            --dynamic-source-proof "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            --computed-classification-proof "$proof_dir/runtime-computed-loader-target-proof.json" \
+            --out "$proof_dir/runtime-computed-loader-source-authority-proof.json"
+
+          python - <<'PY' "$proof_dir/runtime-computed-loader-source-authority-proof.json"
+          import json
+          import pathlib
+          import re
+          import sys
+
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert proof['$schema'] == 'prototype-ordax.windows-compat-runtime-computed-loader-source-authority-proof/1'
+          assert proof['status'] == 'computed-loader-control-source-semantics-proven-targets-not-resolved'
+          assert proof['source_archive_sha256'] == 'c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701'
+          assert re.fullmatch(r'[0-9a-f]{64}', proof['dynamic_source_inventory_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', proof['computed_classification_evidence_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', proof['authority_rules_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', proof['source_member_manifest_sha256'])
+          assert re.fullmatch(r'[0-9a-f]{64}', proof['evidence_sha256'])
+          assert proof['counts']['authority_rules'] == 10
+          assert proof['counts']['source_members'] == 7
+          assert len(proof['counts']['control_sources']) == 10
+          assert all(value == 1 for value in proof['counts']['control_sources'].values())
+          assert len(proof['rules']) == 10
+          assert all(item['direct_dlopen_reobserved'] is True for item in proof['rules'])
+          assert all(item['semantic_fragments'] for item in proof['rules'])
+
+          gates = proof['gates']
+          for gate in (
+              'source_archive_verified',
+              'dynamic_source_recomputed',
+              'computed_classification_recomputed',
+              'all_computed_control_sources_source_verified',
+              'caller_provided_control_source_verified',
+              'environment_override_control_source_verified',
+              'plugin_control_source_verified',
+              'ntdll_internal_control_source_verified',
+              'ntdll_bootstrap_control_source_verified',
+          ):
+              assert gates[gate] is True, gate
+          for gate in (
+              'caller_provided_library_policy_complete',
+              'environment_override_resolution_complete',
+              'plugin_module_resolution_complete',
+              'ntdll_internal_path_resolution_complete',
+              'ntdll_bootstrap_path_resolution_complete',
+              'runtime_computed_target_resolution_complete',
+              'wrapper_call_graph_complete',
+              'generated_source_inventory_complete',
+              'dynamic_load_inventory_complete',
+              'external_transitive_closure_verified',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert gates[gate] is False, gate
+          print('computed source authority:', proof['evidence_sha256'])
+          print('authority rules:', proof['counts']['authority_rules'])
+          print('source members:', proof['counts']['source_members'])
+          PY
+
+      - name: Upload source authority metadata only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-runtime-computed-source-authority-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/windows-compat-runtime-computed-source-authority/source-proof.json
+            ${{ runner.temp }}/windows-compat-runtime-computed-source-authority/runtime-dynamic-load-source-proof.json
+            ${{ runner.temp }}/windows-compat-runtime-computed-source-authority/runtime-computed-loader-target-proof.json
+            ${{ runner.temp }}/windows-compat-runtime-computed-source-authority/runtime-computed-loader-source-authority-proof.json
+          if-no-files-found: error
