@@ -56,6 +56,13 @@ def load_json(path: Path, label: str) -> dict:
     return value
 
 
+def validated_source() -> dict:
+    try:
+        return CONFIGURE.SOURCE.validate_source(CONFIGURE.SOURCE.load_source())
+    except CONFIGURE.SOURCE.RuntimeSourceError as exc:
+        raise PackageLockError(f"runtime source contract is invalid: {exc}") from exc
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -77,16 +84,29 @@ def validate_package_map(value: object, label: str) -> dict[str, str]:
     return normalized
 
 
+def declared_build_packages(environment: dict) -> tuple[str, ...]:
+    packages = tuple(environment["base_build_packages"] + environment["wine_build_packages"])
+    if not packages or len(set(packages)) != len(packages):
+        raise PackageLockError("declared build package set is invalid")
+    return packages
+
+
 def validate_configure_proof(proof: dict) -> dict:
     if proof.get("$schema") != "prototype-ordax.windows-compat-configure-proof/1":
         raise PackageLockError("unexpected configure proof schema")
     if proof.get("configure_proof_passed") is not True:
         raise PackageLockError("configure proof is not successful")
-    for key in ("package_versions_pinned", "full_build_proof_passed", "binary_artifact_pinned", "activation_authorized", "execution_authorized"):
+    for key in (
+        "package_versions_pinned",
+        "full_build_proof_passed",
+        "binary_artifact_pinned",
+        "activation_authorized",
+        "execution_authorized",
+    ):
         if proof.get(key) is not False:
             raise PackageLockError(f"configure proof overclaims readiness: {key}")
 
-    source = load_json(SOURCE_FILE, "runtime source")
+    source = validated_source()
     environment = CONFIGURE.validate_environment(load_json(ENVIRONMENT_FILE, "build environment"))
     if proof.get("runtime_id") != source.get("runtime_id") or proof.get("wine_version") != source.get("version"):
         raise PackageLockError("configure proof runtime identity drifted")
@@ -95,7 +115,15 @@ def validate_configure_proof(proof: dict) -> dict:
 
     requested = validate_package_map(proof.get("resolved_build_packages"), "resolved_build_packages")
     installed = validate_package_map(proof.get("resolved_installed_packages"), "resolved_installed_packages")
-    for name, version in requested.items():
+    declared = declared_build_packages(environment)
+    if set(requested) != set(declared):
+        missing = sorted(set(declared) - set(requested))
+        unexpected = sorted(set(requested) - set(declared))
+        raise PackageLockError(
+            f"configure proof build package set diverged from declaration: missing={missing} unexpected={unexpected}"
+        )
+    for name in declared:
+        version = requested[name]
         if installed.get(name) != version:
             raise PackageLockError(f"requested package identity not present in installed graph: {name}")
     return proof
@@ -185,13 +213,24 @@ def package_set_digest(records: list[dict]) -> str:
     return digest.hexdigest()
 
 
-def build_candidate_manifest(configure_proof: dict, pristine: dict[str, str], changed: dict[str, str], archives: list[dict], proof_sha256: str) -> dict:
-    source = load_json(SOURCE_FILE, "runtime source")
+def build_candidate_manifest(
+    configure_proof: dict,
+    pristine: dict[str, str],
+    changed: dict[str, str],
+    archives: list[dict],
+    proof_sha256: str,
+) -> dict:
+    source = validated_source()
     if len(archives) != len(changed):
         raise PackageLockError("archive count does not match changed package graph")
+    archive_identities = {(record.get("name"), record.get("version")) for record in archives}
+    if archive_identities != set(changed.items()):
+        raise PackageLockError("archive identities do not match changed package graph")
     for record in archives:
         if not SHA256_RE.fullmatch(record.get("sha256", "")):
             raise PackageLockError("invalid APK digest in candidate lock")
+        if not isinstance(record.get("size_bytes"), int) or record["size_bytes"] <= 0:
+            raise PackageLockError("invalid APK size in candidate lock")
     return {
         "$schema": "prototype-ordax.windows-compat-build-input-lock-candidate/1",
         "status": "candidate-not-committed-not-build-authorized",
@@ -249,7 +288,7 @@ def main() -> int:
     args = parser.parse_args()
 
     CONFIGURE.validate_environment(load_json(ENVIRONMENT_FILE, "build environment"))
-    source = load_json(SOURCE_FILE, "runtime source")
+    source = validated_source()
     if source.get("build_intent", {}).get("binary_artifact_pinned") is not False:
         raise PackageLockError("source contract already claims a binary artifact")
     if args.command == "check":
