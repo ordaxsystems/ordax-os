@@ -1,13 +1,14 @@
 -- Operator-only temporary entitlement for the authenticated two-client cloud Memory proof.
 -- This migration creates authority; it does NOT issue a grant.
 -- The functions are intentionally unreachable by public/anon/authenticated/service_role.
+-- Audit UUIDs are evidence only: no FK may let proof history block account/grant deletion.
 
 begin;
 
 create table if not exists private.ordax_cloud_memory_proof_entitlement_events (
   event_id uuid primary key default gen_random_uuid(),
-  grant_id uuid not null references public.ordax_entitlement_grants(grant_id) on delete restrict,
-  user_id uuid not null references auth.users(id) on delete cascade,
+  grant_id uuid not null,
+  user_id uuid not null,
   action text not null check (action in ('issued', 'revoked')),
   valid_until timestamptz not null,
   reason text not null check (char_length(reason) between 8 and 240),
