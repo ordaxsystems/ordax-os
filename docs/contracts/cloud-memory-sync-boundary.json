@@ -104,6 +104,20 @@
         "service_role": false
       },
       "deployment_verified_date": "2026-09-29"
+    },
+    "operator_proof_runner": {
+      "status": "source-ready-not-executed",
+      "path": "tools/cloud-memory/run_operator_authenticated_proof.py",
+      "issue_then_proof_then_revoke": true,
+      "revoke_in_finally": true,
+      "service_role_allowed": false,
+      "postgres_operator_access_required": true,
+      "pg_tls_required": true,
+      "account_subject_resolved_by_authenticated_login": true,
+      "bootstrap_session_signed_out_before_two_client_proof": true,
+      "entitlement_ttl_seconds_min": 300,
+      "entitlement_ttl_seconds_max": 1800,
+      "backend_mutation_on_source_merge": false
     }
   }
 }
