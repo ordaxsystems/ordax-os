@@ -48,6 +48,11 @@ interface IFoo {}
         self.assertTrue(all(value is False for value in contract["promotion"].values()))
         self.assertEqual(len(contract["trigger_semantics"]["producer_ids"]), 9)
 
+    def test_root_and_nested_makefiles_are_both_in_scope(self):
+        self.assertTrue(MODULE.is_makefile_member("Makefile.in"))
+        self.assertTrue(MODULE.is_makefile_member("dlls/foo/Makefile.in"))
+        self.assertFalse(MODULE.is_makefile_member("dlls/foo/Other.in"))
+
     def test_recursive_known_make_expansion_is_supported(self):
         variables = MODULE.parse_make_variables("BASE = a.idl b.y\nMORE = $(BASE) c.l\nSOURCES = $(MORE) d.xml\n")
         self.assertEqual(MODULE.split_make_tokens(MODULE.expand_make_value("SOURCES", variables), "SOURCES"), ["a.idl", "b.y", "c.l", "d.xml"])
