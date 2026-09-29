@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""Fail closed when musl's first pathname hit would not be loadable.
+
+The runtime dependency probe models search directories. This guard enforces the
+next loader invariant: once a SONAME pathname exists in the first searched
+directory, the loader does not get to skip that object merely because a later
+path contains a compatible ELF. Non-ELF, wrong-identity, broken/escaping symlink
+and cross-scope first hits therefore fail the proof before dependency inventory.
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import json
+from pathlib import Path, PurePosixPath
+import sys
+
+HERE = Path(__file__).resolve().parent
+PROBE_PATH = HERE / "runtime_dependency_probe.py"
+PROOF_SCHEMA = "prototype-ordax.windows-compat-runtime-first-hit-proof/1"
+
+
+class FirstHitGuardError(RuntimeError):
+    pass
+
+
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise FirstHitGuardError(f"cannot load module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+PROBE = load_module("ordax_windows_compat_runtime_dependency_probe_for_first_hit", PROBE_PATH)
+
+
+def load_contract() -> dict:
+    contract = PROBE.load_contract()
+    inspection = contract.get("inspection", {})
+    if inspection.get("first_pathname_hit_validation_required") is not True:
+        raise FirstHitGuardError("runtime dependency contract does not require first-pathname-hit validation")
+    if inspection.get("first_pathname_hit_proof_required") is not True:
+        raise FirstHitGuardError("runtime dependency contract does not require durable first-hit proof")
+    return contract
+
+
+def _safe_relative_candidate(directory: str, soname: str) -> PurePosixPath:
+    relative = PurePosixPath(directory) / soname
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise FirstHitGuardError(f"unsafe loader candidate path: {relative}")
+    return relative
+
+
+def direct_loader_hit(root: Path, directory: str, soname: str) -> dict | None:
+    root = root.resolve()
+    relative = _safe_relative_candidate(directory, soname)
+    candidate = root.joinpath(*relative.parts)
+    if not (candidate.exists() or candidate.is_symlink()):
+        return None
+    try:
+        canonical = PROBE.resolve_rooted_path(root, candidate)
+        elf = PROBE.parse_elf_dynamic(root / canonical)
+    except (PROBE.RuntimeDependencyError, OSError) as exc:
+        raise FirstHitGuardError(f"invalid first loader pathname /{relative}: {exc}") from exc
+    return {
+        "path": relative.as_posix(),
+        "canonical_path": canonical,
+        "elf": elf,
+    }
+
+
+def resolve_first_pathname_hit(
+    stage: Path,
+    rootfs: Path,
+    soname: str,
+    consumer: dict,
+    consumer_relative: str,
+) -> tuple[dict | None, list[dict]]:
+    search = PROBE.loader_search_directories(consumer_relative, consumer, rootfs)
+    expected_identity = PROBE.elf_identity(consumer)
+    for position, item in enumerate(search):
+        directory = item["directory"]
+        staged = direct_loader_hit(stage, directory, soname)
+        external = direct_loader_hit(rootfs, directory, soname)
+        if staged is not None and external is not None:
+            raise FirstHitGuardError(
+                f"cross-scope first pathname collision for {soname} at /{directory}: "
+                f"stage={staged['path']} rootfs={external['path']}"
+            )
+        hit = staged if staged is not None else external
+        if hit is None:
+            continue
+        if hit["elf"] is None:
+            raise FirstHitGuardError(f"non-ELF first pathname hit for {soname} at /{hit['path']}")
+        actual_identity = PROBE.elf_identity(hit["elf"])
+        if actual_identity != expected_identity:
+            raise FirstHitGuardError(
+                f"incompatible ELF identity at first pathname hit for {soname}: "
+                f"consumer=ELF{expected_identity[0]}/machine={expected_identity[1]}/{expected_identity[2]} "
+                f"candidate=ELF{actual_identity[0]}/machine={actual_identity[1]}/{actual_identity[2]} "
+                f"path=/{hit['path']}"
+            )
+        return {
+            **hit,
+            "scope": "stage-internal" if staged is not None else "rootfs-external",
+            "search_directory": "/" + directory,
+            "search_source": item["source"],
+            "search_position": position,
+        }, search
+    return None, search
+
+
+def verify(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
+    contract = load_contract()
+    if full_build_proof.get("$schema") != contract["input"]["full_build_proof_schema"]:
+        raise FirstHitGuardError("unexpected full build proof schema")
+    if full_build_proof.get("runtime_id") != contract.get("runtime_id"):
+        raise FirstHitGuardError("runtime identity drifted")
+    gates = full_build_proof.get("gates", {})
+    if gates.get("full_build_proof_passed") is not True or gates.get("staged_install_completed") is not True:
+        raise FirstHitGuardError("first-hit validation requires a proven staged full build")
+    forbidden = (
+        "runtime_dependency_inventory_complete",
+        "binary_artifact_pinned",
+        "activation_authorized",
+        "execution_authorized",
+        "windows_payload_executed",
+        "wine_executed",
+    )
+    if any(gates.get(key) is not False for key in forbidden):
+        raise FirstHitGuardError("full build proof crossed a forbidden promotion/execution boundary")
+    if not stage.is_dir() or not rootfs.is_dir():
+        raise FirstHitGuardError("staged tree or locked rootfs is missing")
+
+    stage_manifest_sha256 = PROBE.verify_stage_binding(stage, full_build_proof)
+    dependencies = stage_hits = rootfs_hits = 0
+    for path in sorted(stage.rglob("*")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        elf = PROBE.parse_elf_dynamic(path)
+        if elf is None:
+            continue
+        relative = PROBE.safe_relative(stage, path)
+        for soname in elf["dt_needed"]:
+            dependencies += 1
+            hit, search = resolve_first_pathname_hit(stage, rootfs, soname, elf, relative)
+            if hit is None:
+                raise FirstHitGuardError(
+                    f"no pathname hit for {soname} required by {relative}; search={search}"
+                )
+            if hit["scope"] == "stage-internal":
+                stage_hits += 1
+            else:
+                rootfs_hits += 1
+    if dependencies == 0:
+        raise FirstHitGuardError("staged Wine tree produced no direct ELF dependencies")
+
+    core = {
+        "runtime_id": full_build_proof["runtime_id"],
+        "staging_manifest_sha256": stage_manifest_sha256,
+        "counts": {
+            "dependencies_checked": dependencies,
+            "stage_hits": stage_hits,
+            "rootfs_hits": rootfs_hits,
+        },
+    }
+    return {
+        "$schema": PROOF_SCHEMA,
+        "status": "first-pathname-hit-verified-not-runtime-promoted",
+        **core,
+        "validation_sha256": PROBE.canonical_sha256(core),
+        "gates": {
+            "full_build_proof_verified": True,
+            "staging_manifest_verified": True,
+            "first_pathname_hit_verified": True,
+            "runtime_dependency_inventory_complete": False,
+            "binary_artifact_pinned": False,
+            "activation_authorized": False,
+            "execution_authorized": False,
+            "wine_executed": False,
+            "windows_payload_executed": False,
+        },
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command", choices=["check", "verify"])
+    parser.add_argument("--stage-dir", type=Path)
+    parser.add_argument("--rootfs", type=Path)
+    parser.add_argument("--full-build-proof", type=Path)
+    parser.add_argument("--out", type=Path)
+    args = parser.parse_args()
+    load_contract()
+    if args.command == "check":
+        print("windows compatibility runtime dependency first-hit guard: PASS")
+        return 0
+    if not all((args.stage_dir, args.rootfs, args.full_build_proof, args.out)):
+        raise FirstHitGuardError("verify requires --stage-dir, --rootfs, --full-build-proof and --out")
+    try:
+        proof = json.loads(args.full_build_proof.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise FirstHitGuardError(f"cannot load full build proof: {exc}") from exc
+    result = verify(args.stage_dir.resolve(), args.rootfs.resolve(), proof)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print("windows compatibility runtime dependency first-hit validation: PASS")
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (FirstHitGuardError, PROBE.RuntimeDependencyError) as exc:
+        print(f"windows-compat-runtime-first-hit: {exc}", file=sys.stderr)
+        raise SystemExit(2)
