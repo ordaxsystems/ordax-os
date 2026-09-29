@@ -10,7 +10,9 @@ import { createProfileContentIntelligence } from "../system/services/intelligenc
 import {
   INTELLIGENCE_PORT_SCHEMA,
   INTELLIGENCE_RESPONSE_SCHEMA,
+  assertIntelligencePort,
 } from "../system/contracts/intelligence.mjs";
+import { summarizeDocumentWithIntelligence } from "../system/services/intelligence/client-actions.mjs";
 
 function response(body, ok = true, status = 200) {
   return { ok, status, async json() { return body; } };
@@ -116,7 +118,9 @@ test("Profile content bridge appends verified context without replacing consumer
     intelligencePort: intelligence,
     profileContentContextPort,
   });
-  await bridge.respond({
+  const bound = bridge.forSpace("space-dev");
+  assert.equal(assertIntelligencePort(bound), bound);
+  await bound.respond({
     intent: "explain",
     prompt: "Explique",
     context: [{
@@ -125,7 +129,7 @@ test("Profile content bridge appends verified context without replacing consumer
       text: "Contexto do documento",
       provenance: "user-document",
     }],
-  }, { spaceId: "space-dev" });
+  });
 
   assert.equal(intelligence.requests.length, 1);
   assert.equal(intelligence.requests[0].context.length, 2);
@@ -150,4 +154,32 @@ test("Profile content bridge never infers a Space implicitly", async () => {
   );
   assert.equal(reads, 0);
   assert.equal(intelligence.requests.length, 0);
+});
+
+test("Space-bound Profile Intelligence works with existing client actions", async () => {
+  const intelligence = intelligencePort();
+  const profileContentContextPort = {
+    schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+    async read(spaceId) {
+      return validateProfileContentContext(context(spaceId, [{
+        id: "profile.123456789abc.dev.note",
+        scope: "workspace",
+        text: "Contexto profissional adicional.",
+        provenance: "profile-content:knowledge-pack:knowledge.dev@1.0.0:dev.note;revision=1",
+      }]));
+    },
+  };
+  const bound = createProfileContentIntelligence({
+    intelligencePort: intelligence,
+    profileContentContextPort,
+  }).forSpace("space-dev");
+
+  await summarizeDocumentWithIntelligence(bound, {
+    id: "doc-1",
+    title: "Documento",
+    text: "Conteúdo principal.",
+    provenance: "user-document",
+  });
+  assert.equal(intelligence.requests[0].context[0].id, "doc-1");
+  assert.match(intelligence.requests[0].context[1].provenance, /^profile-content:/);
 });
