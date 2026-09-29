@@ -9,8 +9,13 @@ import { MEMORY_PORT_SCHEMA } from "../system/contracts/memory.mjs";
 import {
   AUTHORIZED_MEMORY_INTELLIGENCE_SCHEMA,
   createAuthorizedMemoryIntelligence,
+  createIdentityBoundMemoryIntelligence,
   createSelectedSpaceMemoryIntelligence,
 } from "../system/services/intelligence/authorized-memory.mjs";
+import {
+  IDENTITY_SESSION_SCHEMA,
+  validateIdentitySessionSnapshot,
+} from "../system/contracts/identity-session.mjs";
 import {
   SPACE_SELECTION_SCHEMA,
   validateSpaceSelectionSnapshot,
@@ -54,6 +59,16 @@ function memoryPort(items = [memoryItem()]) {
     remember() { return true; },
     forget() { return false; },
     async flush() { return true; },
+  };
+}
+
+function identityPort(seed) {
+  let snapshot = validateIdentitySessionSnapshot(seed);
+  return {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot() { return snapshot; },
+    subscribe() { return () => {}; },
+    set(next) { snapshot = validateIdentitySessionSnapshot(next); },
   };
 }
 
@@ -363,5 +378,159 @@ test("selected Space memory bridge follows selection changes without stale autho
   assert.deepEqual(
     searches.map((entry) => [entry.ownerId, entry.spaceId]),
     [["user-1", "space-a"], ["user-1", "space-b"]],
+  );
+});
+
+
+test("identity-bound memory bridge combines device account and selected Space explicitly", async () => {
+  const searches = [];
+  const memory = {
+    schema: MEMORY_PORT_SCHEMA,
+    search(request) {
+      searches.push(request);
+      return [];
+    },
+    remember() { return true; },
+    forget() { return false; },
+    async flush() { return true; },
+  };
+  const identity = identityPort({
+    state: "signed-in",
+    subjectId: "user-1",
+    displayName: "User 1",
+  });
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "selected",
+    subjectId: "user-1",
+    selectedSpace: {
+      id: "space-a",
+      ownerId: "user-1",
+      name: "A",
+      kind: "professional",
+      state: "active",
+      profilePack: "developer",
+    },
+  });
+  const bridge = createIdentityBoundMemoryIntelligence({
+    intelligencePort: intelligencePort(),
+    memoryPort: memory,
+    identitySessionPort: identity,
+    spaceSelectionPort: selection,
+  });
+
+  await bridge.respond({ prompt: "contexto" });
+
+  assert.deepEqual(
+    searches.map((entry) => ({
+      ownerKind: entry.ownerKind,
+      ownerId: entry.ownerId,
+      scopes: entry.scopes,
+      spaceId: entry.spaceId,
+      includeRestricted: entry.includeRestricted,
+    })),
+    [
+      { ownerKind: "device", ownerId: null, scopes: ["device"], spaceId: null, includeRestricted: false },
+      { ownerKind: "account", ownerId: "user-1", scopes: ["account"], spaceId: null, includeRestricted: false },
+      { ownerKind: "account", ownerId: "user-1", scopes: ["space"], spaceId: "space-a", includeRestricted: false },
+    ],
+  );
+});
+
+test("identity-bound memory bridge keeps device memory available while signed out", async () => {
+  const memory = memoryPort([]);
+  const identity = identityPort({ state: "signed-out" });
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unavailable",
+    subjectId: null,
+    selectedSpace: null,
+  });
+  const bridge = createIdentityBoundMemoryIntelligence({
+    intelligencePort: intelligencePort(),
+    memoryPort: memory,
+    identitySessionPort: identity,
+    spaceSelectionPort: selection,
+  });
+
+  await bridge.respond({ prompt: "offline" });
+
+  assert.equal(memory.searches.length, 1);
+  assert.equal(memory.searches[0].ownerKind, "device");
+  assert.equal(memory.searches[0].ownerId, null);
+  assert.deepEqual(memory.searches[0].scopes, ["device"]);
+});
+
+test("identity-bound memory bridge rejects selected Space from another identity", async () => {
+  const memory = memoryPort([]);
+  const identity = identityPort({
+    state: "signed-in",
+    subjectId: "user-1",
+    displayName: "User 1",
+  });
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "selected",
+    subjectId: "user-2",
+    selectedSpace: {
+      id: "space-b",
+      ownerId: "user-2",
+      name: "B",
+      kind: "work",
+      state: "active",
+      profilePack: null,
+    },
+  });
+  const bridge = createIdentityBoundMemoryIntelligence({
+    intelligencePort: intelligencePort(),
+    memoryPort: memory,
+    identitySessionPort: identity,
+    spaceSelectionPort: selection,
+  });
+
+  await assert.rejects(
+    () => bridge.respond({ prompt: "não vaze" }),
+    /current authenticated identity/,
+  );
+  assert.equal(memory.searches.length, 0);
+});
+
+test("identity-bound memory bridge reevaluates account owner after sign-out", async () => {
+  const memory = memoryPort([]);
+  const identity = identityPort({
+    state: "signed-in",
+    subjectId: "user-1",
+    displayName: "User 1",
+  });
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unselected",
+    subjectId: "user-1",
+    selectedSpace: null,
+  });
+  const bridge = createIdentityBoundMemoryIntelligence({
+    intelligencePort: intelligencePort(),
+    memoryPort: memory,
+    identitySessionPort: identity,
+    spaceSelectionPort: selection,
+  });
+
+  await bridge.respond({ prompt: "signed in" });
+  identity.set({ state: "signed-out" });
+  selection.set({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unavailable",
+    subjectId: null,
+    selectedSpace: null,
+  });
+  await bridge.respond({ prompt: "signed out" });
+
+  assert.deepEqual(
+    memory.searches.map((entry) => [entry.ownerKind, entry.ownerId, entry.scopes[0]]),
+    [
+      ["device", null, "device"],
+      ["account", "user-1", "account"],
+      ["device", null, "device"],
+    ],
   );
 });
