@@ -339,6 +339,7 @@
 }
 
 .ordax-memory-review-toolbar input[type="search"],
+.ordax-memory-review-create textarea,
 .ordax-memory-review-content-label textarea {
   width: 100%;
   box-sizing: border-box;
@@ -354,6 +355,21 @@
   padding: 0 11px;
 }
 
+.ordax-memory-review-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.ordax-memory-review-create textarea {
+  min-height: 72px;
+  padding: 10px 11px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .ordax-memory-review-content-label textarea {
   min-height: 96px;
   margin-top: 7px;
@@ -363,6 +379,8 @@
 }
 
 .ordax-memory-review-toolbar input:focus-visible,
+.ordax-memory-review-create textarea:focus-visible,
+.ordax-memory-review-create-button:focus-visible,
 .ordax-memory-review-content-label textarea:focus-visible,
 .ordax-memory-review-owner:focus-visible,
 .ordax-memory-review-save:focus-visible,
@@ -381,6 +399,7 @@
 }
 
 .ordax-memory-review-owner,
+.ordax-memory-review-create-button,
 .ordax-memory-review-save,
 .ordax-memory-review-remove,
 .ordax-memory-review-page {
@@ -406,10 +425,12 @@
 }
 
 .ordax-memory-review-owner:disabled,
+.ordax-memory-review-create-button:disabled,
 .ordax-memory-review-save:disabled,
 .ordax-memory-review-remove:disabled,
 .ordax-memory-review-page:disabled,
 .ordax-memory-review-toolbar input:disabled,
+.ordax-memory-review-create textarea:disabled,
 .ordax-memory-review-content-label textarea:disabled {
   opacity: 0.48;
   cursor: not-allowed;
@@ -472,6 +493,10 @@
 }
 
 @media (max-width: 760px) {
+  .ordax-memory-review-create {
+    grid-template-columns: 1fr;
+  }
+
   .ordax-memory-review-actions,
   .ordax-memory-review-pagination {
     justify-content: stretch;
