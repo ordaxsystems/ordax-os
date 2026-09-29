@@ -13,6 +13,7 @@ on:
       - 'tests/test_windows_compat_runtime_dependency_closure.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_guard.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_evidence.py'
+      - 'tests/test_windows_compat_runtime_configured_soname_staged_callers.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
   push:
     branches: [main]
@@ -27,6 +28,7 @@ on:
       - 'tests/test_windows_compat_runtime_dependency_closure.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_guard.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_evidence.py'
+      - 'tests/test_windows_compat_runtime_configured_soname_staged_callers.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
 
 permissions:
@@ -67,6 +69,7 @@ jobs:
           python bootstrap/windows-compat-runtime/runtime_dependency_closure_probe.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_closure_loader_guard.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_closure_evidence_finalize.py check
+          python bootstrap/windows-compat-runtime/runtime_configured_soname_staged_caller_probe.py check
           python -m unittest tests.test_windows_compat_build_version_lock -v
           python -m unittest tests.test_windows_compat_apk_content_lock -v
           python -m unittest tests.test_windows_compat_full_build_proof -v
@@ -78,8 +81,9 @@ jobs:
           python -m unittest tests.test_windows_compat_runtime_dependency_closure -v
           python -m unittest tests.test_windows_compat_runtime_dependency_closure_guard -v
           python -m unittest tests.test_windows_compat_runtime_dependency_closure_evidence -v
+          python -m unittest tests.test_windows_compat_runtime_configured_soname_staged_callers -v
 
-      - name: Reconstruct locked inputs, build Wine, and prove guarded DT_NEEDED closure without executing it
+      - name: Reconstruct locked inputs, build Wine, and prove guarded runtime metadata without executing it
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
@@ -111,6 +115,7 @@ jobs:
               'container_capabilities_dropped',
               'compiler_execution_reproven_inside_container',
               'configure_completed',
+              'generated_idl_header_barrier_completed',
               'full_build_proof_passed',
               'staged_install_completed',
           ):
@@ -132,6 +137,83 @@ jobs:
           print('staged entries:', staging['entry_count'])
           print('staged manifest:', staging['canonical_manifest_sha256'])
           PY
+
+          # Reuse the exact archive already downloaded by the full build. Recompute
+          # source callsites and caller-module evidence before binding source
+          # UNIXLIB identities to the actual staged ELF bytes.
+          python bootstrap/windows-compat-runtime/build.py fetch-source \
+            --cache-dir "$work/wine-source-cache" \
+            --proof-out "$proof_dir/source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_dynamic_load_source_probe.py discover \
+            --archive "$work/wine-source-cache/wine-11.0.tar.xz" \
+            --source-proof "$proof_dir/source-proof.json" \
+            --out "$proof_dir/runtime-dynamic-load-source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_configured_soname_caller_module_probe.py prove \
+            --source-archive "$work/wine-source-cache/wine-11.0.tar.xz" \
+            --dynamic-source-proof "$proof_dir/runtime-dynamic-load-source-proof.json" \
+            --out "$proof_dir/runtime-configured-soname-caller-module-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_configured_soname_staged_caller_probe.py prove \
+            --source-archive "$work/wine-source-cache/wine-11.0.tar.xz" \
+            --caller-module-proof "$proof_dir/runtime-configured-soname-caller-module-proof.json" \
+            --full-build-proof "$proof_dir/full-build-proof.json" \
+            --stage-dir "$work/container-build/stage" \
+            --out "$proof_dir/runtime-configured-soname-staged-caller-proof.json"
+          python - <<'PY' \
+            "$proof_dir/full-build-proof.json" \
+            "$proof_dir/runtime-configured-soname-caller-module-proof.json" \
+            "$proof_dir/runtime-configured-soname-staged-caller-proof.json"
+          import json
+          import pathlib
+          import re
+          import sys
+          full, callers, staged = [json.loads(pathlib.Path(p).read_text(encoding='utf-8')) for p in sys.argv[1:]]
+          assert staged['$schema'] == 'prototype-ordax.windows-compat-runtime-configured-soname-staged-caller-proof/1'
+          assert staged['runtime_id'] == callers['runtime_id'] == full['runtime_id']
+          assert staged['source_archive_sha256'] == full['source_archive_sha256']
+          assert staged['caller_module_evidence_sha256'] == callers['evidence_sha256']
+          assert staged['staging_manifest_sha256'] == full['staging']['canonical_manifest_sha256']
+          assert staged['expected_elf'] == {'class': 64, 'machine': 62, 'endianness': 'little'}
+          assert re.fullmatch(r'[0-9a-f]{64}', staged['evidence_sha256'])
+          counts = staged['counts']
+          assert counts['caller_modules'] == 15
+          assert counts['selected_staged_elfs'] == 15
+          assert counts['same_basename_candidates_inspected'] >= 15
+          assert len(staged['modules']) == 15
+          assert len({item['selected']['path'] for item in staged['modules']}) == 15
+          gates = staged['gates']
+          for gate in (
+              'caller_module_evidence_verified',
+              'full_build_proof_verified',
+              'staging_manifest_recomputed',
+              'caller_unixlib_source_identity_verified',
+              'caller_binary_staged_identity_verified',
+          ):
+              assert gates[gate] is True, gate
+          for gate in (
+              'caller_rpath_runpath_verified',
+              'caller_loader_search_order_verified',
+              'caller_loader_context_resolution_complete',
+              'runtime_computed_target_resolution_complete',
+              'wrapper_call_graph_complete',
+              'generated_source_inventory_complete',
+              'dynamic_load_inventory_complete',
+              'external_transitive_closure_verified',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert gates[gate] is False, gate
+          print('Configured SONAME staged caller identities: PASS')
+          print('caller modules:', counts['caller_modules'])
+          print('selected staged ELFs:', counts['selected_staged_elfs'])
+          print('same-basename candidates inspected:', counts['same_basename_candidates_inspected'])
+          print('staged caller evidence:', staged['evidence_sha256'])
+          PY
+
           python bootstrap/windows-compat-runtime/runtime_dependency_first_hit_guard.py verify \
             --stage-dir "$work/container-build/stage" \
             --rootfs "$work/content/resolver-rootfs" \
@@ -234,6 +316,10 @@ jobs:
           name: windows-compat-wine-runtime-dependency-proof-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/full-build-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/source-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-dynamic-load-source-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-configured-soname-caller-module-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-configured-soname-staged-caller-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-first-hit-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-loader-invariance-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-dependency-proof.json
