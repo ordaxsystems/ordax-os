@@ -48,6 +48,7 @@
       "required": true,
       "availability": "planned",
       "sha256": null,
+      "size_bytes": null,
       "signature_required": true
     },
     {
@@ -57,6 +58,7 @@
       "required": true,
       "availability": "planned",
       "sha256": null,
+      "size_bytes": null,
       "signature_required": true
     }
   ]
