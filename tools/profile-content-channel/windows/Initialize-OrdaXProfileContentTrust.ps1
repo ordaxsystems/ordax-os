@@ -253,6 +253,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Profile content signing proof failed.' }
 
 & $Signer verify --manifest $ManifestPath --envelope $EnvelopePath --trust $TrustPath --content $ContentPath
 if ($LASTEXITCODE -ne 0) { throw 'Profile content signing proof did not verify.' }
+& $Signer verify-envelope --manifest $ManifestPath --envelope $EnvelopePath --trust $DerivedPath
+if ($LASTEXITCODE -ne 0) { throw 'Independent public trust did not verify the Profile content envelope.' }
 
 $TrustHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $TrustPath).Hash.ToLowerInvariant()
 $ManifestHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ManifestPath).Hash.ToLowerInvariant()
