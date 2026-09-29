@@ -56,8 +56,13 @@ def load_contract() -> dict:
     if value.get("status") != "discovery-only-not-promotable":
         raise RuntimeDependencyError("runtime dependency discovery status drifted")
     inspection = value.get("inspection", {})
-    if inspection.get("stage_manifest_binding_required") is not True:
-        raise RuntimeDependencyError("runtime dependency discovery must bind to the exact staged manifest")
+    required_true = (
+        "stage_manifest_binding_required",
+        "elf_identity_match_required",
+        "rooted_symlink_resolution_required",
+    )
+    if any(inspection.get(key) is not True for key in required_true):
+        raise RuntimeDependencyError("runtime dependency discovery identity/binding boundary drifted")
     expected_false = (
         "host_readelf_allowed",
         "network_allowed",
@@ -98,16 +103,21 @@ def read_c_string(blob: bytes, offset: int, limit: int) -> str:
     return value
 
 
-def parse_dt_needed(path: Path) -> list[str] | None:
+def parse_elf_dynamic(path: Path) -> dict | None:
     data = path.read_bytes()
     if len(data) < 16 or data[:4] != ELF_MAGIC:
         return None
-    elf_class = data[4]
+    elf_class_raw = data[4]
     data_encoding = data[5]
-    if elf_class not in (1, 2) or data_encoding not in (1, 2):
+    if elf_class_raw not in (1, 2) or data_encoding not in (1, 2):
         raise RuntimeDependencyError(f"unsupported ELF identity: {path}")
     endian = "<" if data_encoding == 1 else ">"
-    if elf_class == 2:
+    elf_class = 64 if elf_class_raw == 2 else 32
+    endianness = "little" if data_encoding == 1 else "big"
+    if len(data) < 20:
+        raise RuntimeDependencyError(f"truncated ELF header: {path}")
+    machine = struct.unpack_from(endian + "H", data, 18)[0]
+    if elf_class_raw == 2:
         if len(data) < 64:
             raise RuntimeDependencyError(f"truncated ELF64 header: {path}")
         e_phoff = struct.unpack_from(endian + "Q", data, 32)[0]
@@ -136,7 +146,7 @@ def parse_dt_needed(path: Path) -> list[str] | None:
     for index in range(e_phnum):
         offset = e_phoff + index * e_phentsize
         fields = struct.unpack_from(ph_fmt, data, offset)
-        if elf_class == 2:
+        if elf_class_raw == 2:
             p_type, _, p_offset, p_vaddr, _, p_filesz, _, _ = fields
         else:
             p_type, p_offset, p_vaddr, _, p_filesz, _, _, _ = fields
@@ -146,8 +156,14 @@ def parse_dt_needed(path: Path) -> list[str] | None:
             loads.append((p_vaddr, p_offset, p_filesz))
         elif p_type == PT_DYNAMIC:
             dynamic = (p_offset, p_filesz)
+
+    identity = {
+        "class": elf_class,
+        "machine": machine,
+        "endianness": endianness,
+    }
     if dynamic is None:
-        return []
+        return {**identity, "dt_needed": []}
 
     dyn_off, dyn_len = dynamic
     if dyn_len % dyn_size != 0:
@@ -166,7 +182,7 @@ def parse_dt_needed(path: Path) -> list[str] | None:
         elif tag == DT_STRSZ:
             strsz = value
     if not needed_offsets:
-        return []
+        return {**identity, "dt_needed": []}
     if strtab_vaddr is None or strsz is None or strsz <= 0:
         raise RuntimeDependencyError(f"ELF DT_NEEDED without valid string table: {path}")
 
@@ -178,7 +194,12 @@ def parse_dt_needed(path: Path) -> list[str] | None:
     if strtab_file is None or strtab_file + strsz > len(data):
         raise RuntimeDependencyError(f"ELF dynamic string table is not file-backed: {path}")
     names = [read_c_string(data, strtab_file + item, strtab_file + strsz) for item in needed_offsets]
-    return sorted(set(names))
+    return {**identity, "dt_needed": sorted(set(names))}
+
+
+def parse_dt_needed(path: Path) -> list[str] | None:
+    info = parse_elf_dynamic(path)
+    return None if info is None else info["dt_needed"]
 
 
 def safe_relative(root: Path, path: Path) -> str:
@@ -189,8 +210,62 @@ def safe_relative(root: Path, path: Path) -> str:
     return relative
 
 
-def build_soname_index(root: Path) -> dict[str, list[str]]:
-    index: dict[str, list[str]] = {}
+def normalize_rooted_relative(path: PurePosixPath) -> PurePosixPath:
+    parts: list[str] = []
+    for part in path.parts:
+        if part in {"", ".", "/"}:
+            continue
+        if part == "..":
+            if not parts:
+                raise RuntimeDependencyError(f"rooted symlink escapes dependency tree: {path}")
+            parts.pop()
+            continue
+        parts.append(part)
+    return PurePosixPath(*parts)
+
+
+def resolve_rooted_path(root: Path, path: Path) -> str:
+    root = root.resolve()
+    try:
+        relative = normalize_rooted_relative(PurePosixPath(path.relative_to(root).as_posix()))
+    except ValueError as exc:
+        raise RuntimeDependencyError(f"path is outside dependency tree: {path}") from exc
+
+    for _ in range(41):
+        parts = list(relative.parts)
+        prefix: list[str] = []
+        changed = False
+        for index, part in enumerate(parts):
+            prefix.append(part)
+            candidate = root.joinpath(*prefix)
+            if not candidate.is_symlink():
+                continue
+            target = PurePosixPath(candidate.readlink().as_posix())
+            tail = PurePosixPath(*parts[index + 1 :])
+            if target.is_absolute():
+                target = PurePosixPath(*target.parts[1:])
+                combined = target / tail
+            else:
+                combined = PurePosixPath(*prefix[:-1]) / target / tail
+            relative = normalize_rooted_relative(combined)
+            changed = True
+            break
+        if changed:
+            continue
+        final = root.joinpath(*relative.parts)
+        if not final.is_file():
+            raise RuntimeDependencyError(f"dependency candidate does not resolve to a regular file: {path}")
+        return relative.as_posix()
+    raise RuntimeDependencyError(f"too many symlink hops while resolving dependency candidate: {path}")
+
+
+def elf_identity(info: dict) -> tuple[int, int, str]:
+    return (info["class"], info["machine"], info["endianness"])
+
+
+def build_soname_index(root: Path) -> dict[str, list[dict]]:
+    index: dict[str, list[dict]] = {}
+    root = root.resolve()
     for path in sorted(root.rglob("*")):
         if not (path.is_file() or path.is_symlink()):
             continue
@@ -198,7 +273,17 @@ def build_soname_index(root: Path) -> dict[str, list[str]]:
         if ".so" not in name and name not in {"ld-musl-x86_64.so.1", "ld-musl-i386.so.1"}:
             continue
         relative = safe_relative(root, path)
-        index.setdefault(name, []).append(relative)
+        canonical = resolve_rooted_path(root, path)
+        info = parse_elf_dynamic(root / canonical)
+        if info is None:
+            continue
+        index.setdefault(name, []).append({
+            "path": relative,
+            "canonical_path": canonical,
+            "class": info["class"],
+            "machine": info["machine"],
+            "endianness": info["endianness"],
+        })
     return index
 
 
@@ -247,18 +332,44 @@ def parse_apk_installed(rootfs: Path) -> tuple[dict[str, str], dict[str, tuple[s
     return versions, owners
 
 
-def resolve_candidate(index: dict[str, list[str]], soname: str, scope: str) -> str | None:
-    candidates = index.get(soname, [])
+def resolve_candidate(index: dict[str, list[dict]], soname: str, consumer: dict, scope: str) -> dict | None:
+    identity = elf_identity(consumer)
+    candidates = [
+        item
+        for item in index.get(soname, [])
+        if (item["class"], item["machine"], item["endianness"]) == identity
+    ]
     if not candidates:
         return None
-    if len(candidates) == 1:
-        return candidates[0]
-    # Multiple paths are acceptable only when they ultimately resolve to one
-    # canonical relative target; otherwise dependency ownership is ambiguous.
-    unique = sorted(set(candidates))
-    if len(unique) != 1:
-        raise RuntimeDependencyError(f"ambiguous {scope} resolution for {soname}: {unique}")
-    return unique[0]
+    canonical_paths = sorted({item["canonical_path"] for item in candidates})
+    if len(canonical_paths) != 1:
+        details = sorted(f"{item['path']}->{item['canonical_path']}" for item in candidates)
+        raise RuntimeDependencyError(
+            f"ambiguous {scope} resolution for {soname} "
+            f"ELF{identity[0]}/machine={identity[1]}/{identity[2]}: {details}"
+        )
+    paths = sorted({item["path"] for item in candidates})
+    return {
+        "path": paths[0],
+        "candidate_paths": paths,
+        "canonical_path": canonical_paths[0],
+        "class": identity[0],
+        "machine": identity[1],
+        "endianness": identity[2],
+    }
+
+
+def require_single_apk_owner(candidate: dict, owners: dict[str, tuple[str, str]]) -> tuple[str, str]:
+    paths = sorted(set(candidate["candidate_paths"] + [candidate["canonical_path"]]))
+    identities: set[tuple[str, str]] = set()
+    for path in paths:
+        owner = owners.get(path)
+        if owner is None:
+            raise RuntimeDependencyError(f"resolved external dependency has no Alpine owner: {path}")
+        identities.add(owner)
+    if len(identities) != 1:
+        raise RuntimeDependencyError(f"resolved external dependency crosses Alpine owners: {paths}")
+    return next(iter(identities))
 
 
 def verify_stage_binding(stage: Path, full_build_proof: dict) -> str:
@@ -322,32 +433,43 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
     for path in sorted(stage.rglob("*")):
         if not path.is_file() or path.is_symlink():
             continue
-        needed = parse_dt_needed(path)
-        if needed is None:
+        elf = parse_elf_dynamic(path)
+        if elf is None:
             continue
+        needed = elf["dt_needed"]
         relative = safe_relative(stage, path)
         resolutions = []
         for soname in needed:
-            staged = resolve_candidate(stage_index, soname, "stage")
+            staged = resolve_candidate(stage_index, soname, elf, "stage")
             if staged is not None:
-                resolutions.append({"soname": soname, "scope": "stage-internal", "path": staged})
+                resolutions.append({
+                    "soname": soname,
+                    "scope": "stage-internal",
+                    "path": staged["path"],
+                    "canonical_path": staged["canonical_path"],
+                })
                 continue
-            external_path = resolve_candidate(rootfs_index, soname, "rootfs")
-            if external_path is None:
-                unresolved.append({"consumer": relative, "soname": soname})
+            external_candidate = resolve_candidate(rootfs_index, soname, elf, "rootfs")
+            if external_candidate is None:
+                unresolved.append({
+                    "consumer": relative,
+                    "soname": soname,
+                    "elf": {
+                        "class": elf["class"],
+                        "machine": elf["machine"],
+                        "endianness": elf["endianness"],
+                    },
+                })
                 continue
-            owner = owners.get(external_path)
-            if owner is None:
-                # Symlink ownership may be recorded while the target basename is
-                # selected from the index. Require direct ownership rather than guessing.
-                raise RuntimeDependencyError(f"resolved external dependency has no Alpine owner: {external_path}")
-            package, version = owner
+            package, version = require_single_apk_owner(external_candidate, owners)
             if package_versions.get(package) != version:
                 raise RuntimeDependencyError(f"Alpine package version drifted for owner: {package}")
+            external_path = external_candidate["path"]
             resolutions.append({
                 "soname": soname,
                 "scope": "rootfs-external",
                 "path": external_path,
+                "canonical_path": external_candidate["canonical_path"],
                 "package": package,
                 "version": version,
             })
@@ -356,7 +478,15 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
                 raise RuntimeDependencyError(f"external runtime package version conflict: {package}")
             record["files"][external_path] = soname
             record["sonames"].add(soname)
-        elf_files[relative] = {"dt_needed": needed, "resolutions": resolutions}
+        elf_files[relative] = {
+            "elf": {
+                "class": elf["class"],
+                "machine": elf["machine"],
+                "endianness": elf["endianness"],
+            },
+            "dt_needed": needed,
+            "resolutions": resolutions,
+        }
 
     if unresolved:
         raise RuntimeDependencyError(f"unresolved staged ELF dependencies: {unresolved[:20]}")

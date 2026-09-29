@@ -13,6 +13,8 @@
     "supported_elf_classes": [32, 64],
     "supported_endianness": ["little", "big"],
     "stage_manifest_binding_required": true,
+    "elf_identity_match_required": true,
+    "rooted_symlink_resolution_required": true,
     "host_readelf_allowed": false,
     "network_allowed": false,
     "stage_mutation_allowed": false,
@@ -21,8 +23,8 @@
     "ambiguous_external_owner_allowed": false
   },
   "classification": {
-    "stage_internal": "dependency resolves inside staged Wine tree",
-    "rootfs_external": "dependency resolves only in the locked Alpine rootfs",
+    "stage_internal": "dependency resolves inside staged Wine tree with matching ELF class/machine/endianness",
+    "rootfs_external": "dependency resolves only in the locked Alpine rootfs with matching ELF class/machine/endianness",
     "build_only_is_not_runtime_by_default": true,
     "external_package_owner_required": true,
     "external_package_version_required": true
