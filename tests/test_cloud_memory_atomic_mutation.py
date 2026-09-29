@@ -9,6 +9,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260929184500_cloud_memory_atomic_mutation_v1.sql"
+PRIVILEGE_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260929190000_cloud_memory_atomic_mutation_privilege_boundary_v1.sql"
+SERVER_AUTHORITY_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "0004_server_authoritative_mutations.sql"
 BOUNDARY = ROOT / "docs" / "contracts" / "cloud-memory-sync-boundary.json"
 
 
@@ -28,8 +30,14 @@ class CloudMemoryAtomicMutationTests(unittest.TestCase):
         self.assertIn("create or replace function public.ordax_apply_memory_mutation_v1", sql)
         self.assertIn("security invoker", sql)
         self.assertIn("set search_path = ''", sql)
-        self.assertNotIn("security definer", sql)
-        self.assertNotIn("service_role", sql)
+        privilege_sql = PRIVILEGE_MIGRATION.read_text(encoding="utf-8").lower()
+        authority_sql = SERVER_AUTHORITY_MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("security invoker", privilege_sql)
+        self.assertIn("private.ordax_apply_memory_mutation_internal_v1", privilege_sql)
+        self.assertIn("security definer", privilege_sql)
+        self.assertNotIn("public.ordax_apply_memory_mutation_internal_v1(", privilege_sql)
+        self.assertIn("revoke insert, update, delete on table public.ordax_memory_items from authenticated", authority_sql)
+        self.assertNotIn("service_role", sql + privilege_sql)
         self.assertIn("memory.cloud.enabled", sql)
         self.assertIn("e.entitlement_value ->> 'decision' = 'allowed'", sql)
         self.assertIn("p_scope not in ('account','space')", sql)
