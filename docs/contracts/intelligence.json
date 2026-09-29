@@ -84,5 +84,11 @@
     "signed_stable_v4_materialization_pending": true,
     "authorized_memory_bridge_source_complete": true,
     "automatic_memory_injection_enabled": false
+  },
+  "memory_capture": {
+    "schema": "ordax.memory-capture-proposal/1",
+    "automatic_persistence": false,
+    "explicit_user_confirmation_required": true,
+    "model_selects_owner_or_scope": false
   }
 }
