@@ -1,7 +1,10 @@
 import copy
 import importlib.util
+import io
 import json
 from pathlib import Path
+import tarfile
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +55,36 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
     def test_probe_has_no_compile_install_or_execute_entrypoint(self):
         forbidden = {"compile", "package", "install", "activate", "execute", "launch", "spawn"}
         self.assertTrue(forbidden.isdisjoint(set(vars(probe))))
+
+    def test_foreign_source_extractor_rejects_absolute_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "foreign.tar.xz"
+            destination = Path(tmp) / "out"
+            with tarfile.open(archive, "w:xz") as tar:
+                root = tarfile.TarInfo("wine-11.0")
+                root.type = tarfile.DIRTYPE
+                tar.addfile(root)
+                link = tarfile.TarInfo("wine-11.0/bad-link")
+                link.type = tarfile.SYMTYPE
+                link.linkname = "/etc/passwd"
+                tar.addfile(link)
+            with self.assertRaisesRegex(probe.ConfigureProofError, "absolute foreign source symlink forbidden"):
+                probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
+
+    def test_foreign_source_extractor_accepts_bounded_regular_member(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "foreign.tar.xz"
+            destination = Path(tmp) / "out"
+            payload = b"Wine version 11.0\n"
+            with tarfile.open(archive, "w:xz") as tar:
+                root = tarfile.TarInfo("wine-11.0")
+                root.type = tarfile.DIRTYPE
+                tar.addfile(root)
+                member = tarfile.TarInfo("wine-11.0/VERSION")
+                member.size = len(payload)
+                tar.addfile(member, io.BytesIO(payload))
+            probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
+            self.assertEqual((destination / "wine-11.0/VERSION").read_bytes(), payload)
 
 
 if __name__ == "__main__":
