@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from pathlib import Path
 import unittest
 
@@ -16,6 +17,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "cloud-memory-authenticated-proof.ym
 spec = importlib.util.spec_from_file_location("ordax_supabase_memory", PROVIDER_PATH)
 memory_module = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
+sys.modules[spec.name] = memory_module
 spec.loader.exec_module(memory_module)
 SupabaseMemoryProvider = memory_module.SupabaseMemoryProvider
 
