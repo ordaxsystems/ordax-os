@@ -22,6 +22,7 @@ on:
       - 'system/contracts/sync-state-store.mjs'
       - 'system/contracts/sync-transport.mjs'
       - 'system/services/memory/**'
+      - 'system/services/sync/account-memory-authorization.mjs'
       - 'system/services/sync/account-memory-continuity.mjs'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-memory-session-runtime.mjs'
@@ -34,6 +35,7 @@ on:
       - 'tests/test_cloud_memory_atomic_mutation.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
       - 'tests/test_cloud_memory_privacy_hardening.py'
+      - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_continuity.mjs'
       - 'tests/test_account_memory_gateway_policy.mjs'
@@ -70,6 +72,7 @@ on:
       - 'system/contracts/sync-state-store.mjs'
       - 'system/contracts/sync-transport.mjs'
       - 'system/services/memory/**'
+      - 'system/services/sync/account-memory-authorization.mjs'
       - 'system/services/sync/account-memory-continuity.mjs'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-memory-session-runtime.mjs'
@@ -82,6 +85,7 @@ on:
       - 'tests/test_cloud_memory_atomic_mutation.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
       - 'tests/test_cloud_memory_privacy_hardening.py'
+      - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_continuity.mjs'
       - 'tests/test_account_memory_gateway_policy.mjs'
@@ -143,6 +147,7 @@ jobs:
           node --check system/contracts/memory.mjs
           node --check system/contracts/sync-state-store.mjs
           node --check system/contracts/sync-transport.mjs
+          node --check system/services/sync/account-memory-authorization.mjs
           node --check system/services/sync/account-memory-continuity.mjs
           node --check system/services/sync/account-memory-runtime.mjs
           node --check system/services/sync/account-memory-session-runtime.mjs
@@ -152,6 +157,7 @@ jobs:
           node --check system/services/sync/state-store-registry.mjs
           node --check system/services/memory/review.mjs
           node --check infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs
+          node --check tests/test_account_memory_authorization.mjs
           node --check tests/test_account_memory_conflict_reconciliation.mjs
           node --check tests/test_account_memory_continuity.mjs
           node --check tests/test_account_memory_gateway_policy.mjs
@@ -183,6 +189,7 @@ jobs:
       - name: Run Memory sync foundation tests
         run: |
           set -euo pipefail
+          node --test tests/test_account_memory_authorization.mjs
           node --test tests/test_account_memory_conflict_reconciliation.mjs
           node --test tests/test_account_memory_continuity.mjs
           node --test tests/test_account_memory_gateway_policy.mjs
