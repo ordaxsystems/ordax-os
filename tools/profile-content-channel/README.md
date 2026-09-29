@@ -72,3 +72,22 @@ the atomic rename. Re-staging reuses only an existing slot that still verifies.
 
 Staging does **not** activate a Profile, mutate a Space, write the installed
 component inventory or create an install receipt.
+
+
+## Deterministic unsigned publication handoff
+
+Before any external signing ceremony, the repository can freeze the exact source
+bytes that are eligible to be signed without pretending that publication is
+already authorized:
+
+```text
+python3 tools/profile-content-channel/prepare_publication_handoff.py \
+  --source system/profile-content-sources/developer-core/v0.1.0 \
+  --out <review>/publication-handoff.json
+```
+
+The handoff contains only public metadata: exact manifest/content SHA-256 and
+sizes, component identity, source revision and fail-closed gate state. It never
+creates an envelope, never reads a private key, never pins trust, and always
+reports publication/install/activation as disabled. The output is an operator
+review input, not release evidence.

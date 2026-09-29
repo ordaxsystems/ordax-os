@@ -142,5 +142,21 @@
     "trusted-profile-provisioning-executor-verifies-package-writes-receipt-and-inventory",
     "profile-health-and-rollback",
     "surface-profile-catalog-ui"
-  ]
+  ],
+  "publication_handoff": {
+    "schema": "prototype-ordax.profile-content-publication-handoff/1",
+    "tool": "tools/profile-content-channel/prepare_publication_handoff.py",
+    "trust_policy": "docs/contracts/profile-content-trust-policy.json",
+    "exact_manifest_sha256_required": true,
+    "exact_manifest_size_required": true,
+    "exact_content_sha256_required": true,
+    "exact_content_size_required": true,
+    "private_key_access": false,
+    "envelope_emitted": false,
+    "canonical_anchor_must_be_unpinned": true,
+    "publication_must_remain_disabled": true,
+    "installation_must_remain_disabled": true,
+    "activation_must_remain_disabled": true,
+    "output_is_publication_evidence": false
+  }
 }

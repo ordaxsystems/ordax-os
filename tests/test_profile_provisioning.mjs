@@ -70,7 +70,19 @@ test("distribution components are derived from canonical manifests", () => {
       },
     ],
   );
-  assert.equal(developer.components.length, 0);
+  assert.deepEqual(
+    developer.components.map(({ id, kind, version, availability, sha256, signatureRequired }) => ({
+      id, kind, version, availability, sha256, signatureRequired,
+    })),
+    [{
+      id: "knowledge.developer-core",
+      kind: "knowledge-pack",
+      version: "0.1.0",
+      availability: "planned",
+      sha256: null,
+      signatureRequired: true,
+    }],
+  );
 });
 
 test("profile metadata can be bundled while professional payload stays on-demand", () => {
@@ -102,7 +114,7 @@ test("blocked Legal-BR remains visible without pretending it is installable", ()
   ]);
 });
 
-test("Developer metadata is tiny local proof and does not imply public install", () => {
+test("Developer metadata remains local while real content stays planned and non-installable", () => {
   const plan = planProfileProvisioning({
     distribution: developer,
     installedInventory: inventory(),
@@ -112,8 +124,12 @@ test("Developer metadata is tiny local proof and does not imply public install",
   assert.equal(plan.metadataBundled, true);
   assert.equal(plan.offlineAfterInstall, true);
   assert.equal(plan.requiredDownloadBytes, 0);
-  assert.equal(plan.componentsSatisfied, true);
-  assert.equal(plan.requiredMissing.length, 0);
+  assert.equal(plan.componentsSatisfied, false);
+  assert.equal(plan.requiredMissing.length, 1);
+  assert.equal(plan.requiredMissing[0].id, "knowledge.developer-core");
+  assert.equal(plan.missing.length, 1);
+  assert.equal(plan.missing[0].availability, "planned");
+  assert.equal(plan.mayDownload, false);
   assert.equal(plan.mayActivate, false);
 });
 

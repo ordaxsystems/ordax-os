@@ -112,10 +112,36 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
             "memory.cloud.enabled",
         )
         self.assertFalse(boundary["authorization"]["client_claimed_entitlement_trusted"])
+        self.assertTrue(boundary["authorization"]["active_validity_window_required"])
+        self.assertTrue(boundary["authorization"]["server_clock_authoritative"])
+        self.assertFalse(boundary["authorization"]["client_preflight_is_authorization_authority"])
         self.assertTrue(boundary["deletion"]["explicit_tombstone_required"])
         self.assertFalse(boundary["conflicts"]["silent_global_last_writer_wins"])
         self.assertEqual(boundary["conflicts"]["same_revision_divergence"], "reject")
         self.assertFalse(boundary["privacy"]["restricted_memory_cloud_sync_enabled"])
+        proof = boundary["implementation"]["authenticated_proof"]
+        self.assertEqual(proof["status"], "two-client-source-ready-execution-pending")
+        self.assertEqual(proof["mode"], "same-account-two-independent-auth-sessions")
+        self.assertTrue(proof["requires_preprovisioned_entitlement"])
+        self.assertFalse(proof["creates_entitlement"])
+        self.assertFalse(proof["service_role_allowed"])
+        self.assertTrue(proof["same_subject_required"])
+        self.assertTrue(proof["distinct_access_tokens_required"])
+        self.assertTrue(proof["client_b_reads_incremental_sync"])
+        self.assertTrue(proof["client_b_attempts_stale_mutation"])
+        self.assertTrue(proof["client_b_reads_canonical_deleted_state"])
+        operator = boundary["implementation"]["proof_entitlement_operator"]
+        self.assertEqual(operator["status"], "source-ready-not-executed")
+        self.assertEqual(operator["entitlement_key"], "memory.cloud.enabled")
+        self.assertEqual(operator["scope"], "account-only")
+        self.assertEqual(operator["purpose"], "cloud-memory-two-client-proof")
+        self.assertEqual(operator["ttl_seconds_min"], 300)
+        self.assertEqual(operator["ttl_seconds_max"], 1800)
+        self.assertTrue(operator["source_commit_required"])
+        self.assertTrue(operator["audit_required"])
+        self.assertFalse(operator["executable_by_authenticated"])
+        self.assertFalse(operator["executable_by_service_role"])
+        self.assertFalse(operator["issues_grant_on_migration"])
 
     def test_external_models_require_explicit_egress_and_do_not_own_memory(self):
         router = self.load(MODEL_ROUTER)
@@ -162,6 +188,24 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertFalse(provisioning["mvp"]["public_profile_install_enabled"])
         self.assertFalse(provisioning["content_proof"]["public_release_trust_pinned"])
         self.assertFalse(provisioning["content_proof"]["activation_allowed"])
+        handoff = provisioning["publication_handoff"]
+        self.assertEqual(
+            handoff["schema"],
+            "prototype-ordax.profile-content-publication-handoff/1",
+        )
+        self.assertEqual(
+            handoff["trust_policy"],
+            "docs/contracts/profile-content-trust-policy.json",
+        )
+        self.assertTrue(handoff["exact_manifest_sha256_required"])
+        self.assertTrue(handoff["exact_content_sha256_required"])
+        self.assertFalse(handoff["private_key_access"])
+        self.assertFalse(handoff["envelope_emitted"])
+        self.assertTrue(handoff["canonical_anchor_must_be_unpinned"])
+        self.assertTrue(handoff["publication_must_remain_disabled"])
+        self.assertTrue(handoff["installation_must_remain_disabled"])
+        self.assertTrue(handoff["activation_must_remain_disabled"])
+        self.assertFalse(handoff["output_is_publication_evidence"])
 
     def test_store_foundation_never_bypasses_trust_or_permissions(self):
         distribution = self.load(APP_DISTRIBUTION)

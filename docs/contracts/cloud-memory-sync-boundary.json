@@ -21,7 +21,10 @@
     "owner_user_id_must_match_session": true,
     "space_access_must_be_server_verified": true,
     "entitlement_required": "memory.cloud.enabled",
-    "client_claimed_entitlement_trusted": false
+    "client_claimed_entitlement_trusted": false,
+    "active_validity_window_required": true,
+    "server_clock_authoritative": true,
+    "client_preflight_is_authorization_authority": false
   },
   "identity": {
     "stable_object_id": "memory_id",
@@ -59,6 +62,39 @@
     "migration": "infra/supabase/product/migrations/20260929184500_cloud_memory_atomic_mutation_v1.sql",
     "security_mode": "invoker-plus-rls",
     "public_rollout_enabled": false,
-    "generic_sync_rpc_accepts_memory": false
+    "generic_sync_rpc_accepts_memory": false,
+    "authenticated_proof": {
+      "status": "two-client-source-ready-execution-pending",
+      "provider": "services/public-identity/supabase_memory.py",
+      "proof": "tools/cloud-memory/prove_authenticated_atomic_sync.py",
+      "workflow": ".github/workflows/cloud-memory-authenticated-proof.yml",
+      "requires_preprovisioned_entitlement": true,
+      "creates_entitlement": false,
+      "service_role_allowed": false,
+      "mode": "same-account-two-independent-auth-sessions",
+      "same_subject_required": true,
+      "distinct_access_tokens_required": true,
+      "client_b_reads_incremental_sync": true,
+      "client_b_attempts_stale_mutation": true,
+      "client_b_reads_canonical_deleted_state": true
+    },
+    "proof_entitlement_operator": {
+      "status": "source-ready-not-executed",
+      "migration": "infra/supabase/product/migrations/20260929195000_cloud_memory_proof_entitlement_operator_v1.sql",
+      "issue_function": "private.ordax_issue_cloud_memory_proof_entitlement_v1",
+      "revoke_function": "private.ordax_revoke_cloud_memory_proof_entitlement_v1",
+      "entitlement_key": "memory.cloud.enabled",
+      "scope": "account-only",
+      "purpose": "cloud-memory-two-client-proof",
+      "ttl_seconds_min": 300,
+      "ttl_seconds_max": 1800,
+      "source_commit_required": true,
+      "audit_required": true,
+      "executable_by_public": false,
+      "executable_by_anon": false,
+      "executable_by_authenticated": false,
+      "executable_by_service_role": false,
+      "issues_grant_on_migration": false
+    }
   }
 }
