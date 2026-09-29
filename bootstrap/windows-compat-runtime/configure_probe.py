@@ -18,13 +18,13 @@ import re
 import shutil
 import subprocess
 import tarfile
-import tempfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 ENVIRONMENT = HERE / "build-environment.json"
 SOURCE_BUILDER = HERE / "build.py"
+ALPINE_CORE = ROOT / "bootstrap/base/alpine_core.py"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$")
 MAX_ALPINE_ROOTFS_BYTES = 32 * 1024 * 1024
@@ -34,16 +34,17 @@ class ConfigureProofError(RuntimeError):
     pass
 
 
-def load_module(path: Path):
-    spec = importlib.util.spec_from_file_location("ordax_windows_compat_source_builder", path)
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise ConfigureProofError("cannot load compatibility source builder")
+        raise ConfigureProofError(f"cannot load module: {path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-SOURCE = load_module(SOURCE_BUILDER)
+SOURCE = load_module("ordax_windows_compat_source_builder", SOURCE_BUILDER)
+ALPINE = load_module("ordax_alpine_base_core_for_windows_compat", ALPINE_CORE)
 
 
 def load_json(path: Path, label: str) -> dict:
@@ -74,6 +75,13 @@ def validate_environment(value: dict) -> dict:
     }
     if host != expected_host:
         raise ConfigureProofError("pinned Alpine host identity drifted")
+    if (
+        ALPINE.ALPINE_VERSION != host["version"]
+        or ALPINE.ALPINE_BRANCH != host["branch"]
+        or ALPINE.ARCH != host["arch"]
+        or ALPINE.ARCHIVE_URL != host["rootfs_url"]
+    ):
+        raise ConfigureProofError("configure proof Alpine identity diverged from canonical OrdaX base core")
 
     reference = value.get("packaging_reference")
     expected_reference = {
@@ -178,10 +186,15 @@ def download_exact(url: str, destination: Path, expected_sha256: str, max_bytes:
     return destination
 
 
-def safe_extract(archive: Path, destination: Path, mode: str, expected_root: str | None = None) -> None:
+def safe_extract_foreign_source(archive: Path, destination: Path, expected_root: str) -> None:
+    """Strict extractor for untrusted foreign source bytes.
+
+    Unlike the canonical Alpine rootfs extractor, this never rewrites archive
+    metadata. Foreign source members must already be safe and rooted correctly.
+    """
     destination.mkdir(parents=True, exist_ok=True)
     try:
-        with tarfile.open(archive, mode) as tar:
+        with tarfile.open(archive, "r:xz") as tar:
             members = []
             for member in tar.getmembers():
                 name = member.name
@@ -189,15 +202,19 @@ def safe_extract(archive: Path, destination: Path, mode: str, expected_root: str
                     name = name[2:]
                 path = PurePosixPath(name)
                 if not name or path.is_absolute() or ".." in path.parts:
-                    raise ConfigureProofError(f"unsafe archive path: {member.name}")
-                if expected_root is not None and (not path.parts or path.parts[0] != expected_root):
-                    raise ConfigureProofError(f"archive member outside expected root: {member.name}")
+                    raise ConfigureProofError(f"unsafe foreign source archive path: {member.name}")
+                if not path.parts or path.parts[0] != expected_root:
+                    raise ConfigureProofError(f"foreign source member outside expected root: {member.name}")
                 if member.isdev() or member.isfifo():
-                    raise ConfigureProofError(f"unsupported archive object: {member.name}")
+                    raise ConfigureProofError(f"unsupported foreign source archive object: {member.name}")
+                if member.issym() and os.path.isabs(member.linkname):
+                    raise ConfigureProofError(f"absolute foreign source symlink forbidden: {member.name}")
+                if member.islnk() and os.path.isabs(member.linkname):
+                    raise ConfigureProofError(f"absolute foreign source hardlink forbidden: {member.name}")
                 members.append(member)
             tar.extractall(destination, members=members, filter="data")
     except (tarfile.TarError, OSError) as exc:
-        raise ConfigureProofError(f"archive extraction failed: {exc}") from exc
+        raise ConfigureProofError(f"foreign source extraction failed: {exc}") from exc
 
 
 def run(argv: list[str], *, cwd: Path | None = None, capture: bool = False) -> subprocess.CompletedProcess:
@@ -261,7 +278,10 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
         MAX_ALPINE_ROOTFS_BYTES,
     )
     rootfs = work_dir / "rootfs"
-    safe_extract(rootfs_archive, rootfs, "r:gz")
+    try:
+        ALPINE.safe_extract(rootfs_archive, rootfs)
+    except ALPINE.BuildError as exc:
+        raise ConfigureProofError(f"canonical Alpine rootfs extraction failed: {exc}") from exc
 
     repositories = rootfs / "etc/apk/repositories"
     repositories.write_text(
@@ -279,11 +299,10 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
 
     wine_archive = SOURCE.download_exact(source_contract, cache / "wine")
     source_root = rootfs / "build/source"
-    safe_extract(
+    safe_extract_foreign_source(
         wine_archive,
         source_root,
-        "r:xz",
-        expected_root=source_contract["upstream"]["archive_root"],
+        source_contract["upstream"]["archive_root"],
     )
     wine_source = "/build/source/" + source_contract["upstream"]["archive_root"]
     build_dir = rootfs / "build/output"
@@ -335,7 +354,7 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
             "i686_mingw_gcc": tool_version(rootfs, "i686-w64-mingw32-gcc"),
         },
         "resolved_build_packages": package_versions,
-        "configure_flags": args[5:],
+        "configure_flags": args[3:],
         "configure_proof_passed": True,
         "package_versions_pinned": False,
         "full_build_proof_passed": False,
