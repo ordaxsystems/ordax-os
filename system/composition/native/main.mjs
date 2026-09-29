@@ -324,15 +324,6 @@ async function start() {
         identitySessionPort: identitySession,
         spaceSelectionPort: spaceSelection,
       });
-  const assistantMemoryCapture = memory === null
-    ? null
-    : createAssistantAutoCaptureRuntime({
-        intelligencePort: intelligence,
-        captureRuntime: createPreferenceBoundMemoryCaptureRuntime(memory, surface.preferences),
-        preferenceRuntime: surface.preferences,
-        identitySessionPort: identitySession,
-        spaceSelectionPort: spaceSelection,
-      });
   const profileComponentInventory = await optionalNativeProbe(
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
@@ -458,6 +449,18 @@ async function start() {
     workspaceStore,
     appActivation,
   );
+  const assistantMemoryCapture = memory === null
+    ? null
+    : createAssistantAutoCaptureRuntime({
+        intelligencePort: intelligence,
+        captureRuntime: createPreferenceBoundMemoryCaptureRuntime(
+          memory,
+          surface.preferences,
+        ),
+        preferenceRuntime: surface.preferences,
+        identitySessionPort: identitySession,
+        spaceSelectionPort: spaceSelection,
+      });
   bootLocale = surface.localization.getLocale();
   const notificationCenter = mountNotificationCenterControls(root, notifications, appActivation, surface);
   let quickPanelControls = null;
