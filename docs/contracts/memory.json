@@ -109,12 +109,13 @@
     "future_providers": "adapter-only"
   },
   "capture": {
-    "automatic_model_persistence_allowed": false,
+    "automatic_capture_supported": true,
+    "per_item_confirmation_required": false,
+    "user_can_disable_future_capture": true,
+    "user_can_review_edit_delete": true,
     "model_may_choose_owner_or_scope": false,
     "composition_authorization_schema": "ordax.memory-capture-auth/1",
-    "proposal_schema": "ordax.memory-capture-proposal/1",
-    "confirmation_schema": "ordax.memory-capture-confirmation/1",
-    "explicit_user_confirmation_required": true,
+    "result_schema": "ordax.memory-capture-result/1",
     "initial_scopes": [
       "device",
       "account",
@@ -123,6 +124,6 @@
     "project_capture_enabled": false,
     "session_capture_enabled": false,
     "restricted_capture_enabled": false,
-    "durable_flush_required_after_confirmation": true
+    "durable_flush_required": true
   }
 }
