@@ -145,6 +145,23 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
         )
         self.assertRegex(digest, r"^[0-9a-f]{64}$")
 
+    def test_canonical_component_binding_rejects_invalid_manifest_size(self):
+        module = load_module()
+        manifest = {
+            "components": [{
+                "id": "knowledge.example",
+                "kind": "knowledge-pack",
+                "version": "1.0.0",
+                "required": True,
+                "availability": "available",
+                "sha256": "a" * 64,
+                "size_bytes": -1,
+                "signature_required": True,
+            }]
+        }
+        with self.assertRaisesRegex(ValueError, "declaration\[0\] is invalid"):
+            module._canonical_component_binding(manifest, [])
+
     def test_permission_diff_acceptance_is_bound_to_exact_revision_and_components(self):
         module = load_module()
         manifest = {
