@@ -69,6 +69,11 @@ def exact_specs(packages: dict[str, str]) -> list[str]:
     return [f"{name}={version}" for name, version in sorted(packages.items())]
 
 
+def fetch_names(packages: dict[str, str]) -> list[str]:
+    """Return package names for apk fetch 2.x; versions are checked on output."""
+    return sorted(packages)
+
+
 def validate_discovery_inputs() -> tuple[dict, dict, dict]:
     lock = VALIDATOR.load_json(LOCK_PATH)
     source = VALIDATOR.load_json(SOURCE_PATH)
@@ -181,24 +186,39 @@ def reproduce_and_discover(work_dir: Path) -> dict:
     if not package_inputs:
         raise ContentDiscoveryError("APK transaction produced no external package inputs")
 
-    # `apk add --no-cache` intentionally does not preserve repository indexes.
-    # Refresh them explicitly only for this discovery rootfs before fetching the
-    # exact package bytes. The following offline replay proves that these fetched
-    # bytes, not a later network resolution, reconstruct the locked closure.
+    # apk-fetch in apk-tools 2.x accepts package names rather than apk-add style
+    # name=version constraints. Refresh indexes, fetch by name, then bind the
+    # result back to the already-proven exact version set by requiring the
+    # complete filename set to equal <name>-<locked-version>.apk exactly.
     PROBE.proot(resolver_rootfs, "apk update")
     package_dir = resolver_rootfs / "build/apks"
     package_dir.mkdir(parents=True, exist_ok=True)
     PROBE.proot(
         resolver_rootfs,
         "apk fetch --output /build/apks "
-        + " ".join(shell_quote(spec) for spec in exact_specs(package_inputs)),
+        + " ".join(shell_quote(name) for name in fetch_names(package_inputs)),
     )
 
+    expected_filenames = {
+        f"{name}-{version}.apk"
+        for name, version in package_inputs.items()
+    }
+    actual_filenames = {
+        path.name
+        for path in package_dir.iterdir()
+        if path.is_file() and not path.is_symlink()
+    }
+    extra = sorted(actual_filenames - expected_filenames)
+    missing = sorted(expected_filenames - actual_filenames)
+    if extra or missing:
+        raise ContentDiscoveryError(
+            "APK fetch did not reproduce locked versions: "
+            f"missing={missing[:8]} extra={extra[:8]}"
+        )
+
     manifest: dict[str, dict[str, object]] = {}
-    expected_filenames: set[str] = set()
     for name, version in sorted(package_inputs.items()):
         filename = f"{name}-{version}.apk"
-        expected_filenames.add(filename)
         path = package_dir / filename
         if path.is_symlink() or not path.is_file():
             raise ContentDiscoveryError(f"exact APK archive missing after fetch: {filename}")
@@ -211,16 +231,6 @@ def reproduce_and_discover(work_dir: Path) -> dict:
             "size_bytes": size,
             "sha256": sha256_file(path),
         }
-
-    actual_filenames = {
-        path.name
-        for path in package_dir.iterdir()
-        if path.is_file() and not path.is_symlink()
-    }
-    extra = sorted(actual_filenames - expected_filenames)
-    missing = sorted(expected_filenames - actual_filenames)
-    if extra or missing:
-        raise ContentDiscoveryError(f"APK fetch output set drifted: missing={missing[:8]} extra={extra[:8]}")
 
     replay_rootfs = work_dir / "offline-replay-rootfs"
     prepare_offline_replay_rootfs(rootfs_archive, replay_rootfs)
