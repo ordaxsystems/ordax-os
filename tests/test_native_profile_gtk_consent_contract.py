@@ -13,8 +13,10 @@ class NativeProfileGtkConsentContractTests(unittest.TestCase):
         self.assertIn("Gtk.Dialog(", host)
         self.assertIn("transient_for=self.window", host)
         self.assertIn("modal=True", host)
-        self.assertIn("Ativar perfil", host)
-        self.assertIn("Cancelar", host)
+        self.assertIn("profile_consent_messages", host)
+        self.assertIn("read_native_security_locale", host)
+        self.assertIn('messages["approve"]', host)
+        self.assertIn('messages["cancel"]', host)
         self.assertIn("permissionDiff", host)
         self.assertIn("profile_consent_ipc.send_decision", host)
 
