@@ -388,6 +388,12 @@ export function mountFirstRunExperience(
       documentObject,
       "p",
       "ordax-first-run-note",
+      "Use pelo menos 6 caracteres e repita exatamente a mesma credencial.",
+    ));
+    body.append(el(
+      documentObject,
+      "p",
+      "ordax-first-run-note",
       "Deixe os dois campos vazios para continuar sem bloqueio autenticado. Você poderá configurar depois em Ajustes.",
     ));
     if (localSessionMessage) {
