@@ -131,7 +131,7 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertTrue(proof["client_b_attempts_stale_mutation"])
         self.assertTrue(proof["client_b_reads_canonical_deleted_state"])
         operator = boundary["implementation"]["proof_entitlement_operator"]
-        self.assertEqual(operator["status"], "source-ready-not-executed")
+        self.assertEqual(operator["status"], "deployed-operator-only-no-grant")
         self.assertEqual(operator["entitlement_key"], "memory.cloud.enabled")
         self.assertEqual(operator["scope"], "account-only")
         self.assertEqual(operator["purpose"], "cloud-memory-two-client-proof")
@@ -142,6 +142,13 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertFalse(operator["executable_by_authenticated"])
         self.assertFalse(operator["executable_by_service_role"])
         self.assertFalse(operator["issues_grant_on_migration"])
+        self.assertEqual(operator["backend"], "ordax-control-plane")
+        self.assertTrue(operator["security_definer"])
+        self.assertEqual(operator["function_owner"], "postgres")
+        self.assertEqual(
+            operator["live_execute_privileges_verified"],
+            {"anon": False, "authenticated": False, "service_role": False},
+        )
 
     def test_external_models_require_explicit_egress_and_do_not_own_memory(self):
         router = self.load(MODEL_ROUTER)
