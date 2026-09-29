@@ -113,6 +113,8 @@ on:
       - 'tests/test_profile_pack_restore.mjs'
       - 'tests/test_profile_pack_manifest_layout.py'
       - 'tests/test_profile_pack_restore_composition.py'
+      - 'system/surface/runtime/native_profile_activation_command.py'
+      - 'tests/test_native_profile_activation_command.py'
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
@@ -225,6 +227,8 @@ on:
       - 'tests/test_profile_pack_restore.mjs'
       - 'tests/test_profile_pack_manifest_layout.py'
       - 'tests/test_profile_pack_restore_composition.py'
+      - 'system/surface/runtime/native_profile_activation_command.py'
+      - 'tests/test_native_profile_activation_command.py'
       - '.github/workflows/intelligence-foundation.yml'
   workflow_dispatch:
 
@@ -286,6 +290,7 @@ jobs:
           python -m py_compile system/surface/runtime/native_profile_component_inventory.py
           python -m py_compile system/surface/runtime/native_profile_provisioning_executor.py
           python -m py_compile system/surface/runtime/native_profile_activation_state.py
+          python -m py_compile system/surface/runtime/native_profile_activation_command.py
           python -m py_compile tools/local-ai-baseline/report.py
           python -m py_compile tools/local-ai-baseline/compare.py
           python -m py_compile tools/local-ai-benchmark/benchmark.py
@@ -358,3 +363,4 @@ jobs:
           python -m unittest tests.test_native_profile_component_inventory -v
           python -m unittest tests.test_native_profile_provisioning_executor -v
           python -m unittest tests.test_native_profile_activation_state -v
+          python -m unittest tests.test_native_profile_activation_command -v
