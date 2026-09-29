@@ -15,7 +15,6 @@ jobs:
       ORDAX_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.ORDAX_SUPABASE_PUBLISHABLE_KEY }}
       ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL: ${{ secrets.ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL }}
       ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD: ${{ secrets.ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD }}
-      ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
 
     steps:
       - name: Checkout
@@ -47,10 +46,14 @@ jobs:
           echo 'CLOUD_MEMORY_PROOF_SECRETS_PRINTED=NO'
 
       - name: Prove two independent authenticated clients and tombstone sync
+        env:
+          ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
         run: python tools/cloud-memory/prove_authenticated_atomic_sync.py
 
       - name: Validate sanitized receipt
         shell: bash
+        env:
+          ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
         run: |
           set -euo pipefail
           python - "$ORDAX_MEMORY_PROOF_RECEIPT_PATH" <<'PY'
