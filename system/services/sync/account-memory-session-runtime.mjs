@@ -2,7 +2,11 @@ import {
   assertIdentitySessionPort,
   validateIdentitySessionSnapshot,
 } from "../../contracts/identity-session.mjs";
-import { assertMemoryPort } from "../../contracts/memory.mjs";
+import {
+  MAX_MEMORY_SEARCH_OFFSET,
+  MAX_MEMORY_SEARCH_RESULTS,
+  assertMemoryPort,
+} from "../../contracts/memory.mjs";
 import { assertSyncStateStorePort } from "../../contracts/sync-state-store.mjs";
 import {
   SYNC_TRANSPORT_SCHEMA,
@@ -11,6 +15,7 @@ import {
 import {
   MEMORY_SYNC_DATA_CLASS,
   MEMORY_SYNC_RUNTIME_SCHEMA,
+  classifyMemoryForAccountSync,
   createAccountMemorySyncRuntime,
 } from "./account-memory-runtime.mjs";
 
@@ -58,7 +63,24 @@ function inactiveSnapshot(state) {
   });
 }
 
-function mutationAuthorizationDescriptor(subjectId, mutation) {
+function findCurrentMemoryItem(memory, subjectId, id) {
+  for (let offset = 0; offset <= MAX_MEMORY_SEARCH_OFFSET; offset += MAX_MEMORY_SEARCH_RESULTS) {
+    const items = memory.search({
+      ownerKind: "account",
+      ownerId: subjectId,
+      scopes: ["device", "account", "space", "project", "session"],
+      includeRestricted: true,
+      limit: MAX_MEMORY_SEARCH_RESULTS,
+      offset,
+    });
+    const current = items.find((item) => item.id === id);
+    if (current) return current;
+    if (items.length < MAX_MEMORY_SEARCH_RESULTS) return null;
+  }
+  return null;
+}
+
+function mutationAuthorizationDescriptor(memory, subjectId, mutation) {
   if (
     !mutation
     || typeof mutation !== "object"
@@ -67,25 +89,42 @@ function mutationAuthorizationDescriptor(subjectId, mutation) {
     throw new TypeError("Account Memory transport received an incompatible mutation");
   }
   if (mutation.operation === "upsert") {
+    const queued = mutation.payload?.memory;
+    const current = findCurrentMemoryItem(memory, subjectId, queued?.id);
+    if (!current) {
+      throw new Error("Pending Memory upsert no longer has a current local item");
+    }
+    const classification = classifyMemoryForAccountSync(current, { subjectId });
+    if (!classification.eligible || JSON.stringify(current) !== JSON.stringify(queued)) {
+      throw new Error("Pending Memory upsert no longer matches current portable local state");
+    }
     return Object.freeze({
       subjectId,
       dataClass: MEMORY_SYNC_DATA_CLASS,
       operation: "upsert",
-      item: mutation.payload?.memory,
+      item: current,
     });
   }
   if (mutation.operation === "delete") {
+    const identity = mutation.payload?.memoryIdentity;
+    const current = findCurrentMemoryItem(memory, subjectId, identity?.id);
+    if (current) {
+      const classification = classifyMemoryForAccountSync(current, { subjectId });
+      if (classification.eligible) {
+        throw new Error("Pending Memory delete is stale because portable local state exists again");
+      }
+    }
     return Object.freeze({
       subjectId,
       dataClass: MEMORY_SYNC_DATA_CLASS,
       operation: "delete",
-      memoryIdentity: mutation.payload?.memoryIdentity,
+      memoryIdentity: identity,
     });
   }
   throw new TypeError("Account Memory transport received an unsupported mutation operation");
 }
 
-function createAuthorizationGatedTransport({ transport, subjectId, authorizeSync }) {
+function createAuthorizationGatedTransport({ transport, memoryPort, subjectId, authorizeSync }) {
   const remote = assertSyncTransportPort(transport);
   return Object.freeze({
     schema: SYNC_TRANSPORT_SCHEMA,
@@ -96,7 +135,7 @@ function createAuthorizationGatedTransport({ transport, subjectId, authorizeSync
       return remote.pullChanges(request);
     },
     async applyMutation(mutation) {
-      const descriptor = mutationAuthorizationDescriptor(subjectId, mutation);
+      const descriptor = mutationAuthorizationDescriptor(memoryPort, subjectId, mutation);
       if (authorizeSync(descriptor) !== true) {
         throw new Error("Account Memory sync authorization is required at the transport boundary");
       }
@@ -178,6 +217,7 @@ export function createAccountMemorySessionRuntime({
       if (!runtime) return Object.freeze({ ...inactiveSnapshot(validateIdentitySessionSnapshot(identity.getSnapshot()).state), accepted: 0, failures: 0 });
       const gatedTransport = createAuthorizationGatedTransport({
         transport,
+        memoryPort: memory,
         subjectId: activeSubjectId,
         authorizeSync: authorization,
       });
