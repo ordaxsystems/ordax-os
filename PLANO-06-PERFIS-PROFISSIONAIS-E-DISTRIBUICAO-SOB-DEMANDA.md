@@ -141,6 +141,9 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 - múltiplas versões do mesmo Profile podem coexistir para atualização/rollback sem sobrescrever o manifest anterior;
 - boot Native revalida `current` contra manifest, `spaceKind`, provisioning e receipts; drift entra em `disabled-safe`;
 - restore desta etapa é **metadata-only**: nenhuma app, tool, Knowledge ou policy é aplicada automaticamente;
+- comando Native de ativação interna exige intenção explícita, token efêmero específico, loopback/same-origin e revisão esperada validada dentro do lock;
+- comando revalida o Profile contra catálogo/manifest bundled canônico e continua bloqueado no Stable/MVP;
+- Profiles com componentes continuam bloqueados até existir receipt canônico de provisioning para a ativação;
 - rollback de Profile nunca rebobina Memory, documentos ou outros dados autoritativos do Space;
 - nenhum Profile pode conceder privilégio ao ser provisionado.
 
@@ -178,7 +181,7 @@ Depois da prova MVP:
 
 1. conectar Knowledge Pack saudável ao retrieval/Intelligence sem torná-lo memória autoritativa;
 2. conectar Skill Pack declarativo ao contexto de Intelligence sem conceder tools automaticamente;
-3. concluir o comando confiável de ativação por intenção do usuário sobre o estado Native `current/previous`;
+3. promover o comando interno de ativação para Profiles com componentes somente após receipt canônico de provisioning e permission diff;
 4. promover o restore metadata-only para aplicação real de composição somente após trust/policy e health de cada efeito, mantendo Profile não crítico ao boot;
 5. Store/catalog remoto assinado;
 6. downloads transacionais;
