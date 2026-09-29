@@ -1,6 +1,6 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-import re
+import ast
 import os
 import stat
 import tempfile
@@ -67,12 +67,38 @@ class NotesNativeTests(unittest.TestCase):
         self.assertIn('NOTES_FILE = "/var/lib/ordax/notes.json"', text)
         self.assertIn("read_notes_payload", text)
         self.assertIn("write_notes_payload", text)
-        loopback_guards = re.findall(
-            r'if parsed_path in \\{([^}]+)\\} and self\\.client_address\\[0\\] != "127\\.0\\.0\\.1":',
-            text,
-        )
+        tree = ast.parse(text)
+        loopback_guard_found = False
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.If) or not isinstance(node.test, ast.BoolOp):
+                continue
+            values = node.test.values
+            membership = next((
+                value for value in values
+                if isinstance(value, ast.Compare)
+                and len(value.ops) == 1
+                and isinstance(value.ops[0], ast.In)
+                and isinstance(value.left, ast.Name)
+                and value.left.id == "parsed_path"
+                and isinstance(value.comparators[0], ast.Set)
+                and any(
+                    isinstance(item, ast.Name) and item.id == "NOTES_PATH"
+                    for item in value.comparators[0].elts
+                )
+            ), None)
+            loopback = next((
+                value for value in values
+                if isinstance(value, ast.Compare)
+                and len(value.ops) == 1
+                and isinstance(value.ops[0], ast.NotEq)
+                and isinstance(value.comparators[0], ast.Constant)
+                and value.comparators[0].value == "127.0.0.1"
+            ), None)
+            if membership is not None and loopback is not None:
+                loopback_guard_found = True
+                break
         self.assertTrue(
-            any("NOTES_PATH" in guard for guard in loopback_guards),
+            loopback_guard_found,
             "Notes endpoint must remain inside a loopback-only native guard",
         )
         self.assertIn('if self.path == NOTES_PATH:', text)
