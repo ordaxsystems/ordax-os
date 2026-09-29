@@ -6,6 +6,13 @@ is compiled from exact upstream bytes inside the pinned build closure, then only
 the installed prefix is copied into a clean runtime closure. The resulting
 EROFS is Owner/Development-only, non-activating, and has no physical-write or
 application-launch authority.
+
+PRoot remains useful for deterministic APK materialization, but is deliberately
+not used for the Wine make phase. The canonical compile executor imports the
+already-pinned Alpine build root into a disposable local Docker image. No
+external container image is pulled. The compiler container has no network, no
+Linux capabilities, no privilege escalation and only the fixed /build tree is
+writable from the host.
 """
 
 from __future__ import annotations
@@ -81,11 +88,18 @@ def exact_specs(lock: dict[str, str]) -> list[str]:
     return [f"{name}={version}" for name, version in sorted(lock.items())]
 
 
-def prepare_alpine_root(rootfs: Path, contract: dict, cache_dir: Path, lock: dict[str, str], label: str) -> None:
+def prepare_alpine_root(
+    rootfs: Path,
+    contract: dict,
+    cache_dir: Path,
+    lock: dict[str, str],
+    label: str,
+) -> None:
     archive, actual_sha = CORE.download_verified(cache_dir)
     if actual_sha != contract["alpine"]["archive_sha256"]:
         raise RuntimeBuildError(
-            f"{label} Alpine digest mismatch: expected={contract['alpine']['archive_sha256']} actual={actual_sha}"
+            f"{label} Alpine digest mismatch: "
+            f"expected={contract['alpine']['archive_sha256']} actual={actual_sha}"
         )
     rootfs.mkdir(parents=True, exist_ok=False)
     CORE.safe_extract(archive, rootfs)
@@ -101,7 +115,8 @@ def prepare_alpine_root(rootfs: Path, contract: dict, cache_dir: Path, lock: dic
 
     CORE.proot_rootfs(
         rootfs,
-        "apk add --no-cache " + " ".join(shlex.quote(item) for item in exact_specs(lock)),
+        "apk add --no-cache "
+        + " ".join(shlex.quote(item) for item in exact_specs(lock)),
     )
     installed = DISCOVERY.installed_lock(rootfs)
     expected = dict(sorted(lock.items()))
@@ -129,7 +144,9 @@ def safe_extract_wine(archive: Path, destination: Path) -> Path:
                 while name.startswith("./"):
                     name = name[2:]
                 if not name or name.startswith("/") or ".." in Path(name).parts:
-                    raise RuntimeBuildError(f"unsafe Wine source archive path: {member.name}")
+                    raise RuntimeBuildError(
+                        f"unsafe Wine source archive path: {member.name}"
+                    )
                 if member.isdev() or member.isfifo():
                     raise RuntimeBuildError(
                         f"unsupported Wine source archive object: {member.name}"
@@ -139,7 +156,8 @@ def safe_extract_wine(archive: Path, destination: Path) -> Path:
                     or ".." in Path(member.linkname).parts
                 ):
                     raise RuntimeBuildError(
-                        f"unsafe Wine source archive link: {member.name} -> {member.linkname}"
+                        f"unsafe Wine source archive link: "
+                        f"{member.name} -> {member.linkname}"
                     )
                 members.append(member)
             source.extractall(destination, members=members, filter="data")
@@ -147,7 +165,11 @@ def safe_extract_wine(archive: Path, destination: Path) -> Path:
         raise RuntimeBuildError(f"cannot extract Wine source: {exc}") from exc
 
     entries = list(destination.iterdir())
-    if len(entries) != 1 or not entries[0].is_dir() or entries[0].name != "wine-11.0":
+    if (
+        len(entries) != 1
+        or not entries[0].is_dir()
+        or entries[0].name != "wine-11.0"
+    ):
         raise RuntimeBuildError("Wine source archive did not contain exactly wine-11.0/")
     source_root = destination / "wine-11.0"
     if not (source_root / "configure").is_file() or not (source_root / "LICENSE").is_file():
@@ -155,12 +177,37 @@ def safe_extract_wine(archive: Path, destination: Path) -> Path:
     return source_root
 
 
+def normalized_tar(rootfs: Path, destination: Path) -> None:
+    entries = [rootfs] + sorted(
+        rootfs.rglob("*"), key=lambda p: p.relative_to(rootfs).as_posix()
+    )
+    with tarfile.open(
+        destination, "w", format=tarfile.PAX_FORMAT, dereference=False
+    ) as archive:
+        for path in entries:
+            relative = "." if path == rootfs else path.relative_to(rootfs).as_posix()
+            info = archive.gettarinfo(str(path), arcname=relative)
+            info.uid = info.gid = 0
+            info.uname = info.gname = ""
+            info.mtime = 0
+            info.pax_headers = {}
+            if info.isfile():
+                with path.open("rb") as handle:
+                    archive.addfile(info, handle)
+            elif info.isdir() or info.issym():
+                archive.addfile(info)
+            else:
+                raise RuntimeBuildError(
+                    f"unsupported object reached normalized tar: {relative}"
+                )
+
+
 def compile_wine(build_root: Path, contract: dict, source_archive: Path, jobs: int) -> Path:
-    fixed = build_root / "build"
+    fixed = build_root.parent / "wine-work"
     source_parent = fixed / "source"
     build_dir = fixed / "wine-build"
     stage_dir = fixed / "wine-stage"
-    fixed.mkdir(parents=True, exist_ok=True)
+    fixed.mkdir(parents=True, exist_ok=False)
     source_root = safe_extract_wine(source_archive, source_parent)
     canonical_source = fixed / "wine-source"
     source_root.rename(canonical_source)
@@ -168,31 +215,86 @@ def compile_wine(build_root: Path, contract: dict, source_archive: Path, jobs: i
     build_dir.mkdir()
     stage_dir.mkdir()
 
-    configure_args = " ".join(shlex.quote(item) for item in contract["engine"]["configure_args"])
-    i386_cc = "/usr/bin/i686-w64-mingw32-gcc"
-    x86_64_cc = "/usr/bin/x86_64-w64-mingw32-gcc"
-    command = (
-        "export PATH=/usr/bin:/bin SOURCE_DATE_EPOCH=0 TZ=UTC LC_ALL=C LANG=C ZERO_AR_DATE=1; "
-        f"test -x {shlex.quote(i386_cc)}; "
-        f"test -x {shlex.quote(x86_64_cc)}; "
-        "printf 'int ordax_mingw_probe(void) { return 0; }\\n' > /tmp/ordax-mingw-probe.c; "
-        f"{shlex.quote(i386_cc)} -c /tmp/ordax-mingw-probe.c -o /tmp/ordax-mingw-i386.o; "
-        f"{shlex.quote(x86_64_cc)} -c /tmp/ordax-mingw-probe.c -o /tmp/ordax-mingw-x86_64.o; "
-        "test -s /tmp/ordax-mingw-i386.o; test -s /tmp/ordax-mingw-x86_64.o; "
-        "cd /build/wine-build; "
-        f"i386_CC={shlex.quote(i386_cc)} x86_64_CC={shlex.quote(x86_64_cc)} "
-        f"/build/wine-source/configure {configure_args}; "
-        f"grep -F {shlex.quote(i386_cc)} Makefile >/dev/null; "
-        f"grep -F {shlex.quote(x86_64_cc)} Makefile >/dev/null; "
-        f"test -x {shlex.quote(i386_cc)}; test -x {shlex.quote(x86_64_cc)}; "
-        f"{shlex.quote(i386_cc)} -c /tmp/ordax-mingw-probe.c -o /tmp/ordax-mingw-i386-after-configure.o; "
-        f"{shlex.quote(x86_64_cc)} -c /tmp/ordax-mingw-probe.c -o /tmp/ordax-mingw-x86_64-after-configure.o; "
-        "test -s /tmp/ordax-mingw-i386-after-configure.o; "
-        "test -s /tmp/ordax-mingw-x86_64-after-configure.o; "
-        f"make -j{jobs}; "
-        "make DESTDIR=/build/wine-stage install"
-    )
-    CORE.proot_rootfs(build_root, command)
+    image_tar = build_root.parent / "wine-build-rootfs.tar"
+    image_ref = f"ordax-windows-compat-build:{uuid.uuid4().hex}"
+    normalized_tar(build_root, image_tar)
+
+    imported = False
+    try:
+        result = run(
+            ["docker", "import", str(image_tar), image_ref],
+            capture=True,
+        )
+        if not result.stdout.strip().startswith("sha256:"):
+            raise RuntimeBuildError("Docker did not return an imported image identity")
+        imported = True
+
+        configure_args = " ".join(
+            shlex.quote(item) for item in contract["engine"]["configure_args"]
+        )
+        i386_cc = "/usr/bin/i686-w64-mingw32-gcc"
+        x86_64_cc = "/usr/bin/x86_64-w64-mingw32-gcc"
+        command = (
+            "set -eu; "
+            "export PATH=/usr/bin:/bin SOURCE_DATE_EPOCH=0 TZ=UTC "
+            "LC_ALL=C LANG=C ZERO_AR_DATE=1 HOME=/tmp; "
+            f"test -x {shlex.quote(i386_cc)}; "
+            f"test -x {shlex.quote(x86_64_cc)}; "
+            "printf 'int ordax_mingw_probe(void) { return 0; }\\n' "
+            "> /tmp/ordax-mingw-probe.c; "
+            "printf 'all:\\n\\t/usr/bin/i686-w64-mingw32-gcc -c "
+            "/tmp/ordax-mingw-probe.c -o /tmp/ordax-make-i386.o\\n"
+            "\\t/usr/bin/x86_64-w64-mingw32-gcc -c "
+            "/tmp/ordax-mingw-probe.c -o /tmp/ordax-make-x86_64.o\\n' "
+            "> /tmp/ordax-mingw.mk; "
+            "/usr/bin/make -f /tmp/ordax-mingw.mk -j2; "
+            "test -s /tmp/ordax-make-i386.o; "
+            "test -s /tmp/ordax-make-x86_64.o; "
+            "cd /build/wine-build; "
+            f"i386_CC={shlex.quote(i386_cc)} "
+            f"x86_64_CC={shlex.quote(x86_64_cc)} "
+            f"/build/wine-source/configure {configure_args}; "
+            f"grep -F {shlex.quote(i386_cc)} Makefile >/dev/null; "
+            f"grep -F {shlex.quote(x86_64_cc)} Makefile >/dev/null; "
+            f"make -j{jobs}; "
+            "make DESTDIR=/build/wine-stage install"
+        )
+        run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--network=none",
+                "--cap-drop=ALL",
+                "--security-opt=no-new-privileges",
+                "--pids-limit=4096",
+                "--user",
+                f"{os.getuid()}:{os.getgid()}",
+                "--volume",
+                f"{fixed}:/build:rw",
+                "--workdir",
+                "/build",
+                image_ref,
+                "/bin/sh",
+                "-ec",
+                command,
+            ]
+        )
+    finally:
+        if imported:
+            try:
+                subprocess.run(
+                    ["docker", "image", "rm", "-f", image_ref],
+                    check=True,
+                    text=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except (OSError, subprocess.CalledProcessError) as exc:
+                raise RuntimeBuildError(
+                    "failed to remove disposable Wine build image"
+                ) from exc
+        image_tar.unlink(missing_ok=True)
 
     staged_prefix = stage_dir / RUNTIME_PREFIX
     if not staged_prefix.is_dir():
@@ -248,11 +350,17 @@ def verify_wine_runtime_tree(rootfs: Path) -> dict[str, object]:
             try:
                 resolved.relative_to(prefix)
             except ValueError as exc:
-                raise RuntimeBuildError(f"Wine executable symlink escaped prefix: {relative}") from exc
+                raise RuntimeBuildError(
+                    f"Wine executable symlink escaped prefix: {relative}"
+                ) from exc
         if not path.exists() or not path.is_file():
-            raise RuntimeBuildError(f"required Wine runtime executable missing: {relative}")
+            raise RuntimeBuildError(
+                f"required Wine runtime executable missing: {relative}"
+            )
         if not os.access(path, os.X_OK):
-            raise RuntimeBuildError(f"required Wine runtime executable is not executable: {relative}")
+            raise RuntimeBuildError(
+                f"required Wine runtime executable is not executable: {relative}"
+            )
 
     architecture_dirs = (
         "lib/wine/i386-windows",
@@ -262,7 +370,9 @@ def verify_wine_runtime_tree(rootfs: Path) -> dict[str, object]:
     for relative in architecture_dirs:
         path = prefix / relative
         if not path.is_dir():
-            raise RuntimeBuildError(f"required Wine architecture tree missing: {relative}")
+            raise RuntimeBuildError(
+                f"required Wine architecture tree missing: {relative}"
+            )
 
     for relative in (
         "lib/wine/i386-windows/ntdll.dll",
@@ -300,7 +410,8 @@ def verify_wine_runtime_tree(rootfs: Path) -> dict[str, object]:
     ]
     if forbidden_found:
         raise RuntimeBuildError(
-            f"disabled Wine Unix drivers were unexpectedly built: {sorted(forbidden_found)}"
+            "disabled Wine Unix drivers were unexpectedly built: "
+            f"{sorted(forbidden_found)}"
         )
 
     return {
@@ -327,7 +438,9 @@ def sha256_file(path: Path) -> str:
 
 def write_tree_manifest(rootfs: Path, destination: Path) -> str:
     entries: list[dict[str, object]] = []
-    for path in sorted(rootfs.rglob("*"), key=lambda p: p.relative_to(rootfs).as_posix()):
+    for path in sorted(
+        rootfs.rglob("*"), key=lambda p: p.relative_to(rootfs).as_posix()
+    ):
         relative = path.relative_to(rootfs).as_posix()
         info = path.lstat()
         mode = stat.S_IMODE(info.st_mode)
@@ -346,12 +459,21 @@ def write_tree_manifest(rootfs: Path, destination: Path) -> str:
         elif path.is_symlink():
             target = os.readlink(path)
             if os.path.isabs(target) or ".." in Path(target).parts:
-                raise RuntimeBuildError(f"unsafe runtime symlink: {relative} -> {target}")
+                raise RuntimeBuildError(
+                    f"unsafe runtime symlink: {relative} -> {target}"
+                )
             entries.append(
-                {"path": relative, "type": "symlink", "mode": mode, "target": target}
+                {
+                    "path": relative,
+                    "type": "symlink",
+                    "mode": mode,
+                    "target": target,
+                }
             )
         else:
-            raise RuntimeBuildError(f"unsupported object reached runtime manifest: {relative}")
+            raise RuntimeBuildError(
+                f"unsupported object reached runtime manifest: {relative}"
+            )
     payload = {
         "$schema": "prototype-ordax.windows-compat-runtime-tree/1",
         "entry_count": len(entries),
@@ -362,31 +484,6 @@ def write_tree_manifest(rootfs: Path, destination: Path) -> str:
         encoding="utf-8",
     )
     return sha256_file(destination)
-
-
-def normalized_tar(rootfs: Path, destination: Path) -> None:
-    entries = [rootfs] + sorted(
-        rootfs.rglob("*"), key=lambda p: p.relative_to(rootfs).as_posix()
-    )
-    with tarfile.open(
-        destination, "w", format=tarfile.PAX_FORMAT, dereference=False
-    ) as archive:
-        for path in entries:
-            relative = "." if path == rootfs else path.relative_to(rootfs).as_posix()
-            info = archive.gettarinfo(str(path), arcname=relative)
-            info.uid = info.gid = 0
-            info.uname = info.gname = ""
-            info.mtime = 0
-            info.pax_headers = {}
-            if info.isfile():
-                with path.open("rb") as handle:
-                    archive.addfile(info, handle)
-            elif info.isdir() or info.issym():
-                archive.addfile(info)
-            else:
-                raise RuntimeBuildError(
-                    f"unsupported object reached normalized runtime tar: {relative}"
-                )
 
 
 def erofs_identity(path: Path) -> dict[str, str]:
@@ -405,12 +502,17 @@ def erofs_identity(path: Path) -> dict[str, str]:
 def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
     contract = DISCOVERY.load_contract()
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "amd64"}:
-        raise RuntimeBuildError("Windows compatibility runtime build requires x86_64 Linux")
+        raise RuntimeBuildError(
+            "Windows compatibility runtime build requires x86_64 Linux"
+        )
     if not isinstance(jobs, int) or jobs < 1 or jobs > 8:
         raise RuntimeBuildError("build jobs must be between 1 and 8")
-    for program in ("proot", "mkfs.erofs", "fsck.erofs", "blkid"):
+    for program in ("proot", "docker", "mkfs.erofs", "fsck.erofs", "blkid"):
         if shutil.which(program) is None:
-            raise RuntimeBuildError(f"required runtime build tool missing: {program}")
+            raise RuntimeBuildError(
+                f"required runtime build tool missing: {program}"
+            )
+    run(["docker", "info"], capture=True)
 
     out_dir = out_dir.resolve()
     cache_dir = cache_dir.resolve()
@@ -484,7 +586,9 @@ def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
             or identity.get("LABEL") != VOLUME_LABEL
             or identity.get("UUID", "").lower() != image_uuid
         ):
-            raise RuntimeBuildError("Windows compatibility runtime EROFS identity mismatch")
+            raise RuntimeBuildError(
+                "Windows compatibility runtime EROFS identity mismatch"
+            )
 
         result = {
             "$schema": "prototype-ordax.windows-compat-runtime-provenance/1",
@@ -492,11 +596,18 @@ def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
             "source_commit": source_commit(),
             "runtime_id": contract["runtime_id"],
             "product_scope": contract["product_scope"],
+            "compile_executor": "docker-imported-pinned-alpine-rootfs",
+            "compile_network": "none",
+            "compile_capabilities": "none",
             "wine_source_sha256": contract["engine"]["source_sha256"],
             "wine_source_size_bytes": contract["engine"]["source_size_bytes"],
             "alpine_archive_sha256": contract["alpine"]["archive_sha256"],
-            "build_apk_package_lock_count": contract["build_apk_package_lock_count"],
-            "runtime_apk_package_lock_count": contract["runtime_apk_package_lock_count"],
+            "build_apk_package_lock_count": contract[
+                "build_apk_package_lock_count"
+            ],
+            "runtime_apk_package_lock_count": contract[
+                "runtime_apk_package_lock_count"
+            ],
             "wine_runtime": runtime_proof,
             "tree_manifest_sha256": tree_manifest_sha,
             "normalized_tar_sha256": tar_sha,
@@ -537,17 +648,34 @@ def verify(out_dir: Path) -> dict:
         (tree_path, "tree manifest"),
     ):
         if path.is_symlink() or not path.is_file():
-            raise RuntimeBuildError(f"Windows compatibility runtime {label} is missing")
+            raise RuntimeBuildError(
+                f"Windows compatibility runtime {label} is missing"
+            )
     try:
         provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeBuildError(f"cannot read runtime provenance: {exc}") from exc
-    if provenance.get("$schema") != "prototype-ordax.windows-compat-runtime-provenance/1":
-        raise RuntimeBuildError("unexpected Windows compatibility runtime provenance schema")
+        raise RuntimeBuildError(
+            f"cannot read runtime provenance: {exc}"
+        ) from exc
+    if (
+        provenance.get("$schema")
+        != "prototype-ordax.windows-compat-runtime-provenance/1"
+    ):
+        raise RuntimeBuildError(
+            "unexpected Windows compatibility runtime provenance schema"
+        )
     if provenance.get("status") != "owner-development-candidate-not-executable":
-        raise RuntimeBuildError("Windows compatibility runtime crossed execution/promotion boundary")
+        raise RuntimeBuildError(
+            "Windows compatibility runtime crossed execution/promotion boundary"
+        )
     if provenance.get("runtime_id") != contract["runtime_id"]:
         raise RuntimeBuildError("Windows compatibility runtime id differs from contract")
+    if provenance.get("compile_executor") != "docker-imported-pinned-alpine-rootfs":
+        raise RuntimeBuildError("unexpected Windows compatibility compile executor")
+    if provenance.get("compile_network") != "none":
+        raise RuntimeBuildError("Wine compile unexpectedly had network access")
+    if provenance.get("compile_capabilities") != "none":
+        raise RuntimeBuildError("Wine compile unexpectedly had Linux capabilities")
     if provenance.get("wine_source_sha256") != contract["engine"]["source_sha256"]:
         raise RuntimeBuildError("Wine source identity differs from contract")
     if provenance.get("tree_manifest_sha256") != sha256_file(tree_path):
@@ -569,7 +697,8 @@ def verify(out_dir: Path) -> dict:
     if (
         identity.get("TYPE") != "erofs"
         or identity.get("LABEL") != VOLUME_LABEL
-        or identity.get("UUID", "").lower() != provenance.get("image", {}).get("uuid")
+        or identity.get("UUID", "").lower()
+        != provenance.get("image", {}).get("uuid")
     ):
         raise RuntimeBuildError("runtime EROFS filesystem identity mismatch")
     return provenance
