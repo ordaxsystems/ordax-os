@@ -99,6 +99,7 @@ create table private.ordax_sync_mutations (
 \ir ../../infra/supabase/product/migrations/20260929192000_cloud_memory_atomic_mutation_qualification_v1.sql
 \ir ../../infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql
 \ir ../../infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql
+\ir ../../infra/supabase/product/migrations/20260929214500_cloud_memory_local_first_identity_v1.sql
 
 select set_config('ordax.test_uid', '11111111-1111-1111-1111-111111111111', false);
 insert into public.ordax_entitlement_grants values (
@@ -124,10 +125,14 @@ begin
 end;
 $$;
 
+-- A local-first Memory item already has a stable UUID before the cloud is
+-- reachable. First sync must preserve that identity instead of replacing it.
 create temporary table cloud_memory_proof(memory_id uuid primary key);
 with applied as (
   select * from public.ordax_apply_memory_mutation_v1(
-    'memory:privacy:create:0001', null, 'account', null, 'fact', 'private',
+    'memory:privacy:create:0001',
+    '44444444-4444-4444-8444-444444444444'::uuid,
+    'account', null, 'fact', 'private',
     'Preferencia autorizada para teste', 'user-confirmed:postgres-privacy-proof',
     '2026-09-29T18:00:00Z', null, 0, false, 1
   )
@@ -143,6 +148,9 @@ declare
 begin
   if v_memory_id is null then
     raise exception 'canonical Memory create did not return exactly one stable identity';
+  end if;
+  if v_memory_id <> '44444444-4444-4444-8444-444444444444'::uuid then
+    raise exception 'first cloud sync replaced the local-first Memory identity';
   end if;
 
   select sync_row.payload into v_payload
@@ -173,6 +181,25 @@ begin
   ) then
     raise exception 'cloud Memory transport mirror has non-canonical envelope fields';
   end if;
+end;
+$$;
+
+-- Client-supplied identity is accepted only for canonical UUID v4. This keeps
+-- arbitrary legacy/local identifiers out of the cloud transport boundary.
+do $$
+begin
+  begin
+    perform * from public.ordax_apply_memory_mutation_v1(
+      'memory:identity:invalid:0001',
+      '55555555-5555-1555-8555-555555555555'::uuid,
+      'account', null, 'fact', 'private',
+      'should never persist', 'user-confirmed:postgres-privacy-proof',
+      '2026-09-29T18:00:30Z', null, 0, false, 1
+    );
+    raise exception 'expected non-v4 local Memory identity rejection';
+  exception when sqlstate '22023' then
+    if sqlerrm <> 'memory-id-must-be-uuid-v4' then raise; end if;
+  end;
 end;
 $$;
 
@@ -213,7 +240,8 @@ begin
        or content ilike '%not-a-cloud-memory-secret%'
        or content ilike '%abcdef0123456789abcdef%'
        or content ilike '%private-material%'
-  ) then raise exception 'rejected never-sync material reached Memory source of truth'; end if;
+       or content = 'should never persist'
+  ) then raise exception 'rejected material reached Memory source of truth'; end if;
 
   if exists (
     select 1 from private.ordax_sync_mutations
@@ -221,7 +249,8 @@ begin
        or payload::text ilike '%not-a-cloud-memory-secret%'
        or payload::text ilike '%abcdef0123456789abcdef%'
        or payload::text ilike '%private-material%'
-  ) then raise exception 'rejected never-sync material reached mutation history'; end if;
+       or payload::text like '%should never persist%'
+  ) then raise exception 'rejected material reached mutation history'; end if;
 end;
 $$;
 
