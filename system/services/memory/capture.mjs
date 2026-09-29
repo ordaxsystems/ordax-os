@@ -1,17 +1,15 @@
 import { assertMemoryPort, validateMemoryItem } from "../../contracts/memory.mjs";
 import {
-  MEMORY_CAPTURE_PROPOSAL_SCHEMA,
+  MEMORY_CAPTURE_RESULT_SCHEMA,
   validateMemoryCaptureAuthorization,
-  validateMemoryCaptureConfirmation,
   validateMemoryCaptureDraft,
 } from "../../contracts/memory-capture.mjs";
 
 export const MEMORY_CAPTURE_RUNTIME_SCHEMA = "ordax.memory-capture-runtime/1";
-const MAX_PENDING_PROPOSALS = 32;
 
 function defaultIdFactory() {
   if (typeof globalThis.crypto?.randomUUID !== "function") {
-    throw new Error("Memory capture requires a cryptographically strong proposal id source");
+    throw new Error("Memory capture requires a cryptographically strong id source");
   }
   return globalThis.crypto.randomUUID();
 }
@@ -28,32 +26,30 @@ function sourceTimestamp(now) {
 export function createMemoryCaptureRuntime(memoryPort, {
   now = () => new Date(),
   idFactory = defaultIdFactory,
+  captureEnabled = true,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
   if (typeof now !== "function" || typeof idFactory !== "function") {
     throw new TypeError("Memory capture runtime requires clock and id factory functions");
   }
-  const pending = new Map();
+  if (typeof captureEnabled !== "boolean") {
+    throw new TypeError("Memory capture enabled state must be boolean");
+  }
 
   return Object.freeze({
     schema: MEMORY_CAPTURE_RUNTIME_SCHEMA,
 
-    propose(draftValue, authorizationValue) {
-      if (pending.size >= MAX_PENDING_PROPOSALS) {
-        throw new Error("Memory capture pending proposal limit reached");
-      }
+    async capture(draftValue, authorizationValue) {
+      if (!captureEnabled) return null;
       const draft = validateMemoryCaptureDraft(draftValue);
       const authorization = validateMemoryCaptureAuthorization(authorizationValue);
-      const proposalId = String(idFactory()).trim();
-      if (!proposalId || proposalId.length > 160 || proposalId.includes("\0")) {
-        throw new TypeError("Memory capture proposal id is invalid");
-      }
-      if (pending.has(proposalId)) {
-        throw new Error("Memory capture proposal id must be unique");
+      const id = String(idFactory()).trim();
+      if (!id || id.length > 160 || id.includes("\0")) {
+        throw new TypeError("Memory capture id is invalid");
       }
 
       const item = validateMemoryItem({
-        id: proposalId,
+        id,
         ownerKind: authorization.ownerKind,
         ownerId: authorization.ownerId,
         scope: authorization.scope,
@@ -65,41 +61,13 @@ export function createMemoryCaptureRuntime(memoryPort, {
         spaceId: authorization.spaceId,
         projectId: null,
       });
-      const proposal = Object.freeze({
-        schema: MEMORY_CAPTURE_PROPOSAL_SCHEMA,
-        proposalId,
-        item,
-      });
-      pending.set(proposalId, proposal);
-      return proposal;
-    },
-
-    async confirm(confirmationValue) {
-      const confirmation = validateMemoryCaptureConfirmation(confirmationValue);
-      const proposal = pending.get(confirmation.proposalId) ?? null;
-      if (proposal === null) {
-        throw new Error("Memory capture proposal is no longer pending");
-      }
-      const remembered = memory.remember(proposal.item);
+      const remembered = memory.remember(item);
       await memory.flush();
-      pending.delete(confirmation.proposalId);
-      return remembered;
-    },
-
-    discard(proposalIdValue) {
-      if (typeof proposalIdValue !== "string" || proposalIdValue.includes("\0")) {
-        throw new TypeError("Memory capture proposal id must be text");
-      }
-      const proposalId = proposalIdValue.trim();
-      if (!proposalId || proposalId.length > 160) {
-        throw new TypeError("Memory capture proposal id is invalid");
-      }
-      return pending.delete(proposalId);
-    },
-
-    getPending(proposalIdValue) {
-      if (typeof proposalIdValue !== "string") return null;
-      return pending.get(proposalIdValue.trim()) ?? null;
+      return Object.freeze({
+        schema: MEMORY_CAPTURE_RESULT_SCHEMA,
+        item: remembered,
+        durable: true,
+      });
     },
   });
 }
