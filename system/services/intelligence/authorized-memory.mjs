@@ -193,7 +193,7 @@ export function createIdentityBoundMemoryIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    respond(value) {
+    async respond(value) {
       const identitySnapshot = validateIdentitySessionSnapshot(identity.getSnapshot());
       const selectionSnapshot = validateSpaceSelectionSnapshot(selection.getSnapshot());
       const authorizations = [{
