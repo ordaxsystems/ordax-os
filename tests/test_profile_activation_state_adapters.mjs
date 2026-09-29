@@ -171,6 +171,7 @@ test("Native Profile adapter previews permission diff before accepted activation
           });
         }
         assert.equal(body.acceptedPermissionDiffSha256, digest);
+        assert.equal("humanConsent" in body, false);
         return response({ state, permissionDiff: null, permissionDiffSha256: digest });
       }
       throw new Error("unexpected request");
