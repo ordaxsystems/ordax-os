@@ -36,6 +36,7 @@ export function assertMemoryReviewSession(session) {
     "getSnapshot",
     "subscribe",
     "selectOwner",
+    "create",
     "list",
     "update",
     "remove",
@@ -55,6 +56,7 @@ export function createMemoryReviewSession({
   spaceId = null,
   projectId = null,
   now = () => new Date(),
+  idFactory = undefined,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
   const identity = identitySessionPort === null
@@ -108,6 +110,7 @@ export function createMemoryReviewSession({
     spaceId,
     projectId,
     now,
+    ...(idFactory === undefined ? {} : { idFactory }),
   });
 
   return Object.freeze({
@@ -134,6 +137,10 @@ export function createMemoryReviewSession({
       selectedOwner = match;
       if (changed) publish();
       return snapshot();
+    },
+    create(content, options = {}) {
+      if (disposed) throw new Error("Memory review session is disposed");
+      return review().create(content, options);
     },
     list(options = {}) {
       if (disposed) throw new Error("Memory review session is disposed");
