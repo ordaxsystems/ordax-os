@@ -68,13 +68,26 @@ function runtimeState(snapshot) {
   return "unavailable";
 }
 
-export function createAssistantConversationRuntime({ intelligencePort = null } = {}) {
+export function createAssistantConversationRuntime({
+  intelligencePort = null,
+  memoryCapture = null,
+} = {}) {
   const intelligence = intelligencePort === null ? null : assertIntelligencePort(intelligencePort);
+  if (
+    memoryCapture !== null
+    && (
+      typeof memoryCapture !== "object"
+      || typeof memoryCapture.captureTurn !== "function"
+    )
+  ) {
+    throw new TypeError("Assistant memoryCapture must implement captureTurn()");
+  }
   let messages = Object.freeze([]);
   let state = runtimeState(
     intelligence === null ? null : validateIntelligenceSnapshot(intelligence.getSnapshot()),
   );
   let lastError = null;
+  let memoryCaptureState = memoryCapture === null ? "unavailable" : "idle";
   let ordinal = 0;
   let disposed = false;
   const listeners = new Set();
@@ -91,6 +104,7 @@ export function createAssistantConversationRuntime({ intelligencePort = null } =
     authority: "none",
     toolExecution: false,
     persistence: "session",
+    memoryCaptureState,
   });
 
   const publish = () => {
@@ -169,6 +183,21 @@ export function createAssistantConversationRuntime({ intelligencePort = null } =
         state = runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()));
         lastError = null;
         publish();
+
+        if (memoryCapture !== null) {
+          memoryCaptureState = "pending";
+          publish();
+          try {
+            const captureResult = await memoryCapture.captureTurn({
+              userText: prompt,
+              assistantText: response.text,
+            });
+            memoryCaptureState = captureResult?.status ?? "complete";
+          } catch {
+            memoryCaptureState = "error";
+          }
+          publish();
+        }
         return response;
       } catch {
         if (disposed) throw new Error("Assistant response failed");
@@ -186,6 +215,7 @@ export function createAssistantConversationRuntime({ intelligencePort = null } =
       }
       messages = Object.freeze([]);
       lastError = null;
+      memoryCaptureState = memoryCapture === null ? "unavailable" : "idle";
       state = runtimeState(
         intelligence === null ? null : validateIntelligenceSnapshot(intelligence.getSnapshot()),
       );
