@@ -162,6 +162,11 @@ jobs:
             --trust "$trust" \
             --content "$content"
 
+          "$channel" verify-envelope \
+            --manifest "$manifest" \
+            --envelope "$recovered_envelope" \
+            --trust "$recovered_trust"
+
           test "$(stat -c '%a' "$private")" = "600"
           test "$(stat -c '%a' "$recovered")" = "600"
           rm -rf "$root"
