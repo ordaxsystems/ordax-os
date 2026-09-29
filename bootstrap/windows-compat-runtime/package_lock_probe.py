@@ -2,9 +2,10 @@
 """Generate a content-addressed candidate lock for Wine build APK inputs.
 
 The probe consumes a successful configure proof and its temporary Alpine rootfs.
-It compares that rootfs with the pinned pristine minirootfs, fetches every APK
-whose installed identity differs from the pristine base, verifies the APKs with
-Alpine's package verifier, and records SHA-256 + size for every fetched archive.
+It compares that rootfs with the pinned pristine minirootfs, refreshes only the
+repository indexes, fetches every APK whose installed identity differs from the
+pristine base, verifies the APKs with Alpine's package verifier, and records
+SHA-256 + size for every fetched archive.
 
 This command does not compile Wine, install a runtime into OrdaX, materialize a
 compatibility profile, or authorize foreign application execution.
@@ -28,6 +29,10 @@ ENVIRONMENT_FILE = HERE / "build-environment.json"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$")
 SAFE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._~:-]{0,255}$")
+EXPECTED_REPOSITORIES = (
+    "https://dl-cdn.alpinelinux.org/alpine/v3.22/main",
+    "https://dl-cdn.alpinelinux.org/alpine/v3.22/community",
+)
 
 
 class PackageLockError(RuntimeError):
@@ -61,6 +66,14 @@ def validated_source() -> dict:
         return CONFIGURE.SOURCE.validate_source(CONFIGURE.SOURCE.load_source())
     except CONFIGURE.SOURCE.RuntimeSourceError as exc:
         raise PackageLockError(f"runtime source contract is invalid: {exc}") from exc
+
+
+def validated_environment() -> dict:
+    environment = CONFIGURE.validate_environment(load_json(ENVIRONMENT_FILE, "build environment"))
+    repositories = environment.get("repositories")
+    if repositories != list(EXPECTED_REPOSITORIES):
+        raise PackageLockError("Alpine repository set drifted from compatibility build policy")
+    return environment
 
 
 def sha256_file(path: Path) -> str:
@@ -107,7 +120,7 @@ def validate_configure_proof(proof: dict) -> dict:
             raise PackageLockError(f"configure proof overclaims readiness: {key}")
 
     source = validated_source()
-    environment = CONFIGURE.validate_environment(load_json(ENVIRONMENT_FILE, "build environment"))
+    environment = validated_environment()
     if proof.get("runtime_id") != source.get("runtime_id") or proof.get("wine_version") != source.get("version"):
         raise PackageLockError("configure proof runtime identity drifted")
     if proof.get("host") != environment.get("host"):
@@ -161,18 +174,28 @@ def changed_packages(pristine: dict[str, str], resolved: dict[str, str]) -> dict
     return dict(sorted(changed.items()))
 
 
+def refresh_repository_indexes(rootfs: Path) -> None:
+    """Refresh repository indexes and prove the installed graph did not mutate."""
+    before = CONFIGURE.installed_package_versions(rootfs)
+    try:
+        CONFIGURE.proot(rootfs, "apk update")
+    except CONFIGURE.ConfigureProofError as exc:
+        raise PackageLockError(f"Alpine repository index refresh failed: {exc}") from exc
+    after = CONFIGURE.installed_package_versions(rootfs)
+    if after != before:
+        raise PackageLockError("repository index refresh mutated installed package graph")
+
+
 def fetch_and_verify_archives(rootfs: Path, package_map: dict[str, str]) -> list[dict]:
     cache = rootfs / "build/package-cache"
     if cache.exists():
         shutil.rmtree(cache)
     cache.mkdir(parents=True)
+
+    refresh_repository_indexes(rootfs)
+
     specs = [f"{name}={version}" for name, version in package_map.items()]
-    # configure uses apk add --no-cache, so repository indexes are intentionally
-    # absent afterwards. Refresh indexes only; package selection remains pinned
-    # to exact name=version identities and there is no fallback to latest.
-    command = "apk --update-cache fetch --output /build/package-cache " + " ".join(
-        shell_quote(spec) for spec in specs
-    )
+    command = "apk fetch --output /build/package-cache " + " ".join(shell_quote(spec) for spec in specs)
     try:
         CONFIGURE.proot(rootfs, command)
     except CONFIGURE.ConfigureProofError as exc:
@@ -226,6 +249,7 @@ def build_candidate_manifest(
     proof_sha256: str,
 ) -> dict:
     source = validated_source()
+    environment = validated_environment()
     if len(archives) != len(changed):
         raise PackageLockError("archive count does not match changed package graph")
     archive_identities = {(record.get("name"), record.get("version")) for record in archives}
@@ -243,6 +267,8 @@ def build_candidate_manifest(
         "wine_version": configure_proof["wine_version"],
         "wine_source_sha256": source["upstream"]["archive_sha256"],
         "host": configure_proof["host"],
+        "repositories": environment["repositories"],
+        "repository_index_status": "mutable-discovery-input-not-build-authority",
         "configure_proof_sha256": proof_sha256,
         "configure_flags": configure_proof["configure_flags"],
         "native_compiler_triplet": configure_proof["native_compiler_triplet"],
@@ -292,7 +318,7 @@ def main() -> int:
     parser.add_argument("--manifest-out", type=Path)
     args = parser.parse_args()
 
-    CONFIGURE.validate_environment(load_json(ENVIRONMENT_FILE, "build environment"))
+    validated_environment()
     source = validated_source()
     if source.get("build_intent", {}).get("binary_artifact_pinned") is not False:
         raise PackageLockError("source contract already claims a binary artifact")
