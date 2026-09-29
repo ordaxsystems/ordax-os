@@ -140,8 +140,14 @@ class ProfileConsentIpcServer:
     def receive_request(self, connection: socket.socket) -> dict:
         return validate_request(_decode(_recv_line(connection)))
 
-    def send_decision(self, connection: socket.socket, decision: dict) -> None:
-        validate_decision(decision, expected_request_id=decision.get("requestId"))
+    def send_decision(
+        self,
+        connection: socket.socket,
+        decision: dict,
+        *,
+        expected_request_id: str,
+    ) -> None:
+        validate_decision(decision, expected_request_id=expected_request_id)
         connection.sendall(_encode(decision))
 
     def close(self) -> None:
