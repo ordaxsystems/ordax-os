@@ -32,7 +32,13 @@ function defaultIdFactory() {
   if (typeof globalThis.crypto?.getRandomValues === "function") {
     const bytes = new Uint8Array(16);
     globalThis.crypto.getRandomValues(bytes);
-    return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+    // RFC 4122 / RFC 9562 UUID v4 bits. This fallback exists for runtimes
+    // without crypto.randomUUID() but must preserve the same portable identity
+    // contract used by account Memory cloud sync.
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
   throw new Error("Memory review requires a cryptographically strong id source");
 }
