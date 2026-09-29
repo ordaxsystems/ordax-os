@@ -144,6 +144,7 @@ jobs:
           assert proof['external_packages']
           gates = proof['gates']
           assert gates['full_build_proof_verified'] is True
+          assert gates['loader_resolution_verified'] is True
           assert gates['staging_dependency_inventory_complete'] is True
           assert gates['runtime_dependency_inventory_complete'] is False
           assert gates['runtime_package_content_hashes_pinned'] is False

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Discover runtime dependencies of a staged Wine build without executing it.
+"""Discover staged Wine runtime dependencies without executing Wine.
 
-The probe parses ELF program headers and DT_NEEDED directly in Python, resolves
-SONAMEs against the staged tree first and the locked Alpine rootfs second, and
-maps external rootfs files back to exact Alpine package name/version using the
-installed package database. It never executes Wine or a Windows payload.
+The probe parses ELF metadata directly, models musl loader search semantics for
+DT_RPATH/DT_RUNPATH plus the locked system search path, resolves rooted symlinks,
+and maps external files to exact Alpine package owners. It never executes Wine
+or a Windows payload.
 """
 
 from __future__ import annotations
@@ -27,7 +27,14 @@ DT_NULL = 0
 DT_NEEDED = 1
 DT_STRTAB = 5
 DT_STRSZ = 10
+DT_RPATH = 15
+DT_RUNPATH = 29
 ELF_MAGIC = b"\x7fELF"
+MUSL_FALLBACK_SEARCH_PATH = "/lib:/usr/local/lib:/usr/lib"
+MUSL_ARCH = {
+    (64, 62): "x86_64",
+    (32, 3): "i386",
+}
 
 
 class RuntimeDependencyError(RuntimeError):
@@ -60,14 +67,17 @@ def load_contract() -> dict:
         "stage_manifest_binding_required",
         "elf_identity_match_required",
         "rooted_symlink_resolution_required",
+        "elf_loader_search_path_required",
+        "musl_system_path_required",
     )
     if any(inspection.get(key) is not True for key in required_true):
-        raise RuntimeDependencyError("runtime dependency discovery identity/binding boundary drifted")
+        raise RuntimeDependencyError("runtime dependency discovery identity/loader boundary drifted")
     expected_false = (
         "host_readelf_allowed",
         "network_allowed",
         "stage_mutation_allowed",
         "rootfs_mutation_allowed",
+        "ambient_ld_library_path_allowed",
         "unresolved_dependency_allowed",
         "ambiguous_external_owner_allowed",
     )
@@ -88,16 +98,21 @@ def canonical_sha256(value: object) -> str:
     return sha256_bytes(encoded)
 
 
-def read_c_string(blob: bytes, offset: int, limit: int) -> str:
+def read_dynamic_string(blob: bytes, offset: int, limit: int, label: str) -> str:
     if offset < 0 or offset >= limit or limit > len(blob):
-        raise RuntimeDependencyError("ELF dynamic string offset is out of bounds")
+        raise RuntimeDependencyError(f"ELF {label} string offset is out of bounds")
     end = blob.find(b"\x00", offset, limit)
     if end < 0:
-        raise RuntimeDependencyError("ELF dynamic string is not NUL terminated")
+        raise RuntimeDependencyError(f"ELF {label} string is not NUL terminated")
     try:
         value = blob[offset:end].decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise RuntimeDependencyError("ELF dynamic string is not UTF-8") from exc
+        raise RuntimeDependencyError(f"ELF {label} string is not UTF-8") from exc
+    return value
+
+
+def read_c_string(blob: bytes, offset: int, limit: int) -> str:
+    value = read_dynamic_string(blob, offset, limit, "DT_NEEDED")
     if not value or "/" in value or "\\" in value or value in {".", ".."}:
         raise RuntimeDependencyError(f"unsafe DT_NEEDED value: {value!r}")
     return value
@@ -138,7 +153,7 @@ def parse_elf_dynamic(path: Path) -> dict | None:
     if e_phentsize < ph_size or e_phnum > 4096:
         raise RuntimeDependencyError(f"invalid ELF program-header table: {path}")
     table_end = e_phoff + e_phentsize * e_phnum
-    if e_phoff < 0 or table_end > len(data):
+    if table_end > len(data):
         raise RuntimeDependencyError(f"ELF program-header table out of bounds: {path}")
 
     loads: list[tuple[int, int, int]] = []
@@ -157,13 +172,9 @@ def parse_elf_dynamic(path: Path) -> dict | None:
         elif p_type == PT_DYNAMIC:
             dynamic = (p_offset, p_filesz)
 
-    identity = {
-        "class": elf_class,
-        "machine": machine,
-        "endianness": endianness,
-    }
+    identity = {"class": elf_class, "machine": machine, "endianness": endianness}
     if dynamic is None:
-        return {**identity, "dt_needed": []}
+        return {**identity, "dt_needed": [], "rpath": None, "runpath": None}
 
     dyn_off, dyn_len = dynamic
     if dyn_len % dyn_size != 0:
@@ -171,6 +182,8 @@ def parse_elf_dynamic(path: Path) -> dict | None:
     needed_offsets: list[int] = []
     strtab_vaddr: int | None = None
     strsz: int | None = None
+    rpath_offset: int | None = None
+    runpath_offset: int | None = None
     for offset in range(dyn_off, dyn_off + dyn_len, dyn_size):
         tag, value = struct.unpack_from(dyn_fmt, data, offset)
         if tag == DT_NULL:
@@ -181,10 +194,15 @@ def parse_elf_dynamic(path: Path) -> dict | None:
             strtab_vaddr = value
         elif tag == DT_STRSZ:
             strsz = value
-    if not needed_offsets:
-        return {**identity, "dt_needed": []}
+        elif tag == DT_RPATH:
+            rpath_offset = value
+        elif tag == DT_RUNPATH:
+            runpath_offset = value
+
+    if not needed_offsets and rpath_offset is None and runpath_offset is None:
+        return {**identity, "dt_needed": [], "rpath": None, "runpath": None}
     if strtab_vaddr is None or strsz is None or strsz <= 0:
-        raise RuntimeDependencyError(f"ELF DT_NEEDED without valid string table: {path}")
+        raise RuntimeDependencyError(f"ELF dynamic strings without valid string table: {path}")
 
     strtab_file: int | None = None
     for vaddr, file_offset, file_size in loads:
@@ -193,8 +211,20 @@ def parse_elf_dynamic(path: Path) -> dict | None:
             break
     if strtab_file is None or strtab_file + strsz > len(data):
         raise RuntimeDependencyError(f"ELF dynamic string table is not file-backed: {path}")
-    names = [read_c_string(data, strtab_file + item, strtab_file + strsz) for item in needed_offsets]
-    return {**identity, "dt_needed": sorted(set(names))}
+
+    needed = [read_c_string(data, strtab_file + item, strtab_file + strsz) for item in needed_offsets]
+    rpath = None if rpath_offset is None else read_dynamic_string(
+        data, strtab_file + rpath_offset, strtab_file + strsz, "DT_RPATH"
+    )
+    runpath = None if runpath_offset is None else read_dynamic_string(
+        data, strtab_file + runpath_offset, strtab_file + strsz, "DT_RUNPATH"
+    )
+    return {
+        **identity,
+        "dt_needed": sorted(set(needed)),
+        "rpath": rpath,
+        "runpath": runpath,
+    }
 
 
 def parse_dt_needed(path: Path) -> list[str] | None:
@@ -217,7 +247,7 @@ def normalize_rooted_relative(path: PurePosixPath) -> PurePosixPath:
             continue
         if part == "..":
             if not parts:
-                raise RuntimeDependencyError(f"rooted symlink escapes dependency tree: {path}")
+                raise RuntimeDependencyError(f"rooted path escapes dependency tree: {path}")
             parts.pop()
             continue
         parts.append(part)
@@ -270,7 +300,7 @@ def build_soname_index(root: Path) -> dict[str, list[dict]]:
         if not (path.is_file() or path.is_symlink()):
             continue
         name = path.name
-        if ".so" not in name and name not in {"ld-musl-x86_64.so.1", "ld-musl-i386.so.1"}:
+        if ".so" not in name and not name.startswith("ld-musl-"):
             continue
         relative = safe_relative(root, path)
         canonical = resolve_rooted_path(root, path)
@@ -332,12 +362,94 @@ def parse_apk_installed(rootfs: Path) -> tuple[dict[str, str], dict[str, tuple[s
     return versions, owners
 
 
-def resolve_candidate(index: dict[str, list[dict]], soname: str, consumer: dict, scope: str) -> dict | None:
+def split_path_list(value: str, label: str) -> list[str]:
+    values: list[str] = []
+    for line in value.splitlines():
+        for item in line.split(":"):
+            item = item.strip()
+            if not item:
+                raise RuntimeDependencyError(f"empty entry in {label} is not allowed")
+            values.append(item)
+    if not values:
+        raise RuntimeDependencyError(f"{label} produced no search directories")
+    return values
+
+
+def expand_loader_directory(value: str, consumer_relative: str, label: str) -> str:
+    parent = PurePosixPath("/" + consumer_relative).parent.as_posix()
+    expanded = value.replace("${ORIGIN}", parent).replace("$ORIGIN", parent)
+    if "$" in expanded:
+        raise RuntimeDependencyError(f"unsupported loader token in {label}: {value!r}")
+    path = PurePosixPath(expanded)
+    if not path.is_absolute():
+        raise RuntimeDependencyError(f"relative loader search directory is not allowed in {label}: {value!r}")
+    rooted = normalize_rooted_relative(path)
+    if not rooted.parts:
+        raise RuntimeDependencyError(f"root loader search directory is not allowed in {label}")
+    return rooted.as_posix()
+
+
+def musl_arch_name(elf: dict) -> str:
+    key = (elf["class"], elf["machine"])
+    arch = MUSL_ARCH.get(key)
+    if arch is None:
+        raise RuntimeDependencyError(
+            f"unsupported musl loader identity ELF{elf['class']}/machine={elf['machine']}"
+        )
+    return arch
+
+
+def musl_system_search_directories(rootfs: Path, elf: dict) -> list[dict]:
+    arch = musl_arch_name(elf)
+    config = rootfs / f"etc/ld-musl-{arch}.path"
+    if config.exists():
+        try:
+            raw = config.read_text(encoding="utf-8", errors="strict")
+        except OSError as exc:
+            raise RuntimeDependencyError(f"cannot read musl system search path: {exc}") from exc
+        source = f"/etc/ld-musl-{arch}.path"
+    else:
+        raw = MUSL_FALLBACK_SEARCH_PATH
+        source = "musl-built-in-fallback"
+    result = []
+    for item in split_path_list(raw, source):
+        result.append({
+            "directory": expand_loader_directory(item, "usr/bin/placeholder", source),
+            "source": source,
+        })
+    return result
+
+
+def loader_search_directories(consumer_relative: str, elf: dict, rootfs: Path) -> list[dict]:
+    result: list[dict] = []
+    dynamic_value = elf.get("runpath") if elf.get("runpath") is not None else elf.get("rpath")
+    dynamic_label = "DT_RUNPATH" if elf.get("runpath") is not None else "DT_RPATH"
+    if dynamic_value is not None:
+        for item in split_path_list(dynamic_value, dynamic_label):
+            result.append({
+                "directory": expand_loader_directory(item, consumer_relative, dynamic_label),
+                "source": dynamic_label,
+            })
+    result.extend(musl_system_search_directories(rootfs, elf))
+    deduped: list[dict] = []
+    seen: set[str] = set()
+    for item in result:
+        if item["directory"] in seen:
+            continue
+        seen.add(item["directory"])
+        deduped.append(item)
+    return deduped
+
+
+def candidates_in_directory(
+    index: dict[str, list[dict]], soname: str, consumer: dict, directory: str, scope: str
+) -> dict | None:
     identity = elf_identity(consumer)
     candidates = [
         item
         for item in index.get(soname, [])
-        if (item["class"], item["machine"], item["endianness"]) == identity
+        if PurePosixPath(item["path"]).parent.as_posix() == directory
+        and (item["class"], item["machine"], item["endianness"]) == identity
     ]
     if not candidates:
         return None
@@ -345,7 +457,7 @@ def resolve_candidate(index: dict[str, list[dict]], soname: str, consumer: dict,
     if len(canonical_paths) != 1:
         details = sorted(f"{item['path']}->{item['canonical_path']}" for item in candidates)
         raise RuntimeDependencyError(
-            f"ambiguous {scope} resolution for {soname} "
+            f"ambiguous {scope} resolution for {soname} in /{directory} "
             f"ELF{identity[0]}/machine={identity[1]}/{identity[2]}: {details}"
         )
     paths = sorted({item["path"] for item in candidates})
@@ -357,6 +469,36 @@ def resolve_candidate(index: dict[str, list[dict]], soname: str, consumer: dict,
         "machine": identity[1],
         "endianness": identity[2],
     }
+
+
+def resolve_loader_dependency(
+    stage_index: dict[str, list[dict]],
+    rootfs_index: dict[str, list[dict]],
+    soname: str,
+    consumer: dict,
+    consumer_relative: str,
+    rootfs: Path,
+) -> tuple[dict | None, list[dict]]:
+    search = loader_search_directories(consumer_relative, consumer, rootfs)
+    for position, item in enumerate(search):
+        directory = item["directory"]
+        staged = candidates_in_directory(stage_index, soname, consumer, directory, "stage")
+        external = candidates_in_directory(rootfs_index, soname, consumer, directory, "rootfs")
+        if staged is not None and external is not None:
+            raise RuntimeDependencyError(
+                f"cross-scope loader collision for {soname} at /{directory}: "
+                f"stage={staged['candidate_paths']} rootfs={external['candidate_paths']}"
+            )
+        selected = staged if staged is not None else external
+        if selected is not None:
+            return {
+                **selected,
+                "scope": "stage-internal" if staged is not None else "rootfs-external",
+                "search_directory": "/" + directory,
+                "search_source": item["source"],
+                "search_position": position,
+            }, search
+    return None, search
 
 
 def require_single_apk_owner(candidate: dict, owners: dict[str, tuple[str, str]]) -> tuple[str, str]:
@@ -377,19 +519,19 @@ def verify_stage_binding(stage: Path, full_build_proof: dict) -> str:
     if not isinstance(staging, dict):
         raise RuntimeDependencyError("full build proof staging metadata is missing")
     expected_digest = staging.get("canonical_manifest_sha256")
-    if not isinstance(expected_digest, str) or len(expected_digest) != 64 or any(ch not in "0123456789abcdef" for ch in expected_digest):
+    if not isinstance(expected_digest, str) or len(expected_digest) != 64 or any(
+        ch not in "0123456789abcdef" for ch in expected_digest
+    ):
         raise RuntimeDependencyError("full build proof staging manifest digest is invalid")
     try:
         manifest, total_regular_bytes = FULL_BUILD.staging_manifest(stage)
     except (FULL_BUILD.FullBuildProofError, OSError) as exc:
         raise RuntimeDependencyError(f"cannot verify staged tree against full build proof: {exc}") from exc
     actual_digest = FULL_BUILD.canonical_manifest_sha256(manifest)
-    regular_files = sum(1 for item in manifest.values() if item.get("type") == "file")
-    symlinks = sum(1 for item in manifest.values() if item.get("type") == "symlink")
     actual_metadata = {
         "entry_count": len(manifest),
-        "regular_file_count": regular_files,
-        "symlink_count": symlinks,
+        "regular_file_count": sum(1 for item in manifest.values() if item.get("type") == "file"),
+        "symlink_count": sum(1 for item in manifest.values() if item.get("type") == "symlink"),
         "total_regular_bytes": total_regular_bytes,
         "canonical_manifest_sha256": actual_digest,
     }
@@ -415,7 +557,15 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
     gates = full_build_proof.get("gates", {})
     if gates.get("full_build_proof_passed") is not True or gates.get("staged_install_completed") is not True:
         raise RuntimeDependencyError("runtime dependency discovery requires a proven staged full build")
-    if any(gates.get(key) is not False for key in ("runtime_dependency_inventory_complete", "binary_artifact_pinned", "activation_authorized", "execution_authorized", "windows_payload_executed", "wine_executed")):
+    forbidden = (
+        "runtime_dependency_inventory_complete",
+        "binary_artifact_pinned",
+        "activation_authorized",
+        "execution_authorized",
+        "windows_payload_executed",
+        "wine_executed",
+    )
+    if any(gates.get(key) is not False for key in forbidden):
         raise RuntimeDependencyError("full build proof crossed a forbidden promotion/execution boundary")
     if full_build_proof.get("runtime_id") != contract.get("runtime_id"):
         raise RuntimeDependencyError("runtime identity drifted")
@@ -439,18 +589,12 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
         needed = elf["dt_needed"]
         relative = safe_relative(stage, path)
         resolutions = []
+        loader_search = loader_search_directories(relative, elf, rootfs) if needed else []
         for soname in needed:
-            staged = resolve_candidate(stage_index, soname, elf, "stage")
-            if staged is not None:
-                resolutions.append({
-                    "soname": soname,
-                    "scope": "stage-internal",
-                    "path": staged["path"],
-                    "canonical_path": staged["canonical_path"],
-                })
-                continue
-            external_candidate = resolve_candidate(rootfs_index, soname, elf, "rootfs")
-            if external_candidate is None:
+            candidate, search = resolve_loader_dependency(
+                stage_index, rootfs_index, soname, elf, relative, rootfs
+            )
+            if candidate is None:
                 unresolved.append({
                     "consumer": relative,
                     "soname": soname,
@@ -459,31 +603,39 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
                         "machine": elf["machine"],
                         "endianness": elf["endianness"],
                     },
+                    "loader_search": search,
                 })
                 continue
-            package, version = require_single_apk_owner(external_candidate, owners)
-            if package_versions.get(package) != version:
-                raise RuntimeDependencyError(f"Alpine package version drifted for owner: {package}")
-            external_path = external_candidate["path"]
-            resolutions.append({
+            resolution = {
                 "soname": soname,
-                "scope": "rootfs-external",
-                "path": external_path,
-                "canonical_path": external_candidate["canonical_path"],
-                "package": package,
-                "version": version,
-            })
-            record = external.setdefault(package, {"version": version, "files": {}, "sonames": set()})
-            if record["version"] != version:
-                raise RuntimeDependencyError(f"external runtime package version conflict: {package}")
-            record["files"][external_path] = soname
-            record["sonames"].add(soname)
+                "scope": candidate["scope"],
+                "path": candidate["path"],
+                "canonical_path": candidate["canonical_path"],
+                "search_directory": candidate["search_directory"],
+                "search_source": candidate["search_source"],
+                "search_position": candidate["search_position"],
+            }
+            if candidate["scope"] == "rootfs-external":
+                package, version = require_single_apk_owner(candidate, owners)
+                if package_versions.get(package) != version:
+                    raise RuntimeDependencyError(f"Alpine package version drifted for owner: {package}")
+                resolution["package"] = package
+                resolution["version"] = version
+                record = external.setdefault(package, {"version": version, "files": {}, "sonames": set()})
+                if record["version"] != version:
+                    raise RuntimeDependencyError(f"external runtime package version conflict: {package}")
+                record["files"][candidate["path"]] = soname
+                record["sonames"].add(soname)
+            resolutions.append(resolution)
         elf_files[relative] = {
             "elf": {
                 "class": elf["class"],
                 "machine": elf["machine"],
                 "endianness": elf["endianness"],
             },
+            "rpath": elf["rpath"],
+            "runpath": elf["runpath"],
+            "loader_search": loader_search,
             "dt_needed": needed,
             "resolutions": resolutions,
         }
@@ -521,6 +673,7 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict) -> dict:
         },
         "gates": {
             "full_build_proof_verified": True,
+            "loader_resolution_verified": True,
             "staging_dependency_inventory_complete": True,
             "runtime_dependency_inventory_complete": False,
             "runtime_package_content_hashes_pinned": False,

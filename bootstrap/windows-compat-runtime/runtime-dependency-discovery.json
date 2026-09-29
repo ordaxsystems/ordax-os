@@ -9,22 +9,28 @@
     "full_build_proof_schema": "prototype-ordax.windows-compat-full-build-proof/2"
   },
   "inspection": {
-    "format": "elf-dt-needed",
+    "format": "elf-dt-needed-with-musl-loader-search",
     "supported_elf_classes": [32, 64],
     "supported_endianness": ["little", "big"],
     "stage_manifest_binding_required": true,
     "elf_identity_match_required": true,
     "rooted_symlink_resolution_required": true,
+    "elf_loader_search_path_required": true,
+    "musl_system_path_required": true,
     "host_readelf_allowed": false,
     "network_allowed": false,
     "stage_mutation_allowed": false,
     "rootfs_mutation_allowed": false,
+    "ambient_ld_library_path_allowed": false,
     "unresolved_dependency_allowed": false,
     "ambiguous_external_owner_allowed": false
   },
   "classification": {
-    "stage_internal": "dependency resolves inside staged Wine tree with matching ELF class/machine/endianness",
-    "rootfs_external": "dependency resolves only in the locked Alpine rootfs with matching ELF class/machine/endianness",
+    "stage_internal": "dependency resolves from the staged Wine tree at the first modeled musl loader search directory with matching ELF class/machine/endianness",
+    "rootfs_external": "dependency resolves from the locked Alpine rootfs at the first modeled musl loader search directory with matching ELF class/machine/endianness",
+    "loader_dynamic_path": "DT_RUNPATH when present, otherwise DT_RPATH, with only rooted absolute paths or $ORIGIN expansion accepted",
+    "loader_system_path": "locked /etc/ld-musl-$ARCH.path when present, otherwise musl built-in /lib:/usr/local/lib:/usr/lib fallback",
+    "ambient_ld_library_path": "forbidden for deterministic discovery and future runtime assembly",
     "build_only_is_not_runtime_by_default": true,
     "external_package_owner_required": true,
     "external_package_version_required": true
