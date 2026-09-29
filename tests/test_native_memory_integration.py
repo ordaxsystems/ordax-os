@@ -30,7 +30,7 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("createMemoryRuntime({ store: memoryStore })", composition)
         self.assertIn("createIntelligenceRuntime({ inferencePort: localAi })", composition)
         self.assertNotIn("createIntelligenceRuntime({ inferencePort: localAi, memory", composition)
-        self.assertIn("createSelectedSpaceMemoryIntelligence", composition)
+        self.assertIn("createIdentityBoundMemoryIntelligence", composition)
         self.assertIn("intelligencePort: consumerIntelligence", composition)
         self.assertIn("memoryPort: memory", composition)
         self.assertIn("spaceSelectionPort: spaceSelection", composition)
