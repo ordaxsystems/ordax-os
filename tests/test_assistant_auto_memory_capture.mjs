@@ -123,7 +123,7 @@ test("automatic Assistant Memory skips extraction when user disabled capture", a
     spaceSelectionPort: selection(),
   });
 
-  const result = await runtime.captureTurn({ userText: "olá", assistantText: "oi" });
+  const result = await runtime.bindTurn().capture({ userText: "olá", assistantText: "oi" });
   assert.equal(result.status, "disabled");
   assert.equal(ai.requests.length, 0);
   assert.equal(capture.calls.length, 0);
@@ -140,7 +140,7 @@ test("signed-out automatic capture uses device ownership and forces private sens
     spaceSelectionPort: selection(),
   });
 
-  const result = await runtime.captureTurn({
+  const result = await runtime.bindTurn().capture({
     userText: "Prefiro respostas curtas.",
     assistantText: "Certo.",
   });
@@ -169,7 +169,7 @@ test("signed-in capture uses account unless an exact selected Space is active", 
     identitySessionPort: identity("signed-in", "user-1"),
     spaceSelectionPort: selection("unselected", "user-1"),
   });
-  await accountRuntime.captureTurn({ userText: "u", assistantText: "a" });
+  await accountRuntime.bindTurn().capture({ userText: "u", assistantText: "a" });
   assert.equal(accountCapture.calls[0].authorization.scope, "account");
   assert.equal(accountCapture.calls[0].authorization.ownerId, "user-1");
 
@@ -181,7 +181,7 @@ test("signed-in capture uses account unless an exact selected Space is active", 
     identitySessionPort: identity("signed-in", "user-1"),
     spaceSelectionPort: selection("selected", "user-1", "space-a"),
   });
-  await spaceRuntime.captureTurn({ userText: "u", assistantText: "a" });
+  await spaceRuntime.bindTurn().capture({ userText: "u", assistantText: "a" });
   assert.equal(spaceCapture.calls[0].authorization.scope, "space");
   assert.equal(spaceCapture.calls[0].authorization.spaceId, "space-a");
 });
@@ -202,7 +202,7 @@ test("model output cannot choose owner scope ids sensitivity or extra fields", a
       identitySessionPort: identity(),
       spaceSelectionPort: selection(),
     });
-    const result = await runtime.captureTurn({ userText: "u", assistantText: "a" });
+    const result = await runtime.bindTurn().capture({ userText: "u", assistantText: "a" });
     assert.equal(result.status, "no-candidates");
     assert.equal(capture.calls.length, 0);
   }
@@ -223,7 +223,7 @@ test("invalid JSON and credential-like candidates fail closed", async () => {
       identitySessionPort: identity(),
       spaceSelectionPort: selection(),
     });
-    const result = await runtime.captureTurn({ userText: "u", assistantText: "a" });
+    const result = await runtime.bindTurn().capture({ userText: "u", assistantText: "a" });
     assert.equal(result.status, "no-candidates");
     assert.equal(capture.calls.length, 0);
   }
@@ -241,7 +241,7 @@ test("extractor is bounded to four candidates and exact schema", async () => {
     identitySessionPort: identity(),
     spaceSelectionPort: selection(),
   });
-  const result = await runtime.captureTurn({ userText: "u", assistantText: "a" });
+  const result = await runtime.bindTurn().capture({ userText: "u", assistantText: "a" });
   assert.equal(result.status, "no-candidates");
   assert.equal(capture.calls.length, 0);
 });
@@ -274,7 +274,7 @@ test("automatic Memory extraction never sends Assistant-generated text to the ex
     identitySessionPort: identity(),
     spaceSelectionPort: selection(),
   });
-  await runtime.captureTurn({
+  await runtime.bindTurn().capture({
     userText: "Meu idioma preferido é português.",
     assistantText: "Afirmativa inventada que não pode virar fonte de Memory.",
   });
@@ -286,4 +286,47 @@ test("automatic Memory extraction never sends Assistant-generated text to the ex
     JSON.stringify(ai.requests[0]),
     /Afirmativa inventada/,
   );
+});
+
+
+test("automatic Memory authorization is bound before extraction and cannot retarget to a new Space", async () => {
+  let selectedSpaceId = "space-a";
+  const identityPort = identity("signed-in", "user-1");
+  const spacePort = {
+    schema: SPACE_SELECTION_SCHEMA,
+    getSnapshot() {
+      return {
+        schema: SPACE_SELECTION_SCHEMA,
+        state: "selected",
+        subjectId: "user-1",
+        selectedSpace: {
+          id: selectedSpaceId,
+          ownerId: "user-1",
+          name: "Space",
+          kind: "professional",
+          state: "active",
+          profilePack: null,
+        },
+      };
+    },
+    subscribe() { return () => {}; },
+    select() {},
+    clear() {},
+  };
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: intelligence('{"memories":[{"kind":"fact","content":"Fato do Space A."}]}'),
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identityPort,
+    spaceSelectionPort: spacePort,
+  });
+
+  const bound = runtime.bindTurn();
+  selectedSpaceId = "space-b";
+  await bound.capture({ userText: "Fato do Space A." });
+
+  assert.equal(capture.calls.length, 1);
+  assert.equal(capture.calls[0].authorization.scope, "space");
+  assert.equal(capture.calls[0].authorization.spaceId, "space-a");
 });
