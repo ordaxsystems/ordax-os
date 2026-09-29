@@ -13,8 +13,11 @@
     "global_function_callers_may_cross_translation_units": true,
     "named_calls_are_followed_transitively_to_fixpoint": true,
     "line_numbers_are_not_independent_authority": true,
+    "preprocessor_logical_lines_excluded_from_c_structure": true,
+    "conditional_preprocessor_regions_excluded_from_c_structure": true,
     "function_pointer_aliases_complete": false,
     "macro_expansion_call_graph_complete": false,
+    "conditional_preprocessor_call_graph_complete": false,
     "generated_source_inventory_complete": false,
     "wrapper_call_graph_complete": false,
     "dynamic_load_inventory_complete": false
