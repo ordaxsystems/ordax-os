@@ -18,6 +18,7 @@ on:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
       - 'system/contracts/memory-context.mjs'
+      - 'system/contracts/memory-capture.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/intelligence-artifact.mjs'
       - 'system/contracts/intelligence-tool.mjs'
@@ -61,6 +62,7 @@ on:
       - 'tests/test_local_ai_hardware_probe.py'
       - 'tests/test_memory_runtime.mjs'
       - 'tests/test_memory_context.mjs'
+      - 'tests/test_memory_capture.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_memory_owners.mjs'
       - 'tests/test_memory_review_session.mjs'
@@ -138,6 +140,7 @@ on:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
       - 'system/contracts/memory-context.mjs'
+      - 'system/contracts/memory-capture.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/intelligence-artifact.mjs'
       - 'system/contracts/intelligence-tool.mjs'
@@ -180,6 +183,7 @@ on:
       - 'tests/test_local_ai_hardware_probe.py'
       - 'tests/test_memory_runtime.mjs'
       - 'tests/test_memory_context.mjs'
+      - 'tests/test_memory_capture.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_memory_owners.mjs'
       - 'tests/test_memory_review_session.mjs'
@@ -266,6 +270,7 @@ jobs:
           node --check system/contracts/memory.mjs
           node --check system/contracts/memory-store.mjs
           node --check system/contracts/memory-context.mjs
+          node --check system/contracts/memory-capture.mjs
           node --check system/contracts/model-router.mjs
           node --check system/contracts/intelligence-artifact.mjs
           node --check system/contracts/intelligence-tool.mjs
@@ -335,6 +340,7 @@ jobs:
           node --test tests/test_local_ai_model_rediscovery.mjs
           node --test tests/test_memory_runtime.mjs
           node --test tests/test_memory_context.mjs
+          node --test tests/test_memory_capture.mjs
           node --test tests/test_memory_review.mjs
           node --test tests/test_memory_owners.mjs
           node --test tests/test_memory_review_session.mjs
