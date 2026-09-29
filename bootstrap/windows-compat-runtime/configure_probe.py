@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove that pinned Wine source configures on the pinned OrdaX Alpine substrate.
+"""Prove that the pinned Wine source configures on the pinned OrdaX Alpine substrate.
 
 This is a discovery gate. It installs build dependencies only inside a temporary
 Alpine rootfs, runs Wine configure, and records exact package/toolchain
@@ -30,6 +30,10 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SAFE_PACKAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]{0,127}$")
 SAFE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._~:-]{0,255}$")
 MAX_ALPINE_ROOTFS_BYTES = 32 * 1024 * 1024
+EXPECTED_REPOSITORIES = [
+    "https://dl-cdn.alpinelinux.org/alpine/v3.22/main",
+    "https://dl-cdn.alpinelinux.org/alpine/v3.22/community",
+]
 
 
 class ConfigureProofError(RuntimeError):
@@ -85,6 +89,10 @@ def validate_environment(value: dict) -> dict:
     ):
         raise ConfigureProofError("configure proof Alpine identity diverged from canonical OrdaX base core")
 
+    if value.get("repositories") != EXPECTED_REPOSITORIES:
+        raise ConfigureProofError("Alpine compatibility repository set drifted")
+
+    reference = value.get("packaging_reference")
     expected_reference = {
         "repository": "https://github.com/alpinelinux/aports",
         "commit": "78e9baad1fc91415c7617dc91bd930e21ed068de",
@@ -92,23 +100,23 @@ def validate_environment(value: dict) -> dict:
         "wine_version": "11.0",
         "role": "dependency-and-configure-reference-only",
     }
-    if value.get("packaging_reference") != expected_reference:
+    if reference != expected_reference:
         raise ConfigureProofError("Alpine packaging reference drifted")
 
     base_packages = value.get("base_build_packages")
     wine_packages = value.get("wine_build_packages")
     if not isinstance(base_packages, list) or not isinstance(wine_packages, list):
         raise ConfigureProofError("build package lists are missing")
-    packages = base_packages + wine_packages
-    if len(set(packages)) != len(packages):
+    if len(set(base_packages + wine_packages)) != len(base_packages + wine_packages):
         raise ConfigureProofError("build package lists contain duplicates")
-    for package in packages:
+    for package in base_packages + wine_packages:
         if not isinstance(package, str) or not SAFE_PACKAGE_RE.fullmatch(package):
             raise ConfigureProofError(f"unsafe build package name: {package!r}")
     for required in ("build-base", "i686-mingw-w64-gcc", "mingw-w64-gcc"):
-        if required not in packages:
+        if required not in base_packages + wine_packages:
             raise ConfigureProofError(f"required build package missing: {required}")
 
+    configure = value.get("configure")
     expected_flags = [
         "--with-dbus",
         "--with-mingw",
@@ -118,17 +126,17 @@ def validate_environment(value: dict) -> dict:
         "--enable-win64",
         "--enable-archs=x86_64,i386",
     ]
-    expected_configure = {
+    if not isinstance(configure, dict) or configure != {
         "prefix": "/usr",
         "libdir": "/usr/lib",
         "sysconfdir": "/etc",
         "localstatedir": "/var",
         "flags": expected_flags,
         "opencl_header_compat_edit_required": True,
-    }
-    if value.get("configure") != expected_configure:
+    }:
         raise ConfigureProofError("configure intent drifted")
 
+    proof = value.get("proof")
     expected_proof = {
         "package_versions_pinned": False,
         "configure_proof_passed": False,
@@ -138,7 +146,7 @@ def validate_environment(value: dict) -> dict:
         "activation_authorized": False,
         "execution_authorized": False,
     }
-    if value.get("proof") != expected_proof:
+    if proof != expected_proof:
         raise ConfigureProofError("unproven configure environment claims readiness")
     return value
 
@@ -317,17 +325,15 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
     except ALPINE.BuildError as exc:
         raise ConfigureProofError(f"canonical Alpine rootfs extraction failed: {exc}") from exc
 
-    (rootfs / "etc/apk/repositories").write_text(
-        "https://dl-cdn.alpinelinux.org/alpine/v3.22/main\n"
-        "https://dl-cdn.alpinelinux.org/alpine/v3.22/community\n",
-        encoding="utf-8",
-    )
+    repositories = rootfs / "etc/apk/repositories"
+    repositories.write_text("\n".join(environment["repositories"]) + "\n", encoding="utf-8")
     host_resolv = Path("/etc/resolv.conf")
     if host_resolv.is_file():
         (rootfs / "etc/resolv.conf").write_bytes(host_resolv.read_bytes())
 
     packages = environment["base_build_packages"] + environment["wine_build_packages"]
-    proot(rootfs, "apk add --no-cache " + " ".join(shell_quote(package) for package in packages))
+    install_command = "apk add --no-cache " + " ".join(shell_quote(package) for package in packages)
+    proot(rootfs, install_command)
 
     installed = installed_package_versions(rootfs)
     missing = sorted(set(packages) - set(installed))
@@ -339,7 +345,8 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
     source_root = rootfs / "build/source"
     safe_extract_foreign_source(wine_archive, source_root, source_contract["upstream"]["archive_root"])
     wine_source = "/build/source/" + source_contract["upstream"]["archive_root"]
-    (rootfs / "build/output").mkdir(parents=True, exist_ok=True)
+    build_dir = rootfs / "build/output"
+    build_dir.mkdir(parents=True, exist_ok=True)
 
     triplet = proot(rootfs, "gcc -dumpmachine", capture=True).stdout.strip()
     if not triplet or any(ch.isspace() for ch in triplet):
@@ -369,7 +376,9 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
         "{ rc=$?; tail -n 200 configure.log >&2; exit $rc; }",
     )
 
-    if not (rootfs / "build/output/include/config.h").is_file() or not (rootfs / "build/output/Makefile").is_file():
+    config_header = rootfs / "build/output/include/config.h"
+    makefile = rootfs / "build/output/Makefile"
+    if not config_header.is_file() or not makefile.is_file():
         raise ConfigureProofError("Wine configure did not create expected build outputs")
 
     return {
@@ -377,6 +386,7 @@ def perform_configure_proof(environment: dict, work_dir: Path) -> dict:
         "runtime_id": source_contract["runtime_id"],
         "wine_version": source_contract["version"],
         "host": host,
+        "repositories": list(environment["repositories"]),
         "native_compiler_triplet": triplet,
         "toolchain": {
             "gcc": tool_version(rootfs, "gcc"),
