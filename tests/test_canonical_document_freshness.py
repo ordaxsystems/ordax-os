@@ -262,9 +262,14 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             promotion["CANONICAL_NOTEBOOK_UEFI_BOOT_CURRENT_MAIN"],
             "PENDING_PHYSICAL_RETEST",
         )
+        expected_destructive_state = (
+            "NOT_REACHABLE_REPLACEMENT_PROOF_REQUIRED"
+            if authorization["status"] == "blocked-canonical-v4-release-proof-pending"
+            else "NO_FRESH_AUTHORIZATION"
+        )
         self.assertEqual(
             promotion["DESTRUCTIVE_AUTHORIZATION"],
-            "NO_FRESH_AUTHORIZATION",
+            expected_destructive_state,
         )
         self.assertEqual(promotion["POST_588_PHYSICAL_REWRITE_AUTHORIZED"], "NO")
 
