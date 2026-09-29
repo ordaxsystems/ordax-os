@@ -10,6 +10,7 @@ on:
       - 'tests/test_windows_compat_runtime_first_hit_proof.py'
       - 'tests/test_windows_compat_runtime_loader_invariance.py'
       - 'tests/test_windows_compat_runtime_dependency_evidence.py'
+      - 'tests/test_windows_compat_runtime_contextual_dependencies.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
   push:
     branches: [main]
@@ -21,6 +22,7 @@ on:
       - 'tests/test_windows_compat_runtime_first_hit_proof.py'
       - 'tests/test_windows_compat_runtime_loader_invariance.py'
       - 'tests/test_windows_compat_runtime_dependency_evidence.py'
+      - 'tests/test_windows_compat_runtime_contextual_dependencies.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
 
 permissions:
@@ -54,10 +56,16 @@ jobs:
           python bootstrap/windows-compat-runtime/validate_build_version_lock.py
           python bootstrap/windows-compat-runtime/validate_apk_content_lock.py
           python bootstrap/windows-compat-runtime/container_full_build_probe.py check
+          # Keep the original direct resolver/first-hit implementation tested as
+          # a strict low-level primitive. It is no longer sufficient by itself
+          # to authorize the staged dependency inventory.
           python bootstrap/windows-compat-runtime/runtime_dependency_probe.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_first_hit_guard.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_loader_invariance_guard.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_evidence_finalize.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_first_hit_guard.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_evidence_finalize.py check
           python -m unittest tests.test_windows_compat_build_version_lock -v
           python -m unittest tests.test_windows_compat_apk_content_lock -v
           python -m unittest tests.test_windows_compat_full_build_proof -v
@@ -66,8 +74,9 @@ jobs:
           python -m unittest tests.test_windows_compat_runtime_first_hit_proof -v
           python -m unittest tests.test_windows_compat_runtime_loader_invariance -v
           python -m unittest tests.test_windows_compat_runtime_dependency_evidence -v
+          python -m unittest tests.test_windows_compat_runtime_contextual_dependencies -v
 
-      - name: Reconstruct locked inputs, build Wine, and discover runtime dependencies without executing it
+      - name: Reconstruct locked inputs, build Wine, and discover contextual runtime dependencies without executing it
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
@@ -120,27 +129,38 @@ jobs:
           print('staged entries:', staging['entry_count'])
           print('staged manifest:', staging['canonical_manifest_sha256'])
           PY
-          python bootstrap/windows-compat-runtime/runtime_dependency_first_hit_guard.py verify \
-            --stage-dir "$work/container-build/stage" \
-            --rootfs "$work/content/resolver-rootfs" \
-            --full-build-proof "$proof_dir/full-build-proof.json" \
-            --out "$proof_dir/runtime-first-hit-proof.json"
+
+          # The invariance proof is independent of the authoritative contextual
+          # first-hit proof. It reopens every modeled dynamic pathname through
+          # the low-level direct_loader_hit primitive and requires one logical
+          # target for each ELF identity + SONAME pair.
           python bootstrap/windows-compat-runtime/runtime_dependency_loader_invariance_guard.py verify \
             --stage-dir "$work/container-build/stage" \
             --rootfs "$work/content/resolver-rootfs" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
             --out "$proof_dir/runtime-loader-invariance-proof.json"
-          python bootstrap/windows-compat-runtime/runtime_dependency_probe.py discover \
+
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_first_hit_guard.py verify \
             --stage-dir "$work/container-build/stage" \
             --rootfs "$work/content/resolver-rootfs" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
+            --loader-invariance-proof "$proof_dir/runtime-loader-invariance-proof.json" \
+            --out "$proof_dir/runtime-first-hit-proof.json"
+
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_probe.py discover \
+            --stage-dir "$work/container-build/stage" \
+            --rootfs "$work/content/resolver-rootfs" \
+            --full-build-proof "$proof_dir/full-build-proof.json" \
+            --loader-invariance-proof "$proof_dir/runtime-loader-invariance-proof.json" \
             --out "$proof_dir/runtime-dependency-proof.json"
-          python bootstrap/windows-compat-runtime/runtime_dependency_evidence_finalize.py finalize \
+
+          python bootstrap/windows-compat-runtime/runtime_dependency_contextual_evidence_finalize.py finalize \
             --full-build-proof "$proof_dir/full-build-proof.json" \
             --first-hit-proof "$proof_dir/runtime-first-hit-proof.json" \
             --loader-invariance-proof "$proof_dir/runtime-loader-invariance-proof.json" \
             --dependency-proof "$proof_dir/runtime-dependency-proof.json" \
             --out "$proof_dir/runtime-dependency-evidence-proof.json"
+
           python - <<'PY' "$proof_dir/full-build-proof.json" "$proof_dir/runtime-first-hit-proof.json" "$proof_dir/runtime-loader-invariance-proof.json" "$proof_dir/runtime-dependency-proof.json" "$proof_dir/runtime-dependency-evidence-proof.json"
           import json
           import pathlib
@@ -151,25 +171,35 @@ jobs:
           ]
           stage_sha = full['staging']['canonical_manifest_sha256']
           runtime_id = full['runtime_id']
+          assert first['$schema'] == 'prototype-ordax.windows-compat-runtime-contextual-first-hit-proof/1'
+          assert dependency['$schema'] == 'prototype-ordax.windows-compat-runtime-contextual-dependency-proof/1'
+          assert evidence['$schema'] == 'prototype-ordax.windows-compat-runtime-contextual-dependency-evidence-proof/1'
           assert first['runtime_id'] == invariance['runtime_id'] == dependency['runtime_id'] == evidence['runtime_id'] == runtime_id
           assert first['staging_manifest_sha256'] == invariance['staging_manifest_sha256'] == dependency['staging_manifest_sha256'] == evidence['staging_manifest_sha256'] == stage_sha
-          assert re.fullmatch(r'[0-9a-f]{64}', first['validation_sha256'])
-          assert re.fullmatch(r'[0-9a-f]{64}', invariance['validation_sha256'])
-          assert re.fullmatch(r'[0-9a-f]{64}', dependency['inventory_sha256'])
-          assert re.fullmatch(r'[0-9a-f]{64}', evidence['evidence_sha256'])
+          assert first['loader_invariance_validation_sha256'] == invariance['validation_sha256']
+          assert dependency['loader_invariance_validation_sha256'] == invariance['validation_sha256']
+          assert evidence['loader_invariance_validation_sha256'] == invariance['validation_sha256']
+          for digest in (first['validation_sha256'], invariance['validation_sha256'], dependency['inventory_sha256'], evidence['evidence_sha256']):
+              assert re.fullmatch(r'[0-9a-f]{64}', digest)
           assert first['counts']['dependencies_checked'] > 0
           assert first['counts']['dependencies_checked'] == first['counts']['stage_hits'] + first['counts']['rootfs_hits']
+          assert first['counts']['needed_by_context_hits'] > 0
+          assert first['counts']['contextual_pathnames_reopened'] > 0
           assert invariance['counts']['needed_identity_soname_pairs'] > 0
           assert dependency['counts']['elf_files'] > 0
           assert dependency['counts']['external_packages'] > 0
           assert dependency['counts']['external_sonames'] > 0
+          assert dependency['counts']['needed_by_context_edges'] > 0
           gates = evidence['gates']
           for gate in (
               'full_build_proof_verified',
+              'loader_invariance_proof_verified',
               'first_pathname_hit_verified',
+              'needed_by_context_first_hit_verified',
               'staged_needed_by_chain_invariance_verified',
               'staged_shortname_reuse_invariance_verified',
               'loader_resolution_verified',
+              'needed_by_context_resolution_verified',
               'staging_dependency_inventory_complete',
           ):
               assert gates[gate] is True, gate
@@ -181,16 +211,18 @@ jobs:
           assert gates['execution_authorized'] is False
           assert gates['wine_executed'] is False
           assert gates['windows_payload_executed'] is False
-          print('Wine staged runtime dependency evidence: PASS')
-          print('first pathname hits:', first['counts']['dependencies_checked'])
+          print('Wine contextual staged runtime dependency evidence: PASS')
+          print('dependency edges:', first['counts']['dependencies_checked'])
+          print('needed_by contextual first hits:', first['counts']['needed_by_context_hits'])
           print('loader invariant pairs:', invariance['counts']['needed_identity_soname_pairs'])
+          print('contextual inventory edges:', dependency['counts']['needed_by_context_edges'])
           print('ELF files:', dependency['counts']['elf_files'])
           print('external packages:', dependency['counts']['external_packages'])
           print('dependency inventory:', dependency['inventory_sha256'])
           print('evidence:', evidence['evidence_sha256'])
           PY
 
-      - name: Upload full build and runtime dependency metadata only
+      - name: Upload full build and contextual runtime dependency metadata only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: windows-compat-wine-runtime-dependency-proof-${{ github.event.pull_request.head.sha || github.sha }}
