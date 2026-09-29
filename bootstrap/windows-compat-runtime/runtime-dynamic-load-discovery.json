@@ -12,6 +12,7 @@
   "inspection": {
     "archive_member_manifest_binding_required": true,
     "comments_and_literals_must_not_create_callsites": true,
+    "configured_soname_symbol_classification_required": true,
     "direct_host_loader_apis": {
       "dlmopen": 1,
       "dlopen": 0
