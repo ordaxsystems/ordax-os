@@ -55,6 +55,11 @@ export function createSpaceSelectionRuntime({
 
   let identitySnapshot = validateIdentitySessionSnapshot(identity.getSnapshot());
   let spacesSnapshot = validateSpacesSnapshot(spacesPort.getSnapshot());
+  let catalogSubjectId = (
+    identitySnapshot.state === "signed-in" && spacesSnapshot.state === "ready"
+      ? identitySnapshot.subjectId
+      : null
+  );
   let current = unavailable();
   let currentFingerprint = fingerprint(current);
   let disposed = false;
@@ -77,7 +82,10 @@ export function createSpaceSelectionRuntime({
       if (identitySnapshot.state === "signed-out") selectionStore.clear();
       return publish(unavailable());
     }
-    if (spacesSnapshot.state !== "ready") {
+    if (
+      spacesSnapshot.state !== "ready"
+      || catalogSubjectId !== identitySnapshot.subjectId
+    ) {
       return publish(unavailable());
     }
 
@@ -99,11 +107,25 @@ export function createSpaceSelectionRuntime({
   };
 
   const unsubscribeIdentity = identity.subscribe((snapshot) => {
+    const previousSubjectId = (
+      identitySnapshot.state === "signed-in" ? identitySnapshot.subjectId : null
+    );
     identitySnapshot = validateIdentitySessionSnapshot(snapshot);
+    const nextSubjectId = (
+      identitySnapshot.state === "signed-in" ? identitySnapshot.subjectId : null
+    );
+    if (previousSubjectId !== nextSubjectId) {
+      catalogSubjectId = null;
+    }
     reconcile();
   });
   const unsubscribeSpaces = spacesPort.subscribe((snapshot) => {
     spacesSnapshot = validateSpacesSnapshot(snapshot);
+    catalogSubjectId = (
+      identitySnapshot.state === "signed-in" && spacesSnapshot.state === "ready"
+        ? identitySnapshot.subjectId
+        : null
+    );
     reconcile();
   });
   reconcile();
