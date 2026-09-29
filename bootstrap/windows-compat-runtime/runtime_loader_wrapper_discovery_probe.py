@@ -110,7 +110,7 @@ def _matching_open_paren(text: str, close_index: int) -> int | None:
     return None
 
 
-def _matching_close_brace(text: str, open_index: int) -> int:
+def _matching_close_brace(text: str, open_index: int, path: str) -> int:
     depth = 0
     for index in range(open_index, len(text)):
         ch = text[index]
@@ -120,7 +120,10 @@ def _matching_close_brace(text: str, open_index: int) -> int:
             depth -= 1
             if depth == 0:
                 return index
-    raise LoaderWrapperDiscoveryError("unterminated top-level brace while parsing C source")
+    line = text.count("\n", 0, open_index) + 1
+    raise LoaderWrapperDiscoveryError(
+        f"unterminated top-level brace while parsing C source: {path}:{line}"
+    )
 
 
 def _header_start(text: str, brace_index: int) -> int:
@@ -153,7 +156,7 @@ def parse_functions(path: str, text: str) -> list[dict]:
         brace = code_only.find("{", index)
         if brace < 0:
             break
-        close = _matching_close_brace(code_only, brace)
+        close = _matching_close_brace(code_only, brace, path)
         header = _function_header(code_only, brace)
         if header is not None:
             name, is_static, header_start = header
