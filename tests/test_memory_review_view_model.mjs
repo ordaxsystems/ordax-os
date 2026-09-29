@@ -296,3 +296,30 @@ test("review view rejects unsafe page size and work after dispose", () => {
   assert.throws(() => view.refresh(), /disposed/);
   session.dispose();
 });
+
+
+test("review view persists manual Memory creation before reporting saved", async () => {
+  let flushes = 0;
+  const base = createMemoryRuntime();
+  const memory = Object.freeze({
+    ...base,
+    async flush() {
+      flushes += 1;
+      return true;
+    },
+  });
+  const session = createMemoryReviewSession({
+    memoryPort: memory,
+    idFactory: () => "manual-view",
+  });
+  const view = createMemoryReviewViewModel(session);
+
+  const created = await view.create("Memória manual");
+  assert.equal(created.id, "manual-view");
+  assert.equal(created.scope, "device");
+  assert.equal(flushes, 1);
+  assert.equal(view.getSnapshot().persistenceState, "saved");
+  assert.deepEqual(view.getSnapshot().items.map((entry) => entry.id), ["manual-view"]);
+  view.dispose();
+  session.dispose();
+});
