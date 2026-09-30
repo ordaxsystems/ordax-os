@@ -143,7 +143,9 @@
     "tool_grant_binds_resource_ref": true,
     "action_gateway_revalidates_approval_resource_scope": true,
     "action_executor_revalidates_authority_immediately_before_adapter": true,
-    "action_receipt_contract_enabled": true
+    "action_receipt_contract_enabled": true,
+    "runtime_reconstructs_execution_from_retained_approval": true,
+    "caller_supplied_execution_resource_authoritative": false
   },
   "activity": {
     "ordered_sequence_required": true,
