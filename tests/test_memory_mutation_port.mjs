@@ -130,6 +130,41 @@ test("protected account mutation rejection never falls back to local Memory", as
   assert.equal(memory.search({}).length, 0);
 });
 
+test("protected account mutation results are validated at the app-facing boundary", async () => {
+  const memory = memoryPort();
+  const accountItem = item({
+    ownerKind: "account",
+    ownerId: "account-a",
+    scope: "account",
+  });
+  const mutations = createMemoryMutationPort({
+    memoryPort: memory,
+    protectedAccountMutations: {
+      async remember(value) {
+        return { ...value, id: "memory-other" };
+      },
+      async forget() {
+        return "true";
+      },
+    },
+  });
+
+  await assert.rejects(
+    mutations.remember(accountItem),
+    /different Memory identity/,
+  );
+  await assert.rejects(
+    mutations.forget({
+      id: "memory-a",
+      ownerKind: "account",
+      ownerId: "account-a",
+    }),
+    /must return a boolean/,
+  );
+  assert.equal(memory.flushes, 0);
+  assert.equal(memory.search({}).length, 0);
+});
+
 test("invalid protected account mutation provider fails closed", () => {
   assert.throws(
     () => createMemoryMutationPort({
