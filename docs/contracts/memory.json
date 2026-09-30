@@ -206,5 +206,18 @@
       "candidate_content_must_equal_evidence": true,
       "model_may_paraphrase_persisted_memory": false
     }
+  },
+  "mutation_boundary": {
+    "schema": "ordax.memory-mutation/1",
+    "app_facing_writes_are_async": true,
+    "memory_port_remains_synchronous_local_primitive": true,
+    "default_local_adapter_requires_flush_before_success": true,
+    "account_provider_can_delegate_to_crash_safe_protected_mutations": true,
+    "account_provider_fallback_parallel_write_allowed": false,
+    "cloud_transport_owned_by_mutation_port": false,
+    "review_uses_mutation_port": true,
+    "automatic_capture_uses_mutation_port": true,
+    "reads_remain_on_memory_port": true,
+    "production_cloud_promotion_implied": false
   }
 }
