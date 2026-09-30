@@ -5,6 +5,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
+ACCOUNT_MEMORY_COMPOSITION = ROOT / "system" / "composition" / "native" / "account-memory.mjs"
 WORKFLOW = ROOT / ".github" / "workflows" / "intelligence-foundation.yml"
 
 
@@ -25,6 +26,10 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
 
         self.assertIn("createNativeMemoryStore", composition)
         self.assertIn("createMemoryRuntime", composition)
+        self.assertIn("createMemoryMutationPort", composition)
+        self.assertIn("createNativeAccountMemoryComposition", composition)
+        self.assertIn("const memoryMutations = memory === null", composition)
+        self.assertIn("protectedAccountMutations,", composition)
         self.assertIn('"OrdaX native Intelligence memory persistence unavailable"', composition)
         self.assertIn("memoryStore,", composition)
         self.assertIn("createMemoryRuntime({ store: memoryStore })", composition)
@@ -41,6 +46,7 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("createMemoryReviewSession", composition)
         self.assertIn("createMemoryReviewViewModel", composition)
         self.assertIn("memoryPort: memory", composition)
+        self.assertIn("mutationPort: memoryMutations", composition)
         self.assertIn("identitySessionPort: identitySession", composition)
         self.assertIn("memoryReview,", composition)
         self.assertIn("memoryReview?.dispose()", composition)
@@ -49,6 +55,15 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertNotIn("memoryReview,\n      intelligence", composition)
         self.assertIn("const selectedSpaceIntelligence = memory === null", composition)
         self.assertIn("intelligence: selectedSpaceIntelligence", composition)
+        self.assertIn("{ mutationPort: memoryMutations }", composition)
+        self.assertIn("recoverProtectedAccountMemory", composition)
+        self.assertIn("refreshAuthorization: true", composition)
+        self.assertIn("unsubscribeAccountMemoryRecovery()", composition)
+
+        account_memory = ACCOUNT_MEMORY_COMPOSITION.read_text(encoding="utf-8")
+        self.assertIn('publicCloudMemoryEnabled: false', account_memory)
+        self.assertIn("guardedProtectedMutations", account_memory)
+        self.assertNotIn("createWebSyncTransport", account_memory)
 
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
