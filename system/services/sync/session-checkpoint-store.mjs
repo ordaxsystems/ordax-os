@@ -16,6 +16,9 @@ export function createSessionSyncCheckpointStore() {
       value = validateSyncCheckpoint(next);
       return true;
     },
+    async flush() {
+      return true;
+    },
   };
   assertSyncCheckpointStore(store);
   return Object.freeze(store);
