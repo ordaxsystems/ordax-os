@@ -73,7 +73,7 @@ apps / Surface
 composition selects adapters
 ```
 
-## Three primitives
+## Four primitives
 
 ### 1. Work item
 
@@ -109,7 +109,18 @@ Activity should answer simple questions:
 Activity carries bounded summaries and references. It is not a hidden transcript dump and is not an
 authority channel.
 
-### 3. Action decision
+### 3. Work result
+
+`ordax.personal-work-result/1` stores the bounded durable output of completed foreground
+reasoning. It belongs to the same owner partition as its Work and is linked from exactly one
+`completed` Activity event by `result:<id>`.
+
+The result records engine/model provenance and fixed `authority=none`. Persisting model output
+does not turn that output into permission, Memory or an executable action. Work completion, result
+creation and the completed Activity reference are committed as one validated runtime state
+transition so the Surface cannot observe a newly completed Work with a missing result.
+
+### 4. Action decision
 
 `ordax.personal-action-decision/1` normalizes the orchestration decision into:
 
@@ -158,10 +169,12 @@ The source now contains the stable work/activity contracts plus a foreground run
 explicit Space/project, persists each owner in an isolated store partition, pauses the previous
 partition on identity change, preserves corrupt durable partitions without overwriting them,
 discards stale inference results, keeps Intelligence consultative and persists only through the
-dedicated bounded work-store contract. It is not yet mounted into Web/Native composition.
+dedicated bounded work-store contract. Successful foreground reasoning now also persists a bounded
+owner-partitioned Work Result atomically with the `completed` state and its Activity reference.
+It is not yet mounted into Web/Native composition.
 
-Next in this phase is the shared Activity view and composition wiring. That UI must consume the
-same runtime rather than create an app-local task store.
+Next in this phase is the shared Activity/result view and composition wiring. That UI must consume
+the same runtime rather than create an app-local task or result store.
 
 ### Phase 2 — resumable bounded background work
 
