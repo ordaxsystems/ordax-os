@@ -96,6 +96,11 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.match(source, /dataset\.personalApprovedActionExecute/);
   assert.match(source, /personalOrdax\.canExecuteApprovedAction\(item\.id, approved\.id\)/);
   assert.match(source, /personalOrdax\.executeApprovedAction\(workItemId, approvalId\)/);
+  assert.match(source, /personalOrdax\.listAvailableActions\(\)/);
+  assert.match(source, /personalOrdax\.requestAvailableAction\(actionWorkId, actionEntryId/);
+  assert.match(source, /dataset\.personalActionResource/);
+  assert.match(source, /dataset\.personalActionRequest/);
+  assert.doesNotMatch(source, /file-space:\/\/);
   assert.match(source, /projectPersonalActivitySnapshot\(personalOrdax\.getSnapshot\(\)\)/);
   assert.doesNotMatch(
     source,
