@@ -5,8 +5,10 @@ on:
     paths:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
+      - 'system/contracts/memory-mutation.mjs'
       - 'system/contracts/sync-state-store.mjs'
       - 'system/services/memory/runtime.mjs'
+      - 'system/services/memory/mutation-port.mjs'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-memory-session-runtime.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
@@ -19,6 +21,8 @@ on:
       - 'tests/test_account_memory_crash_recovery_journal.mjs'
       - 'tests/test_account_memory_crash_recovery_ownership.mjs'
       - 'system/composition/native/account-memory.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'tests/test_memory_mutation_port.mjs'
       - 'tests/test_native_account_memory_foundation.mjs'
       - '.github/workflows/account-memory-protected-mutations.yml'
   push:
@@ -26,8 +30,10 @@ on:
     paths:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
+      - 'system/contracts/memory-mutation.mjs'
       - 'system/contracts/sync-state-store.mjs'
       - 'system/services/memory/runtime.mjs'
+      - 'system/services/memory/mutation-port.mjs'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-memory-session-runtime.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
@@ -40,6 +46,8 @@ on:
       - 'tests/test_account_memory_crash_recovery_journal.mjs'
       - 'tests/test_account_memory_crash_recovery_ownership.mjs'
       - 'system/composition/native/account-memory.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'tests/test_memory_mutation_port.mjs'
       - 'tests/test_native_account_memory_foundation.mjs'
       - '.github/workflows/account-memory-protected-mutations.yml'
 
@@ -60,6 +68,8 @@ jobs:
         run: |
           set -euo pipefail
           node --check system/services/memory/runtime.mjs
+          node --check system/contracts/memory-mutation.mjs
+          node --check system/services/memory/mutation-port.mjs
           node --check system/services/sync/account-memory-session-runtime.mjs
           node --check system/services/sync/account-memory-authorized-composition.mjs
           node --check system/services/sync/account-memory-deferred-intents.mjs
@@ -68,6 +78,8 @@ jobs:
           node --check tests/test_account_memory_deferred_intents.mjs
           node --check tests/test_account_memory_crash_recovery_ownership.mjs
           node --check system/composition/native/account-memory.mjs
+          node --check system/composition/native/main.mjs
+          node --check tests/test_memory_mutation_port.mjs
           node --check tests/test_native_account_memory_foundation.mjs
 
       - name: Prove protected mutation durability and recovery
@@ -80,4 +92,5 @@ jobs:
             tests/test_account_memory_authorized_lifecycle_replay.mjs \
             tests/test_account_memory_crash_recovery_journal.mjs \
             tests/test_account_memory_crash_recovery_ownership.mjs \
-            tests/test_native_account_memory_foundation.mjs
+            tests/test_native_account_memory_foundation.mjs \
+            tests/test_memory_mutation_port.mjs
