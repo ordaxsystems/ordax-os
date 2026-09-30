@@ -23,6 +23,8 @@ import (
 const (
 	envelopeSchema   = "prototype-ordax.creator-physical-envelope/1"
 	manifestSchema   = "prototype-ordax.creator-physical-manifest/2"
+	manifestSchemaPortable = "prototype-ordax.creator-physical-manifest/3"
+	portablePayloadSchema = "prototype-ordax.creator-portable-payload/1"
 	trustSchema      = "prototype-ordax.release-trust/1"
 	purpose          = "creator-portable-physical-windows-amd64"
 	repository       = "washingtonmsdj/prototipo-ordax-os"
@@ -32,6 +34,8 @@ const (
 	maxPrivateKey    = 16 << 10
 	maxTrust         = 16 << 10
 	maxArtifact      = int64(2 << 30)
+	maxPortableArtifact = int64(16 << 30)
+	maxPortableTotal = int64(32 << 30)
 )
 
 var (
@@ -65,6 +69,19 @@ type bundle struct {
 	Size   int64  `json:"size"`
 }
 
+type portablePayloadArtifactBinding struct {
+	ID        string `json:"id"`
+	URL       string `json:"url"`
+	SHA256    string `json:"sha256"`
+	SizeBytes int64  `json:"size_bytes"`
+}
+
+type portablePayloadManifest struct {
+	Schema              string                           `json:"$schema"`
+	ReleaseSourceCommit string                           `json:"release_source_commit"`
+	Artifacts           []portablePayloadArtifactBinding `json:"artifacts"`
+}
+
 type manifest struct {
 	Schema            string        `json:"$schema"`
 	Purpose           string        `json:"purpose"`
@@ -72,7 +89,8 @@ type manifest struct {
 	SourceCommit      string        `json:"source_commit"`
 	CreatedFromRecipe string        `json:"created_from_recipe"`
 	Bundle            bundle        `json:"bundle"`
-	Files             []fileBinding `json:"files"`
+	Files             []fileBinding          `json:"files"`
+	PortablePayload   *portablePayloadManifest `json:"portable_payload,omitempty"`
 }
 
 func expectedFiles() map[string]struct{} {
@@ -87,6 +105,62 @@ func expectedFiles() map[string]struct{} {
 		"SHA256SUMS":                           {},
 	}
 }
+
+func expectedPortableArtifacts() map[string]struct{} {
+	return map[string]struct{}{
+		"systemd-boot": {}, "loader-config": {}, "loader-normal": {}, "loader-recovery": {},
+		"kernel": {}, "initramfs": {}, "bootstrap-capsule": {}, "release-trust": {},
+		"stable-base": {}, "persistent-state": {}, "system-image": {},
+		"surface-runtime-image": {}, "surface-runtime-ref": {},
+		"local-ai-runtime-image": {}, "local-ai-runtime-ref": {},
+		"release-manifest": {}, "release-envelope": {},
+	}
+}
+
+func validatePortablePayload(payload portablePayloadManifest) error {
+	if payload.Schema != portablePayloadSchema {
+		return errors.New("unsupported Portable payload schema")
+	}
+	if !commitPattern.MatchString(payload.ReleaseSourceCommit) {
+		return errors.New("Portable payload release_source_commit must be lowercase 40-hex")
+	}
+	expected := expectedPortableArtifacts()
+	if len(payload.Artifacts) != len(expected) {
+		return fmt.Errorf("Portable payload requires exactly %d artifacts", len(expected))
+	}
+	seen := map[string]struct{}{}
+	var total int64
+	for _, artifact := range payload.Artifacts {
+		if _, ok := expected[artifact.ID]; !ok {
+			return fmt.Errorf("unexpected Portable payload artifact %q", artifact.ID)
+		}
+		if _, duplicate := seen[artifact.ID]; duplicate {
+			return fmt.Errorf("duplicate Portable payload artifact %q", artifact.ID)
+		}
+		seen[artifact.ID] = struct{}{}
+		if !shaPattern.MatchString(artifact.SHA256) ||
+			artifact.SizeBytes <= 0 ||
+			artifact.SizeBytes > maxPortableArtifact {
+			return fmt.Errorf("invalid Portable payload binding %q", artifact.ID)
+		}
+		if total > maxPortableTotal-artifact.SizeBytes {
+			return errors.New("Portable payload total size exceeds allowed range")
+		}
+		total += artifact.SizeBytes
+		parsed, err := url.Parse(artifact.URL)
+		if err != nil ||
+			parsed.Scheme != "https" ||
+			parsed.Host != "github.com" ||
+			parsed.User != nil ||
+			parsed.Fragment != "" ||
+			parsed.RawQuery != "" ||
+			!strings.HasPrefix(parsed.Path, "/washingtonmsdj/prototipo-ordax-os/releases/download/") {
+			return fmt.Errorf("Portable payload artifact %q URL is outside canonical release namespace", artifact.ID)
+		}
+	}
+	return nil
+}
+
 
 func decodeStrict(data []byte, max int, target any) error {
 	if len(data) == 0 || len(data) > max {
@@ -142,7 +216,8 @@ func validateManifest(data []byte) (manifest, error) {
 	if err := decodeStrict(data, maxDocument, &m); err != nil {
 		return manifest{}, err
 	}
-	if m.Schema != manifestSchema || m.Purpose != purpose || m.SourceRepository != repository || m.CreatedFromRecipe != recipe {
+	if (m.Schema != manifestSchema && m.Schema != manifestSchemaPortable) ||
+		m.Purpose != purpose || m.SourceRepository != repository || m.CreatedFromRecipe != recipe {
 		return manifest{}, errors.New("physical manifest identity/purpose is not canonical")
 	}
 	if !commitPattern.MatchString(m.SourceCommit) {
@@ -170,6 +245,18 @@ func validateManifest(data []byte) (manifest, error) {
 		seen[file.Name] = struct{}{}
 		if !shaPattern.MatchString(file.SHA256) || file.Size <= 0 || file.Size > maxArtifact {
 			return manifest{}, fmt.Errorf("invalid binding for physical file %q", file.Name)
+		}
+	}
+	if m.Schema == manifestSchema {
+		if m.PortablePayload != nil {
+			return manifest{}, errors.New("physical manifest v2 cannot carry a Portable payload")
+		}
+	} else {
+		if m.PortablePayload == nil {
+			return manifest{}, errors.New("physical manifest v3 requires a signed Portable payload")
+		}
+		if err := validatePortablePayload(*m.PortablePayload); err != nil {
+			return manifest{}, err
 		}
 	}
 	return m, nil
