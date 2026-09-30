@@ -26,8 +26,14 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("createNativeMemoryStore", composition)
         self.assertIn("createMemoryRuntime", composition)
         self.assertIn("createMemoryMutationPort", composition)
+        self.assertIn("createNativeAccountMemoryFoundation", composition)
+        self.assertIn("createWebMemoryEntitlements", composition)
+        self.assertIn("const accountMemoryFoundation = memory === null", composition)
         self.assertIn("const memoryMutations = memory === null", composition)
-        self.assertIn("createMemoryMutationPort({ memoryPort: memory })", composition)
+        self.assertIn(
+            "protectedAccountMutations: accountMemoryFoundation?.protectedMutations ?? null",
+            composition,
+        )
         self.assertIn('"OrdaX native Intelligence memory persistence unavailable"', composition)
         self.assertIn("memoryStore,", composition)
         self.assertIn("createMemoryRuntime({ store: memoryStore })", composition)
@@ -54,6 +60,12 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("const selectedSpaceIntelligence = memory === null", composition)
         self.assertIn("intelligence: selectedSpaceIntelligence", composition)
         self.assertIn("{ mutationPort: memoryMutations }", composition)
+        self.assertIn("accountMemoryFoundation?.destroy()", composition)
+        provider_start = composition.find("createNativeAccountMemoryFoundation({")
+        provider_end = composition.find("const memoryMutations = memory === null")
+        self.assertGreaterEqual(provider_start, 0)
+        self.assertGreater(provider_end, provider_start)
+        self.assertNotIn("syncTransport", composition[provider_start:provider_end])
 
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
