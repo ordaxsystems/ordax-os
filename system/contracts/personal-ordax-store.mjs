@@ -220,6 +220,39 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     }
   }
 
+  const approvalRequestedCounts = new Map(approvals.map((approval) => [approval.id, 0]));
+  const approvalResolvedCounts = new Map(approvals.map((approval) => [approval.id, 0]));
+  for (const event of activities) {
+    if (event.approvalId === null) continue;
+    const approval = approvalById.get(event.approvalId);
+    if (!approval || approval.workItemId !== event.workItemId) {
+      throw new TypeError("Personal OrdaX activity references a missing or foreign approval");
+    }
+    if (event.type === "approval-requested") {
+      if (Date.parse(event.occurredAt) !== Date.parse(approval.requestedAt)) {
+        throw new TypeError("approval-requested activity must match the approval request time");
+      }
+      approvalRequestedCounts.set(approval.id, approvalRequestedCounts.get(approval.id) + 1);
+    } else if (event.type === "approval-resolved") {
+      if (
+        approval.resolvedAt === null
+        || Date.parse(event.occurredAt) !== Date.parse(approval.resolvedAt)
+      ) {
+        throw new TypeError("approval-resolved activity must match the approval resolution time");
+      }
+      approvalResolvedCounts.set(approval.id, approvalResolvedCounts.get(approval.id) + 1);
+    }
+  }
+  for (const approval of approvals) {
+    if (approvalRequestedCounts.get(approval.id) !== 1) {
+      throw new TypeError("Personal OrdaX approval requires exactly one approval-requested activity");
+    }
+    const expectedResolved = approval.status === "pending" ? 0 : 1;
+    if (approvalResolvedCounts.get(approval.id) !== expectedResolved) {
+      throw new TypeError("Personal OrdaX approval resolution Activity graph is inconsistent");
+    }
+  }
+
   const decisions = Object.freeze(rawDecisions.map(validatePersonalActionDecision));
   const decisionByAction = new Map();
   for (const actionDecision of decisions) {
