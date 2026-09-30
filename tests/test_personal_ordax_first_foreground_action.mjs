@@ -9,6 +9,7 @@ import {
   createNativePersonalOrdaxFileActions,
 } from "../system/adapters/native/personal-ordax-file-actions.mjs";
 import { createNativePersonalOrdaxComposition } from "../system/composition/native/personal-ordax.mjs";
+import { createIntelligenceToolGrantAuthority } from "../system/services/intelligence/tool-grants.mjs";
 
 function memoryStorage() {
   const values = new Map();
@@ -148,4 +149,47 @@ test("missing or substituted adapter cannot execute an approved action", async (
   assert.equal(runtime.getSnapshot().approvals[0].status, "approved");
 
   runtime.dispose();
+});
+
+
+test("cancelling Work revokes the approved grant before retaining cancellation", async () => {
+  const files = fileSpace();
+  const actions = await createNativePersonalOrdaxFileActions({
+    windowRef: {},
+    fileSpace: files.port,
+    artifactIdentity: async () => "c".repeat(64),
+  });
+  const authority = createIntelligenceToolGrantAuthority({
+    createGrantId: () => "grant-cancel-1",
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    grantAuthority: authority,
+  });
+  const work = runtime.create("Garantir pasta aprovada");
+  const approval = runtime.requestApproval(work.id, {
+    actionId: NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
+    toolId: NATIVE_FILE_ACTION_TOOL_ID,
+    toolArtifactSha256: actions.tool.artifactSha256,
+    effect: "write",
+    resourceRef: "file-space:/Documentos/Novo",
+    reason: "Garantir a pasta solicitada pelo usuário.",
+  });
+  const decision = runtime.approvalConsent.approve(work.id, approval.id);
+  assert.ok(authority.registry.resolve(decision.grantRef));
+
+  runtime.cancel(work.id);
+  const snapshot = runtime.getSnapshot();
+  assert.equal(authority.registry.resolve(decision.grantRef), null);
+  assert.equal(snapshot.workItems[0].state, "cancelled");
+  assert.equal(snapshot.approvals[0].status, "revoked");
+  assert.equal(snapshot.approvals[0].grantRef, decision.grantRef);
+  assert.deepEqual(files.calls, []);
+
+  runtime.dispose();
+  authority.dispose();
 });
