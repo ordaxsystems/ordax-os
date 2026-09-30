@@ -160,6 +160,34 @@ test("foreground action lifecycle atomically consumes approval after verified re
   runtime.dispose();
 });
 
+test("same bounded action type can be requested again through a new approval identity", () => {
+  const { runtime, work, approval, nextTime } = setup();
+  runtime.startActionExecution(work.id, approval.id);
+  runtime.finishActionExecution(
+    work.id,
+    approval.id,
+    receipt(work.id, approval.id, nextTime()),
+  );
+
+  const second = runtime.requestApproval(work.id, {
+    actionId: "files.directory.ensure",
+    toolId: "ordax-native-file-space",
+    toolArtifactSha256: "c".repeat(64),
+    effect: "write",
+    resourceRef: "file-space:/Documentos/Outro",
+    reason: "Garantir outro diretório com uma nova aprovação.",
+  });
+  const snapshot = runtime.getSnapshot();
+
+  assert.notEqual(second.id, approval.id);
+  assert.equal(second.id, "personal-approval-personal-work-1-2");
+  assert.equal(snapshot.approvals.length, 2);
+  assert.equal(snapshot.approvals[0].status, "executed");
+  assert.equal(snapshot.approvals[1].status, "pending");
+  assert.equal(snapshot.workItems[0].pendingApprovalId, second.id);
+  runtime.dispose();
+});
+
 test("receipt substitution cannot consume retained approval", () => {
   const { runtime, work, approval, nextTime } = setup();
   runtime.startActionExecution(work.id, approval.id);
