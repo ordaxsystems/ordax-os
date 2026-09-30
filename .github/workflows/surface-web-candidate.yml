@@ -72,6 +72,7 @@ on:
       - 'system/services/update/**'
       - 'system/services/notifications/**'
       - 'system/adapters/web/**'
+      - 'system/adapters/mobile/**'
       - 'system/adapters/native/**'
       - 'system/composition/web/**'
       - 'system/composition/native/**'
@@ -242,6 +243,7 @@ on:
       - 'system/services/update/**'
       - 'system/services/notifications/**'
       - 'system/adapters/web/**'
+      - 'system/adapters/mobile/**'
       - 'system/adapters/native/**'
       - 'system/composition/web/**'
       - 'system/composition/native/**'
@@ -384,6 +386,7 @@ jobs:
             system/apps \
             system/surface/ui \
             system/adapters/web \
+            system/adapters/mobile \
             system/adapters/native \
             system/composition/web \
             system/composition/native \
