@@ -1,0 +1,52 @@
+{
+  "$schema": "ordax.profile-pack/1",
+  "slug": "pizzaria-br",
+  "version": 1,
+  "state": "draft",
+  "title": "Pizzaria",
+  "category": "business-food-service",
+  "space_kind": "professional",
+  "jurisdiction": "BR",
+  "apps": [
+    "files",
+    "notes",
+    "internet",
+    "projects"
+  ],
+  "templates": [
+    "operacao-diaria",
+    "pedidos-e-encomendas",
+    "insumos-e-estoque",
+    "fornecedores",
+    "custos-e-precos",
+    "marketing-e-promocoes"
+  ],
+  "knowledge": {
+    "source_classes": [
+      "business-owner-provided",
+      "menu-and-pricing",
+      "supplier-material",
+      "operational-procedures"
+    ],
+    "refresh_policy": "owner-managed"
+  },
+  "intelligence": {
+    "memory_scopes": [
+      "space",
+      "project"
+    ],
+    "preferred_purpose": "small-business-food-service",
+    "external_provider_required": false
+  },
+  "security": {
+    "auto_grant_privileges": false,
+    "allow_unsigned_apps": false,
+    "generic_shell_implied": false,
+    "cross_space_memory": false
+  },
+  "activation": {
+    "publicly_available": true,
+    "reason": null
+  },
+  "components": []
+}
