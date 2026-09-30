@@ -132,3 +132,9 @@ A entrada de novas ações não fica hardcoded na Activity. Adapters first-party
 O primeiro registro é `native-file.ensure-directory`. A Activity pode solicitar approval para ele sem conhecer `file-space:`, tool IDs ou regras de filesystem. Decisions persistidas agora carregam o `approvalId` exato. Isso permite repetir o mesmo tipo de ação no mesmo Work em recursos diferentes, desde que cada tentativa tenha uma nova approval e um novo grant compatível.
 
 Propostas estruturadas vindas do modelo continuam desabilitadas neste corte. Quando forem adicionadas, deverão entrar pelo mesmo catálogo e permanecer sem autoridade até approval explícita.
+
+### Revogação ligada ao lifecycle
+
+Um runtime com Action Gateway agora é inválido sem um revoker de grants. A revogação deixou de ser responsabilidade da UI/composição e passou a fazer parte do lifecycle canônico do Personal OrdaX.
+
+Qualquer grant aprovado e ainda não consumido é revogado antes de invalidar seu contexto por troca de owner, logout, troca de Space, desaparecimento do projeto ou cancelamento explícito do Work. Isso também vale para Work já pausado após uma tentativa de execução: estar pausado não mantém authority viva. A approval permanece como `revoked` com seu `grantRef` apenas para auditoria; o registry já não resolve esse grant.
