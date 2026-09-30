@@ -71,7 +71,8 @@ test("Profile activation state preserves current and previous per Space for roll
     revision: 4,
     persistence: "device",
     spaces: [{
-      subjectId: "user-1",\n      spaceId: "space-professional-1",
+      subjectId: "user-1",
+      spaceId: "space-professional-1",
       spaceKind: "professional",
       current,
       previous,
@@ -112,7 +113,8 @@ test("Profile activation state rejects duplicate Spaces, duplicate components an
       revision: 1,
       persistence: "device",
       spaces: [{
-        subjectId: "user-1",\n      spaceId: "space-professional-1",
+        subjectId: "user-1",
+        spaceId: "space-professional-1",
         spaceKind: "professional",
         current: null,
         previous: null,
@@ -146,7 +148,8 @@ test("Profile activation component order is canonical and current/previous canno
       revision: 1,
       persistence: "device",
       spaces: [{
-        subjectId: "user-1",\n      spaceId: "space-professional-1",
+        subjectId: "user-1",
+        spaceId: "space-professional-1",
         spaceKind: "professional",
         current: activation(),
         previous: activation({ activatedAt: 800 }),
