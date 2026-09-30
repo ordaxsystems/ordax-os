@@ -28,7 +28,7 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 | Architecture | `docs/ARCHITECTURE.md` |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
-| Product modes | `docs/PRODUCT-MODES.md` |
+| Product modes | `docs/PRODUCT-MODES.md` |\n| Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
 | Application compatibility | `docs/APPLICATION-COMPATIBILITY.md` |
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
 | Physical media | `docs/PHYSICAL-MEDIA.md` |
