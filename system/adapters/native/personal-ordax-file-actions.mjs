@@ -28,9 +28,13 @@ function parseDirectoryResource(resourceRef) {
 export async function createNativePersonalOrdaxFileActions({
   windowRef = globalThis.window,
   fileSpace: fileSpaceValue,
+  artifactIdentity = readNativeToolArtifactSha256,
 } = {}) {
   const fileSpace = assertFileSpacePort(fileSpaceValue);
-  const artifactSha256 = await readNativeToolArtifactSha256(windowRef, import.meta.url);
+  if (typeof artifactIdentity !== "function") {
+    throw new TypeError("Native file action requires an artifact identity provider");
+  }
+  const artifactSha256 = await artifactIdentity(windowRef, import.meta.url);
 
   const tool = defineIntelligenceTool({
     id: NATIVE_FILE_ACTION_TOOL_ID,
