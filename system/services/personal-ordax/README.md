@@ -27,5 +27,10 @@ The current source runtime is deliberately foreground-only:
 - terminal work can be removed together with its activity and result so bounded storage cannot
   become permanently exhausted.
 
-The runtime is not yet mounted in Web/Native composition and therefore does not claim a public
+A Native device-store adapter now exists under `system/adapters/native/personal-ordax.mjs`. It
+uses the privileged Surface's existing device-local storage boundary with one record per owner.
+Corrupt records are recovery-blocked per owner and their original bytes are never silently replaced;
+other owners remain usable. This is device-local persistence, not account sync or OrdaX Memory.
+
+The runtime/store are not yet mounted in Web/Native composition and therefore do not claim a public
 Activity UI or autonomous/background execution.
