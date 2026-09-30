@@ -29,6 +29,7 @@ function tool(overrides = {}) {
 function grant(overrides = {}) {
   return {
     grantId: "grant-1",
+    approvalId: "approval-1",
     toolId: "files-inspector",
     action: "files.metadata.read",
     mode: "read",
@@ -88,10 +89,19 @@ test("write grant requires explicit approval", () => {
     })),
     /explicit approval/,
   );
+  assert.throws(
+    () => validateIntelligenceToolGrant(grant({
+      action: "files.text.write",
+      mode: "write",
+      approved: true,
+    })),
+    /resource reference/,
+  );
   const approved = validateIntelligenceToolGrant(grant({
     action: "files.text.write",
     mode: "write",
     approved: true,
+    resourceRef: "file-space:/Documentos/menu.md",
   }));
   assert.equal(approved.schema, INTELLIGENCE_TOOL_GRANT_SCHEMA);
 });
