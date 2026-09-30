@@ -824,6 +824,9 @@ export function createPersonalOrdaxRuntime({
     finishActionExecution(id, approvalId, receiptValue) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
       const receipt = validateActionReceipt(receiptValue);
+      if (receipt.status !== "succeeded") {
+        throw new TypeError("Only a succeeded Action Receipt can consume an approval");
+      }
       const item = findWork(id);
       if (item.state !== "running") {
         throw new Error("Personal OrdaX action receipt requires running work");
