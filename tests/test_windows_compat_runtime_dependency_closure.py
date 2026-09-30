@@ -5,6 +5,8 @@ import struct
 import tempfile
 import unittest
 
+from tests.test_windows_compat_runtime_first_hit_proof import preload_source_proof
+
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "bootstrap/windows-compat-runtime/runtime_dependency_closure_probe.py"
 SPEC = importlib.util.spec_from_file_location("runtime_dependency_closure_probe", MODULE_PATH)
@@ -106,7 +108,7 @@ def full_build_proof(stage: Path) -> dict:
 
 
 def direct_proof(stage: Path, rootfs: Path, full: dict) -> dict:
-    return DIRECT.discover(stage, rootfs, full)
+    return DIRECT.discover(stage, rootfs, full, preload_source_proof())
 
 
 class RuntimeDependencyClosureTests(unittest.TestCase):
