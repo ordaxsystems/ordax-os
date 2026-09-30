@@ -653,7 +653,7 @@ export function createPersonalOrdaxRuntime({
       });
       return approval;
     },
-    resolveApproval(id, approvalId, { grantRef = null } = {}) {
+    resolveApproval(id, approvalId, { grantRef = null, userDecision = null } = {}) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
       if (actionGateway === null) {
         throw new Error("Personal OrdaX Action Gateway is unavailable in this composition");
@@ -687,7 +687,7 @@ export function createPersonalOrdaxRuntime({
         projectId: item.projectId,
         reason: approval.reason,
         requestedAt: approval.requestedAt,
-      }, { grantRef }));
+      }, { grantRef, userDecision }));
 
       if (
         actionDecision.workItemId !== item.id
