@@ -70,6 +70,7 @@ export function mountPersonalActivityControls(
   const documentObject = root.ownerDocument;
   let destroyed = false;
   let draft = "";
+  const actionDrafts = new Map();
   let localError = null;
   let mountedSlot = null;
 
@@ -103,6 +104,9 @@ export function mountPersonalActivityControls(
     }
 
     const view = projectPersonalActivitySnapshot(personalOrdax.getSnapshot());
+    const availableActions = typeof personalOrdax.listAvailableActions === "function"
+      ? personalOrdax.listAvailableActions()
+      : [];
     const owner = node(
       documentObject,
       "span",
@@ -196,6 +200,65 @@ export function mountPersonalActivityControls(
               `${t("activity.latest")}: ${latest.summary}`,
             ),
           );
+        }
+
+        if (
+          (item.state === "queued" || item.state === "paused")
+          && entry.pendingApproval === null
+          && entry.approvedApproval === null
+          && availableActions.length > 0
+          && typeof personalOrdax.requestAvailableAction === "function"
+        ) {
+          const catalogBox = node(documentObject, "section", "ordax-activity-approval");
+          catalogBox.append(
+            node(documentObject, "strong", "", t("activity.catalog.title")),
+            node(documentObject, "p", "", t("activity.catalog.description")),
+          );
+          for (const actionEntry of availableActions) {
+            const key = `${item.id}:${actionEntry.id}`;
+            const actionRow = node(documentObject, "div", "ordax-activity-action-entry");
+            actionRow.append(
+              node(
+                documentObject,
+                "strong",
+                "ordax-activity-action-entry-title",
+                t(`activity.catalog.${actionEntry.id}.title`),
+              ),
+              node(
+                documentObject,
+                "span",
+                "ordax-activity-result-meta",
+                `${actionEntry.actionId} · ${actionEntry.effect} · ${actionEntry.resourceScheme}`,
+              ),
+            );
+            const resourceInput = documentObject.createElement("input");
+            resourceInput.type = "text";
+            resourceInput.maxLength = 4096;
+            resourceInput.value = actionDrafts.get(key) ?? "";
+            resourceInput.placeholder = t(`activity.catalog.${actionEntry.id}.placeholder`);
+            resourceInput.setAttribute(
+              "aria-label",
+              t(`activity.catalog.${actionEntry.id}.aria`),
+            );
+            resourceInput.dataset.personalActionResource = "";
+            resourceInput.dataset.personalActionEntryId = actionEntry.id;
+            resourceInput.dataset.personalWorkId = item.id;
+
+            const requestButton = node(
+              documentObject,
+              "button",
+              "",
+              t("activity.action.requestApproval"),
+            );
+            requestButton.type = "button";
+            requestButton.dataset.personalActionRequest = "";
+            requestButton.dataset.personalActionEntryId = actionEntry.id;
+            requestButton.dataset.personalWorkId = item.id;
+            requestButton.disabled = resourceInput.value.trim().length === 0;
+            actionRow.append(resourceInput, requestButton);
+            catalogBox.append(actionRow);
+          }
+          article.append(catalogBox);
         }
 
         if (entry.pendingApproval) {
@@ -380,6 +443,17 @@ export function mountPersonalActivityControls(
   };
 
   const onInput = (event) => {
+    if (event.target?.dataset?.personalActionResource !== undefined) {
+      const workItemId = event.target.dataset.personalWorkId;
+      const entryId = event.target.dataset.personalActionEntryId;
+      if (!workItemId || !entryId) return;
+      actionDrafts.set(`${workItemId}:${entryId}`, event.target.value);
+      const button = event.target
+        .closest(".ordax-activity-action-entry")
+        ?.querySelector("[data-personal-action-request]");
+      if (button) button.disabled = event.target.value.trim().length === 0;
+      return;
+    }
     if (event.target?.dataset?.personalWorkInput === undefined) return;
     draft = event.target.value;
     const button = mountedSlot?.querySelector("[data-personal-work-create]");
@@ -389,6 +463,29 @@ export function mountPersonalActivityControls(
   const onClick = (event) => {
     const target = event.target?.closest?.("button");
     if (!target || !mountedSlot?.contains(target) || personalOrdax === null) return;
+
+    const actionRequest = target.dataset.personalActionRequest;
+    const actionEntryId = target.dataset.personalActionEntryId;
+    const actionWorkId = target.dataset.personalWorkId;
+    if (
+      actionRequest !== undefined
+      && actionEntryId
+      && actionWorkId
+      && typeof personalOrdax.requestAvailableAction === "function"
+    ) {
+      const key = `${actionWorkId}:${actionEntryId}`;
+      const resourceValue = actionDrafts.get(key)?.trim() ?? "";
+      if (!resourceValue) return;
+      try {
+        personalOrdax.requestAvailableAction(actionWorkId, actionEntryId, { resourceValue });
+        actionDrafts.delete(key);
+        localError = null;
+      } catch {
+        localError = t("activity.error.approval");
+      }
+      render();
+      return;
+    }
 
     const approvedExecute = target.dataset.personalApprovedActionExecute;
     const approvedId = target.dataset.personalApprovalId;
