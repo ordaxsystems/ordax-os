@@ -178,6 +178,7 @@ on:
       - 'tests/test_personal_ordax_approval_consent.mjs'
       - 'tests/test_personal_ordax_action_executor.mjs'
       - 'tests/test_personal_ordax_action_lifecycle.mjs'
+      - 'tests/test_personal_ordax_first_foreground_action.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -365,6 +366,7 @@ on:
       - 'tests/test_personal_ordax_approval_consent.mjs'
       - 'tests/test_personal_ordax_action_executor.mjs'
       - 'tests/test_personal_ordax_action_lifecycle.mjs'
+      - 'tests/test_personal_ordax_first_foreground_action.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -490,6 +492,7 @@ jobs:
           node --test tests/test_personal_ordax_approval_consent.mjs
           node --test tests/test_personal_ordax_action_executor.mjs
           node --test tests/test_personal_ordax_action_lifecycle.mjs
+          node --test tests/test_personal_ordax_first_foreground_action.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
           node --test tests/test_network_management_runtime.mjs
