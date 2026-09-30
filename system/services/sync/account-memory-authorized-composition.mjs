@@ -79,6 +79,7 @@ export function createAccountMemoryAuthorizedComposition({
   });
 
   let lastStageError = null;
+  let lastCanonicalDurabilityError = null;
   let lastDurabilityError = null;
   let lastProtectedMutationError = null;
   const memoryComposition = createAccountMemorySyncComposition({
@@ -150,16 +151,28 @@ export function createAccountMemoryAuthorizedComposition({
   };
 
   const requireCanonicalDeviceDurability = async () => {
-    if (typeof memoryComposition.memorySync.flushCoordination !== "function") {
-      throw new Error("Account Memory canonical coordination durability is unavailable");
+    const active = validateIdentitySessionSnapshot(identity.getSnapshot());
+    if (active.state !== "signed-in") {
+      lastCanonicalDurabilityError = null;
+      return true;
     }
-    const confirmation = await memoryComposition.memorySync.flushCoordination();
-    if (!confirmation?.confirmed || confirmation.persistence !== "device") {
-      throw new Error(
-        `Account Memory canonical coordination is not device-durable: ${confirmation?.reason ?? "unknown"}`,
-      );
+    try {
+      if (typeof memoryComposition.memorySync.flushCoordination !== "function") {
+        throw new Error("Account Memory canonical coordination durability is unavailable");
+      }
+      const confirmation = await memoryComposition.memorySync.flushCoordination();
+      if (!confirmation?.confirmed || confirmation.persistence !== "device") {
+        throw new Error(
+          `Account Memory canonical coordination is not device-durable: ${confirmation?.reason ?? "unknown"}`,
+        );
+      }
+      lastCanonicalDurabilityError = null;
+      return true;
+    } catch (error) {
+      lastCanonicalDurabilityError = error;
+      reportStageError(error, Object.freeze({ kind: "canonical-durability-flush" }));
+      throw error;
     }
-    return true;
   };
 
   const requireLocalMemoryDeviceDurability = async () => {
@@ -186,11 +199,15 @@ export function createAccountMemoryAuthorizedComposition({
       localFirstWhileAuthorizationUnavailable: true,
       deferredStateStoresPortableContent: false,
       automaticIdentityLifecycleReplay: true,
+      localContinuityFlushIncludesCanonicalCoordination: true,
       localContinuityFlushIncludesDeferredCoordination: true,
       protectedMutationBoundaryAvailable: crashRecovery !== null,
       protectedMutationRequiresDeviceMemory: true,
       automaticCrashRecovery: false,
       protectedMutationHealthy: lastProtectedMutationError === null,
+      canonicalDurabilityHealthy: lastCanonicalDurabilityError === null,
+      localContinuityDurabilityHealthy: lastCanonicalDurabilityError === null
+        && lastDurabilityError === null,
       deferredStageHealthy: lastStageError === null,
       deferredDurabilityHealthy: lastDurabilityError === null,
       deferredReplayHealthy: lastReplayError === null,
@@ -224,11 +241,12 @@ export function createAccountMemoryAuthorizedComposition({
       .then(async () => {
         if (destroyed) return null;
         const replay = await replayCurrent();
+        await requireCanonicalDeviceDurability();
         await flushDeferredCoordination();
         return replay;
       })
       .catch((error) => {
-        if (lastDurabilityError !== error) lastReplayError = error;
+        if (lastDurabilityError !== error && lastCanonicalDurabilityError !== error) lastReplayError = error;
         return null;
       });
     return lifecycleReplayPromise;
@@ -250,6 +268,7 @@ export function createAccountMemoryAuthorizedComposition({
   const flushLocalContinuity = async () => {
     if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
     await memoryComposition.memory.flush();
+    await requireCanonicalDeviceDurability();
     await flushDeferredCoordination();
     return true;
   };
@@ -443,6 +462,7 @@ export function createAccountMemoryAuthorizedComposition({
     if (refresh) await entitlementSession.refresh();
     else await entitlementSession.settled();
     await replayCurrent();
+    await requireCanonicalDeviceDurability();
     await flushDeferredCoordination();
     return snapshot();
   };
@@ -468,6 +488,7 @@ export function createAccountMemoryAuthorizedComposition({
     async replayDeferredIntents() {
       if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
       const replay = await replayCurrent();
+      await requireCanonicalDeviceDurability();
       await flushDeferredCoordination();
       return replay;
     },
