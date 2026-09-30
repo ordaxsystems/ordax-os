@@ -113,6 +113,7 @@ function pending(runtime, effect = "write") {
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect,
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Salvar a alteracao solicitada pelo usuario.",
   });
   return { work, approval };
@@ -137,6 +138,8 @@ test("explicit human approval issues one exact short-lived grant and resolves Wo
   assert.equal(grant.ownerId, "user-a");
   assert.equal(grant.spaceId, "space-a");
   assert.equal(grant.projectId, null);
+  assert.equal(grant.approvalId, approval.id);
+  assert.equal(grant.resourceRef, "file-space:/Documentos/menu.md");
   assert.equal(grant.toolId, "files-inspector");
   assert.equal(grant.action, "files.document.write");
   assert.equal(grant.mode, "write");
