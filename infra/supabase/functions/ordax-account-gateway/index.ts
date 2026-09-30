@@ -17,6 +17,7 @@ const REFRESH_COOKIE = "ordax_refresh";
 const RECOVERY_COOKIE = "ordax_recovery";
 const RECOVERY_SESSION_MAX_AGE = 10 * 60;
 const MAX_BODY = 64 * 1024;
+const MAX_SYNC_SNAPSHOT_PAGES = 64;
 const MIN_REGISTRATION_PASSWORD_CHARS = 12;
 const MAX_REGISTRATION_PASSWORD_CHARS = 256;
 const PWNED_PASSWORDS_ORIGIN = "https://api.pwnedpasswords.com";
@@ -547,7 +548,7 @@ async function credentials(req: Request, register: boolean) {
   if (!email || !password) {
     return wantsJson(req)
       ? error(400, "invalid-credentials-form", "Revise o e-mail e a senha informados.")
-      : redirectResponse(register ? "/cadastro/?erro=formulario" : "/login/?erro=formulario");
+      : redirectResponse(register ? "/cadastro/?erro=formulario" : "/login/?erro=credenciais");
   }
   if (
     register &&
@@ -599,6 +600,85 @@ async function credentials(req: Request, register: boolean) {
     : redirectResponse("/conta/", cookies);
 }
 
+async function readCompleteSyncSnapshot(
+  supabase: ReturnType<typeof client>,
+  pageLimit: number,
+) {
+  let cursor: number | null = null;
+  let afterDataClass: string | null = null;
+  let afterStableObjectId: string | null = null;
+  const objects: Array<Record<string, unknown>> = [];
+  const seenTokens = new Set<string>();
+
+  for (let page = 0; page < MAX_SYNC_SNAPSHOT_PAGES; page += 1) {
+    const { data, error: rpcError } = await supabase.rpc("ordax_sync_snapshot_page_v2", {
+      p_cursor: cursor,
+      p_after_data_class: afterDataClass,
+      p_after_stable_object_id: afterStableObjectId,
+      p_limit: pageLimit,
+    });
+    if (
+      rpcError ||
+      !data ||
+      typeof data !== "object" ||
+      Array.isArray(data) ||
+      !Number.isSafeInteger(Number(data.cursor)) ||
+      Number(data.cursor) < 0 ||
+      !Array.isArray(data.objects) ||
+      typeof data.has_more !== "boolean" ||
+      data.objects.length > pageLimit
+    ) {
+      throw new Error("sync-snapshot-page-invalid");
+    }
+
+    const pageCursor = Number(data.cursor);
+    if (cursor === null) cursor = pageCursor;
+    else if (pageCursor !== cursor) throw new Error("sync-snapshot-cursor-drift");
+
+    const pageObjects = data.objects as Array<Record<string, unknown>>;
+    objects.push(...pageObjects);
+
+    if (!data.has_more) {
+      if (data.next_data_class !== null || data.next_stable_object_id !== null) {
+        throw new Error("sync-snapshot-terminal-token-invalid");
+      }
+      return { cursor, objects };
+    }
+
+    if (pageObjects.length !== pageLimit) {
+      throw new Error("sync-snapshot-continuation-page-short");
+    }
+    const nextDataClass = data.next_data_class;
+    const nextStableObjectId = data.next_stable_object_id;
+    if (
+      typeof nextDataClass !== "string" ||
+      nextDataClass.length < 1 ||
+      nextDataClass.length > 80 ||
+      nextDataClass.includes("\0") ||
+      typeof nextStableObjectId !== "string" ||
+      nextStableObjectId.length < 1 ||
+      nextStableObjectId.length > 240 ||
+      nextStableObjectId.includes("\0")
+    ) {
+      throw new Error("sync-snapshot-continuation-token-invalid");
+    }
+    const last = pageObjects[pageObjects.length - 1];
+    if (
+      last?.data_class !== nextDataClass ||
+      last?.stable_object_id !== nextStableObjectId
+    ) {
+      throw new Error("sync-snapshot-continuation-token-mismatch");
+    }
+    const token = JSON.stringify([nextDataClass, nextStableObjectId]);
+    if (seenTokens.has(token)) throw new Error("sync-snapshot-continuation-loop");
+    seenTokens.add(token);
+    afterDataClass = nextDataClass;
+    afterStableObjectId = nextStableObjectId;
+  }
+
+  throw new Error("sync-snapshot-page-budget-exceeded");
+}
+
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const path = routePath(url);
@@ -629,7 +709,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 13 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 14 });
   }
 
   if (path === "/auth/session" && req.method === "GET") {
@@ -859,21 +939,17 @@ Deno.serve(async (req: Request) => {
       return error(400, "invalid-sync-query", "Consulta de sincronização inválida.");
     }
     const supabase = client(session.access);
-    const { data, error: rpcError } = await supabase.rpc("ordax_sync_snapshot_v1", {
-      p_limit: limit,
-    });
-    if (
-      rpcError ||
-      !data ||
-      typeof data !== "object" ||
-      !Number.isSafeInteger(Number(data.cursor)) ||
-      !Array.isArray(data.objects)
-    ) return error(502, "sync-snapshot-failed", "Não foi possível ler o snapshot sincronizado.");
+    let snapshot;
+    try {
+      snapshot = await readCompleteSyncSnapshot(supabase, limit);
+    } catch {
+      return error(502, "sync-snapshot-failed", "Não foi possível ler o snapshot sincronizado.");
+    }
 
     return json(200, {
       $schema: SYNC_SNAPSHOT_SCHEMA,
-      cursor: Number(data.cursor),
-      objects: data.objects.map((item: Record<string, unknown>) => syncObject(item)),
+      cursor: snapshot.cursor,
+      objects: snapshot.objects.map((item) => syncObject(item)),
     }, session.cookies);
   }
 
