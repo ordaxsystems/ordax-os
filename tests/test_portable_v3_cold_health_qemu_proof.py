@@ -78,8 +78,10 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
         self.assertIn('"qemu_graphical_hardware_requested"', text)
         self.assertIn('"-net", "none"', text)
         self.assertIn("cache=directsync", text)
+        self.assertIn("DIRECT_KERNEL_BOOT_TIMEOUT_SECONDS = 210.0", text)
+        self.assertIn("GRAPHICAL_BOOT_TIMEOUT_SECONDS = 300.0", text)
         self.assertIn(
-            "deadline = time.monotonic() + (300.0 if graphical_hardware else 150.0)",
+            "deadline = time.monotonic() + (GRAPHICAL_BOOT_TIMEOUT_SECONDS if graphical_hardware else DIRECT_KERNEL_BOOT_TIMEOUT_SECONDS)",
             text,
         )
 
