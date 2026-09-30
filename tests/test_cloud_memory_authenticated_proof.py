@@ -13,6 +13,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 PROVIDER_PATH = ROOT / "services" / "public-identity" / "supabase_memory.py"
 PROOF = ROOT / "tools" / "cloud-memory" / "prove_authenticated_atomic_sync.py"
+RECEIPT_VALIDATOR = ROOT / "tools" / "cloud-memory" / "validate_authenticated_proof_receipt.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "cloud-memory-authenticated-proof.yml"
 PROOF_SPEC = importlib.util.spec_from_file_location("ordax_cloud_memory_proof", PROOF)
 proof_module = importlib.util.module_from_spec(PROOF_SPEC)
@@ -25,6 +26,11 @@ assert spec.loader is not None
 sys.modules[spec.name] = memory_module
 spec.loader.exec_module(memory_module)
 SupabaseMemoryProvider = memory_module.SupabaseMemoryProvider
+
+validator_spec = importlib.util.spec_from_file_location("ordax_cloud_memory_receipt", RECEIPT_VALIDATOR)
+validator_module = importlib.util.module_from_spec(validator_spec)
+assert validator_spec.loader is not None
+validator_spec.loader.exec_module(validator_module)
 
 
 class FakeTransport:
@@ -285,6 +291,52 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
                 expected_cursor=45,
             )
 
+    def test_receipt_validator_rejects_sensitive_or_non_monotonic_metadata(self):
+        valid = {
+            "$schema": "prototype-ordax.cloud-memory-authenticated-proof/1",
+            "status": "pass",
+            "proof_scope": "dedicated-non-admin-account-two-independent-sessions",
+            "entitlement_preexisted": True,
+            "entitlement_created_by_proof": False,
+            "client_sessions_independent": True,
+            "same_account_verified": True,
+            "client_b_entitlement_preexisted": True,
+            "client_b_create_seen": True,
+            "client_b_edit_seen": True,
+            "client_b_runtime_payload_contract_seen": True,
+            "client_b_stale_conflict_rejected": True,
+            "client_b_delete_tombstone_seen": True,
+            "client_b_identity_only_tombstone_seen": True,
+            "client_b_canonical_deleted_seen": True,
+            "direct_memory_table_write_used": False,
+            "service_role_used": False,
+            "create_revision": 1,
+            "edit_revision": 2,
+            "delete_revision": 3,
+            "stale_revision_conflict_rejected": True,
+            "tombstone_seen_in_sync": True,
+            "canonical_memory_state_deleted": True,
+            "credentials_persisted": False,
+            "account_identifier_recorded": False,
+            "memory_identifier_recorded": False,
+            "memory_content_recorded": False,
+            "sensitive_auth_material_recorded": False,
+            "initial_cursor": 10,
+            "create_cursor": 11,
+            "edit_cursor": 12,
+            "delete_cursor": 13,
+            "source_commit": "a" * 40,
+        }
+        self.assertEqual(validator_module.validate_receipt(dict(valid))["status"], "pass")
+
+        leaked = dict(valid, access_token="must-never-appear")
+        with self.assertRaisesRegex(ValueError, "forbidden"):
+            validator_module.validate_receipt(leaked)
+
+        stale = dict(valid, delete_cursor=12)
+        with self.assertRaisesRegex(ValueError, "monotonically"):
+            validator_module.validate_receipt(stale)
+
     def test_workflow_is_manual_secret_backed_receipt_only_and_context_valid(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", text)
@@ -294,14 +346,8 @@ class CloudMemoryAuthenticatedProofTests(unittest.TestCase):
         self.assertIn("secrets.ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD", text)
         self.assertIn("secrets.ORDAX_SUPABASE_PUBLISHABLE_KEY", text)
         self.assertIn("cloud-memory-authenticated-proof.json", text)
-        self.assertIn("CLOUD_MEMORY_AUTHENTICATED_RECEIPT=PASS_SANITIZED", text)
-        self.assertIn("dedicated-non-admin-account-two-independent-sessions", text)
-        self.assertIn('data["client_sessions_independent"] is True', text)
-        self.assertIn('data["client_b_stale_conflict_rejected"] is True', text)
-        self.assertIn('data["client_b_delete_tombstone_seen"] is True', text)
+        self.assertIn("validate_authenticated_proof_receipt.py", text)
         self.assertIn("retention-days: 14", text)
-        self.assertIn("assert forbidden not in data", text)
-        self.assertNotIn("assert forbidden not in serialized", text)
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL"', text)
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD"', text)
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", text)
