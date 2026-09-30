@@ -60,6 +60,7 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
+import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
 import { createPreferenceBoundMemoryCaptureRuntime } from "../../services/memory/capture.mjs";
 import { createAssistantAutoCaptureRuntime } from "../../services/memory/assistant-auto-capture.mjs";
 import { createIdentityBoundMemoryIntelligence } from "../../services/intelligence/authorized-memory.mjs";
@@ -78,6 +79,7 @@ import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-met
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
+import { createNativeAccountMemoryComposition } from "./account-memory.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -104,6 +106,17 @@ async function optionalNativeProbe(label, factory) {
     console.warn(label, error);
     return null;
   }
+}
+
+function blockedAccountMemoryMutations() {
+  const fail = async () => {
+    throw new Error("Native Account Memory protected provider is unavailable");
+  };
+  return Object.freeze({
+    remember: fail,
+    forget: fail,
+    recover: fail,
+  });
 }
 
 const bootScreen = createSurfaceBootScreen(document);
@@ -293,10 +306,66 @@ async function start() {
   const workspaceStore = workspaceMetadata.store;
   const identitySession = createWebIdentitySession(window);
   await identitySession.refresh();
+  const syncStateRegistry = syncStateStore === null
+    ? null
+    : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
+
+  let accountMemoryComposition = null;
+  let protectedAccountMutations = null;
+  if (memory !== null && syncStateRegistry !== null) {
+    try {
+      let memoryCoordinationOrdinal = 0;
+      accountMemoryComposition = createNativeAccountMemoryComposition({
+        windowRef: window,
+        identitySession,
+        memoryPort: memory,
+        syncStateRegistry,
+        createIdempotencyKey(kind = "state") {
+          memoryCoordinationOrdinal += 1;
+          const uuid = window.crypto?.randomUUID?.();
+          return `memory:${kind}:${uuid ? uuid.replaceAll("-", "") : `${Date.now().toString(36)}:${memoryCoordinationOrdinal}`}`;
+        },
+        onStageError(error, context) {
+          console.warn(
+            `OrdaX Account Memory local coordination degraded: ${context?.kind ?? "unknown"}`,
+            error,
+          );
+        },
+      });
+      protectedAccountMutations = accountMemoryComposition.protectedMutations;
+    } catch (error) {
+      console.warn("OrdaX Account Memory protected provider unavailable", error);
+      protectedAccountMutations = blockedAccountMemoryMutations();
+    }
+  }
+
+  const memoryMutations = memory === null
+    ? null
+    : createMemoryMutationPort({
+        memoryPort: memory,
+        protectedAccountMutations,
+      });
+
+  const recoverProtectedAccountMemory = async ({ refreshAuthorization = false } = {}) => {
+    if (accountMemoryComposition === null) return null;
+    if (refreshAuthorization) await accountMemoryComposition.refreshAuthorization();
+    else await accountMemoryComposition.settled();
+    return accountMemoryComposition.recover();
+  };
+  const unsubscribeAccountMemoryRecovery = accountMemoryComposition === null
+    ? () => {}
+    : identitySession.subscribe((snapshot) => {
+        if (snapshot.state !== "signed-in") return;
+        void recoverProtectedAccountMemory().catch((error) => {
+          console.warn("OrdaX Account Memory crash recovery remains pending", error);
+        });
+      });
+
   const memoryReviewSession = memory === null
     ? null
     : createMemoryReviewSession({
         memoryPort: memory,
+        mutationPort: memoryMutations,
         identitySessionPort: identitySession,
       });
   const memoryReview = memoryReviewSession === null
@@ -457,6 +526,7 @@ async function start() {
         captureRuntime: createPreferenceBoundMemoryCaptureRuntime(
           memory,
           surface.preferences,
+          { mutationPort: memoryMutations },
         ),
         preferenceRuntime: surface.preferences,
         identitySessionPort: identitySession,
@@ -500,9 +570,6 @@ async function start() {
       reportClientDiagnostic("network-tray-status", error);
     }
   }
-  const syncStateRegistry = syncStateStore === null
-    ? null
-    : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
   const appearanceSyncStateStore = syncStateRegistry?.open("appearance") ?? null;
   let syncMutationOrdinal = 0;
   const preferenceSync = createPreferenceSyncRuntime(surface.preferences, {
@@ -532,7 +599,12 @@ async function start() {
     await identitySession.refresh();
     await accountSync.refresh();
   };
-  const onOnline = () => void resumeAccountConnectivity();
+  const onOnline = () => {
+    void resumeAccountConnectivity();
+    void recoverProtectedAccountMemory({ refreshAuthorization: true }).catch((error) => {
+      console.warn("OrdaX Account Memory online recovery remains pending", error);
+    });
+  };
   window.addEventListener("online", onOnline, { passive: true });
   const accountOverviewControls = mountAccountOverviewControls(
     root,
@@ -744,6 +816,8 @@ async function start() {
       accountOverviewControls.destroy();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
+      unsubscribeAccountMemoryRecovery();
+      accountMemoryComposition?.destroy();
       profileProvisioning.dispose();
       profileActivationState?.dispose();
       profileComponentInventory.dispose();
