@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   prove-cloud-memory-with-temporary-entitlement:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -32,6 +33,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Require main-branch execution provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = 'refs/heads/main' || { echo 'Cloud Memory operator proof must run from main.' >&2; exit 2; }
+          test "${GITHUB_SHA}" = "${ORDAX_MEMORY_PROOF_SOURCE_COMMIT}" || { echo 'Cloud Memory operator proof source commit mismatch.' >&2; exit 2; }
+          echo 'CLOUD_MEMORY_OPERATOR_PROOF_REF=MAIN_ONLY'
 
       - name: Require operator proof inputs without printing them
         shell: bash
