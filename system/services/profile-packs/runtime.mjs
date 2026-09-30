@@ -119,8 +119,8 @@ export function createProfilePackRuntime({ packs = [], provisioning } = {}) {
       }
       const pack = getPack(slug, version);
       if (pack === null) throw new Error("Requested Profile Pack is not in the local catalog");
-      if (pack.state !== "draft") {
-        throw new Error("Internal proof accepts only draft Profile Packs");
+      if (!["draft", "active"].includes(pack.state)) {
+        throw new Error("Profile Pack state is not activatable");
       }
       if (pack.activation?.publiclyAvailable === false) {
         throw new Error("Profile Pack explicitly blocks activation in its manifest");
