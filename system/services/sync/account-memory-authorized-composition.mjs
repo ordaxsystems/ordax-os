@@ -48,6 +48,13 @@ function accountIdentity(value) {
   });
 }
 
+function canonicalDurabilityDebt(snapshot) {
+  return snapshot.pendingMutationCount > 0
+    || snapshot.conflictCount > 0
+    || snapshot.revisionCount > 0
+    || snapshot.recoveryBlocked === true;
+}
+
 export function createAccountMemoryAuthorizedComposition({
   identitySession,
   entitlementsPort,
@@ -124,7 +131,14 @@ export function createAccountMemoryAuthorizedComposition({
 
   const flushDeferredCoordination = async () => {
     try {
-      await deferredIntents.flush();
+      const flushed = await deferredIntents.flush();
+      const state = deferredIntents.getSnapshot();
+      if (flushed !== true) {
+        throw new Error("Deferred Memory coordination flush was not confirmed");
+      }
+      if (state.pendingIntentCount > 0 && state.queuePersistence !== "device") {
+        throw new Error("Deferred Memory coordination has session-only durability debt");
+      }
       lastDurabilityError = null;
       return true;
     } catch (error) {
@@ -161,7 +175,12 @@ export function createAccountMemoryAuthorizedComposition({
         throw new Error("Account Memory canonical coordination durability is unavailable");
       }
       const confirmation = await memoryComposition.memorySync.flushCoordination();
+      const state = memoryComposition.memorySync.getSnapshot();
       if (!confirmation?.confirmed || confirmation.persistence !== "device") {
+        if (confirmation?.reason === "session-only" && !canonicalDurabilityDebt(state)) {
+          lastCanonicalDurabilityError = null;
+          return true;
+        }
         throw new Error(
           `Account Memory canonical coordination is not device-durable: ${confirmation?.reason ?? "unknown"}`,
         );
