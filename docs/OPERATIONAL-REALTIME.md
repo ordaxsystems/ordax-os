@@ -124,6 +124,81 @@ Future typed capabilities may include pause/cancel after explicit authorization.
 CAD, farm management and direct printer protocols stay outside this foundation and may
 arrive as apps, Skills, Connectors or Device Agent adapters.
 
+## Notebook independence and OrdaX Edge Runtime
+
+A professional OrdaX operation must not require the user's notebook or Desktop app to remain
+powered on.
+
+The notebook may configure, observe or temporarily host development tooling, but production
+continuity uses one of three topologies:
+
+```text
+1. cloud-authoritative
+   client -> OrdaX Cloud -> operational domain
+
+2. device-native
+   client -> OrdaX Cloud -> Action Gateway -> agent/connector on the device
+
+3. dedicated edge
+   client -> OrdaX Cloud -> Action Gateway -> OrdaX Edge Runtime -> LAN device
+```
+
+`OrdaX Edge Runtime` is an infrastructure role, not a sixth user-facing product mode. It reuses
+the Device Agent capability model and can run on a low-power always-on host, compatible NAS/server,
+or directly on equipment that can safely host it. A normal Desktop/USB/Native client may host an
+edge runtime for development or convenience, but professional availability cannot depend on that
+client remaining open.
+
+The Edge Runtime is responsible only for narrow local integration:
+
+- maintain an outbound authenticated connection to the OrdaX service when remote access is enabled;
+- expose versioned device capabilities;
+- keep bounded durable local state needed for reconnect/reconciliation;
+- bridge supported LAN/USB/serial/vendor APIs through narrow adapters;
+- publish telemetry/events;
+- execute only explicitly granted, typed and non-expired actions;
+- produce receipts and audit data.
+
+It does not own Account, Space membership, billing, global business policy or unrestricted host
+administration.
+
+### Power and network failure
+
+Software cannot keep an unpowered printer, router or Edge host online. If site power is lost, the
+OrdaX Cloud may preserve canonical orders/jobs and other clients with independent connectivity may
+remain online, but local equipment is unavailable until power returns.
+
+For installations that need higher availability, power continuity is a hardware concern: UPS/nobreak,
+device-native battery/power-loss recovery and redundant connectivity can be added when appropriate.
+OrdaX may monitor those capabilities later but must not claim software alone solves loss of power.
+
+After a disconnect, stale or dangerous device actions are not blindly replayed. They must respect
+expiry, idempotency, current device revision and domain-specific reconciliation before execution.
+
+### 3D-print example
+
+When a printer can accept a complete job into its own durable storage, OrdaX should prefer that mode:
+the job continues inside the printer and the notebook can be shut down. Telemetry/control may come
+from the printer's own connector or from an Edge Runtime.
+
+For printers that require a host to stream/control the job, the required host should be an always-on
+Edge Runtime rather than the user's notebook. If that Edge host loses power, continuity depends on
+the printer's own power-loss-recovery capability.
+
+### Delivery / marketplace example
+
+A future OrdaX delivery/ordering service follows the cloud-authoritative topology. Orders are accepted
+and stored by the OrdaX service, not by one merchant notebook. The owner can receive the same queue on
+Web, phone, tablet or another authorized terminal.
+
+A store Edge Runtime is optional and is used only when local integrations are needed, such as kitchen
+printers, displays, POS, scales or other equipment. Turning off the merchant notebook does not stop
+the ordering service.
+
+If the store internet connection is lost, the cloud may continue receiving online orders, but the
+store cannot receive them over that failed link until connectivity returns; an authorized phone on
+cellular data may remain usable independently.
+
 ## Web and Mobile
 
 OrdaX Web and OrdaX Mobile consume the same operational contracts. They do not receive
