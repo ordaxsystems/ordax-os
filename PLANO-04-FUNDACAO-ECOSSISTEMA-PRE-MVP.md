@@ -39,7 +39,9 @@ A arquitetura de entitlement poderá limitar valor mensurável:
 - conectores e automações;
 - suporte e serviços.
 
-O MVP mantém preços, cobrança e nomes comerciais de planos fora de escopo. A política provisória preparada permite até **2 Spaces privados ativos** para a experiência gratuita, mas esse número ainda não é contrato comercial congelado.
+A estrutura comercial pré-lançamento passa a ser definida agora, sem ativar cobrança: **OrdaX Free**, **OrdaX Personal**, **OrdaX Professional** e **OrdaX Team** possuem IDs estáveis e fronteiras de valor no contrato `docs/contracts/entitlements.json`. O MVP atribui somente `free`; os planos pagos permanecem não compráveis até billing ser implementado e explicitamente ativado.
+
+O Free mantém até **2 Spaces privados ativos** como baseline do MVP. Personal adiciona continuidade/sync e compartilhamento pequeno; Professional amplia capacidade profissional, conectores/automações e suporte; Team é voltado a Spaces compartilhados e membros. **Preço continua indefinido** e quotas cujo custo depende diretamente de armazenamento/compute cloud permanecem parametrizadas até existir medição real de custo unitário. Isso evita congelar uma oferta economicamente errada só para publicar uma tabela.
 
 ### 1.3 Perfil profissional de Advocacia
 
@@ -119,6 +121,93 @@ Primeiro contrato:
 - remoção de app separada de remoção de dados.
 
 Profile Pack pode depender/recomendar apps, mas nunca contorna assinatura ou concessão de permissões.
+
+### 4.1 Política de pesquisa, reuso e colaboração com projetos da comunidade
+
+A OrdaX deve acompanhar continuamente GitHub, Reddit, fóruns e postagens dos próprios
+autores para descobrir reclamações, desejos e ferramentas emergentes. Esse radar é
+**fonte de produto e pesquisa**, não autorização automática para copiar código.
+
+Regra obrigatória:
+
+```text
+ideia/post/demo
+ -> localizar projeto e autor originais
+ -> verificar LICENSE do repositório e do subprojeto
+ -> separar código, assets, modelos, datasets, marcas e conteúdo
+ -> registrar origem + versão/commit + licença
+ -> decidir: estudar / integrar / reutilizar / fork / colaborar / rejeitar
+ -> somente então entrar no OrdaX
+```
+
+**"Público", "gratuito" ou "está no GitHub" não significa "liberado para copiar".**
+Sem licença explícita compatível, o padrão é **REFERENCE_ONLY**: estudar a necessidade
+e a experiência, mas implementar o comportamento por código OrdaX próprio.
+
+Classificação recomendada para cada descoberta:
+
+- **A — REIMPLEMENT:** estudar o problema/UX e criar implementação OrdaX própria;
+- **B — INTEGRATE:** usar API/SDK/MCP/protocolo sem incorporar o produto como núcleo;
+- **C — COMPONENT:** usar biblioteca/componente permitido, mantendo avisos e atribuição;
+- **D — FORK:** adaptar código somente quando a licença, manutenção e arquitetura justificarem;
+- **E — COLLABORATE:** integrar, patrocinar ou colaborar com o pequeno desenvolvedor, dando crédito;
+- **F — REJECT:** não usar por licença, segurança, supply chain, manutenção ou incompatibilidade.
+
+First-party continua sendo o padrão do produto. Dependência externa não deve virar
+atalho para pular contratos de apps, capabilities, sandbox, assinatura, health,
+rollback ou isolamento por Space.
+
+Para todo código/asset externo incorporado, manter proveniência mínima:
+
+- projeto e autor/organização;
+- URL de origem;
+- commit/tag/versão exatos;
+- SPDX/license id e cópia do texto de licença quando exigido;
+- arquivos/componentes realmente usados;
+- obrigações de atribuição/copyright/copyleft;
+- licença separada de assets, modelos e datasets quando houver;
+- decisão OrdaX (`REFERENCE_ONLY`, `INTEGRATED`, `ADOPTED`, `FORKED`, `REJECTED`);
+- owner interno responsável por atualização e vulnerabilidades.
+
+A distribuição futura deve materializar isso em inventário/SBOM e
+`THIRD_PARTY_NOTICES`/créditos visíveis. Um app da Store não pode omitir sua
+proveniência apenas porque é gratuito.
+
+### 4.2 Sinais verificados da comunidade — 2026-09-30
+
+Exemplos usados como **radar**, não como dependências aprovadas:
+
+- **Photon / editor de imagem estilo Photoshop** — postagem pública no Reddit descreve
+  um editor construído iterativamente com IA, com custo declarado de cerca de
+  US$ 2.000 em tokens e adoção inicial reportada pelo autor. Os comentários também
+  contestam a comparação com Photoshop e pedem prova de recursos reais como
+  importação/exportação e edição fotográfica. Isso reforça a regra OrdaX:
+  demos impressionantes não substituem critérios de produto, testes e UX.
+  Fonte: https://www.reddit.com/r/vibecoding/comments/1wf3hvx/i_vibe_coded_photoshop_alternative_using_gpt6astra/
+- **Ciclo de feedback do Photon** — em publicação posterior, o autor relata usar
+  feedback de email/X/Reddit e um botão interno para priorizar correções diárias.
+  Um comentário questiona acesso ao microfone sem consentimento claro. Para OrdaX,
+  isso vira requisito de design: feedback fácil é desejável, mas permissões de
+  câmera/microfone/arquivos/rede precisam ser explícitas, justificadas e auditáveis.
+  Fonte: https://www.reddit.com/r/buildinpublic/comments/1wkfe8y/15k_users_downloaded_my_app_this_is_how_i_use/
+- **h4ni0/astra-projects** — coleção pública de experimentos recentes, incluindo
+  editor de vídeo, CAD, design de espaços, cidade procedural, circuitos e ferramentas
+  de desenvolvimento. Serve como radar de ideias e velocidade de prototipagem.
+  Não presumir direito de copiar a coleção ou um subprojeto sem verificar a licença
+  específica daquele código e seus assets.
+  Fonte: https://github.com/h4ni0/astra-projects
+
+Ideias de produto derivadas desses sinais, sem compromisso de escopo imediato:
+
+- OrdaX Creative/Image: edição de imagem local-first e integrada à Intelligence;
+- OrdaX Video: corte, timeline e assistência por IA em evolução incremental;
+- OrdaX CAD/Design: ferramentas paramétricas especializadas como app opcional;
+- OrdaX Studio/3D: criação visual e automação, preferindo integração com protocolos
+  e ferramentas maduras quando isso for melhor que duplicar engines complexas;
+- canal de feedback por app integrado ao diagnóstico, com privacidade e consentimento.
+
+Essas ideias permanecem **PÓS-MVP/experimentais** até passarem por necessidade,
+contrato de app, custo de manutenção, segurança, licença e compatibilidade com a Store.
 
 Antes de abrir Store pública, provar um app externo pequeno e não privilegiado.
 
