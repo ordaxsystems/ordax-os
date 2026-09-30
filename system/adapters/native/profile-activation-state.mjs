@@ -88,10 +88,11 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       return snapshot;
     },
     refresh,
-    async previewActivation({ spaceId, spaceKind, profile, components = [] }) {
+    async previewActivation({ subjectId, spaceId, spaceKind, profile, components = [] }) {
       const result = await command({
         action: "preview-activate",
         expectedRevision: snapshot.revision,
+        subjectId,
         spaceId,
         spaceKind,
         profile,
@@ -104,6 +105,7 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       });
     },
     async activate({
+      subjectId,
       spaceId,
       spaceKind,
       profile,
@@ -114,6 +116,7 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       const body = {
         action: "activate",
         expectedRevision: snapshot.revision,
+        subjectId,
         spaceId,
         spaceKind,
         profile,
@@ -126,18 +129,20 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       await command(body);
       return snapshot;
     },
-    async deactivate(spaceId) {
+    async deactivate({ subjectId, spaceId }) {
       await command({
         action: "deactivate",
         expectedRevision: snapshot.revision,
+        subjectId,
         spaceId,
       });
       return snapshot;
     },
-    async rollback(spaceId) {
+    async rollback({ subjectId, spaceId }) {
       await command({
         action: "rollback",
         expectedRevision: snapshot.revision,
+        subjectId,
         spaceId,
       });
       return snapshot;
