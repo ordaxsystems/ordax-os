@@ -61,10 +61,12 @@
     "byte_ceiling_applies_after_semantic_validation": true,
     "native_device_store_source_enabled": true,
     "native_device_store_backend": "privileged-surface-local-storage",
-    "native_device_store_mounted_in_composition": false,
+    "native_device_store_mounted_in_composition": true,
     "corrupt_owner_partition_may_be_silently_overwritten": false,
     "corrupt_owner_partition_blocks_only_that_owner": true,
-    "account_sync_of_personal_work_enabled": false
+    "account_sync_of_personal_work_enabled": false,
+    "explicit_work_entry_enabled": true,
+    "assistant_messages_auto_create_work": false
   },
   "authority": {
     "effects": [
@@ -104,9 +106,10 @@
     "approval_events_reference_approval_ids": true,
     "action_events_reference_action_ids": true,
     "artifact_references_preferred_over_raw_payloads": true,
-    "activity_view_runtime_enabled": false,
+    "activity_view_runtime_enabled": true,
     "completed_result_reference_required_for_new_runtime_results": true,
-    "result_payload_stored_outside_activity_summary": true
+    "result_payload_stored_outside_activity_summary": true,
+    "activity_view_owns_persistence": false
   },
   "mvp": {
     "public_mvp_enabled": false,
@@ -118,7 +121,7 @@
     "external_app_connectors_enabled": false,
     "specialist_agents_enabled": false,
     "personal_foreground_runtime_source_enabled": true,
-    "personal_foreground_runtime_mounted_in_surface": false
+    "personal_foreground_runtime_mounted_in_surface": true
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
