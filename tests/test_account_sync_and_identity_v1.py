@@ -10,6 +10,7 @@ EDGE_GATEWAY = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gatewa
 NATIVE_GATEWAY_CONFIG = ROOT / "system" / "services" / "account" / "gateway-base-url"
 CURSOR_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260925013355_account_sync_incremental_cursor_v1.sql"
 SNAPSHOT_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260925013524_account_sync_atomic_snapshot_v1.sql"
+PAGINATED_SNAPSHOT_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260930140051_account_sync_paginated_snapshot_v2.sql"
 TWO_CLIENT_PROOF = ROOT / "tools" / "account-sync" / "prove_two_clients.py"
 TWO_CLIENT_WORKFLOW = ROOT / ".github" / "workflows" / "account-sync-two-client-proof.yml"
 SESSION_REVOCATION_PROOF = ROOT / "tools" / "account-sync" / "prove_session_revocation.py"
@@ -30,10 +31,16 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertFalse(contract["mvp_availability"]["synchronization_available"])
         self.assertTrue(contract["mvp_availability"]["client_integration_available"])
         self.assertTrue(contract["backend"]["incremental_cursor_implemented"])
+        self.assertTrue(contract["object_protocol"]["paged_snapshot_supported"])
+        self.assertTrue(contract["object_protocol"]["snapshot_cutoff_cursor_fixed_across_pages"])
         self.assertEqual(
             contract["backend"]["current_read_mode"],
-            "atomic-snapshot-plus-paged-incremental-cursor",
+            "fixed-cutoff-paged-snapshot-plus-paged-incremental-cursor",
         )
+        self.assertEqual(contract["backend"]["snapshot_rpc"], "ordax_sync_snapshot_page_v2")
+        self.assertEqual(contract["backend"]["legacy_snapshot_rpc"], "ordax_sync_snapshot_v1")
+        self.assertTrue(contract["backend"]["snapshot_gateway_aggregates_pages"])
+        self.assertTrue(contract["backend"]["snapshot_page_budget_fail_closed"])
 
     def test_sync_store_is_owner_scoped_and_mutations_are_server_authoritative(self):
         sql = SYNC_MIGRATION.read_text(encoding="utf-8").lower()
@@ -54,14 +61,23 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
     def test_incremental_cursor_and_atomic_snapshot_are_source_controlled(self):
         cursor_sql = CURSOR_MIGRATION.read_text(encoding="utf-8").lower()
         snapshot_sql = SNAPSHOT_MIGRATION.read_text(encoding="utf-8").lower()
+        paginated_sql = PAGINATED_SNAPSHOT_MIGRATION.read_text(encoding="utf-8").lower()
         self.assertIn("change_seq bigint generated always as identity", cursor_sql)
         self.assertIn("ordax_apply_sync_mutation_v2", cursor_sql)
         self.assertIn("ordax_pull_sync_changes_v1", cursor_sql)
         self.assertIn("security invoker", cursor_sql)
         self.assertIn("ordax_sync_snapshot_v1", snapshot_sql)
         self.assertIn("security invoker", snapshot_sql)
+        self.assertIn("ordax_sync_snapshot_page_v2", paginated_sql)
+        self.assertIn("p_after_data_class", paginated_sql)
+        self.assertIn("p_after_stable_object_id", paginated_sql)
+        self.assertIn("latest.change_seq <= v_cursor", paginated_sql)
+        self.assertIn("limit p_limit + 1", paginated_sql)
+        self.assertIn("security invoker", paginated_sql)
+        self.assertIn("revoke all on function public.ordax_sync_snapshot_page_v2", paginated_sql)
         self.assertNotIn("security definer", cursor_sql)
         self.assertNotIn("security definer", snapshot_sql)
+        self.assertNotIn("security definer", paginated_sql)
 
     def test_deployed_edge_gateway_source_uses_user_auth_and_rls_without_service_role(self):
         text = EDGE_GATEWAY.read_text(encoding="utf-8")
@@ -69,7 +85,12 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn('signInWithPassword', text)
         self.assertIn('refreshSession', text)
         self.assertIn('ordax_apply_sync_mutation_v2', text)
-        self.assertIn('ordax_sync_snapshot_v1', text)
+        self.assertIn('ordax_sync_snapshot_page_v2', text)
+        self.assertNotIn('supabase.rpc("ordax_sync_snapshot_v1"', text)
+        self.assertIn('readCompleteSyncSnapshot', text)
+        self.assertIn('MAX_SYNC_SNAPSHOT_PAGES', text)
+        self.assertIn('sync-snapshot-cursor-drift', text)
+        self.assertIn('sync-snapshot-continuation-loop', text)
         self.assertIn('ordax_pull_sync_changes_v1', text)
         self.assertIn('crossSiteStateChange', text)
         self.assertIn('sec-fetch-site', text)
