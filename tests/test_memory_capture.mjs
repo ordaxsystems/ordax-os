@@ -408,3 +408,112 @@ test("exact Memory capture dedup scans beyond the first bounded search page", as
   assert.equal(minted, 0);
   assert.equal(memory.remembered.length, 41);
 });
+
+
+test("Memory capture can delegate durable persistence to a composition-owned async writer", async () => {
+  const memory = memoryPort();
+  const persisted = [];
+  const runtime = createMemoryCaptureRuntime(memory, {
+    idFactory: () => "capture-protected",
+    async persistItem(item) {
+      persisted.push(item);
+      return item;
+    },
+  });
+
+  const result = await runtime.capture({
+    content: "Persistência protegida pela composição.",
+    kind: "fact",
+    sensitivity: "private",
+    provenance: "intelligence:conversation",
+  }, accountAuthorization);
+
+  assert.equal(result.durable, true);
+  assert.equal(result.item.id, "capture-protected");
+  assert.equal(persisted.length, 1);
+  assert.equal(memory.remembered.length, 0, "capture runtime must not bypass the injected writer");
+  assert.equal(memory.flushes, 0, "the injected writer owns durability for a newly persisted item");
+});
+
+test("Memory capture fails closed when composition-owned persistence rejects", async () => {
+  const memory = memoryPort();
+  const runtime = createMemoryCaptureRuntime(memory, {
+    idFactory: () => "capture-protected-failure",
+    async persistItem() {
+      throw new Error("protected mutation durability unavailable");
+    },
+  });
+
+  await assert.rejects(
+    () => runtime.capture({
+      content: "Não declarar durável sem confirmação.",
+      kind: "instruction",
+      sensitivity: "private",
+      provenance: "intelligence:conversation",
+    }, accountAuthorization),
+    /protected mutation durability unavailable/,
+  );
+  assert.equal(memory.remembered.length, 0);
+  assert.equal(memory.flushes, 0);
+});
+
+test("Memory capture rejects a persistence writer that changes the authorized item", async () => {
+  const memory = memoryPort();
+  const runtime = createMemoryCaptureRuntime(memory, {
+    idFactory: () => "capture-boundary",
+    async persistItem(item) {
+      return { ...item, ownerId: "other-user" };
+    },
+  });
+
+  await assert.rejects(
+    () => runtime.capture({
+      content: "Boundary não pode ser reescrito.",
+      kind: "fact",
+      sensitivity: "private",
+      provenance: "intelligence:conversation",
+    }, accountAuthorization),
+    /escaped the authorized item boundary/,
+  );
+});
+
+test("exact duplicate capture keeps using the Memory durability barrier and does not invoke the writer", async () => {
+  const memory = searchableMemoryPort();
+  const draft = {
+    content: "Memória já persistida.",
+    kind: "fact",
+    sensitivity: "private",
+    provenance: "intelligence:first",
+  };
+  const existing = {
+    id: "existing-protected",
+    ownerKind: "account",
+    ownerId: "user-1",
+    scope: "account",
+    kind: "fact",
+    sensitivity: "private",
+    content: draft.content,
+    provenance: draft.provenance,
+    sourceTimestamp: "2026-09-30T03:30:00.000Z",
+    spaceId: null,
+    projectId: null,
+  };
+  memory.remembered.push(existing);
+  let writerCalls = 0;
+  const runtime = createMemoryCaptureRuntime(memory, {
+    idFactory: () => "must-not-be-minted",
+    async persistItem(item) {
+      writerCalls += 1;
+      return item;
+    },
+  });
+
+  const result = await runtime.capture(
+    { ...draft, provenance: "intelligence:later" },
+    accountAuthorization,
+  );
+
+  assert.equal(result.item.id, "existing-protected");
+  assert.equal(writerCalls, 0);
+  assert.equal(memory.flushes, 1);
+});
