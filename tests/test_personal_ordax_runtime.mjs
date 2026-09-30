@@ -355,3 +355,65 @@ test("terminal work can be removed with its activity while active work cannot", 
   assert.equal(runtime.getSnapshot().activities.length, 0);
   runtime.dispose();
 });
+
+test("persisted runtime ids and activity time cannot regress", () => {
+  const identity = identitySignedOut();
+  const store = memoryStore();
+  store.save({
+    schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+    nextOrdinal: 1,
+    workItems: [{
+      id: "personal-work-4",
+      ownerKind: "device",
+      ownerId: null,
+      goal: "Old work",
+      state: "completed",
+      spaceId: null,
+      projectId: null,
+      pendingApprovalId: null,
+      backgroundExecution: false,
+      contextRefs: [],
+      createdAt: "2026-09-30T20:00:00Z",
+      updatedAt: "2026-09-30T20:00:01Z",
+    }],
+    activities: [],
+  });
+  assert.throws(
+    () => createPersonalOrdaxRuntime({ identitySessionPort: identity, store }),
+    /next ordinal must exceed/,
+  );
+
+  const invalidTimeStore = memoryStore();
+  invalidTimeStore.save({
+    schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+    nextOrdinal: 2,
+    workItems: [{
+      id: "personal-work-1",
+      ownerKind: "device",
+      ownerId: null,
+      goal: "Timed work",
+      state: "completed",
+      spaceId: null,
+      projectId: null,
+      pendingApprovalId: null,
+      backgroundExecution: false,
+      contextRefs: [],
+      createdAt: "2026-09-30T20:00:01Z",
+      updatedAt: "2026-09-30T20:00:02Z",
+    }],
+    activities: [{
+      workItemId: "personal-work-1",
+      sequence: 1,
+      type: "completed",
+      summary: "Impossible event",
+      approvalId: null,
+      actionId: null,
+      artifactRefs: [],
+      occurredAt: "2026-09-30T20:00:00Z",
+    }],
+  });
+  assert.throws(
+    () => createPersonalOrdaxRuntime({ identitySessionPort: identity, store: invalidTimeStore }),
+    /cannot precede work creation/,
+  );
+});
