@@ -157,7 +157,13 @@
     "approval_executed_state_persisted": true,
     "approval_replay_blocked_after_succeeded_receipt": true,
     "failed_receipt_consumes_approval": false,
-    "failed_action_keeps_approval_for_explicit_idempotent_retry": true
+    "failed_action_keeps_approval_for_explicit_idempotent_retry": true,
+    "tool_grant_binds_work_item_id": true,
+    "action_gateway_revalidates_work_item_id": true,
+    "approved_actions_serialized_per_work": true,
+    "work_cancel_revokes_live_approved_grant": true,
+    "revoked_approval_retained_for_audit": true,
+    "first_native_foreground_action_enabled": true
   },
   "activity": {
     "ordered_sequence_required": true,
@@ -188,7 +194,11 @@
     "approval_lifecycle_source_enabled": true,
     "action_execution_enabled": false,
     "approval_consent_surface_enabled": true,
-    "authorized_side_effects_enabled": false
+    "authorized_side_effects_enabled": true,
+    "authorized_side_effects_scope": [
+      "ordax-native-file-space/files.directory.ensure"
+    ],
+    "background_execution_enabled": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
