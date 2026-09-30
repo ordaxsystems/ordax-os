@@ -32,6 +32,7 @@ function tool(overrides = {}) {
 function grant(overrides = {}) {
   return {
     grantId: "grant-1",
+    approvalId: "approval-1",
     toolId: "files-inspector",
     action: "files.document.write",
     mode: "write",
@@ -41,6 +42,7 @@ function grant(overrides = {}) {
     ownerId: "user-1",
     spaceId: "space-1",
     projectId: "project-1",
+    resourceRef: "file-space:/Documentos/menu.md",
     expiresAt: "2026-10-01T00:00:00.000Z",
     ...overrides,
   };
@@ -49,6 +51,7 @@ function grant(overrides = {}) {
 function request(overrides = {}) {
   return {
     workItemId: "personal-work-1",
+    approvalId: "approval-1",
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
@@ -56,6 +59,7 @@ function request(overrides = {}) {
     ownerId: "user-1",
     spaceId: "space-1",
     projectId: "project-1",
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Atualizar o documento do projeto.",
     requestedAt: "2026-09-30T20:00:00.000Z",
     ...overrides,
@@ -100,6 +104,8 @@ test("Action Gateway denies owner, Space, project, action and mode scope mismatc
     { ownerId: "user-2" },
     { spaceId: "space-2" },
     { projectId: "project-2" },
+    { approvalId: "approval-2" },
+    { resourceRef: "file-space:/Documentos/outro.md" },
     { actionId: "files.metadata.read", effect: "read" },
     { effect: "external-egress" },
     { effect: "device-control" },
