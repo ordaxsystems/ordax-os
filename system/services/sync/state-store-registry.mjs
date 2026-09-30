@@ -125,7 +125,9 @@ export function createSyncStateNamespaceRegistry(rootStore, { legacyNamespace = 
 
     const store = Object.freeze({
       schema: SYNC_STATE_STORE_SCHEMA,
-      scope: root.scope,
+      get scope() {
+        return root.scope;
+      },
       load() {
         return loadSlots().get(key) ?? null;
       },
@@ -136,6 +138,10 @@ export function createSyncStateNamespaceRegistry(rootStore, { legacyNamespace = 
         else slots.set(key, validated);
         return root.save(encodeContainer(slots));
       },
+      async flush() {
+        if (typeof root.flush !== "function") return true;
+        return root.flush();
+      },
     });
     assertSyncStateStorePort(store);
     stores.set(key, store);
@@ -144,7 +150,9 @@ export function createSyncStateNamespaceRegistry(rootStore, { legacyNamespace = 
 
   return Object.freeze({
     schema: SYNC_STATE_CONTAINER_SCHEMA,
-    scope: root.scope,
+    get scope() {
+      return root.scope;
+    },
     legacyNamespace: legacy,
     open,
   });

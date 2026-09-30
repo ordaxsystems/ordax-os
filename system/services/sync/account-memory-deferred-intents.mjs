@@ -276,6 +276,11 @@ export function createAccountMemoryDeferredIntents({
         inactive: false,
       });
     },
+    async flush() {
+      const runtime = currentRuntime();
+      if (!runtime || typeof runtime.store.flush !== "function") return true;
+      return runtime.store.flush();
+    },
     pendingIntents() {
       const runtime = currentRuntime();
       return runtime ? Object.freeze([...runtime.intents.values()]) : Object.freeze([]);
@@ -288,6 +293,7 @@ export function createAccountMemoryDeferredIntents({
         pendingIntentCount: runtime?.intents.size ?? 0,
         queuePersistence: runtime?.store.scope ?? null,
         storesPortableContent: false,
+        durabilityConfirmationAvailable: typeof runtime?.store.flush === "function",
       });
     },
     destroy() {
