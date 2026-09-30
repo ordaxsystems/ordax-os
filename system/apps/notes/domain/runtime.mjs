@@ -92,23 +92,27 @@ export function createNotesRuntime({ store = null, now = () => Date.now() } = {}
     };
   }
   const notesStore = assertNotesStore(store ?? memoryStore);
+  let persistenceWriteBlocked = false;
   let snapshot;
   try {
     snapshot = notesStore.load();
     snapshot = snapshot === null ? defaultSnapshot(now()) : validateNotesSnapshot(snapshot);
   } catch {
+    persistenceWriteBlocked = true;
     snapshot = defaultSnapshot(now());
   }
-  let initialSaveSucceeded = true;
-  try {
-    initialSaveSucceeded = notesStore.save(snapshot) !== false;
-  } catch {
-    initialSaveSucceeded = false;
+  let initialSaveSucceeded = false;
+  if (!persistenceWriteBlocked) {
+    try {
+      initialSaveSucceeded = notesStore.save(snapshot) !== false;
+    } catch {
+      initialSaveSucceeded = false;
+    }
   }
 
   const listeners = new Set();
   let ordinal = 0;
-  let lastSavedAt = now();
+  let lastSavedAt = initialSaveSucceeded ? now() : null;
   let lastSaveSucceeded = initialSaveSucceeded;
   let persistencePending = false;
   let persistenceGeneration = 0;
@@ -145,6 +149,13 @@ export function createNotesRuntime({ store = null, now = () => Date.now() } = {}
 
   const commit = (draft) => {
     snapshot = validateNotesSnapshot(draft);
+    if (persistenceWriteBlocked) {
+      persistenceGeneration += 1;
+      persistencePending = false;
+      lastSaveSucceeded = false;
+      emit();
+      return runtime.getSnapshot();
+    }
     let accepted = true;
     try {
       accepted = notesStore.save(snapshot) !== false;
