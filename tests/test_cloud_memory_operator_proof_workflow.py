@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import unittest
 
@@ -10,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "cloud-memory-operator-authenticated-proof.yml"
 RUNNER = ROOT / "tools" / "cloud-memory" / "run_operator_authenticated_proof.py"
 VALIDATOR = ROOT / "tools" / "cloud-memory" / "validate_authenticated_proof_receipt.py"
+CONTRACT = ROOT / "docs" / "contracts" / "cloud-memory-sync-boundary.json"
 
 
 class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
@@ -78,6 +80,27 @@ class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
             self.assertIn(key, text)
         self.assertIn("CLOUD_MEMORY_AUTHENTICATED_RECEIPT=PASS_SANITIZED", text)
         self.assertNotIn("service_role_used\": True", text)
+
+    def test_contract_records_workflow_readiness_without_claiming_execution(self):
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        self.assertFalse(contract["public_mvp_enabled"])
+        self.assertFalse(contract["implementation"]["public_rollout_enabled"])
+        authenticated = contract["implementation"]["authenticated_proof"]
+        self.assertEqual(authenticated["status"], "two-client-source-ready-execution-pending")
+        self.assertTrue(authenticated["requires_preprovisioned_entitlement"])
+        self.assertFalse(authenticated["creates_entitlement"])
+        operator = contract["implementation"]["operator_proof_runner"]
+        self.assertEqual(operator["status"], "workflow-ready-not-executed")
+        self.assertEqual(
+            operator["workflow"],
+            ".github/workflows/cloud-memory-operator-authenticated-proof.yml",
+        )
+        self.assertTrue(operator["workflow_dispatch_only"])
+        self.assertTrue(operator["serial_execution"])
+        self.assertTrue(operator["issue_then_proof_then_revoke"])
+        self.assertTrue(operator["revoke_in_finally"])
+        self.assertFalse(operator["service_role_allowed"])
+        self.assertFalse(operator["backend_mutation_on_source_merge"])
 
 
 if __name__ == "__main__":
