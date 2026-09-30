@@ -1,0 +1,48 @@
+name: Account Memory Entitlement Session
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/entitlements.mjs'
+      - 'system/contracts/identity-session.mjs'
+      - 'system/services/sync/account-memory-authorization.mjs'
+      - 'system/services/sync/account-memory-entitlement-session.mjs'
+      - 'tests/test_account_memory_authorization.mjs'
+      - 'tests/test_account_memory_entitlement_session.mjs'
+      - '.github/workflows/account-memory-entitlement-session.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/entitlements.mjs'
+      - 'system/contracts/identity-session.mjs'
+      - 'system/services/sync/account-memory-authorization.mjs'
+      - 'system/services/sync/account-memory-entitlement-session.mjs'
+      - 'tests/test_account_memory_authorization.mjs'
+      - 'tests/test_account_memory_entitlement_session.mjs'
+      - '.github/workflows/account-memory-entitlement-session.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  account-memory-entitlement-session:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate source syntax
+        run: |
+          set -euo pipefail
+          node --check system/services/sync/account-memory-entitlement-session.mjs
+          node --check tests/test_account_memory_entitlement_session.mjs
+
+      - name: Prove identity-bound Memory entitlement lifecycle
+        run: |
+          set -euo pipefail
+          node --test tests/test_account_memory_authorization.mjs
+          node --test tests/test_account_memory_entitlement_session.mjs
