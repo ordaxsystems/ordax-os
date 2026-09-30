@@ -100,9 +100,11 @@ export function createMemoryReviewViewModel(reviewSessionValue, {
     const ordinal = ++persistenceOrdinal;
     persistenceState = "pending";
     persistenceError = null;
-    publish();
     try {
-      const result = await mutate();
+      const operation = mutate();
+      readPage();
+      publish();
+      const result = await operation;
       if (result === null || result === false) {
         if (ordinal === persistenceOrdinal && !disposed) {
           persistenceState = "idle";
