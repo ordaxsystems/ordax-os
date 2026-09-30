@@ -34,6 +34,7 @@ function decision(request, {
 }) {
   return validatePersonalActionDecision({
     workItemId: request.workItemId,
+    approvalId: request.approvalId,
     actionId: request.actionId,
     effect: request.effect,
     decision: outcome,
