@@ -85,7 +85,7 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             write(stage / "usr/bin/helper", synthetic_elf64(runpath=b"/opt/b"))
             write(stage / "opt/a/libexample.so.1", synthetic_elf64(b"libc.so.6"))
             write(stage / "opt/b/libexample.so.1", synthetic_elf32(b"libc.so.6"))
-            with self.assertRaisesRegex(MODULE.LoaderInvarianceError, "incompatible pathname"):
+            with self.assertRaisesRegex(MODULE.LoaderInvarianceError, "incompatible ELF identity at first pathname hit"):
                 MODULE.verify(stage, rootfs, full_build_proof(stage), preload_source_proof())
 
     def test_wine_bootstrap_shortname_is_an_explicit_invariant_target(self):
