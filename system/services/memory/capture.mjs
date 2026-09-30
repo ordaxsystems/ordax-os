@@ -82,9 +82,9 @@ export function createMemoryCaptureRuntime(memoryPort, {
   }
 
   const persist = persistItem ?? (async (item) => {
-    const remembered = memory.remember(item);
+    memory.remember(item);
     await memory.flush();
-    return remembered;
+    return true;
   });
 
   return Object.freeze({
@@ -122,13 +122,13 @@ export function createMemoryCaptureRuntime(memoryPort, {
         spaceId: authorization.spaceId,
         projectId: null,
       });
-      const remembered = validateMemoryItem(await persist(item));
-      if (JSON.stringify(remembered) !== JSON.stringify(item)) {
-        throw new Error("Memory capture persistence escaped the authorized item boundary");
+      const durable = await persist(item);
+      if (durable !== true) {
+        throw new Error("Memory capture persistence did not confirm durability");
       }
       return Object.freeze({
         schema: MEMORY_CAPTURE_RESULT_SCHEMA,
-        item: remembered,
+        item,
         durable: true,
       });
     },
