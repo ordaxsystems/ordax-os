@@ -8,6 +8,7 @@ import {
 } from "../system/contracts/intelligence.mjs";
 import { PROJECT_CATALOG_SCHEMA } from "../system/contracts/project-catalog.mjs";
 import { SPACE_SELECTION_SCHEMA } from "../system/contracts/space-selection.mjs";
+import { createIntelligenceToolGrantAuthority } from "../system/services/intelligence/tool-grants.mjs";
 import { createNativePersonalOrdaxComposition } from "../system/composition/native/personal-ordax.mjs";
 
 function memoryStorage() {
@@ -173,4 +174,75 @@ test("Native composition persists completed owner-bound Work Result through the 
     ),
   );
   restored.dispose();
+});
+
+
+test("Native composition resolves approvals through the injected canonical grant registry", () => {
+  const nowMs = Date.now();
+  const authority = createIntelligenceToolGrantAuthority({
+    now: () => nowMs,
+    createGrantId: () => "grant-native-approval-1",
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identitySession(),
+    spaceSelection: selectedSpace(),
+    projects: projectCatalog(),
+    intelligence: intelligence(),
+    grantAuthority: authority,
+    toolResolver(toolId) {
+      if (toolId !== "files-inspector") return null;
+      return {
+        id: "files-inspector",
+        version: "1.0.0",
+        artifactSha256: "a".repeat(64),
+        sandbox: "wasi-component",
+        actions: [{
+          id: "files.document.write",
+          mode: "write",
+          approval: "per-use",
+          scopes: [],
+        }],
+        network: { allowed: false, destinations: [] },
+        filesystem: { allowed: true, scopes: ["/Operacao"] },
+        limits: { timeoutMs: 1000, maxOutputBytes: 4096 },
+      };
+    },
+  });
+
+  const work = runtime.create("Atualizar documento", {
+    spaceId: "space-a",
+    projectId: "project-1",
+  });
+  const approval = runtime.requestApproval(work.id, {
+    actionId: "files.document.write",
+    toolId: "files-inspector",
+    effect: "write",
+    reason: "Salvar alteracao solicitada pelo usuario.",
+  });
+  const grant = authority.issuer.issue({
+    approvalId: approval.id,
+    toolId: approval.toolId,
+    action: approval.actionId,
+    mode: "write",
+    approvedBy: "user",
+    ownerKind: work.ownerKind,
+    ownerId: work.ownerId,
+    spaceId: work.spaceId,
+    projectId: work.projectId,
+    requestedAt: new Date(nowMs).toISOString(),
+    expiresAt: new Date(nowMs + 4 * 60 * 1000).toISOString(),
+  });
+  const decision = runtime.resolveApproval(work.id, approval.id, {
+    grantRef: grant.grantId,
+  });
+
+  assert.equal(decision.decision, "allow");
+  assert.equal(decision.grantRef, grant.grantId);
+  assert.equal(runtime.getSnapshot().workItems[0].state, "queued");
+  assert.equal(typeof runtime.issueGrant, "undefined");
+  assert.equal(typeof runtime.grantIssuer, "undefined");
+
+  runtime.dispose();
+  authority.dispose();
 });
