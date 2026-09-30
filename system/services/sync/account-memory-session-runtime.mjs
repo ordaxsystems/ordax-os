@@ -18,6 +18,7 @@ import {
   classifyMemoryForAccountSync,
   createAccountMemorySyncRuntime,
 } from "./account-memory-runtime.mjs";
+import { resolveMemorySyncConflict } from "./memory-conflict-resolution.mjs";
 
 export const ACCOUNT_MEMORY_SESSION_RUNTIME_SCHEMA = "ordax.account-memory-session-runtime/1";
 
@@ -319,6 +320,34 @@ export function createAccountMemorySessionRuntime({
     },
     pendingConflicts() {
       return resolve()?.pendingConflicts() ?? Object.freeze([]);
+    },
+    async resolveConflict(objectId, decision) {
+      const runtime = resolve();
+      if (!runtime || activeSubjectId === null) {
+        throw new Error("Signed-in account required before resolving Memory conflict");
+      }
+      const conflict = runtime.pendingConflicts().find((entry) => entry.objectId === objectId) ?? null;
+      if (conflict === null) throw new Error("Memory conflict is no longer pending");
+      if (conflict.reason === "reconciliation-required") {
+        throw new Error("Memory conflict already requires authoritative remote reconciliation");
+      }
+      const pendingMutation = runtime.pendingMutations().find((entry) => entry.objectId === objectId) ?? null;
+      if (pendingMutation === null) {
+        throw new Error("Memory conflict no longer has a local intent to resolve");
+      }
+      const resolution = resolveMemorySyncConflict({
+        conflict,
+        pendingMutation,
+        decision,
+        subjectId: activeSubjectId,
+        createIdempotencyKey,
+      });
+      const result = runtime.applyConflictResolution(resolution);
+      const durability = await this.flushCoordination();
+      if (durability.confirmed !== true) {
+        throw new Error("Memory conflict resolution durability was not confirmed");
+      }
+      return result;
     },
     destroy() {
       if (destroyed) return;
