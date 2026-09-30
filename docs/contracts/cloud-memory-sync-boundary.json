@@ -112,6 +112,8 @@
       "workflow": ".github/workflows/cloud-memory-operator-authenticated-proof.yml",
       "receipt_validator": "tools/cloud-memory/validate_authenticated_proof_receipt.py",
       "workflow_dispatch_only": true,
+      "default_branch_only": true,
+      "required_git_ref": "refs/heads/main",
       "serial_execution": true,
       "issue_then_proof_then_revoke": true,
       "revoke_in_finally": true,
