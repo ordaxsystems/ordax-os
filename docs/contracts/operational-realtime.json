@@ -60,13 +60,42 @@
   },
   "examples": {
     "pizzaria": {
-      "domains": ["business.orders", "business.production"],
-      "examples": ["order.created", "order.state-changed", "production.queue-changed"]
+      "domains": [
+        "business.orders",
+        "business.production"
+      ],
+      "examples": [
+        "order.created",
+        "order.state-changed",
+        "production.queue-changed"
+      ],
+      "independence": {
+        "orders_live_in_cloud_not_merchant_notebook": true,
+        "merchant_phone_web_tablet_can_operate_independently": true,
+        "local_edge_optional_for_pos_kitchen_printer_and_other_equipment": true
+      }
     },
     "impressao_3d": {
-      "domains": ["fabrication.jobs", "device.telemetry"],
-      "examples": ["print.started", "print.progress", "print.failed", "print.completed"],
-      "future_actions": ["printer.job.pause", "printer.job.cancel"]
+      "domains": [
+        "fabrication.jobs",
+        "device.telemetry"
+      ],
+      "examples": [
+        "print.started",
+        "print.progress",
+        "print.failed",
+        "print.completed"
+      ],
+      "future_actions": [
+        "printer.job.pause",
+        "printer.job.cancel"
+      ],
+      "independence": {
+        "prefer_device_durable_job_storage_when_supported": true,
+        "dedicated_edge_for_host_dependent_printers": true,
+        "user_notebook_required_to_remain_on": false,
+        "power_loss_recovery_depends_on_device_or_power_hardware": true
+      }
     }
   },
   "mvp_boundary": {
@@ -87,5 +116,49 @@
     "offline/reconnect proof",
     "device-action idempotency and stale-state proof",
     "user-visible action audit"
-  ]
+  ],
+  "availability_model": {
+    "user_notebook_required_for_service_continuity": false,
+    "desktop_app_required_for_service_continuity": false,
+    "canonical_cloud_state_survives_client_shutdown": true,
+    "supported_topologies": [
+      "cloud-authoritative",
+      "device-native",
+      "dedicated-edge",
+      "client-hosted-development-or-convenience"
+    ],
+    "professional_continuity_may_depend_on_client_hosted_topology": false,
+    "edge_outbound_authenticated_connection_preferred": true,
+    "power_loss_is_solved_by_software": false,
+    "ups_or_device_power_recovery_is_optional_hardware_capability": true,
+    "stale_dangerous_actions_replayed_blindly_after_reconnect": false
+  },
+  "edge_runtime": {
+    "status": "source-architecture-only-runtime-disabled",
+    "user_facing_product_mode": false,
+    "reuses_device_agent_capability_model": true,
+    "may_run_on_device_when_supported": true,
+    "may_run_on_dedicated_low_power_host": true,
+    "may_run_on_compatible_nas_or_server": true,
+    "desktop_usb_native_host_allowed_for_development_or_convenience": true,
+    "desktop_usb_native_host_required_for_production": false,
+    "responsibilities": [
+      "device-capability-discovery",
+      "bounded-local-state",
+      "reconnect-reconciliation",
+      "telemetry-publication",
+      "typed-action-execution",
+      "action-receipts-and-audit",
+      "narrow-local-device-adapters"
+    ],
+    "forbidden_authority": [
+      "account-authority",
+      "space-membership-authority",
+      "billing-authority",
+      "global-business-policy",
+      "generic-remote-shell",
+      "raw-disk",
+      "release-signing-key"
+    ]
+  }
 }
