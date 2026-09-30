@@ -267,7 +267,6 @@ export function createPersonalOrdaxRuntime({
        * by definition the owner may already have changed. The stored work remains
        * isolated and becomes visible again only when its original owner returns.
        */
-      continue;
     }
   };
 
@@ -378,7 +377,7 @@ export function createPersonalOrdaxRuntime({
           context: [],
           maxTokens: 1024,
         }));
-        const current = findWork(id);
+        const current = findStoredWork(id);
         if (!inFlight.has(id) || current.state !== "running" || contextStatus(current) !== "valid") {
           throw new Error("Personal OrdaX work context changed while reasoning was in progress");
         }
@@ -391,9 +390,9 @@ export function createPersonalOrdaxRuntime({
         });
         return response;
       } catch (error) {
-        const current = findWork(id);
+        const current = findStoredWork(id);
         inFlight.delete(id);
-        if (current.state === "running") {
+        if (current.state === "running" && ownerMatches(current, identity)) {
           updateWork(id, { state: "failed", pendingApprovalId: null }, {
             activity: { type: "failed", summary: "Foreground reasoning failed without executing actions." },
           });
