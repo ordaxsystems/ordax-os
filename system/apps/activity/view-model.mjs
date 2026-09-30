@@ -14,6 +14,10 @@ export function projectPersonalActivitySnapshot(value) {
   const approvalById = new Map(
     snapshot.approvals.map((approval) => [approval.id, approval]),
   );
+  const approvedApprovalByWork = new Map();
+  for (const approval of snapshot.approvals) {
+    if (approval.status === "approved") approvedApprovalByWork.set(approval.workItemId, approval);
+  }
   const decisionsByWork = new Map();
   for (const decision of snapshot.decisions) {
     const list = decisionsByWork.get(decision.workItemId) ?? [];
@@ -32,6 +36,7 @@ export function projectPersonalActivitySnapshot(value) {
       pendingApproval: item.pendingApprovalId === null
         ? null
         : approvalById.get(item.pendingApprovalId) ?? null,
+      approvedApproval: approvedApprovalByWork.get(item.id) ?? null,
       decisions: Object.freeze([...(decisionsByWork.get(item.id) ?? [])]),
     }))),
   });
