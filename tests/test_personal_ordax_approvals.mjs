@@ -76,6 +76,7 @@ function tool() {
 function grant(overrides = {}) {
   return {
     grantId: "grant-1",
+    approvalId: "personal-approval-personal-work-1-1",
     toolId: "files-inspector",
     action: "files.document.write",
     mode: "write",
@@ -85,6 +86,7 @@ function grant(overrides = {}) {
     ownerId: "user-1",
     spaceId: "space-1",
     projectId: null,
+    resourceRef: "file-space:/Documentos/menu.md",
     expiresAt: "2026-10-01T00:00:00.000Z",
     ...overrides,
   };
@@ -135,6 +137,7 @@ test("approval request is persisted atomically with waiting Work and Activity", 
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Atualizar o documento aprovado pelo usuário.",
   });
 
@@ -143,6 +146,7 @@ test("approval request is persisted atomically with waiting Work and Activity", 
   assert.equal(snapshot.workItems[0].pendingApprovalId, approval.id);
   assert.equal(snapshot.approvals.length, 1);
   assert.equal(snapshot.approvals[0].status, "pending");
+  assert.equal(snapshot.approvals[0].resourceRef, "file-space:/Documentos/menu.md");
   assert.equal(snapshot.decisions.length, 0);
   assert.equal(snapshot.activities.at(-1).type, "approval-requested");
   assert.equal(snapshot.activities.at(-1).approvalId, approval.id);
@@ -163,6 +167,7 @@ test("missing grant keeps approval pending and cannot execute", () => {
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Precisa de grant.",
   });
   const decision = runtime.resolveApproval(work.id, approval.id);
@@ -186,6 +191,7 @@ test("exact existing grant resolves approval to queued work and durable allow de
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Escrever no documento do Space.",
   });
   const decision = runtime.resolveApproval(work.id, approval.id, { grantRef: "grant-1" });
@@ -216,6 +222,7 @@ test("wrong-owner grant resolves fail-closed to denied and paused work", () => {
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Grant errado não pode atravessar owner.",
   });
   const decision = runtime.resolveApproval(work.id, approval.id, { grantRef: "grant-1" });
@@ -243,6 +250,7 @@ test("identity or Space change cancels pending approval before pausing work", ()
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Pending.",
   });
 
@@ -286,6 +294,7 @@ test("store rejects orphan approvals, missing audit Activity and forged terminal
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Auditável.",
   });
   runtime.resolveApproval(work.id, approval.id, { grantRef: "grant-1" });
