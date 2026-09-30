@@ -263,3 +263,5 @@ fails before the adapter is resolved, and successful adapters return a bounded
 This still does not register a Native tool or execute a side effect. The next implementation cut is
 a first-party typed adapter whose artifact identity can be verified honestly; no placeholder
 artifact hash or generic broker escape hatch will be introduced.
+
+A autoridade sensível também fica presa ao SHA-256 exato do artefato da tool. A approval retém essa identidade, o grant a copia, o Action Gateway compara com a tool atualmente resolvida e o Action Executor compara novamente com o adapter imediatamente antes do efeito. Trocar a implementação mantendo apenas o mesmo `toolId/action` invalida a autorização existente.
