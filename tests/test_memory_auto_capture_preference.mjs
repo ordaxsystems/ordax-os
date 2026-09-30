@@ -106,3 +106,36 @@ test("preference-bound Memory capture reacts immediately to toggle changes", asy
     "salva novamente",
   ]);
 });
+
+
+test("preference-bound Memory capture preserves a composition-owned persistence writer", async () => {
+  const preferences = preferenceRuntime();
+  const memory = memoryPort();
+  const persisted = [];
+  const capture = createPreferenceBoundMemoryCaptureRuntime(memory, preferences, {
+    idFactory: () => "pref-protected",
+    async persistItem(item) {
+      persisted.push(item);
+      return item;
+    },
+  });
+
+  const result = await capture.capture({
+    content: "writer protegido",
+    kind: "fact",
+    provenance: "intelligence",
+  }, authorization);
+
+  assert.equal(result.item.id, "pref-protected");
+  assert.deepEqual(persisted.map((item) => item.content), ["writer protegido"]);
+  assert.equal(memory.remembered.length, 0);
+
+  preferences.set(MEMORY_AUTO_CAPTURE_PREFERENCE_ID, "off");
+  const blocked = await capture.capture({
+    content: "não deve chegar ao writer",
+    kind: "fact",
+    provenance: "intelligence",
+  }, authorization);
+  assert.equal(blocked, null);
+  assert.equal(persisted.length, 1);
+});
