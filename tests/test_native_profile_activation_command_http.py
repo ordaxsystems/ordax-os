@@ -136,12 +136,12 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
             native_host.execute_profile_activation_command = original
             self.stop_server(temporary, server, thread)
 
-    def test_stable_mvp_keeps_profile_mutation_endpoint_absent(self):
+    def test_stable_mvp_exposes_tokenized_profile_mutation_endpoint(self):
         temporary, server, thread = self.start_server("stable-mvp")
         try:
             session = self.session(server)
-            self.assertFalse(session["profileActivationAvailable"])
-            self.assertEqual(session["profileActivationToken"], "")
+            self.assertTrue(session["profileActivationAvailable"])
+            self.assertGreaterEqual(len(session["profileActivationToken"]), 24)
             status, _body = self.request(
                 server,
                 "POST",
@@ -149,7 +149,7 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
                 headers=self.trusted_headers(server),
                 payload=self.command_payload(),
             )
-            self.assertEqual(status, 404)
+            self.assertEqual(status, 403)
         finally:
             self.stop_server(temporary, server, thread)
 
@@ -277,11 +277,19 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
             native_host.read_active_profile_content_context = original
             self.stop_server(temporary, server, thread)
 
-    def test_stable_mvp_keeps_profile_content_context_endpoint_absent(self):
+    def test_stable_mvp_reads_profile_content_context_for_explicit_space(self):
         temporary, server, thread = self.start_server("stable-mvp")
         original = native_host.read_active_profile_content_context
         seen = []
-        native_host.read_active_profile_content_context = lambda space_id: seen.append(space_id)
+        native_host.read_active_profile_content_context = lambda space_id: (
+            seen.append(space_id)
+            or {
+                "schema": "ordax.profile-content-context/1",
+                "spaceId": space_id,
+                "profile": {"slug": "pizzaria-br", "version": 1},
+                "entries": [],
+            }
+        )
         try:
             status, body = self.request(
                 server,
@@ -289,9 +297,10 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
                 f"{native_host.PROFILE_CONTENT_CONTEXT_PATH}?spaceId=space-professional-1",
                 headers=self.trusted_headers(server),
             )
-            self.assertEqual(status, 404)
-            self.assertEqual(body, b"")
-            self.assertEqual(seen, [])
+            self.assertEqual(status, 200)
+            self.assertEqual(seen, ["space-professional-1"])
+            payload = json.loads(body.decode("utf-8"))
+            self.assertEqual(payload["profile"]["slug"], "pizzaria-br")
         finally:
             native_host.read_active_profile_content_context = original
             self.stop_server(temporary, server, thread)
