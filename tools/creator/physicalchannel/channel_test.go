@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,6 +58,32 @@ func validManifest() Manifest {
 			Size:   1234,
 		},
 		Files: files,
+	}
+}
+
+
+func validPortablePayload() PortablePayloadManifest {
+	ids := []string{
+		"systemd-boot", "loader-config", "loader-normal", "loader-recovery",
+		"kernel", "initramfs", "bootstrap-capsule", "release-trust",
+		"stable-base", "persistent-state", "system-image",
+		"surface-runtime-image", "surface-runtime-ref",
+		"local-ai-runtime-image", "local-ai-runtime-ref",
+		"release-manifest", "release-envelope",
+	}
+	artifacts := make([]PortablePayloadArtifactBinding, 0, len(ids))
+	for i, id := range ids {
+		artifacts = append(artifacts, PortablePayloadArtifactBinding{
+			ID: id,
+			URL: "https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/ordax-stable-v4-0123456789abcdef0123456789abcdef01234567/" + id,
+			SHA256: strings.Repeat(fmt.Sprintf("%x", (i%15)+1), 64),
+			SizeBytes: int64(i + 1),
+		})
+	}
+	return PortablePayloadManifest{
+		Schema: PortablePayloadSchema,
+		ReleaseSourceCommit: "0123456789abcdef0123456789abcdef01234567",
+		Artifacts: artifacts,
 	}
 }
 
@@ -215,3 +242,77 @@ func TestExtractBundleRejectsUnexpectedAndTraversalFiles(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+
+func TestVerifyEnvelopeAcceptsPortableManifestV3(t *testing.T) {
+	trust, private, trustSHA := testTrust(t)
+	manifest := validManifest()
+	manifest.Schema = ManifestSchemaPortable
+	payload := validPortablePayload()
+	manifest.PortablePayload = &payload
+	verified, err := VerifyEnvelope(signedEnvelope(t, manifest, private), trust, trustSHA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verified.PortablePayload == nil || len(verified.PortablePayload.Artifacts) != 17 {
+		t.Fatalf("unexpected Portable payload: %+v", verified.PortablePayload)
+	}
+}
+
+func TestVerifyEnvelopeRejectsPortablePayloadOnV2AndMissingPayloadOnV3(t *testing.T) {
+	trust, private, trustSHA := testTrust(t)
+
+	v2 := validManifest()
+	payload := validPortablePayload()
+	v2.PortablePayload = &payload
+	if _, err := VerifyEnvelope(signedEnvelope(t, v2, private), trust, trustSHA); err == nil ||
+		!strings.Contains(err.Error(), "v2 cannot carry") {
+		t.Fatalf("v2 Portable payload unexpectedly accepted: %v", err)
+	}
+
+	v3 := validManifest()
+	v3.Schema = ManifestSchemaPortable
+	if _, err := VerifyEnvelope(signedEnvelope(t, v3, private), trust, trustSHA); err == nil ||
+		!strings.Contains(err.Error(), "requires a signed Portable payload") {
+		t.Fatalf("v3 without Portable payload unexpectedly accepted: %v", err)
+	}
+}
+
+func TestVerifyPortablePayloadInstalledRejectsTamperedSource(t *testing.T) {
+	dir := t.TempDir()
+	manifest := writeBoundFiles(t, dir)
+	manifest.Schema = ManifestSchemaPortable
+	payload := validPortablePayload()
+	sourceRoot := filepath.Join(dir, portablePayloadDirectory)
+	if err := os.Mkdir(sourceRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for i := range payload.Artifacts {
+		body := []byte("portable-source-" + payload.Artifacts[i].ID)
+		path := filepath.Join(sourceRoot, payload.Artifacts[i].ID)
+		if err := os.WriteFile(path, body, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		digest := sha256.Sum256(body)
+		payload.Artifacts[i].SHA256 = hex.EncodeToString(digest[:])
+		payload.Artifacts[i].SizeBytes = int64(len(body))
+	}
+	manifest.PortablePayload = &payload
+	receipt, err := canonicalPortablePayloadBytes(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, portablePayloadReceiptName), receipt, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyInstalled(dir, manifest); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceRoot, "kernel"), []byte("tampered"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyInstalled(dir, manifest); err == nil || !strings.Contains(err.Error(), "changed") {
+		t.Fatalf("tampered Portable source unexpectedly accepted: %v", err)
+	}
+}
+
