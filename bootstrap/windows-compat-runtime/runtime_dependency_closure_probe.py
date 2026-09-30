@@ -173,6 +173,22 @@ def compact_identity(elf: dict) -> dict:
     }
 
 
+def record_node(node_records: dict[str, tuple[dict, set[str]]], node: dict) -> str:
+    """Record every loader pathname before canonical-context deduplication."""
+    key = node_key(node)
+    existing = node_records.get(key)
+    if existing is None:
+        node_records[key] = (node, {node["path"]})
+        return key
+    previous, paths = existing
+    if compact_identity(previous["elf"]) != compact_identity(node["elf"]):
+        raise RuntimeDependencyClosureError(f"node identity conflict: {key}")
+    if previous.get("package") != node.get("package") or previous.get("version") != node.get("version"):
+        raise RuntimeDependencyClosureError(f"node package identity conflict: {key}")
+    paths.add(node["path"])
+    return key
+
+
 def node_from_candidate(candidate: dict, stage: Path, rootfs: Path, owners: dict, package_versions: dict) -> dict:
     scope = candidate["scope"]
     root = stage if scope == "stage-internal" else rootfs
@@ -428,17 +444,7 @@ def discover(
             raise RuntimeDependencyClosureError(f"dependency traversal exceeded max states {max_states}")
         context_id = DIRECT.canonical_sha256(signature)
         current = chain[0]
-        current_key = node_key(current)
-        existing = node_records.get(current_key)
-        if existing is None:
-            node_records[current_key] = (current, {current["path"]})
-        else:
-            previous, paths = existing
-            if compact_identity(previous["elf"]) != compact_identity(current["elf"]):
-                raise RuntimeDependencyClosureError(f"node identity conflict: {current_key}")
-            if previous.get("package") != current.get("package") or previous.get("version") != current.get("version"):
-                raise RuntimeDependencyClosureError(f"node package identity conflict: {current_key}")
-            paths.add(current["path"])
+        current_key = record_node(node_records, current)
 
         root_context = len(chain) == 1 and current["scope"] == "stage-internal"
         direct_record = direct_map = None
@@ -470,9 +476,10 @@ def discover(
                 })
                 continue
             child = node_from_candidate(candidate, stage, rootfs, owners, package_versions)
+            child_key = record_node(node_records, child)
             edge = {
                 "soname": soname,
-                "to": node_key(child),
+                "to": child_key,
                 "scope": candidate["scope"],
                 "path": candidate["path"],
                 "canonical_path": candidate["canonical_path"],
@@ -503,7 +510,6 @@ def discover(
                 record["sonames"].add(soname)
             if root_context:
                 compare_direct_root_edge(current["path"], soname, edge, direct_record, direct_map)
-            child_key = node_key(child)
             chain_keys = {node_key(item) for item in chain}
             if child_key in chain_keys:
                 edge["cycle"] = True
