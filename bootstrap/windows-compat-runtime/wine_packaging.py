@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the exact Alpine Wine packaging input used by OrdaX build proofs."""
+"""Validate and materialize the exact Alpine Wine packaging input used by OrdaX."""
 
 from __future__ import annotations
 
@@ -7,11 +7,13 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shutil
 import sys
 
 HERE = Path(__file__).resolve().parent
 CONTRACT_PATH = HERE / "wine-packaging-inputs.json"
 PATCH_PATH = HERE / "alpine-wine-rpath.patch"
+MATERIALIZED_PATCH_NAME = "wine-packaging-rpath.patch"
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 SHA64 = re.compile(r"^[0-9a-f]{64}$")
 SHA128 = re.compile(r"^[0-9a-f]{128}$")
@@ -101,6 +103,42 @@ def validate() -> dict:
     if any(promotion.get(key) is not False for key in forbidden):
         raise WinePackagingInputError("Wine packaging input crossed a forbidden runtime/execution boundary")
     return value
+
+
+def materialize(build_dir: Path, *, runtime_id: str, wine_version: str) -> dict:
+    value = validate()
+    if value["runtime_id"] != runtime_id or value["wine_version"] != wine_version:
+        raise WinePackagingInputError("Wine packaging input does not match requested build identity")
+    if not build_dir.is_dir():
+        raise WinePackagingInputError("build directory is missing for Wine packaging materialization")
+    destination = build_dir / MATERIALIZED_PATCH_NAME
+    shutil.copyfile(PATCH_PATH, destination)
+    raw = destination.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != value["local_patch"]["sha256"]:
+        raise WinePackagingInputError("materialized Wine packaging patch changed bytes")
+    return {
+        "authority_repository": value["authority"]["repository"],
+        "authority_commit_sha": value["authority"]["commit_sha"],
+        "patch_git_blob_sha": value["authority"]["patch_git_blob_sha"],
+        "patch_sha256": value["local_patch"]["sha256"],
+        "patch_sha512": value["local_patch"]["sha512"],
+        "materialized_name": MATERIALIZED_PATCH_NAME,
+        "linker_flag": value["semantics"]["linker_flag"],
+    }
+
+
+def verify_applied(source_dir: Path) -> None:
+    configure = source_dir / "configure"
+    configure_ac = source_dir / "configure.ac"
+    try:
+        configure_text = configure.read_text(encoding="utf-8")
+        configure_ac_text = configure_ac.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise WinePackagingInputError(f"cannot verify patched Wine source: {exc}") from exc
+    if "UNIXLDFLAGS=\"$UNIXLDFLAGS '-Wl,-rpath,\\$\\$ORIGIN'\"" not in configure_text:
+        raise WinePackagingInputError("patched configure lacks Alpine $ORIGIN UNIXLDFLAGS authority")
+    if "WINE_TRY_CFLAGS([-Wl,-rpath,\\\\\\$ORIGIN]" not in configure_ac_text:
+        raise WinePackagingInputError("patched configure.ac lacks Alpine $ORIGIN probe authority")
 
 
 def main() -> int:
