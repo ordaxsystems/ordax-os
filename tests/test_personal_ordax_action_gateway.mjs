@@ -148,3 +148,22 @@ test("Model or prompt content never participates in Action Gateway authority", (
   assert.equal(value.decision, "approval-required");
   assert.equal(value.authoritySource, "intelligence-tool-grant");
 });
+
+
+test("explicit user denial is terminal, grant-less and auditable", () => {
+  const port = gateway();
+  const value = port.decide(request(), { userDecision: "deny" });
+  assert.equal(value.decision, "deny");
+  assert.equal(value.authoritySource, "user-grant");
+  assert.equal(value.grantRef, null);
+  assert.equal(canExecutePersonalAction(value), false);
+
+  assert.throws(
+    () => port.decide(request(), { userDecision: "approve" }),
+    /user decision is invalid/,
+  );
+  assert.throws(
+    () => port.decide(request(), { userDecision: "deny", grantRef: "grant-1" }),
+    /must not carry an execution grant/,
+  );
+});
