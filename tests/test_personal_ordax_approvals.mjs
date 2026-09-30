@@ -206,6 +206,10 @@ test("exact existing grant resolves approval to queued work and durable allow de
   assert.equal(snapshot.decisions[0].grantRef, "grant-1");
   assert.equal(snapshot.activities.at(-1).type, "approval-resolved");
   assert.equal(snapshot.activities.at(-1).approvalId, approval.id);
+  const execution = runtime.prepareActionExecution(work.id, approval.id);
+  assert.equal(execution.request.approvalId, approval.id);
+  assert.equal(execution.request.resourceRef, "file-space:/Documentos/menu.md");
+  assert.equal(execution.decision.grantRef, "grant-1");
   runtime.dispose();
 });
 
