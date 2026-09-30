@@ -323,3 +323,21 @@ test("review view persists manual Memory creation before reporting saved", async
   view.dispose();
   session.dispose();
 });
+
+
+test("review view exports the selected owner independently of page and search state", () => {
+  const memory = createMemoryRuntime();
+  for (let index = 0; index < 6; index += 1) memory.remember(item(index));
+  const session = createMemoryReviewSession({ memoryPort: memory });
+  const view = createMemoryReviewViewModel(session, { pageSize: 2 });
+
+  view.setQuery("conteúdo 5");
+  assert.equal(view.getSnapshot().items.length, 1);
+  const exported = view.exportSnapshot();
+  assert.equal(exported.items.length, 6);
+  assert.deepEqual(exported.owner, { ownerKind: "device", ownerId: null });
+
+  view.dispose();
+  assert.throws(() => view.exportSnapshot(), /disposed/);
+  session.dispose();
+});
