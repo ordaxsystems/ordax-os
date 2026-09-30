@@ -177,7 +177,10 @@
     "paused_work_context_invalidation_revokes_approved_grants": true,
     "work_cancel_revocation_owned_by_runtime": true,
     "native_restore_revokes_missing_session_grants": true,
-    "approved_action_ui_requires_live_grant_when_grant_ref_exists": true
+    "approved_action_ui_requires_live_grant_when_grant_ref_exists": true,
+    "live_grant_expiry_reconciles_to_revoked": true,
+    "execution_reconciles_authority_before_start": true,
+    "activity_reconciles_authority_before_render": true
   },
   "activity": {
     "ordered_sequence_required": true,
