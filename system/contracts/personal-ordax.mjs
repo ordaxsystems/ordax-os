@@ -211,8 +211,8 @@ export function validatePersonalApproval(value) {
   if (resolvedAt !== null && Date.parse(resolvedAt) < Date.parse(requestedAt)) {
     throw new TypeError("approval resolution cannot precede its request");
   }
-  if (value.status === "approved" && grantRef === null) {
-    throw new TypeError("approved action requires an explicit grant reference");
+  if (value.status === "approved" && value.effect !== "read" && grantRef === null) {
+    throw new TypeError("approved sensitive action requires an explicit grant reference");
   }
   if ((value.status === "denied" || value.status === "cancelled") && grantRef !== null) {
     throw new TypeError("denied or cancelled approval cannot carry an execution grant");
