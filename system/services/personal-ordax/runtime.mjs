@@ -1034,11 +1034,17 @@ export function createPersonalOrdaxRuntime({
       const item = findWork(id);
       if (TERMINAL_STATES.has(item.state)) return item;
       inFlight.delete(id);
-      const approved = state.approvals.filter(
+      const hasApprovedAuthority = state.approvals.some(
         (approval) => approval.workItemId === id && approval.status === "approved",
       );
-      for (const approval of approved) {
-        this.revokeApprovedAction(id, approval.id);
+      if (hasApprovedAuthority) {
+        const occurredAt = isoClock(now);
+        replaceState(revokeApprovedApprovalsIn(
+          state,
+          (approval) => approval.workItemId === id,
+          occurredAt,
+          "Approved action authority was revoked before Work cancellation.",
+        ));
       }
       return updateWork(id, { state: "cancelled", pendingApprovalId: null }, {
         activity: { type: "cancelled", summary: "Work cancelled explicitly." },
