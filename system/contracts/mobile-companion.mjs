@@ -82,6 +82,10 @@ export function validateMobileSessionRequest(value) {
     throw new TypeError("Mobile capability session request schema is incompatible");
   }
   const name = capability(value.capability);
+  const policy = CAPABILITIES.get(name);
+  if (value.backgroundAllowed === true && policy.consent !== "persistent-opt-in") {
+    throw new TypeError("Mobile capability request cannot ask for background access");
+  }
   if (typeof value.purpose !== "string" || !PURPOSE_RE.test(value.purpose)) {
     throw new TypeError("Mobile capability purpose is invalid");
   }
@@ -176,6 +180,24 @@ export function validateDevicePresence(value) {
     throw new TypeError("Device presence location requires explicit opt-in");
   }
 
+  let latitude = null;
+  let longitude = null;
+  let accuracyMeters = null;
+  if (precision !== "none") {
+    latitude = Number(value.latitude);
+    longitude = Number(value.longitude);
+    accuracyMeters = Number(value.accuracyMeters);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+      throw new TypeError("Device presence latitude is invalid");
+    }
+    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      throw new TypeError("Device presence longitude is invalid");
+    }
+    if (!Number.isFinite(accuracyMeters) || accuracyMeters < 0) {
+      throw new TypeError("Device presence accuracy is invalid");
+    }
+  }
+
   return Object.freeze({
     schema: DEVICE_PRESENCE_SCHEMA,
     accountId: text(value.accountId, "Device presence account id", 128),
@@ -185,8 +207,8 @@ export function validateDevicePresence(value) {
     networkClass: value.networkClass ?? "unknown",
     locationOptIn: value.locationOptIn === true,
     locationPrecision: precision,
-    latitude: precision === "none" ? null : Number(value.latitude),
-    longitude: precision === "none" ? null : Number(value.longitude),
-    accuracyMeters: precision === "none" ? null : Number(value.accuracyMeters),
+    latitude,
+    longitude,
+    accuracyMeters,
   });
 }
