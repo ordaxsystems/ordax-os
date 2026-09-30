@@ -1,0 +1,70 @@
+name: Cloud Memory Operator Authenticated Proof
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-memory-operator-authenticated-proof
+  cancel-in-progress: false
+
+jobs:
+  prove-cloud-memory-with-temporary-entitlement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      ORDAX_SUPABASE_URL: ${{ secrets.ORDAX_SUPABASE_URL }}
+      ORDAX_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.ORDAX_SUPABASE_PUBLISHABLE_KEY }}
+      ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL: ${{ secrets.ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL }}
+      ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD: ${{ secrets.ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD }}
+      PGHOST: ${{ secrets.ORDAX_MEMORY_PROOF_PGHOST }}
+      PGDATABASE: ${{ secrets.ORDAX_MEMORY_PROOF_PGDATABASE }}
+      PGUSER: ${{ secrets.ORDAX_MEMORY_PROOF_PGUSER }}
+      PGPASSWORD: ${{ secrets.ORDAX_MEMORY_PROOF_PGPASSWORD }}
+      PGSSLMODE: require
+      ORDAX_MEMORY_PROOF_SOURCE_COMMIT: ${{ github.sha }}
+      ORDAX_MEMORY_PROOF_ENTITLEMENT_TTL_SECONDS: '600'
+
+    steps:
+      - name: Checkout exact proof source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Require operator proof inputs without printing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ORDAX_SUPABASE_URL:-}" || { echo 'ORDAX_SUPABASE_URL secret is required.' >&2; exit 2; }
+          test -n "${ORDAX_SUPABASE_PUBLISHABLE_KEY:-}" || { echo 'ORDAX_SUPABASE_PUBLISHABLE_KEY secret is required.' >&2; exit 2; }
+          test -n "${ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL:-}" || { echo 'ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL secret is required.' >&2; exit 2; }
+          test -n "${ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD:-}" || { echo 'ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD secret is required.' >&2; exit 2; }
+          test -n "${PGHOST:-}" || { echo 'ORDAX_MEMORY_PROOF_PGHOST secret is required.' >&2; exit 2; }
+          test -n "${PGDATABASE:-}" || { echo 'ORDAX_MEMORY_PROOF_PGDATABASE secret is required.' >&2; exit 2; }
+          test -n "${PGUSER:-}" || { echo 'ORDAX_MEMORY_PROOF_PGUSER secret is required.' >&2; exit 2; }
+          test -n "${PGPASSWORD:-}" || { echo 'ORDAX_MEMORY_PROOF_PGPASSWORD secret is required.' >&2; exit 2; }
+          test "${PGSSLMODE}" = require
+          test "${ORDAX_MEMORY_PROOF_SOURCE_COMMIT}" = "${GITHUB_SHA}"
+          command -v psql >/dev/null || { echo 'psql is required on the runner.' >&2; exit 2; }
+          echo 'CLOUD_MEMORY_OPERATOR_PROOF_INPUTS_PRESENT=YES'
+          echo 'CLOUD_MEMORY_OPERATOR_PROOF_SECRETS_PRINTED=NO'
+
+      - name: Issue temporary entitlement, prove two clients, and revoke in finally
+        env:
+          ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
+        run: python tools/cloud-memory/run_operator_authenticated_proof.py
+
+      - name: Validate sanitized proof receipt
+        env:
+          ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
+        run: python tools/cloud-memory/validate_authenticated_proof_receipt.py "$ORDAX_MEMORY_PROOF_RECEIPT_PATH"
+
+      - name: Upload sanitized proof only
+        uses: actions/upload-artifact@b7c566a772e6b6ffb58ed0dc250532a479d7789f # v6
+        with:
+          name: cloud-memory-operator-authenticated-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
+          if-no-files-found: error
+          retention-days: 14
