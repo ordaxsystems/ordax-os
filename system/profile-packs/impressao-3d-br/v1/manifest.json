@@ -1,0 +1,55 @@
+{
+  "$schema": "ordax.profile-pack/1",
+  "slug": "impressao-3d-br",
+  "version": 1,
+  "state": "draft",
+  "title": "Impressão 3D",
+  "category": "digital-fabrication",
+  "space_kind": "professional",
+  "jurisdiction": "BR",
+  "apps": [
+    "files",
+    "notes",
+    "internet",
+    "projects"
+  ],
+  "templates": [
+    "fila-de-producao",
+    "pedidos-e-orcamentos",
+    "materiais-e-filamentos",
+    "perfis-de-impressao",
+    "controle-de-qualidade-e-falhas",
+    "manutencao-de-impressoras",
+    "clientes-e-entregas",
+    "custos-e-precos"
+  ],
+  "knowledge": {
+    "source_classes": [
+      "business-owner-provided",
+      "project-design-files",
+      "printer-manual",
+      "material-datasheet",
+      "print-profile"
+    ],
+    "refresh_policy": "owner-managed"
+  },
+  "intelligence": {
+    "memory_scopes": [
+      "space",
+      "project"
+    ],
+    "preferred_purpose": "additive-manufacturing-operations",
+    "external_provider_required": false
+  },
+  "security": {
+    "auto_grant_privileges": false,
+    "allow_unsigned_apps": false,
+    "generic_shell_implied": false,
+    "cross_space_memory": false
+  },
+  "activation": {
+    "publicly_available": true,
+    "reason": null
+  },
+  "components": []
+}
