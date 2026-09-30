@@ -22,8 +22,12 @@ class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
         self.assertNotIn("push:", text)
         self.assertIn("group: cloud-memory-operator-authenticated-proof", text)
         self.assertIn("cancel-in-progress: false", text)
+        self.assertIn("if: github.ref == 'refs/heads/main'", text)
         self.assertIn("ORDAX_MEMORY_PROOF_SOURCE_COMMIT: ${{ github.sha }}", text)
+        self.assertIn('test "${GITHUB_REF}" = \'refs/heads/main\'', text)
+        self.assertIn('test "${GITHUB_SHA}" = "${ORDAX_MEMORY_PROOF_SOURCE_COMMIT}"', text)
         self.assertIn('test "${ORDAX_MEMORY_PROOF_SOURCE_COMMIT}" = "${GITHUB_SHA}"', text)
+        self.assertIn("CLOUD_MEMORY_OPERATOR_PROOF_REF=MAIN_ONLY", text)
         self.assertIn("persist-credentials: false", text)
 
     def test_workflow_requires_operator_and_account_secrets_without_service_role(self):
@@ -96,6 +100,8 @@ class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
             ".github/workflows/cloud-memory-operator-authenticated-proof.yml",
         )
         self.assertTrue(operator["workflow_dispatch_only"])
+        self.assertTrue(operator["default_branch_only"])
+        self.assertEqual(operator["required_git_ref"], "refs/heads/main")
         self.assertTrue(operator["serial_execution"])
         self.assertTrue(operator["issue_then_proof_then_revoke"])
         self.assertTrue(operator["revoke_in_finally"])
