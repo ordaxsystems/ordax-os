@@ -3,6 +3,7 @@ export const ACTION_REQUEST_SCHEMA = "ordax.action-request/1";
 
 const OWNER_KINDS = new Set(["device", "account"]);
 const EFFECTS = new Set(["read", "write", "external-egress", "device-control"]);
+const SHA256_RE = /^[0-9a-f]{64}$/;
 
 function boundedText(value, label, max = 256) {
   if (typeof value !== "string" || value.includes("\0")) {
@@ -56,6 +57,11 @@ export function validateActionRequest(value) {
     approvalId: optionalText(value.approvalId, "Action Gateway approval id", 200),
     actionId: boundedText(value.actionId, "Action Gateway action id", 128),
     toolId: boundedText(value.toolId, "Action Gateway tool id", 96),
+    toolArtifactSha256: (() => {
+      const digest = boundedText(value.toolArtifactSha256, "Action Gateway tool artifact sha256", 64);
+      if (!SHA256_RE.test(digest)) throw new TypeError("Action Gateway tool artifact sha256 is invalid");
+      return digest;
+    })(),
     effect: value.effect,
     ownerKind: value.ownerKind,
     ownerId,
