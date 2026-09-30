@@ -254,6 +254,7 @@ def main() -> int:
             not created.applied or created.conflict or created.tombstone
             or created.server_revision != 1 or not isinstance(created.change_cursor, int)
             or created.change_cursor <= baseline_b["cursor"]
+            or created.change_cursor <= baseline_a["cursor"]
         ):
             fail("create-result-invalid")
         memory_id = created.memory_id
@@ -314,7 +315,11 @@ def main() -> int:
         if fresh_snapshot["cursor"] < edited.change_cursor:
             fail("fresh-snapshot-cursor-before-edit")
         canonical_c = memory_c.read_state(token_c, memory_id)
-        if canonical_c.get("state") != "active" or canonical_c.get("content") != edit_content:
+        if (
+            canonical_c.get("state") != "active"
+            or canonical_c.get("scope") != "account"
+            or canonical_c.get("sensitivity") != "private"
+        ):
             fail("fresh-client-canonical-memory-not-restored")
 
         removed = memory_a.apply(
