@@ -37,7 +37,11 @@ system/profile-packs/
 ├── catalog.json
 ├── developer/
 │   └── v1/manifest.json
-└── legal-br/
+├── legal-br/
+│   └── v1/manifest.json
+├── pizzaria-br/
+│   └── v1/manifest.json
+└── impressao-3d-br/
     └── v1/manifest.json
 ```
 
@@ -53,3 +57,15 @@ At boot, Native may resolve persisted Profile activation metadata against these 
 the Space kind, provisioning state and installed receipts. This restore is currently
 **metadata-only**. Drift is `disabled-safe`; it never silently applies apps, tools,
 Knowledge, policies or privileges.
+
+
+## MVP business showcase
+
+`pizzaria-br@1` and `impressao-3d-br@1` are the first bounded showcase candidates. They deliberately have
+no downloadable components and no privilege expansion. Their first versions compose only
+existing first-party apps and Space-scoped Memory/Intelligence policy, so proving them does
+not require inflating the Stable USB or creating a separate business runtime.
+
+The bundled manifest being provisionable does **not** by itself prove Stable/MVP user
+activation. Public activation remains a separate product gate until the Native command,
+Surface UX and physical smoke prove that exact safe path.
