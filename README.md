@@ -20,6 +20,8 @@ O desenho de **Profiles profissionais leves no USB, com payload sob demanda, uso
 
 O novo **Personal OrdaX**, camada owner-bound de Work, Activity e Result que evolui o sistema sem duplicar identidade, Memory, Projects, Intelligence ou permissões, tem seu ponto de entrada de implementação em [PERSONAL-ORDAX.md](PERSONAL-ORDAX.md). Esse documento deve ser lido antes de criar agentes, background work, Activity ou automações pessoais.
 
+O plano consolidado de evolução dessa camada está em [PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md](PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md). Ele transforma as conclusões dos relatórios já produzidos em ordem de implementação: foreground seguro, propostas sem autoridade, continuidade durável, background bounded, conectores, workers especialistas e execução híbrida.
+
 ## Um produto, modos evolutivos
 
 A arquitetura continua preparada para Web, Mobile, Desktop, USB e Native sem forks de produto.
