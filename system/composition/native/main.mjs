@@ -628,6 +628,7 @@ async function start() {
     memoryReview,
     spaceSelection,
     surface.preferences,
+    profileActivationState,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
