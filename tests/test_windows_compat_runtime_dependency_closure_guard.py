@@ -7,6 +7,8 @@ from tests.test_windows_compat_runtime_dependency_closure import (
     MODULE as CLOSURE,
     direct_proof,
     full_build_proof,
+    preload_relation_proof,
+    preload_source_proof,
     synthetic_elf64,
     write,
     write_apk_database,
@@ -69,17 +71,65 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
             write(rootfs / "usr/lib/liba.so.1", synthetic_elf64((b"libb.so.1",)))
             write(rootfs / "usr/lib/libb.so.1", synthetic_elf64())
             write_apk_database(rootfs, [("usr/lib", "liba.so.1"), ("usr/lib", "libb.so.1")])
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             evidence = direct_evidence(full, direct)
-            closure = CLOSURE.discover(stage, rootfs, full, direct)
-            proof = MODULE.verify(stage, rootfs, full, direct, evidence, closure)
+            closure = CLOSURE.discover(stage, rootfs, full, direct, preload)
+            proof = MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
             self.assertEqual(proof["counts"]["edges_checked"], 2)
             self.assertEqual(proof["counts"]["rootfs_hits"], 2)
+            self.assertEqual(proof["counts"]["dependency_attach_preload_hits"], 0)
             self.assertTrue(proof["gates"]["closure_first_pathname_hit_verified"])
             self.assertTrue(proof["gates"]["closure_shortname_reuse_invariance_verified"])
             self.assertFalse(proof["gates"]["dynamic_load_inventory_complete"])
             self.assertFalse(proof["gates"]["runtime_dependency_inventory_complete"])
+
+    def test_source_proven_preload_edge_is_recomputed_from_stage_and_source_proof(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            write(
+                stage / "usr/lib/wine/x86_64-unix/consumer.so",
+                synthetic_elf64((b"provider.so", b"libc.so.6")),
+            )
+            write(stage / "usr/lib/wine/x86_64-unix/provider.so", synthetic_elf64())
+            write(rootfs / "usr/lib/libc.so.6", synthetic_elf64())
+            write_apk_database(rootfs, [("usr/lib", "libc.so.6")])
+            preload = preload_relation_proof("consumer.so", "provider.so")
+            full = full_build_proof(stage)
+            direct = direct_proof(stage, rootfs, full, preload)
+            evidence = direct_evidence(full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct, preload)
+            proof = MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
+            self.assertGreaterEqual(proof["counts"]["dependency_attach_preload_hits"], 1)
+            self.assertGreaterEqual(proof["counts"]["stage_hits"], 1)
+
+    def test_preload_edge_bound_to_other_source_proof_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            write(
+                stage / "usr/lib/wine/x86_64-unix/consumer.so",
+                synthetic_elf64((b"provider.so", b"libc.so.6")),
+            )
+            write(stage / "usr/lib/wine/x86_64-unix/provider.so", synthetic_elf64())
+            write(rootfs / "usr/lib/libc.so.6", synthetic_elf64())
+            write_apk_database(rootfs, [("usr/lib", "libc.so.6")])
+            preload = preload_relation_proof("consumer.so", "provider.so")
+            full = full_build_proof(stage)
+            direct = direct_proof(stage, rootfs, full, preload)
+            evidence = direct_evidence(full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct, preload)
+            for context in closure["contexts"].values():
+                for edge in context["edges"]:
+                    if edge.get("resolution_kind") == "source-proven-dependency-attach-preload":
+                        edge["unixlib_preload_source_evidence_sha256"] = "0" * 64
+            closure["closure_sha256"] = MODULE.DIRECT.canonical_sha256(MODULE.closure_core(closure))
+            with self.assertRaisesRegex(MODULE.ClosureLoaderGuardError, "unixlib_preload_source_evidence_sha256"):
+                MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
 
     def test_non_elf_first_pathname_cannot_be_skipped_by_raw_closure(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -94,12 +144,13 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
                 rootfs,
                 [("usr/lib", "libparent.so.1"), ("usr/lib", "libchild.so.1")],
             )
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             evidence = direct_evidence(full, direct)
-            closure = CLOSURE.discover(stage, rootfs, full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct, preload)
             with self.assertRaisesRegex(MODULE.ClosureLoaderGuardError, "non-ELF first pathname"):
-                MODULE.verify(stage, rootfs, full, direct, evidence, closure)
+                MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
 
     def test_loaded_shortname_target_must_be_globally_invariant(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -121,12 +172,13 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
                     ("opt/b", "libshared.so.1"),
                 ],
             )
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             evidence = direct_evidence(full, direct)
-            closure = CLOSURE.discover(stage, rootfs, full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct, preload)
             with self.assertRaisesRegex(MODULE.ClosureLoaderGuardError, "loaded-shortname/context state"):
-                MODULE.verify(stage, rootfs, full, direct, evidence, closure)
+                MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
 
     def test_wine_bootstrap_shortname_is_preserved_through_raw_and_guarded_closure(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -143,10 +195,11 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
             )
             write(rootfs / "usr/lib/libc.so.6", synthetic_elf64())
             write_apk_database(rootfs, [("usr/lib", "libc.so.6")])
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             evidence = direct_evidence(full, direct)
-            closure = CLOSURE.discover(stage, rootfs, full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct, preload)
             bootstrap_edges = [
                 edge
                 for context in closure["contexts"].values()
@@ -156,7 +209,7 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
             self.assertTrue(bootstrap_edges)
             self.assertTrue(all(edge["resolution_kind"] == "bootstrap-shortname-reuse" for edge in bootstrap_edges))
             self.assertTrue(all(edge["search_directory"] is None for edge in bootstrap_edges))
-            proof = MODULE.verify(stage, rootfs, full, direct, evidence, closure)
+            proof = MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
             self.assertGreater(proof["counts"]["stage_hits"], 0)
             self.assertTrue(proof["gates"]["closure_shortname_reuse_invariance_verified"])
 
@@ -176,12 +229,13 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
             write(rootfs / "usr/lib/libc.so.6", synthetic_elf64())
             write(rootfs / "usr/lib/ntdll.so", synthetic_elf64())
             write_apk_database(rootfs, [("usr/lib", "libc.so.6"), ("usr/lib", "ntdll.so")])
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             evidence = direct_evidence(full, direct)
-            closure = CLOSURE.discover(stage, rootfs, full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct, preload)
             with self.assertRaisesRegex(MODULE.ClosureLoaderGuardError, "bootstrap shortname target conflicts"):
-                MODULE.verify(stage, rootfs, full, direct, evidence, closure)
+                MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
 
 
 if __name__ == "__main__":
