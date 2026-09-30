@@ -51,67 +51,12 @@ jobs:
         run: python tools/cloud-memory/prove_authenticated_atomic_sync.py
 
       - name: Validate sanitized receipt
-        shell: bash
         env:
           ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
-        run: |
-          set -euo pipefail
-          python - "$ORDAX_MEMORY_PROOF_RECEIPT_PATH" <<'PY'
-          import json
-          import pathlib
-          import sys
-
-          path = pathlib.Path(sys.argv[1])
-          data = json.loads(path.read_text(encoding="utf-8"))
-          assert data["$schema"] == "prototype-ordax.cloud-memory-authenticated-proof/1"
-          assert data["status"] == "pass"
-          assert data["proof_scope"] == "dedicated-non-admin-account-two-independent-sessions"
-          assert data["entitlement_preexisted"] is True
-          assert data["entitlement_created_by_proof"] is False
-          assert data["client_sessions_independent"] is True
-          assert data["same_account_verified"] is True
-          assert data["client_b_entitlement_preexisted"] is True
-          assert data["client_b_create_seen"] is True
-          assert data["client_b_edit_seen"] is True
-          assert data["client_b_runtime_payload_contract_seen"] is True
-          assert data["client_b_stale_conflict_rejected"] is True
-          assert data["client_b_delete_tombstone_seen"] is True
-          assert data["client_b_identity_only_tombstone_seen"] is True
-          assert data["client_b_canonical_deleted_seen"] is True
-          assert data["direct_memory_table_write_used"] is False
-          assert data["service_role_used"] is False
-          assert data["create_revision"] == 1
-          assert data["edit_revision"] == 2
-          assert data["delete_revision"] == 3
-          assert data["stale_revision_conflict_rejected"] is True
-          assert data["tombstone_seen_in_sync"] is True
-          assert data["canonical_memory_state_deleted"] is True
-          assert data["credentials_persisted"] is False
-          assert data["account_identifier_recorded"] is False
-          assert data["memory_identifier_recorded"] is False
-          assert data["memory_content_recorded"] is False
-          assert data["sensitive_auth_material_recorded"] is False
-          assert data["create_cursor"] > data["initial_cursor"]
-          assert data["edit_cursor"] > data["create_cursor"]
-          assert data["delete_cursor"] > data["edit_cursor"]
-          assert isinstance(data["source_commit"], str) and len(data["source_commit"]) == 40
-          int(data["source_commit"], 16)
-
-          for forbidden in (
-              "password",
-              "access_token",
-              "refresh_token",
-              "cookie",
-              "memory_id",
-              "subject_id",
-              "account_email",
-          ):
-              assert forbidden not in data
-          print("CLOUD_MEMORY_AUTHENTICATED_RECEIPT=PASS_SANITIZED")
-          PY
+        run: python tools/cloud-memory/validate_authenticated_proof_receipt.py "$ORDAX_MEMORY_PROOF_RECEIPT_PATH"
 
       - name: Upload sanitized proof only
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@b7c566a772e6b6ffb58ed0dc250532a479d7789f # v6
         with:
           name: cloud-memory-authenticated-proof-${{ github.sha }}
           path: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
