@@ -71,6 +71,7 @@ export function validateIntelligenceToolGrantIssue(value) {
     throw new TypeError("Intelligence tool grant exceeds the initial bounded TTL");
   }
 
+  const workItemId = boundedText(value.workItemId, "Intelligence tool grant work item id", 160);
   const approvalId = boundedText(value.approvalId, "Intelligence tool grant approval id", 200);
   const toolId = boundedText(value.toolId, "Intelligence tool grant tool id", 96);
   const toolArtifactSha256 = boundedText(value.toolArtifactSha256, "Intelligence tool grant artifact sha256", 64);
@@ -88,6 +89,7 @@ export function validateIntelligenceToolGrantIssue(value) {
   // Reuse the canonical grant validator so issuance cannot drift from execution authority.
   validateIntelligenceToolGrant({
     grantId: "pending-grant",
+    workItemId,
     approvalId,
     toolId,
     toolArtifactSha256,
@@ -105,6 +107,7 @@ export function validateIntelligenceToolGrantIssue(value) {
 
   return Object.freeze({
     schema: INTELLIGENCE_TOOL_GRANT_ISSUE_SCHEMA,
+    workItemId,
     approvalId,
     toolId,
     toolArtifactSha256,
