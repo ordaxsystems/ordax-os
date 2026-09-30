@@ -13,6 +13,7 @@ import {
   createPreferenceBoundMemoryCaptureRuntime,
 } from "../system/services/memory/capture.mjs";
 import { MEMORY_PORT_SCHEMA } from "../system/contracts/memory.mjs";
+import { MEMORY_MUTATIONS_SCHEMA } from "../system/contracts/memory-mutations.mjs";
 import { PREFERENCE_RUNTIME_SCHEMA } from "../system/contracts/preference-runtime.mjs";
 import { MEMORY_CAPTURE_AUTH_SCHEMA } from "../system/contracts/memory-capture.mjs";
 
@@ -108,31 +109,37 @@ test("preference-bound Memory capture reacts immediately to toggle changes", asy
 });
 
 
-test("preference-bound Memory capture preserves a composition-owned persistence writer", async () => {
+test("preference-bound Memory capture preserves a composition-owned durable mutation port", async () => {
   const preferences = preferenceRuntime();
   const memory = memoryPort();
   const persisted = [];
   const capture = createPreferenceBoundMemoryCaptureRuntime(memory, preferences, {
     idFactory: () => "pref-protected",
-    async persistItem(item) {
-      persisted.push(item);
-      return true;
+    mutationPort: {
+      schema: MEMORY_MUTATIONS_SCHEMA,
+      async remember(item) {
+        persisted.push(item);
+        return item;
+      },
+      async forget() {
+        return false;
+      },
     },
   });
 
   const result = await capture.capture({
-    content: "writer protegido",
+    content: "port protegido",
     kind: "fact",
     provenance: "intelligence",
   }, authorization);
 
   assert.equal(result.item.id, "pref-protected");
-  assert.deepEqual(persisted.map((item) => item.content), ["writer protegido"]);
+  assert.deepEqual(persisted.map((item) => item.content), ["port protegido"]);
   assert.equal(memory.remembered.length, 0);
 
   preferences.set(MEMORY_AUTO_CAPTURE_PREFERENCE_ID, "off");
   const blocked = await capture.capture({
-    content: "não deve chegar ao writer",
+    content: "não deve chegar ao port",
     kind: "fact",
     provenance: "intelligence",
   }, authorization);
