@@ -42,8 +42,9 @@ class CloudMemoryRuntimeRestoreProofContractTests(unittest.TestCase):
 
     def test_native_restore_evidence_requires_real_composition_and_checkpoint_ordering(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
-        required = set(contract["evidenceClasses"]["nativeFreshInstallRestore"]["mustExercise"])
-        fail_closed = set(contract["evidenceClasses"]["nativeFreshInstallRestore"]["mustFailClosedWhen"])
+        native_restore = contract["evidenceClasses"]["nativeFreshInstallRestore"]
+        required = set(native_restore["mustExercise"])
+        fail_closed = set(native_restore["mustFailClosedWhen"])
 
         self.assertIn("createNativeAccountMemoryFoundation", required)
         self.assertIn("createNativeAccountSyncRuntime", required)
