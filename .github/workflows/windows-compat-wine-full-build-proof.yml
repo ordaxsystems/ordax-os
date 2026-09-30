@@ -13,6 +13,8 @@ on:
       - 'tests/test_windows_compat_runtime_dependency_closure.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_guard.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_evidence.py'
+      - 'tests/test_windows_compat_runtime_unixlib_preload_source.py'
+      - 'tests/test_windows_compat_runtime_unixlib_preload_runtime_guard.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
   push:
     branches: [main]
@@ -27,6 +29,8 @@ on:
       - 'tests/test_windows_compat_runtime_dependency_closure.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_guard.py'
       - 'tests/test_windows_compat_runtime_dependency_closure_evidence.py'
+      - 'tests/test_windows_compat_runtime_unixlib_preload_source.py'
+      - 'tests/test_windows_compat_runtime_unixlib_preload_runtime_guard.py'
       - '.github/workflows/windows-compat-wine-full-build-proof.yml'
 
 permissions:
@@ -60,6 +64,7 @@ jobs:
           python bootstrap/windows-compat-runtime/validate_build_version_lock.py
           python bootstrap/windows-compat-runtime/validate_apk_content_lock.py
           python bootstrap/windows-compat-runtime/container_full_build_probe.py check
+          python bootstrap/windows-compat-runtime/runtime_unixlib_preload_source_probe.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_probe.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_first_hit_guard.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_loader_invariance_guard.py check
@@ -70,6 +75,8 @@ jobs:
           python -m unittest tests.test_windows_compat_build_version_lock -v
           python -m unittest tests.test_windows_compat_apk_content_lock -v
           python -m unittest tests.test_windows_compat_full_build_proof -v
+          python -m unittest tests.test_windows_compat_runtime_unixlib_preload_source -v
+          python -m unittest tests.test_windows_compat_runtime_unixlib_preload_runtime_guard -v
           python -m unittest tests.test_windows_compat_runtime_dependency_discovery -v
           python -m unittest tests.test_windows_compat_runtime_first_hit_guard -v
           python -m unittest tests.test_windows_compat_runtime_first_hit_proof -v
@@ -132,20 +139,27 @@ jobs:
           print('staged entries:', staging['entry_count'])
           print('staged manifest:', staging['canonical_manifest_sha256'])
           PY
+          test -f "$work/wine-source-cache/wine-11.0.tar.xz"
+          python bootstrap/windows-compat-runtime/runtime_unixlib_preload_source_probe.py prove \
+            --source-archive "$work/wine-source-cache/wine-11.0.tar.xz" \
+            --out "$proof_dir/runtime-unixlib-preload-source-proof.json"
           python bootstrap/windows-compat-runtime/runtime_dependency_first_hit_guard.py verify \
             --stage-dir "$work/container-build/stage" \
             --rootfs "$work/content/resolver-rootfs" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
+            --unixlib-preload-source-proof "$proof_dir/runtime-unixlib-preload-source-proof.json" \
             --out "$proof_dir/runtime-first-hit-proof.json"
           python bootstrap/windows-compat-runtime/runtime_dependency_loader_invariance_guard.py verify \
             --stage-dir "$work/container-build/stage" \
             --rootfs "$work/content/resolver-rootfs" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
+            --unixlib-preload-source-proof "$proof_dir/runtime-unixlib-preload-source-proof.json" \
             --out "$proof_dir/runtime-loader-invariance-proof.json"
           python bootstrap/windows-compat-runtime/runtime_dependency_probe.py discover \
             --stage-dir "$work/container-build/stage" \
             --rootfs "$work/content/resolver-rootfs" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
+            --unixlib-preload-source-proof "$proof_dir/runtime-unixlib-preload-source-proof.json" \
             --out "$proof_dir/runtime-dependency-proof.json"
           python bootstrap/windows-compat-runtime/runtime_dependency_evidence_finalize.py finalize \
             --full-build-proof "$proof_dir/full-build-proof.json" \
@@ -174,6 +188,7 @@ jobs:
             --out "$proof_dir/runtime-dependency-closure-evidence-proof.json"
           python - <<'PY' \
             "$proof_dir/full-build-proof.json" \
+            "$proof_dir/runtime-unixlib-preload-source-proof.json" \
             "$proof_dir/runtime-dependency-evidence-proof.json" \
             "$proof_dir/runtime-dependency-closure-proof.json" \
             "$proof_dir/runtime-dependency-closure-loader-guard-proof.json" \
@@ -182,11 +197,13 @@ jobs:
           import pathlib
           import re
           import sys
-          full, direct_evidence, closure, guard, evidence = [
+          full, preload_source, direct_evidence, closure, guard, evidence = [
               json.loads(pathlib.Path(item).read_text(encoding='utf-8')) for item in sys.argv[1:]
           ]
           runtime_id = full['runtime_id']
           stage_sha = full['staging']['canonical_manifest_sha256']
+          assert preload_source['runtime_id'] == runtime_id
+          assert re.fullmatch(r'[0-9a-f]{64}', preload_source['evidence_sha256'])
           assert direct_evidence['runtime_id'] == closure['runtime_id'] == guard['runtime_id'] == evidence['runtime_id'] == runtime_id
           assert direct_evidence['staging_manifest_sha256'] == closure['staging_manifest_sha256'] == guard['staging_manifest_sha256'] == evidence['staging_manifest_sha256'] == stage_sha
           for digest in (
@@ -220,6 +237,7 @@ jobs:
           assert gates['wine_executed'] is False
           assert gates['windows_payload_executed'] is False
           print('Wine guarded transitive DT_NEEDED closure evidence: PASS')
+          print('unixlib preload source:', preload_source['evidence_sha256'])
           print('closure nodes:', closure['counts']['nodes'])
           print('closure edges:', closure['counts']['edges'])
           print('external packages:', closure['counts']['external_packages'])
@@ -234,6 +252,7 @@ jobs:
           name: windows-compat-wine-runtime-dependency-proof-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/full-build-proof.json
+            ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-unixlib-preload-source-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-first-hit-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-loader-invariance-proof.json
             ${{ runner.temp }}/windows-compat-wine-full-build-proof/runtime-dependency-proof.json
