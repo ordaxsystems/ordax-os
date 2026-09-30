@@ -1,0 +1,115 @@
+{
+  "$schema": "prototype-ordax.personal-ordax/1",
+  "status": "source-foundation-runtime-disabled",
+  "product_role": "identity-bound personal orchestration above Intelligence and shared services",
+  "principles": {
+    "one_primary_personal_ordax_per_owner_context": true,
+    "personal_ordax_is_not_a_new_privilege_authority": true,
+    "personal_ordax_is_not_an_inference_provider": true,
+    "personal_ordax_is_not_a_platform_adapter": true,
+    "personal_ordax_is_not_a_second_workspace": true,
+    "memory_remains_owned_by_ordax": true,
+    "spaces_and_projects_remain_context_owners": true,
+    "prompt_model_profile_and_memory_content_create_authority": false,
+    "activity_is_user_visible": true,
+    "sensitive_actions_require_existing_grants": true,
+    "fail_closed_on_missing_authority": true,
+    "single_codebase_across_product_modes": true
+  },
+  "composition": {
+    "inputs": [
+      "identity-session",
+      "workspace/projects",
+      "space-selection",
+      "ordax.memory-context-auth/1",
+      "ordax.intelligence/1",
+      "ordax.intelligence-tool-grant/1",
+      "device-capability-grant",
+      "action-gateway"
+    ],
+    "outputs": [
+      "ordax.personal-work-item/1",
+      "ordax.personal-activity/1",
+      "ordax.personal-action-decision/1"
+    ],
+    "direct_platform_adapter_imports_allowed": false,
+    "direct_provider_sdk_imports_allowed": false,
+    "direct_database_row_contracts_allowed": false
+  },
+  "work_model": {
+    "states": [
+      "queued",
+      "running",
+      "waiting-approval",
+      "paused",
+      "completed",
+      "failed",
+      "cancelled"
+    ],
+    "work_is_bound_to_explicit_owner": true,
+    "space_and_project_are_optional_explicit_scopes": true,
+    "implicit_current_space_allowed": false,
+    "implicit_current_project_allowed": false,
+    "background_execution_enabled": false,
+    "multi_agent_coordination_enabled": false,
+    "cloud_computer_enabled": false
+  },
+  "authority": {
+    "effects": [
+      "read",
+      "write",
+      "external-egress",
+      "device-control"
+    ],
+    "decisions": [
+      "allow",
+      "approval-required",
+      "deny"
+    ],
+    "sensitive_effects": [
+      "write",
+      "external-egress",
+      "device-control"
+    ],
+    "sensitive_allow_requires_explicit_grant_reference": true,
+    "system_policy_may_default_allow_sensitive_effects": false,
+    "forbidden_authority_sources": [
+      "prompt",
+      "model",
+      "profile",
+      "profile-pack",
+      "memory",
+      "project-content"
+    ],
+    "existing_grant_contracts_are_reused": true,
+    "generic_shell_allowed": false,
+    "raw_disk_allowed": false,
+    "release_key_access_allowed": false,
+    "physical_write_authorization_allowed": false
+  },
+  "activity": {
+    "ordered_sequence_required": true,
+    "approval_events_reference_approval_ids": true,
+    "action_events_reference_action_ids": true,
+    "artifact_references_preferred_over_raw_payloads": true,
+    "activity_view_runtime_enabled": false
+  },
+  "mvp": {
+    "public_mvp_enabled": false,
+    "foundation_contract_enabled": true,
+    "existing_consultative_intelligence_unchanged": true,
+    "existing_memory_spaces_profiles_projects_reused": true,
+    "background_agent_runtime_enabled": false,
+    "proactive_research_enabled": false,
+    "external_app_connectors_enabled": false,
+    "specialist_agents_enabled": false
+  },
+  "evolution": {
+    "phase_1": "identity-bound work + visible activity + approval decisions",
+    "phase_2": "bounded background execution + resumable work + selected connectors",
+    "phase_3": "specialist workers coordinated by the same personal authority boundary",
+    "phase_4": "hybrid local/cloud execution selected by capability, privacy, cost and availability",
+    "new_execution_modes_must_reuse_same_contracts": true,
+    "new_agents_must_not_create_parallel_memory_or_permission_systems": true
+  }
+}
