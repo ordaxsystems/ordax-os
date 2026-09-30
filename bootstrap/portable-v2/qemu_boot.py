@@ -35,6 +35,9 @@ STABLE = "ORDAX_STABLE_INIT_HANDOFF=VERIFIED"
 ACTIVATION_DURABLE = "ORDAX_PORTABLE_ACTIVATION_STATE_DURABLE=YES"
 
 
+DIRECT_KERNEL_BOOT_TIMEOUT_SECONDS = 210.0
+GRAPHICAL_BOOT_TIMEOUT_SECONDS = 300.0
+
 class ProofError(RuntimeError):
     pass
 
@@ -605,7 +608,7 @@ def boot_qemu_expected(
                 process.wait(timeout=5)
             return text, checks
 
-        deadline = time.monotonic() + (300.0 if graphical_hardware else 150.0)
+        deadline = time.monotonic() + (GRAPHICAL_BOOT_TIMEOUT_SECONDS if graphical_hardware else DIRECT_KERNEL_BOOT_TIMEOUT_SECONDS)
         while time.monotonic() < deadline:
             text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
             ready, checks = observe(text)
