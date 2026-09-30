@@ -216,9 +216,10 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
             "    appActivation,"
         )
         self.assertIn(expected, native)
-        self.assertIn("const accountSync = createAccountSyncRuntime({", native)
+        self.assertIn("const accountSync = createNativeAccountSyncRuntime({", native)
+        self.assertIn("accountMemoryFoundation,", native)
         self.assertIn("checkpointStore: syncCheckpointStore", native)
-        self.assertIn("createAccountSyncRuntime({", native)
+        self.assertIn("createNativeAccountSyncRuntime({", native)
         expected_web = (
             "root,\n"
             "  identitySession,\n"
