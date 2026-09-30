@@ -25,7 +25,11 @@
     "ordax_web": true,
     "product_mcp": true,
     "same_action_gateway_required": true,
-    "parallel_web_control_backend_forbidden": true
+    "parallel_web_control_backend_forbidden": true,
+    "ordax_mobile": true,
+    "ordax_desktop": true,
+    "ordax_native": true,
+    "operational_realtime_contract": "docs/contracts/operational-realtime.json"
   },
   "projects_integration": {
     "component_port_optional": true,
@@ -99,5 +103,16 @@
     "bootstrap_dependency": false,
     "existing_device_token_identity_recovery": true,
     "github_runner_required_for_existing_device_recovery": false
+  },
+  "operational_actions": {
+    "contract_status": "source-foundation-runtime-disabled",
+    "request_schema": "ordax.device-action-request/1",
+    "receipt_schema": "ordax.device-action-receipt/1",
+    "same_action_gateway_required": true,
+    "request_is_authority": false,
+    "write_grant_required": true,
+    "idempotency_required": true,
+    "expiry_required": true,
+    "audit_required": true
   }
 }
