@@ -2,7 +2,7 @@
   "$schema": "ordax.profile-pack/1",
   "slug": "pizzaria-br",
   "version": 1,
-  "state": "draft",
+  "state": "active",
   "title": "Pizzaria",
   "category": "business-food-service",
   "space_kind": "professional",
