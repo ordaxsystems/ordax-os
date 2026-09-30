@@ -97,6 +97,7 @@ function setup({ selection = spaces(), issuerTransform = null } = {}) {
     identitySessionPort: identity(),
     spaceSelectionPort: selection,
     actionGatewayPort: gateway,
+    revokeGrant: (grantId) => authority.issuer.revoke(grantId),
     now: () => NOW,
   });
   const consent = createPersonalApprovalConsent({
@@ -199,6 +200,7 @@ test("consent preflight hides Approve when the typed tool action is unavailable"
     identitySessionPort: identity(),
     spaceSelectionPort: spaces(),
     actionGatewayPort: gateway,
+    revokeGrant: (grantId) => authority.issuer.revoke(grantId),
     now: () => NOW,
   });
   const consent = createPersonalApprovalConsent({
