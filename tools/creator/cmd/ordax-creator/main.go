@@ -17,6 +17,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-portable --target-bytes <bytes>")
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-portable-application --plan <portable-media-plan.json>")
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-portable-media --target-bytes <bytes> --source-commit <40-hex> --bindings <json>")
+	fmt.Fprintln(os.Stderr, "       ordax-creator verify-portable-sources --bindings <json> --sources-root <dir>")
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-native --target-bytes <bytes>")
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-native-materialization --target-bytes <bytes>")
 	fmt.Fprintln(os.Stderr, "       ordax-creator plan-native-boot --pool-uuid <luks2-uuid>")
@@ -101,6 +102,39 @@ func runPlanPortableMedia(args []string) int {
 	if err := enc.Encode(plan); err != nil { fmt.Fprintf(os.Stderr, "ordax-creator: encode portable media plan: %v\n", err); return 1 }
 	return 0
 }
+func runVerifyPortableSources(args []string) int {
+	fs := flag.NewFlagSet("verify-portable-sources", flag.ContinueOnError)
+	bindingsPath := fs.String("bindings", "", "canonical portable media bindings JSON")
+	sourcesRoot := fs.String("sources-root", "", "flat directory containing exactly the 17 canonical sources")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() != 0 || *bindingsPath == "" || *sourcesRoot == "" {
+		usage()
+		return 2
+	}
+	data, err := os.ReadFile(*bindingsPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ordax-creator: read portable media bindings: %v\n", err)
+		return 1
+	}
+	bindings, err := creatorcore.ParsePortableMediaBindings(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ordax-creator: parse portable media bindings: %v\n", err)
+		return 1
+	}
+	verified, err := creatorcore.VerifyPortableSources(bindings, *sourcesRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ordax-creator: verify portable sources: %v\n", err)
+		return 1
+	}
+	fmt.Printf("PORTABLE_SOURCES_VERIFIED=YES\n")
+	fmt.Printf("PORTABLE_SOURCE_COUNT=%d\n", len(verified))
+	fmt.Printf("PHYSICAL_DEVICE_TOUCHED=NO\n")
+	fmt.Printf("PHYSICAL_WRITE_AUTHORIZED=NO\n")
+	return 0
+}
+
 func runPlanPortableApplication(args []string) int {
 	fs := flag.NewFlagSet("plan-portable-application", flag.ContinueOnError)
 	planPath := fs.String("plan", "", "canonical portable media plan JSON")
@@ -364,6 +398,9 @@ func main() {
 	}
 	if command == "plan-portable-media" {
 		os.Exit(runPlanPortableMedia(os.Args[2:]))
+	}
+	if command == "verify-portable-sources" {
+		os.Exit(runVerifyPortableSources(os.Args[2:]))
 	}
 	if command == "plan-portable-application" {
 		os.Exit(runPlanPortableApplication(os.Args[2:]))
