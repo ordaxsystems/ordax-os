@@ -15,13 +15,48 @@ function memorySyncFromFoundation(value) {
   return value.memorySync ?? null;
 }
 
+function transportAfterMemoryAuthorization(transport, foundation) {
+  if (foundation == null || foundation.memorySync == null) return transport;
+  if (
+    !transport
+    || typeof transport !== "object"
+    || typeof transport.snapshot !== "function"
+    || typeof transport.pullChanges !== "function"
+    || typeof transport.applyMutation !== "function"
+  ) {
+    return transport;
+  }
+
+  const waitForCurrentMemoryAuthorization = async () => {
+    await foundation.settled();
+  };
+
+  return Object.freeze({
+    schema: transport.schema,
+    async snapshot(value) {
+      await waitForCurrentMemoryAuthorization();
+      return transport.snapshot(value);
+    },
+    async pullChanges(value) {
+      await waitForCurrentMemoryAuthorization();
+      return transport.pullChanges(value);
+    },
+    async applyMutation(value) {
+      await waitForCurrentMemoryAuthorization();
+      return transport.applyMutation(value);
+    },
+  });
+}
+
 export function createNativeAccountSyncRuntime({
   accountMemoryFoundation = null,
+  transport = null,
   ...options
 } = {}) {
   const memorySync = memorySyncFromFoundation(accountMemoryFoundation);
   return createAccountSyncRuntime({
     ...options,
+    transport: transportAfterMemoryAuthorization(transport, accountMemoryFoundation),
     memorySync,
   });
 }

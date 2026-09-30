@@ -113,6 +113,10 @@ function memoryFoundation(events) {
   return Object.freeze({
     schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
     memorySync,
+    async settled() {
+      events.push(["settled"]);
+      return Object.freeze({ state: "protected-local-first" });
+    },
   });
 }
 
@@ -170,8 +174,11 @@ test("Native account sync accepts Memory only from the canonical foundation", as
 
   await sync.refresh();
 
-  assert.equal(events[0][0], "remote");
-  assert.equal(events[0][1][0].dataClass, "memory");
+  assert.equal(events[0][0], "settled");
+  const remoteEvent = events.find(([kind]) => kind === "remote");
+  assert.notEqual(remoteEvent, undefined);
+  assert.equal(remoteEvent[1][0].dataClass, "memory");
+  assert.equal(events.findIndex(([kind]) => kind === "settled") < events.findIndex(([kind]) => kind === "remote"), true);
   assert.equal(events.some(([kind]) => kind === "flush"), true);
   assert.equal(sync.getSnapshot().trackedDataClasses.includes("memory"), true);
   assert.equal(describeNativeAccountSyncComposition(foundation).memorySyncWired, true);

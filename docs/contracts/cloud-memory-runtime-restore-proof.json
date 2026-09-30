@@ -25,7 +25,7 @@
     },
     "nativeFreshInstallRestore": {
       "required": true,
-      "status": "required-not-proven",
+      "status": "pass-ci-native-composition-proof",
       "mustExercise": [
         "createNativeAccountMemoryFoundation",
         "createNativeAccountSyncRuntime",
@@ -42,9 +42,27 @@
         "remote Memory is non-portable",
         "Memory persistence cannot confirm durability",
         "coordination state requires recovery"
+      ],
+      "workflow": ".github/workflows/account-memory-sync-foundation.yml",
+      "test": "tests/test_native_cloud_memory_fresh_restore.mjs",
+      "proves": [
+        "createNativeAccountMemoryFoundation and createNativeAccountSyncRuntime execute together",
+        "server-authoritative inbound entitlement is resolved before first remote account I/O",
+        "fresh local Memory and fresh account checkpoint restore portable account Memory",
+        "Memory durability is confirmed before account checkpoint advancement",
+        "remote restore does not echo as a local Memory mutation",
+        "denied entitlement blocks Memory restore and checkpoint advancement",
+        "non-portable remote Memory blocks checkpoint advancement",
+        "Memory durability failure blocks checkpoint advancement"
+      ],
+      "doesNotProve": [
+        "physical USB reinstall",
+        "public Cloud Memory rollout",
+        "real credentialled backend two-session execution"
       ]
     }
   },
-  "completionRule": "Issue #685 runtime restore evidence is incomplete until both required evidence classes are proven independently. Backend two-session success alone must never be interpreted as Native reinstall success.",
-  "rolloutRule": "Proof completion does not enable public Cloud Memory or create user entitlements. Public promotion remains a separate product decision."
+  "completionRule": "Issue #685 runtime restore source evidence now includes the Native fresh-install composition proof. Backend two-session live execution remains independently required before Cloud Memory promotion; CI Native proof must never be interpreted as physical USB reinstall evidence.",
+  "rolloutRule": "Proof completion does not enable public Cloud Memory or create user entitlements. Public promotion remains a separate product decision.",
+  "nativePhysicalReinstallProven": false
 }
