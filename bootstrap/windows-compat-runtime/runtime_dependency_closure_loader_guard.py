@@ -4,9 +4,10 @@
 The raw closure probe is intentionally candidate-producing. This guard makes it
 authoritative for DT_NEEDED traversal only by independently checking every
 context against staged/rootfs bytes. It models the locked Wine bootstrap
-shortname state before strict musl first-pathname semantics and proves that a
-SONAME + ELF identity has one logical target across all reachable contexts.
-Dynamic dlopen/plugin discovery remains out of scope.
+shortname state, source-proven dependency-attach Unixlib preloads and strict
+musl first-pathname semantics, then proves that a SONAME + ELF identity has one
+logical target across all reachable contexts. Dynamic dlopen/plugin discovery
+remains out of scope.
 """
 
 from __future__ import annotations
@@ -59,9 +60,12 @@ def load_contract() -> dict:
         raise ClosureLoaderGuardError("unexpected runtime dependency closure schema")
     if contract.get("status") != "transitive-dt-needed-discovery-only-not-promotable":
         raise ClosureLoaderGuardError("runtime dependency closure status drifted")
+    if contract.get("input", {}).get("unixlib_preload_source_proof_schema") != DIRECT.PRELOAD_RUNTIME.PROOF_SCHEMA:
+        raise ClosureLoaderGuardError("closure preload source schema drifted")
     verification = contract.get("verification", {})
     required_true = (
         "first_existing_pathname_must_be_loadable",
+        "preload_source_evidence_binding_required",
         "global_shortname_target_invariance_required",
         "origin_alias_context_must_be_unambiguous",
         "closure_guard_proof_required",
@@ -308,13 +312,20 @@ def first_pathname_if_any(stage: Path, rootfs: Path, soname: str, consumer: dict
     return None
 
 
-def first_hit(stage: Path, rootfs: Path, soname: str, consumer: dict, search: list[dict]) -> dict:
+def first_hit(
+    stage: Path,
+    rootfs: Path,
+    soname: str,
+    consumer: dict,
+    search: list[dict],
+    preload_source_proof: dict,
+) -> dict:
     try:
         bootstrap = DIRECT.resolve_bootstrap_shortname(stage, soname, consumer["elf"])
     except DIRECT.RuntimeDependencyError as exc:
         raise ClosureLoaderGuardError(str(exc)) from exc
-    pathname = first_pathname_if_any(stage, rootfs, soname, consumer, search)
     if bootstrap is not None:
+        pathname = first_pathname_if_any(stage, rootfs, soname, consumer, search)
         target = ("stage-internal", bootstrap["canonical_path"])
         if pathname is not None and (pathname["scope"], pathname["canonical_path"]) != target:
             raise ClosureLoaderGuardError(
@@ -322,18 +333,44 @@ def first_hit(stage: Path, rootfs: Path, soname: str, consumer: dict, search: li
                 f"bootstrap=stage-internal:/{bootstrap['canonical_path']} "
                 f"pathname={pathname['scope']}:/{pathname['canonical_path']}"
             )
-        return {
-            **bootstrap,
-            "needed_by_depth": None,
-        }
+        return {**bootstrap, "needed_by_depth": None}
+    if consumer["scope"] == "stage-internal":
+        try:
+            preload = DIRECT.resolve_dependency_attach_preload(
+                stage,
+                consumer["path"],
+                soname,
+                consumer["elf"],
+                preload_source_proof,
+            )
+        except DIRECT.RuntimeDependencyError as exc:
+            raise ClosureLoaderGuardError(str(exc)) from exc
+        if preload is not None:
+            return {**preload, "needed_by_depth": None}
+    pathname = first_pathname_if_any(stage, rootfs, soname, consumer, search)
     if pathname is None:
         raise ClosureLoaderGuardError(f"no first pathname hit for {soname}")
     return pathname
 
 
-def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, closure: dict) -> dict:
+def verify(
+    stage: Path,
+    rootfs: Path,
+    full: dict,
+    direct: dict,
+    evidence: dict,
+    closure: dict,
+    preload_source_proof: dict,
+) -> dict:
     contract = load_contract()
     stage_digest, direct_digest, closure_digest = verify_inputs(full, direct, evidence, closure, contract)
+    try:
+        preload_evidence = DIRECT.PRELOAD_RUNTIME.validate_source_proof(
+            preload_source_proof,
+            contract["runtime_id"],
+        )
+    except DIRECT.PRELOAD_RUNTIME.UnixlibPreloadRuntimeError as exc:
+        raise ClosureLoaderGuardError(str(exc)) from exc
     if not stage.is_dir() or not rootfs.is_dir():
         raise ClosureLoaderGuardError("staged tree or locked rootfs is missing")
     try:
@@ -361,6 +398,7 @@ def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, 
     edges_checked = 0
     external_hits = 0
     stage_hits = 0
+    dependency_attach_preload_hits = 0
     for context_id, context in contexts.items():
         if not isinstance(context_id, str) or not SHA256_RE.fullmatch(context_id) or not isinstance(context, dict):
             raise ClosureLoaderGuardError("invalid raw closure context entry")
@@ -392,7 +430,7 @@ def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, 
             raise ClosureLoaderGuardError(f"closure edge set does not match DT_NEEDED: {context_id}")
         for soname in needed:
             edge = edge_map[soname]
-            hit = first_hit(stage, rootfs, soname, chain[0], search)
+            hit = first_hit(stage, rootfs, soname, chain[0], search, preload_source_proof)
             expected_fields = {
                 "scope": hit["scope"],
                 "path": hit["path"],
@@ -403,6 +441,11 @@ def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, 
                 "search_position": hit["search_position"],
                 "needed_by_depth": hit["needed_by_depth"],
             }
+            if hit["resolution_kind"] == "source-proven-dependency-attach-preload":
+                if hit.get("unixlib_preload_source_evidence_sha256") != preload_evidence:
+                    raise ClosureLoaderGuardError("resolved preload hit is not bound to supplied source evidence")
+                expected_fields["unixlib_preload_source_evidence_sha256"] = preload_evidence
+                expected_fields["preload_relation"] = hit["preload_relation"]
             for field, expected_value in expected_fields.items():
                 if edge.get(field) != expected_value:
                     raise ClosureLoaderGuardError(
@@ -421,6 +464,8 @@ def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, 
                 external_hits += 1
             else:
                 stage_hits += 1
+                if hit["resolution_kind"] == "source-proven-dependency-attach-preload":
+                    dependency_attach_preload_hits += 1
             edges_checked += 1
 
     ambiguous = {key: sorted(values) for key, values in target_sets.items() if len(values) != 1}
@@ -435,6 +480,7 @@ def verify(stage: Path, rootfs: Path, full: dict, direct: dict, evidence: dict, 
         "stage_hits": stage_hits,
         "rootfs_hits": external_hits,
         "identity_soname_pairs": len(target_sets),
+        "dependency_attach_preload_hits": dependency_attach_preload_hits,
     }
     core = {
         "runtime_id": contract["runtime_id"],
@@ -480,6 +526,7 @@ def main() -> int:
     parser.add_argument("--direct-dependency-proof", type=Path)
     parser.add_argument("--direct-evidence-proof", type=Path)
     parser.add_argument("--closure-proof", type=Path)
+    parser.add_argument("--unixlib-preload-source-proof", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     load_contract()
@@ -493,12 +540,13 @@ def main() -> int:
         args.direct_dependency_proof,
         args.direct_evidence_proof,
         args.closure_proof,
+        args.unixlib_preload_source_proof,
         args.out,
     )
     if not all(required):
         raise ClosureLoaderGuardError(
             "verify requires --stage-dir, --rootfs, --full-build-proof, --direct-dependency-proof, "
-            "--direct-evidence-proof, --closure-proof and --out"
+            "--direct-evidence-proof, --closure-proof, --unixlib-preload-source-proof and --out"
         )
     result = verify(
         args.stage_dir.resolve(),
@@ -507,6 +555,7 @@ def main() -> int:
         load_json(args.direct_dependency_proof, "direct dependency proof"),
         load_json(args.direct_evidence_proof, "direct dependency evidence proof"),
         load_json(args.closure_proof, "raw closure proof"),
+        load_json(args.unixlib_preload_source_proof, "unixlib preload source proof"),
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
