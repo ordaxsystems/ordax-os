@@ -20,7 +20,7 @@ const legalBr = validateProfilePack(JSON.parse(
 
 function activationState(rows) {
   const snapshot = {
-    schema: "ordax.profile-activation-state/1",
+    schema: "ordax.profile-activation-state/2",
     revision: 3,
     persistence: "device",
     spaces: rows,
@@ -92,18 +92,18 @@ test("restore resolves exact persisted Developer metadata without applying capab
     packs: [developer, legalBr],
     provisioning: provisioning(new Map([["developer@1", plan()]])),
     activationState: activationState([{
-      spaceId: "space-dev",
+      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
       spaceKind: "professional",
       current: current("developer"),
       previous: null,
     }]),
   });
-  assert.equal(restore.schema, "ordax.profile-pack-restore/1");
+  assert.equal(restore.schema, "ordax.profile-pack-restore/2");
   assert.equal(restore.application, "metadata-only");
   assert.equal(restore.bootCritical, false);
   assert.deepEqual(restore.entries[0], {
-    schema: "ordax.profile-pack-restore-entry/1",
-    spaceId: "space-dev",
+    schema: "ordax.profile-pack-restore-entry/2",
+    subjectId: "user-1",\n    spaceId: "space-dev",
     spaceKind: "professional",
     state: "resolved",
     reason: null,
@@ -117,7 +117,7 @@ test("restore keeps manifest-blocked Legal-BR disabled-safe", () => {
     packs: [developer, legalBr],
     provisioning: provisioning(new Map([["legal-br@1", plan({ slug: "legal-br" })]])),
     activationState: activationState([{
-      spaceId: "space-legal",
+      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-legal",
       spaceKind: "professional",
       current: current("legal-br"),
       previous: null,
@@ -138,7 +138,7 @@ test("restore fails safe on receipt drift or missing device inventory", () => {
       plan({ components: [installed] }),
     ]])),
     activationState: activationState([{
-      spaceId: "space-dev",
+      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
       spaceKind: "professional",
       current: current("developer", [persisted]),
       previous: null,
@@ -153,7 +153,7 @@ test("restore fails safe on receipt drift or missing device inventory", () => {
       plan({ components: [installed], inventoryPersistence: "session" }),
     ]])),
     activationState: activationState([{
-      spaceId: "space-dev",
+      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
       spaceKind: "professional",
       current: current("developer", [installed]),
       previous: null,
@@ -198,7 +198,7 @@ test("restore refuses retired Profile and Space kind drift", () => {
     packs: [retired],
     provisioning: provisioning(new Map([["developer@1", plan()]])),
     activationState: activationState([{
-      spaceId: "space-dev",
+      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
       spaceKind: "professional",
       current: current("developer"),
       previous: null,
@@ -210,7 +210,7 @@ test("restore refuses retired Profile and Space kind drift", () => {
     packs: [developer],
     provisioning: provisioning(new Map([["developer@1", plan()]])),
     activationState: activationState([{
-      spaceId: "space-dev",
+      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
       spaceKind: "work",
       current: current("developer"),
       previous: null,
@@ -224,7 +224,7 @@ test("inactive persisted row stays inactive and grants no Profile authority", ()
     packs: [developer],
     provisioning: provisioning(new Map([["developer@1", plan()]])),
     activationState: activationState([{
-      spaceId: "space-dev",
+      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
       spaceKind: "professional",
       current: null,
       previous: current("developer"),
@@ -247,7 +247,7 @@ test("restore rejects unvalidated normalized-looking Profile objects", () => {
       packs: [fake],
       provisioning: provisioning(new Map([["developer@1", plan()]])),
       activationState: activationState([{
-        spaceId: "space-dev",
+        subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
         spaceKind: "professional",
         current: current("developer"),
         previous: null,
