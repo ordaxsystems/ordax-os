@@ -51,14 +51,10 @@ on:
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
-      - 'system/composition/native/account-memory.mjs'
       - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
       - 'tools/local-ai-benchmark/**'
       - 'tools/local-ai-hardware-probe/**'
-      - 'system/composition/native/account-memory-foundation.mjs'
-      - 'tests/test_native_account_memory_foundation.mjs'
-      - 'tests/test_native_account_memory_protected_composition.mjs'
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
@@ -190,14 +186,10 @@ on:
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
-      - 'system/composition/native/account-memory.mjs'
       - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
       - 'tools/local-ai-benchmark/**'
       - 'tools/local-ai-hardware-probe/**'
-      - 'system/composition/native/account-memory-foundation.mjs'
-      - 'tests/test_native_account_memory_foundation.mjs'
-      - 'tests/test_native_account_memory_protected_composition.mjs'
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
@@ -353,9 +345,6 @@ jobs:
           node --check system/services/memory/assistant-auto-capture.mjs
           node --check system/apps/assistant/runtime.mjs
           node --check system/apps/assistant/ui/conversation-controls.mjs
-          node --check system/composition/native/account-memory.mjs
-          node --check system/composition/native/account-memory-foundation.mjs
-          node --check tests/test_native_account_memory_protected_composition.mjs
           node --check system/composition/native/main.mjs
           node --check system/composition/web/main.mjs
           python -m json.tool docs/contracts/intelligence.json >/dev/null
@@ -423,8 +412,6 @@ jobs:
           python -m unittest tests.test_local_ai_hardware_probe -v
           python -m unittest tests.test_memory_native_state -v
           python -m unittest tests.test_memory_native_endpoint -v
-          node --test tests/test_native_account_memory_foundation.mjs
-          node --test tests/test_native_account_memory_protected_composition.mjs
           python -m unittest tests.test_native_memory_integration -v
           python -m unittest tests.test_profile_pack_runtime tests.test_profile_pack_catalog -v
           python -m unittest tests.test_profile_pack_manifest_layout -v

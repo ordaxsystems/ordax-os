@@ -4,6 +4,7 @@ import test from "node:test";
 import { ENTITLEMENTS_PORT_SCHEMA } from "../system/contracts/entitlements.mjs";
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 import { MEMORY_STORE_SCHEMA } from "../system/contracts/memory-store.mjs";
+import { MEMORY_MUTATION_PORT_SCHEMA } from "../system/contracts/memory-mutation.mjs";
 import { SYNC_STATE_STORE_SCHEMA } from "../system/contracts/sync-state-store.mjs";
 import { createMemoryRuntime } from "../system/services/memory/runtime.mjs";
 import { createAccountMemoryAuthorizedComposition } from "../system/services/sync/account-memory-authorized-composition.mjs";
@@ -191,6 +192,23 @@ async function settledHarness(options = {}) {
   options.events?.splice(0);
   return harness;
 }
+
+test("authorized composition exposes protected Account Memory through the generic mutation port", async () => {
+  const harness = await settledHarness();
+
+  assert.equal(harness.composition.mutationPort.schema, MEMORY_MUTATION_PORT_SCHEMA);
+  const saved = await harness.composition.mutationPort.remember(memoryItem("memory-port"));
+  assert.equal(saved.id, "memory-port");
+  assert.equal(harness.composition.memorySync.pendingMutations().length, 1);
+  assert.equal(harness.composition.crashRecovery.pendingIdentities().length, 0);
+
+  assert.equal(await harness.composition.mutationPort.forget({
+    id: "memory-port",
+    ownerKind: "account",
+    ownerId: "account-a",
+  }), true);
+  assert.equal(harness.composition.crashRecovery.pendingIdentities().length, 0);
+});
 
 test("authorized protected remember arms journal before local mutation and clears only after canonical durability", async () => {
   const events = [];

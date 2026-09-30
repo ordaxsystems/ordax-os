@@ -5,9 +5,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
-ACCOUNT_MEMORY_COMPOSITION = ROOT / "system" / "composition" / "native" / "account-memory.mjs"
-ACCOUNT_MEMORY_FOUNDATION = ROOT / "system" / "composition" / "native" / "account-memory-foundation.mjs"
-ACCOUNT_SYNC_COMPOSITION = ROOT / "system" / "composition" / "native" / "account-sync.mjs"
 WORKFLOW = ROOT / ".github" / "workflows" / "intelligence-foundation.yml"
 
 
@@ -30,8 +27,13 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("createMemoryRuntime", composition)
         self.assertIn("createMemoryMutationPort", composition)
         self.assertIn("createNativeAccountMemoryFoundation", composition)
+        self.assertIn("createWebMemoryEntitlements", composition)
+        self.assertIn("const accountMemoryFoundation = memory === null", composition)
         self.assertIn("const memoryMutations = memory === null", composition)
-        self.assertIn("protectedAccountMutations,", composition)
+        self.assertIn(
+            "protectedAccountMutations: accountMemoryFoundation?.protectedMutations ?? null",
+            composition,
+        )
         self.assertIn('"OrdaX native Intelligence memory persistence unavailable"', composition)
         self.assertIn("memoryStore,", composition)
         self.assertIn("createMemoryRuntime({ store: memoryStore })", composition)
@@ -62,30 +64,11 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("refreshAuthorization: true", composition)
         self.assertIn("unsubscribeAccountMemoryRecovery()", composition)
         self.assertIn("accountMemoryFoundation?.destroy()", composition)
-
-        account_memory = ACCOUNT_MEMORY_COMPOSITION.read_text(encoding="utf-8")
-        foundation = ACCOUNT_MEMORY_FOUNDATION.read_text(encoding="utf-8")
-        self.assertIn('publicCloudMemoryEnabled: false', account_memory)
-        self.assertIn("const ensureHealthy = () => {", foundation)
-        self.assertIn("const protectedMutations = Object.freeze({", foundation)
-        self.assertIn('"recovery-required"', foundation)
-        self.assertNotIn("createWebSyncTransport", account_memory)
-        self.assertNotIn("createWebSyncTransport", foundation)
-
-    def test_native_live_memory_sync_uses_canonical_foundation_without_public_promotion(self):
-        composition = COMPOSITION.read_text(encoding="utf-8")
-        account_sync = ACCOUNT_SYNC_COMPOSITION.read_text(encoding="utf-8")
-        start = composition.index("const accountSync = createNativeAccountSyncRuntime({")
-        end = composition.index("\n  });", start) + len("\n  });")
-        account_sync_block = composition[start:end]
-
-        self.assertIn("accountMemoryFoundation,", account_sync_block)
-        self.assertIn("transport: syncTransport", account_sync_block)
-        self.assertNotIn("memorySync:", account_sync_block)
-        self.assertIn("memorySyncFromFoundation(accountMemoryFoundation)", account_sync)
-        self.assertIn("memorySync,", account_sync)
-        self.assertIn("publicCloudMemoryEnabled: false", account_sync)
-        self.assertIn("publicCloudMemoryEnabled: false", ACCOUNT_MEMORY_COMPOSITION.read_text(encoding="utf-8"))
+        provider_start = composition.find("createNativeAccountMemoryFoundation({")
+        provider_end = composition.find("const memoryMutations = memory === null")
+        self.assertGreaterEqual(provider_start, 0)
+        self.assertGreater(provider_end, provider_start)
+        self.assertNotIn("syncTransport", composition[provider_start:provider_end])
 
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

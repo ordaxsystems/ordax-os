@@ -43,6 +43,7 @@ import { createSameOriginIdentityCredentials } from "../../adapters/web/identity
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
+import { createWebMemoryEntitlements } from "../../adapters/web/entitlements.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
@@ -74,12 +75,12 @@ import { createLocalProfileDistributions } from "../../profile-packs/distributio
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createSyncStateNamespaceRegistry } from "../../services/sync/state-store-registry.mjs";
+import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-metadata.mjs";
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
-import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
-import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
+import { createNativeAccountMemoryFoundation } from "./account-memory.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -106,17 +107,6 @@ async function optionalNativeProbe(label, factory) {
     console.warn(label, error);
     return null;
   }
-}
-
-function blockedAccountMemoryMutations() {
-  const fail = async () => {
-    throw new Error("Native Account Memory protected provider is unavailable");
-  };
-  return Object.freeze({
-    remember: fail,
-    forget: fail,
-    recover: fail,
-  });
 }
 
 const bootScreen = createSurfaceBootScreen(document);
@@ -309,21 +299,24 @@ async function start() {
   const syncStateRegistry = syncStateStore === null
     ? null
     : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
-
-  let accountMemoryFoundation = null;
-  let protectedAccountMutations = null;
-  if (memory !== null) {
-    try {
-      let memoryCoordinationOrdinal = 0;
-      accountMemoryFoundation = createNativeAccountMemoryFoundation({
-        windowRef: window,
+  const memoryEntitlements = memory === null
+    ? null
+    : createWebMemoryEntitlements(window);
+  let memoryCoordinationOrdinal = 0;
+  const accountMemoryFoundation = memory === null
+    ? null
+    : createNativeAccountMemoryFoundation({
         identitySession,
         memoryPort: memory,
         syncStateRegistry,
-        createIdempotencyKey(kind = "state") {
+        entitlementsPort: memoryEntitlements,
+        createIdempotencyKey(kind = "state", ordinal = 0) {
           memoryCoordinationOrdinal += 1;
           const uuid = window.crypto?.randomUUID?.();
-          return `memory:${kind}:${uuid ? uuid.replaceAll("-", "") : `${Date.now().toString(36)}:${memoryCoordinationOrdinal}`}`;
+          const identity = uuid
+            ? uuid.replaceAll("-", "")
+            : `${Date.now().toString(36)}:${ordinal}:${memoryCoordinationOrdinal}`;
+          return `memory:${kind}:${identity}`;
         },
         onStageError(error, context) {
           console.warn(
@@ -332,20 +325,12 @@ async function start() {
           );
         },
       });
-      protectedAccountMutations = accountMemoryFoundation.protectedMutations;
-    } catch (error) {
-      console.warn("OrdaX Account Memory protected provider unavailable", error);
-      protectedAccountMutations = blockedAccountMemoryMutations();
-    }
-  }
-
   const memoryMutations = memory === null
     ? null
     : createMemoryMutationPort({
         memoryPort: memory,
-        protectedAccountMutations,
+        protectedAccountMutations: accountMemoryFoundation?.protectedMutations ?? null,
       });
-
   const recoverProtectedAccountMemory = async ({ refreshAuthorization = false } = {}) => {
     if (
       accountMemoryFoundation?.accountMemory == null
@@ -356,7 +341,7 @@ async function start() {
     if (refreshAuthorization) {
       await accountMemoryFoundation.accountMemory.refreshAuthorization();
     } else {
-      await accountMemoryFoundation.settled();
+      await accountMemoryFoundation.accountMemory.settled();
     }
     return accountMemoryFoundation.protectedMutations.recover();
   };
@@ -368,7 +353,6 @@ async function start() {
           console.warn("OrdaX Account Memory crash recovery remains pending", error);
         });
       });
-
   const memoryReviewSession = memory === null
     ? null
     : createMemoryReviewSession({
@@ -589,8 +573,7 @@ async function start() {
     },
   });
   let accountSyncOrdinal = 0;
-  const accountSync = createNativeAccountSyncRuntime({
-    accountMemoryFoundation,
+  const accountSync = createAccountSyncRuntime({
     identitySession,
     transport: syncTransport,
     checkpointStore: syncCheckpointStore,

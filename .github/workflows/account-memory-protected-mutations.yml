@@ -14,18 +14,16 @@ on:
       - 'system/services/sync/account-memory-authorized-composition.mjs'
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-crash-recovery-journal.mjs'
-      - 'system/composition/native/account-memory.mjs'
-      - 'system/composition/native/main.mjs'
-      - 'tests/test_memory_mutation_port.mjs'
-      - 'system/composition/native/account-memory-foundation.mjs'
-      - 'tests/test_native_account_memory_foundation.mjs'
-      - 'tests/test_native_account_memory_protected_composition.mjs'
       - 'tests/test_account_memory_protected_mutations.mjs'
       - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
       - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
       - 'tests/test_account_memory_crash_recovery_journal.mjs'
       - 'tests/test_account_memory_crash_recovery_ownership.mjs'
+      - 'system/composition/native/account-memory.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'tests/test_memory_mutation_port.mjs'
+      - 'tests/test_native_account_memory_foundation.mjs'
       - '.github/workflows/account-memory-protected-mutations.yml'
   push:
     branches: [main]
@@ -41,18 +39,16 @@ on:
       - 'system/services/sync/account-memory-authorized-composition.mjs'
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-crash-recovery-journal.mjs'
-      - 'system/composition/native/account-memory.mjs'
-      - 'system/composition/native/main.mjs'
-      - 'tests/test_memory_mutation_port.mjs'
-      - 'system/composition/native/account-memory-foundation.mjs'
-      - 'tests/test_native_account_memory_foundation.mjs'
-      - 'tests/test_native_account_memory_protected_composition.mjs'
       - 'tests/test_account_memory_protected_mutations.mjs'
       - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
       - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
       - 'tests/test_account_memory_crash_recovery_journal.mjs'
       - 'tests/test_account_memory_crash_recovery_ownership.mjs'
+      - 'system/composition/native/account-memory.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'tests/test_memory_mutation_port.mjs'
+      - 'tests/test_native_account_memory_foundation.mjs'
       - '.github/workflows/account-memory-protected-mutations.yml'
 
 permissions:
@@ -78,15 +74,13 @@ jobs:
           node --check system/services/sync/account-memory-authorized-composition.mjs
           node --check system/services/sync/account-memory-deferred-intents.mjs
           node --check system/services/sync/account-memory-crash-recovery-journal.mjs
-          node --check system/composition/native/account-memory.mjs
-          node --check system/composition/native/main.mjs
-          node --check tests/test_memory_mutation_port.mjs
-          node --check system/composition/native/account-memory-foundation.mjs
-          node --check tests/test_native_account_memory_foundation.mjs
-          node --check tests/test_native_account_memory_protected_composition.mjs
           node --check tests/test_account_memory_protected_mutations.mjs
           node --check tests/test_account_memory_deferred_intents.mjs
           node --check tests/test_account_memory_crash_recovery_ownership.mjs
+          node --check system/composition/native/account-memory.mjs
+          node --check system/composition/native/main.mjs
+          node --check tests/test_memory_mutation_port.mjs
+          node --check tests/test_native_account_memory_foundation.mjs
 
       - name: Prove protected mutation durability and recovery
         run: |
@@ -98,6 +92,5 @@ jobs:
             tests/test_account_memory_authorized_lifecycle_replay.mjs \
             tests/test_account_memory_crash_recovery_journal.mjs \
             tests/test_account_memory_crash_recovery_ownership.mjs \
-            tests/test_memory_mutation_port.mjs \
             tests/test_native_account_memory_foundation.mjs \
-            tests/test_native_account_memory_protected_composition.mjs
+            tests/test_memory_mutation_port.mjs

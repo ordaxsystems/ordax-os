@@ -39,14 +39,6 @@ function validateProtectedForgetResult(result) {
   return result;
 }
 
-async function requireLocalDurability(memory) {
-  const confirmed = await memory.flush();
-  if (confirmed !== true) {
-    throw new Error("Local Memory persistence flush was not confirmed");
-  }
-  return true;
-}
-
 export function createMemoryMutationPort({
   memoryPort,
   protectedAccountMutations = null,
@@ -63,7 +55,7 @@ export function createMemoryMutationPort({
         return validateProtectedRememberResult(saved, item);
       }
       const saved = memory.remember(item);
-      await requireLocalDurability(memory);
+      await memory.flush();
       return saved;
     },
     async forget(value) {
@@ -73,7 +65,7 @@ export function createMemoryMutationPort({
         return validateProtectedForgetResult(removed);
       }
       const removed = memory.forget(request);
-      if (removed) await requireLocalDurability(memory);
+      if (removed) await memory.flush();
       return removed;
     },
     getSnapshot() {
