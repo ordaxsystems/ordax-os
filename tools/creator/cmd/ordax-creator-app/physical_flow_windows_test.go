@@ -51,3 +51,52 @@ func TestValidatePhysicalPreparationRejectsAuthorizationMismatchShape(t *testing
 		t.Fatal("invalid destructive authorization unexpectedly accepted")
 	}
 }
+
+
+func validPortablePreparationForTest() (portablePhysicalPreparationDocument, physicalTarget, string) {
+	target := physicalTarget{
+		DriveLetter:       "O:",
+		DiskNumber:        2,
+		PhysicalDiskBytes: 16 * 1024 * 1024 * 1024,
+		PrototypeSafe:     true,
+		ConfirmationToken: strings.Repeat("d", 64),
+	}
+	planSHA := strings.Repeat("e", 64)
+	preparation := portablePhysicalPreparationDocument{
+		Schema:                    "prototype-ordax.creator-portable-physical-preparation/1",
+		Target:                    target,
+		ApplicationPlanSHA256:     planSHA,
+		DestructiveAuthorization:  strings.Repeat("f", 64),
+		WholeDiskRawImageRequired: false,
+	}
+	return preparation, target, planSHA
+}
+
+func TestValidatePortablePhysicalPreparationAcceptsExactBinding(t *testing.T) {
+	preparation, target, planSHA := validPortablePreparationForTest()
+	if err := validatePortablePhysicalPreparation(preparation, target, planSHA); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidatePortablePhysicalPreparationRejectsPlanOrTargetDrift(t *testing.T) {
+	preparation, target, planSHA := validPortablePreparationForTest()
+	preparation.ApplicationPlanSHA256 = strings.Repeat("1", 64)
+	if err := validatePortablePhysicalPreparation(preparation, target, planSHA); err == nil {
+		t.Fatal("Portable plan drift unexpectedly accepted")
+	}
+
+	preparation, target, planSHA = validPortablePreparationForTest()
+	preparation.Target.DiskNumber++
+	if err := validatePortablePhysicalPreparation(preparation, target, planSHA); err == nil {
+		t.Fatal("Portable target swap unexpectedly accepted")
+	}
+}
+
+func TestValidatePortablePhysicalPreparationRejectsRawRequirement(t *testing.T) {
+	preparation, target, planSHA := validPortablePreparationForTest()
+	preparation.WholeDiskRawImageRequired = true
+	if err := validatePortablePhysicalPreparation(preparation, target, planSHA); err == nil {
+		t.Fatal("Portable preparation unexpectedly accepted whole-disk RAW requirement")
+	}
+}
