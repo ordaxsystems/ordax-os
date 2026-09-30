@@ -96,7 +96,11 @@
     "offline_pointer_is_signed_envelope": true,
     "whole_disk_raw_image_required": false,
     "portable_artifact_count": 17,
-    "portable_application_operation_count": 39
+    "portable_application_operation_count": 39,
+    "portable_source_preflight_implemented": true,
+    "portable_source_preflight_owner": "tools/creator/core/portable_sources.go#VerifyPortableSources",
+    "portable_source_preflight_requires_exact_17_flat_files": true,
+    "portable_source_preflight_is_destructive_authorization": false
   },
   "physical_write_gate": {
     "development_channel_can_write": false,
