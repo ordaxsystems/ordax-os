@@ -21,7 +21,8 @@ test("Native Profile activation adapter is read-only and device-persistent", asy
     revision: 2,
     persistence: "device",
     spaces: [{
-      subjectId: "user-1",\n      spaceId: "space-1",
+      subjectId: "user-1",
+      spaceId: "space-1",
       spaceKind: "professional",
       current: {
         profile: { slug: "developer", version: 1 },
