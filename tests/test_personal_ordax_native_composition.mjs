@@ -218,6 +218,7 @@ test("Native composition resolves approvals through the injected canonical grant
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
+    resourceRef: "file-space:/Operacao/menu.md",
     reason: "Salvar alteracao solicitada pelo usuario.",
   });
   const decision = runtime.approvalConsent.approve(work.id, approval.id);
@@ -225,6 +226,10 @@ test("Native composition resolves approvals through the injected canonical grant
   assert.equal(decision.decision, "allow");
   assert.equal(decision.grantRef, "grant-native-approval-1");
   assert.equal(authority.registry.resolve(decision.grantRef)?.ownerId, "user-a");
+  assert.equal(
+    authority.registry.resolve(decision.grantRef)?.resourceRef,
+    "file-space:/Operacao/menu.md",
+  );
   assert.equal(runtime.getSnapshot().workItems[0].state, "queued");
   assert.equal(typeof runtime.issueGrant, "undefined");
   assert.equal(typeof runtime.grantIssuer, "undefined");
