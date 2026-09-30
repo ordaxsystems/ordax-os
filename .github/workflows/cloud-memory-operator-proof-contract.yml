@@ -7,9 +7,12 @@ on:
       - 'docs/contracts/cloud-memory-runtime-restore-proof.json'
       - 'services/public-identity/supabase_memory.py'
       - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
+      - 'tools/cloud-memory/prove_authenticated_bidirectional_restore.py'
       - 'tools/cloud-memory/run_operator_authenticated_proof.py'
       - 'tools/cloud-memory/validate_authenticated_proof_receipt.py'
+      - 'tools/cloud-memory/validate_bidirectional_restore_receipt.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_bidirectional_restore_proof.py'
       - 'tests/test_cloud_memory_operator_proof_workflow.py'
       - 'tests/test_cloud_memory_runtime_restore_proof_contract.py'
       - '.github/workflows/cloud-memory-authenticated-proof.yml'
@@ -22,9 +25,12 @@ on:
       - 'docs/contracts/cloud-memory-runtime-restore-proof.json'
       - 'services/public-identity/supabase_memory.py'
       - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
+      - 'tools/cloud-memory/prove_authenticated_bidirectional_restore.py'
       - 'tools/cloud-memory/run_operator_authenticated_proof.py'
       - 'tools/cloud-memory/validate_authenticated_proof_receipt.py'
+      - 'tools/cloud-memory/validate_bidirectional_restore_receipt.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_bidirectional_restore_proof.py'
       - 'tests/test_cloud_memory_operator_proof_workflow.py'
       - 'tests/test_cloud_memory_runtime_restore_proof_contract.py'
       - '.github/workflows/cloud-memory-authenticated-proof.yml'
@@ -49,9 +55,12 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile tools/cloud-memory/prove_authenticated_atomic_sync.py
+          python -m py_compile tools/cloud-memory/prove_authenticated_bidirectional_restore.py
           python -m py_compile tools/cloud-memory/run_operator_authenticated_proof.py
           python -m py_compile tools/cloud-memory/validate_authenticated_proof_receipt.py
+          python -m py_compile tools/cloud-memory/validate_bidirectional_restore_receipt.py
           python -m py_compile tests/test_cloud_memory_authenticated_proof.py
+          python -m py_compile tests/test_cloud_memory_bidirectional_restore_proof.py
           python -m py_compile tests/test_cloud_memory_operator_proof_workflow.py
           python -m py_compile tests/test_cloud_memory_runtime_restore_proof_contract.py
           python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
@@ -61,5 +70,6 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.test_cloud_memory_authenticated_proof -v
+          python -m unittest tests.test_cloud_memory_bidirectional_restore_proof -v
           python -m unittest tests.test_cloud_memory_operator_proof_workflow -v
           python -m unittest tests.test_cloud_memory_runtime_restore_proof_contract -v
