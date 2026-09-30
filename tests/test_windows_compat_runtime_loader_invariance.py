@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from tests.test_windows_compat_runtime_dependency_discovery import stage_metadata, synthetic_elf32, synthetic_elf64
+from tests.test_windows_compat_runtime_first_hit_proof import preload_source_proof
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "bootstrap/windows-compat-runtime/runtime_dependency_loader_invariance_guard.py"
@@ -56,7 +57,7 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             write(stage / "opt/a/libexample.so.1", synthetic_elf64(b"libc.so.6"))
             write(stage / "opt/b/libexample.so.1", synthetic_elf64(b"libc.so.6"))
             with self.assertRaisesRegex(MODULE.LoaderInvarianceError, "depends on needed_by/shortname state"):
-                MODULE.verify(stage, rootfs, full_build_proof(stage))
+                MODULE.verify(stage, rootfs, full_build_proof(stage), preload_source_proof())
 
     def test_aliases_to_one_canonical_target_are_invariant(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -67,7 +68,7 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             alias = stage / "opt/b/libexample.so.1"
             alias.parent.mkdir(parents=True)
             alias.symlink_to("../a/libexample.so.1")
-            result = MODULE.verify(stage, rootfs, full_build_proof(stage))
+            result = MODULE.verify(stage, rootfs, full_build_proof(stage), preload_source_proof())
             self.assertEqual(result["$schema"], MODULE.PROOF_SCHEMA)
             self.assertTrue(result["gates"]["staged_needed_by_chain_invariance_verified"])
             self.assertTrue(result["gates"]["staged_shortname_reuse_invariance_verified"])
@@ -75,6 +76,7 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             self.assertEqual(pair["target"]["canonical_path"], target.relative_to(stage).as_posix())
             self.assertEqual(len(pair["target"]["candidate_paths"]), 2)
             self.assertFalse(pair["bootstrap_preloaded"])
+            self.assertFalse(pair["dependency_attach_preload_observed"])
 
     def test_incompatible_reachable_ancestor_path_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -84,7 +86,7 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             write(stage / "opt/a/libexample.so.1", synthetic_elf64(b"libc.so.6"))
             write(stage / "opt/b/libexample.so.1", synthetic_elf32(b"libc.so.6"))
             with self.assertRaisesRegex(MODULE.LoaderInvarianceError, "incompatible pathname"):
-                MODULE.verify(stage, rootfs, full_build_proof(stage))
+                MODULE.verify(stage, rootfs, full_build_proof(stage), preload_source_proof())
 
     def test_wine_bootstrap_shortname_is_an_explicit_invariant_target(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -97,9 +99,10 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
                 stage / "usr/lib/wine/x86_64-unix/ntdll.so",
                 synthetic_elf64(b"libc.so.6"),
             )
-            result = MODULE.verify(stage, rootfs, full_build_proof(stage))
+            result = MODULE.verify(stage, rootfs, full_build_proof(stage), preload_source_proof())
             pair = result["needed_targets"]["ELF64:machine=62:little:ntdll.so"]
             self.assertTrue(pair["bootstrap_preloaded"])
+            self.assertFalse(pair["dependency_attach_preload_observed"])
             self.assertEqual(pair["target"]["canonical_path"], target.relative_to(stage).as_posix())
             self.assertEqual(result["counts"]["bootstrap_shortname_pairs"], 1)
 
@@ -116,7 +119,7 @@ class RuntimeDependencyLoaderInvarianceTests(unittest.TestCase):
             )
             write(rootfs / "usr/lib/ntdll.so", synthetic_elf64(b"libc.so.6"))
             with self.assertRaisesRegex(MODULE.LoaderInvarianceError, "depends on needed_by/shortname state"):
-                MODULE.verify(stage, rootfs, full_build_proof(stage))
+                MODULE.verify(stage, rootfs, full_build_proof(stage), preload_source_proof())
 
 
 if __name__ == "__main__":
