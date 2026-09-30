@@ -1,12 +1,14 @@
 import {
   validatePersonalActivityEvent,
   validatePersonalActionDecision,
+  validatePersonalActionAttempt,
   validatePersonalApproval,
   validatePersonalWorkItem,
   validatePersonalWorkResult,
 } from "../../contracts/personal-ordax.mjs";
 import {
   MAX_PERSONAL_ACTION_DECISIONS,
+  MAX_PERSONAL_ACTION_ATTEMPTS,
   MAX_PERSONAL_ACTIVITY_EVENTS,
   MAX_PERSONAL_APPROVALS,
   MAX_PERSONAL_WORK_ITEMS,
@@ -77,6 +79,10 @@ function sameDecision(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function sameAttempt(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function sameState(left, right) {
   return left.ownerKind === right.ownerKind
     && left.ownerId === right.ownerId
@@ -86,11 +92,13 @@ function sameState(left, right) {
     && left.results.length === right.results.length
     && left.approvals.length === right.approvals.length
     && left.decisions.length === right.decisions.length
+    && left.attempts.length === right.attempts.length
     && left.workItems.every((item, index) => sameWorkItem(item, right.workItems[index]))
     && left.activities.every((event, index) => sameActivity(event, right.activities[index]))
     && left.results.every((result, index) => sameResult(result, right.results[index]))
     && left.approvals.every((approval, index) => sameApproval(approval, right.approvals[index]))
-    && left.decisions.every((decision, index) => sameDecision(decision, right.decisions[index]));
+    && left.decisions.every((decision, index) => sameDecision(decision, right.decisions[index]))
+    && left.attempts.every((attempt, index) => sameAttempt(attempt, right.attempts[index]));
 }
 
 function currentOwner(identity) {
@@ -295,6 +303,7 @@ export function createPersonalOrdaxRuntime({
     results: state.results,
     approvals: state.approvals,
     decisions: state.decisions,
+    attempts: state.attempts,
   });
 
   const publish = () => {
@@ -1065,6 +1074,7 @@ export function createPersonalOrdaxRuntime({
         results: state.results.filter((result) => result.workItemId !== id),
         approvals: state.approvals.filter((approval) => approval.workItemId !== id),
         decisions: state.decisions.filter((decision) => decision.workItemId !== id),
+        attempts: state.attempts.filter((attempt) => attempt.workItemId !== id),
       });
       return snapshot();
     },
