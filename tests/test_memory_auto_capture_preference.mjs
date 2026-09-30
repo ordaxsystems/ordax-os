@@ -116,7 +116,7 @@ test("preference-bound Memory capture preserves a composition-owned persistence 
     idFactory: () => "pref-protected",
     async persistItem(item) {
       persisted.push(item);
-      return item;
+      return true;
     },
   });
 
