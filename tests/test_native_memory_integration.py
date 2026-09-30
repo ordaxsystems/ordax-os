@@ -7,6 +7,7 @@ HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
 ACCOUNT_MEMORY_COMPOSITION = ROOT / "system" / "composition" / "native" / "account-memory.mjs"
 ACCOUNT_MEMORY_FOUNDATION = ROOT / "system" / "composition" / "native" / "account-memory-foundation.mjs"
+ACCOUNT_SYNC_COMPOSITION = ROOT / "system" / "composition" / "native" / "account-sync.mjs"
 WORKFLOW = ROOT / ".github" / "workflows" / "intelligence-foundation.yml"
 
 
@@ -71,14 +72,19 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertNotIn("createWebSyncTransport", account_memory)
         self.assertNotIn("createWebSyncTransport", foundation)
 
-    def test_native_protected_wiring_does_not_enable_memory_cloud_transport(self):
+    def test_native_live_memory_sync_uses_canonical_foundation_without_public_promotion(self):
         composition = COMPOSITION.read_text(encoding="utf-8")
-        start = composition.index("const accountSync = createAccountSyncRuntime({")
+        account_sync = ACCOUNT_SYNC_COMPOSITION.read_text(encoding="utf-8")
+        start = composition.index("const accountSync = createNativeAccountSyncRuntime({")
         end = composition.index("\n  });", start) + len("\n  });")
         account_sync_block = composition[start:end]
 
-        self.assertNotIn("memorySync", account_sync_block)
+        self.assertIn("accountMemoryFoundation,", account_sync_block)
         self.assertIn("transport: syncTransport", account_sync_block)
+        self.assertNotIn("memorySync:", account_sync_block)
+        self.assertIn("memorySyncFromFoundation(accountMemoryFoundation)", account_sync)
+        self.assertIn("memorySync,", account_sync)
+        self.assertIn("publicCloudMemoryEnabled: false", account_sync)
         self.assertIn("publicCloudMemoryEnabled: false", ACCOUNT_MEMORY_COMPOSITION.read_text(encoding="utf-8"))
 
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
