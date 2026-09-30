@@ -36,15 +36,18 @@ test("bundled source loads the versioned authoritative Profile manifests", async
   assert.equal(source.schema, "ordax.profile-pack-bundled-source/1");
   assert.deepEqual(
     source.packs.map((pack) => `${pack.slug}@${pack.version}`),
-    ["developer@1", "legal-br@1"],
+    ["developer@1", "legal-br@1", "pizzaria-br@1"],
   );
   assert.equal(source.packs[0].spaceKind, "professional");
   assert.equal(source.packs[1].activation.publiclyAvailable, false);
+  assert.equal(source.packs[2].activation.publiclyAvailable, true);
+  assert.deepEqual(source.packs[2].components, []);
   assert.deepEqual(
     source.catalog.entries.map((entry) => entry.manifest),
     [
       "/system/profile-packs/developer/v1/manifest.json",
       "/system/profile-packs/legal-br/v1/manifest.json",
+      "/system/profile-packs/pizzaria-br/v1/manifest.json",
     ],
   );
 });
