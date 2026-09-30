@@ -40,16 +40,27 @@ def full_build_proof(stage: Path) -> dict:
 
 def preload_source_proof() -> dict:
     relation = {
+        "relation_kind": MODULE.PRELOAD.DIRECT_RELATION_KIND,
         "consumer_unixlib": "unrelated-consumer.so",
         "provider_unixlib": "unrelated-provider.so",
-        "link_name": "unrelated-provider.so",
+        "link_name": "unrelated-provider",
         "consumer_module": "unrelated-consumer.dll",
         "provider_module": "unrelated-provider.dll",
         "consumer_makefile": "dlls/unrelated-consumer/Makefile.in",
+        "consumer_makefile_sha256": "1" * 64,
         "provider_makefile": "dlls/unrelated-provider/Makefile.in",
-        "preload_order": "provider-pe-dependency-attach-before-consumer-unixlib-dlopen",
-        "consumer_attach": {"process_attach_unix_init_verified": True},
-        "provider_attach": {"process_attach_unix_init_verified": True},
+        "provider_makefile_sha256": "2" * 64,
+        "preload_order": MODULE.PRELOAD.PRELOAD_ORDER,
+        "consumer_attach": {
+            "path": "dlls/unrelated-consumer/main.c",
+            "sha256": "3" * 64,
+            "process_attach_unix_init_verified": True,
+        },
+        "provider_attach": {
+            "path": "dlls/unrelated-provider/main.c",
+            "sha256": "4" * 64,
+            "process_attach_unix_init_verified": True,
+        },
     }
     proof = {
         "$schema": MODULE.PRELOAD.PROOF_SCHEMA,
@@ -61,7 +72,12 @@ def preload_source_proof() -> dict:
         "module_makefile_manifest_sha256": "b" * 64,
         "loader_semantics": {"fixture": "unrelated-valid-preload-authority"},
         "relations": [relation],
-        "counts": {"candidate_relations": 1, "proven_relations": 1},
+        "counts": {
+            "candidate_relations": 1,
+            "proven_relations": 1,
+            "direct_dependency_attach_relations": 1,
+            "forwarder_activation_prerequisite_relations": 0,
+        },
         "gates": {
             "source_archive_verified": True,
             "module_makefile_surface_bound": True,
