@@ -205,6 +205,9 @@ export function createPersonalOrdaxRuntime({
   if (revokeGrant !== null && typeof revokeGrant !== "function") {
     throw new TypeError("Personal OrdaX grant revoker must be a function");
   }
+  if (actionGateway !== null && revokeGrant === null) {
+    throw new TypeError("Personal OrdaX Action Gateway requires a grant revoker");
+  }
   const durableStore = store === null ? null : assertPersonalOrdaxStore(store);
 
   const ownerStates = new Map();
@@ -986,7 +989,7 @@ export function createPersonalOrdaxRuntime({
     },
     revokeApprovedAction(id, approvalId) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
-      const item = findWork(id);
+      findWork(id);
       const approval = state.approvals.find((candidate) =>
         candidate.id === approvalId && candidate.workItemId === id
       );
@@ -994,25 +997,14 @@ export function createPersonalOrdaxRuntime({
         throw new Error("Personal OrdaX grant revocation requires an approved unconsumed approval");
       }
       const occurredAt = isoClock(now);
-      const revoked = validatePersonalApproval({
-        ...approval,
-        status: "revoked",
-        executedAt: null,
-      });
-      replaceState({
-        ...state,
-        approvals: state.approvals.map((candidate) =>
-          candidate.id === approvalId ? revoked : candidate),
-        activities: appendActivityTo(
-          state.activities,
-          item.id,
-          "progress",
-          "Approved action authority was revoked before execution.",
-          occurredAt,
-          { approvalId, actionId: approval.actionId },
-        ),
-      });
-      return revoked;
+      const next = revokeApprovedApprovalsIn(
+        state,
+        (candidate) => candidate.id === approvalId && candidate.workItemId === id,
+        occurredAt,
+        "Approved action authority was revoked before execution.",
+      );
+      replaceState(next);
+      return state.approvals.find((candidate) => candidate.id === approvalId);
     },
     pause(id) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
@@ -1042,6 +1034,12 @@ export function createPersonalOrdaxRuntime({
       const item = findWork(id);
       if (TERMINAL_STATES.has(item.state)) return item;
       inFlight.delete(id);
+      const approved = state.approvals.filter(
+        (approval) => approval.workItemId === id && approval.status === "approved",
+      );
+      for (const approval of approved) {
+        this.revokeApprovedAction(id, approval.id);
+      }
       return updateWork(id, { state: "cancelled", pendingApprovalId: null }, {
         activity: { type: "cancelled", summary: "Work cancelled explicitly." },
       });
