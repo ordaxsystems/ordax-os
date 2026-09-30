@@ -215,7 +215,7 @@ If context changes or approval resolution fails after issuance, the controller r
 grant instead of leaving orphan authority. Egress and device-control cannot be approved through
 this tool-grant controller.
 
-There is still no executor implementation and no side effect path in Native composition. Approval
+The executor implementation now exists as a typed, composition-independent service, but there is still no registered Native action adapter and therefore no side effect path in Native composition. Approval
 now means only that a bounded grant exists for the exact retained action; it does not execute the
 action. The next gate is a real typed tool/action adapter plus immediate grant/context revalidation
 at the executor boundary and an auditable action receipt. Background execution remains disabled.
@@ -246,3 +246,20 @@ What it does now is prevent future autonomy from forcing a rewrite of Memory, Sp
 Profiles, permissions or Surface architecture.
 
 Machine-readable authority: `docs/contracts/personal-ordax.json`.
+
+
+### Resource-bound execution gate
+
+Before any real mutation is registered, sensitive approvals now retain an explicit `resourceRef`.
+The same resource identity and approval id are copied into the short-lived tool grant. The Action
+Gateway requires exact approval/owner/Space/project/resource/tool/action/effect equality, so a grant
+approved for one file-space target cannot authorize another target or another retained approval.
+
+`createPersonalOrdaxActionExecutor()` performs the final authority check immediately before
+resolving a typed adapter. A revoked, expired, context-mismatched or resource-substituted grant
+fails before the adapter is resolved, and successful adapters return a bounded
+`ordax.action-receipt/1`. Activity also shows the exact retained resource before consent.
+
+This still does not register a Native tool or execute a side effect. The next implementation cut is
+a first-party typed adapter whose artifact identity can be verified honestly; no placeholder
+artifact hash or generic broker escape hatch will be introduced.
