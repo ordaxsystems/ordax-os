@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/ACCOUNT-SYNC-AND-PLANS.md'
+      - 'docs/contracts/cloud-memory-runtime-restore-proof.json'
       - 'docs/contracts/cloud-memory-sync-boundary.json'
       - 'docs/contracts/foundation.json'
       - 'docs/contracts/memory.json'
@@ -50,6 +51,7 @@ on:
       - 'tests/test_account_memory_sync_state.mjs'
       - 'tests/test_account_memory_sync_orchestration.mjs'
       - 'tests/test_account_memory_reinstall_restore.mjs'
+      - 'tests/test_native_account_memory_fresh_install_restore.mjs'
       - 'tests/test_account_restore_plan.mjs'
       - 'tests/test_memory_conflict_resolution.mjs'
       - 'tests/test_memory_review.mjs'
@@ -63,6 +65,7 @@ on:
   pull_request:
     paths:
       - 'docs/ACCOUNT-SYNC-AND-PLANS.md'
+      - 'docs/contracts/cloud-memory-runtime-restore-proof.json'
       - 'docs/contracts/cloud-memory-sync-boundary.json'
       - 'docs/contracts/foundation.json'
       - 'docs/contracts/memory.json'
@@ -108,6 +111,7 @@ on:
       - 'tests/test_account_memory_sync_state.mjs'
       - 'tests/test_account_memory_sync_orchestration.mjs'
       - 'tests/test_account_memory_reinstall_restore.mjs'
+      - 'tests/test_native_account_memory_fresh_install_restore.mjs'
       - 'tests/test_account_restore_plan.mjs'
       - 'tests/test_memory_conflict_resolution.mjs'
       - 'tests/test_memory_review.mjs'
@@ -186,6 +190,7 @@ jobs:
           node --check tests/test_account_memory_sync_state.mjs
           node --check tests/test_account_memory_sync_orchestration.mjs
           node --check tests/test_account_memory_reinstall_restore.mjs
+          node --check tests/test_native_account_memory_fresh_install_restore.mjs
           node --check tests/test_account_restore_plan.mjs
           node --check tests/test_memory_conflict_resolution.mjs
           node --check tests/test_memory_review.mjs
@@ -200,6 +205,7 @@ jobs:
           python -m py_compile tests/test_cloud_memory_privacy_hardening.py
           python -m py_compile tests/test_memory_entitlements.py
           python -m py_compile tests/test_account_canonical_navigation.py
+          python -m json.tool docs/contracts/cloud-memory-runtime-restore-proof.json >/dev/null
           python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
           python -m json.tool docs/contracts/foundation.json >/dev/null
           python -m json.tool docs/contracts/memory.json >/dev/null
@@ -223,6 +229,7 @@ jobs:
           node --test tests/test_account_memory_sync_state.mjs
           node --test tests/test_account_memory_sync_orchestration.mjs
           node --test tests/test_account_memory_reinstall_restore.mjs
+          node --test tests/test_native_account_memory_fresh_install_restore.mjs
           node --test tests/test_account_restore_plan.mjs
           node --test tests/test_memory_conflict_resolution.mjs
           node --test tests/test_memory_review.mjs
