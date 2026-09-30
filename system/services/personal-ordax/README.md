@@ -16,10 +16,15 @@ The current source runtime is deliberately foreground-only:
   committed to the wrong work item;
 - Intelligence remains consultative and no action/tool execution is enabled;
 - lifecycle events are ordered and user-visible through `ordax.personal-activity/1`;
+- successful foreground reasoning commits `ordax.personal-work-result/1`, the completed Work state
+  and its Activity reference in one validated state transition;
+- result provenance records engine/model and fixed `authority=none`; model output cannot become an
+  action grant by being persisted as a result;
+- Activity keeps only a bounded `result:<id>` reference instead of duplicating the model payload;
 - durable persistence is injected through `ordax.personal-work-store/1`; no second Memory or sync
   subsystem exists here;
-- terminal work can be removed together with its activity history so bounded storage cannot become
-  permanently exhausted.
+- terminal work can be removed together with its activity and result so bounded storage cannot
+  become permanently exhausted.
 
 The runtime is not yet mounted in Web/Native composition and therefore does not claim a public
 Activity UI or autonomous/background execution.
