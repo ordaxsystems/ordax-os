@@ -4,7 +4,7 @@ The canonical account sync runtime owns reconciliation for portable account stat
 
 ## Account-owned Intelligence Memory foundation
 
-`account-memory-runtime.mjs` is a source-only foundation for carrying eligible `ordax.memory/1` objects through the existing `ordax.sync-transport/1` protocol. It is deliberately **not promoted or wired into Web/Native composition**. The current gateway still does not advertise generic `memory`, and no public Memory sync capability is claimed.
+`account-memory-runtime.mjs` carries eligible `ordax.memory/1` objects through the existing `ordax.sync-transport/1` protocol. Native composition is now wired through the canonical Account Memory foundation with server-authoritative entitlement checks and fail-closed restore; Web durable Memory remains unavailable and no public Cloud Memory capability is promoted. The generic gateway path still does not accept client-claimed Memory authority.
 
 Memory cloud semantics are additionally constrained by `docs/contracts/cloud-memory-sync-boundary.json`. The local Memory domain/storage remains the semantic source of truth; sync objects are transport mirrors only and cannot redefine Memory ownership, scope, provenance, sensitivity, retention or authority.
 
@@ -44,7 +44,7 @@ The canonical account runtime also treats unresolved Memory coordination as a cu
 
 ### Restore foundation
 
-`account-restore-plan.mjs` defines `ordax.account-restore-plan/1` for ordering a future reinstall/account restore without claiming that reinstall restore is implemented. Portable state comes before eligible Memory, derived indexes/caches are rebuilt locally, and health verification comes last.
+`account-restore-plan.mjs` defines `ordax.account-restore-plan/1` for restore ordering. Native CI now proves the real composition path on fresh local state: `createNativeAccountMemoryFoundation` and `createNativeAccountSyncRuntime` restore eligible Memory from the canonical account snapshot, confirm Memory durability before advancing the account checkpoint, and do not echo remote Memory as a local mutation. This is a source/CI composition proof, not a physical USB reinstall proof. Portable state still precedes eligible Memory, derived indexes/caches remain rebuildable, and health verification stays last.
 
 Memory restore is fail-closed on coordination recovery, pending local intent, unresolved conflict or `reconciliation-required`. A healthy coordination snapshot alone is not authorization: when Memory objects are present the planner requires an explicit `authorizeMemoryRestore()` decision supplied by trusted composition, and only the literal result `true` marks the Memory phase ready. The planner does not issue, infer or trust a client-claimed cloud entitlement and continues to report `grantsAuthority=false`. Never-sync classes abort planning; unpromoted metadata classes remain explicitly deferred rather than guessed.
 
@@ -58,7 +58,7 @@ The local-first identity-allocation contract is now resolved in source. `2026092
 
 Every upload/restore operation still requires explicit authorization supplied by trusted composition. Synchronized Memory is **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization, community-data authorization, model egress, tools or actions.
 
-This remains a pre-promotion foundation. Native app-facing Memory writes are now wired through the local-first protected composition when device-durable coordination is available, while Web durable Memory wiring remains unavailable. Public cloud promotion still requires the deployed identity-allocation boundary to be live-proven end to end, canonical full-resync after accept-remote when required, final user-facing conflict review, a real authenticated two-client proof and reinstall/restore proof.
+This remains a pre-promotion foundation. Native app-facing Memory writes are now wired through the local-first protected composition when device-durable coordination is available, while Web durable Memory wiring remains unavailable. Public cloud promotion still requires the deployed identity-allocation boundary to be live-proven end to end, canonical full-resync after accept-remote when required, final user-facing conflict review and a real authenticated two-client backend proof. Native fresh-install restore is now CI-proven at composition level; physical USB reinstall remains a separate hardware evidence class.
 
 Core rules remain:
 
