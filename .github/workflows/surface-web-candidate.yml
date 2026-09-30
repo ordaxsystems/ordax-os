@@ -9,6 +9,7 @@ on:
       - 'docs/contracts/device-update-coverage.json'
       - 'docs/contracts/device-agent.json'
       - 'docs/contracts/mobile-companion.json'
+      - 'docs/contracts/personal-ordax.json'
       - 'system/contracts/diagnostic-journal-store.mjs'
       - 'system/contracts/diagnostic-export.mjs'
       - 'system/contracts/diagnostic-copy.mjs'
@@ -31,6 +32,7 @@ on:
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
+      - 'system/contracts/personal-ordax.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -159,6 +161,7 @@ on:
       - 'tests/test_update_service_ci_ownership.py'
       - 'tests/test_account_runtime.mjs'
       - 'tests/test_ecosystem_contracts.mjs'
+      - 'tests/test_personal_ordax_contracts.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -180,6 +183,7 @@ on:
       - 'docs/contracts/device-update-coverage.json'
       - 'docs/contracts/device-agent.json'
       - 'docs/contracts/mobile-companion.json'
+      - 'docs/contracts/personal-ordax.json'
       - 'system/contracts/diagnostic-journal-store.mjs'
       - 'system/contracts/diagnostic-export.mjs'
       - 'system/contracts/diagnostic-copy.mjs'
@@ -202,6 +206,7 @@ on:
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
+      - 'system/contracts/personal-ordax.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -327,6 +332,7 @@ on:
       - 'tests/test_update_service_ci_ownership.py'
       - 'tests/test_account_runtime.mjs'
       - 'tests/test_ecosystem_contracts.mjs'
+      - 'tests/test_personal_ordax_contracts.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -438,6 +444,7 @@ jobs:
           node --test tests/test_account_runtime.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_ecosystem_contracts.mjs
+          node --test tests/test_personal_ordax_contracts.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
           node --test tests/test_network_management_runtime.mjs
