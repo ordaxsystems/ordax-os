@@ -50,6 +50,23 @@ function storeFactory(scope = "device") {
   return factory;
 }
 
+function failingStoreFactory(scope = "device") {
+  const stores = new Map();
+  const factory = (subjectId) => {
+    if (!stores.has(subjectId)) {
+      stores.set(subjectId, {
+        schema: SYNC_STATE_STORE_SCHEMA,
+        scope,
+        load: () => null,
+        save: () => false,
+      });
+    }
+    return stores.get(subjectId);
+  };
+  factory.stores = stores;
+  return factory;
+}
+
 function decision(subjectId, allowed) {
   return Object.freeze({
     subjectType: "account",
@@ -109,7 +126,7 @@ function transport() {
   };
 }
 
-function createHarness({ resolveEntitlement, initialIdentity } = {}) {
+function createHarness({ resolveEntitlement, initialIdentity, deferredStoreFactory = null, onStageError = null } = {}) {
   const identity = identitySession(initialIdentity ?? {
     state: "signed-in",
     subjectId: "account-a",
@@ -117,7 +134,7 @@ function createHarness({ resolveEntitlement, initialIdentity } = {}) {
   });
   const memory = createMemoryRuntime();
   const syncStores = storeFactory("device");
-  const deferredStores = storeFactory("device");
+  const deferredStores = deferredStoreFactory ?? storeFactory("device");
   let ordinal = 0;
   const composition = createAccountMemoryAuthorizedComposition({
     identitySession: identity,
@@ -129,6 +146,7 @@ function createHarness({ resolveEntitlement, initialIdentity } = {}) {
       ordinal += 1;
       return `memory:${kind}:${ordinal}:authorized-composition`;
     },
+    onStageError,
   });
   return { identity, memory, composition, syncStores, deferredStores };
 }
@@ -295,6 +313,68 @@ test("provider failure never grants transport and keeps only a durable identity 
   assert.equal(remote.mutations.length, 0);
 });
 
+test("deferred persistence failure is observable in composition health instead of being masked", async () => {
+  const errors = [];
+  const { memory, composition } = createHarness({
+    resolveEntitlement: async (request) => decision(request.subjectId, false),
+    deferredStoreFactory: failingStoreFactory("device"),
+    onStageError(error, context) {
+      errors.push({ error, context });
+    },
+  });
+
+  await composition.settled();
+  composition.memory.remember(item());
+
+  assert.equal(find(memory)?.id, "memory-a");
+  assert.equal(composition.memorySync.pendingMutations().length, 0);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].error.message, /Deferred Memory intent persistence failed/);
+  assert.equal(errors[0].context.kind, "upsert");
+
+  const snapshot = composition.getSnapshot();
+  assert.equal(snapshot.deferredStageHealthy, false);
+  assert.equal(snapshot.deferredReplayHealthy, true);
+  assert.equal(snapshot.deferredCoordinationHealthy, false);
+  assert.equal(snapshot.deferredCoordinationFailurePhase, "stage");
+});
+
+test("a later successful deferred stage observation clears stage health degradation", async () => {
+  let failSave = true;
+  const stores = new Map();
+  const deferredStoreFactory = (subjectId) => {
+    if (!stores.has(subjectId)) {
+      let payload = null;
+      stores.set(subjectId, {
+        schema: SYNC_STATE_STORE_SCHEMA,
+        scope: "device",
+        load: () => payload,
+        save(value) {
+          if (failSave) return false;
+          payload = value;
+          return true;
+        },
+      });
+    }
+    return stores.get(subjectId);
+  };
+  const { composition } = createHarness({
+    resolveEntitlement: async (request) => decision(request.subjectId, false),
+    deferredStoreFactory,
+  });
+
+  await composition.settled();
+  composition.memory.remember(item("account-a", "memory-a"));
+  assert.equal(composition.getSnapshot().deferredCoordinationHealthy, false);
+
+  failSave = false;
+  composition.memory.remember(item("account-a", "memory-b"));
+  const recovered = composition.getSnapshot();
+  assert.equal(recovered.deferredStageHealthy, true);
+  assert.equal(recovered.deferredCoordinationHealthy, true);
+  assert.equal(recovered.deferredCoordinationFailurePhase, null);
+});
+
 test("composition snapshot records durable local-first boundary and destroy is terminal", async () => {
   const { composition } = createHarness({
     resolveEntitlement: async (request) => decision(request.subjectId, true),
@@ -305,6 +385,10 @@ test("composition snapshot records durable local-first boundary and destroy is t
   assert.equal(snapshot.localFirstWhileAuthorizationUnavailable, true);
   assert.equal(snapshot.deferredStateStoresPortableContent, false);
   assert.equal(snapshot.deferredIntents.queuePersistence, "device");
+  assert.equal(snapshot.deferredStageHealthy, true);
+  assert.equal(snapshot.deferredReplayHealthy, true);
+  assert.equal(snapshot.deferredCoordinationHealthy, true);
+  assert.equal(snapshot.deferredCoordinationFailurePhase, null);
   assert.equal(snapshot.productionPromoted, false);
 
   composition.destroy();
