@@ -7,9 +7,12 @@ on:
       - 'system/services/sync/state-store-registry.mjs'
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_sync_state_namespace_durability.mjs'
       - 'tests/test_account_memory_local_continuity_flush.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
+      - 'tests/test_native_preferences.py'
       - '.github/workflows/account-memory-local-continuity-flush.yml'
   push:
     branches: [main]
@@ -18,9 +21,12 @@ on:
       - 'system/services/sync/state-store-registry.mjs'
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_sync_state_namespace_durability.mjs'
       - 'tests/test_account_memory_local_continuity_flush.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
+      - 'tests/test_native_preferences.py'
       - '.github/workflows/account-memory-local-continuity-flush.yml'
   workflow_dispatch:
 
@@ -43,6 +49,7 @@ jobs:
           node --check system/services/sync/state-store-registry.mjs
           node --check system/services/sync/account-memory-deferred-intents.mjs
           node --check system/services/sync/account-memory-authorized-composition.mjs
+          node --check tests/test_sync_state_namespace_registry.mjs
           node --check tests/test_sync_state_namespace_durability.mjs
           node --check tests/test_account_memory_local_continuity_flush.mjs
 
@@ -50,6 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test \
+            tests/test_sync_state_namespace_registry.mjs \
             tests/test_sync_state_namespace_durability.mjs \
             tests/test_account_memory_local_continuity_flush.mjs \
             tests/test_account_memory_authorized_composition.mjs
