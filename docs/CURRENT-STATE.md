@@ -975,3 +975,14 @@ Desktop/Native/MCP share the same future action boundary; account sync is not a 
 notifications are not source of truth, and push payloads are not command authority.
 
 Machine-readable owner: `docs/contracts/operational-realtime.json`.
+
+## Personal OrdaX orchestration foundation
+
+The source now defines a provider-neutral Personal OrdaX foundation without enabling an autonomous
+MVP runtime. `ordax.personal-work-item/1` binds goals to an explicit device/account owner plus
+optional Space/project scope; `ordax.personal-activity/1` defines ordered user-visible progress;
+and `ordax.personal-action-decision/1` reuses existing grants for read/write/egress/device-control
+decisions. Prompt/model/Profile/Memory/project content cannot create authority, sensitive allows
+require an explicit grant reference, and background execution remains disabled. The canonical
+boundary is `docs/PERSONAL-ORDAX.md` + `docs/contracts/personal-ordax.json`.
+\n
