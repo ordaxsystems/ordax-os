@@ -78,6 +78,7 @@ function grant(overrides = {}) {
     grantId: "grant-1",
     approvalId: "personal-approval-personal-work-1-1",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     action: "files.document.write",
     mode: "write",
     approved: true,
@@ -136,6 +137,7 @@ test("approval request is persisted atomically with waiting Work and Activity", 
   const approval = runtime.requestApproval(work.id, {
     actionId: "files.document.write",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect: "write",
     resourceRef: "file-space:/Documentos/menu.md",
     reason: "Atualizar o documento aprovado pelo usuário.",
@@ -147,6 +149,7 @@ test("approval request is persisted atomically with waiting Work and Activity", 
   assert.equal(snapshot.approvals.length, 1);
   assert.equal(snapshot.approvals[0].status, "pending");
   assert.equal(snapshot.approvals[0].resourceRef, "file-space:/Documentos/menu.md");
+  assert.equal(snapshot.approvals[0].toolArtifactSha256, "a".repeat(64));
   assert.equal(snapshot.decisions.length, 0);
   assert.equal(snapshot.activities.at(-1).type, "approval-requested");
   assert.equal(snapshot.activities.at(-1).approvalId, approval.id);
@@ -166,6 +169,7 @@ test("missing grant keeps approval pending and cannot execute", () => {
   const approval = runtime.requestApproval(work.id, {
     actionId: "files.document.write",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect: "write",
     resourceRef: "file-space:/Documentos/menu.md",
     reason: "Precisa de grant.",
@@ -190,6 +194,7 @@ test("exact existing grant resolves approval to queued work and durable allow de
   const approval = runtime.requestApproval(work.id, {
     actionId: "files.document.write",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect: "write",
     resourceRef: "file-space:/Documentos/menu.md",
     reason: "Escrever no documento do Space.",
@@ -225,6 +230,7 @@ test("wrong-owner grant resolves fail-closed to denied and paused work", () => {
   const approval = runtime.requestApproval(work.id, {
     actionId: "files.document.write",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect: "write",
     resourceRef: "file-space:/Documentos/menu.md",
     reason: "Grant errado não pode atravessar owner.",
@@ -253,6 +259,7 @@ test("identity or Space change cancels pending approval before pausing work", ()
   const approval = runtime.requestApproval(work.id, {
     actionId: "files.document.write",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect: "write",
     resourceRef: "file-space:/Documentos/menu.md",
     reason: "Pending.",
@@ -297,6 +304,7 @@ test("store rejects orphan approvals, missing audit Activity and forged terminal
   const approval = runtime.requestApproval(work.id, {
     actionId: "files.document.write",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect: "write",
     resourceRef: "file-space:/Documentos/menu.md",
     reason: "Auditável.",
