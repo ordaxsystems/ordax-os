@@ -22,6 +22,11 @@ function boundedText(value, label, max = 512) {
   return normalized;
 }
 
+function optionalText(value, label, max = 512) {
+  if (value == null || value === "") return null;
+  return boundedText(value, label, max);
+}
+
 function timestamp(value, label) {
   const text = boundedText(value, label, 64);
   const parsed = Date.parse(text);
@@ -124,6 +129,12 @@ export function validateActionReceipt(value) {
   if (new Set(uniqueRefs).size !== uniqueRefs.length) {
     throw new TypeError("Action receipt artifact refs must be unique");
   }
+  const effect = boundedText(value.effect, "Action receipt effect", 32);
+  const resourceRef = optionalText(value.resourceRef, "Action receipt resource ref", 512);
+  const grantRef = optionalText(value.grantRef, "Action receipt grant ref", 240);
+  if (effect !== "read" && (resourceRef === null || grantRef === null)) {
+    throw new TypeError("Sensitive Action Receipt requires exact resource and grant references");
+  }
   return Object.freeze({
     schema: ACTION_RECEIPT_SCHEMA,
     workItemId: boundedText(value.workItemId, "Action receipt work item id", 160),
@@ -135,9 +146,9 @@ export function validateActionReceipt(value) {
       return digest;
     })(),
     actionId: boundedText(value.actionId, "Action receipt action id", 128),
-    effect: boundedText(value.effect, "Action receipt effect", 32),
-    resourceRef: boundedText(value.resourceRef, "Action receipt resource ref", 512),
-    grantRef: boundedText(value.grantRef, "Action receipt grant ref", 240),
+    effect,
+    resourceRef,
+    grantRef,
     status: value.status,
     summary: boundedText(value.summary, "Action receipt summary", 1024),
     artifactRefs: Object.freeze(uniqueRefs),
