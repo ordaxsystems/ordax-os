@@ -61,13 +61,30 @@ function blockedMutations() {
   });
 }
 
-function accountCoordinationRecoveryBlocked(accountMemory) {
-  return accountMemory.getSnapshot().memory?.memorySync?.recoveryBlocked === true;
+function accountCoordinationRecoveryState(accountMemory) {
+  try {
+    const snapshot = accountMemory.getSnapshot();
+    const recoveryBlocked = snapshot.memory?.memorySync?.recoveryBlocked === true;
+    return Object.freeze({
+      blocked: recoveryBlocked,
+      reason: recoveryBlocked
+        ? (snapshot.memory.memorySync.recoveryBlockReason ?? "coordination-recovery-required")
+        : null,
+      snapshot,
+    });
+  } catch (error) {
+    if (!isPersistedCoordinationRecoveryError(error)) throw error;
+    return Object.freeze({
+      blocked: true,
+      reason: "coordination-state-incompatible",
+      snapshot: null,
+    });
+  }
 }
 
 function guardedProtectedMutations(accountMemory) {
   const ensureHealthy = () => {
-    if (accountCoordinationRecoveryBlocked(accountMemory)) {
+    if (accountCoordinationRecoveryState(accountMemory).blocked) {
       throw new Error("Native Account Memory coordination requires recovery");
     }
   };
@@ -183,17 +200,27 @@ export function createNativeAccountMemoryFoundation({
     accountMemory,
     getSnapshot() {
       if (destroyed) throw new Error("Native Account Memory foundation is disposed");
-      const current = accountMemory.getSnapshot();
-      const recoveryBlocked = accountCoordinationRecoveryBlocked(accountMemory);
+      const recovery = accountCoordinationRecoveryState(accountMemory);
+      if (recovery.snapshot === null) {
+        return Object.freeze({
+          schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
+          state: "recovery-required",
+          reason: recovery.reason,
+          syncStateScope: registry.scope,
+          protectedMutationsAvailable: true,
+          accountMutationsBlocked: true,
+          cloudTransportWired: false,
+          productionPromoted: false,
+        });
+      }
+      const current = recovery.snapshot;
       return Object.freeze({
         schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
-        state: recoveryBlocked ? "recovery-required" : "protected-local-first",
-        reason: recoveryBlocked
-          ? (current.memory.memorySync.recoveryBlockReason ?? "coordination-recovery-required")
-          : null,
+        state: recovery.blocked ? "recovery-required" : "protected-local-first",
+        reason: recovery.reason,
         syncStateScope: registry.scope,
         protectedMutationsAvailable: true,
-        accountMutationsBlocked: recoveryBlocked,
+        accountMutationsBlocked: recovery.blocked,
         entitlement: current.entitlement,
         crashRecovery: current.crashRecovery,
         cloudTransportWired: false,
