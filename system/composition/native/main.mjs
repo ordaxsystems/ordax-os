@@ -75,6 +75,7 @@ import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/updat
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createSyncStateNamespaceRegistry } from "../../services/sync/state-store-registry.mjs";
 import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-metadata.mjs";
+import { createMemoryConflictReviewRuntime } from "../../services/sync/memory-conflict-review.mjs";
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
@@ -378,6 +379,9 @@ async function start() {
   const memoryReview = memoryReviewSession === null
     ? null
     : createMemoryReviewViewModel(memoryReviewSession);
+  const memoryConflictReview = accountMemoryFoundation?.memorySync == null
+    ? null
+    : createMemoryConflictReviewRuntime(accountMemoryFoundation.memorySync);
   const identityActions = createWebIdentityActions(window, identitySession);
   const identityCredentials = createSameOriginIdentityCredentials(window);
   const spaces = createWebSpacesCatalog(window);
@@ -628,6 +632,7 @@ async function start() {
     memoryReview,
     spaceSelection,
     surface.preferences,
+    memoryConflictReview,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
