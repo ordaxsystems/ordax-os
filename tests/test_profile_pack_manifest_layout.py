@@ -49,6 +49,7 @@ class ProfilePackManifestLayoutTests(unittest.TestCase):
         self.assertFalse((ROOT / "system/profile-packs/developer/manifest.json").exists())
         self.assertFalse((ROOT / "system/profile-packs/legal-br/manifest.json").exists())
         self.assertFalse((ROOT / "system/profile-packs/pizzaria-br/manifest.json").exists())
+        self.assertFalse((ROOT / "system/profile-packs/impressao-3d-br/manifest.json").exists())
 
 
 if __name__ == "__main__":
