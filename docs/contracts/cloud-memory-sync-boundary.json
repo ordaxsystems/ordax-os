@@ -68,6 +68,7 @@
       "provider": "services/public-identity/supabase_memory.py",
       "proof": "tools/cloud-memory/prove_authenticated_atomic_sync.py",
       "workflow": ".github/workflows/cloud-memory-authenticated-proof.yml",
+      "receipt_validator": "tools/cloud-memory/validate_authenticated_proof_receipt.py",
       "requires_preprovisioned_entitlement": true,
       "creates_entitlement": false,
       "service_role_allowed": false,
@@ -106,8 +107,12 @@
       "deployment_verified_date": "2026-09-29"
     },
     "operator_proof_runner": {
-      "status": "source-ready-not-executed",
+      "status": "workflow-ready-not-executed",
       "path": "tools/cloud-memory/run_operator_authenticated_proof.py",
+      "workflow": ".github/workflows/cloud-memory-operator-authenticated-proof.yml",
+      "receipt_validator": "tools/cloud-memory/validate_authenticated_proof_receipt.py",
+      "workflow_dispatch_only": true,
+      "serial_execution": true,
       "issue_then_proof_then_revoke": true,
       "revoke_in_finally": true,
       "service_role_allowed": false,
