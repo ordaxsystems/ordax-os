@@ -324,3 +324,45 @@ test("canonical recovery-blocked state rejects account writes before local Memor
 
   foundation.destroy();
 });
+
+
+for (const namespace of ["memory-deferred", "memory-crash"]) {
+  test(`corrupt ${namespace} slot blocks Account Memory without resetting durable coordination`, async () => {
+    const root = rootStore("device");
+    const registry = createSyncStateNamespaceRegistry(root);
+    registry.open(namespace, { partitionKey: "account-a" }).save("{corrupt-slot");
+    const corruptRoot = root.load();
+
+    const memory = createMemoryRuntime({ store: memoryStore() });
+    const foundation = createNativeAccountMemoryFoundation({
+      identitySession: identitySession(),
+      memoryPort: memory,
+      syncStateRegistry: registry,
+      entitlementsPort: deniedEntitlements(),
+      createIdempotencyKey: (kind, ordinal) => `memory:${kind}:${ordinal}`,
+    });
+
+    const snapshot = foundation.getSnapshot();
+    assert.equal(snapshot.state, "recovery-required");
+    assert.equal(snapshot.reason, "coordination-state-incompatible");
+    assert.equal(snapshot.accountMutationsBlocked, true);
+
+    await assert.rejects(
+      foundation.protectedMutations.remember(memoryItem(`blocked-${namespace}`)),
+      /coordination requires recovery/,
+    );
+    assert.equal(
+      memory.search({
+        ownerKind: "account",
+        ownerId: "account-a",
+        scopes: ["account"],
+        includeRestricted: true,
+        limit: 20,
+        offset: 0,
+      }).length,
+      0,
+    );
+    assert.equal(root.load(), corruptRoot);
+    foundation.destroy();
+  });
+}
