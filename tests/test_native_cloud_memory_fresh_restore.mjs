@@ -154,7 +154,7 @@ function keyFactory(prefix) {
   return (kind = "state") => `${prefix}:${kind}:${++ordinal}:abcdefgh`;
 }
 
-function remoteMemory({ sensitivity = "private" } = {}) {
+function remoteMemory() {
   return createMemorySyncObject({
     serverRevision: 9,
     item: {
@@ -163,13 +163,27 @@ function remoteMemory({ sensitivity = "private" } = {}) {
       ownerId: SUBJECT,
       scope: "account",
       kind: "fact",
-      sensitivity,
+      sensitivity: "private",
       content: "memória restaurada pela composição Native real",
       provenance: "user-confirmed:native-fresh-install-proof",
       sourceTimestamp: "2026-09-30T20:10:00Z",
       spaceId: null,
       projectId: null,
     },
+  });
+}
+
+function nonPortableRemoteMemory() {
+  const valid = remoteMemory();
+  return Object.freeze({
+    ...valid,
+    payload: Object.freeze({
+      ...valid.payload,
+      memory: Object.freeze({
+        ...valid.payload.memory,
+        sensitivity: "restricted",
+      }),
+    }),
   });
 }
 
@@ -344,7 +358,7 @@ test("Native fresh-install restore denies remote Memory when server entitlement 
 
 test("Native fresh-install restore rejects non-portable Memory before checkpoint advancement", async () => {
   const harness = createNativeRestoreHarness({
-    memoryObject: remoteMemory({ sensitivity: "restricted" }),
+    memoryObject: nonPortableRemoteMemory(),
   });
 
   await harness.foundation.settled();
