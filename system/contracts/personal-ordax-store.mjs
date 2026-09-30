@@ -166,6 +166,27 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     resultWorkIds.add(result.workItemId);
   }
 
+  const resultByRef = new Map(results.map((result) => [`result:${result.id}`, result]));
+  const resultReferenceCounts = new Map(results.map((result) => [result.id, 0]));
+  for (const event of activities) {
+    for (const artifactRef of event.artifactRefs) {
+      if (!artifactRef.startsWith("result:")) continue;
+      const result = resultByRef.get(artifactRef);
+      if (!result) {
+        throw new TypeError("Personal OrdaX activity references a missing work result");
+      }
+      if (event.type !== "completed" || result.workItemId !== event.workItemId) {
+        throw new TypeError("Personal OrdaX work result must be referenced by its completed activity");
+      }
+      resultReferenceCounts.set(result.id, resultReferenceCounts.get(result.id) + 1);
+    }
+  }
+  for (const result of results) {
+    if (resultReferenceCounts.get(result.id) !== 1) {
+      throw new TypeError("Personal OrdaX work result requires exactly one completed activity reference");
+    }
+  }
+
   return Object.freeze({
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
     ownerKind: owner.ownerKind,
