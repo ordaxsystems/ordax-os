@@ -51,6 +51,7 @@ export function validateAuthorizedActionExecution(value) {
   }
   if (
     decision.workItemId !== request.workItemId
+    || decision.approvalId !== request.approvalId
     || decision.actionId !== request.actionId
     || decision.effect !== request.effect
   ) {
