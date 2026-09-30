@@ -25,6 +25,7 @@ import (
 const (
 	EnvelopeSchema      = "prototype-ordax.creator-physical-envelope/1"
 	ManifestSchema      = "prototype-ordax.creator-physical-manifest/2"
+	ManifestSchemaPortable = "prototype-ordax.creator-physical-manifest/3"
 	TrustSchema         = "prototype-ordax.release-trust/1"
 	Purpose             = "creator-portable-physical-windows-amd64"
 	SourceRepository    = "washingtonmsdj/prototipo-ordax-os"
@@ -79,6 +80,7 @@ type Manifest struct {
 	CreatedFromRecipe string        `json:"created_from_recipe"`
 	Bundle            Bundle        `json:"bundle"`
 	Files             []FileBinding `json:"files"`
+	PortablePayload   *PortablePayloadManifest `json:"portable_payload,omitempty"`
 }
 
 type Installed struct {
@@ -131,7 +133,7 @@ func expectedFiles() map[string]struct{} {
 }
 
 func validateManifest(m Manifest) error {
-	if m.Schema != ManifestSchema {
+	if m.Schema != ManifestSchema && m.Schema != ManifestSchemaPortable {
 		return errors.New("unsupported physical manifest schema")
 	}
 	if m.Purpose != Purpose {
@@ -176,7 +178,16 @@ func validateManifest(m Manifest) error {
 			return fmt.Errorf("invalid size for %s", file.Name)
 		}
 	}
-	return nil
+	if m.Schema == ManifestSchema {
+		if m.PortablePayload != nil {
+			return errors.New("physical manifest v2 cannot carry a Portable payload")
+		}
+		return nil
+	}
+	if m.PortablePayload == nil {
+		return errors.New("physical manifest v3 requires a signed Portable payload")
+	}
+	return validatePortablePayloadManifest(*m.PortablePayload)
 }
 
 func parseTrust(data []byte, expectedSHA256 string) (TrustAnchor, ed25519.PublicKey, error) {
@@ -264,10 +275,7 @@ func fileDigest(path string) (string, int64, error) {
 	return hex.EncodeToString(h.Sum(nil)), n, nil
 }
 
-func VerifyInstalled(directory string, manifest Manifest) error {
-	if err := validateManifest(manifest); err != nil {
-		return err
-	}
+func verifyWriterInstalled(directory string, manifest Manifest) error {
 	for _, binding := range manifest.Files {
 		path := filepath.Join(directory, binding.Name)
 		actualHash, actualSize, err := fileDigest(path)
@@ -279,6 +287,16 @@ func VerifyInstalled(directory string, manifest Manifest) error {
 		}
 	}
 	return nil
+}
+
+func VerifyInstalled(directory string, manifest Manifest) error {
+	if err := validateManifest(manifest); err != nil {
+		return err
+	}
+	if err := verifyWriterInstalled(directory, manifest); err != nil {
+		return err
+	}
+	return verifyPortablePayloadInstalled(directory, manifest)
 }
 
 func fetchBytes(client *http.Client, raw string, limit int64) ([]byte, error) {
@@ -425,7 +443,7 @@ func extractBundle(zipPath, destination string, manifest Manifest) error {
 		sort.Strings(missing)
 		return fmt.Errorf("physical bundle is missing required files: %s", strings.Join(missing, ", "))
 	}
-	return VerifyInstalled(destination, manifest)
+	return verifyWriterInstalled(destination, manifest)
 }
 
 func samePath(a, b string) bool {
@@ -496,6 +514,12 @@ func Acquire(client *http.Client, root, envelopeURL string, trustBytes []byte, e
 		return Installed{}, false, err
 	}
 	if err := extractBundle(bundlePath, extracted, manifest); err != nil {
+		return Installed{}, false, err
+	}
+	if err := installPortablePayload(client, extracted, manifest); err != nil {
+		return Installed{}, false, err
+	}
+	if err := VerifyInstalled(extracted, manifest); err != nil {
 		return Installed{}, false, err
 	}
 	if err := os.Rename(extracted, finalDir); err != nil {
