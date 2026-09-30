@@ -192,7 +192,7 @@ Bloqueiam lançamento:
 - **Conta/Cadastro real funcional no MVP**, preservando `Continuar sem conta`: cadastro, login, logout/revogação e recuperação de acesso provados contra o owner real;
 - privacidade/termos finais, versionados e com data efetiva antes da ativação pública;
 - hardware suportado documentado;
-- **Profile Pizzaria demonstrável**: `pizzaria-br@1` ativável/desativável em Space profissional no Stable/MVP, sem downloads extras ou privilégio novo.
+- **Profiles demonstráveis seguros**: `pizzaria-br@1` e `impressao-3d-br@1` ativáveis/desativáveis em Space profissional no Stable/MVP pelo mesmo boundary genérico, sem downloads extras ou privilégio novo.
 
 **Não bloqueiam o MVP:** instalador Native, boot por SSD/NVMe/HD, dual boot, resize ou particionamento interno.
 
@@ -382,9 +382,9 @@ instalável.
 mas permanece bloqueado até existir knowledge oficial/versionado, validação de domínio e cadeia
 pública de trust.
 
-O MVP inclui **um único Profile comercial demonstrável**: `pizzaria-br@1`. O v1 usa
-somente apps first-party já presentes e não baixa componentes externos. Ele serve como
-prova real de que um pequeno negócio pode receber um ambiente OrdaX especializado sem
+O MVP inclui dois Profiles demonstráveis sobre o mesmo mecanismo seguro: `pizzaria-br@1` e `impressao-3d-br@1`. Ambos usam
+somente apps first-party já presentes e não baixam componentes externos. Eles servem como
+prova real de que negócios de setores distintos podem receber um ambiente OrdaX especializado sem
 outro sistema, outra imagem ou reinstalação do USB. PDV, fiscal, delivery, estoque
 avançado e financeiro completo ficam para atualizações posteriores.
 
