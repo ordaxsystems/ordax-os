@@ -88,6 +88,7 @@ export function createNotesRuntime({ store = null, now = () => Date.now() } = {}
       scope: "session",
       load() { return memory; },
       save(snapshot) { memory = validateNotesSnapshot(snapshot); return true; },
+      async flush() { return true; },
     };
   }
   const notesStore = assertNotesStore(store ?? memoryStore);
@@ -136,12 +137,10 @@ export function createNotesRuntime({ store = null, now = () => Date.now() } = {}
   };
 
   const scheduleDurabilityConfirmation = () => {
-    if (typeof notesStore.flush !== "function") return false;
     persistenceGeneration += 1;
     const generation = persistenceGeneration;
     persistencePending = true;
     void confirmDurability(generation);
-    return true;
   };
 
   const commit = (draft) => {
@@ -159,13 +158,7 @@ export function createNotesRuntime({ store = null, now = () => Date.now() } = {}
       emit();
       return runtime.getSnapshot();
     }
-    if (scheduleDurabilityConfirmation()) {
-      emit();
-      return runtime.getSnapshot();
-    }
-    persistencePending = false;
-    lastSaveSucceeded = true;
-    lastSavedAt = now();
+    scheduleDurabilityConfirmation();
     emit();
     return runtime.getSnapshot();
   };
