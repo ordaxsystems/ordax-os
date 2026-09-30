@@ -1,10 +1,12 @@
 import {
   validatePersonalActivityEvent,
   validatePersonalWorkItem,
+  validatePersonalWorkResult,
 } from "../../contracts/personal-ordax.mjs";
 import {
   MAX_PERSONAL_ACTIVITY_EVENTS,
   MAX_PERSONAL_WORK_ITEMS,
+  MAX_PERSONAL_WORK_RESULTS,
   PERSONAL_ORDAX_RUNTIME_SCHEMA,
   assertPersonalOrdaxStore,
   createEmptyPersonalOrdaxStoreState,
@@ -54,14 +56,20 @@ function sameActivity(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function sameResult(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function sameState(left, right) {
   return left.ownerKind === right.ownerKind
     && left.ownerId === right.ownerId
     && left.nextOrdinal === right.nextOrdinal
     && left.workItems.length === right.workItems.length
     && left.activities.length === right.activities.length
+    && left.results.length === right.results.length
     && left.workItems.every((item, index) => sameWorkItem(item, right.workItems[index]))
-    && left.activities.every((event, index) => sameActivity(event, right.activities[index]));
+    && left.activities.every((event, index) => sameActivity(event, right.activities[index]))
+    && left.results.every((result, index) => sameResult(result, right.results[index]));
 }
 
 function currentOwner(identity) {
@@ -186,6 +194,7 @@ export function createPersonalOrdaxRuntime({
     nextOrdinal: state.nextOrdinal,
     workItems: state.workItems,
     activities: state.activities,
+    results: state.results,
   });
 
   const publish = () => {
@@ -452,12 +461,45 @@ export function createPersonalOrdaxRuntime({
         if (current.state !== "running" || contextStatus(current) !== "valid") {
           throw new Error("Personal OrdaX work context changed while reasoning was in progress");
         }
+        if (state.results.length >= MAX_PERSONAL_WORK_RESULTS) {
+          throw new RangeError(
+            `Personal OrdaX supports at most ${MAX_PERSONAL_WORK_RESULTS} retained work results per owner`,
+          );
+        }
+
+        const completedAt = isoClock(now);
+        const completedWork = validatePersonalWorkItem({
+          ...current,
+          state: "completed",
+          pendingApprovalId: null,
+          updatedAt: completedAt,
+        });
+        const result = validatePersonalWorkResult({
+          id: `personal-result-${id}`,
+          workItemId: id,
+          kind: "intelligence-response",
+          text: response.text,
+          engineId: response.engineId,
+          modelId: response.modelId,
+          authority: response.authority,
+          artifactRefs: [],
+          createdAt: completedAt,
+        });
+        const completedActivities = appendActivityTo(
+          state.activities,
+          id,
+          "completed",
+          "Foreground reasoning completed with a durable owner-bound result.",
+          completedAt,
+          { artifactRefs: [`result:${result.id}`] },
+        );
+
         inFlight.delete(id);
-        updateWork(id, { state: "completed", pendingApprovalId: null }, {
-          activity: {
-            type: "completed",
-            summary: "Foreground reasoning completed. Result returned to the caller.",
-          },
+        replaceState({
+          ...state,
+          workItems: state.workItems.map((candidate) => candidate.id === id ? completedWork : candidate),
+          activities: completedActivities,
+          results: [...state.results, result],
         });
         return response;
       } catch (error) {
@@ -516,6 +558,7 @@ export function createPersonalOrdaxRuntime({
         ...state,
         workItems: state.workItems.filter((candidate) => candidate.id !== id),
         activities: state.activities.filter((event) => event.workItemId !== id),
+        results: state.results.filter((result) => result.workItemId !== id),
       });
       return snapshot();
     },
