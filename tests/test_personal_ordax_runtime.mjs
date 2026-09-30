@@ -11,7 +11,6 @@ import {
 import {
   PERSONAL_ORDAX_STORE_SCHEMA,
   PERSONAL_ORDAX_STORE_STATE_SCHEMA,
-  createEmptyPersonalOrdaxStoreState,
 } from "../system/contracts/personal-ordax-store.mjs";
 import { createPersonalOrdaxRuntime } from "../system/services/personal-ordax/runtime.mjs";
 
@@ -140,16 +139,22 @@ function intelligence({ deferred = false } = {}) {
 }
 
 function memoryStore() {
-  let state = createEmptyPersonalOrdaxStoreState();
+  const states = new Map();
+  const key = (owner) => owner.ownerKind === "device" ? "device" : `account:${owner.ownerId}`;
+  const deviceOwner = Object.freeze({ ownerKind: "device", ownerId: null });
   return {
     schema: PERSONAL_ORDAX_STORE_SCHEMA,
     scope: "device",
-    load: () => state,
-    save(next) {
-      state = next;
+    load(owner) {
+      return states.get(key(owner)) ?? null;
+    },
+    save(owner, next) {
+      states.set(key(owner), next);
       return true;
     },
-    read: () => state,
+    read(owner = deviceOwner) {
+      return states.get(key(owner)) ?? null;
+    },
   };
 }
 
@@ -369,8 +374,10 @@ test("terminal work can be removed with its activity while active work cannot", 
 test("persisted runtime ids and activity time cannot regress", () => {
   const identity = identitySignedOut();
   const store = memoryStore();
-  store.save({
+  store.save({ ownerKind: "device", ownerId: null }, {
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+    ownerKind: "device",
+    ownerId: null,
     nextOrdinal: 1,
     workItems: [{
       id: "personal-work-4",
@@ -394,8 +401,10 @@ test("persisted runtime ids and activity time cannot regress", () => {
   );
 
   const invalidTimeStore = memoryStore();
-  invalidTimeStore.save({
+  invalidTimeStore.save({ ownerKind: "device", ownerId: null }, {
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+    ownerKind: "device",
+    ownerId: null,
     nextOrdinal: 2,
     workItems: [{
       id: "personal-work-1",
@@ -428,7 +437,7 @@ test("persisted runtime ids and activity time cannot regress", () => {
   );
 });
 
-test("account switching never exposes another owner's work or activity", () => {
+test("account switching uses isolated owner partitions and never exposes another owner's work", () => {
   let tick = 10_000;
   const identity = identitySignedIn("user-1");
   const runtime = createPersonalOrdaxRuntime({
@@ -449,7 +458,7 @@ test("account switching never exposes another owner's work or activity", () => {
   const userTwoWork = runtime.create("Private user two goal.");
   assert.equal(runtime.getSnapshot().workItems.length, 1);
   assert.equal(runtime.getSnapshot().workItems[0].id, userTwoWork.id);
-  assert.notEqual(userTwoWork.id, userOneWork.id);
+  assert.equal(userTwoWork.id, userOneWork.id);
 
   identity.setSnapshot({
     state: "signed-in",
