@@ -171,6 +171,9 @@ on:
       - 'tests/test_personal_ordax_contracts.mjs'
       - 'tests/test_personal_ordax_runtime.mjs'
       - 'tests/test_personal_ordax_store_adapters.mjs'
+      - 'tests/test_personal_ordax_native_file_action.mjs'
+      - 'system/adapters/native/tool-artifact-identity.mjs'
+      - 'system/adapters/native/personal-ordax-file-actions.mjs'
       - 'tests/test_intelligence_tool_grant_authority.mjs'
       - 'tests/test_personal_ordax_approval_consent.mjs'
       - 'tests/test_personal_ordax_action_executor.mjs'
@@ -354,6 +357,9 @@ on:
       - 'tests/test_personal_ordax_contracts.mjs'
       - 'tests/test_personal_ordax_runtime.mjs'
       - 'tests/test_personal_ordax_store_adapters.mjs'
+      - 'tests/test_personal_ordax_native_file_action.mjs'
+      - 'system/adapters/native/tool-artifact-identity.mjs'
+      - 'system/adapters/native/personal-ordax-file-actions.mjs'
       - 'tests/test_intelligence_tool_grant_authority.mjs'
       - 'tests/test_personal_ordax_approval_consent.mjs'
       - 'tests/test_personal_ordax_action_executor.mjs'
@@ -474,6 +480,7 @@ jobs:
           node --test tests/test_personal_ordax_runtime.mjs
           node --test tests/test_personal_ordax_store_adapters.mjs
           node --test tests/test_personal_ordax_native_composition.mjs
+          node --test tests/test_personal_ordax_native_file_action.mjs
           node --test tests/test_personal_ordax_activity_surface.mjs
           node --test tests/test_personal_ordax_action_gateway.mjs
           node --test tests/test_personal_ordax_approvals.mjs
