@@ -128,6 +128,29 @@ Differences between execution environments live only behind capability interface
 
 The UI consumes capability contracts, not platform-specific APIs directly.
 
+## Mobile Companion capability provider
+
+OrdaX Mobile may expose selected phone/tablet capabilities to other authorized OrdaX clients.
+
+```text
+phone camera/microphone/location/sensors
+ -> Android/iOS platform permission
+ -> OrdaX capability consent
+ -> short-lived grant
+ -> encrypted transport / capability adapter
+ -> authorized OrdaX app or device
+```
+
+Examples include using the phone camera as a future virtual webcam on Desktop/Native, using the
+phone microphone as OrdaX Intelligence voice input, capturing documents directly into a Space and
+finding account-owned devices with explicit location opt-in.
+
+This is not unrestricted remote access to the phone. Camera/microphone cannot be activated silently,
+location tracking is off by default, and the source phone must show active-session state and allow
+revocation.
+
+See `docs/MOBILE-COMPANION.md`.
+
 ## Mobile security boundary
 
 Mobile clients must use platform secure storage for device-bound credentials/tokens where appropriate and must never receive release signing keys, device-private keys from another installation, raw disk authority or arbitrary privileged-command capabilities.
@@ -159,6 +182,55 @@ Safe, meaningful user state follows the user's OrdaX identity across modes. Exam
 Device-local secrets never synchronize. Examples include private device keys, machine identity secrets, hardware drivers, raw disk state and ephemeral caches.
 
 Sync must be offline-tolerant, server-authorized, encrypted in transit and have an explicit conflict-resolution model before production promotion.
+
+## Operational realtime and remote device actions
+
+All product modes share one operational domain model in addition to account synchronization.
+
+```text
+portable account/user state -> OrdaX Sync
+live orders/jobs/telemetry -> OrdaX Operational Realtime
+device mutation intent -> OrdaX Action Gateway -> Device Agent
+```
+
+Web and Mobile do not get separate order databases, printer queues or authorization rules.
+They consume the same versioned events and action contracts as Desktop/Native according to
+their capability envelope.
+
+The public MVP remains USB-only. The source contract exists now so Web/PWA and a future
+Android APK can be added after the MVP without redesigning Account, Spaces or Device Agent.
+There is currently **no released OrdaX APK and no public remote-device runtime**.
+
+See `docs/OPERATIONAL-REALTIME.md`.
+
+## OrdaX Edge Runtime — infrastructure role
+
+OrdaX Edge Runtime is **not** a sixth product mode and does not add another Surface. It is a
+headless infrastructure role used when a local physical device needs an always-on bridge.
+
+```text
+OrdaX Web / Mobile / Desktop / USB / Native
+             |
+             v
+        OrdaX Cloud
+             |
+        Action Gateway
+             |
+      OrdaX Edge Runtime
+             |
+      local equipment
+```
+
+A user's notebook must not be the required production host. When equipment can run the connector
+itself, use device-native execution. When it cannot, a dedicated low-power Edge host can keep the
+integration alive while notebooks and normal clients are off.
+
+Cloud-native services such as a future marketplace/order service do not need Edge at all for their
+core availability. Edge is added only for local hardware integrations.
+
+Loss of electrical power to local equipment is outside software availability. UPS/power recovery
+may be supported as hardware capabilities, but the product must not claim that Cloud or Edge keeps
+an unpowered device online.
 
 ## Plans and future monetization
 
