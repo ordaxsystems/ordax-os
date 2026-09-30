@@ -137,6 +137,7 @@ test("explicit human approval issues one exact short-lived grant and resolves Wo
   assert.equal(snapshot.approvals[0].grantRef, decision.grantRef);
 
   const grant = authority.registry.resolve(decision.grantRef);
+  assert.equal(grant.workItemId, work.id);
   assert.equal(grant.ownerId, "user-a");
   assert.equal(grant.spaceId, "space-a");
   assert.equal(grant.projectId, null);
