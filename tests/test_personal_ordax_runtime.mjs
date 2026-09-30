@@ -256,7 +256,7 @@ test("identity change pauses account work and stale inference cannot complete it
   });
   assert.equal(runtime.getSnapshot().workItems.length, 0);
   assert.equal(runtime.getSnapshot().activities.length, 0);
-  assert.throws(() => runtime.pause(work.id), /not owned by the current identity/);
+  assert.throws(() => runtime.pause(work.id), /not registered for the current owner/);
 
   ai.resolve();
   await assert.rejects(pending, /context changed/);
@@ -371,7 +371,7 @@ test("terminal work can be removed with its activity while active work cannot", 
   runtime.dispose();
 });
 
-test("persisted runtime ids and activity time cannot regress", () => {
+test("corrupted owner partition degrades to session without overwriting durable bytes", () => {
   const identity = identitySignedOut();
   const store = memoryStore();
   store.save({ ownerKind: "device", ownerId: null }, {
@@ -395,10 +395,14 @@ test("persisted runtime ids and activity time cannot regress", () => {
     }],
     activities: [],
   });
-  assert.throws(
-    () => createPersonalOrdaxRuntime({ identitySessionPort: identity, store }),
-    /next ordinal must exceed/,
-  );
+  const corruptedOrdinalRuntime = createPersonalOrdaxRuntime({
+    identitySessionPort: identity,
+    store,
+  });
+  assert.equal(corruptedOrdinalRuntime.getSnapshot().persistence, "session");
+  assert.deepEqual(corruptedOrdinalRuntime.getSnapshot().workItems, []);
+  assert.equal(store.read().nextOrdinal, 1);
+  corruptedOrdinalRuntime.dispose();
 
   const invalidTimeStore = memoryStore();
   invalidTimeStore.save({ ownerKind: "device", ownerId: null }, {
@@ -431,10 +435,14 @@ test("persisted runtime ids and activity time cannot regress", () => {
       occurredAt: "2026-09-30T20:00:00Z",
     }],
   });
-  assert.throws(
-    () => createPersonalOrdaxRuntime({ identitySessionPort: identity, store: invalidTimeStore }),
-    /cannot precede work creation/,
-  );
+  const corruptedTimeRuntime = createPersonalOrdaxRuntime({
+    identitySessionPort: identity,
+    store: invalidTimeStore,
+  });
+  assert.equal(corruptedTimeRuntime.getSnapshot().persistence, "session");
+  assert.deepEqual(corruptedTimeRuntime.getSnapshot().workItems, []);
+  assert.equal(invalidTimeStore.read().activities.length, 1);
+  corruptedTimeRuntime.dispose();
 });
 
 test("account switching uses isolated owner partitions and never exposes another owner's work", () => {
