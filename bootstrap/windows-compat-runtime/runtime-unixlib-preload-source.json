@@ -16,6 +16,7 @@
     "provider_process_attach_unix_init_required": true,
     "consumer_process_attach_unix_init_required": true,
     "dependency_attach_precedes_consumer_attach_required": true,
+    "forwarder_activation_prerequisite_required": true,
     "winecrt_memory_query_bridge_required": true,
     "builtin_unix_path_registration_required": true,
     "lazy_unixlib_dlopen_required": true,
@@ -26,7 +27,30 @@
     "pe_loader_path": "dlls/ntdll/loader.c",
     "unix_loader_path": "dlls/ntdll/unix/loader.c",
     "virtual_memory_path": "dlls/ntdll/unix/virtual.c",
-    "winecrt_unix_path": "dlls/winecrt0/unix_lib.c"
+    "winecrt_unix_path": "dlls/winecrt0/unix_lib.c",
+    "forwarder_activation_prerequisites": [
+      {
+        "consumer_module": "winevulkan.dll",
+        "consumer_unixlib": "winevulkan.so",
+        "consumer_makefile": "dlls/winevulkan/Makefile.in",
+        "provider_importlib": "win32u",
+        "provider_module": "win32u.dll",
+        "provider_unixlib": "win32u.so",
+        "provider_makefile": "dlls/win32u/Makefile.in",
+        "forwarder_module": "vulkan-1.dll",
+        "forwarder_makefile": "dlls/vulkan-1/Makefile.in",
+        "forwarder_spec": "dlls/vulkan-1/vulkan-1.spec",
+        "forwarder_target_prefix": "winevulkan.",
+        "forwarder_attach_source": "dlls/vulkan-1/vulkan.c",
+        "forwarder_attach_call": "GetDpiForSystem();",
+        "prerequisite_importlib": "user32",
+        "prerequisite_module": "user32.dll",
+        "prerequisite_makefile": "dlls/user32/Makefile.in",
+        "consumer_lazy_source": "dlls/winevulkan/loader.c",
+        "consumer_lazy_init_fragment": "return !__wine_init_unix_call() && !UNIX_CALL(init, &params);",
+        "consumer_lazy_once_fragment": "return InitOnceExecuteOnce(&init_once, wine_vk_init, NULL, NULL);"
+      }
+    ]
   },
   "promotion": {
     "unixlib_preload_relations_runtime_verified": false,
