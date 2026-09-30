@@ -60,6 +60,7 @@ function tool() {
 function grant(approvalId) {
   return {
     grantId: "grant-1",
+    workItemId: "personal-work-1",
     approvalId,
     toolId: "ordax-native-file-space",
     toolArtifactSha256: "c".repeat(64),
