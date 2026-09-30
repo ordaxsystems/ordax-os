@@ -172,3 +172,27 @@ test("review session creates manual memory for the selected owner", () => {
   assert.deepEqual(review.list().map((item) => item.id), ["manual-session"]);
   review.dispose();
 });
+
+
+test("review session exports only the currently selected owner", () => {
+  const memory = createMemoryRuntime();
+  memory.remember(memoryItem({
+    id: "device-export",
+    ownerKind: "device",
+    ownerId: null,
+    content: "local",
+  }));
+  memory.remember(memoryItem({ id: "account-export", content: "conta" }));
+  const review = createMemoryReviewSession({
+    memoryPort: memory,
+    identitySessionPort: identityPort(signedIn()),
+    now: () => new Date("2026-09-30T03:01:00Z"),
+  });
+
+  assert.deepEqual(review.exportSnapshot().items.map((entry) => entry.id), ["device-export"]);
+  review.selectOwner({ ownerKind: "account", ownerId: "account-1" });
+  const exported = review.exportSnapshot();
+  assert.deepEqual(exported.items.map((entry) => entry.id), ["account-export"]);
+  assert.deepEqual(exported.owner, { ownerKind: "account", ownerId: "account-1" });
+  review.dispose();
+});
