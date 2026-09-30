@@ -7,6 +7,7 @@ on:
       - 'docs/contracts/diagnostics.json'
       - 'docs/contracts/branding.json'
       - 'docs/contracts/device-update-coverage.json'
+      - 'docs/contracts/device-agent.json'
       - 'system/contracts/diagnostic-journal-store.mjs'
       - 'system/contracts/diagnostic-export.mjs'
       - 'system/contracts/diagnostic-copy.mjs'
@@ -47,6 +48,7 @@ on:
       - 'system/contracts/browser-history.mjs'
       - 'system/contracts/browser-history-store.mjs'
       - 'system/contracts/notifications.mjs'
+      - 'system/contracts/device-agent.mjs'
       - 'system/contracts/operational-realtime.mjs'
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/notes-store.mjs'
@@ -103,6 +105,7 @@ on:
       - 'tests/test_home_continuation.mjs'
       - 'tests/test_home_continuation_contract.py'
       - 'tests/test_notifications.mjs'
+      - 'tests/test_device_agent_contracts.mjs'
       - 'tests/test_operational_realtime_contracts.mjs'
       - 'tests/test_notification_center_ui_contract.py'
       - 'tests/test_notes_runtime.mjs'
@@ -171,6 +174,7 @@ on:
       - 'docs/contracts/diagnostics.json'
       - 'docs/contracts/branding.json'
       - 'docs/contracts/device-update-coverage.json'
+      - 'docs/contracts/device-agent.json'
       - 'system/contracts/diagnostic-journal-store.mjs'
       - 'system/contracts/diagnostic-export.mjs'
       - 'system/contracts/diagnostic-copy.mjs'
@@ -211,6 +215,7 @@ on:
       - 'system/contracts/browser-history.mjs'
       - 'system/contracts/browser-history-store.mjs'
       - 'system/contracts/notifications.mjs'
+      - 'system/contracts/device-agent.mjs'
       - 'system/contracts/operational-realtime.mjs'
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/notes-store.mjs'
@@ -266,6 +271,7 @@ on:
       - 'tests/test_home_continuation.mjs'
       - 'tests/test_home_continuation_contract.py'
       - 'tests/test_notifications.mjs'
+      - 'tests/test_device_agent_contracts.mjs'
       - 'tests/test_operational_realtime_contracts.mjs'
       - 'tests/test_notification_center_ui_contract.py'
       - 'tests/test_notes_runtime.mjs'
@@ -391,6 +397,7 @@ jobs:
           node --test tests/test_project_file_space_continuity.mjs
           node --test tests/test_home_continuation.mjs
           node --test tests/test_notifications.mjs
+          node --test tests/test_device_agent_contracts.mjs
           node --test tests/test_operational_realtime_contracts.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_notes_runtime.mjs
