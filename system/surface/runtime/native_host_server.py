@@ -3226,7 +3226,7 @@ class NativeHostServer(ThreadingHTTPServer):
         self.native_install_token = (
             secrets.token_urlsafe(32) if self.native_install_available else ""
         )
-        self.profile_activation_available = self.distribution_profile == "owner-development"
+        self.profile_activation_available = self.distribution_profile in {"owner-development", "stable-mvp"}
         self.profile_activation_token = (
             secrets.token_urlsafe(32) if self.profile_activation_available else ""
         )
