@@ -162,6 +162,11 @@ export function validateIntelligenceToolGrant(value) {
     grantId: identifier(value.grantId, "tool grant id"),
     approvalId,
     toolId: identifier(value.toolId, "tool grant tool id"),
+    toolArtifactSha256: (() => {
+      const digest = boundedText(value.toolArtifactSha256, "tool grant artifact sha256", 64);
+      if (!SHA256_RE.test(digest)) throw new TypeError("tool grant artifact sha256 is invalid");
+      return digest;
+    })(),
     action,
     mode,
     approved: value.approved === true,
@@ -178,7 +183,7 @@ export function validateIntelligenceToolGrant(value) {
 export function authorizeIntelligenceToolAction(toolValue, grantValue) {
   const tool = defineIntelligenceTool(toolValue);
   const grant = validateIntelligenceToolGrant(grantValue);
-  if (grant.toolId !== tool.id) return false;
+  if (grant.toolId !== tool.id || grant.toolArtifactSha256 !== tool.artifactSha256) return false;
   const action = tool.actions.find((candidate) => candidate.id === grant.action);
   if (!action || action.mode !== grant.mode) return false;
   if (action.mode === "write" && !grant.approved) return false;
