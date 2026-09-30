@@ -5,6 +5,7 @@ import {
 } from "../../contracts/intelligence-tool-grant-authority.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
+import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
 import { createPersonalOrdaxRuntime } from "../../services/personal-ordax/runtime.mjs";
 
 export function createNativePersonalOrdaxComposition({
@@ -40,9 +41,14 @@ export function createNativePersonalOrdaxComposition({
     actionGatewayPort: actionGateway,
     store: createNativePersonalOrdaxStore(windowRef),
   });
+  const approvalConsent = createPersonalApprovalConsent({
+    runtime,
+    grantIssuer: authority.issuer,
+  });
 
   return Object.freeze({
     ...runtime,
+    approvalConsent,
     dispose() {
       runtime.dispose();
       if (ownsGrantAuthority) authority.dispose();
