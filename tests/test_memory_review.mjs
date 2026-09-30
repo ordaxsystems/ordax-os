@@ -234,6 +234,7 @@ test("memory review exports every item inside the selected authorization boundar
       spaceId: null,
       projectId: null,
       content: `local ${index}`,
+      sensitivity: index === 7 ? "restricted" : "private",
     }));
   }
   memory.remember(item({
@@ -257,5 +258,6 @@ test("memory review exports every item inside the selected authorization boundar
   assert.equal(exported.spaceId, null);
   assert.equal(exported.projectId, null);
   assert.equal(exported.items.length, 40);
+  assert.equal(exported.items.find((entry) => entry.id === "device-export-7")?.sensitivity, "restricted");
   assert.equal(exported.items.some((entry) => entry.id === "account-not-exported"), false);
 });
