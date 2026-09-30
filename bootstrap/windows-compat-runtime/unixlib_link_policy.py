@@ -75,7 +75,7 @@ def load_contract() -> dict:
         "configure_path": "configure",
         "configure_ac_path": "configure.ac",
         "configure_assignment_sha256": sha256_bytes(CONFIGURE_ASSIGNMENT.encode("utf-8")),
-        "configure_assignment_count": 2,
+        "configure_assignment_count": 1,
         "configure_ac_assignment_sha256": sha256_bytes(CONFIGURE_AC_ASSIGNMENT.encode("utf-8")),
         "configure_ac_assignment_count": 1,
     }

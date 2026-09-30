@@ -15,7 +15,7 @@ spec.loader.exec_module(policy)
 class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
     def test_contract_is_fail_closed_and_not_promotable(self):
         contract = policy.load_contract()
-        self.assertEqual(contract["source_authority"]["configure_assignment_count"], 2)
+        self.assertEqual(contract["source_authority"]["configure_assignment_count"], 1)
         self.assertEqual(contract["source_authority"]["configure_ac_assignment_count"], 1)
         self.assertEqual(contract["policy"]["runpath"], "$ORIGIN")
         self.assertEqual(contract["policy"]["preflight_target"], "dlls/winevulkan/winevulkan.so")
@@ -25,20 +25,20 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
         self.assertFalse(contract["policy"]["global_wine_library_path_allowed"])
         self.assertTrue(all(value is False for value in contract["promotion"].values()))
 
-    def test_source_policy_replaces_exactly_two_generated_configure_anchors(self):
+    def test_source_policy_replaces_exactly_one_generated_configure_anchor(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp)
             configure = source / "configure"
             configure_ac = source / "configure.ac"
             configure.write_text(
-                "before\n" + policy.CONFIGURE_ASSIGNMENT + "\nmiddle\n" + policy.CONFIGURE_ASSIGNMENT + "\nafter\n",
+                "before\n" + policy.CONFIGURE_ASSIGNMENT + "\nafter\n",
                 encoding="utf-8",
             )
             configure_ac.write_text("before\n" + policy.CONFIGURE_AC_ASSIGNMENT + "\nafter\n", encoding="utf-8")
             evidence = policy.apply_source_policy(source)
             patched = configure.read_text(encoding="utf-8")
-            self.assertEqual(evidence["replacement_count"], 2)
-            self.assertEqual(patched.count(policy.PATCHED_CONFIGURE_ASSIGNMENT), 2)
+            self.assertEqual(evidence["replacement_count"], 1)
+            self.assertEqual(patched.count(policy.PATCHED_CONFIGURE_ASSIGNMENT), 1)
             self.assertNotIn(policy.CONFIGURE_ASSIGNMENT, patched)
             self.assertEqual(len(evidence["configure_original_sha256"]), 64)
             self.assertEqual(len(evidence["configure_patched_sha256"]), 64)
@@ -48,9 +48,17 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp)
             (source / "configure").write_text(
-                policy.CONFIGURE_ASSIGNMENT + "\n" + policy.CONFIGURE_ASSIGNMENT + "\n" + policy.CONFIGURE_ASSIGNMENT + "\n",
+                policy.CONFIGURE_ASSIGNMENT + "\n" + policy.CONFIGURE_ASSIGNMENT + "\n",
                 encoding="utf-8",
             )
+            (source / "configure.ac").write_text(policy.CONFIGURE_AC_ASSIGNMENT + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(policy.UnixlibLinkPolicyError, "anchor count drifted"):
+                policy.apply_source_policy(source)
+
+    def test_source_policy_rejects_missing_configure_anchor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "configure").write_text("no unixldflags assignment\n", encoding="utf-8")
             (source / "configure.ac").write_text(policy.CONFIGURE_AC_ASSIGNMENT + "\n", encoding="utf-8")
             with self.assertRaisesRegex(policy.UnixlibLinkPolicyError, "anchor count drifted"):
                 policy.apply_source_policy(source)
@@ -59,7 +67,7 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp)
             (source / "configure").write_text(
-                policy.CONFIGURE_ASSIGNMENT + "\n" + policy.CONFIGURE_ASSIGNMENT + "\n",
+                policy.CONFIGURE_ASSIGNMENT + "\n",
                 encoding="utf-8",
             )
             (source / "configure.ac").write_text("AC_SUBST(UNIXLDFLAGS,[drift])\n", encoding="utf-8")
@@ -131,7 +139,7 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
             "configure_ac_sha256": "3" * 64,
             "configure_assignment_sha256": "4" * 64,
             "patched_assignment_sha256": "5" * 64,
-            "replacement_count": 2,
+            "replacement_count": 1,
         }
         generated = {
             "makefile_sha256": "6" * 64,
