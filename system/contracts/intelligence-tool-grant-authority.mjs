@@ -76,10 +76,15 @@ export function validateIntelligenceToolGrantIssue(value) {
   const action = boundedText(value.action, "Intelligence tool grant action", 128);
   const spaceId = optionalText(value.spaceId, "Intelligence tool grant Space", 160);
   const projectId = optionalText(value.projectId, "Intelligence tool grant project", 160);
+  const resourceRef = optionalText(value.resourceRef, "Intelligence tool grant resource ref", 512);
+  if (value.mode === "write" && resourceRef === null) {
+    throw new TypeError("Write grant issue requires an explicit resource reference");
+  }
 
   // Reuse the canonical grant validator so issuance cannot drift from execution authority.
   validateIntelligenceToolGrant({
     grantId: "pending-grant",
+    approvalId,
     toolId,
     action,
     mode: value.mode,
@@ -89,6 +94,7 @@ export function validateIntelligenceToolGrantIssue(value) {
     ownerId,
     spaceId,
     projectId,
+    resourceRef,
     expiresAt,
   });
 
@@ -103,6 +109,7 @@ export function validateIntelligenceToolGrantIssue(value) {
     ownerId,
     spaceId,
     projectId,
+    resourceRef,
     requestedAt,
     expiresAt,
   });
