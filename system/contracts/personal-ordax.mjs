@@ -30,6 +30,7 @@ const ACTIVITY_TYPES = new Set([
   "cancelled",
 ]);
 const EFFECTS = new Set(["read", "write", "external-egress", "device-control"]);
+const SHA256_RE = /^[0-9a-f]{64}$/;
 const DECISIONS = new Set(["allow", "approval-required", "deny"]);
 const APPROVAL_STATUSES = new Set(["pending", "approved", "denied", "cancelled"]);
 const AUTHORITY_SOURCES = new Set([
@@ -201,6 +202,10 @@ export function validatePersonalApproval(value) {
     ? null
     : timestamp(value.resolvedAt, "personal approval resolvedAt");
   const grantRef = optionalText(value.grantRef, "personal approval grant ref", 240);
+  const toolArtifactSha256 = boundedText(value.toolArtifactSha256, "personal approval tool artifact sha256", 64);
+  if (!SHA256_RE.test(toolArtifactSha256)) {
+    throw new TypeError("personal approval tool artifact sha256 is invalid");
+  }
 
   if (value.status === "pending" && (resolvedAt !== null || grantRef !== null)) {
     throw new TypeError("pending approval cannot already be resolved or carry a grant");
@@ -224,6 +229,7 @@ export function validatePersonalApproval(value) {
     workItemId: boundedText(value.workItemId, "personal approval work item id", 160),
     actionId: boundedText(value.actionId, "personal approval action id", 128),
     toolId: boundedText(value.toolId, "personal approval tool id", 96),
+    toolArtifactSha256,
     effect: value.effect,
     resourceRef: optionalText(value.resourceRef, "personal approval resource ref", 512),
     status: value.status,
