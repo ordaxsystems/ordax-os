@@ -200,9 +200,7 @@ export function createAccountMemoryCrashRecoveryJournal({
     return runtimeFor(snapshot.subjectId);
   };
 
-  const armDurably = async (value) => {
-    const runtime = currentRuntime();
-    if (!runtime) throw new Error("Signed-in account required before arming Memory crash recovery");
+  const armRuntimeDurably = async (runtime, value) => {
     const journalIdentity = identityRecord(value, runtime.subjectId);
     const before = new Map(runtime.identities);
     runtime.identities.set(journalIdentity.id, journalIdentity);
@@ -222,9 +220,14 @@ export function createAccountMemoryCrashRecoveryJournal({
     }
   };
 
-  const clearDurably = async (id) => {
+  const armDurably = async (value) => {
     const runtime = currentRuntime();
-    if (!runtime || !runtime.identities.has(id)) return false;
+    if (!runtime) throw new Error("Signed-in account required before arming Memory crash recovery");
+    return armRuntimeDurably(runtime, value);
+  };
+
+  const clearRuntimeDurably = async (runtime, id) => {
+    if (!runtime.identities.has(id)) return false;
     const before = new Map(runtime.identities);
     runtime.identities.delete(id);
     try {
@@ -236,6 +239,12 @@ export function createAccountMemoryCrashRecoveryJournal({
       for (const [key, entry] of before) runtime.identities.set(key, entry);
       throw error;
     }
+  };
+
+  const clearDurably = async (id) => {
+    const runtime = currentRuntime();
+    if (!runtime) return false;
+    return clearRuntimeDurably(runtime, id);
   };
 
   const reconcileOne = (runtime, memorySync, journalIdentity) => {
@@ -279,11 +288,13 @@ export function createAccountMemoryCrashRecoveryJournal({
         throw new TypeError("Protected Memory mutation requires mutate, flushLocal and reconcile functions");
       }
       return runSerializedProtectedMutation(value, async () => {
-        const journalIdentity = await armDurably(value);
+        const runtime = currentRuntime();
+        if (!runtime) throw new Error("Signed-in account required before arming Memory crash recovery");
+        const journalIdentity = await armRuntimeDurably(runtime, value);
         const result = mutate();
         await flushLocal();
         await reconcile();
-        await clearDurably(journalIdentity.id);
+        await clearRuntimeDurably(runtime, journalIdentity.id);
         return result;
       });
     },
@@ -304,7 +315,7 @@ export function createAccountMemoryCrashRecoveryJournal({
             if (durable !== true) {
               throw new Error("Memory crash recovery coordination durability was not confirmed");
             }
-            await clearDurably(journalIdentity.id);
+            await clearRuntimeDurably(runtime, journalIdentity.id);
             transferred += 1;
             continue;
           }
