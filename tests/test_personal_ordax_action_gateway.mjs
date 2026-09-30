@@ -89,6 +89,7 @@ test("Action Gateway requires approval when no explicit sensitive grant exists",
   const value = port.decide(request());
   assert.equal(value.decision, "approval-required");
   assert.equal(value.authoritySource, "intelligence-tool-grant");
+  assert.equal(value.approvalId, "approval-1");
   assert.equal(value.grantRef, null);
   assert.equal(canExecutePersonalAction(value), false);
 });
