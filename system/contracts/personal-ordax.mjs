@@ -225,6 +225,7 @@ export function validatePersonalApproval(value) {
     actionId: boundedText(value.actionId, "personal approval action id", 128),
     toolId: boundedText(value.toolId, "personal approval tool id", 96),
     effect: value.effect,
+    resourceRef: optionalText(value.resourceRef, "personal approval resource ref", 512),
     status: value.status,
     reason: boundedText(value.reason, "personal approval reason", 512),
     grantRef,
