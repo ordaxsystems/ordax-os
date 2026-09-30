@@ -306,6 +306,15 @@ export function validatePersonalActionAttempt(value) {
   if (value.status !== "succeeded" && artifactRefs.length > 0) {
     throw new TypeError("only succeeded Personal OrdaX action attempt may retain artifacts");
   }
+  const resourceRef = optionalText(
+    value.resourceRef,
+    "personal action attempt resource ref",
+    512,
+  );
+  const grantRef = optionalText(value.grantRef, "personal action attempt grant ref", 240);
+  if (value.effect !== "read" && (resourceRef === null || grantRef === null)) {
+    throw new TypeError("sensitive Personal OrdaX action attempt requires exact resource and grant references");
+  }
   return Object.freeze({
     schema: PERSONAL_ORDAX_ACTION_ATTEMPT_SCHEMA,
     id: boundedText(value.id, "personal action attempt id", 240),
@@ -315,8 +324,8 @@ export function validatePersonalActionAttempt(value) {
     toolId: boundedText(value.toolId, "personal action attempt tool id", 96),
     toolArtifactSha256,
     effect: value.effect,
-    resourceRef: boundedText(value.resourceRef, "personal action attempt resource ref", 512),
-    grantRef: boundedText(value.grantRef, "personal action attempt grant ref", 240),
+    resourceRef,
+    grantRef,
     status: value.status,
     summary,
     artifactRefs,
