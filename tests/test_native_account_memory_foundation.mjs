@@ -38,8 +38,8 @@ function identitySession(subjectId = "account-a") {
   };
 }
 
-function rootStore(scope = "device") {
-  let payload = null;
+function rootStore(scope = "device", initialPayload = null) {
+  let payload = initialPayload;
   let flushes = 0;
   return {
     schema: SYNC_STATE_STORE_SCHEMA,
@@ -235,4 +235,53 @@ test("Native Account Memory keeps durable coordination partitioned across accoun
   assert.doesNotMatch(root.load(), /conteúdo que nunca deve entrar/);
 
   foundation.destroy();
+});
+
+
+test("corrupt durable coordination blocks Account Memory without taking down the local runtime", async () => {
+  const root = rootStore("device", "{not-a-compatible-container");
+  const registry = createSyncStateNamespaceRegistry(root);
+  const memory = createMemoryRuntime({ store: memoryStore() });
+  const errors = [];
+  const foundation = createNativeAccountMemoryFoundation({
+    identitySession: identitySession(),
+    memoryPort: memory,
+    syncStateRegistry: registry,
+    entitlementsPort: deniedEntitlements(),
+    createIdempotencyKey: (kind, ordinal) => `memory:${kind}:${ordinal}`,
+    onStageError(error, context) {
+      errors.push({ error, context });
+    },
+  });
+
+  assert.equal(foundation.accountMemory, null);
+  assert.notEqual(foundation.protectedMutations, null);
+  assert.deepEqual(foundation.getSnapshot(), {
+    schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
+    state: "recovery-required",
+    reason: "coordination-state-incompatible",
+    syncStateScope: "device",
+    protectedMutationsAvailable: false,
+    accountMutationsBlocked: true,
+    cloudTransportWired: false,
+    productionPromoted: false,
+  });
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].context.kind, "native-account-memory-foundation");
+
+  await assert.rejects(
+    foundation.protectedMutations.remember(memoryItem("blocked-memory")),
+    /coordination requires recovery/,
+  );
+  assert.equal(
+    memory.search({
+      ownerKind: "account",
+      ownerId: "account-a",
+      scopes: ["account"],
+      includeRestricted: true,
+      limit: 20,
+      offset: 0,
+    }).length,
+    0,
+  );
 });
