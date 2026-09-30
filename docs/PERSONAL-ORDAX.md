@@ -195,11 +195,19 @@ cross-context grants fail closed to `deny`. Approved sensitive actions require t
 reference, and resolved approvals are persisted with their terminal action decision and Activity
 event as one validated graph.
 
-The Action Gateway does not execute side effects yet. Native composition has no grant registry or
-issuer wired into Personal OrdaX, so there is deliberately no fake Approve button that could mint
-authority. Activity can display the pending approval and cancel the Work. The next gate is to bind
-a trusted existing grant owner/registry to composition and only then add a typed execution port.
-Background execution remains disabled.
+The Action Gateway does not execute side effects yet. Native composition now owns a bounded
+session-scoped Intelligence tool grant authority and injects only its read-only registry into the
+Personal OrdaX Action Gateway. The issuer is a separate trusted port, requires explicit user
+approval, issues only exact owner/Space/project/tool/action grants with an initial five-minute
+maximum TTL, and is not exposed through the Personal OrdaX runtime or Activity app. This removes
+the previous fake-resolver gap without turning model output or app state into authority.
+
+The typed `ordax.action-executor/1` boundary is also defined, and it rejects non-`allow`,
+mismatched or sensitive grant-less executions before an executor can receive them. There is still
+no executor implementation and no side effect path in Native composition. Activity can display a
+pending approval and cancel the Work, but there is deliberately no Approve button until the trusted
+user-consent controller can call the issuer and the selected tool has a real typed execution
+adapter. Background execution remains disabled.
 
 ### Phase 2 — resumable bounded background work
 
