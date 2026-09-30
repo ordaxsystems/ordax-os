@@ -3,6 +3,7 @@ export const PERSONAL_ORDAX_ACTIVITY_SCHEMA = "ordax.personal-activity/1";
 export const PERSONAL_ORDAX_ACTION_DECISION_SCHEMA = "ordax.personal-action-decision/1";
 export const PERSONAL_ORDAX_APPROVAL_SCHEMA = "ordax.personal-approval/1";
 export const PERSONAL_ORDAX_WORK_RESULT_SCHEMA = "ordax.personal-work-result/1";
+export const PERSONAL_ORDAX_ACTION_ATTEMPT_SCHEMA = "ordax.personal-action-attempt/1";
 export const PERSONAL_ORDAX_MAX_RESULT_CHARS = 65536;
 
 const OWNER_KINDS = new Set(["device", "account"]);
@@ -33,6 +34,7 @@ const EFFECTS = new Set(["read", "write", "external-egress", "device-control"]);
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const DECISIONS = new Set(["allow", "approval-required", "deny"]);
 const APPROVAL_STATUSES = new Set(["pending", "approved", "executed", "revoked", "denied", "cancelled"]);
+const ACTION_ATTEMPT_STATUSES = new Set(["started", "succeeded", "failed", "uncertain"]);
 const AUTHORITY_SOURCES = new Set([
   "system-policy",
   "user-grant",
@@ -253,6 +255,73 @@ export function validatePersonalApproval(value) {
     requestedAt,
     resolvedAt,
     executedAt,
+  });
+}
+
+export function validatePersonalActionAttempt(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Personal OrdaX action attempt must be an object");
+  }
+  if (
+    value.schema !== undefined
+    && value.schema !== PERSONAL_ORDAX_ACTION_ATTEMPT_SCHEMA
+  ) {
+    throw new TypeError("Personal OrdaX action attempt schema is incompatible");
+  }
+  if (!EFFECTS.has(value.effect) || !ACTION_ATTEMPT_STATUSES.has(value.status)) {
+    throw new TypeError("personal action attempt effect/status is invalid");
+  }
+  const toolArtifactSha256 = boundedText(
+    value.toolArtifactSha256,
+    "personal action attempt tool artifact sha256",
+    64,
+  );
+  if (!SHA256_RE.test(toolArtifactSha256)) {
+    throw new TypeError("personal action attempt tool artifact sha256 is invalid");
+  }
+  const startedAt = timestamp(value.startedAt, "personal action attempt startedAt");
+  const finishedAt = value.finishedAt == null
+    ? null
+    : timestamp(value.finishedAt, "personal action attempt finishedAt");
+  if (value.status === "started" && finishedAt !== null) {
+    throw new TypeError("started Personal OrdaX action attempt cannot already be finished");
+  }
+  if (value.status !== "started" && finishedAt === null) {
+    throw new TypeError("terminal Personal OrdaX action attempt requires finishedAt");
+  }
+  if (finishedAt !== null && Date.parse(finishedAt) < Date.parse(startedAt)) {
+    throw new TypeError("Personal OrdaX action attempt cannot finish before it starts");
+  }
+  const summary = value.summary == null || value.summary === ""
+    ? null
+    : boundedText(value.summary, "personal action attempt summary", 1024);
+  const artifactRefs = boundedReferences(
+    value.artifactRefs,
+    "personal action attempt artifact refs",
+    16,
+  );
+  if (value.status === "started" && (summary !== null || artifactRefs.length > 0)) {
+    throw new TypeError("started Personal OrdaX action attempt cannot carry an outcome");
+  }
+  if (value.status !== "succeeded" && artifactRefs.length > 0) {
+    throw new TypeError("only succeeded Personal OrdaX action attempt may retain artifacts");
+  }
+  return Object.freeze({
+    schema: PERSONAL_ORDAX_ACTION_ATTEMPT_SCHEMA,
+    id: boundedText(value.id, "personal action attempt id", 240),
+    workItemId: boundedText(value.workItemId, "personal action attempt work item id", 160),
+    approvalId: boundedText(value.approvalId, "personal action attempt approval id", 200),
+    actionId: boundedText(value.actionId, "personal action attempt action id", 160),
+    toolId: boundedText(value.toolId, "personal action attempt tool id", 96),
+    toolArtifactSha256,
+    effect: value.effect,
+    resourceRef: boundedText(value.resourceRef, "personal action attempt resource ref", 512),
+    grantRef: boundedText(value.grantRef, "personal action attempt grant ref", 240),
+    status: value.status,
+    summary,
+    artifactRefs,
+    startedAt,
+    finishedAt,
   });
 }
 
