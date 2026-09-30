@@ -32,7 +32,7 @@ const ACTIVITY_TYPES = new Set([
 const EFFECTS = new Set(["read", "write", "external-egress", "device-control"]);
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const DECISIONS = new Set(["allow", "approval-required", "deny"]);
-const APPROVAL_STATUSES = new Set(["pending", "approved", "denied", "cancelled"]);
+const APPROVAL_STATUSES = new Set(["pending", "approved", "executed", "denied", "cancelled"]);
 const AUTHORITY_SOURCES = new Set([
   "system-policy",
   "user-grant",
@@ -202,13 +202,16 @@ export function validatePersonalApproval(value) {
     ? null
     : timestamp(value.resolvedAt, "personal approval resolvedAt");
   const grantRef = optionalText(value.grantRef, "personal approval grant ref", 240);
+  const executedAt = value.executedAt == null
+    ? null
+    : timestamp(value.executedAt, "personal approval executedAt");
   const toolArtifactSha256 = boundedText(value.toolArtifactSha256, "personal approval tool artifact sha256", 64);
   if (!SHA256_RE.test(toolArtifactSha256)) {
     throw new TypeError("personal approval tool artifact sha256 is invalid");
   }
 
-  if (value.status === "pending" && (resolvedAt !== null || grantRef !== null)) {
-    throw new TypeError("pending approval cannot already be resolved or carry a grant");
+  if (value.status === "pending" && (resolvedAt !== null || grantRef !== null || executedAt !== null)) {
+    throw new TypeError("pending approval cannot already be resolved, executed or carry a grant");
   }
   if (value.status !== "pending" && resolvedAt === null) {
     throw new TypeError("resolved approval requires resolvedAt");
@@ -216,11 +219,20 @@ export function validatePersonalApproval(value) {
   if (resolvedAt !== null && Date.parse(resolvedAt) < Date.parse(requestedAt)) {
     throw new TypeError("approval resolution cannot precede its request");
   }
-  if (value.status === "approved" && value.effect !== "read" && grantRef === null) {
-    throw new TypeError("approved sensitive action requires an explicit grant reference");
+  if ((value.status === "approved" || value.status === "executed") && value.effect !== "read" && grantRef === null) {
+    throw new TypeError("approved or executed sensitive action requires an explicit grant reference");
   }
-  if ((value.status === "denied" || value.status === "cancelled") && grantRef !== null) {
-    throw new TypeError("denied or cancelled approval cannot carry an execution grant");
+  if (value.status === "approved" && executedAt !== null) {
+    throw new TypeError("approved action cannot already be marked executed");
+  }
+  if (value.status === "executed" && executedAt === null) {
+    throw new TypeError("executed approval requires executedAt");
+  }
+  if (executedAt !== null && resolvedAt !== null && Date.parse(executedAt) < Date.parse(resolvedAt)) {
+    throw new TypeError("approval execution cannot precede approval resolution");
+  }
+  if ((value.status === "denied" || value.status === "cancelled") && (grantRef !== null || executedAt !== null)) {
+    throw new TypeError("denied or cancelled approval cannot carry execution state");
   }
 
   return Object.freeze({
@@ -237,6 +249,7 @@ export function validatePersonalApproval(value) {
     grantRef,
     requestedAt,
     resolvedAt,
+    executedAt,
   });
 }
 
