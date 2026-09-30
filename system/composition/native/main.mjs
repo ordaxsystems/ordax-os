@@ -80,6 +80,7 @@ import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
 import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
 import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
+import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -402,6 +403,16 @@ async function start() {
         identitySessionPort: identitySession,
         spaceSelectionPort: spaceSelection,
       });
+  const personalOrdax = await optionalNativeProbe(
+    "OrdaX Personal runtime unavailable",
+    () => createNativePersonalOrdaxComposition({
+      windowRef: window,
+      identitySession,
+      spaceSelection,
+      projects,
+      intelligence: selectedSpaceIntelligence,
+    }),
+  );
   const profileComponentInventory = await optionalNativeProbe(
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
@@ -830,6 +841,7 @@ async function start() {
       profileProvisioning.dispose();
       profileActivationState?.dispose();
       profileComponentInventory.dispose();
+      personalOrdax?.dispose();
       spaceSelection.dispose();
       spaces.dispose();
       accountSync.destroy();
