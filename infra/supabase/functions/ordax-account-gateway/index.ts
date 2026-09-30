@@ -3,6 +3,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
+const ENTITLEMENTS_SCHEMA = "ordax.entitlements/1";
+const MEMORY_CLOUD_ENTITLEMENT = "memory.cloud.enabled";
+const MAX_MEMORY_ENTITLEMENT_ROWS = 16;
 const MAX_VISIBLE_SPACES = 64;
 const SYNC_BATCH_SCHEMA = "prototype-ordax.sync-batch/1";
 const SYNC_SNAPSHOT_SCHEMA = "prototype-ordax.sync-snapshot/1";
@@ -769,6 +772,81 @@ Deno.serve(async (req: Request) => {
     }
 
     return json(200, { $schema: ACCOUNT_SPACES_SCHEMA, spaces }, session.cookies);
+  }
+
+  if (path === "/account/entitlements/memory-cloud") {
+    if (req.method !== "GET") {
+      return error(405, "method-not-allowed", "Método não permitido.");
+    }
+    let session;
+    try {
+      session = await authenticated(req);
+    } catch {
+      return error(503, "identity-provider-unavailable", "O serviço de identidade OrdaX está indisponível.");
+    }
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para consultar este entitlement.",
+      }, session.cookies);
+    }
+
+    const supabase = client(session.access);
+    const entitlementResult = await supabase
+      .from("ordax_entitlement_grants")
+      .select("entitlement_value,valid_from,valid_until")
+      .eq("user_id", session.user.id)
+      .eq("entitlement_key", MEMORY_CLOUD_ENTITLEMENT)
+      .limit(MAX_MEMORY_ENTITLEMENT_ROWS + 1);
+
+    if (
+      entitlementResult.error ||
+      !Array.isArray(entitlementResult.data) ||
+      entitlementResult.data.length > MAX_MEMORY_ENTITLEMENT_ROWS
+    ) {
+      return error(502, "memory-entitlement-read-failed", "Não foi possível consultar o entitlement de Memory.");
+    }
+
+    const now = Date.now();
+    let allowed = false;
+    for (const raw of entitlementResult.data as Array<Record<string, unknown>>) {
+      const entitlement = raw.entitlement_value;
+      const validFrom = typeof raw.valid_from === "string" ? Date.parse(raw.valid_from) : Number.NaN;
+      const validUntil = raw.valid_until === null
+        ? null
+        : typeof raw.valid_until === "string"
+          ? Date.parse(raw.valid_until)
+          : Number.NaN;
+      if (
+        !entitlement ||
+        typeof entitlement !== "object" ||
+        Array.isArray(entitlement) ||
+        !Number.isFinite(validFrom) ||
+        (validUntil !== null && !Number.isFinite(validUntil)) ||
+        (validUntil !== null && validUntil <= validFrom)
+      ) {
+        return error(502, "memory-entitlement-read-failed", "Não foi possível validar o entitlement de Memory.");
+      }
+      if (
+        (entitlement as Record<string, unknown>).decision === "allowed" &&
+        validFrom <= now &&
+        (validUntil === null || validUntil > now)
+      ) {
+        allowed = true;
+      }
+    }
+
+    return json(200, {
+      schema: ENTITLEMENTS_SCHEMA,
+      subjectType: "account",
+      subjectId: session.user.id,
+      key: MEMORY_CLOUD_ENTITLEMENT,
+      decision: allowed ? "allowed" : "denied",
+      value: null,
+      authority: "server",
+      expiresAt: null,
+    }, session.cookies);
   }
 
   if (path === "/sync/snapshot" && req.method === "GET") {
