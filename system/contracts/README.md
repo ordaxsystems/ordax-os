@@ -30,6 +30,7 @@ The product foundation also defines narrow provider-neutral ports for the next a
 - `entitlements.mjs` — server/local-default entitlement decisions; client-claimed paid state is never authoritative;
 - `spaces.mjs` — Spaces, membership and Profile Pack descriptors;
 - `memory.mjs` — scoped, provenance-bearing OrdaX Memory independent of model provider;
+- `memory-mutations.mjs` — asynchronous durable mutation boundary; device writes flush locally and account writes can be delegated to the crash-safe account composition without changing Memory item authority;
 - `model-router.mjs` — local/external inference route selection with explicit egress for cloud providers;
 - `intelligence-artifact.mjs` — signed/content-addressed identity, provenance, compatibility and resource gates for replaceable engines, models, embeddings, tool runtimes and knowledge packs;
 - `intelligence-tool.mjs` — typed local tool declarations and explicit owner/Space/project grants; prompt/model text cannot create authority and dangerous generic host actions remain forbidden;
