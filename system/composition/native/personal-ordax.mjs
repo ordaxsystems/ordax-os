@@ -4,6 +4,7 @@ import {
   assertIntelligenceToolGrantRegistry,
 } from "../../contracts/intelligence-tool-grant-authority.mjs";
 import { assertActionAdapter } from "../../contracts/action-executor.mjs";
+import { assertPersonalActionCatalog } from "../../contracts/personal-action-catalog.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
 import { createPersonalOrdaxActionExecutor } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
@@ -18,6 +19,7 @@ export function createNativePersonalOrdaxComposition({
   intelligence,
   toolResolver = () => null,
   adapterResolver = () => null,
+  actionCatalog = null,
   grantAuthority = null,
 } = {}) {
   if (!windowRef || typeof windowRef !== "object") {
@@ -29,6 +31,7 @@ export function createNativePersonalOrdaxComposition({
   if (typeof adapterResolver !== "function") {
     throw new TypeError("Native Personal OrdaX composition adapter resolver must be a function");
   }
+  const catalog = actionCatalog === null ? null : assertPersonalActionCatalog(actionCatalog);
 
   const ownsGrantAuthority = grantAuthority === null;
   const authority = grantAuthority ?? createIntelligenceToolGrantAuthority();
@@ -60,6 +63,15 @@ export function createNativePersonalOrdaxComposition({
   return Object.freeze({
     ...runtime,
     approvalConsent,
+    listAvailableActions() {
+      return catalog === null ? Object.freeze([]) : catalog.list();
+    },
+    requestAvailableAction(workItemId, entryId, input) {
+      if (catalog === null) {
+        throw new Error("Personal OrdaX action catalog is unavailable");
+      }
+      return catalog.request(runtime, workItemId, entryId, input);
+    },
     cancel(workItemId) {
       const snapshot = runtime.getSnapshot();
       const approvals = snapshot.approvals.filter((approval) =>
