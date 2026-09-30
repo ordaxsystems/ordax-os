@@ -1,5 +1,5 @@
-export const PROFILE_PACK_RESTORE_SCHEMA = "ordax.profile-pack-restore/1";
-export const PROFILE_PACK_RESTORE_ENTRY_SCHEMA = "ordax.profile-pack-restore-entry/1";
+export const PROFILE_PACK_RESTORE_SCHEMA = "ordax.profile-pack-restore/2";
+export const PROFILE_PACK_RESTORE_ENTRY_SCHEMA = "ordax.profile-pack-restore-entry/2";
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,79}$/;
 const SPACE_KINDS = new Set(["personal", "work", "professional"]);
@@ -89,12 +89,13 @@ export function validateProfilePackRestoreSnapshot(value) {
     const entry = objectValue(value, label);
     exactFields(
       entry,
-      ["schema", "spaceId", "spaceKind", "state", "reason", "profile", "activatedAt"],
+      ["schema", "subjectId", "spaceId", "spaceKind", "state", "reason", "profile", "activatedAt"],
       label,
     );
     if (entry.schema !== PROFILE_PACK_RESTORE_ENTRY_SCHEMA) {
       throw new TypeError(`${label} schema is incompatible`);
     }
+    const subjectId = boundedText(entry.subjectId, `${label}.subjectId`, 200);
     const spaceId = boundedText(entry.spaceId, `${label}.spaceId`, 160);
     if (!SPACE_KINDS.has(entry.spaceKind)) {
       throw new TypeError(`${label}.spaceKind is invalid`);
@@ -120,6 +121,7 @@ export function validateProfilePackRestoreSnapshot(value) {
     }
     return Object.freeze({
       schema: PROFILE_PACK_RESTORE_ENTRY_SCHEMA,
+      subjectId,
       spaceId,
       spaceKind: entry.spaceKind,
       state: entry.state,
@@ -132,9 +134,9 @@ export function validateProfilePackRestoreSnapshot(value) {
           : (() => { throw new TypeError(`${label}.activatedAt is invalid`); })(),
     });
   }));
-  const ids = new Set(entries.map((entry) => entry.spaceId));
+  const ids = new Set(entries.map((entry) => `${entry.subjectId}\u001f${entry.spaceId}`));
   if (ids.size !== entries.length) {
-    throw new TypeError("Profile Pack restore contains duplicate Space ids");
+    throw new TypeError("Profile Pack restore contains duplicate subject/Space identities");
   }
   return Object.freeze({
     schema: PROFILE_PACK_RESTORE_SCHEMA,
