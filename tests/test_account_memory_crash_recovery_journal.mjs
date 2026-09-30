@@ -38,6 +38,24 @@ function durableStore(events = []) {
   };
 }
 
+
+function sessionJournalStore({ withFlush = true } = {}) {
+  let payload = null;
+  const store = {
+    schema: SYNC_STATE_STORE_SCHEMA,
+    scope: "session",
+    load: () => payload,
+    save(value) {
+      payload = value;
+      return true;
+    },
+  };
+  if (withFlush) {
+    store.flush = async () => true;
+  }
+  return store;
+}
+
 function item(overrides = {}) {
   return {
     id: "memory-a",
@@ -233,4 +251,66 @@ test("journal snapshot explicitly records identity-only non-promoted boundary", 
   assert.equal(snapshot.storesPortableContent, false);
   assert.equal(snapshot.durabilityConfirmationAvailable, true);
   assert.equal(snapshot.productionPromoted, false);
+});
+
+
+test("protected mutation never starts from a session-only crash journal", async () => {
+  const memory = createMemoryRuntime();
+  const recovery = journal(memory, sessionJournalStore());
+  let mutated = false;
+
+  await assert.rejects(
+    recovery.runProtectedMutation({
+      identity: { id: "memory-a", ownerKind: "account", ownerId: "account-a" },
+      mutate() {
+        mutated = true;
+        return memory.remember(item());
+      },
+      async flushLocal() {
+        return true;
+      },
+      async reconcile() {
+        return true;
+      },
+    }),
+    /not device-durable/,
+  );
+
+  assert.equal(mutated, false);
+  assert.equal(
+    memory.search({
+      ownerKind: "account",
+      ownerId: "account-a",
+      scopes: ["account"],
+      includeRestricted: true,
+      limit: 8,
+      offset: 0,
+    }).length,
+    0,
+  );
+});
+
+test("protected mutation requires an explicit journal flush boundary", async () => {
+  const memory = createMemoryRuntime();
+  const recovery = journal(memory, sessionJournalStore({ withFlush: false }));
+  let mutated = false;
+
+  await assert.rejects(
+    recovery.runProtectedMutation({
+      identity: { id: "memory-a", ownerKind: "account", ownerId: "account-a" },
+      mutate() {
+        mutated = true;
+        return memory.remember(item());
+      },
+      async flushLocal() {
+        return true;
+      },
+      async reconcile() {
+        return true;
+      },
+    }),
+    /requires explicit durability confirmation/,
+  );
+
+  assert.equal(mutated, false);
 });

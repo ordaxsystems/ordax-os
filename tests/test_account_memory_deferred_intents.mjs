@@ -193,12 +193,54 @@ test("canonical pending ownership clears duplicate deferred ownership without re
     createDeferredStateStore: stores,
   });
   deferred.observeStageResult(blocked(), { kind: "upsert", value: current });
-  const sync = memorySync({ pending: [{ objectId: "memory-a" }] });
+  const sync = memorySync({
+    pending: [{
+      objectId: "memory-a",
+      operation: "upsert",
+      payload: { memory: current },
+    }],
+  });
 
   const replay = deferred.replay(sync.runtime);
 
   assert.equal(replay.transferred, 1);
   assert.equal(sync.calls.length, 0);
+  assert.equal(deferred.pendingIntents().length, 0);
+});
+
+test("stale pending upsert cannot consume a deferred delete for restricted current Memory", () => {
+  const identity = identitySession();
+  const memory = createMemoryRuntime();
+  const portable = memory.remember(item());
+  const stores = storeFactory();
+  const deferred = createAccountMemoryDeferredIntents({
+    identitySession: identity,
+    memoryPort: memory,
+    createDeferredStateStore: stores,
+  });
+  deferred.observeStageResult(blocked(), { kind: "upsert", value: portable });
+  memory.remember(item({
+    sensitivity: "restricted",
+    content: "restricted local state",
+    sourceTimestamp: "2026-09-30T01:02:00Z",
+  }));
+  const sync = memorySync({
+    pending: [{
+      objectId: "memory-a",
+      operation: "upsert",
+      payload: { memory: portable },
+    }],
+  });
+
+  deferred.replay(sync.runtime);
+
+  assert.equal(sync.calls.length, 1);
+  assert.equal(sync.calls[0].kind, "delete");
+  assert.deepEqual(sync.calls[0].value, {
+    id: "memory-a",
+    ownerKind: "account",
+    ownerId: "account-a",
+  });
   assert.equal(deferred.pendingIntents().length, 0);
 });
 

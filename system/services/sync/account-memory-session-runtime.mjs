@@ -42,6 +42,33 @@ function requireIdFactory(value) {
   return value;
 }
 
+function trackedSyncStateStore(store, tracking) {
+  const tracked = {
+    schema: store.schema,
+    get scope() {
+      return store.scope;
+    },
+    load() {
+      return store.load();
+    },
+    save(value) {
+      tracking.lastPayload = value;
+      try {
+        const accepted = store.save(value);
+        tracking.lastSaveAccepted = accepted === true;
+        return accepted;
+      } catch (error) {
+        tracking.lastSaveAccepted = false;
+        throw error;
+      }
+    },
+  };
+  if (typeof store.flush === "function") {
+    tracked.flush = () => store.flush();
+  }
+  return assertSyncStateStorePort(tracked);
+}
+
 function inactiveSnapshot(state) {
   return Object.freeze({
     schema: MEMORY_SYNC_RUNTIME_SCHEMA,
@@ -159,6 +186,8 @@ export function createAccountMemorySessionRuntime({
 
   let activeSubjectId = null;
   let activeRuntime = null;
+  let activeStore = null;
+  let activeCoordinationTracking = null;
   let destroyed = false;
 
   const resolve = () => {
@@ -167,16 +196,22 @@ export function createAccountMemorySessionRuntime({
     if (snapshot.state !== "signed-in") {
       activeSubjectId = null;
       activeRuntime = null;
+      activeStore = null;
+      activeCoordinationTracking = null;
       return null;
     }
     if (activeRuntime && activeSubjectId === snapshot.subjectId) return activeRuntime;
 
     const store = assertSyncStateStorePort(nextStore(snapshot.subjectId));
+    const tracking = { lastSaveAccepted: null, lastPayload: null };
+    const trackedStore = trackedSyncStateStore(store, tracking);
     activeSubjectId = snapshot.subjectId;
+    activeStore = store;
+    activeCoordinationTracking = tracking;
     activeRuntime = createAccountMemorySyncRuntime({
       memoryPort: memory,
       subjectId: snapshot.subjectId,
-      syncStateStore: store,
+      syncStateStore: trackedStore,
       authorizeSync: authorization,
       createIdempotencyKey: nextKey,
     });
@@ -223,6 +258,52 @@ export function createAccountMemorySessionRuntime({
       });
       return runtime.flush(gatedTransport);
     },
+    async flushCoordination() {
+      const runtime = resolve();
+      if (!runtime || !activeStore || !activeCoordinationTracking) {
+        return Object.freeze({
+          confirmed: false,
+          reason: "signed-in-account-required",
+          persistence: "session",
+        });
+      }
+      if (activeCoordinationTracking.lastSaveAccepted === false) {
+        if (activeCoordinationTracking.lastPayload === null) {
+          return Object.freeze({
+            confirmed: false,
+            reason: "last-save-rejected",
+            persistence: activeStore.scope,
+          });
+        }
+        const accepted = activeStore.save(activeCoordinationTracking.lastPayload);
+        activeCoordinationTracking.lastSaveAccepted = accepted === true;
+        if (accepted !== true) {
+          return Object.freeze({
+            confirmed: false,
+            reason: "last-save-rejected",
+            persistence: activeStore.scope,
+          });
+        }
+      }
+      if (typeof activeStore.flush === "function") {
+        const flushed = await activeStore.flush();
+        if (flushed !== true) {
+          return Object.freeze({
+            confirmed: false,
+            reason: "flush-not-confirmed",
+            persistence: activeStore.scope,
+          });
+        }
+      }
+      const persistence = activeStore.scope;
+      const confirmed = persistence === "device";
+      if (confirmed) activeCoordinationTracking.lastSaveAccepted = null;
+      return Object.freeze({
+        confirmed,
+        reason: confirmed ? "durable" : "session-only",
+        persistence,
+      });
+    },
     stageUpsert(value) {
       const runtime = resolve();
       if (!runtime) return Object.freeze({ status: "blocked", reason: "signed-in-account-required", objectId: null });
@@ -243,6 +324,8 @@ export function createAccountMemorySessionRuntime({
       if (destroyed) return;
       destroyed = true;
       activeRuntime = null;
+      activeStore = null;
+      activeCoordinationTracking = null;
       activeSubjectId = null;
       unsubscribe();
     },
