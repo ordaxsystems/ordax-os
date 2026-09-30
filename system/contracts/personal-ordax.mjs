@@ -1,6 +1,8 @@
 export const PERSONAL_ORDAX_WORK_ITEM_SCHEMA = "ordax.personal-work-item/1";
 export const PERSONAL_ORDAX_ACTIVITY_SCHEMA = "ordax.personal-activity/1";
 export const PERSONAL_ORDAX_ACTION_DECISION_SCHEMA = "ordax.personal-action-decision/1";
+export const PERSONAL_ORDAX_WORK_RESULT_SCHEMA = "ordax.personal-work-result/1";
+export const PERSONAL_ORDAX_MAX_RESULT_CHARS = 65536;
 
 const OWNER_KINDS = new Set(["device", "account"]);
 const WORK_STATES = new Set([
@@ -228,3 +230,36 @@ export function canExecutePersonalAction(value) {
   const decision = validatePersonalActionDecision(value);
   return decision.decision === "allow";
 }
+
+export function validatePersonalWorkResult(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Personal OrdaX work result must be an object");
+  }
+  if (value.schema !== undefined && value.schema !== PERSONAL_ORDAX_WORK_RESULT_SCHEMA) {
+    throw new TypeError("Personal OrdaX work result schema is incompatible");
+  }
+  if (value.kind !== "intelligence-response") {
+    throw new TypeError("Personal OrdaX work result kind is invalid");
+  }
+  if (value.authority !== "none") {
+    throw new TypeError("Personal OrdaX work result cannot carry action authority");
+  }
+
+  return Object.freeze({
+    schema: PERSONAL_ORDAX_WORK_RESULT_SCHEMA,
+    id: boundedText(value.id, "personal work result id", 200),
+    workItemId: boundedText(value.workItemId, "personal work result work item id", 160),
+    kind: "intelligence-response",
+    text: boundedText(
+      value.text,
+      "personal work result text",
+      PERSONAL_ORDAX_MAX_RESULT_CHARS,
+    ),
+    engineId: boundedText(value.engineId, "personal work result engine id", 80),
+    modelId: boundedText(value.modelId, "personal work result model id", 160),
+    authority: "none",
+    artifactRefs: boundedReferences(value.artifactRefs, "personal work result artifact refs", 16),
+    createdAt: timestamp(value.createdAt, "personal work result createdAt"),
+  });
+}
+
