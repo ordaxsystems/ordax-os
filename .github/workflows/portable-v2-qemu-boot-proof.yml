@@ -547,11 +547,56 @@ jobs:
           print('PORTABLE_V4_PHYSICAL_BOOT_PROVEN=NO')
           PY
 
-      - name: Keep cold-health promotion as physical Stable/MVP gate
+      - name: Prove healthy candidate cold-health commit in QEMU
         run: |
           set -euo pipefail
-          echo "PORTABLE_V4_QEMU_COLD_HEALTH_COMMIT_PROVEN=NO"
-          echo "COLD_HEALTH_COMMIT_PROOF=REQUIRES_PHYSICAL_STABLE_MVP_NO_SYNTHETIC_CI"
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          previous="$(cat "$work/previous-commit.txt")"
+          rm -rf "$work/qemu-cold-health-proof"
+          mkdir -p "$work/qemu-cold-health-proof"
+
+          sudo -E python3 bootstrap/portable-v2/qemu_cold_health_commit.py \
+            --kernel "$work/kernel/vmlinuz-6.6.52" \
+            --initramfs "$work/initramfs/initramfs.cpio.gz" \
+            --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
+            --capsule "$work/capsule/bootstrap.erofs" \
+            --stable-base "$work/stable-base/stable-base.erofs" \
+            --state-image "$work/persistent-state-one-shot.img" \
+            --portable-root "$work/portable/.ordax" \
+            --trust "$work/release-trust.json" \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --previous-commit "$previous" \
+            --out "$work/qemu-cold-health-proof/proof.json"
+          sudo chown -R "$(id -u):$(id -g)" "$work/qemu-cold-health-proof"
+
+          python - "$work/qemu-cold-health-proof/proof.json" <<'PY'
+          import json, pathlib, sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert proof['$schema'] == 'prototype-ordax.portable-v3-cold-health-qemu-proof-result/1'
+          assert proof['status'] == 'pass'
+          assert proof['cold_health_commit_proven'] is True
+          assert proof['candidate_boot_count'] == 1
+          assert proof['committed_current_boot_count'] == 1
+          assert proof['failure_fallback_proven_by_this_receipt'] is False
+          assert proof['physical_target_device_touched'] is False
+          assert proof['physical_write_authorized'] is False
+          assert proof['physical_usb_boot_proven'] is False
+          assert proof['secure_boot_proven'] is False
+          assert proof['public_physical_promotion_allowed'] is False
+          assert proof['network_required'] is False
+          assert proof['virtual_graphics']['adapter'] == 'virtio-vga'
+          assert proof['virtual_graphics']['host_display_window'] is False
+          assert proof['virtual_graphics']['surface_path'] == 'cage-wayland-webkit-seatd'
+          assert proof['virtual_graphics']['synthetic_health'] is False
+          assert proof['guest_disk']['retained'] is False
+          assert all(proof['checks'].values())
+          marker = 'ORDAX_PORTABLE_COLD_HEALTH_COMMIT=' + proof['source_commit']
+          assert marker in proof['serial_markers']
+          print('PORTABLE_V4_QEMU_COLD_HEALTH_COMMIT=PASS')
+          print('PORTABLE_V4_QEMU_KNOWN_GOOD_ROTATION=PASS')
+          print('PORTABLE_V4_PHYSICAL_COLD_HEALTH_PROVEN=NO')
+          print('PORTABLE_V4_PHYSICAL_BOOT_PROVEN=NO')
+          PY
 
       - name: Build pinned systemd-boot for portable UEFI proof
         run: |
