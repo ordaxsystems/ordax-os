@@ -132,10 +132,11 @@ class NativeProfileContentContextTests(unittest.TestCase):
         os.chmod(inventory_path, 0o600)
 
         activation = {
-            "schema": "ordax.profile-activation-state/1",
+            "schema": "ordax.profile-activation-state/2",
             "revision": 1,
             "persistence": "device",
             "spaces": [{
+                "subjectId": "user-1",
                 "spaceId": "space-dev",
                 "spaceKind": "professional",
                 "current": {
