@@ -7,7 +7,7 @@ import { defineIntelligenceTool } from "../../contracts/intelligence-tool.mjs";
 import { readNativeToolArtifactSha256 } from "./tool-artifact-identity.mjs";
 
 export const NATIVE_FILE_ACTION_TOOL_ID = "ordax-native-file-space";
-export const NATIVE_FILE_CREATE_DIRECTORY_ACTION = "files.directory.create";
+export const NATIVE_FILE_ENSURE_DIRECTORY_ACTION = "files.directory.ensure";
 
 function parseDirectoryResource(resourceRef) {
   const prefix = "file-space:";
@@ -42,7 +42,7 @@ export async function createNativePersonalOrdaxFileActions({
     artifactSha256,
     sandbox: "native-broker",
     actions: [{
-      id: NATIVE_FILE_CREATE_DIRECTORY_ACTION,
+      id: NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
       mode: "write",
       approval: "per-use",
       scopes: ["user-file-space"],
@@ -65,10 +65,22 @@ export async function createNativePersonalOrdaxFileActions({
     schema: ACTION_ADAPTER_SCHEMA,
     toolId: tool.id,
     artifactSha256: tool.artifactSha256,
-    actionId: NATIVE_FILE_CREATE_DIRECTORY_ACTION,
+    actionId: NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
     effect: "write",
     async execute(request) {
       const resource = parseDirectoryResource(request.resourceRef);
+      const before = await fileSpace.list(resource.parentPath);
+      const existing = before.entries.find((entry) => entry.name === resource.name);
+      if (existing?.kind === "directory") {
+        return Object.freeze({
+          status: "succeeded",
+          summary: `Directory already exists in the bounded user file-space: ${resource.path}`,
+          artifactRefs: Object.freeze([request.resourceRef]),
+        });
+      }
+      if (existing) {
+        throw new Error("Native file action target already exists and is not a directory");
+      }
       const listing = await fileSpace.createDirectory(resource.parentPath, resource.name);
       if (
         listing.path !== resource.parentPath
