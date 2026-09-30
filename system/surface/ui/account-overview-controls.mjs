@@ -697,13 +697,19 @@ export function mountAccountOverviewControls(
         if (conflict.allowedDecisions.length > 0) {
           const actions = node(documentObject, "div", "ordax-account-actions");
           for (const decision of conflict.allowedDecisions) {
+            let decisionLabel;
+            if (decision === "preserve-local-intent") {
+              decisionLabel = t("account.memory.conflicts.preserveLocal");
+            } else if (decision === "accept-authoritative-remote") {
+              decisionLabel = t("account.memory.conflicts.acceptRemote");
+            } else {
+              throw new Error("Memory conflict review exposed an unsupported decision");
+            }
             const button = node(
               documentObject,
               "button",
               "ordax-account-action",
-              decision === "preserve-local-intent"
-                ? t("account.memory.conflicts.preserveLocal")
-                : t("account.memory.conflicts.acceptRemote"),
+              decisionLabel,
             );
             button.type = "button";
             button.dataset.accountMemoryConflictId = conflict.objectId;
