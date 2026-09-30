@@ -1,18 +1,18 @@
 {
-  "$schema": "prototype-ordax.profile-activation-state/1",
-  "runtime_schema": "ordax.profile-activation-state/1",
+  "$schema": "prototype-ordax.profile-activation-state/2",
+  "runtime_schema": "ordax.profile-activation-state/2",
   "port_schema": "ordax.profile-activation-state-port/1",
-  "status": "mvp-stable-bundled-safe-activation-source",
+  "status": "mvp-stable-subject-bound-safe-activation-source",
   "ownership": {
     "owner": "profile-runtime",
     "persistence": "device",
     "native_path": "/var/lib/ordax/profile-activation-state.json",
-    "surface_access": "read-only",
+    "surface_access": "read-and-token-bound-command",
     "cloud_space_mutation_applied": false,
     "profile_owns_space_data": false
   },
   "state": {
-    "per_space": true,
+    "per_space": false,
     "max_spaces": 64,
     "slots": [
       "current",
@@ -38,6 +38,7 @@
     "component_order_canonical": true,
     "same_current_previous_allowed": false,
     "space_identity_fields": [
+      "subjectId",
       "spaceId",
       "spaceKind"
     ],
@@ -46,7 +47,10 @@
       "work",
       "professional"
     ],
-    "space_kind_persisted_for_offline_restore": true
+    "space_kind_persisted_for_offline_restore": true,
+    "per_subject_and_space": true,
+    "subject_identity_bound": true,
+    "legacy_v1_without_subject": "disabled-safe-reactivation-required"
   },
   "safety": {
     "activation_requires_exact_installed_component_receipts": true,
@@ -60,7 +64,13 @@
     "boot_critical": false,
     "space_kind_change_without_explicit_reconciliation_allowed": false,
     "http_mutation_scope": "token-bound-explicit-profile-command-only",
-    "rollback_revalidates_stable_policy_inside_lock": true
+    "rollback_revalidates_stable_policy_inside_lock": true,
+    "stable_requires_authenticated_subject": true,
+    "stable_account_session_revalidation": true,
+    "stable_space_catalog_revalidation": true,
+    "stable_requires_active_professional_space": true,
+    "legacy_v1_subjectless_activation_reused": false,
+    "cross_subject_space_id_collision_shares_activation": false
   },
   "data_separation": {
     "documents_allowed": false,
@@ -82,7 +92,9 @@
     "native_restore_capability_application": false,
     "native_restore_drift_result": "disabled-safe",
     "trusted_user_intent_command_boundary": true,
-    "stable_bundled_zero_component_activation": true
+    "stable_bundled_zero_component_activation": true,
+    "account_space_switch_isolation": true,
+    "legacy_subjectless_activation_migration": "disabled-safe"
   },
   "next_gates": [
     "trusted-human-profile-permission-confirmation-surface",
@@ -114,6 +126,7 @@
     "permission_review_digest": "sha256",
     "permission_review_bound_fields": [
       "expectedRevision",
+      "subjectId",
       "spaceId",
       "spaceKind",
       "profile",
@@ -123,6 +136,9 @@
     "permission_review_digest_is_human_intent_proof": false,
     "component_activation_requires_trusted_human_confirmation_surface": true,
     "component_activation_enabled": false,
-    "stable_mvp_policy": "bundled-public-zero-component-no-privilege-diff"
+    "stable_mvp_policy": "bundled-public-zero-component-no-privilege-diff",
+    "subject_id_required_in_stable": true,
+    "stable_account_session_revalidated_server_side": true,
+    "stable_space_membership_revalidated_server_side": true
   }
 }
