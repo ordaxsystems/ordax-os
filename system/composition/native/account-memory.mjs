@@ -35,6 +35,22 @@ function disabledSnapshot(reason, scope) {
   });
 }
 
+function isPersistedCoordinationRecoveryError(value) {
+  let error = value;
+  while (error instanceof Error) {
+    const message = error.message;
+    if (
+      message.includes("requires explicit recovery")
+      || message.startsWith("Sync-state root payload ")
+      || message.startsWith("Sync-state container ")
+    ) {
+      return true;
+    }
+    error = error.cause;
+  }
+  return false;
+}
+
 function blockedMutations() {
   const fail = async () => {
     throw new Error("Native Account Memory coordination requires recovery");
@@ -130,6 +146,7 @@ export function createNativeAccountMemoryFoundation({
       onStageError,
     });
   } catch (error) {
+    if (!isPersistedCoordinationRecoveryError(error)) throw error;
     if (typeof onStageError === "function") {
       onStageError(error, Object.freeze({ kind: "native-account-memory-foundation" }));
     }
@@ -144,12 +161,16 @@ export function createNativeAccountMemoryFoundation({
     getSnapshot() {
       if (destroyed) throw new Error("Native Account Memory foundation is disposed");
       const current = accountMemory.getSnapshot();
+      const recoveryBlocked = current.memory?.memorySync?.recoveryBlocked === true;
       return Object.freeze({
         schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
-        state: "protected-local-first",
-        reason: null,
+        state: recoveryBlocked ? "recovery-required" : "protected-local-first",
+        reason: recoveryBlocked
+          ? (current.memory.memorySync.recoveryBlockReason ?? "coordination-recovery-required")
+          : null,
         syncStateScope: registry.scope,
         protectedMutationsAvailable: true,
+        accountMutationsBlocked: recoveryBlocked,
         entitlement: current.entitlement,
         crashRecovery: current.crashRecovery,
         cloudTransportWired: false,
