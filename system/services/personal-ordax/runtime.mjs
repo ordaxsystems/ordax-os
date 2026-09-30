@@ -660,6 +660,11 @@ export function createPersonalOrdaxRuntime({
         throw new Error(`Personal OrdaX work context is invalid: ${status}`);
       }
       if (state.approvals.some(
+        (approval) => approval.workItemId === id && approval.status === "approved",
+      )) {
+        throw new Error("Personal OrdaX work must execute or cancel its approved action before requesting another");
+      }
+      if (state.approvals.some(
         (approval) => approval.workItemId === id && approval.actionId === actionId,
       )) {
         throw new Error("Personal OrdaX action already has a retained approval");
