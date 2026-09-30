@@ -159,6 +159,7 @@ export function createAccountMemorySessionRuntime({
 
   let activeSubjectId = null;
   let activeRuntime = null;
+  let activeStore = null;
   let destroyed = false;
 
   const resolve = () => {
@@ -167,12 +168,14 @@ export function createAccountMemorySessionRuntime({
     if (snapshot.state !== "signed-in") {
       activeSubjectId = null;
       activeRuntime = null;
+      activeStore = null;
       return null;
     }
     if (activeRuntime && activeSubjectId === snapshot.subjectId) return activeRuntime;
 
     const store = assertSyncStateStorePort(nextStore(snapshot.subjectId));
     activeSubjectId = snapshot.subjectId;
+    activeStore = store;
     activeRuntime = createAccountMemorySyncRuntime({
       memoryPort: memory,
       subjectId: snapshot.subjectId,
@@ -233,6 +236,17 @@ export function createAccountMemorySessionRuntime({
       if (!runtime) return Object.freeze({ status: "blocked", reason: "signed-in-account-required", objectId: null });
       return runtime.stageForget(value);
     },
+    async flushCoordinationState() {
+      const runtime = resolve();
+      if (!runtime) return true;
+      const store = activeStore;
+      if (store === null || typeof store.flush !== "function") return true;
+      const flushed = await store.flush();
+      if (flushed !== true) {
+        throw new Error("Account Memory coordination state durability was not confirmed");
+      }
+      return true;
+    },
     pendingMutations() {
       return resolve()?.pendingMutations() ?? Object.freeze([]);
     },
@@ -244,6 +258,7 @@ export function createAccountMemorySessionRuntime({
       destroyed = true;
       activeRuntime = null;
       activeSubjectId = null;
+      activeStore = null;
       unsubscribe();
     },
   });
