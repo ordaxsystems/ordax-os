@@ -179,6 +179,21 @@ test("receipt substitution cannot consume retained approval", () => {
   runtime.dispose();
 });
 
+test("failed receipt cannot consume an approval", () => {
+  const { runtime, work, approval, nextTime } = setup();
+  runtime.startActionExecution(work.id, approval.id);
+  assert.throws(
+    () => runtime.finishActionExecution(
+      work.id,
+      approval.id,
+      receipt(work.id, approval.id, nextTime(), { status: "failed" }),
+    ),
+    /succeeded Action Receipt/,
+  );
+  assert.equal(runtime.getSnapshot().approvals[0].status, "approved");
+  runtime.dispose();
+});
+
 test("failed foreground action pauses without consuming approval so idempotent retry stays explicit", () => {
   const { runtime, work, approval } = setup();
   runtime.startActionExecution(work.id, approval.id);
