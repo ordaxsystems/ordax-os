@@ -13,7 +13,7 @@ function imageReference(overrides = {}) {
     id: "ref-image",
     kind: "file",
     title: "capa.png",
-    detail: "Imagem local",
+    detail: "",
     path: "/Imagens/capa.png",
     ...overrides,
   };
@@ -40,12 +40,14 @@ function fakeWindow() {
   };
 }
 
-test("image reference classification stays narrow and excludes SVG", () => {
+test("image reference classification uses file semantics instead of display metadata and excludes SVG", () => {
   assert.equal(isNotesImageFileName("foto.PNG"), true);
   assert.equal(isNotesImageFileName("foto.webp"), true);
   assert.equal(isNotesImageFileName("vetor.svg"), false);
   assert.equal(isNotesImageReference(imageReference()), true);
-  assert.equal(isNotesImageReference(imageReference({ detail: "Arquivo local" })), false);
+  assert.equal(isNotesImageReference(imageReference({ detail: "Imagem local" })), true);
+  assert.equal(isNotesImageReference(imageReference({ detail: "Arquivo local" })), true);
+  assert.equal(isNotesImageReference(imageReference({ kind: "web" })), false);
   assert.equal(isNotesImageReference(imageReference({ path: "/Imagens/capa.svg", title: "capa.svg" })), false);
   assert.equal(notesImageReferenceKey("note-1", imageReference()), "note-1:ref-image");
 });
