@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.entitlements/1",
-  "status": "pre-mvp-foundation",
+  "status": "pre-mvp-plan-structure-defined-pricing-open",
   "owner": "system/services/entitlements",
   "stable_port": "ordax.entitlements/1",
   "principles": {
@@ -11,8 +11,16 @@
     "downgrade_may_silently_delete_user_data": false,
     "professional_profile_names_are_not_paywalled_by_category": true
   },
-  "subject_types": ["account", "space"],
-  "value_types": ["boolean", "integer", "string", "quota"],
+  "subject_types": [
+    "account",
+    "space"
+  ],
+  "value_types": [
+    "boolean",
+    "integer",
+    "string",
+    "quota"
+  ],
   "prepared_keys": [
     "spaces.active.max",
     "spaces.shared.create",
@@ -31,7 +39,7 @@
   "commercial_policy": {
     "billing_implemented": false,
     "prices_defined": false,
-    "paid_tier_names_frozen": false,
+    "paid_tier_names_frozen": true,
     "mvp_provisional_private_space_limit": 2,
     "profile_pack_templates_available_independent_of_plan": true,
     "future_paid_value": [
@@ -42,6 +50,132 @@
       "external-model-compute",
       "connectors-and-automations",
       "enhanced-support"
-    ]
+    ],
+    "plan_structure_defined": true,
+    "plan_ids_frozen": true,
+    "default_plan_id": "free",
+    "only_free_assignable_before_billing_activation": true,
+    "cost_sensitive_cloud_quotas_frozen": false,
+    "cost_sensitive_cloud_quotas_require_measured_unit_cost": true
+  },
+  "plan_catalog": {
+    "status": "prelaunch-structure-frozen-pricing-open",
+    "default_plan_id": "free",
+    "purchasable_paid_plans_enabled": false,
+    "price_fields": null,
+    "plans": [
+      {
+        "id": "free",
+        "display_name": "OrdaX Free",
+        "audience": "individual",
+        "mvp_assignable": true,
+        "baseline_entitlements": {
+          "spaces.active.max": 2,
+          "spaces.shared.create": false,
+          "spaces.members.max": 1,
+          "memory.cloud.enabled": false,
+          "ai.external.enabled": false,
+          "connectors.max": 0,
+          "automations.max": 0,
+          "support.level": "community"
+        },
+        "product_value": [
+          "ordax-usb-and-local-first-use",
+          "first-party-apps",
+          "official-updates-and-recovery",
+          "local-intelligence",
+          "local-memory",
+          "two-private-spaces"
+        ]
+      },
+      {
+        "id": "personal",
+        "display_name": "OrdaX Personal",
+        "audience": "individual-multi-device",
+        "mvp_assignable": false,
+        "baseline_entitlements": {
+          "spaces.active.max": 10,
+          "spaces.shared.create": true,
+          "spaces.members.max": 2,
+          "memory.cloud.enabled": true,
+          "ai.external.enabled": true,
+          "connectors.max": 3,
+          "automations.max": 10,
+          "support.level": "standard"
+        },
+        "product_value": [
+          "cloud-memory",
+          "sync-and-backup",
+          "cross-device-continuity",
+          "small-shared-spaces",
+          "external-model-routing",
+          "basic-connectors-and-automations"
+        ]
+      },
+      {
+        "id": "professional",
+        "display_name": "OrdaX Professional",
+        "audience": "professional",
+        "mvp_assignable": false,
+        "baseline_entitlements": {
+          "spaces.active.max": 25,
+          "spaces.shared.create": true,
+          "spaces.members.max": 5,
+          "memory.cloud.enabled": true,
+          "ai.external.enabled": true,
+          "connectors.max": 10,
+          "automations.max": 50,
+          "support.level": "priority"
+        },
+        "product_value": [
+          "professional-space-capacity",
+          "extended-memory-history",
+          "professional-profile-workflows",
+          "higher-external-model-compute",
+          "advanced-connectors-and-automations",
+          "priority-support"
+        ]
+      },
+      {
+        "id": "team",
+        "display_name": "OrdaX Team",
+        "audience": "teams-and-small-organizations",
+        "mvp_assignable": false,
+        "baseline_entitlements": {
+          "spaces.active.max": 100,
+          "spaces.shared.create": true,
+          "spaces.members.max": 25,
+          "memory.cloud.enabled": true,
+          "ai.external.enabled": true,
+          "connectors.max": 50,
+          "automations.max": 250,
+          "support.level": "team-priority"
+        },
+        "product_value": [
+          "shared-spaces",
+          "team-membership",
+          "pooled-cloud-capacity",
+          "organization-connectors",
+          "team-automations",
+          "priority-support"
+        ]
+      }
+    ],
+    "cost_sensitive_quota_keys_pending_unit_cost_validation": [
+      "memory.cloud.bytes",
+      "memory.history.days",
+      "ai.external.compute",
+      "sync.bytes",
+      "backup.bytes"
+    ],
+    "invariants": {
+      "identity_available_independent_of_paid_plan": true,
+      "local_os_use_available_independent_of_paid_plan": true,
+      "local_first_party_apps_available_independent_of_paid_plan": true,
+      "local_intelligence_available_independent_of_paid_plan": true,
+      "profile_pack_category_does_not_imply_paid_plan": true,
+      "paid_remote_value_requires_server_authoritative_entitlement": true,
+      "downgrade_never_silently_deletes_user_data": true
+    }
   }
 }
