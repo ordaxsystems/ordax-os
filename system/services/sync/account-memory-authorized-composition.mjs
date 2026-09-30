@@ -16,6 +16,10 @@ export function createAccountMemoryAuthorizedComposition({
   onStageError = null,
 } = {}) {
   const identity = assertIdentitySessionPort(identitySession);
+  if (onStageError != null && typeof onStageError !== "function") {
+    throw new TypeError("Authorized Account Memory composition onStageError must be a function");
+  }
+  const reportStageError = onStageError ?? (() => {});
   const entitlementSession = createAccountMemoryEntitlementSession({
     identitySession: identity,
     entitlementsPort,
@@ -26,6 +30,8 @@ export function createAccountMemoryAuthorizedComposition({
     memoryPort,
     createDeferredStateStore,
   });
+
+  let lastStageError = null;
   const memoryComposition = createAccountMemorySyncComposition({
     identitySession: identity,
     memoryPort,
@@ -34,9 +40,13 @@ export function createAccountMemoryAuthorizedComposition({
       return entitlementSession.authorize(descriptor);
     },
     createIdempotencyKey,
-    onStageError,
+    onStageError(error, context) {
+      lastStageError = error;
+      reportStageError(error, context);
+    },
     onStageResult(result, context) {
       deferredIntents.observeStageResult(result, context);
+      lastStageError = null;
     },
   });
 
@@ -55,7 +65,12 @@ export function createAccountMemoryAuthorizedComposition({
       localFirstWhileAuthorizationUnavailable: true,
       deferredStateStoresPortableContent: false,
       automaticIdentityLifecycleReplay: true,
+      deferredStageHealthy: lastStageError === null,
       deferredReplayHealthy: lastReplayError === null,
+      deferredCoordinationHealthy: lastStageError === null && lastReplayError === null,
+      deferredCoordinationFailurePhase: lastStageError !== null
+        ? "stage"
+        : (lastReplayError !== null ? "replay" : null),
       productionPromoted: false,
     });
   };
