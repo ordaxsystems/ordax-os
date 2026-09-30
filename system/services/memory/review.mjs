@@ -5,6 +5,8 @@ import {
   validateMemoryItem,
   validateMemoryOwner,
 } from "../../contracts/memory.mjs";
+import { assertMemoryMutationPort } from "../../contracts/memory-mutation.mjs";
+import { createMemoryMutationPort } from "./mutation-port.mjs";
 
 export const MEMORY_REVIEW_EXPORT_SCHEMA = "ordax.memory-review-export/1";
 
@@ -68,8 +70,12 @@ export function createMemoryReviewRuntime(memoryPort, {
   projectId = null,
   now = () => new Date(),
   idFactory = defaultIdFactory,
+  mutationPort = null,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
+  const mutations = mutationPort === null
+    ? createMemoryMutationPort({ memoryPort: memory })
+    : assertMemoryMutationPort(mutationPort);
   if (typeof now !== "function" || typeof idFactory !== "function") {
     throw new TypeError("Memory review runtime requires clock and id factory functions");
   }
@@ -117,7 +123,7 @@ export function createMemoryReviewRuntime(memoryPort, {
   };
 
   return Object.freeze({
-    create(contentValue, {
+    async create(contentValue, {
       kind = "fact",
       sensitivity = "private",
       provenance = "user-manual",
@@ -140,7 +146,7 @@ export function createMemoryReviewRuntime(memoryPort, {
         spaceId: null,
         projectId: null,
       });
-      return memory.remember(item);
+      return mutations.remember(item);
     },
     list(options = {}) {
       return page(options);
@@ -172,7 +178,7 @@ export function createMemoryReviewRuntime(memoryPort, {
         items: Object.freeze(items),
       });
     },
-    update(id, patch = {}) {
+    async update(id, patch = {}) {
       if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
         throw new TypeError("Memory review patch must be an object");
       }
@@ -190,12 +196,12 @@ export function createMemoryReviewRuntime(memoryPort, {
         sensitivity: patch.sensitivity ?? current.sensitivity,
         sourceTimestamp: patch.sourceTimestamp ?? isoNow(now),
       });
-      return memory.remember(next);
+      return mutations.remember(next);
     },
-    remove(id) {
+    async remove(id) {
       const current = locate(id);
       if (current === null) return false;
-      return memory.forget({
+      return mutations.forget({
         id: current.id,
         ownerKind: boundary.ownerKind,
         ownerId: boundary.ownerId,
