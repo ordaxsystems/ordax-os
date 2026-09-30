@@ -19,6 +19,26 @@ function identitySession() {
   };
 }
 
+function switchableIdentitySession(initialSubjectId = "account-a") {
+  let snapshot = { state: "signed-in", subjectId: initialSubjectId, displayName: initialSubjectId };
+  const listeners = new Set();
+  return {
+    port: {
+      schema: IDENTITY_SESSION_SCHEMA,
+      getSnapshot: () => snapshot,
+      subscribe(listener) {
+        listeners.add(listener);
+        listener(snapshot);
+        return () => listeners.delete(listener);
+      },
+    },
+    setSubject(subjectId) {
+      snapshot = { state: "signed-in", subjectId, displayName: subjectId };
+      for (const listener of listeners) listener(snapshot);
+    },
+  };
+}
+
 function durableStore() {
   let payload = null;
   return {
@@ -241,4 +261,58 @@ test("recovery waits for protected mutation ownership to settle", async () => {
   assert.equal(result.attempted, 0);
   assert.equal(result.retained, 0);
   assert.equal(sync.staged.length, 0);
+});
+
+test("protected mutation clears only the subject journal that it armed", async () => {
+  const memory = createMemoryRuntime();
+  const session = switchableIdentitySession("account-b");
+  const stores = new Map([
+    ["account-a", durableStore()],
+    ["account-b", durableStore()],
+  ]);
+  const recovery = createAccountMemoryCrashRecoveryJournal({
+    identitySession: session.port,
+    memoryPort: memory,
+    createJournalStateStore: (subjectId) => stores.get(subjectId),
+  });
+  const sharedId = "same-id-across-accounts";
+
+  await recovery.armDurably({ id: sharedId, ownerKind: "account", ownerId: "account-b" });
+  assert.equal(recovery.pendingIdentities().length, 1);
+
+  session.setSubject("account-a");
+  let releaseReconcile;
+  const reconcileGate = new Promise((resolve) => {
+    releaseReconcile = resolve;
+  });
+  const mutation = recovery.runProtectedMutation({
+    identity: { id: sharedId, ownerKind: "account", ownerId: "account-a" },
+    mutate() {
+      return memory.remember(memoryItem({
+        id: sharedId,
+        ownerId: "account-a",
+        content: "account A value",
+      }));
+    },
+    async flushLocal() {
+      return true;
+    },
+    async reconcile() {
+      await reconcileGate;
+      return true;
+    },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  session.setSubject("account-b");
+  assert.equal(recovery.pendingIdentities().length, 1);
+  releaseReconcile();
+  await mutation;
+
+  assert.equal(recovery.pendingIdentities().length, 1);
+  assert.equal(recovery.pendingIdentities()[0].ownerId, "account-b");
+  assert.equal(recovery.pendingIdentities()[0].id, sharedId);
+
+  session.setSubject("account-a");
+  assert.equal(recovery.pendingIdentities().length, 0);
 });
