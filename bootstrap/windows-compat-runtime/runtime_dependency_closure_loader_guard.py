@@ -193,6 +193,20 @@ def _has_origin_path(elf: dict) -> bool:
     return isinstance(value, str) and ("$ORIGIN" in value or "${ORIGIN}" in value)
 
 
+def _origin_search_signature(elf: dict, alias: str) -> tuple[str, ...]:
+    value = elf.get("runpath") if elf.get("runpath") is not None else elf.get("rpath")
+    if value is None:
+        return ()
+    label = "DT_RUNPATH" if elf.get("runpath") is not None else "DT_RPATH"
+    try:
+        return tuple(
+            DIRECT.expand_loader_directory(item, alias, label)
+            for item in DIRECT.split_path_list(value, label)
+        )
+    except DIRECT.RuntimeDependencyError as exc:
+        raise ClosureLoaderGuardError(str(exc)) from exc
+
+
 def materialize_node(key: str, record: dict, stage: Path, rootfs: Path, owners: dict, versions: dict) -> dict:
     scope, canonical_from_key = _parse_node_key(key)
     if not isinstance(record, dict) or record.get("scope") != scope:
@@ -227,8 +241,10 @@ def materialize_node(key: str, record: dict, stage: Path, rootfs: Path, owners: 
             raise ClosureLoaderGuardError(f"closure node alias is invalid {key}:{alias}: {exc}") from exc
         if resolved != canonical:
             raise ClosureLoaderGuardError(f"closure node alias does not resolve to canonical target: {key}:{alias}")
-    if _has_origin_path(elf) and len(paths) != 1:
-        raise ClosureLoaderGuardError(f"ambiguous $ORIGIN alias context for closure node: {key}")
+    if _has_origin_path(elf):
+        origin_signatures = {_origin_search_signature(elf, alias) for alias in paths}
+        if len(origin_signatures) != 1:
+            raise ClosureLoaderGuardError(f"ambiguous $ORIGIN alias context for closure node: {key}")
     node = {"scope": scope, "canonical_path": canonical, "path": paths[0], "elf": elf}
     if scope == "rootfs-external":
         package = record.get("package")

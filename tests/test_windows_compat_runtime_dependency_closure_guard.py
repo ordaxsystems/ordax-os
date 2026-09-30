@@ -152,6 +152,61 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
             with self.assertRaisesRegex(MODULE.ClosureLoaderGuardError, "non-ELF first pathname"):
                 MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
 
+    def test_origin_aliases_with_equivalent_search_signature_are_allowed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            canonical_relative = "usr/lib/wine/x86_64-unix/provider.so"
+            alias_relative = "usr/lib/wine/x86_64-unix/provider-alias.so"
+            canonical = write(stage / canonical_relative, synthetic_elf64(runpath=b"$ORIGIN"))
+            alias = stage / alias_relative
+            alias.symlink_to("provider.so")
+            elf = MODULE.DIRECT.parse_elf_dynamic(canonical)
+            record = {
+                "scope": "stage-internal",
+                "canonical_path": canonical_relative,
+                "paths": sorted([canonical_relative, alias_relative]),
+                "elf": {"class": 64, "machine": 62, "endianness": "little"},
+                "rpath": None,
+                "runpath": "$ORIGIN",
+                "dt_needed": [],
+            }
+            node = MODULE.materialize_node(
+                f"stage-internal:{canonical_relative}", record, stage, rootfs, {}, {}
+            )
+            self.assertIsNotNone(elf)
+            self.assertEqual(
+                MODULE._origin_search_signature(elf, canonical_relative),
+                MODULE._origin_search_signature(elf, alias_relative),
+            )
+            self.assertIn(node["path"], record["paths"])
+
+    def test_origin_aliases_with_different_search_signature_fail_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            canonical_relative = "usr/lib/wine/x86_64-unix/provider.so"
+            alias_relative = "opt/wine/provider.so"
+            write(stage / canonical_relative, synthetic_elf64(runpath=b"$ORIGIN"))
+            alias = stage / alias_relative
+            alias.parent.mkdir(parents=True, exist_ok=True)
+            alias.symlink_to("../../usr/lib/wine/x86_64-unix/provider.so")
+            record = {
+                "scope": "stage-internal",
+                "canonical_path": canonical_relative,
+                "paths": sorted([canonical_relative, alias_relative]),
+                "elf": {"class": 64, "machine": 62, "endianness": "little"},
+                "rpath": None,
+                "runpath": "$ORIGIN",
+                "dt_needed": [],
+            }
+            with self.assertRaisesRegex(MODULE.ClosureLoaderGuardError, "ambiguous \\$ORIGIN alias context"):
+                MODULE.materialize_node(
+                    f"stage-internal:{canonical_relative}", record, stage, rootfs, {}, {}
+                )
+
     def test_loaded_shortname_target_must_be_globally_invariant(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
