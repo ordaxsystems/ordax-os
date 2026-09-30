@@ -178,11 +178,12 @@ test("identity lifecycle wrapper owns neither transport nor cursor and dispose r
 
 
 test("manual conflict decision is resolved inside the active subject runtime and durably staged", async () => {
-  const { session } = createHarness({
+  const { memory, session } = createHarness({
     state: "signed-in",
     subjectId: "account-a",
     displayName: "A",
   });
+  memory.remember(item("account-a", "memory-conflict"));
   session.stageUpsert(item("account-a", "memory-conflict"));
   const transport = {
     schema: SYNC_TRANSPORT_SCHEMA,
@@ -216,11 +217,12 @@ test("manual conflict decision is resolved inside the active subject runtime and
 });
 
 test("accept remote becomes reconciliation-required and cannot be silently decided twice", async () => {
-  const { session } = createHarness({
+  const { memory, session } = createHarness({
     state: "signed-in",
     subjectId: "account-a",
     displayName: "A",
   });
+  memory.remember(item("account-a", "memory-remote"));
   session.stageUpsert(item("account-a", "memory-remote"));
   const transport = {
     schema: SYNC_TRANSPORT_SCHEMA,
