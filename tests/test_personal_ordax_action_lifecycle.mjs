@@ -189,6 +189,32 @@ test("same bounded action type can be requested again through a new approval ide
   runtime.dispose();
 });
 
+test("repeated action type executes only with the Decision bound to its exact approval", () => {
+  const { runtime, work, approval, nextTime } = setup();
+  runtime.startActionExecution(work.id, approval.id);
+  runtime.finishActionExecution(
+    work.id,
+    approval.id,
+    receipt(work.id, approval.id, nextTime()),
+  );
+
+  const second = runtime.requestApproval(work.id, {
+    actionId: "files.directory.ensure",
+    toolId: "ordax-native-file-space",
+    toolArtifactSha256: "c".repeat(64),
+    effect: "write",
+    resourceRef: "file-space:/Documentos/Outro",
+    reason: "Garantir outro diretório.",
+  });
+
+  assert.throws(
+    () => runtime.prepareActionExecution(work.id, second.id),
+    /approved approval/,
+  );
+  assert.equal(runtime.getSnapshot().decisions[0].approvalId, approval.id);
+  runtime.dispose();
+});
+
 test("receipt substitution cannot consume retained approval", () => {
   const { runtime, work, approval, nextTime } = setup();
   runtime.startActionExecution(work.id, approval.id);
