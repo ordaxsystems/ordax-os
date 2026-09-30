@@ -56,7 +56,7 @@ function spaces() {
   });
 }
 
-function tool() {
+function tool(overrides = {}) {
   return {
     id: "files-inspector",
     version: "1.0.0",
@@ -71,6 +71,7 @@ function tool() {
     network: { allowed: false, destinations: [] },
     filesystem: { allowed: true, scopes: ["/Documentos"] },
     limits: { timeoutMs: 1000, maxOutputBytes: 4096 },
+    ...overrides,
   };
 }
 
