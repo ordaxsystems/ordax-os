@@ -138,7 +138,8 @@ function findBrowser() {
   throw new Error('Chrome/Chromium not found; set ORDAX_CHROME_BIN to an executable browser');
 }
 
-const STARTUP_TIMEOUT_MS = 30_000;
+const STARTUP_TIMEOUT_MS = 60_000;
+const CDP_PROBE_TIMEOUT_MS = 3_000;
 const STDERR_LIMIT = 8_000;
 
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
@@ -204,7 +205,7 @@ async function waitForDevTools(
     }
 
     const controller = new AbortController();
-    const requestTimeoutMs = Math.min(1_000, remainingMs);
+    const requestTimeoutMs = Math.min(CDP_PROBE_TIMEOUT_MS, remainingMs);
     const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
       const response = await fetch(endpoint, { signal: controller.signal });

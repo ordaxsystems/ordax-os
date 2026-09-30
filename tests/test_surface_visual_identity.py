@@ -159,6 +159,13 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertNotIn("'system/surface/ui/app-identity.css'", smoke)
         self.assertIn("'system/apps/internet/internet.css'", smoke)
 
+    def test_browser_smoke_keeps_bounded_cdp_startup_headroom(self):
+        smoke = BROWSER_SMOKE.read_text(encoding="utf-8")
+        self.assertIn("const STARTUP_TIMEOUT_MS = 60_000;", smoke)
+        self.assertIn("const CDP_PROBE_TIMEOUT_MS = 3_000;", smoke)
+        self.assertIn("Math.min(CDP_PROBE_TIMEOUT_MS, remainingMs)", smoke)
+        self.assertNotIn("while (true) {\n    const remainingMs = Infinity", smoke)
+
     def test_inter_font_is_local_offline_and_source_bound(self):
         tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
         self.assertIn('@font-face', tokens)
