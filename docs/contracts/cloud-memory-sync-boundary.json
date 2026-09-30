@@ -58,6 +58,7 @@
     "RLS and explicit grants verified with dedicated authenticated proof account",
     "delete/edit tombstone reconciliation tests pass",
     "two-client proof passes with dedicated non-admin account",
+    "bidirectional edit convergence and fresh-session restore proof passes with dedicated non-admin account",
     "quota/entitlement behavior is server-authoritative under real authenticated sessions",
     "public copy remains disabled until rollout gates pass"
   ],
@@ -83,6 +84,25 @@
       "client_b_reads_incremental_sync": true,
       "client_b_attempts_stale_mutation": true,
       "client_b_reads_canonical_deleted_state": true
+    },
+    "bidirectional_restore_proof": {
+      "status": "three-client-source-ready-execution-pending",
+      "provider": "services/public-identity/supabase_memory.py",
+      "proof": "tools/cloud-memory/prove_authenticated_bidirectional_restore.py",
+      "workflow": ".github/workflows/cloud-memory-operator-authenticated-proof.yml",
+      "receipt_validator": "tools/cloud-memory/validate_bidirectional_restore_receipt.py",
+      "requires_operator_temporary_entitlement": true,
+      "shares_operator_grant_with_atomic_proof": true,
+      "creates_entitlement": false,
+      "service_role_allowed": false,
+      "mode": "same-account-three-independent-auth-sessions",
+      "client_a_creates": true,
+      "client_b_valid_edit_seen_by_a": true,
+      "client_c_starts_after_edit": true,
+      "client_c_requires_local_checkpoint": false,
+      "client_c_restores_current_snapshot": true,
+      "identity_only_tombstone_verified": true,
+      "remote_execution_completed": false
     },
     "proof_entitlement_operator": {
       "status": "deployed-operator-only-no-grant",
@@ -116,10 +136,16 @@
       "path": "tools/cloud-memory/run_operator_authenticated_proof.py",
       "workflow": ".github/workflows/cloud-memory-operator-authenticated-proof.yml",
       "receipt_validator": "tools/cloud-memory/validate_authenticated_proof_receipt.py",
+      "bidirectional_receipt_validator": "tools/cloud-memory/validate_bidirectional_restore_receipt.py",
+      "proof_bodies": [
+        "tools/cloud-memory/prove_authenticated_atomic_sync.py",
+        "tools/cloud-memory/prove_authenticated_bidirectional_restore.py"
+      ],
       "workflow_dispatch_only": true,
       "default_branch_only": true,
       "required_git_ref": "refs/heads/main",
       "serial_execution": true,
+      "single_temporary_entitlement_for_all_bodies": true,
       "issue_then_proof_then_revoke": true,
       "revoke_in_finally": true,
       "service_role_allowed": false,
