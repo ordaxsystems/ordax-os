@@ -360,3 +360,30 @@ boot
 ```
 
 Everything else must justify its presence instead of entering the bootstrap by default.
+
+## Personal OrdaX orchestration
+
+The long-term personal system is composed above existing domain owners rather than implemented as a
+parallel agent runtime.
+
+```text
+Identity / Workspace / Spaces / Projects
+              |
+       Memory + Intelligence
+              |
+        Personal OrdaX
+              |
+     work + visible activity
+              |
+ existing grants / Action Gateway
+              |
+       bounded execution
+```
+
+`Personal OrdaX` owns orchestration semantics only. It does not own identity, Memory, inference,
+platform adapters or privilege policy. Future local/Edge/cloud workers and specialist workers must
+preserve the same work/activity/approval contracts and cannot create parallel Memory or permission
+systems. The current public MVP does not enable background agent execution.
+
+See `docs/PERSONAL-ORDAX.md` and `docs/contracts/personal-ordax.json`.
+\n
