@@ -1,4 +1,3 @@
-import copy
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -79,15 +78,26 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(policy.UnixlibLinkPolicyError, "unexpected rpath"):
                 policy.verify_generated_makefile(makefile)
 
-    def test_generated_makefile_rejects_ld_library_path(self):
+    def test_generated_makefile_rejects_ld_library_path_inside_unixldflags(self):
         with tempfile.TemporaryDirectory() as tmp:
             makefile = Path(tmp) / "Makefile"
             makefile.write_text(
-                "UNIXLDFLAGS = -shared " + policy.GENERATED_RUNPATH_TOKEN + "\nLD_LIBRARY_PATH=/tmp/fake\n",
+                "UNIXLDFLAGS = -shared " + policy.GENERATED_RUNPATH_TOKEN + " LD_LIBRARY_PATH=/tmp/fake\n",
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(policy.UnixlibLinkPolicyError, "LD_LIBRARY_PATH"):
                 policy.verify_generated_makefile(makefile)
+
+    def test_generated_makefile_allows_unrelated_upstream_ld_library_path_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            makefile = Path(tmp) / "Makefile"
+            makefile.write_text(
+                "UNIXLDFLAGS = -shared " + policy.GENERATED_RUNPATH_TOKEN + "\n"
+                "TEST_ENV = LD_LIBRARY_PATH=/upstream/test-only\n",
+                encoding="utf-8",
+            )
+            evidence = policy.verify_generated_makefile(makefile)
+            self.assertEqual(evidence["runpath_token"], policy.GENERATED_RUNPATH_TOKEN)
 
     def test_preflight_rejects_non_elf(self):
         with tempfile.TemporaryDirectory() as tmp:

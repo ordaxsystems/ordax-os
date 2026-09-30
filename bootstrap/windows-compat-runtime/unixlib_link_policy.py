@@ -160,8 +160,8 @@ def verify_generated_makefile(makefile: Path) -> dict:
     rpath_tokens = [item for item in value.split() if "-rpath" in item]
     if rpath_tokens != [GENERATED_RUNPATH_TOKEN]:
         raise UnixlibLinkPolicyError("generated Wine Makefile contains an unexpected rpath policy")
-    if "LD_LIBRARY_PATH" in text:
-        raise UnixlibLinkPolicyError("generated Wine Makefile unexpectedly references LD_LIBRARY_PATH")
+    if "LD_LIBRARY_PATH" in value:
+        raise UnixlibLinkPolicyError("generated Wine UNIXLDFLAGS unexpectedly references LD_LIBRARY_PATH")
     return {
         "makefile_sha256": sha256_bytes(raw),
         "unixldflags": value,
