@@ -259,18 +259,22 @@ export function createPersonalOrdaxRuntime({
       (approval) => approval.status === "approved" && predicate(approval),
     );
     for (const approval of candidates) {
-      if (approval.grantRef === null) {
-        throw new TypeError("Approved Personal OrdaX action lost its grant reference");
+      const hasGrant = approval.grantRef !== null;
+      if (hasGrant) {
+        if (revokeGrant === null) {
+          throw new Error("Personal OrdaX cannot invalidate granted authority without a grant revoker");
+        }
+        revokeGrant(approval.grantRef);
+      } else if (approval.effect !== "read") {
+        throw new TypeError("Approved sensitive Personal OrdaX action lost its grant reference");
       }
-      if (revokeGrant === null) {
-        throw new Error("Personal OrdaX cannot invalidate approved authority without a grant revoker");
-      }
-      revokeGrant(approval.grantRef);
-      const revoked = validatePersonalApproval({
-        ...approval,
-        status: "revoked",
-        executedAt: null,
-      });
+      const resolvedApproval = hasGrant
+        ? validatePersonalApproval({
+          ...approval,
+          status: "revoked",
+          executedAt: null,
+        })
+        : approval;
       const activeAttempt = next.attempts.find((attempt) =>
         attempt.approvalId === approval.id && attempt.status === "started"
       );
@@ -302,7 +306,7 @@ export function createPersonalOrdaxRuntime({
             ? validatePersonalWorkItem({ ...candidate, updatedAt: occurredAt })
             : candidate),
         approvals: next.approvals.map((candidate) =>
-          candidate.id === revoked.id ? revoked : candidate),
+          candidate.id === resolvedApproval.id ? resolvedApproval : candidate),
         attempts,
         activities: appendActivityTo(
           activities,
@@ -474,7 +478,7 @@ export function createPersonalOrdaxRuntime({
           next,
           (approval) => approval.workItemId === item.id,
           occurredAt,
-          `Approved action authority revoked because its bound context is no longer valid: ${status}.`,
+          `Approved action authority invalidated because its bound context is no longer valid: ${status}.`,
         );
         changed = true;
       }
@@ -521,7 +525,7 @@ export function createPersonalOrdaxRuntime({
           next,
           (approval) => approval.workItemId === item.id,
           occurredAt,
-          "Approved action authority revoked because the active identity changed.",
+          "Approved action authority invalidated because the active identity changed.",
         );
         changed = true;
       }
@@ -1193,7 +1197,7 @@ export function createPersonalOrdaxRuntime({
         state,
         (candidate) => candidate.id === approvalId && candidate.workItemId === id,
         occurredAt,
-        "Approved action authority was revoked before execution.",
+        "Approved action authority was invalidated before execution.",
       );
       const current = next.workItems.find((candidate) => candidate.id === id);
       const interrupted = next.attempts.some(
@@ -1236,7 +1240,7 @@ export function createPersonalOrdaxRuntime({
           state,
           (approval) => approval.id === activeAttempt.approvalId,
           occurredAt,
-          "Approved action authority revoked because active execution was paused explicitly.",
+          "Approved action authority invalidated because active execution was paused explicitly.",
         );
         const paused = validatePersonalWorkItem({
           ...item,
@@ -1290,7 +1294,7 @@ export function createPersonalOrdaxRuntime({
           state,
           (approval) => approval.workItemId === id,
           occurredAt,
-          "Approved action authority was revoked before Work cancellation.",
+          "Approved action authority was invalidated before Work cancellation.",
         ));
       }
       return updateWork(id, { state: "cancelled", pendingApprovalId: null }, {
