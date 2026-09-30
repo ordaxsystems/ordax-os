@@ -33,7 +33,7 @@ The product foundation also defines narrow provider-neutral ports for the next a
 - `model-router.mjs` — local/external inference route selection with explicit egress for cloud providers;
 - `intelligence-artifact.mjs` — signed/content-addressed identity, provenance, compatibility and resource gates for replaceable engines, models, embeddings, tool runtimes and knowledge packs;
 - `intelligence-tool.mjs` — typed local tool declarations and explicit owner/Space/project grants; prompt/model text cannot create authority and dangerous generic host actions remain forbidden;
-- `personal-ordax.mjs` — identity-bound work, visible activity, durable work-result provenance and action-decision values for Personal OrdaX; persisted model output remains `authority=none` and never creates privilege;
+- `personal-ordax.mjs` — identity-bound work, visible activity, persisted work-result provenance and action-decision values for Personal OrdaX; persisted model output remains `authority=none` and never creates privilege;
 - `personal-ordax-store.mjs` — bounded owner-partitioned work/activity/result persistence and runtime snapshot contract; persistence is separate from Memory and cannot redefine owner/scope/authority;
 - `semantic-index.mjs` — derived/rebuildable vector index identity; embedding changes invalidate the index without migrating or redefining OrdaX Memory.
 - `profile-provisioning.mjs` — lightweight Profile distribution identity and fail-closed provisioning plans; Stable USB bundles catalog metadata, not every professional payload.
