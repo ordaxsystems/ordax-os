@@ -174,11 +174,14 @@ dedicated bounded work-store contract. Successful foreground reasoning now also 
 owner-partitioned Work Result atomically with the `completed` state and its Activity reference.
 A Native device-store adapter also exists with one storage record per owner. It preserves corrupt
 owner bytes and blocks only that owner instead of resetting silently. The adapter is deliberately
-device-local; it is not account sync and it does not reuse Memory as a task database. The runtime
-and store are not yet mounted into Web/Native composition.
+device-local; it is not account sync and it does not reuse Memory as a task database. Native
+composition now mounts the Personal OrdaX runtime with the canonical identity session, Space
+selection, Projects catalog and selected-Space Intelligence ports. The composition does not infer
+Space or Project binding and owns no parallel context service.
 
-Next in this phase is the shared Activity/result view and composition wiring. That UI must consume
-the same runtime rather than create an app-local task or result store.
+Next in this phase is an explicit Work entry point plus the shared Activity/result view. That UI
+must consume this same runtime rather than create an app-local task or result store, and ordinary
+Assistant messages must not become Work automatically.
 
 ### Phase 2 — resumable bounded background work
 
