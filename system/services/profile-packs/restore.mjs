@@ -35,7 +35,8 @@ function exactReceiptSet(left, right) {
 
 function entry(row, state, reason, profile = row.current?.profile ?? null) {
   return {
-    schema: "ordax.profile-pack-restore-entry/1",
+    schema: "ordax.profile-pack-restore-entry/2",
+    subjectId: row.subjectId,
     spaceId: row.spaceId,
     spaceKind: row.spaceKind,
     state,
@@ -101,7 +102,7 @@ export function resolveProfilePackRestore({
   });
 
   return validateProfilePackRestoreSnapshot({
-    schema: "ordax.profile-pack-restore/1",
+    schema: "ordax.profile-pack-restore/2",
     persistence: "device",
     application: "metadata-only",
     bootCritical: false,
