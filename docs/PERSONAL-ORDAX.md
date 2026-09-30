@@ -179,9 +179,15 @@ composition now mounts the Personal OrdaX runtime with the canonical identity se
 selection, Projects catalog and selected-Space Intelligence ports. The composition does not infer
 Space or Project binding and owns no parallel context service.
 
-Next in this phase is an explicit Work entry point plus the shared Activity/result view. That UI
-must consume this same runtime rather than create an app-local task or result store, and ordinary
-Assistant messages must not become Work automatically.
+The Native Surface now has an explicit Activity app entry point. Work is created only after a
+deliberate user action in that app; ordinary Assistant messages do not become Work automatically.
+The Activity/result view projects Work, Activity and Result directly from the same mounted runtime
+and owns no task/result persistence. It can inspect existing owner work even when Intelligence is
+temporarily unavailable; execution still fails closed unless the canonical Intelligence port is
+ready.
+
+Next in this phase is approval/Action Gateway integration under the existing authority contracts.
+Background execution remains disabled.
 
 ### Phase 2 — resumable bounded background work
 
