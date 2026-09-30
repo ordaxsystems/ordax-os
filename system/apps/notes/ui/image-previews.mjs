@@ -8,7 +8,6 @@ export function isNotesImageFileName(name) {
 
 export function isNotesImageReference(reference) {
   return reference?.kind === "file"
-    && reference.detail === "Imagem local"
     && isNotesImageFileName(reference.path ?? reference.title ?? "");
 }
 
