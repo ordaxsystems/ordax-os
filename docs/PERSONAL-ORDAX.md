@@ -153,8 +153,14 @@ becomes a permission source.
 
 ### Phase 1 — foundation and visible work
 
-Build the stable work/activity/approval contracts, then mount a small Activity view over existing
-projects and Intelligence. Keep execution foreground and bounded.
+The source now contains the stable work/activity contracts plus a foreground runtime under
+`system/services/personal-ordax/`. It binds work to the exact device/account owner and optional
+explicit Space/project, pauses work when that context changes, discards stale inference results,
+keeps Intelligence consultative and persists only through the dedicated bounded work-store
+contract. It is not yet mounted into Web/Native composition.
+
+Next in this phase is the shared Activity view and composition wiring. That UI must consume the
+same runtime rather than create an app-local task store.
 
 ### Phase 2 — resumable bounded background work
 
