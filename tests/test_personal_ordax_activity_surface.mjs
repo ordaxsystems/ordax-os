@@ -88,8 +88,14 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.match(source, /dataset\.personalWorkCreate/);
   assert.match(source, /personalOrdax\.create\(goal\)/);
   assert.match(source, /personalOrdax\.run\(id\)/);
+  assert.match(source, /approvalConsent\.approve\(workItemId, approvalId\)/);
+  assert.match(source, /approvalConsent\.deny\(workItemId, approvalId\)/);
+  assert.match(source, /dataset\.personalApprovalAction/);
   assert.match(source, /projectPersonalActivitySnapshot\(personalOrdax\.getSnapshot\(\)\)/);
-  assert.doesNotMatch(source, /localStorage|sessionStorage|createPersonalOrdaxRuntime|conversation\.send/);
+  assert.doesNotMatch(
+    source,
+    /localStorage|sessionStorage|createPersonalOrdaxRuntime|conversation\.send|grantIssuer|\.issue\(/,
+  );
   assert.doesNotMatch(source, /spaceId\s*:|projectId\s*:/);
 });
 
