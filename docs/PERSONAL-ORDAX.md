@@ -203,11 +203,19 @@ maximum TTL, and is not exposed through the Personal OrdaX runtime or Activity a
 the previous fake-resolver gap without turning model output or app state into authority.
 
 The typed `ordax.action-executor/1` boundary is also defined, and it rejects non-`allow`,
-mismatched or sensitive grant-less executions before an executor can receive them. There is still
-no executor implementation and no side effect path in Native composition. Activity can display a
-pending approval and cancel the Work, but there is deliberately no Approve button until the trusted
-user-consent controller can call the issuer and the selected tool has a real typed execution
-adapter. Background execution remains disabled.
+mismatched or sensitive grant-less executions before an executor can receive them. Native
+composition now mounts `ordax.personal-approval-consent/1` as the only UI-facing path to the
+issuer. Activity receives that narrow controller, never the issuer itself. An explicit Approve
+click can issue one short-lived exact `read|write` grant and resolve the retained approval; an
+explicit Deny is routed through the Action Gateway and retained as a terminal deny decision.
+If context changes or approval resolution fails after issuance, the controller revokes the new
+grant instead of leaving orphan authority. Egress and device-control cannot be approved through
+this tool-grant controller.
+
+There is still no executor implementation and no side effect path in Native composition. Approval
+now means only that a bounded grant exists for the exact retained action; it does not execute the
+action. The next gate is a real typed tool/action adapter plus immediate grant/context revalidation
+at the executor boundary and an auditable action receipt. Background execution remains disabled.
 
 ### Phase 2 — resumable bounded background work
 
