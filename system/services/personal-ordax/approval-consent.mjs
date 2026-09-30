@@ -85,6 +85,7 @@ export function createPersonalApprovalConsent({
     if (pair.approval.effect === "write" && pair.approval.resourceRef === null) return false;
     try {
       const tool = defineIntelligenceTool(toolResolver(pair.approval.toolId));
+      if (tool.artifactSha256 !== pair.approval.toolArtifactSha256) return false;
       const action = tool.actions.find((candidate) => candidate.id === pair.approval.actionId);
       return action?.mode === pair.approval.effect;
     } catch {
@@ -112,6 +113,7 @@ export function createPersonalApprovalConsent({
       const grant = grantIssuer.issue({
         approvalId: approval.id,
         toolId: approval.toolId,
+        toolArtifactSha256: approval.toolArtifactSha256,
         action: approval.actionId,
         mode: approval.effect,
         approvedBy: "user",
