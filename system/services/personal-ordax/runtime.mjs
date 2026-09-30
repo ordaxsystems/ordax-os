@@ -343,6 +343,12 @@ export function createPersonalOrdaxRuntime({
       if (status === "valid") continue;
       inFlight.delete(item.id);
       const occurredAt = isoClock(now);
+      next = cancelPendingApprovalIn(
+        next,
+        item,
+        occurredAt,
+        "Pending approval cancelled because its bound context is no longer valid.",
+      );
       const updated = validatePersonalWorkItem({
         ...item,
         state: "paused",
@@ -371,6 +377,12 @@ export function createPersonalOrdaxRuntime({
     for (const item of state.workItems) {
       if (!ACTIVE_STATES.has(item.state)) continue;
       const occurredAt = isoClock(now);
+      next = cancelPendingApprovalIn(
+        next,
+        item,
+        occurredAt,
+        "Pending approval cancelled because the active identity changed.",
+      );
       const updated = validatePersonalWorkItem({
         ...item,
         state: "paused",
@@ -575,6 +587,152 @@ export function createPersonalOrdaxRuntime({
         throw error;
       }
     },
+    requestApproval(id, {
+      actionId,
+      toolId,
+      effect,
+      reason,
+    } = {}) {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      if (state.approvals.length >= MAX_PERSONAL_APPROVALS) {
+        throw new RangeError(
+          `Personal OrdaX supports at most ${MAX_PERSONAL_APPROVALS} retained approvals per owner`,
+        );
+      }
+      const item = findWork(id);
+      if (TERMINAL_STATES.has(item.state) || item.state === "running") {
+        throw new Error("Personal OrdaX approval can only be requested for queued or paused work");
+      }
+      if (item.state === "waiting-approval") {
+        throw new Error("Personal OrdaX work already has a pending approval");
+      }
+      const status = contextStatus(item);
+      if (status !== "valid") {
+        throw new Error(`Personal OrdaX work context is invalid: ${status}`);
+      }
+      if (state.approvals.some(
+        (approval) => approval.workItemId === id && approval.actionId === actionId,
+      )) {
+        throw new Error("Personal OrdaX action already has a retained approval");
+      }
+
+      const requestedAt = isoClock(now);
+      const approvalOrdinal = state.approvals.filter(
+        (approval) => approval.workItemId === id,
+      ).length + 1;
+      const approval = validatePersonalApproval({
+        id: `personal-approval-${id}-${approvalOrdinal}`,
+        workItemId: id,
+        actionId,
+        toolId,
+        effect,
+        status: "pending",
+        reason,
+        grantRef: null,
+        requestedAt,
+        resolvedAt: null,
+      });
+      const waiting = validatePersonalWorkItem({
+        ...item,
+        state: "waiting-approval",
+        pendingApprovalId: approval.id,
+        updatedAt: requestedAt,
+      });
+      replaceState({
+        ...state,
+        workItems: state.workItems.map((candidate) => candidate.id === id ? waiting : candidate),
+        approvals: [...state.approvals, approval],
+        activities: appendActivityTo(
+          state.activities,
+          id,
+          "approval-requested",
+          "Action is waiting for an explicit scoped approval.",
+          requestedAt,
+          { approvalId: approval.id, actionId: approval.actionId },
+        ),
+      });
+      return approval;
+    },
+    resolveApproval(id, approvalId, { grantRef = null } = {}) {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      if (actionGateway === null) {
+        throw new Error("Personal OrdaX Action Gateway is unavailable in this composition");
+      }
+      if (state.decisions.length >= MAX_PERSONAL_ACTION_DECISIONS) {
+        throw new RangeError(
+          `Personal OrdaX supports at most ${MAX_PERSONAL_ACTION_DECISIONS} retained action decisions per owner`,
+        );
+      }
+      const item = findWork(id);
+      if (item.state !== "waiting-approval" || item.pendingApprovalId !== approvalId) {
+        throw new Error("Personal OrdaX approval is not pending for this work");
+      }
+      const approval = state.approvals.find((candidate) => candidate.id === approvalId);
+      if (!approval || approval.status !== "pending" || approval.workItemId !== id) {
+        throw new Error("Personal OrdaX pending approval graph is inconsistent");
+      }
+      const status = contextStatus(item);
+      if (status !== "valid") {
+        throw new Error(`Personal OrdaX work context is invalid: ${status}`);
+      }
+
+      const actionDecision = validatePersonalActionDecision(actionGateway.decide({
+        workItemId: item.id,
+        actionId: approval.actionId,
+        toolId: approval.toolId,
+        effect: approval.effect,
+        ownerKind: item.ownerKind,
+        ownerId: item.ownerId,
+        spaceId: item.spaceId,
+        projectId: item.projectId,
+        reason: approval.reason,
+        requestedAt: approval.requestedAt,
+      }, { grantRef }));
+
+      if (
+        actionDecision.workItemId !== item.id
+        || actionDecision.actionId !== approval.actionId
+        || actionDecision.effect !== approval.effect
+      ) {
+        throw new TypeError("Action Gateway returned a decision for a different action");
+      }
+      if (actionDecision.decision === "approval-required") {
+        return actionDecision;
+      }
+
+      const approved = actionDecision.decision === "allow";
+      const resolvedAt = actionDecision.decidedAt;
+      const resolvedApproval = validatePersonalApproval({
+        ...approval,
+        status: approved ? "approved" : "denied",
+        grantRef: approved ? actionDecision.grantRef : null,
+        resolvedAt,
+      });
+      const nextWork = validatePersonalWorkItem({
+        ...item,
+        state: approved ? "queued" : "paused",
+        pendingApprovalId: null,
+        updatedAt: resolvedAt,
+      });
+      replaceState({
+        ...state,
+        workItems: state.workItems.map((candidate) => candidate.id === id ? nextWork : candidate),
+        approvals: state.approvals.map((candidate) =>
+          candidate.id === approvalId ? resolvedApproval : candidate),
+        decisions: [...state.decisions, actionDecision],
+        activities: appendActivityTo(
+          state.activities,
+          id,
+          "approval-resolved",
+          approved
+            ? "Action approval resolved with an exact scoped grant."
+            : "Action approval denied by the Action Gateway.",
+          resolvedAt,
+          { approvalId, actionId: approval.actionId },
+        ),
+      });
+      return actionDecision;
+    },
     pause(id) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
       const item = findWork(id);
@@ -618,6 +776,8 @@ export function createPersonalOrdaxRuntime({
         workItems: state.workItems.filter((candidate) => candidate.id !== id),
         activities: state.activities.filter((event) => event.workItemId !== id),
         results: state.results.filter((result) => result.workItemId !== id),
+        approvals: state.approvals.filter((approval) => approval.workItemId !== id),
+        decisions: state.decisions.filter((decision) => decision.workItemId !== id),
       });
       return snapshot();
     },
