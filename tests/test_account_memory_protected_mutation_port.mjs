@@ -106,7 +106,12 @@ function item(overrides = {}) {
   };
 }
 
-function setup({ flushResult = true, authorizationAllowed = true, coordinationResult = true } = {}) {
+function setup({
+  flushResult = true,
+  authorizationAllowed = true,
+  coordinationResult = true,
+  coordinationHook = null,
+} = {}) {
   const events = [];
   const memory = memoryPort(events, { flushResult });
   const store = durableStore(events);
@@ -122,6 +127,7 @@ function setup({ flushResult = true, authorizationAllowed = true, coordinationRe
     crashRecoveryJournal: journal,
     async flushCoordination() {
       events.push("coordination-flush");
+      if (coordinationHook) return coordinationHook();
       return coordinationResult;
     },
   });
@@ -187,4 +193,37 @@ test("forget persists local deletion before staging the tombstone", async () => 
   assert.ok(events.indexOf("memory-forget") < events.indexOf("memory-flush"));
   assert.ok(events.indexOf("memory-flush") < events.indexOf("stage-delete"));
   assert.equal(sync.staged[0].operation, "delete");
+});
+
+test("same-identity mutations serialize so one journal owner cannot clear another operation", async () => {
+  let releaseFirst;
+  const firstCoordination = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  let coordinationCalls = 0;
+  const { events, journal, sync, port } = setup({
+    coordinationHook: async () => {
+      coordinationCalls += 1;
+      if (coordinationCalls === 1) await firstCoordination;
+      return true;
+    },
+  });
+
+  const first = port.remember(item({ content: "first state" }));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.filter((entry) => entry === "memory-remember").length, 1);
+
+  const second = port.remember(item({ content: "second state" }));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.filter((entry) => entry === "memory-remember").length, 1);
+  assert.equal(port.getSnapshot().activeIdentityQueues, 1);
+
+  releaseFirst();
+  await Promise.all([first, second]);
+
+  assert.equal(events.filter((entry) => entry === "memory-remember").length, 2);
+  assert.equal(sync.staged.length, 2);
+  assert.equal(sync.staged[1].value.content, "second state");
+  assert.equal(journal.pendingIdentities().length, 0);
+  assert.equal(port.getSnapshot().activeIdentityQueues, 0);
 });
