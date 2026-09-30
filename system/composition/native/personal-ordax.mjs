@@ -44,6 +44,7 @@ export function createNativePersonalOrdaxComposition({
   const approvalConsent = createPersonalApprovalConsent({
     runtime,
     grantIssuer: authority.issuer,
+    toolResolver,
   });
 
   return Object.freeze({
