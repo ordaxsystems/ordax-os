@@ -30,6 +30,7 @@ on:
       - 'system/services/sync/account-restore-plan.mjs'
       - 'system/services/sync/account-runtime.mjs'
       - 'system/services/sync/memory-conflict-resolution.mjs'
+      - 'system/services/sync/memory-conflict-review.mjs'
       - 'system/services/sync/state-store-registry.mjs'
       - 'system/composition/native/account-memory-foundation.mjs'
       - 'system/composition/native/account-sync.mjs'
@@ -52,6 +53,7 @@ on:
       - 'tests/test_account_memory_reinstall_restore.mjs'
       - 'tests/test_account_restore_plan.mjs'
       - 'tests/test_memory_conflict_resolution.mjs'
+      - 'tests/test_memory_conflict_review.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_account_sync_runtime.mjs'
@@ -88,6 +90,7 @@ on:
       - 'system/services/sync/account-restore-plan.mjs'
       - 'system/services/sync/account-runtime.mjs'
       - 'system/services/sync/memory-conflict-resolution.mjs'
+      - 'system/services/sync/memory-conflict-review.mjs'
       - 'system/services/sync/state-store-registry.mjs'
       - 'system/composition/native/account-memory-foundation.mjs'
       - 'system/composition/native/account-sync.mjs'
@@ -110,6 +113,7 @@ on:
       - 'tests/test_account_memory_reinstall_restore.mjs'
       - 'tests/test_account_restore_plan.mjs'
       - 'tests/test_memory_conflict_resolution.mjs'
+      - 'tests/test_memory_conflict_review.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_account_sync_runtime.mjs'
@@ -170,6 +174,7 @@ jobs:
           node --check system/services/sync/account-restore-plan.mjs
           node --check system/services/sync/account-runtime.mjs
           node --check system/services/sync/memory-conflict-resolution.mjs
+          node --check system/services/sync/memory-conflict-review.mjs
           node --check system/services/sync/state-store-registry.mjs
           node --check system/composition/native/account-memory-foundation.mjs
           node --check system/composition/native/account-sync.mjs
@@ -225,6 +230,7 @@ jobs:
           node --test tests/test_account_memory_reinstall_restore.mjs
           node --test tests/test_account_restore_plan.mjs
           node --test tests/test_memory_conflict_resolution.mjs
+          node --test tests/test_memory_conflict_review.mjs
           node --test tests/test_memory_review.mjs
           node --test tests/test_sync_state_namespace_registry.mjs
           node --test tests/test_account_sync_runtime.mjs

@@ -18,6 +18,7 @@ import {
   classifyMemoryForAccountSync,
   createAccountMemorySyncRuntime,
 } from "./account-memory-runtime.mjs";
+import { resolveMemorySyncConflict } from "./memory-conflict-resolution.mjs";
 
 export const ACCOUNT_MEMORY_SESSION_RUNTIME_SCHEMA = "ordax.account-memory-session-runtime/1";
 
@@ -218,6 +219,54 @@ export function createAccountMemorySessionRuntime({
     return activeRuntime;
   };
 
+  const flushCoordination = async () => {
+    const runtime = resolve();
+    if (!runtime || !activeStore || !activeCoordinationTracking) {
+      return Object.freeze({
+        confirmed: false,
+        reason: "signed-in-account-required",
+        persistence: "session",
+      });
+    }
+    if (activeCoordinationTracking.lastSaveAccepted === false) {
+      if (activeCoordinationTracking.lastPayload === null) {
+        return Object.freeze({
+          confirmed: false,
+          reason: "last-save-rejected",
+          persistence: activeStore.scope,
+        });
+      }
+      const accepted = activeStore.save(activeCoordinationTracking.lastPayload);
+      activeCoordinationTracking.lastSaveAccepted = accepted === true;
+      if (accepted !== true) {
+        return Object.freeze({
+          confirmed: false,
+          reason: "last-save-rejected",
+          persistence: activeStore.scope,
+        });
+      }
+    }
+    if (typeof activeStore.flush === "function") {
+      const flushed = await activeStore.flush();
+      if (flushed !== true) {
+        return Object.freeze({
+          confirmed: false,
+          reason: "flush-not-confirmed",
+          persistence: activeStore.scope,
+        });
+      }
+    }
+    const persistence = activeStore.scope;
+    const confirmed = persistence === "device";
+    if (confirmed) activeCoordinationTracking.lastSaveAccepted = null;
+    return Object.freeze({
+      confirmed,
+      reason: confirmed ? "durable" : "session-only",
+      persistence,
+    });
+  };
+
+
   const unsubscribe = identity.subscribe(() => {
     if (!destroyed) resolve();
   });
@@ -258,52 +307,7 @@ export function createAccountMemorySessionRuntime({
       });
       return runtime.flush(gatedTransport);
     },
-    async flushCoordination() {
-      const runtime = resolve();
-      if (!runtime || !activeStore || !activeCoordinationTracking) {
-        return Object.freeze({
-          confirmed: false,
-          reason: "signed-in-account-required",
-          persistence: "session",
-        });
-      }
-      if (activeCoordinationTracking.lastSaveAccepted === false) {
-        if (activeCoordinationTracking.lastPayload === null) {
-          return Object.freeze({
-            confirmed: false,
-            reason: "last-save-rejected",
-            persistence: activeStore.scope,
-          });
-        }
-        const accepted = activeStore.save(activeCoordinationTracking.lastPayload);
-        activeCoordinationTracking.lastSaveAccepted = accepted === true;
-        if (accepted !== true) {
-          return Object.freeze({
-            confirmed: false,
-            reason: "last-save-rejected",
-            persistence: activeStore.scope,
-          });
-        }
-      }
-      if (typeof activeStore.flush === "function") {
-        const flushed = await activeStore.flush();
-        if (flushed !== true) {
-          return Object.freeze({
-            confirmed: false,
-            reason: "flush-not-confirmed",
-            persistence: activeStore.scope,
-          });
-        }
-      }
-      const persistence = activeStore.scope;
-      const confirmed = persistence === "device";
-      if (confirmed) activeCoordinationTracking.lastSaveAccepted = null;
-      return Object.freeze({
-        confirmed,
-        reason: confirmed ? "durable" : "session-only",
-        persistence,
-      });
-    },
+    flushCoordination,
     stageUpsert(value) {
       const runtime = resolve();
       if (!runtime) return Object.freeze({ status: "blocked", reason: "signed-in-account-required", objectId: null });
@@ -319,6 +323,34 @@ export function createAccountMemorySessionRuntime({
     },
     pendingConflicts() {
       return resolve()?.pendingConflicts() ?? Object.freeze([]);
+    },
+    async resolveConflict(objectId, decision) {
+      const runtime = resolve();
+      if (!runtime || activeSubjectId === null) {
+        throw new Error("Signed-in account required before resolving Memory conflict");
+      }
+      const conflict = runtime.pendingConflicts().find((entry) => entry.objectId === objectId) ?? null;
+      if (conflict === null) throw new Error("Memory conflict is no longer pending");
+      if (conflict.reason === "reconciliation-required") {
+        throw new Error("Memory conflict already requires authoritative remote reconciliation");
+      }
+      const pendingMutation = runtime.pendingMutations().find((entry) => entry.objectId === objectId) ?? null;
+      if (pendingMutation === null) {
+        throw new Error("Memory conflict no longer has a local intent to resolve");
+      }
+      const resolution = resolveMemorySyncConflict({
+        conflict,
+        pendingMutation,
+        decision,
+        subjectId: activeSubjectId,
+        createIdempotencyKey,
+      });
+      const result = runtime.applyConflictResolution(resolution);
+      const durability = await flushCoordination();
+      if (durability.confirmed !== true) {
+        throw new Error("Memory conflict resolution durability was not confirmed");
+      }
+      return result;
     },
     destroy() {
       if (destroyed) return;
