@@ -135,3 +135,14 @@ test("activity is ordered, bounded and carries references instead of raw authori
     occurredAt: NOW,
   }), /action id/);
 });
+
+test("personal work rejects timestamps that move backwards", () => {
+  assert.throws(() => validatePersonalWorkItem({
+    id: "work-time",
+    ownerKind: "device",
+    goal: "Keep time monotonic",
+    state: "queued",
+    createdAt: "2026-09-30T20:00:01Z",
+    updatedAt: "2026-09-30T20:00:00Z",
+  }), /cannot precede/);
+});
