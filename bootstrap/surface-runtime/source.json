@@ -364,8 +364,8 @@
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reviewed-candidate-lock-refresh",
-    "detected_by_qemu_run_id": 35984825646,
+    "status": "discovery-requested",
+    "detected_by_qemu_run_id": 36740192210,
     "discovery_run_id": 35987297472,
     "discovery_source_commit": "5d6dcc30a7ec1cd5b32dc4c22313d1c44384d3a5",
     "discovery_artifact_id": 10801779514,
@@ -383,6 +383,8 @@
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "reproducibility_reproof_required": true
+    "reproducibility_reproof_required": true,
+    "requested_at": "2026-09-30",
+    "reason": "refresh full transitive Alpine APK lock after fail-closed drift detection"
   }
 }
