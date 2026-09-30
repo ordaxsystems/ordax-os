@@ -3169,6 +3169,73 @@ class ProfileConsentUnavailableError(RuntimeError):
     pass
 
 
+def validate_stable_profile_account_scope(account_gateway, payload: dict) -> None:
+    if account_gateway is None:
+        raise PermissionError("Stable/MVP Profile activation requires a configured account session")
+    subject_id = payload.get("subjectId")
+    space_id = payload.get("spaceId")
+    if (
+        not isinstance(subject_id, str)
+        or not subject_id
+        or len(subject_id) > 200
+        or "\x00" in subject_id
+        or not isinstance(space_id, str)
+        or not space_id
+        or len(space_id) > 160
+        or "\x00" in space_id
+    ):
+        raise PermissionError("Stable/MVP Profile activation requires exact account and Space identity")
+
+    session_reply = account_gateway.session()
+    if session_reply.status != 200 or not session_reply.body:
+        raise PermissionError("Stable/MVP Profile activation requires an authenticated account")
+    try:
+        session = json.loads(session_reply.body.decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Profile account session payload is invalid") from exc
+    if (
+        not isinstance(session, dict)
+        or session.get("$schema") != "prototype-ordax.public-identity-session/1"
+        or session.get("authenticated") is not True
+        or session.get("status") != "authenticated"
+        or session.get("subject") != subject_id
+    ):
+        raise PermissionError("Stable/MVP Profile activation subject does not match the authenticated account")
+
+    spaces_reply = account_gateway.spaces()
+    if spaces_reply.status != 200 or not spaces_reply.body:
+        raise PermissionError("Stable/MVP Profile activation requires the authenticated Space catalog")
+    try:
+        spaces_payload = json.loads(spaces_reply.body.decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Profile Space catalog payload is invalid") from exc
+    spaces = spaces_payload.get("spaces") if isinstance(spaces_payload, dict) else None
+    if (
+        not isinstance(spaces_payload, dict)
+        or spaces_payload.get("$schema") != "prototype-ordax.account-spaces/1"
+        or not isinstance(spaces, list)
+        or len(spaces) > 64
+    ):
+        raise ValueError("Profile Space catalog payload is incompatible")
+
+    target = next(
+        (
+            row
+            for row in spaces
+            if isinstance(row, dict) and row.get("id") == space_id
+        ),
+        None,
+    )
+    if (
+        target is None
+        or target.get("state", "active") != "active"
+        or target.get("kind") != "professional"
+    ):
+        raise PermissionError("Stable/MVP Profile activation requires an active professional Space in the current account")
+    if "spaceKind" in payload and payload.get("spaceKind") != target.get("kind"):
+        raise PermissionError("Profile activation Space kind does not match the authenticated catalog")
+
+
 class NativeHostServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -4053,6 +4120,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(400)
                 return
             try:
+                if self.server.distribution_profile == "stable-mvp":
+                    validate_stable_profile_account_scope(self.server.account_gateway, payload)
                 with self.server.profile_activation_lock:
                     response = execute_profile_activation_command(
                         payload,
@@ -4083,6 +4152,14 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     flush=True,
                 )
                 self._empty(409)
+                return
+            except NativeAccountGatewayError as exc:
+                print(
+                    f"ordax-native-host: Profile account scope unavailable safely: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
                 return
             except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
                 print(
