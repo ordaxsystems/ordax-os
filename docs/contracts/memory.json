@@ -194,7 +194,11 @@
       "source_evidence_required": true,
       "source_evidence_must_be_verbatim_user_turn": true,
       "source_evidence_checked_against_extractor_input": true,
-      "source_evidence_persisted": false
+      "source_evidence_persisted": false,
+      "model_authored_persisted_content_allowed": false,
+      "persisted_content_source": "verbatim-user-evidence",
+      "candidate_content_must_equal_evidence": true,
+      "model_may_paraphrase_persisted_memory": false
     }
   }
 }
