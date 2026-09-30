@@ -102,3 +102,5 @@ Action Executor revalida essa autoridade imediatamente antes de resolver o adapt
 Ainda não há side effect habilitado na composição Native. O próximo adapter só será registrado
 quando sua identidade de artefato puder ser verificada de forma real; não será usado SHA fictício,
 tool genérica, shell ou atalho pelo host.
+
+A autoridade sensível também fica presa ao SHA-256 exato do artefato da tool. A approval retém essa identidade, o grant a copia, o Action Gateway compara com a tool atualmente resolvida e o Action Executor compara novamente com o adapter imediatamente antes do efeito. Trocar a implementação mantendo apenas o mesmo `toolId/action` invalida a autorização existente.
