@@ -119,6 +119,12 @@ export function validatePersonalWorkItem(value) {
     throw new TypeError("pending approval id is only valid while waiting for approval");
   }
 
+  const createdAt = timestamp(value.createdAt, "personal work createdAt");
+  const updatedAt = timestamp(value.updatedAt, "personal work updatedAt");
+  if (Date.parse(updatedAt) < Date.parse(createdAt)) {
+    throw new TypeError("personal work updatedAt cannot precede createdAt");
+  }
+
   return Object.freeze({
     schema: PERSONAL_ORDAX_WORK_ITEM_SCHEMA,
     id: boundedText(value.id, "personal work id", 160),
@@ -131,8 +137,8 @@ export function validatePersonalWorkItem(value) {
     pendingApprovalId,
     backgroundExecution: false,
     contextRefs: boundedReferences(value.contextRefs, "personal work context refs"),
-    createdAt: timestamp(value.createdAt, "personal work createdAt"),
-    updatedAt: timestamp(value.updatedAt, "personal work updatedAt"),
+    createdAt,
+    updatedAt,
   });
 }
 
