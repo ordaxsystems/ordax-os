@@ -49,6 +49,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertNotIn("email-confirmation-policy", blockers)
         self.assertNotIn("redirect-allowlist", blockers)
         self.assertNotIn("password-policy-review", blockers)
+        self.assertNotIn("account-close-implementation", blockers)
         self.assertTrue(all(value is False for value in controls.values()))
         for expected in (
             "email-confirmation-provider-verification",
@@ -59,7 +60,6 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "recovery-email-template",
             "recovery-e2e-proof",
             "session-revocation-proof",
-            "account-close-implementation",
         ):
             self.assertIn(expected, blockers)
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
