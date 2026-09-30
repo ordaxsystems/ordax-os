@@ -18,6 +18,7 @@ function issue(overrides = {}) {
   return {
     approvalId: "personal-approval-personal-work-1-1",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     action: "files.document.write",
     mode: "write",
     approvedBy: "user",
@@ -52,6 +53,7 @@ test("canonical grant authority separates read-only registry from trusted issuer
   assert.equal(grant.approvalId, "personal-approval-personal-work-1-1");
   assert.equal(grant.ownerId, "user-a");
   assert.equal(grant.resourceRef, "file-space:/Documentos/menu.md");
+  assert.equal(grant.toolArtifactSha256, "a".repeat(64));
   assert.equal(authority.registry.resolve(grant.grantId), grant);
   authority.dispose();
 });
@@ -115,6 +117,7 @@ test("typed Action Executor boundary rejects non-allow and mismatched decisions"
     approvalId: "personal-approval-personal-work-1-1",
     actionId: "files.document.write",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect: "write",
     ownerKind: "account",
     ownerId: "user-a",
