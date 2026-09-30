@@ -1,0 +1,57 @@
+name: Account Sync Checkpoint Durability
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/sync-checkpoint-store.mjs'
+      - 'system/adapters/native/sync-checkpoint.mjs'
+      - 'system/adapters/web/sync-checkpoint.mjs'
+      - 'system/services/sync/session-checkpoint-store.mjs'
+      - 'system/services/sync/account-runtime.mjs'
+      - 'tests/test_account_memory_reinstall_restore.mjs'
+      - 'tests/test_native_sync_checkpoint_durability.mjs'
+      - '.github/workflows/account-sync-checkpoint-durability.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/sync-checkpoint-store.mjs'
+      - 'system/adapters/native/sync-checkpoint.mjs'
+      - 'system/adapters/web/sync-checkpoint.mjs'
+      - 'system/services/sync/session-checkpoint-store.mjs'
+      - 'system/services/sync/account-runtime.mjs'
+      - 'tests/test_account_memory_reinstall_restore.mjs'
+      - 'tests/test_native_sync_checkpoint_durability.mjs'
+      - '.github/workflows/account-sync-checkpoint-durability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checkpoint-durability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate checkpoint durability source syntax
+        run: |
+          set -euo pipefail
+          node --check system/contracts/sync-checkpoint-store.mjs
+          node --check system/adapters/native/sync-checkpoint.mjs
+          node --check system/adapters/web/sync-checkpoint.mjs
+          node --check system/services/sync/session-checkpoint-store.mjs
+          node --check system/services/sync/account-runtime.mjs
+          node --check tests/test_account_memory_reinstall_restore.mjs
+          node --check tests/test_native_sync_checkpoint_durability.mjs
+
+      - name: Prove restore checkpoint is durable before continuity activates
+        run: |
+          set -euo pipefail
+          node --test tests/test_native_sync_checkpoint_durability.mjs
+          node --test tests/test_account_memory_reinstall_restore.mjs
+          node --test tests/test_account_sync_runtime.mjs
+          node --test tests/test_account_memory_sync_orchestration.mjs
