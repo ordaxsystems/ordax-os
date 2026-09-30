@@ -347,6 +347,13 @@ export function mountNotesWorkspaceControls(
     return state.document.notes.find((note) => note.id === id) ?? null;
   };
 
+  const persistenceStatusText = ({ editorPending = false, sessionSaved = true } = {}) => {
+    if (editorPending || state.persistence.pending) return t("notes.editor.saving");
+    if (!state.persistence.ok) return t("notes.persistence.failed");
+    if (state.persistence.scope === "device") return `✓  ${t("notes.saved.device")}`;
+    return sessionSaved ? t("notes.persistence.savedSession") : t("notes.persistence.sessionOnly");
+  };
+
   const captureEditorPayload = () => {
     if (!mountedSlot) return null;
     const title = mountedSlot.querySelector("[data-notes-title]");
@@ -1000,7 +1007,7 @@ export function mountNotesWorkspaceControls(
       empty.hidden = false;
       documentView.hidden = true;
       view.querySelector(".ordax-notes-breadcrumb").textContent = t("notes.breadcrumb", { project: modeLabel() });
-      view.querySelector(".ordax-notes-save-status").textContent = state.persistence.scope === "device" ? t("notes.saved.device") : t("notes.persistence.sessionOnly");
+      view.querySelector(".ordax-notes-save-status").textContent = persistenceStatusText({ sessionSaved: false });
       view.querySelector(".ordax-notes-references").hidden = true;
       const intelligencePanel = view.querySelector("[data-notes-intelligence]");
       if (intelligencePanel) intelligencePanel.hidden = true;
@@ -1075,9 +1082,7 @@ export function mountNotesWorkspaceControls(
     const saved = view.querySelector(".ordax-notes-save-status");
     saved.textContent = readOnly
       ? t("notes.persistence.trashRestoreToEdit")
-      : state.persistence.ok
-        ? (state.persistence.scope === "device" ? `✓  ${t("notes.saved.device")}` : t("notes.persistence.savedSession"))
-        : t("notes.persistence.failed");
+      : persistenceStatusText({ editorPending: editorSave.isPending(note.id) });
     view.querySelector(".ordax-notes-offline-status").textContent = readOnly
       ? t("notes.persistence.readOnly")
       : state.persistence.scope === "device"
