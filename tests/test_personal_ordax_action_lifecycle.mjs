@@ -135,6 +135,65 @@ function receipt(workId, approvalId, executedAt, overrides = {}) {
   };
 }
 
+test("policy-authorized read attempt completes without a fabricated grant", () => {
+  let now = Date.parse("2026-09-30T22:30:00.000Z");
+  let revokeCalls = 0;
+  const gateway = createPersonalOrdaxActionGateway({
+    toolResolver: () => null,
+    grantResolver: () => null,
+    readPolicy: () => true,
+    now: () => now,
+  });
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: identity(),
+    spaceSelectionPort: spaces(),
+    actionGatewayPort: gateway,
+    revokeGrant() {
+      revokeCalls += 1;
+      throw new Error("policy read must not revoke a fabricated grant");
+    },
+    now: () => now++,
+  });
+  const work = runtime.create("Ler metadados autorizados", { spaceId: "space-a" });
+  const approval = runtime.requestApproval(work.id, {
+    actionId: "files.metadata.read",
+    toolId: "ordax-native-file-space",
+    toolArtifactSha256: "c".repeat(64),
+    effect: "read",
+    resourceRef: null,
+    reason: "Leitura autorizada por policy.",
+  });
+  const decision = runtime.resolveApproval(work.id, approval.id);
+  assert.equal(decision.decision, "allow");
+  assert.equal(decision.grantRef, null);
+
+  runtime.startActionExecution(work.id, approval.id);
+  const executedAt = new Date(now + 1000).toISOString();
+  runtime.finishActionExecution(work.id, approval.id, {
+    workItemId: work.id,
+    approvalId: approval.id,
+    toolId: "ordax-native-file-space",
+    toolArtifactSha256: "c".repeat(64),
+    actionId: "files.metadata.read",
+    effect: "read",
+    resourceRef: null,
+    grantRef: null,
+    status: "succeeded",
+    summary: "Leitura concluída.",
+    artifactRefs: [],
+    executedAt,
+  });
+
+  const snapshot = runtime.getSnapshot();
+  assert.equal(revokeCalls, 0);
+  assert.equal(snapshot.approvals[0].status, "executed");
+  assert.equal(snapshot.approvals[0].grantRef, null);
+  assert.equal(snapshot.attempts[0].status, "succeeded");
+  assert.equal(snapshot.attempts[0].grantRef, null);
+  assert.equal(snapshot.attempts[0].resourceRef, null);
+  runtime.dispose();
+});
+
 test("foreground action lifecycle atomically consumes approval after verified receipt", () => {
   const { runtime, work, approval, nextTime } = setup();
   const execution = runtime.startActionExecution(work.id, approval.id);
