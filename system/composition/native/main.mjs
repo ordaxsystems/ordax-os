@@ -60,6 +60,7 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
+import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
 import { createPreferenceBoundMemoryCaptureRuntime } from "../../services/memory/capture.mjs";
 import { createAssistantAutoCaptureRuntime } from "../../services/memory/assistant-auto-capture.mjs";
 import { createIdentityBoundMemoryIntelligence } from "../../services/intelligence/authorized-memory.mjs";
@@ -255,6 +256,9 @@ async function start() {
   const memory = memoryStore === null
     ? null
     : createMemoryRuntime({ store: memoryStore });
+  const memoryMutations = memory === null
+    ? null
+    : createMemoryMutationPort({ memoryPort: memory });
   const updateLocalAiHealth = (snapshot) => {
     componentManager.setCurrentHealth(
       "local-ai-service",
@@ -296,6 +300,7 @@ async function start() {
     ? null
     : createMemoryReviewSession({
         memoryPort: memory,
+        mutationPort: memoryMutations,
         identitySessionPort: identitySession,
       });
   const memoryReview = memoryReviewSession === null
@@ -456,6 +461,7 @@ async function start() {
         captureRuntime: createPreferenceBoundMemoryCaptureRuntime(
           memory,
           surface.preferences,
+          { mutationPort: memoryMutations },
         ),
         preferenceRuntime: surface.preferences,
         identitySessionPort: identitySession,
