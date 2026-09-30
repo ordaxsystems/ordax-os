@@ -65,7 +65,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 "requiresExplicitReview": False,
             })
 
-    def test_stable_and_manifest_blocked_profiles_fail_closed(self):
+    def test_stable_allows_only_published_zero_component_profiles(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -74,7 +74,39 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 "inventory_path": str(root / "inventory.json"),
                 "lock_path": str(root / "state.lock"),
             }
-            with self.assertRaisesRegex(PermissionError, "unavailable in this distribution"):
+            result = module.execute_profile_activation_command(
+                command(slug="pizzaria-br"),
+                distribution_profile="stable-mvp",
+                **args,
+            )
+            self.assertTrue(result["changed"])
+            self.assertEqual(
+                result["state"]["spaces"][0]["current"]["profile"],
+                {"slug": "pizzaria-br", "version": 1},
+            )
+            deactivated = module.execute_profile_activation_command(
+                command(action="deactivate", revision=1),
+                distribution_profile="stable-mvp",
+                **args,
+            )
+            self.assertIsNone(deactivated["state"]["spaces"][0]["current"])
+            with self.assertRaisesRegex(PermissionError, "rollback is unavailable"):
+                module.execute_profile_activation_command(
+                    command(action="rollback", revision=2),
+                    distribution_profile="stable-mvp",
+                    **args,
+                )
+
+    def test_stable_blocks_draft_component_and_manifest_blocked_profiles(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = {
+                "state_path": str(root / "state.json"),
+                "inventory_path": str(root / "inventory.json"),
+                "lock_path": str(root / "state.lock"),
+            }
+            with self.assertRaisesRegex(PermissionError, "not published for Stable/MVP"):
                 module.execute_profile_activation_command(
                     command(),
                     distribution_profile="stable-mvp",
@@ -83,7 +115,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
             with self.assertRaisesRegex(PermissionError, "blocked by canonical manifest"):
                 module.execute_profile_activation_command(
                     command(slug="legal-br"),
-                    distribution_profile="owner-development",
+                    distribution_profile="stable-mvp",
                     **args,
                 )
 
