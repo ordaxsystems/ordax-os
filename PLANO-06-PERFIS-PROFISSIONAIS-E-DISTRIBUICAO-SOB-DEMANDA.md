@@ -167,7 +167,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 
 ### Gate atual real
 
-Os gates de receipt/inventory, executor confiável, health/rollback e UI de catálogo já estão implementados e cobertos por CI/source tests. O próximo gate real é **first-public-profile-proof**.
+Os gates de receipt/inventory, executor confiável, health/rollback e UI de catálogo já estão implementados e cobertos por CI/source tests. O próximo gate real é **first-public-profile-proof**, agora concretizado pelo candidato não regulado `pizzaria-br@1`.
 
 Esse gate continua bloqueado até existir um Profile canônico com componente realmente publicado sob trust anchor canônica, receipt real, instalação/health válidos e revisão de domínio. Chave efêmera de CI, fixture de teste ou payload inventado não satisfaz esse gate.
 
@@ -181,6 +181,28 @@ Esse gate continua bloqueado até existir um Profile canônico com componente re
 - downloads reais de payload sem trust/publicação canônica.
 
 ## 7. Perfis iniciais
+
+### Pizzaria / Pequeno negócio de alimentação
+
+O MVP passa a exigir **um Profile comercial demonstrável e não regulado** antes do
+fechamento. O primeiro candidato é `pizzaria-br@1`.
+
+Recorte v1:
+
+- usa somente apps first-party já existentes: Arquivos, Notas, Internet e Projetos;
+- nenhum componente externo, download, conector ou modelo adicional;
+- funciona offline depois de selecionado;
+- Memory limitada ao Space/projeto;
+- sem shell, privilégios, cross-Space ou provider externo obrigatório;
+- catálogo sugere organização para operação diária, pedidos/encomendas, insumos/estoque,
+  fornecedores, custos/preços e marketing/promoções;
+- não pretende substituir PDV, fiscal, ERP, delivery ou financeiro completo no v1.
+
+O manifesto e o provisioning zero-download podem entrar antes do USB final. Para a
+demonstração ao usuário final, porém, o Profile só conta como pronto quando o
+Stable/MVP permitir ativar/desativar esse Profile explicitamente em um Space profissional,
+mostrar claramente que **Pizzaria** está em uso e passar smoke físico sem ampliar
+permissões. Essa promoção é o `first-public-profile-proof`.
 
 ### Developer
 
