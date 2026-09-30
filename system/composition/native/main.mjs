@@ -331,6 +331,28 @@ async function start() {
         memoryPort: memory,
         protectedAccountMutations: accountMemoryFoundation?.protectedMutations ?? null,
       });
+  const recoverProtectedAccountMemory = async ({ refreshAuthorization = false } = {}) => {
+    if (
+      accountMemoryFoundation?.accountMemory == null
+      || typeof accountMemoryFoundation.protectedMutations?.recover !== "function"
+    ) {
+      return null;
+    }
+    if (refreshAuthorization) {
+      await accountMemoryFoundation.accountMemory.refreshAuthorization();
+    } else {
+      await accountMemoryFoundation.accountMemory.settled();
+    }
+    return accountMemoryFoundation.protectedMutations.recover();
+  };
+  const unsubscribeAccountMemoryRecovery = accountMemoryFoundation?.accountMemory == null
+    ? () => {}
+    : identitySession.subscribe((snapshot) => {
+        if (snapshot.state !== "signed-in") return;
+        void recoverProtectedAccountMemory().catch((error) => {
+          console.warn("OrdaX Account Memory crash recovery remains pending", error);
+        });
+      });
   const memoryReviewSession = memory === null
     ? null
     : createMemoryReviewSession({
@@ -569,7 +591,12 @@ async function start() {
     await identitySession.refresh();
     await accountSync.refresh();
   };
-  const onOnline = () => void resumeAccountConnectivity();
+  const onOnline = () => {
+    void resumeAccountConnectivity();
+    void recoverProtectedAccountMemory({ refreshAuthorization: true }).catch((error) => {
+      console.warn("OrdaX Account Memory online recovery remains pending", error);
+    });
+  };
   window.addEventListener("online", onOnline, { passive: true });
   const accountOverviewControls = mountAccountOverviewControls(
     root,
@@ -781,6 +808,7 @@ async function start() {
       accountOverviewControls.destroy();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
+      unsubscribeAccountMemoryRecovery();
       accountMemoryFoundation?.destroy();
       profileProvisioning.dispose();
       profileActivationState?.dispose();
