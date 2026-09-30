@@ -20,6 +20,44 @@ function requireIdFactory(value) {
   return value;
 }
 
+function createInboundAuthorizedMemorySync(memorySync, accountMemory, now) {
+  const inboundAuthorized = () => {
+    const entitlement = accountMemory.getSnapshot().entitlement;
+    const sync = memorySync.getSnapshot();
+    if (
+      sync.subjectId === null
+      || entitlement.state !== "resolved"
+      || entitlement.decision !== "allowed"
+      || entitlement.authority !== "server"
+      || entitlement.subjectId !== sync.subjectId
+    ) {
+      return false;
+    }
+    if (entitlement.expiresAt !== null && Date.parse(entitlement.expiresAt) <= now().getTime()) {
+      return false;
+    }
+    return true;
+  };
+
+  return Object.freeze({
+    schema: memorySync.schema,
+    sessionSchema: memorySync.sessionSchema,
+    getSnapshot: () => memorySync.getSnapshot(),
+    async applyRemoteBatch(values) {
+      if (!inboundAuthorized()) {
+        throw new Error("Account Memory inbound restore authorization is required");
+      }
+      return memorySync.applyRemoteBatch(values);
+    },
+    flush: (transport) => memorySync.flush(transport),
+    flushCoordination: () => memorySync.flushCoordination(),
+    stageUpsert: (value) => memorySync.stageUpsert(value),
+    stageForget: (value) => memorySync.stageForget(value),
+    pendingMutations: () => memorySync.pendingMutations(),
+    pendingConflicts: () => memorySync.pendingConflicts(),
+  });
+}
+
 export function createNativeAccountMemoryComposition({
   windowRef = globalThis.window,
   identitySession,
@@ -50,12 +88,13 @@ export function createNativeAccountMemoryComposition({
     now,
     onStageError,
   });
+  const memorySync = createInboundAuthorizedMemorySync(composition.memorySync, composition, now);
 
   return Object.freeze({
     schema: NATIVE_ACCOUNT_MEMORY_COMPOSITION_SCHEMA,
     entitlementsPort,
     memory: composition.memory,
-    memorySync: composition.memorySync,
+    memorySync,
     protectedMutations: composition.protectedMutations,
     deferredIntents: composition.deferredIntents,
     settled: () => composition.settled(),
@@ -66,6 +105,7 @@ export function createNativeAccountMemoryComposition({
         accountMemory: composition.getSnapshot(),
         entitlementEndpoint: "/account/entitlements/memory-cloud",
         syncStatePartitioning: "account-subject",
+        inboundRestoreAuthorizationRequired: true,
         publicCloudMemoryEnabled: false,
       });
     },
