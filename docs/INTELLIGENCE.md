@@ -167,10 +167,13 @@ Native persistence is now wired end-to-end at the platform boundary: the loopbac
 owns `GET/POST /__ordax/native/intelligence-memory`, delegates validation and private atomic state
 ownership to the dedicated memory endpoint/helper, and Native composition probes the device store
 fail-soft before creating `ordax.memory/1`. If persistence is unavailable or corrupt, the Surface
-and local inference still mount without memory. Memory is **not automatically injected** into
-ordinary Intelligence requests: composition must explicitly choose the trusted device owner or a
-real authenticated account owner and apply the current Space/project authorization before calling
-the memory-context boundary.
+and local inference still mount without memory. Native ordinary Intelligence requests now
+receive **automatically retrieved but explicitly composition-authorized** Memory context when the
+Memory runtime is available: device Memory is always eligible locally, account Memory is added only
+for the current authenticated subject, and Space Memory is added only for the exact selected Space
+owned by that subject. This is not prompt-granted or model-selected access. Project/session and
+restricted Memory are not inferred, and consumer-supplied context keeps priority over Memory within
+the shared bounded context budget.
 
 External routes require an explicit egress decision. Local AI remains the offline baseline when an external provider is unavailable or not authorized.
 
