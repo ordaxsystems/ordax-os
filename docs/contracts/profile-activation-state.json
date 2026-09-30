@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.profile-activation-state/1",
   "runtime_schema": "ordax.profile-activation-state/1",
   "port_schema": "ordax.profile-activation-state-port/1",
-  "status": "mvp-source-internal-proof",
+  "status": "mvp-stable-bundled-safe-activation-source",
   "ownership": {
     "owner": "profile-runtime",
     "persistence": "device",
@@ -59,7 +59,8 @@
     "http_mutation_exposed": true,
     "boot_critical": false,
     "space_kind_change_without_explicit_reconciliation_allowed": false,
-    "http_mutation_scope": "token-bound-explicit-profile-command-only"
+    "http_mutation_scope": "token-bound-explicit-profile-command-only",
+    "rollback_revalidates_stable_policy_inside_lock": true
   },
   "data_separation": {
     "documents_allowed": false,
@@ -73,21 +74,22 @@
   "mvp": {
     "native_persistence_source": true,
     "surface_read_source": true,
-    "public_activation_enabled": false,
-    "profile_stack_enabled": false,
+    "public_activation_enabled": true,
+    "profile_stack_enabled": true,
     "space_cloud_write_enabled": false,
     "offline_restore_compatibility_metadata": true,
     "native_restore_metadata_resolution": true,
     "native_restore_capability_application": false,
     "native_restore_drift_result": "disabled-safe",
-    "trusted_user_intent_command_boundary": true
+    "trusted_user_intent_command_boundary": true,
+    "stable_bundled_zero_component_activation": true
   },
   "next_gates": [
     "trusted-human-profile-permission-confirmation-surface",
     "profile-catalog-and-provisioning-revalidation-at-activation-time",
     "profile-health-after-activation",
-    "public-profile-trust-and-permission-review-before-public-activation",
-    "trusted-capability-application-from-resolved-profile-state"
+    "trusted-capability-application-from-resolved-profile-state",
+    "component-bearing-profile-public-trust-and-permission-review"
   ],
   "command_boundary": {
     "schema": "ordax.profile-activation-command/1",
@@ -96,15 +98,16 @@
     "loopback_only": true,
     "same_origin_trust_required": true,
     "distribution_scope": [
-      "owner-development"
+      "owner-development",
+      "stable-mvp"
     ],
-    "stable_mvp_enabled": false,
+    "stable_mvp_enabled": true,
     "expected_revision_required": true,
     "revision_check_atomic_with_file_lock": true,
     "canonical_bundled_manifest_revalidation": true,
     "arbitrary_profile_manifest_accepted": false,
     "component_bearing_activation_enabled": false,
-    "public_activation_enabled": false,
+    "public_activation_enabled": true,
     "preview_action": "preview-activate",
     "permission_diff_schema": "ordax.profile-permission-diff/1",
     "permission_review_schema": "ordax.profile-permission-review/1",
@@ -119,6 +122,7 @@
     ],
     "permission_review_digest_is_human_intent_proof": false,
     "component_activation_requires_trusted_human_confirmation_surface": true,
-    "component_activation_enabled": false
+    "component_activation_enabled": false,
+    "stable_mvp_policy": "bundled-public-zero-component-no-privilege-diff"
   }
 }
