@@ -100,11 +100,36 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 {"slug": "impressao-3d-br", "version": 1},
             )
 
-            with self.assertRaisesRegex(PermissionError, "zero-component bundled Profile"):
+            with self.assertRaisesRegex(PermissionError, "not publicly available"):
                 module.execute_profile_activation_command(
                     command(revision=2, slug="developer"),
                     distribution_profile="stable-mvp",
                     **args,
+                )
+
+            public_component_manifest = {
+                "activation": {"publicly_available": True},
+                "components": [{
+                    "id": "knowledge.example",
+                    "kind": "knowledge-pack",
+                    "version": "1.0.0",
+                    "required": True,
+                    "availability": "available",
+                    "sha256": "a" * 64,
+                    "signature_required": True,
+                }],
+            }
+            with self.assertRaisesRegex(PermissionError, "zero-component bundled Profile"):
+                module._assert_stable_mvp_activation_allowed(
+                    public_component_manifest,
+                    [],
+                    {
+                        "schema": "ordax.profile-permission-diff/1",
+                        "componentAdds": [],
+                        "componentRemovals": [],
+                        "authorityChanges": [],
+                        "requiresExplicitReview": False,
+                    },
                 )
             with self.assertRaisesRegex(PermissionError, "not publicly available"):
                 module.execute_profile_activation_command(
@@ -352,7 +377,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
             )
             os.chmod(state_path, 0o600)
 
-            with self.assertRaisesRegex(PermissionError, "zero-component bundled Profile"):
+            with self.assertRaisesRegex(PermissionError, "not publicly available"):
                 module.execute_profile_activation_command(
                     command(action="rollback", revision=2),
                     distribution_profile="stable-mvp",
