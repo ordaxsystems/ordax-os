@@ -90,6 +90,10 @@ test("explicit approval executes the verified Native file action and consumes au
   const decision = runtime.approvalConsent.approve(work.id, approval.id);
   assert.equal(decision.decision, "allow");
   assert.equal(runtime.canExecuteApprovedAction(work.id, approval.id), true);
+  await assert.rejects(
+    () => runtime.run(work.id),
+    /approved action that must execute or be cancelled first/,
+  );
 
   const receipt = await runtime.executeApprovedAction(work.id, approval.id);
   const snapshot = runtime.getSnapshot();
