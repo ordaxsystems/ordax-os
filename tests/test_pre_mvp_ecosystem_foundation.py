@@ -121,6 +121,17 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertTrue(assistant_capture["strict_json_only"])
         self.assertTrue(assistant_capture["extra_fields_rejected"])
         self.assertTrue(assistant_capture["credential_signals_rejected"])
+        self.assertTrue(assistant_capture["source_evidence_required"])
+        self.assertTrue(assistant_capture["source_evidence_must_be_verbatim_user_turn"])
+        self.assertTrue(assistant_capture["source_evidence_checked_against_extractor_input"])
+        self.assertFalse(assistant_capture["source_evidence_persisted"])
+        self.assertFalse(assistant_capture["model_authored_persisted_content_allowed"])
+        self.assertEqual(
+            assistant_capture["persisted_content_source"],
+            "verbatim-user-evidence",
+        )
+        self.assertTrue(assistant_capture["candidate_content_must_equal_evidence"])
+        self.assertFalse(assistant_capture["model_may_paraphrase_persisted_memory"])
         self.assertTrue(assistant_capture["preference_checked_before_extraction"])
         self.assertFalse(assistant_capture["disabled_preference_runs_extractor"])
         self.assertFalse(assistant_capture["assistant_response_depends_on_capture_success"])
