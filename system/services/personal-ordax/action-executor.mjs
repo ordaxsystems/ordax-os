@@ -49,6 +49,7 @@ export function createPersonalOrdaxActionExecutor({
       const adapter = assertActionAdapter(adapterResolver(request.toolId, request.actionId));
       if (
         adapter.toolId !== request.toolId
+        || adapter.artifactSha256 !== request.toolArtifactSha256
         || adapter.actionId !== request.actionId
         || adapter.effect !== request.effect
       ) {
@@ -64,6 +65,7 @@ export function createPersonalOrdaxActionExecutor({
         workItemId: request.workItemId,
         approvalId: request.approvalId,
         toolId: request.toolId,
+        toolArtifactSha256: request.toolArtifactSha256,
         actionId: request.actionId,
         effect: request.effect,
         resourceRef: request.resourceRef,
