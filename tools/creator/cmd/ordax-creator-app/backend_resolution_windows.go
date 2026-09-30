@@ -15,7 +15,7 @@ func finishRefreshState(result appRefreshState, backendDirectory string) appRefr
 	}
 	result.BackendDirectory = backendDirectory
 
-	targets, ready, targetErr := loadTargets(backendDirectory)
+	targets, readiness, targetErr := loadTargets(backendDirectory)
 	if targetErr != nil {
 		if result.Error == "" {
 			result.Error = targetErr.Error()
@@ -25,7 +25,14 @@ func finishRefreshState(result appRefreshState, backendDirectory string) appRefr
 		return result
 	}
 	result.Targets = targets
-	result.PhysicalReady = ready
+	switch result.PhysicalMode {
+	case "legacy-owner":
+		result.PhysicalReady = readiness.LegacyOwner
+	case "portable-public":
+		result.PhysicalReady = readiness.Portable && result.PortablePayload != nil
+	default:
+		result.PhysicalReady = false
+	}
 	return result
 }
 
@@ -36,7 +43,7 @@ func finishRefreshState(result appRefreshState, backendDirectory string) appRefr
 // independently verified component channels.
 func resolveRefreshState() appRefreshState {
 	if ownerDirectory, owner := ownerPrototypePhysicalBackend(); owner {
-		result := appRefreshState{BackendDirectory: ownerDirectory}
+		result := appRefreshState{BackendDirectory: ownerDirectory, PhysicalMode: "legacy-owner"}
 		if version, sourceCommit, ok := ownerPrototypeBuildInfo(); ok {
 			result.Version = version
 			result.SourceCommit = sourceCommit
@@ -85,8 +92,10 @@ func resolveRefreshState() appRefreshState {
 
 	// A physical backend can override only after its independent purpose-bound
 	// signature, trust, anti-rollback and file-integrity checks have succeeded.
-	if physicalDirectory, ok := resolvePhysicalBackend(); ok {
-		backendDirectory = physicalDirectory
+	if physical, ok := resolvePhysicalBackend(); ok {
+		backendDirectory = physical.Directory
+		result.PhysicalMode = physical.Mode
+		result.PortablePayload = physical.PortablePayload
 	}
 	return finishRefreshState(result, backendDirectory)
 }
