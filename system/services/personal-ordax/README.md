@@ -6,7 +6,7 @@ identity, Memory, Spaces, Projects, inference, grants or platform adapters.
 The current source runtime is deliberately foreground-only:
 
 - work is created against the exact current device/account owner;
-- persistence is partitioned by owner: account switching saves/pauses the previous partition and
+- persistence is partitioned by owner and each partition is capped at 4 MiB serialized after semantic validation;\n- account switching saves/pauses the previous partition and
   loads the new partition instead of filtering one shared quota after the fact;
 - a corrupt owner partition degrades only that owner to session state and is never overwritten
   automatically, preserving the durable bytes for recovery;
