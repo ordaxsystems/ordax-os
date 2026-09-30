@@ -26,25 +26,28 @@ function identitySession(initial) {
   };
 }
 
-function stateStore() {
+function stateStore(scope = "device") {
   let payload = null;
   return {
     schema: SYNC_STATE_STORE_SCHEMA,
-    scope: "session",
+    scope,
     load: () => payload,
     save(value) {
       payload = value;
       return true;
     },
+    read: () => payload,
   };
 }
 
-function storeFactory() {
+function storeFactory(scope = "device") {
   const stores = new Map();
-  return (subjectId) => {
-    if (!stores.has(subjectId)) stores.set(subjectId, stateStore());
+  const factory = (subjectId) => {
+    if (!stores.has(subjectId)) stores.set(subjectId, stateStore(scope));
     return stores.get(subjectId);
   };
+  factory.stores = stores;
+  return factory;
 }
 
 function decision(subjectId, allowed) {
@@ -63,7 +66,7 @@ function entitlements(resolve) {
   return Object.freeze({ schema: ENTITLEMENTS_PORT_SCHEMA, resolve });
 }
 
-function item(subjectId = "account-a", id = "memory-a") {
+function item(subjectId = "account-a", id = "memory-a", overrides = {}) {
   return {
     id,
     ownerKind: "account",
@@ -76,6 +79,7 @@ function item(subjectId = "account-a", id = "memory-a") {
     sourceTimestamp: "2026-09-30T01:00:00Z",
     spaceId: null,
     projectId: null,
+    ...overrides,
   };
 }
 
@@ -112,18 +116,21 @@ function createHarness({ resolveEntitlement, initialIdentity } = {}) {
     displayName: "A",
   });
   const memory = createMemoryRuntime();
+  const syncStores = storeFactory("device");
+  const deferredStores = storeFactory("device");
   let ordinal = 0;
   const composition = createAccountMemoryAuthorizedComposition({
     identitySession: identity,
     entitlementsPort: entitlements(resolveEntitlement),
     memoryPort: memory,
-    createSyncStateStore: storeFactory(),
+    createSyncStateStore: syncStores,
+    createDeferredStateStore: deferredStores,
     createIdempotencyKey(kind) {
       ordinal += 1;
       return `memory:${kind}:${ordinal}:authorized-composition`;
     },
   });
-  return { identity, memory, composition };
+  return { identity, memory, composition, syncStores, deferredStores };
 }
 
 function find(memory, subjectId = "account-a", id = "memory-a") {
@@ -146,6 +153,7 @@ test("server-authorized Memory can cross transport only after entitlement settle
   await composition.settled();
   composition.memory.remember(item());
   assert.equal(composition.memorySync.pendingMutations().length, 1);
+  assert.equal(composition.deferredIntents.pendingIntents().length, 0);
 
   const result = await composition.memorySync.flush(remote);
   assert.equal(result.accepted, 1);
@@ -154,8 +162,8 @@ test("server-authorized Memory can cross transport only after entitlement settle
   assert.equal(composition.memorySync.pendingMutations().length, 0);
 });
 
-test("denied entitlement keeps local-first Memory durable and blocks transport", async () => {
-  const { memory, composition } = createHarness({
+test("denied entitlement preserves a durable deferred identity without creating a transportable mutation", async () => {
+  const { memory, composition, deferredStores } = createHarness({
     resolveEntitlement: async (request) => decision(request.subjectId, false),
   });
   const remote = transport();
@@ -164,15 +172,20 @@ test("denied entitlement keeps local-first Memory durable and blocks transport",
   composition.memory.remember(item());
 
   assert.equal(find(memory)?.id, "memory-a");
-  assert.equal(composition.memorySync.pendingMutations().length, 1);
+  assert.equal(composition.memorySync.pendingMutations().length, 0);
+  assert.equal(composition.deferredIntents.pendingIntents().length, 1);
+  assert.equal(composition.deferredIntents.pendingIntents()[0].operation, "upsert");
+  const durable = deferredStores.stores.get("account-a").read();
+  assert.match(durable, /memory-a/);
+  assert.doesNotMatch(durable, /portable memory for account-a/);
+
   const blocked = await composition.memorySync.flush(remote);
   assert.equal(blocked.accepted, 0);
-  assert.equal(blocked.failures, 1);
+  assert.equal(blocked.failures, 0);
   assert.equal(remote.mutations.length, 0);
-  assert.equal(composition.memorySync.pendingMutations().length, 1);
 });
 
-test("pending local Memory retries successfully after server authorization becomes allowed", async () => {
+test("deferred local Memory is promoted to the canonical queue after server authorization becomes allowed", async () => {
   let allowed = false;
   const { composition } = createHarness({
     resolveEntitlement: async (request) => decision(request.subjectId, allowed),
@@ -181,14 +194,16 @@ test("pending local Memory retries successfully after server authorization becom
 
   await composition.settled();
   composition.memory.remember(item());
-  const blocked = await composition.memorySync.flush(remote);
-  assert.equal(blocked.failures, 1);
+  assert.equal(composition.memorySync.pendingMutations().length, 0);
+  assert.equal(composition.deferredIntents.pendingIntents().length, 1);
   assert.equal(remote.mutations.length, 0);
-  assert.equal(composition.memorySync.pendingMutations().length, 1);
 
   allowed = true;
   const refreshed = await composition.refreshAuthorization();
   assert.equal(refreshed.entitlement.decision, "allowed");
+  assert.equal(composition.deferredIntents.pendingIntents().length, 0);
+  assert.equal(composition.memorySync.pendingMutations().length, 1);
+
   const retried = await composition.memorySync.flush(remote);
   assert.equal(retried.accepted, 1);
   assert.equal(retried.failures, 0);
@@ -196,7 +211,48 @@ test("pending local Memory retries successfully after server authorization becom
   assert.equal(composition.memorySync.pendingMutations().length, 0);
 });
 
-test("signed-out local Memory remains local and cannot manufacture account sync state", async () => {
+test("portable Memory made restricted while unauthorized defers a tombstone and purges cloud state after authorization returns", async () => {
+  let allowed = true;
+  const { memory, composition } = createHarness({
+    resolveEntitlement: async (request) => decision(request.subjectId, allowed),
+  });
+  const remote = transport();
+
+  await composition.settled();
+  composition.memory.remember(item());
+  const first = await composition.memorySync.flush(remote);
+  assert.equal(first.accepted, 1);
+  assert.equal(remote.mutations[0].operation, "upsert");
+
+  allowed = false;
+  await composition.refreshAuthorization();
+  composition.memory.remember(item("account-a", "memory-a", {
+    sensitivity: "restricted",
+    content: "must remain local now",
+    sourceTimestamp: "2026-09-30T01:01:00Z",
+  }));
+
+  assert.equal(find(memory)?.sensitivity, "restricted");
+  assert.equal(composition.memorySync.pendingMutations().length, 0);
+  assert.equal(composition.deferredIntents.pendingIntents().length, 1);
+  assert.equal(composition.deferredIntents.pendingIntents()[0].operation, "delete");
+
+  allowed = true;
+  await composition.refreshAuthorization();
+  assert.equal(composition.deferredIntents.pendingIntents().length, 0);
+  assert.equal(composition.memorySync.pendingMutations().length, 1);
+  const cleanup = await composition.memorySync.flush(remote);
+  assert.equal(cleanup.accepted, 1);
+  assert.equal(remote.mutations.length, 2);
+  assert.equal(remote.mutations[1].operation, "delete");
+  assert.deepEqual(remote.mutations[1].payload.memoryIdentity, {
+    id: "memory-a",
+    ownerKind: "account",
+    ownerId: "account-a",
+  });
+});
+
+test("signed-out local Memory remains local and cannot manufacture deferred account sync state", async () => {
   let entitlementCalls = 0;
   const { memory, composition } = createHarness({
     initialIdentity: { state: "signed-out", subjectId: null, displayName: null },
@@ -207,17 +263,17 @@ test("signed-out local Memory remains local and cannot manufacture account sync 
   });
 
   await composition.settled();
-  const local = item("account-a");
-  composition.memory.remember(local);
+  composition.memory.remember(item("account-a"));
 
   assert.equal(find(memory)?.id, "memory-a");
   assert.equal(entitlementCalls, 0);
   assert.equal(composition.memorySync.pendingMutations().length, 0);
+  assert.equal(composition.deferredIntents.pendingIntents().length, 0);
   assert.equal(composition.getSnapshot().entitlement.state, "signed-out");
 });
 
-test("provider failure never grants transport and preserves the pending local intent", async () => {
-  const { composition } = createHarness({
+test("provider failure never grants transport and keeps only a durable identity intent", async () => {
+  const { composition, deferredStores } = createHarness({
     resolveEntitlement: async () => {
       throw new Error("entitlement provider unavailable");
     },
@@ -229,14 +285,17 @@ test("provider failure never grants transport and preserves the pending local in
   assert.equal(settled.entitlement.decision, "denied");
 
   composition.memory.remember(item());
+  assert.equal(composition.memorySync.pendingMutations().length, 0);
+  assert.equal(composition.deferredIntents.pendingIntents().length, 1);
+  assert.doesNotMatch(deferredStores.stores.get("account-a").read(), /portable memory/);
+
   const result = await composition.memorySync.flush(remote);
   assert.equal(result.accepted, 0);
-  assert.equal(result.failures, 1);
+  assert.equal(result.failures, 0);
   assert.equal(remote.mutations.length, 0);
-  assert.equal(composition.memorySync.pendingMutations().length, 1);
 });
 
-test("composition snapshot keeps public promotion disabled and destroy is terminal", async () => {
+test("composition snapshot records durable local-first boundary and destroy is terminal", async () => {
   const { composition } = createHarness({
     resolveEntitlement: async (request) => decision(request.subjectId, true),
   });
@@ -244,6 +303,8 @@ test("composition snapshot keeps public promotion disabled and destroy is termin
 
   assert.equal(snapshot.authorizationEnforcedAtTransportBoundary, true);
   assert.equal(snapshot.localFirstWhileAuthorizationUnavailable, true);
+  assert.equal(snapshot.deferredStateStoresPortableContent, false);
+  assert.equal(snapshot.deferredIntents.queuePersistence, "device");
   assert.equal(snapshot.productionPromoted, false);
 
   composition.destroy();
