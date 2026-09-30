@@ -122,6 +122,67 @@ test("explicit approval executes the verified Native file action and consumes au
   runtime.dispose();
 });
 
+test("Native restore turns a persisted started attempt into uncertain without retrying the side effect", async () => {
+  const files = fileSpace();
+  const actions = await createNativePersonalOrdaxFileActions({
+    windowRef: {},
+    fileSpace: files.port,
+    artifactIdentity: async () => "c".repeat(64),
+  });
+  const actionCatalog = createPersonalActionCatalog({
+    registrations: actions.actionRegistrations,
+  });
+  const storage = memoryStorage();
+  const windowRef = { localStorage: storage };
+
+  const first = createNativePersonalOrdaxComposition({
+    windowRef,
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+  });
+  const work = first.create("Garantir pasta com crash simulado");
+  const approval = first.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Crash" },
+  );
+  first.approvalConsent.approve(work.id, approval.id);
+  first.startActionExecution(work.id, approval.id);
+  let snapshot = first.getSnapshot();
+  assert.equal(snapshot.workItems[0].state, "running");
+  assert.equal(snapshot.attempts[0].status, "started");
+  assert.deepEqual(files.calls, []);
+  first.dispose();
+
+  const restored = createNativePersonalOrdaxComposition({
+    windowRef,
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+  });
+  snapshot = restored.getSnapshot();
+  assert.equal(snapshot.workItems[0].state, "paused");
+  assert.equal(snapshot.approvals[0].status, "revoked");
+  assert.equal(snapshot.attempts[0].status, "uncertain");
+  assert.match(snapshot.attempts[0].summary, /uncertain/i);
+  assert.deepEqual(files.calls, []);
+  assert.equal(restored.canExecuteApprovedAction(work.id, approval.id), false);
+
+  const replacement = restored.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Crash" },
+  );
+  assert.notEqual(replacement.id, approval.id);
+  assert.equal(restored.getSnapshot().approvals.at(-1).status, "pending");
+  restored.dispose();
+});
+
 test("Native restore revokes persisted approvals whose session grant no longer exists", async () => {
   const files = fileSpace();
   const actions = await createNativePersonalOrdaxFileActions({
