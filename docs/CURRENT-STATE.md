@@ -986,3 +986,13 @@ decisions. Prompt/model/Profile/Memory/project content cannot create authority, 
 require an explicit grant reference, and background execution remains disabled. The canonical
 boundary is `docs/PERSONAL-ORDAX.md` + `docs/contracts/personal-ordax.json`.
 \n
+
+### Personal OrdaX foreground runtime
+
+A source-only `ordax.personal-runtime/1` now implements the first orchestration lifecycle above the
+foundation contract. Work is explicitly device/account-owned; Space/project context is opt-in and
+validated; owner/Space/project changes pause affected active work; stale inference responses are
+discarded; Intelligence remains consultative; and ordered Activity is persisted only through
+`ordax.personal-work-store/1`. The runtime is not mounted in Web/Native composition yet, so no
+public Activity UI, background execution or autonomous tool action is claimed.
+\n
