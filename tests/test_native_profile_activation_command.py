@@ -131,7 +131,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                         "requiresExplicitReview": False,
                     },
                 )
-            with self.assertRaisesRegex(PermissionError, "not publicly available"):
+            with self.assertRaisesRegex(PermissionError, "blocked by canonical manifest"):
                 module.execute_profile_activation_command(
                     command(revision=2, slug="legal-br"),
                     distribution_profile="stable-mvp",
