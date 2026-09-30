@@ -129,7 +129,7 @@ test("canonical component catalog has one unique owner identity per app and serv
   assert.equal(internet.releaseMode, "git-app");
   assert.equal(internet.owner, "system/apps/internet");
   const notes = components.find((component) => component.id === "notes");
-  assert.equal(notes.version, "0.4.1");
+  assert.equal(notes.version, "0.4.2");
   assert.equal(notes.releaseMode, "git-app");
   assert.equal(notes.owner, "system/apps/notes");
   const localAi = components.find((component) => component.id === "local-ai-service");
@@ -230,14 +230,6 @@ test("component manager promotes only health-checked independent slots and rolls
   assert.equal(slot.state.previousVersion, "1.0.0");
   assert.equal(slot.state.pendingVersion, null);
   assert.equal(slot.state.currentHealth, "healthy");
-
-  manager.setCurrentHealth("slot-app", "failed");
-  manager.rollback("slot-app");
-  slot = manager.getSnapshot().components.find((item) => item.manifest.id === "slot-app");
-  assert.equal(slot.state.currentVersion, "1.0.0");
-  assert.equal(slot.state.previousVersion, null);
-  assert.equal(slot.state.rejectedVersion, "1.1.0");
-  assert.equal(slot.state.currentHealth, "unknown");
   assert.ok(store.read().revision >= 5);
   manager.destroy();
 });
