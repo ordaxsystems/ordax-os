@@ -209,6 +209,7 @@ test("exact existing grant resolves approval to queued work and durable allow de
   assert.equal(snapshot.approvals[0].status, "approved");
   assert.equal(snapshot.approvals[0].grantRef, "grant-1");
   assert.equal(snapshot.decisions[0].decision, "allow");
+  assert.equal(snapshot.decisions[0].approvalId, approval.id);
   assert.equal(snapshot.decisions[0].grantRef, "grant-1");
   assert.equal(snapshot.activities.at(-1).type, "approval-resolved");
   assert.equal(snapshot.activities.at(-1).approvalId, approval.id);
@@ -322,6 +323,11 @@ test("store rejects orphan approvals, missing audit Activity and forged terminal
     ...saved,
     decisions: saved.decisions.map((decision) => ({ ...decision, grantRef: "grant-forged" })),
   }), /matching allow decision/);
+
+  assert.throws(() => validatePersonalOrdaxStoreState({
+    ...saved,
+    decisions: saved.decisions.map((decision) => ({ ...decision, approvalId: "missing-approval" })),
+  }), /exact resolved approval/);
 
   assert.throws(() => validatePersonalOrdaxStoreState({
     ...saved,
