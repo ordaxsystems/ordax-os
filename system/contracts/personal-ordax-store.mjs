@@ -10,7 +10,9 @@ export const PERSONAL_ORDAX_RUNTIME_SCHEMA = "ordax.personal-runtime/1";
 export const MAX_PERSONAL_WORK_ITEMS = 32;
 export const MAX_PERSONAL_ACTIVITY_EVENTS = 512;
 export const MAX_PERSONAL_WORK_RESULTS = 32;
+export const MAX_PERSONAL_ORDAX_STORE_BYTES = 4 * 1024 * 1024;
 
+const encoder = new TextEncoder();
 const STORE_SCOPES = new Set(["device", "session"]);
 const OWNER_KINDS = new Set(["device", "account"]);
 const RUNTIME_WORK_ID_RE = /^personal-work-([1-9][0-9]*)$/;
@@ -187,7 +189,7 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     }
   }
 
-  return Object.freeze({
+  const snapshot = Object.freeze({
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
     ownerKind: owner.ownerKind,
     ownerId: owner.ownerId,
@@ -196,6 +198,10 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     activities,
     results,
   });
+  if (encoder.encode(JSON.stringify(snapshot)).byteLength > MAX_PERSONAL_ORDAX_STORE_BYTES) {
+    throw new TypeError("Personal OrdaX owner partition exceeds its serialized byte limit");
+  }
+  return snapshot;
 }
 
 export function assertPersonalOrdaxStore(store) {
