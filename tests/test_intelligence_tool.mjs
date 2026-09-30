@@ -29,6 +29,7 @@ function tool(overrides = {}) {
 function grant(overrides = {}) {
   return {
     grantId: "grant-1",
+    workItemId: "personal-work-1",
     approvalId: "approval-1",
     toolId: "files-inspector",
     toolArtifactSha256: "a".repeat(64),
