@@ -1,6 +1,7 @@
 import {
   validatePersonalActivityEvent,
   validatePersonalWorkItem,
+  validatePersonalWorkResult,
 } from "./personal-ordax.mjs";
 
 export const PERSONAL_ORDAX_STORE_SCHEMA = "ordax.personal-work-store/1";
@@ -8,6 +9,7 @@ export const PERSONAL_ORDAX_STORE_STATE_SCHEMA = "ordax.personal-work-store-stat
 export const PERSONAL_ORDAX_RUNTIME_SCHEMA = "ordax.personal-runtime/1";
 export const MAX_PERSONAL_WORK_ITEMS = 32;
 export const MAX_PERSONAL_ACTIVITY_EVENTS = 512;
+export const MAX_PERSONAL_WORK_RESULTS = 32;
 
 const STORE_SCOPES = new Set(["device", "session"]);
 const OWNER_KINDS = new Set(["device", "account"]);
@@ -61,6 +63,7 @@ export function createEmptyPersonalOrdaxStoreState(ownerValue) {
     nextOrdinal: 1,
     workItems: Object.freeze([]),
     activities: Object.freeze([]),
+    results: Object.freeze([]),
   });
 }
 
@@ -83,6 +86,10 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
   }
   if (!Array.isArray(value.activities) || value.activities.length > MAX_PERSONAL_ACTIVITY_EVENTS) {
     throw new TypeError("Personal OrdaX activity events exceed their per-owner bound");
+  }
+  const rawResults = value.results ?? [];
+  if (!Array.isArray(rawResults) || rawResults.length > MAX_PERSONAL_WORK_RESULTS) {
+    throw new TypeError("Personal OrdaX work results exceed their per-owner bound");
   }
 
   const workItems = Object.freeze(value.workItems.map(validatePersonalWorkItem));
@@ -134,6 +141,31 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     lastOccurredAt.set(event.workItemId, event.occurredAt);
   }
 
+  const results = Object.freeze(rawResults.map(validatePersonalWorkResult));
+  const resultIds = new Set();
+  const resultWorkIds = new Set();
+  for (const result of results) {
+    if (resultIds.has(result.id)) {
+      throw new TypeError("Personal OrdaX work result ids must be unique inside an owner partition");
+    }
+    if (resultWorkIds.has(result.workItemId)) {
+      throw new TypeError("Personal OrdaX work may have only one retained result");
+    }
+    const work = workById.get(result.workItemId);
+    if (!work) {
+      throw new TypeError("Personal OrdaX work result cannot reference missing work");
+    }
+    if (work.state !== "completed") {
+      throw new TypeError("Personal OrdaX work result requires completed work");
+    }
+    const resultTime = Date.parse(result.createdAt);
+    if (resultTime < Date.parse(work.createdAt) || resultTime > Date.parse(work.updatedAt)) {
+      throw new TypeError("Personal OrdaX work result time must fall inside the work lifecycle");
+    }
+    resultIds.add(result.id);
+    resultWorkIds.add(result.workItemId);
+  }
+
   return Object.freeze({
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
     ownerKind: owner.ownerKind,
@@ -141,6 +173,7 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     nextOrdinal,
     workItems,
     activities,
+    results,
   });
 }
 
@@ -176,6 +209,7 @@ export function validatePersonalOrdaxRuntimeSnapshot(value) {
     nextOrdinal: value.nextOrdinal,
     workItems: value.workItems,
     activities: value.activities,
+    results: value.results,
   });
   return Object.freeze({
     schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
@@ -185,5 +219,6 @@ export function validatePersonalOrdaxRuntimeSnapshot(value) {
     nextOrdinal: state.nextOrdinal,
     workItems: state.workItems,
     activities: state.activities,
+    results: state.results,
   });
 }
