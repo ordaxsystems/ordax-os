@@ -55,7 +55,12 @@ export const componentRuntime = Object.freeze({
       releaseStyles();
     };
     try {
-      controls = mountPersonalActivityControls(root, personalOrdax, surfaceLifecycle);
+      controls = mountPersonalActivityControls(
+        root,
+        personalOrdax,
+        surfaceLifecycle,
+        personalOrdax?.approvalConsent ?? null,
+      );
       let destroyed = false;
       return Object.freeze({
         destroy() {
