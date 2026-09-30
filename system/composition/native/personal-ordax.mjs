@@ -3,7 +3,9 @@ import {
   assertIntelligenceToolGrantIssuer,
   assertIntelligenceToolGrantRegistry,
 } from "../../contracts/intelligence-tool-grant-authority.mjs";
+import { assertActionAdapter } from "../../contracts/action-executor.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
+import { createPersonalOrdaxActionExecutor } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
 import { createPersonalOrdaxRuntime } from "../../services/personal-ordax/runtime.mjs";
@@ -15,6 +17,7 @@ export function createNativePersonalOrdaxComposition({
   projects = null,
   intelligence,
   toolResolver = () => null,
+  adapterResolver = () => null,
   grantAuthority = null,
 } = {}) {
   if (!windowRef || typeof windowRef !== "object") {
@@ -22,6 +25,9 @@ export function createNativePersonalOrdaxComposition({
   }
   if (typeof toolResolver !== "function") {
     throw new TypeError("Native Personal OrdaX composition tool resolver must be a function");
+  }
+  if (typeof adapterResolver !== "function") {
+    throw new TypeError("Native Personal OrdaX composition adapter resolver must be a function");
   }
 
   const ownsGrantAuthority = grantAuthority === null;
@@ -32,6 +38,10 @@ export function createNativePersonalOrdaxComposition({
   const actionGateway = createPersonalOrdaxActionGateway({
     toolResolver,
     grantResolver: (grantId) => registry.resolve(grantId),
+  });
+  const actionExecutor = createPersonalOrdaxActionExecutor({
+    actionGateway,
+    adapterResolver,
   });
   const runtime = createPersonalOrdaxRuntime({
     identitySessionPort: identitySession,
@@ -50,6 +60,59 @@ export function createNativePersonalOrdaxComposition({
   return Object.freeze({
     ...runtime,
     approvalConsent,
+    canExecuteApprovedAction(workItemId, approvalId) {
+      const snapshot = runtime.getSnapshot();
+      const work = snapshot.workItems.find((candidate) => candidate.id === workItemId);
+      const approval = snapshot.approvals.find((candidate) =>
+        candidate.id === approvalId && candidate.workItemId === workItemId
+      );
+      if (!work || work.state !== "queued" || !approval || approval.status !== "approved") {
+        return false;
+      }
+      try {
+        const adapter = assertActionAdapter(
+          adapterResolver(approval.toolId, approval.actionId),
+        );
+        return adapter.toolId === approval.toolId
+          && adapter.artifactSha256 === approval.toolArtifactSha256
+          && adapter.actionId === approval.actionId
+          && adapter.effect === approval.effect;
+      } catch {
+        return false;
+      }
+    },
+    async executeApprovedAction(workItemId, approvalId) {
+      const execution = runtime.startActionExecution(workItemId, approvalId);
+      let receipt;
+      try {
+        receipt = await actionExecutor.execute(execution);
+      } catch (error) {
+        try {
+          runtime.failActionExecution(workItemId, approvalId);
+        } catch {
+          // Owner/context changes may already have paused the original partition.
+        }
+        throw error;
+      }
+      if (receipt.status !== "succeeded") {
+        try {
+          runtime.failActionExecution(workItemId, approvalId, receipt.summary);
+        } catch {
+          // Preserve the original receipt failure if the owner/context already changed.
+        }
+        throw new Error("Personal OrdaX action did not produce a succeeded receipt");
+      }
+      try {
+        return runtime.finishActionExecution(workItemId, approvalId, receipt);
+      } catch (error) {
+        try {
+          runtime.failActionExecution(workItemId, approvalId);
+        } catch {
+          // A switched owner cannot commit into the previous owner partition.
+        }
+        throw error;
+      }
+    },
     dispose() {
       runtime.dispose();
       if (ownsGrantAuthority) authority.dispose();
