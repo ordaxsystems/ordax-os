@@ -84,6 +84,7 @@ def verify_first_hit_proof(first: dict) -> str:
     core = {
         "runtime_id": first.get("runtime_id"),
         "staging_manifest_sha256": first.get("staging_manifest_sha256"),
+        "unixlib_preload_source_evidence_sha256": first.get("unixlib_preload_source_evidence_sha256"),
         "counts": counts,
     }
     return verify_canonical_digest(first, "validation_sha256", core, "first-hit validation")
@@ -108,6 +109,7 @@ def verify_loader_invariance_proof(invariance: dict) -> str:
     core = {
         "runtime_id": invariance.get("runtime_id"),
         "staging_manifest_sha256": invariance.get("staging_manifest_sha256"),
+        "unixlib_preload_source_evidence_sha256": invariance.get("unixlib_preload_source_evidence_sha256"),
         "needed_targets": needed_targets,
     }
     return verify_canonical_digest(invariance, "validation_sha256", core, "loader-invariance validation")
@@ -169,13 +171,24 @@ def finalize(full: dict, first: dict, invariance: dict, dependency: dict) -> dic
     if any(item.get("staging_manifest_sha256") != stage_digest for item in (first, invariance, dependency)):
         raise DependencyEvidenceError("staging manifest diverged across dependency evidence")
 
+    preload_evidence = require_digest(
+        first.get("unixlib_preload_source_evidence_sha256"),
+        "first-hit unixlib preload source evidence digest",
+    )
+    if invariance.get("unixlib_preload_source_evidence_sha256") != preload_evidence:
+        raise DependencyEvidenceError("unixlib preload source evidence diverged across loader proofs")
+
     full_gates = full.get("gates", {})
     if full_gates.get("full_build_proof_passed") is not True or full_gates.get("staged_install_completed") is not True:
         raise DependencyEvidenceError("full-build evidence is not proven")
     first_gates = first.get("gates", {})
+    if first_gates.get("source_derived_unixlib_preload_runtime_verified") is not True:
+        raise DependencyEvidenceError("first-hit source-derived unixlib preload evidence is not verified")
     if first_gates.get("first_pathname_hit_verified") is not True:
         raise DependencyEvidenceError("first pathname hit evidence is not verified")
     invariance_gates = invariance.get("gates", {})
+    if invariance_gates.get("source_derived_unixlib_preload_runtime_verified") is not True:
+        raise DependencyEvidenceError("loader-invariance source-derived unixlib preload evidence is not verified")
     if invariance_gates.get("staged_needed_by_chain_invariance_verified") is not True:
         raise DependencyEvidenceError("needed_by chain invariance is not verified")
     if invariance_gates.get("staged_shortname_reuse_invariance_verified") is not True:
@@ -191,6 +204,12 @@ def finalize(full: dict, first: dict, invariance: dict, dependency: dict) -> dic
     first_digest = verify_first_hit_proof(first)
     invariance_digest = verify_loader_invariance_proof(invariance)
     inventory_sha256 = verify_dependency_inventory_proof(dependency)
+
+    for record in dependency.get("elf_files", {}).values():
+        for resolution in record.get("resolutions", []):
+            if resolution.get("resolution_kind") == "source-proven-dependency-attach-preload":
+                if resolution.get("unixlib_preload_source_evidence_sha256") != preload_evidence:
+                    raise DependencyEvidenceError("dependency inventory preload edge is not bound to loader source evidence")
 
     forbidden_gates = (
         "runtime_dependency_inventory_complete",
