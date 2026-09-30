@@ -13,6 +13,15 @@ const DELIVERY_POLICIES = Object.freeze([
     componentSizes: Object.freeze({}),
   }),
   Object.freeze({
+    profile: Object.freeze({ slug: "pizzaria-br", version: 1 }),
+    deliveryMode: "bundled",
+    metadataBundled: true,
+    offlineAfterInstall: true,
+    publicInstallEnabled: true,
+    blockedReason: null,
+    componentSizes: Object.freeze({}),
+  }),
+  Object.freeze({
     profile: Object.freeze({ slug: "legal-br", version: 1 }),
     deliveryMode: "on-demand",
     metadataBundled: true,
