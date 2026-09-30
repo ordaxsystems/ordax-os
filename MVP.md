@@ -127,8 +127,8 @@ Um usuário deve conseguir:
 9. ter **Ordax Intelligence** como capacidade do sistema, com inferência local incluída na distribuição Stable/MVP e degradação segura se o backend falhar;
 10. atualizar por canal oficial;
 11. recuperar automaticamente de atualização defeituosa;
-12. acessar login/cadastro somente quando identidade real estiver habilitada;
-13. usar `/conta/` como área autenticada separada da landing quando uma sessão real existir.
+12. escolher **Entrar**, **Criar conta** ou **Continuar sem conta**; conta continua opcional, mas Entrar/Criar conta devem funcionar de ponta a ponta no MVP;
+13. usar `/conta/` como área autenticada separada da landing quando uma sessão real existir, incluindo logout e recuperação de acesso.
 
 ## 5.1 Fechamento funcional que precedeu o primeiro USB Stable
 
@@ -189,8 +189,8 @@ Bloqueiam lançamento:
 - update oficial sem Git;
 - recovery/rollback;
 - catálogo público fail-closed;
-- identidade real antes de ativar login/cadastro;
-- privacidade/termos;
+- **Conta/Cadastro real funcional no MVP**, preservando `Continuar sem conta`: cadastro, login, logout/revogação e recuperação de acesso provados contra o owner real;
+- privacidade/termos finais, versionados e com data efetiva antes da ativação pública;
 - hardware suportado documentado.
 
 **Não bloqueiam o MVP:** instalador Native, boot por SSD/NVMe/HD, dual boot, resize ou particionamento interno.
