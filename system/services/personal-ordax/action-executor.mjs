@@ -68,7 +68,7 @@ export function createPersonalOrdaxActionExecutor({
         }
       } catch (error) {
         throw new PersonalActionExecutionError(
-          "Action execution failed before entering the typed adapter",
+          `Action execution failed before entering the typed adapter: ${error?.message ?? "unknown preflight failure"}`,
           { phase: "pre-side-effect", cause: error },
         );
       }
@@ -96,7 +96,7 @@ export function createPersonalOrdaxActionExecutor({
         });
       } catch (error) {
         throw new PersonalActionExecutionError(
-          "Action execution outcome is uncertain after entering the typed adapter",
+          `Action execution outcome is uncertain after entering the typed adapter: ${error?.message ?? "unknown adapter failure"}`,
           { phase: "adapter-entered", cause: error },
         );
       }
