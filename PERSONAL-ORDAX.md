@@ -68,7 +68,7 @@ Nenhuma dessas capacidades é duplicada dentro do Personal OrdaX.
 5. **Entrada explícita de Work** — implementada no app Atividade como ação deliberada; conversas comuns não são convertidas automaticamente.
 6. **Activity/Result Surface** — implementada como projeção do runtime canônico, sem task store dentro do app.
 7. **Approvals/Action Gateway** — lifecycle persistido, gateway owner/context/grant-bound, autoridade canônica de grants e consentimento humano explícito já conectados; side effects continuam desabilitados.
-8. **Execução tipada autorizada** — contrato `ordax.action-executor/1` definido; implementação só entra com adapter real e revalidação do grant imediatamente antes do efeito.
+8. **Execução tipada autorizada** — contrato e serviço `ordax.action-executor/1` implementados com revalidação imediata; nenhum adapter Native real é registrado ainda.
 9. **Background retomável** — somente depois de persistência/recovery e revogação estarem provados.
 10. **Workers especializados e híbrido local/cloud** — sempre sob o mesmo owner, Memory e autoridade.
 
@@ -90,3 +90,15 @@ A camada atual só avança quando os testes provarem que:
 A composição Native dedicada está montada em `system/composition/native/personal-ordax.mjs` e é criada por `system/composition/native/main.mjs`. Ela cria o store Native, injeta somente as portas canônicas no runtime e participa do lifecycle com `dispose()`. O app `system/apps/activity/` é a entrada explícita de Work e projeta Work, Activity, Result e aprovação diretamente do runtime, sem persistência própria. A camada de approvals agora persiste request/resolution/decision e o Action Gateway só libera ações `read`/`write` quando um Intelligence tool grant existente corresponde exatamente a owner, Space, Project, tool, action e modo. Grant ausente mantém `approval-required`; grant inválido, expirado ou de outro contexto produz `deny`. `external-egress` e `device-control` não podem ser promovidos por um tool grant genérico e permanecem bloqueados até suas autoridades específicas existirem na composition. O gateway ainda não executa side effects. A composição Native cria uma autoridade canônica de tool grants com registry somente-leitura e issuer separado: o Personal OrdaX recebe o resolver do registry e o app Atividade recebe apenas `ordax.personal-approval-consent/1`, nunca o issuer. O botão explícito **Aprovar** só aparece quando o controller resolve a approval para uma tool/action tipada compatível; quando disponível, ele pode emitir um único grant curto e exato para `read|write` e resolver a aprovação. A composição Native principal ainda não registra uma tool Personal OrdaX, então esse preflight permanece fail-closed em vez de exibir aprovação falsa. **Negar** produz uma decisão terminal auditável sem grant. Se o contexto mudar ou a resolução falhar depois da emissão, o grant recém-criado é revogado para não deixar autoridade órfã. `external-egress` e `device-control` continuam fora desse caminho. O contrato `ordax.action-executor/1` já existe, mas não há executor concreto nem side effect. O próximo corte é registrar o primeiro adapter tool/action tipado real, revalidar grant/context imediatamente antes do efeito e persistir o receipt na Activity.
 
 O Personal OrdaX ainda não é autoridade autônoma do MVP público. O Stable/MVP continua com Intelligence consultativa até promoção explícita pelos gates do projeto.
+
+
+## Gate atual: recurso exato antes do efeito
+
+A autorização sensível agora é vinculada também ao `resourceRef` exato e ao id da approval que
+originou o grant. O Action Gateway rejeita reutilização do grant em outro recurso/aprovação. O
+Action Executor revalida essa autoridade imediatamente antes de resolver o adapter e produz
+`ordax.action-receipt/1` quando um adapter tipado conclui.
+
+Ainda não há side effect habilitado na composição Native. O próximo adapter só será registrado
+quando sua identidade de artefato puder ser verificada de forma real; não será usado SHA fictício,
+tool genérica, shell ou atalho pelo host.
