@@ -52,6 +52,7 @@ function trackedSyncStateStore(store, tracking) {
       return store.load();
     },
     save(value) {
+      tracking.lastPayload = value;
       try {
         const accepted = store.save(value);
         tracking.lastSaveAccepted = accepted === true;
@@ -202,7 +203,7 @@ export function createAccountMemorySessionRuntime({
     if (activeRuntime && activeSubjectId === snapshot.subjectId) return activeRuntime;
 
     const store = assertSyncStateStorePort(nextStore(snapshot.subjectId));
-    const tracking = { lastSaveAccepted: null };
+    const tracking = { lastSaveAccepted: null, lastPayload: null };
     const trackedStore = trackedSyncStateStore(store, tracking);
     activeSubjectId = snapshot.subjectId;
     activeStore = store;
@@ -267,11 +268,22 @@ export function createAccountMemorySessionRuntime({
         });
       }
       if (activeCoordinationTracking.lastSaveAccepted === false) {
-        return Object.freeze({
-          confirmed: false,
-          reason: "last-save-rejected",
-          persistence: activeStore.scope,
-        });
+        if (activeCoordinationTracking.lastPayload === null) {
+          return Object.freeze({
+            confirmed: false,
+            reason: "last-save-rejected",
+            persistence: activeStore.scope,
+          });
+        }
+        const accepted = activeStore.save(activeCoordinationTracking.lastPayload);
+        activeCoordinationTracking.lastSaveAccepted = accepted === true;
+        if (accepted !== true) {
+          return Object.freeze({
+            confirmed: false,
+            reason: "last-save-rejected",
+            persistence: activeStore.scope,
+          });
+        }
       }
       if (typeof activeStore.flush === "function") {
         const flushed = await activeStore.flush();
