@@ -23,7 +23,11 @@ export async function createNativeNotesStore(windowRef = globalThis.window) {
     memory = validateNotesSnapshot(JSON.parse(initial.payload));
   }
 
-  let persistQueue = Promise.resolve();
+  let desiredRevision = 0;
+  let durableRevision = 0;
+  let persistQueue = null;
+  let lastPersistError = null;
+
   const persist = async (snapshot) => {
     const next = await windowRef.fetch(NOTES_ENDPOINT, {
       method: "POST",
@@ -33,6 +37,38 @@ export async function createNativeNotesStore(windowRef = globalThis.window) {
       body: JSON.stringify({ payload: JSON.stringify(snapshot) }),
     });
     if (!next.ok) throw new Error(`Native notes persistence failed: ${next.status}`);
+    return true;
+  };
+
+  const drainDesiredSnapshot = async () => {
+    while (durableRevision < desiredRevision) {
+      const revision = desiredRevision;
+      const snapshot = memory;
+      try {
+        await persist(snapshot);
+        durableRevision = Math.max(durableRevision, revision);
+        if (revision === desiredRevision) lastPersistError = null;
+      } catch (error) {
+        if (revision < desiredRevision) continue;
+        lastPersistError = error instanceof Error
+          ? error
+          : new Error("Native notes persistence failed");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const scheduleDrain = () => {
+    if (persistQueue !== null) return persistQueue;
+    // Collapse a synchronous burst of edits into the newest snapshot while
+    // preserving a revision boundary that flush() can prove durable.
+    persistQueue = Promise.resolve()
+      .then(drainDesiredSnapshot)
+      .finally(() => {
+        persistQueue = null;
+      });
+    return persistQueue;
   };
 
   const store = {
@@ -44,7 +80,23 @@ export async function createNativeNotesStore(windowRef = globalThis.window) {
     save(snapshot) {
       const validated = validateNotesSnapshot(snapshot);
       memory = validated;
-      persistQueue = persistQueue.then(() => persist(validated)).catch(() => false);
+      desiredRevision += 1;
+      scheduleDrain();
+      return true;
+    },
+    async flush() {
+      const targetRevision = desiredRevision;
+      if (durableRevision >= targetRevision) return true;
+
+      await scheduleDrain();
+      if (durableRevision >= targetRevision) return true;
+
+      // Retry only the newest desired snapshot once. An obsolete failed write
+      // must never force stale data back over a newer note revision.
+      await scheduleDrain();
+      if (durableRevision < targetRevision) {
+        throw lastPersistError ?? new Error("Native notes persistence failed");
+      }
       return true;
     },
   };
