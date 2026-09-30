@@ -562,6 +562,7 @@ export function createPersonalOrdaxRuntime({
     inFlight.clear();
     activeOwner = nextOwner;
     state = loadOwnerState(activeOwner);
+    recoverInterruptedAttempts();
     publish();
   };
 
