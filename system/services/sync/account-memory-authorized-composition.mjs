@@ -33,6 +33,7 @@ export function createAccountMemoryAuthorizedComposition({
   });
 
   let lastStageError = null;
+  let lastCanonicalDurabilityError = null;
   let lastDurabilityError = null;
   const memoryComposition = createAccountMemorySyncComposition({
     identitySession: identity,
@@ -55,6 +56,18 @@ export function createAccountMemoryAuthorizedComposition({
   let destroyed = false;
   let lastReplayError = null;
   let lifecycleReplayPromise = Promise.resolve(null);
+
+  const flushCanonicalCoordination = async () => {
+    try {
+      await memoryComposition.memorySync.flushCoordinationState();
+      lastCanonicalDurabilityError = null;
+      return true;
+    } catch (error) {
+      lastCanonicalDurabilityError = error;
+      reportStageError(error, Object.freeze({ kind: "canonical-durability-flush" }));
+      throw error;
+    }
+  };
 
   const flushDeferredCoordination = async () => {
     try {
@@ -79,7 +92,11 @@ export function createAccountMemoryAuthorizedComposition({
       localFirstWhileAuthorizationUnavailable: true,
       deferredStateStoresPortableContent: false,
       automaticIdentityLifecycleReplay: true,
+      localContinuityFlushIncludesCanonicalCoordination: true,
       localContinuityFlushIncludesDeferredCoordination: true,
+      canonicalDurabilityHealthy: lastCanonicalDurabilityError === null,
+      localContinuityDurabilityHealthy: lastCanonicalDurabilityError === null
+        && lastDurabilityError === null,
       deferredStageHealthy: lastStageError === null,
       deferredDurabilityHealthy: lastDurabilityError === null,
       deferredReplayHealthy: lastReplayError === null,
@@ -106,6 +123,7 @@ export function createAccountMemoryAuthorizedComposition({
       .then(async () => {
         if (destroyed) return null;
         const replay = replayCurrent();
+        await flushCanonicalCoordination();
         await flushDeferredCoordination();
         return replay;
       })
@@ -131,6 +149,7 @@ export function createAccountMemoryAuthorizedComposition({
   const flushLocalContinuity = async () => {
     if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
     await memoryComposition.memory.flush();
+    await flushCanonicalCoordination();
     await flushDeferredCoordination();
     return true;
   };
@@ -155,6 +174,7 @@ export function createAccountMemoryAuthorizedComposition({
     if (refresh) await entitlementSession.refresh();
     else await entitlementSession.settled();
     replayCurrent();
+    await flushCanonicalCoordination();
     await flushDeferredCoordination();
     return snapshot();
   };
@@ -178,6 +198,7 @@ export function createAccountMemoryAuthorizedComposition({
     async replayDeferredIntents() {
       if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
       const replay = replayCurrent();
+      await flushCanonicalCoordination();
       await flushDeferredCoordination();
       return replay;
     },
