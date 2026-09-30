@@ -190,6 +190,7 @@ export function createPersonalOrdaxRuntime({
   projectCatalogPort = null,
   intelligencePort = null,
   actionGatewayPort = null,
+  revokeGrant = null,
   store = null,
   now = Date.now,
 } = {}) {
@@ -201,6 +202,9 @@ export function createPersonalOrdaxRuntime({
   const projects = projectCatalogPort === null ? null : assertProjectCatalogPort(projectCatalogPort);
   const intelligence = intelligencePort === null ? null : assertIntelligencePort(intelligencePort);
   const actionGateway = actionGatewayPort === null ? null : assertActionGateway(actionGatewayPort);
+  if (revokeGrant !== null && typeof revokeGrant !== "function") {
+    throw new TypeError("Personal OrdaX grant revoker must be a function");
+  }
   const durableStore = store === null ? null : assertPersonalOrdaxStore(store);
 
   const ownerStates = new Map();
@@ -237,6 +241,41 @@ export function createPersonalOrdaxRuntime({
   };
 
   let state = loadOwnerState(activeOwner);
+
+  const revokeApprovedApprovalsIn = (stateValue, predicate, occurredAt, summary) => {
+    let next = stateValue;
+    const candidates = stateValue.approvals.filter(
+      (approval) => approval.status === "approved" && predicate(approval),
+    );
+    for (const approval of candidates) {
+      if (approval.grantRef === null) {
+        throw new TypeError("Approved Personal OrdaX action lost its grant reference");
+      }
+      if (revokeGrant === null) {
+        throw new Error("Personal OrdaX cannot invalidate approved authority without a grant revoker");
+      }
+      revokeGrant(approval.grantRef);
+      const revoked = validatePersonalApproval({
+        ...approval,
+        status: "revoked",
+        executedAt: null,
+      });
+      next = {
+        ...next,
+        approvals: next.approvals.map((candidate) =>
+          candidate.id === revoked.id ? revoked : candidate),
+        activities: appendActivityTo(
+          next.activities,
+          approval.workItemId,
+          "progress",
+          summary,
+          occurredAt,
+          { approvalId: approval.id, actionId: approval.actionId },
+        ),
+      };
+    }
+    return next;
+  };
 
   const snapshot = () => validatePersonalOrdaxRuntimeSnapshot({
     schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
