@@ -60,6 +60,7 @@ export function validateActionRequest(value) {
     ownerId,
     spaceId: optionalText(value.spaceId, "Action Gateway Space id", 160),
     projectId: optionalText(value.projectId, "Action Gateway project id", 160),
+    resourceRef: optionalText(value.resourceRef, "Action Gateway resource ref", 512),
     reason: boundedText(value.reason, "Action Gateway reason", 512),
     requestedAt: timestamp(value.requestedAt, "Action Gateway requestedAt"),
   });
