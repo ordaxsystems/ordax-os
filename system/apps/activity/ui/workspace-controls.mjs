@@ -1,3 +1,4 @@
+import { assertPersonalApprovalConsent } from "../../../contracts/personal-approval-consent.mjs";
 import { PERSONAL_ORDAX_RUNTIME_SCHEMA } from "../../../contracts/personal-ordax-store.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { projectPersonalActivitySnapshot } from "../view-model.mjs";
@@ -55,11 +56,15 @@ export function mountPersonalActivityControls(
   root,
   personalOrdaxValue,
   surfaceLifecycle,
+  approvalConsentValue = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Activity controls require a Surface root Element");
   }
   const personalOrdax = requireRuntime(personalOrdaxValue);
+  const approvalConsent = approvalConsentValue === null
+    ? null
+    : assertPersonalApprovalConsent(approvalConsentValue);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const t = lifecycle.localization.translate;
   const documentObject = root.ownerDocument;
@@ -209,6 +214,26 @@ export function mountPersonalActivityControls(
               t("activity.approval.grantRequired"),
             ),
           );
+          if (approvalConsent !== null) {
+            const approvalActions = node(
+              documentObject,
+              "div",
+              "ordax-activity-work-actions ordax-activity-approval-actions",
+            );
+            const addApprovalAction = (action, label) => {
+              const button = node(documentObject, "button", "", label);
+              button.type = "button";
+              button.dataset.personalApprovalAction = action;
+              button.dataset.personalApprovalId = entry.pendingApproval.id;
+              button.dataset.personalWorkId = item.id;
+              approvalActions.append(button);
+            };
+            if (entry.pendingApproval.effect === "read" || entry.pendingApproval.effect === "write") {
+              addApprovalAction("approve", t("activity.action.approve"));
+            }
+            addApprovalAction("deny", t("activity.action.deny"));
+            approvalBox.append(approvalActions);
+          }
           article.append(approvalBox);
         }
 
@@ -257,6 +282,22 @@ export function mountPersonalActivityControls(
     }
   };
 
+  const runApprovalAction = (workItemId, approvalId, action) => {
+    if (approvalConsent === null) return;
+    localError = null;
+    try {
+      if (action === "approve") {
+        approvalConsent.approve(workItemId, approvalId);
+      } else if (action === "deny") {
+        approvalConsent.deny(workItemId, approvalId);
+      }
+    } catch {
+      localError = t("activity.error.approval");
+    } finally {
+      render();
+    }
+  };
+
   const onInput = (event) => {
     if (event.target?.dataset?.personalWorkInput === undefined) return;
     draft = event.target.value;
@@ -267,6 +308,14 @@ export function mountPersonalActivityControls(
   const onClick = (event) => {
     const target = event.target?.closest?.("button");
     if (!target || !mountedSlot?.contains(target) || personalOrdax === null) return;
+
+    const approvalAction = target.dataset.personalApprovalAction;
+    const approvalId = target.dataset.personalApprovalId;
+    const approvalWorkId = target.dataset.personalWorkId;
+    if (approvalAction && approvalId && approvalWorkId) {
+      runApprovalAction(approvalWorkId, approvalId, approvalAction);
+      return;
+    }
 
     if (target.dataset.personalWorkCreate !== undefined) {
       const goal = draft.trim();
