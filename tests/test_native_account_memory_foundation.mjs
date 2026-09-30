@@ -157,7 +157,7 @@ test("Native Account Memory partitions canonical deferred and crash state by acc
 
   const rootPayload = root.load();
   assert.match(rootPayload, /memory-deferred\.p\./);
-  assert.match(rootPayload, /memory-crash\.p\./);
+  assert.match(rootPayload, /memory-recovery\.p\./);
   assert.doesNotMatch(rootPayload, /conteúdo que nunca deve entrar/);
   assert.equal(root.flushes > 0, true);
 
