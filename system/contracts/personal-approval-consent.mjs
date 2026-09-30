@@ -5,6 +5,7 @@ export function assertPersonalApprovalConsent(value) {
     !value
     || typeof value !== "object"
     || value.schema !== PERSONAL_APPROVAL_CONSENT_SCHEMA
+    || typeof value.canApprove !== "function"
     || typeof value.approve !== "function"
     || typeof value.deny !== "function"
   ) {
