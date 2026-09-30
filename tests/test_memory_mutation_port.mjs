@@ -93,6 +93,43 @@ test("mutation port delegates account writes to protected mutations without loca
   assert.equal(mutations.getSnapshot().protectedAccountMutations, true);
 });
 
+test("protected account mutation rejection never falls back to local Memory", async () => {
+  const memory = memoryPort();
+  const protectedAccountMutations = {
+    async remember() {
+      throw new Error("protected-boundary-unavailable");
+    },
+    async forget() {
+      throw new Error("protected-boundary-unavailable");
+    },
+  };
+  const mutations = createMemoryMutationPort({
+    memoryPort: memory,
+    protectedAccountMutations,
+  });
+  const accountItem = item({
+    ownerKind: "account",
+    ownerId: "account-a",
+    scope: "account",
+  });
+
+  await assert.rejects(
+    mutations.remember(accountItem),
+    /protected-boundary-unavailable/,
+  );
+  await assert.rejects(
+    mutations.forget({
+      id: "memory-a",
+      ownerKind: "account",
+      ownerId: "account-a",
+    }),
+    /protected-boundary-unavailable/,
+  );
+
+  assert.equal(memory.flushes, 0);
+  assert.equal(memory.search({}).length, 0);
+});
+
 test("invalid protected account mutation provider fails closed", () => {
   assert.throws(
     () => createMemoryMutationPort({
