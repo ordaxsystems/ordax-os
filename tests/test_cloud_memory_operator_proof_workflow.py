@@ -103,20 +103,54 @@ class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         self.assertFalse(contract["public_mvp_enabled"])
         self.assertFalse(contract["implementation"]["public_rollout_enabled"])
+
         authenticated = contract["implementation"]["authenticated_proof"]
         self.assertEqual(authenticated["status"], "two-client-source-ready-execution-pending")
         self.assertTrue(authenticated["requires_preprovisioned_entitlement"])
         self.assertFalse(authenticated["creates_entitlement"])
+
+        bidirectional = contract["implementation"]["bidirectional_restore_proof"]
+        self.assertEqual(bidirectional["status"], "three-client-source-ready-execution-pending")
+        self.assertEqual(
+            bidirectional["proof"],
+            "tools/cloud-memory/prove_authenticated_bidirectional_restore.py",
+        )
+        self.assertEqual(
+            bidirectional["receipt_validator"],
+            "tools/cloud-memory/validate_bidirectional_restore_receipt.py",
+        )
+        self.assertTrue(bidirectional["shares_operator_grant_with_atomic_proof"])
+        self.assertTrue(bidirectional["client_b_valid_edit_seen_by_a"])
+        self.assertTrue(bidirectional["client_c_starts_after_edit"])
+        self.assertFalse(bidirectional["client_c_requires_local_checkpoint"])
+        self.assertTrue(bidirectional["client_c_restores_current_snapshot"])
+        self.assertTrue(bidirectional["identity_only_tombstone_verified"])
+        self.assertFalse(bidirectional["remote_execution_completed"])
+        self.assertFalse(bidirectional["creates_entitlement"])
+        self.assertFalse(bidirectional["service_role_allowed"])
+
         operator = contract["implementation"]["operator_proof_runner"]
         self.assertEqual(operator["status"], "workflow-ready-not-executed")
         self.assertEqual(
             operator["workflow"],
             ".github/workflows/cloud-memory-operator-authenticated-proof.yml",
         )
+        self.assertEqual(
+            operator["bidirectional_receipt_validator"],
+            "tools/cloud-memory/validate_bidirectional_restore_receipt.py",
+        )
+        self.assertEqual(
+            operator["proof_bodies"],
+            [
+                "tools/cloud-memory/prove_authenticated_atomic_sync.py",
+                "tools/cloud-memory/prove_authenticated_bidirectional_restore.py",
+            ],
+        )
         self.assertTrue(operator["workflow_dispatch_only"])
         self.assertTrue(operator["default_branch_only"])
         self.assertEqual(operator["required_git_ref"], "refs/heads/main")
         self.assertTrue(operator["serial_execution"])
+        self.assertTrue(operator["single_temporary_entitlement_for_all_bodies"])
         self.assertTrue(operator["issue_then_proof_then_revoke"])
         self.assertTrue(operator["revoke_in_finally"])
         self.assertFalse(operator["service_role_allowed"])
