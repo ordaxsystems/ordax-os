@@ -123,6 +123,8 @@ export function createPersonalOrdaxActionGateway({
       }
 
       const exactScope = grant.grantId === grantRef
+        && grant.toolArtifactSha256 === request.toolArtifactSha256
+        && grant.toolArtifactSha256 === tool.artifactSha256
         && request.approvalId !== null
         && grant.approvalId === request.approvalId
         && grant.toolId === request.toolId
@@ -137,7 +139,7 @@ export function createPersonalOrdaxActionGateway({
         return decision(request, {
           decision: "deny",
           authoritySource: "intelligence-tool-grant",
-          reason: "Grant does not match the exact approval, owner, context, resource, tool, action and effect.",
+          reason: "Grant does not match the exact approval, owner, context, resource, tool artifact, action and effect.",
           decidedAt,
         });
       }
