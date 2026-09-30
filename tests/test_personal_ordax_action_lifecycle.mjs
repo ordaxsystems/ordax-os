@@ -89,6 +89,7 @@ function setup() {
     identitySessionPort: identity(),
     spaceSelectionPort: spaces(),
     actionGatewayPort: gateway,
+    revokeGrant: (grantId) => grants.delete(grantId),
     now: () => now++,
   });
   const work = runtime.create("Garantir pasta do projeto", { spaceId: "space-a" });
