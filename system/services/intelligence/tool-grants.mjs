@@ -29,7 +29,7 @@ export function createIntelligenceToolGrantAuthority({
   }
 
   const grants = new Map();
-  const grantByApproval = new Map();
+  const issuedApprovals = new Set();
   let nextOrdinal = 1;
   let disposed = false;
 
@@ -43,13 +43,15 @@ export function createIntelligenceToolGrantAuthority({
     const grant = grants.get(grantId);
     if (!grant) return false;
     grants.delete(grantId);
-    for (const [approvalId, candidateGrantId] of grantByApproval) {
-      if (candidateGrantId === grantId) {
-        grantByApproval.delete(approvalId);
-        break;
+    return true;
+  };
+
+  const pruneExpired = (nowMs) => {
+    for (const [grantId, grant] of grants) {
+      if (grant.expiresAt !== null && Date.parse(grant.expiresAt) <= nowMs) {
+        removeGrant(grantId);
       }
     }
-    return true;
   };
 
   const registry = Object.freeze({
@@ -59,7 +61,8 @@ export function createIntelligenceToolGrantAuthority({
       if (typeof grantId !== "string" || !GRANT_ID_RE.test(grantId)) return null;
       const grant = grants.get(grantId) ?? null;
       if (grant === null) return null;
-      if (grant.expiresAt !== null && Date.parse(grant.expiresAt) <= readClock(now)) {
+      const nowMs = readClock(now);
+      if (grant.expiresAt !== null && Date.parse(grant.expiresAt) <= nowMs) {
         removeGrant(grantId);
         return null;
       }
@@ -81,7 +84,8 @@ export function createIntelligenceToolGrantAuthority({
       if (expiresAtMs <= nowMs) {
         throw new TypeError("Intelligence tool grant is already expired");
       }
-      if (grantByApproval.has(request.approvalId)) {
+      pruneExpired(nowMs);
+      if (issuedApprovals.has(request.approvalId)) {
         throw new Error("Intelligence tool approval already issued a grant");
       }
       if (grants.size >= MAX_SESSION_GRANTS) {
@@ -108,7 +112,7 @@ export function createIntelligenceToolGrantAuthority({
         expiresAt: request.expiresAt,
       });
       grants.set(grant.grantId, grant);
-      grantByApproval.set(request.approvalId, grant.grantId);
+      issuedApprovals.add(request.approvalId);
       return grant;
     },
     revoke(grantId) {
@@ -124,7 +128,7 @@ export function createIntelligenceToolGrantAuthority({
       if (disposed) return;
       disposed = true;
       grants.clear();
-      grantByApproval.clear();
+      issuedApprovals.clear();
     },
   });
 }
