@@ -70,6 +70,26 @@ test("remember commits local Memory before staging account sync", () => {
   assert.equal(bridge.getSnapshot().lastStageResult.result.status, "pending");
 });
 
+test("stage results expose exact trusted context without changing Memory port semantics", () => {
+  const memory = createMemoryRuntime();
+  const sync = syncRuntime();
+  const reports = [];
+  const bridge = createAccountMemoryLocalBridge({
+    memoryPort: memory,
+    memorySync: sync.runtime,
+    onStageResult(result, context) {
+      reports.push({ result, context });
+    },
+  });
+
+  bridge.port.remember(item());
+
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].result.status, "pending");
+  assert.equal(reports[0].context.kind, "upsert");
+  assert.equal(reports[0].context.value.id, "memory-a");
+});
+
 test("a staging failure never rolls back an already committed local Memory item", () => {
   const memory = createMemoryRuntime();
   const sync = syncRuntime({ throwOnUpsert: true });
@@ -90,6 +110,55 @@ test("a staging failure never rolls back an already committed local Memory item"
   assert.equal(errors[0].context.kind, "upsert");
   assert.match(errors[0].error.message, /coordination unavailable/);
   assert.equal(bridge.getSnapshot().lastStageResult.result, null);
+});
+
+test("portable to restricted transition stages identity-only cloud cleanup instead of an upsert", () => {
+  const memory = createMemoryRuntime();
+  memory.remember(item());
+  const sync = syncRuntime();
+  const reports = [];
+  const bridge = createAccountMemoryLocalBridge({
+    memoryPort: memory,
+    memorySync: sync.runtime,
+    onStageResult(result, context) {
+      reports.push({ result, context });
+    },
+  });
+
+  const restricted = bridge.port.remember(item({
+    sensitivity: "restricted",
+    content: "now private to this device context",
+    sourceTimestamp: "2026-09-29T23:01:00Z",
+  }));
+
+  assert.equal(restricted.sensitivity, "restricted");
+  assert.equal(find(memory)?.sensitivity, "restricted");
+  assert.equal(sync.staged.length, 1);
+  assert.equal(sync.staged[0].kind, "delete");
+  assert.deepEqual(sync.staged[0].value, {
+    id: "memory-a",
+    ownerKind: "account",
+    ownerId: "account-a",
+  });
+  assert.equal(reports[0].context.transition, "portable-to-local-only");
+  assert.equal(reports[0].context.localItem.sensitivity, "restricted");
+});
+
+test("already local-only Memory does not manufacture a cloud tombstone on another local-only edit", () => {
+  const memory = createMemoryRuntime();
+  memory.remember(item({ sensitivity: "restricted" }));
+  const sync = syncRuntime();
+  const bridge = createAccountMemoryLocalBridge({ memoryPort: memory, memorySync: sync.runtime });
+
+  bridge.port.remember(item({
+    sensitivity: "restricted",
+    content: "still local only",
+    sourceTimestamp: "2026-09-29T23:02:00Z",
+  }));
+
+  assert.equal(sync.staged.length, 1);
+  assert.equal(sync.staged[0].kind, "upsert");
+  assert.equal(sync.staged.some((entry) => entry.kind === "delete"), false);
 });
 
 test("forget commits locally and stages an identity-only delete request", () => {
