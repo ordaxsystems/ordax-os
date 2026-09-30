@@ -18,6 +18,7 @@ ACCOUNT_CLOSE_DISABLED_PROOF = ROOT / "tools" / "account-sync" / "prove_account_
 RECOVERY_EMAIL_TEMPLATE = ROOT / "infra" / "supabase" / "identity" / "email-templates" / "recovery.html"
 ACCOUNT_EXPORT_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260925031000_account_data_export_v1.sql"
 ACCOUNT_LIFECYCLE_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-lifecycle" / "index.ts"
+ACCOUNT_LIFECYCLE_CONTRACT = ROOT / "docs" / "contracts" / "account-lifecycle.json"
 
 
 class AccountSyncAndIdentityV1Tests(unittest.TestCase):
@@ -136,6 +137,18 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("SupabaseAccountProvider", gateway)
         self.assertIn('if path == "/account/export":', gateway)
         self.assertIn("export_account(access)", gateway)
+
+    def test_account_close_contract_records_implemented_but_disabled_deployment(self):
+        contract = json.loads(ACCOUNT_LIFECYCLE_CONTRACT.read_text(encoding="utf-8"))
+        close = contract["operations"]["account_close"]
+        self.assertTrue(close["implemented"])
+        self.assertTrue(close["source_implemented"])
+        self.assertTrue(close["gateway_route_deployed"])
+        self.assertTrue(close["lifecycle_service_deployed"])
+        self.assertTrue(close["deployment_source_match_verified"])
+        self.assertTrue(close["gateway_deployment_source_match_verified"])
+        self.assertFalse(close["public_enabled"])
+        self.assertFalse(close["lifecycle_service_enabled"])
 
     def test_account_close_source_is_isolated_disabled_and_requires_fresh_auth(self):
         lifecycle = ACCOUNT_LIFECYCLE_EDGE.read_text(encoding="utf-8")
