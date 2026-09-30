@@ -32,7 +32,7 @@ const ACTIVITY_TYPES = new Set([
 const EFFECTS = new Set(["read", "write", "external-egress", "device-control"]);
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const DECISIONS = new Set(["allow", "approval-required", "deny"]);
-const APPROVAL_STATUSES = new Set(["pending", "approved", "executed", "denied", "cancelled"]);
+const APPROVAL_STATUSES = new Set(["pending", "approved", "executed", "revoked", "denied", "cancelled"]);
 const AUTHORITY_SOURCES = new Set([
   "system-policy",
   "user-grant",
@@ -222,8 +222,11 @@ export function validatePersonalApproval(value) {
   if ((value.status === "approved" || value.status === "executed") && value.effect !== "read" && grantRef === null) {
     throw new TypeError("approved or executed sensitive action requires an explicit grant reference");
   }
-  if (value.status === "approved" && executedAt !== null) {
-    throw new TypeError("approved action cannot already be marked executed");
+  if ((value.status === "approved" || value.status === "revoked") && executedAt !== null) {
+    throw new TypeError("approved or revoked action cannot be marked executed");
+  }
+  if (value.status === "revoked" && grantRef === null) {
+    throw new TypeError("revoked approval must retain its revoked grant reference for audit");
   }
   if (value.status === "executed" && executedAt === null) {
     throw new TypeError("executed approval requires executedAt");
