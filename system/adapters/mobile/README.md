@@ -55,3 +55,30 @@ A mobile client may cache approved synchronized data for offline use and reconci
 Android/iOS-specific code is allowed only below this adapter for real platform differences. Shared business behavior must not be duplicated in separate Android and iOS implementations.
 
 The choice of packaging/runtime technology is intentionally not made here. React Native, Capacitor, native shells or another option may be evaluated later without changing this boundary.
+
+## Companion-device capabilities
+
+Mobile is both a normal OrdaX client and, when the user opts in, a capability provider for other
+authorized OrdaX devices.
+
+The adapter is responsible for mapping Android/iOS platform APIs into the shared
+`ordax.mobile-capability/1` contract. Product/app logic must not call Android or iOS camera,
+microphone, location or sensor APIs directly.
+
+Initial capability families:
+
+- microphone streaming;
+- camera streaming/capture;
+- one-shot and opt-in presence location;
+- motion/orientation sensors;
+- file/share handoff;
+- notifications.
+
+Camera, microphone and one-shot location are foreground-only by default. Persistent presence is a
+separate opt-in and must respect platform background-location rules.
+
+The adapter may later implement WebRTC or equivalent encrypted realtime media, Bluetooth LE, NFC or
+UWB bridges, but those transports and APIs do not redefine OrdaX account/Space authority.
+
+See `docs/MOBILE-COMPANION.md` and `docs/contracts/mobile-companion.json`.
+
