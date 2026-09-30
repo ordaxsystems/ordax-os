@@ -114,5 +114,28 @@
     "idempotency_required": true,
     "expiry_required": true,
     "audit_required": true
+  },
+  "edge_runtime": {
+    "role": "infrastructure-runtime-not-user-facing-product-mode",
+    "status": "source-architecture-only-runtime-disabled",
+    "same_device_agent_capability_contract": true,
+    "notebook_dependency_for_production": false,
+    "deployment_targets": [
+      "device-native-when-supported",
+      "dedicated-low-power-host",
+      "compatible-nas-or-server",
+      "client-host-development-or-convenience"
+    ],
+    "remote_transport": {
+      "outbound_session_preferred": true,
+      "public_inbound_management_port_required": false,
+      "action_gateway_required": true
+    },
+    "offline_and_reconnect": {
+      "bounded_durable_local_state": true,
+      "canonical_reconciliation_required": true,
+      "expired_action_replay_forbidden": true,
+      "device_revision_revalidation_required": true
+    }
   }
 }
