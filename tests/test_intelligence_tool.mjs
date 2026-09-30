@@ -35,7 +35,7 @@ function grant(overrides = {}) {
     approved: false,
     source: "composition",
     ownerKind: "device",
-    ownerId: "device-owner",
+    ownerId: null,
     spaceId: "space-dev",
     projectId: "project-ordax",
     expiresAt: null,
@@ -51,11 +51,32 @@ test("tool definition is typed, bounded and sandboxed", () => {
   assert.equal(Object.isFrozen(value), true);
 });
 
-test("prompt text can never create tool authority", () => {
+test("content can never create tool authority", () => {
+  for (const source of ["prompt", "model", "profile", "profile-pack", "memory", "project-content"]) {
+    assert.throws(
+      () => validateIntelligenceToolGrant(grant({ source })),
+      /content cannot create tool authority/,
+    );
+  }
+});
+
+test("tool grants use the canonical device/account owner model", () => {
+  const device = validateIntelligenceToolGrant(grant());
+  assert.equal(device.ownerKind, "device");
+  assert.equal(device.ownerId, null);
   assert.throws(
-    () => validateIntelligenceToolGrant(grant({ source: "prompt" })),
-    /prompt text cannot create tool authority/,
+    () => validateIntelligenceToolGrant(grant({ ownerId: "invented-device-owner" })),
+    /must not invent/,
   );
+  assert.throws(
+    () => validateIntelligenceToolGrant(grant({ ownerKind: "account", ownerId: null })),
+    /owner id/,
+  );
+  const account = validateIntelligenceToolGrant(grant({
+    ownerKind: "account",
+    ownerId: "user-1",
+  }));
+  assert.equal(account.ownerId, "user-1");
 });
 
 test("write grant requires explicit approval", () => {
