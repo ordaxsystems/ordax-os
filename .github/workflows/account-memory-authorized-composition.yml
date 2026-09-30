@@ -1,0 +1,60 @@
+name: Account Memory Authorized Composition
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/entitlements.mjs'
+      - 'system/contracts/identity-session.mjs'
+      - 'system/services/memory/**'
+      - 'system/services/sync/account-memory-authorization.mjs'
+      - 'system/services/sync/account-memory-entitlement-session.mjs'
+      - 'system/services/sync/account-memory-composition.mjs'
+      - 'system/services/sync/account-memory-authorized-composition.mjs'
+      - 'tests/test_account_memory_authorization.mjs'
+      - 'tests/test_account_memory_entitlement_session.mjs'
+      - 'tests/test_account_memory_transport_authorization.mjs'
+      - 'tests/test_account_memory_authorized_composition.mjs'
+      - '.github/workflows/account-memory-authorized-composition.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/entitlements.mjs'
+      - 'system/contracts/identity-session.mjs'
+      - 'system/services/memory/**'
+      - 'system/services/sync/account-memory-authorization.mjs'
+      - 'system/services/sync/account-memory-entitlement-session.mjs'
+      - 'system/services/sync/account-memory-composition.mjs'
+      - 'system/services/sync/account-memory-authorized-composition.mjs'
+      - 'tests/test_account_memory_authorization.mjs'
+      - 'tests/test_account_memory_entitlement_session.mjs'
+      - 'tests/test_account_memory_transport_authorization.mjs'
+      - 'tests/test_account_memory_authorized_composition.mjs'
+      - '.github/workflows/account-memory-authorized-composition.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  account-memory-authorized-composition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate source syntax
+        run: |
+          set -euo pipefail
+          node --check system/services/sync/account-memory-authorized-composition.mjs
+          node --check tests/test_account_memory_authorized_composition.mjs
+
+      - name: Prove entitlement-gated local-first Memory composition
+        run: |
+          set -euo pipefail
+          node --test tests/test_account_memory_authorization.mjs
+          node --test tests/test_account_memory_entitlement_session.mjs
+          node --test tests/test_account_memory_transport_authorization.mjs
+          node --test tests/test_account_memory_authorized_composition.mjs
