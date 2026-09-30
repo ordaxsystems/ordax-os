@@ -248,12 +248,17 @@ def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
         raise ClosureEvidenceError("raw closure canonical collections are invalid")
     expansion_counts = verify_context_expansion(roots, nodes, contexts)
 
-    edge_count = cycle_edges = 0
+    edge_count = cycle_edges = preload_edges = 0
     for context in contexts.values():
         if not isinstance(context, dict) or not isinstance(context.get("edges"), list):
             raise ClosureEvidenceError("raw closure context edges are invalid")
         edge_count += len(context["edges"])
         cycle_edges += sum(1 for edge in context["edges"] if isinstance(edge, dict) and edge.get("cycle") is True)
+        preload_edges += sum(
+            1
+            for edge in context["edges"]
+            if isinstance(edge, dict) and edge.get("resolution_kind") == "source-proven-dependency-attach-preload"
+        )
     if expansion_counts["cycle_edges"] != cycle_edges:
         raise ClosureEvidenceError("raw closure cycle count disagrees with verified context expansion")
     sonames: set[str] = set()
@@ -291,6 +296,7 @@ def finalize(direct_evidence: dict, closure: dict, guard: dict) -> dict:
         guard_counts.get("edges_checked") == edge_count,
         guard_counts.get("edges_checked") == guard_counts.get("stage_hits", -1) + guard_counts.get("rootfs_hits", -1),
         guard_counts.get("identity_soname_pairs") == len(shortname_targets),
+        guard_counts.get("dependency_attach_preload_hits") == preload_edges,
     )
     if not all(expected_guard_relations):
         raise ClosureEvidenceError("closure loader guard counts do not match closure/target content")
