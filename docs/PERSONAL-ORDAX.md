@@ -186,7 +186,19 @@ and owns no task/result persistence. It can inspect existing owner work even whe
 temporarily unavailable; execution still fails closed unless the canonical Intelligence port is
 ready.
 
-Next in this phase is approval/Action Gateway integration under the existing authority contracts.
+Approval/Action Gateway integration now has a source-level execution gate. Approval requests are
+owner-bound runtime state, transition Work to `waiting-approval`, and are recorded in ordered
+Activity. Resolution goes through `ordax.action-gateway/1`; the Personal OrdaX gateway reuses
+`ordax.intelligence-tool-grant/1` and requires an exact owner, optional Space/project, tool,
+action and read/write-mode match. Missing grants remain `approval-required`; invalid, expired or
+cross-context grants fail closed to `deny`. Approved sensitive actions require the exact grant
+reference, and resolved approvals are persisted with their terminal action decision and Activity
+event as one validated graph.
+
+The Action Gateway does not execute side effects yet. Native composition has no grant registry or
+issuer wired into Personal OrdaX, so there is deliberately no fake Approve button that could mint
+authority. Activity can display the pending approval and cancel the Work. The next gate is to bind
+a trusted existing grant owner/registry to composition and only then add a typed execution port.
 Background execution remains disabled.
 
 ### Phase 2 — resumable bounded background work
