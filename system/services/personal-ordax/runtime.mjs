@@ -1192,6 +1192,9 @@ export function createPersonalOrdaxRuntime({
       if (!approval || approval.status !== "approved") {
         throw new Error("Personal OrdaX grant revocation requires an approved unconsumed approval");
       }
+      if (approval.grantRef === null) {
+        throw new Error("Personal OrdaX approval has no explicit grant to revoke");
+      }
       const occurredAt = isoClock(now);
       let next = revokeApprovedApprovalsIn(
         state,
