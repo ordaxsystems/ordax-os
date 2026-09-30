@@ -5,13 +5,16 @@ on:
     paths:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
+      - 'system/contracts/memory-mutation.mjs'
       - 'system/contracts/sync-state-store.mjs'
       - 'system/services/memory/runtime.mjs'
+      - 'system/services/memory/mutation-port.mjs'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-memory-session-runtime.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-crash-recovery-journal.mjs'
+      - 'tests/test_memory_mutation_port.mjs'
       - 'tests/test_account_memory_protected_mutations.mjs'
       - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
@@ -24,13 +27,16 @@ on:
     paths:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
+      - 'system/contracts/memory-mutation.mjs'
       - 'system/contracts/sync-state-store.mjs'
       - 'system/services/memory/runtime.mjs'
+      - 'system/services/memory/mutation-port.mjs'
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-memory-session-runtime.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-crash-recovery-journal.mjs'
+      - 'tests/test_memory_mutation_port.mjs'
       - 'tests/test_account_memory_protected_mutations.mjs'
       - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
@@ -55,11 +61,14 @@ jobs:
       - name: Validate protected mutation source syntax
         run: |
           set -euo pipefail
+          node --check system/contracts/memory-mutation.mjs
           node --check system/services/memory/runtime.mjs
+          node --check system/services/memory/mutation-port.mjs
           node --check system/services/sync/account-memory-session-runtime.mjs
           node --check system/services/sync/account-memory-authorized-composition.mjs
           node --check system/services/sync/account-memory-deferred-intents.mjs
           node --check system/services/sync/account-memory-crash-recovery-journal.mjs
+          node --check tests/test_memory_mutation_port.mjs
           node --check tests/test_account_memory_protected_mutations.mjs
           node --check tests/test_account_memory_deferred_intents.mjs
           node --check tests/test_account_memory_crash_recovery_ownership.mjs
@@ -68,6 +77,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test \
+            tests/test_memory_mutation_port.mjs \
             tests/test_account_memory_protected_mutations.mjs \
             tests/test_account_memory_deferred_intents.mjs \
             tests/test_account_memory_authorized_composition.mjs \
