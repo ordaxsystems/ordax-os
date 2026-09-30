@@ -207,6 +207,49 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
             self.assertFalse(proof["gates"]["dynamic_load_inventory_complete"])
             self.assertFalse(proof["gates"]["runtime_dependency_inventory_complete"])
 
+    def test_alias_paths_are_preserved_before_canonical_context_dedup(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            write(
+                stage / "usr/bin/wine",
+                synthetic_elf64(
+                    (b"libalias-a.so.1", b"libalias-b.so.1"),
+                    rpath=b"/opt/a:/opt/b",
+                ),
+            )
+            write(rootfs / "usr/lib/provider.so", synthetic_elf64(runpath=b"$ORIGIN"))
+            alias_a = rootfs / "opt/a/libalias-a.so.1"
+            alias_a.parent.mkdir(parents=True, exist_ok=True)
+            alias_a.symlink_to("../../usr/lib/provider.so")
+            alias_b = rootfs / "opt/b/libalias-b.so.1"
+            alias_b.parent.mkdir(parents=True, exist_ok=True)
+            alias_b.symlink_to("../../usr/lib/provider.so")
+            write_apk_database(
+                rootfs,
+                [
+                    ("usr/lib", "provider.so"),
+                    ("opt/a", "libalias-a.so.1"),
+                    ("opt/b", "libalias-b.so.1"),
+                ],
+            )
+            preload = preload_source_proof()
+            full = full_build_proof(stage)
+            direct = direct_proof(stage, rootfs, full, preload)
+            proof = MODULE.discover(stage, rootfs, full, direct, preload)
+
+            provider_key = "rootfs-external:usr/lib/provider.so"
+            self.assertEqual(
+                proof["nodes"][provider_key]["paths"],
+                ["opt/a/libalias-a.so.1", "opt/b/libalias-b.so.1"],
+            )
+            provider_contexts = [
+                item for item in proof["contexts"].values()
+                if item["consumer"] == provider_key
+            ]
+            self.assertEqual(len(provider_contexts), 1)
+
     def test_cycle_is_recorded_and_does_not_recurse_forever(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
