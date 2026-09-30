@@ -457,6 +457,7 @@ jobs:
           node --test tests/test_personal_ordax_runtime.mjs
           node --test tests/test_personal_ordax_store_adapters.mjs
           node --test tests/test_personal_ordax_native_composition.mjs
+          node --test tests/test_personal_ordax_activity_surface.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
           node --test tests/test_network_management_runtime.mjs
