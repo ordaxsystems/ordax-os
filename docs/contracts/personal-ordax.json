@@ -145,7 +145,11 @@
     "action_executor_revalidates_authority_immediately_before_adapter": true,
     "action_receipt_contract_enabled": true,
     "runtime_reconstructs_execution_from_retained_approval": true,
-    "caller_supplied_execution_resource_authoritative": false
+    "caller_supplied_execution_resource_authoritative": false,
+    "sensitive_approval_binds_tool_artifact_sha256": true,
+    "tool_grant_binds_tool_artifact_sha256": true,
+    "action_gateway_revalidates_tool_artifact_sha256": true,
+    "action_executor_revalidates_adapter_artifact_sha256": true
   },
   "activity": {
     "ordered_sequence_required": true,
