@@ -5,6 +5,7 @@ import {
   validateMemoryItem,
 } from "../../contracts/memory.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
+import { assertMemoryMutationsPort } from "../../contracts/memory-mutations.mjs";
 import { memoryAutoCaptureEnabled } from "../preferences/memory.mjs";
 import {
   MEMORY_CAPTURE_RESULT_SCHEMA,
@@ -68,7 +69,7 @@ export function createMemoryCaptureRuntime(memoryPort, {
   now = () => new Date(),
   idFactory = defaultIdFactory,
   readCaptureEnabled = () => true,
-  persistItem = null,
+  mutationPort = null,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
   if (typeof now !== "function" || typeof idFactory !== "function") {
@@ -77,15 +78,20 @@ export function createMemoryCaptureRuntime(memoryPort, {
   if (typeof readCaptureEnabled !== "function") {
     throw new TypeError("Memory capture requires a capture policy reader");
   }
-  if (persistItem !== null && typeof persistItem !== "function") {
-    throw new TypeError("Memory capture persistItem must be a function when provided");
-  }
+  const mutations = mutationPort === null
+    ? null
+    : assertMemoryMutationsPort(mutationPort);
 
-  const persist = persistItem ?? (async (item) => {
-    memory.remember(item);
-    await memory.flush();
-    return true;
-  });
+  const persist = mutations === null
+    ? async (item) => {
+      memory.remember(item);
+      const durable = await memory.flush();
+      if (durable !== true) {
+        throw new Error("Memory capture persistence did not confirm durability");
+      }
+      return item;
+    }
+    : async (item) => mutations.remember(item);
 
   return Object.freeze({
     schema: MEMORY_CAPTURE_RUNTIME_SCHEMA,
@@ -122,9 +128,9 @@ export function createMemoryCaptureRuntime(memoryPort, {
         spaceId: authorization.spaceId,
         projectId: null,
       });
-      const durable = await persist(item);
-      if (durable !== true) {
-        throw new Error("Memory capture persistence did not confirm durability");
+      const persisted = validateMemoryItem(await persist(item));
+      if (JSON.stringify(persisted) !== JSON.stringify(item)) {
+        throw new Error("Memory capture mutation port changed the authorized item");
       }
       return Object.freeze({
         schema: MEMORY_CAPTURE_RESULT_SCHEMA,
