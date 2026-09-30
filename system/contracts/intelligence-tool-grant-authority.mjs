@@ -73,6 +73,10 @@ export function validateIntelligenceToolGrantIssue(value) {
 
   const approvalId = boundedText(value.approvalId, "Intelligence tool grant approval id", 200);
   const toolId = boundedText(value.toolId, "Intelligence tool grant tool id", 96);
+  const toolArtifactSha256 = boundedText(value.toolArtifactSha256, "Intelligence tool grant artifact sha256", 64);
+  if (!/^[0-9a-f]{64}$/.test(toolArtifactSha256)) {
+    throw new TypeError("Intelligence tool grant artifact sha256 is invalid");
+  }
   const action = boundedText(value.action, "Intelligence tool grant action", 128);
   const spaceId = optionalText(value.spaceId, "Intelligence tool grant Space", 160);
   const projectId = optionalText(value.projectId, "Intelligence tool grant project", 160);
@@ -86,6 +90,7 @@ export function validateIntelligenceToolGrantIssue(value) {
     grantId: "pending-grant",
     approvalId,
     toolId,
+    toolArtifactSha256,
     action,
     mode: value.mode,
     approved: true,
@@ -102,6 +107,7 @@ export function validateIntelligenceToolGrantIssue(value) {
     schema: INTELLIGENCE_TOOL_GRANT_ISSUE_SCHEMA,
     approvalId,
     toolId,
+    toolArtifactSha256,
     action,
     mode: value.mode,
     approvedBy: "user",
