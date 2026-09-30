@@ -224,6 +224,11 @@
     "native_account_crash_safe_provider_wired": true,
     "native_account_provider_requires_device_durable_coordination": true,
     "native_account_coordination_corruption_blocks_before_local_mutation": true,
-    "native_account_provider_cloud_transport_wired": false
+    "native_account_provider_cloud_transport_wired": false,
+    "native_account_crash_recovery_automatic": true,
+    "native_account_crash_recovery_non_boot_blocking": true,
+    "native_account_crash_recovery_retry_on_sign_in": true,
+    "native_account_crash_recovery_retry_on_reconnect": true,
+    "native_account_reconnect_refreshes_entitlement_before_recovery": true
   }
 }
