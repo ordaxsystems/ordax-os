@@ -152,6 +152,10 @@ class StableBaseContractTests(unittest.TestCase):
         self.assertIn('ORDAX_STABLE_INIT_HANDOFF=VERIFIED', text)
         self.assertIn('ORDAX_STABLE_INIT_SOURCE_SHA=$ORDAX_SOURCE_SHA', text)
         self.assertIn("exec /system/entrypoint", text)
+        self.assertIn('/bin/busybox timeout -k 1 3 /sbin/modprobe "$module"', text)
+        self.assertIn('ORDAX_WIFI_COLDPLUG_TIMEOUTS=$timed_out', text)
+        self.assertIn('Wi-Fi coldplug timed out for $module', text)
+        self.assertNotIn('if /sbin/modprobe "$module"', text)
         self.assertNotIn("git", text.lower())
 
     def test_builder_records_and_enforces_full_transitive_apk_lock(self):
