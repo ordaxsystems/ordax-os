@@ -153,6 +153,36 @@ def _canonical_component_binding(manifest: dict, components: list) -> dict:
     }
 
 
+def _assert_stable_mvp_activation_allowed(
+    manifest: dict,
+    components: list,
+    permission_diff: dict,
+) -> None:
+    activation = manifest.get("activation")
+    if not isinstance(activation, dict) or activation.get("publicly_available") is not True:
+        raise PermissionError("Profile is not publicly available for Stable/MVP activation")
+    canonical_components = manifest.get("components")
+    if canonical_components != [] or components != []:
+        raise PermissionError("Stable/MVP Profile activation requires a zero-component bundled Profile")
+    if (
+        permission_diff.get("componentAdds") != []
+        or permission_diff.get("componentRemovals") != []
+        or permission_diff.get("authorityChanges") != []
+        or permission_diff.get("requiresExplicitReview") is not False
+    ):
+        raise PermissionError("Stable/MVP Profile activation cannot change authority or component grants")
+
+
+def _assert_stable_mvp_rollback_target(target: dict, space_kind: str) -> None:
+    profile = target.get("profile")
+    components = target.get("components")
+    if not isinstance(profile, dict) or not isinstance(components, list):
+        raise PermissionError("Stable/MVP rollback target is invalid")
+    manifest = _canonical_manifest(profile.get("slug"), profile.get("version"))
+    permission_diff = _assert_internal_activation_allowed(manifest, space_kind, components)
+    _assert_stable_mvp_activation_allowed(manifest, components, permission_diff)
+
+
 def _permission_review_digest(
     *,
     expected_revision: int,
@@ -211,7 +241,7 @@ def execute_profile_activation_command(
     human_consent_authority=None,
     human_consent_resolver=None,
 ) -> dict:
-    if distribution_profile != "owner-development":
+    if distribution_profile not in {"owner-development", "stable-mvp"}:
         raise PermissionError("Profile activation command is unavailable in this distribution")
     if not isinstance(payload, dict):
         raise ValueError("Profile activation command must be an object")
@@ -243,6 +273,8 @@ def execute_profile_activation_command(
             raise ValueError("Profile activation components are invalid")
         manifest = _canonical_manifest(profile.get("slug"), profile.get("version"))
         permission_diff = _assert_internal_activation_allowed(manifest, space_kind, components)
+        if distribution_profile == "stable-mvp":
+            _assert_stable_mvp_activation_allowed(manifest, components, permission_diff)
         review_digest = _permission_review_digest(
             expected_revision=expected_revision,
             space_id=space_id,
@@ -322,6 +354,11 @@ def execute_profile_activation_command(
                 state_path=state_path,
                 inventory_path=inventory_path,
                 lock_path=lock_path,
+                target_validator=(
+                    (lambda target, space_kind: _assert_stable_mvp_rollback_target(target, space_kind))
+                    if distribution_profile == "stable-mvp"
+                    else None
+                ),
             )
     else:
         raise ValueError("Profile activation action is unsupported")
