@@ -420,6 +420,49 @@ export function createPersonalOrdaxRuntime({
     publish();
   };
 
+  const prepareActionExecution = (id, approvalId) => {
+    if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+    const item = findWork(id);
+    if (item.state !== "queued") {
+      throw new Error("Personal OrdaX action execution requires queued work");
+    }
+    const status = contextStatus(item);
+    if (status !== "valid") {
+      throw new Error(`Personal OrdaX work context is invalid: ${status}`);
+    }
+    const approval = state.approvals.find((candidate) =>
+      candidate.id === approvalId && candidate.workItemId === id
+    );
+    if (!approval || approval.status !== "approved" || approval.executedAt !== null) {
+      throw new Error("Personal OrdaX action execution requires an unconsumed approved approval");
+    }
+    const decision = state.decisions.find((candidate) =>
+      candidate.workItemId === id
+      && candidate.actionId === approval.actionId
+    );
+    if (!decision || decision.decision !== "allow") {
+      throw new Error("Personal OrdaX action execution requires its retained allow decision");
+    }
+    return validateAuthorizedActionExecution({
+      request: {
+        workItemId: item.id,
+        approvalId: approval.id,
+        actionId: approval.actionId,
+        toolId: approval.toolId,
+        toolArtifactSha256: approval.toolArtifactSha256,
+        effect: approval.effect,
+        ownerKind: item.ownerKind,
+        ownerId: item.ownerId,
+        spaceId: item.spaceId,
+        projectId: item.projectId,
+        resourceRef: approval.resourceRef,
+        reason: approval.reason,
+        requestedAt: approval.requestedAt,
+      },
+      decision,
+    });
+  };
+
   const unsubscribers = [
     identity.subscribe(handleIdentityChange),
     selection?.subscribe(pauseInvalidCurrentWork) ?? null,
@@ -749,46 +792,7 @@ export function createPersonalOrdaxRuntime({
       return actionDecision;
     },
     prepareActionExecution(id, approvalId) {
-      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
-      const item = findWork(id);
-      if (item.state !== "queued") {
-        throw new Error("Personal OrdaX action execution requires queued work");
-      }
-      const status = contextStatus(item);
-      if (status !== "valid") {
-        throw new Error(`Personal OrdaX work context is invalid: ${status}`);
-      }
-      const approval = state.approvals.find((candidate) =>
-        candidate.id === approvalId && candidate.workItemId === id
-      );
-      if (!approval || approval.status !== "approved") {
-        throw new Error("Personal OrdaX action execution requires an approved retained approval");
-      }
-      const decision = state.decisions.find((candidate) =>
-        candidate.workItemId === id
-        && candidate.actionId === approval.actionId
-      );
-      if (!decision || decision.decision !== "allow") {
-        throw new Error("Personal OrdaX action execution requires its retained allow decision");
-      }
-      return validateAuthorizedActionExecution({
-        request: {
-          workItemId: item.id,
-          approvalId: approval.id,
-          actionId: approval.actionId,
-          toolId: approval.toolId,
-          toolArtifactSha256: approval.toolArtifactSha256,
-          effect: approval.effect,
-          ownerKind: item.ownerKind,
-          ownerId: item.ownerId,
-          spaceId: item.spaceId,
-          projectId: item.projectId,
-          resourceRef: approval.resourceRef,
-          reason: approval.reason,
-          requestedAt: approval.requestedAt,
-        },
-        decision,
-      });
+      return prepareActionExecution(id, approvalId);
     },
     startActionExecution(id, approvalId) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
@@ -806,7 +810,7 @@ export function createPersonalOrdaxRuntime({
       if (!approval || approval.status !== "approved" || approval.executedAt !== null) {
         throw new Error("Personal OrdaX action execution requires one unconsumed approved approval");
       }
-      const execution = this.prepareActionExecution(id, approvalId);
+      const execution = prepareActionExecution(id, approvalId);
       updateWork(id, { state: "running", pendingApprovalId: null }, {
         activity: {
           type: "action-started",
