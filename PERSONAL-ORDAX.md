@@ -138,3 +138,13 @@ Propostas estruturadas vindas do modelo continuam desabilitadas neste corte. Qua
 Um runtime com Action Gateway agora é inválido sem um revoker de grants. A revogação deixou de ser responsabilidade da UI/composição e passou a fazer parte do lifecycle canônico do Personal OrdaX.
 
 Qualquer grant aprovado e ainda não consumido é revogado antes de invalidar seu contexto por troca de owner, logout, troca de Space, desaparecimento do projeto ou cancelamento explícito do Work. Isso também vale para Work já pausado após uma tentativa de execução: estar pausado não mantém authority viva. A approval permanece como `revoked` com seu `grantRef` apenas para auditoria; o registry já não resolve esse grant.
+
+### Action Attempt journal e crash recovery
+
+Cada side effect foreground passa a ter um `ordax.personal-action-attempt/1` persistido antes da entrada no adapter. O Attempt liga Work, approval, action, tool artifact, effect, resource e grant exatos.
+
+O executor diferencia falha comprovadamente anterior ao adapter de falha depois de entrar no adapter. A primeira fecha o Attempt como `failed`, pausa o Work e preserva a approval para retry explícito. Depois de entrar no adapter, ausência de receipt verificável fecha como `uncertain`, revoga o grant e pausa o Work. Não existe replay automático de outcome incerto.
+
+Se o processo cair com Attempt `started`, o restore converte esse Attempt para `uncertain` antes de expor o runtime, revoga a authority session-only e mantém o Work pausado. A Activity projeta esse estado para o usuário. Esse protocolo é pré-requisito para qualquer futura mutação não idempotente; rename/move/trash continuam desabilitados neste corte.
+
+Decision e Action Executor também exigem o mesmo `approvalId` exato, além de Work/action/effect/grant, impedindo substituição entre approvals do mesmo tipo de ação.
