@@ -65,7 +65,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 "requiresExplicitReview": False,
             })
 
-    def test_stable_and_manifest_blocked_profiles_fail_closed(self):
+    def test_stable_mvp_allows_only_public_zero_component_bundled_profiles(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -74,9 +74,41 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 "inventory_path": str(root / "inventory.json"),
                 "lock_path": str(root / "state.lock"),
             }
-            with self.assertRaisesRegex(PermissionError, "unavailable in this distribution"):
+
+            pizzaria = module.execute_profile_activation_command(
+                command(slug="pizzaria-br"),
+                distribution_profile="stable-mvp",
+                **args,
+            )
+            self.assertTrue(pizzaria["changed"])
+            self.assertEqual(
+                pizzaria["state"]["spaces"][0]["current"]["profile"],
+                {"slug": "pizzaria-br", "version": 1},
+            )
+            self.assertEqual(pizzaria["permissionDiff"]["componentAdds"], [])
+            self.assertFalse(pizzaria["permissionDiff"]["requiresExplicitReview"])
+
+            next_payload = command(revision=1, slug="impressao-3d-br")
+            printing = module.execute_profile_activation_command(
+                next_payload,
+                distribution_profile="stable-mvp",
+                **args,
+            )
+            self.assertTrue(printing["changed"])
+            self.assertEqual(
+                printing["state"]["spaces"][0]["current"]["profile"],
+                {"slug": "impressao-3d-br", "version": 1},
+            )
+
+            with self.assertRaisesRegex(PermissionError, "zero-component bundled Profile"):
                 module.execute_profile_activation_command(
-                    command(),
+                    command(revision=2, slug="developer"),
+                    distribution_profile="stable-mvp",
+                    **args,
+                )
+            with self.assertRaisesRegex(PermissionError, "not publicly available"):
+                module.execute_profile_activation_command(
+                    command(revision=2, slug="legal-br"),
                     distribution_profile="stable-mvp",
                     **args,
                 )
@@ -287,6 +319,52 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
             module.execute_profile_activation_command(command(), **args)
             with self.assertRaisesRegex(RuntimeError, "revision changed"):
                 module.execute_profile_activation_command(command(revision=0), **args)
+
+    def test_stable_rollback_revalidates_previous_profile_inside_lock(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_path = root / "state.json"
+            inventory_path = root / "inventory.json"
+            lock_path = root / "state.lock"
+            args = {
+                "state_path": str(state_path),
+                "inventory_path": str(inventory_path),
+                "lock_path": str(lock_path),
+            }
+
+            module.execute_profile_activation_command(
+                command(slug="pizzaria-br"),
+                distribution_profile="stable-mvp",
+                **args,
+            )
+            module.execute_profile_activation_command(
+                command(revision=1, slug="impressao-3d-br"),
+                distribution_profile="stable-mvp",
+                **args,
+            )
+
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            state["spaces"][0]["previous"]["profile"] = {"slug": "developer", "version": 1}
+            state_path.write_text(
+                json.dumps(state, separators=(",", ":"), sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            os.chmod(state_path, 0o600)
+
+            with self.assertRaisesRegex(PermissionError, "zero-component bundled Profile"):
+                module.execute_profile_activation_command(
+                    command(action="rollback", revision=2),
+                    distribution_profile="stable-mvp",
+                    **args,
+                )
+
+            after = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(after["revision"], 2)
+            self.assertEqual(
+                after["spaces"][0]["current"]["profile"]["slug"],
+                "impressao-3d-br",
+            )
 
     def test_deactivate_and_rollback_are_revision_bound(self):
         module = load_module()
