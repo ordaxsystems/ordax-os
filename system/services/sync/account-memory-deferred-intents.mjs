@@ -47,6 +47,13 @@ function requireMemorySync(value) {
   return value;
 }
 
+function requireDurabilityConfirmation(value) {
+  if (typeof value !== "function") {
+    throw new TypeError("Durable deferred Memory replay requires flushCanonical()");
+  }
+  return value;
+}
+
 function identityRecord(value, subjectId, operation) {
   const request = validateMemoryForgetRequest(value);
   if (request.ownerKind !== "account" || request.ownerId !== subjectId) {
@@ -128,6 +135,28 @@ function mutateDurably(runtime, mutation) {
   }
 }
 
+async function flushRuntime(runtime) {
+  if (typeof runtime.store.flush !== "function") return true;
+  const flushed = await runtime.store.flush();
+  if (flushed !== true) throw new Error("Deferred Memory intent durability was not confirmed");
+  return true;
+}
+
+async function removeIntentDurably(runtime, id) {
+  if (!runtime.intents.has(id)) return false;
+  const before = new Map(runtime.intents);
+  runtime.intents.delete(id);
+  try {
+    persist(runtime);
+    await flushRuntime(runtime);
+    return true;
+  } catch (error) {
+    runtime.intents.clear();
+    for (const [key, value] of before) runtime.intents.set(key, value);
+    throw error;
+  }
+}
+
 function findCurrentMemoryItem(memory, subjectId, id) {
   for (let offset = 0; offset <= MAX_MEMORY_SEARCH_OFFSET; offset += MAX_MEMORY_SEARCH_RESULTS) {
     const items = memory.search({
@@ -145,10 +174,33 @@ function findCurrentMemoryItem(memory, subjectId, id) {
   return null;
 }
 
-function canonicalOwnership(memorySync, objectId) {
-  const pending = memorySync.pendingMutations().some((mutation) => mutation?.objectId === objectId);
-  const conflict = memorySync.pendingConflicts().some((entry) => entry?.objectId === objectId);
-  return pending || conflict;
+function desiredCanonicalState(memory, subjectId, objectId) {
+  const current = findCurrentMemoryItem(memory, subjectId, objectId);
+  if (current) {
+    const classification = classifyMemoryForAccountSync(current, { subjectId });
+    if (classification.eligible) {
+      return Object.freeze({ operation: "upsert", item: classification.item });
+    }
+  }
+  return Object.freeze({
+    operation: "delete",
+    identity: Object.freeze({ id: objectId, ownerKind: "account", ownerId: subjectId }),
+  });
+}
+
+function canonicalOwnershipMatches(memorySync, objectId, desired) {
+  if (memorySync.pendingConflicts().some((entry) => entry?.objectId === objectId)) return true;
+  const pending = memorySync.pendingMutations().find((mutation) => mutation?.objectId === objectId);
+  if (!pending) return false;
+  if (desired.operation === "delete") return pending.operation === "delete";
+  return pending.operation === "upsert"
+    && JSON.stringify(pending.payload?.memory) === JSON.stringify(desired.item);
+}
+
+function stageDesired(memorySync, desired) {
+  return desired.operation === "upsert"
+    ? memorySync.stageUpsert(desired.item)
+    : memorySync.stageForget(desired.identity);
 }
 
 export function createAccountMemoryDeferredIntents({
@@ -197,6 +249,14 @@ export function createAccountMemoryDeferredIntents({
     return true;
   };
 
+  const replayOne = (memorySync, runtime, intent) => {
+    const desired = desiredCanonicalState(memory, runtime.subjectId, intent.id);
+    if (canonicalOwnershipMatches(memorySync, intent.id, desired)) {
+      return Object.freeze({ result: Object.freeze({ status: "canonical-owner", objectId: intent.id }), desired });
+    }
+    return Object.freeze({ result: stageDesired(memorySync, desired), desired });
+  };
+
   return Object.freeze({
     schema: ACCOUNT_MEMORY_DEFERRED_INTENTS_SCHEMA,
     observeStageResult(result, context) {
@@ -242,25 +302,41 @@ export function createAccountMemoryDeferredIntents({
       let transferred = 0;
       for (const intent of [...runtime.intents.values()]) {
         attempted += 1;
-        if (canonicalOwnership(memorySync, intent.id)) {
+        const { result } = replayOne(memorySync, runtime, intent);
+        if (result.status === "canonical-owner" || TRANSFERRED_STATUSES.has(result.status)) {
           removeIntent(runtime, intent.id);
           transferred += 1;
-          continue;
+        } else if (result.status === "blocked" && result.reason === "authorization-required") {
+          // Keep durable ownership in the deferred queue until server authority returns.
+        } else if (result.status === "blocked") {
+          throw new Error(`Deferred Memory replay was blocked: ${result.reason}`);
         }
+      }
 
-        const current = findCurrentMemoryItem(memory, runtime.subjectId, intent.id);
-        let result;
-        if (current) {
-          const classification = classifyMemoryForAccountSync(current, { subjectId: runtime.subjectId });
-          result = classification.eligible
-            ? memorySync.stageUpsert(classification.item)
-            : memorySync.stageForget({ id: intent.id, ownerKind: "account", ownerId: runtime.subjectId });
-        } else {
-          result = memorySync.stageForget({ id: intent.id, ownerKind: "account", ownerId: runtime.subjectId });
-        }
+      return Object.freeze({
+        attempted,
+        transferred,
+        deferred: runtime.intents.size,
+        inactive: false,
+      });
+    },
+    async replayDurably(memorySyncValue, { flushCanonical } = {}) {
+      const memorySync = requireMemorySync(memorySyncValue);
+      const confirmCanonical = requireDurabilityConfirmation(flushCanonical);
+      const runtime = currentRuntime();
+      if (!runtime) return Object.freeze({ attempted: 0, transferred: 0, deferred: 0, inactive: true });
 
-        if (TRANSFERRED_STATUSES.has(result.status)) {
-          removeIntent(runtime, intent.id);
+      let attempted = 0;
+      let transferred = 0;
+      for (const intent of [...runtime.intents.values()]) {
+        attempted += 1;
+        const { result } = replayOne(memorySync, runtime, intent);
+        if (result.status === "canonical-owner" || TRANSFERRED_STATUSES.has(result.status)) {
+          const confirmed = await confirmCanonical();
+          if (confirmed !== true) {
+            throw new Error("Deferred Memory canonical ownership durability was not confirmed");
+          }
+          await removeIntentDurably(runtime, intent.id);
           transferred += 1;
         } else if (result.status === "blocked" && result.reason === "authorization-required") {
           // Keep durable ownership in the deferred queue until server authority returns.
@@ -278,8 +354,8 @@ export function createAccountMemoryDeferredIntents({
     },
     async flush() {
       const runtime = currentRuntime();
-      if (!runtime || typeof runtime.store.flush !== "function") return true;
-      return runtime.store.flush();
+      if (!runtime) return true;
+      return flushRuntime(runtime);
     },
     pendingIntents() {
       const runtime = currentRuntime();
