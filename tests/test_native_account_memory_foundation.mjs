@@ -13,10 +13,10 @@ import {
 } from "../system/composition/native/account-memory.mjs";
 
 function identitySession(subjectId = "account-a") {
-  const snapshot = {
+  let snapshot = {
     state: "signed-in",
     subjectId,
-    displayName: "Conta A",
+    displayName: "Conta",
   };
   const listeners = new Set();
   return {
@@ -26,6 +26,14 @@ function identitySession(subjectId = "account-a") {
       listeners.add(listener);
       listener(snapshot);
       return () => listeners.delete(listener);
+    },
+    setSubject(nextSubjectId) {
+      snapshot = {
+        state: "signed-in",
+        subjectId: nextSubjectId,
+        displayName: "Conta",
+      };
+      for (const listener of [...listeners]) listener(snapshot);
     },
   };
 }
@@ -82,11 +90,11 @@ function deniedEntitlements({ unavailable = false } = {}) {
   };
 }
 
-function memoryItem(id = "memory-a") {
+function memoryItem(id = "memory-a", ownerId = "account-a") {
   return {
     id,
     ownerKind: "account",
-    ownerId: "account-a",
+    ownerId,
     scope: "account",
     kind: "fact",
     sensitivity: "private",
@@ -181,6 +189,50 @@ test("unavailable entitlement remains denied and keeps portable Memory in durabl
   );
   assert.equal(foundation.accountMemory.memorySync.pendingMutations().length, 0);
   assert.equal(foundation.getSnapshot().cloudTransportWired, false);
+
+  foundation.destroy();
+});
+
+
+test("Native Account Memory keeps durable coordination partitioned across account switches", async () => {
+  const root = rootStore("device");
+  const registry = createSyncStateNamespaceRegistry(root);
+  const memory = createMemoryRuntime({ store: memoryStore() });
+  const identity = identitySession("account-a");
+  const foundation = createNativeAccountMemoryFoundation({
+    identitySession: identity,
+    memoryPort: memory,
+    syncStateRegistry: registry,
+    entitlementsPort: deniedEntitlements(),
+    createIdempotencyKey: (kind, ordinal) => `memory:${kind}:${ordinal}`,
+  });
+
+  await foundation.accountMemory.settled();
+  await foundation.protectedMutations.remember(memoryItem("memory-a", "account-a"));
+  assert.deepEqual(
+    foundation.accountMemory.deferredIntents.pendingIntents().map((entry) => entry.ownerId),
+    ["account-a"],
+  );
+
+  identity.setSubject("account-b");
+  await foundation.accountMemory.settled();
+  await foundation.protectedMutations.remember(memoryItem("memory-b", "account-b"));
+  assert.deepEqual(
+    foundation.accountMemory.deferredIntents.pendingIntents().map((entry) => entry.ownerId),
+    ["account-b"],
+  );
+
+  identity.setSubject("account-a");
+  await foundation.accountMemory.settled();
+  assert.deepEqual(
+    foundation.accountMemory.deferredIntents.pendingIntents().map((entry) => entry.ownerId),
+    ["account-a"],
+  );
+
+  const slots = Object.keys(JSON.parse(root.load()).slots);
+  assert.equal(slots.filter((key) => key.startsWith("memory-deferred.p.")).length, 2);
+  assert.equal(slots.filter((key) => key.startsWith("memory-crash.p.")).length, 2);
+  assert.doesNotMatch(root.load(), /conteúdo que nunca deve entrar/);
 
   foundation.destroy();
 });
