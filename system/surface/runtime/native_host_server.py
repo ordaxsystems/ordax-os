@@ -45,6 +45,10 @@ from native_memory_endpoint import (
     read_memory_endpoint,
     write_memory_endpoint,
 )
+from native_memory_entitlement_proxy import (
+    NativeMemoryEntitlementProxyError,
+    read_native_memory_cloud_entitlement,
+)
 from native_hardware_inventory import read_hardware_inventory
 from native_profile_component_inventory import read_profile_component_inventory
 from native_profile_activation_state import read_profile_activation_state
@@ -81,6 +85,7 @@ ACCOUNT_REGISTER_PATH = "/auth/register"
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
 ACCOUNT_EXPORT_PATH = "/account/export"
 ACCOUNT_SPACES_PATH = "/account/spaces"
+ACCOUNT_MEMORY_ENTITLEMENT_PATH = "/account/entitlements/memory-cloud"
 ACCOUNT_SYNC_OBJECTS_PATH = "/sync/objects"
 ACCOUNT_SYNC_SNAPSHOT_PATH = "/sync/snapshot"
 ACCOUNT_SYNC_CHANGES_PATH = "/sync/changes"
@@ -2507,8 +2512,6 @@ def restore_user_trash_entry(user_root: str, trash_id: str) -> dict:
             os.unlink(_trash_info_name(trash_id), dir_fd=info_fd)
             os.fsync(info_fd)
         except OSError:
-            # The user data is already restored. A stale metadata record is
-            # harmless because list_user_trash() requires the payload too.
             pass
         return list_user_trash(user_root)
     finally:
@@ -2972,9 +2975,6 @@ def move_user_entry(
             try:
                 os.fsync(source_directory_fd)
             except OSError:
-                # The destination is already durable and the source name is gone.
-                # Do not delete the only remaining copy merely because directory
-                # durability could not be confirmed by this filesystem.
                 pass
         else:
             os.fsync(destination_directory_fd)
@@ -3392,8 +3392,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if not self._request_is_trusted():
             return
         if self.path.startswith("/__ordax/native/"):
-            # Deliberately no CORS headers. Cross-origin callers cannot use the
-            # native control/state APIs through browser preflight.
             self._empty(403)
             return
         self._empty(405)
@@ -3402,9 +3400,12 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if not self._request_is_trusted():
             return
         parsed_path = urlsplit(self.path).path
-        if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
+        if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
             if self.client_address[0] != "127.0.0.1":
                 self._empty(403)
+                return
+            if parsed_path == ACCOUNT_MEMORY_ENTITLEMENT_PATH and urlsplit(self.path).query:
+                self._empty(400)
                 return
             if self.server.account_gateway is None:
                 if parsed_path == ACCOUNT_SESSION_PATH:
@@ -3418,6 +3419,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     self._empty(503)
                 return
             try:
+                if parsed_path == ACCOUNT_MEMORY_ENTITLEMENT_PATH:
+                    reply = read_native_memory_cloud_entitlement(self.server.account_gateway)
+                    if reply.payload is None:
+                        self._empty(reply.status)
+                        return
+                    self._write_json(reply.status, reply.payload)
+                    return
                 if parsed_path == ACCOUNT_SESSION_PATH:
                     reply = self.server.account_gateway.session()
                 elif parsed_path == ACCOUNT_EXPORT_PATH:
@@ -3436,6 +3444,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 payload = json.loads(reply.body.decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise ValueError("gateway JSON object required")
+            except NativeMemoryEntitlementProxyError:
+                self._empty(503)
+                return
             except (NativeAccountGatewayError, UnicodeError, json.JSONDecodeError, ValueError):
                 self._empty(503)
                 return
