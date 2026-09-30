@@ -79,7 +79,7 @@ import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-met
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
-import { createNativeAccountMemoryComposition } from "./account-memory.mjs";
+import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -310,12 +310,12 @@ async function start() {
     ? null
     : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
 
-  let accountMemoryComposition = null;
+  let accountMemoryFoundation = null;
   let protectedAccountMutations = null;
-  if (memory !== null && syncStateRegistry !== null) {
+  if (memory !== null) {
     try {
       let memoryCoordinationOrdinal = 0;
-      accountMemoryComposition = createNativeAccountMemoryComposition({
+      accountMemoryFoundation = createNativeAccountMemoryFoundation({
         windowRef: window,
         identitySession,
         memoryPort: memory,
@@ -332,7 +332,7 @@ async function start() {
           );
         },
       });
-      protectedAccountMutations = accountMemoryComposition.protectedMutations;
+      protectedAccountMutations = accountMemoryFoundation.protectedMutations;
     } catch (error) {
       console.warn("OrdaX Account Memory protected provider unavailable", error);
       protectedAccountMutations = blockedAccountMemoryMutations();
@@ -347,12 +347,20 @@ async function start() {
       });
 
   const recoverProtectedAccountMemory = async ({ refreshAuthorization = false } = {}) => {
-    if (accountMemoryComposition === null) return null;
-    if (refreshAuthorization) await accountMemoryComposition.refreshAuthorization();
-    else await accountMemoryComposition.settled();
-    return accountMemoryComposition.recover();
+    if (
+      accountMemoryFoundation?.accountMemory == null
+      || typeof accountMemoryFoundation.protectedMutations?.recover !== "function"
+    ) {
+      return null;
+    }
+    if (refreshAuthorization) {
+      await accountMemoryFoundation.accountMemory.refreshAuthorization();
+    } else {
+      await accountMemoryFoundation.settled();
+    }
+    return accountMemoryFoundation.protectedMutations.recover();
   };
-  const unsubscribeAccountMemoryRecovery = accountMemoryComposition === null
+  const unsubscribeAccountMemoryRecovery = accountMemoryFoundation?.accountMemory == null
     ? () => {}
     : identitySession.subscribe((snapshot) => {
         if (snapshot.state !== "signed-in") return;
@@ -817,7 +825,7 @@ async function start() {
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
       unsubscribeAccountMemoryRecovery();
-      accountMemoryComposition?.destroy();
+      accountMemoryFoundation?.destroy();
       profileProvisioning.dispose();
       profileActivationState?.dispose();
       profileComponentInventory.dispose();
