@@ -34,6 +34,8 @@ on:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/personal-ordax.mjs'
       - 'system/contracts/personal-ordax-store.mjs'
+      - 'system/contracts/intelligence-tool-grant-authority.mjs'
+      - 'system/contracts/action-executor.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -69,6 +71,7 @@ on:
       - 'system/services/files/**'
       - 'system/services/projects/**'
       - 'system/services/personal-ordax/**'
+      - 'system/services/intelligence/**'
       - 'system/services/preferences/**'
       - 'system/services/i18n/**'
       - 'system/services/sync/**'
@@ -166,6 +169,7 @@ on:
       - 'tests/test_personal_ordax_contracts.mjs'
       - 'tests/test_personal_ordax_runtime.mjs'
       - 'tests/test_personal_ordax_store_adapters.mjs'
+      - 'tests/test_intelligence_tool_grant_authority.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -212,6 +216,8 @@ on:
       - 'system/contracts/memory.mjs'
       - 'system/contracts/personal-ordax.mjs'
       - 'system/contracts/personal-ordax-store.mjs'
+      - 'system/contracts/intelligence-tool-grant-authority.mjs'
+      - 'system/contracts/action-executor.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -247,6 +253,7 @@ on:
       - 'system/services/files/**'
       - 'system/services/projects/**'
       - 'system/services/personal-ordax/**'
+      - 'system/services/intelligence/**'
       - 'system/services/preferences/**'
       - 'system/services/i18n/**'
       - 'system/services/sync/**'
@@ -341,6 +348,7 @@ on:
       - 'tests/test_personal_ordax_contracts.mjs'
       - 'tests/test_personal_ordax_runtime.mjs'
       - 'tests/test_personal_ordax_store_adapters.mjs'
+      - 'tests/test_intelligence_tool_grant_authority.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -392,6 +400,7 @@ jobs:
             system/services/files \
             system/services/projects \
             system/services/personal-ordax \
+            system/services/intelligence \
             system/services/preferences \
             system/services/i18n \
             system/services/sync \
@@ -460,6 +469,7 @@ jobs:
           node --test tests/test_personal_ordax_activity_surface.mjs
           node --test tests/test_personal_ordax_action_gateway.mjs
           node --test tests/test_personal_ordax_approvals.mjs
+          node --test tests/test_intelligence_tool_grant_authority.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
           node --test tests/test_network_management_runtime.mjs
