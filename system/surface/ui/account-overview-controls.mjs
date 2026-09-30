@@ -24,6 +24,10 @@ import {
   validateSpaceSelectionSnapshot,
 } from "../../contracts/space-selection.mjs";
 import { assertProfileProvisioningPort } from "../../contracts/profile-provisioning.mjs";
+import {
+  assertMutableProfileActivationStatePort,
+  validateProfileActivationState,
+} from "../../contracts/profile-activation-state.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import {
   MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
@@ -105,6 +109,7 @@ export function mountAccountOverviewControls(
   memoryReview = null,
   spaceSelection = null,
   preferenceRuntime = null,
+  profileActivationState = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -130,6 +135,9 @@ export function mountAccountOverviewControls(
   const preferencePort = preferenceRuntime === null
     ? null
     : assertPreferenceRuntimePort(preferenceRuntime);
+  const profileActivationPort = profileActivationState === null
+    ? null
+    : assertMutableProfileActivationStatePort(profileActivationState);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -148,10 +156,15 @@ export function mountAccountOverviewControls(
     ? validateSpaceSelectionSnapshot(spaceSelectionPort.getSnapshot())
     : null;
   let profilePlans = profileProvisioningPort ? profileProvisioningPort.list() : null;
+  let profileActivationSnapshot = profileActivationPort
+    ? validateProfileActivationState(profileActivationPort.getSnapshot())
+    : null;
   let preferenceSnapshot = preferencePort?.getSnapshot() ?? null;
   let pendingAction = null;
+  let pendingProfileAction = null;
   let actionMessage = "";
   let spaceMessage = "";
+  let profileMessage = "";
   let credentialEmailDraft = "";
   let credentialPasswordDraft = "";
   let actionOrdinal = 0;
@@ -175,6 +188,9 @@ export function mountAccountOverviewControls(
     }
     if (element.dataset.accountSpaceSelect) {
       return Object.freeze({ kind: "space-select", value: element.dataset.accountSpaceSelect });
+    }
+    if (element.dataset.accountProfileAction) {
+      return Object.freeze({ kind: "profile-action", value: element.dataset.accountProfileAction });
     }
     return null;
   };
@@ -563,6 +579,32 @@ export function mountAccountOverviewControls(
       return;
     }
 
+    const selectedSpace = spaceSelectionSnapshot?.state === "selected"
+      ? spaceSelectionSnapshot.selectedSpace
+      : null;
+    const activeRow = selectedSpace && profileActivationSnapshot
+      ? profileActivationSnapshot.spaces.find((row) => row.spaceId === selectedSpace.id) ?? null
+      : null;
+    const activeProfile = activeRow?.current?.profile ?? null;
+
+    if (selectedSpace === null) {
+      section.append(
+        node(documentObject, "p", "ordax-account-message", t("account.profiles.selectSpace")),
+      );
+    } else if (activeProfile) {
+      section.append(
+        node(
+          documentObject,
+          "p",
+          "ordax-account-message",
+          t("account.profiles.active", {
+            profile: t(`account.profiles.name.${activeProfile.slug}`),
+            space: selectedSpace.name,
+          }),
+        ),
+      );
+    }
+
     const grid = node(documentObject, "div", "ordax-account-grid");
     for (const plan of profilePlans) {
       const nameKey = `account.profiles.name.${plan.profile.slug}`;
@@ -570,23 +612,70 @@ export function mountAccountOverviewControls(
       const detailKey = plan.offlineAfterInstall
         ? "account.profiles.detail.offline"
         : "account.profiles.detail.online";
-      appendStateCard(
+      const isActive = Boolean(
+        activeProfile
+        && activeProfile.slug === plan.profile.slug
+        && activeProfile.version === plan.profile.version,
+      );
+      const card = appendStateCard(
         documentObject,
         grid,
         t(nameKey),
-        t(stateKey),
+        isActive ? t("account.profiles.state.active") : t(stateKey),
         t(detailKey, {
           version: plan.profile.version,
           delivery: t(`account.profiles.delivery.${plan.deliveryMode}`),
         }),
-        plan.state === "already-provisioned"
+        isActive
           ? "available"
-          : plan.state === "blocked"
-            ? "unavailable"
-            : "neutral",
+          : plan.state === "already-provisioned"
+            ? "available"
+            : plan.state === "blocked"
+              ? "unavailable"
+              : "neutral",
       );
+
+      if (profileActivationPort && selectedSpace) {
+        const actions = node(documentObject, "div", "ordax-account-actions");
+        if (isActive) {
+          const deactivate = node(
+            documentObject,
+            "button",
+            "ordax-account-action",
+            pendingProfileAction === `deactivate:${selectedSpace.id}`
+              ? t("account.profiles.deactivating")
+              : t("account.profiles.deactivate"),
+          );
+          deactivate.type = "button";
+          deactivate.dataset.accountProfileAction = "deactivate";
+          deactivate.dataset.accountProfileSpaceId = selectedSpace.id;
+          deactivate.disabled = pendingProfileAction !== null;
+          actions.append(deactivate);
+        } else if (plan.mayActivate === true) {
+          const activate = node(
+            documentObject,
+            "button",
+            "ordax-account-action",
+            pendingProfileAction === `activate:${plan.profile.slug}`
+              ? t("account.profiles.activating")
+              : t("account.profiles.activate"),
+          );
+          activate.type = "button";
+          activate.dataset.accountProfileAction = "activate";
+          activate.dataset.accountProfileSlug = plan.profile.slug;
+          activate.dataset.accountProfileVersion = String(plan.profile.version);
+          activate.dataset.accountProfileSpaceId = selectedSpace.id;
+          activate.dataset.accountProfileSpaceKind = selectedSpace.kind;
+          activate.disabled = pendingProfileAction !== null;
+          actions.append(activate);
+        }
+        if (actions.childNodes.length > 0) card.append(actions);
+      }
     }
     section.append(grid);
+    if (profileMessage) {
+      section.append(node(documentObject, "p", "ordax-account-message", profileMessage));
+    }
     view.append(section);
   };
 
@@ -910,6 +999,7 @@ export function mountAccountOverviewControls(
       const nextSection = sectionButton.dataset.accountSection;
       actionMessage = "";
       spaceMessage = "";
+      profileMessage = "";
       if (activationPort) {
         activationPort.publish({ appId: "account", target: nextSection });
       } else {
@@ -923,6 +1013,7 @@ export function mountAccountOverviewControls(
     const refreshButton = event.target.closest("[data-account-spaces-refresh]");
     if (refreshButton && root.contains(refreshButton)) {
       spaceMessage = "";
+      profileMessage = "";
       refreshSpaces();
       return;
     }
@@ -941,10 +1032,61 @@ export function mountAccountOverviewControls(
       try {
         spaceSelectionPort.select(spaceButton.dataset.accountSpaceSelect);
         spaceMessage = "";
+        profileMessage = "";
       } catch {
         spaceMessage = t("account.spaces.selection.failed");
       }
       replaceView();
+      return;
+    }
+
+    const profileButton = event.target.closest("[data-account-profile-action]");
+    if (profileButton && root.contains(profileButton) && profileActivationPort) {
+      const selectedSpace = spaceSelectionSnapshot?.state === "selected"
+        ? spaceSelectionSnapshot.selectedSpace
+        : null;
+      if (!selectedSpace || selectedSpace.id !== profileButton.dataset.accountProfileSpaceId) {
+        profileMessage = t("account.profiles.failed");
+        replaceView();
+        return;
+      }
+      const action = profileButton.dataset.accountProfileAction;
+      const operationKey = action === "activate"
+        ? `activate:${profileButton.dataset.accountProfileSlug ?? ""}`
+        : `deactivate:${selectedSpace.id}`;
+      pendingProfileAction = operationKey;
+      profileMessage = "";
+      replaceView();
+      void (async () => {
+        try {
+          if (action === "activate") {
+            const version = Number(profileButton.dataset.accountProfileVersion);
+            if (!Number.isSafeInteger(version) || version < 1) throw new TypeError("invalid Profile version");
+            const next = await profileActivationPort.activate({
+              spaceId: selectedSpace.id,
+              spaceKind: selectedSpace.kind,
+              profile: {
+                slug: profileButton.dataset.accountProfileSlug,
+                version,
+              },
+              components: [],
+            });
+            profileActivationSnapshot = validateProfileActivationState(next);
+            profileMessage = t("account.profiles.activated");
+          } else if (action === "deactivate") {
+            const next = await profileActivationPort.deactivate(selectedSpace.id);
+            profileActivationSnapshot = validateProfileActivationState(next);
+            profileMessage = t("account.profiles.deactivated");
+          } else {
+            throw new TypeError("unsupported Profile action");
+          }
+        } catch {
+          profileMessage = t("account.profiles.failed");
+        } finally {
+          pendingProfileAction = null;
+          if (!destroyed) replaceView();
+        }
+      })();
       return;
     }
 
@@ -962,6 +1104,7 @@ export function mountAccountOverviewControls(
     if (nextSection !== activeSection) {
       actionMessage = "";
       spaceMessage = "";
+      profileMessage = "";
     }
     activeSection = nextSection;
     renderView(false);
@@ -975,6 +1118,7 @@ export function mountAccountOverviewControls(
       activeSection = activation.target;
       actionMessage = "";
       spaceMessage = "";
+      profileMessage = "";
       replaceView();
       if (activeSection === "spaces") refreshSpaces();
     }
@@ -1023,6 +1167,7 @@ export function mountAccountOverviewControls(
     destroy() {
       destroyed = true;
       actionOrdinal += 1;
+      pendingProfileAction = null;
       memoryReviewControls?.dispose();
       memoryReviewControls = null;
       unsubscribePreferences?.();
