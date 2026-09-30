@@ -54,7 +54,7 @@ The canonical backend now has the dedicated server-authoritative atomic Memory m
 
 `20260929193000_cloud_memory_privacy_hardening_v1.sql` is a later source-prepared migration for two privacy invariants that must hold before promotion: known never-sync secret material aborts the atomic write, and a Memory forget scrubs replayable historical mutation payloads while preserving revisions/change cursors. This hardening migration is not claimed as deployed by this branch.
 
-Live client wiring is also blocked on a real identity-allocation contract. The deployed atomic backend assigns a UUID `memory_id` for a new cloud Memory object, while the local offline-first runtime does not yet have a canonical way to adopt/remap that server identity. The foundation must not invent a parallel identifier or silently rewrite Memory identity to bridge this gap.
+The local-first identity-allocation contract is now resolved in source. `20260929214500_cloud_memory_local_first_identity_v1.sql` preserves an existing local UUID v4 on first cloud synchronization and retains server-generated UUID allocation only as a fallback when no local identity is supplied. This removes the need for a parallel identifier or silent Memory-id rewrite. The migration is still source-prepared rather than claimed deployed here, and live client wiring remains disabled until that migration plus the gateway/client path are applied and proven.
 
 Every upload/restore operation still requires explicit authorization supplied by trusted composition. Synchronized Memory is **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization, community-data authorization, model egress, tools or actions.
 

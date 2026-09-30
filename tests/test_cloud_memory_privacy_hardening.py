@@ -55,13 +55,22 @@ class CloudMemoryPrivacyHardeningTests(unittest.TestCase):
         self.assertFalse(memory["production_enabled"])
         self.assertTrue(memory["backend_atomic_mutation_deployed"])
         self.assertFalse(memory["backend_generic_sync_rpc_accepts_memory"])
+        self.assertTrue(memory["client_generated_backend_memory_id_allowed"])
+        self.assertEqual(
+            memory["client_generated_backend_memory_id_constraint"],
+            "uuid-v4-first-create-only",
+        )
+        self.assertTrue(memory["local_first_identity_source_prepared"])
+        self.assertFalse(memory["local_first_identity_applied"])
         self.assertFalse(memory["live_backend_identity_binding_implemented"])
         self.assertEqual(
             memory["live_backend_identity_compatibility"],
-            "blocked-until-memory-id-allocation-contract",
+            "source-contract-resolved-deployment-and-live-wiring-pending",
         )
         self.assertTrue(backend["memory_backend_data_class_storage_enabled"])
         self.assertFalse(backend["memory_live_client_data_class_enabled"])
+        self.assertTrue(backend["memory_local_first_identity_source_prepared"])
+        self.assertFalse(backend["memory_local_first_identity_applied"])
         self.assertFalse(backend["memory_gateway_policy_live_wiring"])
         self.assertEqual(backend["memory_atomic_mutation_rpc"], "ordax_apply_memory_mutation_v1")
         self.assertEqual(backend["memory_privacy_hardening_status"], "source-prepared-not-applied")

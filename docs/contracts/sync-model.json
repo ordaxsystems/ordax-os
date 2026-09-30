@@ -149,12 +149,16 @@
       "backend_never_sync_guard_applied": false,
       "backend_forget_history_scrub_source_prepared": true,
       "backend_forget_history_scrub_applied": false,
-      "backend_identity_allocation": "server-generated-uuid-for-create",
-      "client_generated_backend_memory_id_allowed": false,
+      "backend_identity_allocation": "local-first-uuid-v4-preserved-with-server-generated-fallback",
+      "client_generated_backend_memory_id_allowed": true,
       "live_backend_identity_binding_implemented": false,
-      "live_backend_identity_compatibility": "blocked-until-memory-id-allocation-contract",
+      "live_backend_identity_compatibility": "source-contract-resolved-deployment-and-live-wiring-pending",
       "current_client_integration": false,
-      "production_enabled": false
+      "production_enabled": false,
+      "client_generated_backend_memory_id_constraint": "uuid-v4-first-create-only",
+      "local_first_identity_migration": "20260929214500_cloud_memory_local_first_identity_v1",
+      "local_first_identity_source_prepared": true,
+      "local_first_identity_applied": false
     },
     {
       "id": "app-state-metadata",
@@ -203,7 +207,7 @@
     "known_local_data_must_not_be_destroyed_only_because_transport_is_unavailable": true,
     "memory_coordination_state_reuses_sync_state_store_contract": true,
     "memory_coordination_state_save_failure_preserves_in_session_pending": true,
-    "memory_offline_create_backend_identity_contract_complete": false
+    "memory_offline_create_backend_identity_contract_complete": true
   },
   "plans_and_quota": {
     "billing_implemented": false,
@@ -319,6 +323,9 @@
     "native_checkpoint_storage": "device-private-0600-with-session-fallback",
     "idempotent_acceptance_clears_pending_mutation": true,
     "conflict_rebase_bounded": true,
-    "max_conflict_rebase_retries_per_flush": 1
+    "max_conflict_rebase_retries_per_flush": 1,
+    "memory_local_first_identity_source_prepared": true,
+    "memory_local_first_identity_applied": false,
+    "memory_local_first_identity_migration": "20260929214500_cloud_memory_local_first_identity_v1"
   }
 }
