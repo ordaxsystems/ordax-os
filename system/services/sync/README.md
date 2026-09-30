@@ -58,7 +58,7 @@ The local-first identity-allocation contract is now resolved in source. `2026092
 
 Every upload/restore operation still requires explicit authorization supplied by trusted composition. Synchronized Memory is **user cloud state**; synchronization does not imply AI-training authorization, telemetry authorization, community-data authorization, model egress, tools or actions.
 
-This remains a foundation. Live Web/Native Memory wiring, the identity-allocation boundary, canonical full-resync after accept-remote when required, final user-facing conflict review, two-client proof and reinstall proof are still required before promotion.
+This remains a pre-promotion foundation. Native app-facing Memory writes are now wired through the local-first protected composition when device-durable coordination is available, while Web durable Memory wiring remains unavailable. Public cloud promotion still requires the deployed identity-allocation boundary to be live-proven end to end, canonical full-resync after accept-remote when required, final user-facing conflict review, a real authenticated two-client proof and reinstall/restore proof.
 
 Core rules remain:
 
