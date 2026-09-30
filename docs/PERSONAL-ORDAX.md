@@ -111,8 +111,9 @@ authority channel.
 
 ### 3. Work result
 
-`ordax.personal-work-result/1` stores the bounded durable output of completed foreground
-reasoning. It belongs to the same owner partition as its Work and is linked from exactly one
+`ordax.personal-work-result/1` stores the bounded persisted output of completed foreground
+reasoning. Its actual durability is the same honest `device|session` persistence reported by the
+owner-partitioned work store; a session fallback is never described as durable. It belongs to the same owner partition as its Work and is linked from exactly one
 `completed` Activity event by `result:<id>`.
 
 The result records engine/model provenance and fixed `authority=none`. Persisting model output
