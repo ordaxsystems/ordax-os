@@ -9,8 +9,8 @@ function registration(value) {
     throw new TypeError("Personal action registration must be an object");
   }
   const entry = validatePersonalActionEntry(value.entry);
-  if (typeof value.validateResourceRef !== "function") {
-    throw new TypeError("Personal action registration requires validateResourceRef()");
+  if (typeof value.toResourceRef !== "function") {
+    throw new TypeError("Personal action registration requires toResourceRef()");
   }
   if (
     typeof value.reason !== "string"
@@ -22,7 +22,7 @@ function registration(value) {
   }
   return Object.freeze({
     entry,
-    validateResourceRef: value.validateResourceRef,
+    toResourceRef: value.toResourceRef,
     reason: value.reason.trim(),
   });
 }
@@ -58,13 +58,13 @@ export function createPersonalActionCatalog({ registrations = [] } = {}) {
     list() {
       return entries;
     },
-    request(runtimeValue, workItemId, entryId, { resourceRef } = {}) {
+    request(runtimeValue, workItemId, entryId, { resourceValue } = {}) {
       const runtime = assertRuntime(runtimeValue);
       const item = byId.get(entryId);
       if (!item) {
         throw new Error("Personal action entry is unavailable");
       }
-      const boundedResourceRef = item.validateResourceRef(resourceRef);
+      const boundedResourceRef = item.toResourceRef(resourceValue);
       return runtime.requestApproval(workItemId, {
         actionId: item.entry.actionId,
         toolId: item.entry.toolId,
