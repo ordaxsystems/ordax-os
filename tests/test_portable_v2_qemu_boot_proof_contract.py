@@ -143,7 +143,10 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
         self.assertIn("missing_checks = sorted", boot)
         self.assertNotIn("time.sleep(1", boot)
         self.assertNotIn("deadline +=", boot)
-        self.assertEqual(boot.count("150.0"), 1)
+        self.assertIn("DIRECT_KERNEL_BOOT_TIMEOUT_SECONDS = 210.0", text)
+        self.assertIn("GRAPHICAL_BOOT_TIMEOUT_SECONDS = 300.0", text)
+        self.assertIn("DIRECT_KERNEL_BOOT_TIMEOUT_SECONDS", boot)
+        self.assertNotIn("150.0", boot)
         final_observation = boot.split(
             "final_ready, final_checks = observe(final_text)",
             1,
