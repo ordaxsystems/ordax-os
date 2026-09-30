@@ -172,7 +172,10 @@ partition on identity change, preserves corrupt durable partitions without overw
 discards stale inference results, keeps Intelligence consultative and persists only through the
 dedicated bounded work-store contract. Successful foreground reasoning now also persists a bounded
 owner-partitioned Work Result atomically with the `completed` state and its Activity reference.
-It is not yet mounted into Web/Native composition.
+A Native device-store adapter also exists with one storage record per owner. It preserves corrupt
+owner bytes and blocks only that owner instead of resetting silently. The adapter is deliberately
+device-local; it is not account sync and it does not reuse Memory as a task database. The runtime
+and store are not yet mounted into Web/Native composition.
 
 Next in this phase is the shared Activity/result view and composition wiring. That UI must consume
 the same runtime rather than create an app-local task or result store.
