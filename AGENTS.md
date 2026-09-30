@@ -56,6 +56,17 @@ Leia tambem a continuacao [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PL
 
 Antes de preparar ou autorizar o primeiro USB Stable/MVP, leia tambem [PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md). Ele revalida a visao da Nova OrdaX contra a `main` atual e separa requisitos funcionais obrigatorios pre-USB, provas que dependem do hardware fisico e capacidades conscientemente pos-MVP. O gate pre-USB desse documento deve falhar fechado: uma capacidade estrutural nao pode ser omitida apenas porque boot/release ja estao tecnicamente prontos.
 
+### Web, Mobile, realtime e controle de dispositivos
+
+Antes de criar backend de pedidos/produção, realtime, push, controle remoto de equipamentos,
+PWA, APK ou integração Mobile, leia `docs/OPERATIONAL-REALTIME.md`,
+`docs/ACCOUNT-SYNC-AND-PLANS.md`, `docs/PRODUCT-MODES.md` e os contratos
+`docs/contracts/operational-realtime.json` e `docs/contracts/device-agent.json`.
+
+Sync de conta não é fila operacional; notification não é source of truth; push não é transporte
+de comando; pedido remoto não cria autoridade. Web/Mobile/Desktop/Native devem compartilhar o
+mesmo domínio e o mesmo Action Gateway, sem backend paralelo por plataforma.
+
 ### Site publico
 
 Antes de alterar landing page, download, login/cadastro ou futura area publica da conta, leia `MVP.md`, `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
