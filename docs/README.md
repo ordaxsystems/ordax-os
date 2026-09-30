@@ -25,7 +25,7 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 | --- | --- |
 | MVP scope | `MVP.md` |
 | Current state / handoff | `docs/CURRENT-STATE.md` |
-| Architecture | `docs/ARCHITECTURE.md` |
+| Architecture | `docs/ARCHITECTURE.md` |\n| Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
 | Product modes | `docs/PRODUCT-MODES.md` |\n| Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
