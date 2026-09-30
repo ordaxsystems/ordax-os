@@ -122,11 +122,8 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
         )
         self.assertEqual(
             spec["proof_mode"],
-            "diagnostic-real-supervisor-cold-health-commit-not-ci-promotion-authority",
+            "armed-candidate-real-supervisor-cold-health-commit",
         )
-        self.assertFalse(spec["ci_policy"]["required_in_portable_qemu_workflow"])
-        self.assertTrue(spec["ci_policy"]["synthetic_health_forbidden"])
-        self.assertTrue(spec["ci_policy"]["qemu_boot_fallback_and_uefi_proofs_remain_required"])
         self.assertEqual(spec["required_final_state"]["current"], "candidate")
         self.assertEqual(spec["required_final_state"]["known_good"], "previous")
         self.assertEqual(spec["required_final_state"]["second_boot_slot"], "current")
@@ -154,24 +151,16 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
             "CONFIG_DRM_VIRTIO_GPU=y",
             spec["virtual_hardware"]["kernel_requirements"],
         )
-        self.assertFalse(
-            spec["promotion_effect"]["disposable_qemu_cold_health_commit_gate_can_close_after_exact_main_proof"]
-        )
         self.assertFalse(spec["promotion_effect"]["physical_cold_health_gate_closed"])
         self.assertFalse(spec["promotion_effect"]["physical_known_good_gate_closed"])
         self.assertFalse(spec["promotion_effect"]["physical_rollback_gate_closed"])
 
-    def test_workflow_proves_fallback_and_uefi_without_promoting_cold_health(self):
+    def test_workflow_exercises_both_failure_and_healthy_paths(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("PORTABLE_V4_TO_V3_QEMU_ONE_SHOT_FALLBACK=PASS", text)
-        self.assertNotIn("qemu_cold_health_commit.py", text)
-        self.assertNotIn("PORTABLE_V4_QEMU_COLD_HEALTH_COMMIT=PASS", text)
-        self.assertIn("PORTABLE_V4_QEMU_COLD_HEALTH_COMMIT_PROVEN=NO", text)
-        self.assertIn(
-            "COLD_HEALTH_COMMIT_PROOF=REQUIRES_PHYSICAL_STABLE_MVP_NO_SYNTHETIC_CI",
-            text,
-        )
-        self.assertIn("Boot same portable-v2 disk through OVMF and systemd-boot", text)
+        self.assertIn("qemu_cold_health_commit.py", text)
+        self.assertIn("PORTABLE_V4_QEMU_COLD_HEALTH_COMMIT=PASS", text)
+        self.assertIn("qemu-cold-health-proof/proof.json", text)
 
 
 if __name__ == "__main__":
