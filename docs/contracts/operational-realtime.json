@@ -1,0 +1,91 @@
+{
+  "$schema": "prototype-ordax.operational-realtime/1",
+  "status": "pre-mvp-contract-foundation-runtime-post-mvp",
+  "purpose": "separate live business/device operations from account synchronization while preserving one OrdaX identity and authorization model",
+  "owners": {
+    "operational_domain": "future system/services/operations",
+    "account_and_spaces": "system/services/account + system/services/spaces",
+    "sync": "system/services/sync",
+    "notifications": "system/services/notifications",
+    "device_actions": "OrdaX Action Gateway + system/services/device-agent",
+    "platform_delivery": "system/adapters"
+  },
+  "separation": {
+    "account_sync_is_operational_event_stream": false,
+    "operational_event_stream_is_source_of_truth": false,
+    "notifications_are_authority": false,
+    "push_notification_is_command_transport": false,
+    "device_action_request_is_authorization": false,
+    "device_action_grant_is_separate": true
+  },
+  "schemas": {
+    "event": "ordax.operational-event/1",
+    "subscription": "ordax.operational-subscription/1",
+    "device_action_request": "ordax.device-action-request/1",
+    "device_action_receipt": "ordax.device-action-receipt/1",
+    "device_capability_grant": "ordax.device-agent/1",
+    "notification": "ordax.notifications/3"
+  },
+  "event_model": {
+    "server_authoritative_sequence": true,
+    "stable_aggregate_identity": true,
+    "aggregate_revision_required": true,
+    "client_wall_clock_is_ordering_authority": false,
+    "space_scope_required": true,
+    "project_scope_optional_for_events": true,
+    "credential_fields_forbidden_in_payload": true,
+    "resume_after_sequence_supported": true,
+    "full_state_reconciliation_required_after_gap": true
+  },
+  "device_actions": {
+    "same_action_gateway_for_web_mobile_desktop_native_and_mcp": true,
+    "generic_shell": false,
+    "raw_disk": false,
+    "release_signing_keys": false,
+    "write_requires_explicit_grant": true,
+    "idempotency_key_required": true,
+    "request_expiry_required": true,
+    "audit_required": true,
+    "receipt_required": true,
+    "device_offline_is_not_success": true,
+    "current_v1_project_scope_required": true,
+    "future_space_only_device_grants_require_versioned_contract": true
+  },
+  "notifications": {
+    "derived_from_domain_or_device_state": true,
+    "does_not_replace_canonical_state": true,
+    "does_not_grant_action_authority": true,
+    "mobile_push_is_future_adapter_delivery": true,
+    "web_delivery_is_future_adapter_delivery": true
+  },
+  "examples": {
+    "pizzaria": {
+      "domains": ["business.orders", "business.production"],
+      "examples": ["order.created", "order.state-changed", "production.queue-changed"]
+    },
+    "impressao_3d": {
+      "domains": ["fabrication.jobs", "device.telemetry"],
+      "examples": ["print.started", "print.progress", "print.failed", "print.completed"],
+      "future_actions": ["printer.job.pause", "printer.job.cancel"]
+    }
+  },
+  "mvp_boundary": {
+    "blocks_first_usb": false,
+    "runtime_backend_required_before_first_usb": false,
+    "apk_required_before_first_usb": false,
+    "web_public_rollout_required_before_first_usb": false,
+    "source_contract_foundation_allowed": true
+  },
+  "promotion_gates": [
+    "real public account and Space authorization",
+    "server-authoritative operational persistence per domain",
+    "realtime transport with reconnect and gap recovery",
+    "audited Action Gateway",
+    "product Device Agent credentials separate from engineering",
+    "mobile/web notification adapters",
+    "two-client realtime proof",
+    "offline/reconnect proof",
+    "device-action idempotency and stale-state proof",
+    "user-visible action audit"
+  ]
+}
