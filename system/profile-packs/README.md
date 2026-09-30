@@ -39,7 +39,9 @@ system/profile-packs/
 │   └── v1/manifest.json
 ├── legal-br/
 │   └── v1/manifest.json
-└── pizzaria-br/
+├── pizzaria-br/
+│   └── v1/manifest.json
+└── impressao-3d-br/
     └── v1/manifest.json
 ```
 
@@ -59,9 +61,9 @@ Knowledge, policies or privileges.
 
 ## MVP business showcase
 
-`pizzaria-br@1` is the first bounded business-showcase candidate. It deliberately has
-no downloadable components and no privilege expansion. Its first version composes only
-existing first-party apps and Space-scoped Memory/Intelligence policy, so proving it does
+`pizzaria-br@1` and `impressao-3d-br@1` are the first bounded showcase candidates. They deliberately have
+no downloadable components and no privilege expansion. Their first versions compose only
+existing first-party apps and Space-scoped Memory/Intelligence policy, so proving them does
 not require inflating the Stable USB or creating a separate business runtime.
 
 The bundled manifest being provisionable does **not** by itself prove Stable/MVP user
