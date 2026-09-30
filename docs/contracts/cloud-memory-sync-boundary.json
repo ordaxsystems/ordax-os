@@ -28,9 +28,14 @@
   },
   "identity": {
     "stable_object_id": "memory_id",
-    "client_generated_stable_ids_allowed": "future-contract-only",
+    "client_generated_stable_ids_allowed": "uuid-v4-first-create-source-contract",
     "server_revision_required": true,
-    "wall_clock_authoritative": false
+    "wall_clock_authoritative": false,
+    "client_generated_stable_id_constraint": "uuid-v4-first-create-only",
+    "server_generated_uuid_fallback": true,
+    "local_first_identity_migration": "infra/supabase/product/migrations/20260929214500_cloud_memory_local_first_identity_v1.sql",
+    "local_first_identity_source_prepared": true,
+    "local_first_identity_applied": false
   },
   "deletion": {
     "hard_delete_as_sync_signal": false,
