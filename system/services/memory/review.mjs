@@ -122,6 +122,23 @@ export function createMemoryReviewRuntime(memoryPort, {
     return null;
   };
 
+  const allItems = () => {
+    const items = [];
+    for (let offset = 0; offset < MAX_REVIEW_SCAN_ITEMS; offset += MAX_MEMORY_SEARCH_RESULTS) {
+      const batch = page({
+        query: "",
+        limit: MAX_MEMORY_SEARCH_RESULTS,
+        offset,
+      });
+      items.push(...batch);
+      if (batch.length < MAX_MEMORY_SEARCH_RESULTS) return Object.freeze(items);
+    }
+    if (page({ query: "", limit: 1, offset: MAX_REVIEW_SCAN_ITEMS }).length > 0) {
+      throw new Error("Memory review owner exceeds the bounded clear limit");
+    }
+    return Object.freeze(items);
+  };
+
   return Object.freeze({
     async create(contentValue, {
       kind = "fact",
@@ -152,20 +169,7 @@ export function createMemoryReviewRuntime(memoryPort, {
       return page(options);
     },
     exportSnapshot() {
-      const items = [];
-      for (
-        let offset = 0;
-        offset < MAX_REVIEW_SCAN_ITEMS;
-        offset += MAX_MEMORY_SEARCH_RESULTS
-      ) {
-        const batch = page({
-          query: "",
-          limit: MAX_MEMORY_SEARCH_RESULTS,
-          offset,
-        });
-        items.push(...batch);
-        if (batch.length < MAX_MEMORY_SEARCH_RESULTS) break;
-      }
+      const items = allItems();
       return Object.freeze({
         $schema: MEMORY_REVIEW_EXPORT_SCHEMA,
         exportedAt: isoNow(now),
@@ -203,6 +207,26 @@ export function createMemoryReviewRuntime(memoryPort, {
       if (current === null) return false;
       return mutations.forget({
         id: current.id,
+        ownerKind: boundary.ownerKind,
+        ownerId: boundary.ownerId,
+      });
+    },
+    async clearAll() {
+      const items = allItems();
+      let removed = 0;
+      for (const current of items) {
+        const result = await mutations.forget({
+          id: current.id,
+          ownerKind: boundary.ownerKind,
+          ownerId: boundary.ownerId,
+        });
+        if (result !== true) {
+          throw new Error("Memory review clear lost an owner-scoped mutation target");
+        }
+        removed += 1;
+      }
+      return Object.freeze({
+        removed,
         ownerKind: boundary.ownerKind,
         ownerId: boundary.ownerId,
       });
