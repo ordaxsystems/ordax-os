@@ -34,11 +34,16 @@ export function validateAuthorizedActionExecution(value) {
   ) {
     throw new TypeError("Action executor decision does not match the action request");
   }
-  if (
-    request.effect !== "read"
-    && (decision.grantRef === null || decision.grantRef === "")
-  ) {
-    throw new TypeError("Sensitive action execution requires an explicit grant reference");
+  if (request.effect !== "read") {
+    if (request.approvalId === null) {
+      throw new TypeError("Sensitive action execution requires an exact approval reference");
+    }
+    if (request.resourceRef === null) {
+      throw new TypeError("Sensitive action execution requires an exact resource reference");
+    }
+    if (decision.grantRef === null || decision.grantRef === "") {
+      throw new TypeError("Sensitive action execution requires an explicit grant reference");
+    }
   }
 
   return Object.freeze({
