@@ -5,14 +5,18 @@ on:
     paths:
       - 'system/surface/runtime/native_memory_entitlement_proxy.py'
       - 'system/surface/runtime/native_account_gateway.py'
+      - 'system/surface/runtime/native_host_server.py'
       - 'tests/test_native_memory_entitlement_proxy.py'
+      - 'tests/test_native_memory_entitlement_host_route.py'
       - '.github/workflows/memory-entitlement-native-proxy.yml'
   push:
     branches: [main]
     paths:
       - 'system/surface/runtime/native_memory_entitlement_proxy.py'
       - 'system/surface/runtime/native_account_gateway.py'
+      - 'system/surface/runtime/native_host_server.py'
       - 'tests/test_native_memory_entitlement_proxy.py'
+      - 'tests/test_native_memory_entitlement_host_route.py'
       - '.github/workflows/memory-entitlement-native-proxy.yml'
   workflow_dispatch:
 
@@ -33,10 +37,13 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile system/surface/runtime/native_memory_entitlement_proxy.py
+          python -m py_compile system/surface/runtime/native_host_server.py
           python -m py_compile tests/test_native_memory_entitlement_proxy.py
+          python -m py_compile tests/test_native_memory_entitlement_host_route.py
 
-      - name: Prove fixed fail-closed Native entitlement proxy
+      - name: Prove fixed fail-closed Native entitlement proxy and host route
         run: |
           set -euo pipefail
           python -m unittest tests.test_native_account_gateway -v
           python -m unittest tests.test_native_memory_entitlement_proxy -v
+          python -m unittest tests.test_native_memory_entitlement_host_route -v
