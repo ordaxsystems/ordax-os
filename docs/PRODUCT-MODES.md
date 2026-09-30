@@ -160,6 +160,26 @@ Device-local secrets never synchronize. Examples include private device keys, ma
 
 Sync must be offline-tolerant, server-authorized, encrypted in transit and have an explicit conflict-resolution model before production promotion.
 
+## Operational realtime and remote device actions
+
+All product modes share one operational domain model in addition to account synchronization.
+
+```text
+portable account/user state -> OrdaX Sync
+live orders/jobs/telemetry -> OrdaX Operational Realtime
+device mutation intent -> OrdaX Action Gateway -> Device Agent
+```
+
+Web and Mobile do not get separate order databases, printer queues or authorization rules.
+They consume the same versioned events and action contracts as Desktop/Native according to
+their capability envelope.
+
+The public MVP remains USB-only. The source contract exists now so Web/PWA and a future
+Android APK can be added after the MVP without redesigning Account, Spaces or Device Agent.
+There is currently **no released OrdaX APK and no public remote-device runtime**.
+
+See `docs/OPERATIONAL-REALTIME.md`.
+
 ## Plans and future monetization
 
 Pricing, billing, commercial tier names and device-count limits are intentionally undefined at MVP stage.
