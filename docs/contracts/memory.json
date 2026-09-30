@@ -111,7 +111,13 @@
     "manual_create_requires_durable_flush": true,
     "destructive_delete_confirmation_required": true,
     "delete_confirmation_is_surface_control": true,
-    "delete_uses_existing_owner_scoped_forget": true
+    "delete_uses_existing_owner_scoped_forget": true,
+    "local_export_supported": true,
+    "local_export_scope": "selected-owner-only",
+    "local_export_requires_account": false,
+    "local_export_transport": "none-local-download",
+    "local_export_schema": "ordax.memory-review-export/1",
+    "local_export_includes_restricted_for_authorized_owner": true
   },
   "external_models": {
     "local_ai": "may-receive-authorized-context",
