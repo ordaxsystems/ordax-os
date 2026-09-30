@@ -107,8 +107,26 @@ def full_build_proof(stage: Path) -> dict:
     }
 
 
-def direct_proof(stage: Path, rootfs: Path, full: dict) -> dict:
-    return DIRECT.discover(stage, rootfs, full, preload_source_proof())
+def preload_relation_proof(consumer: str, provider: str) -> dict:
+    proof = preload_source_proof()
+    relation = proof["relations"][0]
+    relation.update({
+        "consumer_unixlib": consumer,
+        "provider_unixlib": provider,
+        "link_name": provider.removesuffix(".so"),
+        "consumer_module": consumer.removesuffix(".so") + ".dll",
+        "provider_module": provider.removesuffix(".so") + ".dll",
+        "consumer_makefile": f"dlls/{consumer.removesuffix('.so')}/Makefile.in",
+        "provider_makefile": f"dlls/{provider.removesuffix('.so')}/Makefile.in",
+    })
+    proof["evidence_sha256"] = DIRECT.PRELOAD_RUNTIME.canonical_sha256(
+        DIRECT.PRELOAD_RUNTIME.proof_core(proof)
+    )
+    return proof
+
+
+def direct_proof(stage: Path, rootfs: Path, full: dict, preload: dict | None = None) -> dict:
+    return DIRECT.discover(stage, rootfs, full, preload or preload_source_proof())
 
 
 class RuntimeDependencyClosureTests(unittest.TestCase):
@@ -116,11 +134,40 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
         contract = MODULE.load_contract()
         self.assertEqual(contract["status"], "transitive-dt-needed-discovery-only-not-promotable")
         self.assertEqual(contract["traversal"]["loader"], "musl-needed-by-chain")
+        self.assertTrue(contract["traversal"]["source_derived_dependency_attach_preloads_required"])
         self.assertTrue(contract["traversal"]["inherit_needed_by_dynamic_paths"])
+        self.assertTrue(contract["verification"]["preload_source_evidence_binding_required"])
         self.assertFalse(contract["traversal"]["ambient_ld_library_path_allowed"])
         self.assertFalse(contract["classification"]["runtime_dependency_inventory_complete_after_this_gate"])
         self.assertEqual(contract["classification"]["dynamic_dlopen_inventory"], "out-of-scope-for-this-gate")
         self.assertTrue(all(value is False for value in contract["promotion"].values()))
+
+    def test_source_proven_preload_edge_is_bound_into_raw_closure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            write(
+                stage / "usr/lib/wine/x86_64-unix/consumer.so",
+                synthetic_elf64((b"provider.so", b"libc.so.6")),
+            )
+            write(stage / "usr/lib/wine/x86_64-unix/provider.so", synthetic_elf64())
+            write(rootfs / "usr/lib/libc.so.6", synthetic_elf64())
+            write_apk_database(rootfs, [("usr/lib", "libc.so.6")])
+            preload = preload_relation_proof("consumer.so", "provider.so")
+            full = full_build_proof(stage)
+            direct = direct_proof(stage, rootfs, full, preload)
+            proof = MODULE.discover(stage, rootfs, full, direct, preload)
+            consumer = next(
+                item for item in proof["contexts"].values()
+                if item["consumer"] == "stage-internal:usr/lib/wine/x86_64-unix/consumer.so"
+            )
+            edge = next(item for item in consumer["edges"] if item["soname"] == "provider.so")
+            self.assertEqual(edge["resolution_kind"], "source-proven-dependency-attach-preload")
+            self.assertEqual(edge["unixlib_preload_source_evidence_sha256"], preload["evidence_sha256"])
+            self.assertEqual(edge["preload_relation"]["consumer_module"], "consumer.dll")
+            self.assertEqual(edge["preload_relation"]["provider_module"], "provider.dll")
+            self.assertIsNone(edge["search_directory"])
 
     def test_transitive_child_resolves_through_ancestor_rpath_needed_by_chain(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -140,9 +187,10 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
                     ("opt/app/lib", "libchild.so.1"),
                 ],
             )
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
-            proof = MODULE.discover(stage, rootfs, full, direct)
+            direct = direct_proof(stage, rootfs, full, preload)
+            proof = MODULE.discover(stage, rootfs, full, direct, preload)
 
             parent_contexts = [
                 item for item in proof["contexts"].values()
@@ -171,9 +219,10 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
                 rootfs,
                 [("usr/lib", "liba.so.1"), ("usr/lib", "libb.so.1")],
             )
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
-            proof = MODULE.discover(stage, rootfs, full, direct)
+            direct = direct_proof(stage, rootfs, full, preload)
+            proof = MODULE.discover(stage, rootfs, full, direct, preload)
             self.assertGreaterEqual(proof["counts"]["cycle_edges"], 1)
             self.assertLess(proof["counts"]["context_states"], 10)
             self.assertTrue(
@@ -192,13 +241,14 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
             write(stage / "usr/bin/wine", synthetic_elf64((b"liba.so.1",)))
             write(rootfs / "usr/lib/liba.so.1", synthetic_elf64())
             write_apk_database(rootfs, [("usr/lib", "liba.so.1")])
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             tampered = copy.deepcopy(direct)
             tampered["elf_files"]["usr/bin/wine"]["resolutions"][0]["path"] = "usr/lib/not-liba.so.1"
             tampered["inventory_sha256"] = DIRECT.canonical_sha256(MODULE.direct_inventory_core(tampered))
             with self.assertRaisesRegex(MODULE.RuntimeDependencyClosureError, "disagrees on path"):
-                MODULE.discover(stage, rootfs, full, tampered)
+                MODULE.discover(stage, rootfs, full, tampered, preload)
 
     def test_direct_inventory_digest_tampering_is_rejected_before_traversal(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -208,11 +258,12 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
             write(stage / "usr/bin/wine", synthetic_elf64((b"liba.so.1",)))
             write(rootfs / "usr/lib/liba.so.1", synthetic_elf64())
             write_apk_database(rootfs, [("usr/lib", "liba.so.1")])
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             direct["inventory_sha256"] = "0" * 64
             with self.assertRaisesRegex(MODULE.RuntimeDependencyClosureError, "digest does not verify"):
-                MODULE.discover(stage, rootfs, full, direct)
+                MODULE.discover(stage, rootfs, full, direct, preload)
 
     def test_unresolved_transitive_dependency_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -222,10 +273,11 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
             write(stage / "usr/bin/wine", synthetic_elf64((b"libparent.so.1",)))
             write(rootfs / "usr/lib/libparent.so.1", synthetic_elf64((b"libmissing.so.1",)))
             write_apk_database(rootfs, [("usr/lib", "libparent.so.1")])
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             with self.assertRaisesRegex(MODULE.RuntimeDependencyClosureError, "unresolved transitive ELF dependencies"):
-                MODULE.discover(stage, rootfs, full, direct)
+                MODULE.discover(stage, rootfs, full, direct, preload)
 
     def test_cross_scope_collision_in_transitive_edge_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -240,10 +292,11 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
                 rootfs,
                 [("usr/lib", "libparent.so.1"), ("opt/app/lib", "libchild.so.1")],
             )
+            preload = preload_source_proof()
             full = full_build_proof(stage)
-            direct = direct_proof(stage, rootfs, full)
+            direct = direct_proof(stage, rootfs, full, preload)
             with self.assertRaisesRegex(MODULE.RuntimeDependencyClosureError, "cross-scope loader collision"):
-                MODULE.discover(stage, rootfs, full, direct)
+                MODULE.discover(stage, rootfs, full, direct, preload)
 
 
 if __name__ == "__main__":
