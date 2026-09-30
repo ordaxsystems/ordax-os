@@ -9,7 +9,7 @@ import { readNativeToolArtifactSha256 } from "./tool-artifact-identity.mjs";
 export const NATIVE_FILE_ACTION_TOOL_ID = "ordax-native-file-space";
 export const NATIVE_FILE_ENSURE_DIRECTORY_ACTION = "files.directory.ensure";
 
-function parseDirectoryResource(resourceRef) {
+export function validateNativeFileDirectoryResourceRef(resourceRef) {
   const prefix = "file-space:";
   if (typeof resourceRef !== "string" || !resourceRef.startsWith(prefix)) {
     throw new TypeError("Native file action requires a file-space resource reference");
@@ -22,6 +22,15 @@ function parseDirectoryResource(resourceRef) {
   const name = parts.at(-1);
   const parentPath = parts.length === 1 ? "/" : `/${parts.slice(0, -1).join("/")}`;
   validateFileSpacePath(parentPath);
+  return `file-space:${path}`;
+}
+
+function parseDirectoryResource(resourceRef) {
+  const normalized = validateNativeFileDirectoryResourceRef(resourceRef);
+  const path = normalized.slice("file-space:".length);
+  const parts = path.split("/").slice(1);
+  const name = parts.at(-1);
+  const parentPath = parts.length === 1 ? "/" : `/${parts.slice(0, -1).join("/")}`;
   return Object.freeze({ path, parentPath, name });
 }
 
@@ -98,8 +107,22 @@ export async function createNativePersonalOrdaxFileActions({
     },
   });
 
+  const actionRegistrations = Object.freeze([Object.freeze({
+    entry: Object.freeze({
+      id: "native-file.ensure-directory",
+      toolId: tool.id,
+      toolArtifactSha256: tool.artifactSha256,
+      actionId: NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
+      effect: "write",
+      inputKind: "resource-ref",
+    }),
+    validateResourceRef: validateNativeFileDirectoryResourceRef,
+    reason: "Ensure the explicitly selected directory exists inside the canonical user file-space.",
+  })]);
+
   return Object.freeze({
     tool,
+    actionRegistrations,
     toolResolver(toolId) {
       return toolId === tool.id ? tool : null;
     },
