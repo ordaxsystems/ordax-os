@@ -103,6 +103,9 @@ export function mountPersonalActivityControls(
       return;
     }
 
+    if (typeof personalOrdax.reconcileApprovedAuthority === "function") {
+      personalOrdax.reconcileApprovedAuthority();
+    }
     const view = projectPersonalActivitySnapshot(personalOrdax.getSnapshot());
     const availableActions = typeof personalOrdax.listAvailableActions === "function"
       ? personalOrdax.listAvailableActions()
