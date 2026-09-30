@@ -169,7 +169,13 @@
     "action_catalog_creates_authority": false,
     "action_catalog_requests_explicit_approval": true,
     "action_decision_binds_approval_id": true,
-    "repeated_action_types_require_distinct_approval_ids": true
+    "repeated_action_types_require_distinct_approval_ids": true,
+    "action_gateway_requires_grant_revoker": true,
+    "owner_switch_revokes_approved_grants": true,
+    "space_invalidation_revokes_approved_grants": true,
+    "project_invalidation_revokes_approved_grants": true,
+    "paused_work_context_invalidation_revokes_approved_grants": true,
+    "work_cancel_revocation_owned_by_runtime": true
   },
   "activity": {
     "ordered_sequence_required": true,
