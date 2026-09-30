@@ -207,6 +207,14 @@ export function mountPersonalActivityControls(
               "ordax-activity-result-meta",
               `${entry.pendingApproval.actionId} · ${entry.pendingApproval.effect}`,
             ),
+            ...(entry.pendingApproval.resourceRef === null ? [] : [
+              node(
+                documentObject,
+                "span",
+                "ordax-activity-result-meta",
+                `${t("activity.approval.resource")}: ${entry.pendingApproval.resourceRef}`,
+              ),
+            ]),
             node(
               documentObject,
               "span",
