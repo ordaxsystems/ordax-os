@@ -160,6 +160,18 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertTrue(boundary["authorization"]["active_validity_window_required"])
         self.assertTrue(boundary["authorization"]["server_clock_authoritative"])
         self.assertFalse(boundary["authorization"]["client_preflight_is_authorization_authority"])
+        identity = boundary["identity"]
+        self.assertEqual(
+            identity["client_generated_stable_ids_allowed"],
+            "uuid-v4-first-create-source-contract",
+        )
+        self.assertEqual(
+            identity["client_generated_stable_id_constraint"],
+            "uuid-v4-first-create-only",
+        )
+        self.assertTrue(identity["server_generated_uuid_fallback"])
+        self.assertTrue(identity["local_first_identity_source_prepared"])
+        self.assertFalse(identity["local_first_identity_applied"])
         self.assertTrue(boundary["deletion"]["explicit_tombstone_required"])
         self.assertFalse(boundary["conflicts"]["silent_global_last_writer_wins"])
         self.assertEqual(boundary["conflicts"]["same_revision_divergence"], "reject")
