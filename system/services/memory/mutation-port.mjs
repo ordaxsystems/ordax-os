@@ -20,6 +20,25 @@ function optionalProtectedAccountMutations(value) {
   return value;
 }
 
+function validateProtectedRememberResult(result, expected) {
+  const saved = validateMemoryItem(result);
+  if (
+    saved.id !== expected.id
+    || saved.ownerKind !== expected.ownerKind
+    || saved.ownerId !== expected.ownerId
+  ) {
+    throw new Error("Protected Account Memory remember returned a different Memory identity");
+  }
+  return saved;
+}
+
+function validateProtectedForgetResult(result) {
+  if (typeof result !== "boolean") {
+    throw new TypeError("Protected Account Memory forget must return a boolean");
+  }
+  return result;
+}
+
 export function createMemoryMutationPort({
   memoryPort,
   protectedAccountMutations = null,
@@ -32,7 +51,8 @@ export function createMemoryMutationPort({
     async remember(value) {
       const item = validateMemoryItem(value);
       if (item.ownerKind === "account" && protectedAccount !== null) {
-        return protectedAccount.remember(item);
+        const saved = await protectedAccount.remember(item);
+        return validateProtectedRememberResult(saved, item);
       }
       const saved = memory.remember(item);
       await memory.flush();
@@ -41,7 +61,8 @@ export function createMemoryMutationPort({
     async forget(value) {
       const request = validateMemoryForgetRequest(value);
       if (request.ownerKind === "account" && protectedAccount !== null) {
-        return protectedAccount.forget(request);
+        const removed = await protectedAccount.forget(request);
+        return validateProtectedForgetResult(removed);
       }
       const removed = memory.forget(request);
       if (removed) await memory.flush();
