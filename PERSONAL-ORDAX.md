@@ -67,7 +67,7 @@ Nenhuma dessas capacidades é duplicada dentro do Personal OrdaX.
 4. **Composição Native** — reutilizar identitySession, Space selection, Projects e Intelligence canônicos.
 5. **Entrada explícita de Work** — implementada no app Atividade como ação deliberada; conversas comuns não são convertidas automaticamente.
 6. **Activity/Result Surface** — implementada como projeção do runtime canônico, sem task store dentro do app.
-7. **Approvals/Action Gateway** — somente depois de Activity e ownership estarem estáveis.
+7. **Approvals/Action Gateway** — lifecycle persistido e gateway de decisão owner/context/grant-bound em implementação; side effects continuam desabilitados.
 8. **Background retomável** — somente depois de persistência/recovery e revogação estarem provados.
 9. **Workers especializados e híbrido local/cloud** — sempre sob o mesmo owner, Memory e autoridade.
 
@@ -86,6 +86,6 @@ A camada atual só avança quando os testes provarem que:
 
 ## Estado desta execução
 
-A composição Native dedicada está montada em `system/composition/native/personal-ordax.mjs` e é criada por `system/composition/native/main.mjs`. Ela cria o store Native, injeta somente as portas canônicas no runtime e participa do lifecycle com `dispose()`. O app `system/apps/activity/` agora é a entrada explícita de Work e a Activity/Result Surface: ele cria Work somente por ação do usuário e projeta Work, Activity e Result diretamente do runtime, sem persistência própria. O próximo corte é estabilizar approvals/Action Gateway sem habilitar background.
+A composição Native dedicada está montada em `system/composition/native/personal-ordax.mjs` e é criada por `system/composition/native/main.mjs`. Ela cria o store Native, injeta somente as portas canônicas no runtime e participa do lifecycle com `dispose()`. O app `system/apps/activity/` é a entrada explícita de Work e projeta Work, Activity, Result e aprovação diretamente do runtime, sem persistência própria. A camada de approvals agora persiste request/resolution/decision e o Action Gateway só libera uma ação quando um grant existente corresponde exatamente a owner, Space, Project, tool, action e efeito. Grant ausente mantém `approval-required`; grant inválido, expirado ou de outro contexto produz `deny`. O gateway ainda não executa side effects. O próximo corte é ligar um emissor/registro confiável de grants existente à composição antes de habilitar qualquer execução.
 
 O Personal OrdaX ainda não é autoridade autônoma do MVP público. O Stable/MVP continua com Intelligence consultativa até promoção explícita pelos gates do projeto.
