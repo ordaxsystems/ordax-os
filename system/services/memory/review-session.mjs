@@ -38,6 +38,7 @@ export function assertMemoryReviewSession(session) {
     "selectOwner",
     "create",
     "list",
+    "exportSnapshot",
     "update",
     "remove",
     "flush",
@@ -145,6 +146,10 @@ export function createMemoryReviewSession({
     list(options = {}) {
       if (disposed) throw new Error("Memory review session is disposed");
       return review().list(options);
+    },
+    exportSnapshot() {
+      if (disposed) throw new Error("Memory review session is disposed");
+      return review().exportSnapshot();
     },
     update(id, patch = {}) {
       if (disposed) throw new Error("Memory review session is disposed");

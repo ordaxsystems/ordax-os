@@ -662,6 +662,9 @@ export function mountAccountOverviewControls(
       saved: t("account.memory.review.saved"),
       saveError: t("account.memory.review.saveError"),
       contentLabel: t("account.memory.review.contentLabel"),
+      export: t("account.memory.review.export"),
+      exported: t("account.memory.review.exported"),
+      exportError: t("account.memory.review.exportError"),
     });
   };
 
