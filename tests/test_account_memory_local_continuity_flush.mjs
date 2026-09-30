@@ -32,6 +32,35 @@ function stateStore() {
   };
 }
 
+function flushableCanonicalFactory() {
+  const stores = new Map();
+  let failFlush = false;
+  let flushes = 0;
+  const factory = (subjectId) => {
+    if (!stores.has(subjectId)) {
+      let payload = null;
+      stores.set(subjectId, {
+        schema: SYNC_STATE_STORE_SCHEMA,
+        scope: "device",
+        load: () => payload,
+        save(value) {
+          payload = value;
+          return true;
+        },
+        async flush() {
+          flushes += 1;
+          if (failFlush) throw new Error("canonical durable flush failed");
+          return true;
+        },
+      });
+    }
+    return stores.get(subjectId);
+  };
+  factory.fail = (value) => { failFlush = value; };
+  factory.flushCount = () => flushes;
+  return factory;
+}
+
 function flushableDeferredFactory() {
   const stores = new Map();
   let failFlush = false;
@@ -77,7 +106,7 @@ function item(id = "memory-a") {
   };
 }
 
-function compositionWith(deferredFactory, errors = []) {
+function compositionWith(deferredFactory, errors = [], canonicalFactory = () => stateStore()) {
   let ordinal = 0;
   return createAccountMemoryAuthorizedComposition({
     identitySession: identitySession(),
@@ -96,7 +125,7 @@ function compositionWith(deferredFactory, errors = []) {
       },
     }),
     memoryPort: createMemoryRuntime(),
-    createSyncStateStore: () => stateStore(),
+    createSyncStateStore: canonicalFactory,
     createDeferredStateStore: deferredFactory,
     createIdempotencyKey(kind) {
       ordinal += 1;
@@ -149,4 +178,50 @@ test("local continuity flush fails closed when deferred coordination cannot beco
   assert.equal(recovered.deferredDurabilityHealthy, true);
   assert.equal(recovered.deferredCoordinationHealthy, true);
   assert.equal(recovered.deferredCoordinationFailurePhase, null);
+});
+
+
+test("local continuity flush confirms canonical coordination before deferred durability", async () => {
+  const events = [];
+  const canonical = flushableCanonicalFactory();
+  const deferred = flushableDeferredFactory();
+  const composition = compositionWith(deferred, events, canonical);
+
+  await composition.settled();
+  const canonicalBaseline = canonical.flushCount();
+  const deferredBaseline = deferred.flushCount();
+  composition.memory.remember(item("memory-canonical-flush"));
+
+  assert.equal(await composition.memory.flush(), true);
+  assert.equal(canonical.flushCount(), canonicalBaseline + 1);
+  assert.equal(deferred.flushCount(), deferredBaseline + 1);
+  const snapshot = composition.getSnapshot();
+  assert.equal(snapshot.localContinuityFlushIncludesCanonicalCoordination, true);
+  assert.equal(snapshot.canonicalDurabilityHealthy, true);
+  assert.equal(snapshot.localContinuityDurabilityHealthy, true);
+});
+
+test("canonical coordination durability failure stops continuity flush before deferred confirmation", async () => {
+  const errors = [];
+  const canonical = flushableCanonicalFactory();
+  const deferred = flushableDeferredFactory();
+  const composition = compositionWith(deferred, errors, canonical);
+
+  await composition.settled();
+  composition.memory.remember(item("memory-canonical-failure"));
+  const deferredBeforeFailure = deferred.flushCount();
+  canonical.fail(true);
+
+  await assert.rejects(composition.memory.flush(), /canonical durable flush failed/);
+  const failed = composition.getSnapshot();
+  assert.equal(failed.canonicalDurabilityHealthy, false);
+  assert.equal(failed.localContinuityDurabilityHealthy, false);
+  assert.equal(deferred.flushCount(), deferredBeforeFailure);
+  assert.equal(errors.at(-1).context.kind, "canonical-durability-flush");
+
+  canonical.fail(false);
+  assert.equal(await composition.memory.flush(), true);
+  const recovered = composition.getSnapshot();
+  assert.equal(recovered.canonicalDurabilityHealthy, true);
+  assert.equal(recovered.localContinuityDurabilityHealthy, true);
 });
