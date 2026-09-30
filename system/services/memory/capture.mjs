@@ -4,8 +4,10 @@ import {
   assertMemoryPort,
   validateMemoryItem,
 } from "../../contracts/memory.mjs";
+import { assertMemoryMutationPort } from "../../contracts/memory-mutation.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { memoryAutoCaptureEnabled } from "../preferences/memory.mjs";
+import { createMemoryMutationPort } from "./mutation-port.mjs";
 import {
   MEMORY_CAPTURE_RESULT_SCHEMA,
   validateMemoryCaptureAuthorization,
@@ -68,8 +70,12 @@ export function createMemoryCaptureRuntime(memoryPort, {
   now = () => new Date(),
   idFactory = defaultIdFactory,
   readCaptureEnabled = () => true,
+  mutationPort = null,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
+  const mutations = mutationPort === null
+    ? createMemoryMutationPort({ memoryPort: memory })
+    : assertMemoryMutationPort(mutationPort);
   if (typeof now !== "function" || typeof idFactory !== "function") {
     throw new TypeError("Memory capture runtime requires clock and id factory functions");
   }
@@ -112,8 +118,7 @@ export function createMemoryCaptureRuntime(memoryPort, {
         spaceId: authorization.spaceId,
         projectId: null,
       });
-      const remembered = memory.remember(item);
-      await memory.flush();
+      const remembered = await mutations.remember(item);
       return Object.freeze({
         schema: MEMORY_CAPTURE_RESULT_SCHEMA,
         item: remembered,
