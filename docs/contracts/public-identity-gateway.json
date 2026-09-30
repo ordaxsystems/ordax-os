@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-gateway/1",
-  "status": "real-auth-sync-export-spaces-gateway-source-v13-deployed-v13-revision-16-close-disabled",
+  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v13-deployed-v13-revision-17-close-disabled",
   "runtime": {
     "entrypoint": "services/public-identity/gateway.py:application",
     "protocol": "WSGI",
@@ -10,7 +10,7 @@
     "provider_configuration": "runtime-environment",
     "deployed_edge_adapter": "infra/supabase/functions/ordax-account-gateway/index.ts",
     "gateway_source_version": 13,
-    "edge_deployment_revision_observed": 16,
+    "edge_deployment_revision_observed": 17,
     "deployed_gateway_source_version": 13,
     "lifecycle_service_source": "infra/supabase/functions/ordax-account-lifecycle/index.ts",
     "lifecycle_service_deployed": true,
@@ -89,6 +89,12 @@
       "path": "/account/spaces",
       "unconfigured_status": 503,
       "purpose": "authenticated-rls-scoped-read-only-spaces-catalog"
+    },
+    {
+      "method": "GET",
+      "path": "/account/entitlements/memory-cloud",
+      "unconfigured_status": 503,
+      "purpose": "authenticated-server-authoritative-read-only-memory-cloud-entitlement"
     },
     {
       "method": "GET",
@@ -188,7 +194,19 @@
     "account_spaces_uses_user_bearer_rls": true,
     "account_spaces_max_visible_items": 64,
     "account_spaces_mutation_exposed": false,
-    "account_spaces_edge_deployed": true
+    "account_spaces_edge_deployed": true,
+    "account_memory_entitlement_read_source_implemented": true,
+    "account_memory_entitlement_route": "/account/entitlements/memory-cloud",
+    "account_memory_entitlement_key": "memory.cloud.enabled",
+    "account_memory_entitlement_requires_authenticated_user": true,
+    "account_memory_entitlement_subject_from_session": true,
+    "account_memory_entitlement_uses_user_bearer_rls": true,
+    "account_memory_entitlement_server_authoritative": true,
+    "account_memory_entitlement_mutation_exposed": false,
+    "account_memory_entitlement_service_role_used": false,
+    "account_memory_entitlement_edge_deployed": true,
+    "account_memory_entitlement_edge_deployment_revision_observed": 17,
+    "public_cloud_memory_enabled": false
   },
   "deployment": {
     "same_origin_required_for_public_site": true,

@@ -40,7 +40,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "real-auth-sync-export-spaces-gateway-source-v13-deployed-v13-revision-16-close-disabled",
+            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v13-deployed-v13-revision-17-close-disabled",
         )
         self.assertFalse(contract["baseline"]["provider_configured"])
         self.assertTrue(contract["baseline"]["http_only_session_cookies"])
@@ -72,7 +72,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertFalse(contract["baseline"]["existing_login_passwords_retroactively_rejected"])
         self.assertEqual(contract["runtime"]["gateway_source_version"], 13)
         self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 13)
-        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 16)
+        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 17)
         self.assertTrue(contract["runtime"]["lifecycle_service_deployed"])
         self.assertEqual(contract["runtime"]["lifecycle_service_deployment_revision_observed"], 1)
         self.assertFalse(contract["runtime"]["lifecycle_service_enabled"])
@@ -89,6 +89,27 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(contract["baseline"]["account_spaces_max_visible_items"], 64)
         self.assertFalse(contract["baseline"]["account_spaces_mutation_exposed"])
         self.assertTrue(contract["baseline"]["account_spaces_edge_deployed"])
+        self.assertTrue(contract["baseline"]["account_memory_entitlement_read_source_implemented"])
+        self.assertEqual(
+            contract["baseline"]["account_memory_entitlement_route"],
+            "/account/entitlements/memory-cloud",
+        )
+        self.assertEqual(
+            contract["baseline"]["account_memory_entitlement_key"],
+            "memory.cloud.enabled",
+        )
+        self.assertTrue(contract["baseline"]["account_memory_entitlement_requires_authenticated_user"])
+        self.assertTrue(contract["baseline"]["account_memory_entitlement_subject_from_session"])
+        self.assertTrue(contract["baseline"]["account_memory_entitlement_uses_user_bearer_rls"])
+        self.assertTrue(contract["baseline"]["account_memory_entitlement_server_authoritative"])
+        self.assertFalse(contract["baseline"]["account_memory_entitlement_mutation_exposed"])
+        self.assertFalse(contract["baseline"]["account_memory_entitlement_service_role_used"])
+        self.assertTrue(contract["baseline"]["account_memory_entitlement_edge_deployed"])
+        self.assertEqual(
+            contract["baseline"]["account_memory_entitlement_edge_deployment_revision_observed"],
+            17,
+        )
+        self.assertFalse(contract["baseline"]["public_cloud_memory_enabled"])
         self.assertTrue(contract["baseline"]["account_close_source_implemented"])
         self.assertFalse(contract["baseline"]["account_close_enabled"])
         self.assertTrue(contract["baseline"]["account_close_gateway_route_deployed"])
@@ -135,6 +156,14 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         spaces = self.gateway.handle("GET", "/account/spaces", marker)
         self.assertEqual(spaces.status, 503)
         self.assertEqual(self.payload(spaces)["error"], "public-account-access-disabled")
+
+        entitlement = self.gateway.handle(
+            "GET",
+            "/account/entitlements/memory-cloud",
+            marker,
+        )
+        self.assertEqual(entitlement.status, 503)
+        self.assertEqual(self.payload(entitlement)["error"], "public-account-access-disabled")
 
         close = self.gateway.handle(
             "POST",
@@ -677,6 +706,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
             ("POST", "/sync/objects", "GET"),
             ("GET", "/sync/mutate", "POST"),
             ("POST", "/account/export", "GET"),
+            ("POST", "/account/entitlements/memory-cloud", "GET"),
             ("GET", "/account/close", "POST"),
         )
         for method, path, allowed in cases:

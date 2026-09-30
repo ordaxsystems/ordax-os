@@ -17,7 +17,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         contract = json.loads(IDENTITY_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "provider-adapter-source-v13-deployed-v13-revision-16-close-disabled",
+            "provider-adapter-source-v13-deployed-v13-revision-17-close-disabled",
         )
         self.assertFalse(contract["backend"]["provider_configured"])
         self.assertTrue(contract["backend"]["password_auth_flow_implemented"])
@@ -28,7 +28,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(contract["backend"]["conflicting_auth_user_trigger_allowed"])
         self.assertEqual(contract["backend"]["gateway_source_version"], 13)
         self.assertEqual(contract["backend"]["deployed_gateway_source_version"], 13)
-        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 16)
+        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 17)
         self.assertTrue(contract["backend"]["account_close_source_implemented"])
         self.assertEqual(contract["backend"]["account_close_gateway_route"], "/account/close")
         self.assertTrue(contract["backend"]["account_close_gateway_route_deployed"])
@@ -43,6 +43,29 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertEqual(contract["backend"]["account_spaces_route"], "/account/spaces")
         self.assertTrue(contract["backend"]["account_spaces_edge_deployed"])
         self.assertFalse(contract["backend"]["account_spaces_mutation_exposed"])
+        self.assertTrue(contract["backend"]["account_memory_entitlement_read_source_implemented"])
+        self.assertEqual(
+            contract["backend"]["account_memory_entitlement_route"],
+            "/account/entitlements/memory-cloud",
+        )
+        self.assertEqual(
+            contract["backend"]["account_memory_entitlement_key"],
+            "memory.cloud.enabled",
+        )
+        self.assertTrue(contract["backend"]["account_memory_entitlement_edge_deployed"])
+        self.assertEqual(
+            contract["backend"]["account_memory_entitlement_edge_deployment_revision_observed"],
+            17,
+        )
+        self.assertTrue(
+            contract["backend"]["account_memory_entitlement_requires_authenticated_user"]
+        )
+        self.assertTrue(contract["backend"]["account_memory_entitlement_subject_from_session"])
+        self.assertTrue(contract["backend"]["account_memory_entitlement_uses_user_bearer_rls"])
+        self.assertTrue(contract["backend"]["account_memory_entitlement_server_authoritative"])
+        self.assertFalse(contract["backend"]["account_memory_entitlement_mutation_exposed"])
+        self.assertFalse(contract["backend"]["account_memory_entitlement_service_role_used"])
+        self.assertFalse(contract["backend"]["public_cloud_memory_enabled"])
         self.assertTrue(contract["backend"]["public_site_server_activation_gate_deployed"])
         self.assertFalse(contract["backend"]["public_site_account_enabled"])
         self.assertEqual(contract["backend"]["public_site_marker_header"], "X-OrdaX-Public-Site")
