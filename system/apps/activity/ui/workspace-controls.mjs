@@ -170,7 +170,9 @@ export function mountPersonalActivityControls(
           button.dataset.personalWorkId = item.id;
           actions.append(button);
         };
-        if (item.state === "queued") addAction("run", t("activity.action.run"));
+        if (item.state === "queued" && entry.approvedApproval === null) {
+          addAction("run", t("activity.action.run"));
+        }
         if (item.state === "running") addAction("pause", t("activity.action.pause"));
         if (item.state === "paused") {
           addAction("resume", t("activity.action.resume"));
