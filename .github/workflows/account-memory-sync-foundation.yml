@@ -33,6 +33,7 @@ on:
       - 'system/services/sync/state-store-registry.mjs'
       - 'system/composition/native/account-memory-foundation.mjs'
       - 'system/composition/native/account-sync.mjs'
+      - 'system/composition/native/main.mjs'
       - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
       - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
       - 'tests/test_cloud_memory_atomic_mutation.py'
@@ -55,6 +56,7 @@ on:
       - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_account_sync_runtime.mjs'
       - 'tests/test_native_account_sync_memory_wiring.mjs'
+      - 'tests/test_account_canonical_navigation.py'
       - 'tests/test_sync_model_contract.py'
       - '.github/workflows/account-memory-sync-foundation.yml'
       - '.github/workflows/cloud-memory-authenticated-proof.yml'
@@ -89,6 +91,7 @@ on:
       - 'system/services/sync/state-store-registry.mjs'
       - 'system/composition/native/account-memory-foundation.mjs'
       - 'system/composition/native/account-sync.mjs'
+      - 'system/composition/native/main.mjs'
       - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
       - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
       - 'tests/test_cloud_memory_atomic_mutation.py'
@@ -111,6 +114,7 @@ on:
       - 'tests/test_sync_state_namespace_registry.mjs'
       - 'tests/test_account_sync_runtime.mjs'
       - 'tests/test_native_account_sync_memory_wiring.mjs'
+      - 'tests/test_account_canonical_navigation.py'
       - 'tests/test_sync_model_contract.py'
       - '.github/workflows/account-memory-sync-foundation.yml'
       - '.github/workflows/cloud-memory-authenticated-proof.yml'
@@ -169,6 +173,7 @@ jobs:
           node --check system/services/sync/state-store-registry.mjs
           node --check system/composition/native/account-memory-foundation.mjs
           node --check system/composition/native/account-sync.mjs
+          node --check system/composition/native/main.mjs
           node --check system/services/memory/review.mjs
           node --check infra/supabase/functions/ordax-account-gateway/memory-sync-policy.mjs
           node --check tests/test_account_memory_authorization.mjs
@@ -194,6 +199,7 @@ jobs:
           python -m py_compile tests/test_cloud_memory_authenticated_proof.py
           python -m py_compile tests/test_cloud_memory_privacy_hardening.py
           python -m py_compile tests/test_memory_entitlements.py
+          python -m py_compile tests/test_account_canonical_navigation.py
           python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
           python -m json.tool docs/contracts/foundation.json >/dev/null
           python -m json.tool docs/contracts/memory.json >/dev/null
@@ -227,4 +233,5 @@ jobs:
           python -m unittest tests.test_cloud_memory_authenticated_proof -v
           python -m unittest tests.test_cloud_memory_privacy_hardening -v
           python -m unittest tests.test_memory_entitlements -v
+          python -m unittest tests.test_account_canonical_navigation -v
           python -m unittest tests.test_sync_model_contract -v
