@@ -17,7 +17,8 @@
     "ambient_ld_library_path_allowed": false,
     "global_wine_library_path_allowed": false,
     "preflight_target": "dlls/winevulkan/winevulkan.so",
-    "preflight_required_dt_needed": "win32u.so",
+    "staged_target": "usr/lib/wine/x86_64-unix/winevulkan.so",
+    "required_dt_needed": "win32u.so",
     "expected_elf": {
       "class": 64,
       "machine": 62,

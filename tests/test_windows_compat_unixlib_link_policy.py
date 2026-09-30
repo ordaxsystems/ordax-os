@@ -16,6 +16,8 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
     def test_contract_is_fail_closed_and_not_promotable(self):
         contract = policy.load_contract()
         self.assertEqual(contract["policy"]["runpath"], "$ORIGIN")
+        self.assertEqual(contract["policy"]["preflight_target"], "dlls/winevulkan/winevulkan.so")
+        self.assertEqual(contract["policy"]["staged_target"], "usr/lib/wine/x86_64-unix/winevulkan.so")
         self.assertTrue(contract["policy"]["dt_rpath_forbidden"])
         self.assertFalse(contract["policy"]["ambient_ld_library_path_allowed"])
         self.assertFalse(contract["policy"]["global_wine_library_path_allowed"])
@@ -106,7 +108,14 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(policy.UnixlibLinkPolicyError, "not ELF"):
                 policy.verify_preflight_elf(path)
 
-    def test_final_evidence_binds_policy_inputs_without_claiming_runtime_readiness(self):
+    def test_staged_rejects_non_elf_independently(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "winevulkan.so"
+            path.write_bytes(b"not-elf")
+            with self.assertRaisesRegex(policy.UnixlibLinkPolicyError, "not ELF"):
+                policy.verify_staged_elf(path)
+
+    def test_final_evidence_binds_preflight_and_staged_bytes_without_claiming_runtime_readiness(self):
         source = {
             "configure_original_sha256": "1" * 64,
             "configure_patched_sha256": "2" * 64,
@@ -115,7 +124,11 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
             "patched_assignment_sha256": "5" * 64,
             "replacement_count": 1,
         }
-        generated = {"makefile_sha256": "6" * 64, "unixldflags": policy.GENERATED_RUNPATH_TOKEN, "runpath_token": policy.GENERATED_RUNPATH_TOKEN}
+        generated = {
+            "makefile_sha256": "6" * 64,
+            "unixldflags": policy.GENERATED_RUNPATH_TOKEN,
+            "runpath_token": policy.GENERATED_RUNPATH_TOKEN,
+        }
         preflight = {
             "target": "dlls/winevulkan/winevulkan.so",
             "size": 1,
@@ -125,9 +138,25 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
             "dt_rpath": None,
             "dt_runpath": "$ORIGIN",
         }
-        proof = policy.finalize_evidence(source, generated, preflight)
+        staged = {
+            "target": "usr/lib/wine/x86_64-unix/winevulkan.so",
+            "size": 2,
+            "sha256": "8" * 64,
+            "elf": {"class": 64, "machine": 62, "endianness": "little"},
+            "dt_needed": ["win32u.so"],
+            "dt_rpath": None,
+            "dt_runpath": "$ORIGIN",
+        }
+        proof = policy.finalize_evidence(source, generated, preflight, staged)
         self.assertEqual(len(proof["evidence_sha256"]), 64)
+        self.assertEqual(proof["preflight"]["sha256"], "7" * 64)
+        self.assertEqual(proof["staged"]["sha256"], "8" * 64)
         self.assertTrue(proof["gates"]["dt_runpath_origin_verified"])
+        self.assertTrue(proof["gates"]["staged_elf_verified"])
+        changed = dict(staged)
+        changed["sha256"] = "9" * 64
+        changed_proof = policy.finalize_evidence(source, generated, preflight, changed)
+        self.assertNotEqual(proof["evidence_sha256"], changed_proof["evidence_sha256"])
         for gate in (
             "runtime_dependency_inventory_complete",
             "runtime_package_content_hashes_pinned",

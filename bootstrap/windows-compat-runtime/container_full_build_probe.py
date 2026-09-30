@@ -281,12 +281,7 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
     if header_barrier is None:
         raise ContainerFullBuildError("generated IDL header barrier was not planned")
     if unixlib_generated_makefile is None or unixlib_preflight is None:
-        raise ContainerFullBuildError("Unixlib $ORIGIN RUNPATH policy was not proven")
-    unixlib_link_policy = UNIXLIB_POLICY.finalize_evidence(
-        unixlib_source_patch,
-        unixlib_generated_makefile,
-        unixlib_preflight,
-    )
+        raise ContainerFullBuildError("Unixlib $ORIGIN RUNPATH preflight policy was not proven")
 
     wine_entry = stage_dir / "usr/bin/wine"
     wine_lib = stage_dir / "usr/lib/wine"
@@ -294,6 +289,15 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
         raise ContainerFullBuildError("staged Wine entrypoint missing")
     if not wine_lib.is_dir():
         raise ContainerFullBuildError("staged Wine library tree missing")
+
+    staged_target = link_policy_contract["policy"]["staged_target"]
+    unixlib_staged = UNIXLIB_POLICY.verify_staged_elf(stage_dir / staged_target)
+    unixlib_link_policy = UNIXLIB_POLICY.finalize_evidence(
+        unixlib_source_patch,
+        unixlib_generated_makefile,
+        unixlib_preflight,
+        unixlib_staged,
+    )
 
     manifest, total_regular_bytes = FULL.staging_manifest(stage_dir)
     stage_digest = FULL.canonical_manifest_sha256(manifest)

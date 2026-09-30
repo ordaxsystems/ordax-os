@@ -4,8 +4,8 @@
 The locked Wine archive is validated before this policy is applied. This helper
 then performs one bounded transformation of the extracted generated `configure`
 script, proves that the upstream `configure.ac` anchor still matches Wine 11.0,
-checks the generated Makefile value, and verifies the resulting ELF dynamic
-metadata without executing Wine or a Windows payload.
+checks the generated Makefile value, and verifies both build-tree and installed
+ELF dynamic metadata without executing Wine or a Windows payload.
 """
 
 from __future__ import annotations
@@ -31,7 +31,6 @@ PATCHED_CONFIGURE_ASSIGNMENT = (
     "-Wl,-rpath,'\\$\\$ORIGIN'\""
 )
 GENERATED_RUNPATH_TOKEN = "-Wl,-rpath,'$$ORIGIN'"
-SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class UnixlibLinkPolicyError(RuntimeError):
@@ -89,7 +88,8 @@ def load_contract() -> dict:
         "ambient_ld_library_path_allowed": False,
         "global_wine_library_path_allowed": False,
         "preflight_target": "dlls/winevulkan/winevulkan.so",
-        "preflight_required_dt_needed": "win32u.so",
+        "staged_target": "usr/lib/wine/x86_64-unix/winevulkan.so",
+        "required_dt_needed": "win32u.so",
         "expected_elf": {"class": 64, "machine": 62, "endianness": "little"},
     }
     if policy != expected_policy:
@@ -169,27 +169,30 @@ def verify_generated_makefile(makefile: Path) -> dict:
     }
 
 
-def verify_preflight_elf(path: Path) -> dict:
+def _verify_policy_elf(path: Path, target: str) -> dict:
     contract = load_contract()
     try:
         info = RUNTIME.parse_elf_dynamic(path)
     except (OSError, RUNTIME.RuntimeDependencyError) as exc:
-        raise UnixlibLinkPolicyError(f"cannot inspect Unixlib preflight ELF: {exc}") from exc
+        raise UnixlibLinkPolicyError(f"cannot inspect Unixlib policy ELF {target}: {exc}") from exc
     if info is None:
-        raise UnixlibLinkPolicyError("Unixlib preflight target is not ELF")
+        raise UnixlibLinkPolicyError(f"Unixlib policy target is not ELF: {target}")
     identity = {key: info.get(key) for key in ("class", "machine", "endianness")}
     if identity != contract["policy"]["expected_elf"]:
-        raise UnixlibLinkPolicyError(f"Unixlib preflight ELF identity drifted: {identity}")
+        raise UnixlibLinkPolicyError(f"Unixlib policy ELF identity drifted for {target}: {identity}")
     if info.get("rpath") is not None:
-        raise UnixlibLinkPolicyError("Unixlib preflight ELF carries forbidden DT_RPATH")
+        raise UnixlibLinkPolicyError(f"Unixlib policy ELF carries forbidden DT_RPATH: {target}")
     if info.get("runpath") != contract["policy"]["runpath"]:
-        raise UnixlibLinkPolicyError(f"Unixlib preflight ELF DT_RUNPATH drifted: {info.get('runpath')!r}")
-    required = contract["policy"]["preflight_required_dt_needed"]
+        raise UnixlibLinkPolicyError(f"Unixlib policy ELF DT_RUNPATH drifted for {target}: {info.get('runpath')!r}")
+    required = contract["policy"]["required_dt_needed"]
     if required not in info.get("dt_needed", []):
-        raise UnixlibLinkPolicyError(f"Unixlib preflight ELF no longer requires {required}")
-    raw = path.read_bytes()
+        raise UnixlibLinkPolicyError(f"Unixlib policy ELF {target} no longer requires {required}")
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise UnixlibLinkPolicyError(f"cannot bind Unixlib policy ELF bytes {target}: {exc}") from exc
     return {
-        "target": contract["policy"]["preflight_target"],
+        "target": target,
         "size": len(raw),
         "sha256": sha256_bytes(raw),
         "elf": identity,
@@ -199,7 +202,17 @@ def verify_preflight_elf(path: Path) -> dict:
     }
 
 
-def finalize_evidence(source_patch: dict, generated_makefile: dict, preflight: dict) -> dict:
+def verify_preflight_elf(path: Path) -> dict:
+    contract = load_contract()
+    return _verify_policy_elf(path, contract["policy"]["preflight_target"])
+
+
+def verify_staged_elf(path: Path) -> dict:
+    contract = load_contract()
+    return _verify_policy_elf(path, contract["policy"]["staged_target"])
+
+
+def finalize_evidence(source_patch: dict, generated_makefile: dict, preflight: dict, staged: dict) -> dict:
     contract = load_contract()
     core = {
         "runtime_id": contract["runtime_id"],
@@ -208,6 +221,7 @@ def finalize_evidence(source_patch: dict, generated_makefile: dict, preflight: d
         "source_patch": source_patch,
         "generated_makefile": generated_makefile,
         "preflight": preflight,
+        "staged": staged,
     }
     return {
         "$schema": PROOF_SCHEMA,
@@ -219,6 +233,7 @@ def finalize_evidence(source_patch: dict, generated_makefile: dict, preflight: d
             "configure_anchor_verified": True,
             "generated_makefile_unixldflags_verified": True,
             "preflight_elf_verified": True,
+            "staged_elf_verified": True,
             "dt_runpath_origin_verified": True,
             "dt_rpath_absent": True,
             "ambient_ld_library_path_used": False,
