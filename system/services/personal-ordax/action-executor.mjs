@@ -6,6 +6,14 @@ import {
 } from "../../contracts/action-executor.mjs";
 import { assertActionGateway } from "../../contracts/action-gateway.mjs";
 
+export class PersonalActionExecutionError extends Error {
+  constructor(message, { phase, cause } = {}) {
+    super(message, cause === undefined ? undefined : { cause });
+    this.name = "PersonalActionExecutionError";
+    this.phase = phase;
+  }
+}
+
 function readClock(now) {
   const value = now();
   if (!Number.isSafeInteger(value) || value < 0) {
@@ -30,51 +38,68 @@ export function createPersonalOrdaxActionExecutor({
   return Object.freeze({
     schema: ACTION_EXECUTOR_SCHEMA,
     async execute(executionValue) {
-      const execution = validateAuthorizedActionExecution(executionValue);
+      let execution;
+      let adapter;
+      try {
+        execution = validateAuthorizedActionExecution(executionValue);
+        const { request, decision } = execution;
+        const freshDecision = actionGateway.decide(request, {
+          grantRef: decision.grantRef,
+        });
+        if (
+          freshDecision.decision !== "allow"
+          || freshDecision.grantRef !== decision.grantRef
+          || freshDecision.workItemId !== decision.workItemId
+          || freshDecision.approvalId !== decision.approvalId
+          || freshDecision.actionId !== decision.actionId
+          || freshDecision.effect !== decision.effect
+        ) {
+          throw new Error("Action authority is no longer valid at execution time");
+        }
+
+        adapter = assertActionAdapter(adapterResolver(request.toolId, request.actionId));
+        if (
+          adapter.toolId !== request.toolId
+          || adapter.artifactSha256 !== request.toolArtifactSha256
+          || adapter.actionId !== request.actionId
+          || adapter.effect !== request.effect
+        ) {
+          throw new TypeError("Action Adapter does not match the authorized request");
+        }
+      } catch (error) {
+        throw new PersonalActionExecutionError(
+          "Action execution failed before entering the typed adapter",
+          { phase: "pre-side-effect", cause: error },
+        );
+      }
+
       const { request, decision } = execution;
+      try {
+        const result = await adapter.execute(request);
+        if (!result || typeof result !== "object" || Array.isArray(result)) {
+          throw new TypeError("Action Adapter must return a bounded result object");
+        }
 
-      const freshDecision = actionGateway.decide(request, {
-        grantRef: decision.grantRef,
-      });
-      if (
-        freshDecision.decision !== "allow"
-        || freshDecision.grantRef !== decision.grantRef
-        || freshDecision.workItemId !== decision.workItemId
-        || freshDecision.actionId !== decision.actionId
-        || freshDecision.effect !== decision.effect
-      ) {
-        throw new Error("Action authority is no longer valid at execution time");
+        return validateActionReceipt({
+          workItemId: request.workItemId,
+          approvalId: request.approvalId,
+          toolId: request.toolId,
+          toolArtifactSha256: request.toolArtifactSha256,
+          actionId: request.actionId,
+          effect: request.effect,
+          resourceRef: request.resourceRef,
+          grantRef: decision.grantRef,
+          status: result.status ?? "succeeded",
+          summary: result.summary,
+          artifactRefs: result.artifactRefs ?? [],
+          executedAt: new Date(readClock(now)).toISOString(),
+        });
+      } catch (error) {
+        throw new PersonalActionExecutionError(
+          "Action execution outcome is uncertain after entering the typed adapter",
+          { phase: "adapter-entered", cause: error },
+        );
       }
-
-      const adapter = assertActionAdapter(adapterResolver(request.toolId, request.actionId));
-      if (
-        adapter.toolId !== request.toolId
-        || adapter.artifactSha256 !== request.toolArtifactSha256
-        || adapter.actionId !== request.actionId
-        || adapter.effect !== request.effect
-      ) {
-        throw new TypeError("Action Adapter does not match the authorized request");
-      }
-
-      const result = await adapter.execute(request);
-      if (!result || typeof result !== "object" || Array.isArray(result)) {
-        throw new TypeError("Action Adapter must return a bounded result object");
-      }
-
-      return validateActionReceipt({
-        workItemId: request.workItemId,
-        approvalId: request.approvalId,
-        toolId: request.toolId,
-        toolArtifactSha256: request.toolArtifactSha256,
-        actionId: request.actionId,
-        effect: request.effect,
-        resourceRef: request.resourceRef,
-        grantRef: decision.grantRef,
-        status: result.status ?? "succeeded",
-        summary: result.summary,
-        artifactRefs: result.artifactRefs ?? [],
-        executedAt: new Date(readClock(now)).toISOString(),
-      });
     },
   });
 }
