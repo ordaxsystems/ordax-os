@@ -17,11 +17,11 @@ function response(body, ok = true, status = 200) {
 test("Native Profile activation adapter is read-only and device-persistent", async () => {
   const requests = [];
   const snapshot = {
-    schema: "ordax.profile-activation-state/1",
+    schema: "ordax.profile-activation-state/2",
     revision: 2,
     persistence: "device",
     spaces: [{
-      spaceId: "space-1",
+      subjectId: "user-1",\n      spaceId: "space-1",
       spaceKind: "professional",
       current: {
         profile: { slug: "developer", version: 1 },
@@ -60,7 +60,7 @@ test("Native Profile activation adapter rejects non-device state and transport f
     () => createNativeProfileActivationState({
       async fetch() {
         return response({
-          schema: "ordax.profile-activation-state/1",
+          schema: "ordax.profile-activation-state/2",
           revision: 0,
           persistence: "session",
           spaces: [],
@@ -84,7 +84,7 @@ test("Native Profile activation adapter rejects non-device state and transport f
 test("Native Profile activation commands require session token and expected revision", async () => {
   const requests = [];
   let state = {
-    schema: "ordax.profile-activation-state/1",
+    schema: "ordax.profile-activation-state/2",
     revision: 0,
     persistence: "device",
     spaces: [],
@@ -105,11 +105,11 @@ test("Native Profile activation commands require session token and expected revi
         assert.equal(body.expectedRevision, 0);
         assert.equal(options.headers["X-OrdaX-Profile-Activation-Token"], "t".repeat(32));
         state = {
-          schema: "ordax.profile-activation-state/1",
+          schema: "ordax.profile-activation-state/2",
           revision: 1,
           persistence: "device",
           spaces: [{
-            spaceId: body.spaceId,
+            subjectId: body.subjectId,\n            spaceId: body.spaceId,
             spaceKind: body.spaceKind,
             current: {
               profile: body.profile,
@@ -139,7 +139,7 @@ test("Native Profile activation commands require session token and expected revi
 test("Native Profile adapter previews permission diff before accepted activation", async () => {
   const requests = [];
   const state = {
-    schema: "ordax.profile-activation-state/1",
+    schema: "ordax.profile-activation-state/2",
     revision: 4,
     persistence: "device",
     spaces: [],
