@@ -239,6 +239,53 @@ test("Native restore revokes persisted approvals whose session grant no longer e
   restored.dispose();
 });
 
+test("adapter-entered failure revokes authority and retains an uncertain attempt", async () => {
+  const files = fileSpace();
+  const failingPort = {
+    ...files.port,
+    async createDirectory(path, name) {
+      files.calls.push({ path, name });
+      throw new Error("simulated adapter failure after entry");
+    },
+  };
+  const actions = await createNativePersonalOrdaxFileActions({
+    windowRef: {},
+    fileSpace: failingPort,
+    artifactIdentity: async () => "c".repeat(64),
+  });
+  const actionCatalog = createPersonalActionCatalog({
+    registrations: actions.actionRegistrations,
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+  });
+  const work = runtime.create("Garantir pasta com falha incerta");
+  const approval = runtime.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Incerto" },
+  );
+  runtime.approvalConsent.approve(work.id, approval.id);
+
+  await assert.rejects(
+    () => runtime.executeApprovedAction(work.id, approval.id),
+    /uncertain after entering the typed adapter/,
+  );
+  const snapshot = runtime.getSnapshot();
+  assert.deepEqual(files.calls, [{ path: "/Documentos", name: "Incerto" }]);
+  assert.equal(snapshot.workItems[0].state, "paused");
+  assert.equal(snapshot.approvals[0].status, "revoked");
+  assert.equal(snapshot.attempts[0].status, "uncertain");
+  assert.equal(runtime.canExecuteApprovedAction(work.id, approval.id), false);
+
+  runtime.dispose();
+});
+
 test("missing or substituted adapter cannot execute an approved action", async () => {
   const files = fileSpace();
   const actions = await createNativePersonalOrdaxFileActions({
