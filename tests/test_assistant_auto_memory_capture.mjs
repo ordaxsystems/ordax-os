@@ -130,7 +130,7 @@ test("automatic Assistant Memory skips extraction when user disabled capture", a
 });
 
 test("signed-out automatic capture uses device ownership and forces private sensitivity", async () => {
-  const ai = intelligence('{"memories":[{"kind":"preference","content":"Prefere respostas curtas."}]}');
+  const ai = intelligence('{"memories":[{"kind":"preference","content":"Prefiro respostas curtas.","evidence":"Prefiro respostas curtas."}]}');
   const capture = captureRuntime();
   const runtime = createAssistantAutoCaptureRuntime({
     intelligencePort: ai,
@@ -159,7 +159,7 @@ test("signed-out automatic capture uses device ownership and forces private sens
 });
 
 test("signed-in capture uses account unless an exact selected Space is active", async () => {
-  const answer = '{"memories":[{"kind":"fact","content":"Trabalha com direito empresarial."}]}';
+  const answer = '{"memories":[{"kind":"fact","content":"u","evidence":"u"}]}';
 
   const accountCapture = captureRuntime();
   const accountRuntime = createAssistantAutoCaptureRuntime({
@@ -188,10 +188,10 @@ test("signed-in capture uses account unless an exact selected Space is active", 
 
 test("model output cannot choose owner scope ids sensitivity or extra fields", async () => {
   const bad = [
-    '{"memories":[{"kind":"fact","content":"x","ownerId":"other"}]}',
-    '{"memories":[{"kind":"fact","content":"x","scope":"space"}]}',
-    '{"memories":[{"kind":"fact","content":"x","sensitivity":"normal"}]}',
-    '{"memories":[{"kind":"fact","content":"x","id":"forced"}]}',
+    '{"memories":[{"kind":"fact","content":"u","evidence":"u","ownerId":"other"}]}',
+    '{"memories":[{"kind":"fact","content":"u","evidence":"u","scope":"space"}]}',
+    '{"memories":[{"kind":"fact","content":"u","evidence":"u","sensitivity":"normal"}]}',
+    '{"memories":[{"kind":"fact","content":"u","evidence":"u","id":"forced"}]}',
   ];
   for (const answer of bad) {
     const capture = captureRuntime();
@@ -212,8 +212,8 @@ test("invalid JSON and credential-like candidates fail closed", async () => {
   for (const answer of [
     "not json",
     "~~~json\n{\"memories\":[]}\n~~~",
-    '{"memories":[{"kind":"fact","content":"Minha senha é 1234"}]}',
-    '{"memories":[{"kind":"fact","content":"API key abc"}]}',
+    '{"memories":[{"kind":"fact","content":"Minha senha é 1234","evidence":"u"}]}',
+    '{"memories":[{"kind":"fact","content":"API key abc","evidence":"u"}]}',
   ]) {
     const capture = captureRuntime();
     const runtime = createAssistantAutoCaptureRuntime({
@@ -229,9 +229,50 @@ test("invalid JSON and credential-like candidates fail closed", async () => {
   }
 });
 
+test("automatic Memory rejects model paraphrase even when evidence is a real user quote", async () => {
+  const ai = intelligence('{"memories":[{"kind":"preference","content":"Usuário prefere respostas breves.","evidence":"Prefiro respostas curtas."}]}');
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: ai,
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity(),
+    spaceSelectionPort: selection(),
+  });
+
+  const result = await runtime.bindTurn().capture({
+    userText: "Prefiro respostas curtas.",
+    assistantText: "Certo.",
+  });
+  assert.equal(result.status, "no-candidates");
+  assert.equal(capture.calls.length, 0);
+});
+
+test("automatic Memory persists the exact user evidence rather than model-authored wording", async () => {
+  const quote = "Meu idioma preferido é português.";
+  const ai = intelligence(JSON.stringify({
+    memories: [{ kind: "preference", content: quote, evidence: quote }],
+  }));
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: ai,
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity(),
+    spaceSelectionPort: selection(),
+  });
+
+  const result = await runtime.bindTurn().capture({
+    userText: quote,
+    assistantText: "Entendido.",
+  });
+  assert.equal(result.status, "captured");
+  assert.equal(capture.calls[0].draft.content, quote);
+});
+
 test("extractor is bounded to four candidates and exact schema", async () => {
   const five = JSON.stringify({
-    memories: Array.from({ length: 5 }, (_, i) => ({ kind: "fact", content: "f-" + i })),
+    memories: Array.from({ length: 5 }, (_, i) => ({ kind: "fact", content: "f-" + i, evidence: "u" })),
   });
   const capture = captureRuntime();
   const runtime = createAssistantAutoCaptureRuntime({
@@ -289,6 +330,52 @@ test("automatic Memory extraction never sends Assistant-generated text to the ex
 });
 
 
+test("automatic Memory candidate must be grounded in exact user evidence", async () => {
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: intelligence(
+      '{"memories":[{"kind":"fact","content":"Prefere respostas curtas.","evidence":"Prefiro respostas longas."}]}'
+    ),
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity(),
+    spaceSelectionPort: selection(),
+  });
+
+  const result = await runtime.bindTurn().capture({
+    userText: "Prefiro respostas curtas.",
+  });
+
+  assert.equal(result.status, "no-candidates");
+  assert.equal(capture.calls.length, 0);
+});
+
+test("automatic Memory source evidence validates capture but is never persisted", async () => {
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: intelligence(
+      '{"memories":[{"kind":"preference","content":"Prefiro respostas curtas.","evidence":"Prefiro respostas curtas."}]}'
+    ),
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity(),
+    spaceSelectionPort: selection(),
+  });
+
+  const result = await runtime.bindTurn().capture({
+    userText: "Prefiro respostas curtas.",
+  });
+
+  assert.equal(result.status, "captured");
+  assert.equal(capture.calls.length, 1);
+  assert.deepEqual(capture.calls[0].draft, {
+    content: "Prefiro respostas curtas.",
+    kind: "preference",
+    sensitivity: "private",
+    provenance: "ordax-assistant:auto-capture",
+  });
+});
+
 test("automatic Memory authorization is bound before extraction and cannot retarget to a new Space", async () => {
   let selectedSpaceId = "space-a";
   const identityPort = identity("signed-in", "user-1");
@@ -315,7 +402,7 @@ test("automatic Memory authorization is bound before extraction and cannot retar
   };
   const capture = captureRuntime();
   const runtime = createAssistantAutoCaptureRuntime({
-    intelligencePort: intelligence('{"memories":[{"kind":"fact","content":"Fato do Space A."}]}'),
+    intelligencePort: intelligence('{"memories":[{"kind":"fact","content":"Fato do Space A.","evidence":"Fato do Space A."}]}'),
     captureRuntime: capture,
     preferenceRuntime: preferences(true),
     identitySessionPort: identityPort,
