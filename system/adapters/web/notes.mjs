@@ -47,6 +47,11 @@ export function createWebNotesStore(windowRef = globalThis.window) {
         return false;
       }
     },
+    async flush() {
+      // localStorage.setItem() is synchronous; reaching flush means save() already
+      // completed or failed in the same call stack. Session memory is equally immediate.
+      return true;
+    },
   };
 
   assertNotesStore(store);

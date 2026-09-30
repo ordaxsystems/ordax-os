@@ -42,7 +42,7 @@ assert.equal(apps.get("account").version, "0.1.0");
 assert.equal(apps.get("internet").version, "0.3.0");
 assert.equal(apps.get("internet").versionStage, "beta");
 assert.equal(apps.get("internet").updateChannel.id, "development-git");
-assert.equal(apps.get("notes").version, "0.4.0");
+assert.equal(apps.get("notes").version, "0.4.1");
 assert.equal(apps.get("notes").versionStage, "beta");
 assert.equal(apps.get("notes").updateChannel.id, "development-git");
 
