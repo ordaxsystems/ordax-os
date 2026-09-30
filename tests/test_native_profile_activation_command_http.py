@@ -190,7 +190,7 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
                 "action": payload["action"],
                 "changed": False,
                 "state": {
-                    "schema": "ordax.profile-activation-state/1",
+                    "schema": "ordax.profile-activation-state/2",
                     "revision": 0,
                     "persistence": "device",
                     "spaces": [],
