@@ -1,0 +1,42 @@
+name: Native Sync State Durability
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/sync-state-store.mjs'
+      - 'system/adapters/native/sync-state.mjs'
+      - 'tests/test_native_sync_state_durability.mjs'
+      - '.github/workflows/native-sync-state-durability.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/sync-state-store.mjs'
+      - 'system/adapters/native/sync-state.mjs'
+      - 'tests/test_native_sync_state_durability.mjs'
+      - '.github/workflows/native-sync-state-durability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-sync-state-durability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate source syntax
+        run: |
+          set -euo pipefail
+          node --check system/contracts/sync-state-store.mjs
+          node --check system/adapters/native/sync-state.mjs
+          node --check tests/test_native_sync_state_durability.mjs
+
+      - name: Prove Native sync-state durability confirmation
+        run: |
+          set -euo pipefail
+          node --test tests/test_native_sync_state_durability.mjs
