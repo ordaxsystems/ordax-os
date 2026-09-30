@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { MEMORY_MUTATION_PORT_SCHEMA } from "../system/contracts/memory-mutation.mjs";
 import { createMemoryRuntime } from "../system/services/memory/runtime.mjs";
 import {
   MEMORY_REVIEW_EXPORT_SCHEMA,
@@ -260,4 +261,38 @@ test("memory review exports every item inside the selected authorization boundar
   assert.equal(exported.items.length, 40);
   assert.equal(exported.items.find((entry) => entry.id === "device-export-7")?.sensitivity, "restricted");
   assert.equal(exported.items.some((entry) => entry.id === "account-not-exported"), false);
+});
+
+
+test("memory review delegates writes to the supplied async mutation port", async () => {
+  const memory = createMemoryRuntime();
+  const calls = [];
+  const mutationPort = {
+    schema: MEMORY_MUTATION_PORT_SCHEMA,
+    async remember(value) {
+      calls.push(["remember", value.id]);
+      return memory.remember(value);
+    },
+    async forget(value) {
+      calls.push(["forget", value.id]);
+      return memory.forget(value);
+    },
+  };
+  const review = createMemoryReviewRuntime(memory, {
+    ownerKind: "account",
+    ownerId: "user-1",
+    idFactory: () => "review-protected",
+    mutationPort,
+  });
+
+  const created = await review.create("conteúdo protegido");
+  assert.equal(created.id, "review-protected");
+  const updated = await review.update("review-protected", { content: "conteúdo revisado" });
+  assert.equal(updated.content, "conteúdo revisado");
+  assert.equal(await review.remove("review-protected"), true);
+  assert.deepEqual(calls, [
+    ["remember", "review-protected"],
+    ["remember", "review-protected"],
+    ["forget", "review-protected"],
+  ]);
 });
