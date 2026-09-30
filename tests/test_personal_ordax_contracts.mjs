@@ -6,6 +6,7 @@ import {
   validatePersonalActionDecision,
   validatePersonalActivityEvent,
   validatePersonalWorkItem,
+  validatePersonalWorkResult,
 } from "../system/contracts/personal-ordax.mjs";
 
 const NOW = "2026-09-30T20:00:00Z";
@@ -146,3 +147,31 @@ test("personal work rejects timestamps that move backwards", () => {
     updatedAt: "2026-09-30T20:00:00Z",
   }), /cannot precede/);
 });
+
+test("personal work result is bounded provenance and never action authority", () => {
+  const result = validatePersonalWorkResult({
+    id: "result-work-1",
+    workItemId: "work-1",
+    kind: "intelligence-response",
+    text: "Plano pronto.",
+    engineId: "llama.cpp",
+    modelId: "model-1",
+    authority: "none",
+    artifactRefs: ["file:/Documentos/plano.md"],
+    createdAt: NOW,
+  });
+  assert.equal(result.schema, "ordax.personal-work-result/1");
+  assert.equal(result.authority, "none");
+  assert.deepEqual(result.artifactRefs, ["file:/Documentos/plano.md"]);
+
+  assert.throws(() => validatePersonalWorkResult({
+    ...result,
+    authority: "user-grant",
+  }), /cannot carry action authority/);
+
+  assert.throws(() => validatePersonalWorkResult({
+    ...result,
+    text: "x".repeat(65537),
+  }), /outside bounds/);
+});
+
