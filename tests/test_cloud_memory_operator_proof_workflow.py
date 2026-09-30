@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Source guards for the operator-managed authenticated cloud Memory proof."""
+
+from __future__ import annotations
+
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW = ROOT / ".github" / "workflows" / "cloud-memory-operator-authenticated-proof.yml"
+RUNNER = ROOT / "tools" / "cloud-memory" / "run_operator_authenticated_proof.py"
+VALIDATOR = ROOT / "tools" / "cloud-memory" / "validate_authenticated_proof_receipt.py"
+
+
+class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
+    def test_workflow_is_manual_serialized_and_exact_source_bound(self):
+        text = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch:", text)
+        self.assertNotIn("pull_request:", text)
+        self.assertNotIn("push:", text)
+        self.assertIn("group: cloud-memory-operator-authenticated-proof", text)
+        self.assertIn("cancel-in-progress: false", text)
+        self.assertIn("ORDAX_MEMORY_PROOF_SOURCE_COMMIT: ${{ github.sha }}", text)
+        self.assertIn('test "${ORDAX_MEMORY_PROOF_SOURCE_COMMIT}" = "${GITHUB_SHA}"', text)
+        self.assertIn("persist-credentials: false", text)
+
+    def test_workflow_requires_operator_and_account_secrets_without_service_role(self):
+        text = WORKFLOW.read_text(encoding="utf-8")
+        for secret in (
+            "ORDAX_SUPABASE_URL",
+            "ORDAX_SUPABASE_PUBLISHABLE_KEY",
+            "ORDAX_MEMORY_PROOF_ACCOUNT_EMAIL",
+            "ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD",
+            "ORDAX_MEMORY_PROOF_PGHOST",
+            "ORDAX_MEMORY_PROOF_PGDATABASE",
+            "ORDAX_MEMORY_PROOF_PGUSER",
+            "ORDAX_MEMORY_PROOF_PGPASSWORD",
+        ):
+            self.assertIn(f"secrets.{secret}", text)
+        self.assertIn("PGSSLMODE: require", text)
+        self.assertIn("command -v psql", text)
+        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", text)
+        self.assertNotIn("service_role", text.lower())
+        self.assertNotIn('echo "$PGPASSWORD"', text)
+        self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD"', text)
+
+    def test_workflow_uses_runner_and_single_sanitized_receipt_contract(self):
+        text = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("run_operator_authenticated_proof.py", text)
+        self.assertIn("validate_authenticated_proof_receipt.py", text)
+        self.assertIn("cloud-memory-authenticated-proof.json", text)
+        self.assertIn("retention-days: 14", text)
+        self.assertNotIn("ordax_issue_cloud_memory_proof_entitlement_v1", text)
+        self.assertNotIn("ordax_revoke_cloud_memory_proof_entitlement_v1", text)
+
+    def test_runner_owns_issue_proof_revoke_lifecycle_and_revoke_is_finally_bound(self):
+        text = RUNNER.read_text(encoding="utf-8")
+        self.assertIn("grant_id = issue_grant(", text)
+        self.assertIn("prove_authenticated_atomic_sync.py", text)
+        self.assertIn("finally:", text)
+        finally_body = text[text.index("finally:"):]
+        self.assertIn("revoke_grant(", finally_body)
+        self.assertIn("CLOUD_MEMORY_OPERATOR_ENTITLEMENT=REVOKED", finally_body)
+        self.assertIn("PGSSLMODE", text)
+        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", text)
+
+    def test_shared_validator_is_secret_averse(self):
+        text = VALIDATOR.read_text(encoding="utf-8")
+        for key in (
+            '"password"',
+            '"access_token"',
+            '"refresh_token"',
+            '"cookie"',
+            '"memory_id"',
+            '"subject_id"',
+            '"account_email"',
+        ):
+            self.assertIn(key, text)
+        self.assertIn("CLOUD_MEMORY_AUTHENTICATED_RECEIPT=PASS_SANITIZED", text)
+        self.assertNotIn("service_role_used\": True", text)
+
+
+if __name__ == "__main__":
+    unittest.main()
