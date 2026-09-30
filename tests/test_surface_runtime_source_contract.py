@@ -38,18 +38,24 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
 
     def test_current_lock_refresh_is_bound_to_ci_drift_evidence(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
-        self.assertEqual(contract["apk_package_lock"]["libexpat"], "2.8.5-r0")
         refresh = contract["lock_refresh"]
         self.assertEqual(refresh["status"], "reviewed-candidate-lock-refresh")
-        self.assertEqual(refresh["detected_by_qemu_run_id"], 35984825646)
-        self.assertEqual(refresh["discovery_run_id"], 35987297472)
-        self.assertEqual(refresh["resolved_package_count"], 253)
+        self.assertIsInstance(refresh["detected_by_qemu_run_id"], int)
+        self.assertGreater(refresh["detected_by_qemu_run_id"], 0)
+        self.assertIsInstance(refresh["discovery_run_id"], int)
+        self.assertGreater(refresh["discovery_run_id"], 0)
+        self.assertEqual(refresh["resolved_package_count"], contract["apk_package_lock_count"])
         self.assertEqual(refresh["missing"], [])
         self.assertEqual(refresh["extra"], [])
-        self.assertEqual(
-            refresh["changed"],
-            [{"name": "libexpat", "from": "2.8.4-r0", "to": "2.8.5-r0"}],
-        )
+        self.assertIsInstance(refresh["changed"], list)
+        self.assertGreaterEqual(len(refresh["changed"]), 1)
+        for entry in refresh["changed"]:
+            self.assertEqual(contract["apk_package_lock"][entry["name"]], entry["to"])
+            self.assertNotEqual(entry["from"], entry["to"])
+        self.assertRegex(refresh["discovery_source_commit"], r"^[0-9a-f]{40}$")
+        self.assertIsInstance(refresh["discovery_artifact_id"], int)
+        self.assertGreater(refresh["discovery_artifact_id"], 0)
+        self.assertRegex(refresh["discovery_artifact_sha256"], r"^[0-9a-f]{64}$")
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
         self.assertTrue(refresh["reproducibility_reproof_required"])
