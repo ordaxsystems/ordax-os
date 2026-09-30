@@ -122,6 +122,62 @@ test("explicit approval executes the verified Native file action and consumes au
   runtime.dispose();
 });
 
+test("Native restore revokes persisted approvals whose session grant no longer exists", async () => {
+  const files = fileSpace();
+  const actions = await createNativePersonalOrdaxFileActions({
+    windowRef: {},
+    fileSpace: files.port,
+    artifactIdentity: async () => "c".repeat(64),
+  });
+  const actionCatalog = createPersonalActionCatalog({
+    registrations: actions.actionRegistrations,
+  });
+  const storage = memoryStorage();
+  const windowRef = { localStorage: storage };
+
+  const first = createNativePersonalOrdaxComposition({
+    windowRef,
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+  });
+  const work = first.create("Garantir pasta depois de reiniciar");
+  const approval = first.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Novo" },
+  );
+  first.approvalConsent.approve(work.id, approval.id);
+  assert.equal(first.getSnapshot().approvals[0].status, "approved");
+  first.dispose();
+
+  const restored = createNativePersonalOrdaxComposition({
+    windowRef,
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+  });
+  let snapshot = restored.getSnapshot();
+  assert.equal(snapshot.workItems[0].state, "queued");
+  assert.equal(snapshot.approvals[0].status, "revoked");
+  assert.equal(restored.canExecuteApprovedAction(work.id, approval.id), false);
+
+  const replacement = restored.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Outro" },
+  );
+  snapshot = restored.getSnapshot();
+  assert.notEqual(replacement.id, approval.id);
+  assert.equal(snapshot.approvals.at(-1).status, "pending");
+
+  restored.dispose();
+});
+
 test("missing or substituted adapter cannot execute an approved action", async () => {
   const files = fileSpace();
   const actions = await createNativePersonalOrdaxFileActions({
