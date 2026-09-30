@@ -79,8 +79,50 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
             "schema": "ordax.profile-activation-command/1",
             "action": "deactivate",
             "expectedRevision": 0,
+            "subjectId": "user-1",
             "spaceId": "space-professional-1",
         }
+
+    def bind_account_scope(
+        self,
+        server,
+        *,
+        subject="user-1",
+        space_id="space-professional-1",
+        space_kind="professional",
+        state="active",
+    ):
+        class Gateway:
+            def session(self):
+                return SimpleNamespace(
+                    status=200,
+                    body=json.dumps({
+                        "$schema": "prototype-ordax.public-identity-session/1",
+                        "authenticated": True,
+                        "provider": "ordax",
+                        "status": "authenticated",
+                        "subject": subject,
+                        "email": "user@example.com",
+                    }).encode("utf-8"),
+                )
+
+            def spaces(self):
+                return SimpleNamespace(
+                    status=200,
+                    body=json.dumps({
+                        "$schema": "prototype-ordax.account-spaces/1",
+                        "spaces": [{
+                            "id": space_id,
+                            "ownerId": subject,
+                            "name": "Professional",
+                            "kind": space_kind,
+                            "state": state,
+                            "profilePack": None,
+                        }],
+                    }).encode("utf-8"),
+                )
+
+        server.account_gateway = Gateway()
 
     def test_owner_development_requires_valid_ephemeral_command_token(self):
         temporary, server, thread = self.start_server()
@@ -158,6 +200,7 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
 
         native_host.execute_profile_activation_command = dispatch
         try:
+            self.bind_account_scope(server)
             session = self.session(server)
             self.assertTrue(session["profileActivationAvailable"])
             token = session["profileActivationToken"]
@@ -185,6 +228,58 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(dispatched[0][1], "stable-mvp")
             self.assertEqual(json.loads(body.decode("utf-8"))["changed"], False)
+        finally:
+            native_host.execute_profile_activation_command = original
+            self.stop_server(temporary, server, thread)
+
+    def test_stable_mvp_rejects_missing_or_cross_account_profile_scope(self):
+        temporary, server, thread = self.start_server("stable-mvp")
+        original = native_host.execute_profile_activation_command
+        dispatched = []
+        native_host.execute_profile_activation_command = lambda *args, **kwargs: (
+            dispatched.append(True) or {"changed": False, "state": {
+                "schema": "ordax.profile-activation-state/2",
+                "revision": 0,
+                "persistence": "device",
+                "spaces": [],
+            }, "permissionDiff": None}
+        )
+        try:
+            token = self.session(server)["profileActivationToken"]
+            headers = self.trusted_headers(server)
+            headers[native_host.PROFILE_ACTIVATION_TOKEN_HEADER] = token
+
+            status, _body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=headers,
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 403)
+            self.assertEqual(dispatched, [])
+
+            self.bind_account_scope(server, subject="user-2")
+            status, _body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=headers,
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 403)
+            self.assertEqual(dispatched, [])
+
+            self.bind_account_scope(server, state="archived")
+            status, _body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=headers,
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 403)
+            self.assertEqual(dispatched, [])
         finally:
             native_host.execute_profile_activation_command = original
             self.stop_server(temporary, server, thread)
