@@ -20,72 +20,6 @@ function requireIdFactory(value) {
   return value;
 }
 
-function isPersistedCoordinationRecoveryError(value) {
-  let error = value;
-  while (error instanceof Error) {
-    const message = error.message;
-    if (
-      message.includes("requires explicit recovery")
-      || message.startsWith("Sync-state root payload ")
-      || message.startsWith("Sync-state container ")
-      || message.includes("incompatible Memory crash recovery state")
-    ) {
-      return true;
-    }
-    error = error.cause;
-  }
-  return false;
-}
-
-function recoveryState(composition) {
-  try {
-    const snapshot = composition.getSnapshot();
-    const blocked = snapshot.memory?.memorySync?.recoveryBlocked === true;
-    return Object.freeze({
-      blocked,
-      reason: blocked
-        ? (snapshot.memory.memorySync.recoveryBlockReason ?? "coordination-recovery-required")
-        : null,
-      snapshot,
-    });
-  } catch (error) {
-    if (!isPersistedCoordinationRecoveryError(error)) throw error;
-    return Object.freeze({
-      blocked: true,
-      reason: "coordination-state-incompatible",
-      snapshot: null,
-    });
-  }
-}
-
-function guardedProtectedMutations(composition) {
-  const ensureHealthy = () => {
-    const state = recoveryState(composition);
-    if (state.blocked) {
-      throw new Error("Native Account Memory coordination requires recovery");
-    }
-  };
-  return Object.freeze({
-    schema: composition.protectedMutations.schema,
-    async remember(value) {
-      ensureHealthy();
-      return composition.protectedMutations.remember(value);
-    },
-    async forget(value) {
-      ensureHealthy();
-      return composition.protectedMutations.forget(value);
-    },
-    async recover() {
-      ensureHealthy();
-      return composition.protectedMutations.recover();
-    },
-    getSnapshot() {
-      ensureHealthy();
-      return composition.protectedMutations.getSnapshot();
-    },
-  });
-}
-
 export function createNativeAccountMemoryComposition({
   windowRef = globalThis.window,
   identitySession,
@@ -117,38 +51,19 @@ export function createNativeAccountMemoryComposition({
     onStageError,
   });
 
-  const protectedMutations = guardedProtectedMutations(composition);
-
   return Object.freeze({
     schema: NATIVE_ACCOUNT_MEMORY_COMPOSITION_SCHEMA,
     entitlementsPort,
     memory: composition.memory,
     memorySync: composition.memorySync,
-    protectedMutations,
+    protectedMutations: composition.protectedMutations,
     deferredIntents: composition.deferredIntents,
     settled: () => composition.settled(),
     refreshAuthorization: () => composition.refreshAuthorization(),
-    recover: () => protectedMutations.recover(),
     getSnapshot() {
-      const recovery = recoveryState(composition);
-      if (recovery.snapshot === null) {
-        return Object.freeze({
-          schema: NATIVE_ACCOUNT_MEMORY_COMPOSITION_SCHEMA,
-          state: "recovery-required",
-          reason: recovery.reason,
-          accountMemory: null,
-          accountMutationsBlocked: true,
-          entitlementEndpoint: "/account/entitlements/memory-cloud",
-          syncStatePartitioning: "account-subject",
-          publicCloudMemoryEnabled: false,
-        });
-      }
       return Object.freeze({
         schema: NATIVE_ACCOUNT_MEMORY_COMPOSITION_SCHEMA,
-        state: recovery.blocked ? "recovery-required" : "protected-local-first",
-        reason: recovery.reason,
-        accountMemory: recovery.snapshot,
-        accountMutationsBlocked: recovery.blocked,
+        accountMemory: composition.getSnapshot(),
         entitlementEndpoint: "/account/entitlements/memory-cloud",
         syncStatePartitioning: "account-subject",
         publicCloudMemoryEnabled: false,
