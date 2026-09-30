@@ -252,11 +252,16 @@ test("corrupt durable root coordination keeps the composition mounted but blocks
 
   assert.notEqual(foundation.accountMemory, null);
   const snapshot = foundation.getSnapshot();
-  assert.equal(snapshot.state, "recovery-required");
-  assert.equal(snapshot.reason, "state-load-failed");
-  assert.equal(snapshot.accountMutationsBlocked, true);
-  assert.equal(snapshot.cloudTransportWired, false);
-  assert.equal(snapshot.productionPromoted, false);
+  assert.deepEqual(snapshot, {
+    schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
+    state: "recovery-required",
+    reason: "coordination-state-incompatible",
+    syncStateScope: "device",
+    protectedMutationsAvailable: true,
+    accountMutationsBlocked: true,
+    cloudTransportWired: false,
+    productionPromoted: false,
+  });
 
   await assert.rejects(
     foundation.protectedMutations.remember(memoryItem("blocked-root-memory")),
@@ -273,7 +278,7 @@ test("corrupt durable root coordination keeps the composition mounted but blocks
     }).length,
     0,
   );
-  assert.equal(foundation.accountMemory.crashRecovery.pendingIdentities().length, 0);
+  assert.equal(root.load(), "{not-a-compatible-container");
 
   foundation.destroy();
 });
