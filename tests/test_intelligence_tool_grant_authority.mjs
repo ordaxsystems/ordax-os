@@ -51,6 +51,7 @@ test("canonical grant authority separates read-only registry from trusted issuer
   const grant = authority.issuer.issue(issue());
   assert.equal(grant.grantId, "grant-user-a-1");
   assert.equal(grant.source, "user-approval");
+  assert.equal(grant.workItemId, "personal-work-1");
   assert.equal(grant.approvalId, "personal-approval-personal-work-1-1");
   assert.equal(grant.ownerId, "user-a");
   assert.equal(grant.resourceRef, "file-space:/Documentos/menu.md");
