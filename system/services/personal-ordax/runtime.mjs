@@ -284,6 +284,40 @@ export function createPersonalOrdaxRuntime({
     return next;
   };
 
+  const markApprovedAuthorityMissing = (id, approvalId, summary) => {
+    findWork(id);
+    const approval = state.approvals.find((candidate) =>
+      candidate.id === approvalId && candidate.workItemId === id
+    );
+    if (!approval || approval.status !== "approved") {
+      throw new Error("Personal OrdaX missing-authority reconciliation requires an approved approval");
+    }
+    const occurredAt = isoClock(now);
+    const revoked = validatePersonalApproval({
+      ...approval,
+      status: "revoked",
+      executedAt: null,
+    });
+    replaceState({
+      ...state,
+      workItems: state.workItems.map((candidate) =>
+        candidate.id === id
+          ? validatePersonalWorkItem({ ...candidate, updatedAt: occurredAt })
+          : candidate),
+      approvals: state.approvals.map((candidate) =>
+        candidate.id === approvalId ? revoked : candidate),
+      activities: appendActivityTo(
+        state.activities,
+        id,
+        "progress",
+        summary,
+        occurredAt,
+        { approvalId, actionId: approval.actionId },
+      ),
+    });
+    return state.approvals.find((candidate) => candidate.id === approvalId);
+  };
+
   const snapshot = () => validatePersonalOrdaxRuntimeSnapshot({
     schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
     persistence: ownerPersistence.get(personalOrdaxOwnerKey(activeOwner)) ?? "session",
@@ -988,6 +1022,14 @@ export function createPersonalOrdaxRuntime({
           actionId: approval.actionId,
         },
       });
+    },
+    reconcileMissingApprovedAuthority(id, approvalId) {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      return markApprovedAuthorityMissing(
+        id,
+        approvalId,
+        "Approved action authority is no longer present in the canonical grant registry.",
+      );
     },
     revokeApprovedAction(id, approvalId) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
