@@ -46,12 +46,20 @@
     "bounded_context_required": true,
     "prompt_content_is_not_authority": true,
     "cross_scope_access_requires_explicit_future_policy": true,
-    "ordinary_request_injects_memory": false,
+    "ordinary_request_injects_memory": true,
     "memory_context_requires_composition_authorization": true,
     "memory_context_authorization_is_per_owner": true,
     "consumer_selected_context_has_priority_over_memory": true,
     "memory_query_is_local_and_bounded": true,
-    "authenticated_account_memory_requires_real_identity": true
+    "authenticated_account_memory_requires_real_identity": true,
+    "ordinary_request_memory_injection_requires_composition_authorization": true,
+    "ordinary_request_memory_injection_native_scopes": [
+      "device",
+      "account",
+      "space"
+    ],
+    "project_or_session_memory_inferred": false,
+    "restricted_memory_injected": false
   },
   "initial_capabilities": [
     "ask",
@@ -83,7 +91,8 @@
     "stable_v4_boot_handoff_source_complete": true,
     "signed_stable_v4_materialization_pending": true,
     "authorized_memory_bridge_source_complete": true,
-    "automatic_memory_injection_enabled": false
+    "automatic_memory_injection_enabled": true,
+    "automatic_memory_injection_authority": "trusted-native-composition-only"
   },
   "memory_capture": {
     "schema": "ordax.memory-capture-result/1",
