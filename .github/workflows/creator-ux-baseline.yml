@@ -82,6 +82,7 @@ jobs:
           visuals = pathlib.Path('tools/creator/cmd/ordax-creator-app/guided_visual_windows.go').read_text(encoding='utf-8')
           boot_help = pathlib.Path('tools/creator/cmd/ordax-creator-app/boot_help.go').read_text(encoding='utf-8')
           physical = pathlib.Path('tools/creator/cmd/ordax-creator-app/physical_flow_windows.go').read_text(encoding='utf-8')
+          portable_physical = pathlib.Path('tools/creator/cmd/ordax-creator-app/portable_physical_flow_windows.go').read_text(encoding='utf-8')
           progress = pathlib.Path('tools/creator/cmd/ordax-creator-app/physical_progress_windows.go').read_text(encoding='utf-8')
           update = pathlib.Path('tools/creator/cmd/ordax-creator-app/update_check_windows.go').read_text(encoding='utf-8')
           backend = pathlib.Path('tools/creator/cmd/ordax-creator-app/backend_resolution_windows.go').read_text(encoding='utf-8')
@@ -121,6 +122,20 @@ jobs:
               'Pendrive OrdaX criado e verificado.',
               'O pendrive OrdaX foi criado, passou pela verificação de leitura',
               'progressPollMillis', 'applyPhysicalProgressSnapshot',
+          ]
+          required_portable_physical = [
+              'case "legacy-owner":',
+              'case "portable-public":',
+              'creatorcore.PlanPortableMedia',
+              'creatorcore.PlanPortableApplication',
+              'PortableApplicationPlanCanonicalBytes',
+              '"prepare-portable"',
+              '"apply-portable"',
+              '"--source"',
+              'validatePortablePhysicalPreparation',
+              'WholeDiskRawImageRequired',
+              'physicalchannel.PortablePayloadSourcePath',
+              'payload Portable assinado possui schema incompatível',
           ]
           required_progress = [
               'Gravando OrdaX no pendrive',
@@ -182,6 +197,8 @@ jobs:
               assert text in boot_help, f'missing interactive boot guidance anchor: {text}'
           for text in required_physical:
               assert text in physical, f'missing Creator physical UX/safety anchor: {text}'
+          for text in required_portable_physical:
+              assert text in portable_physical, f'missing Creator Portable physical anchor: {text}'
           for text in required_progress:
               assert text in progress, f'missing Creator progress anchor: {text}'
           for text in required_update:
@@ -196,6 +213,9 @@ jobs:
           assert 'workflow_run:' not in release_workflow, 'owner release must not depend on a workflow_run publication chain'
           assert 'ordax_single_exe' not in release_workflow, 'owner development release must not link the GUI and RAW writer into one executable'
           assert 'owner_payload/ordax-bootstrap-seed.raw.gz' not in release_workflow, 'owner development GUI must not embed the raw seed'
+          assert '"prepare"' not in portable_physical, 'public Portable flow must not call legacy prepare'
+          assert '"apply"' not in portable_physical, 'public Portable flow must not call legacy apply'
+          assert 'ordax-bootstrap-seed.raw' not in portable_physical, 'public Portable flow must not depend on raw seed'
           assert 'webview' not in visuals.lower(), 'native guided visuals must not add a WebView dependency'
           assert 'http://' not in visuals.lower() and 'https://' not in visuals.lower(), 'native guided visuals must not require network assets'
           assert 'http://' not in boot_help.lower() and 'https://' not in boot_help.lower(), 'boot guidance must stay inside the Creator'
