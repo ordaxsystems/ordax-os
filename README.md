@@ -18,6 +18,8 @@ A continuacao [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLU
 
 O desenho de **Profiles profissionais leves no USB, com payload sob demanda, uso offline após instalação e evolução por atualização** está congelado em [PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md](PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md). Esse plano reimplementa os invariantes úteis do RFC-0009 do `novo-ordax-os` sobre a arquitetura atual, sem carregar todos os perfis na imagem inicial.
 
+O novo **Personal OrdaX**, camada owner-bound de Work, Activity e Result que evolui o sistema sem duplicar identidade, Memory, Projects, Intelligence ou permissões, tem seu ponto de entrada de implementação em [PERSONAL-ORDAX.md](PERSONAL-ORDAX.md). Esse documento deve ser lido antes de criar agentes, background work, Activity ou automações pessoais.
+
 ## Um produto, modos evolutivos
 
 A arquitetura continua preparada para Web, Mobile, Desktop, USB e Native sem forks de produto.
