@@ -135,7 +135,9 @@
       "read",
       "write"
     ],
-    "consent_tool_grant_default_ttl_ms": 120000
+    "consent_tool_grant_default_ttl_ms": 120000,
+    "approve_control_requires_resolvable_typed_action": true,
+    "native_registered_tool_actions_enabled": false
   },
   "activity": {
     "ordered_sequence_required": true,
