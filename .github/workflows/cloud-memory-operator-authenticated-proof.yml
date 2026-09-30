@@ -62,7 +62,7 @@ jobs:
         run: python tools/cloud-memory/validate_authenticated_proof_receipt.py "$ORDAX_MEMORY_PROOF_RECEIPT_PATH"
 
       - name: Upload sanitized proof only
-        uses: actions/upload-artifact@b7c566a772e6b6ffb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: cloud-memory-operator-authenticated-proof-${{ github.sha }}
           path: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
