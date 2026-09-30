@@ -151,7 +151,7 @@ function keyFactory(prefix) {
   return (kind = "state") => `${prefix}:${kind}:${++ordinal}:abcdefgh`;
 }
 
-function remoteMemory({ sensitivity = "private" } = {}) {
+function remoteMemory() {
   return createMemorySyncObject({
     serverRevision: 9,
     item: {
@@ -160,13 +160,24 @@ function remoteMemory({ sensitivity = "private" } = {}) {
       ownerId: SUBJECT,
       scope: "account",
       kind: "fact",
-      sensitivity,
+      sensitivity: "private",
       content: "memória restaurada pela composição Native após instalação limpa",
       provenance: "user-confirmed:native-fresh-install-proof",
       sourceTimestamp: "2026-09-30T14:00:00Z",
       spaceId: null,
       projectId: null,
     },
+  });
+}
+
+function restrictedRemoteMemory() {
+  const valid = remoteMemory();
+  return Object.freeze({
+    ...valid,
+    payload: Object.freeze({
+      ...valid.payload,
+      memory: Object.freeze({ ...valid.payload.memory, sensitivity: "restricted" }),
+    }),
   });
 }
 
@@ -218,6 +229,7 @@ async function createHarness({
   memoryObject = remoteMemory(),
   memoryFlushResult = true,
   coordinationInitial = null,
+  expectCoordinationRecovery = false,
 } = {}) {
   const events = [];
   const identity = identitySession();
@@ -231,7 +243,14 @@ async function createHarness({
     createIdempotencyKey: keyFactory("native-memory"),
     now: () => NOW,
   });
-  await foundation.settled();
+  if (expectCoordinationRecovery) {
+    await assert.rejects(
+      foundation.settled(),
+      /Sync-state root payload schema is incompatible|coordination requires recovery/,
+    );
+  } else {
+    await foundation.settled();
+  }
 
   const preferences = preferencesRuntime();
   const preferenceSync = createPreferenceSyncRuntime(preferences, {
@@ -239,6 +258,8 @@ async function createHarness({
   });
   const workspace = createWorkspaceMetadataBridge(workspaceStore());
   const checkpoint = checkpointStore(events);
+  const initialMemory = memory.search({ ownerId: SUBJECT, scopes: ["account"] });
+  const initialCheckpoint = checkpoint.peek();
   const mutations = [];
   const transport = Object.freeze({
     schema: SYNC_TRANSPORT_SCHEMA,
@@ -274,6 +295,8 @@ async function createHarness({
     preferences,
     workspace,
     checkpoint,
+    initialMemory,
+    initialCheckpoint,
     mutations,
     accountSync,
     destroy() {
@@ -291,8 +314,8 @@ function accountMemory(harness) {
 test("Native fresh install restores authorized portable Memory durably before advancing the account checkpoint", async () => {
   const harness = await createHarness();
 
-  assert.equal(harness.checkpoint.peek(), null);
-  assert.deepEqual(accountMemory(harness), []);
+  assert.equal(harness.initialCheckpoint, null);
+  assert.deepEqual(harness.initialMemory, []);
 
   await harness.accountSync.refresh();
 
@@ -336,7 +359,7 @@ test("Native fresh install fails closed for denied or expired inbound Memory ent
 });
 
 test("Native fresh install rejects non-portable remote Memory without checkpoint advancement", async () => {
-  const harness = await createHarness({ memoryObject: remoteMemory({ sensitivity: "restricted" }) });
+  const harness = await createHarness({ memoryObject: restrictedRemoteMemory() });
 
   await harness.accountSync.refresh();
 
@@ -366,6 +389,7 @@ test("Native fresh install never checkpoints Memory whose durable flush was not 
 test("Native fresh install blocks remote Memory when coordination state requires recovery", async () => {
   const harness = await createHarness({
     coordinationInitial: JSON.stringify({ $schema: "ordax.unknown/1", slots: {} }),
+    expectCoordinationRecovery: true,
   });
 
   assert.equal(harness.foundation.getSnapshot().state, "recovery-required");
