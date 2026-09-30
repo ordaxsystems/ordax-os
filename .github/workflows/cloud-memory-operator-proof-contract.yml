@@ -1,0 +1,58 @@
+name: Cloud Memory Operator Proof Contract
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'services/public-identity/supabase_memory.py'
+      - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
+      - 'tools/cloud-memory/run_operator_authenticated_proof.py'
+      - 'tools/cloud-memory/validate_authenticated_proof_receipt.py'
+      - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_operator_proof_workflow.py'
+      - '.github/workflows/cloud-memory-authenticated-proof.yml'
+      - '.github/workflows/cloud-memory-operator-authenticated-proof.yml'
+      - '.github/workflows/cloud-memory-operator-proof-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'services/public-identity/supabase_memory.py'
+      - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
+      - 'tools/cloud-memory/run_operator_authenticated_proof.py'
+      - 'tools/cloud-memory/validate_authenticated_proof_receipt.py'
+      - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_operator_proof_workflow.py'
+      - '.github/workflows/cloud-memory-authenticated-proof.yml'
+      - '.github/workflows/cloud-memory-operator-authenticated-proof.yml'
+      - '.github/workflows/cloud-memory-operator-proof-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  operator-proof-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate source and contract syntax
+        run: |
+          set -euo pipefail
+          python -m py_compile tools/cloud-memory/prove_authenticated_atomic_sync.py
+          python -m py_compile tools/cloud-memory/run_operator_authenticated_proof.py
+          python -m py_compile tools/cloud-memory/validate_authenticated_proof_receipt.py
+          python -m py_compile tests/test_cloud_memory_authenticated_proof.py
+          python -m py_compile tests/test_cloud_memory_operator_proof_workflow.py
+          python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
+
+      - name: Prove operator workflow remains manual and fail-closed
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_cloud_memory_authenticated_proof -v
+          python -m unittest tests.test_cloud_memory_operator_proof_workflow -v
