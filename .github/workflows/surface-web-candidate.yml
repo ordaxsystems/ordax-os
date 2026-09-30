@@ -33,6 +33,7 @@ on:
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/personal-ordax.mjs'
+      - 'system/contracts/personal-ordax-store.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -67,6 +68,7 @@ on:
       - 'system/services/components/**'
       - 'system/services/files/**'
       - 'system/services/projects/**'
+      - 'system/services/personal-ordax/**'
       - 'system/services/preferences/**'
       - 'system/services/i18n/**'
       - 'system/services/sync/**'
@@ -162,6 +164,7 @@ on:
       - 'tests/test_account_runtime.mjs'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_personal_ordax_contracts.mjs'
+      - 'tests/test_personal_ordax_runtime.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -207,6 +210,7 @@ on:
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/personal-ordax.mjs'
+      - 'system/contracts/personal-ordax-store.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -241,6 +245,7 @@ on:
       - 'system/services/components/**'
       - 'system/services/files/**'
       - 'system/services/projects/**'
+      - 'system/services/personal-ordax/**'
       - 'system/services/preferences/**'
       - 'system/services/i18n/**'
       - 'system/services/sync/**'
@@ -333,6 +338,7 @@ on:
       - 'tests/test_account_runtime.mjs'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_personal_ordax_contracts.mjs'
+      - 'tests/test_personal_ordax_runtime.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -383,6 +389,7 @@ jobs:
             system/services/components \
             system/services/files \
             system/services/projects \
+            system/services/personal-ordax \
             system/services/preferences \
             system/services/i18n \
             system/services/sync \
@@ -445,6 +452,7 @@ jobs:
           node --test tests/test_space_selection.mjs
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_personal_ordax_contracts.mjs
+          node --test tests/test_personal_ordax_runtime.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
           node --test tests/test_network_management_runtime.mjs
