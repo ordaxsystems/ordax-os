@@ -47,6 +47,7 @@ on:
       - 'system/contracts/browser-history.mjs'
       - 'system/contracts/browser-history-store.mjs'
       - 'system/contracts/notifications.mjs'
+      - 'system/contracts/operational-realtime.mjs'
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/notes-store.mjs'
       - 'system/contracts/notes-file-importer.mjs'
@@ -102,6 +103,7 @@ on:
       - 'tests/test_home_continuation.mjs'
       - 'tests/test_home_continuation_contract.py'
       - 'tests/test_notifications.mjs'
+      - 'tests/test_operational_realtime_contracts.mjs'
       - 'tests/test_notification_center_ui_contract.py'
       - 'tests/test_notes_runtime.mjs'
       - 'tests/test_notes_durable_persistence.mjs'
@@ -209,6 +211,7 @@ on:
       - 'system/contracts/browser-history.mjs'
       - 'system/contracts/browser-history-store.mjs'
       - 'system/contracts/notifications.mjs'
+      - 'system/contracts/operational-realtime.mjs'
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/notes-store.mjs'
       - 'system/contracts/notes-file-importer.mjs'
@@ -263,6 +266,7 @@ on:
       - 'tests/test_home_continuation.mjs'
       - 'tests/test_home_continuation_contract.py'
       - 'tests/test_notifications.mjs'
+      - 'tests/test_operational_realtime_contracts.mjs'
       - 'tests/test_notification_center_ui_contract.py'
       - 'tests/test_notes_runtime.mjs'
       - 'tests/test_notes_durable_persistence.mjs'
@@ -387,6 +391,7 @@ jobs:
           node --test tests/test_project_file_space_continuity.mjs
           node --test tests/test_home_continuation.mjs
           node --test tests/test_notifications.mjs
+          node --test tests/test_operational_realtime_contracts.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_notes_runtime.mjs
           node --test tests/test_notes_durable_persistence.mjs
