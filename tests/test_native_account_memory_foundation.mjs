@@ -231,7 +231,7 @@ test("Native Account Memory keeps durable coordination partitioned across accoun
 
   const slots = Object.keys(JSON.parse(root.load()).slots);
   assert.equal(slots.filter((key) => key.startsWith("memory-deferred.p.")).length, 2);
-  assert.equal(slots.filter((key) => key.startsWith("memory-crash.p.")).length, 2);
+  assert.equal(slots.filter((key) => key.startsWith("memory-recovery.p.")).length, 2);
   assert.doesNotMatch(root.load(), /conteúdo que nunca deve entrar/);
 
   foundation.destroy();
@@ -330,7 +330,7 @@ test("canonical recovery-blocked state rejects account writes before local Memor
 });
 
 
-for (const namespace of ["memory-deferred", "memory-crash"]) {
+for (const namespace of ["memory-deferred", "memory-recovery"]) {
   test(`corrupt ${namespace} slot blocks Account Memory without resetting durable coordination`, async () => {
     const root = rootStore("device");
     const registry = createSyncStateNamespaceRegistry(root);
