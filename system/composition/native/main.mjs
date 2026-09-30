@@ -72,6 +72,7 @@ import { resolveProfilePackRestore } from "../../services/profile-packs/restore.
 import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
+import { createSyncStateNamespaceRegistry } from "../../services/sync/state-store-registry.mjs";
 import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-metadata.mjs";
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
@@ -499,9 +500,13 @@ async function start() {
       reportClientDiagnostic("network-tray-status", error);
     }
   }
+  const syncStateRegistry = syncStateStore === null
+    ? null
+    : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
+  const appearanceSyncStateStore = syncStateRegistry?.open("appearance") ?? null;
   let syncMutationOrdinal = 0;
   const preferenceSync = createPreferenceSyncRuntime(surface.preferences, {
-    syncStateStore,
+    syncStateStore: appearanceSyncStateStore,
     createIdempotencyKey() {
       syncMutationOrdinal += 1;
       const uuid = window.crypto?.randomUUID?.();
