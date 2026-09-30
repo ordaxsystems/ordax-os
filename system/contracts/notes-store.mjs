@@ -1,4 +1,4 @@
-export const NOTES_STORE_SCHEMA = "ordax.notes-store/1";
+export const NOTES_STORE_SCHEMA = "ordax.notes-store/2";
 export const NOTES_SNAPSHOT_SCHEMA = "ordax.notes-snapshot/2";
 export const LEGACY_NOTES_SNAPSHOT_SCHEMA = "ordax.notes-snapshot/1";
 export const MAX_NOTES = 512;
@@ -245,8 +245,10 @@ export function assertNotesStore(store) {
   if (!["device", "session"].includes(store.scope)) {
     throw new TypeError("Notes store scope must be device or session");
   }
-  if (typeof store.load !== "function" || typeof store.save !== "function") {
-    throw new TypeError("Notes store must implement load() and save(snapshot)");
+  for (const method of ["load", "save", "flush"]) {
+    if (typeof store[method] !== "function") {
+      throw new TypeError(`Notes store must implement ${method}()`);
+    }
   }
   return store;
 }
