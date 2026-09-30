@@ -189,7 +189,12 @@
       "assistant_response_is_persistence_source": false,
       "authorization_bound_at_assistant_send": true,
       "identity_or_space_change_during_inference_retargets_memory": false,
-      "bound_turn_handle_exposes_owner_or_scope": false
+      "bound_turn_handle_exposes_owner_or_scope": false,
+      "max_candidate_evidence_chars": 2048,
+      "source_evidence_required": true,
+      "source_evidence_must_be_verbatim_user_turn": true,
+      "source_evidence_checked_against_extractor_input": true,
+      "source_evidence_persisted": false
     }
   }
 }
