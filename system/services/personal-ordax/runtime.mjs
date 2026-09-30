@@ -289,25 +289,22 @@ export function createPersonalOrdaxRuntime({
       if (status !== "valid") {
         throw new Error(`Personal OrdaX cannot bind work to invalid context: ${status}`);
       }
-      const next = {
+      const queuedActivity = validatePersonalActivityEvent({
+        workItemId: item.id,
+        sequence: 1,
+        type: "queued",
+        summary: "Work queued with explicit owner and context.",
+        approvalId: null,
+        actionId: null,
+        artifactRefs: [],
+        occurredAt: isoClock(now),
+      });
+      replaceState({
         ...state,
         nextOrdinal: state.nextOrdinal + 1,
         workItems: [...state.workItems, item],
-      };
-      persist(validatePersonalOrdaxStoreState(next));
-      state = validatePersonalOrdaxStoreState({
-        ...state,
-        activities: appendActivity(item.id, "queued", "Work queued with explicit owner and context."),
+        activities: [...state.activities, queuedActivity].slice(-MAX_PERSONAL_ACTIVITY_EVENTS),
       });
-      if (durableStore) {
-        try {
-          const saved = durableStore.save(state) !== false;
-          persistence = saved && durableStore.scope === "device" ? "device" : "session";
-        } catch {
-          persistence = "session";
-        }
-      }
-      publish();
       return item;
     },
     async run(id) {
@@ -405,6 +402,19 @@ export function createPersonalOrdaxRuntime({
       return updateWork(id, { state: "cancelled", pendingApprovalId: null }, {
         activity: { type: "cancelled", summary: "Work cancelled explicitly." },
       });
+    },
+    remove(id) {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      const item = findWork(id);
+      if (!TERMINAL_STATES.has(item.state)) {
+        throw new Error("Active Personal OrdaX work must be cancelled before removal");
+      }
+      replaceState({
+        ...state,
+        workItems: state.workItems.filter((candidate) => candidate.id !== id),
+        activities: state.activities.filter((event) => event.workItemId !== id),
+      });
+      return snapshot();
     },
     dispose() {
       if (disposed) return;
