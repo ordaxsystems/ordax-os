@@ -97,3 +97,69 @@ func TestPhysicalSignerRejectsWrongKeyAndOverwrite(t *testing.T) {
 	data, _ := os.ReadFile(output)
 	if string(data) != "sentinel" { t.Fatal("existing output changed") }
 }
+
+
+func validPortablePayloadForSigner() portablePayloadManifest {
+	ids := []string{
+		"systemd-boot", "loader-config", "loader-normal", "loader-recovery",
+		"kernel", "initramfs", "bootstrap-capsule", "release-trust",
+		"stable-base", "persistent-state", "system-image",
+		"surface-runtime-image", "surface-runtime-ref",
+		"local-ai-runtime-image", "local-ai-runtime-ref",
+		"release-manifest", "release-envelope",
+	}
+	artifacts := make([]portablePayloadArtifactBinding, 0, len(ids))
+	for i, id := range ids {
+		artifacts = append(artifacts, portablePayloadArtifactBinding{
+			ID: id,
+			URL: "https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/ordax-stable-v4-0123456789abcdef0123456789abcdef01234567/" + id,
+			SHA256: strings.Repeat(string("123456789abcdef"[i%15]), 64),
+			SizeBytes: int64(i + 1),
+		})
+	}
+	return portablePayloadManifest{
+		Schema: portablePayloadSchema,
+		ReleaseSourceCommit: "0123456789abcdef0123456789abcdef01234567",
+		Artifacts: artifacts,
+	}
+}
+
+func TestPhysicalSignerAcceptsPortableManifestV3(t *testing.T) {
+	var m manifest
+	if err := json.Unmarshal(validPhysicalManifestBytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	m.Schema = manifestSchemaPortable
+	payload := validPortablePayloadForSigner()
+	m.PortablePayload = &payload
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateManifest(append(data, '\n')); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPhysicalSignerRejectsInvalidPortableManifestV3(t *testing.T) {
+	var m manifest
+	if err := json.Unmarshal(validPhysicalManifestBytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	m.Schema = manifestSchemaPortable
+	payload := validPortablePayloadForSigner()
+	payload.Artifacts = payload.Artifacts[:16]
+	m.PortablePayload = &payload
+	data, _ := json.Marshal(m)
+	if _, err := validateManifest(data); err == nil || !strings.Contains(err.Error(), "exactly 17") {
+		t.Fatalf("incomplete Portable payload unexpectedly accepted: %v", err)
+	}
+
+	payload = validPortablePayloadForSigner()
+	payload.Artifacts[0].URL = "https://example.invalid/systemd-boot"
+	m.PortablePayload = &payload
+	data, _ = json.Marshal(m)
+	if _, err := validateManifest(data); err == nil || !strings.Contains(err.Error(), "canonical release namespace") {
+		t.Fatalf("external Portable payload URL unexpectedly accepted: %v", err)
+	}
+}
