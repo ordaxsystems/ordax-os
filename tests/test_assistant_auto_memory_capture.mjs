@@ -130,7 +130,7 @@ test("automatic Assistant Memory skips extraction when user disabled capture", a
 });
 
 test("signed-out automatic capture uses device ownership and forces private sensitivity", async () => {
-  const ai = intelligence('{"memories":[{"kind":"preference","content":"Prefere respostas curtas.","evidence":"Prefiro respostas curtas."}]}');
+  const ai = intelligence('{"memories":[{"kind":"preference","content":"Prefiro respostas curtas.","evidence":"Prefiro respostas curtas."}]}');
   const capture = captureRuntime();
   const runtime = createAssistantAutoCaptureRuntime({
     intelligencePort: ai,
@@ -159,7 +159,7 @@ test("signed-out automatic capture uses device ownership and forces private sens
 });
 
 test("signed-in capture uses account unless an exact selected Space is active", async () => {
-  const answer = '{"memories":[{"kind":"fact","content":"Trabalha com direito empresarial.","evidence":"u"}]}';
+  const answer = '{"memories":[{"kind":"fact","content":"u","evidence":"u"}]}';
 
   const accountCapture = captureRuntime();
   const accountRuntime = createAssistantAutoCaptureRuntime({
@@ -188,10 +188,10 @@ test("signed-in capture uses account unless an exact selected Space is active", 
 
 test("model output cannot choose owner scope ids sensitivity or extra fields", async () => {
   const bad = [
-    '{"memories":[{"kind":"fact","content":"x","evidence":"u","ownerId":"other"}]}',
-    '{"memories":[{"kind":"fact","content":"x","evidence":"u","scope":"space"}]}',
-    '{"memories":[{"kind":"fact","content":"x","evidence":"u","sensitivity":"normal"}]}',
-    '{"memories":[{"kind":"fact","content":"x","evidence":"u","id":"forced"}]}',
+    '{"memories":[{"kind":"fact","content":"u","evidence":"u","ownerId":"other"}]}',
+    '{"memories":[{"kind":"fact","content":"u","evidence":"u","scope":"space"}]}',
+    '{"memories":[{"kind":"fact","content":"u","evidence":"u","sensitivity":"normal"}]}',
+    '{"memories":[{"kind":"fact","content":"u","evidence":"u","id":"forced"}]}',
   ];
   for (const answer of bad) {
     const capture = captureRuntime();
@@ -227,6 +227,47 @@ test("invalid JSON and credential-like candidates fail closed", async () => {
     assert.equal(result.status, "no-candidates");
     assert.equal(capture.calls.length, 0);
   }
+});
+
+test("automatic Memory rejects model paraphrase even when evidence is a real user quote", async () => {
+  const ai = intelligence('{"memories":[{"kind":"preference","content":"Usuário prefere respostas breves.","evidence":"Prefiro respostas curtas."}]}');
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: ai,
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity(),
+    spaceSelectionPort: selection(),
+  });
+
+  const result = await runtime.bindTurn().capture({
+    userText: "Prefiro respostas curtas.",
+    assistantText: "Certo.",
+  });
+  assert.equal(result.status, "no-candidates");
+  assert.equal(capture.calls.length, 0);
+});
+
+test("automatic Memory persists the exact user evidence rather than model-authored wording", async () => {
+  const quote = "Meu idioma preferido é português.";
+  const ai = intelligence(JSON.stringify({
+    memories: [{ kind: "preference", content: quote, evidence: quote }],
+  }));
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: ai,
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity(),
+    spaceSelectionPort: selection(),
+  });
+
+  const result = await runtime.bindTurn().capture({
+    userText: quote,
+    assistantText: "Entendido.",
+  });
+  assert.equal(result.status, "captured");
+  assert.equal(capture.calls[0].draft.content, quote);
 });
 
 test("extractor is bounded to four candidates and exact schema", async () => {
