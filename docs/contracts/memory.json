@@ -206,11 +206,11 @@
       "candidate_content_must_equal_evidence": true,
       "model_may_paraphrase_persisted_memory": false
     },
-    "composition_owned_persistence_writer_supported": true,
-    "persistence_writer_authority": "durability-confirmation-only",
-    "persistence_writer_may_rewrite_authorized_item": false,
-    "persistence_writer_success_value": true,
-    "default_writer_remains_local_memory_plus_flush": true,
-    "exact_duplicate_uses_existing_memory_flush_barrier": true
+    "exact_duplicate_uses_existing_memory_flush_barrier": true,
+    "composition_owned_mutation_port_supported": true,
+    "mutation_port_schema": "ordax.memory-mutations/1",
+    "mutation_port_authority": "durable-mutation-only",
+    "mutation_port_may_rewrite_authorized_item": false,
+    "default_path_remains_local_memory_plus_flush": true
   }
 }
