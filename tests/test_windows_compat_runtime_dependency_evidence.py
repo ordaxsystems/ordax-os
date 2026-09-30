@@ -11,6 +11,7 @@ SPEC.loader.exec_module(MODULE)
 
 RUNTIME = "wine-11.0-wow64-x86_64-candidate"
 STAGE = "a" * 64
+PRELOAD = "c" * 64
 
 
 class RuntimeDependencyEvidenceTests(unittest.TestCase):
@@ -33,24 +34,38 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
                 **forbidden,
             },
         }
-        first_counts = {"dependencies_checked": 1, "stage_hits": 0, "rootfs_hits": 1}
+        first_counts = {
+            "dependencies_checked": 1,
+            "stage_hits": 0,
+            "rootfs_hits": 1,
+            "bootstrap_shortname_hits": 0,
+            "dependency_attach_preload_hits": 0,
+        }
         first_core = {
             "runtime_id": RUNTIME,
             "staging_manifest_sha256": STAGE,
+            "unixlib_preload_source_evidence_sha256": PRELOAD,
             "counts": first_counts,
         }
         first = {
             "$schema": "prototype-ordax.windows-compat-runtime-first-hit-proof/1",
             **first_core,
             "validation_sha256": MODULE.canonical_sha256(first_core),
-            "gates": {"first_pathname_hit_verified": True, **forbidden},
+            "gates": {
+                "source_derived_unixlib_preload_runtime_verified": True,
+                "first_pathname_hit_verified": True,
+                **forbidden,
+            },
         }
         needed_targets = {
             "ELF64:machine=62:little:libexample.so.1": {
                 "soname": "libexample.so.1",
                 "elf": {"class": 64, "machine": 62, "endianness": "little"},
                 "consumers": ["usr/bin/wine"],
+                "consumer_resolution_kinds": {"usr/bin/wine": "loader-pathname"},
                 "directories_considered": [{"directory": "/usr/lib", "sources": ["musl-fallback"]}],
+                "bootstrap_preloaded": False,
+                "dependency_attach_preload_observed": False,
                 "target": {
                     "scope": "rootfs-external",
                     "canonical_path": "usr/lib/libexample.so.1",
@@ -61,6 +76,7 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
         invariance_core = {
             "runtime_id": RUNTIME,
             "staging_manifest_sha256": STAGE,
+            "unixlib_preload_source_evidence_sha256": PRELOAD,
             "needed_targets": needed_targets,
         }
         invariance = {
@@ -71,8 +87,12 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
                 "staged_elf_files": 1,
                 "needed_identity_soname_pairs": 1,
                 "reachable_candidate_pathnames": 1,
+                "bootstrap_shortname_pairs": 0,
+                "dependency_attach_preload_pairs": 0,
+                "dependency_attach_preload_consumers": 0,
             },
             "gates": {
+                "source_derived_unixlib_preload_runtime_verified": True,
                 "staged_needed_by_chain_invariance_verified": True,
                 "staged_shortname_reuse_invariance_verified": True,
                 "external_transitive_closure_verified": False,
@@ -91,6 +111,7 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
                     "scope": "rootfs-external",
                     "path": "usr/lib/libexample.so.1",
                     "canonical_path": "usr/lib/libexample.so.1",
+                    "resolution_kind": "loader-pathname",
                     "package": "example-libs",
                     "version": "1.0-r0",
                     "search_directory": "/usr/lib",
@@ -137,6 +158,30 @@ class RuntimeDependencyEvidenceTests(unittest.TestCase):
         self.assertTrue(result["gates"]["staging_dependency_inventory_complete"])
         self.assertFalse(result["gates"]["external_transitive_closure_verified"])
         self.assertFalse(result["gates"]["runtime_dependency_inventory_complete"])
+
+    def test_finalize_rejects_preload_source_evidence_drift(self):
+        full, first, invariance, dependency = self.fixtures()
+        invariance["unixlib_preload_source_evidence_sha256"] = "d" * 64
+        with self.assertRaisesRegex(MODULE.DependencyEvidenceError, "preload source evidence diverged"):
+            MODULE.finalize(full, first, invariance, dependency)
+
+    def test_finalize_rejects_preload_edge_bound_to_other_source_evidence(self):
+        full, first, invariance, dependency = self.fixtures()
+        resolution = dependency["elf_files"]["usr/bin/wine"]["resolutions"][0]
+        resolution.update({
+            "resolution_kind": "source-proven-dependency-attach-preload",
+            "unixlib_preload_source_evidence_sha256": "d" * 64,
+            "preload_relation": {"link_name": "example", "consumer_module": "wine", "provider_module": "example"},
+        })
+        core = {
+            "runtime_id": dependency["runtime_id"],
+            "staging_manifest_sha256": dependency["staging_manifest_sha256"],
+            "elf_files": dependency["elf_files"],
+            "external_packages": dependency["external_packages"],
+        }
+        dependency["inventory_sha256"] = MODULE.canonical_sha256(core)
+        with self.assertRaisesRegex(MODULE.DependencyEvidenceError, "preload edge is not bound"):
+            MODULE.finalize(full, first, invariance, dependency)
 
     def test_finalize_rejects_missing_loader_invariance(self):
         full, first, invariance, dependency = self.fixtures()
