@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
 ACCOUNT_MEMORY_COMPOSITION = ROOT / "system" / "composition" / "native" / "account-memory.mjs"
+ACCOUNT_MEMORY_FOUNDATION = ROOT / "system" / "composition" / "native" / "account-memory-foundation.mjs"
 WORKFLOW = ROOT / ".github" / "workflows" / "intelligence-foundation.yml"
 
 
@@ -27,7 +28,7 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("createNativeMemoryStore", composition)
         self.assertIn("createMemoryRuntime", composition)
         self.assertIn("createMemoryMutationPort", composition)
-        self.assertIn("createNativeAccountMemoryComposition", composition)
+        self.assertIn("createNativeAccountMemoryFoundation", composition)
         self.assertIn("const memoryMutations = memory === null", composition)
         self.assertIn("protectedAccountMutations,", composition)
         self.assertIn('"OrdaX native Intelligence memory persistence unavailable"', composition)
@@ -59,11 +60,15 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("recoverProtectedAccountMemory", composition)
         self.assertIn("refreshAuthorization: true", composition)
         self.assertIn("unsubscribeAccountMemoryRecovery()", composition)
+        self.assertIn("accountMemoryFoundation?.destroy()", composition)
 
         account_memory = ACCOUNT_MEMORY_COMPOSITION.read_text(encoding="utf-8")
+        foundation = ACCOUNT_MEMORY_FOUNDATION.read_text(encoding="utf-8")
         self.assertIn('publicCloudMemoryEnabled: false', account_memory)
-        self.assertIn("guardedProtectedMutations", account_memory)
+        self.assertIn("guardedProtectedMutations", foundation)
+        self.assertIn('"recovery-required"', foundation)
         self.assertNotIn("createWebSyncTransport", account_memory)
+        self.assertNotIn("createWebSyncTransport", foundation)
 
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
