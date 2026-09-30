@@ -43,6 +43,7 @@ import { createSameOriginIdentityCredentials } from "../../adapters/web/identity
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
+import { createWebMemoryEntitlements } from "../../adapters/web/entitlements.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
@@ -60,6 +61,7 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
+import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
 import { createPreferenceBoundMemoryCaptureRuntime } from "../../services/memory/capture.mjs";
 import { createAssistantAutoCaptureRuntime } from "../../services/memory/assistant-auto-capture.mjs";
 import { createIdentityBoundMemoryIntelligence } from "../../services/intelligence/authorized-memory.mjs";
@@ -78,6 +80,7 @@ import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-met
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
+import { createNativeAccountMemoryFoundation } from "./account-memory.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -293,10 +296,46 @@ async function start() {
   const workspaceStore = workspaceMetadata.store;
   const identitySession = createWebIdentitySession(window);
   await identitySession.refresh();
+  const syncStateRegistry = syncStateStore === null
+    ? null
+    : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
+  const memoryEntitlements = memory === null
+    ? null
+    : createWebMemoryEntitlements(window);
+  let memoryCoordinationOrdinal = 0;
+  const accountMemoryFoundation = memory === null
+    ? null
+    : createNativeAccountMemoryFoundation({
+        identitySession,
+        memoryPort: memory,
+        syncStateRegistry,
+        entitlementsPort: memoryEntitlements,
+        createIdempotencyKey(kind = "state", ordinal = 0) {
+          memoryCoordinationOrdinal += 1;
+          const uuid = window.crypto?.randomUUID?.();
+          const identity = uuid
+            ? uuid.replaceAll("-", "")
+            : `${Date.now().toString(36)}:${ordinal}:${memoryCoordinationOrdinal}`;
+          return `memory:${kind}:${identity}`;
+        },
+        onStageError(error, context) {
+          console.warn(
+            `OrdaX Account Memory local coordination degraded: ${context?.kind ?? "unknown"}`,
+            error,
+          );
+        },
+      });
+  const memoryMutations = memory === null
+    ? null
+    : createMemoryMutationPort({
+        memoryPort: memory,
+        protectedAccountMutations: accountMemoryFoundation?.protectedMutations ?? null,
+      });
   const memoryReviewSession = memory === null
     ? null
     : createMemoryReviewSession({
         memoryPort: memory,
+        mutationPort: memoryMutations,
         identitySessionPort: identitySession,
       });
   const memoryReview = memoryReviewSession === null
@@ -457,6 +496,7 @@ async function start() {
         captureRuntime: createPreferenceBoundMemoryCaptureRuntime(
           memory,
           surface.preferences,
+          { mutationPort: memoryMutations },
         ),
         preferenceRuntime: surface.preferences,
         identitySessionPort: identitySession,
@@ -500,9 +540,6 @@ async function start() {
       reportClientDiagnostic("network-tray-status", error);
     }
   }
-  const syncStateRegistry = syncStateStore === null
-    ? null
-    : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
   const appearanceSyncStateStore = syncStateRegistry?.open("appearance") ?? null;
   let syncMutationOrdinal = 0;
   const preferenceSync = createPreferenceSyncRuntime(surface.preferences, {
@@ -744,6 +781,7 @@ async function start() {
       accountOverviewControls.destroy();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
+      accountMemoryFoundation?.destroy();
       profileProvisioning.dispose();
       profileActivationState?.dispose();
       profileComponentInventory.dispose();
