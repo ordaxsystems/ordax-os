@@ -145,10 +145,27 @@ function findCurrentMemoryItem(memory, subjectId, id) {
   return null;
 }
 
-function canonicalOwnership(memorySync, objectId) {
-  const pending = memorySync.pendingMutations().some((mutation) => mutation?.objectId === objectId);
-  const conflict = memorySync.pendingConflicts().some((entry) => entry?.objectId === objectId);
-  return pending || conflict;
+function desiredCanonicalState(memory, subjectId, objectId) {
+  const current = findCurrentMemoryItem(memory, subjectId, objectId);
+  if (current) {
+    const classification = classifyMemoryForAccountSync(current, { subjectId });
+    if (classification.eligible) {
+      return Object.freeze({ operation: "upsert", item: classification.item });
+    }
+  }
+  return Object.freeze({
+    operation: "delete",
+    identity: Object.freeze({ id: objectId, ownerKind: "account", ownerId: subjectId }),
+  });
+}
+
+function canonicalOwnershipMatches(memorySync, objectId, desired) {
+  if (memorySync.pendingConflicts().some((entry) => entry?.objectId === objectId)) return true;
+  const pending = memorySync.pendingMutations().find((mutation) => mutation?.objectId === objectId);
+  if (!pending) return false;
+  if (desired.operation === "delete") return pending.operation === "delete";
+  return pending.operation === "upsert"
+    && JSON.stringify(pending.payload?.memory) === JSON.stringify(desired.item);
 }
 
 export function createAccountMemoryDeferredIntents({
@@ -242,22 +259,16 @@ export function createAccountMemoryDeferredIntents({
       let transferred = 0;
       for (const intent of [...runtime.intents.values()]) {
         attempted += 1;
-        if (canonicalOwnership(memorySync, intent.id)) {
+        const desired = desiredCanonicalState(memory, runtime.subjectId, intent.id);
+        if (canonicalOwnershipMatches(memorySync, intent.id, desired)) {
           removeIntent(runtime, intent.id);
           transferred += 1;
           continue;
         }
 
-        const current = findCurrentMemoryItem(memory, runtime.subjectId, intent.id);
-        let result;
-        if (current) {
-          const classification = classifyMemoryForAccountSync(current, { subjectId: runtime.subjectId });
-          result = classification.eligible
-            ? memorySync.stageUpsert(classification.item)
-            : memorySync.stageForget({ id: intent.id, ownerKind: "account", ownerId: runtime.subjectId });
-        } else {
-          result = memorySync.stageForget({ id: intent.id, ownerKind: "account", ownerId: runtime.subjectId });
-        }
+        const result = desired.operation === "upsert"
+          ? memorySync.stageUpsert(desired.item)
+          : memorySync.stageForget(desired.identity);
 
         if (TRANSFERRED_STATUSES.has(result.status)) {
           removeIntent(runtime, intent.id);
