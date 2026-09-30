@@ -510,6 +510,7 @@ export function createPersonalOrdaxRuntime({
     }
     const decision = state.decisions.find((candidate) =>
       candidate.workItemId === id
+      && candidate.approvalId === approval.id
       && candidate.actionId === approval.actionId
     );
     if (!decision || decision.decision !== "allow") {
@@ -916,6 +917,7 @@ export function createPersonalOrdaxRuntime({
       }
       const decision = state.decisions.find((candidate) =>
         candidate.workItemId === id
+        && candidate.approvalId === approval.id
         && candidate.actionId === approval.actionId
         && candidate.decision === "allow"
       );
