@@ -69,6 +69,11 @@ function identityRecord(value, subjectId) {
   });
 }
 
+function identityQueueKey(value) {
+  const request = validateMemoryForgetRequest(value);
+  return `${request.ownerKind}\0${request.ownerId ?? ""}\0${request.id}`;
+}
+
 function serializeState(subjectId, identities) {
   const payload = JSON.stringify({
     $schema: ACCOUNT_MEMORY_CRASH_RECOVERY_STATE_SCHEMA,
@@ -139,9 +144,24 @@ function findCurrentMemoryItem(memory, subjectId, id) {
   return null;
 }
 
-function canonicalOwnership(memorySync, objectId) {
-  return memorySync.pendingMutations().some((mutation) => mutation?.objectId === objectId)
-    || memorySync.pendingConflicts().some((entry) => entry?.objectId === objectId);
+function desiredCanonicalState(memory, subjectId, journalIdentity) {
+  const current = findCurrentMemoryItem(memory, subjectId, journalIdentity.id);
+  if (current) {
+    const classification = classifyMemoryForAccountSync(current, { subjectId });
+    if (classification.eligible) {
+      return Object.freeze({ operation: "upsert", item: classification.item });
+    }
+  }
+  return Object.freeze({ operation: "delete", identity: journalIdentity });
+}
+
+function canonicalOwnershipMatches(memorySync, objectId, desired) {
+  if (memorySync.pendingConflicts().some((entry) => entry?.objectId === objectId)) return true;
+  const pending = memorySync.pendingMutations().find((mutation) => mutation?.objectId === objectId);
+  if (!pending) return false;
+  if (desired.operation === "delete") return pending.operation === "delete";
+  return pending.operation === "upsert"
+    && JSON.stringify(pending.payload?.memory) === JSON.stringify(desired.item);
 }
 
 export function createAccountMemoryCrashRecoveryJournal({
@@ -153,6 +173,8 @@ export function createAccountMemoryCrashRecoveryJournal({
   const memory = assertMemoryPort(memoryPort);
   const createStore = requireFactory(createJournalStateStore);
   const runtimes = new Map();
+  const protectedQueues = new Map();
+  let recoveryBarrier = Promise.resolve();
   let destroyed = false;
 
   const activeIdentity = () => {
@@ -217,65 +239,87 @@ export function createAccountMemoryCrashRecoveryJournal({
   };
 
   const reconcileOne = (runtime, memorySync, journalIdentity) => {
-    if (canonicalOwnership(memorySync, journalIdentity.id)) {
+    const desired = desiredCanonicalState(memory, runtime.subjectId, journalIdentity);
+    if (canonicalOwnershipMatches(memorySync, journalIdentity.id, desired)) {
       return Object.freeze({ status: "canonical-owner", objectId: journalIdentity.id });
     }
-    const current = findCurrentMemoryItem(memory, runtime.subjectId, journalIdentity.id);
-    if (current) {
-      const classification = classifyMemoryForAccountSync(current, { subjectId: runtime.subjectId });
-      return classification.eligible
-        ? memorySync.stageUpsert(classification.item)
-        : memorySync.stageForget(journalIdentity);
-    }
-    return memorySync.stageForget(journalIdentity);
+    return desired.operation === "upsert"
+      ? memorySync.stageUpsert(desired.item)
+      : memorySync.stageForget(desired.identity);
+  };
+
+  const runSerializedProtectedMutation = (value, operation) => {
+    const key = identityQueueKey(value);
+    const previous = protectedQueues.get(key) ?? Promise.resolve();
+    const current = Promise.all([
+      recoveryBarrier.catch(() => undefined),
+      previous.catch(() => undefined),
+    ]).then(operation);
+    protectedQueues.set(key, current);
+    current.finally(() => {
+      if (protectedQueues.get(key) === current) protectedQueues.delete(key);
+    }).catch(() => undefined);
+    return current;
+  };
+
+  const runRecovery = (operation) => {
+    const priorRecovery = recoveryBarrier.catch(() => undefined);
+    const activeMutations = [...protectedQueues.values()].map((promise) => promise.catch(() => undefined));
+    const current = Promise.all([priorRecovery, ...activeMutations]).then(operation);
+    recoveryBarrier = current;
+    return current;
   };
 
   return Object.freeze({
     schema: ACCOUNT_MEMORY_CRASH_RECOVERY_JOURNAL_SCHEMA,
     armDurably,
     clearDurably,
-    async runProtectedMutation({ identity: value, mutate, flushLocal, reconcile } = {}) {
+    runProtectedMutation({ identity: value, mutate, flushLocal, reconcile } = {}) {
       if (typeof mutate !== "function" || typeof flushLocal !== "function" || typeof reconcile !== "function") {
         throw new TypeError("Protected Memory mutation requires mutate, flushLocal and reconcile functions");
       }
-      const journalIdentity = await armDurably(value);
-      const result = mutate();
-      await flushLocal();
-      await reconcile();
-      await clearDurably(journalIdentity.id);
-      return result;
+      return runSerializedProtectedMutation(value, async () => {
+        const journalIdentity = await armDurably(value);
+        const result = mutate();
+        await flushLocal();
+        await reconcile();
+        await clearDurably(journalIdentity.id);
+        return result;
+      });
     },
-    async recover(memorySyncValue, { flushCoordination } = {}) {
+    recover(memorySyncValue, { flushCoordination } = {}) {
       const memorySync = requireMemorySync(memorySyncValue);
       const confirmCoordination = requireDurabilityConfirmation(flushCoordination);
-      const runtime = currentRuntime();
-      if (!runtime) return Object.freeze({ attempted: 0, transferred: 0, retained: 0, inactive: true });
+      return runRecovery(async () => {
+        const runtime = currentRuntime();
+        if (!runtime) return Object.freeze({ attempted: 0, transferred: 0, retained: 0, inactive: true });
 
-      let attempted = 0;
-      let transferred = 0;
-      for (const journalIdentity of [...runtime.identities.values()]) {
-        attempted += 1;
-        const result = reconcileOne(runtime, memorySync, journalIdentity);
-        if (result.status === "canonical-owner" || TRANSFERRED_STATUSES.has(result.status)) {
-          const durable = await confirmCoordination();
-          if (durable !== true) {
-            throw new Error("Memory crash recovery coordination durability was not confirmed");
+        let attempted = 0;
+        let transferred = 0;
+        for (const journalIdentity of [...runtime.identities.values()]) {
+          attempted += 1;
+          const result = reconcileOne(runtime, memorySync, journalIdentity);
+          if (result.status === "canonical-owner" || TRANSFERRED_STATUSES.has(result.status)) {
+            const durable = await confirmCoordination();
+            if (durable !== true) {
+              throw new Error("Memory crash recovery coordination durability was not confirmed");
+            }
+            await clearDurably(journalIdentity.id);
+            transferred += 1;
+            continue;
           }
-          await clearDurably(journalIdentity.id);
-          transferred += 1;
-          continue;
+          if (result.status === "blocked" && result.reason === "authorization-required") continue;
+          if (result.status === "blocked") {
+            throw new Error(`Memory crash recovery reconciliation was blocked: ${result.reason}`);
+          }
+          throw new Error(`Memory crash recovery reconciliation returned unsupported status: ${result.status}`);
         }
-        if (result.status === "blocked" && result.reason === "authorization-required") continue;
-        if (result.status === "blocked") {
-          throw new Error(`Memory crash recovery reconciliation was blocked: ${result.reason}`);
-        }
-        throw new Error(`Memory crash recovery reconciliation returned unsupported status: ${result.status}`);
-      }
-      return Object.freeze({
-        attempted,
-        transferred,
-        retained: runtime.identities.size,
-        inactive: false,
+        return Object.freeze({
+          attempted,
+          transferred,
+          retained: runtime.identities.size,
+          inactive: false,
+        });
       });
     },
     pendingIdentities() {
@@ -288,6 +332,7 @@ export function createAccountMemoryCrashRecoveryJournal({
         schema: ACCOUNT_MEMORY_CRASH_RECOVERY_JOURNAL_SCHEMA,
         subjectId: runtime?.subjectId ?? null,
         pendingIdentityCount: runtime?.identities.size ?? 0,
+        activeProtectedMutationCount: protectedQueues.size,
         journalPersistence: runtime?.store.scope ?? null,
         storesPortableContent: false,
         durabilityConfirmationAvailable: typeof runtime?.store.flush === "function",
@@ -298,6 +343,7 @@ export function createAccountMemoryCrashRecoveryJournal({
       if (destroyed) return;
       destroyed = true;
       runtimes.clear();
+      protectedQueues.clear();
     },
   });
 }
