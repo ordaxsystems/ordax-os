@@ -8,6 +8,7 @@ on:
       - 'docs/contracts/branding.json'
       - 'docs/contracts/device-update-coverage.json'
       - 'docs/contracts/device-agent.json'
+      - 'docs/contracts/mobile-companion.json'
       - 'system/contracts/diagnostic-journal-store.mjs'
       - 'system/contracts/diagnostic-export.mjs'
       - 'system/contracts/diagnostic-copy.mjs'
@@ -50,6 +51,7 @@ on:
       - 'system/contracts/notifications.mjs'
       - 'system/contracts/device-agent.mjs'
       - 'system/contracts/operational-realtime.mjs'
+      - 'system/contracts/mobile-companion.mjs'
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/notes-store.mjs'
       - 'system/contracts/notes-file-importer.mjs'
@@ -107,6 +109,7 @@ on:
       - 'tests/test_notifications.mjs'
       - 'tests/test_device_agent_contracts.mjs'
       - 'tests/test_operational_realtime_contracts.mjs'
+      - 'tests/test_mobile_companion_contracts.mjs'
       - 'tests/test_notification_center_ui_contract.py'
       - 'tests/test_notes_runtime.mjs'
       - 'tests/test_notes_durable_persistence.mjs'
@@ -175,6 +178,7 @@ on:
       - 'docs/contracts/branding.json'
       - 'docs/contracts/device-update-coverage.json'
       - 'docs/contracts/device-agent.json'
+      - 'docs/contracts/mobile-companion.json'
       - 'system/contracts/diagnostic-journal-store.mjs'
       - 'system/contracts/diagnostic-export.mjs'
       - 'system/contracts/diagnostic-copy.mjs'
@@ -217,6 +221,7 @@ on:
       - 'system/contracts/notifications.mjs'
       - 'system/contracts/device-agent.mjs'
       - 'system/contracts/operational-realtime.mjs'
+      - 'system/contracts/mobile-companion.mjs'
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/notes-store.mjs'
       - 'system/contracts/notes-file-importer.mjs'
@@ -273,6 +278,7 @@ on:
       - 'tests/test_notifications.mjs'
       - 'tests/test_device_agent_contracts.mjs'
       - 'tests/test_operational_realtime_contracts.mjs'
+      - 'tests/test_mobile_companion_contracts.mjs'
       - 'tests/test_notification_center_ui_contract.py'
       - 'tests/test_notes_runtime.mjs'
       - 'tests/test_notes_durable_persistence.mjs'
@@ -399,6 +405,7 @@ jobs:
           node --test tests/test_notifications.mjs
           node --test tests/test_device_agent_contracts.mjs
           node --test tests/test_operational_realtime_contracts.mjs
+          node --test tests/test_mobile_companion_contracts.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_notes_runtime.mjs
           node --test tests/test_notes_durable_persistence.mjs
