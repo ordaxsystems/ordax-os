@@ -137,7 +137,7 @@
     ],
     "consent_tool_grant_default_ttl_ms": 120000,
     "approve_control_requires_resolvable_typed_action": true,
-    "native_registered_tool_actions_enabled": false,
+    "native_registered_tool_actions_enabled": true,
     "sensitive_approval_requires_resource_ref": true,
     "tool_grant_binds_approval_id": true,
     "tool_grant_binds_resource_ref": true,
@@ -149,7 +149,10 @@
     "sensitive_approval_binds_tool_artifact_sha256": true,
     "tool_grant_binds_tool_artifact_sha256": true,
     "action_gateway_revalidates_tool_artifact_sha256": true,
-    "action_executor_revalidates_adapter_artifact_sha256": true
+    "action_executor_revalidates_adapter_artifact_sha256": true,
+    "native_tool_artifact_identity_from_same_origin_bytes": true,
+    "native_file_ensure_directory_tool_registered_for_approval": true,
+    "native_file_ensure_directory_idempotent": true
   },
   "activity": {
     "ordered_sequence_required": true,
