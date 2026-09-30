@@ -6,6 +6,8 @@ import {
   validateMemoryOwner,
 } from "../../contracts/memory.mjs";
 
+export const MEMORY_REVIEW_EXPORT_SCHEMA = "ordax.memory-review-export/1";
+
 const REVIEW_SCOPES = Object.freeze(["device", "account", "space", "project", "session"]);
 const MAX_REVIEW_SCAN_ITEMS = 2048;
 
@@ -142,6 +144,33 @@ export function createMemoryReviewRuntime(memoryPort, {
     },
     list(options = {}) {
       return page(options);
+    },
+    exportSnapshot() {
+      const items = [];
+      for (
+        let offset = 0;
+        offset < MAX_REVIEW_SCAN_ITEMS;
+        offset += MAX_MEMORY_SEARCH_RESULTS
+      ) {
+        const batch = page({
+          query: "",
+          limit: MAX_MEMORY_SEARCH_RESULTS,
+          offset,
+        });
+        items.push(...batch);
+        if (batch.length < MAX_MEMORY_SEARCH_RESULTS) break;
+      }
+      return Object.freeze({
+        $schema: MEMORY_REVIEW_EXPORT_SCHEMA,
+        exportedAt: isoNow(now),
+        owner: Object.freeze({
+          ownerKind: boundary.ownerKind,
+          ownerId: boundary.ownerId,
+        }),
+        spaceId: boundary.spaceId,
+        projectId: boundary.projectId,
+        items: Object.freeze(items),
+      });
     },
     update(id, patch = {}) {
       if (!patch || typeof patch !== "object" || Array.isArray(patch)) {

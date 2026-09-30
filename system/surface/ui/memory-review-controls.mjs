@@ -21,6 +21,7 @@ function requireViewModel(value) {
     "create",
     "nextPage",
     "previousPage",
+    "exportSnapshot",
     "update",
     "remove",
   ]) {
@@ -52,6 +53,9 @@ function requireCopy(copy) {
     "saved",
     "saveError",
     "contentLabel",
+    "export",
+    "exported",
+    "exportError",
   ];
   if (!copy || typeof copy !== "object") {
     throw new TypeError("Memory review copy is required");
@@ -93,6 +97,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
   let destroyed = false;
   let mutationPending = false;
   let pendingRemovalId = null;
+  let exportState = "idle";
 
   const render = (snapshot = viewModel.getSnapshot()) => {
     if (destroyed) return;
@@ -142,6 +147,16 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
       }
       toolbar.append(owners);
     }
+    const exportButton = node(
+      documentObject,
+      "button",
+      "ordax-memory-review-export",
+      copy.export,
+    );
+    exportButton.type = "button";
+    exportButton.dataset.memoryReviewExport = "";
+    exportButton.disabled = mutationPending;
+    toolbar.append(exportButton);
     container.append(toolbar);
 
     const createBox = node(documentObject, "div", "ordax-memory-review-create");
@@ -169,6 +184,13 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     if (snapshot.persistenceState === "saved") status.textContent = copy.saved;
     if (snapshot.persistenceState === "error") status.textContent = copy.saveError;
     container.append(status);
+
+    const exportStatus = node(documentObject, "p", "ordax-memory-review-export-status");
+    exportStatus.setAttribute("role", "status");
+    exportStatus.setAttribute("aria-live", "polite");
+    if (exportState === "exported") exportStatus.textContent = copy.exported;
+    if (exportState === "error") exportStatus.textContent = copy.exportError;
+    container.append(exportStatus);
 
     const list = node(documentObject, "div", "ordax-memory-review-list");
     if (snapshot.items.length === 0) {
@@ -263,6 +285,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
 
   const runMutation = async (operation) => {
     if (mutationPending) return;
+    exportState = "idle";
     mutationPending = true;
     render();
     try {
@@ -276,16 +299,59 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     }
   };
 
+  const downloadExport = () => {
+    const payload = viewModel.exportSnapshot();
+    const runtime = documentObject.defaultView ?? globalThis;
+    const BlobCtor = runtime.Blob ?? globalThis.Blob;
+    const urlApi = runtime.URL ?? globalThis.URL;
+    if (
+      typeof BlobCtor !== "function"
+      || typeof urlApi?.createObjectURL !== "function"
+      || typeof urlApi?.revokeObjectURL !== "function"
+    ) {
+      throw new Error("Local Memory export is unavailable");
+    }
+    const blob = new BlobCtor(
+      [`${JSON.stringify(payload, null, 2)}\n`],
+      { type: "application/json;charset=utf-8" },
+    );
+    const href = urlApi.createObjectURL(blob);
+    try {
+      const link = documentObject.createElement("a");
+      link.href = href;
+      link.download = "ordax-memory-export.json";
+      link.hidden = true;
+      container.append(link);
+      link.click();
+      link.remove();
+    } finally {
+      urlApi.revokeObjectURL(href);
+    }
+    return payload;
+  };
+
   const onClick = (event) => {
     const source = event.target;
     const target = source?.closest?.("button") ?? null;
     if (!target || !container.contains(target)) return;
     if (target.dataset.memoryReviewOwner) {
       pendingRemovalId = null;
+      exportState = "idle";
       viewModel.selectOwner({
         ownerKind: target.dataset.ownerKind,
         ownerId: target.dataset.ownerKind === "device" ? null : target.dataset.ownerId,
       });
+      return;
+    }
+    if (target.dataset.memoryReviewExport !== undefined) {
+      pendingRemovalId = null;
+      try {
+        downloadExport();
+        exportState = "exported";
+      } catch {
+        exportState = "error";
+      }
+      render();
       return;
     }
     if (target.dataset.memoryReviewCreate !== undefined) {
