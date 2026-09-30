@@ -117,12 +117,45 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual(reply.status, 200)
             self.assertEqual(calls, [("GET", "/account/spaces", {})])
 
+    def test_memory_entitlement_read_is_get_only_and_reuses_device_bound_session(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(
+                    status=200,
+                    headers={},
+                    body=(
+                        b'{"schema":"ordax.entitlements/1","subjectType":"account",'
+                        b'"subjectId":"user-1","key":"memory.cloud.enabled",'
+                        b'"decision":"denied","value":null,"authority":"server",'
+                        b'"expiresAt":null}'
+                    ),
+                )
+
+            client._request = fake_request
+            reply = client.memory_cloud_entitlement()
+
+            self.assertEqual(reply.status, 200)
+            self.assertEqual(
+                calls,
+                [("GET", "/account/entitlements/memory-cloud", {})],
+            )
+            payload = json.loads(reply.body.decode("utf-8"))
+            self.assertEqual(payload["authority"], "server")
+            self.assertEqual(payload["key"], "memory.cloud.enabled")
+            self.assertEqual(payload["decision"], "denied")
+
     def test_native_adapter_has_no_provider_specific_supabase_dependency(self):
         source = MODULE.read_text(encoding="utf-8").lower()
         self.assertNotIn("supabase", source)
         self.assertIn("/auth/session", source)
         self.assertIn("/account/export", source)
         self.assertIn("/account/spaces", source)
+        self.assertIn("/account/entitlements/memory-cloud", source)
         self.assertIn("/sync/objects", source)
         self.assertIn("/sync/snapshot", source)
         self.assertIn("/sync/changes", source)
