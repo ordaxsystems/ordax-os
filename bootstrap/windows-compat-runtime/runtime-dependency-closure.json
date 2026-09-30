@@ -6,6 +6,7 @@
     "full_build_proof_schema": "prototype-ordax.windows-compat-full-build-proof/2",
     "direct_dependency_proof_schema": "prototype-ordax.windows-compat-runtime-dependency-proof/1",
     "direct_dependency_evidence_proof_schema": "prototype-ordax.windows-compat-runtime-dependency-evidence-proof/1",
+    "unixlib_preload_source_proof_schema": "prototype-ordax.windows-compat-runtime-unixlib-preload-source-proof/1",
     "closure_loader_guard_proof_schema": "prototype-ordax.windows-compat-runtime-closure-loader-guard-proof/1",
     "closure_evidence_proof_schema": "prototype-ordax.windows-compat-runtime-closure-evidence-proof/1",
     "direct_loader_resolution_required": true,
@@ -18,6 +19,7 @@
     "edge": "DT_NEEDED",
     "loader": "musl-needed-by-chain",
     "ambient_ld_library_path_allowed": false,
+    "source_derived_dependency_attach_preloads_required": true,
     "inherit_needed_by_dynamic_paths": true,
     "system_path_after_dynamic_chain": true,
     "cycle_detection_required": true,
@@ -30,6 +32,7 @@
     "raw_closure_is_authoritative": false,
     "first_existing_pathname_must_be_loadable": true,
     "incompatible_first_pathname_may_be_skipped": false,
+    "preload_source_evidence_binding_required": true,
     "global_shortname_target_invariance_required": true,
     "origin_alias_context_must_be_unambiguous": true,
     "context_expansion_completeness_required": true,
@@ -37,7 +40,7 @@
     "closure_evidence_finalizer_required": true
   },
   "classification": {
-    "transitive_dt_needed_closure": "all DT_NEEDED edges reachable from staged ELF roots under modeled musl loader search semantics after independent edge, loaded-shortname, cycle and context-expansion validation",
+    "transitive_dt_needed_closure": "all DT_NEEDED edges reachable from staged ELF roots under source-proven Wine preload semantics plus modeled musl loader search semantics after independent edge, loaded-shortname, cycle and context-expansion validation",
     "raw_closure": "candidate traversal only; not authoritative until closure loader guard, context-expansion completeness and final evidence binding pass",
     "dynamic_dlopen_inventory": "out-of-scope-for-this-gate",
     "plugin_discovery": "out-of-scope-for-this-gate",
