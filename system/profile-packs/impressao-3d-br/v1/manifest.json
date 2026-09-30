@@ -2,7 +2,7 @@
   "$schema": "ordax.profile-pack/1",
   "slug": "impressao-3d-br",
   "version": 1,
-  "state": "draft",
+  "state": "active",
   "title": "Impressão 3D",
   "category": "digital-fabrication",
   "space_kind": "professional",
