@@ -207,6 +207,44 @@ class RuntimeDependencyClosureTests(unittest.TestCase):
             self.assertFalse(proof["gates"]["dynamic_load_inventory_complete"])
             self.assertFalse(proof["gates"]["runtime_dependency_inventory_complete"])
 
+    def test_transitive_child_resolves_through_ancestor_runpath_needed_by_chain(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            write(
+                stage / "usr/bin/wine",
+                synthetic_elf64((b"libparent.so.1",), runpath=b"/opt/app/lib"),
+            )
+            write(rootfs / "usr/lib/libparent.so.1", synthetic_elf64((b"libchild.so.1",)))
+            write(rootfs / "opt/app/lib/libchild.so.1", synthetic_elf64())
+            write_apk_database(
+                rootfs,
+                [
+                    ("usr/lib", "libparent.so.1"),
+                    ("opt/app/lib", "libchild.so.1"),
+                ],
+            )
+            preload = preload_source_proof()
+            full = full_build_proof(stage)
+            direct = direct_proof(stage, rootfs, full, preload)
+            proof = MODULE.discover(stage, rootfs, full, direct, preload)
+
+            parent_contexts = [
+                item for item in proof["contexts"].values()
+                if item["consumer"] == "rootfs-external:usr/lib/libparent.so.1"
+            ]
+            self.assertEqual(len(parent_contexts), 1)
+            child_edges = [edge for edge in parent_contexts[0]["edges"] if edge["soname"] == "libchild.so.1"]
+            self.assertEqual(len(child_edges), 1)
+            child = child_edges[0]
+            self.assertEqual(child["canonical_path"], "opt/app/lib/libchild.so.1")
+            self.assertEqual(child["search_source"], "DT_RUNPATH@/usr/bin/wine")
+            self.assertEqual(child["needed_by_depth"], 1)
+            self.assertTrue(proof["gates"]["transitive_dt_needed_closure_complete"])
+            self.assertFalse(proof["gates"]["dynamic_load_inventory_complete"])
+            self.assertFalse(proof["gates"]["runtime_dependency_inventory_complete"])
+
     def test_alias_paths_are_preserved_before_canonical_context_dedup(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
