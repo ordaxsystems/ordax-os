@@ -1,4 +1,5 @@
 import { assertIdentitySessionPort, validateIdentitySessionSnapshot } from "../../contracts/identity-session.mjs";
+import { MEMORY_MUTATION_PORT_SCHEMA } from "../../contracts/memory-mutation.mjs";
 import {
   MAX_MEMORY_SEARCH_OFFSET,
   MAX_MEMORY_SEARCH_RESULTS,
@@ -457,6 +458,16 @@ export function createAccountMemoryAuthorizedComposition({
     },
   });
 
+  const mutationPort = Object.freeze({
+    schema: MEMORY_MUTATION_PORT_SCHEMA,
+    remember(value) {
+      return protectedMutations.remember(value);
+    },
+    forget(value) {
+      return protectedMutations.forget(value);
+    },
+  });
+
   const settleAndReplay = async (refresh) => {
     if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
     if (refresh) await entitlementSession.refresh();
@@ -470,6 +481,7 @@ export function createAccountMemoryAuthorizedComposition({
   return Object.freeze({
     schema: ACCOUNT_MEMORY_AUTHORIZED_COMPOSITION_SCHEMA,
     memory,
+    mutationPort,
     protectedMutations,
     baseMemory: memoryComposition.baseMemory,
     memorySync: memoryComposition.memorySync,
