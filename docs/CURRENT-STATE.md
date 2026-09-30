@@ -1000,6 +1000,9 @@ and Intelligence remains consultative. Successful foreground reasoning persists 
 with the completed Work state and exactly one completed Activity reference. Activity therefore
 does not duplicate raw model output, and persisted model output cannot become action authority.
 Work, Activity and Result remain inside the same owner partition and terminal removal clears all
-three. The runtime is not mounted in Web/Native composition yet, so no public Activity UI,
-background execution or autonomous tool action is claimed.
+three. A Native device-store adapter now persists one validated record per owner through the
+privileged Surface device-local storage boundary; corrupt records are recovery-blocked per owner and
+their original bytes are not silently overwritten. This adapter is not account sync and does not
+turn Memory into a task database. The runtime/store are not mounted in Web/Native composition yet,
+so no public Activity UI, background execution or autonomous tool action is claimed.
 \n
