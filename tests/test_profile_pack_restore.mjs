@@ -92,7 +92,8 @@ test("restore resolves exact persisted Developer metadata without applying capab
     packs: [developer, legalBr],
     provisioning: provisioning(new Map([["developer@1", plan()]])),
     activationState: activationState([{
-      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
+      subjectId: "user-1",
+      spaceId: "space-dev",
       spaceKind: "professional",
       current: current("developer"),
       previous: null,
@@ -103,7 +104,8 @@ test("restore resolves exact persisted Developer metadata without applying capab
   assert.equal(restore.bootCritical, false);
   assert.deepEqual(restore.entries[0], {
     schema: "ordax.profile-pack-restore-entry/2",
-    subjectId: "user-1",\n    spaceId: "space-dev",
+    subjectId: "user-1",
+    spaceId: "space-dev",
     spaceKind: "professional",
     state: "resolved",
     reason: null,
@@ -117,7 +119,8 @@ test("restore keeps manifest-blocked Legal-BR disabled-safe", () => {
     packs: [developer, legalBr],
     provisioning: provisioning(new Map([["legal-br@1", plan({ slug: "legal-br" })]])),
     activationState: activationState([{
-      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-legal",
+      subjectId: "user-1",
+      spaceId: "space-legal",
       spaceKind: "professional",
       current: current("legal-br"),
       previous: null,
@@ -138,7 +141,8 @@ test("restore fails safe on receipt drift or missing device inventory", () => {
       plan({ components: [installed] }),
     ]])),
     activationState: activationState([{
-      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
+      subjectId: "user-1",
+      spaceId: "space-dev",
       spaceKind: "professional",
       current: current("developer", [persisted]),
       previous: null,
@@ -153,7 +157,8 @@ test("restore fails safe on receipt drift or missing device inventory", () => {
       plan({ components: [installed], inventoryPersistence: "session" }),
     ]])),
     activationState: activationState([{
-      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
+      subjectId: "user-1",
+      spaceId: "space-dev",
       spaceKind: "professional",
       current: current("developer", [installed]),
       previous: null,
@@ -198,7 +203,8 @@ test("restore refuses retired Profile and Space kind drift", () => {
     packs: [retired],
     provisioning: provisioning(new Map([["developer@1", plan()]])),
     activationState: activationState([{
-      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
+      subjectId: "user-1",
+      spaceId: "space-dev",
       spaceKind: "professional",
       current: current("developer"),
       previous: null,
@@ -210,7 +216,8 @@ test("restore refuses retired Profile and Space kind drift", () => {
     packs: [developer],
     provisioning: provisioning(new Map([["developer@1", plan()]])),
     activationState: activationState([{
-      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
+      subjectId: "user-1",
+      spaceId: "space-dev",
       spaceKind: "work",
       current: current("developer"),
       previous: null,
@@ -224,7 +231,8 @@ test("inactive persisted row stays inactive and grants no Profile authority", ()
     packs: [developer],
     provisioning: provisioning(new Map([["developer@1", plan()]])),
     activationState: activationState([{
-      subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
+      subjectId: "user-1",
+      spaceId: "space-dev",
       spaceKind: "professional",
       current: null,
       previous: current("developer"),
@@ -247,7 +255,8 @@ test("restore rejects unvalidated normalized-looking Profile objects", () => {
       packs: [fake],
       provisioning: provisioning(new Map([["developer@1", plan()]])),
       activationState: activationState([{
-        subjectId: "user-1",\n      subjectId: "user-1",\n    spaceId: "space-dev",
+        subjectId: "user-1",
+        spaceId: "space-dev",
         spaceKind: "professional",
         current: current("developer"),
         previous: null,
