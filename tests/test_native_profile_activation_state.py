@@ -120,7 +120,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             "revision": 1,
             "persistence": "device",
             "spaces": [{
-                "subjectId": "user-1",\n
+                "subjectId": "user-1",
                 "spaceId": "space-1",
                 "spaceKind": "professional",
                 "current": {
@@ -147,7 +147,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             "revision": 1,
             "persistence": "device",
             "spaces": [{
-                "subjectId": "user-1",\n
+                "subjectId": "user-1",
                 "spaceId": "space-1",
                 "spaceKind": "professional",
                 "current": activation(components=[]),
@@ -173,7 +173,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            result = module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            result = module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[installed]),
                 state_path=str(state_path),
@@ -191,7 +193,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             stale = activation(components=[dict(installed)])
             stale["components"][0]["receiptSha256"] = "d" * 64
             with self.assertRaisesRegex(ValueError, "receipt does not match inventory"):
-                module.activate_profile(\n                    subject_id="user-1",\n                    space_id="space-2",
+                module.activate_profile(
+                    subject_id="user-1",
+                    space_id="space-2",
                     space_kind="professional",
                     activation=stale,
                     state_path=str(state_path),
@@ -214,7 +218,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             receipt_path.write_text("tampered\n", encoding="utf-8")
             os.chmod(receipt_path, 0o600)
             with self.assertRaisesRegex(ValueError, "receipt hash mismatch"):
-                module.activate_profile(\n                    subject_id="user-1",\n                    space_id="space-1",
+                module.activate_profile(
+                    subject_id="user-1",
+                    space_id="space-1",
                     space_kind="professional",
                     activation=activation(components=[installed]),
                     state_path=str(state_path),
@@ -233,7 +239,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            first = module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            first = module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[], activated_at=1000),
                 state_path=str(state_path),
@@ -242,7 +250,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             )
             self.assertTrue(first["changed"])
 
-            duplicate = module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            duplicate = module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[], activated_at=2000),
                 state_path=str(state_path),
@@ -256,7 +266,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 1000,
             )
 
-            second = module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            second = module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(
                     slug="business",
@@ -271,7 +283,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             self.assertEqual(row["current"]["profile"]["slug"], "business")
             self.assertEqual(row["previous"]["profile"]["slug"], "developer")
 
-            rolled = module.rollback_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            rolled = module.rollback_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
                 lock_path=str(lock_path),
@@ -280,7 +294,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             self.assertEqual(row["current"]["profile"]["slug"], "developer")
             self.assertEqual(row["previous"]["profile"]["slug"], "business")
 
-            deactivated = module.deactivate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            deactivated = module.deactivate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 state_path=str(state_path),
                 lock_path=str(lock_path),
             )
@@ -288,7 +304,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             self.assertIsNone(row["current"])
             self.assertEqual(row["previous"]["profile"]["slug"], "developer")
 
-            restored = module.rollback_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            restored = module.rollback_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
                 lock_path=str(lock_path),
@@ -308,14 +326,18 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(slug="first", components=[], activated_at=1000),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
                 lock_path=str(lock_path),
             )
-            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(slug="second", components=[], activated_at=2000),
                 state_path=str(state_path),
@@ -329,7 +351,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 raise PermissionError("stable policy rejected rollback target")
 
             with self.assertRaisesRegex(PermissionError, "stable policy rejected"):
-                module.rollback_profile(\n                    subject_id="user-1",\n                    space_id="space-1",
+                module.rollback_profile(
+                    subject_id="user-1",
+                    space_id="space-1",
                     expected_revision=2,
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
@@ -353,7 +377,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[installed]),
                 state_path=str(state_path),
@@ -361,7 +387,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 receipt_root=str(receipt_root),
                 lock_path=str(lock_path),
             )
-            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(slug="business", components=[], activated_at=2000),
                 state_path=str(state_path),
@@ -372,7 +400,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
             with self.assertRaisesRegex(ValueError, "not installed"):
-                module.rollback_profile(\n                    subject_id="user-1",\n                    space_id="space-1",
+                module.rollback_profile(
+                    subject_id="user-1",
+                    space_id="space-1",
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
                     receipt_root=str(receipt_root),
@@ -389,7 +419,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
+            module.activate_profile(
+                subject_id="user-1",
+                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[]),
                 state_path=str(state_path),
@@ -397,7 +429,9 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 lock_path=str(lock_path),
             )
             with self.assertRaisesRegex(ValueError, "Space kind changed unexpectedly"):
-                module.activate_profile(\n                    subject_id="user-1",\n                    space_id="space-1",
+                module.activate_profile(
+                    subject_id="user-1",
+                    space_id="space-1",
                     space_kind="personal",
                     activation=activation(slug="business", components=[], activated_at=2000),
                     state_path=str(state_path),
@@ -414,7 +448,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 "revision": 1,
                 "persistence": "device",
                 "spaces": [{
-                    "subjectId": "user-1",\n
+                    "subjectId": "user-1",
                     "spaceId": "space-1",
                     "spaceKind": "professional",
                     "current": same,
