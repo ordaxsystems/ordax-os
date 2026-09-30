@@ -136,7 +136,11 @@ class NotesNativeTests(unittest.TestCase):
         self.assertIn('STORAGE_KEY = "ordax.notes.v1"', web)
         self.assertIn("localStorage", web)
         self.assertIn('NOTES_ENDPOINT = "/__ordax/native/notes"', native)
-        self.assertIn("persistQueue", native)
+        self.assertIn("desiredRevision", native)
+        self.assertIn("durableRevision", native)
+        self.assertIn("lastPersistError", native)
+        self.assertIn("async flush()", native)
+        self.assertNotIn(".catch(() => false)", native)
         self.assertNotIn("localStorage", native)
 
     def test_notes_is_a_real_first_party_app_in_both_compositions(self):
@@ -175,7 +179,7 @@ class NotesNativeTests(unittest.TestCase):
         self.assertIn("createNotesRuntime", component_runtime)
         self.assertIn("mountNotesWorkspaceControls", component_runtime)
         self.assertIn('new URL("./notes.css", import.meta.url).href', component_runtime)
-        self.assertIn('NOTES_VERSION = "0.4.0"', version)
+        self.assertIn('NOTES_VERSION = "0.4.1"', version)
 
     def test_notes_surface_matches_concept_without_platform_storage_shortcuts(self):
         controls = NOTES_CONTROLS.read_text(encoding="utf-8")
