@@ -138,3 +138,9 @@ Propostas estruturadas vindas do modelo continuam desabilitadas neste corte. Qua
 Um runtime com Action Gateway agora é inválido sem um revoker de grants. A revogação deixou de ser responsabilidade da UI/composição e passou a fazer parte do lifecycle canônico do Personal OrdaX.
 
 Qualquer grant aprovado e ainda não consumido é revogado antes de invalidar seu contexto por troca de owner, logout, troca de Space, desaparecimento do projeto ou cancelamento explícito do Work. Isso também vale para Work já pausado após uma tentativa de execução: estar pausado não mantém authority viva. A approval permanece como `revoked` com seu `grantRef` apenas para auditoria; o registry já não resolve esse grant.
+
+### Expiração de authority em runtime vivo
+
+Grant curto não vira authority persistente por acidente. A composição Native reconcilia approvals `approved` contra o registry antes de expor execução e a Activity faz a mesma reconciliação antes de renderizar controles. Se o grant expirou ou desapareceu, a approval passa para `revoked` antes de qualquer side effect; nenhuma tentativa de execução reutiliza o grant morto.
+
+Essa reconciliação usa o mesmo caminho já aplicado no restore. Não existe estado paralelo de expiração na UI.
