@@ -102,6 +102,11 @@ class NativePreferenceTests(unittest.TestCase):
         self.assertIn("() => createNativeSyncCheckpointStore(window)", text)
         self.assertIn("const optionalPortsPromise = Promise.all([", text)
         self.assertIn("syncStateStore", text)
+        self.assertIn('../../services/sync/state-store-registry.mjs', text)
+        self.assertIn("createSyncStateNamespaceRegistry", text)
+        self.assertIn('legacyNamespace: "appearance"', text)
+        self.assertIn('syncStateRegistry?.open("appearance")', text)
+        self.assertIn("syncStateStore: appearanceSyncStateStore", text)
         self.assertNotIn('../../adapters/web/preferences.mjs', text)
         self.assertNotIn("createWebPreferenceStore", text)
 
