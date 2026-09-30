@@ -9,6 +9,7 @@ ACCOUNT_MEMORY_COMPOSITION = ROOT / "system" / "composition" / "native" / "accou
 ACCOUNT_MEMORY_FOUNDATION = ROOT / "system" / "composition" / "native" / "account-memory-foundation.mjs"
 ACCOUNT_SYNC_COMPOSITION = ROOT / "system" / "composition" / "native" / "account-sync.mjs"
 WORKFLOW = ROOT / ".github" / "workflows" / "intelligence-foundation.yml"
+INTELLIGENCE_CONTRACT = ROOT / "docs" / "contracts" / "intelligence.json"
 
 
 class NativeMemoryIntegrationTests(unittest.TestCase):
@@ -86,6 +87,32 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("memorySync,", account_sync)
         self.assertIn("publicCloudMemoryEnabled: false", account_sync)
         self.assertIn("publicCloudMemoryEnabled: false", ACCOUNT_MEMORY_COMPOSITION.read_text(encoding="utf-8"))
+
+    def test_native_memory_context_contract_matches_identity_bound_runtime(self):
+        import json
+
+        composition = COMPOSITION.read_text(encoding="utf-8")
+        contract = json.loads(INTELLIGENCE_CONTRACT.read_text(encoding="utf-8"))
+
+        self.assertTrue(contract["context"]["ordinary_request_injects_memory"])
+        self.assertTrue(
+            contract["context"]["ordinary_request_memory_injection_requires_composition_authorization"]
+        )
+        self.assertEqual(
+            contract["context"]["ordinary_request_memory_injection_native_scopes"],
+            ["device", "account", "space"],
+        )
+        self.assertFalse(contract["context"]["project_or_session_memory_inferred"])
+        self.assertFalse(contract["context"]["restricted_memory_injected"])
+        self.assertTrue(contract["mvp_policy"]["automatic_memory_injection_enabled"])
+        self.assertEqual(
+            contract["mvp_policy"]["automatic_memory_injection_authority"],
+            "trusted-native-composition-only",
+        )
+
+        self.assertIn("createIdentityBoundMemoryIntelligence", composition)
+        self.assertIn("identitySessionPort: identitySession", composition)
+        self.assertIn("spaceSelectionPort: spaceSelection", composition)
 
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
