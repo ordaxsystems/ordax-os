@@ -31,6 +31,7 @@ function request(overrides = {}) {
     approvalId: "personal-approval-personal-work-1-1",
     actionId: "files.directory.create",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect: "write",
     ownerKind: "account",
     ownerId: "user-a",
@@ -48,6 +49,7 @@ function grant(overrides = {}) {
     grantId: "grant-1",
     approvalId: "personal-approval-personal-work-1-1",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     action: "files.directory.create",
     mode: "write",
     approved: true,
@@ -85,6 +87,7 @@ test("Action Executor revalidates authority immediately before invoking typed ad
       return {
         schema: ACTION_ADAPTER_SCHEMA,
         toolId,
+        artifactSha256: "a".repeat(64),
         actionId,
         effect: "write",
         async execute(received) {
@@ -106,6 +109,7 @@ test("Action Executor revalidates authority immediately before invoking typed ad
   assert.equal(receipt.status, "succeeded");
   assert.equal(receipt.approvalId, actionRequest.approvalId);
   assert.equal(receipt.grantRef, "grant-1");
+  assert.equal(receipt.toolArtifactSha256, "a".repeat(64));
   assert.equal(receipt.resourceRef, actionRequest.resourceRef);
   assert.deepEqual(receipt.artifactRefs, ["file-space:/Documentos/Novo"]);
 });
@@ -122,6 +126,7 @@ test("revoked grant fails closed before adapter side effect", async () => {
       return {
         schema: ACTION_ADAPTER_SCHEMA,
         toolId: "files-inspector",
+        artifactSha256: "a".repeat(64),
         actionId: "files.directory.create",
         effect: "write",
         async execute() {
@@ -164,6 +169,36 @@ test("resource substitution is denied before adapter resolution", async () => {
   assert.equal(resolved, false);
 });
 
+test("adapter artifact substitution fails closed before side effect", async () => {
+  const { gateway } = setup();
+  const actionRequest = request();
+  const decision = gateway.decide(actionRequest, { grantRef: "grant-1" });
+  let calls = 0;
+  const executor = createPersonalOrdaxActionExecutor({
+    actionGateway: gateway,
+    adapterResolver() {
+      return {
+        schema: ACTION_ADAPTER_SCHEMA,
+        toolId: "files-inspector",
+        artifactSha256: "b".repeat(64),
+        actionId: "files.directory.create",
+        effect: "write",
+        async execute() {
+          calls += 1;
+          return { summary: "must not execute" };
+        },
+      };
+    },
+    now: () => NOW,
+  });
+
+  await assert.rejects(
+    () => executor.execute({ request: actionRequest, decision }),
+    /does not match/,
+  );
+  assert.equal(calls, 0);
+});
+
 test("mismatched typed adapter fails closed after authority revalidation", async () => {
   const { gateway } = setup();
   const actionRequest = request();
@@ -174,6 +209,7 @@ test("mismatched typed adapter fails closed after authority revalidation", async
       return {
         schema: ACTION_ADAPTER_SCHEMA,
         toolId: "files-inspector",
+        artifactSha256: "a".repeat(64),
         actionId: "files.other.write",
         effect: "write",
         async execute() {
