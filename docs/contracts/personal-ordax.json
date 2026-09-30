@@ -25,13 +25,15 @@
       "ordax.intelligence/1",
       "ordax.intelligence-tool-grant/1",
       "device-capability-grant",
-      "action-gateway"
+      "action-gateway",
+      "ordax.action-gateway/1"
     ],
     "outputs": [
       "ordax.personal-work-item/1",
       "ordax.personal-activity/1",
       "ordax.personal-action-decision/1",
-      "ordax.personal-work-result/1"
+      "ordax.personal-work-result/1",
+      "ordax.personal-approval/1"
     ],
     "direct_platform_adapter_imports_allowed": false,
     "direct_provider_sdk_imports_allowed": false,
@@ -99,7 +101,12 @@
     "generic_shell_allowed": false,
     "raw_disk_allowed": false,
     "release_key_access_allowed": false,
-    "physical_write_authorization_allowed": false
+    "physical_write_authorization_allowed": false,
+    "action_gateway_source_enabled": true,
+    "action_gateway_executes_side_effects": false,
+    "exact_owner_space_project_tool_action_scope_required": true,
+    "expired_or_invalid_grant": "deny",
+    "device_and_account_owner_semantics_are_canonical": true
   },
   "activity": {
     "ordered_sequence_required": true,
@@ -109,7 +116,12 @@
     "activity_view_runtime_enabled": true,
     "completed_result_reference_required_for_new_runtime_results": true,
     "result_payload_stored_outside_activity_summary": true,
-    "activity_view_owns_persistence": false
+    "activity_view_owns_persistence": false,
+    "approval_state_persisted": true,
+    "pending_approval_requires_waiting_work": true,
+    "resolved_approval_requires_audit_activity": true,
+    "approved_action_requires_matching_allow_decision": true,
+    "denied_action_requires_matching_deny_decision": true
   },
   "mvp": {
     "public_mvp_enabled": false,
@@ -121,7 +133,9 @@
     "external_app_connectors_enabled": false,
     "specialist_agents_enabled": false,
     "personal_foreground_runtime_source_enabled": true,
-    "personal_foreground_runtime_mounted_in_surface": true
+    "personal_foreground_runtime_mounted_in_surface": true,
+    "approval_lifecycle_source_enabled": true,
+    "action_execution_enabled": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
