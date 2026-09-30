@@ -5,7 +5,7 @@ import { MEMORY_PORT_SCHEMA } from "../system/contracts/memory.mjs";
 import { MEMORY_MUTATION_PORT_SCHEMA } from "../system/contracts/memory-mutation.mjs";
 import { createMemoryMutationPort } from "../system/services/memory/mutation-port.mjs";
 
-function memoryPort() {
+function memoryPort({ flushResult = true, flushError = null } = {}) {
   const items = new Map();
   let flushes = 0;
   return {
@@ -21,7 +21,8 @@ function memoryPort() {
     },
     async flush() {
       flushes += 1;
-      return true;
+      if (flushError !== null) throw flushError;
+      return flushResult;
     },
   };
 }
@@ -56,6 +57,28 @@ test("mutation port gives device/local writes an explicit durable flush boundary
   assert.equal(memory.flushes, 2);
   assert.equal(mutations.getSnapshot().protectedAccountMutations, false);
   assert.equal(mutations.getSnapshot().cloudTransportOwned, false);
+});
+
+test("local mutation boundary fails when persistence does not confirm durability", async () => {
+  const memory = memoryPort({ flushResult: false });
+  const mutations = createMemoryMutationPort({ memoryPort: memory });
+
+  await assert.rejects(
+    mutations.remember(item()),
+    /persistence flush was not confirmed/,
+  );
+  assert.equal(memory.flushes, 1);
+});
+
+test("local mutation boundary propagates persistence errors", async () => {
+  const memory = memoryPort({ flushError: new Error("device-write-failed") });
+  const mutations = createMemoryMutationPort({ memoryPort: memory });
+
+  await assert.rejects(
+    mutations.remember(item()),
+    /device-write-failed/,
+  );
+  assert.equal(memory.flushes, 1);
 });
 
 test("mutation port delegates account writes to protected mutations without local fallback writes", async () => {
