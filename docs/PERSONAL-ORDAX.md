@@ -155,9 +155,10 @@ becomes a permission source.
 
 The source now contains the stable work/activity contracts plus a foreground runtime under
 `system/services/personal-ordax/`. It binds work to the exact device/account owner and optional
-explicit Space/project, pauses work when that context changes, discards stale inference results,
-keeps Intelligence consultative and persists only through the dedicated bounded work-store
-contract. It is not yet mounted into Web/Native composition.
+explicit Space/project, persists each owner in an isolated store partition, pauses the previous
+partition on identity change, preserves corrupt durable partitions without overwriting them,
+discards stale inference results, keeps Intelligence consultative and persists only through the
+dedicated bounded work-store contract. It is not yet mounted into Web/Native composition.
 
 Next in this phase is the shared Activity view and composition wiring. That UI must consume the
 same runtime rather than create an app-local task store.
