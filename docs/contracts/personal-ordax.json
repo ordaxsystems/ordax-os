@@ -56,7 +56,9 @@
     "cloud_computer_enabled": false,
     "owner_partitioned_persistence": true,
     "completed_reasoning_result_persisted_atomically": true,
-    "result_carries_action_authority": false
+    "result_carries_action_authority": false,
+    "owner_partition_max_serialized_bytes": 4194304,
+    "byte_ceiling_applies_after_semantic_validation": true
   },
   "authority": {
     "effects": [
