@@ -52,7 +52,8 @@
 }
 
 .ordax-activity-create,
-.ordax-activity-result {
+.ordax-activity-result,
+.ordax-activity-approval {
   display: grid;
   gap: 8px;
   padding: 12px;
