@@ -114,9 +114,16 @@ export async function createNativePersonalOrdaxFileActions({
       toolArtifactSha256: tool.artifactSha256,
       actionId: NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
       effect: "write",
-      inputKind: "resource-ref",
+      inputKind: "resource-value",
+      resourceScheme: "file-space",
     }),
-    validateResourceRef: validateNativeFileDirectoryResourceRef,
+    toResourceRef(resourceValue) {
+      if (typeof resourceValue !== "string" || resourceValue.includes("\0")) {
+        throw new TypeError("Native file action directory input must be text");
+      }
+      const path = resourceValue.trim();
+      return validateNativeFileDirectoryResourceRef(`file-space:${path}`);
+    },
     reason: "Ensure the explicitly selected directory exists inside the canonical user file-space.",
   })]);
 
