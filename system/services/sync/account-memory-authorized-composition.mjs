@@ -1,4 +1,5 @@
 import { createAccountMemorySyncComposition } from "./account-memory-composition.mjs";
+import { createAccountMemoryDeferredIntents } from "./account-memory-deferred-intents.mjs";
 import { createAccountMemoryEntitlementSession } from "./account-memory-entitlement-session.mjs";
 
 export const ACCOUNT_MEMORY_AUTHORIZED_COMPOSITION_SCHEMA = "ordax.account-memory-authorized-composition/1";
@@ -8,6 +9,7 @@ export function createAccountMemoryAuthorizedComposition({
   entitlementsPort,
   memoryPort,
   createSyncStateStore,
+  createDeferredStateStore,
   createIdempotencyKey,
   now = () => new Date(),
   onStageError = null,
@@ -16,6 +18,11 @@ export function createAccountMemoryAuthorizedComposition({
     identitySession,
     entitlementsPort,
     now,
+  });
+  const deferredIntents = createAccountMemoryDeferredIntents({
+    identitySession,
+    memoryPort,
+    createDeferredStateStore,
   });
   const memoryComposition = createAccountMemorySyncComposition({
     identitySession,
@@ -26,6 +33,9 @@ export function createAccountMemoryAuthorizedComposition({
     },
     createIdempotencyKey,
     onStageError,
+    onStageResult(result, context) {
+      deferredIntents.observeStageResult(result, context);
+    },
   });
 
   let destroyed = false;
@@ -35,11 +45,21 @@ export function createAccountMemoryAuthorizedComposition({
     return Object.freeze({
       schema: ACCOUNT_MEMORY_AUTHORIZED_COMPOSITION_SCHEMA,
       entitlement: entitlementSession.getSnapshot(),
+      deferredIntents: deferredIntents.getSnapshot(),
       memory: memoryComposition.getSnapshot(),
       authorizationEnforcedAtTransportBoundary: true,
       localFirstWhileAuthorizationUnavailable: true,
+      deferredStateStoresPortableContent: false,
       productionPromoted: false,
     });
+  };
+
+  const settleAndReplay = async (refresh) => {
+    if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
+    if (refresh) await entitlementSession.refresh();
+    else await entitlementSession.settled();
+    const replay = deferredIntents.replay(memoryComposition.memorySync);
+    return Object.freeze({ snapshot: snapshot(), replay });
   };
 
   return Object.freeze({
@@ -48,21 +68,23 @@ export function createAccountMemoryAuthorizedComposition({
     baseMemory: memoryComposition.baseMemory,
     memorySync: memoryComposition.memorySync,
     entitlementSession,
+    deferredIntents,
     getSnapshot: snapshot,
     async settled() {
-      if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
-      await entitlementSession.settled();
-      return snapshot();
+      return (await settleAndReplay(false)).snapshot;
     },
     async refreshAuthorization() {
+      return (await settleAndReplay(true)).snapshot;
+    },
+    async replayDeferredIntents() {
       if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
-      await entitlementSession.refresh();
-      return snapshot();
+      return deferredIntents.replay(memoryComposition.memorySync);
     },
     destroy() {
       if (destroyed) return;
       destroyed = true;
       memoryComposition.destroy();
+      deferredIntents.destroy();
       entitlementSession.destroy();
     },
   });
