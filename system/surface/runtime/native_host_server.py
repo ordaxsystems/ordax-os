@@ -3226,7 +3226,7 @@ class NativeHostServer(ThreadingHTTPServer):
         self.native_install_token = (
             secrets.token_urlsafe(32) if self.native_install_available else ""
         )
-        self.profile_activation_available = self.distribution_profile == "owner-development"
+        self.profile_activation_available = self.distribution_profile in {"owner-development", "stable-mvp"}
         self.profile_activation_token = (
             secrets.token_urlsafe(32) if self.profile_activation_available else ""
         )
@@ -3929,12 +3929,12 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 200,
                 {
                     "schema": "ordax.profile-content-context-capability/1",
-                    "available": self.server.distribution_profile == "owner-development",
+                    "available": self.server.distribution_profile in {"owner-development", "stable-mvp"},
                 },
             )
             return
         if parsed_path == PROFILE_CONTENT_CONTEXT_PATH:
-            if self.server.distribution_profile != "owner-development":
+            if self.server.distribution_profile not in {"owner-development", "stable-mvp"}:
                 self._empty(404)
                 return
             try:
