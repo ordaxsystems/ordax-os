@@ -24,6 +24,9 @@ export function assertSyncStateStorePort(store) {
   if (typeof store.load !== "function" || typeof store.save !== "function") {
     throw new TypeError("Sync-state-store must implement load() and save()");
   }
+  if (store.flush != null && typeof store.flush !== "function") {
+    throw new TypeError("Sync-state-store flush must be a function when provided");
+  }
   return store;
 }
 
