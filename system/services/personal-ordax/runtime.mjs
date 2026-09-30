@@ -591,6 +591,7 @@ export function createPersonalOrdaxRuntime({
       actionId,
       toolId,
       effect,
+      resourceRef = null,
       reason,
     } = {}) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
@@ -616,6 +617,10 @@ export function createPersonalOrdaxRuntime({
         throw new Error("Personal OrdaX action already has a retained approval");
       }
 
+      if (effect !== "read" && (typeof resourceRef !== "string" || resourceRef.trim() === "")) {
+        throw new TypeError("Sensitive Personal OrdaX approval requires an explicit resource reference");
+      }
+
       const requestedAt = isoClock(now);
       const approvalOrdinal = state.approvals.filter(
         (approval) => approval.workItemId === id,
@@ -626,6 +631,7 @@ export function createPersonalOrdaxRuntime({
         actionId,
         toolId,
         effect,
+        resourceRef,
         status: "pending",
         reason,
         grantRef: null,
@@ -678,6 +684,7 @@ export function createPersonalOrdaxRuntime({
 
       const actionDecision = validatePersonalActionDecision(actionGateway.decide({
         workItemId: item.id,
+        approvalId: approval.id,
         actionId: approval.actionId,
         toolId: approval.toolId,
         effect: approval.effect,
@@ -685,6 +692,7 @@ export function createPersonalOrdaxRuntime({
         ownerId: item.ownerId,
         spaceId: item.spaceId,
         projectId: item.projectId,
+        resourceRef: approval.resourceRef,
         reason: approval.reason,
         requestedAt: approval.requestedAt,
       }, { grantRef, userDecision }));
