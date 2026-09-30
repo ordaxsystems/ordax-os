@@ -3,7 +3,7 @@ export const DEVICE_AGENT_CAPABILITIES_SCHEMA = "ordax.device-agent-capabilities
 export const DEVICE_AGENT_CAPABILITY_READER_SCHEMA = "ordax.device-agent-capability-reader/1";
 
 const SOURCE_TYPES = new Set(["local", "github", "hybrid"]);
-const CLIENTS = new Set(["ordax-local", "ordax-web", "mcp"]);
+const CLIENTS = new Set(["ordax-local", "ordax-web", "ordax-mobile", "ordax-desktop", "ordax-native", "mcp"]);
 const MODES = new Set(["read", "write"]);
 const CAPABILITY_STATES = new Set(["ready", "degraded"]);
 const FORBIDDEN_CAPABILITIES = new Set([
