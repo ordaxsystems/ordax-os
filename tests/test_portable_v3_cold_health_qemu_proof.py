@@ -79,7 +79,7 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
         self.assertIn('"-net", "none"', text)
         self.assertIn("cache=directsync", text)
         self.assertIn(
-            "deadline = time.monotonic() + (300.0 if graphical_hardware else 150.0)",
+            "deadline = time.monotonic() + (300.0 if graphical_hardware else 210.0)",
             text,
         )
 
