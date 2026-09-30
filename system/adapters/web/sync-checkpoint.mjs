@@ -21,6 +21,7 @@ function resolveStorage(windowRef) {
 export function createWebSyncCheckpointStore(windowRef = globalThis.window) {
   const storage = resolveStorage(windowRef);
   let memory = null;
+  let lastSaveConfirmed = true;
 
   const store = {
     schema: SYNC_CHECKPOINT_STORE_SCHEMA,
@@ -38,17 +39,28 @@ export function createWebSyncCheckpointStore(windowRef = globalThis.window) {
     save(value) {
       const checkpoint = validateSyncCheckpoint(value);
       memory = checkpoint;
-      if (!storage) return false;
+      if (!storage) {
+        lastSaveConfirmed = true;
+        return true;
+      }
       try {
         if (checkpoint === null) {
           storage.removeItem?.(STORAGE_KEY);
         } else {
           storage.setItem(STORAGE_KEY, JSON.stringify(checkpoint));
         }
+        lastSaveConfirmed = true;
         return true;
       } catch {
+        lastSaveConfirmed = false;
         return false;
       }
+    },
+    async flush() {
+      if (!lastSaveConfirmed) {
+        throw new Error("Web sync checkpoint persistence is not confirmed");
+      }
+      return true;
     },
   };
 
