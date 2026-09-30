@@ -72,6 +72,7 @@ function checkpointStore() {
       value = next;
       return true;
     },
+    peek: () => value,
   };
 }
 
@@ -116,15 +117,8 @@ function memoryFoundation(events) {
   });
 }
 
-test("Native account sync accepts Memory only from the canonical foundation", async () => {
-  const preferences = preferencesRuntime();
-  const preferenceSync = createPreferenceSyncRuntime(preferences, {
-    createIdempotencyKey: keyFactory("pref"),
-  });
-  const bridge = createWorkspaceMetadataBridge(workspaceStore());
-  const events = [];
-  const foundation = memoryFoundation(events);
-  const transport = Object.freeze({
+function remoteMemoryTransport() {
+  return Object.freeze({
     schema: SYNC_TRANSPORT_SCHEMA,
     async snapshot() {
       return Object.freeze({
@@ -155,30 +149,69 @@ test("Native account sync accepts Memory only from the canonical foundation", as
       });
     },
   });
+}
 
+function createSyncHarness({ foundation, transport = remoteMemoryTransport() }) {
+  const preferences = preferencesRuntime();
+  const preferenceSync = createPreferenceSyncRuntime(preferences, {
+    createIdempotencyKey: keyFactory("pref"),
+  });
+  const bridge = createWorkspaceMetadataBridge(workspaceStore());
+  const checkpoint = checkpointStore();
   const sync = createNativeAccountSyncRuntime({
     accountMemoryFoundation: foundation,
     identitySession: identitySession(),
     transport,
-    checkpointStore: checkpointStore(),
+    checkpointStore: checkpoint,
     preferenceSync,
     preferences,
     workspaceMetadataSource: bridge.source,
     workspaceStore: bridge.store,
     createIdempotencyKey: keyFactory("account"),
   });
+  return Object.freeze({
+    sync,
+    checkpoint,
+    destroy() {
+      sync.destroy();
+      preferenceSync.destroy();
+    },
+  });
+}
 
-  await sync.refresh();
+test("Native account sync accepts Memory only from the canonical foundation", async () => {
+  const events = [];
+  const foundation = memoryFoundation(events);
+  const harness = createSyncHarness({ foundation });
+
+  await harness.sync.refresh();
 
   assert.equal(events[0][0], "remote");
   assert.equal(events[0][1][0].dataClass, "memory");
   assert.equal(events.some(([kind]) => kind === "flush"), true);
-  assert.equal(sync.getSnapshot().trackedDataClasses.includes("memory"), true);
+  assert.equal(harness.sync.getSnapshot().trackedDataClasses.includes("memory"), true);
   assert.equal(describeNativeAccountSyncComposition(foundation).memorySyncWired, true);
   assert.equal(describeNativeAccountSyncComposition(foundation).publicCloudMemoryEnabled, false);
 
-  sync.destroy();
-  preferenceSync.destroy();
+  harness.destroy();
+});
+
+test("Native account sync refuses to advance a checkpoint across remote Memory without a reconciler", async () => {
+  const foundation = Object.freeze({
+    schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
+    memorySync: null,
+  });
+  const harness = createSyncHarness({ foundation });
+
+  assert.equal(harness.checkpoint.peek(), null);
+  await harness.sync.refresh();
+
+  assert.equal(harness.checkpoint.peek(), null);
+  assert.equal(harness.sync.getSnapshot().accountContinuity, "not-active");
+  assert.equal(harness.sync.getSnapshot().trackedDataClasses.includes("memory"), false);
+  assert.equal(describeNativeAccountSyncComposition(foundation).remoteMemoryWithoutReconciler, "fail-closed");
+
+  harness.destroy();
 });
 
 test("Native account sync rejects ad-hoc Memory providers", () => {
@@ -192,5 +225,6 @@ test("Native account sync remains valid without Account Memory foundation", () =
   const snapshot = describeNativeAccountSyncComposition(null);
   assert.equal(snapshot.memorySyncWired, false);
   assert.equal(snapshot.memorySyncSource, "none");
+  assert.equal(snapshot.remoteMemoryWithoutReconciler, "fail-closed");
   assert.equal(snapshot.publicCloudMemoryEnabled, false);
 });
