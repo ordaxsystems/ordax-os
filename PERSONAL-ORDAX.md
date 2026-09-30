@@ -110,3 +110,9 @@ A autoridade sensível também fica presa ao SHA-256 exato do artefato da tool. 
 O primeiro adapter concreto é `ordax-native-file-space/files.directory.ensure`. Ele usa somente o `fileSpace` canônico já montado na Surface, não expõe shell nem broker genérico e não recebe caminho fora de `file-space:`. A operação é deliberadamente idempotente: se o diretório exato já existir, a mesma execução termina com sucesso sem repetir mutação; se existir outro tipo de entrada no alvo, falha fechado.
 
 A identidade do adapter é o SHA-256 calculado sobre os bytes reais do próprio módulo servido pela mesma origem via Web Crypto. Essa identidade entra na tool e, pelo gate anterior, precisa coincidir com approval, grant, Action Gateway e Action Executor. A composição Native já registra essa tool para o fluxo de aprovação, mas ainda não conecta o `adapterResolver` ao Action Executor; portanto este corte continua sem habilitar side effect do Personal OrdaX.
+
+### Lifecycle foreground da ação
+
+A approval aprovada agora pode entrar explicitamente em execução foreground. O runtime persiste `action-started`, mantém a approval como `approved` durante a tentativa e só a transforma em `executed` quando recebe um `ordax.action-receipt/1` com status `succeeded` que coincide exatamente com Work, approval, tool, SHA-256 do artefato, action, effect, recurso e grant retidos. A mesma approval não pode ser executada novamente depois desse consumo.
+
+Falha sem receipt verificado pausa o Work sem consumir a approval. A retomada/reexecução continua sendo explícita e foi desenhada para adapters idempotentes, começando por `files.directory.ensure`. Este corte ainda não conecta o adapter Native ao Action Executor na composição principal; o lifecycle está pronto antes de abrir o efeito.
