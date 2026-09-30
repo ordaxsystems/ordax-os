@@ -990,11 +990,16 @@ boundary is `docs/PERSONAL-ORDAX.md` + `docs/contracts/personal-ordax.json`.
 ### Personal OrdaX foreground runtime
 
 A source-only `ordax.personal-runtime/1` now implements the first orchestration lifecycle above the
-foundation contract. Work is explicitly device/account-owned and the work store is partitioned per owner; account
-switching pauses/saves the previous partition and loads the next one instead of sharing a quota or
-visible state. Corrupt durable partitions fall back to session state without overwriting the
-recoverable bytes. Space/project context is opt-in and validated; owner/Space/project changes pause
-affected active work; stale inference responses are discarded; Intelligence remains consultative;
-and ordered Activity is persisted only through `ordax.personal-work-store/1`. The runtime is not mounted in Web/Native composition yet, so no
-public Activity UI, background execution or autonomous tool action is claimed.
+foundation contract. Work is explicitly device/account-owned and the work store is partitioned per
+owner; account switching pauses/saves the previous partition and loads the next one instead of
+sharing a quota or visible state. Corrupt durable partitions fall back to session state without
+overwriting the recoverable bytes. Space/project context is opt-in and validated;
+owner/Space/project changes pause affected active work; stale inference responses are discarded;
+and Intelligence remains consultative. Successful foreground reasoning persists a bounded
+`ordax.personal-work-result/1` with engine/model provenance and fixed `authority=none`, atomically
+with the completed Work state and exactly one completed Activity reference. Activity therefore
+does not duplicate raw model output, and persisted model output cannot become action authority.
+Work, Activity and Result remain inside the same owner partition and terminal removal clears all
+three. The runtime is not mounted in Web/Native composition yet, so no public Activity UI,
+background execution or autonomous tool action is claimed.
 \n
