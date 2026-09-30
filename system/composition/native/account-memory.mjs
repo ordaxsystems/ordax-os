@@ -58,6 +58,7 @@ function blockedMutations() {
   return Object.freeze({
     remember: fail,
     forget: fail,
+    recover: fail,
   });
 }
 
@@ -89,6 +90,7 @@ function guardedProtectedMutations(accountMemory) {
     }
   };
   return Object.freeze({
+    schema: accountMemory.protectedMutations.schema,
     async remember(value) {
       ensureHealthy();
       return accountMemory.protectedMutations.remember(value);
@@ -96,6 +98,14 @@ function guardedProtectedMutations(accountMemory) {
     async forget(value) {
       ensureHealthy();
       return accountMemory.protectedMutations.forget(value);
+    },
+    async recover() {
+      ensureHealthy();
+      return accountMemory.protectedMutations.recover();
+    },
+    getSnapshot() {
+      ensureHealthy();
+      return accountMemory.protectedMutations.getSnapshot();
     },
   });
 }
