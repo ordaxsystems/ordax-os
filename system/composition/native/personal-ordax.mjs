@@ -60,6 +60,20 @@ export function createNativePersonalOrdaxComposition({
   return Object.freeze({
     ...runtime,
     approvalConsent,
+    cancel(workItemId) {
+      const snapshot = runtime.getSnapshot();
+      const approvals = snapshot.approvals.filter((approval) =>
+        approval.workItemId === workItemId && approval.status === "approved"
+      );
+      for (const approval of approvals) {
+        if (approval.grantRef === null) {
+          throw new Error("Approved sensitive action lost its grant reference");
+        }
+        authority.issuer.revoke(approval.grantRef);
+        runtime.revokeApprovedAction(workItemId, approval.id);
+      }
+      return runtime.cancel(workItemId);
+    },
     canExecuteApprovedAction(workItemId, approvalId) {
       const snapshot = runtime.getSnapshot();
       const work = snapshot.workItems.find((candidate) => candidate.id === workItemId);
