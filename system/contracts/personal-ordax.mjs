@@ -289,6 +289,7 @@ export function validatePersonalActionDecision(value) {
   return Object.freeze({
     schema: PERSONAL_ORDAX_ACTION_DECISION_SCHEMA,
     workItemId: boundedText(value.workItemId, "personal action work item id", 160),
+    approvalId: optionalText(value.approvalId, "personal action approval id", 200),
     actionId: boundedText(value.actionId, "personal action id", 160),
     effect: value.effect,
     decision: value.decision,
