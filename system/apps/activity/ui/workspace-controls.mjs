@@ -191,6 +191,27 @@ export function mountPersonalActivityControls(
           );
         }
 
+        if (entry.pendingApproval) {
+          const approvalBox = node(documentObject, "section", "ordax-activity-approval");
+          approvalBox.append(
+            node(documentObject, "strong", "", t("activity.approval.title")),
+            node(documentObject, "p", "", entry.pendingApproval.reason),
+            node(
+              documentObject,
+              "span",
+              "ordax-activity-result-meta",
+              `${entry.pendingApproval.actionId} · ${entry.pendingApproval.effect}`,
+            ),
+            node(
+              documentObject,
+              "span",
+              "ordax-activity-result-meta",
+              t("activity.approval.grantRequired"),
+            ),
+          );
+          article.append(approvalBox);
+        }
+
         if (result) {
           const resultBox = node(documentObject, "section", "ordax-activity-result");
           resultBox.append(
