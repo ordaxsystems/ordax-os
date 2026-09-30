@@ -579,3 +579,59 @@ test("results remain isolated when different accounts reuse the same local work 
   runtime.dispose();
 });
 
+test("owner partition enforces a serialized byte ceiling after semantic validation", () => {
+  const createdAt = "2026-09-30T20:00:00.000Z";
+  const workItems = [];
+  const activities = [];
+  const results = [];
+  for (let ordinal = 1; ordinal <= 32; ordinal += 1) {
+    const workItemId = `personal-work-${ordinal}`;
+    const resultId = `personal-result-${workItemId}`;
+    workItems.push({
+      id: workItemId,
+      ownerKind: "device",
+      ownerId: null,
+      goal: "Bound bytes.",
+      state: "completed",
+      spaceId: null,
+      projectId: null,
+      pendingApprovalId: null,
+      backgroundExecution: false,
+      contextRefs: [],
+      createdAt,
+      updatedAt: createdAt,
+    });
+    activities.push({
+      workItemId,
+      sequence: 1,
+      type: "completed",
+      summary: "Completed.",
+      approvalId: null,
+      actionId: null,
+      artifactRefs: [`result:${resultId}`],
+      occurredAt: createdAt,
+    });
+    results.push({
+      id: resultId,
+      workItemId,
+      kind: "intelligence-response",
+      text: "é".repeat(65536),
+      engineId: "llama.cpp",
+      modelId: "test-model",
+      authority: "none",
+      artifactRefs: [],
+      createdAt,
+    });
+  }
+
+  assert.throws(() => validatePersonalOrdaxStoreState({
+    schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+    ownerKind: "device",
+    ownerId: null,
+    nextOrdinal: 33,
+    workItems,
+    activities,
+    results,
+  }), /serialized byte limit/);
+});
+
