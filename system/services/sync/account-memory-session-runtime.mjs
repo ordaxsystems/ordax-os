@@ -159,6 +159,7 @@ export function createAccountMemorySessionRuntime({
 
   let activeSubjectId = null;
   let activeRuntime = null;
+  let activeStore = null;
   let destroyed = false;
 
   const resolve = () => {
@@ -167,12 +168,14 @@ export function createAccountMemorySessionRuntime({
     if (snapshot.state !== "signed-in") {
       activeSubjectId = null;
       activeRuntime = null;
+      activeStore = null;
       return null;
     }
     if (activeRuntime && activeSubjectId === snapshot.subjectId) return activeRuntime;
 
     const store = assertSyncStateStorePort(nextStore(snapshot.subjectId));
     activeSubjectId = snapshot.subjectId;
+    activeStore = store;
     activeRuntime = createAccountMemorySyncRuntime({
       memoryPort: memory,
       subjectId: snapshot.subjectId,
@@ -223,6 +226,32 @@ export function createAccountMemorySessionRuntime({
       });
       return runtime.flush(gatedTransport);
     },
+    async flushCoordination() {
+      const runtime = resolve();
+      if (!runtime || !activeStore) {
+        return Object.freeze({
+          confirmed: false,
+          reason: "signed-in-account-required",
+          persistence: "session",
+        });
+      }
+      if (typeof activeStore.flush === "function") {
+        const flushed = await activeStore.flush();
+        if (flushed !== true) {
+          return Object.freeze({
+            confirmed: false,
+            reason: "flush-not-confirmed",
+            persistence: activeStore.scope,
+          });
+        }
+      }
+      const persistence = activeStore.scope;
+      return Object.freeze({
+        confirmed: persistence === "device",
+        reason: persistence === "device" ? "durable" : "session-only",
+        persistence,
+      });
+    },
     stageUpsert(value) {
       const runtime = resolve();
       if (!runtime) return Object.freeze({ status: "blocked", reason: "signed-in-account-required", objectId: null });
@@ -243,6 +272,7 @@ export function createAccountMemorySessionRuntime({
       if (destroyed) return;
       destroyed = true;
       activeRuntime = null;
+      activeStore = null;
       activeSubjectId = null;
       unsubscribe();
     },
