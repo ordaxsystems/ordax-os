@@ -57,7 +57,7 @@ function tool() {
   };
 }
 
-function grant(approvalId) {
+function grant(approvalId, overrides = {}) {
   return {
     grantId: "grant-1",
     workItemId: "personal-work-1",
@@ -74,6 +74,7 @@ function grant(approvalId) {
     projectId: null,
     resourceRef: "file-space:/Documentos/Novo",
     expiresAt: "2026-10-01T00:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -108,6 +109,7 @@ function setup() {
     work,
     approval,
     decision,
+    grants,
     nextTime() {
       now += 1000;
       return new Date(now).toISOString();
@@ -207,11 +209,23 @@ test("repeated action type executes only with the Decision bound to its exact ap
     reason: "Garantir outro diretório.",
   });
 
-  assert.throws(
-    () => runtime.prepareActionExecution(work.id, second.id),
-    /approved approval/,
+  grants.set("grant-2", grant(second.id, {
+    grantId: "grant-2",
+    resourceRef: "file-space:/Documentos/Outro",
+  }));
+  const secondDecision = runtime.resolveApproval(
+    work.id,
+    second.id,
+    { grantRef: "grant-2" },
   );
+  const execution = runtime.prepareActionExecution(work.id, second.id);
+
   assert.equal(runtime.getSnapshot().decisions[0].approvalId, approval.id);
+  assert.equal(runtime.getSnapshot().decisions[1].approvalId, second.id);
+  assert.equal(secondDecision.approvalId, second.id);
+  assert.equal(execution.decision.approvalId, second.id);
+  assert.equal(execution.decision.grantRef, "grant-2");
+  assert.equal(execution.request.resourceRef, "file-space:/Documentos/Outro");
   runtime.dispose();
 });
 
