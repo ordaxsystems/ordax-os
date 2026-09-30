@@ -1,5 +1,7 @@
 import {
   validatePersonalActivityEvent,
+  validatePersonalActionDecision,
+  validatePersonalApproval,
   validatePersonalWorkItem,
   validatePersonalWorkResult,
 } from "./personal-ordax.mjs";
@@ -10,6 +12,8 @@ export const PERSONAL_ORDAX_RUNTIME_SCHEMA = "ordax.personal-runtime/1";
 export const MAX_PERSONAL_WORK_ITEMS = 32;
 export const MAX_PERSONAL_ACTIVITY_EVENTS = 512;
 export const MAX_PERSONAL_WORK_RESULTS = 32;
+export const MAX_PERSONAL_APPROVALS = 64;
+export const MAX_PERSONAL_ACTION_DECISIONS = 64;
 export const MAX_PERSONAL_ORDAX_STORE_BYTES = 4 * 1024 * 1024;
 
 const encoder = new TextEncoder();
@@ -66,6 +70,8 @@ export function createEmptyPersonalOrdaxStoreState(ownerValue) {
     workItems: Object.freeze([]),
     activities: Object.freeze([]),
     results: Object.freeze([]),
+    approvals: Object.freeze([]),
+    decisions: Object.freeze([]),
   });
 }
 
@@ -92,6 +98,14 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
   const rawResults = value.results ?? [];
   if (!Array.isArray(rawResults) || rawResults.length > MAX_PERSONAL_WORK_RESULTS) {
     throw new TypeError("Personal OrdaX work results exceed their per-owner bound");
+  }
+  const rawApprovals = value.approvals ?? [];
+  if (!Array.isArray(rawApprovals) || rawApprovals.length > MAX_PERSONAL_APPROVALS) {
+    throw new TypeError("Personal OrdaX approvals exceed their per-owner bound");
+  }
+  const rawDecisions = value.decisions ?? [];
+  if (!Array.isArray(rawDecisions) || rawDecisions.length > MAX_PERSONAL_ACTION_DECISIONS) {
+    throw new TypeError("Personal OrdaX action decisions exceed their per-owner bound");
   }
 
   const workItems = Object.freeze(value.workItems.map(validatePersonalWorkItem));
@@ -168,6 +182,84 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     resultWorkIds.add(result.workItemId);
   }
 
+  const approvals = Object.freeze(rawApprovals.map(validatePersonalApproval));
+  const approvalById = new Map();
+  const approvalByAction = new Map();
+  for (const approval of approvals) {
+    if (approvalById.has(approval.id)) {
+      throw new TypeError("Personal OrdaX approval ids must be unique inside an owner partition");
+    }
+    const work = workById.get(approval.workItemId);
+    if (!work) {
+      throw new TypeError("Personal OrdaX approval cannot reference missing work");
+    }
+    const actionKey = `${approval.workItemId}\0${approval.actionId}`;
+    if (approvalByAction.has(actionKey)) {
+      throw new TypeError("Personal OrdaX action may have only one retained approval");
+    }
+    if (Date.parse(approval.requestedAt) < Date.parse(work.createdAt)) {
+      throw new TypeError("Personal OrdaX approval cannot precede work creation");
+    }
+    if (approval.resolvedAt !== null && Date.parse(approval.resolvedAt) > Date.parse(work.updatedAt)) {
+      throw new TypeError("Personal OrdaX approval cannot resolve after the work update boundary");
+    }
+    approvalById.set(approval.id, approval);
+    approvalByAction.set(actionKey, approval);
+  }
+
+  for (const work of workItems) {
+    const pending = approvals.filter(
+      (approval) => approval.workItemId === work.id && approval.status === "pending",
+    );
+    if (work.state === "waiting-approval") {
+      if (pending.length !== 1 || pending[0].id !== work.pendingApprovalId) {
+        throw new TypeError("waiting-approval work must reference exactly one pending approval");
+      }
+    } else if (pending.length !== 0) {
+      throw new TypeError("pending approval requires work in waiting-approval state");
+    }
+  }
+
+  const decisions = Object.freeze(rawDecisions.map(validatePersonalActionDecision));
+  const decisionByAction = new Map();
+  for (const actionDecision of decisions) {
+    const work = workById.get(actionDecision.workItemId);
+    if (!work) {
+      throw new TypeError("Personal OrdaX action decision cannot reference missing work");
+    }
+    const actionKey = `${actionDecision.workItemId}\0${actionDecision.actionId}`;
+    if (decisionByAction.has(actionKey)) {
+      throw new TypeError("Personal OrdaX action may have only one retained terminal decision");
+    }
+    const approval = approvalByAction.get(actionKey);
+    if (!approval || approval.status === "pending" || approval.status === "cancelled") {
+      throw new TypeError("Personal OrdaX terminal action decision requires a resolved approval");
+    }
+    if (actionDecision.effect !== approval.effect) {
+      throw new TypeError("Personal OrdaX action decision effect must match its approval");
+    }
+    if (Date.parse(actionDecision.decidedAt) !== Date.parse(approval.resolvedAt)) {
+      throw new TypeError("Personal OrdaX action decision time must match approval resolution");
+    }
+    if (approval.status === "approved") {
+      if (actionDecision.decision !== "allow" || actionDecision.grantRef !== approval.grantRef) {
+        throw new TypeError("approved Personal OrdaX action requires the matching allow decision");
+      }
+    } else if (actionDecision.decision !== "deny") {
+      throw new TypeError("denied Personal OrdaX action requires a deny decision");
+    }
+    decisionByAction.set(actionKey, actionDecision);
+  }
+  for (const approval of approvals) {
+    const actionKey = `${approval.workItemId}\0${approval.actionId}`;
+    if (
+      (approval.status === "approved" || approval.status === "denied")
+      && !decisionByAction.has(actionKey)
+    ) {
+      throw new TypeError("resolved Personal OrdaX approval requires its terminal action decision");
+    }
+  }
+
   const resultByRef = new Map(results.map((result) => [`result:${result.id}`, result]));
   const resultReferenceCounts = new Map(results.map((result) => [result.id, 0]));
   for (const event of activities) {
@@ -197,6 +289,8 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     workItems,
     activities,
     results,
+    approvals,
+    decisions,
   });
   if (encoder.encode(JSON.stringify(snapshot)).byteLength > MAX_PERSONAL_ORDAX_STORE_BYTES) {
     throw new TypeError("Personal OrdaX owner partition exceeds its serialized byte limit");
@@ -237,6 +331,8 @@ export function validatePersonalOrdaxRuntimeSnapshot(value) {
     workItems: value.workItems,
     activities: value.activities,
     results: value.results,
+    approvals: value.approvals,
+    decisions: value.decisions,
   });
   return Object.freeze({
     schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
@@ -247,5 +343,7 @@ export function validatePersonalOrdaxRuntimeSnapshot(value) {
     workItems: state.workItems,
     activities: state.activities,
     results: state.results,
+    approvals: state.approvals,
+    decisions: state.decisions,
   });
 }
