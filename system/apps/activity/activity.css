@@ -152,6 +152,51 @@
   color: var(--ordax-danger);
 }
 
+
+.ordax-activity-action-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 10px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--ordax-border-soft);
+}
+
+.ordax-activity-action-entry-title,
+.ordax-activity-action-entry .ordax-activity-result-meta {
+  grid-column: 1 / -1;
+}
+
+.ordax-activity-action-entry input {
+  min-width: 0;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-window-bg);
+  color: var(--ordax-text);
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+.ordax-activity-action-entry button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: transparent;
+  color: var(--ordax-text);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.ordax-activity-action-entry button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
 @media (max-width: 760px) {
   .ordax-activity-header,
   .ordax-activity-work-top {
@@ -164,5 +209,9 @@
 
   .ordax-activity-primary {
     justify-self: stretch;
+  }
+
+  .ordax-activity-action-entry {
+    grid-template-columns: 1fr;
   }
 }
