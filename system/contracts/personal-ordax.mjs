@@ -1,6 +1,7 @@
 export const PERSONAL_ORDAX_WORK_ITEM_SCHEMA = "ordax.personal-work-item/1";
 export const PERSONAL_ORDAX_ACTIVITY_SCHEMA = "ordax.personal-activity/1";
 export const PERSONAL_ORDAX_ACTION_DECISION_SCHEMA = "ordax.personal-action-decision/1";
+export const PERSONAL_ORDAX_APPROVAL_SCHEMA = "ordax.personal-approval/1";
 export const PERSONAL_ORDAX_WORK_RESULT_SCHEMA = "ordax.personal-work-result/1";
 export const PERSONAL_ORDAX_MAX_RESULT_CHARS = 65536;
 
@@ -30,6 +31,7 @@ const ACTIVITY_TYPES = new Set([
 ]);
 const EFFECTS = new Set(["read", "write", "external-egress", "device-control"]);
 const DECISIONS = new Set(["allow", "approval-required", "deny"]);
+const APPROVAL_STATUSES = new Set(["pending", "approved", "denied", "cancelled"]);
 const AUTHORITY_SOURCES = new Set([
   "system-policy",
   "user-grant",
@@ -180,6 +182,54 @@ export function validatePersonalActivityEvent(value) {
     actionId,
     artifactRefs: boundedReferences(value.artifactRefs, "personal activity artifact refs", 16),
     occurredAt: timestamp(value.occurredAt, "personal activity occurredAt"),
+  });
+}
+
+export function validatePersonalApproval(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Personal OrdaX approval must be an object");
+  }
+  if (value.schema !== undefined && value.schema !== PERSONAL_ORDAX_APPROVAL_SCHEMA) {
+    throw new TypeError("Personal OrdaX approval schema is incompatible");
+  }
+  if (!EFFECTS.has(value.effect) || !APPROVAL_STATUSES.has(value.status)) {
+    throw new TypeError("personal approval effect/status is invalid");
+  }
+
+  const requestedAt = timestamp(value.requestedAt, "personal approval requestedAt");
+  const resolvedAt = value.resolvedAt == null
+    ? null
+    : timestamp(value.resolvedAt, "personal approval resolvedAt");
+  const grantRef = optionalText(value.grantRef, "personal approval grant ref", 240);
+
+  if (value.status === "pending" && (resolvedAt !== null || grantRef !== null)) {
+    throw new TypeError("pending approval cannot already be resolved or carry a grant");
+  }
+  if (value.status !== "pending" && resolvedAt === null) {
+    throw new TypeError("resolved approval requires resolvedAt");
+  }
+  if (resolvedAt !== null && Date.parse(resolvedAt) < Date.parse(requestedAt)) {
+    throw new TypeError("approval resolution cannot precede its request");
+  }
+  if (value.status === "approved" && grantRef === null) {
+    throw new TypeError("approved action requires an explicit grant reference");
+  }
+  if ((value.status === "denied" || value.status === "cancelled") && grantRef !== null) {
+    throw new TypeError("denied or cancelled approval cannot carry an execution grant");
+  }
+
+  return Object.freeze({
+    schema: PERSONAL_ORDAX_APPROVAL_SCHEMA,
+    id: boundedText(value.id, "personal approval id", 200),
+    workItemId: boundedText(value.workItemId, "personal approval work item id", 160),
+    actionId: boundedText(value.actionId, "personal approval action id", 128),
+    toolId: boundedText(value.toolId, "personal approval tool id", 96),
+    effect: value.effect,
+    status: value.status,
+    reason: boundedText(value.reason, "personal approval reason", 512),
+    grantRef,
+    requestedAt,
+    resolvedAt,
   });
 }
 
