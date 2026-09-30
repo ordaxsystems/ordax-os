@@ -1,0 +1,68 @@
+name: Account Memory Protected Mutations
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/memory.mjs'
+      - 'system/contracts/memory-store.mjs'
+      - 'system/contracts/sync-state-store.mjs'
+      - 'system/services/memory/runtime.mjs'
+      - 'system/services/sync/account-memory-runtime.mjs'
+      - 'system/services/sync/account-memory-session-runtime.mjs'
+      - 'system/services/sync/account-memory-authorized-composition.mjs'
+      - 'system/services/sync/account-memory-deferred-intents.mjs'
+      - 'system/services/sync/account-memory-crash-recovery-journal.mjs'
+      - 'tests/test_account_memory_protected_mutations.mjs'
+      - 'tests/test_account_memory_authorized_composition.mjs'
+      - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
+      - 'tests/test_account_memory_crash_recovery_journal.mjs'
+      - '.github/workflows/account-memory-protected-mutations.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/memory.mjs'
+      - 'system/contracts/memory-store.mjs'
+      - 'system/contracts/sync-state-store.mjs'
+      - 'system/services/memory/runtime.mjs'
+      - 'system/services/sync/account-memory-runtime.mjs'
+      - 'system/services/sync/account-memory-session-runtime.mjs'
+      - 'system/services/sync/account-memory-authorized-composition.mjs'
+      - 'system/services/sync/account-memory-deferred-intents.mjs'
+      - 'system/services/sync/account-memory-crash-recovery-journal.mjs'
+      - 'tests/test_account_memory_protected_mutations.mjs'
+      - 'tests/test_account_memory_authorized_composition.mjs'
+      - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
+      - 'tests/test_account_memory_crash_recovery_journal.mjs'
+      - '.github/workflows/account-memory-protected-mutations.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  protected-mutations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate protected mutation source syntax
+        run: |
+          set -euo pipefail
+          node --check system/services/memory/runtime.mjs
+          node --check system/services/sync/account-memory-session-runtime.mjs
+          node --check system/services/sync/account-memory-authorized-composition.mjs
+          node --check system/services/sync/account-memory-deferred-intents.mjs
+          node --check system/services/sync/account-memory-crash-recovery-journal.mjs
+          node --check tests/test_account_memory_protected_mutations.mjs
+
+      - name: Prove protected mutation durability and recovery
+        run: |
+          set -euo pipefail
+          node --test \
+            tests/test_account_memory_protected_mutations.mjs \
+            tests/test_account_memory_authorized_composition.mjs \
+            tests/test_account_memory_authorized_lifecycle_replay.mjs \
+            tests/test_account_memory_crash_recovery_journal.mjs
