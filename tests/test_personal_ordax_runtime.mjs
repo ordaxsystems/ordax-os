@@ -11,6 +11,7 @@ import {
 import {
   PERSONAL_ORDAX_STORE_SCHEMA,
   PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+  validatePersonalOrdaxStoreState,
 } from "../system/contracts/personal-ordax-store.mjs";
 import { createPersonalOrdaxRuntime } from "../system/services/personal-ordax/runtime.mjs";
 
@@ -140,6 +141,7 @@ function intelligence({ deferred = false } = {}) {
 
 function memoryStore() {
   const states = new Map();
+  const saves = [];
   const key = (owner) => owner.ownerKind === "device" ? "device" : `account:${owner.ownerId}`;
   const deviceOwner = Object.freeze({ ownerKind: "device", ownerId: null });
   return {
@@ -150,10 +152,15 @@ function memoryStore() {
     },
     save(owner, next) {
       states.set(key(owner), next);
+      saves.push({ ownerKey: key(owner), state: next });
       return true;
     },
     read(owner = deviceOwner) {
       return states.get(key(owner)) ?? null;
+    },
+    history(owner = deviceOwner) {
+      const ownerKey = key(owner);
+      return saves.filter((entry) => entry.ownerKey === ownerKey).map((entry) => entry.state);
     },
   };
 }
@@ -228,10 +235,19 @@ test("foreground run uses consultative Intelligence and records visible lifecycl
   assert.equal(ai.requests.length, 1);
   assert.equal(ai.requests[0].prompt, "Prepare um plano.");
   assert.deepEqual(ai.requests[0].context, []);
-  assert.equal(runtime.getSnapshot().workItems[0].state, "completed");
+  const snapshot = runtime.getSnapshot();
+  assert.equal(snapshot.workItems[0].state, "completed");
+  assert.equal(snapshot.results.length, 1);
+  assert.equal(snapshot.results[0].workItemId, work.id);
+  assert.equal(snapshot.results[0].text, "Plano pronto.");
+  assert.equal(snapshot.results[0].authority, "none");
   assert.deepEqual(
-    runtime.getSnapshot().activities.map((event) => event.type),
+    snapshot.activities.map((event) => event.type),
     ["queued", "started", "completed"],
+  );
+  assert.deepEqual(
+    snapshot.activities.at(-1).artifactRefs,
+    [`result:personal-result-${work.id}`],
   );
   runtime.dispose();
 });
@@ -268,6 +284,7 @@ test("identity change pauses account work and stale inference cannot complete it
     displayName: "User",
   });
   assert.equal(runtime.getSnapshot().workItems[0].state, "paused");
+  assert.equal(runtime.getSnapshot().results.length, 0);
   assert.deepEqual(
     runtime.getSnapshot().activities.map((event) => event.type),
     ["queued", "started", "paused"],
@@ -344,8 +361,17 @@ test("durable store keeps work and ordered activity without a second memory syst
   assert.equal(saved.schema, PERSONAL_ORDAX_STORE_STATE_SCHEMA);
   assert.equal(saved.workItems.length, 1);
   assert.equal(saved.activities.length, 3);
+  assert.equal(saved.results.length, 1);
+  assert.equal(saved.results[0].text, "Plano pronto.");
   assert.deepEqual(saved.activities.map((event) => event.sequence), [1, 2, 3]);
   assert.equal(runtime.getSnapshot().persistence, "device");
+  assert.equal(
+    store.history().some(
+      (entry) => entry.workItems.some((item) => item.state === "completed")
+        && entry.results.length === 0,
+    ),
+    false,
+  );
   runtime.dispose();
 });
 
@@ -365,9 +391,11 @@ test("terminal work can be removed with its activity while active work cannot", 
 
   const completed = runtime.create("Completed.");
   await runtime.run(completed.id);
+  assert.equal(runtime.getSnapshot().results.length, 1);
   runtime.remove(completed.id);
   assert.equal(runtime.getSnapshot().workItems.length, 0);
   assert.equal(runtime.getSnapshot().activities.length, 0);
+  assert.equal(runtime.getSnapshot().results.length, 0);
   runtime.dispose();
 });
 
@@ -462,6 +490,7 @@ test("account switching uses isolated owner partitions and never exposes another
   });
   assert.deepEqual(runtime.getSnapshot().workItems, []);
   assert.deepEqual(runtime.getSnapshot().activities, []);
+  assert.deepEqual(runtime.getSnapshot().results, []);
 
   const userTwoWork = runtime.create("Private user two goal.");
   assert.equal(runtime.getSnapshot().workItems.length, 1);
@@ -480,3 +509,73 @@ test("account switching uses isolated owner partitions and never exposes another
   assert.equal(restored.activities.every((event) => event.workItemId === userOneWork.id), true);
   runtime.dispose();
 });
+
+test("completed result and Activity reference are validated as one owner-bound graph", async () => {
+  let tick = 11_000;
+  const store = memoryStore();
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: identitySignedOut(),
+    intelligencePort: intelligence(),
+    store,
+    now: () => tick++,
+  });
+  const work = runtime.create("Produce durable result.");
+  await runtime.run(work.id);
+  const saved = store.read();
+
+  assert.throws(() => validatePersonalOrdaxStoreState({
+    ...saved,
+    activities: saved.activities.map((event) => event.type === "completed"
+      ? { ...event, artifactRefs: ["result:missing"] }
+      : event),
+  }), /references a missing work result/);
+
+  assert.throws(() => validatePersonalOrdaxStoreState({
+    ...saved,
+    activities: saved.activities.map((event) => event.type === "completed"
+      ? { ...event, artifactRefs: [] }
+      : event),
+  }), /requires exactly one completed activity reference/);
+
+  runtime.dispose();
+});
+
+test("results remain isolated when different accounts reuse the same local work id", async () => {
+  let tick = 12_000;
+  const identity = identitySignedIn("user-1");
+  const store = memoryStore();
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: identity,
+    intelligencePort: intelligence(),
+    store,
+    now: () => tick++,
+  });
+
+  const first = runtime.create("User one result.");
+  await runtime.run(first.id);
+  const firstResultId = runtime.getSnapshot().results[0].id;
+
+  identity.setSnapshot({
+    state: "signed-in",
+    subjectId: "user-2",
+    displayName: "User 2",
+  });
+  assert.deepEqual(runtime.getSnapshot().results, []);
+
+  const second = runtime.create("User two result.");
+  await runtime.run(second.id);
+  assert.equal(second.id, first.id);
+  assert.equal(runtime.getSnapshot().results[0].id, firstResultId);
+
+  identity.setSnapshot({
+    state: "signed-in",
+    subjectId: "user-1",
+    displayName: "User 1",
+  });
+  const restored = runtime.getSnapshot();
+  assert.equal(restored.results.length, 1);
+  assert.equal(restored.results[0].workItemId, first.id);
+  assert.equal(restored.results[0].text, "Plano pronto.");
+  runtime.dispose();
+});
+
