@@ -354,7 +354,7 @@ test("automatic Memory source evidence validates capture but is never persisted"
   const capture = captureRuntime();
   const runtime = createAssistantAutoCaptureRuntime({
     intelligencePort: intelligence(
-      '{"memories":[{"kind":"preference","content":"Prefere respostas curtas.","evidence":"Prefiro respostas curtas."}]}'
+      '{"memories":[{"kind":"preference","content":"Prefiro respostas curtas.","evidence":"Prefiro respostas curtas."}]}'
     ),
     captureRuntime: capture,
     preferenceRuntime: preferences(true),
@@ -369,7 +369,7 @@ test("automatic Memory source evidence validates capture but is never persisted"
   assert.equal(result.status, "captured");
   assert.equal(capture.calls.length, 1);
   assert.deepEqual(capture.calls[0].draft, {
-    content: "Prefere respostas curtas.",
+    content: "Prefiro respostas curtas.",
     kind: "preference",
     sensitivity: "private",
     provenance: "ordax-assistant:auto-capture",
