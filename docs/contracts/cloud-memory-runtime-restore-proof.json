@@ -1,0 +1,50 @@
+{
+  "$schema": "prototype-ordax.cloud-memory-runtime-restore-proof/1",
+  "issue": 685,
+  "publicCloudMemoryPromoted": false,
+  "evidenceClasses": {
+    "backendTwoSession": {
+      "required": true,
+      "workflow": ".github/workflows/cloud-memory-operator-authenticated-proof.yml",
+      "runner": "tools/cloud-memory/run_operator_authenticated_proof.py",
+      "proof": "tools/cloud-memory/prove_authenticated_atomic_sync.py",
+      "proves": [
+        "same-account independent authenticated sessions",
+        "server-authoritative memory.cloud.enabled entitlement",
+        "create/edit delivery through sync cursor",
+        "stale revision conflict rejection",
+        "identity-only tombstone delivery",
+        "canonical deleted Memory state"
+      ],
+      "doesNotProve": [
+        "Native composition execution",
+        "fresh-install restore through createNativeAccountSyncRuntime",
+        "device checkpoint creation after restore",
+        "reinstall continuity on a new device state"
+      ]
+    },
+    "nativeFreshInstallRestore": {
+      "required": true,
+      "status": "required-not-proven",
+      "mustExercise": [
+        "createNativeAccountMemoryFoundation",
+        "createNativeAccountSyncRuntime",
+        "server-authoritative inbound entitlement",
+        "empty local Memory state",
+        "empty local account checkpoint",
+        "remote account snapshot containing portable Memory",
+        "Memory persistence before checkpoint advancement",
+        "no remote-to-local echo mutation",
+        "fresh checkpoint bound to the authenticated subject and remote cursor"
+      ],
+      "mustFailClosedWhen": [
+        "entitlement is denied, unresolved or expired",
+        "remote Memory is non-portable",
+        "Memory persistence cannot confirm durability",
+        "coordination state requires recovery"
+      ]
+    }
+  },
+  "completionRule": "Issue #685 runtime restore evidence is incomplete until both required evidence classes are proven independently. Backend two-session success alone must never be interpreted as Native reinstall success.",
+  "rolloutRule": "Proof completion does not enable public Cloud Memory or create user entitlements. Public promotion remains a separate product decision."
+}
