@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.personal-ordax/1",
-  "status": "source-foundation-runtime-disabled",
+  "status": "source-foreground-runtime-public-disabled",
   "product_role": "identity-bound personal orchestration above Intelligence and shared services",
   "principles": {
     "one_primary_personal_ordax_per_owner_context": true,
@@ -30,7 +30,8 @@
     "outputs": [
       "ordax.personal-work-item/1",
       "ordax.personal-activity/1",
-      "ordax.personal-action-decision/1"
+      "ordax.personal-action-decision/1",
+      "ordax.personal-work-result/1"
     ],
     "direct_platform_adapter_imports_allowed": false,
     "direct_provider_sdk_imports_allowed": false,
@@ -52,7 +53,10 @@
     "implicit_current_project_allowed": false,
     "background_execution_enabled": false,
     "multi_agent_coordination_enabled": false,
-    "cloud_computer_enabled": false
+    "cloud_computer_enabled": false,
+    "owner_partitioned_persistence": true,
+    "completed_reasoning_result_persisted_atomically": true,
+    "result_carries_action_authority": false
   },
   "authority": {
     "effects": [
@@ -92,7 +96,9 @@
     "approval_events_reference_approval_ids": true,
     "action_events_reference_action_ids": true,
     "artifact_references_preferred_over_raw_payloads": true,
-    "activity_view_runtime_enabled": false
+    "activity_view_runtime_enabled": false,
+    "completed_result_reference_required_for_new_runtime_results": true,
+    "result_payload_stored_outside_activity_summary": true
   },
   "mvp": {
     "public_mvp_enabled": false,
@@ -102,7 +108,9 @@
     "background_agent_runtime_enabled": false,
     "proactive_research_enabled": false,
     "external_app_connectors_enabled": false,
-    "specialist_agents_enabled": false
+    "specialist_agents_enabled": false,
+    "personal_foreground_runtime_source_enabled": true,
+    "personal_foreground_runtime_mounted_in_surface": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
