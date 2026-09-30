@@ -95,6 +95,8 @@ export function assertActionAdapter(value) {
     || value.schema !== ACTION_ADAPTER_SCHEMA
     || typeof value.toolId !== "string"
     || typeof value.actionId !== "string"
+    || typeof value.artifactSha256 !== "string"
+    || !/^[0-9a-f]{64}$/.test(value.artifactSha256)
     || typeof value.effect !== "string"
     || typeof value.execute !== "function"
   ) {
@@ -126,6 +128,11 @@ export function validateActionReceipt(value) {
     workItemId: boundedText(value.workItemId, "Action receipt work item id", 160),
     approvalId: boundedText(value.approvalId, "Action receipt approval id", 200),
     toolId: boundedText(value.toolId, "Action receipt tool id", 96),
+    toolArtifactSha256: (() => {
+      const digest = boundedText(value.toolArtifactSha256, "Action receipt tool artifact sha256", 64);
+      if (!/^[0-9a-f]{64}$/.test(digest)) throw new TypeError("Action receipt tool artifact sha256 is invalid");
+      return digest;
+    })(),
     actionId: boundedText(value.actionId, "Action receipt action id", 128),
     effect: boundedText(value.effect, "Action receipt effect", 32),
     resourceRef: boundedText(value.resourceRef, "Action receipt resource ref", 512),
