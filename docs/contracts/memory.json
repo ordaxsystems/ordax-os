@@ -205,6 +205,12 @@
       "persisted_content_source": "verbatim-user-evidence",
       "candidate_content_must_equal_evidence": true,
       "model_may_paraphrase_persisted_memory": false
-    }
+    },
+    "composition_owned_persistence_writer_supported": true,
+    "persistence_writer_authority": "durability-confirmation-only",
+    "persistence_writer_may_rewrite_authorized_item": false,
+    "persistence_writer_success_value": true,
+    "default_writer_remains_local_memory_plus_flush": true,
+    "exact_duplicate_uses_existing_memory_flush_barrier": true
   }
 }
