@@ -184,7 +184,7 @@ test("Developer stays blocked while its real required component is only planned"
   );
 });
 
-test("internal proof fails closed for incompatible spaces, Legal-BR and non-draft states", () => {
+test("composition runtime fails closed for incompatible spaces, blocked packs and retired states", () => {
   const runtime = createProfilePackRuntime({ packs: [developer, legalBr], provisioning: localProvisioning() });
 
   assert.throws(
@@ -207,20 +207,20 @@ test("internal proof fails closed for incompatible spaces, Legal-BR and non-draf
     /explicitly blocks activation/,
   );
 
-  const activeDeveloper = structuredClone(developer);
-  activeDeveloper.state = "active";
-  const activeRuntime = createProfilePackRuntime({
-    packs: [activeDeveloper],
+  const retiredDeveloper = structuredClone(developer);
+  retiredDeveloper.state = "retired";
+  const retiredRuntime = createProfilePackRuntime({
+    packs: [retiredDeveloper],
     provisioning: localProvisioning(),
   });
   assert.throws(
-    () => activeRuntime.activate({
+    () => retiredRuntime.activate({
       slug: "developer",
       version: 1,
       mode: "internal-proof",
       space: { id: "space-dev-proof", kind: "professional" },
     }),
-    /only draft Profile Packs/,
+    /state is not activatable/,
   );
 });
 
