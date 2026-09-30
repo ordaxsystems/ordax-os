@@ -422,6 +422,7 @@ async function start() {
       projects,
       intelligence: selectedSpaceIntelligence,
       toolResolver: personalOrdaxFileActions?.toolResolver ?? (() => null),
+      adapterResolver: personalOrdaxFileActions?.adapterResolver ?? (() => null),
     }),
   );
   const profileComponentInventory = await optionalNativeProbe(
