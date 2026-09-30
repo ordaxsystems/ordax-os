@@ -44,4 +44,4 @@ jobs:
       - name: Prove crash recovery ownership and durability ordering
         run: |
           set -euo pipefail
-          node --test tests/test_account_memory_crash-recovery-journal.mjs 2>/dev/null || node --test tests/test_account_memory_crash_recovery_journal.mjs
+          node --test tests/test_account_memory_crash_recovery_journal.mjs
