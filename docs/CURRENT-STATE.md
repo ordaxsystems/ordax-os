@@ -985,7 +985,7 @@ and `ordax.personal-action-decision/1` reuses existing grants for read/write/egr
 decisions. Prompt/model/Profile/Memory/project content cannot create authority, sensitive allows
 require an explicit grant reference, and background execution remains disabled. The canonical
 boundary is `docs/PERSONAL-ORDAX.md` + `docs/contracts/personal-ordax.json`.
-\n
+
 
 ### Personal OrdaX foreground runtime
 
