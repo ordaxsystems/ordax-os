@@ -8,7 +8,9 @@
     "configure_path": "configure",
     "configure_ac_path": "configure.ac",
     "configure_assignment_sha256": "9ed7b7275bbbabd9beeb7b8b151a603e57ea0ef844700b0e6a6a2a40c68b45c6",
-    "configure_ac_assignment_sha256": "5c7afa09f436e825b841a7e584e0cdc12fb3f68c922a59f72e9b2394f7a8e579"
+    "configure_assignment_count": 2,
+    "configure_ac_assignment_sha256": "5c7afa09f436e825b841a7e584e0cdc12fb3f68c922a59f72e9b2394f7a8e579",
+    "configure_ac_assignment_count": 1
   },
   "policy": {
     "link_variable": "UNIXLDFLAGS",

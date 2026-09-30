@@ -15,7 +15,6 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import re
 import sys
 
 HERE = Path(__file__).resolve().parent
@@ -76,7 +75,9 @@ def load_contract() -> dict:
         "configure_path": "configure",
         "configure_ac_path": "configure.ac",
         "configure_assignment_sha256": sha256_bytes(CONFIGURE_ASSIGNMENT.encode("utf-8")),
+        "configure_assignment_count": 2,
         "configure_ac_assignment_sha256": sha256_bytes(CONFIGURE_AC_ASSIGNMENT.encode("utf-8")),
+        "configure_ac_assignment_count": 1,
     }
     if authority != expected_authority:
         raise UnixlibLinkPolicyError("Unixlib link policy source authority drifted")
@@ -115,24 +116,31 @@ def _read_utf8(path: Path, label: str) -> tuple[str, bytes]:
 
 def apply_source_policy(wine_source: Path) -> dict:
     contract = load_contract()
+    authority = contract["source_authority"]
     wine_source = wine_source.resolve()
-    configure = wine_source / contract["source_authority"]["configure_path"]
-    configure_ac = wine_source / contract["source_authority"]["configure_ac_path"]
+    configure = wine_source / authority["configure_path"]
+    configure_ac = wine_source / authority["configure_ac_path"]
     configure_text, configure_raw = _read_utf8(configure, "Wine configure")
     configure_ac_text, configure_ac_raw = _read_utf8(configure_ac, "Wine configure.ac")
 
-    if configure_text.count(CONFIGURE_ASSIGNMENT) != 1:
-        raise UnixlibLinkPolicyError("Wine configure UNIXLDFLAGS anchor is missing or ambiguous")
+    configure_count = configure_text.count(CONFIGURE_ASSIGNMENT)
+    configure_ac_count = configure_ac_text.count(CONFIGURE_AC_ASSIGNMENT)
+    if configure_count != authority["configure_assignment_count"]:
+        raise UnixlibLinkPolicyError(
+            f"Wine configure UNIXLDFLAGS anchor count drifted: {configure_count}"
+        )
     if PATCHED_CONFIGURE_ASSIGNMENT in configure_text:
         raise UnixlibLinkPolicyError("Wine configure Unixlib link policy was already applied")
-    if configure_ac_text.count(CONFIGURE_AC_ASSIGNMENT) != 1:
-        raise UnixlibLinkPolicyError("Wine configure.ac UNIXLDFLAGS authority is missing or ambiguous")
+    if configure_ac_count != authority["configure_ac_assignment_count"]:
+        raise UnixlibLinkPolicyError(
+            f"Wine configure.ac UNIXLDFLAGS authority count drifted: {configure_ac_count}"
+        )
     if "LD_LIBRARY_PATH" in PATCHED_CONFIGURE_ASSIGNMENT:
         raise UnixlibLinkPolicyError("Unixlib link policy must not use LD_LIBRARY_PATH")
 
-    patched_text = configure_text.replace(CONFIGURE_ASSIGNMENT, PATCHED_CONFIGURE_ASSIGNMENT, 1)
-    if patched_text.count(PATCHED_CONFIGURE_ASSIGNMENT) != 1 or CONFIGURE_ASSIGNMENT in patched_text:
-        raise UnixlibLinkPolicyError("Wine configure Unixlib link policy replacement did not bind uniquely")
+    patched_text = configure_text.replace(CONFIGURE_ASSIGNMENT, PATCHED_CONFIGURE_ASSIGNMENT)
+    if patched_text.count(PATCHED_CONFIGURE_ASSIGNMENT) != configure_count or CONFIGURE_ASSIGNMENT in patched_text:
+        raise UnixlibLinkPolicyError("Wine configure Unixlib link policy replacement did not bind exactly")
     try:
         configure.write_text(patched_text, encoding="utf-8")
     except OSError as exc:
@@ -145,7 +153,7 @@ def apply_source_policy(wine_source: Path) -> dict:
         "configure_ac_sha256": sha256_bytes(configure_ac_raw),
         "configure_assignment_sha256": sha256_bytes(CONFIGURE_ASSIGNMENT.encode("utf-8")),
         "patched_assignment_sha256": sha256_bytes(PATCHED_CONFIGURE_ASSIGNMENT.encode("utf-8")),
-        "replacement_count": 1,
+        "replacement_count": configure_count,
     }
 
 
