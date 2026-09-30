@@ -37,6 +37,9 @@ on:
       - 'system/contracts/intelligence-tool-grant-authority.mjs'
       - 'system/contracts/action-executor.mjs'
       - 'system/contracts/personal-approval-consent.mjs'
+      - 'tests/test_personal_ordax_action_catalog.mjs'
+      - 'system/services/personal-ordax/action-catalog.mjs'
+      - 'system/contracts/personal-action-catalog.mjs'
       - 'system/services/personal-ordax/action-executor.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
@@ -228,6 +231,9 @@ on:
       - 'system/contracts/intelligence-tool-grant-authority.mjs'
       - 'system/contracts/action-executor.mjs'
       - 'system/contracts/personal-approval-consent.mjs'
+      - 'tests/test_personal_ordax_action_catalog.mjs'
+      - 'system/services/personal-ordax/action-catalog.mjs'
+      - 'system/contracts/personal-action-catalog.mjs'
       - 'system/services/personal-ordax/action-executor.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
@@ -492,6 +498,7 @@ jobs:
           node --test tests/test_personal_ordax_approval_consent.mjs
           node --test tests/test_personal_ordax_action_executor.mjs
           node --test tests/test_personal_ordax_action_lifecycle.mjs
+          node --test tests/test_personal_ordax_action_catalog.mjs
           node --test tests/test_personal_ordax_first_foreground_action.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
