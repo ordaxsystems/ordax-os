@@ -129,6 +129,13 @@ export function validateIntelligenceToolGrant(value) {
     throw new TypeError(`tool grant action is forbidden: ${action}`);
   }
   const source = boundedText(value.source, "tool grant source", 64);
+  const approvalId = boundedText(value.approvalId, "tool grant approval id", 200);
+  const resourceRef = value.resourceRef == null || value.resourceRef === ""
+    ? null
+    : boundedText(value.resourceRef, "tool grant resource ref", 512);
+  if (mode === "write" && resourceRef === null) {
+    throw new TypeError("write tool grant requires an explicit resource reference");
+  }
   if (FORBIDDEN_GRANT_SOURCES.has(source)) {
     throw new TypeError("content cannot create tool authority");
   }
@@ -153,6 +160,7 @@ export function validateIntelligenceToolGrant(value) {
   return Object.freeze({
     schema: INTELLIGENCE_TOOL_GRANT_SCHEMA,
     grantId: identifier(value.grantId, "tool grant id"),
+    approvalId,
     toolId: identifier(value.toolId, "tool grant tool id"),
     action,
     mode,
@@ -162,6 +170,7 @@ export function validateIntelligenceToolGrant(value) {
     ownerId,
     spaceId: value.spaceId == null ? null : boundedText(value.spaceId, "tool grant Space", 160),
     projectId: value.projectId == null ? null : boundedText(value.projectId, "tool grant project", 160),
+    resourceRef,
     expiresAt,
   });
 }
