@@ -125,6 +125,17 @@ function store() {
   };
 }
 
+test("Action Gateway composition is rejected without a grant revoker", () => {
+  assert.throws(
+    () => createPersonalOrdaxRuntime({
+      identitySessionPort: identity(),
+      spaceSelectionPort: spaces(),
+      actionGatewayPort: actionGateway(),
+    }),
+    /requires a grant revoker/,
+  );
+});
+
 test("approval request is persisted atomically with waiting Work and Activity", () => {
   let tick = Date.parse("2026-09-30T21:00:00.000Z");
   const persistence = store();
