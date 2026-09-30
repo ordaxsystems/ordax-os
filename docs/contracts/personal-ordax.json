@@ -180,7 +180,9 @@
     "approved_action_ui_requires_live_grant_when_grant_ref_exists": true,
     "live_grant_expiry_reconciles_to_revoked": true,
     "execution_reconciles_authority_before_start": true,
-    "activity_reconciles_authority_before_render": true
+    "activity_reconciles_authority_before_render": true,
+    "action_execution_decision_lookup_uses_approval_id": true,
+    "missing_grant_reconciliation_is_distinct_from_live_grant_revocation": true
   },
   "activity": {
     "ordered_sequence_required": true,
