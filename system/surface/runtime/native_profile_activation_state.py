@@ -579,6 +579,7 @@ def rollback_profile(
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
     receipt_root: str = DEFAULT_RECEIPT_ROOT,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
+    target_validator=None,
 ) -> dict:
     space_id = _bounded_text(space_id, "Profile rollback Space id", 160)
     with _lock(lock_path) as lock_handle:
@@ -591,6 +592,8 @@ def rollback_profile(
                 return {"changed": False, "state": state}
             row = state["spaces"][index]
             target = row["previous"]
+            if target_validator is not None:
+                target_validator(target, row["spaceKind"])
             assert_activation_components_installed(target, inventory_path, receipt_root)
             spaces = list(state["spaces"])
             spaces[index] = {
