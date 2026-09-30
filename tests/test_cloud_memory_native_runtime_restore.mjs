@@ -191,6 +191,20 @@ function remoteMemory({ sensitivity = "private" } = {}) {
   });
 }
 
+function nonPortableRemoteMemory() {
+  const valid = remoteMemory();
+  return Object.freeze({
+    ...valid,
+    payload: Object.freeze({
+      ...valid.payload,
+      memory: Object.freeze({
+        ...valid.payload.memory,
+        sensitivity: "restricted",
+      }),
+    }),
+  });
+}
+
 function snapshotObjects(memoryObject = remoteMemory()) {
   return Object.freeze([
     Object.freeze({
@@ -260,6 +274,7 @@ async function createHarness({
   memoryOptions = {},
   memoryObject = remoteMemory(),
   rootInitial = null,
+  settleFoundation = true,
 } = {}) {
   const events = [];
   const transportCalls = [];
@@ -275,7 +290,7 @@ async function createHarness({
     syncStateRegistry: registry,
     createIdempotencyKey: keyFactory("native-memory"),
   });
-  await foundation.settled();
+  if (settleFoundation) await foundation.settled();
 
   const preferences = preferencesRuntime();
   const preferenceSync = createPreferenceSyncRuntime(preferences, {
@@ -373,7 +388,7 @@ for (const entitlement of [
 
 test("Native fresh-install restore rejects non-portable remote Memory before checkpoint advancement", async () => {
   const harness = await createHarness({
-    memoryObject: remoteMemory({ sensitivity: "restricted" }),
+    memoryObject: nonPortableRemoteMemory(),
   });
 
   await harness.sync.refresh();
@@ -408,7 +423,10 @@ test("Native fresh-install restore does not advance checkpoint when Memory durab
 
 test("Native account sync refuses remote Memory when coordination requires recovery", async () => {
   const incompatible = JSON.stringify({ $schema: "ordax.unknown/1", slots: {} });
-  const harness = await createHarness({ rootInitial: incompatible });
+  const harness = await createHarness({
+    rootInitial: incompatible,
+    settleFoundation: false,
+  });
 
   assert.equal(harness.foundation.getSnapshot().state, "recovery-required");
   assert.equal(harness.foundation.memorySync, null);
