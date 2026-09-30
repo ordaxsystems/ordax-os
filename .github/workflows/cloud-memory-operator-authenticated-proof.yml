@@ -60,20 +60,27 @@ jobs:
           echo 'CLOUD_MEMORY_OPERATOR_PROOF_INPUTS_PRESENT=YES'
           echo 'CLOUD_MEMORY_OPERATOR_PROOF_SECRETS_PRINTED=NO'
 
-      - name: Issue temporary entitlement, prove two clients, and revoke in finally
+      - name: Issue one temporary entitlement, prove atomic + bidirectional restore, and revoke in finally
         env:
           ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
+          ORDAX_MEMORY_BIDIRECTIONAL_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-bidirectional-restore-proof.json
         run: python tools/cloud-memory/run_operator_authenticated_proof.py
 
-      - name: Validate sanitized proof receipt
+      - name: Validate sanitized proof receipts
         env:
           ORDAX_MEMORY_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
-        run: python tools/cloud-memory/validate_authenticated_proof_receipt.py "$ORDAX_MEMORY_PROOF_RECEIPT_PATH"
+          ORDAX_MEMORY_BIDIRECTIONAL_PROOF_RECEIPT_PATH: ${{ runner.temp }}/cloud-memory-bidirectional-restore-proof.json
+        run: |
+          set -euo pipefail
+          python tools/cloud-memory/validate_authenticated_proof_receipt.py "$ORDAX_MEMORY_PROOF_RECEIPT_PATH"
+          python tools/cloud-memory/validate_bidirectional_restore_receipt.py "$ORDAX_MEMORY_BIDIRECTIONAL_PROOF_RECEIPT_PATH"
 
-      - name: Upload sanitized proof only
+      - name: Upload sanitized proofs only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: cloud-memory-operator-authenticated-proof-${{ github.sha }}
-          path: ${{ runner.temp }}/cloud-memory-authenticated-proof.json
+          path: |
+            ${{ runner.temp }}/cloud-memory-authenticated-proof.json
+            ${{ runner.temp }}/cloud-memory-bidirectional-restore-proof.json
           if-no-files-found: error
           retention-days: 14
