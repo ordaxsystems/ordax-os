@@ -262,6 +262,10 @@ export function createPersonalOrdaxRuntime({
       });
       next = {
         ...next,
+        workItems: next.workItems.map((candidate) =>
+          candidate.id === approval.workItemId
+            ? validatePersonalWorkItem({ ...candidate, updatedAt: occurredAt })
+            : candidate),
         approvals: next.approvals.map((candidate) =>
           candidate.id === revoked.id ? revoked : candidate),
         activities: appendActivityTo(
