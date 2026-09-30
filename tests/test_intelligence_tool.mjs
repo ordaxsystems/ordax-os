@@ -31,6 +31,7 @@ function grant(overrides = {}) {
     grantId: "grant-1",
     approvalId: "approval-1",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     action: "files.metadata.read",
     mode: "read",
     approved: false,
@@ -120,6 +121,7 @@ test("generic shell and raw disk are forbidden even when requested by a tool", (
 test("authorization binds exact tool, action and mode", () => {
   assert.equal(authorizeIntelligenceToolAction(tool(), grant()), true);
   assert.equal(authorizeIntelligenceToolAction(tool(), grant({ toolId: "other-tool" })), false);
+  assert.equal(authorizeIntelligenceToolAction(tool(), grant({ toolArtifactSha256: "b".repeat(64) })), false);
   assert.equal(authorizeIntelligenceToolAction(tool(), grant({
     action: "files.text.write",
     mode: "read",
