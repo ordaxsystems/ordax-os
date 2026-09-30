@@ -122,6 +122,56 @@ test("explicit approval executes the verified Native file action and consumes au
   runtime.dispose();
 });
 
+test("live grant expiry is reconciled to revoked before Activity/execution can reuse it", async () => {
+  let now = Date.parse("2026-09-30T23:00:00.000Z");
+  const files = fileSpace();
+  const actions = await createNativePersonalOrdaxFileActions({
+    windowRef: {},
+    fileSpace: files.port,
+    artifactIdentity: async () => "c".repeat(64),
+  });
+  const authority = createIntelligenceToolGrantAuthority({
+    now: () => now,
+    createGrantId: () => "grant-expiry-1",
+  });
+  const actionCatalog = createPersonalActionCatalog({
+    registrations: actions.actionRegistrations,
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+    grantAuthority: authority,
+  });
+  const work = runtime.create("Garantir pasta antes do grant expirar");
+  const approval = runtime.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Novo" },
+  );
+  const decision = runtime.approvalConsent.approve(work.id, approval.id);
+  assert.ok(authority.registry.resolve(decision.grantRef));
+  assert.equal(runtime.canExecuteApprovedAction(work.id, approval.id), true);
+
+  now += (2 * 60 * 1000) + 1;
+  assert.equal(runtime.reconcileApprovedAuthority(), true);
+  const snapshot = runtime.getSnapshot();
+  assert.equal(snapshot.approvals[0].status, "revoked");
+  assert.equal(authority.registry.resolve(decision.grantRef), null);
+  assert.equal(runtime.canExecuteApprovedAction(work.id, approval.id), false);
+  await assert.rejects(
+    () => runtime.executeApprovedAction(work.id, approval.id),
+    /unconsumed approved approval/,
+  );
+  assert.deepEqual(files.calls, []);
+
+  runtime.dispose();
+  authority.dispose();
+});
+
 test("Native restore revokes persisted approvals whose session grant no longer exists", async () => {
   const files = fileSpace();
   const actions = await createNativePersonalOrdaxFileActions({
