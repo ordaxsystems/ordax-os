@@ -7,6 +7,7 @@ import {
   validateNotesSnapshot,
 } from "../system/contracts/notes-store.mjs";
 import { createNativeNotesStore } from "../system/adapters/native/notes.mjs";
+import { createWebNotesStore } from "../system/adapters/web/notes.mjs";
 import { createNotesRuntime } from "../system/apps/notes/domain/runtime.mjs";
 
 function minimalSnapshot() {
@@ -103,6 +104,43 @@ test("Notes runtime downgrades persistence after asynchronous durable failure an
     state.document.notes.find((note) => note.id === noteId).title,
     "Persistir depois",
   );
+  runtime.destroy();
+});
+
+test("Web Notes preserves malformed durable bytes instead of overwriting them with an empty snapshot", async () => {
+  const rawCorruptPayload = '{"$schema":"ordax.notes-snapshot/2"';
+  let stored = rawCorruptPayload;
+  let writes = 0;
+  const storage = {
+    getItem(key) {
+      assert.equal(key, "ordax.notes.v1");
+      return stored;
+    },
+    setItem(key, value) {
+      assert.equal(key, "ordax.notes.v1");
+      writes += 1;
+      stored = value;
+    },
+  };
+
+  const store = createWebNotesStore({ localStorage: storage });
+  const runtime = createNotesRuntime({ store, now: () => 2_000 });
+
+  assert.equal(runtime.getSnapshot().persistence.scope, "device");
+  assert.equal(runtime.getSnapshot().persistence.ok, false);
+  assert.equal(writes, 0, "initialization must not overwrite unreadable durable state");
+  assert.equal(stored, rawCorruptPayload);
+
+  const created = runtime.createNote();
+  const noteId = created.document.selectedNoteId;
+  runtime.updateNote(noteId, { title: "Sessão preservada" });
+  await settle();
+
+  const state = runtime.getSnapshot();
+  assert.equal(state.persistence.ok, false);
+  assert.equal(state.document.notes.find((note) => note.id === noteId).title, "Sessão preservada");
+  assert.equal(writes, 0, "edits remain session-only until corrupt durable state is explicitly recovered");
+  assert.equal(stored, rawCorruptPayload);
   runtime.destroy();
 });
 
