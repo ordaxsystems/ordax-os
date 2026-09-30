@@ -151,6 +151,35 @@ test("revoked grant fails closed before adapter side effect", async () => {
   assert.equal(calls, 0);
 });
 
+test("decision from another approval is rejected before adapter resolution", async () => {
+  const { gateway } = setup();
+  const approvedRequest = request();
+  const decision = gateway.decide(approvedRequest, { grantRef: "grant-1" });
+  let resolved = false;
+  const executor = createPersonalOrdaxActionExecutor({
+    actionGateway: gateway,
+    adapterResolver() {
+      resolved = true;
+      throw new Error("must not resolve adapter");
+    },
+    now: () => NOW,
+  });
+
+  await assert.rejects(
+    () => executor.execute({
+      request: request({ approvalId: "personal-approval-personal-work-1-2" }),
+      decision,
+    }),
+    (error) => {
+      assert.ok(error instanceof PersonalActionExecutionError);
+      assert.equal(error.phase, "pre-side-effect");
+      assert.match(error.message, /does not match/);
+      return true;
+    },
+  );
+  assert.equal(resolved, false);
+});
+
 test("adapter-entered exception is explicitly classified as uncertain", async () => {
   const { gateway } = setup();
   const actionRequest = request();
