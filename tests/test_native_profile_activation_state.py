@@ -107,7 +107,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 str(Path(directory) / "missing.json")
             )
         self.assertEqual(state, {
-            "schema": "ordax.profile-activation-state/1",
+            "schema": "ordax.profile-activation-state/2",
             "revision": 0,
             "persistence": "device",
             "spaces": [],
@@ -116,10 +116,11 @@ class NativeProfileActivationStateTests(unittest.TestCase):
     def test_state_rejects_user_data_and_unsafe_file_boundary(self):
         module = load_module()
         bad = {
-            "schema": "ordax.profile-activation-state/1",
+            "schema": "ordax.profile-activation-state/2",
             "revision": 1,
             "persistence": "device",
             "spaces": [{
+                "subjectId": "user-1",\n
                 "spaceId": "space-1",
                 "spaceKind": "professional",
                 "current": {
@@ -142,10 +143,11 @@ class NativeProfileActivationStateTests(unittest.TestCase):
     def test_atomic_writer_is_private_and_round_trips(self):
         module = load_module()
         state = {
-            "schema": "ordax.profile-activation-state/1",
+            "schema": "ordax.profile-activation-state/2",
             "revision": 1,
             "persistence": "device",
             "spaces": [{
+                "subjectId": "user-1",\n
                 "spaceId": "space-1",
                 "spaceKind": "professional",
                 "current": activation(components=[]),
@@ -171,8 +173,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            result = module.activate_profile(
-                space_id="space-1",
+            result = module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[installed]),
                 state_path=str(state_path),
@@ -190,8 +191,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             stale = activation(components=[dict(installed)])
             stale["components"][0]["receiptSha256"] = "d" * 64
             with self.assertRaisesRegex(ValueError, "receipt does not match inventory"):
-                module.activate_profile(
-                    space_id="space-2",
+                module.activate_profile(\n                    subject_id="user-1",\n                    space_id="space-2",
                     space_kind="professional",
                     activation=stale,
                     state_path=str(state_path),
@@ -214,8 +214,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             receipt_path.write_text("tampered\n", encoding="utf-8")
             os.chmod(receipt_path, 0o600)
             with self.assertRaisesRegex(ValueError, "receipt hash mismatch"):
-                module.activate_profile(
-                    space_id="space-1",
+                module.activate_profile(\n                    subject_id="user-1",\n                    space_id="space-1",
                     space_kind="professional",
                     activation=activation(components=[installed]),
                     state_path=str(state_path),
@@ -234,8 +233,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            first = module.activate_profile(
-                space_id="space-1",
+            first = module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[], activated_at=1000),
                 state_path=str(state_path),
@@ -244,8 +242,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             )
             self.assertTrue(first["changed"])
 
-            duplicate = module.activate_profile(
-                space_id="space-1",
+            duplicate = module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[], activated_at=2000),
                 state_path=str(state_path),
@@ -259,8 +256,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 1000,
             )
 
-            second = module.activate_profile(
-                space_id="space-1",
+            second = module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(
                     slug="business",
@@ -275,8 +271,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             self.assertEqual(row["current"]["profile"]["slug"], "business")
             self.assertEqual(row["previous"]["profile"]["slug"], "developer")
 
-            rolled = module.rollback_profile(
-                space_id="space-1",
+            rolled = module.rollback_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
                 lock_path=str(lock_path),
@@ -285,8 +280,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             self.assertEqual(row["current"]["profile"]["slug"], "developer")
             self.assertEqual(row["previous"]["profile"]["slug"], "business")
 
-            deactivated = module.deactivate_profile(
-                space_id="space-1",
+            deactivated = module.deactivate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 state_path=str(state_path),
                 lock_path=str(lock_path),
             )
@@ -294,8 +288,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             self.assertIsNone(row["current"])
             self.assertEqual(row["previous"]["profile"]["slug"], "developer")
 
-            restored = module.rollback_profile(
-                space_id="space-1",
+            restored = module.rollback_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
                 lock_path=str(lock_path),
@@ -315,16 +308,14 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            module.activate_profile(
-                space_id="space-1",
+            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(slug="first", components=[], activated_at=1000),
                 state_path=str(state_path),
                 inventory_path=str(inventory_path),
                 lock_path=str(lock_path),
             )
-            module.activate_profile(
-                space_id="space-1",
+            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(slug="second", components=[], activated_at=2000),
                 state_path=str(state_path),
@@ -338,8 +329,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 raise PermissionError("stable policy rejected rollback target")
 
             with self.assertRaisesRegex(PermissionError, "stable policy rejected"):
-                module.rollback_profile(
-                    space_id="space-1",
+                module.rollback_profile(\n                    subject_id="user-1",\n                    space_id="space-1",
                     expected_revision=2,
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
@@ -363,8 +353,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory([installed])), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            module.activate_profile(
-                space_id="space-1",
+            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[installed]),
                 state_path=str(state_path),
@@ -372,8 +361,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 receipt_root=str(receipt_root),
                 lock_path=str(lock_path),
             )
-            module.activate_profile(
-                space_id="space-1",
+            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(slug="business", components=[], activated_at=2000),
                 state_path=str(state_path),
@@ -384,8 +372,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
             with self.assertRaisesRegex(ValueError, "not installed"):
-                module.rollback_profile(
-                    space_id="space-1",
+                module.rollback_profile(\n                    subject_id="user-1",\n                    space_id="space-1",
                     state_path=str(state_path),
                     inventory_path=str(inventory_path),
                     receipt_root=str(receipt_root),
@@ -402,8 +389,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
             inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
             os.chmod(inventory_path, 0o600)
 
-            module.activate_profile(
-                space_id="space-1",
+            module.activate_profile(\n                subject_id="user-1",\n                space_id="space-1",
                 space_kind="professional",
                 activation=activation(components=[]),
                 state_path=str(state_path),
@@ -411,8 +397,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 lock_path=str(lock_path),
             )
             with self.assertRaisesRegex(ValueError, "Space kind changed unexpectedly"):
-                module.activate_profile(
-                    space_id="space-1",
+                module.activate_profile(\n                    subject_id="user-1",\n                    space_id="space-1",
                     space_kind="personal",
                     activation=activation(slug="business", components=[], activated_at=2000),
                     state_path=str(state_path),
@@ -425,16 +410,74 @@ class NativeProfileActivationStateTests(unittest.TestCase):
         same = activation(components=[])
         with self.assertRaisesRegex(ValueError, "current and previous must differ"):
             module.validate_profile_activation_state({
-                "schema": "ordax.profile-activation-state/1",
+                "schema": "ordax.profile-activation-state/2",
                 "revision": 1,
                 "persistence": "device",
                 "spaces": [{
+                    "subjectId": "user-1",\n
                     "spaceId": "space-1",
                     "spaceKind": "professional",
                     "current": same,
                     "previous": {**same, "activatedAt": 500},
                 }],
             })
+
+    def test_legacy_v1_state_is_disabled_safe_without_subject_binding(self):
+        module = load_module()
+        legacy = {
+            "schema": "ordax.profile-activation-state/1",
+            "revision": 7,
+            "persistence": "device",
+            "spaces": [{
+                "spaceId": "space-legacy",
+                "spaceKind": "professional",
+                "current": activation(components=[]),
+                "previous": None,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "activation.json"
+            path.write_text(json.dumps(legacy), encoding="utf-8")
+            os.chmod(path, 0o600)
+            self.assertEqual(
+                module.read_profile_activation_state(str(path)),
+                module.empty_profile_activation_state(),
+            )
+
+    def test_same_space_id_is_isolated_between_account_subjects(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inventory_path = root / "inventory.json"
+            state_path = root / "activation.json"
+            lock_path = root / "activation.lock"
+            inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
+            os.chmod(inventory_path, 0o600)
+
+            module.activate_profile(
+                subject_id="user-1",
+                space_id="shared-space",
+                space_kind="professional",
+                activation=activation(slug="first", components=[], activated_at=1000),
+                state_path=str(state_path),
+                inventory_path=str(inventory_path),
+                lock_path=str(lock_path),
+            )
+            second = module.activate_profile(
+                subject_id="user-2",
+                space_id="shared-space",
+                space_kind="professional",
+                activation=activation(slug="second", components=[], activated_at=2000),
+                expected_revision=1,
+                state_path=str(state_path),
+                inventory_path=str(inventory_path),
+                lock_path=str(lock_path),
+            )
+            self.assertEqual(second["state"]["revision"], 2)
+            self.assertEqual(
+                {(row["subjectId"], row["current"]["profile"]["slug"]) for row in second["state"]["spaces"]},
+                {("user-1", "first"), ("user-2", "second")},
+            )
 
     def test_native_http_host_separates_read_state_from_token_bound_commands(self):
         host = HOST.read_text(encoding="utf-8")
