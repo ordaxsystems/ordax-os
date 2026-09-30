@@ -11,6 +11,15 @@ export function projectPersonalActivitySnapshot(value) {
   const resultByWork = new Map(
     snapshot.results.map((result) => [result.workItemId, result]),
   );
+  const approvalById = new Map(
+    snapshot.approvals.map((approval) => [approval.id, approval]),
+  );
+  const decisionsByWork = new Map();
+  for (const decision of snapshot.decisions) {
+    const list = decisionsByWork.get(decision.workItemId) ?? [];
+    list.push(decision);
+    decisionsByWork.set(decision.workItemId, list);
+  }
 
   return Object.freeze({
     ownerKind: snapshot.ownerKind,
@@ -20,6 +29,10 @@ export function projectPersonalActivitySnapshot(value) {
       item,
       activities: Object.freeze([...(activitiesByWork.get(item.id) ?? [])]),
       result: resultByWork.get(item.id) ?? null,
+      pendingApproval: item.pendingApprovalId === null
+        ? null
+        : approvalById.get(item.pendingApprovalId) ?? null,
+      decisions: Object.freeze([...(decisionsByWork.get(item.id) ?? [])]),
     }))),
   });
 }
