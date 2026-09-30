@@ -180,6 +180,7 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
                 MODULE._origin_search_signature(elf, canonical_relative),
                 MODULE._origin_search_signature(elf, alias_relative),
             )
+            self.assertEqual(node["paths"], tuple(record["paths"]))
             self.assertIn(node["path"], record["paths"])
 
     def test_origin_aliases_with_different_search_signature_fail_closed(self):
@@ -206,6 +207,51 @@ class RuntimeDependencyClosureGuardTests(unittest.TestCase):
                 MODULE.materialize_node(
                     f"stage-internal:{canonical_relative}", record, stage, rootfs, {}, {}
                 )
+
+    def test_rehashed_closure_cannot_omit_edge_path_from_target_aliases(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = root / "stage"
+            rootfs = root / "rootfs"
+            write(
+                stage / "usr/bin/wine",
+                synthetic_elf64(
+                    (b"libalias-a.so.1", b"libalias-b.so.1"),
+                    rpath=b"/opt/a:/opt/b",
+                ),
+            )
+            write(rootfs / "usr/lib/provider.so", synthetic_elf64(runpath=b"$ORIGIN"))
+            alias_a = rootfs / "opt/a/libalias-a.so.1"
+            alias_a.parent.mkdir(parents=True, exist_ok=True)
+            alias_a.symlink_to("../../usr/lib/provider.so")
+            alias_b = rootfs / "opt/b/libalias-b.so.1"
+            alias_b.parent.mkdir(parents=True, exist_ok=True)
+            alias_b.symlink_to("../../usr/lib/provider.so")
+            write_apk_database(
+                rootfs,
+                [
+                    ("usr/lib", "provider.so"),
+                    ("opt/a", "libalias-a.so.1"),
+                    ("opt/b", "libalias-b.so.1"),
+                ],
+            )
+            preload = preload_source_proof()
+            full = full_build_proof(stage)
+            direct = direct_proof(stage, rootfs, full, preload)
+            evidence = direct_evidence(full, direct)
+            closure = CLOSURE.discover(stage, rootfs, full, direct, preload)
+            provider_key = "rootfs-external:usr/lib/provider.so"
+            self.assertEqual(
+                closure["nodes"][provider_key]["paths"],
+                ["opt/a/libalias-a.so.1", "opt/b/libalias-b.so.1"],
+            )
+            closure["nodes"][provider_key]["paths"] = ["opt/a/libalias-a.so.1"]
+            closure["closure_sha256"] = MODULE.DIRECT.canonical_sha256(MODULE.closure_core(closure))
+            with self.assertRaisesRegex(
+                MODULE.ClosureLoaderGuardError,
+                "edge pathname is omitted from target node aliases",
+            ):
+                MODULE.verify(stage, rootfs, full, direct, evidence, closure, preload)
 
     def test_loaded_shortname_target_must_be_globally_invariant(self):
         with tempfile.TemporaryDirectory() as temp:
