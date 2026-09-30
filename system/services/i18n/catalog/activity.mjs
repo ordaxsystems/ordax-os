@@ -27,6 +27,8 @@ export const ACTIVITY_SOURCE_MESSAGES = Object.freeze({
   "activity.latest": "Última atividade",
   "activity.result.title": "Resultado",
   "activity.approval.title": "Aprovação necessária",
+  "activity.approval.resource": "Recurso",
+  "activity.approval.resource": "Resource",
   "activity.approval.grantRequired": "A execução permanece bloqueada até existir um grant explícito e compatível.",
   "activity.empty": "Nenhum trabalho criado para este owner.",
   "activity.error.create": "Não foi possível criar o trabalho com o owner e contexto atuais.",
