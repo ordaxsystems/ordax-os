@@ -173,6 +173,7 @@ test("a successfully created note reports degraded persistence instead of claimi
       saves += 1;
       return saves === 1;
     },
+    async flush() { return true; },
   });
   const notes = createNotesRuntime({ store, now: () => 5000 });
   const importer = createNotesFileImporter({

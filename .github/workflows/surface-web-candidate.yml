@@ -104,6 +104,7 @@ on:
       - 'tests/test_notifications.mjs'
       - 'tests/test_notification_center_ui_contract.py'
       - 'tests/test_notes_runtime.mjs'
+      - 'tests/test_notes_durable_persistence.mjs'
       - 'tests/test_notes_image_previews.mjs'
       - 'tests/test_notes_list_model.mjs'
       - 'tests/test_notes_deep_localization.py'
@@ -264,6 +265,7 @@ on:
       - 'tests/test_notifications.mjs'
       - 'tests/test_notification_center_ui_contract.py'
       - 'tests/test_notes_runtime.mjs'
+      - 'tests/test_notes_durable_persistence.mjs'
       - 'tests/test_notes_image_previews.mjs'
       - 'tests/test_notes_list_model.mjs'
       - 'tests/test_notes_deep_localization.py'
@@ -387,6 +389,7 @@ jobs:
           node --test tests/test_notifications.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_notes_runtime.mjs
+          node --test tests/test_notes_durable_persistence.mjs
           node --test tests/test_notes_image_previews.mjs
           node --test tests/test_notes_list_model.mjs
           python -m unittest tests.test_notes_deep_localization -v

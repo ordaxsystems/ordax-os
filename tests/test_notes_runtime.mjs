@@ -34,6 +34,9 @@ function memoryStore({ initial = null, scope = "device", saveResult = true } = {
       snapshot = validateNotesSnapshot(next);
       return saveResult;
     },
+    async flush() {
+      return true;
+    },
     read() {
       return snapshot;
     },
@@ -68,6 +71,10 @@ function memoryStorage() {
     },
     values,
   };
+}
+
+function settle() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 test("notes contract preserves bounded projects, tasks and references", () => {
@@ -290,6 +297,20 @@ test("legacy v1 snapshots migrate in memory and all future saves emit v2", () =>
   assert.equal(migrated.notes[0].body, "Linha 1\nLinha 2");
   assert.equal(migrated.notes[0].richBody.blocks.length, 1);
   assert.equal(migrated.notes[0].richBody.blocks[0].text, "Linha 1\nLinha 2");
+});
+
+test("notes-store v2 fails closed when an adapter omits durability confirmation", () => {
+  assert.throws(
+    () => createNotesRuntime({
+      store: {
+        schema: NOTES_STORE_SCHEMA,
+        scope: "device",
+        load() { return null; },
+        save() { return true; },
+      },
+    }),
+    /flush/,
+  );
 });
 
 test("notes runtime edits, organizes and reloads durable state", () => {
@@ -757,7 +778,7 @@ test("runtime collection limits fail closed without validation exceptions or pha
   assert.deepEqual(boundedRuntime.getSnapshot().document, boundedBefore);
 });
 
-test("semantic no-op mutations do not write, emit, or advance timestamps", () => {
+test("semantic no-op mutations do not write, emit, or advance timestamps", async () => {
   let stored = null;
   let saves = 0;
   let clock = 100_000;
@@ -772,6 +793,9 @@ test("semantic no-op mutations do not write, emit, or advance timestamps", () =>
       saves += 1;
       return true;
     },
+    async flush() {
+      return true;
+    },
   };
   const runtime = createNotesRuntime({ store, now: () => clock++ });
   let emissions = 0;
@@ -780,6 +804,7 @@ test("semantic no-op mutations do not write, emit, or advance timestamps", () =>
   });
 
   runtime.createNote();
+  await settle();
   let state = runtime.getSnapshot();
   const noteId = state.document.selectedNoteId;
   const note = state.document.notes.find((item) => item.id === noteId);
@@ -806,6 +831,7 @@ test("semantic no-op mutations do not write, emit, or advance timestamps", () =>
   );
 
   runtime.updateNote(noteId, { body: "x" });
+  await settle();
   const beforeFormat = runtime.getSnapshot();
   const beforeFormatSaves = saves;
   runtime.updateNote(noteId, {
@@ -817,6 +843,7 @@ test("semantic no-op mutations do not write, emit, or advance timestamps", () =>
       }],
     },
   });
+  await settle();
   const formatted = runtime.getSnapshot();
   assert.equal(saves, beforeFormatSaves + 1);
   assert.equal(formatted.document.notes.find((item) => item.id === noteId).body, "x");
@@ -827,6 +854,7 @@ test("semantic no-op mutations do not write, emit, or advance timestamps", () =>
   assert.ok(formatted.persistence.lastSavedAt > beforeFormat.persistence.lastSavedAt);
 
   runtime.addTask(noteId, "Item");
+  await settle();
   state = runtime.getSnapshot();
   const task = state.document.notes.find((item) => item.id === noteId).tasks[0];
   const beforeTaskNoop = {
@@ -847,6 +875,7 @@ test("semantic no-op mutations do not write, emit, or advance timestamps", () =>
   );
 
   runtime.createProject("Projeto idempotente");
+  await settle();
   state = runtime.getSnapshot();
   const projectId = state.document.selectedProjectId;
   const project = state.document.projects.find((item) => item.id === projectId);
@@ -955,7 +984,7 @@ test("storage adapters migrate legacy v1 note content without dropping text", as
   assert.equal(native.load().notes[0].body, "Texto antigo\ncontinua aqui");
 });
 
-test("native notes adapter uses the loopback endpoint and queues durable writes", async () => {
+test("native notes adapter uses the loopback endpoint and confirms durable writes", async () => {
   const calls = [];
   const windowRef = {
     async fetch(url, options) {
@@ -981,7 +1010,7 @@ test("native notes adapter uses the loopback endpoint and queues durable writes"
   assert.equal(store.load(), null);
 
   store.save(validateNotesSnapshot(minimalSnapshot()));
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await store.flush();
 
   assert.equal(calls[0].url, "/__ordax/native/notes");
   assert.equal(calls[0].options.method, "GET");
@@ -1022,4 +1051,3 @@ test("notes statistics count Unicode code points rather than UTF-16 units", () =
   assert.equal(snapshot.words, 1);
   assert.equal(snapshot.characters, 4);
 });
-
