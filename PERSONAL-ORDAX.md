@@ -116,3 +116,11 @@ A identidade do adapter é o SHA-256 calculado sobre os bytes reais do próprio 
 A approval aprovada agora pode entrar explicitamente em execução foreground. O runtime persiste `action-started`, mantém a approval como `approved` durante a tentativa e só a transforma em `executed` quando recebe um `ordax.action-receipt/1` com status `succeeded` que coincide exatamente com Work, approval, tool, SHA-256 do artefato, action, effect, recurso e grant retidos. A mesma approval não pode ser executada novamente depois desse consumo.
 
 Falha sem receipt verificado pausa o Work sem consumir a approval. A retomada/reexecução continua sendo explícita e foi desenhada para adapters idempotentes, começando por `files.directory.ensure`. Este corte ainda não conecta o adapter Native ao Action Executor na composição principal; o lifecycle está pronto antes de abrir o efeito.
+
+### Primeiro side effect foreground habilitado
+
+A composição Native agora conecta exclusivamente o adapter verificado `ordax-native-file-space/files.directory.ensure` ao Action Executor. A Activity só oferece execução depois de approval humana explícita e somente quando o adapter atual tem o mesmo SHA-256 retido pela approval. O grant também é preso ao `workItemId` exato.
+
+A execução faz `approved -> running -> executed`, persiste `action-started/action-finished` e consome a approval apenas com receipt `succeeded` exato. Enquanto existir uma ação aprovada não consumida, o Work não pode iniciar novo raciocínio nem pedir outra approval. Cancelar o Work revoga primeiro o grant no registry e retém a approval como `revoked` para auditoria.
+
+O escopo de side effect habilitado continua deliberadamente único: garantir um diretório dentro do `file-space` canônico. Background, egress, device-control, shell, raw disk e execução genérica continuam desabilitados.
