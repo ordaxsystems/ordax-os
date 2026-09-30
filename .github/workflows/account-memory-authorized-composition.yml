@@ -7,13 +7,16 @@ on:
       - 'system/contracts/identity-session.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/sync-state-store.mjs'
+      - 'system/adapters/web/entitlements.mjs'
       - 'system/services/memory/**'
+      - 'system/services/sync/state-store-registry.mjs'
       - 'system/services/sync/account-memory-authorization.mjs'
       - 'system/services/sync/account-memory-entitlement-session.mjs'
       - 'system/services/sync/account-memory-local-bridge.mjs'
       - 'system/services/sync/account-memory-composition.mjs'
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
+      - 'system/composition/native/account-memory.mjs'
       - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_entitlement_session.mjs'
       - 'tests/test_account_memory_local_bridge.mjs'
@@ -21,6 +24,7 @@ on:
       - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
       - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
+      - 'tests/test_native_account_memory_composition.mjs'
       - '.github/workflows/account-memory-authorized-composition.yml'
   push:
     branches: [main]
@@ -29,13 +33,16 @@ on:
       - 'system/contracts/identity-session.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/sync-state-store.mjs'
+      - 'system/adapters/web/entitlements.mjs'
       - 'system/services/memory/**'
+      - 'system/services/sync/state-store-registry.mjs'
       - 'system/services/sync/account-memory-authorization.mjs'
       - 'system/services/sync/account-memory-entitlement-session.mjs'
       - 'system/services/sync/account-memory-local-bridge.mjs'
       - 'system/services/sync/account-memory-composition.mjs'
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
+      - 'system/composition/native/account-memory.mjs'
       - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_entitlement_session.mjs'
       - 'tests/test_account_memory_local_bridge.mjs'
@@ -43,6 +50,7 @@ on:
       - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
       - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
+      - 'tests/test_native_account_memory_composition.mjs'
       - '.github/workflows/account-memory-authorized-composition.yml'
   workflow_dispatch:
 
@@ -62,21 +70,26 @@ jobs:
       - name: Validate source syntax
         run: |
           set -euo pipefail
+          node --check system/adapters/web/entitlements.mjs
           node --check system/services/sync/account-memory-local-bridge.mjs
           node --check system/services/sync/account-memory-deferred-intents.mjs
           node --check system/services/sync/account-memory-authorized-composition.mjs
+          node --check system/composition/native/account-memory.mjs
           node --check tests/test_account_memory_local_bridge.mjs
           node --check tests/test_account_memory_deferred_intents.mjs
           node --check tests/test_account_memory_authorized_composition.mjs
           node --check tests/test_account_memory_authorized_lifecycle_replay.mjs
+          node --check tests/test_native_account_memory_composition.mjs
 
       - name: Prove entitlement-gated local-first Memory composition
         run: |
           set -euo pipefail
           node --test tests/test_account_memory_authorization.mjs
           node --test tests/test_account_memory_entitlement_session.mjs
+          node --test tests/test_memory_entitlement_web_adapter.mjs
           node --test tests/test_account_memory_local_bridge.mjs
           node --test tests/test_account_memory_transport_authorization.mjs
           node --test tests/test_account_memory_deferred_intents.mjs
           node --test tests/test_account_memory_authorized_composition.mjs
           node --test tests/test_account_memory_authorized_lifecycle_replay.mjs
+          node --test tests/test_native_account_memory_composition.mjs
