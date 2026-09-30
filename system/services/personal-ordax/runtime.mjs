@@ -529,9 +529,6 @@ export function createPersonalOrdaxRuntime({
     },
     async run(id) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
-      if (intelligence === null) {
-        throw new Error("Personal OrdaX Intelligence is unavailable in this composition");
-      }
       const item = findWork(id);
       if (TERMINAL_STATES.has(item.state)) {
         throw new Error("Terminal Personal OrdaX work cannot run again");
@@ -546,6 +543,9 @@ export function createPersonalOrdaxRuntime({
       }
       if (inFlight.has(id)) {
         throw new Error("Personal OrdaX work is already running");
+      }
+      if (intelligence === null) {
+        throw new Error("Personal OrdaX Intelligence is unavailable in this composition");
       }
       const status = contextStatus(item);
       if (status !== "valid") {
