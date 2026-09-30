@@ -97,18 +97,21 @@ export function createMemoryReviewViewModel(reviewSessionValue, {
 
   const persistMutation = async (mutate) => {
     if (disposed) throw new Error("Memory review view model is disposed");
-    const result = mutate();
-    if (result === null || result === false) {
-      refresh();
-      return result;
-    }
     const ordinal = ++persistenceOrdinal;
     persistenceState = "pending";
     persistenceError = null;
-    readPage();
     publish();
     try {
-      await review.flush();
+      const result = await mutate();
+      if (result === null || result === false) {
+        if (ordinal === persistenceOrdinal && !disposed) {
+          persistenceState = "idle";
+          persistenceError = null;
+          readPage();
+          publish();
+        }
+        return result;
+      }
       if (ordinal === persistenceOrdinal && !disposed) {
         persistenceState = "saved";
         persistenceError = null;
