@@ -32,6 +32,8 @@ function identitySession(initial = { state: "signed-out", subjectId: null, displ
 
 function rootStore() {
   let payload = null;
+  let flushes = 0;
+  let failFlush = false;
   return {
     schema: SYNC_STATE_STORE_SCHEMA,
     scope: "device",
@@ -40,7 +42,16 @@ function rootStore() {
       payload = value;
       return true;
     },
+    async flush() {
+      flushes += 1;
+      if (failFlush) throw new Error("canonical coordination flush failed");
+      return true;
+    },
     read: () => payload,
+    flushCount: () => flushes,
+    failFlush(value) {
+      failFlush = value;
+    },
   };
 }
 
@@ -173,4 +184,34 @@ test("identity lifecycle wrapper owns neither transport nor cursor and dispose r
   session.destroy();
   assert.equal(identity.listenerCount(), 0);
   assert.throws(() => session.getSnapshot(), /disposed/);
+});
+
+
+test("session runtime confirms canonical coordination durability through the active namespace store", async () => {
+  const { root, session } = createHarness({
+    state: "signed-in",
+    subjectId: "account-a",
+    displayName: "A",
+  });
+
+  session.stageUpsert(item("account-a", "memory-flush"));
+  const before = root.flushCount();
+  assert.equal(await session.flushCoordinationState(), true);
+  assert.equal(root.flushCount(), before + 1);
+
+  root.failFlush(true);
+  await assert.rejects(session.flushCoordinationState(), /canonical coordination flush failed/);
+  root.failFlush(false);
+  assert.equal(await session.flushCoordinationState(), true);
+});
+
+test("inactive session canonical coordination flush is a no-op", async () => {
+  const { root, session } = createHarness({
+    state: "signed-out",
+    subjectId: null,
+    displayName: null,
+  });
+  const before = root.flushCount();
+  assert.equal(await session.flushCoordinationState(), true);
+  assert.equal(root.flushCount(), before);
 });
