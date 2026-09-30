@@ -417,7 +417,7 @@ test("Memory capture can delegate durable persistence to a composition-owned asy
     idFactory: () => "capture-protected",
     async persistItem(item) {
       persisted.push(item);
-      return item;
+      return true;
     },
   });
 
@@ -457,23 +457,23 @@ test("Memory capture fails closed when composition-owned persistence rejects", a
   assert.equal(memory.flushes, 0);
 });
 
-test("Memory capture rejects a persistence writer that changes the authorized item", async () => {
+test("Memory capture requires explicit durability confirmation from an injected writer", async () => {
   const memory = memoryPort();
   const runtime = createMemoryCaptureRuntime(memory, {
     idFactory: () => "capture-boundary",
-    async persistItem(item) {
-      return { ...item, ownerId: "other-user" };
+    async persistItem() {
+      return false;
     },
   });
 
   await assert.rejects(
     () => runtime.capture({
-      content: "Boundary não pode ser reescrito.",
+      content: "Não declarar durável sem confirmação explícita.",
       kind: "fact",
       sensitivity: "private",
       provenance: "intelligence:conversation",
     }, accountAuthorization),
-    /escaped the authorized item boundary/,
+    /did not confirm durability/,
   );
 });
 
@@ -502,9 +502,9 @@ test("exact duplicate capture keeps using the Memory durability barrier and does
   let writerCalls = 0;
   const runtime = createMemoryCaptureRuntime(memory, {
     idFactory: () => "must-not-be-minted",
-    async persistItem(item) {
+    async persistItem() {
       writerCalls += 1;
-      return item;
+      return true;
     },
   });
 
