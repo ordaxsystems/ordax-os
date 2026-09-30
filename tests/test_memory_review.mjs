@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { MEMORY_MUTATION_PORT_SCHEMA } from "../system/contracts/memory-mutation.mjs";
 import { createMemoryRuntime } from "../system/services/memory/runtime.mjs";
 import {
   MEMORY_REVIEW_EXPORT_SCHEMA,
@@ -25,7 +26,7 @@ function item(overrides = {}) {
   };
 }
 
-test("memory review lists, edits and removes only inside its owner boundary", () => {
+test("memory review lists, edits and removes only inside its owner boundary", async () => {
   const memory = createMemoryRuntime();
   memory.remember(item());
   memory.remember(item({ id: "other-space", spaceId: "space-b", projectId: "project-a" }));
@@ -39,7 +40,7 @@ test("memory review lists, edits and removes only inside its owner boundary", ()
   });
 
   assert.deepEqual(review.list().map((entry) => entry.id), ["mem-1"]);
-  const updated = review.update("mem-1", {
+  const updated = await review.update("mem-1", {
     content: "conteúdo revisado",
     provenance: "user-review",
     sensitivity: "restricted",
@@ -49,8 +50,8 @@ test("memory review lists, edits and removes only inside its owner boundary", ()
   assert.equal(updated.sensitivity, "restricted");
   assert.equal(updated.sourceTimestamp, "2026-09-24T18:30:00.000Z");
 
-  assert.equal(review.remove("mem-1"), true);
-  assert.equal(review.remove("mem-1"), false);
+  assert.equal(await review.remove("mem-1"), true);
+  assert.equal(await review.remove("mem-1"), false);
   assert.deepEqual(review.list(), []);
 
   assert.equal(
@@ -65,7 +66,7 @@ test("memory review lists, edits and removes only inside its owner boundary", ()
   );
 });
 
-test("device memory review works without account identity and cannot see account items", () => {
+test("device memory review works without account identity and cannot see account items", async () => {
   const memory = createMemoryRuntime();
   memory.remember(item({
     id: "device-item",
@@ -91,19 +92,19 @@ test("device memory review works without account identity and cannot see account
   });
   assert.deepEqual(review.list().map((entry) => entry.id), ["device-item"]);
 
-  const updated = review.update("device-item", { content: "local revisado" });
+  const updated = await review.update("device-item", { content: "local revisado" });
   assert.equal(updated.ownerKind, "device");
   assert.equal(updated.ownerId, null);
   assert.equal(updated.content, "local revisado");
-  assert.equal(review.update("account-item", { content: "não deve mudar" }), null);
-  assert.equal(review.remove("account-item"), false);
+  assert.equal(await review.update("account-item", { content: "não deve mudar" }), null);
+  assert.equal(await review.remove("account-item"), false);
   assert.equal(
     memory.search({ ownerId: "user-1", scopes: ["account"] })[0].content,
     "account-only",
   );
 });
 
-test("memory review cannot mutate identity, owner, kind or structural scope", () => {
+test("memory review cannot mutate identity, owner, kind or structural scope", async () => {
   const memory = createMemoryRuntime();
   memory.remember(item());
   const review = createMemoryReviewRuntime(memory, {
@@ -121,11 +122,11 @@ test("memory review cannot mutate identity, owner, kind or structural scope", ()
     { projectId: "project-b" },
     { kind: "instruction" },
   ]) {
-    assert.throws(() => review.update("mem-1", patch), /cannot change/);
+    await assert.rejects(() => review.update("mem-1", patch), /cannot change/);
   }
 });
 
-test("memory review locates old items through bounded pagination", () => {
+test("memory review locates old items through bounded pagination", async () => {
   const memory = createMemoryRuntime();
   for (let index = 0; index < 40; index += 1) {
     memory.remember(item({
@@ -144,14 +145,14 @@ test("memory review locates old items through bounded pagination", () => {
   assert.equal(review.list({ limit: 4 }).length, 4);
   assert.equal(review.list({ limit: 4, offset: 32 })[0].id, "mem-07");
 
-  const updated = review.update("mem-00", { content: "memória antiga revisada" });
+  const updated = await review.update("mem-00", { content: "memória antiga revisada" });
   assert.ok(updated);
   assert.equal(updated.id, "mem-00");
   assert.equal(updated.content, "memória antiga revisada");
   assert.equal(updated.sourceTimestamp, "2026-09-24T19:00:00.000Z");
 });
 
-test("review update still enforces memory secret rejection", () => {
+test("review update still enforces memory secret rejection", async () => {
   const memory = createMemoryRuntime();
   memory.remember(item());
   const review = createMemoryReviewRuntime(memory, {
@@ -160,14 +161,14 @@ test("review update still enforces memory secret rejection", () => {
     projectId: "project-a",
   });
 
-  assert.throws(
+  await assert.rejects(
     () => review.update("mem-1", { content: "ghp_abcdefghijklmnopqrstuvwxyz123456" }),
     /Secrets are not valid/,
   );
 });
 
 
-test("manual Memory creation stays inside the selected personal owner scope", () => {
+test("manual Memory creation stays inside the selected personal owner scope", async () => {
   const memory = createMemoryRuntime();
   const device = createMemoryReviewRuntime(memory, {
     ownerKind: "device",
@@ -175,7 +176,7 @@ test("manual Memory creation stays inside the selected personal owner scope", ()
     now: () => new Date("2026-09-29T11:30:00Z"),
     idFactory: () => "manual-device",
   });
-  const createdDevice = device.create("Preferência local");
+  const createdDevice = await device.create("Preferência local");
   assert.equal(createdDevice.ownerKind, "device");
   assert.equal(createdDevice.ownerId, null);
   assert.equal(createdDevice.scope, "device");
@@ -189,7 +190,7 @@ test("manual Memory creation stays inside the selected personal owner scope", ()
     now: () => new Date("2026-09-29T11:31:00Z"),
     idFactory: () => "manual-account",
   });
-  const createdAccount = account.create("Preferência da conta");
+  const createdAccount = await account.create("Preferência da conta");
   assert.equal(createdAccount.ownerKind, "account");
   assert.equal(createdAccount.ownerId, "user-1");
   assert.equal(createdAccount.scope, "account");
@@ -197,7 +198,7 @@ test("manual Memory creation stays inside the selected personal owner scope", ()
   assert.equal(createdAccount.projectId, null);
 });
 
-test("default manual account Memory identity is a portable UUID v4", () => {
+test("default manual account Memory identity is a portable UUID v4", async () => {
   const memory = createMemoryRuntime();
   const review = createMemoryReviewRuntime(memory, {
     ownerKind: "account",
@@ -205,21 +206,21 @@ test("default manual account Memory identity is a portable UUID v4", () => {
     now: () => new Date("2026-09-29T11:32:00Z"),
   });
 
-  const created = review.create("Memória criada offline com identidade estável");
+  const created = await review.create("Memória criada offline com identidade estável");
   assert.match(created.id, UUID_V4_RE);
   assert.equal(created.ownerKind, "account");
   assert.equal(created.ownerId, "user-1");
   assert.equal(created.scope, "account");
 });
 
-test("manual Memory creation refuses structural Space/project review boundaries", () => {
+test("manual Memory creation refuses structural Space/project review boundaries", async () => {
   const review = createMemoryReviewRuntime(createMemoryRuntime(), {
     ownerKind: "account",
     ownerId: "user-1",
     spaceId: "space-a",
     idFactory: () => "manual-space",
   });
-  assert.throws(() => review.create("não criar aqui"), /personal owner scopes/);
+  await assert.rejects(() => review.create("não criar aqui"), /personal owner scopes/);
 });
 
 
@@ -260,4 +261,38 @@ test("memory review exports every item inside the selected authorization boundar
   assert.equal(exported.items.length, 40);
   assert.equal(exported.items.find((entry) => entry.id === "device-export-7")?.sensitivity, "restricted");
   assert.equal(exported.items.some((entry) => entry.id === "account-not-exported"), false);
+});
+
+
+test("memory review delegates writes to the supplied async mutation port", async () => {
+  const memory = createMemoryRuntime();
+  const calls = [];
+  const mutationPort = {
+    schema: MEMORY_MUTATION_PORT_SCHEMA,
+    async remember(value) {
+      calls.push(["remember", value.id]);
+      return memory.remember(value);
+    },
+    async forget(value) {
+      calls.push(["forget", value.id]);
+      return memory.forget(value);
+    },
+  };
+  const review = createMemoryReviewRuntime(memory, {
+    ownerKind: "account",
+    ownerId: "user-1",
+    idFactory: () => "review-protected",
+    mutationPort,
+  });
+
+  const created = await review.create("conteúdo protegido");
+  assert.equal(created.id, "review-protected");
+  const updated = await review.update("review-protected", { content: "conteúdo revisado" });
+  assert.equal(updated.content, "conteúdo revisado");
+  assert.equal(await review.remove("review-protected"), true);
+  assert.deepEqual(calls, [
+    ["remember", "review-protected"],
+    ["remember", "review-protected"],
+    ["forget", "review-protected"],
+  ]);
 });
