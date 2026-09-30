@@ -71,7 +71,7 @@ export function validateIntelligenceToolGrantIssue(value) {
     throw new TypeError("Intelligence tool grant exceeds the initial bounded TTL");
   }
 
-  const approvalId = boundedText(value.approvalId, "Intelligence tool grant approval id", 160);
+  const approvalId = boundedText(value.approvalId, "Intelligence tool grant approval id", 200);
   const toolId = boundedText(value.toolId, "Intelligence tool grant tool id", 96);
   const action = boundedText(value.action, "Intelligence tool grant action", 128);
   const spaceId = optionalText(value.spaceId, "Intelligence tool grant Space", 160);
