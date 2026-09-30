@@ -16,6 +16,7 @@ const NOW = Date.parse("2026-09-30T21:30:00.000Z");
 
 function issue(overrides = {}) {
   return {
+    workItemId: "personal-work-1",
     approvalId: "personal-approval-personal-work-1-1",
     toolId: "files-inspector",
     toolArtifactSha256: "a".repeat(64),
