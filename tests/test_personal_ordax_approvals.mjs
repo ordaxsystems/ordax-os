@@ -164,6 +164,7 @@ test("missing grant keeps approval pending and cannot execute", () => {
     identitySessionPort: identity(),
     spaceSelectionPort: spaces(),
     actionGatewayPort: actionGateway(),
+    revokeGrant: () => true,
     now: () => tick++,
   });
   const work = runtime.create("Atualizar.", { spaceId: "space-1" });
@@ -189,6 +190,7 @@ test("exact existing grant resolves approval to queued work and durable allow de
     identitySessionPort: identity(),
     spaceSelectionPort: spaces(),
     actionGatewayPort: actionGateway(),
+    revokeGrant: () => true,
     now: () => tick++,
   });
   const work = runtime.create("Atualizar.", { spaceId: "space-1" });
@@ -226,6 +228,7 @@ test("wrong-owner grant resolves fail-closed to denied and paused work", () => {
     identitySessionPort: identity(),
     spaceSelectionPort: spaces(),
     actionGatewayPort: actionGateway([grant({ ownerId: "user-2" })]),
+    revokeGrant: () => true,
     now: () => tick++,
   });
   const work = runtime.create("Atualizar.", { spaceId: "space-1" });
@@ -299,6 +302,7 @@ test("store rejects orphan approvals, missing audit Activity and forged terminal
     identitySessionPort: identity(),
     spaceSelectionPort: spaces(),
     actionGatewayPort: actionGateway(),
+    revokeGrant: () => true,
     store: persistence,
     now: () => tick++,
   });
