@@ -125,7 +125,7 @@
     "intelligence_tool_grant_initial_max_ttl_ms": 300000,
     "native_action_gateway_uses_canonical_grant_registry": true,
     "action_executor_contract_source_enabled": true,
-    "action_executor_implementation_enabled": false,
+    "action_executor_implementation_enabled": true,
     "trusted_human_consent_controller_source_enabled": true,
     "trusted_human_consent_controller_exposes_grant_issuer": false,
     "activity_explicit_approval_controls_enabled": true,
@@ -137,7 +137,13 @@
     ],
     "consent_tool_grant_default_ttl_ms": 120000,
     "approve_control_requires_resolvable_typed_action": true,
-    "native_registered_tool_actions_enabled": false
+    "native_registered_tool_actions_enabled": false,
+    "sensitive_approval_requires_resource_ref": true,
+    "tool_grant_binds_approval_id": true,
+    "tool_grant_binds_resource_ref": true,
+    "action_gateway_revalidates_approval_resource_scope": true,
+    "action_executor_revalidates_authority_immediately_before_adapter": true,
+    "action_receipt_contract_enabled": true
   },
   "activity": {
     "ordered_sequence_required": true,
@@ -167,7 +173,8 @@
     "personal_foreground_runtime_mounted_in_surface": true,
     "approval_lifecycle_source_enabled": true,
     "action_execution_enabled": false,
-    "approval_consent_surface_enabled": true
+    "approval_consent_surface_enabled": true,
+    "authorized_side_effects_enabled": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
