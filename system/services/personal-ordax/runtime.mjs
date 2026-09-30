@@ -8,6 +8,8 @@ import {
   PERSONAL_ORDAX_RUNTIME_SCHEMA,
   assertPersonalOrdaxStore,
   createEmptyPersonalOrdaxStoreState,
+  personalOrdaxOwnerKey,
+  validatePersonalOrdaxOwner,
   validatePersonalOrdaxRuntimeSnapshot,
   validatePersonalOrdaxStoreState,
 } from "../../contracts/personal-ordax-store.mjs";
@@ -53,7 +55,9 @@ function sameActivity(left, right) {
 }
 
 function sameState(left, right) {
-  return left.nextOrdinal === right.nextOrdinal
+  return left.ownerKind === right.ownerKind
+    && left.ownerId === right.ownerId
+    && left.nextOrdinal === right.nextOrdinal
     && left.workItems.length === right.workItems.length
     && left.activities.length === right.activities.length
     && left.workItems.every((item, index) => sameWorkItem(item, right.workItems[index]))
@@ -62,15 +66,15 @@ function sameState(left, right) {
 
 function currentOwner(identity) {
   const snapshot = validateIdentitySessionSnapshot(identity.getSnapshot());
-  if (snapshot.state === "signed-in") {
-    return Object.freeze({ ownerKind: "account", ownerId: snapshot.subjectId });
-  }
-  return Object.freeze({ ownerKind: "device", ownerId: null });
+  return validatePersonalOrdaxOwner(
+    snapshot.state === "signed-in"
+      ? { ownerKind: "account", ownerId: snapshot.subjectId }
+      : { ownerKind: "device", ownerId: null },
+  );
 }
 
-function ownerMatches(item, identity) {
-  const owner = currentOwner(identity);
-  return item.ownerKind === owner.ownerKind && item.ownerId === owner.ownerId;
+function sameOwner(left, right) {
+  return left.ownerKind === right.ownerKind && left.ownerId === right.ownerId;
 }
 
 function explicitSpaceMatches(item, identity, selection) {
@@ -99,6 +103,29 @@ function boundedSummary(value) {
   return normalized.length <= 1024 ? normalized : `${normalized.slice(0, 1023).trimEnd()}…`;
 }
 
+function nextSequenceIn(activities, workItemId) {
+  return activities.reduce(
+    (maximum, event) => event.workItemId === workItemId
+      ? Math.max(maximum, event.sequence)
+      : maximum,
+    0,
+  ) + 1;
+}
+
+function appendActivityTo(activities, workItemId, type, summary, occurredAt, metadata = {}) {
+  const event = validatePersonalActivityEvent({
+    workItemId,
+    sequence: nextSequenceIn(activities, workItemId),
+    type,
+    summary: boundedSummary(summary),
+    approvalId: metadata.approvalId ?? null,
+    actionId: metadata.actionId ?? null,
+    artifactRefs: metadata.artifactRefs ?? [],
+    occurredAt,
+  });
+  return [...activities, event].slice(-MAX_PERSONAL_ACTIVITY_EVENTS);
+}
+
 export function createPersonalOrdaxRuntime({
   identitySessionPort,
   spaceSelectionPort = null,
@@ -116,36 +143,50 @@ export function createPersonalOrdaxRuntime({
   const intelligence = intelligencePort === null ? null : assertIntelligencePort(intelligencePort);
   const durableStore = store === null ? null : assertPersonalOrdaxStore(store);
 
-  let persistence = durableStore?.scope ?? "session";
-  let state = createEmptyPersonalOrdaxStoreState();
+  const ownerStates = new Map();
+  const ownerPersistence = new Map();
+  const durableBlockedOwners = new Set();
   const listeners = new Set();
   const inFlight = new Set();
   let disposed = false;
+  let activeOwner = currentOwner(identity);
 
-  if (durableStore) {
-    try {
-      state = validatePersonalOrdaxStoreState(durableStore.load());
-    } catch {
-      state = createEmptyPersonalOrdaxStoreState();
-      persistence = "session";
+  const loadOwnerState = (ownerValue) => {
+    const owner = validatePersonalOrdaxOwner(ownerValue);
+    const key = personalOrdaxOwnerKey(owner);
+    if (ownerStates.has(key)) return ownerStates.get(key);
+
+    let loaded = createEmptyPersonalOrdaxStoreState(owner);
+    let persistence = "session";
+    if (durableStore !== null) {
+      try {
+        const raw = durableStore.load(owner);
+        loaded = raw == null
+          ? createEmptyPersonalOrdaxStoreState(owner)
+          : validatePersonalOrdaxStoreState(raw, owner);
+        persistence = durableStore.scope === "device" ? "device" : "session";
+      } catch {
+        durableBlockedOwners.add(key);
+        loaded = createEmptyPersonalOrdaxStoreState(owner);
+        persistence = "session";
+      }
     }
-  }
-
-  const snapshot = () => {
-    const owner = currentOwner(identity);
-    const workItems = state.workItems.filter(
-      (item) => item.ownerKind === owner.ownerKind && item.ownerId === owner.ownerId,
-    );
-    const visibleIds = new Set(workItems.map((item) => item.id));
-    const activities = state.activities.filter((event) => visibleIds.has(event.workItemId));
-    return validatePersonalOrdaxRuntimeSnapshot({
-      schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
-      persistence,
-      nextOrdinal: state.nextOrdinal,
-      workItems,
-      activities,
-    });
+    ownerStates.set(key, loaded);
+    ownerPersistence.set(key, persistence);
+    return loaded;
   };
+
+  let state = loadOwnerState(activeOwner);
+
+  const snapshot = () => validatePersonalOrdaxRuntimeSnapshot({
+    schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
+    persistence: ownerPersistence.get(personalOrdaxOwnerKey(activeOwner)) ?? "session",
+    ownerKind: state.ownerKind,
+    ownerId: state.ownerId,
+    nextOrdinal: state.nextOrdinal,
+    workItems: state.workItems,
+    activities: state.activities,
+  });
 
   const publish = () => {
     if (disposed) return;
@@ -153,76 +194,69 @@ export function createPersonalOrdaxRuntime({
     for (const listener of [...listeners]) listener(current);
   };
 
-  const persist = (next) => {
-    const validated = validatePersonalOrdaxStoreState(next);
+  const saveState = (next) => {
+    const validated = validatePersonalOrdaxStoreState(next, activeOwner);
     state = validated;
-    if (!durableStore) {
-      persistence = "session";
+    const key = personalOrdaxOwnerKey(activeOwner);
+    ownerStates.set(key, validated);
+
+    if (durableStore === null || durableBlockedOwners.has(key)) {
+      ownerPersistence.set(key, "session");
       return;
     }
     try {
-      const saved = durableStore.save(validated) !== false;
-      persistence = saved && durableStore.scope === "device" ? "device" : "session";
+      const saved = durableStore.save(activeOwner, validated) !== false;
+      ownerPersistence.set(
+        key,
+        saved && durableStore.scope === "device" ? "device" : "session",
+      );
     } catch {
-      persistence = "session";
+      ownerPersistence.set(key, "session");
     }
   };
 
   const replaceState = (next) => {
-    const validated = validatePersonalOrdaxStoreState(next);
+    const validated = validatePersonalOrdaxStoreState(next, activeOwner);
     if (sameState(state, validated)) return false;
-    persist(validated);
+    saveState(validated);
     publish();
     return true;
   };
 
-  const findStoredWork = (id) => {
-    const item = state.workItems.find((candidate) => candidate.id === id);
-    if (!item) throw new TypeError("Personal OrdaX work id is not registered");
-    return item;
-  };
-
   const findWork = (id) => {
-    const item = findStoredWork(id);
-    if (!ownerMatches(item, identity)) {
-      throw new TypeError("Personal OrdaX work is not owned by the current identity");
-    }
+    const item = state.workItems.find((candidate) => candidate.id === id);
+    if (!item) throw new TypeError("Personal OrdaX work id is not registered for the current owner");
     return item;
   };
 
-  const nextSequence = (workItemId) => state.activities.reduce(
-    (maximum, event) => event.workItemId === workItemId
-      ? Math.max(maximum, event.sequence)
-      : maximum,
-    0,
-  ) + 1;
-
-  const appendActivity = (workItemId, type, summary, metadata = {}) => {
-    const event = validatePersonalActivityEvent({
-      workItemId,
-      sequence: nextSequence(workItemId),
-      type,
-      summary: boundedSummary(summary),
-      approvalId: metadata.approvalId ?? null,
-      actionId: metadata.actionId ?? null,
-      artifactRefs: metadata.artifactRefs ?? [],
-      occurredAt: isoClock(now),
-    });
-    const activities = [...state.activities, event].slice(-MAX_PERSONAL_ACTIVITY_EVENTS);
-    return activities;
+  const contextStatus = (item) => {
+    if (item.ownerKind !== activeOwner.ownerKind || item.ownerId !== activeOwner.ownerId) {
+      return "owner-partition-mismatch";
+    }
+    if (!explicitSpaceMatches(item, identity, selection)) return "space-changed";
+    if (!explicitProjectExists(item, projects)) return "project-unavailable";
+    return "valid";
   };
 
   const updateWork = (id, patch, { activity = null } = {}) => {
     const existing = findWork(id);
+    const occurredAt = isoClock(now);
     const updated = validatePersonalWorkItem({
       ...existing,
       ...patch,
-      updatedAt: isoClock(now),
+      updatedAt: occurredAt,
     });
     const workItems = state.workItems.map((item) => item.id === id ? updated : item);
     const activities = activity === null
       ? state.activities
-      : appendActivity(id, activity.type, activity.summary, activity);
+      : appendActivityTo(
+        state.activities,
+        id,
+        activity.type,
+        activity.summary,
+        occurredAt,
+        activity,
+      );
     replaceState({
       ...state,
       workItems,
@@ -231,49 +265,81 @@ export function createPersonalOrdaxRuntime({
     return updated;
   };
 
-  const contextStatus = (item) => {
-    if (!ownerMatches(item, identity)) return "owner-changed";
-    if (!explicitSpaceMatches(item, identity, selection)) return "space-changed";
-    if (!explicitProjectExists(item, projects)) return "project-unavailable";
-    return "valid";
-  };
-
-  const pauseInvalidActiveWork = () => {
+  const pauseInvalidCurrentWork = () => {
     if (disposed) return;
-    for (const item of [...state.workItems]) {
+    let next = state;
+    let changed = false;
+    for (const item of state.workItems) {
       if (!ACTIVE_STATES.has(item.state)) continue;
       const status = contextStatus(item);
       if (status === "valid") continue;
       inFlight.delete(item.id);
-      const existing = findStoredWork(item.id);
+      const occurredAt = isoClock(now);
       const updated = validatePersonalWorkItem({
-        ...existing,
+        ...item,
         state: "paused",
         pendingApprovalId: null,
-        updatedAt: isoClock(now),
+        updatedAt: occurredAt,
       });
-      const activities = appendActivity(
-        item.id,
-        "paused",
-        `Work paused because its bound context is no longer valid: ${status}.`,
-      );
-      replaceState({
-        ...state,
-        workItems: state.workItems.map((candidate) => candidate.id === item.id ? updated : candidate),
-        activities,
-      });
-      /*
-       * Do not route invalidation through the public owner-checked mutation path:
-       * by definition the owner may already have changed. The stored work remains
-       * isolated and becomes visible again only when its original owner returns.
-       */
+      next = validatePersonalOrdaxStoreState({
+        ...next,
+        workItems: next.workItems.map((candidate) => candidate.id === item.id ? updated : candidate),
+        activities: appendActivityTo(
+          next.activities,
+          item.id,
+          "paused",
+          `Work paused because its bound context is no longer valid: ${status}.`,
+          occurredAt,
+        ),
+      }, activeOwner);
+      changed = true;
     }
+    if (changed) replaceState(next);
+  };
+
+  const pauseForOwnerSwitch = () => {
+    let next = state;
+    let changed = false;
+    for (const item of state.workItems) {
+      if (!ACTIVE_STATES.has(item.state)) continue;
+      const occurredAt = isoClock(now);
+      const updated = validatePersonalWorkItem({
+        ...item,
+        state: "paused",
+        pendingApprovalId: null,
+        updatedAt: occurredAt,
+      });
+      next = validatePersonalOrdaxStoreState({
+        ...next,
+        workItems: next.workItems.map((candidate) => candidate.id === item.id ? updated : candidate),
+        activities: appendActivityTo(
+          next.activities,
+          item.id,
+          "paused",
+          "Work paused because the active identity changed.",
+          occurredAt,
+        ),
+      }, activeOwner);
+      changed = true;
+    }
+    if (changed) saveState(next);
+  };
+
+  const handleIdentityChange = () => {
+    if (disposed) return;
+    const nextOwner = currentOwner(identity);
+    if (sameOwner(activeOwner, nextOwner)) return;
+    pauseForOwnerSwitch();
+    inFlight.clear();
+    activeOwner = nextOwner;
+    state = loadOwnerState(activeOwner);
+    publish();
   };
 
   const unsubscribers = [
-    identity.subscribe(pauseInvalidActiveWork),
-    selection?.subscribe(pauseInvalidActiveWork) ?? null,
-    projects?.subscribe(pauseInvalidActiveWork) ?? null,
+    identity.subscribe(handleIdentityChange),
+    selection?.subscribe(pauseInvalidCurrentWork) ?? null,
+    projects?.subscribe(pauseInvalidCurrentWork) ?? null,
   ].filter(Boolean);
 
   return Object.freeze({
@@ -293,14 +359,15 @@ export function createPersonalOrdaxRuntime({
     create(goal, { spaceId = null, projectId = null } = {}) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
       if (state.workItems.length >= MAX_PERSONAL_WORK_ITEMS) {
-        throw new RangeError(`Personal OrdaX supports at most ${MAX_PERSONAL_WORK_ITEMS} retained work items`);
+        throw new RangeError(
+          `Personal OrdaX supports at most ${MAX_PERSONAL_WORK_ITEMS} retained work items per owner`,
+        );
       }
-      const owner = currentOwner(identity);
       const createdAt = isoClock(now);
       const item = validatePersonalWorkItem({
         id: `personal-work-${state.nextOrdinal}`,
-        ownerKind: owner.ownerKind,
-        ownerId: owner.ownerId,
+        ownerKind: activeOwner.ownerKind,
+        ownerId: activeOwner.ownerId,
         goal,
         state: "queued",
         spaceId,
@@ -318,21 +385,18 @@ export function createPersonalOrdaxRuntime({
       if (status !== "valid") {
         throw new Error(`Personal OrdaX cannot bind work to invalid context: ${status}`);
       }
-      const queuedActivity = validatePersonalActivityEvent({
-        workItemId: item.id,
-        sequence: 1,
-        type: "queued",
-        summary: "Work queued with explicit owner and context.",
-        approvalId: null,
-        actionId: null,
-        artifactRefs: [],
-        occurredAt: isoClock(now),
-      });
+      const queuedAt = isoClock(now);
       replaceState({
         ...state,
         nextOrdinal: state.nextOrdinal + 1,
         workItems: [...state.workItems, item],
-        activities: [...state.activities, queuedActivity].slice(-MAX_PERSONAL_ACTIVITY_EVENTS),
+        activities: appendActivityTo(
+          state.activities,
+          item.id,
+          "queued",
+          "Work queued with explicit owner and context.",
+          queuedAt,
+        ),
       });
       return item;
     },
@@ -365,6 +429,7 @@ export function createPersonalOrdaxRuntime({
         throw new Error("Personal OrdaX Intelligence is not ready");
       }
 
+      const runOwnerKey = personalOrdaxOwnerKey(activeOwner);
       inFlight.add(id);
       updateWork(id, { state: "running", pendingApprovalId: null }, {
         activity: { type: "started", summary: "Foreground reasoning started." },
@@ -377,8 +442,14 @@ export function createPersonalOrdaxRuntime({
           context: [],
           maxTokens: 1024,
         }));
-        const current = findStoredWork(id);
-        if (!inFlight.has(id) || current.state !== "running" || contextStatus(current) !== "valid") {
+        if (
+          personalOrdaxOwnerKey(activeOwner) !== runOwnerKey
+          || !inFlight.has(id)
+        ) {
+          throw new Error("Personal OrdaX work context changed while reasoning was in progress");
+        }
+        const current = findWork(id);
+        if (current.state !== "running" || contextStatus(current) !== "valid") {
           throw new Error("Personal OrdaX work context changed while reasoning was in progress");
         }
         inFlight.delete(id);
@@ -390,9 +461,12 @@ export function createPersonalOrdaxRuntime({
         });
         return response;
       } catch (error) {
-        const current = findStoredWork(id);
+        if (personalOrdaxOwnerKey(activeOwner) !== runOwnerKey) {
+          throw error;
+        }
         inFlight.delete(id);
-        if (current.state === "running" && ownerMatches(current, identity)) {
+        const current = state.workItems.find((candidate) => candidate.id === id);
+        if (current?.state === "running") {
           updateWork(id, { state: "failed", pendingApprovalId: null }, {
             activity: { type: "failed", summary: "Foreground reasoning failed without executing actions." },
           });
