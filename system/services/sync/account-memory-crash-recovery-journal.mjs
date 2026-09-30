@@ -121,9 +121,16 @@ function saveState(runtime) {
 }
 
 async function flushState(runtime) {
-  if (typeof runtime.store.flush !== "function") return true;
+  if (typeof runtime.store.flush !== "function") {
+    throw new Error("Memory crash recovery journal requires explicit durability confirmation");
+  }
   const flushed = await runtime.store.flush();
-  if (flushed !== true) throw new Error("Memory crash recovery journal durability was not confirmed");
+  if (flushed !== true) {
+    throw new Error("Memory crash recovery journal durability was not confirmed");
+  }
+  if (runtime.store.scope !== "device") {
+    throw new Error("Memory crash recovery journal is not device-durable");
+  }
   return true;
 }
 
