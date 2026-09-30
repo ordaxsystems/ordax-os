@@ -86,6 +86,33 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
             evidence = policy.verify_generated_makefile(makefile)
             self.assertEqual(evidence["runpath_token"], policy.GENERATED_RUNPATH_TOKEN)
             self.assertIn("$ORIGIN", evidence["unixldflags"])
+            self.assertEqual(evidence["makefile_size"], makefile.stat().st_size)
+
+    def test_generated_makefile_larger_than_legacy_global_limit_is_streamed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            makefile = Path(tmp) / "Makefile"
+            with makefile.open("wb") as handle:
+                line = b"# bounded generated filler\n"
+                for _ in range((17 * 1024 * 1024) // len(line) + 1):
+                    handle.write(line)
+                handle.write(
+                    (
+                        "UNIXLDFLAGS = -shared -Wl,-Bsymbolic -Wl,-soname,$(UNIXLIB) "
+                        + policy.GENERATED_RUNPATH_TOKEN
+                        + "\n"
+                    ).encode("utf-8")
+                )
+            self.assertGreater(makefile.stat().st_size, 16 * 1024 * 1024)
+            evidence = policy.verify_generated_makefile(makefile)
+            self.assertEqual(evidence["makefile_size"], makefile.stat().st_size)
+            self.assertEqual(len(evidence["makefile_sha256"]), 64)
+
+    def test_generated_makefile_rejects_overlong_physical_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            makefile = Path(tmp) / "Makefile"
+            makefile.write_bytes(b"#" + b"x" * policy.MAX_GENERATED_MAKEFILE_LINE_BYTES + b"\n")
+            with self.assertRaisesRegex(policy.UnixlibLinkPolicyError, "overlong physical line"):
+                policy.verify_generated_makefile(makefile)
 
     def test_generated_makefile_rejects_global_or_extra_rpath(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -143,6 +170,7 @@ class WindowsCompatibilityUnixlibLinkPolicyTests(unittest.TestCase):
         }
         generated = {
             "makefile_sha256": "6" * 64,
+            "makefile_size": 123,
             "unixldflags": policy.GENERATED_RUNPATH_TOKEN,
             "runpath_token": policy.GENERATED_RUNPATH_TOKEN,
         }

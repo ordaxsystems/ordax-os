@@ -30,6 +30,7 @@ PATCHED_CONFIGURE_ASSIGNMENT = (
     "-Wl,-rpath,'\\$\\$ORIGIN'\""
 )
 GENERATED_RUNPATH_TOKEN = "-Wl,-rpath,'$$ORIGIN'"
+MAX_GENERATED_MAKEFILE_LINE_BYTES = 1024 * 1024
 
 
 class UnixlibLinkPolicyError(RuntimeError):
@@ -114,6 +115,34 @@ def _read_utf8(path: Path, label: str) -> tuple[str, bytes]:
         raise UnixlibLinkPolicyError(f"{label} is not UTF-8") from exc
 
 
+def _scan_generated_makefile(makefile: Path) -> tuple[list[str], str, int]:
+    """Scan an arbitrarily large generated Makefile with bounded line memory."""
+    digest = hashlib.sha256()
+    total = 0
+    matches: list[str] = []
+    try:
+        with makefile.open("rb") as handle:
+            while True:
+                raw_line = handle.readline(MAX_GENERATED_MAKEFILE_LINE_BYTES + 1)
+                if not raw_line:
+                    break
+                if len(raw_line) > MAX_GENERATED_MAKEFILE_LINE_BYTES:
+                    raise UnixlibLinkPolicyError("generated Wine Makefile contains an overlong physical line")
+                digest.update(raw_line)
+                total += len(raw_line)
+                try:
+                    line = raw_line.decode("utf-8", errors="strict")
+                except UnicodeDecodeError as exc:
+                    raise UnixlibLinkPolicyError("generated Wine Makefile is not UTF-8") from exc
+                if line.startswith("UNIXLDFLAGS ="):
+                    matches.append(line.rstrip("\r\n"))
+    except OSError as exc:
+        raise UnixlibLinkPolicyError(f"cannot read generated Wine Makefile: {exc}") from exc
+    if total <= 0:
+        raise UnixlibLinkPolicyError("generated Wine Makefile is empty")
+    return matches, digest.hexdigest(), total
+
+
 def apply_source_policy(wine_source: Path) -> dict:
     contract = load_contract()
     authority = contract["source_authority"]
@@ -158,8 +187,7 @@ def apply_source_policy(wine_source: Path) -> dict:
 
 
 def verify_generated_makefile(makefile: Path) -> dict:
-    text, raw = _read_utf8(makefile, "generated Wine Makefile")
-    lines = [line for line in text.splitlines() if line.startswith("UNIXLDFLAGS =")]
+    lines, makefile_sha256, makefile_size = _scan_generated_makefile(makefile)
     if len(lines) != 1:
         raise UnixlibLinkPolicyError("generated Wine Makefile UNIXLDFLAGS is missing or ambiguous")
     value = lines[0].split("=", 1)[1].strip()
@@ -171,7 +199,8 @@ def verify_generated_makefile(makefile: Path) -> dict:
     if "LD_LIBRARY_PATH" in value:
         raise UnixlibLinkPolicyError("generated Wine UNIXLDFLAGS unexpectedly references LD_LIBRARY_PATH")
     return {
-        "makefile_sha256": sha256_bytes(raw),
+        "makefile_sha256": makefile_sha256,
+        "makefile_size": makefile_size,
         "unixldflags": value,
         "runpath_token": GENERATED_RUNPATH_TOKEN,
     }
