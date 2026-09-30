@@ -19,6 +19,7 @@ on:
       - 'tests/test_memory_mutation_port.mjs'
       - 'system/composition/native/account-memory-foundation.mjs'
       - 'tests/test_native_account_memory_foundation.mjs'
+      - 'tests/test_native_account_memory_protected_composition.mjs'
       - 'tests/test_account_memory_protected_mutations.mjs'
       - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
@@ -45,6 +46,7 @@ on:
       - 'tests/test_memory_mutation_port.mjs'
       - 'system/composition/native/account-memory-foundation.mjs'
       - 'tests/test_native_account_memory_foundation.mjs'
+      - 'tests/test_native_account_memory_protected_composition.mjs'
       - 'tests/test_account_memory_protected_mutations.mjs'
       - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
@@ -81,6 +83,7 @@ jobs:
           node --check tests/test_memory_mutation_port.mjs
           node --check system/composition/native/account-memory-foundation.mjs
           node --check tests/test_native_account_memory_foundation.mjs
+          node --check tests/test_native_account_memory_protected_composition.mjs
           node --check tests/test_account_memory_protected_mutations.mjs
           node --check tests/test_account_memory_deferred_intents.mjs
           node --check tests/test_account_memory_crash_recovery_ownership.mjs
@@ -96,4 +99,5 @@ jobs:
             tests/test_account_memory_crash_recovery_journal.mjs \
             tests/test_account_memory_crash_recovery_ownership.mjs \
             tests/test_memory_mutation_port.mjs \
-            tests/test_native_account_memory_foundation.mjs
+            tests/test_native_account_memory_foundation.mjs \
+            tests/test_native_account_memory_protected_composition.mjs
