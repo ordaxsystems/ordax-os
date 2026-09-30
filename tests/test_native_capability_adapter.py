@@ -101,6 +101,32 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             text.index("void updateWatcher.markHealthy()"),
         )
 
+    def test_native_account_refresh_cannot_gate_surface_cold_health(self):
+        text = NATIVE_COMPOSITION.read_text(encoding="utf-8")
+        eager_refresh = (
+            "const identitySession = createWebIdentitySession(window);\n"
+            "  await identitySession.refresh();"
+        )
+        self.assertNotIn(eager_refresh, text)
+        self.assertIn(
+            "const resumeAccountConnectivity = async () => {\n"
+            "    await identitySession.refresh();\n"
+            "    await accountSync.refresh();\n"
+            "  };",
+            text,
+        )
+        health = text.index("void updateWatcher.markHealthy();")
+        deferred_refresh = text.index(
+            "void resumeAccountConnectivity().catch((error) => {",
+            health,
+        )
+        self.assertLess(health, deferred_refresh)
+        self.assertIn(
+            "OrdaX account connectivity refresh remains pending after Surface health",
+            text,
+        )
+        self.assertIn('window.addEventListener("online", onOnline, { passive: true });', text)
+
     def test_native_account_and_sync_capabilities_follow_live_identity_session(self):
         runtime = NATIVE_RUNTIME.read_text(encoding="utf-8")
         composition = NATIVE_COMPOSITION.read_text(encoding="utf-8")
