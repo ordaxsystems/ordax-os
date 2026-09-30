@@ -75,7 +75,7 @@ function tool(overrides = {}) {
   };
 }
 
-function setup({ selection = spaces(), issuerTransform = null } = {}) {
+function setup({ selection = spaces(), session = identity(), issuerTransform = null } = {}) {
   let grantOrdinal = 0;
   const authority = createIntelligenceToolGrantAuthority({
     now: () => NOW,
@@ -94,7 +94,7 @@ function setup({ selection = spaces(), issuerTransform = null } = {}) {
     now: () => NOW,
   });
   const runtime = createPersonalOrdaxRuntime({
-    identitySessionPort: identity(),
+    identitySessionPort: session,
     spaceSelectionPort: selection,
     actionGatewayPort: gateway,
     revokeGrant: (grantId) => authority.issuer.revoke(grantId),
@@ -106,7 +106,7 @@ function setup({ selection = spaces(), issuerTransform = null } = {}) {
     toolResolver,
     now: () => NOW,
   });
-  return { authority, runtime, consent, selection };
+  return { authority, runtime, consent, selection, session };
 }
 
 function pending(runtime, effect = "write") {
@@ -181,6 +181,66 @@ test("explicit human denial is audited without issuing authority", () => {
   assert.equal(snapshot.approvals[0].status, "denied");
   assert.equal(snapshot.decisions[0].decision, "deny");
   assert.equal(snapshot.activities.at(-1).type, "approval-resolved");
+
+  runtime.dispose();
+  authority.dispose();
+});
+
+test("Space invalidation revokes an approved grant even after the Work is already paused", () => {
+  const selection = spaces();
+  const { authority, runtime, consent } = setup({ selection });
+  const { work, approval } = pending(runtime);
+  const decision = consent.approve(work.id, approval.id);
+  assert.ok(authority.registry.resolve(decision.grantRef));
+
+  runtime.startActionExecution(work.id, approval.id);
+  runtime.failActionExecution(work.id, approval.id);
+  assert.equal(runtime.getSnapshot().workItems[0].state, "paused");
+  assert.equal(runtime.getSnapshot().approvals[0].status, "approved");
+
+  selection.setSnapshot({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unselected",
+    subjectId: "user-a",
+    selectedSpace: null,
+  });
+
+  const snapshot = runtime.getSnapshot();
+  assert.equal(authority.registry.resolve(decision.grantRef), null);
+  assert.equal(snapshot.workItems[0].state, "paused");
+  assert.equal(snapshot.approvals[0].status, "revoked");
+  assert.equal(snapshot.approvals[0].grantRef, decision.grantRef);
+  assert.match(snapshot.activities.at(-1).summary, /revoked/);
+
+  runtime.dispose();
+  authority.dispose();
+});
+
+test("owner switch revokes old-owner approved grants before loading the next partition", () => {
+  const session = identity();
+  const { authority, runtime, consent } = setup({ session });
+  const { work, approval } = pending(runtime);
+  const decision = consent.approve(work.id, approval.id);
+  assert.ok(authority.registry.resolve(decision.grantRef));
+
+  session.setSnapshot({
+    state: "signed-in",
+    subjectId: "user-b",
+    displayName: "User B",
+  });
+
+  assert.equal(authority.registry.resolve(decision.grantRef), null);
+  assert.equal(runtime.getSnapshot().ownerId, "user-b");
+  assert.equal(runtime.getSnapshot().workItems.length, 0);
+
+  session.setSnapshot({
+    state: "signed-in",
+    subjectId: "user-a",
+    displayName: "User A",
+  });
+  const restored = runtime.getSnapshot();
+  assert.equal(restored.approvals[0].status, "revoked");
+  assert.equal(restored.workItems[0].state, "paused");
 
   runtime.dispose();
   authority.dispose();
