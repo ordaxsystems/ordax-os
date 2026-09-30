@@ -10,6 +10,7 @@ export const MAX_PERSONAL_WORK_ITEMS = 32;
 export const MAX_PERSONAL_ACTIVITY_EVENTS = 512;
 
 const STORE_SCOPES = new Set(["device", "session"]);
+const RUNTIME_WORK_ID_RE = /^personal-work-([1-9][0-9]*)$/;
 
 function validateNextOrdinal(value) {
   if (!Number.isSafeInteger(value) || value < 1) {
@@ -47,23 +48,47 @@ export function validatePersonalOrdaxStoreState(value) {
   if (workIds.size !== workItems.length) {
     throw new TypeError("Personal OrdaX work ids must be unique");
   }
+  const workById = new Map(workItems.map((item) => [item.id, item]));
+  const highestRuntimeOrdinal = workItems.reduce((highest, item) => {
+    const match = RUNTIME_WORK_ID_RE.exec(item.id);
+    if (!match) return highest;
+    const ordinal = Number(match[1]);
+    if (!Number.isSafeInteger(ordinal)) {
+      throw new TypeError("Personal OrdaX runtime work id ordinal is invalid");
+    }
+    return Math.max(highest, ordinal);
+  }, 0);
+  const nextOrdinal = validateNextOrdinal(value.nextOrdinal);
+  if (nextOrdinal <= highestRuntimeOrdinal) {
+    throw new TypeError("Personal OrdaX next ordinal must exceed retained runtime work ids");
+  }
 
   const activities = Object.freeze(value.activities.map(validatePersonalActivityEvent));
   const lastSequence = new Map();
+  const lastOccurredAt = new Map();
   for (const event of activities) {
-    if (!workIds.has(event.workItemId)) {
+    const work = workById.get(event.workItemId);
+    if (!work) {
       throw new TypeError("Personal OrdaX activity cannot reference missing work");
     }
     const previous = lastSequence.get(event.workItemId) ?? 0;
     if (event.sequence <= previous) {
       throw new TypeError("Personal OrdaX activity sequence must increase per work item");
     }
+    if (Date.parse(event.occurredAt) < Date.parse(work.createdAt)) {
+      throw new TypeError("Personal OrdaX activity cannot precede work creation");
+    }
+    const previousOccurredAt = lastOccurredAt.get(event.workItemId);
+    if (previousOccurredAt && Date.parse(event.occurredAt) < Date.parse(previousOccurredAt)) {
+      throw new TypeError("Personal OrdaX activity time must not regress per work item");
+    }
     lastSequence.set(event.workItemId, event.sequence);
+    lastOccurredAt.set(event.workItemId, event.occurredAt);
   }
 
   return Object.freeze({
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
-    nextOrdinal: validateNextOrdinal(value.nextOrdinal),
+    nextOrdinal,
     workItems,
     activities,
   });
