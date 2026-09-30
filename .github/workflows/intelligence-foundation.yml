@@ -28,6 +28,7 @@ on:
       - 'system/contracts/memory-store.mjs'
       - 'system/contracts/memory-context.mjs'
       - 'system/contracts/memory-capture.mjs'
+      - 'system/contracts/memory-mutation.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/intelligence-artifact.mjs'
       - 'system/contracts/intelligence-tool.mjs'
@@ -50,10 +51,12 @@ on:
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
+      - 'system/composition/native/account-memory.mjs'
       - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
       - 'tools/local-ai-benchmark/**'
       - 'tools/local-ai-hardware-probe/**'
+      - 'tests/test_native_account_memory_protected_composition.mjs'
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
@@ -74,6 +77,7 @@ on:
       - 'tests/test_memory_runtime.mjs'
       - 'tests/test_memory_context.mjs'
       - 'tests/test_memory_capture.mjs'
+      - 'tests/test_memory_mutation_port.mjs'
       - 'tests/test_memory_auto_capture_preference.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_memory_owners.mjs'
@@ -162,6 +166,7 @@ on:
       - 'system/contracts/memory-store.mjs'
       - 'system/contracts/memory-context.mjs'
       - 'system/contracts/memory-capture.mjs'
+      - 'system/contracts/memory-mutation.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/intelligence-artifact.mjs'
       - 'system/contracts/intelligence-tool.mjs'
@@ -183,10 +188,12 @@ on:
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
+      - 'system/composition/native/account-memory.mjs'
       - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
       - 'tools/local-ai-benchmark/**'
       - 'tools/local-ai-hardware-probe/**'
+      - 'tests/test_native_account_memory_protected_composition.mjs'
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
@@ -207,6 +214,7 @@ on:
       - 'tests/test_memory_runtime.mjs'
       - 'tests/test_memory_context.mjs'
       - 'tests/test_memory_capture.mjs'
+      - 'tests/test_memory_mutation_port.mjs'
       - 'tests/test_memory_auto_capture_preference.mjs'
       - 'tests/test_memory_review.mjs'
       - 'tests/test_memory_owners.mjs'
@@ -295,6 +303,7 @@ jobs:
           node --check system/contracts/memory-store.mjs
           node --check system/contracts/memory-context.mjs
           node --check system/contracts/memory-capture.mjs
+          node --check system/contracts/memory-mutation.mjs
           node --check system/services/preferences/memory.mjs
           node --check system/contracts/model-router.mjs
           node --check system/contracts/intelligence-artifact.mjs
@@ -340,6 +349,7 @@ jobs:
           node --check system/services/memory/assistant-auto-capture.mjs
           node --check system/apps/assistant/runtime.mjs
           node --check system/apps/assistant/ui/conversation-controls.mjs
+          node --check system/composition/native/account-memory.mjs
           node --check system/composition/native/main.mjs
           node --check system/composition/web/main.mjs
           python -m json.tool docs/contracts/intelligence.json >/dev/null
@@ -376,6 +386,7 @@ jobs:
           node --test tests/test_memory_runtime.mjs
           node --test tests/test_memory_context.mjs
           node --test tests/test_memory_capture.mjs
+          node --test tests/test_memory_mutation_port.mjs
           node --test tests/test_memory_auto_capture_preference.mjs
           node --test tests/test_memory_review.mjs
           node --test tests/test_memory_owners.mjs
@@ -406,6 +417,7 @@ jobs:
           python -m unittest tests.test_local_ai_hardware_probe -v
           python -m unittest tests.test_memory_native_state -v
           python -m unittest tests.test_memory_native_endpoint -v
+          node --test tests/test_native_account_memory_protected_composition.mjs
           python -m unittest tests.test_native_memory_integration -v
           python -m unittest tests.test_profile_pack_runtime tests.test_profile_pack_catalog -v
           python -m unittest tests.test_profile_pack_manifest_layout -v
