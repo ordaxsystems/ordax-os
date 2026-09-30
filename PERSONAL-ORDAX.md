@@ -86,6 +86,6 @@ A camada atual só avança quando os testes provarem que:
 
 ## Estado desta execução
 
-A composição Native dedicada está sendo introduzida em `system/composition/native/personal-ordax.mjs`. Ela cria o store Native e injeta somente as portas canônicas no runtime. O próximo corte de implementação é a entrada explícita de Work e a Activity/Result Surface consumindo o mesmo runtime.
+A composição Native dedicada está montada em `system/composition/native/personal-ordax.mjs` e é criada por `system/composition/native/main.mjs`. Ela cria o store Native, injeta somente as portas canônicas no runtime e participa do lifecycle com `dispose()`. O próximo corte de implementação é a entrada explícita de Work e a Activity/Result Surface consumindo o mesmo runtime.
 
 O Personal OrdaX ainda não é autoridade autônoma do MVP público. O Stable/MVP continua com Intelligence consultativa até promoção explícita pelos gates do projeto.
