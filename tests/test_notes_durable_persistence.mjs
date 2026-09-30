@@ -144,6 +144,54 @@ test("Web Notes preserves malformed durable bytes instead of overwriting them wi
   runtime.destroy();
 });
 
+test("Notes runtime never overwrites a store after its initial durable load fails", async () => {
+  let saveCalls = 0;
+  let flushCalls = 0;
+  const store = {
+    schema: NOTES_STORE_SCHEMA,
+    scope: "device",
+    load() {
+      throw new Error("corrupt durable state");
+    },
+    save() {
+      saveCalls += 1;
+      return true;
+    },
+    async flush() {
+      flushCalls += 1;
+      return true;
+    },
+  };
+
+  let clock = 3_000;
+  const runtime = createNotesRuntime({ store, now: () => clock++ });
+  let state = runtime.getSnapshot();
+  assert.equal(state.persistence.scope, "device");
+  assert.equal(state.persistence.ok, false);
+  assert.equal(state.persistence.pending, false);
+  assert.equal(state.persistence.lastSavedAt, null);
+  assert.equal(saveCalls, 0, "failed durable load must not be followed by an initialization write");
+  assert.equal(flushCalls, 0, "there is no accepted write to flush after a failed load");
+
+  const created = runtime.createNote();
+  const noteId = created.document.selectedNoteId;
+  assert.ok(noteId);
+  runtime.updateNote(noteId, { title: "Somente nesta sessão" });
+  await settle();
+
+  state = runtime.getSnapshot();
+  assert.equal(state.persistence.ok, false);
+  assert.equal(state.persistence.pending, false);
+  assert.equal(state.persistence.lastSavedAt, null);
+  assert.equal(
+    state.document.notes.find((note) => note.id === noteId).title,
+    "Somente nesta sessão",
+  );
+  assert.equal(saveCalls, 0, "session mutations must not overwrite a store whose initial state was unreadable");
+  assert.equal(flushCalls, 0);
+  runtime.destroy();
+});
+
 test("Native Notes coalesces newer revisions without writing stale data back over them", async () => {
   const postBodies = [];
   let releaseFirstPost;
