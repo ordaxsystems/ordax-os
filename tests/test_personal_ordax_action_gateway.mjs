@@ -101,6 +101,7 @@ test("Action Gateway denies owner, Space, project, action and mode scope mismatc
     { spaceId: "space-2" },
     { projectId: "project-2" },
     { actionId: "files.metadata.read", effect: "read" },
+    { effect: "external-egress" },
     { effect: "device-control" },
   ]) {
     const value = port.decide(request(changed), { grantRef: "grant-1" });
