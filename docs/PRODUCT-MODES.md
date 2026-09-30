@@ -128,6 +128,29 @@ Differences between execution environments live only behind capability interface
 
 The UI consumes capability contracts, not platform-specific APIs directly.
 
+## Mobile Companion capability provider
+
+OrdaX Mobile may expose selected phone/tablet capabilities to other authorized OrdaX clients.
+
+```text
+phone camera/microphone/location/sensors
+ -> Android/iOS platform permission
+ -> OrdaX capability consent
+ -> short-lived grant
+ -> encrypted transport / capability adapter
+ -> authorized OrdaX app or device
+```
+
+Examples include using the phone camera as a future virtual webcam on Desktop/Native, using the
+phone microphone as OrdaX Intelligence voice input, capturing documents directly into a Space and
+finding account-owned devices with explicit location opt-in.
+
+This is not unrestricted remote access to the phone. Camera/microphone cannot be activated silently,
+location tracking is off by default, and the source phone must show active-session state and allow
+revocation.
+
+See `docs/MOBILE-COMPANION.md`.
+
 ## Mobile security boundary
 
 Mobile clients must use platform secure storage for device-bound credentials/tokens where appropriate and must never receive release signing keys, device-private keys from another installation, raw disk authority or arbitrary privileged-command capabilities.
