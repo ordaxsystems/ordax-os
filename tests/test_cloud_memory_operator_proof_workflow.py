@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "cloud-memory-operator-authenticated-proof.yml"
 RUNNER = ROOT / "tools" / "cloud-memory" / "run_operator_authenticated_proof.py"
 VALIDATOR = ROOT / "tools" / "cloud-memory" / "validate_authenticated_proof_receipt.py"
+BIDIRECTIONAL_VALIDATOR = ROOT / "tools" / "cloud-memory" / "validate_bidirectional_restore_receipt.py"
 CONTRACT = ROOT / "docs" / "contracts" / "cloud-memory-sync-boundary.json"
 
 
@@ -50,19 +51,25 @@ class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
         self.assertNotIn('echo "$PGPASSWORD"', text)
         self.assertNotIn('echo "$ORDAX_MEMORY_PROOF_ACCOUNT_PASSWORD"', text)
 
-    def test_workflow_uses_runner_and_single_sanitized_receipt_contract(self):
+    def test_workflow_uses_one_runner_and_two_sanitized_receipt_contracts(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("run_operator_authenticated_proof.py", text)
         self.assertIn("validate_authenticated_proof_receipt.py", text)
+        self.assertIn("validate_bidirectional_restore_receipt.py", text)
         self.assertIn("cloud-memory-authenticated-proof.json", text)
+        self.assertIn("cloud-memory-bidirectional-restore-proof.json", text)
         self.assertIn("retention-days: 14", text)
         self.assertNotIn("ordax_issue_cloud_memory_proof_entitlement_v1", text)
         self.assertNotIn("ordax_revoke_cloud_memory_proof_entitlement_v1", text)
 
-    def test_runner_owns_issue_proof_revoke_lifecycle_and_revoke_is_finally_bound(self):
+    def test_runner_owns_single_issue_both_proofs_and_finally_revoke(self):
         text = RUNNER.read_text(encoding="utf-8")
-        self.assertIn("grant_id = issue_grant(", text)
+        self.assertEqual(text.count("grant_id = issue_grant("), 1)
         self.assertIn("prove_authenticated_atomic_sync.py", text)
+        self.assertIn("prove_authenticated_bidirectional_restore.py", text)
+        first = text.index('"prove_authenticated_atomic_sync.py"')
+        second = text.index('"prove_authenticated_bidirectional_restore.py"')
+        self.assertLess(first, second)
         self.assertIn("finally:", text)
         finally_body = text[text.index("finally:"):]
         self.assertIn("revoke_grant(", finally_body)
@@ -70,7 +77,7 @@ class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
         self.assertIn("PGSSLMODE", text)
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", text)
 
-    def test_shared_validator_is_secret_averse(self):
+    def test_both_validators_are_secret_averse(self):
         text = VALIDATOR.read_text(encoding="utf-8")
         for key in (
             '"password"',
@@ -84,6 +91,13 @@ class CloudMemoryOperatorProofWorkflowTests(unittest.TestCase):
             self.assertIn(key, text)
         self.assertIn("CLOUD_MEMORY_AUTHENTICATED_RECEIPT=PASS_SANITIZED", text)
         self.assertNotIn("service_role_used\": True", text)
+
+        bidirectional = BIDIRECTIONAL_VALIDATOR.read_text(encoding="utf-8")
+        self.assertIn("ALLOWED_KEYS", bidirectional)
+        self.assertIn("REQUIRED_TRUE", bidirectional)
+        self.assertIn("REQUIRED_FALSE", bidirectional)
+        self.assertIn("CLOUD_MEMORY_BIDIRECTIONAL_RECEIPT=PASS", bidirectional)
+        self.assertNotIn("SUPABASE_SERVICE_ROLE", bidirectional)
 
     def test_contract_records_workflow_readiness_without_claiming_execution(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
