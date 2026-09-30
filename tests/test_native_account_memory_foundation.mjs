@@ -285,3 +285,46 @@ test("corrupt durable coordination blocks Account Memory without taking down the
     0,
   );
 });
+
+
+test("canonical recovery-blocked state rejects account writes before local Memory or journal mutation", async () => {
+  const root = rootStore("device");
+  const registry = createSyncStateNamespaceRegistry(root);
+  registry.open("memory", { partitionKey: "account-a" }).save("{invalid-memory-sync-state");
+
+  const memory = createMemoryRuntime({ store: memoryStore() });
+  const foundation = createNativeAccountMemoryFoundation({
+    identitySession: identitySession(),
+    memoryPort: memory,
+    syncStateRegistry: registry,
+    entitlementsPort: deniedEntitlements(),
+    createIdempotencyKey: (kind, ordinal) => `memory:${kind}:${ordinal}`,
+  });
+
+  await foundation.accountMemory.settled();
+  const snapshot = foundation.getSnapshot();
+  assert.equal(snapshot.state, "recovery-required");
+  assert.equal(snapshot.reason, "invalid-persisted-state");
+  assert.equal(snapshot.accountMutationsBlocked, true);
+  assert.equal(snapshot.protectedMutationsAvailable, true);
+
+  await assert.rejects(
+    foundation.protectedMutations.remember(memoryItem("blocked-before-local-write")),
+    /coordination requires recovery/,
+  );
+
+  assert.equal(
+    memory.search({
+      ownerKind: "account",
+      ownerId: "account-a",
+      scopes: ["account"],
+      includeRestricted: true,
+      limit: 20,
+      offset: 0,
+    }).length,
+    0,
+  );
+  assert.equal(foundation.accountMemory.crashRecovery.pendingIdentities().length, 0);
+
+  foundation.destroy();
+});
