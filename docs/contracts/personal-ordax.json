@@ -163,7 +163,13 @@
     "approved_actions_serialized_per_work": true,
     "work_cancel_revokes_live_approved_grant": true,
     "revoked_approval_retained_for_audit": true,
-    "first_native_foreground_action_enabled": true
+    "first_native_foreground_action_enabled": true,
+    "canonical_action_catalog_enabled": true,
+    "activity_owns_action_registry": false,
+    "action_catalog_creates_authority": false,
+    "action_catalog_requests_explicit_approval": true,
+    "action_decision_binds_approval_id": true,
+    "repeated_action_types_require_distinct_approval_ids": true
   },
   "activity": {
     "ordered_sequence_required": true,
@@ -198,7 +204,11 @@
     "authorized_side_effects_scope": [
       "ordax-native-file-space/files.directory.ensure"
     ],
-    "background_execution_enabled": false
+    "background_execution_enabled": false,
+    "action_catalog_entries": [
+      "native-file.ensure-directory"
+    ],
+    "model_generated_action_proposals_enabled": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
