@@ -2,7 +2,7 @@ export const PERSONAL_ACTION_CATALOG_SCHEMA = "ordax.personal-action-catalog/1";
 export const PERSONAL_ACTION_ENTRY_SCHEMA = "ordax.personal-action-entry/1";
 
 const EFFECTS = new Set(["read", "write", "external-egress", "device-control"]);
-const INPUT_KINDS = new Set(["resource-ref"]);
+const INPUT_KINDS = new Set(["resource-value"]);
 
 function text(value, label, max = 200) {
   if (typeof value !== "string" || value.includes("\0")) {
@@ -43,6 +43,7 @@ export function validatePersonalActionEntry(value) {
     actionId: text(value.actionId, "Personal action entry action id", 160),
     effect,
     inputKind,
+    resourceScheme: text(value.resourceScheme, "Personal action entry resource scheme", 80),
   });
 }
 
