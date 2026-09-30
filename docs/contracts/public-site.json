@@ -118,7 +118,7 @@
   "commerce": {
     "billing_implemented": false,
     "pricing_published": false,
-    "commercial_tiers_defined": false,
+    "commercial_tiers_defined": true,
     "commercial_device_limit_defined": false,
     "second_device_fee_policy_defined": false,
     "entitlement_architecture_prepared": true,
@@ -128,6 +128,15 @@
       "cross-device-continuity",
       "cloud-storage",
       "services"
-    ]
+    ],
+    "commercial_tier_ids": [
+      "free",
+      "personal",
+      "professional",
+      "team"
+    ],
+    "default_plan_id": "free",
+    "paid_plans_purchasable": false,
+    "plan_contract": "docs/contracts/entitlements.json"
   }
 }
