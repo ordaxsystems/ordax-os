@@ -205,9 +205,12 @@ the previous fake-resolver gap without turning model output or app state into au
 The typed `ordax.action-executor/1` boundary is also defined, and it rejects non-`allow`,
 mismatched or sensitive grant-less executions before an executor can receive them. Native
 composition now mounts `ordax.personal-approval-consent/1` as the only UI-facing path to the
-issuer. Activity receives that narrow controller, never the issuer itself. An explicit Approve
-click can issue one short-lived exact `read|write` grant and resolve the retained approval; an
-explicit Deny is routed through the Action Gateway and retained as a terminal deny decision.
+issuer. Activity receives that narrow controller, never the issuer itself. The Approve affordance is
+rendered only when the controller can resolve the retained tool/action to a compatible typed action;
+when available, an explicit Approve click can issue one short-lived exact `read|write` grant and
+resolve the retained approval. With the current Native main composition no typed Personal OrdaX
+tool is registered yet, so this preflight stays fail-closed instead of presenting a fake approval.
+An explicit Deny is routed through the Action Gateway and retained as a terminal deny decision.
 If context changes or approval resolution fails after issuance, the controller revokes the new
 grant instead of leaving orphan authority. Egress and device-control cannot be approved through
 this tool-grant controller.
