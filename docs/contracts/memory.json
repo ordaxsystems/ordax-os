@@ -206,5 +206,26 @@
       "candidate_content_must_equal_evidence": true,
       "model_may_paraphrase_persisted_memory": false
     }
+  },
+  "mutation_boundary": {
+    "schema": "ordax.memory-mutation/1",
+    "app_facing_writes_are_async": true,
+    "memory_port_remains_synchronous_local_primitive": true,
+    "default_local_adapter_requires_flush_before_success": true,
+    "account_provider_delegates_to_crash_safe_protected_mutations": true,
+    "account_provider_rejection_falls_back_to_local_write": false,
+    "review_uses_mutation_port": true,
+    "automatic_capture_uses_mutation_port": true,
+    "native_review_and_capture_share_same_port": true,
+    "native_account_composition_namespace": "memory",
+    "native_account_deferred_namespace": "memory-deferred",
+    "native_account_recovery_namespace": "memory-recovery",
+    "native_account_coordination_recovery_blocks_before_local_mutation": true,
+    "native_account_crash_recovery_retry_on_sign_in": true,
+    "native_account_crash_recovery_retry_on_reconnect": true,
+    "native_account_reconnect_refreshes_entitlement_before_recovery": true,
+    "cloud_transport_owned_by_mutation_port": false,
+    "native_account_provider_has_cloud_transport": false,
+    "production_cloud_promotion_implied": false
   }
 }

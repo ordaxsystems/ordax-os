@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { MEMORY_PORT_SCHEMA } from "../system/contracts/memory.mjs";
+import { MEMORY_MUTATION_PORT_SCHEMA } from "../system/contracts/memory-mutation.mjs";
 import { MEMORY_CAPTURE_AUTH_SCHEMA } from "../system/contracts/memory-capture.mjs";
 import {
   MEMORY_CAPTURE_RUNTIME_SCHEMA,
@@ -407,4 +408,38 @@ test("exact Memory capture dedup scans beyond the first bounded search page", as
   assert.equal(result.item.id, "existing-exact");
   assert.equal(minted, 0);
   assert.equal(memory.remembered.length, 41);
+});
+
+
+test("Memory capture delegates new writes to the supplied async mutation port", async () => {
+  const memory = memoryPort();
+  const calls = [];
+  const mutationPort = {
+    schema: MEMORY_MUTATION_PORT_SCHEMA,
+    async remember(value) {
+      calls.push(value);
+      return value;
+    },
+    async forget() {
+      throw new Error("capture never forgets");
+    },
+  };
+  const runtime = createMemoryCaptureRuntime(memory, {
+    idFactory: () => "capture-protected",
+    mutationPort,
+  });
+
+  const result = await runtime.capture({
+    content: "Persistir pelo boundary protegido.",
+    kind: "fact",
+    sensitivity: "private",
+    provenance: "intelligence:test",
+  }, accountAuthorization);
+
+  assert.equal(result.item.id, "capture-protected");
+  assert.equal(result.durable, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].ownerKind, "account");
+  assert.equal(memory.remembered.length, 0);
+  assert.equal(memory.flushes, 0);
 });

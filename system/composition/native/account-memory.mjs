@@ -59,6 +59,7 @@ export function createNativeAccountMemoryComposition({
     protectedMutations: composition.protectedMutations,
     deferredIntents: composition.deferredIntents,
     settled: () => composition.settled(),
+    refreshAuthorization: () => composition.refreshAuthorization(),
     getSnapshot() {
       return Object.freeze({
         schema: NATIVE_ACCOUNT_MEMORY_COMPOSITION_SCHEMA,

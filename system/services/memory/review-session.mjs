@@ -58,6 +58,7 @@ export function createMemoryReviewSession({
   projectId = null,
   now = () => new Date(),
   idFactory = undefined,
+  mutationPort = null,
 } = {}) {
   const memory = assertMemoryPort(memoryPort);
   const identity = identitySessionPort === null
@@ -111,6 +112,7 @@ export function createMemoryReviewSession({
     spaceId,
     projectId,
     now,
+    mutationPort,
     ...(idFactory === undefined ? {} : { idFactory }),
   });
 
@@ -139,7 +141,7 @@ export function createMemoryReviewSession({
       if (changed) publish();
       return snapshot();
     },
-    create(content, options = {}) {
+    async create(content, options = {}) {
       if (disposed) throw new Error("Memory review session is disposed");
       return review().create(content, options);
     },
@@ -151,11 +153,11 @@ export function createMemoryReviewSession({
       if (disposed) throw new Error("Memory review session is disposed");
       return review().exportSnapshot();
     },
-    update(id, patch = {}) {
+    async update(id, patch = {}) {
       if (disposed) throw new Error("Memory review session is disposed");
       return review().update(id, patch);
     },
-    remove(id) {
+    async remove(id) {
       if (disposed) throw new Error("Memory review session is disposed");
       return review().remove(id);
     },
