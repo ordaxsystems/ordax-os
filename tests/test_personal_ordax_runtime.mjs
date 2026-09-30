@@ -249,9 +249,19 @@ test("identity change pauses account work and stale inference cannot complete it
     subjectId: "user-2",
     displayName: "Other",
   });
-  assert.equal(runtime.getSnapshot().workItems[0].state, "paused");
+  assert.equal(runtime.getSnapshot().workItems.length, 0);
+  assert.equal(runtime.getSnapshot().activities.length, 0);
+  assert.throws(() => runtime.pause(work.id), /not owned by the current identity/);
+
   ai.resolve();
   await assert.rejects(pending, /context changed/);
+  assert.equal(runtime.getSnapshot().workItems.length, 0);
+
+  identity.setSnapshot({
+    state: "signed-in",
+    subjectId: "user-1",
+    displayName: "User",
+  });
   assert.equal(runtime.getSnapshot().workItems[0].state, "paused");
   assert.deepEqual(
     runtime.getSnapshot().activities.map((event) => event.type),
@@ -416,4 +426,40 @@ test("persisted runtime ids and activity time cannot regress", () => {
     () => createPersonalOrdaxRuntime({ identitySessionPort: identity, store: invalidTimeStore }),
     /cannot precede work creation/,
   );
+});
+
+test("account switching never exposes another owner's work or activity", () => {
+  let tick = 10_000;
+  const identity = identitySignedIn("user-1");
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: identity,
+    now: () => tick++,
+  });
+  const userOneWork = runtime.create("Private user one goal.");
+  assert.equal(runtime.getSnapshot().workItems[0].id, userOneWork.id);
+
+  identity.setSnapshot({
+    state: "signed-in",
+    subjectId: "user-2",
+    displayName: "User 2",
+  });
+  assert.deepEqual(runtime.getSnapshot().workItems, []);
+  assert.deepEqual(runtime.getSnapshot().activities, []);
+
+  const userTwoWork = runtime.create("Private user two goal.");
+  assert.equal(runtime.getSnapshot().workItems.length, 1);
+  assert.equal(runtime.getSnapshot().workItems[0].id, userTwoWork.id);
+  assert.notEqual(userTwoWork.id, userOneWork.id);
+
+  identity.setSnapshot({
+    state: "signed-in",
+    subjectId: "user-1",
+    displayName: "User 1",
+  });
+  const restored = runtime.getSnapshot();
+  assert.equal(restored.workItems.length, 1);
+  assert.equal(restored.workItems[0].id, userOneWork.id);
+  assert.equal(restored.workItems[0].state, "paused");
+  assert.equal(restored.activities.every((event) => event.workItemId === userOneWork.id), true);
+  runtime.dispose();
 });
