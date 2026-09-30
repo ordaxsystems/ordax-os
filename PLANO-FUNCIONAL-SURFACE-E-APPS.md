@@ -1260,3 +1260,91 @@ Também foram consultados README, ARCHITECTURE, BUILD-AUTONOMY, PRODUCT-MODES, M
 | Perfil físico e recuperação aplicáveis ao alvo | Antes de ação de recuperação/escrita. | Somente leitura e gates existentes; nada de migração implícita. |
 
 Essas dependências não impedem a implementação das partes locais já sustentadas por contratos. O resultado deve evoluir de uma base funcional real para capacidades adicionais, mantendo cada pendência visível no planejamento e cada ação disponível sustentada pelo produto.
+
+## 16. Radar de comunidade, ideias emergentes e apps futuros
+
+**Estado:** radar de produto; não altera sozinho o escopo do MVP nem declara capacidade implementada.
+
+A evolução dos apps OrdaX deve usar reclamações, sugestões e projetos independentes
+como entrada de produto. O objetivo não é copiar interfaces famosas por aparência;
+é identificar necessidades reais, validar demos e transformar os melhores sinais em
+apps OrdaX coerentes com os contratos do sistema.
+
+### 16.1 Como avaliar uma descoberta
+
+Para cada projeto/postagem interessante, registrar:
+
+1. postagem/demo original e feedback dos usuários;
+2. autor e repositório original;
+3. problema real que está tentando resolver;
+4. maturidade observada e limitações relatadas;
+5. licença do código e licenças separadas de assets/modelos/datasets;
+6. arquitetura/stack apenas como informação técnica, não como obrigação;
+7. decisão OrdaX: reimplementar, integrar, usar componente, fork, colaborar ou rejeitar;
+8. como o app se encaixa em Store, permissions, Spaces, Intelligence, update e rollback.
+
+Comentários positivos não provam qualidade; críticas não invalidam automaticamente
+uma ideia. O que importa é converter ambos em requisitos testáveis.
+
+### 16.2 Lições do caso de editor de imagem criado com IA
+
+O caso público do Photon mostra um padrão que a OrdaX deve aproveitar sem copiar
+conclusões de marketing:
+
+- IA atual permite que uma pessoa/equipe pequena produza rapidamente um app complexo;
+- ciclos curtos de feedback real podem evoluir o produto todos os dias;
+- uma demo visual não prova paridade com um software profissional;
+- usuários rapidamente encontram gaps de importação, exportação, confiabilidade e UX;
+- permissões inesperadas, como microfone, geram desconfiança mesmo em app gratuito.
+
+Aplicação ao OrdaX:
+
+- começar pequeno, mas funcional;
+- testar operações reais, não apenas aparência;
+- expor permissões antes do primeiro uso sensível;
+- permitir feedback por app sem coletar dados silenciosamente;
+- manter logs/diagnóstico sanitizados para transformar feedback em correções;
+- não chamar um app de “substituto de X” sem cobertura funcional comprovada.
+
+Referências de pesquisa:
+- https://www.reddit.com/r/vibecoding/comments/1wf3hvx/i_vibe_coded_photoshop_alternative_using_gpt6astra/
+- https://www.reddit.com/r/buildinpublic/comments/1wkfe8y/15k_users_downloaded_my_app_this_is_how_i_use/
+- https://github.com/h4ni0/astra-projects
+
+### 16.3 Fila de conceitos para apps OrdaX
+
+A pesquisa atual sugere explorar, fora do gate do primeiro USB:
+
+| Conceito | Primeiro recorte OrdaX | Regra arquitetural |
+|---|---|---|
+| Creative/Image | abrir, editar, camadas básicas, exportar | local-first; IA via capability, não SDK embutido por app |
+| Video | importar, cortar, timeline básica, exportar | processamento isolado; progresso/cancelamento reais |
+| CAD/Design | desenho/constraints básicos e arquivos próprios | app opcional; não colocar engine pesada no Core |
+| Studio/3D | criação/automação assistida | preferir adapters/protocolos quando engine externa madura for necessária |
+| PDF/Document | visualizar, anotar, organizar e exportar | reutilizar Files/Search/Intelligence; não duplicar storage |
+| Automations | gatilho + ação + histórico | permissões explícitas; idempotência e auditabilidade |
+
+Nada nessa tabela autoriza desenvolvimento imediato. Cada app deve começar com
+versão `0.x Beta`, manifesto/capabilities próprios e evolução independente conforme
+`docs/UPDATE-NOMENCLATURE.md`.
+
+### 16.4 Créditos e colaboração
+
+Quando um projeto independente for realmente usado, o objetivo é preservar autoria,
+não apagar o pequeno desenvolvedor.
+
+O produto/Store deve poder mostrar:
+
+- “Tecnologia/componente de …” quando a integração justificar crédito visível;
+- autor/projeto e link oficial;
+- licença;
+- versão/commit incorporado;
+- avisos obrigatórios;
+- distinção clara entre app OrdaX e projeto upstream.
+
+Para dependências incorporadas, manter inventário/SBOM e notices no repositório.
+Para ideias apenas estudadas, registrar como referência; não sugerir que o projeto
+endossa ou participa da OrdaX.
+
+A política detalhada de licença, proveniência e modos de adoção fica em
+`PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md`, seção 4.
