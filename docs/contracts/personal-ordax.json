@@ -152,7 +152,12 @@
     "action_executor_revalidates_adapter_artifact_sha256": true,
     "native_tool_artifact_identity_from_same_origin_bytes": true,
     "native_file_ensure_directory_tool_registered_for_approval": true,
-    "native_file_ensure_directory_idempotent": true
+    "native_file_ensure_directory_idempotent": true,
+    "foreground_action_lifecycle_enabled": true,
+    "approval_executed_state_persisted": true,
+    "approval_replay_blocked_after_succeeded_receipt": true,
+    "failed_receipt_consumes_approval": false,
+    "failed_action_keeps_approval_for_explicit_idempotent_retry": true
   },
   "activity": {
     "ordered_sequence_required": true,
