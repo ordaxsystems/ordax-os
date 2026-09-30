@@ -3,8 +3,9 @@
 
 This gate consumes the already-proven direct dependency inventory, then walks
 ELF DT_NEEDED edges through staged and locked-rootfs DSOs using the locked Wine
-bootstrap shortname state followed by modeled musl loader search semantics. It
-deliberately does not claim dlopen/plugin coverage or runtime readiness.
+bootstrap shortname state, source-proven dependency-attach Unixlib preloads and
+modeled musl loader search semantics. It deliberately does not claim
+dlopen/plugin coverage or runtime readiness.
 """
 
 from __future__ import annotations
@@ -47,10 +48,14 @@ def load_contract() -> dict:
         raise RuntimeDependencyClosureError("unexpected runtime dependency closure schema")
     if value.get("status") != "transitive-dt-needed-discovery-only-not-promotable":
         raise RuntimeDependencyClosureError("runtime dependency closure status drifted")
+    inputs = value.get("input", {})
+    if inputs.get("unixlib_preload_source_proof_schema") != DIRECT.PRELOAD_RUNTIME.PROOF_SCHEMA:
+        raise RuntimeDependencyClosureError("runtime dependency closure preload source schema drifted")
     traversal = value.get("traversal", {})
     if traversal.get("loader") != "musl-needed-by-chain":
         raise RuntimeDependencyClosureError("runtime dependency closure loader model drifted")
     required_true = (
+        "source_derived_dependency_attach_preloads_required",
         "inherit_needed_by_dynamic_paths",
         "system_path_after_dynamic_chain",
         "cycle_detection_required",
@@ -91,18 +96,30 @@ def direct_inventory_core(proof: dict) -> dict:
     }
 
 
-def verify_input_proofs(full_build_proof: dict, direct_proof: dict, contract: dict) -> None:
+def verify_input_proofs(
+    full_build_proof: dict,
+    direct_proof: dict,
+    preload_source_proof: dict,
+    contract: dict,
+) -> str:
     expected_full = contract["input"]["full_build_proof_schema"]
     expected_direct = contract["input"]["direct_dependency_proof_schema"]
+    expected_preload = contract["input"]["unixlib_preload_source_proof_schema"]
     if full_build_proof.get("$schema") != expected_full:
         raise RuntimeDependencyClosureError("unexpected full build proof schema")
     if direct_proof.get("$schema") != expected_direct:
         raise RuntimeDependencyClosureError("unexpected direct dependency proof schema")
+    if preload_source_proof.get("$schema") != expected_preload:
+        raise RuntimeDependencyClosureError("unexpected unixlib preload source proof schema")
     if direct_proof.get("status") != "runtime-dependencies-discovered-not-content-pinned-not-executable":
         raise RuntimeDependencyClosureError("unexpected direct dependency proof status")
     runtime_id = contract.get("runtime_id")
     if full_build_proof.get("runtime_id") != runtime_id or direct_proof.get("runtime_id") != runtime_id:
         raise RuntimeDependencyClosureError("runtime identity drifted across dependency proofs")
+    try:
+        preload_evidence = DIRECT.PRELOAD_RUNTIME.validate_source_proof(preload_source_proof, runtime_id)
+    except DIRECT.PRELOAD_RUNTIME.UnixlibPreloadRuntimeError as exc:
+        raise RuntimeDependencyClosureError(str(exc)) from exc
     staging = full_build_proof.get("staging", {})
     stage_digest = staging.get("canonical_manifest_sha256")
     if direct_proof.get("staging_manifest_sha256") != stage_digest:
@@ -141,6 +158,7 @@ def verify_input_proofs(full_build_proof: dict, direct_proof: dict, contract: di
     expected_inventory_digest = DIRECT.canonical_sha256(direct_inventory_core(direct_proof))
     if direct_proof.get("inventory_sha256") != expected_inventory_digest:
         raise RuntimeDependencyClosureError("direct dependency inventory digest does not verify")
+    return preload_evidence
 
 
 def node_key(node: dict) -> str:
@@ -230,6 +248,7 @@ def resolve_with_chain(
     soname: str,
     chain: list[dict],
     rootfs: Path,
+    preload_source_proof: dict,
 ) -> tuple[dict | None, list[dict]]:
     current = chain[0]
     search = dynamic_chain_search_directories(chain, rootfs)
@@ -239,6 +258,19 @@ def resolve_with_chain(
         raise RuntimeDependencyClosureError(str(exc)) from exc
     if bootstrap is not None:
         return {**bootstrap, "needed_by_depth": None}, search
+    if current["scope"] == "stage-internal":
+        try:
+            preload = DIRECT.resolve_dependency_attach_preload(
+                stage,
+                current["path"],
+                soname,
+                current["elf"],
+                preload_source_proof,
+            )
+        except DIRECT.RuntimeDependencyError as exc:
+            raise RuntimeDependencyClosureError(str(exc)) from exc
+        if preload is not None:
+            return {**preload, "needed_by_depth": None}, search
     for position, item in enumerate(search):
         directory = item["directory"]
         try:
@@ -299,6 +331,12 @@ def compare_direct_root_edge(consumer: str, soname: str, candidate: dict, direct
             raise RuntimeDependencyClosureError(
                 f"direct dependency root edge disagrees on {field}: {consumer} -> {soname}"
             )
+    if candidate.get("resolution_kind") == "source-proven-dependency-attach-preload":
+        for field in ("unixlib_preload_source_evidence_sha256", "preload_relation"):
+            if candidate.get(field) != expected.get(field):
+                raise RuntimeDependencyClosureError(
+                    f"direct dependency preload root edge disagrees on {field}: {consumer} -> {soname}"
+                )
     if candidate["scope"] == "rootfs-external":
         for field in ("package", "version"):
             if candidate.get(field) != expected.get(field):
@@ -326,9 +364,15 @@ def serialize_node(node: dict, paths: set[str]) -> dict:
     return value
 
 
-def discover(stage: Path, rootfs: Path, full_build_proof: dict, direct_proof: dict) -> dict:
+def discover(
+    stage: Path,
+    rootfs: Path,
+    full_build_proof: dict,
+    direct_proof: dict,
+    preload_source_proof: dict,
+) -> dict:
     contract = load_contract()
-    verify_input_proofs(full_build_proof, direct_proof, contract)
+    preload_evidence = verify_input_proofs(full_build_proof, direct_proof, preload_source_proof, contract)
     if not stage.is_dir() or not rootfs.is_dir():
         raise RuntimeDependencyClosureError("staged tree or locked rootfs is missing")
     try:
@@ -408,7 +452,15 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict, direct_proof: di
         search_trace = dynamic_chain_search_directories(chain, rootfs) if current["elf"]["dt_needed"] else []
         edges: list[dict] = []
         for soname in current["elf"]["dt_needed"]:
-            candidate, search = resolve_with_chain(stage, stage_index, rootfs_index, soname, chain, rootfs)
+            candidate, search = resolve_with_chain(
+                stage,
+                stage_index,
+                rootfs_index,
+                soname,
+                chain,
+                rootfs,
+                preload_source_proof,
+            )
             if candidate is None:
                 unresolved.append({
                     "context": context_id,
@@ -430,6 +482,13 @@ def discover(stage: Path, rootfs: Path, full_build_proof: dict, direct_proof: di
                 "search_position": candidate["search_position"],
                 "needed_by_depth": candidate["needed_by_depth"],
             }
+            if candidate["resolution_kind"] == "source-proven-dependency-attach-preload":
+                if candidate.get("unixlib_preload_source_evidence_sha256") != preload_evidence:
+                    raise RuntimeDependencyClosureError("resolved preload edge is not bound to supplied source evidence")
+                edge["unixlib_preload_source_evidence_sha256"] = candidate[
+                    "unixlib_preload_source_evidence_sha256"
+                ]
+                edge["preload_relation"] = candidate["preload_relation"]
             if child["scope"] == "rootfs-external":
                 edge["package"] = child["package"]
                 edge["version"] = child["version"]
@@ -541,6 +600,7 @@ def main() -> int:
     parser.add_argument("--rootfs", type=Path)
     parser.add_argument("--full-build-proof", type=Path)
     parser.add_argument("--direct-dependency-proof", type=Path)
+    parser.add_argument("--unixlib-preload-source-proof", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     load_contract()
@@ -552,18 +612,21 @@ def main() -> int:
         args.rootfs,
         args.full_build_proof,
         args.direct_dependency_proof,
+        args.unixlib_preload_source_proof,
         args.out,
     )
     if not all(required):
         raise RuntimeDependencyClosureError(
-            "discover requires --stage-dir, --rootfs, --full-build-proof, --direct-dependency-proof and --out"
+            "discover requires --stage-dir, --rootfs, --full-build-proof, --direct-dependency-proof, "
+            "--unixlib-preload-source-proof and --out"
         )
     try:
         full = json.loads(args.full_build_proof.read_text(encoding="utf-8"))
         direct = json.loads(args.direct_dependency_proof.read_text(encoding="utf-8"))
+        preload = json.loads(args.unixlib_preload_source_proof.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeDependencyClosureError(f"cannot load dependency proof input: {exc}") from exc
-    result = discover(args.stage_dir.resolve(), args.rootfs.resolve(), full, direct)
+    result = discover(args.stage_dir.resolve(), args.rootfs.resolve(), full, direct, preload)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2, sort_keys=True))
