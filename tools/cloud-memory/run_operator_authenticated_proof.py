@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Operator-only runner for the authenticated two-client cloud Memory proof.
+"""Operator-only runner for authenticated Cloud Memory proofs.
 
 Flow:
 1. authenticate the dedicated proof account only to resolve its Supabase subject;
-2. issue a short-lived proof-only entitlement through the private operator RPC
+2. issue one short-lived proof-only entitlement through the private operator RPC
    using direct PostgreSQL operator access;
-3. execute the existing two-client proof unchanged;
-4. revoke the exact temporary grant in a finally block.
+3. execute the existing two-client atomic proof;
+4. execute the bidirectional + fresh-session restore proof under the same grant;
+5. revoke the exact temporary grant in a finally block.
 
 No service-role key is accepted or used. PostgreSQL credentials stay in the
 standard PG* environment variables consumed by psql and are never written to
@@ -127,6 +128,20 @@ from private.ordax_revoke_cloud_memory_proof_entitlement_v1(
         raise RuntimeError("operator revoke returned unexpected grant id")
 
 
+def run_proof_body(script_name: str, env: dict[str, str], label: str) -> int:
+    result = subprocess.run(
+        [sys.executable, str(ROOT / f"tools/cloud-memory/{script_name}")],
+        env=env,
+        check=False,
+        timeout=180,
+    )
+    if result.returncode != 0:
+        print(f"CLOUD_MEMORY_OPERATOR_{label}=FAIL", file=sys.stderr)
+    else:
+        print(f"CLOUD_MEMORY_OPERATOR_{label}=PASS")
+    return result.returncode
+
+
 def main() -> int:
     validate_operator_env()
     project_url = required_env("ORDAX_SUPABASE_URL")
@@ -144,7 +159,6 @@ def main() -> int:
         fail("invalid-entitlement-ttl")
 
     identity = SupabasePasswordProvider(project_url, publishable_key)
-    subject_id: str | None = None
     bootstrap_token: str | None = None
     grant_id: str | None = None
     proof_status = 1
@@ -156,30 +170,33 @@ def main() -> int:
         subject_id = auth.subject_id
         bootstrap_token = auth.session.access_token
         # This session exists only to resolve the server-issued subject. It is
-        # deliberately ended before the two independent proof sessions begin.
+        # deliberately ended before the independent proof sessions begin.
         identity.sign_out(bootstrap_token)
         bootstrap_token = None
 
         grant_id = issue_grant(
             subject_id,
             ttl_seconds,
-            "cloud Memory authenticated two-client proof",
+            "cloud Memory authenticated bidirectional restore proof",
             source_commit,
         )
         print("CLOUD_MEMORY_OPERATOR_ENTITLEMENT=ISSUED_TEMPORARY")
         env = dict(os.environ)
         env["GITHUB_SHA"] = source_commit
-        result = subprocess.run(
-            [sys.executable, str(ROOT / "tools/cloud-memory/prove_authenticated_atomic_sync.py")],
-            env=env,
-            check=False,
-            timeout=180,
+
+        proof_status = run_proof_body(
+            "prove_authenticated_atomic_sync.py",
+            env,
+            "ATOMIC_BODY",
         )
-        proof_status = result.returncode
         if proof_status != 0:
-            print("CLOUD_MEMORY_OPERATOR_PROOF_BODY=FAIL", file=sys.stderr)
-        else:
-            print("CLOUD_MEMORY_OPERATOR_PROOF_BODY=PASS")
+            return proof_status
+
+        proof_status = run_proof_body(
+            "prove_authenticated_bidirectional_restore.py",
+            env,
+            "BIDIRECTIONAL_RESTORE_BODY",
+        )
         return proof_status
     finally:
         if bootstrap_token is not None:
@@ -191,7 +208,7 @@ def main() -> int:
             try:
                 revoke_grant(
                     grant_id,
-                    "cloud Memory authenticated two-client proof complete",
+                    "cloud Memory authenticated bidirectional restore proof complete",
                     source_commit,
                 )
                 print("CLOUD_MEMORY_OPERATOR_ENTITLEMENT=REVOKED")
