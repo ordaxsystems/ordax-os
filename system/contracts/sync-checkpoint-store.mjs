@@ -57,8 +57,12 @@ export function assertSyncCheckpointStore(store) {
   if (!new Set(["device", "session"]).has(store.scope)) {
     throw new TypeError("Sync checkpoint scope must be device or session");
   }
-  if (typeof store.load !== "function" || typeof store.save !== "function") {
-    throw new TypeError("Sync checkpoint store must implement load() and save()");
+  if (
+    typeof store.load !== "function"
+    || typeof store.save !== "function"
+    || typeof store.flush !== "function"
+  ) {
+    throw new TypeError("Sync checkpoint store must implement load(), save() and flush()");
   }
   validateSyncCheckpoint(store.load());
   return store;
