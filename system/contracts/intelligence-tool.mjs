@@ -160,6 +160,7 @@ export function validateIntelligenceToolGrant(value) {
   return Object.freeze({
     schema: INTELLIGENCE_TOOL_GRANT_SCHEMA,
     grantId: identifier(value.grantId, "tool grant id"),
+    workItemId: boundedText(value.workItemId, "tool grant work item id", 160),
     approvalId,
     toolId: identifier(value.toolId, "tool grant tool id"),
     toolArtifactSha256: (() => {
