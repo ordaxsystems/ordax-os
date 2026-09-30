@@ -109,19 +109,62 @@ export function createNotesRuntime({ store = null, now = () => Date.now() } = {}
   let ordinal = 0;
   let lastSavedAt = now();
   let lastSaveSucceeded = initialSaveSucceeded;
+  let persistencePending = false;
+  let persistenceGeneration = 0;
+  let destroyed = false;
 
   const emit = () => {
+    if (destroyed) return;
     const state = runtime.getSnapshot();
     for (const listener of [...listeners]) listener(state);
   };
 
+  const confirmDurability = async (generation) => {
+    try {
+      await notesStore.flush();
+      if (destroyed || generation !== persistenceGeneration) return;
+      persistencePending = false;
+      lastSaveSucceeded = true;
+      lastSavedAt = now();
+      emit();
+    } catch {
+      if (destroyed || generation !== persistenceGeneration) return;
+      persistencePending = false;
+      lastSaveSucceeded = false;
+      emit();
+    }
+  };
+
+  const scheduleDurabilityConfirmation = () => {
+    if (typeof notesStore.flush !== "function") return false;
+    persistenceGeneration += 1;
+    const generation = persistenceGeneration;
+    persistencePending = true;
+    void confirmDurability(generation);
+    return true;
+  };
+
   const commit = (draft) => {
     snapshot = validateNotesSnapshot(draft);
+    let accepted = true;
     try {
-      lastSaveSucceeded = notesStore.save(snapshot) !== false;
+      accepted = notesStore.save(snapshot) !== false;
     } catch {
-      lastSaveSucceeded = false;
+      accepted = false;
     }
+    if (!accepted) {
+      persistenceGeneration += 1;
+      persistencePending = false;
+      lastSaveSucceeded = false;
+      emit();
+      return runtime.getSnapshot();
+    }
+    if (scheduleDurabilityConfirmation()) {
+      emit();
+      return runtime.getSnapshot();
+    }
+    persistencePending = false;
+    lastSaveSucceeded = true;
     lastSavedAt = now();
     emit();
     return runtime.getSnapshot();
@@ -153,6 +196,7 @@ export function createNotesRuntime({ store = null, now = () => Date.now() } = {}
           scope: notesStore.scope,
           lastSavedAt,
           ok: lastSaveSucceeded,
+          pending: persistencePending,
         }),
       });
     },
@@ -468,9 +512,14 @@ export function createNotesRuntime({ store = null, now = () => Date.now() } = {}
       return commit(draft);
     },
     destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      persistenceGeneration += 1;
       listeners.clear();
     },
   };
+
+  if (initialSaveSucceeded) scheduleDurabilityConfirmation();
 
   return Object.freeze(runtime);
 }
