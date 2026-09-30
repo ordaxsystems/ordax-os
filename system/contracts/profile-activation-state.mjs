@@ -1,4 +1,4 @@
-export const PROFILE_ACTIVATION_STATE_SCHEMA = "ordax.profile-activation-state/1";
+export const PROFILE_ACTIVATION_STATE_SCHEMA = "ordax.profile-activation-state/2";
 export const PROFILE_ACTIVATION_STATE_PORT_SCHEMA = "ordax.profile-activation-state-port/1";
 export const MAX_PROFILE_ACTIVATION_SPACES = 64;
 export const MAX_PROFILE_ACTIVATION_COMPONENTS = 64;
@@ -187,7 +187,7 @@ export function validateProfileActivationState(value) {
   const spaces = Object.freeze(state.spaces.map((entry, index) => {
     const label = `Profile activation state spaces[${index}]`;
     const row = objectValue(entry, label);
-    exactFields(row, ["spaceId", "spaceKind", "current", "previous"], label);
+    exactFields(row, ["subjectId", "spaceId", "spaceKind", "current", "previous"], label);
     const current = activationOrNull(row.current, `${label}.current`);
     const previous = activationOrNull(row.previous, `${label}.previous`);
     if (current === null && previous === null) {
@@ -205,15 +205,16 @@ export function validateProfileActivationState(value) {
       throw new TypeError(`${label}.spaceKind is invalid`);
     }
     return Object.freeze({
+      subjectId: boundedText(row.subjectId, `${label}.subjectId`, 200),
       spaceId: boundedText(row.spaceId, `${label}.spaceId`, 160),
       spaceKind,
       current,
       previous,
     });
   }));
-  const spaceIds = new Set(spaces.map((entry) => entry.spaceId));
-  if (spaceIds.size !== spaces.length) {
-    throw new TypeError("Profile activation state contains duplicate Space ids");
+  const identities = new Set(spaces.map((entry) => `${entry.subjectId}\u001f${entry.spaceId}`));
+  if (identities.size !== spaces.length) {
+    throw new TypeError("Profile activation state contains duplicate subject/Space identities");
   }
 
   return Object.freeze({
