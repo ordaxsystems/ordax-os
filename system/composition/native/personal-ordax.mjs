@@ -55,6 +55,16 @@ export function createNativePersonalOrdaxComposition({
     revokeGrant: (grantId) => authority.issuer.revoke(grantId),
     store: createNativePersonalOrdaxStore(windowRef),
   });
+  for (const approval of runtime.getSnapshot().approvals) {
+    if (
+      approval.status === "approved"
+      && approval.grantRef !== null
+      && registry.resolve(approval.grantRef) === null
+    ) {
+      runtime.revokeApprovedAction(approval.workItemId, approval.id);
+    }
+  }
+
   const approvalConsent = createPersonalApprovalConsent({
     runtime,
     grantIssuer: authority.issuer,
@@ -80,6 +90,12 @@ export function createNativePersonalOrdaxComposition({
         candidate.id === approvalId && candidate.workItemId === workItemId
       );
       if (!work || work.state !== "queued" || !approval || approval.status !== "approved") {
+        return false;
+      }
+      if (
+        approval.grantRef !== null
+        && registry.resolve(approval.grantRef) === null
+      ) {
         return false;
       }
       try {
