@@ -35,6 +35,38 @@ function disabledSnapshot(reason, scope) {
   });
 }
 
+function blockedMutations() {
+  const fail = async () => {
+    throw new Error("Native Account Memory coordination requires recovery");
+  };
+  return Object.freeze({
+    remember: fail,
+    forget: fail,
+  });
+}
+
+function recoveryRequiredFoundation(scope) {
+  const protectedMutations = blockedMutations();
+  return Object.freeze({
+    schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
+    protectedMutations,
+    accountMemory: null,
+    getSnapshot() {
+      return Object.freeze({
+        schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
+        state: "recovery-required",
+        reason: "coordination-state-incompatible",
+        syncStateScope: scope,
+        protectedMutationsAvailable: false,
+        accountMutationsBlocked: true,
+        cloudTransportWired: false,
+        productionPromoted: false,
+      });
+    },
+    destroy() {},
+  });
+}
+
 export function createNativeAccountMemoryFoundation({
   identitySession,
   memoryPort,
@@ -75,26 +107,34 @@ export function createNativeAccountMemoryFoundation({
   }
 
   let ordinal = 0;
-  const accountMemory = createAccountMemoryAuthorizedComposition({
-    identitySession: identity,
-    entitlementsPort: entitlements,
-    memoryPort: memory,
-    createSyncStateStore(subjectId) {
-      return registry.open("memory", { partitionKey: subjectId });
-    },
-    createDeferredStateStore(subjectId) {
-      return registry.open("memory-deferred", { partitionKey: subjectId });
-    },
-    createCrashRecoveryStateStore(subjectId) {
-      return registry.open("memory-crash", { partitionKey: subjectId });
-    },
-    createIdempotencyKey(kind = "state") {
-      ordinal += 1;
-      return createIdempotencyKey(kind, ordinal);
-    },
-    now,
-    onStageError,
-  });
+  let accountMemory;
+  try {
+    accountMemory = createAccountMemoryAuthorizedComposition({
+      identitySession: identity,
+      entitlementsPort: entitlements,
+      memoryPort: memory,
+      createSyncStateStore(subjectId) {
+        return registry.open("memory", { partitionKey: subjectId });
+      },
+      createDeferredStateStore(subjectId) {
+        return registry.open("memory-deferred", { partitionKey: subjectId });
+      },
+      createCrashRecoveryStateStore(subjectId) {
+        return registry.open("memory-crash", { partitionKey: subjectId });
+      },
+      createIdempotencyKey(kind = "state") {
+        ordinal += 1;
+        return createIdempotencyKey(kind, ordinal);
+      },
+      now,
+      onStageError,
+    });
+  } catch (error) {
+    if (typeof onStageError === "function") {
+      onStageError(error, Object.freeze({ kind: "native-account-memory-foundation" }));
+    }
+    return recoveryRequiredFoundation(registry.scope);
+  }
 
   let destroyed = false;
   return Object.freeze({
