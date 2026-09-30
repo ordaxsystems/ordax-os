@@ -131,13 +131,21 @@ export function createPersonalOrdaxRuntime({
     }
   }
 
-  const snapshot = () => validatePersonalOrdaxRuntimeSnapshot({
-    schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
-    persistence,
-    nextOrdinal: state.nextOrdinal,
-    workItems: state.workItems,
-    activities: state.activities,
-  });
+  const snapshot = () => {
+    const owner = currentOwner(identity);
+    const workItems = state.workItems.filter(
+      (item) => item.ownerKind === owner.ownerKind && item.ownerId === owner.ownerId,
+    );
+    const visibleIds = new Set(workItems.map((item) => item.id));
+    const activities = state.activities.filter((event) => visibleIds.has(event.workItemId));
+    return validatePersonalOrdaxRuntimeSnapshot({
+      schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
+      persistence,
+      nextOrdinal: state.nextOrdinal,
+      workItems,
+      activities,
+    });
+  };
 
   const publish = () => {
     if (disposed) return;
@@ -168,9 +176,17 @@ export function createPersonalOrdaxRuntime({
     return true;
   };
 
-  const findWork = (id) => {
+  const findStoredWork = (id) => {
     const item = state.workItems.find((candidate) => candidate.id === id);
     if (!item) throw new TypeError("Personal OrdaX work id is not registered");
+    return item;
+  };
+
+  const findWork = (id) => {
+    const item = findStoredWork(id);
+    if (!ownerMatches(item, identity)) {
+      throw new TypeError("Personal OrdaX work is not owned by the current identity");
+    }
     return item;
   };
 
@@ -229,15 +245,29 @@ export function createPersonalOrdaxRuntime({
       const status = contextStatus(item);
       if (status === "valid") continue;
       inFlight.delete(item.id);
-      updateWork(item.id, {
+      const existing = findStoredWork(item.id);
+      const updated = validatePersonalWorkItem({
+        ...existing,
         state: "paused",
         pendingApprovalId: null,
-      }, {
-        activity: {
-          type: "paused",
-          summary: `Work paused because its bound context is no longer valid: ${status}.`,
-        },
+        updatedAt: isoClock(now),
       });
+      const activities = appendActivity(
+        item.id,
+        "paused",
+        `Work paused because its bound context is no longer valid: ${status}.`,
+      );
+      replaceState({
+        ...state,
+        workItems: state.workItems.map((candidate) => candidate.id === item.id ? updated : candidate),
+        activities,
+      });
+      /*
+       * Do not route invalidation through the public owner-checked mutation path:
+       * by definition the owner may already have changed. The stored work remains
+       * isolated and becomes visible again only when its original owner returns.
+       */
+      continue;
     }
   };
 
