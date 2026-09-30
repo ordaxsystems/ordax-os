@@ -920,6 +920,36 @@ export function createPersonalOrdaxRuntime({
         },
       });
     },
+    revokeApprovedAction(id, approvalId) {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      const item = findWork(id);
+      const approval = state.approvals.find((candidate) =>
+        candidate.id === approvalId && candidate.workItemId === id
+      );
+      if (!approval || approval.status !== "approved") {
+        throw new Error("Personal OrdaX grant revocation requires an approved unconsumed approval");
+      }
+      const occurredAt = isoClock(now);
+      const revoked = validatePersonalApproval({
+        ...approval,
+        status: "revoked",
+        executedAt: null,
+      });
+      replaceState({
+        ...state,
+        approvals: state.approvals.map((candidate) =>
+          candidate.id === approvalId ? revoked : candidate),
+        activities: appendActivityTo(
+          state.activities,
+          item.id,
+          "progress",
+          "Approved action authority was revoked before execution.",
+          occurredAt,
+          { approvalId, actionId: approval.actionId },
+        ),
+      });
+      return revoked;
+    },
     pause(id) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
       const item = findWork(id);
