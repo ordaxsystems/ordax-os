@@ -111,6 +111,7 @@ export function createPersonalApprovalConsent({
 
       const approvedAtMs = readClock(now);
       const grant = grantIssuer.issue({
+        workItemId: item.id,
         approvalId: approval.id,
         toolId: approval.toolId,
         toolArtifactSha256: approval.toolArtifactSha256,
