@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { MEMORY_PORT_SCHEMA } from "../system/contracts/memory.mjs";
+import { MEMORY_MUTATIONS_SCHEMA } from "../system/contracts/memory-mutations.mjs";
 import { MEMORY_CAPTURE_AUTH_SCHEMA } from "../system/contracts/memory-capture.mjs";
 import {
   MEMORY_CAPTURE_RUNTIME_SCHEMA,
@@ -410,14 +411,20 @@ test("exact Memory capture dedup scans beyond the first bounded search page", as
 });
 
 
-test("Memory capture can delegate durable persistence to a composition-owned async writer", async () => {
+test("Memory capture can delegate durable persistence to a composition-owned durable mutation port", async () => {
   const memory = memoryPort();
   const persisted = [];
   const runtime = createMemoryCaptureRuntime(memory, {
     idFactory: () => "capture-protected",
-    async persistItem(item) {
-      persisted.push(item);
-      return true;
+    mutationPort: {
+      schema: MEMORY_MUTATIONS_SCHEMA,
+      async remember(item) {
+        persisted.push(item);
+        return item;
+      },
+      async forget() {
+        return false;
+      },
     },
   });
 
@@ -431,16 +438,22 @@ test("Memory capture can delegate durable persistence to a composition-owned asy
   assert.equal(result.durable, true);
   assert.equal(result.item.id, "capture-protected");
   assert.equal(persisted.length, 1);
-  assert.equal(memory.remembered.length, 0, "capture runtime must not bypass the injected writer");
-  assert.equal(memory.flushes, 0, "the injected writer owns durability for a newly persisted item");
+  assert.equal(memory.remembered.length, 0, "capture runtime must not bypass the mutation port");
+  assert.equal(memory.flushes, 0, "the mutation port owns durability for a newly persisted item");
 });
 
 test("Memory capture fails closed when composition-owned persistence rejects", async () => {
   const memory = memoryPort();
   const runtime = createMemoryCaptureRuntime(memory, {
     idFactory: () => "capture-protected-failure",
-    async persistItem() {
-      throw new Error("protected mutation durability unavailable");
+    mutationPort: {
+      schema: MEMORY_MUTATIONS_SCHEMA,
+      async remember() {
+        throw new Error("protected mutation durability unavailable");
+      },
+      async forget() {
+        return false;
+      },
     },
   });
 
@@ -457,23 +470,29 @@ test("Memory capture fails closed when composition-owned persistence rejects", a
   assert.equal(memory.flushes, 0);
 });
 
-test("Memory capture requires explicit durability confirmation from an injected writer", async () => {
+test("Memory capture rejects a mutation port that changes the authorized item", async () => {
   const memory = memoryPort();
   const runtime = createMemoryCaptureRuntime(memory, {
     idFactory: () => "capture-boundary",
-    async persistItem() {
-      return false;
+    mutationPort: {
+      schema: MEMORY_MUTATIONS_SCHEMA,
+      async remember(item) {
+        return { ...item, ownerId: "other-user" };
+      },
+      async forget() {
+        return false;
+      },
     },
   });
 
   await assert.rejects(
     () => runtime.capture({
-      content: "Não declarar durável sem confirmação explícita.",
+      content: "Boundary não pode ser reescrito.",
       kind: "fact",
       sensitivity: "private",
       provenance: "intelligence:conversation",
     }, accountAuthorization),
-    /did not confirm durability/,
+    /changed the authorized item/,
   );
 });
 
@@ -499,12 +518,18 @@ test("exact duplicate capture keeps using the Memory durability barrier and does
     projectId: null,
   };
   memory.remembered.push(existing);
-  let writerCalls = 0;
+  let mutationCalls = 0;
   const runtime = createMemoryCaptureRuntime(memory, {
     idFactory: () => "must-not-be-minted",
-    async persistItem() {
-      writerCalls += 1;
-      return true;
+    mutationPort: {
+      schema: MEMORY_MUTATIONS_SCHEMA,
+      async remember(item) {
+        mutationCalls += 1;
+        return item;
+      },
+      async forget() {
+        return false;
+      },
     },
   });
 
@@ -514,6 +539,6 @@ test("exact duplicate capture keeps using the Memory durability barrier and does
   );
 
   assert.equal(result.item.id, "existing-protected");
-  assert.equal(writerCalls, 0);
+  assert.equal(mutationCalls, 0);
   assert.equal(memory.flushes, 1);
 });
