@@ -166,6 +166,10 @@ export function createMemoryReviewViewModel(reviewSessionValue, {
     refresh() {
       return refresh();
     },
+    exportSnapshot() {
+      if (disposed) throw new Error("Memory review view model is disposed");
+      return review.exportSnapshot();
+    },
     async create(content, options = {}) {
       return persistMutation(() => review.create(content, options));
     },
