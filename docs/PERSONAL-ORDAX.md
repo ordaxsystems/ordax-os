@@ -305,3 +305,9 @@ Qualquer grant aprovado e ainda não consumido é revogado antes de invalidar se
 Grant curto não vira authority persistente por acidente. A composição Native reconcilia approvals `approved` contra o registry antes de expor execução e a Activity faz a mesma reconciliação antes de renderizar controles. Se o grant expirou ou desapareceu, a approval passa para `revoked` antes de qualquer side effect; nenhuma tentativa de execução reutiliza o grant morto.
 
 Essa reconciliação usa o mesmo caminho já aplicado no restore. Não existe estado paralelo de expiração na UI.
+
+### Identidade exata da Decision
+
+Execução e validação de receipt procuram a Decision por `approvalId` + `actionId`, nunca apenas pelo tipo da ação. Repetir `files.directory.ensure` no mesmo Work não permite que uma approval posterior reutilize a Decision de uma tentativa anterior.
+
+Também há distinção explícita entre revogar authority viva e reconciliar authority já ausente/expirada. O segundo caso apenas fecha o estado persistido para `revoked`; não finge que um grant inexistente foi revogado naquele instante.
