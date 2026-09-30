@@ -228,50 +228,50 @@ export function createAccountMemorySessionRuntime({
   resolve();
 
   const flushCoordination = async () => {
-        const runtime = resolve();
-        if (!runtime || !activeStore || !activeCoordinationTracking) {
-          return Object.freeze({
-            confirmed: false,
-            reason: "signed-in-account-required",
-            persistence: "session",
-          });
-        }
-        if (activeCoordinationTracking.lastSaveAccepted === false) {
-          if (activeCoordinationTracking.lastPayload === null) {
-            return Object.freeze({
-              confirmed: false,
-              reason: "last-save-rejected",
-              persistence: activeStore.scope,
-            });
-          }
-          const accepted = activeStore.save(activeCoordinationTracking.lastPayload);
-          activeCoordinationTracking.lastSaveAccepted = accepted === true;
-          if (accepted !== true) {
-            return Object.freeze({
-              confirmed: false,
-              reason: "last-save-rejected",
-              persistence: activeStore.scope,
-            });
-          }
-        }
-        if (typeof activeStore.flush === "function") {
-          const flushed = await activeStore.flush();
-          if (flushed !== true) {
-            return Object.freeze({
-              confirmed: false,
-              reason: "flush-not-confirmed",
-              persistence: activeStore.scope,
-            });
-          }
-        }
-        const persistence = activeStore.scope;
-        const confirmed = persistence === "device";
-        if (confirmed) activeCoordinationTracking.lastSaveAccepted = null;
+    const runtime = resolve();
+    if (!runtime || !activeStore || !activeCoordinationTracking) {
+      return Object.freeze({
+        confirmed: false,
+        reason: "signed-in-account-required",
+        persistence: "session",
+      });
+    }
+    if (activeCoordinationTracking.lastSaveAccepted === false) {
+      if (activeCoordinationTracking.lastPayload === null) {
         return Object.freeze({
-          confirmed,
-          reason: confirmed ? "durable" : "session-only",
-          persistence,
+          confirmed: false,
+          reason: "last-save-rejected",
+          persistence: activeStore.scope,
         });
+      }
+      const accepted = activeStore.save(activeCoordinationTracking.lastPayload);
+      activeCoordinationTracking.lastSaveAccepted = accepted === true;
+      if (accepted !== true) {
+        return Object.freeze({
+          confirmed: false,
+          reason: "last-save-rejected",
+          persistence: activeStore.scope,
+        });
+      }
+    }
+    if (typeof activeStore.flush === "function") {
+      const flushed = await activeStore.flush();
+      if (flushed !== true) {
+        return Object.freeze({
+          confirmed: false,
+          reason: "flush-not-confirmed",
+          persistence: activeStore.scope,
+        });
+      }
+    }
+    const persistence = activeStore.scope;
+    const confirmed = persistence === "device";
+    if (confirmed) activeCoordinationTracking.lastSaveAccepted = null;
+    return Object.freeze({
+      confirmed,
+      reason: confirmed ? "durable" : "session-only",
+      persistence,
+    });
   };
 
   return Object.freeze({
