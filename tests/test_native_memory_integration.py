@@ -25,6 +25,9 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
 
         self.assertIn("createNativeMemoryStore", composition)
         self.assertIn("createMemoryRuntime", composition)
+        self.assertIn("createMemoryMutationPort", composition)
+        self.assertIn("const memoryMutations = memory === null", composition)
+        self.assertIn("createMemoryMutationPort({ memoryPort: memory })", composition)
         self.assertIn('"OrdaX native Intelligence memory persistence unavailable"', composition)
         self.assertIn("memoryStore,", composition)
         self.assertIn("createMemoryRuntime({ store: memoryStore })", composition)
@@ -41,6 +44,7 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("createMemoryReviewSession", composition)
         self.assertIn("createMemoryReviewViewModel", composition)
         self.assertIn("memoryPort: memory", composition)
+        self.assertIn("mutationPort: memoryMutations", composition)
         self.assertIn("identitySessionPort: identitySession", composition)
         self.assertIn("memoryReview,", composition)
         self.assertIn("memoryReview?.dispose()", composition)
@@ -49,6 +53,7 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertNotIn("memoryReview,\n      intelligence", composition)
         self.assertIn("const selectedSpaceIntelligence = memory === null", composition)
         self.assertIn("intelligence: selectedSpaceIntelligence", composition)
+        self.assertIn("{ mutationPort: memoryMutations }", composition)
 
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

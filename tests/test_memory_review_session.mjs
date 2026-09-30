@@ -138,12 +138,12 @@ test("review session edits/removes only selected owner and forwards flush", asyn
     identitySessionPort: identityPort(signedIn()),
     now: () => new Date("2026-09-24T21:00:00Z"),
   });
-  const updated = review.update("device-item", { content: "depois" });
+  const updated = await review.update("device-item", { content: "depois" });
   assert.equal(updated.content, "depois");
   assert.equal(updated.sourceTimestamp, "2026-09-24T21:00:00.000Z");
-  assert.equal(review.remove("account-item"), false);
+  assert.equal(await review.remove("account-item"), false);
   assert.equal(await review.flush(), true);
-  assert.equal(flushes, 1);
+  assert.equal(flushes, 2, "mutation durability plus explicit flush must both reach the Memory store");
   review.dispose();
 });
 
@@ -156,7 +156,7 @@ test("disposed review session rejects further work", async () => {
 });
 
 
-test("review session creates manual memory for the selected owner", () => {
+test("review session creates manual memory for the selected owner", async () => {
   const memory = createMemoryRuntime();
   const review = createMemoryReviewSession({
     memoryPort: memory,
@@ -165,7 +165,7 @@ test("review session creates manual memory for the selected owner", () => {
     idFactory: () => "manual-session",
   });
   review.selectOwner({ ownerKind: "account", ownerId: "account-1" });
-  const created = review.create("Lembrar desta preferência");
+  const created = await review.create("Lembrar desta preferência");
   assert.equal(created.ownerKind, "account");
   assert.equal(created.ownerId, "account-1");
   assert.equal(created.scope, "account");
