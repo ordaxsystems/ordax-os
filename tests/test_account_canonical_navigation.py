@@ -126,6 +126,22 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertNotIn("LOCAL_PROFILE_DISTRIBUTIONS", web)
         self.assertNotIn("adapters/native/profile-component-inventory.mjs", web)
 
+    def test_native_profiles_bind_selected_space_to_persistent_activation_state(self):
+        ui = (ROOT / "system/surface/ui/account-overview-controls.mjs").read_text(encoding="utf-8")
+        native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
+        catalog = (ROOT / "system/services/i18n/catalog/account.mjs").read_text(encoding="utf-8")
+
+        self.assertIn("assertMutableProfileActivationStatePort", ui)
+        self.assertIn("profileActivationState = null", ui)
+        self.assertIn("profileActivationPort.activate({", ui)
+        self.assertIn("profileActivationPort.deactivate(selectedSpace.id)", ui)
+        self.assertIn('spaceSelectionSnapshot?.state === "selected"', ui)
+        self.assertIn('data-account-profile-action', ui)
+        self.assertIn("profileActivationState,", native)
+        self.assertIn('"account.profiles.name.pizzaria-br": "Pizzaria"', catalog)
+        self.assertIn('"account.profiles.name.impressao-3d-br": "Impressão 3D"', catalog)
+
+
     def test_memory_section_is_local_first_and_native_only_when_durable(self):
         controls = ACCOUNT.read_text(encoding="utf-8")
         catalog = ACCOUNT_CATALOG.read_text(encoding="utf-8")
