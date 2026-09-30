@@ -79,6 +79,10 @@ test("grant issuance is bounded, user-approved and exact-context", () => {
   );
   assert.equal(authority.issuer.revoke(grant.grantId), true);
   assert.equal(authority.registry.resolve(grant.grantId), null);
+  assert.throws(
+    () => authority.issuer.issue(issue()),
+    /already issued a grant/,
+  );
   authority.dispose();
 });
 
