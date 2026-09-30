@@ -112,6 +112,7 @@ function pending(runtime, effect = "write") {
   const approval = runtime.requestApproval(work.id, {
     actionId: "files.document.write",
     toolId: "files-inspector",
+    toolArtifactSha256: "a".repeat(64),
     effect,
     resourceRef: "file-space:/Documentos/menu.md",
     reason: "Salvar a alteracao solicitada pelo usuario.",
@@ -141,6 +142,7 @@ test("explicit human approval issues one exact short-lived grant and resolves Wo
   assert.equal(grant.approvalId, approval.id);
   assert.equal(grant.resourceRef, "file-space:/Documentos/menu.md");
   assert.equal(grant.toolId, "files-inspector");
+  assert.equal(grant.toolArtifactSha256, "a".repeat(64));
   assert.equal(grant.action, "files.document.write");
   assert.equal(grant.mode, "write");
   assert.equal(Date.parse(grant.expiresAt) - NOW, 2 * 60 * 1000);
@@ -204,6 +206,30 @@ test("consent preflight hides Approve when the typed tool action is unavailable"
     now: () => NOW,
   });
   const { work, approval } = pending(runtime);
+
+  assert.equal(consent.canApprove(work.id, approval.id), false);
+  assert.throws(
+    () => consent.approve(work.id, approval.id),
+    /unavailable or incompatible/,
+  );
+  assert.equal(runtime.getSnapshot().approvals[0].status, "pending");
+
+  runtime.dispose();
+  authority.dispose();
+});
+
+test("consent refuses approval after the resolved tool artifact changes", () => {
+  const { authority, runtime } = setup();
+  const { work, approval } = pending(runtime);
+  const consent = createPersonalApprovalConsent({
+    runtime,
+    grantIssuer: authority.issuer,
+    toolResolver(id) {
+      if (id !== "files-inspector") return null;
+      return tool({ artifactSha256: "b".repeat(64) });
+    },
+    now: () => NOW,
+  });
 
   assert.equal(consent.canApprove(work.id, approval.id), false);
   assert.throws(
