@@ -1,6 +1,6 @@
 # Current State
 
-Status date: 2026-09-27
+Status date: 2026-09-30
 
 This is the canonical handoff snapshot. Architecture/contracts win if another document conflicts with it. Detailed historical evidence remains under `docs/evidence/`; this file records the current boundary without treating CI proof, development-hardware proof and product-release authorization as interchangeable. Values that mirror structured source — including product/app versions, component release modes and physical-media geometry — are regression-checked against their owners so this snapshot cannot silently drift from the implementation.
 
@@ -21,6 +21,14 @@ MVP_ACCOUNT_OPTIONAL=YES
 MVP_ACCOUNT_SIGNUP_LOGIN_REQUIRED_IF_CHOSEN=YES
 MVP_COMMERCIAL_DEVICE_LIMIT_DEFINED=NO
 WEB_MOBILE_SYNC_PUBLIC_STATUS=COMING_SOON_ONLY
+OPERATIONAL_REALTIME_CONTRACT=PASS_SOURCE_RUNTIME_DISABLED
+ORDAX_OPERATIONAL_REALTIME_PUBLIC=NO
+ORDAX_DEVICE_ACTIONS_PUBLIC=NO
+ORDAX_MOBILE_ADAPTER_STATUS=ARCHITECTURE_ONLY
+ORDAX_ANDROID_APK_IMPLEMENTED=NO
+ORDAX_EDGE_RUNTIME_CONTRACT=PASS_SOURCE_RUNTIME_DISABLED
+ORDAX_EDGE_RUNTIME_PUBLIC=NO
+ORDAX_PRODUCTION_REQUIRES_USER_NOTEBOOK_ON=NO
 ```
 
 Native contracts, Creator Core, LUKS2/Btrfs work, Native initramfs, ESP and disposable proofs remain valid engineering foundation, but they do not block or appear as user-facing MVP functionality.
@@ -66,7 +74,7 @@ DEVICE_AGENT_EXISTING_TOKEN_IDENTITY_RECOVERY=DEPLOYED_V1
 DEVICE_AGENT_WINDOWS_V2_ENROLLMENT_PROOF=PENDING_LOCAL_RECOVERY_EXECUTION
 DEVICE_AGENT_CERCO_PROJECT_REGISTRATION=PENDING_LOCAL_RECOVERY_EXECUTION
 PROJECTS_EXTERNAL_AI_ACCESS=GITHUB_DIRECT_PLUS_ORDAX_MCP
-ORDAX_WEB_DEVICE_CONTROL=PLANNED_SHARED_ACTION_GATEWAY
+ORDAX_WEB_DEVICE_CONTROL=PASS_SOURCE_SHARED_ACTION_CONTRACT_RUNTIME_DISABLED
 SETTINGS_VISIBLE_LABEL=AJUSTES
 SURFACE_HOME_TECHNICAL_UPDATE_MARKERS=REMOVED
 PRODUCT_VERSION=0.1.0
@@ -947,3 +955,19 @@ Account-owned and Space-owned Memory are currently local OrdaX Memory ownership 
 PROFILE_PROVISIONING_COMPLETED_GATES=RECEIPT_INVENTORY,TRUSTED_EXECUTOR,HEALTH_ROLLBACK,SURFACE_CATALOG_UI
 PROFILE_PROVISIONING_NEXT_GATE=FIRST_PUBLIC_PROFILE_PROOF
 PROFILE_PROVISIONING_FIRST_PUBLIC_PROFILE_PROOF=BLOCKED_CANONICAL_TRUST_PUBLICATION_REQUIRED
+
+
+### Operational realtime / Web / Mobile foundation
+
+The product now has a provider-neutral source contract separating account synchronization
+from live operational events and remote device actions. `ordax.operational-event/1` uses
+Space-scoped aggregate identity, server sequence and revision; device mutations use
+`ordax.device-action-request/1` + `ordax.device-action-receipt/1` and must be matched
+to an explicit approved Device Agent write grant.
+
+This foundation is intentionally non-activating. There is no released Android APK, no public
+operational realtime transport and no public remote-device Action Gateway yet. Web/Mobile/
+Desktop/Native/MCP share the same future action boundary; account sync is not a command queue,
+notifications are not source of truth, and push payloads are not command authority.
+
+Machine-readable owner: `docs/contracts/operational-realtime.json`.
