@@ -1,11 +1,11 @@
 {
   "$schema": "prototype-ordax.portable-v3-cold-health-qemu-proof-spec/1",
-  "status": "candidate-proof-not-yet-promoted",
+  "status": "diagnostic-runner-retained-physical-promotion-gate",
   "product_scope": "stable-mvp-usb-only",
   "workflow": ".github/workflows/portable-v2-qemu-boot-proof.yml",
   "runner": "bootstrap/portable-v2/qemu_cold_health_commit.py",
   "base_runner": "bootstrap/portable-v2/qemu_boot.py",
-  "proof_mode": "armed-candidate-real-supervisor-cold-health-commit",
+  "proof_mode": "diagnostic-real-supervisor-cold-health-commit-not-ci-promotion-authority",
   "source_identity": {
     "candidate": "exact-current-head",
     "previous": "exact-pr-base-or-main-parent",
@@ -58,7 +58,7 @@
   },
   "promotion_effect": {
     "failure_fallback_proof_remains_separate": true,
-    "disposable_qemu_cold_health_commit_gate_can_close_after_exact_main_proof": true,
+    "disposable_qemu_cold_health_commit_gate_can_close_after_exact_main_proof": false,
     "physical_cold_health_gate_closed": false,
     "physical_known_good_gate_closed": false,
     "physical_rollback_gate_closed": false,
@@ -76,5 +76,11 @@
     "host_display_window": false,
     "guest_graphical_stack": "cage-wayland-webkit-seatd",
     "synthetic_surface_health": false
+  },
+  "ci_policy": {
+    "required_in_portable_qemu_workflow": false,
+    "reason": "real cold-health promotion requires physical Stable/MVP Surface heartbeat and exact-SHA health on target hardware",
+    "synthetic_health_forbidden": true,
+    "qemu_boot_fallback_and_uefi_proofs_remain_required": true
   }
 }
