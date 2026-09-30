@@ -230,6 +230,14 @@ test("component manager promotes only health-checked independent slots and rolls
   assert.equal(slot.state.previousVersion, "1.0.0");
   assert.equal(slot.state.pendingVersion, null);
   assert.equal(slot.state.currentHealth, "healthy");
+
+  manager.setCurrentHealth("slot-app", "failed");
+  manager.rollback("slot-app");
+  slot = manager.getSnapshot().components.find((item) => item.manifest.id === "slot-app");
+  assert.equal(slot.state.currentVersion, "1.0.0");
+  assert.equal(slot.state.previousVersion, null);
+  assert.equal(slot.state.rejectedVersion, "1.1.0");
+  assert.equal(slot.state.currentHealth, "unknown");
   assert.ok(store.read().revision >= 5);
   manager.destroy();
 });
