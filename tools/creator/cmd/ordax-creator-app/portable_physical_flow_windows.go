@@ -87,6 +87,9 @@ func executePortablePhysicalWrite(
 	target physicalTarget,
 	payload physicalchannel.PortablePayloadManifest,
 ) error {
+	if payload.Schema != physicalchannel.PortablePayloadSchema {
+		return errors.New("payload Portable assinado possui schema incompatível")
+	}
 	backend := filepath.Join(directory, "ordax-creator-physical-test.exe")
 	info, err := os.Lstat(backend)
 	if err != nil {
