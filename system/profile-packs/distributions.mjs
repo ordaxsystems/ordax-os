@@ -13,6 +13,24 @@ const DELIVERY_POLICIES = Object.freeze([
     componentSizes: Object.freeze({}),
   }),
   Object.freeze({
+    profile: Object.freeze({ slug: "impressao-3d-br", version: 1 }),
+    deliveryMode: "bundled",
+    metadataBundled: true,
+    offlineAfterInstall: true,
+    publicInstallEnabled: true,
+    blockedReason: null,
+    componentSizes: Object.freeze({}),
+  }),
+  Object.freeze({
+    profile: Object.freeze({ slug: "pizzaria-br", version: 1 }),
+    deliveryMode: "bundled",
+    metadataBundled: true,
+    offlineAfterInstall: true,
+    publicInstallEnabled: true,
+    blockedReason: null,
+    componentSizes: Object.freeze({}),
+  }),
+  Object.freeze({
     profile: Object.freeze({ slug: "legal-br", version: 1 }),
     deliveryMode: "on-demand",
     metadataBundled: true,
@@ -73,24 +91,17 @@ function distributionFromPack(pack, policy) {
 
 export function createLocalProfileDistributions(packs) {
   const validated = assertValidatedProfilePackCatalog(packs);
-  const packsByIdentity = new Map(
-    validated.map((pack) => [identity(pack), pack]),
+  const policiesByIdentity = new Map(
+    DELIVERY_POLICIES.map((policy) => [identity(policy.profile), policy]),
   );
-  const policyIdentities = new Set(DELIVERY_POLICIES.map((policy) => identity(policy.profile)));
 
-  for (const pack of validated) {
-    if (!policyIdentities.has(identity(pack))) {
+  const distributions = validated.map((pack) => {
+    const key = identity(pack);
+    const policy = policiesByIdentity.get(key);
+    if (!policy) {
       throw new TypeError(
-        `Bundled Profile Pack ${identity(pack)} has no local delivery policy`,
+        `Bundled Profile Pack ${key} has no local delivery policy`,
       );
-    }
-  }
-
-  const distributions = DELIVERY_POLICIES.map((policy) => {
-    const key = identity(policy.profile);
-    const pack = packsByIdentity.get(key);
-    if (!pack) {
-      throw new TypeError(`Local Profile delivery policy ${key} has no canonical manifest`);
     }
     return distributionFromPack(pack, policy);
   });
