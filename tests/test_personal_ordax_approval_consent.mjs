@@ -84,10 +84,9 @@ function setup({ selection = spaces(), issuerTransform = null } = {}) {
     },
   });
   const issuer = issuerTransform?.(authority.issuer) ?? authority.issuer;
+  const toolResolver = (id) => id === "files-inspector" ? tool() : null;
   const gateway = createPersonalOrdaxActionGateway({
-    toolResolver(id) {
-      return id === "files-inspector" ? tool() : null;
-    },
+    toolResolver,
     grantResolver(id) {
       return authority.registry.resolve(id);
     },
@@ -102,6 +101,7 @@ function setup({ selection = spaces(), issuerTransform = null } = {}) {
   const consent = createPersonalApprovalConsent({
     runtime,
     grantIssuer: issuer,
+    toolResolver,
     now: () => NOW,
   });
   return { authority, runtime, consent, selection };
@@ -122,6 +122,7 @@ test("explicit human approval issues one exact short-lived grant and resolves Wo
   const { authority, runtime, consent } = setup();
   const { work, approval } = pending(runtime);
 
+  assert.equal(consent.canApprove(work.id, approval.id), true);
   const decision = consent.approve(work.id, approval.id);
   const snapshot = runtime.getSnapshot();
 
@@ -172,6 +173,41 @@ test("explicit human denial is audited without issuing authority", () => {
   assert.equal(snapshot.approvals[0].status, "denied");
   assert.equal(snapshot.decisions[0].decision, "deny");
   assert.equal(snapshot.activities.at(-1).type, "approval-resolved");
+
+  runtime.dispose();
+  authority.dispose();
+});
+
+test("consent preflight hides Approve when the typed tool action is unavailable", () => {
+  const authority = createIntelligenceToolGrantAuthority({
+    now: () => NOW,
+    createGrantId: () => "grant-unavailable-1",
+  });
+  const gateway = createPersonalOrdaxActionGateway({
+    toolResolver: () => null,
+    grantResolver: (id) => authority.registry.resolve(id),
+    now: () => NOW,
+  });
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: identity(),
+    spaceSelectionPort: spaces(),
+    actionGatewayPort: gateway,
+    now: () => NOW,
+  });
+  const consent = createPersonalApprovalConsent({
+    runtime,
+    grantIssuer: authority.issuer,
+    toolResolver: () => null,
+    now: () => NOW,
+  });
+  const { work, approval } = pending(runtime);
+
+  assert.equal(consent.canApprove(work.id, approval.id), false);
+  assert.throws(
+    () => consent.approve(work.id, approval.id),
+    /unavailable or incompatible/,
+  );
+  assert.equal(runtime.getSnapshot().approvals[0].status, "pending");
 
   runtime.dispose();
   authority.dispose();
