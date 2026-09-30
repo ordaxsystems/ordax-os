@@ -136,12 +136,33 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
             native_host.execute_profile_activation_command = original
             self.stop_server(temporary, server, thread)
 
-    def test_stable_mvp_keeps_profile_mutation_endpoint_absent(self):
+    def test_stable_mvp_exposes_only_token_bound_profile_command_endpoint(self):
         temporary, server, thread = self.start_server("stable-mvp")
+        original = native_host.execute_profile_activation_command
+        dispatched = []
+
+        def dispatch(payload, **kwargs):
+            dispatched.append((payload, kwargs["distribution_profile"]))
+            return {
+                "schema": "ordax.profile-activation-command/1",
+                "action": payload["action"],
+                "changed": False,
+                "state": {
+                    "schema": "ordax.profile-activation-state/1",
+                    "revision": 0,
+                    "persistence": "device",
+                    "spaces": [],
+                },
+                "permissionDiff": None,
+            }
+
+        native_host.execute_profile_activation_command = dispatch
         try:
             session = self.session(server)
-            self.assertFalse(session["profileActivationAvailable"])
-            self.assertEqual(session["profileActivationToken"], "")
+            self.assertTrue(session["profileActivationAvailable"])
+            token = session["profileActivationToken"]
+            self.assertGreaterEqual(len(token), 24)
+
             status, _body = self.request(
                 server,
                 "POST",
@@ -149,8 +170,23 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
                 headers=self.trusted_headers(server),
                 payload=self.command_payload(),
             )
-            self.assertEqual(status, 404)
+            self.assertEqual(status, 403)
+            self.assertEqual(dispatched, [])
+
+            headers = self.trusted_headers(server)
+            headers[native_host.PROFILE_ACTIVATION_TOKEN_HEADER] = token
+            status, body = self.request(
+                server,
+                "POST",
+                native_host.PROFILE_ACTIVATION_COMMAND_PATH,
+                headers=headers,
+                payload=self.command_payload(),
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(dispatched[0][1], "stable-mvp")
+            self.assertEqual(json.loads(body.decode("utf-8"))["changed"], False)
         finally:
+            native_host.execute_profile_activation_command = original
             self.stop_server(temporary, server, thread)
 
 
