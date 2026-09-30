@@ -153,5 +153,12 @@ export function createMemoryRuntime({ store = null } = {}) {
       }
       return true;
     },
+    getPersistenceSnapshot() {
+      const scope = persistence?.scope ?? "session";
+      return Object.freeze({
+        scope,
+        durable: scope === "device",
+      });
+    },
   });
 }
