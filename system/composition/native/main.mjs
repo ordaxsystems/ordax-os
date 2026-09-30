@@ -54,6 +54,7 @@ import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
+import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
 import { createDiagnosticJournalRuntime } from "../../services/diagnostics/runtime.mjs";
@@ -413,6 +414,9 @@ async function start() {
           fileSpace,
         }),
       );
+  const personalOrdaxActionCatalog = createPersonalActionCatalog({
+    registrations: personalOrdaxFileActions?.actionRegistrations ?? [],
+  });
   const personalOrdax = await optionalNativeProbe(
     "OrdaX Personal runtime unavailable",
     () => createNativePersonalOrdaxComposition({
@@ -423,6 +427,7 @@ async function start() {
       intelligence: selectedSpaceIntelligence,
       toolResolver: personalOrdaxFileActions?.toolResolver ?? (() => null),
       adapterResolver: personalOrdaxFileActions?.adapterResolver ?? (() => null),
+      actionCatalog: personalOrdaxActionCatalog,
     }),
   );
   const profileComponentInventory = await optionalNativeProbe(
