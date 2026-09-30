@@ -539,6 +539,11 @@ export function createPersonalOrdaxRuntime({
       if (item.state === "waiting-approval") {
         throw new Error("Personal OrdaX work is waiting for approval");
       }
+      if (state.approvals.some(
+        (approval) => approval.workItemId === id && approval.status === "approved",
+      )) {
+        throw new Error("Personal OrdaX work has an approved action that must execute or be cancelled first");
+      }
       if (inFlight.has(id)) {
         throw new Error("Personal OrdaX work is already running");
       }
