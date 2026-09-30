@@ -308,6 +308,10 @@ test("canonical recovery-blocked state rejects account writes before local Memor
     foundation.protectedMutations.remember(memoryItem("blocked-before-local-write")),
     /coordination requires recovery/,
   );
+  await assert.rejects(
+    foundation.protectedMutations.recover(),
+    /coordination requires recovery/,
+  );
 
   assert.equal(
     memory.search({
