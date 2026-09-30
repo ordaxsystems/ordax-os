@@ -184,7 +184,6 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
 
   const approvals = Object.freeze(rawApprovals.map(validatePersonalApproval));
   const approvalById = new Map();
-  const approvalByAction = new Map();
   for (const approval of approvals) {
     if (approvalById.has(approval.id)) {
       throw new TypeError("Personal OrdaX approval ids must be unique inside an owner partition");
@@ -192,10 +191,6 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     const work = workById.get(approval.workItemId);
     if (!work) {
       throw new TypeError("Personal OrdaX approval cannot reference missing work");
-    }
-    const actionKey = `${approval.workItemId}\0${approval.actionId}`;
-    if (approvalByAction.has(actionKey)) {
-      throw new TypeError("Personal OrdaX action may have only one retained approval");
     }
     if (Date.parse(approval.requestedAt) < Date.parse(work.createdAt)) {
       throw new TypeError("Personal OrdaX approval cannot precede work creation");
@@ -207,7 +202,6 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
       throw new TypeError("Personal OrdaX approval cannot execute after the work update boundary");
     }
     approvalById.set(approval.id, approval);
-    approvalByAction.set(actionKey, approval);
   }
 
   for (const work of workItems) {
@@ -271,19 +265,27 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
   }
 
   const decisions = Object.freeze(rawDecisions.map(validatePersonalActionDecision));
-  const decisionByAction = new Map();
+  const decisionByApproval = new Map();
   for (const actionDecision of decisions) {
     const work = workById.get(actionDecision.workItemId);
     if (!work) {
       throw new TypeError("Personal OrdaX action decision cannot reference missing work");
     }
-    const actionKey = `${actionDecision.workItemId}\0${actionDecision.actionId}`;
-    if (decisionByAction.has(actionKey)) {
-      throw new TypeError("Personal OrdaX action may have only one retained terminal decision");
+    if (actionDecision.approvalId === null) {
+      throw new TypeError("Retained Personal OrdaX action decision requires an approval id");
     }
-    const approval = approvalByAction.get(actionKey);
-    if (!approval || approval.status === "pending" || approval.status === "cancelled") {
-      throw new TypeError("Personal OrdaX terminal action decision requires a resolved approval");
+    if (decisionByApproval.has(actionDecision.approvalId)) {
+      throw new TypeError("Personal OrdaX approval may have only one retained terminal decision");
+    }
+    const approval = approvalById.get(actionDecision.approvalId);
+    if (
+      !approval
+      || approval.workItemId !== actionDecision.workItemId
+      || approval.actionId !== actionDecision.actionId
+      || approval.status === "pending"
+      || approval.status === "cancelled"
+    ) {
+      throw new TypeError("Personal OrdaX terminal action decision requires its exact resolved approval");
     }
     if (actionDecision.effect !== approval.effect) {
       throw new TypeError("Personal OrdaX action decision effect must match its approval");
@@ -298,13 +300,12 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     } else if (actionDecision.decision !== "deny") {
       throw new TypeError("denied Personal OrdaX action requires a deny decision");
     }
-    decisionByAction.set(actionKey, actionDecision);
+    decisionByApproval.set(actionDecision.approvalId, actionDecision);
   }
   for (const approval of approvals) {
-    const actionKey = `${approval.workItemId}\0${approval.actionId}`;
     if (
       (approval.status === "approved" || approval.status === "executed" || approval.status === "revoked" || approval.status === "denied")
-      && !decisionByAction.has(actionKey)
+      && !decisionByApproval.has(approval.id)
     ) {
       throw new TypeError("resolved Personal OrdaX approval requires its terminal action decision");
     }
