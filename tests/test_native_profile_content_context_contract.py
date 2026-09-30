@@ -9,7 +9,7 @@ READER = ROOT / "system" / "surface" / "runtime" / "native_profile_content_conte
 
 
 class NativeProfileContentContextContractTests(unittest.TestCase):
-    def test_profile_content_context_is_read_only_loopback_and_owner_dev_only(self):
+    def test_profile_content_context_is_read_only_loopback_and_available_in_native_profiles(self):
         host = HOST.read_text(encoding="utf-8")
         adapter = ADAPTER.read_text(encoding="utf-8")
         reader = READER.read_text(encoding="utf-8")
@@ -19,7 +19,10 @@ class NativeProfileContentContextContractTests(unittest.TestCase):
             host,
         )
         self.assertIn("read_active_profile_content_context", host)
-        self.assertIn('self.server.distribution_profile != "owner-development"', host)
+        self.assertIn(
+            'self.server.distribution_profile not in {"owner-development", "stable-mvp"}',
+            host,
+        )
         self.assertIn("requested_profile_content_space_id", host)
         self.assertIn("PROFILE_CONTENT_CONTEXT_PATH", host)
         self.assertIn('ENDPOINT = "/__ordax/native/profile-content-context"', adapter)
@@ -28,7 +31,7 @@ class NativeProfileContentContextContractTests(unittest.TestCase):
         self.assertNotIn("urllib", reader)
         self.assertNotIn("requests.", reader)
 
-    def test_capability_is_explicit_and_stable_mvp_remains_disabled(self):
+    def test_capability_is_explicit_for_owner_and_stable_native_profiles(self):
         host = HOST.read_text(encoding="utf-8")
         adapter = CAPABILITY_ADAPTER.read_text(encoding="utf-8")
 
@@ -37,7 +40,7 @@ class NativeProfileContentContextContractTests(unittest.TestCase):
             host,
         )
         self.assertIn(
-            '"available": self.server.distribution_profile == "owner-development"',
+            '"available": self.server.distribution_profile in {"owner-development", "stable-mvp"}',
             host,
         )
         self.assertIn(
