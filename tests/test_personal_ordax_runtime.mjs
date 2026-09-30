@@ -333,3 +333,25 @@ test("durable store keeps work and ordered activity without a second memory syst
   assert.equal(runtime.getSnapshot().persistence, "device");
   runtime.dispose();
 });
+
+test("terminal work can be removed with its activity while active work cannot", async () => {
+  let tick = 9_000;
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: identitySignedOut(),
+    intelligencePort: intelligence(),
+    now: () => tick++,
+  });
+  const active = runtime.create("Active.");
+  assert.throws(() => runtime.remove(active.id), /must be cancelled/);
+  runtime.cancel(active.id);
+  runtime.remove(active.id);
+  assert.equal(runtime.getSnapshot().workItems.length, 0);
+  assert.equal(runtime.getSnapshot().activities.length, 0);
+
+  const completed = runtime.create("Completed.");
+  await runtime.run(completed.id);
+  runtime.remove(completed.id);
+  assert.equal(runtime.getSnapshot().workItems.length, 0);
+  assert.equal(runtime.getSnapshot().activities.length, 0);
+  runtime.dispose();
+});
