@@ -1,3 +1,4 @@
+import { assertIdentitySessionPort, validateIdentitySessionSnapshot } from "../../contracts/identity-session.mjs";
 import { createAccountMemorySyncComposition } from "./account-memory-composition.mjs";
 import { createAccountMemoryDeferredIntents } from "./account-memory-deferred-intents.mjs";
 import { createAccountMemoryEntitlementSession } from "./account-memory-entitlement-session.mjs";
@@ -14,18 +15,19 @@ export function createAccountMemoryAuthorizedComposition({
   now = () => new Date(),
   onStageError = null,
 } = {}) {
+  const identity = assertIdentitySessionPort(identitySession);
   const entitlementSession = createAccountMemoryEntitlementSession({
-    identitySession,
+    identitySession: identity,
     entitlementsPort,
     now,
   });
   const deferredIntents = createAccountMemoryDeferredIntents({
-    identitySession,
+    identitySession: identity,
     memoryPort,
     createDeferredStateStore,
   });
   const memoryComposition = createAccountMemorySyncComposition({
-    identitySession,
+    identitySession: identity,
     memoryPort,
     createSyncStateStore,
     authorizeSync(descriptor) {
@@ -39,6 +41,8 @@ export function createAccountMemoryAuthorizedComposition({
   });
 
   let destroyed = false;
+  let lastReplayError = null;
+  let lifecycleReplayPromise = Promise.resolve(null);
 
   const snapshot = () => {
     if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
@@ -50,16 +54,49 @@ export function createAccountMemoryAuthorizedComposition({
       authorizationEnforcedAtTransportBoundary: true,
       localFirstWhileAuthorizationUnavailable: true,
       deferredStateStoresPortableContent: false,
+      automaticIdentityLifecycleReplay: true,
+      deferredReplayHealthy: lastReplayError === null,
       productionPromoted: false,
     });
   };
+
+  const replayCurrent = () => {
+    const replay = deferredIntents.replay(memoryComposition.memorySync);
+    lastReplayError = null;
+    return replay;
+  };
+
+  const scheduleLifecycleReplay = () => {
+    lifecycleReplayPromise = entitlementSession.settled()
+      .then(() => {
+        if (destroyed) return null;
+        return replayCurrent();
+      })
+      .catch((error) => {
+        lastReplayError = error;
+        return null;
+      });
+    return lifecycleReplayPromise;
+  };
+
+  const unsubscribeIdentity = identity.subscribe((value) => {
+    if (destroyed) return;
+    const current = validateIdentitySessionSnapshot(value);
+    if (current.state === "signed-in") scheduleLifecycleReplay();
+  });
+  if (typeof unsubscribeIdentity !== "function") {
+    memoryComposition.destroy();
+    deferredIntents.destroy();
+    entitlementSession.destroy();
+    throw new TypeError("Authorized Account Memory composition requires identity unsubscribe support");
+  }
 
   const settleAndReplay = async (refresh) => {
     if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
     if (refresh) await entitlementSession.refresh();
     else await entitlementSession.settled();
-    const replay = deferredIntents.replay(memoryComposition.memorySync);
-    return Object.freeze({ snapshot: snapshot(), replay });
+    replayCurrent();
+    return snapshot();
   };
 
   return Object.freeze({
@@ -71,18 +108,21 @@ export function createAccountMemoryAuthorizedComposition({
     deferredIntents,
     getSnapshot: snapshot,
     async settled() {
-      return (await settleAndReplay(false)).snapshot;
+      if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
+      await lifecycleReplayPromise;
+      return settleAndReplay(false);
     },
     async refreshAuthorization() {
-      return (await settleAndReplay(true)).snapshot;
+      return settleAndReplay(true);
     },
     async replayDeferredIntents() {
       if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
-      return deferredIntents.replay(memoryComposition.memorySync);
+      return replayCurrent();
     },
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      unsubscribeIdentity();
       memoryComposition.destroy();
       deferredIntents.destroy();
       entitlementSession.destroy();
