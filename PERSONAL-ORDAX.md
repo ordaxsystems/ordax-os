@@ -124,3 +124,11 @@ A composição Native agora conecta exclusivamente o adapter verificado `ordax-n
 A execução faz `approved -> running -> executed`, persiste `action-started/action-finished` e consome a approval apenas com receipt `succeeded` exato. Enquanto existir uma ação aprovada não consumida, o Work não pode iniciar novo raciocínio nem pedir outra approval. Cancelar o Work revoga primeiro o grant no registry e retém a approval como `revoked` para auditoria.
 
 O escopo de side effect habilitado continua deliberadamente único: garantir um diretório dentro do `file-space` canônico. Background, egress, device-control, shell, raw disk e execução genérica continuam desabilitados.
+
+### Action Catalog canônico
+
+A entrada de novas ações não fica hardcoded na Activity. Adapters first-party registram descritores bounded no `ordax.personal-action-catalog/1`; a UI recebe apenas metadados públicos e um `resourceValue` humano. A própria registration converte e valida esse valor para o `resourceRef` canônico antes de criar uma approval. O catálogo não emite grant, não executa adapter e não transforma conteúdo de modelo em autoridade.
+
+O primeiro registro é `native-file.ensure-directory`. A Activity pode solicitar approval para ele sem conhecer `file-space:`, tool IDs ou regras de filesystem. Decisions persistidas agora carregam o `approvalId` exato. Isso permite repetir o mesmo tipo de ação no mesmo Work em recursos diferentes, desde que cada tentativa tenha uma nova approval e um novo grant compatível.
+
+Propostas estruturadas vindas do modelo continuam desabilitadas neste corte. Quando forem adicionadas, deverão entrar pelo mesmo catálogo e permanecer sem autoridade até approval explícita.
