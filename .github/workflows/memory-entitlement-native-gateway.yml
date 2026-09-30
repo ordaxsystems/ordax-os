@@ -1,0 +1,39 @@
+name: Memory Entitlement Native Gateway
+
+on:
+  pull_request:
+    paths:
+      - 'system/surface/runtime/native_account_gateway.py'
+      - 'tests/test_native_account_gateway.py'
+      - '.github/workflows/memory-entitlement-native-gateway.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/surface/runtime/native_account_gateway.py'
+      - 'tests/test_native_account_gateway.py'
+      - '.github/workflows/memory-entitlement-native-gateway.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-memory-entitlement-gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate source syntax
+        run: |
+          set -euo pipefail
+          python -m py_compile system/surface/runtime/native_account_gateway.py
+          python -m py_compile tests/test_native_account_gateway.py
+
+      - name: Prove device-bound read-only entitlement transport
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_native_account_gateway -v
