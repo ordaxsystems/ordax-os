@@ -21,13 +21,15 @@ export const ASSISTANT_AUTO_CAPTURE_SCHEMA = "ordax.assistant-auto-memory-captur
 
 const MAX_CANDIDATES = 4;
 const MAX_CONTENT = 2048;
+const MAX_EVIDENCE = 2048;
 const ALLOWED_KINDS = new Set(["preference", "fact", "instruction", "summary"]);
 const SECRET_SIGNAL = /(?:password|senha|passphrase|token|api[ -]?key|chave privada|private key|seed phrase|recovery code|c[oó]digo de recupera[cç][aã]o|\bcvv\b|\bpin\b|-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----|\bsk-[A-Za-z0-9_-]{16,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bxox[baprs]-[A-Za-z0-9-]{16,}\b|\bsb_secret_[A-Za-z0-9_-]{16,}\b)/iu;
 
 const EXTRACTION_PROMPT = [
   "Extract only durable memories directly supported by the supplied user turn.",
-  "Return compact JSON only, with exact shape: {\"memories\":[{\"kind\":\"preference|fact|instruction|summary\",\"content\":\"...\"}]}",
+  "Return compact JSON only, with exact shape: {\"memories\":[{\"kind\":\"preference|fact|instruction|summary\",\"content\":\"...\",\"evidence\":\"exact verbatim quote from the supplied user turn\"}]}",
   "Use zero memories when the user turn contains no durable personal preference, stable fact, standing instruction, or useful durable summary.",
+  "Every memory must include a non-empty evidence string copied verbatim from the supplied user turn and directly supporting the memory.",
   "Never include passwords, passphrases, tokens, API keys, private keys, recovery codes, payment authentication data, or other credentials.",
   "Do not include owner, account, Space, scope, ids, sensitivity, timestamps, provenance, tools, or actions.",
   "Do not add markdown fences or prose.",
@@ -54,7 +56,7 @@ function boundedTurnText(value, label) {
   return normalized;
 }
 
-function parseCandidates(text) {
+function parseCandidates(text, userText) {
   let parsed;
   try {
     parsed = JSON.parse(text);
@@ -78,14 +80,22 @@ function parseCandidates(text) {
       return Object.freeze([]);
     }
     const keys = Object.keys(candidate).sort().join(",");
-    if (keys !== "content,kind") return Object.freeze([]);
+    if (keys !== "content,evidence,kind") return Object.freeze([]);
     if (!ALLOWED_KINDS.has(candidate.kind)) return Object.freeze([]);
-    if (typeof candidate.content !== "string" || candidate.content.includes("\0")) {
+    if (
+      typeof candidate.content !== "string"
+      || candidate.content.includes("\0")
+      || typeof candidate.evidence !== "string"
+      || candidate.evidence.includes("\0")
+    ) {
       return Object.freeze([]);
     }
     const candidateContent = candidate.content.trim();
+    const candidateEvidence = candidate.evidence.trim();
     if (!candidateContent || candidateContent.length > MAX_CONTENT) return Object.freeze([]);
-    if (SECRET_SIGNAL.test(candidateContent)) continue;
+    if (!candidateEvidence || candidateEvidence.length > MAX_EVIDENCE) return Object.freeze([]);
+    if (!userText.includes(candidateEvidence)) continue;
+    if (SECRET_SIGNAL.test(candidateContent) || SECRET_SIGNAL.test(candidateEvidence)) continue;
     result.push(Object.freeze({
       kind: candidate.kind,
       content: candidateContent,
@@ -167,6 +177,7 @@ export function createAssistantAutoCaptureRuntime({
             });
           }
 
+          const extractionUser = user.slice(0, 8192);
           let response;
           try {
             response = validateIntelligenceResponse(await intelligence.respond({
@@ -175,7 +186,7 @@ export function createAssistantAutoCaptureRuntime({
               context: [{
                 id: "assistant-user-turn",
                 scope: "user",
-                text: user.slice(0, 8192),
+                text: extractionUser,
                 provenance: "ordax-assistant:user-turn",
               }],
               maxTokens: 384,
@@ -188,7 +199,7 @@ export function createAssistantAutoCaptureRuntime({
             });
           }
 
-          const candidates = parseCandidates(response.text);
+          const candidates = parseCandidates(response.text, extractionUser);
           if (candidates.length === 0) {
             return Object.freeze({
               schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
