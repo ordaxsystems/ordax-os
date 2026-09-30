@@ -228,7 +228,7 @@ export function mountPersonalActivityControls(
               button.dataset.personalWorkId = item.id;
               approvalActions.append(button);
             };
-            if (entry.pendingApproval.effect === "read" || entry.pendingApproval.effect === "write") {
+            if (approvalConsent.canApprove(item.id, entry.pendingApproval.id)) {
               addApprovalAction("approve", t("activity.action.approve"));
             }
             addApprovalAction("deny", t("activity.action.deny"));
