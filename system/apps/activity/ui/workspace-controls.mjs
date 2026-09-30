@@ -219,6 +219,12 @@ export function mountPersonalActivityControls(
               documentObject,
               "span",
               "ordax-activity-result-meta",
+              `${t("activity.approval.tool")}: ${entry.pendingApproval.toolId} · sha256:${entry.pendingApproval.toolArtifactSha256.slice(0, 12)}…`,
+            ),
+            node(
+              documentObject,
+              "span",
+              "ordax-activity-result-meta",
               t("activity.approval.grantRequired"),
             ),
           );
