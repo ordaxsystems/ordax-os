@@ -9,6 +9,7 @@ on:
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-memory-crash-recovery-journal.mjs'
       - 'tests/test_account_memory_crash_recovery_journal.mjs'
+      - 'tests/test_account_memory_crash_recovery_device_durability.mjs'
       - '.github/workflows/account-memory-crash-recovery-journal.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'system/services/sync/account-memory-runtime.mjs'
       - 'system/services/sync/account-memory-crash-recovery-journal.mjs'
       - 'tests/test_account_memory_crash_recovery_journal.mjs'
+      - 'tests/test_account_memory_crash_recovery_device_durability.mjs'
       - '.github/workflows/account-memory-crash-recovery-journal.yml'
   workflow_dispatch:
 
@@ -40,8 +42,11 @@ jobs:
           set -euo pipefail
           node --check system/services/sync/account-memory-crash-recovery-journal.mjs
           node --check tests/test_account_memory_crash_recovery_journal.mjs
+          node --check tests/test_account_memory_crash_recovery_device_durability.mjs
 
       - name: Prove crash recovery ownership and durability ordering
         run: |
           set -euo pipefail
-          node --test tests/test_account_memory_crash_recovery_journal.mjs
+          node --test \
+            tests/test_account_memory_crash_recovery_journal.mjs \
+            tests/test_account_memory_crash_recovery_device_durability.mjs
