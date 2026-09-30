@@ -31,6 +31,7 @@ import {
   assertProjectCatalogPort,
   validateProjectCatalogSnapshot,
 } from "../../contracts/project-catalog.mjs";
+import { validateAuthorizedActionExecution } from "../../contracts/action-executor.mjs";
 import { assertActionGateway } from "../../contracts/action-gateway.mjs";
 import {
   assertIntelligencePort,
@@ -740,6 +741,47 @@ export function createPersonalOrdaxRuntime({
         ),
       });
       return actionDecision;
+    },
+    prepareActionExecution(id, approvalId) {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      const item = findWork(id);
+      if (item.state !== "queued") {
+        throw new Error("Personal OrdaX action execution requires queued work");
+      }
+      const status = contextStatus(item);
+      if (status !== "valid") {
+        throw new Error(`Personal OrdaX work context is invalid: ${status}`);
+      }
+      const approval = state.approvals.find((candidate) =>
+        candidate.id === approvalId && candidate.workItemId === id
+      );
+      if (!approval || approval.status !== "approved") {
+        throw new Error("Personal OrdaX action execution requires an approved retained approval");
+      }
+      const decision = state.decisions.find((candidate) =>
+        candidate.workItemId === id
+        && candidate.actionId === approval.actionId
+      );
+      if (!decision || decision.decision !== "allow") {
+        throw new Error("Personal OrdaX action execution requires its retained allow decision");
+      }
+      return validateAuthorizedActionExecution({
+        request: {
+          workItemId: item.id,
+          approvalId: approval.id,
+          actionId: approval.actionId,
+          toolId: approval.toolId,
+          effect: approval.effect,
+          ownerKind: item.ownerKind,
+          ownerId: item.ownerId,
+          spaceId: item.spaceId,
+          projectId: item.projectId,
+          resourceRef: approval.resourceRef,
+          reason: approval.reason,
+          requestedAt: approval.requestedAt,
+        },
+        decision,
+      });
     },
     pause(id) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
