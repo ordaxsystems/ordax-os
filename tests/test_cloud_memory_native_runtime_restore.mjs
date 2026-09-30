@@ -429,7 +429,11 @@ test("Native account sync refuses remote Memory when coordination requires recov
   });
 
   assert.equal(harness.foundation.getSnapshot().state, "recovery-required");
-  assert.equal(harness.foundation.memorySync, null);
+  assert.notEqual(
+    harness.foundation.memorySync,
+    null,
+    "recovery-required keeps the reconciler mounted so it can reject unsafe remote application",
+  );
 
   await harness.sync.refresh();
 
