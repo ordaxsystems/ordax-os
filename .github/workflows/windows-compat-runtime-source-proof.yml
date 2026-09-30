@@ -5,6 +5,7 @@ on:
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_runtime_source.py'
+      - 'tests/test_windows_compat_runtime_unixlib_preload_source.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_runtime_source.py'
+      - 'tests/test_windows_compat_runtime_unixlib_preload_source.py'
       - '.github/workflows/windows-compat-runtime-source-proof.yml'
       - 'docs/APPLICATION-COMPATIBILITY.md'
       - 'docs/contracts/application-compatibility.json'
@@ -36,27 +38,94 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Validate source contract
-        run: python bootstrap/windows-compat-runtime/build.py check
+      - name: Validate source contracts
+        run: |
+          set -euo pipefail
+          python bootstrap/windows-compat-runtime/build.py check
+          python bootstrap/windows-compat-runtime/runtime_unixlib_preload_source_probe.py check
 
       - name: Run fail-closed regressions
-        run: python -m unittest tests.test_windows_compat_runtime_source -v
-
-      - name: Fetch and verify exact upstream Wine source
         run: |
+          set -euo pipefail
+          python -m unittest tests.test_windows_compat_runtime_source -v
+          python -m unittest tests.test_windows_compat_runtime_unixlib_preload_source -v
+
+      - name: Fetch exact Wine source and prove dependency-attach unixlib preloads
+        run: |
+          set -euo pipefail
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-runtime-source-proof"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
           python bootstrap/windows-compat-runtime/build.py fetch-source \
             --cache-dir "$tmp/cache" \
-            --proof-out "$tmp/source-proof.json"
-          python - <<'PY' "$tmp/source-proof.json"
+            --proof-out "$proof_dir/source-proof.json"
+          python bootstrap/windows-compat-runtime/runtime_unixlib_preload_source_probe.py prove \
+            --source-archive "$tmp/cache/wine-11.0.tar.xz" \
+            --out "$proof_dir/runtime-unixlib-preload-source-proof.json"
+          python - <<'PY' \
+            "$proof_dir/source-proof.json" \
+            "$proof_dir/runtime-unixlib-preload-source-proof.json"
           import json
           import pathlib
+          import re
           import sys
-          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-          assert proof['build_performed'] is False
-          assert proof['activation_authorized'] is False
-          assert proof['execution_authorized'] is False
-          assert proof['version'] == '11.0'
-          print('Wine source proof:', proof['archive_sha256'])
+
+          source = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          proof = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
+          assert source['build_performed'] is False
+          assert source['activation_authorized'] is False
+          assert source['execution_authorized'] is False
+          assert source['version'] == '11.0'
+          assert proof['$schema'] == 'prototype-ordax.windows-compat-runtime-unixlib-preload-source-proof/1'
+          assert proof['source_archive_sha256'] == source['archive_sha256']
+          assert re.fullmatch(r'[0-9a-f]{64}', proof['evidence_sha256'])
+          assert proof['counts']['candidate_relations'] >= proof['counts']['proven_relations'] > 0
+          relation = next(
+              item for item in proof['relations']
+              if item['consumer_unixlib'] == 'opengl32.so' and item['provider_unixlib'] == 'win32u.so'
+          )
+          assert relation['link_name'] == 'win32u'
+          assert relation['consumer_module'] == 'opengl32.dll'
+          assert relation['provider_module'] == 'win32u.dll'
+          assert relation['consumer_attach']['process_attach_unix_init_verified'] is True
+          assert relation['provider_attach']['process_attach_unix_init_verified'] is True
+          gates = proof['gates']
+          for gate in (
+              'source_archive_verified',
+              'module_makefile_surface_bound',
+              'normal_pe_import_dependency_semantics_verified',
+              'dependency_attach_order_verified',
+              'builtin_unix_path_registration_verified',
+              'winecrt_memory_query_bridge_verified',
+              'lazy_unixlib_dlopen_verified',
+              'source_derived_unixlib_preload_relations_verified',
+          ):
+              assert gates[gate] is True, gate
+          for gate in (
+              'unixlib_preload_relations_runtime_verified',
+              'dynamic_load_inventory_complete',
+              'external_transitive_closure_verified',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert gates[gate] is False, gate
+          print('Wine source proof:', source['archive_sha256'])
+          print('unixlib preload relations:', proof['counts']['proven_relations'])
+          print('unixlib preload evidence:', proof['evidence_sha256'])
           PY
+
+      - name: Upload source and unixlib preload metadata only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-runtime-source-proof-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/windows-compat-runtime-source-proof/source-proof.json
+            ${{ runner.temp }}/windows-compat-runtime-source-proof/runtime-unixlib-preload-source-proof.json
+          if-no-files-found: error
