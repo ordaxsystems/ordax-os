@@ -180,6 +180,35 @@ There is currently **no released OrdaX APK and no public remote-device runtime**
 
 See `docs/OPERATIONAL-REALTIME.md`.
 
+## OrdaX Edge Runtime — infrastructure role
+
+OrdaX Edge Runtime is **not** a sixth product mode and does not add another Surface. It is a
+headless infrastructure role used when a local physical device needs an always-on bridge.
+
+```text
+OrdaX Web / Mobile / Desktop / USB / Native
+             |
+             v
+        OrdaX Cloud
+             |
+        Action Gateway
+             |
+      OrdaX Edge Runtime
+             |
+      local equipment
+```
+
+A user's notebook must not be the required production host. When equipment can run the connector
+itself, use device-native execution. When it cannot, a dedicated low-power Edge host can keep the
+integration alive while notebooks and normal clients are off.
+
+Cloud-native services such as a future marketplace/order service do not need Edge at all for their
+core availability. Edge is added only for local hardware integrations.
+
+Loss of electrical power to local equipment is outside software availability. UPS/power recovery
+may be supported as hardware capabilities, but the product must not claim that Cloud or Edge keeps
+an unpowered device online.
+
 ## Plans and future monetization
 
 Pricing, billing, commercial tier names and device-count limits are intentionally undefined at MVP stage.
