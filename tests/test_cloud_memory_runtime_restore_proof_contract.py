@@ -23,11 +23,16 @@ class CloudMemoryRuntimeRestoreProofContractTests(unittest.TestCase):
 
         self.assertTrue(backend["required"])
         self.assertTrue(native_restore["required"])
-        self.assertEqual(native_restore["status"], "required-not-proven")
+        self.assertEqual(native_restore["status"], "pass-ci-native-composition-proof")
         self.assertFalse(contract["publicCloudMemoryPromoted"])
         self.assertIn(
-            "Backend two-session success alone must never be interpreted as Native reinstall success.",
+            "Backend two-session live execution remains independently required",
             contract["completionRule"],
+        )
+        self.assertFalse(contract["nativePhysicalReinstallProven"])
+        self.assertEqual(
+            native_restore["test"],
+            "tests/test_native_cloud_memory_fresh_restore.mjs",
         )
         self.assertIn("Native composition execution", backend["doesNotProve"])
         self.assertIn(
@@ -49,6 +54,8 @@ class CloudMemoryRuntimeRestoreProofContractTests(unittest.TestCase):
         self.assertIn("remote Memory is non-portable", fail_closed)
         self.assertIn("Memory persistence cannot confirm durability", fail_closed)
         self.assertIn("coordination state requires recovery", fail_closed)
+        self.assertIn("Memory durability is confirmed before account checkpoint advancement", set(native_restore["proves"]))
+        self.assertIn("physical USB reinstall", set(native_restore["doesNotProve"]))
 
         self.assertIn("createNativeAccountSyncRuntime", NATIVE_ACCOUNT_SYNC.read_text(encoding="utf-8"))
         self.assertIn("createNativeAccountMemoryFoundation", NATIVE_ACCOUNT_MEMORY.read_text(encoding="utf-8"))
