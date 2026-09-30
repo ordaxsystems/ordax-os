@@ -38,6 +38,55 @@ def full_build_proof(stage: Path) -> dict:
     }
 
 
+def preload_source_proof() -> dict:
+    relation = {
+        "consumer_unixlib": "unrelated-consumer.so",
+        "provider_unixlib": "unrelated-provider.so",
+        "link_name": "unrelated-provider.so",
+        "consumer_module": "unrelated-consumer.dll",
+        "provider_module": "unrelated-provider.dll",
+        "consumer_makefile": "dlls/unrelated-consumer/Makefile.in",
+        "provider_makefile": "dlls/unrelated-provider/Makefile.in",
+        "preload_order": "provider-pe-dependency-attach-before-consumer-unixlib-dlopen",
+        "consumer_attach": {"process_attach_unix_init_verified": True},
+        "provider_attach": {"process_attach_unix_init_verified": True},
+    }
+    proof = {
+        "$schema": MODULE.PRELOAD.PROOF_SCHEMA,
+        "status": MODULE.PRELOAD.PROOF_STATUS,
+        "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+        "source_archive_sha256": "a" * 64,
+        "source_archive_member_count": 1,
+        "module_makefile_count": 2,
+        "module_makefile_manifest_sha256": "b" * 64,
+        "loader_semantics": {"fixture": "unrelated-valid-preload-authority"},
+        "relations": [relation],
+        "counts": {"candidate_relations": 1, "proven_relations": 1},
+        "gates": {
+            "source_archive_verified": True,
+            "module_makefile_surface_bound": True,
+            "normal_pe_import_dependency_semantics_verified": True,
+            "dependency_attach_order_verified": True,
+            "builtin_unix_path_registration_verified": True,
+            "winecrt_memory_query_bridge_verified": True,
+            "lazy_unixlib_dlopen_verified": True,
+            "source_derived_unixlib_preload_relations_verified": True,
+            "unixlib_preload_relations_runtime_verified": False,
+            "dynamic_load_inventory_complete": False,
+            "external_transitive_closure_verified": False,
+            "runtime_dependency_inventory_complete": False,
+            "runtime_package_content_hashes_pinned": False,
+            "binary_artifact_pinned": False,
+            "activation_authorized": False,
+            "execution_authorized": False,
+            "wine_executed": False,
+            "windows_payload_executed": False,
+        },
+    }
+    proof["evidence_sha256"] = MODULE.PRELOAD.canonical_sha256(MODULE.PRELOAD.proof_core(proof))
+    return proof
+
+
 class RuntimeDependencyFirstHitProofTests(unittest.TestCase):
     def test_bootstrap_source_authority_matches_locked_wine_source(self):
         contract = MODULE.PROBE.load_contract()
@@ -59,7 +108,7 @@ class RuntimeDependencyFirstHitProofTests(unittest.TestCase):
             write(stage / "usr/bin/wine", synthetic_elf64())
             write(rootfs / "usr/lib/libexample.so.1", synthetic_elf64(b"libc.so.6"))
             proof = full_build_proof(stage)
-            result = MODULE.verify(stage, rootfs, proof)
+            result = MODULE.verify(stage, rootfs, proof, preload_source_proof())
             self.assertEqual(result["$schema"], MODULE.PROOF_SCHEMA)
             self.assertEqual(result["runtime_id"], proof["runtime_id"])
             self.assertEqual(
@@ -70,6 +119,7 @@ class RuntimeDependencyFirstHitProofTests(unittest.TestCase):
             self.assertEqual(result["counts"]["rootfs_hits"], 1)
             self.assertEqual(result["counts"]["stage_hits"], 0)
             self.assertEqual(result["counts"]["bootstrap_shortname_hits"], 0)
+            self.assertEqual(result["counts"]["dependency_attach_preload_hits"], 0)
             self.assertTrue(result["gates"]["first_pathname_hit_verified"])
             for gate in (
                 "runtime_dependency_inventory_complete",
@@ -96,11 +146,12 @@ class RuntimeDependencyFirstHitProofTests(unittest.TestCase):
             )
             write(rootfs / "usr/lib/libc.so.6", synthetic_elf64(b"ld-musl-x86_64.so.1"))
             proof = full_build_proof(stage)
-            result = MODULE.verify(stage, rootfs, proof)
+            result = MODULE.verify(stage, rootfs, proof, preload_source_proof())
             self.assertEqual(result["counts"]["dependencies_checked"], 2)
             self.assertEqual(result["counts"]["stage_hits"], 1)
             self.assertEqual(result["counts"]["rootfs_hits"], 1)
             self.assertEqual(result["counts"]["bootstrap_shortname_hits"], 1)
+            self.assertEqual(result["counts"]["dependency_attach_preload_hits"], 0)
             consumer = MODULE.PROBE.parse_elf_dynamic(module)
             bootstrap = MODULE.PROBE.resolve_bootstrap_shortname(
                 stage, "ntdll.so", consumer, MODULE.PROBE.load_contract()
@@ -120,7 +171,7 @@ class RuntimeDependencyFirstHitProofTests(unittest.TestCase):
                 synthetic_elf64(b"ntdll.so"),
             )
             with self.assertRaisesRegex(MODULE.FirstHitGuardError, "bootstrap shortname target is missing"):
-                MODULE.verify(stage, rootfs, full_build_proof(stage))
+                MODULE.verify(stage, rootfs, full_build_proof(stage), preload_source_proof())
 
     def test_declared_bootstrap_shortname_fails_on_wrong_elf_identity(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -137,7 +188,7 @@ class RuntimeDependencyFirstHitProofTests(unittest.TestCase):
                 synthetic_elf32(b"libc.so.6"),
             )
             with self.assertRaisesRegex(MODULE.FirstHitGuardError, "bootstrap shortname ELF identity mismatch"):
-                MODULE.verify(stage, rootfs, full_build_proof(stage))
+                MODULE.verify(stage, rootfs, full_build_proof(stage), preload_source_proof())
 
 
 if __name__ == "__main__":
