@@ -184,6 +184,14 @@ export function createMemoryReviewViewModel(reviewSessionValue, {
     async remove(id) {
       return persistMutation(() => review.remove(id));
     },
+    async clearAll() {
+      return persistMutation(async () => {
+        const result = await review.clearAll();
+        offset = 0;
+        query = "";
+        return result;
+      });
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
