@@ -61,6 +61,28 @@ function blockedMutations() {
   });
 }
 
+function accountCoordinationRecoveryBlocked(accountMemory) {
+  return accountMemory.getSnapshot().memory?.memorySync?.recoveryBlocked === true;
+}
+
+function guardedProtectedMutations(accountMemory) {
+  const ensureHealthy = () => {
+    if (accountCoordinationRecoveryBlocked(accountMemory)) {
+      throw new Error("Native Account Memory coordination requires recovery");
+    }
+  };
+  return Object.freeze({
+    async remember(value) {
+      ensureHealthy();
+      return accountMemory.protectedMutations.remember(value);
+    },
+    async forget(value) {
+      ensureHealthy();
+      return accountMemory.protectedMutations.forget(value);
+    },
+  });
+}
+
 function recoveryRequiredFoundation(scope) {
   const protectedMutations = blockedMutations();
   return Object.freeze({
@@ -154,14 +176,15 @@ export function createNativeAccountMemoryFoundation({
   }
 
   let destroyed = false;
+  const protectedMutations = guardedProtectedMutations(accountMemory);
   return Object.freeze({
     schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
-    protectedMutations: accountMemory.protectedMutations,
+    protectedMutations,
     accountMemory,
     getSnapshot() {
       if (destroyed) throw new Error("Native Account Memory foundation is disposed");
       const current = accountMemory.getSnapshot();
-      const recoveryBlocked = current.memory?.memorySync?.recoveryBlocked === true;
+      const recoveryBlocked = accountCoordinationRecoveryBlocked(accountMemory);
       return Object.freeze({
         schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
         state: recoveryBlocked ? "recovery-required" : "protected-local-first",
