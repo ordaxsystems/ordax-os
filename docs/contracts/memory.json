@@ -218,6 +218,9 @@
     "review_uses_mutation_port": true,
     "automatic_capture_uses_mutation_port": true,
     "reads_remain_on_memory_port": true,
-    "production_cloud_promotion_implied": false
+    "production_cloud_promotion_implied": false,
+    "native_shared_mutation_port": true,
+    "native_review_and_capture_share_same_port": true,
+    "native_account_crash_safe_provider_wired": false
   }
 }
