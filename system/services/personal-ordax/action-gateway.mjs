@@ -67,6 +67,15 @@ export function createPersonalOrdaxActionGateway({
       const decidedAtMs = readClock(now);
       const decidedAt = new Date(decidedAtMs).toISOString();
 
+      if (request.effect === "external-egress" || request.effect === "device-control") {
+        return decision(request, {
+          decision: "deny",
+          authoritySource: "intelligence-tool-grant",
+          reason: "Intelligence tool grants cannot authorize egress or device-control effects.",
+          decidedAt,
+        });
+      }
+
       if (grantRef == null || grantRef === "") {
         if (request.effect === "read" && readPolicy?.(request) === true) {
           return decision(request, {
