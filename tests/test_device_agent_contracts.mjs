@@ -44,7 +44,7 @@ test("hybrid project requires both local registration and selected GitHub repo",
 });
 
 test("Web and MCP use scoped grants over the same OrdaX action gateway", () => {
-  for (const client of ["ordax-web", "mcp"]) {
+  for (const client of ["ordax-web", "ordax-mobile", "ordax-desktop", "ordax-native", "mcp"]) {
     const grant = validateDeviceCapabilityGrant({
       accountId: "account-1",
       spaceId: "space-dev",

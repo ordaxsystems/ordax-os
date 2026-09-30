@@ -32,11 +32,13 @@ Antes de alterar codigo, contratos ou midia:
 8. `docs/MINIMAL-USB-BOOTSTRAP.md`
 9. `docs/HOST-INDEPENDENCE.md`
 10. `docs/REMOTE-CONTROL.md`
-11. `docs/PHYSICAL-MEDIA.md`
-12. `docs/DEVELOPMENT-WORKFLOW.md`
-13. `docs/SOURCE-MIGRATION.md`
-14. `docs/PROMOTION-GATES.md`
-15. `docs/DECISIONS.md`
+11. `docs/OPERATIONAL-REALTIME.md`
+12. `docs/MOBILE-COMPANION.md`
+13. `docs/PHYSICAL-MEDIA.md`
+14. `docs/DEVELOPMENT-WORKFLOW.md`
+15. `docs/SOURCE-MIGRATION.md`
+16. `docs/PROMOTION-GATES.md`
+17. `docs/DECISIONS.md`
 
 Quando um snapshot de estado conflitar com texto historico, `docs/CURRENT-STATE.md` e os contratos arquiteturais canonicos vencem. Para a separacao Owner/Development vs Stable/MVP, `docs/contracts/distribution-profiles.json` e a autoridade machine-readable. Para numero/geometria de particoes, os dois contratos fisicos acima sao a autoridade final porque descrevem artefatos diferentes.
 
@@ -55,6 +57,17 @@ O plano detalha telas, subsecoes, responsabilidades, lacunas, prioridades e crit
 Leia tambem a continuacao [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) antes de ampliar essas interfaces, planejar novas capacidades ou reaproveitar funcionalidades/ideias de `novo-ordax-os`. Ela compara os dois repositorios com SHAs registrados, distingue codigo de visao futura e detalha lacunas, dependencias, destinos de interface e criterios de aceite. Nenhuma recomendacao desse documento constitui migracao concluida: qualquer portabilidade continua exigindo registro em `docs/SOURCE-MIGRATION.md`.
 
 Antes de preparar ou autorizar o primeiro USB Stable/MVP, leia tambem [PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md). Ele revalida a visao da Nova OrdaX contra a `main` atual e separa requisitos funcionais obrigatorios pre-USB, provas que dependem do hardware fisico e capacidades conscientemente pos-MVP. O gate pre-USB desse documento deve falhar fechado: uma capacidade estrutural nao pode ser omitida apenas porque boot/release ja estao tecnicamente prontos.
+
+### Web, Mobile, realtime e controle de dispositivos
+
+Antes de criar backend de pedidos/produção, realtime, push, controle remoto de equipamentos,
+PWA, APK ou integração Mobile, leia `docs/OPERATIONAL-REALTIME.md`, `docs/MOBILE-COMPANION.md`,
+`docs/ACCOUNT-SYNC-AND-PLANS.md`, `docs/PRODUCT-MODES.md` e os contratos
+`docs/contracts/operational-realtime.json`, `docs/contracts/mobile-companion.json` e `docs/contracts/device-agent.json`.
+
+Sync de conta não é fila operacional; notification não é source of truth; push não é transporte
+de comando; pedido remoto não cria autoridade. Web/Mobile/Desktop/Native devem compartilhar o
+mesmo domínio e o mesmo Action Gateway, sem backend paralelo por plataforma.
 
 ### Site publico
 

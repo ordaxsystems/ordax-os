@@ -84,6 +84,27 @@ Conflict algorithms are deliberately not frozen globally. Each data class or con
 
 For the three currently integrated portable classes — appearance, preferences and workspace metadata — resolver v1 uses a narrow rule: if a local user change is already pending and the server reports a newer authoritative object revision, the client preserves that local intent, issues a new idempotency key and rebases it onto the observed server revision. A single flush performs at most one rebase retry; a second conflict remains pending for a later synchronization cycle. This rule does **not** apply automatically to Notes, files or other user-selected cloud content. Those classes require their own resolver before cloud synchronization is enabled.
 
+## Operational realtime is not account sync
+
+Cross-device continuity does not make the account sync stream a business event bus.
+
+Orders, production queues, device telemetry and other live operational state use the
+separate `ordax.operational-event/1` boundary defined in
+`docs/OPERATIONAL-REALTIME.md` and `docs/contracts/operational-realtime.json`.
+
+Rules:
+
+- account sync remains responsible for portable user/account state;
+- each operational domain owns its canonical business/device state;
+- realtime delivery uses a server-authoritative sequence and aggregate revision;
+- reconnect may resume from sequence, but a replay gap requires canonical reconciliation;
+- notifications may be derived from operational events but are not the state itself;
+- device commands never travel through sync or push payloads;
+- remote mutations require the shared OrdaX Action Gateway and an explicit Device Agent grant.
+
+This foundation is intentionally source-only before the first USB. Runtime realtime transport,
+Mobile integration and public device actions remain post-MVP promotion work.
+
 ## Provider independence
 
 Sync/domain semantics belong to `system/services/sync`, not to a database vendor, cloud provider or platform adapter. A future backend may use any suitable durable store, queue or object storage combination as long as it satisfies the domain contract.

@@ -1,0 +1,69 @@
+{
+  "$schema": "prototype-ordax.mobile-companion/1",
+  "status": "pre-mvp-contract-foundation-runtime-post-mvp",
+  "purpose": "allow an authorized OrdaX phone/tablet to expose platform capabilities to other OrdaX clients without turning the phone into an unrestricted remote peripheral",
+  "role": "first-class-device-and-capability-provider",
+  "schemas": {
+    "capability": "ordax.mobile-capability/1",
+    "session_request": "ordax.mobile-capability-session-request/1",
+    "session_grant": "ordax.mobile-capability-session-grant/1",
+    "presence": "ordax.device-presence/1"
+  },
+  "initial_capabilities": {
+    "microphone.stream": "foreground-session",
+    "camera.stream": "foreground-session",
+    "camera.capture": "foreground-action",
+    "location.current": "foreground-action",
+    "location.presence": "persistent-opt-in",
+    "sensor.orientation": "foreground-session",
+    "sensor.motion": "foreground-session",
+    "files.share": "foreground-action",
+    "notifications.receive": "persistent-opt-in"
+  },
+  "examples": {
+    "assistant_voice": "phone microphone -> authorized media session -> OrdaX Intelligence voice input",
+    "virtual_webcam": "phone camera -> authorized media session -> desktop/native virtual-camera adapter",
+    "device_finding": "opt-in device presence + location -> account device locator",
+    "document_capture": "phone camera capture -> selected OrdaX app/Space",
+    "motion_input": "phone orientation/motion -> compatible OrdaX app"
+  },
+  "security": {
+    "silent_camera_or_microphone_activation": false,
+    "camera_microphone_background_default": false,
+    "location_tracking_default": false,
+    "explicit_platform_permission_required": true,
+    "explicit_ordax_consent_required": true,
+    "visible_active_session_indicator_required": true,
+    "session_expiry_required": true,
+    "revoke_at_source_device_required": true,
+    "requester_identity_visible_to_user": true,
+    "cross_account_access": false,
+    "cross_space_access_without_grant": false
+  },
+  "media_transport": {
+    "contract_is_transport_neutral": true,
+    "preferred_future_live_transport": "WebRTC-or-equivalent-encrypted-realtime-media",
+    "cloud_recording_required": false,
+    "cloud_media_relay_optional": true,
+    "peer_to_peer_when_safe_possible": true
+  },
+  "device_presence": {
+    "find_owned_devices_supported_by_contract": true,
+    "exact_location_opt_in_only": true,
+    "last_seen_ttl_required_in_runtime": true,
+    "anti_stalking_scope": "account-owned-or-explicitly-shared-devices-only",
+    "future_local_discovery": ["mDNS", "Bluetooth-LE", "UWB-when-supported"]
+  },
+  "platform_boundary": {
+    "android_ios_native_bridges_allowed": true,
+    "separate_product_logic_forks_for_android_ios": false,
+    "desktop_virtual_camera_adapter_is_separate_capability": true,
+    "raw_host_control_from_mobile": false
+  },
+  "mvp_boundary": {
+    "blocks_first_usb": false,
+    "android_apk_required_before_first_usb": false,
+    "mobile_runtime_enabled": false,
+    "source_contract_foundation_allowed": true
+  }
+}
