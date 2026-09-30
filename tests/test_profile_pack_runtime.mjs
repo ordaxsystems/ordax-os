@@ -21,9 +21,13 @@ async function manifest(path) {
 
 const developer = await manifest("system/profile-packs/developer/v1/manifest.json");
 const legalBr = await manifest("system/profile-packs/legal-br/v1/manifest.json");
+const pizzariaBr = await manifest("system/profile-packs/pizzaria-br/v1/manifest.json");
+const impressao3dBr = await manifest("system/profile-packs/impressao-3d-br/v1/manifest.json");
 const localDistributions = createLocalProfileDistributions([
   validateProfilePack(developer),
   validateProfilePack(legalBr),
+  validateProfilePack(pizzariaBr),
+  validateProfilePack(impressao3dBr),
 ]);
 
 function localProvisioning() {
@@ -66,6 +70,75 @@ test("Developer and Legal-BR manifests share the provider-neutral contract", () 
   assert.equal(legalPack.intelligence.preferredPurpose, null);
   assert.equal(legalPack.activation.publiclyAvailable, false);
   assert.equal(legalPack.security.crossSpaceMemory, false);
+});
+
+test("Pizzaria is zero-download, offline-ready and safe for internal composition proof", () => {
+  const pack = validateProfilePack(pizzariaBr);
+  assert.equal(pack.slug, "pizzaria-br");
+  assert.equal(pack.spaceKind, "professional");
+  assert.deepEqual(pack.apps, ["files", "notes", "internet", "projects"]);
+  assert.equal(pack.activation.publiclyAvailable, true);
+  assert.equal(pack.security.autoGrantPrivileges, false);
+  assert.equal(pack.security.crossSpaceMemory, false);
+
+  const provisioning = localProvisioning();
+  const plan = provisioning.get("pizzaria-br", 1);
+  assert.equal(plan.state, "already-provisioned");
+  assert.equal(plan.componentsSatisfied, true);
+  assert.equal(plan.requiredMissing.length, 0);
+  assert.equal(plan.requiredDownloadBytes, 0);
+  assert.equal(plan.mayDownload, false);
+  assert.equal(plan.mayActivate, true);
+
+  const runtime = createProfilePackRuntime({
+    packs: [developer, legalBr, pizzariaBr],
+    provisioning,
+  });
+  const activation = runtime.activate({
+    slug: "pizzaria-br",
+    version: 1,
+    mode: "internal-proof",
+    space: { id: "space-pizzaria", kind: "professional" },
+  });
+  assert.equal(activation.profile.slug, "pizzaria-br");
+  assert.deepEqual(activation.components, []);
+  assert.equal(activation.cloudRequired, false);
+  assert.equal(activation.billingRequired, false);
+});
+
+test("3D printing is zero-download, offline-ready and uses the same safe profile boundary", () => {
+  const pack = validateProfilePack(impressao3dBr);
+  assert.equal(pack.slug, "impressao-3d-br");
+  assert.equal(pack.category, "digital-fabrication");
+  assert.equal(pack.spaceKind, "professional");
+  assert.deepEqual(pack.apps, ["files", "notes", "internet", "projects"]);
+  assert.equal(pack.activation.publiclyAvailable, true);
+  assert.equal(pack.security.autoGrantPrivileges, false);
+  assert.equal(pack.security.crossSpaceMemory, false);
+
+  const provisioning = localProvisioning();
+  const plan = provisioning.get("impressao-3d-br", 1);
+  assert.equal(plan.state, "already-provisioned");
+  assert.equal(plan.componentsSatisfied, true);
+  assert.equal(plan.requiredMissing.length, 0);
+  assert.equal(plan.requiredDownloadBytes, 0);
+  assert.equal(plan.mayDownload, false);
+  assert.equal(plan.mayActivate, true);
+
+  const runtime = createProfilePackRuntime({
+    packs: [developer, legalBr, pizzariaBr, impressao3dBr],
+    provisioning,
+  });
+  const activation = runtime.activate({
+    slug: "impressao-3d-br",
+    version: 1,
+    mode: "internal-proof",
+    space: { id: "space-impressao-3d", kind: "professional" },
+  });
+  assert.equal(activation.profile.slug, "impressao-3d-br");
+  assert.deepEqual(activation.components, []);
+  assert.equal(activation.cloudRequired, false);
+  assert.equal(activation.billingRequired, false);
 });
 
 test("runtime catalog rejects duplicate version identity and privilege broadening", () => {
