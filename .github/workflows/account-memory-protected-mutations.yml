@@ -18,6 +18,8 @@ on:
       - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
       - 'tests/test_account_memory_crash_recovery_journal.mjs'
       - 'tests/test_account_memory_crash_recovery_ownership.mjs'
+      - 'system/composition/native/account-memory.mjs'
+      - 'tests/test_native_account_memory_foundation.mjs'
       - '.github/workflows/account-memory-protected-mutations.yml'
   push:
     branches: [main]
@@ -37,6 +39,8 @@ on:
       - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
       - 'tests/test_account_memory_crash_recovery_journal.mjs'
       - 'tests/test_account_memory_crash_recovery_ownership.mjs'
+      - 'system/composition/native/account-memory.mjs'
+      - 'tests/test_native_account_memory_foundation.mjs'
       - '.github/workflows/account-memory-protected-mutations.yml'
 
 permissions:
@@ -63,6 +67,8 @@ jobs:
           node --check tests/test_account_memory_protected_mutations.mjs
           node --check tests/test_account_memory_deferred_intents.mjs
           node --check tests/test_account_memory_crash_recovery_ownership.mjs
+          node --check system/composition/native/account-memory.mjs
+          node --check tests/test_native_account_memory_foundation.mjs
 
       - name: Prove protected mutation durability and recovery
         run: |
@@ -74,3 +80,4 @@ jobs:
             tests/test_account_memory_authorized_lifecycle_replay.mjs \
             tests/test_account_memory_crash_recovery_journal.mjs \
             tests/test_account_memory_crash_recovery_ownership.mjs
+            tests/test_native_account_memory_foundation.mjs
