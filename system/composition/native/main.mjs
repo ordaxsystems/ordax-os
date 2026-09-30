@@ -8,6 +8,7 @@ import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser
 import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
+import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
 import { createNativeRecentFilesStore } from "../../adapters/native/recent-files.mjs";
 import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
@@ -403,6 +404,15 @@ async function start() {
         identitySessionPort: identitySession,
         spaceSelectionPort: spaceSelection,
       });
+  const personalOrdaxFileActions = fileSpace === null
+    ? null
+    : await optionalNativeProbe(
+        "OrdaX Personal Native file actions unavailable",
+        () => createNativePersonalOrdaxFileActions({
+          windowRef: window,
+          fileSpace,
+        }),
+      );
   const personalOrdax = await optionalNativeProbe(
     "OrdaX Personal runtime unavailable",
     () => createNativePersonalOrdaxComposition({
@@ -411,6 +421,7 @@ async function start() {
       spaceSelection,
       projects,
       intelligence: selectedSpaceIntelligence,
+      toolResolver: personalOrdaxFileActions?.toolResolver ?? (() => null),
     }),
   );
   const profileComponentInventory = await optionalNativeProbe(
