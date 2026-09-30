@@ -91,6 +91,10 @@ function identityOf(value) {
   });
 }
 
+function identityKey(value) {
+  return `${value.ownerKind}\0${value.ownerId ?? ""}\0${value.id}`;
+}
+
 function stageCurrentState(memory, sync, subjectId, identity) {
   const current = findCurrent(memory, subjectId, identity.id);
   let result;
@@ -129,6 +133,8 @@ export function createAccountMemoryProtectedMutationPort({
   const sync = requireSync(memorySync);
   const journal = requireJournal(crashRecoveryJournal);
   const confirmCoordination = requireDurabilityConfirmation(flushCoordination);
+  const identityQueues = new Map();
+  let recoveryBarrier = Promise.resolve();
 
   const reconcileDurably = async (subjectId, identity) => {
     const result = stageCurrentState(memory, sync, subjectId, identity);
@@ -136,38 +142,66 @@ export function createAccountMemoryProtectedMutationPort({
     return result;
   };
 
+  const withIdentityLock = (identity, operation) => {
+    const key = identityKey(identity);
+    const previous = identityQueues.get(key) ?? Promise.resolve();
+    const current = Promise.all([
+      recoveryBarrier.catch(() => undefined),
+      previous.catch(() => undefined),
+    ]).then(operation);
+    identityQueues.set(key, current);
+    current.finally(() => {
+      if (identityQueues.get(key) === current) identityQueues.delete(key);
+    }).catch(() => undefined);
+    return current;
+  };
+
+  const runRecovery = () => {
+    const priorRecovery = recoveryBarrier.catch(() => undefined);
+    const mutations = [...identityQueues.values()].map((promise) => promise.catch(() => undefined));
+    const current = Promise.all([priorRecovery, ...mutations])
+      .then(() => journal.recover(sync, { flushCoordination: confirmCoordination }));
+    recoveryBarrier = current;
+    return current;
+  };
+
   return Object.freeze({
     schema: ACCOUNT_MEMORY_PROTECTED_MUTATION_PORT_SCHEMA,
-    async remember(value) {
+    remember(value) {
       const normalized = validateMemoryItem(value);
-      const subjectId = assertActiveAccount(normalized, sync);
       const identity = identityOf(normalized);
-      return journal.runProtectedMutation({
-        identity,
-        mutate: () => memory.remember(normalized),
-        flushLocal: () => confirmTrue(() => memory.flush(), "Local Memory"),
-        reconcile: () => reconcileDurably(subjectId, identity),
+      return withIdentityLock(identity, () => {
+        const subjectId = assertActiveAccount(normalized, sync);
+        return journal.runProtectedMutation({
+          identity,
+          mutate: () => memory.remember(normalized),
+          flushLocal: () => confirmTrue(() => memory.flush(), "Local Memory"),
+          reconcile: () => reconcileDurably(subjectId, identity),
+        });
       });
     },
-    async forget(value) {
+    forget(value) {
       const request = validateMemoryForgetRequest(value);
-      const subjectId = assertActiveAccount(request, sync);
-      if (!findCurrent(memory, subjectId, request.id)) return false;
-      return journal.runProtectedMutation({
-        identity: request,
-        mutate: () => memory.forget(request),
-        flushLocal: () => confirmTrue(() => memory.flush(), "Local Memory"),
-        reconcile: () => reconcileDurably(subjectId, request),
+      return withIdentityLock(request, () => {
+        const subjectId = assertActiveAccount(request, sync);
+        if (!findCurrent(memory, subjectId, request.id)) return false;
+        return journal.runProtectedMutation({
+          identity: request,
+          mutate: () => memory.forget(request),
+          flushLocal: () => confirmTrue(() => memory.flush(), "Local Memory"),
+          reconcile: () => reconcileDurably(subjectId, request),
+        });
       });
     },
     recover() {
-      return journal.recover(sync, { flushCoordination: confirmCoordination });
+      return runRecovery();
     },
     getSnapshot() {
       return Object.freeze({
         schema: ACCOUNT_MEMORY_PROTECTED_MUTATION_PORT_SCHEMA,
         subjectId: activeSubjectId(sync),
         journal: journal.getSnapshot(),
+        activeIdentityQueues: identityQueues.size,
         synchronousMemoryPortUnchanged: true,
         cloudTransportOwnedBySyncRuntime: true,
         productionPromoted: false,
