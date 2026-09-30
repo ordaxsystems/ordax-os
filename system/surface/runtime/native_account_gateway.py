@@ -242,6 +242,10 @@ class NativeAccountGateway:
         with self._lock:
             return self._request("GET", "/account/spaces")
 
+    def memory_cloud_entitlement(self) -> GatewayReply:
+        with self._lock:
+            return self._request("GET", "/account/entitlements/memory-cloud")
+
     def list_sync_objects(self, query: str = "") -> GatewayReply:
         suffix = f"?{query}" if query else ""
         with self._lock:
