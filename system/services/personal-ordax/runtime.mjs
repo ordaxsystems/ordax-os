@@ -1,10 +1,14 @@
 import {
   validatePersonalActivityEvent,
+  validatePersonalActionDecision,
+  validatePersonalApproval,
   validatePersonalWorkItem,
   validatePersonalWorkResult,
 } from "../../contracts/personal-ordax.mjs";
 import {
+  MAX_PERSONAL_ACTION_DECISIONS,
   MAX_PERSONAL_ACTIVITY_EVENTS,
+  MAX_PERSONAL_APPROVALS,
   MAX_PERSONAL_WORK_ITEMS,
   MAX_PERSONAL_WORK_RESULTS,
   PERSONAL_ORDAX_RUNTIME_SCHEMA,
@@ -27,6 +31,7 @@ import {
   assertProjectCatalogPort,
   validateProjectCatalogSnapshot,
 } from "../../contracts/project-catalog.mjs";
+import { assertActionGateway } from "../../contracts/action-gateway.mjs";
 import {
   assertIntelligencePort,
   validateIntelligenceResponse,
@@ -60,6 +65,14 @@ function sameResult(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function sameApproval(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function sameDecision(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function sameState(left, right) {
   return left.ownerKind === right.ownerKind
     && left.ownerId === right.ownerId
@@ -67,9 +80,13 @@ function sameState(left, right) {
     && left.workItems.length === right.workItems.length
     && left.activities.length === right.activities.length
     && left.results.length === right.results.length
+    && left.approvals.length === right.approvals.length
+    && left.decisions.length === right.decisions.length
     && left.workItems.every((item, index) => sameWorkItem(item, right.workItems[index]))
     && left.activities.every((event, index) => sameActivity(event, right.activities[index]))
-    && left.results.every((result, index) => sameResult(result, right.results[index]));
+    && left.results.every((result, index) => sameResult(result, right.results[index]))
+    && left.approvals.every((approval, index) => sameApproval(approval, right.approvals[index]))
+    && left.decisions.every((decision, index) => sameDecision(decision, right.decisions[index]));
 }
 
 function currentOwner(identity) {
@@ -134,11 +151,41 @@ function appendActivityTo(activities, workItemId, type, summary, occurredAt, met
   return [...activities, event].slice(-MAX_PERSONAL_ACTIVITY_EVENTS);
 }
 
+function cancelPendingApprovalIn(state, item, occurredAt, summary) {
+  if (item.pendingApprovalId === null) return state;
+  const existing = state.approvals.find(
+    (approval) => approval.id === item.pendingApprovalId && approval.status === "pending",
+  );
+  if (!existing) {
+    throw new TypeError("Personal OrdaX pending approval graph is inconsistent");
+  }
+  const cancelled = validatePersonalApproval({
+    ...existing,
+    status: "cancelled",
+    grantRef: null,
+    resolvedAt: occurredAt,
+  });
+  return {
+    ...state,
+    approvals: state.approvals.map((approval) =>
+      approval.id === cancelled.id ? cancelled : approval),
+    activities: appendActivityTo(
+      state.activities,
+      item.id,
+      "approval-resolved",
+      summary,
+      occurredAt,
+      { approvalId: cancelled.id, actionId: cancelled.actionId },
+    ),
+  };
+}
+
 export function createPersonalOrdaxRuntime({
   identitySessionPort,
   spaceSelectionPort = null,
   projectCatalogPort = null,
   intelligencePort = null,
+  actionGatewayPort = null,
   store = null,
   now = Date.now,
 } = {}) {
@@ -149,6 +196,7 @@ export function createPersonalOrdaxRuntime({
   const selection = spaceSelectionPort === null ? null : assertSpaceSelectionPort(spaceSelectionPort);
   const projects = projectCatalogPort === null ? null : assertProjectCatalogPort(projectCatalogPort);
   const intelligence = intelligencePort === null ? null : assertIntelligencePort(intelligencePort);
+  const actionGateway = actionGatewayPort === null ? null : assertActionGateway(actionGatewayPort);
   const durableStore = store === null ? null : assertPersonalOrdaxStore(store);
 
   const ownerStates = new Map();
@@ -195,6 +243,8 @@ export function createPersonalOrdaxRuntime({
     workItems: state.workItems,
     activities: state.activities,
     results: state.results,
+    approvals: state.approvals,
+    decisions: state.decisions,
   });
 
   const publish = () => {
@@ -250,16 +300,25 @@ export function createPersonalOrdaxRuntime({
   const updateWork = (id, patch, { activity = null } = {}) => {
     const existing = findWork(id);
     const occurredAt = isoClock(now);
+    let base = state;
+    if (existing.pendingApprovalId !== null && patch.pendingApprovalId === null) {
+      base = cancelPendingApprovalIn(
+        base,
+        existing,
+        occurredAt,
+        "Pending approval cancelled because the work left waiting-approval state.",
+      );
+    }
     const updated = validatePersonalWorkItem({
       ...existing,
       ...patch,
       updatedAt: occurredAt,
     });
-    const workItems = state.workItems.map((item) => item.id === id ? updated : item);
+    const workItems = base.workItems.map((item) => item.id === id ? updated : item);
     const activities = activity === null
-      ? state.activities
+      ? base.activities
       : appendActivityTo(
-        state.activities,
+        base.activities,
         id,
         activity.type,
         activity.summary,
@@ -267,7 +326,7 @@ export function createPersonalOrdaxRuntime({
         activity,
       );
     replaceState({
-      ...state,
+      ...base,
       workItems,
       activities,
     });
