@@ -385,11 +385,24 @@ export function createPersonalOrdaxRuntime({
     let next = state;
     let changed = false;
     for (const item of state.workItems) {
-      if (!ACTIVE_STATES.has(item.state)) continue;
       const status = contextStatus(item);
       if (status === "valid") continue;
+      const hasApprovedAuthority = next.approvals.some(
+        (approval) => approval.workItemId === item.id && approval.status === "approved",
+      );
+      if (!ACTIVE_STATES.has(item.state) && !hasApprovedAuthority) continue;
       inFlight.delete(item.id);
       const occurredAt = isoClock(now);
+      if (hasApprovedAuthority) {
+        next = revokeApprovedApprovalsIn(
+          next,
+          (approval) => approval.workItemId === item.id,
+          occurredAt,
+          `Approved action authority revoked because its bound context is no longer valid: ${status}.`,
+        );
+        changed = true;
+      }
+      if (!ACTIVE_STATES.has(item.state)) continue;
       next = cancelPendingApprovalIn(
         next,
         item,
@@ -422,8 +435,21 @@ export function createPersonalOrdaxRuntime({
     let next = state;
     let changed = false;
     for (const item of state.workItems) {
-      if (!ACTIVE_STATES.has(item.state)) continue;
+      const hasApprovedAuthority = next.approvals.some(
+        (approval) => approval.workItemId === item.id && approval.status === "approved",
+      );
+      if (!ACTIVE_STATES.has(item.state) && !hasApprovedAuthority) continue;
       const occurredAt = isoClock(now);
+      if (hasApprovedAuthority) {
+        next = revokeApprovedApprovalsIn(
+          next,
+          (approval) => approval.workItemId === item.id,
+          occurredAt,
+          "Approved action authority revoked because the active identity changed.",
+        );
+        changed = true;
+      }
+      if (!ACTIVE_STATES.has(item.state)) continue;
       next = cancelPendingApprovalIn(
         next,
         item,
