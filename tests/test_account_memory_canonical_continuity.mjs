@@ -38,7 +38,7 @@ function memoryStore(events) {
   };
 }
 
-function stateFactory(label, events) {
+function stateFactory(label, events, { scope = "device" } = {}) {
   let failFlush = false;
   const stores = new Map();
   const factory = (subjectId) => {
@@ -46,7 +46,7 @@ function stateFactory(label, events) {
       let payload = null;
       stores.set(subjectId, {
         schema: SYNC_STATE_STORE_SCHEMA,
-        scope: "device",
+        scope,
         load: () => payload,
         save(value) {
           payload = value;
@@ -82,11 +82,11 @@ function item() {
   };
 }
 
-async function harness() {
+async function harness({ syncScope = "device", deferredScope = "device" } = {}) {
   const events = [];
   const errors = [];
-  const sync = stateFactory("sync", events);
-  const deferred = stateFactory("deferred", events);
+  const sync = stateFactory("sync", events, { scope: syncScope });
+  const deferred = stateFactory("deferred", events, { scope: deferredScope });
   let ordinal = 0;
   const composition = createAccountMemoryAuthorizedComposition({
     identitySession: identitySession(),
@@ -117,7 +117,7 @@ async function harness() {
   });
   await composition.settled();
   events.splice(0);
-  return { composition, deferred, errors, events, sync };
+  return { composition, errors, events, sync };
 }
 
 test("local continuity confirms Memory then canonical then deferred durability", async () => {
@@ -136,7 +136,7 @@ test("local continuity confirms Memory then canonical then deferred durability",
 });
 
 test("canonical durability failure stops before deferred confirmation and health recovers only after success", async () => {
-  const { composition, deferred, errors, events, sync } = await harness();
+  const { composition, errors, events, sync } = await harness();
   composition.memory.remember(item());
   events.splice(0);
   sync.failFlush(true);
@@ -156,5 +156,32 @@ test("canonical durability failure stops before deferred confirmation and health
   snapshot = composition.getSnapshot();
   assert.equal(snapshot.canonicalDurabilityHealthy, true);
   assert.equal(snapshot.localContinuityDurabilityHealthy, true);
-  assert.equal(typeof deferred, "function");
+});
+
+test("session-only canonical store is acceptable while there is no durability debt", async () => {
+  const { composition, events } = await harness({ syncScope: "session" });
+
+  assert.equal(await composition.memory.flush(), true);
+
+  assert.deepEqual(events, ["memory-flush", "sync-flush", "deferred-flush"]);
+  assert.equal(composition.memorySync.getSnapshot().pendingMutationCount, 0);
+  assert.equal(composition.memorySync.getSnapshot().revisionCount, 0);
+  assert.equal(composition.getSnapshot().canonicalDurabilityHealthy, true);
+});
+
+test("session-only canonical store fails closed as soon as a pending mutation creates durability debt", async () => {
+  const { composition, errors, events } = await harness({ syncScope: "session" });
+  composition.memory.remember(item());
+  assert.equal(composition.memorySync.getSnapshot().pendingMutationCount, 1);
+  events.splice(0);
+
+  await assert.rejects(
+    composition.memory.flush(),
+    /canonical coordination is not device-durable: session-only/,
+  );
+
+  assert.deepEqual(events, ["memory-flush", "sync-flush"]);
+  assert.equal(composition.getSnapshot().canonicalDurabilityHealthy, false);
+  assert.equal(composition.getSnapshot().localContinuityDurabilityHealthy, false);
+  assert.equal(errors.at(-1).context.kind, "canonical-durability-flush");
 });
