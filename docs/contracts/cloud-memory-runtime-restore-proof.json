@@ -25,7 +25,7 @@
     },
     "nativeFreshInstallRestore": {
       "required": true,
-      "status": "required-not-proven",
+      "status": "source-ci-proven",
       "mustExercise": [
         "createNativeAccountMemoryFoundation",
         "createNativeAccountSyncRuntime",
@@ -42,6 +42,26 @@
         "remote Memory is non-portable",
         "Memory persistence cannot confirm durability",
         "coordination state requires recovery"
+      ],
+      "workflow": ".github/workflows/cloud-memory-native-runtime-restore-proof.yml",
+      "test": "tests/test_cloud_memory_native_runtime_restore.mjs",
+      "proves": [
+        "Native composition execution through createNativeAccountMemoryFoundation and createNativeAccountSyncRuntime",
+        "server-authoritative inbound entitlement gating",
+        "empty local Memory and account checkpoint restore",
+        "Memory durability before checkpoint durability",
+        "no remote-to-local echo mutation",
+        "checkpoint bound to authenticated subject and remote cursor",
+        "fail-closed denied unavailable or expired entitlement",
+        "fail-closed non-portable remote Memory",
+        "fail-closed Memory durability failure",
+        "fail-closed coordination recovery with no Memory reconciler"
+      ],
+      "doesNotProve": [
+        "live backend two-session execution",
+        "public Cloud Memory rollout",
+        "real user entitlement issuance",
+        "physical Stable/MVP USB reinstall"
       ]
     }
   },
