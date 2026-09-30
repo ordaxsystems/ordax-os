@@ -29,7 +29,8 @@ from native_profile_provisioning_executor import (
     validate_stage_evidence,
 )
 
-PROFILE_ACTIVATION_STATE_SCHEMA = "ordax.profile-activation-state/1"
+PROFILE_ACTIVATION_STATE_SCHEMA = "ordax.profile-activation-state/2"
+LEGACY_PROFILE_ACTIVATION_STATE_SCHEMA = "ordax.profile-activation-state/1"
 PROFILE_ACTIVATION_STATE_FILE = "/var/lib/ordax/profile-activation-state.json"
 PROFILE_ACTIVATION_LOCK_FILE = "/var/lib/ordax/profile-activation-state.lock"
 MAX_PROFILE_ACTIVATION_STATE_BYTES = 256 * 1024
@@ -184,15 +185,17 @@ def validate_profile_activation_state(value: object) -> dict:
     ids: set[str] = set()
     for index, row in enumerate(raw_spaces):
         label = f"Profile activation state spaces[{index}]"
-        if not isinstance(row, dict) or set(row) != {"spaceId", "spaceKind", "current", "previous"}:
+        if not isinstance(row, dict) or set(row) != {"subjectId", "spaceId", "spaceKind", "current", "previous"}:
             raise ValueError(f"{label} fields are incompatible")
+        subject_id = _bounded_text(row["subjectId"], f"{label}.subjectId", 200)
         space_id = _bounded_text(row["spaceId"], f"{label}.spaceId", 160)
         space_kind = _bounded_text(row["spaceKind"], f"{label}.spaceKind", 32)
         if space_kind not in _SPACE_KINDS:
             raise ValueError(f"{label}.spaceKind is invalid")
-        if space_id in ids:
-            raise ValueError("Profile activation state contains duplicate Space ids")
-        ids.add(space_id)
+        identity = f"{subject_id}\x1f{space_id}"
+        if identity in ids:
+            raise ValueError("Profile activation state contains duplicate subject/Space identities")
+        ids.add(identity)
         current = (
             None
             if row["current"] is None
@@ -212,6 +215,7 @@ def validate_profile_activation_state(value: object) -> dict:
         ):
             raise ValueError(f"{label} current and previous must differ")
         spaces.append({
+            "subjectId": subject_id,
             "spaceId": space_id,
             "spaceKind": space_kind,
             "current": current,
@@ -278,6 +282,11 @@ def read_profile_activation_state(
         payload = json.loads(raw.decode("utf-8", errors="strict"))
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError("Profile activation state is invalid JSON") from exc
+    if isinstance(payload, dict) and payload.get("schema") == LEGACY_PROFILE_ACTIVATION_STATE_SCHEMA:
+        # v1 had no authenticated account subject binding. Reusing it after
+        # an account switch would cross identity boundaries, so it is treated
+        # as disabled-safe metadata and must be explicitly reactivated.
+        return empty_profile_activation_state()
     return validate_profile_activation_state(payload)
 
 
@@ -470,15 +479,16 @@ def _lock(path: str):
     return handle
 
 
-def _space_index(state: dict, space_id: str) -> int | None:
+def _space_index(state: dict, subject_id: str, space_id: str) -> int | None:
     for index, row in enumerate(state["spaces"]):
-        if row["spaceId"] == space_id:
+        if row["subjectId"] == subject_id and row["spaceId"] == space_id:
             return index
     return None
 
 
 def activate_profile(
     *,
+    subject_id: str,
     space_id: str,
     space_kind: str,
     activation: dict,
@@ -488,6 +498,7 @@ def activate_profile(
     receipt_root: str = DEFAULT_RECEIPT_ROOT,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
+    subject_id = _bounded_text(subject_id, "Profile activation subject id", 200)
     space_id = _bounded_text(space_id, "Profile activation Space id", 160)
     space_kind = _bounded_text(space_kind, "Profile activation Space kind", 32)
     if space_kind not in _SPACE_KINDS:
@@ -500,7 +511,7 @@ def activate_profile(
             state = read_profile_activation_state(state_path)
             if expected_revision is not None and state["revision"] != expected_revision:
                 raise RuntimeError("Profile activation state revision changed")
-            index = _space_index(state, space_id)
+            index = _space_index(state, subject_id, space_id)
             existing = None if index is None else state["spaces"][index]
             if existing is not None and existing["spaceKind"] != space_kind:
                 raise ValueError("Profile activation Space kind changed unexpectedly")
@@ -511,6 +522,7 @@ def activate_profile(
             if existing is not None:
                 previous = existing["current"] if existing["current"] is not None else existing["previous"]
             row = {
+                "subjectId": subject_id,
                 "spaceId": space_id,
                 "spaceKind": space_kind,
                 "current": candidate,
@@ -537,23 +549,26 @@ def activate_profile(
 
 def deactivate_profile(
     *,
+    subject_id: str,
     space_id: str,
     expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
 ) -> dict:
+    subject_id = _bounded_text(subject_id, "Profile deactivation subject id", 200)
     space_id = _bounded_text(space_id, "Profile deactivation Space id", 160)
     with _lock(lock_path) as lock_handle:
         try:
             state = read_profile_activation_state(state_path)
             if expected_revision is not None and state["revision"] != expected_revision:
                 raise RuntimeError("Profile activation state revision changed")
-            index = _space_index(state, space_id)
+            index = _space_index(state, subject_id, space_id)
             if index is None or state["spaces"][index]["current"] is None:
                 return {"changed": False, "state": state}
             row = state["spaces"][index]
             spaces = list(state["spaces"])
             spaces[index] = {
+                "subjectId": subject_id,
                 "spaceId": space_id,
                 "spaceKind": row["spaceKind"],
                 "current": None,
@@ -573,6 +588,7 @@ def deactivate_profile(
 
 def rollback_profile(
     *,
+    subject_id: str,
     space_id: str,
     expected_revision: int | None = None,
     state_path: str = PROFILE_ACTIVATION_STATE_FILE,
@@ -581,13 +597,14 @@ def rollback_profile(
     lock_path: str = PROFILE_ACTIVATION_LOCK_FILE,
     target_validator=None,
 ) -> dict:
+    subject_id = _bounded_text(subject_id, "Profile rollback subject id", 200)
     space_id = _bounded_text(space_id, "Profile rollback Space id", 160)
     with _lock(lock_path) as lock_handle:
         try:
             state = read_profile_activation_state(state_path)
             if expected_revision is not None and state["revision"] != expected_revision:
                 raise RuntimeError("Profile activation state revision changed")
-            index = _space_index(state, space_id)
+            index = _space_index(state, subject_id, space_id)
             if index is None or state["spaces"][index]["previous"] is None:
                 return {"changed": False, "state": state}
             row = state["spaces"][index]
@@ -597,6 +614,7 @@ def rollback_profile(
             assert_activation_components_installed(target, inventory_path, receipt_root)
             spaces = list(state["spaces"])
             spaces[index] = {
+                "subjectId": subject_id,
                 "spaceId": space_id,
                 "spaceKind": row["spaceKind"],
                 "current": target,
