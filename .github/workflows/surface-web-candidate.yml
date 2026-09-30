@@ -37,6 +37,7 @@ on:
       - 'system/contracts/intelligence-tool-grant-authority.mjs'
       - 'system/contracts/action-executor.mjs'
       - 'system/contracts/personal-approval-consent.mjs'
+      - 'system/services/personal-ordax/action-executor.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -172,6 +173,7 @@ on:
       - 'tests/test_personal_ordax_store_adapters.mjs'
       - 'tests/test_intelligence_tool_grant_authority.mjs'
       - 'tests/test_personal_ordax_approval_consent.mjs'
+      - 'tests/test_personal_ordax_action_executor.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -221,6 +223,7 @@ on:
       - 'system/contracts/intelligence-tool-grant-authority.mjs'
       - 'system/contracts/action-executor.mjs'
       - 'system/contracts/personal-approval-consent.mjs'
+      - 'system/services/personal-ordax/action-executor.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -353,6 +356,7 @@ on:
       - 'tests/test_personal_ordax_store_adapters.mjs'
       - 'tests/test_intelligence_tool_grant_authority.mjs'
       - 'tests/test_personal_ordax_approval_consent.mjs'
+      - 'tests/test_personal_ordax_action_executor.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -475,6 +479,7 @@ jobs:
           node --test tests/test_personal_ordax_approvals.mjs
           node --test tests/test_intelligence_tool_grant_authority.mjs
           node --test tests/test_personal_ordax_approval_consent.mjs
+          node --test tests/test_personal_ordax_action_executor.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
           node --test tests/test_network_management_runtime.mjs
