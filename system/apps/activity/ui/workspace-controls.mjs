@@ -251,6 +251,53 @@ export function mountPersonalActivityControls(
           article.append(approvalBox);
         }
 
+        if (entry.approvedApproval) {
+          const approved = entry.approvedApproval;
+          const approvedBox = node(documentObject, "section", "ordax-activity-approval");
+          approvedBox.append(
+            node(documentObject, "strong", "", t("activity.approval.approvedTitle")),
+            node(documentObject, "p", "", approved.reason),
+            node(
+              documentObject,
+              "span",
+              "ordax-activity-result-meta",
+              `${approved.actionId} · ${approved.effect}`,
+            ),
+            ...(approved.resourceRef === null ? [] : [
+              node(
+                documentObject,
+                "span",
+                "ordax-activity-result-meta",
+                `${t("activity.approval.resource")}: ${approved.resourceRef}`,
+              ),
+            ]),
+            node(
+              documentObject,
+              "span",
+              "ordax-activity-result-meta",
+              `${t("activity.approval.tool")}: ${approved.toolId} · sha256:${approved.toolArtifactSha256.slice(0, 12)}…`,
+            ),
+          );
+          if (
+            typeof personalOrdax.canExecuteApprovedAction === "function"
+            && typeof personalOrdax.executeApprovedAction === "function"
+            && personalOrdax.canExecuteApprovedAction(item.id, approved.id)
+          ) {
+            const execute = node(
+              documentObject,
+              "button",
+              "ordax-activity-primary",
+              t("activity.action.executeApproved"),
+            );
+            execute.type = "button";
+            execute.dataset.personalApprovedActionExecute = "";
+            execute.dataset.personalApprovalId = approved.id;
+            execute.dataset.personalWorkId = item.id;
+            approvedBox.append(execute);
+          }
+          article.append(approvedBox);
+        }
+
         if (result) {
           const resultBox = node(documentObject, "section", "ordax-activity-result");
           resultBox.append(
@@ -296,6 +343,24 @@ export function mountPersonalActivityControls(
     }
   };
 
+  const runApprovedAction = async (workItemId, approvalId) => {
+    if (
+      personalOrdax === null
+      || typeof personalOrdax.executeApprovedAction !== "function"
+    ) return;
+    localError = null;
+    try {
+      await personalOrdax.executeApprovedAction(workItemId, approvalId);
+    } catch {
+      const current = personalOrdax.getSnapshot().workItems.find((item) => item.id === workItemId);
+      if (current?.state === "failed" || current?.state === "running") {
+        localError = t("activity.error.action");
+      }
+    } finally {
+      render();
+    }
+  };
+
   const runApprovalAction = (workItemId, approvalId, action) => {
     if (approvalConsent === null) return;
     localError = null;
@@ -322,6 +387,14 @@ export function mountPersonalActivityControls(
   const onClick = (event) => {
     const target = event.target?.closest?.("button");
     if (!target || !mountedSlot?.contains(target) || personalOrdax === null) return;
+
+    const approvedExecute = target.dataset.personalApprovedActionExecute;
+    const approvedId = target.dataset.personalApprovalId;
+    const approvedWorkId = target.dataset.personalWorkId;
+    if (approvedExecute !== undefined && approvedId && approvedWorkId) {
+      void runApprovedAction(approvedWorkId, approvedId);
+      return;
+    }
 
     const approvalAction = target.dataset.personalApprovalAction;
     const approvalId = target.dataset.personalApprovalId;
