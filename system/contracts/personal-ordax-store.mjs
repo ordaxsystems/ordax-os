@@ -10,7 +10,40 @@ export const MAX_PERSONAL_WORK_ITEMS = 32;
 export const MAX_PERSONAL_ACTIVITY_EVENTS = 512;
 
 const STORE_SCOPES = new Set(["device", "session"]);
+const OWNER_KINDS = new Set(["device", "account"]);
 const RUNTIME_WORK_ID_RE = /^personal-work-([1-9][0-9]*)$/;
+
+function boundedOwnerId(value) {
+  if (typeof value !== "string" || value.includes("\0")) {
+    throw new TypeError("Personal OrdaX owner id must be text");
+  }
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 160) {
+    throw new TypeError("Personal OrdaX owner id is outside bounds");
+  }
+  return normalized;
+}
+
+export function validatePersonalOrdaxOwner(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Personal OrdaX owner must be an object");
+  }
+  if (!OWNER_KINDS.has(value.ownerKind)) {
+    throw new TypeError("Personal OrdaX owner kind is invalid");
+  }
+  const ownerId = value.ownerKind === "account"
+    ? boundedOwnerId(value.ownerId)
+    : null;
+  if (value.ownerKind === "device" && value.ownerId != null) {
+    throw new TypeError("Device-owned Personal OrdaX state cannot carry an account owner id");
+  }
+  return Object.freeze({ ownerKind: value.ownerKind, ownerId });
+}
+
+export function personalOrdaxOwnerKey(value) {
+  const owner = validatePersonalOrdaxOwner(value);
+  return owner.ownerKind === "device" ? "device" : `account:${owner.ownerId}`;
+}
 
 function validateNextOrdinal(value) {
   if (!Number.isSafeInteger(value) || value < 1) {
@@ -19,35 +52,50 @@ function validateNextOrdinal(value) {
   return value;
 }
 
-export function createEmptyPersonalOrdaxStoreState() {
+export function createEmptyPersonalOrdaxStoreState(ownerValue) {
+  const owner = validatePersonalOrdaxOwner(ownerValue);
   return Object.freeze({
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+    ownerKind: owner.ownerKind,
+    ownerId: owner.ownerId,
     nextOrdinal: 1,
     workItems: Object.freeze([]),
     activities: Object.freeze([]),
   });
 }
 
-export function validatePersonalOrdaxStoreState(value) {
-  if (value === null || value === undefined) return createEmptyPersonalOrdaxStoreState();
+export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Personal OrdaX store state must be an object");
   }
   if (value.schema !== PERSONAL_ORDAX_STORE_STATE_SCHEMA) {
     throw new TypeError("Personal OrdaX store state schema is incompatible");
   }
+  const owner = validatePersonalOrdaxOwner(value);
+  if (expectedOwnerValue !== null) {
+    const expected = validatePersonalOrdaxOwner(expectedOwnerValue);
+    if (owner.ownerKind !== expected.ownerKind || owner.ownerId !== expected.ownerId) {
+      throw new TypeError("Personal OrdaX store state belongs to a different owner");
+    }
+  }
   if (!Array.isArray(value.workItems) || value.workItems.length > MAX_PERSONAL_WORK_ITEMS) {
-    throw new TypeError("Personal OrdaX work items exceed their bound");
+    throw new TypeError("Personal OrdaX work items exceed their per-owner bound");
   }
   if (!Array.isArray(value.activities) || value.activities.length > MAX_PERSONAL_ACTIVITY_EVENTS) {
-    throw new TypeError("Personal OrdaX activity events exceed their bound");
+    throw new TypeError("Personal OrdaX activity events exceed their per-owner bound");
   }
 
   const workItems = Object.freeze(value.workItems.map(validatePersonalWorkItem));
   const workIds = new Set(workItems.map((item) => item.id));
   if (workIds.size !== workItems.length) {
-    throw new TypeError("Personal OrdaX work ids must be unique");
+    throw new TypeError("Personal OrdaX work ids must be unique inside an owner partition");
   }
+  for (const item of workItems) {
+    if (item.ownerKind !== owner.ownerKind || item.ownerId !== owner.ownerId) {
+      throw new TypeError("Personal OrdaX work cannot cross its store owner partition");
+    }
+  }
+
   const workById = new Map(workItems.map((item) => [item.id, item]));
   const highestRuntimeOrdinal = workItems.reduce((highest, item) => {
     const match = RUNTIME_WORK_ID_RE.exec(item.id);
@@ -88,6 +136,8 @@ export function validatePersonalOrdaxStoreState(value) {
 
   return Object.freeze({
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+    ownerKind: owner.ownerKind,
+    ownerId: owner.ownerId,
     nextOrdinal,
     workItems,
     activities,
@@ -106,7 +156,6 @@ export function assertPersonalOrdaxStore(store) {
       throw new TypeError(`Personal OrdaX store must implement ${method}()`);
     }
   }
-  validatePersonalOrdaxStoreState(store.load());
   return store;
 }
 
@@ -122,6 +171,8 @@ export function validatePersonalOrdaxRuntimeSnapshot(value) {
   }
   const state = validatePersonalOrdaxStoreState({
     schema: PERSONAL_ORDAX_STORE_STATE_SCHEMA,
+    ownerKind: value.ownerKind,
+    ownerId: value.ownerId,
     nextOrdinal: value.nextOrdinal,
     workItems: value.workItems,
     activities: value.activities,
@@ -129,6 +180,8 @@ export function validatePersonalOrdaxRuntimeSnapshot(value) {
   return Object.freeze({
     schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
     persistence: value.persistence,
+    ownerKind: state.ownerKind,
+    ownerId: state.ownerId,
     nextOrdinal: state.nextOrdinal,
     workItems: state.workItems,
     activities: state.activities,
