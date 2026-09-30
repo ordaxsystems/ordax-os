@@ -305,6 +305,53 @@ class NativeProfileActivationStateTests(unittest.TestCase):
                 "developer",
             )
 
+    def test_rollback_target_policy_is_checked_before_state_mutation(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inventory_path = root / "inventory.json"
+            state_path = root / "activation.json"
+            lock_path = root / "activation.lock"
+            inventory_path.write_text(json.dumps(inventory()), encoding="utf-8")
+            os.chmod(inventory_path, 0o600)
+
+            module.activate_profile(
+                space_id="space-1",
+                space_kind="professional",
+                activation=activation(slug="first", components=[], activated_at=1000),
+                state_path=str(state_path),
+                inventory_path=str(inventory_path),
+                lock_path=str(lock_path),
+            )
+            module.activate_profile(
+                space_id="space-1",
+                space_kind="professional",
+                activation=activation(slug="second", components=[], activated_at=2000),
+                state_path=str(state_path),
+                inventory_path=str(inventory_path),
+                lock_path=str(lock_path),
+            )
+
+            seen = []
+            def reject(target, space_kind):
+                seen.append((target["profile"]["slug"], space_kind))
+                raise PermissionError("stable policy rejected rollback target")
+
+            with self.assertRaisesRegex(PermissionError, "stable policy rejected"):
+                module.rollback_profile(
+                    space_id="space-1",
+                    expected_revision=2,
+                    state_path=str(state_path),
+                    inventory_path=str(inventory_path),
+                    lock_path=str(lock_path),
+                    target_validator=reject,
+                )
+
+            self.assertEqual(seen, [("first", "professional")])
+            state = module.read_profile_activation_state(str(state_path))
+            self.assertEqual(state["revision"], 2)
+            self.assertEqual(state["spaces"][0]["current"]["profile"]["slug"], "second")
+
     def test_rollback_fails_closed_if_previous_component_is_no_longer_installed(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as directory:
@@ -407,7 +454,7 @@ class NativeProfileActivationStateTests(unittest.TestCase):
         self.assertIn("if self.path == PROFILE_ACTIVATION_STATE_PATH:", host)
         self.assertIn("if parsed_path == PROFILE_ACTIVATION_COMMAND_PATH:", host)
         self.assertIn("execute_profile_activation_command", host)
-        self.assertIn('self.distribution_profile == "owner-development"', host)
+        self.assertIn('self.distribution_profile in {"owner-development", "stable-mvp"}', host)
         self.assertNotIn("activate_profile(", host)
         self.assertNotIn("deactivate_profile(", host)
         self.assertNotIn("rollback_profile(", host)
