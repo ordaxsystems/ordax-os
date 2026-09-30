@@ -58,7 +58,13 @@
     "completed_reasoning_result_persisted_atomically": true,
     "result_carries_action_authority": false,
     "owner_partition_max_serialized_bytes": 4194304,
-    "byte_ceiling_applies_after_semantic_validation": true
+    "byte_ceiling_applies_after_semantic_validation": true,
+    "native_device_store_source_enabled": true,
+    "native_device_store_backend": "privileged-surface-local-storage",
+    "native_device_store_mounted_in_composition": false,
+    "corrupt_owner_partition_may_be_silently_overwritten": false,
+    "corrupt_owner_partition_blocks_only_that_owner": true,
+    "account_sync_of_personal_work_enabled": false
   },
   "authority": {
     "effects": [
