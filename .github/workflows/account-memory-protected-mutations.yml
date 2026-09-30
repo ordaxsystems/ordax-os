@@ -79,5 +79,5 @@ jobs:
             tests/test_account_memory_authorized_composition.mjs \
             tests/test_account_memory_authorized_lifecycle_replay.mjs \
             tests/test_account_memory_crash_recovery_journal.mjs \
-            tests/test_account_memory_crash_recovery_ownership.mjs
+            tests/test_account_memory_crash_recovery_ownership.mjs \
             tests/test_native_account_memory_foundation.mjs
