@@ -25,7 +25,11 @@
     },
     "nativeFreshInstallRestore": {
       "required": true,
-      "status": "required-not-proven",
+      "status": "source-ci-proven",
+      "evidence": {
+        "test": "tests/test_native_account_memory_fresh_install_restore.mjs",
+        "workflow": ".github/workflows/account-memory-sync-foundation.yml"
+      },
       "mustExercise": [
         "createNativeAccountMemoryFoundation",
         "createNativeAccountSyncRuntime",
@@ -42,9 +46,14 @@
         "remote Memory is non-portable",
         "Memory persistence cannot confirm durability",
         "coordination state requires recovery"
+      ],
+      "doesNotProve": [
+        "authenticated production-backend execution by the Native host",
+        "physical reinstall on a second device or USB image",
+        "public Cloud Memory rollout"
       ]
     }
   },
-  "completionRule": "Issue #685 runtime restore evidence is incomplete until both required evidence classes are proven independently. Backend two-session success alone must never be interpreted as Native reinstall success.",
+  "completionRule": "Issue #685 runtime restore evidence is incomplete until both required evidence classes are proven independently. Backend two-session success alone must never be interpreted as Native reinstall success. Native source-CI proof must not be interpreted as an authenticated production-backend or physical-device reinstall receipt.",
   "rolloutRule": "Proof completion does not enable public Cloud Memory or create user entitlements. Public promotion remains a separate product decision."
 }
