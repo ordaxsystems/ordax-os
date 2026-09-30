@@ -53,6 +53,7 @@ export function validateActionRequest(value) {
   return Object.freeze({
     schema: ACTION_REQUEST_SCHEMA,
     workItemId: boundedText(value.workItemId, "Action Gateway work item id", 160),
+    approvalId: optionalText(value.approvalId, "Action Gateway approval id", 200),
     actionId: boundedText(value.actionId, "Action Gateway action id", 128),
     toolId: boundedText(value.toolId, "Action Gateway tool id", 96),
     effect: value.effect,
