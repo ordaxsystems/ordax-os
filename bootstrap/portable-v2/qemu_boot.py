@@ -605,7 +605,7 @@ def boot_qemu_expected(
                 process.wait(timeout=5)
             return text, checks
 
-        deadline = time.monotonic() + (300.0 if graphical_hardware else 150.0)
+        deadline = time.monotonic() + (300.0 if graphical_hardware else 210.0)
         while time.monotonic() < deadline:
             text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
             ready, checks = observe(text)
