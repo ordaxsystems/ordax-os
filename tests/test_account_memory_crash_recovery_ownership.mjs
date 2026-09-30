@@ -145,3 +145,100 @@ test("stale pending upsert cannot own recovery after current Memory becomes rest
     ownerId: "account-a",
   });
 });
+
+test("same-identity protected mutations serialize journal ownership", async () => {
+  const memory = createMemoryRuntime();
+  const recovery = journal(memory, durableStore());
+  const identity = { id: "memory-a", ownerKind: "account", ownerId: "account-a" };
+  const events = [];
+  let releaseFirst;
+  const firstGate = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+
+  const first = recovery.runProtectedMutation({
+    identity,
+    mutate() {
+      events.push("first-mutate");
+      return memory.remember(memoryItem({ content: "first" }));
+    },
+    async flushLocal() {
+      events.push("first-flush");
+      return true;
+    },
+    async reconcile() {
+      events.push("first-reconcile-start");
+      await firstGate;
+      events.push("first-reconcile-end");
+      return true;
+    },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  const second = recovery.runProtectedMutation({
+    identity,
+    mutate() {
+      events.push("second-mutate");
+      return memory.remember(memoryItem({ content: "second", sourceTimestamp: "2026-09-30T03:02:00Z" }));
+    },
+    async flushLocal() {
+      events.push("second-flush");
+      return true;
+    },
+    async reconcile() {
+      events.push("second-reconcile");
+      return true;
+    },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.includes("second-mutate"), false);
+  assert.equal(recovery.getSnapshot().activeProtectedMutationCount, 1);
+
+  releaseFirst();
+  await Promise.all([first, second]);
+
+  assert.ok(events.indexOf("first-reconcile-end") < events.indexOf("second-mutate"));
+  assert.equal(recovery.pendingIdentities().length, 0);
+  assert.equal(recovery.getSnapshot().activeProtectedMutationCount, 0);
+});
+
+test("recovery waits for protected mutation ownership to settle", async () => {
+  const memory = createMemoryRuntime();
+  const recovery = journal(memory, durableStore());
+  const identity = { id: "memory-a", ownerKind: "account", ownerId: "account-a" };
+  const sync = syncRuntime();
+  let releaseMutation;
+  const mutationGate = new Promise((resolve) => {
+    releaseMutation = resolve;
+  });
+
+  const mutation = recovery.runProtectedMutation({
+    identity,
+    mutate() {
+      return memory.remember(memoryItem());
+    },
+    async flushLocal() {
+      return true;
+    },
+    async reconcile() {
+      await mutationGate;
+      return true;
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const recovering = recovery.recover(sync.runtime, {
+    flushCoordination: async () => true,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(sync.staged.length, 0);
+
+  releaseMutation();
+  await mutation;
+  const result = await recovering;
+
+  assert.equal(result.attempted, 0);
+  assert.equal(result.retained, 0);
+  assert.equal(sync.staged.length, 0);
+});
