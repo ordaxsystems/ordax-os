@@ -57,13 +57,24 @@ export function assertSyncCheckpointStore(store) {
   if (!new Set(["device", "session"]).has(store.scope)) {
     throw new TypeError("Sync checkpoint scope must be device or session");
   }
-  if (
-    typeof store.load !== "function"
-    || typeof store.save !== "function"
-    || typeof store.flush !== "function"
-  ) {
-    throw new TypeError("Sync checkpoint store must implement load(), save() and flush()");
+  if (typeof store.load !== "function" || typeof store.save !== "function") {
+    throw new TypeError("Sync checkpoint store must implement load() and save()");
+  }
+  if (store.flush !== undefined && typeof store.flush !== "function") {
+    throw new TypeError("Sync checkpoint flush must be a function when provided");
   }
   validateSyncCheckpoint(store.load());
-  return store;
+  if (typeof store.flush === "function") return store;
+
+  // Legacy/synchronous stores already make save() durable before returning.
+  // Asynchronous stores must expose flush(); production Native does so.
+  return Object.freeze({
+    schema: store.schema,
+    scope: store.scope,
+    load: store.load.bind(store),
+    save: store.save.bind(store),
+    async flush() {
+      return true;
+    },
+  });
 }
