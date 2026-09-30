@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'docs/contracts/cloud-memory-runtime-restore-proof.json'
       - 'services/public-identity/supabase_memory.py'
       - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
       - 'tools/cloud-memory/run_operator_authenticated_proof.py'
       - 'tools/cloud-memory/validate_authenticated_proof_receipt.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
       - 'tests/test_cloud_memory_operator_proof_workflow.py'
+      - 'tests/test_cloud_memory_runtime_restore_proof_contract.py'
       - '.github/workflows/cloud-memory-authenticated-proof.yml'
       - '.github/workflows/cloud-memory-operator-authenticated-proof.yml'
       - '.github/workflows/cloud-memory-operator-proof-contract.yml'
@@ -17,12 +19,14 @@ on:
     branches: [main]
     paths:
       - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'docs/contracts/cloud-memory-runtime-restore-proof.json'
       - 'services/public-identity/supabase_memory.py'
       - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
       - 'tools/cloud-memory/run_operator_authenticated_proof.py'
       - 'tools/cloud-memory/validate_authenticated_proof_receipt.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
       - 'tests/test_cloud_memory_operator_proof_workflow.py'
+      - 'tests/test_cloud_memory_runtime_restore_proof_contract.py'
       - '.github/workflows/cloud-memory-authenticated-proof.yml'
       - '.github/workflows/cloud-memory-operator-authenticated-proof.yml'
       - '.github/workflows/cloud-memory-operator-proof-contract.yml'
@@ -49,10 +53,13 @@ jobs:
           python -m py_compile tools/cloud-memory/validate_authenticated_proof_receipt.py
           python -m py_compile tests/test_cloud_memory_authenticated_proof.py
           python -m py_compile tests/test_cloud_memory_operator_proof_workflow.py
+          python -m py_compile tests/test_cloud_memory_runtime_restore_proof_contract.py
           python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
+          python -m json.tool docs/contracts/cloud-memory-runtime-restore-proof.json >/dev/null
 
       - name: Prove operator workflow remains manual and fail-closed
         run: |
           set -euo pipefail
           python -m unittest tests.test_cloud_memory_authenticated_proof -v
           python -m unittest tests.test_cloud_memory_operator_proof_workflow -v
+          python -m unittest tests.test_cloud_memory_runtime_restore_proof_contract -v
