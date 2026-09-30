@@ -30,7 +30,7 @@ function activation(overrides = {}) {
 
 test("empty Profile activation state is explicit and persistence-scoped", () => {
   assert.deepEqual(createEmptyProfileActivationState("device"), {
-    schema: "ordax.profile-activation-state/1",
+    schema: "ordax.profile-activation-state/2",
     revision: 0,
     persistence: "device",
     spaces: [],
@@ -67,11 +67,11 @@ test("Profile activation state preserves current and previous per Space for roll
     activatedAt: 900,
   });
   const state = validateProfileActivationState({
-    schema: "ordax.profile-activation-state/1",
+    schema: "ordax.profile-activation-state/2",
     revision: 4,
     persistence: "device",
     spaces: [{
-      spaceId: "space-professional-1",
+      subjectId: "user-1",\n      spaceId: "space-professional-1",
       spaceKind: "professional",
       current,
       previous,
@@ -83,6 +83,7 @@ test("Profile activation state preserves current and previous per Space for roll
 
 test("Profile activation state rejects duplicate Spaces, duplicate components and empty rows", () => {
   const row = {
+    subjectId: "user-1",
     spaceId: "space-professional-1",
     spaceKind: "professional",
     current: activation(),
@@ -90,12 +91,12 @@ test("Profile activation state rejects duplicate Spaces, duplicate components an
   };
   assert.throws(
     () => validateProfileActivationState({
-      schema: "ordax.profile-activation-state/1",
+      schema: "ordax.profile-activation-state/2",
       revision: 1,
       persistence: "device",
       spaces: [row, { ...row }],
     }),
-    /duplicate Space ids/,
+    /duplicate subject\/Space identities/,
   );
 
   assert.throws(
@@ -107,11 +108,11 @@ test("Profile activation state rejects duplicate Spaces, duplicate components an
 
   assert.throws(
     () => validateProfileActivationState({
-      schema: "ordax.profile-activation-state/1",
+      schema: "ordax.profile-activation-state/2",
       revision: 1,
       persistence: "device",
       spaces: [{
-        spaceId: "space-professional-1",
+        subjectId: "user-1",\n      spaceId: "space-professional-1",
         spaceKind: "professional",
         current: null,
         previous: null,
@@ -141,11 +142,11 @@ test("Profile activation component order is canonical and current/previous canno
 
   assert.throws(
     () => validateProfileActivationState({
-      schema: "ordax.profile-activation-state/1",
+      schema: "ordax.profile-activation-state/2",
       revision: 1,
       persistence: "device",
       spaces: [{
-        spaceId: "space-professional-1",
+        subjectId: "user-1",\n      spaceId: "space-professional-1",
         spaceKind: "professional",
         current: activation(),
         previous: activation({ activatedAt: 800 }),
