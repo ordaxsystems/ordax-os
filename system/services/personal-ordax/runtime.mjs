@@ -366,6 +366,45 @@ export function createPersonalOrdaxRuntime({
     return true;
   };
 
+  const recoverInterruptedAttempts = () => {
+    const interrupted = state.attempts.filter((attempt) => attempt.status === "started");
+    if (interrupted.length === 0) return;
+    let next = state;
+    for (const attempt of interrupted) {
+      const occurredAt = isoClock(now);
+      next = revokeApprovedApprovalsIn(
+        next,
+        (approval) => approval.id === attempt.approvalId,
+        occurredAt,
+        "Interrupted foreground action restored without a verified receipt; outcome is uncertain.",
+      );
+      const work = next.workItems.find((candidate) => candidate.id === attempt.workItemId);
+      if (!work || TERMINAL_STATES.has(work.state)) continue;
+      const paused = validatePersonalWorkItem({
+        ...work,
+        state: "paused",
+        pendingApprovalId: null,
+        updatedAt: occurredAt,
+      });
+      next = {
+        ...next,
+        workItems: next.workItems.map((candidate) =>
+          candidate.id === work.id ? paused : candidate),
+        activities: appendActivityTo(
+          next.activities,
+          work.id,
+          "paused",
+          "Work paused after restoring an interrupted action with uncertain outcome.",
+          occurredAt,
+          { approvalId: attempt.approvalId, actionId: attempt.actionId },
+        ),
+      };
+    }
+    replaceState(next);
+  };
+
+  recoverInterruptedAttempts();
+
   const findWork = (id) => {
     const item = state.workItems.find((candidate) => candidate.id === id);
     if (!item) throw new TypeError("Personal OrdaX work id is not registered for the current owner");
@@ -1149,12 +1188,36 @@ export function createPersonalOrdaxRuntime({
         throw new Error("Personal OrdaX grant revocation requires an approved unconsumed approval");
       }
       const occurredAt = isoClock(now);
-      const next = revokeApprovedApprovalsIn(
+      let next = revokeApprovedApprovalsIn(
         state,
         (candidate) => candidate.id === approvalId && candidate.workItemId === id,
         occurredAt,
         "Approved action authority was revoked before execution.",
       );
+      const current = next.workItems.find((candidate) => candidate.id === id);
+      const interrupted = next.attempts.some(
+        (attempt) => attempt.approvalId === approvalId && attempt.status === "uncertain",
+      );
+      if (current?.state === "running" && interrupted) {
+        const paused = validatePersonalWorkItem({
+          ...current,
+          state: "paused",
+          pendingApprovalId: null,
+          updatedAt: occurredAt,
+        });
+        next = {
+          ...next,
+          workItems: next.workItems.map((candidate) => candidate.id === id ? paused : candidate),
+          activities: appendActivityTo(
+            next.activities,
+            id,
+            "paused",
+            "Work paused because active action authority was revoked.",
+            occurredAt,
+            { approvalId, actionId: approval.actionId },
+          ),
+        };
+      }
       replaceState(next);
       return state.approvals.find((candidate) => candidate.id === approvalId);
     },
@@ -1163,6 +1226,37 @@ export function createPersonalOrdaxRuntime({
       const item = findWork(id);
       if (TERMINAL_STATES.has(item.state)) return item;
       inFlight.delete(id);
+      const activeAttempt = state.attempts.find(
+        (attempt) => attempt.workItemId === id && attempt.status === "started",
+      );
+      if (activeAttempt) {
+        const occurredAt = isoClock(now);
+        const next = revokeApprovedApprovalsIn(
+          state,
+          (approval) => approval.id === activeAttempt.approvalId,
+          occurredAt,
+          "Approved action authority revoked because active execution was paused explicitly.",
+        );
+        const paused = validatePersonalWorkItem({
+          ...item,
+          state: "paused",
+          pendingApprovalId: null,
+          updatedAt: occurredAt,
+        });
+        replaceState({
+          ...next,
+          workItems: next.workItems.map((candidate) => candidate.id === id ? paused : candidate),
+          activities: appendActivityTo(
+            next.activities,
+            id,
+            "paused",
+            "Work paused explicitly while action outcome became uncertain.",
+            occurredAt,
+            { approvalId: activeAttempt.approvalId, actionId: activeAttempt.actionId },
+          ),
+        });
+        return paused;
+      }
       return updateWork(id, { state: "paused", pendingApprovalId: null }, {
         activity: { type: "paused", summary: "Work paused explicitly." },
       });
