@@ -196,3 +196,31 @@ test("review session exports only the currently selected owner", () => {
   assert.deepEqual(exported.owner, { ownerKind: "account", ownerId: "account-1" });
   review.dispose();
 });
+
+
+test("review session clearAll follows the selected owner without crossing ownership", async () => {
+  const memory = createMemoryRuntime();
+  memory.remember(memoryItem({
+    id: "device-keep-clear",
+    ownerKind: "device",
+    ownerId: null,
+    content: "local",
+  }));
+  memory.remember(memoryItem({ id: "account-clear-session", content: "conta" }));
+  const review = createMemoryReviewSession({
+    memoryPort: memory,
+    identitySessionPort: identityPort(signedIn()),
+  });
+
+  review.selectOwner({ ownerKind: "account", ownerId: "account-1" });
+  const result = await review.clearAll();
+
+  assert.equal(result.removed, 1);
+  assert.equal(result.ownerKind, "account");
+  assert.equal(result.ownerId, "account-1");
+  assert.deepEqual(review.list(), []);
+
+  review.selectOwner({ ownerKind: "device", ownerId: null });
+  assert.deepEqual(review.list().map((entry) => entry.id), ["device-keep-clear"]);
+  review.dispose();
+});
