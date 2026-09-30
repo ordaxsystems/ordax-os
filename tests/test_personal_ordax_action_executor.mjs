@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { ACTION_ADAPTER_SCHEMA } from "../system/contracts/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../system/services/personal-ordax/action-gateway.mjs";
-import { createPersonalOrdaxActionExecutor } from "../system/services/personal-ordax/action-executor.mjs";
+import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../system/services/personal-ordax/action-executor.mjs";
 
 const NOW = Date.parse("2026-09-30T22:30:00.000Z");
 
@@ -141,9 +141,46 @@ test("revoked grant fails closed before adapter side effect", async () => {
 
   await assert.rejects(
     () => executor.execute({ request: actionRequest, decision }),
-    /no longer valid/,
+    (error) => {
+      assert.ok(error instanceof PersonalActionExecutionError);
+      assert.equal(error.phase, "pre-side-effect");
+      assert.match(error.message, /no longer valid/);
+      return true;
+    },
   );
   assert.equal(calls, 0);
+});
+
+test("adapter-entered exception is explicitly classified as uncertain", async () => {
+  const { gateway } = setup();
+  const actionRequest = request();
+  const decision = gateway.decide(actionRequest, { grantRef: "grant-1" });
+  const executor = createPersonalOrdaxActionExecutor({
+    actionGateway: gateway,
+    adapterResolver() {
+      return {
+        schema: ACTION_ADAPTER_SCHEMA,
+        toolId: "files-inspector",
+        artifactSha256: "a".repeat(64),
+        actionId: "files.directory.create",
+        effect: "write",
+        async execute() {
+          throw new Error("adapter crashed after entry");
+        },
+      };
+    },
+    now: () => NOW,
+  });
+
+  await assert.rejects(
+    () => executor.execute({ request: actionRequest, decision }),
+    (error) => {
+      assert.ok(error instanceof PersonalActionExecutionError);
+      assert.equal(error.phase, "adapter-entered");
+      assert.match(error.message, /adapter crashed after entry/);
+      return true;
+    },
+  );
 });
 
 test("resource substitution is denied before adapter resolution", async () => {
