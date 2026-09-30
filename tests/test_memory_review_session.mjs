@@ -143,7 +143,7 @@ test("review session edits/removes only selected owner and forwards flush", asyn
   assert.equal(updated.sourceTimestamp, "2026-09-24T21:00:00.000Z");
   assert.equal(await review.remove("account-item"), false);
   assert.equal(await review.flush(), true);
-  assert.equal(flushes, 1);
+  assert.equal(flushes, 2, "mutation durability plus explicit flush must both reach the Memory store");
   review.dispose();
 });
 
