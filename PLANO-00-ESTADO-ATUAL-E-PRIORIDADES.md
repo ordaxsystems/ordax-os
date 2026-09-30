@@ -121,7 +121,7 @@ Os planos longos registram capacidades herdadas como referência de produto, mas
 | C05 Checkpoints de sessão | **PÓS-MVP** | Não bloquear o lançamento por restauração completa de rota/documento/posição/rascunho. |
 | C06 Home contextual | **NÃO BLOQUEIA** | Melhorias de “continuar trabalho” são P1/P2; não criar outro shell. |
 | C07 Hardware/compatibilidade | **ENTRA no recorte de suporte** | MVP precisa hardware suportado documentado e diagnóstico suficiente; inventário sofisticado de periféricos é posterior. |
-| C08 Conta de produto | **FUNDAÇÃO PRÉ-MVP; ativação pública condicional** | Supabase dedicado `ordax-control-plane` está selecionado e o schema de produto foi aplicado; gateway público continua fail-closed até hardening/legal/deploy. Conta continua opcional e não bloqueia boot. |
+| C08 Conta de produto | **ENTRA NO MVP, MAS CONTINUA OPCIONAL** | Supabase dedicado `ordax-control-plane` e gateway real já existem. O usuário pode continuar sem conta, mas Entrar/Criar conta devem funcionar de ponta a ponta antes do fechamento do MVP. Ativação continua fail-closed até hardening/legal/deploy e provas da #805. |
 | C09 Sync cloud | **PÓS-MVP** | Core local pode permanecer; não implementar transporte cloud para fechar o lançamento. |
 | C10 Mobile | **PÓS-MVP** | Em breve; depende de conta/sync reais. |
 | C11 Desktop instalado / Creator | **Creator ENTRA; Desktop instalado NÃO** | Creator USB é P0. Instalação permanente/desktop Native continua pós-MVP. |
@@ -142,6 +142,38 @@ Os planos longos registram capacidades herdadas como referência de produto, mas
 | C27 Backup/histórico pessoal | **PÓS-MVP** | Não confundir backup de dados com rollback/known-good do sistema, que é P0. |
 
 Portanto, o fechamento do **primeiro USB físico** continua dominado pelas provas de C02/C03/C07/C16/C20/C21/C26 e por qualquer gap C18 realmente reproduzido. Em paralelo, C08/C12/C13/C16/C17 recebem as fundações de domínio definidas no `PLANO-04`, enquanto C14 segue também o `PLANO-06` de provisioning sob demanda; elas evitam dívida arquitetural, mas não transformam Store, billing, sync cloud ou MCP mutável em gates da mídia física.
+
+## 2.1 Modo de encerramento do MVP
+
+A partir deste ponto, o objetivo é **terminar e instalar**, não ampliar o produto indefinidamente.
+
+Regras:
+
+1. frentes/PRs já em andamento podem concluir **a tarefa atual**;
+2. depois da tarefa atual, não abrir continuação automática da mesma frente sem um gate de MVP reproduzido;
+3. nova feature não entra antes do primeiro Stable/MVP pós-hardening no notebook;
+4. bug reproduzido que bloqueia boot, rede, OOBE, Conta/Cadastro, Surface, app essencial, update, rollback, recovery ou segurança continua elegível;
+5. ideias de Store, apps novos, Creative/Video/CAD/3D, sync amplo, Mobile, billing, Windows Compatibility avançado e demais expansões ficam em backlog/pós-MVP;
+6. Conta permanece opcional para usar o sistema, porém **Entrar/Criar conta passam a ser gate funcional do MVP** quando o usuário escolher esse caminho;
+7. o catálogo de planos pode ser estruturado antes do MVP, mas cobrança e preços não bloqueiam a primeira instalação;
+8. só criar issue nova antes do MVP quando ela representar um gate real não coberto por issue/PR existente.
+
+Ordem de fechamento:
+
+```text
+drenar PRs atuais relevantes
+ -> Conta/Cadastro real + caminho sem conta
+ -> replacement canonical release proof
+ -> autorização física válida
+ -> Stable/MVP no notebook
+ -> smoke Surface/apps/rede/IA
+ -> update + known-good + rollback/recovery
+ -> corrigir somente falhas reproduzidas
+ -> congelar v0.1.0
+ -> evoluir por atualizações
+```
+
+A issue #805 é o owner operacional de Conta/Cadastro real. A issue #586 continua sendo a referência para hardening/prova física Stable/MVP. Backlogs de expansão não ganham precedência sobre esses dois gates.
 
 ## 3. Regra para trabalho paralelo
 

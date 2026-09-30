@@ -39,7 +39,9 @@ A arquitetura de entitlement poderá limitar valor mensurável:
 - conectores e automações;
 - suporte e serviços.
 
-O MVP mantém preços, cobrança e nomes comerciais de planos fora de escopo. A política provisória preparada permite até **2 Spaces privados ativos** para a experiência gratuita, mas esse número ainda não é contrato comercial congelado.
+A estrutura comercial pré-lançamento passa a ser definida agora, sem ativar cobrança: **OrdaX Free**, **OrdaX Personal**, **OrdaX Professional** e **OrdaX Team** possuem IDs estáveis e fronteiras de valor no contrato `docs/contracts/entitlements.json`. O MVP atribui somente `free`; os planos pagos permanecem não compráveis até billing ser implementado e explicitamente ativado.
+
+O Free mantém até **2 Spaces privados ativos** como baseline do MVP. Personal adiciona continuidade/sync e compartilhamento pequeno; Professional amplia capacidade profissional, conectores/automações e suporte; Team é voltado a Spaces compartilhados e membros. **Preço continua indefinido** e quotas cujo custo depende diretamente de armazenamento/compute cloud permanecem parametrizadas até existir medição real de custo unitário. Isso evita congelar uma oferta economicamente errada só para publicar uma tabela.
 
 ### 1.3 Perfil profissional de Advocacia
 

@@ -73,7 +73,17 @@ class PublicSiteContractTests(unittest.TestCase):
         commerce = contract["commerce"]
         self.assertFalse(commerce["billing_implemented"])
         self.assertFalse(commerce["pricing_published"])
-        self.assertFalse(commerce["commercial_tiers_defined"])
+        self.assertTrue(commerce["commercial_tiers_defined"])
+        self.assertEqual(
+            commerce["commercial_tier_ids"],
+            ["free", "personal", "professional", "team"],
+        )
+        self.assertEqual(commerce["default_plan_id"], "free")
+        self.assertFalse(commerce["paid_plans_purchasable"])
+        self.assertEqual(
+            commerce["plan_contract"],
+            "docs/contracts/entitlements.json",
+        )
         self.assertFalse(commerce["commercial_device_limit_defined"])
 
     def test_identity_fails_closed_and_downloads_use_generated_catalog(self):
