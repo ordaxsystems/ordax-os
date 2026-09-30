@@ -265,3 +265,9 @@ a first-party typed adapter whose artifact identity can be verified honestly; no
 artifact hash or generic broker escape hatch will be introduced.
 
 A autoridade sensível também fica presa ao SHA-256 exato do artefato da tool. A approval retém essa identidade, o grant a copia, o Action Gateway compara com a tool atualmente resolvida e o Action Executor compara novamente com o adapter imediatamente antes do efeito. Trocar a implementação mantendo apenas o mesmo `toolId/action` invalida a autorização existente.
+
+### Primeiro adapter Native first-party
+
+O primeiro adapter concreto é `ordax-native-file-space/files.directory.ensure`. Ele usa somente o `fileSpace` canônico já montado na Surface, não expõe shell nem broker genérico e não recebe caminho fora de `file-space:`. A operação é deliberadamente idempotente: se o diretório exato já existir, a mesma execução termina com sucesso sem repetir mutação; se existir outro tipo de entrada no alvo, falha fechado.
+
+A identidade do adapter é o SHA-256 calculado sobre os bytes reais do próprio módulo servido pela mesma origem via Web Crypto. Essa identidade entra na tool e, pelo gate anterior, precisa coincidir com approval, grant, Action Gateway e Action Executor. A composição Native já registra essa tool para o fluxo de aprovação, mas ainda não conecta o `adapterResolver` ao Action Executor; portanto este corte continua sem habilitar side effect do Personal OrdaX.
