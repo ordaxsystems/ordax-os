@@ -271,6 +271,30 @@ export function createPersonalOrdaxRuntime({
         status: "revoked",
         executedAt: null,
       });
+      const activeAttempt = next.attempts.find((attempt) =>
+        attempt.approvalId === approval.id && attempt.status === "started"
+      );
+      let activities = next.activities;
+      let attempts = next.attempts;
+      if (activeAttempt) {
+        const uncertain = validatePersonalActionAttempt({
+          ...activeAttempt,
+          status: "uncertain",
+          summary: "Execution outcome is uncertain; authority was revoked before a verified receipt committed.",
+          artifactRefs: [],
+          finishedAt: occurredAt,
+        });
+        attempts = attempts.map((candidate) =>
+          candidate.id === uncertain.id ? uncertain : candidate);
+        activities = appendActivityTo(
+          activities,
+          approval.workItemId,
+          "action-finished",
+          uncertain.summary,
+          occurredAt,
+          { approvalId: approval.id, actionId: approval.actionId },
+        );
+      }
       next = {
         ...next,
         workItems: next.workItems.map((candidate) =>
@@ -279,8 +303,9 @@ export function createPersonalOrdaxRuntime({
             : candidate),
         approvals: next.approvals.map((candidate) =>
           candidate.id === revoked.id ? revoked : candidate),
+        attempts,
         activities: appendActivityTo(
-          next.activities,
+          activities,
           approval.workItemId,
           "progress",
           summary,
