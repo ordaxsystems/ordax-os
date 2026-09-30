@@ -1,3 +1,4 @@
+import { createWebMemoryEntitlements } from "../../adapters/web/entitlements.mjs";
 import { assertEntitlementsPort } from "../../contracts/entitlements.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertMemoryPort } from "../../contracts/memory.mjs";
@@ -10,6 +11,11 @@ import {
 
 export const NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA =
   "ordax.native-account-memory-foundation/1";
+
+export const NATIVE_ACCOUNT_MEMORY_COMPOSITION_SCHEMA = "ordax.native-account-memory-composition/1";
+export const NATIVE_ACCOUNT_MEMORY_SYNC_NAMESPACE = "memory";
+export const NATIVE_ACCOUNT_MEMORY_DEFERRED_NAMESPACE = "memory-deferred";
+export const NATIVE_ACCOUNT_MEMORY_RECOVERY_NAMESPACE = "memory-recovery";
 
 function requireRegistry(value) {
   if (
@@ -179,13 +185,13 @@ export function createNativeAccountMemoryFoundation({
       entitlementsPort: entitlements,
       memoryPort: memory,
       createSyncStateStore(subjectId) {
-        return registry.open("memory", { partitionKey: subjectId });
+        return registry.open(NATIVE_ACCOUNT_MEMORY_SYNC_NAMESPACE, { partitionKey: subjectId });
       },
       createDeferredStateStore(subjectId) {
-        return registry.open("memory-deferred", { partitionKey: subjectId });
+        return registry.open(NATIVE_ACCOUNT_MEMORY_DEFERRED_NAMESPACE, { partitionKey: subjectId });
       },
       createCrashRecoveryStateStore(subjectId) {
-        return registry.open("memory-crash", { partitionKey: subjectId });
+        return registry.open(NATIVE_ACCOUNT_MEMORY_RECOVERY_NAMESPACE, { partitionKey: subjectId });
       },
       createIdempotencyKey(kind = "state") {
         ordinal += 1;
@@ -241,6 +247,69 @@ export function createNativeAccountMemoryFoundation({
       if (destroyed) return;
       destroyed = true;
       accountMemory.destroy();
+    },
+  });
+}
+
+
+function requireCompositionRegistry(value) {
+  if (!value || typeof value.open !== "function") {
+    throw new TypeError("Native Account Memory composition requires a sync-state namespace registry");
+  }
+  return value;
+}
+
+export function createNativeAccountMemoryComposition({
+  windowRef = globalThis.window,
+  identitySession,
+  memoryPort,
+  syncStateRegistry,
+  createIdempotencyKey,
+  now = () => new Date(),
+  onStageError = null,
+} = {}) {
+  const registry = requireCompositionRegistry(syncStateRegistry);
+  if (typeof createIdempotencyKey !== "function") {
+    throw new TypeError("Native Account Memory composition requires createIdempotencyKey()");
+  }
+  const entitlementsPort = createWebMemoryEntitlements(windowRef);
+  const composition = createAccountMemoryAuthorizedComposition({
+    identitySession,
+    entitlementsPort,
+    memoryPort,
+    createSyncStateStore(subjectId) {
+      return registry.open(NATIVE_ACCOUNT_MEMORY_SYNC_NAMESPACE, { partitionKey: subjectId });
+    },
+    createDeferredStateStore(subjectId) {
+      return registry.open(NATIVE_ACCOUNT_MEMORY_DEFERRED_NAMESPACE, { partitionKey: subjectId });
+    },
+    createCrashRecoveryStateStore(subjectId) {
+      return registry.open(NATIVE_ACCOUNT_MEMORY_RECOVERY_NAMESPACE, { partitionKey: subjectId });
+    },
+    createIdempotencyKey,
+    now,
+    onStageError,
+  });
+
+  return Object.freeze({
+    schema: NATIVE_ACCOUNT_MEMORY_COMPOSITION_SCHEMA,
+    entitlementsPort,
+    memory: composition.memory,
+    memorySync: composition.memorySync,
+    protectedMutations: composition.protectedMutations,
+    deferredIntents: composition.deferredIntents,
+    settled: () => composition.settled(),
+    getSnapshot() {
+      return Object.freeze({
+        schema: NATIVE_ACCOUNT_MEMORY_COMPOSITION_SCHEMA,
+        accountMemory: composition.getSnapshot(),
+        entitlementEndpoint: "/account/entitlements/memory-cloud",
+        syncStatePartitioning: "account-subject",
+        publicCloudMemoryEnabled: false,
+      });
+    },
+    destroy() {
+      composition.destroy();
     },
   });
 }
