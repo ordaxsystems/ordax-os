@@ -6,6 +6,10 @@ identity, Memory, Spaces, Projects, inference, grants or platform adapters.
 The current source runtime is deliberately foreground-only:
 
 - work is created against the exact current device/account owner;
+- persistence is partitioned by owner: account switching saves/pauses the previous partition and
+  loads the new partition instead of filtering one shared quota after the fact;
+- a corrupt owner partition degrades only that owner to session state and is never overwritten
+  automatically, preserving the durable bytes for recovery;
 - Space and project scopes are opt-in and explicit, never inferred from "whatever is selected";
 - identity change, Space switch or project disappearance pauses affected active work;
 - an inference response that returns after its owner/context changed is discarded instead of being
