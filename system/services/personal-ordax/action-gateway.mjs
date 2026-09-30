@@ -123,18 +123,21 @@ export function createPersonalOrdaxActionGateway({
       }
 
       const exactScope = grant.grantId === grantRef
+        && request.approvalId !== null
+        && grant.approvalId === request.approvalId
         && grant.toolId === request.toolId
         && grant.action === request.actionId
         && grant.mode === grantModeForEffect(request.effect)
         && grant.ownerKind === request.ownerKind
         && sameNullable(grant.ownerId, request.ownerId)
         && sameNullable(grant.spaceId, request.spaceId)
-        && sameNullable(grant.projectId, request.projectId);
+        && sameNullable(grant.projectId, request.projectId)
+        && sameNullable(grant.resourceRef, request.resourceRef);
       if (!exactScope || !authorizeIntelligenceToolAction(tool, grant)) {
         return decision(request, {
           decision: "deny",
           authoritySource: "intelligence-tool-grant",
-          reason: "Grant does not match the exact owner, context, tool, action and effect.",
+          reason: "Grant does not match the exact approval, owner, context, resource, tool, action and effect.",
           decidedAt,
         });
       }
