@@ -379,6 +379,9 @@ async function start() {
   const memoryReview = memoryReviewSession === null
     ? null
     : createMemoryReviewViewModel(memoryReviewSession);
+  const memoryConflictReview = accountMemoryFoundation?.memorySync == null
+    ? null
+    : createMemoryConflictReviewRuntime(accountMemoryFoundation.memorySync);
   const identityActions = createWebIdentityActions(window, identitySession);
   const identityCredentials = createSameOriginIdentityCredentials(window);
   const spaces = createWebSpacesCatalog(window);
@@ -629,6 +632,7 @@ async function start() {
     memoryReview,
     spaceSelection,
     surface.preferences,
+    memoryConflictReview,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
