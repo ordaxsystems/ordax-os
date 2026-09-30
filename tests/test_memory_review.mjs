@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createMemoryRuntime } from "../system/services/memory/runtime.mjs";
-import { createMemoryReviewRuntime } from "../system/services/memory/review.mjs";
+import {
+  MEMORY_REVIEW_EXPORT_SCHEMA,
+  createMemoryReviewRuntime,
+} from "../system/services/memory/review.mjs";
 
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -217,4 +220,42 @@ test("manual Memory creation refuses structural Space/project review boundaries"
     idFactory: () => "manual-space",
   });
   assert.throws(() => review.create("não criar aqui"), /personal owner scopes/);
+});
+
+
+test("memory review exports every item inside the selected authorization boundary", () => {
+  const memory = createMemoryRuntime();
+  for (let index = 0; index < 40; index += 1) {
+    memory.remember(item({
+      id: `device-export-${index}`,
+      ownerKind: "device",
+      ownerId: null,
+      scope: "device",
+      spaceId: null,
+      projectId: null,
+      content: `local ${index}`,
+    }));
+  }
+  memory.remember(item({
+    id: "account-not-exported",
+    scope: "account",
+    spaceId: null,
+    projectId: null,
+    content: "account-only",
+  }));
+
+  const review = createMemoryReviewRuntime(memory, {
+    ownerKind: "device",
+    ownerId: null,
+    now: () => new Date("2026-09-30T03:00:00Z"),
+  });
+  const exported = review.exportSnapshot();
+
+  assert.equal(exported.$schema, MEMORY_REVIEW_EXPORT_SCHEMA);
+  assert.equal(exported.exportedAt, "2026-09-30T03:00:00.000Z");
+  assert.deepEqual(exported.owner, { ownerKind: "device", ownerId: null });
+  assert.equal(exported.spaceId, null);
+  assert.equal(exported.projectId, null);
+  assert.equal(exported.items.length, 40);
+  assert.equal(exported.items.some((entry) => entry.id === "account-not-exported"), false);
 });
