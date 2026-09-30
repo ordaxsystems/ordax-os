@@ -5,6 +5,7 @@ on:
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_full_build_proof.py'
+      - 'tests/test_windows_compat_unixlib_link_policy.py'
       - 'tests/test_windows_compat_runtime_dependency_discovery.py'
       - 'tests/test_windows_compat_runtime_first_hit_guard.py'
       - 'tests/test_windows_compat_runtime_first_hit_proof.py'
@@ -21,6 +22,7 @@ on:
     paths:
       - 'bootstrap/windows-compat-runtime/**'
       - 'tests/test_windows_compat_full_build_proof.py'
+      - 'tests/test_windows_compat_unixlib_link_policy.py'
       - 'tests/test_windows_compat_runtime_dependency_discovery.py'
       - 'tests/test_windows_compat_runtime_first_hit_guard.py'
       - 'tests/test_windows_compat_runtime_first_hit_proof.py'
@@ -63,6 +65,7 @@ jobs:
           set -euo pipefail
           python bootstrap/windows-compat-runtime/validate_build_version_lock.py
           python bootstrap/windows-compat-runtime/validate_apk_content_lock.py
+          python bootstrap/windows-compat-runtime/unixlib_link_policy.py check
           python bootstrap/windows-compat-runtime/container_full_build_probe.py check
           python bootstrap/windows-compat-runtime/runtime_unixlib_preload_source_probe.py check
           python bootstrap/windows-compat-runtime/runtime_dependency_probe.py check
@@ -75,6 +78,7 @@ jobs:
           python -m unittest tests.test_windows_compat_build_version_lock -v
           python -m unittest tests.test_windows_compat_apk_content_lock -v
           python -m unittest tests.test_windows_compat_full_build_proof -v
+          python -m unittest tests.test_windows_compat_unixlib_link_policy -v
           python -m unittest tests.test_windows_compat_runtime_unixlib_preload_source -v
           python -m unittest tests.test_windows_compat_runtime_unixlib_preload_runtime_guard -v
           python -m unittest tests.test_windows_compat_runtime_dependency_discovery -v
@@ -130,12 +134,42 @@ jobs:
           assert gates['wine_executed'] is False
           assert proof['apk_content_manifest_sha256'] == 'd4a5133c36b81a5123e3a3edbf5df485fe13aec994e088966bdba44a3b571c87'
           assert proof['resolved_closure_sha256'] == 'f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff'
+          link = proof['unixlib_link_policy']
+          assert link['$schema'] == 'prototype-ordax.windows-compat-unixlib-link-policy-proof/1'
+          assert link['status'] == 'origin-runpath-build-policy-proven-not-runtime-pinned'
+          assert re.fullmatch(r'[0-9a-f]{64}', link['evidence_sha256'])
+          assert link['preflight']['dt_rpath'] is None
+          assert link['preflight']['dt_runpath'] == '$ORIGIN'
+          assert 'win32u.so' in link['preflight']['dt_needed']
+          for gate in (
+              'source_archive_identity_bound',
+              'configure_anchor_verified',
+              'generated_makefile_unixldflags_verified',
+              'preflight_elf_verified',
+              'dt_runpath_origin_verified',
+              'dt_rpath_absent',
+          ):
+              assert link['gates'][gate] is True, gate
+          for gate in (
+              'ambient_ld_library_path_used',
+              'global_wine_library_path_fallback_used',
+              'runtime_dependency_inventory_complete',
+              'runtime_package_content_hashes_pinned',
+              'binary_artifact_pinned',
+              'activation_authorized',
+              'execution_authorized',
+              'wine_executed',
+              'windows_payload_executed',
+          ):
+              assert link['gates'][gate] is False, gate
           staging = proof['staging']
           assert staging['entry_count'] > 0
           assert staging['regular_file_count'] > 0
           assert staging['total_regular_bytes'] > 0
           assert re.fullmatch(r'[0-9a-f]{64}', staging['canonical_manifest_sha256'])
           print('Wine locked-container full build proof: PASS')
+          print('Unixlib link policy:', link['evidence_sha256'])
+          print('Unixlib preflight RUNPATH:', link['preflight']['dt_runpath'])
           print('staged entries:', staging['entry_count'])
           print('staged manifest:', staging['canonical_manifest_sha256'])
           PY
