@@ -186,6 +186,7 @@ def _assert_stable_mvp_rollback_target(target: dict, space_kind: str) -> None:
 def _permission_review_digest(
     *,
     expected_revision: int,
+    subject_id: str,
     space_id: str,
     space_kind: str,
     profile: dict,
@@ -195,6 +196,7 @@ def _permission_review_digest(
     payload = {
         "schema": "ordax.profile-permission-review/1",
         "expectedRevision": expected_revision,
+        "subjectId": subject_id,
         "spaceId": space_id,
         "spaceKind": space_kind,
         "profile": profile,
@@ -246,11 +248,25 @@ def execute_profile_activation_command(
     if not isinstance(payload, dict):
         raise ValueError("Profile activation command must be an object")
     action = payload.get("action")
+    raw_subject_id = payload.get("subjectId")
+    if raw_subject_id is None and distribution_profile == "owner-development":
+        subject_id = "owner-development"
+    elif (
+        isinstance(raw_subject_id, str)
+        and raw_subject_id
+        and len(raw_subject_id) <= 200
+        and "\x00" not in raw_subject_id
+    ):
+        subject_id = raw_subject_id
+    else:
+        raise PermissionError("Stable/MVP Profile activation requires an authenticated subject")
     expected_revision = payload.get("expectedRevision")
     if isinstance(expected_revision, bool) or not isinstance(expected_revision, int) or expected_revision < 0:
         raise ValueError("Profile activation expected revision is invalid")
     if action in {"preview-activate", "activate"}:
         activate_fields = {"schema", "action", "expectedRevision", "spaceId", "spaceKind", "profile", "components"}
+        if "subjectId" in payload:
+            activate_fields.add("subjectId")
         if action == "activate":
             activate_fields = {*activate_fields, "activatedAt"}
             if "acceptedPermissionDiffSha256" in payload:
@@ -277,6 +293,7 @@ def execute_profile_activation_command(
             _assert_stable_mvp_activation_allowed(manifest, components, permission_diff)
         review_digest = _permission_review_digest(
             expected_revision=expected_revision,
+            subject_id=subject_id,
             space_id=space_id,
             space_kind=space_kind,
             profile=profile,
@@ -318,6 +335,7 @@ def execute_profile_activation_command(
         elif accepted_digest is not None and accepted_digest != review_digest:
             raise PermissionError("Profile permission diff acceptance does not match activation intent")
         result = activate_profile(
+            subject_id=subject_id,
             space_id=space_id,
             space_kind=space_kind,
             activation={
@@ -333,7 +351,10 @@ def execute_profile_activation_command(
     elif action in {"deactivate", "rollback"}:
         permission_diff = None
         review_digest = None
-        if set(payload) != {"schema", "action", "expectedRevision", "spaceId"}:
+        mutation_fields = {"schema", "action", "expectedRevision", "spaceId"}
+        if "subjectId" in payload:
+            mutation_fields.add("subjectId")
+        if set(payload) != mutation_fields:
             raise ValueError("Profile mutation command fields are incompatible")
         if payload.get("schema") != COMMAND_SCHEMA:
             raise ValueError("Profile activation command schema is incompatible")
@@ -342,6 +363,7 @@ def execute_profile_activation_command(
             raise ValueError("Profile activation Space id is invalid")
         if action == "deactivate":
             result = deactivate_profile(
+                subject_id=subject_id,
                 space_id=space_id,
                 expected_revision=expected_revision,
                 state_path=state_path,
@@ -349,6 +371,7 @@ def execute_profile_activation_command(
             )
         else:
             result = rollback_profile(
+                subject_id=subject_id,
                 space_id=space_id,
                 expected_revision=expected_revision,
                 state_path=state_path,
