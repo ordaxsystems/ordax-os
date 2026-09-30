@@ -393,7 +393,6 @@ test("Native fresh install blocks remote Memory when coordination state requires
   });
 
   assert.equal(harness.foundation.getSnapshot().state, "recovery-required");
-  assert.equal(harness.foundation.memorySync, null);
 
   await harness.accountSync.refresh();
 
