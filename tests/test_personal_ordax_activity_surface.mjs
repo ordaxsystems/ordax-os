@@ -88,6 +88,7 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.match(source, /dataset\.personalWorkCreate/);
   assert.match(source, /personalOrdax\.create\(goal\)/);
   assert.match(source, /personalOrdax\.run\(id\)/);
+  assert.match(source, /approvalConsent\.canApprove\(item\.id, entry\.pendingApproval\.id\)/);
   assert.match(source, /approvalConsent\.approve\(workItemId, approvalId\)/);
   assert.match(source, /approvalConsent\.deny\(workItemId, approvalId\)/);
   assert.match(source, /dataset\.personalApprovalAction/);
