@@ -199,6 +199,35 @@ If the store internet connection is lost, the cloud may continue receiving onlin
 store cannot receive them over that failed link until connectivity returns; an authorized phone on
 cellular data may remain usable independently.
 
+## Mobile Companion media and presence
+
+Realtime business/device events are distinct from live phone capabilities.
+
+Camera/microphone streaming uses a consented media session rather than the operational event bus.
+Device presence/location uses the versioned Mobile Companion contract and may feed a device-locator
+experience, but exact location is opt-in and account/Space-scoped.
+
+A future virtual-webcam path is:
+
+```text
+phone camera
+ -> Mobile Companion grant
+ -> encrypted realtime media
+ -> Desktop/Native virtual-camera adapter
+ -> application
+```
+
+A future voice path is:
+
+```text
+phone microphone
+ -> Mobile Companion grant
+ -> encrypted realtime media
+ -> OrdaX Intelligence voice input
+```
+
+See `docs/MOBILE-COMPANION.md`.
+
 ## Web and Mobile
 
 OrdaX Web and OrdaX Mobile consume the same operational contracts. They do not receive
