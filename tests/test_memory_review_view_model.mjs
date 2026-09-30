@@ -341,3 +341,34 @@ test("review view exports the selected owner independently of page and search st
   assert.throws(() => view.exportSnapshot(), /disposed/);
   session.dispose();
 });
+
+
+test("review view clearAll clears the full owner and resets search pagination after durable success", async () => {
+  let flushes = 0;
+  const base = createMemoryRuntime();
+  const memory = Object.freeze({
+    ...base,
+    async flush() {
+      flushes += 1;
+      return true;
+    },
+  });
+  for (let index = 0; index < 6; index += 1) memory.remember(item(index));
+  const session = createMemoryReviewSession({ memoryPort: memory });
+  const view = createMemoryReviewViewModel(session, { pageSize: 2 });
+
+  view.nextPage();
+  view.setQuery("5");
+  assert.equal(view.getSnapshot().query, "5");
+
+  const result = await view.clearAll();
+
+  assert.equal(result.removed, 6);
+  assert.equal(flushes, 6);
+  assert.equal(view.getSnapshot().query, "");
+  assert.equal(view.getSnapshot().offset, 0);
+  assert.deepEqual(view.getSnapshot().items, []);
+  assert.equal(view.getSnapshot().persistenceState, "saved");
+  view.dispose();
+  session.dispose();
+});
