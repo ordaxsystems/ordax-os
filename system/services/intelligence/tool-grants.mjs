@@ -100,6 +100,7 @@ export function createIntelligenceToolGrantAuthority({
 
       const grant = validateIntelligenceToolGrant({
         grantId,
+        approvalId: request.approvalId,
         toolId: request.toolId,
         action: request.action,
         mode: request.mode,
@@ -109,6 +110,7 @@ export function createIntelligenceToolGrantAuthority({
         ownerId: request.ownerId,
         spaceId: request.spaceId,
         projectId: request.projectId,
+        resourceRef: request.resourceRef,
         expiresAt: request.expiresAt,
       });
       grants.set(grant.grantId, grant);
