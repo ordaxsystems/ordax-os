@@ -63,7 +63,7 @@ export function createNativePersonalOrdaxComposition({
         && approval.grantRef !== null
         && registry.resolve(approval.grantRef) === null
       ) {
-        runtime.revokeApprovedAction(approval.workItemId, approval.id);
+        runtime.reconcileMissingApprovedAuthority(approval.workItemId, approval.id);
         changed = true;
       }
     }
