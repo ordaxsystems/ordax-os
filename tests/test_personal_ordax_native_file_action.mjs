@@ -4,20 +4,22 @@ import test from "node:test";
 import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
 import {
   NATIVE_FILE_ACTION_TOOL_ID,
-  NATIVE_FILE_CREATE_DIRECTORY_ACTION,
+  NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
   createNativePersonalOrdaxFileActions,
 } from "../system/adapters/native/personal-ordax-file-actions.mjs";
 import { readNativeToolArtifactSha256 } from "../system/adapters/native/tool-artifact-identity.mjs";
 
 function fileSpace({ listingTransform = (value) => value } = {}) {
   const calls = [];
+  let listedEntries = [];
   const port = {
     schema: FILE_SPACE_SCHEMA,
     async list(path = "/") {
-      return { path, entries: [] };
+      return { path, entries: listedEntries };
     },
     async createDirectory(path, name) {
       calls.push({ path, name });
+      listedEntries = [{ name, kind: "directory", size: 0, modifiedAt: 1 }];
       return listingTransform({
         path,
         entries: [{
@@ -99,12 +101,12 @@ test("Native create-directory adapter exposes one bounded first-party action", a
   assert.equal(actions.tool.network.allowed, false);
   assert.deepEqual(
     actions.tool.actions.map((action) => action.id),
-    [NATIVE_FILE_CREATE_DIRECTORY_ACTION],
+    [NATIVE_FILE_ENSURE_DIRECTORY_ACTION],
   );
 
   const adapter = actions.adapterResolver(
     NATIVE_FILE_ACTION_TOOL_ID,
-    NATIVE_FILE_CREATE_DIRECTORY_ACTION,
+    NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
   );
   assert.ok(adapter);
   assert.equal(adapter.artifactSha256, actions.tool.artifactSha256);
@@ -120,6 +122,27 @@ test("Native create-directory adapter exposes one bounded first-party action", a
   assert.deepEqual(result.artifactRefs, ["file-space:/Documentos/Novo Projeto"]);
 });
 
+test("Native ensure-directory action is idempotent when the exact directory already exists", async () => {
+  const files = fileSpace();
+  await files.port.createDirectory("/Documentos", "Existente");
+  files.calls.length = 0;
+  const actions = await createNativePersonalOrdaxFileActions({
+    windowRef: {},
+    fileSpace: files.port,
+    artifactIdentity: async () => "f".repeat(64),
+  });
+  const adapter = actions.adapterResolver(
+    NATIVE_FILE_ACTION_TOOL_ID,
+    NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
+  );
+
+  const result = await adapter.execute({
+    resourceRef: "file-space:/Documentos/Existente",
+  });
+  assert.equal(result.status, "succeeded");
+  assert.deepEqual(files.calls, []);
+});
+
 test("Native create-directory adapter cannot escape the canonical file-space", async () => {
   const files = fileSpace();
   const actions = await createNativePersonalOrdaxFileActions({
@@ -129,7 +152,7 @@ test("Native create-directory adapter cannot escape the canonical file-space", a
   });
   const adapter = actions.adapterResolver(
     NATIVE_FILE_ACTION_TOOL_ID,
-    NATIVE_FILE_CREATE_DIRECTORY_ACTION,
+    NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
   );
 
   for (const resourceRef of [
@@ -159,7 +182,7 @@ test("Native create-directory adapter fails when host result does not prove the 
   });
   const adapter = actions.adapterResolver(
     NATIVE_FILE_ACTION_TOOL_ID,
-    NATIVE_FILE_CREATE_DIRECTORY_ACTION,
+    NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
   );
 
   await assert.rejects(
