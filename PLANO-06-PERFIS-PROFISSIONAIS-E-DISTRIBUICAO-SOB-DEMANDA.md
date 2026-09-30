@@ -167,7 +167,7 @@ O MVP deve provar o mecanismo antes de abrir uma Store pública.
 
 ### Gate atual real
 
-Os gates de receipt/inventory, executor confiável, health/rollback e UI de catálogo já estão implementados e cobertos por CI/source tests. O próximo gate real é **first-public-profile-proof**, agora concretizado pelo candidato não regulado `pizzaria-br@1`.
+Os gates de receipt/inventory, executor confiável, health/rollback e UI de catálogo já estão implementados e cobertos por CI/source tests. O próximo gate real é **first-public-profile-proof**, agora concretizado pelos candidatos não regulados `pizzaria-br@1` e `impressao-3d-br@1`, ambos usando a mesma política de ativação segura.
 
 Esse gate continua bloqueado até existir um Profile canônico com componente realmente publicado sob trust anchor canônica, receipt real, instalação/health válidos e revisão de domínio. Chave efêmera de CI, fixture de teste ou payload inventado não satisfaz esse gate.
 
@@ -181,6 +181,30 @@ Esse gate continua bloqueado até existir um Profile canônico com componente re
 - downloads reais de payload sem trust/publicação canônica.
 
 ## 7. Perfis iniciais
+
+### Impressão 3D / Fabricação digital
+
+`impressao-3d-br@1` é o segundo Profile demonstrável e reutiliza **o mesmo** boundary
+seguro do Profile Pizzaria. Ele não cria um runtime separado e não adiciona payload pesado
+ao USB.
+
+Recorte v1:
+
+- Arquivos, Notas, Internet e Projetos já existentes;
+- fila de produção;
+- pedidos/orçamentos;
+- materiais e filamentos;
+- perfis de impressão;
+- controle de qualidade/falhas;
+- manutenção de impressoras;
+- clientes/entregas;
+- custos e preços;
+- Memory restrita ao Space/projeto;
+- nenhum slicer, CAD, driver de impressora, conector cloud ou automação privilegiada embutidos nesta etapa.
+
+No pós-MVP, apps/Skills/Connectors podem acrescentar slicer, gestão de farm, estimativa de
+material/tempo, monitoramento de impressoras, CAD/3D e integrações. Esses recursos devem
+entrar como componentes versionados, não como exceções dentro do Profile.
 
 ### Pizzaria / Pequeno negócio de alimentação
 
