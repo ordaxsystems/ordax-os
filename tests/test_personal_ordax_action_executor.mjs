@@ -115,6 +115,51 @@ test("Action Executor revalidates authority immediately before invoking typed ad
   assert.deepEqual(receipt.artifactRefs, ["file-space:/Documentos/Novo"]);
 });
 
+test("policy-authorized read executes without inventing resource or grant references", async () => {
+  const gateway = createPersonalOrdaxActionGateway({
+    toolResolver: () => null,
+    grantResolver: () => null,
+    readPolicy: () => true,
+    now: () => NOW,
+  });
+  const actionRequest = request({
+    actionId: "files.document.read",
+    effect: "read",
+    resourceRef: null,
+  });
+  const decision = gateway.decide(actionRequest);
+  assert.equal(decision.decision, "allow");
+  assert.equal(decision.authoritySource, "system-policy");
+  assert.equal(decision.grantRef, null);
+
+  const executor = createPersonalOrdaxActionExecutor({
+    actionGateway: gateway,
+    adapterResolver() {
+      return {
+        schema: ACTION_ADAPTER_SCHEMA,
+        toolId: "files-inspector",
+        artifactSha256: "a".repeat(64),
+        actionId: "files.document.read",
+        effect: "read",
+        async execute() {
+          return {
+            status: "succeeded",
+            summary: "Read completed under trusted policy.",
+            artifactRefs: [],
+          };
+        },
+      };
+    },
+    now: () => NOW,
+  });
+
+  const receipt = await executor.execute({ request: actionRequest, decision });
+  assert.equal(receipt.status, "succeeded");
+  assert.equal(receipt.effect, "read");
+  assert.equal(receipt.resourceRef, null);
+  assert.equal(receipt.grantRef, null);
+});
+
 test("revoked grant fails closed before adapter side effect", async () => {
   const { grants, gateway } = setup();
   const actionRequest = request();
