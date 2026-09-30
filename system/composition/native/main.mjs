@@ -305,7 +305,6 @@ async function start() {
   const workspaceMetadata = createWorkspaceMetadataBridge(localWorkspaceStore);
   const workspaceStore = workspaceMetadata.store;
   const identitySession = createWebIdentitySession(window);
-  await identitySession.refresh();
   const syncStateRegistry = syncStateStore === null
     ? null
     : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
@@ -697,6 +696,14 @@ async function start() {
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
+
+  // Account/continuity is online enrichment, not a boot-health dependency.
+  // Start it only after the real shared Surface has mounted and acknowledged
+  // health so an unreachable gateway cannot roll back an otherwise healthy,
+  // offline-capable Stable/MVP candidate.
+  void resumeAccountConnectivity().catch((error) => {
+    console.warn("OrdaX account connectivity refresh remains pending after Surface health", error);
+  });
 
   bootScreen.setStage(surface.localization.translate("surface.boot.loadingApps"));
 
