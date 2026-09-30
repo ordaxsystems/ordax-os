@@ -5,14 +5,20 @@ on:
     paths:
       - 'system/contracts/entitlements.mjs'
       - 'system/contracts/identity-session.mjs'
+      - 'system/contracts/memory.mjs'
+      - 'system/contracts/sync-state-store.mjs'
       - 'system/services/memory/**'
       - 'system/services/sync/account-memory-authorization.mjs'
       - 'system/services/sync/account-memory-entitlement-session.mjs'
+      - 'system/services/sync/account-memory-local-bridge.mjs'
       - 'system/services/sync/account-memory-composition.mjs'
+      - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
       - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_entitlement_session.mjs'
+      - 'tests/test_account_memory_local_bridge.mjs'
       - 'tests/test_account_memory_transport_authorization.mjs'
+      - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
       - '.github/workflows/account-memory-authorized-composition.yml'
   push:
@@ -20,14 +26,20 @@ on:
     paths:
       - 'system/contracts/entitlements.mjs'
       - 'system/contracts/identity-session.mjs'
+      - 'system/contracts/memory.mjs'
+      - 'system/contracts/sync-state-store.mjs'
       - 'system/services/memory/**'
       - 'system/services/sync/account-memory-authorization.mjs'
       - 'system/services/sync/account-memory-entitlement-session.mjs'
+      - 'system/services/sync/account-memory-local-bridge.mjs'
       - 'system/services/sync/account-memory-composition.mjs'
+      - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
       - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_entitlement_session.mjs'
+      - 'tests/test_account_memory_local_bridge.mjs'
       - 'tests/test_account_memory_transport_authorization.mjs'
+      - 'tests/test_account_memory_deferred_intents.mjs'
       - 'tests/test_account_memory_authorized_composition.mjs'
       - '.github/workflows/account-memory-authorized-composition.yml'
   workflow_dispatch:
@@ -48,7 +60,11 @@ jobs:
       - name: Validate source syntax
         run: |
           set -euo pipefail
+          node --check system/services/sync/account-memory-local-bridge.mjs
+          node --check system/services/sync/account-memory-deferred-intents.mjs
           node --check system/services/sync/account-memory-authorized-composition.mjs
+          node --check tests/test_account_memory_local_bridge.mjs
+          node --check tests/test_account_memory_deferred_intents.mjs
           node --check tests/test_account_memory_authorized_composition.mjs
 
       - name: Prove entitlement-gated local-first Memory composition
@@ -56,5 +72,7 @@ jobs:
           set -euo pipefail
           node --test tests/test_account_memory_authorization.mjs
           node --test tests/test_account_memory_entitlement_session.mjs
+          node --test tests/test_account_memory_local_bridge.mjs
           node --test tests/test_account_memory_transport_authorization.mjs
+          node --test tests/test_account_memory_deferred_intents.mjs
           node --test tests/test_account_memory_authorized_composition.mjs
