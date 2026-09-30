@@ -392,8 +392,6 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
       succeededAttemptByApproval.add(attempt.approvalId);
     } else if (attempt.status === "uncertain" && approval.status !== "revoked") {
       throw new TypeError("uncertain Personal OrdaX action attempt requires revoked authority");
-    } else if (attempt.status === "failed" && approval.status !== "approved") {
-      throw new TypeError("pre-side-effect failed attempt must retain its approved authority");
     }
   }
 
