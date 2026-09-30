@@ -82,6 +82,7 @@ export function createPersonalApprovalConsent({
       return false;
     }
     if (!TOOL_GRANT_EFFECTS.has(pair.approval.effect)) return false;
+    if (pair.approval.effect === "write" && pair.approval.resourceRef === null) return false;
     try {
       const tool = defineIntelligenceTool(toolResolver(pair.approval.toolId));
       const action = tool.actions.find((candidate) => candidate.id === pair.approval.actionId);
@@ -118,6 +119,7 @@ export function createPersonalApprovalConsent({
         ownerId: item.ownerId,
         spaceId: item.spaceId,
         projectId: item.projectId,
+        resourceRef: approval.resourceRef,
         requestedAt: new Date(approvedAtMs).toISOString(),
         expiresAt: new Date(approvedAtMs + grantTtlMs).toISOString(),
       });
