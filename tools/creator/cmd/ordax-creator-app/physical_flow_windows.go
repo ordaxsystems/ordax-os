@@ -269,11 +269,11 @@ func beginPhysicalWrite() {
 
 	updateWriteProgress("Preparando o pendrive OrdaX…", "A imagem oficial está sendo validada e preparada para o tamanho exato do USB selecionado.")
 	go func() {
-		completeWrite(executePhysicalWrite(state.BackendDirectory, target))
+		completeWrite(executePhysicalWrite(state, target))
 	}()
 }
 
-func executePhysicalWrite(directory string, target physicalTarget) error {
+func executeLegacyPhysicalWrite(directory string, target physicalTarget) error {
 	backend := filepath.Join(directory, "ordax-creator-physical-test.exe")
 	seed := filepath.Join(directory, "ordax-bootstrap-seed.raw")
 	for _, path := range []string{backend, seed} {
