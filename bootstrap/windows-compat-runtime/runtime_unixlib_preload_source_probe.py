@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""Derive source-authoritative Wine Unixlib preload relations without execution.
+"""Derive Wine builtin unixlib dependency-attach preload relations from locked source.
 
-The proof has two fail-closed derivation classes:
-* direct dependency-attach: the Unixlib consumer also imports the provider PE DLL;
-* forwarder prerequisite: a PE forwarding module proves that the provider PE DLL
-  is dependency-attached before the Unixlib consumer is activated lazily.
-
-Both classes are derived only from the locked Wine 11.0 source archive. Runtime
-use additionally requires the exact staged provider beside the consumer and an
-identical ELF identity. Nothing here authorizes Wine or Windows execution.
+The proof is source-only. It derives consumer/provider unixlib relations from
+Makefile.in metadata, requires a normal PE import plus the matching Unix link
+flag, proves both modules initialize their unixlib during DLL_PROCESS_ATTACH,
+and binds the Wine loader semantics that initialize PE dependencies before the
+consumer and dlopen the registered unixlib lazily. It never executes Wine.
 """
 
 from __future__ import annotations
@@ -30,10 +27,6 @@ MAX_TEXT_BYTES = 4 * 1024 * 1024
 MAKEFILE_RE = re.compile(r"^dlls/[^/]+/Makefile\.in$")
 ASSIGN_RE = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*(\+?=)\s*(.*?)\s*$")
 LINK_RE = re.compile(r"^-l([A-Za-z0-9_+.-]+)$")
-
-DIRECT_RELATION_KIND = "direct-consumer-pe-dependency-attach"
-FORWARDER_RELATION_KIND = "forwarder-prerequisite-pe-dependency-attach"
-PRELOAD_ORDER = "provider-pe-dependency-attach-before-consumer-unixlib-dlopen"
 
 
 class UnixlibPreloadSourceError(RuntimeError):
@@ -84,7 +77,6 @@ def load_contract() -> dict:
         raise UnixlibPreloadSourceError("unixlib preload source archive identity drifted")
     if source.get("archive_root") != "wine-11.0" or source.get("module_makefile_glob") != "dlls/*/Makefile.in":
         raise UnixlibPreloadSourceError("unixlib preload source scan surface drifted")
-
     derivation = value.get("derivation", {})
     required = (
         "consumer_unixlib_required",
@@ -95,7 +87,6 @@ def load_contract() -> dict:
         "provider_process_attach_unix_init_required",
         "consumer_process_attach_unix_init_required",
         "dependency_attach_precedes_consumer_attach_required",
-        "forwarder_activation_prerequisite_required",
         "winecrt_memory_query_bridge_required",
         "builtin_unix_path_registration_required",
         "lazy_unixlib_dlopen_required",
@@ -104,51 +95,15 @@ def load_contract() -> dict:
     )
     if any(derivation.get(key) is not True for key in required):
         raise UnixlibPreloadSourceError("unixlib preload derivation guarantees drifted")
-
     authority = value.get("source_authority")
-    if not isinstance(authority, dict):
-        raise UnixlibPreloadSourceError("unixlib preload source authority is missing")
-    expected_core = {
+    expected_authority = {
         "pe_loader_path": "dlls/ntdll/loader.c",
         "unix_loader_path": "dlls/ntdll/unix/loader.c",
         "virtual_memory_path": "dlls/ntdll/unix/virtual.c",
         "winecrt_unix_path": "dlls/winecrt0/unix_lib.c",
     }
-    if any(authority.get(key) != expected for key, expected in expected_core.items()):
+    if authority != expected_authority:
         raise UnixlibPreloadSourceError("unixlib preload source authority paths drifted")
-    activation = authority.get("forwarder_activation_prerequisites")
-    if not isinstance(activation, list) or not activation:
-        raise UnixlibPreloadSourceError("forwarder activation prerequisite authority is missing")
-    seen: set[tuple[str, str]] = set()
-    required_activation_fields = (
-        "consumer_module",
-        "consumer_unixlib",
-        "consumer_makefile",
-        "provider_importlib",
-        "provider_module",
-        "provider_unixlib",
-        "provider_makefile",
-        "forwarder_module",
-        "forwarder_makefile",
-        "forwarder_spec",
-        "forwarder_target_prefix",
-        "forwarder_attach_source",
-        "forwarder_attach_call",
-        "prerequisite_importlib",
-        "prerequisite_module",
-        "prerequisite_makefile",
-        "consumer_lazy_source",
-        "consumer_lazy_init_fragment",
-        "consumer_lazy_once_fragment",
-    )
-    for item in activation:
-        if not isinstance(item, dict) or any(not isinstance(item.get(key), str) or not item[key] for key in required_activation_fields):
-            raise UnixlibPreloadSourceError("invalid forwarder activation prerequisite authority")
-        key = (item["consumer_unixlib"], item["provider_unixlib"])
-        if key in seen:
-            raise UnixlibPreloadSourceError("duplicate forwarder activation prerequisite authority")
-        seen.add(key)
-
     promotion = value.get("promotion", {})
     if not promotion or any(flag is not False for flag in promotion.values()):
         raise UnixlibPreloadSourceError("unixlib preload source contract claims promotion or execution")
@@ -309,7 +264,6 @@ def collect_makefiles(archive: Path, source: dict) -> tuple[list[dict], dict[str
 
 
 def derive_candidate_relations(modules: dict[str, dict]) -> list[dict]:
-    """Derive the strict direct-consumer PE dependency-attach class."""
     providers: dict[str, dict] = {}
     for record in modules.values():
         if not record["importlib"] or not record["unixlib"] or not record["module"]:
@@ -323,7 +277,7 @@ def derive_candidate_relations(modules: dict[str, dict]) -> list[dict]:
         if not consumer["unixlib"] or not consumer["module"]:
             continue
         imports = set(consumer["values"].get("IMPORTS", "").split())
-        link_names: list[str] = []
+        link_names = []
         for token in consumer["values"].get("UNIX_LIBS", "").split():
             match = LINK_RE.fullmatch(token)
             if match:
@@ -335,7 +289,6 @@ def derive_candidate_relations(modules: dict[str, dict]) -> list[dict]:
             if provider is None:
                 continue
             relations.append({
-                "relation_kind": DIRECT_RELATION_KIND,
                 "link_name": link_name,
                 "consumer_module": consumer["module"],
                 "consumer_unixlib": consumer["unixlib"],
@@ -374,7 +327,7 @@ def collect_source_files(archive: Path, source: dict, directories: set[str], aut
         raise UnixlibPreloadSourceError(f"cannot collect relevant source: {exc}") from exc
     missing = sorted(authority_paths - set(found))
     if missing:
-        raise UnixlibPreloadSourceError(f"locked source lacks authority files: {missing}")
+        raise UnixlibPreloadSourceError(f"locked source lacks loader authority files: {missing}")
     return found
 
 
@@ -438,9 +391,17 @@ def prove_loader_semantics(sources: dict[str, dict], contract: dict) -> dict:
     if register <= extension:
         raise UnixlibPreloadSourceError("builtin unixlib path is not registered after .so name derivation")
 
-    require_fragment(winecrt, "return NtQueryVirtualMemory( GetCurrentProcess(), image_base(), MemoryWineUnixFuncs, &__wine_unixlib_handle, sizeof(__wine_unixlib_handle), NULL );", "winecrt unix init")
+    require_fragment(
+        winecrt,
+        "return NtQueryVirtualMemory( GetCurrentProcess(), image_base(), MemoryWineUnixFuncs, &__wine_unixlib_handle, sizeof(__wine_unixlib_handle), NULL );",
+        "winecrt unix init",
+    )
     case = require_fragment(virtual, "case MemoryWineUnixFuncs:", "MemoryWineUnixFuncs handler")
-    bridge = require_fragment(virtual, "status = get_builtin_unix_funcs( module, info_class == MemoryWineUnixWow64Funcs, &funcs );", "builtin unix funcs bridge")
+    bridge = require_fragment(
+        virtual,
+        "status = get_builtin_unix_funcs( module, info_class == MemoryWineUnixWow64Funcs, &funcs );",
+        "builtin unix funcs bridge",
+    )
     require_fragment(virtual, "builtin->unix_handle = dlopen( builtin->unix_path, RTLD_NOW );", "builtin unixlib dlopen")
     if bridge <= case:
         raise UnixlibPreloadSourceError("MemoryWineUnixFuncs handler does not reach builtin unix funcs after case selection")
@@ -458,149 +419,6 @@ def prove_loader_semantics(sources: dict[str, dict], contract: dict) -> dict:
     }
 
 
-def _require_makefile_record(modules: dict[str, dict], path: str, label: str) -> dict:
-    record = modules.get(path)
-    if not isinstance(record, dict):
-        raise UnixlibPreloadSourceError(f"{label} Makefile is missing from locked source: {path}")
-    return record
-
-
-def _require_token(values: dict[str, str], name: str, token: str, label: str) -> None:
-    if token not in values.get(name, "").split():
-        raise UnixlibPreloadSourceError(f"{label} lacks required {name} token: {token}")
-
-
-def _function_body(code: str, signature_fragment: str, label: str) -> str:
-    signature = re.sub(r"\s+", " ", signature_fragment).strip()
-    if code.count(signature) != 1:
-        raise UnixlibPreloadSourceError(f"{label} function signature cardinality drifted")
-    start = code.index(signature)
-    brace = code.find("{", start + len(signature))
-    if brace < 0:
-        raise UnixlibPreloadSourceError(f"{label} function body is missing")
-    depth = 0
-    for pos in range(brace, len(code)):
-        if code[pos] == "{":
-            depth += 1
-        elif code[pos] == "}":
-            depth -= 1
-            if depth == 0:
-                return code[brace + 1:pos]
-    raise UnixlibPreloadSourceError(f"{label} function body is unterminated")
-
-
-def prove_forwarder_activation_relation(authority: dict, modules: dict[str, dict], sources: dict[str, dict]) -> dict:
-    consumer = _require_makefile_record(modules, authority["consumer_makefile"], "activation consumer")
-    provider = _require_makefile_record(modules, authority["provider_makefile"], "activation provider")
-    forwarder = _require_makefile_record(modules, authority["forwarder_makefile"], "activation forwarder")
-    prerequisite = _require_makefile_record(modules, authority["prerequisite_makefile"], "activation prerequisite")
-
-    expected_pairs = (
-        (consumer.get("module"), authority["consumer_module"], "consumer MODULE"),
-        (consumer.get("unixlib"), authority["consumer_unixlib"], "consumer UNIXLIB"),
-        (provider.get("module"), authority["provider_module"], "provider MODULE"),
-        (provider.get("unixlib"), authority["provider_unixlib"], "provider UNIXLIB"),
-        (provider.get("importlib"), authority["provider_importlib"], "provider IMPORTLIB"),
-        (forwarder.get("module"), authority["forwarder_module"], "forwarder MODULE"),
-        (prerequisite.get("module"), authority["prerequisite_module"], "prerequisite MODULE"),
-        (prerequisite.get("importlib"), authority["prerequisite_importlib"], "prerequisite IMPORTLIB"),
-    )
-    for actual, expected, label in expected_pairs:
-        if actual != expected:
-            raise UnixlibPreloadSourceError(f"{label} drifted: expected={expected!r} actual={actual!r}")
-
-    _require_token(consumer["values"], "UNIX_LIBS", f"-l{authority['provider_importlib']}", "activation consumer")
-    if authority["provider_importlib"] in consumer["values"].get("IMPORTS", "").split():
-        raise UnixlibPreloadSourceError("forwarder activation relation unexpectedly became a direct consumer PE import")
-    _require_token(forwarder["values"], "IMPORTS", authority["prerequisite_importlib"], "activation forwarder")
-    _require_token(prerequisite["values"], "IMPORTS", authority["provider_importlib"], "activation prerequisite")
-
-    spec_source = sources[authority["forwarder_spec"]]
-    spec_lines = []
-    target_prefix = authority["forwarder_target_prefix"]
-    for raw in spec_source["text"].splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or " stub " in f" {line} ":
-            continue
-        if not line.startswith("@ "):
-            continue
-        parts = line.split()
-        if len(parts) < 4:
-            raise UnixlibPreloadSourceError(f"malformed forwarder export line: {line}")
-        target = parts[-1]
-        if "." not in target:
-            raise UnixlibPreloadSourceError(f"non-stub forwarder export lacks target: {line}")
-        if not target.startswith(target_prefix):
-            raise UnixlibPreloadSourceError(f"forwarder export escapes expected target {target_prefix}: {line}")
-        spec_lines.append(line)
-    if not spec_lines:
-        raise UnixlibPreloadSourceError("forwarder spec contains no non-stub forwarded exports")
-
-    attach_source = sources[authority["forwarder_attach_source"]]
-    attach_code = normalized_code(attach_source["text"])
-    attach_body = _function_body(attach_code, "BOOL WINAPI DllMain(HINSTANCE hinst, DWORD reason, void *reserved)", "forwarder DllMain")
-    attach_call = re.sub(r"\s+", " ", authority["forwarder_attach_call"]).strip()
-    if attach_body.count("if (reason != DLL_PROCESS_ATTACH) return TRUE;") != 1:
-        raise UnixlibPreloadSourceError("forwarder process-attach guard drifted")
-    if attach_body.count(attach_call) != 1:
-        raise UnixlibPreloadSourceError("forwarder process attach prerequisite call drifted")
-
-    lazy_source = sources[authority["consumer_lazy_source"]]
-    lazy_code = normalized_code(lazy_source["text"])
-    lazy_init = re.sub(r"\s+", " ", authority["consumer_lazy_init_fragment"]).strip()
-    lazy_once = re.sub(r"\s+", " ", authority["consumer_lazy_once_fragment"]).strip()
-    init_body = _function_body(lazy_code, "static BOOL WINAPI wine_vk_init(INIT_ONCE *once, void *param, void **context)", "consumer lazy unix init")
-    once_body = _function_body(lazy_code, "static BOOL wine_vk_init_once(void)", "consumer lazy InitOnce")
-    if init_body.count(lazy_init) != 1:
-        raise UnixlibPreloadSourceError("consumer lazy unix init source fragment drifted")
-    if once_body.count(lazy_once) != 1:
-        raise UnixlibPreloadSourceError("consumer lazy InitOnce source fragment drifted")
-    consumer_attach = attach_init_evidence(consumer["directory"], sources)
-    if consumer_attach is not None:
-        raise UnixlibPreloadSourceError("forwarder activation consumer unexpectedly initializes Unixlib in process attach")
-
-    provider_attach = attach_init_evidence(provider["directory"], sources)
-    if provider_attach is None:
-        raise UnixlibPreloadSourceError("forwarder activation provider lacks process-attach Unixlib init")
-
-    return {
-        "relation_kind": FORWARDER_RELATION_KIND,
-        "link_name": authority["provider_importlib"],
-        "consumer_module": consumer["module"],
-        "consumer_unixlib": consumer["unixlib"],
-        "consumer_directory": consumer["directory"],
-        "consumer_makefile": consumer["path"],
-        "consumer_makefile_sha256": consumer["sha256"],
-        "provider_module": provider["module"],
-        "provider_unixlib": provider["unixlib"],
-        "provider_directory": provider["directory"],
-        "provider_makefile": provider["path"],
-        "provider_makefile_sha256": provider["sha256"],
-        "provider_attach": provider_attach,
-        "activation_chain": {
-            "forwarder_module": forwarder["module"],
-            "forwarder_makefile": forwarder["path"],
-            "forwarder_makefile_sha256": forwarder["sha256"],
-            "forwarder_spec": authority["forwarder_spec"],
-            "forwarder_spec_sha256": spec_source["sha256"],
-            "forwarded_export_count": len(spec_lines),
-            "all_non_stub_exports_forward_to_consumer": True,
-            "forwarder_attach_source": authority["forwarder_attach_source"],
-            "forwarder_attach_source_sha256": attach_source["sha256"],
-            "forwarder_process_attach_prerequisite_verified": True,
-            "prerequisite_module": prerequisite["module"],
-            "prerequisite_makefile": prerequisite["path"],
-            "prerequisite_makefile_sha256": prerequisite["sha256"],
-            "prerequisite_imports_provider": True,
-            "consumer_lazy_source": authority["consumer_lazy_source"],
-            "consumer_lazy_source_sha256": lazy_source["sha256"],
-            "consumer_lazy_unix_init_verified": True,
-            "consumer_lazy_once_verified": True
-        },
-        "preload_order": PRELOAD_ORDER
-    }
-
-
 def prove(archive: Path) -> dict:
     contract = load_contract()
     source = BUILD.validate_source(BUILD.load_source())
@@ -613,41 +431,29 @@ def prove(archive: Path) -> dict:
         raise UnixlibPreloadSourceError("supplied archive does not match locked source")
 
     manifest, modules = collect_makefiles(archive, source)
-    direct_candidates = derive_candidate_relations(modules)
-    if not direct_candidates:
+    candidates = derive_candidate_relations(modules)
+    if not candidates:
         raise UnixlibPreloadSourceError("locked source produced no candidate internal unixlib preload relations")
-
-    activation_authorities = contract["source_authority"]["forwarder_activation_prerequisites"]
-    directories = {item["consumer_directory"] for item in direct_candidates} | {item["provider_directory"] for item in direct_candidates}
-    authority_paths = {
-        contract["source_authority"]["pe_loader_path"],
-        contract["source_authority"]["unix_loader_path"],
-        contract["source_authority"]["virtual_memory_path"],
-        contract["source_authority"]["winecrt_unix_path"]
-    }
-    for item in activation_authorities:
-        for key in ("consumer_makefile", "provider_makefile", "forwarder_makefile", "prerequisite_makefile"):
-            record = _require_makefile_record(modules, item[key], key)
-            directories.add(record["directory"])
-        authority_paths.update({item["forwarder_spec"], item["forwarder_attach_source"], item["consumer_lazy_source"]})
-
+    directories = {item["consumer_directory"] for item in candidates} | {item["provider_directory"] for item in candidates}
+    authority_paths = set(contract["source_authority"].values())
     sources = collect_source_files(archive, source, directories, authority_paths)
     semantics = prove_loader_semantics(sources, contract)
 
     relations: list[dict] = []
-    for candidate in direct_candidates:
+    for candidate in candidates:
         consumer_attach = attach_init_evidence(candidate["consumer_directory"], sources)
         provider_attach = attach_init_evidence(candidate["provider_directory"], sources)
         if consumer_attach is None or provider_attach is None:
             continue
-        relations.append({**candidate, "consumer_attach": consumer_attach, "provider_attach": provider_attach, "preload_order": PRELOAD_ORDER})
-
-    for authority in activation_authorities:
-        relations.append(prove_forwarder_activation_relation(authority, modules, sources))
-
-    relations.sort(key=lambda item: (item["consumer_unixlib"], item["provider_unixlib"], item["link_name"], item["relation_kind"]))
+        relations.append({
+            **candidate,
+            "consumer_attach": consumer_attach,
+            "provider_attach": provider_attach,
+            "preload_order": "provider-pe-dependency-attach-before-consumer-unixlib-dlopen",
+        })
+    relations.sort(key=lambda item: (item["consumer_unixlib"], item["provider_unixlib"], item["link_name"]))
     if not relations:
-        raise UnixlibPreloadSourceError("no candidate unixlib relation satisfied source semantics")
+        raise UnixlibPreloadSourceError("no candidate unixlib relation satisfied attach semantics")
     keys = [(item["consumer_unixlib"], item["provider_unixlib"]) for item in relations]
     if len(keys) != len(set(keys)):
         raise UnixlibPreloadSourceError("duplicate consumer/provider unixlib preload relation")
@@ -659,7 +465,7 @@ def prove(archive: Path) -> dict:
         "module_makefile_count": len(manifest),
         "module_makefile_manifest_sha256": canonical_sha256(manifest),
         "loader_semantics": semantics,
-        "relations": relations
+        "relations": relations,
     }
     return {
         "$schema": PROOF_SCHEMA,
@@ -667,10 +473,8 @@ def prove(archive: Path) -> dict:
         **core,
         "evidence_sha256": canonical_sha256(core),
         "counts": {
-            "candidate_relations": len(direct_candidates) + len(activation_authorities),
+            "candidate_relations": len(candidates),
             "proven_relations": len(relations),
-            "direct_dependency_attach_relations": sum(item["relation_kind"] == DIRECT_RELATION_KIND for item in relations),
-            "forwarder_activation_prerequisite_relations": sum(item["relation_kind"] == FORWARDER_RELATION_KIND for item in relations)
         },
         "gates": {
             "source_archive_verified": True,
@@ -690,8 +494,8 @@ def prove(archive: Path) -> dict:
             "activation_authorized": False,
             "execution_authorized": False,
             "wine_executed": False,
-            "windows_payload_executed": False
-        }
+            "windows_payload_executed": False,
+        },
     }
 
 
