@@ -67,7 +67,6 @@ export function mountPersonalActivityControls(
   let draft = "";
   let localError = null;
   let mountedSlot = null;
-  const pending = new Set();
 
   const render = () => {
     if (destroyed) return;
@@ -159,13 +158,11 @@ export function mountPersonalActivityControls(
         top.append(goal);
 
         const actions = node(documentObject, "div", "ordax-activity-work-actions");
-        const busy = pending.has(item.id);
         const addAction = (action, label) => {
           const button = node(documentObject, "button", "", label);
           button.type = "button";
           button.dataset.personalWorkAction = action;
           button.dataset.personalWorkId = item.id;
-          button.disabled = busy;
           actions.append(button);
         };
         if (item.state === "queued") addAction("run", t("activity.action.run"));
@@ -215,20 +212,26 @@ export function mountPersonalActivityControls(
   };
 
   const runAction = async (id, action) => {
-    if (personalOrdax === null || pending.has(id)) return;
+    if (personalOrdax === null) return;
     localError = null;
-    pending.add(id);
-    render();
     try {
-      if (action === "run") await personalOrdax.run(id);
-      else if (action === "pause") personalOrdax.pause(id);
-      else if (action === "resume") personalOrdax.resume(id);
-      else if (action === "cancel") personalOrdax.cancel(id);
-      else if (action === "remove") personalOrdax.remove(id);
+      if (action === "run") {
+        await personalOrdax.run(id);
+      } else if (action === "pause") {
+        personalOrdax.pause(id);
+      } else if (action === "resume") {
+        personalOrdax.resume(id);
+      } else if (action === "cancel") {
+        personalOrdax.cancel(id);
+      } else if (action === "remove") {
+        personalOrdax.remove(id);
+      }
     } catch {
-      localError = t("activity.error.action");
+      const current = personalOrdax.getSnapshot().workItems.find((item) => item.id === id);
+      if (current?.state === "failed" || current?.state === "running") {
+        localError = t("activity.error.action");
+      }
     } finally {
-      pending.delete(id);
       render();
     }
   };
@@ -280,7 +283,6 @@ export function mountPersonalActivityControls(
         mountedSlot.classList.remove("ordax-activity-host");
         mountedSlot.replaceChildren();
       }
-      pending.clear();
       mountedSlot = null;
     },
   });
