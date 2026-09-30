@@ -331,7 +331,7 @@ test("review view exports the selected owner independently of page and search st
   const session = createMemoryReviewSession({ memoryPort: memory });
   const view = createMemoryReviewViewModel(session, { pageSize: 2 });
 
-  view.setQuery("conteúdo 5");
+  view.setQuery("5");
   assert.equal(view.getSnapshot().items.length, 1);
   const exported = view.exportSnapshot();
   assert.equal(exported.items.length, 6);
