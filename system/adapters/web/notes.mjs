@@ -21,6 +21,7 @@ function resolveStorage(windowRef) {
 export function createWebNotesStore(windowRef = globalThis.window) {
   const storage = resolveStorage(windowRef);
   let memory = null;
+  let persistentStateBlocked = false;
 
   const store = {
     schema: NOTES_STORE_SCHEMA,
@@ -29,10 +30,17 @@ export function createWebNotesStore(windowRef = globalThis.window) {
       if (!storage) return memory;
       try {
         const raw = storage.getItem(STORAGE_KEY);
-        if (raw === null) return memory;
+        if (raw === null) {
+          persistentStateBlocked = false;
+          return memory;
+        }
         memory = validateNotesSnapshot(JSON.parse(raw));
+        persistentStateBlocked = false;
       } catch {
-        // Ignore a corrupt payload and preserve the last valid in-memory snapshot.
+        // Fail closed after malformed/unreadable durable state. Treating corruption
+        // as an empty device store would let the runtime overwrite the only
+        // recoverable bytes with a fresh snapshot during initialization.
+        persistentStateBlocked = true;
       }
       return memory;
     },
@@ -40,6 +48,7 @@ export function createWebNotesStore(windowRef = globalThis.window) {
       const validated = validateNotesSnapshot(snapshot);
       memory = validated;
       if (!storage) return true;
+      if (persistentStateBlocked) return false;
       try {
         storage.setItem(STORAGE_KEY, JSON.stringify(validated));
         return true;
