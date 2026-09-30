@@ -291,7 +291,7 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     if (Date.parse(actionDecision.decidedAt) !== Date.parse(approval.resolvedAt)) {
       throw new TypeError("Personal OrdaX action decision time must match approval resolution");
     }
-    if (approval.status === "approved" || approval.status === "executed") {
+    if (approval.status === "approved" || approval.status === "executed" || approval.status === "revoked") {
       if (actionDecision.decision !== "allow" || actionDecision.grantRef !== approval.grantRef) {
         throw new TypeError("approved Personal OrdaX action requires the matching allow decision");
       }
@@ -303,7 +303,7 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
   for (const approval of approvals) {
     const actionKey = `${approval.workItemId}\0${approval.actionId}`;
     if (
-      (approval.status === "approved" || approval.status === "executed" || approval.status === "denied")
+      (approval.status === "approved" || approval.status === "executed" || approval.status === "revoked" || approval.status === "denied")
       && !decisionByAction.has(actionKey)
     ) {
       throw new TypeError("resolved Personal OrdaX approval requires its terminal action decision");
