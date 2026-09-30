@@ -134,10 +134,11 @@ test("bundled source rejects redirected responses even from a non-compliant fetc
 test("bundled normalized manifests flow directly into restore without raw revalidation", async () => {
   const source = await loadBundledProfilePacks({ fetchImpl: fileFetch() });
   const activationSnapshot = {
-    schema: "ordax.profile-activation-state/1",
+    schema: "ordax.profile-activation-state/2",
     revision: 1,
     persistence: "device",
     spaces: [{
+      subjectId: "user-1",
       spaceId: "space-dev",
       spaceKind: "professional",
       current: {
