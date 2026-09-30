@@ -10,6 +10,7 @@ import {
 } from "../system/adapters/native/personal-ordax-file-actions.mjs";
 import { createNativePersonalOrdaxComposition } from "../system/composition/native/personal-ordax.mjs";
 import { createIntelligenceToolGrantAuthority } from "../system/services/intelligence/tool-grants.mjs";
+import { createPersonalActionCatalog } from "../system/services/personal-ordax/action-catalog.mjs";
 
 function memoryStorage() {
   const values = new Map();
@@ -68,23 +69,28 @@ test("explicit approval executes the verified Native file action and consumes au
     fileSpace: files.port,
     artifactIdentity: async () => "c".repeat(64),
   });
+  const actionCatalog = createPersonalActionCatalog({
+    registrations: actions.actionRegistrations,
+  });
   const runtime = createNativePersonalOrdaxComposition({
     windowRef: { localStorage: memoryStorage() },
     identitySession: identitySession(),
     intelligence: null,
     toolResolver: actions.toolResolver,
     adapterResolver: actions.adapterResolver,
+    actionCatalog,
   });
 
   const work = runtime.create("Garantir pasta aprovada");
-  const approval = runtime.requestApproval(work.id, {
-    actionId: NATIVE_FILE_ENSURE_DIRECTORY_ACTION,
-    toolId: NATIVE_FILE_ACTION_TOOL_ID,
-    toolArtifactSha256: actions.tool.artifactSha256,
-    effect: "write",
-    resourceRef: "file-space:/Documentos/Novo",
-    reason: "Garantir a pasta solicitada pelo usuário.",
-  });
+  assert.deepEqual(
+    runtime.listAvailableActions().map((entry) => entry.id),
+    ["native-file.ensure-directory"],
+  );
+  const approval = runtime.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Novo" },
+  );
 
   assert.equal(runtime.approvalConsent.canApprove(work.id, approval.id), true);
   const decision = runtime.approvalConsent.approve(work.id, approval.id);
