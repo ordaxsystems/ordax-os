@@ -1,12 +1,29 @@
-# Personal OrdaX
+# Personal OrdaX — plano canônico de implementação
 
 Status: **IMPLEMENTAÇÃO EM EXECUÇÃO / NÃO PROMOVIDO AO MVP PÚBLICO**
 
-Este documento na raiz é o ponto de entrada do novo sistema Personal OrdaX. O contrato detalhado continua em `docs/PERSONAL-ORDAX.md` e a autoridade legível por máquina em `docs/contracts/personal-ordax.json`.
+Este arquivo na raiz é a referência curta e canônica para **o que o Personal OrdaX é, o que já foi implementado e o que será implementado a seguir**. Ele consolida as conclusões dos relatórios já produzidos para o projeto e o estado real do código. O contrato detalhado permanece em `docs/PERSONAL-ORDAX.md` e as invariantes legíveis por máquina em `docs/contracts/personal-ordax.json`.
 
-## Objetivo
+## Direção consolidada dos relatórios
 
-Personal OrdaX é a camada de orquestração pessoal do OrdaX OS. Ela organiza trabalho explícito do usuário, preserva contexto e resultados, mostra atividade e prepara a evolução futura para trabalho retomável, ferramentas autorizadas, workers especializados e execução híbrida sem criar uma segunda identidade, uma segunda Memory, um segundo sistema de projetos ou uma segunda camada de permissões.
+O OrdaX OS deve evoluir para um sistema pessoal inteligente e escalável, mas não para um modelo que dê autoridade irrestrita ao LLM.
+
+A direção adotada é:
+
+- um **Personal OrdaX persistente** como orquestrador do trabalho do usuário;
+- **Work + Activity + Result** como modelo visível e retomável de execução;
+- **Spaces e Projects** como escopo explícito, nunca inferido silenciosamente;
+- **OrdaX Memory** como memória canônica, sem memória paralela por agente;
+- **Intelligence** para raciocínio e planejamento, mas sem transformar texto de modelo em permissão;
+- **Action Catalog + Approvals + Grants + Action Gateway** para qualquer efeito real;
+- experiência **local-first**, com execução híbrida local/Edge/cloud somente em fases posteriores;
+- **workers especializados** no futuro, herdando owner, escopo e autoridade do Personal OrdaX;
+- Activity como superfície de transparência: o usuário deve conseguir ver o que está acontecendo, o que foi aprovado, o que foi executado e por quê;
+- background somente depois de persistência, recovery, cancelamento e revogação estarem comprovados.
+
+O sistema não deve depender de um único modelo, backend ou cloud computer.
+
+## Arquitetura alvo
 
 ```text
 Usuário
@@ -15,126 +32,336 @@ Usuário
 Personal OrdaX
   |
   +-- identitySession canônica
-  +-- Space selection canônica
-  +-- Projects canônicos
+  +-- Spaces / Projects canônicos
   +-- OrdaX Memory canônica
   +-- OrdaX Intelligence canônica
-  +-- grants / Action Gateway existentes
+  +-- Action Catalog
+  +-- Approval Consent
+  +-- Grants / Action Gateway
+  +-- Action Executor
+  |
+  +--> Work
+  +--> Activity
+  +--> Result
   |
   v
-Work -> Activity -> Result
+Adapters first-party bounded
+  |
+  +--> capacidades locais
+  +--> conectores autorizados (futuro)
+  +--> workers especializados (futuro)
+  +--> execução híbrida (futuro)
 ```
 
-## Regras estruturais
+Personal OrdaX é **orquestração**, não uma segunda identidade, uma segunda Memory, um segundo sistema de Projects ou uma segunda camada de permissões.
 
-- Work pertence exatamente ao owner ativo: dispositivo local ou conta autenticada.
-- Space e Project são vínculos opcionais e explícitos; a composição não os infere silenciosamente.
-- Work, Activity e Result usam uma partição separada por owner.
-- Resultado de Intelligence tem `authority=none`; texto de modelo nunca vira permissão.
-- A conclusão foreground publica Work concluído + Result + Activity de conclusão em uma única transição validada.
-- Corrupção persistida não é apagada nem convertida silenciosamente em estado vazio.
-- O store Native é device-local; ele não é Memory e não é account sync.
-- Troca de owner ou invalidação do contexto pausa trabalho ativo e impede reaproveitamento indevido de resultado em voo.
-- Background, execução de tools, cloud computer e specialist workers continuam desabilitados nesta fase.
-- O Assistant não transforma mensagens automaticamente em Work. A entrada de Work será sempre uma ação explícita do usuário.
+## Invariantes que não podem ser quebradas
 
-## Composição atual
+1. Prompt, modelo, Profile, Memory, conteúdo de Project ou texto de conversa **não criam autoridade**.
+2. Work pertence exatamente ao owner ativo.
+3. Space e Project são opcionais, mas qualquer vínculo é explícito.
+4. Resultado de Intelligence permanece `authority=none`.
+5. Side effect sensível exige approval/grant compatível e revalidação imediatamente antes do efeito.
+6. Grant é preso ao Work, approval, owner, contexto, recurso, tool/action e SHA-256 do artefato aprovado.
+7. Troca de owner, logout ou invalidação de contexto revoga authority ainda não consumida.
+8. Corrupção persistida é fail-closed e não pode ser apagada silenciosamente.
+9. Work/Activity/Result não são Memory e não são account sync.
+10. Nenhuma conversa comum do Assistant cria Work ou executa ação automaticamente.
+11. Não haverá shell genérico, raw disk, release keys ou broker genérico como atalho de implementação.
+12. Background não será habilitado antes de recovery e revogação estarem comprovados.
 
-A implementação Native passa a montar o runtime com as portas já existentes:
+## Implementado até o corte atual
+
+### Fundação de Work
+
+Já existem contratos e runtime para:
+
+- `ordax.personal-work-item/1`;
+- `ordax.personal-activity/1`;
+- `ordax.personal-work-result/1`;
+- `ordax.personal-action-decision/1`;
+- store owner-partitioned e bounded;
+- lifecycle foreground;
+- isolamento por owner;
+- pausa por troca/invalidação de contexto;
+- descarte de inferência obsoleta;
+- publicação atômica de Work concluído + Result + Activity.
+
+### Persistência Native
+
+O Personal OrdaX possui store Native device-local por owner.
+
+- corrupção de uma partição bloqueia somente aquele owner;
+- bytes corrompidos recuperáveis não são sobrescritos;
+- fallback de sessão é explícito e não é chamado de persistência durável;
+- Work state continua separado de Memory e de account sync.
+
+### Activity / Work Surface
+
+O app first-party `system/apps/activity/`:
+
+- cria Work somente por ação explícita do usuário;
+- projeta Work, Activity, Result e approvals do runtime canônico;
+- não possui task/result store paralelo;
+- permite pause/cancel durante execução foreground;
+- não converte mensagens do Assistant automaticamente em Work.
+
+### Authority e approvals
+
+O fluxo já possui:
+
+- approval persistida;
+- consentimento humano explícito;
+- tool grants bounded;
+- Action Gateway;
+- Action Executor;
+- revalidação de owner/context/recurso/tool/action/artefato;
+- receipt de execução;
+- bloqueio de replay;
+- retry explícito para adapter idempotente;
+- revogação auditável.
+
+Action Decisions agora apontam para o `approvalId` exato, permitindo repetir o mesmo tipo de ação em recursos diferentes somente através de novas approvals.
+
+### Action Catalog
+
+Existe `ordax.personal-action-catalog/1`.
+
+A Activity não conhece regras internas de filesystem nem IDs privados de tool. Adapters first-party registram ações bounded; a UI envia `entryId + resourceValue`; a registration canonicaliza e valida o recurso antes de criar uma approval.
+
+O catálogo:
+
+- não emite grant;
+- não executa adapter;
+- não transforma saída de modelo em authority.
+
+### Primeiro side effect real
+
+O único side effect Personal OrdaX habilitado neste momento é:
 
 ```text
-identitySession
-      +
-spaceSelection
-      +
-projects
-      +
-selectedSpaceIntelligence
-      +
-createNativePersonalOrdaxStore(window)
-      |
-      v
-createPersonalOrdaxRuntime(...)
+native-file.ensure-directory
+  -> ordax-native-file-space
+  -> files.directory.ensure
+  -> fileSpace canônico
 ```
 
-Nenhuma dessas capacidades é duplicada dentro do Personal OrdaX.
+Ele é foreground, explícito e idempotente.
 
-## Ordem de execução
+O caminho é:
 
-1. **Fundação de contratos** — Work, Activity, Action Decision e Work Result.
-2. **Runtime foreground owner-bound** — lifecycle, isolamento, pausa por troca de contexto e descarte de inferência obsoleta.
-3. **Persistência Native por owner** — armazenamento bounded, fallback de sessão explícito e corrupção fail-closed.
-4. **Composição Native** — reutilizar identitySession, Space selection, Projects e Intelligence canônicos.
-5. **Entrada explícita de Work** — implementada no app Atividade como ação deliberada; conversas comuns não são convertidas automaticamente.
-6. **Activity/Result Surface** — implementada como projeção do runtime canônico, sem task store dentro do app.
-7. **Approvals/Action Gateway** — lifecycle persistido, gateway owner/context/grant-bound, autoridade canônica de grants e consentimento humano explícito já conectados; side effects continuam desabilitados.
-8. **Execução tipada autorizada** — contrato e serviço `ordax.action-executor/1` implementados com revalidação imediata; nenhum adapter Native real é registrado ainda.
-9. **Background retomável** — somente depois de persistência/recovery e revogação estarem provados.
-10. **Workers especializados e híbrido local/cloud** — sempre sob o mesmo owner, Memory e autoridade.
+```text
+Activity
+  -> solicitar approval
+  -> aprovação humana
+  -> grant exato
+  -> clique "Executar ação aprovada"
+  -> Action Gateway
+  -> Action Executor
+  -> adapter Native verificado
+  -> receipt succeeded
+  -> approval executed
+  -> Activity action-finished
+```
 
-## Critério para a próxima camada
+### Revogação de authority
 
-A camada atual só avança quando os testes provarem que:
+Authority aprovada e ainda não consumida é revogada quando:
 
-- sign-out ou troca de conta não expõe Work/Result de outro owner;
-- Space/Project inválido não pode ser usado para continuar trabalho;
-- reinício Native restaura apenas a partição correta;
-- corrupção de um owner não destrói os bytes nem bloqueia os demais;
-- Work concluído nunca fica observável sem seu Result e sua Activity correspondente;
-- dispose remove subscriptions e impede trabalho novo;
-- nenhum adapter concreto vaza para o service runtime;
-- nenhuma conversa do Assistant cria Work sem ação explícita.
+- o Work é cancelado;
+- ocorre logout;
+- muda o owner;
+- o Space bound deixa de ser válido;
+- o Project bound deixa de ser válido;
+- o contexto muda de forma incompatível.
 
-## Estado desta execução
+O runtime com Action Gateway deve possuir revoker; caso contrário, a composição falha fechado.
 
-A composição Native dedicada está montada em `system/composition/native/personal-ordax.mjs` e é criada por `system/composition/native/main.mjs`. Ela cria o store Native, injeta somente as portas canônicas no runtime e participa do lifecycle com `dispose()`. O app `system/apps/activity/` é a entrada explícita de Work e projeta Work, Activity, Result e aprovação diretamente do runtime, sem persistência própria. A camada de approvals agora persiste request/resolution/decision e o Action Gateway só libera ações `read`/`write` quando um Intelligence tool grant existente corresponde exatamente a owner, Space, Project, tool, action e modo. Grant ausente mantém `approval-required`; grant inválido, expirado ou de outro contexto produz `deny`. `external-egress` e `device-control` não podem ser promovidos por um tool grant genérico e permanecem bloqueados até suas autoridades específicas existirem na composition. O gateway ainda não executa side effects. A composição Native cria uma autoridade canônica de tool grants com registry somente-leitura e issuer separado: o Personal OrdaX recebe o resolver do registry e o app Atividade recebe apenas `ordax.personal-approval-consent/1`, nunca o issuer. O botão explícito **Aprovar** só aparece quando o controller resolve a approval para uma tool/action tipada compatível; quando disponível, ele pode emitir um único grant curto e exato para `read|write` e resolver a aprovação. A composição Native principal ainda não registra uma tool Personal OrdaX, então esse preflight permanece fail-closed em vez de exibir aprovação falsa. **Negar** produz uma decisão terminal auditável sem grant. Se o contexto mudar ou a resolução falhar depois da emissão, o grant recém-criado é revogado para não deixar autoridade órfã. `external-egress` e `device-control` continuam fora desse caminho. O contrato `ordax.action-executor/1` já existe, mas não há executor concreto nem side effect. O próximo corte é registrar o primeiro adapter tool/action tipado real, revalidar grant/context imediatamente antes do efeito e persistir o receipt na Activity.
+Na restauração Native, approval persistida como `approved` não pode recuperar authority de uma sessão anterior. Se o grant session-only já não existe, ela é reconciliada para `revoked`, mantendo o Work recuperável para uma nova approval.
 
-O Personal OrdaX ainda não é autoridade autônoma do MVP público. O Stable/MVP continua com Intelligence consultativa até promoção explícita pelos gates do projeto.
+## O que será implementado a seguir
 
+### Fase 1 — estabilizar o foreground autorizado
 
-## Gate atual: recurso exato antes do efeito
+Antes de aumentar autonomia:
 
-A autorização sensível agora é vinculada também ao `resourceRef` exato e ao id da approval que
-originou o grant. O Action Gateway rejeita reutilização do grant em outro recurso/aprovação. O
-Action Executor revalida essa autoridade imediatamente antes de resolver o adapter e produz
-`ordax.action-receipt/1` quando um adapter tipado conclui.
+- fechar CI e regressões da pilha atual;
+- consolidar restore/recovery de approvals e receipts;
+- garantir cancelamento/revogação em todos os boundaries de owner/context;
+- manter execução serial por Work;
+- provar que nenhuma authority sobrevive a reboot, logout ou mudança de escopo sem validação explícita.
 
-Ainda não há side effect habilitado na composição Native. O próximo adapter só será registrado
-quando sua identidade de artefato puder ser verificada de forma real; não será usado SHA fictício,
-tool genérica, shell ou atalho pelo host.
+### Fase 2 — propostas estruturadas sem authority
 
-A autoridade sensível também fica presa ao SHA-256 exato do artefato da tool. A approval retém essa identidade, o grant a copia, o Action Gateway compara com a tool atualmente resolvida e o Action Executor compara novamente com o adapter imediatamente antes do efeito. Trocar a implementação mantendo apenas o mesmo `toolId/action` invalida a autorização existente.
+Adicionar um contrato explícito de **Action Proposal**.
 
-### Primeiro adapter Native first-party
+Intelligence poderá sugerir uma ação do Action Catalog, mas a proposta terá `authority=none`.
 
-O primeiro adapter concreto é `ordax-native-file-space/files.directory.ensure`. Ele usa somente o `fileSpace` canônico já montado na Surface, não expõe shell nem broker genérico e não recebe caminho fora de `file-space:`. A operação é deliberadamente idempotente: se o diretório exato já existir, a mesma execução termina com sucesso sem repetir mutação; se existir outro tipo de entrada no alvo, falha fechado.
+Fluxo alvo:
 
-A identidade do adapter é o SHA-256 calculado sobre os bytes reais do próprio módulo servido pela mesma origem via Web Crypto. Essa identidade entra na tool e, pelo gate anterior, precisa coincidir com approval, grant, Action Gateway e Action Executor. A composição Native já registra essa tool para o fluxo de aprovação, mas ainda não conecta o `adapterResolver` ao Action Executor; portanto este corte continua sem habilitar side effect do Personal OrdaX.
+```text
+goal do Work
+  -> Intelligence / planner
+  -> Action Proposal
+  -> validação contra Action Catalog
+  -> Activity mostra proposta
+  -> usuário solicita/aprova
+  -> grant
+  -> execução
+```
 
-### Lifecycle foreground da ação
+O modelo não receberá acesso direto ao Action Executor e não poderá fabricar tool IDs, grants ou recursos fora do catálogo.
 
-A approval aprovada agora pode entrar explicitamente em execução foreground. O runtime persiste `action-started`, mantém a approval como `approved` durante a tentativa e só a transforma em `executed` quando recebe um `ordax.action-receipt/1` com status `succeeded` que coincide exatamente com Work, approval, tool, SHA-256 do artefato, action, effect, recurso e grant retidos. A mesma approval não pode ser executada novamente depois desse consumo.
+### Fase 3 — ampliar ações first-party bounded
 
-Falha sem receipt verificado pausa o Work sem consumir a approval. A retomada/reexecução continua sendo explícita e foi desenhada para adapters idempotentes, começando por `files.directory.ensure`. Este corte ainda não conecta o adapter Native ao Action Executor na composição principal; o lifecycle está pronto antes de abrir o efeito.
+Novas ações serão adicionadas uma por vez.
 
-### Primeiro side effect foreground habilitado
+Cada ação deverá possuir:
 
-A composição Native agora conecta exclusivamente o adapter verificado `ordax-native-file-space/files.directory.ensure` ao Action Executor. A Activity só oferece execução depois de approval humana explícita e somente quando o adapter atual tem o mesmo SHA-256 retido pela approval. O grant também é preso ao `workItemId` exato.
+- contrato tipado;
+- recurso canônico;
+- efeito declarado;
+- adapter first-party;
+- identidade verificável de artefato;
+- semântica de retry conhecida;
+- comportamento de crash/recovery conhecido;
+- testes de substituição/replay;
+- Activity/receipt auditáveis.
 
-A execução faz `approved -> running -> executed`, persiste `action-started/action-finished` e consome a approval apenas com receipt `succeeded` exato. Enquanto existir uma ação aprovada não consumida, o Work não pode iniciar novo raciocínio nem pedir outra approval. Cancelar o Work revoga primeiro o grant no registry e retém a approval como `revoked` para auditoria.
+Não será criada API paralela apenas para acelerar uma feature. Se a capacidade canônica necessária não existir, ela será implementada na camada correta primeiro.
 
-O escopo de side effect habilitado continua deliberadamente único: garantir um diretório dentro do `file-space` canônico. Background, egress, device-control, shell, raw disk e execução genérica continuam desabilitados.
+### Fase 4 — trabalho durável e retomável
 
-### Action Catalog canônico
+Depois do foreground estar fechado:
 
-A entrada de novas ações não fica hardcoded na Activity. Adapters first-party registram descritores bounded no `ordax.personal-action-catalog/1`; a UI recebe apenas metadados públicos e um `resourceValue` humano. A própria registration converte e valida esse valor para o `resourceRef` canônico antes de criar uma approval. O catálogo não emite grant, não executa adapter e não transforma conteúdo de modelo em autoridade.
+- durable Work/Activity state;
+- checkpoints;
+- recovery após crash/reboot;
+- leases/ownership de execução;
+- cancelamento durável;
+- retomada explícita;
+- retenção/export/delete do histórico operacional.
 
-O primeiro registro é `native-file.ensure-directory`. A Activity pode solicitar approval para ele sem conhecer `file-space:`, tool IDs ou regras de filesystem. Decisions persistidas agora carregam o `approvalId` exato. Isso permite repetir o mesmo tipo de ação no mesmo Work em recursos diferentes, desde que cada tentativa tenha uma nova approval e um novo grant compatível.
+Account sync continuará separado do estado operacional até existir contrato próprio para isso.
 
-Propostas estruturadas vindas do modelo continuam desabilitadas neste corte. Quando forem adicionadas, deverão entrar pelo mesmo catálogo e permanecer sem autoridade até approval explícita.
+### Fase 5 — background bounded
 
-### Revogação ligada ao lifecycle
+Background só entra depois da Fase 4.
 
-Um runtime com Action Gateway agora é inválido sem um revoker de grants. A revogação deixou de ser responsabilidade da UI/composição e passou a fazer parte do lifecycle canônico do Personal OrdaX.
+Requisitos mínimos:
 
-Qualquer grant aprovado e ainda não consumido é revogado antes de invalidar seu contexto por troca de owner, logout, troca de Space, desaparecimento do projeto ou cancelamento explícito do Work. Isso também vale para Work já pausado após uma tentativa de execução: estar pausado não mantém authority viva. A approval permanece como `revoked` com seu `grantRef` apenas para auditoria; o registry já não resolve esse grant.
+- policy explícita de background;
+- budgets;
+- timeout;
+- cancelamento;
+- revogação imediata;
+- recovery;
+- Activity visível;
+- nenhuma authority implícita;
+- nenhuma execução ilimitada.
+
+### Fase 6 — conectores e external egress
+
+External egress terá autoridade própria.
+
+Não será promovido por tool grant genérico.
+
+Cada conector deverá declarar:
+
+- destino;
+- operação;
+- dados enviados;
+- owner;
+- Space/Project;
+- approval/grant;
+- receipt;
+- política de revogação.
+
+### Fase 7 — workers especializados
+
+Workers futuros não serão novos donos do sistema.
+
+Eles deverão:
+
+- herdar owner;
+- herdar Space/Project;
+- usar a mesma Memory canônica;
+- usar o mesmo Action Catalog;
+- usar o mesmo sistema de grants;
+- possuir budgets e concorrência bounded;
+- aparecer na Activity com atribuição clara.
+
+Não haverá worker-owned Memory nem permission system paralelo.
+
+### Fase 8 — execução híbrida local / Edge / cloud
+
+O backend de execução poderá ser substituível.
+
+Placement deverá considerar:
+
+- privacidade;
+- disponibilidade;
+- custo;
+- latência;
+- necessidade de hardware local;
+- estado offline.
+
+Cloud nunca ganhará autoridade sobre o dispositivo local apenas por executar um modelo remoto.
+
+## Experiência alvo
+
+A experiência final pretendida é algo como:
+
+> "Continue o projeto da pizzaria."
+
+O Personal OrdaX deverá conseguir:
+
+1. identificar o owner correto;
+2. recuperar o Work/Space/Project correto sem misturar contas;
+3. recuperar contexto pela Memory canônica quando apropriado;
+4. mostrar na Activity o que pretende fazer;
+5. continuar raciocínio sem pedir permissão para operações puramente consultativas;
+6. pedir approval somente quando houver um efeito que exige authority;
+7. executar apenas a ação aprovada;
+8. registrar receipt/resultados;
+9. pausar e retomar depois de reboot;
+10. continuar funcionando mesmo que o modelo ou backend de Intelligence seja trocado.
+
+## Fora do escopo atual
+
+Continuam desabilitados até seus gates específicos:
+
+- background autônomo;
+- external egress genérico;
+- device-control genérico;
+- shell genérico;
+- raw disk;
+- acesso a release keys;
+- cloud computer como requisito de arquitetura;
+- execução automática baseada apenas em texto do modelo;
+- specialist workers autônomos;
+- multi-agent irrestrito.
+
+## Regra de evolução
+
+A ordem é deliberada:
+
+```text
+Work visível
+  -> Result
+  -> Approval
+  -> Authority
+  -> primeiro efeito bounded
+  -> revogação/recovery
+  -> propostas sem authority
+  -> mais ações bounded
+  -> durable/resumable
+  -> background
+  -> connectors
+  -> specialist workers
+  -> hybrid execution
+```
+
+Nenhuma fase posterior deve enfraquecer os contratos das fases anteriores.
+
+O objetivo não é apenas tornar o OrdaX "mais autônomo". O objetivo é torná-lo **mais capaz, retomável e escalável sem perder owner, contexto, auditabilidade e controle humano**.
