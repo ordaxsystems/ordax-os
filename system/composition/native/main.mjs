@@ -74,12 +74,12 @@ import { createLocalProfileDistributions } from "../../profile-packs/distributio
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createSyncStateNamespaceRegistry } from "../../services/sync/state-store-registry.mjs";
-import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-metadata.mjs";
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
 import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
+import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -589,7 +589,8 @@ async function start() {
     },
   });
   let accountSyncOrdinal = 0;
-  const accountSync = createAccountSyncRuntime({
+  const accountSync = createNativeAccountSyncRuntime({
+    accountMemoryFoundation,
     identitySession,
     transport: syncTransport,
     checkpointStore: syncCheckpointStore,
