@@ -172,6 +172,7 @@ jobs:
             --rootfs "$work/content/resolver-rootfs" \
             --full-build-proof "$proof_dir/full-build-proof.json" \
             --direct-dependency-proof "$proof_dir/runtime-dependency-proof.json" \
+            --unixlib-preload-source-proof "$proof_dir/runtime-unixlib-preload-source-proof.json" \
             --out "$proof_dir/runtime-dependency-closure-proof.json"
           python bootstrap/windows-compat-runtime/runtime_dependency_closure_loader_guard.py verify \
             --stage-dir "$work/container-build/stage" \
@@ -180,6 +181,7 @@ jobs:
             --direct-dependency-proof "$proof_dir/runtime-dependency-proof.json" \
             --direct-evidence-proof "$proof_dir/runtime-dependency-evidence-proof.json" \
             --closure-proof "$proof_dir/runtime-dependency-closure-proof.json" \
+            --unixlib-preload-source-proof "$proof_dir/runtime-unixlib-preload-source-proof.json" \
             --out "$proof_dir/runtime-dependency-closure-loader-guard-proof.json"
           python bootstrap/windows-compat-runtime/runtime_dependency_closure_evidence_finalize.py finalize \
             --direct-evidence-proof "$proof_dir/runtime-dependency-evidence-proof.json" \
@@ -206,6 +208,15 @@ jobs:
           assert re.fullmatch(r'[0-9a-f]{64}', preload_source['evidence_sha256'])
           assert direct_evidence['runtime_id'] == closure['runtime_id'] == guard['runtime_id'] == evidence['runtime_id'] == runtime_id
           assert direct_evidence['staging_manifest_sha256'] == closure['staging_manifest_sha256'] == guard['staging_manifest_sha256'] == evidence['staging_manifest_sha256'] == stage_sha
+          preload_edges = [
+              edge
+              for context in closure['contexts'].values()
+              for edge in context['edges']
+              if edge.get('resolution_kind') == 'source-proven-dependency-attach-preload'
+          ]
+          assert preload_edges
+          assert all(edge['unixlib_preload_source_evidence_sha256'] == preload_source['evidence_sha256'] for edge in preload_edges)
+          assert guard['counts']['dependency_attach_preload_hits'] == len(preload_edges)
           for digest in (
               closure['closure_sha256'],
               guard['validation_sha256'],
@@ -238,6 +249,7 @@ jobs:
           assert gates['windows_payload_executed'] is False
           print('Wine guarded transitive DT_NEEDED closure evidence: PASS')
           print('unixlib preload source:', preload_source['evidence_sha256'])
+          print('closure preload edges:', len(preload_edges))
           print('closure nodes:', closure['counts']['nodes'])
           print('closure edges:', closure['counts']['edges'])
           print('external packages:', closure['counts']['external_packages'])
