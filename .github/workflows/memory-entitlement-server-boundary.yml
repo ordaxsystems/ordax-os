@@ -1,0 +1,51 @@
+name: Memory Entitlement Server Boundary
+
+on:
+  pull_request:
+    paths:
+      - 'services/public-identity/gateway.py'
+      - 'services/public-identity/memory_entitlements.py'
+      - 'services/public-identity/supabase_memory.py'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'tests/test_memory_entitlement_gateway_route.py'
+      - 'tests/test_memory_entitlement_edge_source.py'
+      - '.github/workflows/memory-entitlement-server-boundary.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/public-identity/gateway.py'
+      - 'services/public-identity/memory_entitlements.py'
+      - 'services/public-identity/supabase_memory.py'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'tests/test_memory_entitlement_gateway_route.py'
+      - 'tests/test_memory_entitlement_edge_source.py'
+      - '.github/workflows/memory-entitlement-server-boundary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  memory-entitlement-server-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate source syntax
+        run: |
+          set -euo pipefail
+          python -m py_compile services/public-identity/gateway.py
+          python -m py_compile services/public-identity/memory_entitlements.py
+          python -m py_compile services/public-identity/supabase_memory.py
+          python -m py_compile tests/test_memory_entitlement_gateway_route.py
+          python -m py_compile tests/test_memory_entitlement_edge_source.py
+
+      - name: Prove authenticated read-only server authority
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_memory_entitlement_gateway_route -v
+          python -m unittest tests.test_memory_entitlement_edge_source -v

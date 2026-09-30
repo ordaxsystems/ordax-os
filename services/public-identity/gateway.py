@@ -14,6 +14,7 @@ from http.cookies import SimpleCookie
 from typing import Mapping
 from urllib.parse import parse_qs, urlsplit
 
+from memory_entitlements import AccountMemoryEntitlementAuthority
 from pwned_passwords import PwnedPasswordChecker, PwnedPasswordsError
 from supabase_account import SupabaseAccountError, SupabaseAccountProvider
 from supabase_lifecycle import (
@@ -21,6 +22,7 @@ from supabase_lifecycle import (
     SupabaseLifecycleError,
     SupabaseLifecycleProvider,
 )
+from supabase_memory import SupabaseMemoryError, SupabaseMemoryProvider
 from supabase_password import (
     MAX_REGISTRATION_PASSWORD_CHARS,
     MIN_REGISTRATION_PASSWORD_CHARS,
@@ -108,6 +110,16 @@ def _lifecycle_provider_from_environment() -> SupabaseLifecycleProvider | None:
         return None
     try:
         return SupabaseLifecycleProvider(*config)
+    except (TypeError, ValueError):
+        return None
+
+
+def _memory_provider_from_environment() -> SupabaseMemoryProvider | None:
+    config = _provider_config()
+    if config is None:
+        return None
+    try:
+        return SupabaseMemoryProvider(*config)
     except (TypeError, ValueError):
         return None
 
@@ -290,6 +302,7 @@ class PublicIdentityGateway:
         sync_provider: SupabaseSyncProvider | None = None,
         account_provider: SupabaseAccountProvider | None = None,
         lifecycle_provider: SupabaseLifecycleProvider | None = None,
+        memory_provider: SupabaseMemoryProvider | None = None,
         password_checker: PwnedPasswordChecker | None = None,
     ) -> None:
         self.provider = provider if provider is not None else _provider_from_environment()
@@ -303,6 +316,9 @@ class PublicIdentityGateway:
             lifecycle_provider
             if lifecycle_provider is not None
             else _lifecycle_provider_from_environment()
+        )
+        self.memory_provider = (
+            memory_provider if memory_provider is not None else _memory_provider_from_environment()
         )
         self.password_checker = password_checker or PwnedPasswordChecker()
 
@@ -511,7 +527,6 @@ class PublicIdentityGateway:
                     "account-recovery-unavailable",
                     "A recuperação da Conta OrdaX está temporariamente indisponível.",
                 )
-            # Keep account existence private for provider-level 4xx responses.
         return _json_response(
             202,
             {
@@ -787,6 +802,36 @@ class PublicIdentityGateway:
             set_cookies=set_cookies,
         )
 
+    def _account_memory_entitlement(
+        self,
+        request_headers: Mapping[str, str],
+    ) -> GatewayResponse:
+        if not self.provider or not self.memory_provider:
+            return self._provider_unavailable()
+        access, set_cookies = self._authenticated_access(request_headers)
+        if not access:
+            return _json_response(
+                401,
+                {
+                    "$schema": ERROR_SCHEMA,
+                    "error": "authentication-required",
+                    "message": "Entre na Conta OrdaX para consultar este entitlement.",
+                },
+                set_cookies=set_cookies,
+            )
+        try:
+            decision = AccountMemoryEntitlementAuthority(
+                self.provider,
+                self.memory_provider,
+            ).resolve(access)
+        except (TypeError, ValueError, SupabaseIdentityError, SupabaseMemoryError):
+            return _error(
+                502,
+                "memory-entitlement-read-failed",
+                "Não foi possível consultar o entitlement de Memory.",
+            )
+        return _json_response(200, decision, set_cookies=set_cookies)
+
     def _sync_snapshot(
         self,
         request_headers: Mapping[str, str],
@@ -1007,6 +1052,11 @@ class PublicIdentityGateway:
             if method != "GET":
                 return self._method_not_allowed("GET")
             return self._account_spaces(request_headers)
+
+        if path == "/account/entitlements/memory-cloud":
+            if method != "GET":
+                return self._method_not_allowed("GET")
+            return self._account_memory_entitlement(request_headers)
 
         if path == "/account/close":
             if method != "POST":
