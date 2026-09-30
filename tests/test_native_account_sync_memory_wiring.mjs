@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 import { PREFERENCE_RUNTIME_SCHEMA } from "../system/contracts/preference-runtime.mjs";
@@ -193,4 +196,18 @@ test("Native account sync remains valid without Account Memory foundation", () =
   assert.equal(snapshot.memorySyncWired, false);
   assert.equal(snapshot.memorySyncSource, "none");
   assert.equal(snapshot.publicCloudMemoryEnabled, false);
+});
+
+
+test("Native Surface exposes only explicit manual Memory conflict review decisions", () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const composition = readFileSync(resolve(root, "system/composition/native/main.mjs"), "utf8");
+  const accountUi = readFileSync(resolve(root, "system/surface/ui/account-overview-controls.mjs"), "utf8");
+
+  assert.match(composition, /createMemoryConflictReviewRuntime/);
+  assert.match(composition, /memoryConflictReview,/);
+  assert.match(accountUi, /data-account-memory-conflict-id/);
+  assert.match(accountUi, /preserve-local-intent/);
+  assert.match(accountUi, /accept-authoritative-remote/);
+  assert.doesNotMatch(accountUi, /last-write-wins.*=.*true/i);
 });

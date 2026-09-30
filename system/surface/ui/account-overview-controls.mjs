@@ -30,6 +30,7 @@ import {
   memoryAutoCaptureEnabled,
 } from "../../services/preferences/memory.mjs";
 import { mountMemoryReviewControls } from "./memory-review-controls.mjs";
+import { MEMORY_CONFLICT_REVIEW_SCHEMA } from "../../services/sync/memory-conflict-review.mjs";
 
 const ACCOUNT_WINDOW_SELECTOR = '[data-window-id="account"]';
 const ACCOUNT_EXTENSION_SELECTOR = '[data-app-extension="account-overview"]';
@@ -105,6 +106,7 @@ export function mountAccountOverviewControls(
   memoryReview = null,
   spaceSelection = null,
   preferenceRuntime = null,
+  memoryConflictReview = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -130,6 +132,19 @@ export function mountAccountOverviewControls(
   const preferencePort = preferenceRuntime === null
     ? null
     : assertPreferenceRuntimePort(preferenceRuntime);
+  const memoryConflictPort = memoryConflictReview === null
+    ? null
+    : (() => {
+        if (
+          typeof memoryConflictReview !== "object"
+          || memoryConflictReview.schema !== MEMORY_CONFLICT_REVIEW_SCHEMA
+          || typeof memoryConflictReview.getSnapshot !== "function"
+          || typeof memoryConflictReview.resolve !== "function"
+        ) {
+          throw new TypeError("Account overview requires a compatible Memory conflict review runtime");
+        }
+        return memoryConflictReview;
+      })();
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -152,6 +167,8 @@ export function mountAccountOverviewControls(
   let pendingAction = null;
   let actionMessage = "";
   let spaceMessage = "";
+  let memoryConflictMessage = "";
+  let pendingMemoryConflict = null;
   let credentialEmailDraft = "";
   let credentialPasswordDraft = "";
   let actionOrdinal = 0;
@@ -642,6 +659,72 @@ export function mountAccountOverviewControls(
       section.append(policy);
     }
 
+    const conflictSnapshot = memoryConflictPort?.getSnapshot() ?? null;
+    if (conflictSnapshot?.conflictCount > 0) {
+      const conflicts = node(documentObject, "section", "ordax-account-section");
+      conflicts.dataset.accountMemoryConflicts = "";
+      conflicts.append(
+        node(documentObject, "h5", "ordax-account-section-title", t("account.memory.conflicts.title")),
+        node(documentObject, "p", "ordax-account-subtitle", t("account.memory.conflicts.description")),
+      );
+      if (memoryConflictMessage) {
+        conflicts.append(node(documentObject, "p", "ordax-account-subtitle", memoryConflictMessage));
+      }
+      const grid = node(documentObject, "div", "ordax-account-grid");
+      for (const conflict of conflictSnapshot.conflicts) {
+        const card = node(documentObject, "article", "ordax-account-card");
+        card.dataset.state = conflict.state === "manual-resolution-required" ? "neutral" : "unavailable";
+        card.append(
+          node(documentObject, "span", "ordax-account-card-label", t("account.memory.conflicts.item", { id: conflict.objectId })),
+          node(
+            documentObject,
+            "strong",
+            "ordax-account-card-value",
+            conflict.state === "manual-resolution-required"
+              ? t("account.memory.conflicts.manual")
+              : t("account.memory.conflicts.awaitingRemote"),
+          ),
+          node(
+            documentObject,
+            "small",
+            "ordax-account-card-detail",
+            t("account.memory.conflicts.detail", {
+              reason: conflict.reason,
+              revision: conflict.serverRevision,
+            }),
+          ),
+        );
+        if (conflict.allowedDecisions.length > 0) {
+          const actions = node(documentObject, "div", "ordax-account-actions");
+          for (const decision of conflict.allowedDecisions) {
+            let decisionLabel;
+            if (decision === "preserve-local-intent") {
+              decisionLabel = t("account.memory.conflicts.preserveLocal");
+            } else if (decision === "accept-authoritative-remote") {
+              decisionLabel = t("account.memory.conflicts.acceptRemote");
+            } else {
+              throw new Error("Memory conflict review exposed an unsupported decision");
+            }
+            const button = node(
+              documentObject,
+              "button",
+              "ordax-account-action",
+              decisionLabel,
+            );
+            button.type = "button";
+            button.dataset.accountMemoryConflictId = conflict.objectId;
+            button.dataset.accountMemoryConflictDecision = decision;
+            button.disabled = pendingMemoryConflict === conflict.objectId;
+            actions.append(button);
+          }
+          card.append(actions);
+        }
+        grid.append(card);
+      }
+      conflicts.append(grid);
+      section.append(conflicts);
+    }
+
     const host = node(documentObject, "div", "ordax-memory-review-host");
     section.append(host);
     view.append(section);
@@ -924,6 +1007,29 @@ export function mountAccountOverviewControls(
     if (refreshButton && root.contains(refreshButton)) {
       spaceMessage = "";
       refreshSpaces();
+      return;
+    }
+
+    const memoryConflictButton = event.target.closest("[data-account-memory-conflict-id]");
+    if (memoryConflictButton && root.contains(memoryConflictButton) && memoryConflictPort) {
+      const objectId = memoryConflictButton.dataset.accountMemoryConflictId;
+      const decision = memoryConflictButton.dataset.accountMemoryConflictDecision;
+      pendingMemoryConflict = objectId;
+      memoryConflictMessage = "";
+      replaceView();
+      void memoryConflictPort.resolve(objectId, decision)
+        .then(() => {
+          memoryConflictMessage = decision === "preserve-local-intent"
+            ? t("account.memory.conflicts.preserved")
+            : t("account.memory.conflicts.remoteAccepted");
+        })
+        .catch(() => {
+          memoryConflictMessage = t("account.memory.conflicts.failed");
+        })
+        .finally(() => {
+          pendingMemoryConflict = null;
+          replaceView();
+        });
       return;
     }
 
