@@ -238,39 +238,28 @@ test("Native Account Memory keeps durable coordination partitioned across accoun
 });
 
 
-test("corrupt durable coordination blocks Account Memory without taking down the local runtime", async () => {
+test("corrupt durable root coordination keeps the composition mounted but blocks Account Memory", async () => {
   const root = rootStore("device", "{not-a-compatible-container");
   const registry = createSyncStateNamespaceRegistry(root);
   const memory = createMemoryRuntime({ store: memoryStore() });
-  const errors = [];
   const foundation = createNativeAccountMemoryFoundation({
     identitySession: identitySession(),
     memoryPort: memory,
     syncStateRegistry: registry,
     entitlementsPort: deniedEntitlements(),
     createIdempotencyKey: (kind, ordinal) => `memory:${kind}:${ordinal}`,
-    onStageError(error, context) {
-      errors.push({ error, context });
-    },
   });
 
-  assert.equal(foundation.accountMemory, null);
-  assert.notEqual(foundation.protectedMutations, null);
-  assert.deepEqual(foundation.getSnapshot(), {
-    schema: NATIVE_ACCOUNT_MEMORY_FOUNDATION_SCHEMA,
-    state: "recovery-required",
-    reason: "coordination-state-incompatible",
-    syncStateScope: "device",
-    protectedMutationsAvailable: false,
-    accountMutationsBlocked: true,
-    cloudTransportWired: false,
-    productionPromoted: false,
-  });
-  assert.equal(errors.length, 1);
-  assert.equal(errors[0].context.kind, "native-account-memory-foundation");
+  assert.notEqual(foundation.accountMemory, null);
+  const snapshot = foundation.getSnapshot();
+  assert.equal(snapshot.state, "recovery-required");
+  assert.equal(snapshot.reason, "state-load-failed");
+  assert.equal(snapshot.accountMutationsBlocked, true);
+  assert.equal(snapshot.cloudTransportWired, false);
+  assert.equal(snapshot.productionPromoted, false);
 
   await assert.rejects(
-    foundation.protectedMutations.remember(memoryItem("blocked-memory")),
+    foundation.protectedMutations.remember(memoryItem("blocked-root-memory")),
     /coordination requires recovery/,
   );
   assert.equal(
@@ -284,8 +273,10 @@ test("corrupt durable coordination blocks Account Memory without taking down the
     }).length,
     0,
   );
-});
+  assert.equal(foundation.accountMemory.crashRecovery.pendingIdentities().length, 0);
 
+  foundation.destroy();
+});
 
 test("canonical recovery-blocked state rejects account writes before local Memory or journal mutation", async () => {
   const root = rootStore("device");
