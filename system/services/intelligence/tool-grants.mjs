@@ -102,6 +102,7 @@ export function createIntelligenceToolGrantAuthority({
         grantId,
         approvalId: request.approvalId,
         toolId: request.toolId,
+        toolArtifactSha256: request.toolArtifactSha256,
         action: request.action,
         mode: request.mode,
         approved: true,
