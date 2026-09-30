@@ -25,6 +25,7 @@ function issue(overrides = {}) {
     ownerId: "user-a",
     spaceId: "space-a",
     projectId: "project-a",
+    resourceRef: "file-space:/Documentos/menu.md",
     requestedAt: "2026-09-30T21:30:00.000Z",
     expiresAt: "2026-09-30T21:34:00.000Z",
     ...overrides,
@@ -40,10 +41,17 @@ test("canonical grant authority separates read-only registry from trusted issuer
   assert.equal(authority.issuer.schema, INTELLIGENCE_TOOL_GRANT_ISSUER_SCHEMA);
   assert.equal(typeof authority.registry.issue, "undefined");
 
+  assert.throws(
+    () => authority.issuer.issue(issue({ resourceRef: null })),
+    /resource reference/,
+  );
+
   const grant = authority.issuer.issue(issue());
   assert.equal(grant.grantId, "grant-user-a-1");
   assert.equal(grant.source, "user-approval");
+  assert.equal(grant.approvalId, "personal-approval-personal-work-1-1");
   assert.equal(grant.ownerId, "user-a");
+  assert.equal(grant.resourceRef, "file-space:/Documentos/menu.md");
   assert.equal(authority.registry.resolve(grant.grantId), grant);
   authority.dispose();
 });
@@ -104,6 +112,7 @@ test("expired grants disappear from the registry and disposed authority fails cl
 test("typed Action Executor boundary rejects non-allow and mismatched decisions", () => {
   const request = {
     workItemId: "personal-work-1",
+    approvalId: "personal-approval-personal-work-1-1",
     actionId: "files.document.write",
     toolId: "files-inspector",
     effect: "write",
@@ -111,6 +120,7 @@ test("typed Action Executor boundary rejects non-allow and mismatched decisions"
     ownerId: "user-a",
     spaceId: "space-a",
     projectId: "project-a",
+    resourceRef: "file-space:/Documentos/menu.md",
     reason: "Salvar alteracao aprovada.",
     requestedAt: "2026-09-30T21:30:00.000Z",
   };
