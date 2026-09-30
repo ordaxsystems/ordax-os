@@ -17,6 +17,7 @@ on:
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
       - 'system/composition/native/account-memory.mjs'
+      - 'system/composition/native/account-memory-foundation.mjs'
       - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_entitlement_session.mjs'
       - 'tests/test_account_memory_local_bridge.mjs'
@@ -25,6 +26,7 @@ on:
       - 'tests/test_account_memory_authorized_composition.mjs'
       - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
       - 'tests/test_native_account_memory_composition.mjs'
+      - 'tests/test_native_account_memory_foundation.mjs'
       - '.github/workflows/account-memory-authorized-composition.yml'
   push:
     branches: [main]
@@ -43,6 +45,7 @@ on:
       - 'system/services/sync/account-memory-deferred-intents.mjs'
       - 'system/services/sync/account-memory-authorized-composition.mjs'
       - 'system/composition/native/account-memory.mjs'
+      - 'system/composition/native/account-memory-foundation.mjs'
       - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_entitlement_session.mjs'
       - 'tests/test_account_memory_local_bridge.mjs'
@@ -51,6 +54,7 @@ on:
       - 'tests/test_account_memory_authorized_composition.mjs'
       - 'tests/test_account_memory_authorized_lifecycle_replay.mjs'
       - 'tests/test_native_account_memory_composition.mjs'
+      - 'tests/test_native_account_memory_foundation.mjs'
       - '.github/workflows/account-memory-authorized-composition.yml'
   workflow_dispatch:
 
@@ -75,11 +79,13 @@ jobs:
           node --check system/services/sync/account-memory-deferred-intents.mjs
           node --check system/services/sync/account-memory-authorized-composition.mjs
           node --check system/composition/native/account-memory.mjs
+          node --check system/composition/native/account-memory-foundation.mjs
           node --check tests/test_account_memory_local_bridge.mjs
           node --check tests/test_account_memory_deferred_intents.mjs
           node --check tests/test_account_memory_authorized_composition.mjs
           node --check tests/test_account_memory_authorized_lifecycle_replay.mjs
           node --check tests/test_native_account_memory_composition.mjs
+          node --check tests/test_native_account_memory_foundation.mjs
 
       - name: Prove entitlement-gated local-first Memory composition
         run: |
@@ -93,3 +99,4 @@ jobs:
           node --test tests/test_account_memory_authorized_composition.mjs
           node --test tests/test_account_memory_authorized_lifecycle_replay.mjs
           node --test tests/test_native_account_memory_composition.mjs
+          node --test tests/test_native_account_memory_foundation.mjs
