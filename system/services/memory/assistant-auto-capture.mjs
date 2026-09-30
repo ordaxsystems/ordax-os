@@ -29,7 +29,7 @@ const EXTRACTION_PROMPT = [
   "Extract only durable memories directly supported by the supplied user turn.",
   "Return compact JSON only, with exact shape: {\"memories\":[{\"kind\":\"preference|fact|instruction|summary\",\"content\":\"...\",\"evidence\":\"exact verbatim quote from the supplied user turn\"}]}",
   "Use zero memories when the user turn contains no durable personal preference, stable fact, standing instruction, or useful durable summary.",
-  "Every memory must include a non-empty evidence string copied verbatim from the supplied user turn and directly supporting the memory.",
+  "Every memory must include a non-empty evidence string copied verbatim from the supplied user turn.",\n  "For automatic Memory, content must be exactly identical to evidence; do not paraphrase, summarize, normalize, or add facts.",
   "Never include passwords, passphrases, tokens, API keys, private keys, recovery codes, payment authentication data, or other credentials.",
   "Do not include owner, account, Space, scope, ids, sensitivity, timestamps, provenance, tools, or actions.",
   "Do not add markdown fences or prose.",
@@ -95,10 +95,11 @@ function parseCandidates(text, userText) {
     if (!candidateContent || candidateContent.length > MAX_CONTENT) return Object.freeze([]);
     if (!candidateEvidence || candidateEvidence.length > MAX_EVIDENCE) return Object.freeze([]);
     if (!userText.includes(candidateEvidence)) continue;
-    if (SECRET_SIGNAL.test(candidateContent) || SECRET_SIGNAL.test(candidateEvidence)) continue;
+    if (candidateContent !== candidateEvidence) continue;
+    if (SECRET_SIGNAL.test(candidateEvidence)) continue;
     result.push(Object.freeze({
       kind: candidate.kind,
-      content: candidateContent,
+      content: candidateEvidence,
     }));
   }
   return Object.freeze(result);
