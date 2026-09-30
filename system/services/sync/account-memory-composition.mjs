@@ -11,6 +11,7 @@ export function createAccountMemorySyncComposition({
   authorizeSync,
   createIdempotencyKey,
   onStageError = null,
+  onStageResult = null,
 } = {}) {
   const baseMemory = assertMemoryPort(memoryPort);
   const memorySync = createAccountMemorySessionRuntime({
@@ -24,6 +25,7 @@ export function createAccountMemorySyncComposition({
     memoryPort: baseMemory,
     memorySync,
     onStageError,
+    onStageResult,
   });
 
   let destroyed = false;
