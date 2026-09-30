@@ -67,17 +67,24 @@ function workspaceStore() {
   };
 }
 
-function checkpointStore() {
-  let value = null;
+function checkpointStore({ failFlush = false } = {}) {
+  let staged = null;
+  let durable = null;
   return {
     schema: SYNC_CHECKPOINT_STORE_SCHEMA,
     scope: "device",
-    load: () => value,
+    load: () => durable,
     save(next) {
-      value = next;
+      staged = next;
       return true;
     },
-    peek: () => value,
+    async flush() {
+      if (failFlush) throw new Error("checkpoint durability unavailable");
+      durable = staged;
+      return true;
+    },
+    peek: () => durable,
+    staged: () => staged,
   };
 }
 
@@ -161,7 +168,7 @@ function accountSnapshotObjects(memoryObject = remoteMemory()) {
   ];
 }
 
-function createRestoreHarness(objects) {
+function createRestoreHarness(objects, { checkpoint = checkpointStore() } = {}) {
   const preferences = preferencesRuntime();
   const preferenceSync = createPreferenceSyncRuntime(preferences, {
     createIdempotencyKey: keyFactory("restore-preference"),
@@ -175,7 +182,6 @@ function createRestoreHarness(objects) {
     authorizeSync: () => true,
     createIdempotencyKey: keyFactory("restore-memory"),
   });
-  const checkpoint = checkpointStore();
   const mutations = [];
   let snapshotCalls = 0;
   let pullCalls = 0;
@@ -255,6 +261,21 @@ test("fresh install restores promoted account state and authorized Memory from o
   assert.equal(memorySync.getSnapshot().ownsCursor, false);
   assert.equal(memorySync.getSnapshot().ownsTransport, false);
   assert.equal(accountSync.getSnapshot().accountContinuity, "active");
+
+  harness.destroy();
+});
+
+test("fresh install does not activate continuity when checkpoint durability cannot be confirmed", async () => {
+  const checkpoint = checkpointStore({ failFlush: true });
+  const harness = createRestoreHarness(accountSnapshotObjects(), { checkpoint });
+
+  await harness.accountSync.refresh();
+
+  assert.deepEqual(harness.counters(), { snapshotCalls: 1, pullCalls: 0 });
+  assert.equal(checkpoint.peek(), null, "failed flush must never become a durable restore checkpoint");
+  assert.equal(checkpoint.staged()?.cursor, 31, "the candidate checkpoint may be staged but is not durable");
+  assert.equal(harness.accountSync.getSnapshot().accountContinuity, "not-active");
+  assert.equal(harness.mutations.length, 0);
 
   harness.destroy();
 });
