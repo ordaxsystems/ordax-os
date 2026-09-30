@@ -62,10 +62,25 @@ export function createPersonalOrdaxActionGateway({
 
   return Object.freeze({
     schema: ACTION_GATEWAY_SCHEMA,
-    decide(requestValue, { grantRef = null } = {}) {
+    decide(requestValue, { grantRef = null, userDecision = null } = {}) {
       const request = validateActionRequest(requestValue);
       const decidedAtMs = readClock(now);
       const decidedAt = new Date(decidedAtMs).toISOString();
+
+      if (userDecision !== null && userDecision !== "deny") {
+        throw new TypeError("Action Gateway user decision is invalid");
+      }
+      if (userDecision === "deny" && grantRef != null && grantRef !== "") {
+        throw new TypeError("Denied action must not carry an execution grant");
+      }
+      if (userDecision === "deny") {
+        return decision(request, {
+          decision: "deny",
+          authoritySource: "user-grant",
+          reason: "User explicitly denied this action.",
+          decidedAt,
+        });
+      }
 
       if (request.effect === "external-egress" || request.effect === "device-control") {
         return decision(request, {
