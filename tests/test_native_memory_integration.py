@@ -71,6 +71,16 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertNotIn("createWebSyncTransport", account_memory)
         self.assertNotIn("createWebSyncTransport", foundation)
 
+    def test_native_protected_wiring_does_not_enable_memory_cloud_transport(self):
+        composition = COMPOSITION.read_text(encoding="utf-8")
+        start = composition.index("const accountSync = createAccountSyncRuntime({")
+        end = composition.index("\n  });", start) + len("\n  });")
+        account_sync_block = composition[start:end]
+
+        self.assertNotIn("memorySync", account_sync_block)
+        self.assertIn("transport: syncTransport", account_sync_block)
+        self.assertIn("publicCloudMemoryEnabled: false", ACCOUNT_MEMORY_COMPOSITION.read_text(encoding="utf-8"))
+
     def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
 
