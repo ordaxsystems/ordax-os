@@ -50,6 +50,13 @@ function requireMemorySync(value) {
   return value;
 }
 
+function requireDurabilityConfirmation(value) {
+  if (typeof value !== "function") {
+    throw new TypeError("Memory crash recovery requires flushCoordination() before journal clear");
+  }
+  return value;
+}
+
 function identityRecord(value, subjectId) {
   const request = validateMemoryForgetRequest(value);
   if (request.ownerKind !== "account" || request.ownerId !== subjectId) {
@@ -238,8 +245,9 @@ export function createAccountMemoryCrashRecoveryJournal({
       await clearDurably(journalIdentity.id);
       return result;
     },
-    async recover(memorySyncValue) {
+    async recover(memorySyncValue, { flushCoordination } = {}) {
       const memorySync = requireMemorySync(memorySyncValue);
+      const confirmCoordination = requireDurabilityConfirmation(flushCoordination);
       const runtime = currentRuntime();
       if (!runtime) return Object.freeze({ attempted: 0, transferred: 0, retained: 0, inactive: true });
 
@@ -249,6 +257,10 @@ export function createAccountMemoryCrashRecoveryJournal({
         attempted += 1;
         const result = reconcileOne(runtime, memorySync, journalIdentity);
         if (result.status === "canonical-owner" || TRANSFERRED_STATUSES.has(result.status)) {
+          const durable = await confirmCoordination();
+          if (durable !== true) {
+            throw new Error("Memory crash recovery coordination durability was not confirmed");
+          }
           await clearDurably(journalIdentity.id);
           transferred += 1;
           continue;
