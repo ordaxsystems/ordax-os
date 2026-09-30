@@ -26,7 +26,10 @@
       "ordax.intelligence-tool-grant/1",
       "device-capability-grant",
       "action-gateway",
-      "ordax.action-gateway/1"
+      "ordax.action-gateway/1",
+      "ordax.intelligence-tool-grant-registry/1",
+      "ordax.intelligence-tool-grant-issuer/1",
+      "ordax.action-executor/1"
     ],
     "outputs": [
       "ordax.personal-work-item/1",
@@ -112,7 +115,16 @@
       "write"
     ],
     "intelligence_tool_grant_authorizes_external_egress": false,
-    "intelligence_tool_grant_authorizes_device_control": false
+    "intelligence_tool_grant_authorizes_device_control": false,
+    "intelligence_tool_grant_registry_source_enabled": true,
+    "intelligence_tool_grant_registry_scope": "session",
+    "intelligence_tool_grant_issuer_source_enabled": true,
+    "intelligence_tool_grant_issuer_exposed_to_personal_runtime": false,
+    "intelligence_tool_grant_issuer_requires_explicit_user_approval": true,
+    "intelligence_tool_grant_initial_max_ttl_ms": 300000,
+    "native_action_gateway_uses_canonical_grant_registry": true,
+    "action_executor_contract_source_enabled": true,
+    "action_executor_implementation_enabled": false
   },
   "activity": {
     "ordered_sequence_required": true,
