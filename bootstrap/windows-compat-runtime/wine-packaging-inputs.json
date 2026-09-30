@@ -1,0 +1,41 @@
+{
+  "$schema": "prototype-ordax.windows-compat-wine-packaging-inputs/1",
+  "status": "alpine-wine-packaging-input-pinned-not-runtime-promoted",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "wine_version": "11.0",
+  "authority": {
+    "distribution": "alpine",
+    "repository": "alpinelinux/aports",
+    "commit_sha": "359eb9ae4f36cb7699db0945cc18c32c562cd5fc",
+    "apkbuild_path": "community/wine/APKBUILD",
+    "apkbuild_git_blob_sha": "74e0efc2f6150cd32ff0cee8e8207af682f03e30",
+    "patch_path": "community/wine/rpath.patch",
+    "patch_git_blob_sha": "07d4b8db7af40e16c086c82425eb0ab9303ad19a",
+    "apkbuild_declared_patch_sha512": "72f64ed66ce24cf51f278874edc351c9297ebbad22adedd3036f1ead5113b0a09660f7fff4034c7b6a05bd7c15d42d9d7d203e8bd8a7fe1027643b6f49470ff3"
+  },
+  "local_patch": {
+    "path": "alpine-wine-rpath.patch",
+    "size_bytes": 1569,
+    "sha256": "9649777d6a1b33630c09efe61f028536733744b3868d5efaf0e7a32f3605902d",
+    "sha512": "72f64ed66ce24cf51f278874edc351c9297ebbad22adedd3036f1ead5113b0a09660f7fff4034c7b6a05bd7c15d42d9d7d203e8bd8a7fe1027643b6f49470ff3"
+  },
+  "semantics": {
+    "host_os": "linux-musl",
+    "linker_flag": "-Wl,-rpath,$ORIGIN",
+    "wine_variable": "UNIXLDFLAGS",
+    "purpose": "make staged Wine Unixlibs resolve sibling DT_NEEDED Unixlibs through their own directory without ambient LD_LIBRARY_PATH",
+    "ambient_ld_library_path_required": false,
+    "global_wine_directory_search_fallback_allowed": false,
+    "basename_fallback_allowed": false
+  },
+  "promotion": {
+    "packaging_patch_content_pinned": true,
+    "runtime_dependency_inventory_complete": false,
+    "runtime_package_content_hashes_pinned": false,
+    "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false,
+    "wine_executed": false,
+    "windows_payload_executed": false
+  }
+}

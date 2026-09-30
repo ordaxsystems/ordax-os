@@ -1,0 +1,39 @@
+name: Windows Compatibility Wine Packaging Proof
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/windows-compat-runtime/wine-packaging-inputs.json'
+      - 'bootstrap/windows-compat-runtime/alpine-wine-rpath.patch'
+      - 'bootstrap/windows-compat-runtime/wine_packaging.py'
+      - 'tests/test_windows_compat_wine_packaging.py'
+      - '.github/workflows/windows-compat-wine-packaging-proof.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/windows-compat-runtime/wine-packaging-inputs.json'
+      - 'bootstrap/windows-compat-runtime/alpine-wine-rpath.patch'
+      - 'bootstrap/windows-compat-runtime/wine_packaging.py'
+      - 'tests/test_windows_compat_wine_packaging.py'
+      - '.github/workflows/windows-compat-wine-packaging-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  packaging-proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Validate pinned Alpine Wine packaging authority
+        run: |
+          set -euo pipefail
+          python bootstrap/windows-compat-runtime/wine_packaging.py
+          python -m unittest tests.test_windows_compat_wine_packaging -v
