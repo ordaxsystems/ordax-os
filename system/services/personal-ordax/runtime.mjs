@@ -31,7 +31,10 @@ import {
   assertProjectCatalogPort,
   validateProjectCatalogSnapshot,
 } from "../../contracts/project-catalog.mjs";
-import { validateAuthorizedActionExecution } from "../../contracts/action-executor.mjs";
+import {
+  validateActionReceipt,
+  validateAuthorizedActionExecution,
+} from "../../contracts/action-executor.mjs";
 import { assertActionGateway } from "../../contracts/action-gateway.mjs";
 import {
   assertIntelligencePort,
@@ -785,6 +788,119 @@ export function createPersonalOrdaxRuntime({
           requestedAt: approval.requestedAt,
         },
         decision,
+      });
+    },
+    startActionExecution(id, approvalId) {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      const item = findWork(id);
+      if (item.state !== "queued") {
+        throw new Error("Personal OrdaX action execution can only start from queued work");
+      }
+      const status = contextStatus(item);
+      if (status !== "valid") {
+        throw new Error(`Personal OrdaX work context is invalid: ${status}`);
+      }
+      const approval = state.approvals.find((candidate) =>
+        candidate.id === approvalId && candidate.workItemId === id
+      );
+      if (!approval || approval.status !== "approved" || approval.executedAt !== null) {
+        throw new Error("Personal OrdaX action execution requires one unconsumed approved approval");
+      }
+      const execution = this.prepareActionExecution(id, approvalId);
+      updateWork(id, { state: "running", pendingApprovalId: null }, {
+        activity: {
+          type: "action-started",
+          summary: "Approved foreground action execution started.",
+          approvalId,
+          actionId: approval.actionId,
+        },
+      });
+      return execution;
+    },
+    finishActionExecution(id, approvalId, receiptValue) {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      const receipt = validateActionReceipt(receiptValue);
+      const item = findWork(id);
+      if (item.state !== "running") {
+        throw new Error("Personal OrdaX action receipt requires running work");
+      }
+      const approval = state.approvals.find((candidate) =>
+        candidate.id === approvalId && candidate.workItemId === id
+      );
+      if (!approval || approval.status !== "approved" || approval.executedAt !== null) {
+        throw new Error("Personal OrdaX action receipt requires one unconsumed approved approval");
+      }
+      const decision = state.decisions.find((candidate) =>
+        candidate.workItemId === id
+        && candidate.actionId === approval.actionId
+        && candidate.decision === "allow"
+      );
+      if (
+        !decision
+        || receipt.workItemId !== id
+        || receipt.approvalId !== approval.id
+        || receipt.toolId !== approval.toolId
+        || receipt.toolArtifactSha256 !== approval.toolArtifactSha256
+        || receipt.actionId !== approval.actionId
+        || receipt.effect !== approval.effect
+        || receipt.resourceRef !== approval.resourceRef
+        || receipt.grantRef !== approval.grantRef
+        || receipt.grantRef !== decision.grantRef
+      ) {
+        throw new TypeError("Personal OrdaX action receipt does not match retained authority");
+      }
+      if (Date.parse(receipt.executedAt) < Date.parse(item.updatedAt)) {
+        throw new TypeError("Personal OrdaX action receipt cannot precede action start");
+      }
+
+      const consumed = validatePersonalApproval({
+        ...approval,
+        status: "executed",
+        executedAt: receipt.executedAt,
+      });
+      const queued = validatePersonalWorkItem({
+        ...item,
+        state: "queued",
+        pendingApprovalId: null,
+        updatedAt: receipt.executedAt,
+      });
+      replaceState({
+        ...state,
+        workItems: state.workItems.map((candidate) => candidate.id === id ? queued : candidate),
+        approvals: state.approvals.map((candidate) =>
+          candidate.id === approvalId ? consumed : candidate),
+        activities: appendActivityTo(
+          state.activities,
+          id,
+          "action-finished",
+          receipt.summary,
+          receipt.executedAt,
+          {
+            approvalId,
+            actionId: approval.actionId,
+            artifactRefs: receipt.artifactRefs,
+          },
+        ),
+      });
+      return receipt;
+    },
+    failActionExecution(id, approvalId, summary = "Foreground action execution failed before a verified receipt.") {
+      if (disposed) throw new Error("Personal OrdaX runtime is disposed");
+      const item = findWork(id);
+      if (item.state !== "running") return item;
+      const approval = state.approvals.find((candidate) =>
+        candidate.id === approvalId && candidate.workItemId === id
+      );
+      if (!approval || approval.status !== "approved") {
+        throw new Error("Personal OrdaX action failure requires its approved retained approval");
+      }
+      return updateWork(id, { state: "paused", pendingApprovalId: null }, {
+        activity: {
+          type: "action-finished",
+          summary,
+          approvalId,
+          actionId: approval.actionId,
+        },
       });
     },
     pause(id) {
