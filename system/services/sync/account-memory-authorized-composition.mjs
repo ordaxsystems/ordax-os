@@ -206,17 +206,24 @@ export function createAccountMemoryAuthorizedComposition({
     });
   };
 
-  const replayCurrent = () => {
-    const replay = deferredIntents.replay(memoryComposition.memorySync);
-    lastReplayError = null;
-    return replay;
+  const replayCurrent = async () => {
+    try {
+      const replay = await deferredIntents.replayDurably(memoryComposition.memorySync, {
+        flushCanonical: requireCanonicalDeviceDurability,
+      });
+      lastReplayError = null;
+      return replay;
+    } catch (error) {
+      lastReplayError = error;
+      throw error;
+    }
   };
 
   const scheduleLifecycleReplay = () => {
     lifecycleReplayPromise = entitlementSession.settled()
       .then(async () => {
         if (destroyed) return null;
-        const replay = replayCurrent();
+        const replay = await replayCurrent();
         await flushDeferredCoordination();
         return replay;
       })
@@ -435,7 +442,7 @@ export function createAccountMemoryAuthorizedComposition({
     if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
     if (refresh) await entitlementSession.refresh();
     else await entitlementSession.settled();
-    replayCurrent();
+    await replayCurrent();
     await flushDeferredCoordination();
     return snapshot();
   };
@@ -460,7 +467,7 @@ export function createAccountMemoryAuthorizedComposition({
     },
     async replayDeferredIntents() {
       if (destroyed) throw new Error("Authorized Account Memory composition is disposed");
-      const replay = replayCurrent();
+      const replay = await replayCurrent();
       await flushDeferredCoordination();
       return replay;
     },
