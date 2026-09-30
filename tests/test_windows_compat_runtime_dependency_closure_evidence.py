@@ -140,6 +140,7 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
                 "stage_hits": 0,
                 "rootfs_hits": 1,
                 "identity_soname_pairs": 1,
+                "dependency_attach_preload_hits": 0,
             },
         }
         guard = {
@@ -205,6 +206,13 @@ class RuntimeDependencyClosureEvidenceTests(unittest.TestCase):
         direct, closure, guard = self.fixtures()
         guard["counts"]["edges_checked"] = 2
         with self.assertRaisesRegex(MODULE.ClosureEvidenceError, "closure loader guard digest"):
+            MODULE.finalize(direct, closure, guard)
+
+    def test_finalize_rejects_rehashed_preload_count_drift(self):
+        direct, closure, guard = self.fixtures()
+        guard["counts"]["dependency_attach_preload_hits"] = 1
+        guard["validation_sha256"] = MODULE.canonical_sha256(MODULE.guard_core(guard))
+        with self.assertRaisesRegex(MODULE.ClosureEvidenceError, "guard counts"):
             MODULE.finalize(direct, closure, guard)
 
     def test_finalize_rejects_dynamic_inventory_overclaim_in_guard_without_digest_change(self):
