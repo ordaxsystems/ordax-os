@@ -28,6 +28,7 @@ def command(action="activate", revision=0, slug="developer"):
         "schema": "ordax.profile-activation-command/1",
         "action": action,
         "expectedRevision": revision,
+        "subjectId": "user-1",
         "spaceId": "space-professional-1",
     }
     if action == "activate":
@@ -192,8 +193,8 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
         diff = module._canonical_component_binding(manifest, [component])
         self.assertEqual(diff["componentAdds"][0]["id"], "knowledge.example")
         self.assertTrue(diff["requiresExplicitReview"])
-        digest = module._permission_review_digest(
-            expected_revision=1,
+        digest = module._permission_review_digest(\n            expected_revision=1,
+            subject_id="user-1",
             space_id="space-professional-1",
             space_kind="professional",
             profile={"slug": "developer", "version": 1},
@@ -238,7 +239,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
         try:
             module._canonical_manifest = lambda slug, version: manifest
             module.read_profile_activation_state = lambda path: {
-                "schema": "ordax.profile-activation-state/1",
+                "schema": "ordax.profile-activation-state/2",
                 "revision": 7,
                 "persistence": "device",
                 "spaces": [],
@@ -246,7 +247,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
             module.activate_profile = lambda **kwargs: {
                 "changed": True,
                 "state": {
-                    "schema": "ordax.profile-activation-state/1",
+                    "schema": "ordax.profile-activation-state/2",
                     "revision": 8,
                     "persistence": "device",
                     "spaces": [],
