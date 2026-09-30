@@ -52,6 +52,7 @@ export function createNativePersonalOrdaxComposition({
     projectCatalogPort: projects,
     intelligencePort: intelligence,
     actionGatewayPort: actionGateway,
+    revokeGrant: (grantId) => authority.issuer.revoke(grantId),
     store: createNativePersonalOrdaxStore(windowRef),
   });
   const approvalConsent = createPersonalApprovalConsent({
@@ -71,20 +72,6 @@ export function createNativePersonalOrdaxComposition({
         throw new Error("Personal OrdaX action catalog is unavailable");
       }
       return catalog.request(runtime, workItemId, entryId, input);
-    },
-    cancel(workItemId) {
-      const snapshot = runtime.getSnapshot();
-      const approvals = snapshot.approvals.filter((approval) =>
-        approval.workItemId === workItemId && approval.status === "approved"
-      );
-      for (const approval of approvals) {
-        if (approval.grantRef === null) {
-          throw new Error("Approved sensitive action lost its grant reference");
-        }
-        authority.issuer.revoke(approval.grantRef);
-        runtime.revokeApprovedAction(workItemId, approval.id);
-      }
-      return runtime.cancel(workItemId);
     },
     canExecuteApprovedAction(workItemId, approvalId) {
       const snapshot = runtime.getSnapshot();
