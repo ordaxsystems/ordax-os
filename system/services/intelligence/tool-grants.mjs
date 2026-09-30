@@ -100,6 +100,7 @@ export function createIntelligenceToolGrantAuthority({
 
       const grant = validateIntelligenceToolGrant({
         grantId,
+        workItemId: request.workItemId,
         approvalId: request.approvalId,
         toolId: request.toolId,
         toolArtifactSha256: request.toolArtifactSha256,
