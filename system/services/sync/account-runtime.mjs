@@ -213,6 +213,15 @@ export function createAccountSyncRuntime({
     }
   };
 
+  const persistCheckpointDurably = async () => {
+    if (!persistCheckpoint()) return false;
+    try {
+      return await checkpoints.flush() === true;
+    } catch {
+      return false;
+    }
+  };
+
   const recoverCheckpoint = (subjectId) => {
     activeSubjectId = subjectId;
     checkpointCursor = 0;
@@ -579,6 +588,7 @@ export function createAccountSyncRuntime({
 
   async function pullRemoteChanges(subjectId) {
     for (let page = 0; page < MAX_PULL_PAGES_PER_REFRESH; page += 1) {
+      const previousCursor = checkpointCursor;
       const result = await remote.pullChanges({
         afterCursor: checkpointCursor,
         limit: PULL_PAGE_SIZE,
@@ -586,8 +596,11 @@ export function createAccountSyncRuntime({
       for (const change of result.changes) applyRemoteObject(change);
       await reconcileMemoryObjects(result.changes, subjectId);
       checkpointCursor = result.nextCursor;
+      if (!(await persistCheckpointDurably())) {
+        checkpointCursor = previousCursor;
+        throw new Error("Account sync checkpoint durability could not be confirmed");
+      }
       checkpointLoaded = true;
-      persistCheckpoint();
       if (result.changes.length < PULL_PAGE_SIZE) return;
     }
     retryRequested = true;
@@ -618,8 +631,12 @@ export function createAccountSyncRuntime({
         const snapshot = await remote.snapshot({ limit: 200 });
         await applyInitialSnapshot(snapshot.objects, subjectId);
         checkpointCursor = snapshot.cursor;
+        if (!(await persistCheckpointDurably())) {
+          checkpointCursor = 0;
+          checkpointLoaded = false;
+          throw new Error("Account sync checkpoint durability could not be confirmed");
+        }
         checkpointLoaded = true;
-        persistCheckpoint();
       }
 
       initialized = true;

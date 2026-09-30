@@ -28,7 +28,11 @@ export async function createNativeSyncCheckpointStore(windowRef = globalThis.win
     // Account continuity is optional for boot; use session memory.
   }
 
-  let persistQueue = Promise.resolve();
+  let desiredRevision = 0;
+  let durableRevision = 0;
+  let drainPromise = null;
+  let lastPersistError = null;
+
   const persist = async (checkpoint) => {
     const response = await windowRef.fetch(ENDPOINT, {
       method: "POST",
@@ -40,18 +44,64 @@ export async function createNativeSyncCheckpointStore(windowRef = globalThis.win
     if (!response.ok) {
       throw new Error(`Native sync checkpoint persistence failed: ${response.status}`);
     }
+    durable = true;
+    return true;
+  };
+
+  const drainDesiredCheckpoint = async () => {
+    while (durableRevision < desiredRevision) {
+      const revision = desiredRevision;
+      const checkpoint = memory;
+      try {
+        await persist(checkpoint);
+        durableRevision = Math.max(durableRevision, revision);
+        if (revision === desiredRevision) lastPersistError = null;
+      } catch (error) {
+        if (revision < desiredRevision) continue;
+        lastPersistError = error instanceof Error
+          ? error
+          : new Error("Native sync checkpoint persistence failed");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const scheduleDrain = () => {
+    if (drainPromise !== null) return drainPromise;
+    drainPromise = Promise.resolve()
+      .then(drainDesiredCheckpoint)
+      .finally(() => {
+        drainPromise = null;
+      });
+    return drainPromise;
   };
 
   const store = {
     schema: SYNC_CHECKPOINT_STORE_SCHEMA,
-    scope: durable ? "device" : "session",
+    get scope() {
+      return durable ? "device" : "session";
+    },
     load() {
       return memory;
     },
     save(value) {
-      const checkpoint = validateSyncCheckpoint(value);
-      memory = checkpoint;
-      persistQueue = persistQueue.then(() => persist(checkpoint)).catch(() => false);
+      memory = validateSyncCheckpoint(value);
+      desiredRevision += 1;
+      scheduleDrain();
+      return true;
+    },
+    async flush() {
+      const targetRevision = desiredRevision;
+      if (durableRevision >= targetRevision) return true;
+
+      await scheduleDrain();
+      if (durableRevision >= targetRevision) return true;
+
+      await scheduleDrain();
+      if (durableRevision < targetRevision) {
+        throw lastPersistError ?? new Error("Native sync checkpoint persistence failed");
+      }
       return true;
     },
   };
