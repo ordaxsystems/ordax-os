@@ -106,7 +106,13 @@
     "action_gateway_executes_side_effects": false,
     "exact_owner_space_project_tool_action_scope_required": true,
     "expired_or_invalid_grant": "deny",
-    "device_and_account_owner_semantics_are_canonical": true
+    "device_and_account_owner_semantics_are_canonical": true,
+    "intelligence_tool_grant_authorizes_effects": [
+      "read",
+      "write"
+    ],
+    "intelligence_tool_grant_authorizes_external_egress": false,
+    "intelligence_tool_grant_authorizes_device_control": false
   },
   "activity": {
     "ordered_sequence_required": true,
