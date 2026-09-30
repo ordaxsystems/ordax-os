@@ -759,6 +759,20 @@ async function start() {
     },
   });
 
+  const activityComponent = await loadOptionalComponentRuntime({
+    componentId: "activity",
+    importer: () => import("../../apps/activity/runtime.mjs"),
+    componentManager,
+    context: {
+      root,
+      surfaceLifecycle: surface,
+      personalOrdax,
+    },
+    onError(error) {
+      reportClientDiagnostic("activity-runtime", error);
+    },
+  });
+
   const internetComponent = await loadOptionalComponentRuntime({
     componentId: "internet",
     importer: () => import("../../apps/internet/runtime.mjs"),
@@ -830,6 +844,7 @@ async function start() {
       projectsComponent?.destroy();
       notesComponent?.destroy();
       assistantComponent?.destroy();
+      activityComponent?.destroy();
       internetComponent?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
