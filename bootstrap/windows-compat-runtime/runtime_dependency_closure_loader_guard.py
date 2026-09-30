@@ -245,7 +245,13 @@ def materialize_node(key: str, record: dict, stage: Path, rootfs: Path, owners: 
         origin_signatures = {_origin_search_signature(elf, alias) for alias in paths}
         if len(origin_signatures) != 1:
             raise ClosureLoaderGuardError(f"ambiguous $ORIGIN alias context for closure node: {key}")
-    node = {"scope": scope, "canonical_path": canonical, "path": paths[0], "elf": elf}
+    node = {
+        "scope": scope,
+        "canonical_path": canonical,
+        "path": paths[0],
+        "paths": tuple(paths),
+        "elf": elf,
+    }
     if scope == "rootfs-external":
         package = record.get("package")
         version = record.get("version")
@@ -473,9 +479,13 @@ def verify(
             expected_to = f"{hit['scope']}:{hit['canonical_path']}"
             if to_key != expected_to or to_key not in nodes:
                 raise ClosureLoaderGuardError(f"closure edge target node drifted: {consumer_key} -> {soname}")
+            target_node = nodes[to_key]
+            if edge.get("path") not in target_node["paths"]:
+                raise ClosureLoaderGuardError(
+                    f"closure edge pathname is omitted from target node aliases: {consumer_key} -> {soname}"
+                )
             if hit["scope"] == "rootfs-external":
-                node = nodes[to_key]
-                if edge.get("package") != node.get("package") or edge.get("version") != node.get("version"):
+                if edge.get("package") != target_node.get("package") or edge.get("version") != target_node.get("version"):
                     raise ClosureLoaderGuardError(f"closure edge package identity drifted: {consumer_key} -> {soname}")
                 external_hits += 1
             else:
