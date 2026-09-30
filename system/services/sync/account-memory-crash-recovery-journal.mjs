@@ -139,9 +139,24 @@ function findCurrentMemoryItem(memory, subjectId, id) {
   return null;
 }
 
-function canonicalOwnership(memorySync, objectId) {
-  return memorySync.pendingMutations().some((mutation) => mutation?.objectId === objectId)
-    || memorySync.pendingConflicts().some((entry) => entry?.objectId === objectId);
+function desiredCanonicalState(memory, subjectId, journalIdentity) {
+  const current = findCurrentMemoryItem(memory, subjectId, journalIdentity.id);
+  if (current) {
+    const classification = classifyMemoryForAccountSync(current, { subjectId });
+    if (classification.eligible) {
+      return Object.freeze({ operation: "upsert", item: classification.item });
+    }
+  }
+  return Object.freeze({ operation: "delete", identity: journalIdentity });
+}
+
+function canonicalOwnershipMatches(memorySync, objectId, desired) {
+  if (memorySync.pendingConflicts().some((entry) => entry?.objectId === objectId)) return true;
+  const pending = memorySync.pendingMutations().find((mutation) => mutation?.objectId === objectId);
+  if (!pending) return false;
+  if (desired.operation === "delete") return pending.operation === "delete";
+  return pending.operation === "upsert"
+    && JSON.stringify(pending.payload?.memory) === JSON.stringify(desired.item);
 }
 
 export function createAccountMemoryCrashRecoveryJournal({
@@ -217,17 +232,13 @@ export function createAccountMemoryCrashRecoveryJournal({
   };
 
   const reconcileOne = (runtime, memorySync, journalIdentity) => {
-    if (canonicalOwnership(memorySync, journalIdentity.id)) {
+    const desired = desiredCanonicalState(memory, runtime.subjectId, journalIdentity);
+    if (canonicalOwnershipMatches(memorySync, journalIdentity.id, desired)) {
       return Object.freeze({ status: "canonical-owner", objectId: journalIdentity.id });
     }
-    const current = findCurrentMemoryItem(memory, runtime.subjectId, journalIdentity.id);
-    if (current) {
-      const classification = classifyMemoryForAccountSync(current, { subjectId: runtime.subjectId });
-      return classification.eligible
-        ? memorySync.stageUpsert(classification.item)
-        : memorySync.stageForget(journalIdentity);
-    }
-    return memorySync.stageForget(journalIdentity);
+    return desired.operation === "upsert"
+      ? memorySync.stageUpsert(desired.item)
+      : memorySync.stageForget(desired.identity);
   };
 
   return Object.freeze({
