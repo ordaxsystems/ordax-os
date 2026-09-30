@@ -23,7 +23,9 @@ class CloudMemoryRuntimeRestoreProofContractTests(unittest.TestCase):
 
         self.assertTrue(backend["required"])
         self.assertTrue(native_restore["required"])
-        self.assertEqual(native_restore["status"], "required-not-proven")
+        self.assertEqual(native_restore["status"], "source-ci-proven")
+        self.assertEqual(native_restore["workflow"], ".github/workflows/cloud-memory-native-runtime-restore-proof.yml")
+        self.assertEqual(native_restore["test"], "tests/test_cloud_memory_native_runtime_restore.mjs")
         self.assertFalse(contract["publicCloudMemoryPromoted"])
         self.assertIn(
             "Backend two-session success alone must never be interpreted as Native reinstall success.",
@@ -49,6 +51,17 @@ class CloudMemoryRuntimeRestoreProofContractTests(unittest.TestCase):
         self.assertIn("remote Memory is non-portable", fail_closed)
         self.assertIn("Memory persistence cannot confirm durability", fail_closed)
         self.assertIn("coordination state requires recovery", fail_closed)
+
+        workflow = ROOT / native_restore["workflow"]
+        runtime_test = ROOT / native_restore["test"]
+        self.assertTrue(workflow.is_file())
+        self.assertTrue(runtime_test.is_file())
+        runtime_source = runtime_test.read_text(encoding="utf-8")
+        self.assertIn("createNativeAccountMemoryFoundation", runtime_source)
+        self.assertIn("createNativeAccountSyncRuntime", runtime_source)
+        self.assertIn("Memory durability must precede checkpoint durability", runtime_source)
+        self.assertIn("coordination requires recovery", runtime_source)
+        self.assertIn("public Cloud Memory rollout", native_restore["doesNotProve"])
 
         self.assertIn("createNativeAccountSyncRuntime", NATIVE_ACCOUNT_SYNC.read_text(encoding="utf-8"))
         self.assertIn("createNativeAccountMemoryFoundation", NATIVE_ACCOUNT_MEMORY.read_text(encoding="utf-8"))
