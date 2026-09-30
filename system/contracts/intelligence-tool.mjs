@@ -7,6 +7,8 @@ const SHA256_RE = /^[0-9a-f]{64}$/;
 const MODES = new Set(["read", "write"]);
 const APPROVAL = new Set(["none", "per-use", "session"]);
 const SANDBOXES = new Set(["wasi-component", "native-broker"]);
+const OWNER_KINDS = new Set(["device", "account"]);
+const FORBIDDEN_GRANT_SOURCES = new Set(["prompt", "model", "profile", "profile-pack", "memory", "project-content"]);
 
 const ABSOLUTELY_FORBIDDEN_ACTIONS = new Set([
   "shell.generic",
@@ -126,8 +128,27 @@ export function validateIntelligenceToolGrant(value) {
   if (ABSOLUTELY_FORBIDDEN_ACTIONS.has(action)) {
     throw new TypeError(`tool grant action is forbidden: ${action}`);
   }
-  if (value.source === "prompt") {
-    throw new TypeError("prompt text cannot create tool authority");
+  const source = boundedText(value.source, "tool grant source", 64);
+  if (FORBIDDEN_GRANT_SOURCES.has(source)) {
+    throw new TypeError("content cannot create tool authority");
+  }
+  if (!OWNER_KINDS.has(value.ownerKind)) {
+    throw new TypeError("tool grant owner kind is invalid");
+  }
+  const ownerId = value.ownerKind === "account"
+    ? boundedText(value.ownerId, "tool grant owner id", 160)
+    : null;
+  if (value.ownerKind === "device" && value.ownerId != null) {
+    throw new TypeError("device tool grant must not invent an account owner id");
+  }
+  let expiresAt = null;
+  if (value.expiresAt != null) {
+    const expiryText = boundedText(value.expiresAt, "tool grant expiry", 64);
+    const parsed = Date.parse(expiryText);
+    if (!Number.isFinite(parsed)) {
+      throw new TypeError("tool grant expiry must be an ISO-8601 timestamp");
+    }
+    expiresAt = new Date(parsed).toISOString();
   }
   return Object.freeze({
     schema: INTELLIGENCE_TOOL_GRANT_SCHEMA,
@@ -136,12 +157,12 @@ export function validateIntelligenceToolGrant(value) {
     action,
     mode,
     approved: value.approved === true,
-    source: boundedText(value.source, "tool grant source", 64),
-    ownerKind: boundedText(value.ownerKind, "tool grant owner kind", 32),
-    ownerId: boundedText(value.ownerId, "tool grant owner id", 160),
+    source,
+    ownerKind: value.ownerKind,
+    ownerId,
     spaceId: value.spaceId == null ? null : boundedText(value.spaceId, "tool grant Space", 160),
     projectId: value.projectId == null ? null : boundedText(value.projectId, "tool grant project", 160),
-    expiresAt: value.expiresAt == null ? null : boundedText(value.expiresAt, "tool grant expiry", 64),
+    expiresAt,
   });
 }
 
