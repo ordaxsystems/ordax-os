@@ -220,28 +220,16 @@ test("Native composition resolves approvals through the injected canonical grant
     effect: "write",
     reason: "Salvar alteracao solicitada pelo usuario.",
   });
-  const grant = authority.issuer.issue({
-    approvalId: approval.id,
-    toolId: approval.toolId,
-    action: approval.actionId,
-    mode: "write",
-    approvedBy: "user",
-    ownerKind: work.ownerKind,
-    ownerId: work.ownerId,
-    spaceId: work.spaceId,
-    projectId: work.projectId,
-    requestedAt: new Date(nowMs).toISOString(),
-    expiresAt: new Date(nowMs + 4 * 60 * 1000).toISOString(),
-  });
-  const decision = runtime.resolveApproval(work.id, approval.id, {
-    grantRef: grant.grantId,
-  });
+  const decision = runtime.approvalConsent.approve(work.id, approval.id);
 
   assert.equal(decision.decision, "allow");
-  assert.equal(decision.grantRef, grant.grantId);
+  assert.equal(decision.grantRef, "grant-native-approval-1");
+  assert.equal(authority.registry.resolve(decision.grantRef)?.ownerId, "user-a");
   assert.equal(runtime.getSnapshot().workItems[0].state, "queued");
   assert.equal(typeof runtime.issueGrant, "undefined");
   assert.equal(typeof runtime.grantIssuer, "undefined");
+  assert.equal(typeof runtime.approvalConsent.approve, "function");
+  assert.equal(typeof runtime.approvalConsent.deny, "function");
 
   runtime.dispose();
   authority.dispose();
