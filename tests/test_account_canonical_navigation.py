@@ -142,6 +142,23 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('"account.profiles.name.impressao-3d-br": "Impressão 3D"', catalog)
 
 
+
+    def test_profiles_and_memory_conflicts_coexist_in_account_surface(self):
+        ui = (ROOT / "system/surface/ui/account-overview-controls.mjs").read_text(encoding="utf-8")
+        native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
+        catalog = (ROOT / "system/services/i18n/catalog/account.mjs").read_text(encoding="utf-8")
+
+        self.assertIn("profileActivationState = null", ui)
+        self.assertIn("memoryConflictReview = null", ui)
+        self.assertIn("const profileActivationPort", ui)
+        self.assertIn("const memoryConflictPort", ui)
+        self.assertIn('data-account-profile-action', ui)
+        self.assertIn('data-account-memory-conflict-id', ui)
+        self.assertIn("profileActivationState,\n    memoryConflictReview,", native)
+        self.assertIn('"account.profiles.name.pizzaria-br": "Pizzaria"', catalog)
+        self.assertIn('"account.memory.conflicts.title": "Conflitos de memória"', catalog)
+
+
     def test_memory_section_is_local_first_and_native_only_when_durable(self):
         controls = ACCOUNT.read_text(encoding="utf-8")
         catalog = ACCOUNT_CATALOG.read_text(encoding="utf-8")
