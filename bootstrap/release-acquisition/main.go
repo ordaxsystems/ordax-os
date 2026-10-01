@@ -1574,14 +1574,24 @@ func verifyPortableV4Exact(root string, trust TrustAnchor, key ed25519.PublicKey
 	if err := verifyExistingPortableV4Release(releasePath, root, manifest, payload, envelope); err != nil {
 		return PortableVerifyReceipt{}, fmt.Errorf("verify exact portable v4 release: %w", err)
 	}
-	runtimePath, err := verifyRuntimeStoreFile(root, manifest.Artifacts[1])
-	if err != nil {
-		return PortableVerifyReceipt{}, err
-	}
-	aiRuntimePath, err := verifyAIRuntimeStoreFile(root, manifest.Artifacts[2])
-	if err != nil {
-		return PortableVerifyReceipt{}, err
-	}
+	// verifyExistingPortableV4Release already validates the exact signed SHA-256,
+	// size, safe content-addressed store layout and EROFS identity for both
+	// runtimes. Re-hashing the same large immutable blobs again here adds no new
+	// authority and doubles removable-media I/O on the exact boot path.
+	runtimePath := filepath.Join(
+		root,
+		"runtimes",
+		"sha256",
+		manifest.Artifacts[1].SHA256,
+		"native-surface-runtime.erofs",
+	)
+	aiRuntimePath := filepath.Join(
+		root,
+		"ai-runtimes",
+		"sha256",
+		manifest.Artifacts[2].SHA256,
+		"local-ai-runtime.erofs",
+	)
 	return PortableVerifyReceipt{
 		Status: "verified-portable-v4-exact",
 		SourceCommit: manifest.SourceCommit,
