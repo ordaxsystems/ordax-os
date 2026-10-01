@@ -757,6 +757,22 @@ async function start() {
     },
   });
 
+  const networkComponent = await loadOptionalComponentRuntime({
+    componentId: "network",
+    importer: () => import("../../apps/network/runtime.mjs"),
+    componentManager,
+    context: {
+      root,
+      spaceSelection,
+      networkTransport: null,
+      readOnline: () => window.navigator?.onLine === true,
+      reportDiagnostic: reportClientDiagnostic,
+    },
+    onError(error) {
+      reportClientDiagnostic("network-runtime", error);
+    },
+  });
+
   const notesComponent = await loadOptionalComponentRuntime({
     componentId: "notes",
     importer: () => import("../../apps/notes/runtime.mjs"),
@@ -872,6 +888,7 @@ async function start() {
       batteryQuickPanel?.destroy();
       fileSpaceControls.destroy();
       projectsComponent?.destroy();
+      networkComponent?.destroy();
       notesComponent?.destroy();
       assistantComponent?.destroy();
       activityComponent?.destroy();
