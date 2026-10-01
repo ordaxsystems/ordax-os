@@ -14,14 +14,40 @@ class NetworkSecurityHardeningTests(unittest.TestCase):
         cls.sql = HARDENING.read_text(encoding="utf-8").lower()
 
     def test_account_close_cannot_be_blocked_by_network_actor_fks(self):
-        for table_column in (
-            "ordax_network_memberships\n  alter column joined_by drop not null",
-            "ordax_network_groups\n  alter column owner_space_id drop not null",
-            "ordax_network_messages\n  alter column sender_space_id drop not null",
-            "ordax_network_messages\n  alter column sender_user_id drop not null",
-            "ordax_network_reports\n  alter column reporter_space_id drop not null",
+        expectations = {
+            "ordax_network_memberships": ("joined_by",),
+            "ordax_network_groups": ("owner_space_id", "created_by"),
+            "ordax_network_messages": ("sender_space_id", "sender_user_id"),
+            "ordax_network_reports": ("reporter_space_id", "created_by"),
+        }
+        lifecycle_section = self.sql.split(
+            "-- 1. account / space lifecycle", 1
+        )[1].split("-- 2. bounded rate state", 1)[0]
+
+        for table, columns in expectations.items():
+            table_section = lifecycle_section.split(
+                f"alter table public.{table}", 1
+            )[1].split("alter table ", 1)[0]
+            for column in columns:
+                self.assertIn(
+                    f"alter column {column} drop not null",
+                    table_section,
+                    f"{table}.{column} must be tombstone-compatible",
+                )
+
+        for constraint in (
+            "ordax_network_memberships_joined_by_fkey",
+            "ordax_network_groups_owner_space_id_fkey",
+            "ordax_network_groups_created_by_fkey",
+            "ordax_network_messages_sender_space_id_fkey",
+            "ordax_network_messages_sender_user_id_fkey",
+            "ordax_network_reports_reporter_space_id_fkey",
+            "ordax_network_reports_created_by_fkey",
         ):
-            self.assertIn(table_column, self.sql)
+            constraint_section = lifecycle_section.split(
+                f"add constraint {constraint}", 1
+            )[1].split(";", 1)[0]
+            self.assertIn("on delete set null", constraint_section)
 
         self.assertIn("on delete set null", self.sql)
         lifecycle_section = self.sql.split(
