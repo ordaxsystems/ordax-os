@@ -10,6 +10,9 @@ on:
       - 'infra/supabase/product/migrations/20261001050000_network_security_hardening_v1.sql'
       - 'infra/supabase/product/migrations/20261001051500_network_group_owner_lifecycle_v1.sql'
       - 'docs/contracts/network-mutation-outcome-v2.json'
+      - 'docs/contracts/network-message-content-v1.json'
+      - 'system/contracts/network-message-content-v1.mjs'
+      - 'tests/test_network_message_content_v1.mjs'
       - 'tests/sql/test_network_multitenant_hardening.sql'
       - 'tests/sql/test_network_message_send_v2_prototype.sql'
       - 'tests/sql/test_network_direct_create_v2_prototype.sql'
@@ -33,6 +36,9 @@ on:
       - 'infra/supabase/product/migrations/20261001050000_network_security_hardening_v1.sql'
       - 'infra/supabase/product/migrations/20261001051500_network_group_owner_lifecycle_v1.sql'
       - 'docs/contracts/network-mutation-outcome-v2.json'
+      - 'docs/contracts/network-message-content-v1.json'
+      - 'system/contracts/network-message-content-v1.mjs'
+      - 'tests/test_network_message_content_v1.mjs'
       - 'tests/sql/test_network_multitenant_hardening.sql'
       - 'tests/sql/test_network_message_send_v2_prototype.sql'
       - 'tests/sql/test_network_direct_create_v2_prototype.sql'
@@ -90,6 +96,11 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.test_network_multitenant_proof_contract -v
+
+      - name: Validate Network message content contract
+        run: |
+          set -euo pipefail
+          node --test tests/test_network_message_content_v1.mjs
 
       - name: Execute message-send v2 outcome proof
         run: |

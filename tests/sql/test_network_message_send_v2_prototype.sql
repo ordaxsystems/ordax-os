@@ -59,6 +59,21 @@ begin
     return;
   end if;
 
+  -- Message bodies are stored as plain text. Tabs/newlines/carriage returns are
+  -- valid formatting; other C0/DEL control characters are rejected before any
+  -- authority lookup, rate consumption or persistence.
+  if translate(v_body, E'\\t\\n\\r', '') ~ '[[:cntrl:]]' then
+    return query select
+      'prototype-ordax.network-mutation-outcome/2',
+      'invalid',
+      'message-send',
+      'message-body-control-character',
+      null::text,
+      null::integer,
+      p_client_idempotency_key;
+    return;
+  end if;
+
   begin
     v_actor := private.ordax_network_assert_conversation_sender_v1(
       p_space_id,
@@ -526,6 +541,38 @@ begin
 
   if v_after <> v_before then
     raise exception 'network-message-v2-proof-invalid-consumed-rate';
+  end if;
+
+  select * into v_outcome
+  from public.ordax_network_send_message_v2_proof(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    (select value::uuid from v2_proof_state where key = 'conversation'),
+    'message-proof-key-ctrl01',
+    'controle' || chr(1) || 'invalido'
+  );
+
+  if v_outcome.outcome <> 'invalid'
+     or v_outcome.code <> 'message-body-control-character'
+     or v_outcome.resource_id is not null
+     or v_outcome.retry_after_seconds is not null then
+    raise exception 'network-message-v2-proof-control-character-shape-invalid';
+  end if;
+
+  if private.ordax_network_message_exists_v2_proof(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    'message-proof-key-ctrl01'
+  ) then
+    raise exception 'network-message-v2-proof-control-character-persisted';
+  end if;
+
+  select private.ordax_network_rate_count_v2_proof(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    'message-send'
+  ) into v_after;
+
+  if v_after <> v_before then
+    raise exception 'network-message-v2-proof-control-character-consumed-rate';
   end if;
 end;
 $proof$;

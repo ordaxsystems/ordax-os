@@ -1,0 +1,20 @@
+{
+  "$schema": "prototype-ordax.network-message-content/1",
+  "status": "source-contract",
+  "storage": {
+    "format": "plain-text",
+    "max_characters": 4000,
+    "html_interpretation": false,
+    "unsafe_control_characters": "reject",
+    "allowed_controls": ["tab", "line-feed", "carriage-return"]
+  },
+  "links": {
+    "auto_link_schemes": ["http", "https"],
+    "credentials_in_url": false,
+    "other_schemes_render_as_text": true,
+    "renderer_requires_text_nodes": true,
+    "renderer_forbids_inner_html": true,
+    "external_anchor_rel": ["noopener", "noreferrer"]
+  },
+  "server_authoritative": true
+}

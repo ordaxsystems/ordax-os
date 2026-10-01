@@ -52,7 +52,15 @@
     "idempotency_for_critical_mutations": true,
     "database_integrity_constraints_required": true,
     "retention_and_tombstone_policy_required": true,
-    "message_bodies_in_default_operational_logs": false
+    "message_bodies_in_default_operational_logs": false,
+    "message_content_contract": "prototype-ordax.network-message-content/1",
+    "message_plain_text": true,
+    "message_html_interpretation": false,
+    "message_unsafe_control_characters_rejected": true,
+    "message_auto_link_schemes": [
+      "http",
+      "https"
+    ]
   },
   "abuse_resistance": {
     "rate_limit_by_actor": true,

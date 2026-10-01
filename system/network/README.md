@@ -17,6 +17,24 @@ Machine-readable security/product boundary: `docs/contracts/network-foundation.j
 Profile/community recommendations: `system/network/profile-affiliations.json`.
 
 
+
+## Message content safety
+
+Network messages are stored and transported as bounded **plain text**. The
+machine-readable contract is `docs/contracts/network-message-content-v1.json`;
+the shared parser/validator is `system/contracts/network-message-content-v1.mjs`.
+
+The server rejects unsafe C0/DEL control characters before persistence or rate
+consumption while preserving normal tab and line-break formatting. Client
+renderers must never interpret message text as HTML or assign it to
+`innerHTML`. Automatic links are limited to credential-free `http://` and
+`https://` URLs; `javascript:`, `data:`, `file:`, `vbscript:` and other
+schemes remain inert text. External anchors must use `noopener noreferrer`.
+
+The executable Network gate validates both the shared content contract and the
+PostgreSQL rejection path. This is still source/proof-only and does not deploy
+Network schema to the live product database.
+
 ## Mutation outcome v2 boundary
 
 Network mutation APIs must not represent server rejection as `null` or `void`

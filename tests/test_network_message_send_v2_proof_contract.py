@@ -76,6 +76,13 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
         self.assertIn("network-message-v2-proof-invalid-shape-invalid", self.sql)
         self.assertIn("when sqlstate '42501'", self.sql)
 
+    def test_plain_text_control_characters_fail_before_persistence_or_rate(self):
+        self.assertIn("translate(v_body", self.sql)
+        self.assertIn("[[:cntrl:]]", self.sql)
+        self.assertIn("message-body-control-character", self.sql)
+        self.assertIn("network-message-v2-proof-control-character-persisted", self.sql)
+        self.assertIn("network-message-v2-proof-control-character-consumed-rate", self.sql)
+
     def test_workflow_orders_v1_before_v2_on_the_same_ephemeral_schema(self):
         v1 = self.workflow.index(
             "psql -v on_error_stop=1 -f tests/sql/test_network_multitenant_hardening.sql"
@@ -93,6 +100,18 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
         )
         self.assertIn(
             "python -m unittest tests.test_network_message_send_v2_proof_contract -v",
+            self.workflow,
+        )
+
+    def test_workflow_executes_message_content_contract(self):
+        for path in (
+            "docs/contracts/network-message-content-v1.json",
+            "system/contracts/network-message-content-v1.mjs",
+            "tests/test_network_message_content_v1.mjs",
+        ):
+            self.assertGreaterEqual(self.workflow.count(path), 2, path)
+        self.assertIn(
+            "node --test tests/test_network_message_content_v1.mjs",
             self.workflow,
         )
 
