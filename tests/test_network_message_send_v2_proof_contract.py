@@ -61,6 +61,16 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
         self.assertIn("network-message-v2-proof-rate-limited-message-persisted", self.sql)
         self.assertIn("v_count <> 121", self.sql)
 
+    def test_proof_introspection_stays_scoped_and_transient(self):
+        self.assertIn("ordax_network_rate_count_v2_proof", self.sql)
+        self.assertIn("ordax_network_message_exists_v2_proof", self.sql)
+        self.assertIn("ordax_network_assert_space_actor_v1", self.sql)
+        self.assertIn("v_actor <> p_actor_user_id", self.sql)
+        self.assertNotIn(
+            "infra/supabase/product/migrations",
+            str(SQL).lower(),
+        )
+
     def test_viewer_denial_and_invalid_input_are_structured(self):
         self.assertIn("network-message-v2-proof-denied-shape-invalid", self.sql)
         self.assertIn("network-message-v2-proof-invalid-shape-invalid", self.sql)
