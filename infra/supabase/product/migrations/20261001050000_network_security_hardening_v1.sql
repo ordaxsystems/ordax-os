@@ -24,13 +24,13 @@ alter table public.ordax_network_memberships
 
 alter table private.ordax_network_membership_audit
   alter column actor_user_id drop not null,
-  alter column actor_space_id drop not null;
+  alter column space_id drop not null;
 alter table private.ordax_network_membership_audit
   add constraint ordax_network_membership_audit_actor_user_id_fkey
   foreign key (actor_user_id) references auth.users(id) on delete set null;
 alter table private.ordax_network_membership_audit
-  add constraint ordax_network_membership_audit_actor_space_id_fkey
-  foreign key (actor_space_id) references public.ordax_spaces(space_id) on delete set null;
+  add constraint ordax_network_membership_audit_space_id_fkey
+  foreign key (space_id) references public.ordax_spaces(space_id) on delete set null;
 
 alter table public.ordax_network_groups
   alter column owner_space_id drop not null,
