@@ -123,6 +123,7 @@ begin
     from public.ordax_spaces s
     where s.space_id = p_space_id
       and s.state = 'active'
+      and s.kind = 'professional'
       and (
         s.owner_user_id = v_user_id
         or exists (
@@ -406,7 +407,7 @@ returns public.ordax_network_memberships
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $
 declare
   v_actor uuid;
   v_policy text;
@@ -427,24 +428,34 @@ begin
     raise exception 'network-community-join-not-self-service' using errcode = '42501';
   end if;
 
-  insert into public.ordax_network_memberships(
-    community_id, space_id, role, state, joined_by
-  ) values (
-    p_community_id, p_space_id, 'member', 'active', v_actor
-  )
-  on conflict (community_id, space_id) do update
-    set state = case
-      when public.ordax_network_memberships.state in ('left') then 'active'
-      else public.ordax_network_memberships.state
-    end,
-    joined_by = case
-      when public.ordax_network_memberships.state in ('left') then excluded.joined_by
-      else public.ordax_network_memberships.joined_by
-    end
-  returning * into v_row;
+  select m.* into v_row
+  from public.ordax_network_memberships m
+  where m.community_id = p_community_id
+    and m.space_id = p_space_id
+  for update;
 
-  if v_row.state <> 'active' then
-    raise exception 'network-membership-not-self-reactivatable' using errcode = '42501';
+  if found then
+    if v_row.state = 'active' then
+      return v_row;
+    end if;
+    if v_row.state <> 'left' or v_row.role <> 'member' then
+      raise exception 'network-membership-not-self-reactivatable' using errcode = '42501';
+    end if;
+
+    update public.ordax_network_memberships m
+    set state = 'active',
+        joined_by = v_actor,
+        joined_at = timezone('utc', now())
+    where m.community_id = p_community_id
+      and m.space_id = p_space_id
+    returning * into v_row;
+  else
+    insert into public.ordax_network_memberships(
+      community_id, space_id, role, state, joined_by
+    ) values (
+      p_community_id, p_space_id, 'member', 'active', v_actor
+    )
+    returning * into v_row;
   end if;
 
   insert into private.ordax_network_membership_audit(
@@ -455,7 +466,7 @@ begin
 
   return v_row;
 end;
-$$;
+$;
 
 revoke all on function private.ordax_network_join_community_internal_v1(uuid, text)
 from public, anon;
@@ -487,24 +498,34 @@ returns public.ordax_network_memberships
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $
 declare
   v_actor uuid;
   v_row public.ordax_network_memberships;
 begin
   v_actor := private.ordax_network_assert_space_actor_v1(p_space_id, true);
 
+  select m.* into v_row
+  from public.ordax_network_memberships m
+  where m.community_id = p_community_id
+    and m.space_id = p_space_id
+  for update;
+
+  if not found then
+    raise exception 'network-membership-not-found' using errcode = '22023';
+  end if;
+  if v_row.state = 'left' then
+    return v_row;
+  end if;
+  if v_row.state <> 'active' or v_row.role <> 'member' then
+    raise exception 'network-membership-not-self-leavable' using errcode = '42501';
+  end if;
+
   update public.ordax_network_memberships m
   set state = 'left'
   where m.community_id = p_community_id
     and m.space_id = p_space_id
-    and m.state = 'active'
-    and m.role = 'member'
   returning * into v_row;
-
-  if not found then
-    raise exception 'network-active-member-not-found' using errcode = '22023';
-  end if;
 
   insert into private.ordax_network_membership_audit(
     community_id, space_id, actor_user_id, action
@@ -514,7 +535,7 @@ begin
 
   return v_row;
 end;
-$$;
+$;
 
 revoke all on function private.ordax_network_leave_community_internal_v1(uuid, text)
 from public, anon;
