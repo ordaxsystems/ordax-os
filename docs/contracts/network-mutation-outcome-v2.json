@@ -31,7 +31,9 @@
   },
   "operations": {
     "group-create": {
-      "resource_type": "group"
+      "resource_type": "group",
+      "idempotency_key_required": true,
+      "idempotency_scope": "owner-space"
     },
     "group-join": {
       "resource_type": "group-membership"
