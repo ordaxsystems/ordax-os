@@ -190,6 +190,20 @@ const projectsComponent = await loadOptionalComponentRuntime({
     console.warn("OrdaX Projects runtime unavailable", error);
   },
 });
+const networkComponent = await loadOptionalComponentRuntime({
+  componentId: "network",
+  importer: () => import("../../apps/network/runtime.mjs"),
+  componentManager,
+  context: {
+    root,
+    surfaceLifecycle: surface,
+    identitySession,
+    spaceSelection: null,
+  },
+  onError(error) {
+    console.warn("OrdaX Network runtime unavailable", error);
+  },
+});
 const studioComponent = await loadOptionalComponentRuntime({
   componentId: "studio",
   importer: () => import("../../apps/studio/runtime.mjs"),
@@ -258,6 +272,7 @@ window.addEventListener(
     notesComponent?.destroy();
     studioComponent?.destroy();
     projectsComponent?.destroy();
+    networkComponent?.destroy();
     networkQuickPanel?.destroy();
     quickPanelControls?.destroy();
     notificationCenter.destroy();
