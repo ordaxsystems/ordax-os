@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.network-foundation/1",
-  "status": "mvp-scope-adopted-implementation-required",
+  "status": "mvp-source-implementation-in-progress-live-backend-gated",
   "product_boundary": {
     "identity_subject": "account",
     "public_professional_actor": "space",
@@ -92,5 +92,18 @@
     "direct_database_coupling": false,
     "authenticated_api_or_capability_required": true,
     "least_privilege_scopes": true
+  },
+  "implementation_state": {
+    "surface_app_source": true,
+    "explicit_sender_space": true,
+    "pending_draft_space_pin": true,
+    "mutation_outcome_v2_contract": true,
+    "ephemeral_postgresql_message_send_v2_proof": true,
+    "client_transport_v2_source": true,
+    "provider_neutral_gateway_v2_source": true,
+    "supabase_gateway_adapter": false,
+    "generated_v2_migration": false,
+    "live_network_endpoint": false,
+    "production_rollout": false
   }
 }
