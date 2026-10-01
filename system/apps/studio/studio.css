@@ -1,0 +1,38 @@
+.ordax-studio-workspace {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.ordax-studio-runtime-state {
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.ordax-studio-runtime-state[data-state="ready"] {
+  opacity: 1;
+}
+
+.ordax-studio-runtime-state[data-state="degraded"],
+.ordax-studio-runtime-state[data-state="unavailable"] {
+  opacity: .7;
+}
+
+.ordax-studio-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ordax-studio-metrics > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  opacity: .82;
+}
+
+.ordax-studio-metrics strong { font-size: 1.25rem; }
+.ordax-studio-metrics span,
+.ordax-studio-security-note { font-size: .82rem; opacity: .72; }
