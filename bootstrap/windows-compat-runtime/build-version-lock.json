@@ -80,14 +80,14 @@
   },
   "resolved_closure": {
     "package_count": 342,
-    "canonical_json_sha256": "f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff",
+    "canonical_json_sha256": "99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e",
     "canonicalization": "sorted-object-keys-utf8-json-no-whitespace"
   },
   "provenance": {
-    "configure_proof_head_sha": "07d27226190bb0ba4d516d8d01b281c8ad882ddd",
-    "configure_proof_workflow_run_id": 36510940641,
-    "configure_proof_artifact_id": 11008304540,
-    "configure_proof_artifact_digest": "sha256:32d1f15b70ae9ac3eca46a2c9223b9f2a375dfd3994ba3386753857d4f515449"
+    "configure_proof_head_sha": "3c29aa03a7b26cdcfb95b74694e5ba4954ae9cb0",
+    "configure_proof_workflow_run_id": 36895104347,
+    "configure_proof_artifact_id": 11179727536,
+    "configure_proof_artifact_digest": "sha256:c5b381e5439452eb0a460efbc59e3af00f85ca4d92ed8d020f72d1c0180d1670"
   },
   "gates": {
     "configure_proof_passed": true,
