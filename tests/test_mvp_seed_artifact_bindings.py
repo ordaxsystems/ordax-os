@@ -77,6 +77,17 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
             self.assertIn("canonical release-agent seed hash mismatch", workflow)
             self.assertIn("RELEASE_AGENT_REFRESH_TARGET_REMAINS_SEPARATE=YES", workflow)
 
+    def test_full_media_proof_removes_transient_seed_before_clean_checkout_assertion(self):
+        workflow = FULL_MEDIA_WORKFLOW.read_text(encoding="utf-8")
+        remove_seed = "rm -f bootstrap/release-acquisition/ordax-release-agent"
+        assert_seed_absent = "test ! -e bootstrap/release-acquisition/ordax-release-agent"
+        clean_checkout = 'test -z "$(git status --porcelain)"'
+        self.assertIn(remove_seed, workflow)
+        self.assertIn(assert_seed_absent, workflow)
+        self.assertIn(clean_checkout, workflow)
+        self.assertLess(workflow.index(remove_seed), workflow.index(clean_checkout))
+        self.assertLess(workflow.index(assert_seed_absent), workflow.index(clean_checkout))
+
     def test_canonical_release_trust_is_resolved_without_enabling_write(self):
         unresolved = [g["id"] for g in self.contract["artifact_groups"] if not g["resolved"]]
         self.assertEqual(unresolved, [])

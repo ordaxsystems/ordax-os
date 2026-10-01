@@ -326,6 +326,8 @@ jobs:
           rm -rf "$RUNNER_TEMP/full-media-payload" "$RUNNER_TEMP/full-media-stage"
           rm -f "$RUNNER_TEMP/full-media-disk-proof/ordax-disposable.raw"
           test ! -e "$RUNNER_TEMP/full-media-disk-proof/ordax-disposable.raw"
+          rm -f bootstrap/release-acquisition/ordax-release-agent
+          test ! -e bootstrap/release-acquisition/ordax-release-agent
           test -s bootstrap/trust/release-ed25519.json
           test -z "$(git status --porcelain)"
           echo 'EPHEMERAL_PRIVATE_KEY_CREATED=NO'
