@@ -67,7 +67,11 @@ create table private.ordax_network_membership_audit (
 create index ordax_network_space_profiles_discovery_idx
   on public.ordax_network_space_profiles(visibility, public_name, space_id);
 create index ordax_network_space_profiles_discovery_lower_name_idx
-  on public.ordax_network_space_profiles(visibility, lower(public_name), space_id);
+  on public.ordax_network_space_profiles(
+    visibility,
+    lower(public_name) text_pattern_ops,
+    space_id
+  );
 create index ordax_network_space_profiles_categories_idx
   on public.ordax_network_space_profiles using gin(categories);
 create index ordax_network_memberships_space_state_idx
