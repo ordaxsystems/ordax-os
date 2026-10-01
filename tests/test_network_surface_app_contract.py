@@ -40,7 +40,7 @@ class NetworkSurfaceAppContractTests(unittest.TestCase):
         i18n = self.text(I18N)
 
         self.assertIn('railButton("network"', shell)
-        self.assertIn('data-network-backend = "unavailable"', controls)
+        self.assertIn('backend.dataset.networkBackend = "unavailable"', controls)
         self.assertIn("Nenhuma conversa fictícia", i18n)
         self.assertIn("não são inventados", i18n)
         self.assertNotIn("localStorage", controls)
