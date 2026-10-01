@@ -6,7 +6,6 @@ import { activityComponent } from "./activity/component.mjs";
 import { internetComponent } from "./internet/component.mjs";
 import { notesComponent } from "./notes/component.mjs";
 import { projectsComponent } from "./projects/component.mjs";
-import { studioComponent } from "./studio/component.mjs";
 
 const COMPONENTS = validateComponentManifests([
   ...coreComponentManifests,
@@ -16,7 +15,6 @@ const COMPONENTS = validateComponentManifests([
   internetComponent,
   notesComponent,
   projectsComponent,
-  studioComponent,
 ]);
 
 const COMPONENT_BY_ID = new Map(
