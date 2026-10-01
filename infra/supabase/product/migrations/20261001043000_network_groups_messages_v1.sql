@@ -41,6 +41,8 @@ create table public.ordax_network_conversations (
   direct_pair_key text unique,
   group_id uuid unique references public.ordax_network_groups(group_id) on delete cascade,
   state text not null default 'active' check (state in ('active','closed')),
+  last_message_at timestamptz,
+  last_message_id uuid,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   check (
@@ -143,6 +145,8 @@ create index ordax_network_group_memberships_group_state_idx
   on public.ordax_network_group_memberships(group_id, state, space_id);
 create index ordax_network_conversation_members_space_state_idx
   on public.ordax_network_conversation_members(space_id, state, conversation_id);
+create index ordax_network_conversations_activity_idx
+  on public.ordax_network_conversations(last_message_at desc, conversation_id desc);
 create index ordax_network_messages_conversation_cursor_idx
   on public.ordax_network_messages(conversation_id, created_at desc, message_id desc);
 create index ordax_network_reports_reporter_created_idx
@@ -695,6 +699,11 @@ begin
     v_body
   )
   returning * into v_row;
+
+  update public.ordax_network_conversations c
+  set last_message_at = v_row.created_at,
+      last_message_id = v_row.message_id
+  where c.conversation_id = p_conversation_id;
 
   insert into private.ordax_network_audit_events(
     actor_user_id, actor_space_id, event_type, resource_type, resource_id
