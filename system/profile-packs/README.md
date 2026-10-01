@@ -14,6 +14,11 @@ They do **not** fork OrdaX, grant privileges, bypass app signatures, store provi
 
 The user account profile remains separate from Profile Packs.
 
+Professional networking is also a separate horizontal domain. A Profile may recommend Network
+communities through `system/network/profile-affiliations.json`, but it cannot auto-publish a Space,
+auto-join a community, grant a Network role or own messages. Membership and messaging authorization
+remain server-authoritative under the OrdaX Network boundary.
+
 
 ## Distribution and provisioning
 

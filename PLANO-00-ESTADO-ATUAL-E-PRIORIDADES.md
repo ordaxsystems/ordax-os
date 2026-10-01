@@ -106,7 +106,7 @@ Executar o runbook source-controlled no notebook em uma única sessão técnica:
 
 Depois dos P0, priorizar somente lacunas suportadas por necessidade concreta: comandos manuais do atualizador quando houver autoridade real; inventário/armazenamento além das métricas atuais quando houver contrato; recuperação local por perfil; lixeira/associações de arquivo; e melhorias de acessibilidade/continuidade ainda comprovadamente ausentes.
 
-A fundação de identidade/entitlements, Spaces/Profile Packs, memória provider-neutral, distribuição de apps e Product MCP pode avançar em source sem deslocar os gates físicos do MVP. Cloud sync, colaboração real, billing, Store pública e ferramentas mutáveis continuam sem precedência sobre release/USB/rollback.
+A fundação de identidade/entitlements, Spaces/Profile Packs, memória provider-neutral, distribuição de apps e Product MCP pode avançar em source sem deslocar os gates físicos do MVP. A **OrdaX Network limitada do MVP** é a única colaboração online promovida para este recorte e deve seguir `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md`; cloud sync geral, colaboração além desse recorte, billing, Store pública e ferramentas mutáveis continuam sem precedência sobre release/USB/rollback.
 
 ### Recorte do legado `novo-ordax-os` para o MVP USB-only
 
@@ -140,6 +140,7 @@ Os planos longos registram capacidades herdadas como referência de produto, mas
 | C25 Navegador/produtividade | **Internet básico ENTRA; office/editor amplo NÃO** | O app Internet é parte dos apps principais do MVP; suíte de produtividade completa não é gate. |
 | C26 Onboarding/notificações/acessibilidade | **ENTRA no básico de produto** | OOBE persistente, rota sem conta e localização pública pt-BR/en-US estão PASS_SOURCE; notificações/acessibilidade seguem somente onde há contratos reais. Falta prova física Stable/MVP. |
 | C27 Backup/histórico pessoal | **PÓS-MVP** | Não confundir backup de dados com rollback/known-good do sistema, que é P0. |
+| C28 OrdaX Network | **ENTRA NO MVP ONLINE, NÃO BLOQUEIA BOOT** | Diretório profissional opt-in por Space, comunidades, grupos, mensagens 1:1/grupo e trust & safety mínimos. Autorização é server-side/default-deny e a falha da Network degrada sem impedir Surface/apps locais. Ver `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md`. |
 
 Portanto, o fechamento do **primeiro USB físico** continua dominado pelas provas de C02/C03/C07/C16/C20/C21/C26 e por qualquer gap C18 realmente reproduzido. Em paralelo, C08/C12/C13/C16/C17 recebem as fundações de domínio definidas no `PLANO-04`, enquanto C14 segue também o `PLANO-06` de provisioning sob demanda; elas evitam dívida arquitetural, mas não transformam Store, billing, sync cloud ou MCP mutável em gates da mídia física.
 
@@ -151,7 +152,7 @@ Regras:
 
 1. frentes/PRs já em andamento podem concluir **a tarefa atual**;
 2. depois da tarefa atual, não abrir continuação automática da mesma frente sem um gate de MVP reproduzido;
-3. nova feature não entra antes do primeiro Stable/MVP pós-hardening no notebook;
+3. fora da OrdaX Network já adotada e limitada pelo `PLANO-08`, nova feature não entra antes do primeiro Stable/MVP pós-hardening no notebook;
 4. bug reproduzido que bloqueia boot, rede, OOBE, Conta/Cadastro, Surface, app essencial, update, rollback, recovery ou segurança continua elegível;
 5. ideias de Store, apps novos, Creative/Video/CAD/3D, sync amplo, Mobile, billing, Windows Compatibility avançado e demais expansões ficam em backlog/pós-MVP;
 6. Conta permanece opcional para usar o sistema, porém **Entrar/Criar conta passam a ser gate funcional do MVP** quando o usuário escolher esse caminho;
@@ -163,6 +164,7 @@ Ordem de fechamento:
 ```text
 drenar PRs atuais relevantes
  -> Conta/Cadastro real + caminho sem conta
+ -> OrdaX Network: authorization/RLS, trust & safety e prova E2E multi-tenant
  -> replacement canonical release proof
  -> autorização física válida
  -> Stable/MVP no notebook
