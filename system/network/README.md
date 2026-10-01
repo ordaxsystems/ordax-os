@@ -40,13 +40,15 @@ separate executable PostgreSQL proof before rollout.
 
 ### Idempotency for create-style mutations
 
-`message-send` and `report-create` require client idempotency keys in v2.
+`group-create`, `message-send` and `report-create` require client idempotency keys in v2.
 
-For reports, the future persisted schema must scope the key by
-`reporter_space_id`. Existing v1 rows must remain migratable, so the planned
-column is nullable for legacy data while the v2 RPC itself requires a valid key.
-A partial unique index over `(reporter_space_id, client_idempotency_key)`
-provides race-safe retry resolution without rewriting historical reports.
+For groups, the future persisted schema scopes the key by the creating
+`owner_space_id`; for reports, by `reporter_space_id`. Existing v1 rows must
+remain migratable, so both planned columns stay nullable for legacy data while
+the v2 RPCs require valid keys. Partial unique indexes over
+`(owner_space_id, client_idempotency_key)` for groups and
+`(reporter_space_id, client_idempotency_key)` for reports provide race-safe
+retry resolution without rewriting historical rows.
 
 This remains source/proof-only until the migration is generated through the
 official Supabase migration tooling and passes advisors plus PostgreSQL proof.
