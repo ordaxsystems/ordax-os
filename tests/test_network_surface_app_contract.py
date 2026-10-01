@@ -88,6 +88,10 @@ class NetworkSurfaceAppContractTests(unittest.TestCase):
 
     def test_surface_ci_executes_network_app_regressions(self):
         workflow = self.text(WORKFLOW)
+        self.assertGreaterEqual(
+            workflow.count("system/services/professional-network/**"),
+            2,
+        )
         self.assertGreaterEqual(workflow.count("tests/test_network_draft.mjs"), 2)
         self.assertGreaterEqual(workflow.count("tests/test_network_surface_app_contract.py"), 2)
         self.assertIn("node --test tests/test_network_draft.mjs", workflow)
