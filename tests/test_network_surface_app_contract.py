@@ -12,6 +12,7 @@ WEB = ROOT / "system" / "composition" / "web" / "main.mjs"
 DRAFT = ROOT / "system" / "services" / "professional-network" / "draft.mjs"
 I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "network-app.mjs"
 WORKFLOW = ROOT / ".github" / "workflows" / "surface-web-candidate.yml"
+BROWSER_SMOKE = ROOT / "tools" / "surface-web" / "browser-smoke.mjs"
 
 
 class NetworkSurfaceAppContractTests(unittest.TestCase):
@@ -76,6 +77,10 @@ class NetworkSurfaceAppContractTests(unittest.TestCase):
         self.assertIn("draft = null;", draft)
         selection_subscription = draft.split("const unsubscribeSelection", 1)[1].split("const port", 1)[0]
         self.assertNotIn("draft =", selection_subscription)
+
+    def test_real_browser_smoke_serves_network_component_styles(self):
+        smoke = self.text(BROWSER_SMOKE)
+        self.assertIn("'system/apps/network/network.css': 'text/css'", smoke)
 
     def test_surface_ci_executes_network_app_regressions(self):
         workflow = self.text(WORKFLOW)
