@@ -105,6 +105,15 @@ create table public.ordax_network_reports (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+create table private.ordax_network_rate_windows (
+  actor_user_id uuid not null,
+  actor_space_id uuid not null,
+  operation text not null,
+  window_started_at timestamptz not null,
+  count integer not null check (count > 0),
+  primary key (actor_user_id, actor_space_id, operation, window_started_at)
+);
+
 create table private.ordax_network_audit_events (
   event_id uuid primary key default gen_random_uuid(),
   actor_user_id uuid not null,
@@ -140,6 +149,9 @@ create index ordax_network_reports_reporter_created_idx
   on public.ordax_network_reports(reporter_space_id, created_at desc);
 create index ordax_network_reports_target_state_idx
   on public.ordax_network_reports(target_type, target_id, state, created_at desc);
+create index ordax_network_rate_windows_cleanup_idx
+  on private.ordax_network_rate_windows(window_started_at);
+
 create index ordax_network_audit_actor_created_idx
   on private.ordax_network_audit_events(actor_space_id, created_at desc);
 
@@ -162,6 +174,7 @@ alter table public.ordax_network_conversation_members enable row level security;
 alter table public.ordax_network_messages enable row level security;
 alter table public.ordax_network_blocks enable row level security;
 alter table public.ordax_network_reports enable row level security;
+alter table private.ordax_network_rate_windows enable row level security;
 alter table private.ordax_network_audit_events enable row level security;
 
 revoke all on table public.ordax_network_groups from public, anon, authenticated;
@@ -171,7 +184,61 @@ revoke all on table public.ordax_network_conversation_members from public, anon,
 revoke all on table public.ordax_network_messages from public, anon, authenticated;
 revoke all on table public.ordax_network_blocks from public, anon, authenticated;
 revoke all on table public.ordax_network_reports from public, anon, authenticated;
+revoke all on table private.ordax_network_rate_windows from public, anon, authenticated, service_role;
 revoke all on table private.ordax_network_audit_events from public, anon, authenticated, service_role;
+
+create or replace function private.ordax_network_consume_rate_v1(
+  p_actor_user_id uuid,
+  p_actor_space_id uuid,
+  p_operation text,
+  p_limit integer,
+  p_window_seconds integer
+)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $
+declare
+  v_now timestamptz := statement_timestamp();
+  v_window timestamptz;
+  v_count integer;
+begin
+  if p_actor_user_id is null
+     or p_actor_space_id is null
+     or p_operation is null
+     or char_length(p_operation) not between 3 and 80
+     or p_limit is null or p_limit < 1 or p_limit > 1000
+     or p_window_seconds is null or p_window_seconds < 1 or p_window_seconds > 86400 then
+    raise exception 'network-rate-config-invalid' using errcode = '22023';
+  end if;
+
+  v_window := to_timestamp(
+    floor(extract(epoch from v_now) / p_window_seconds) * p_window_seconds
+  );
+
+  insert into private.ordax_network_rate_windows(
+    actor_user_id, actor_space_id, operation, window_started_at, count
+  ) values (
+    p_actor_user_id, p_actor_space_id, p_operation, v_window, 1
+  )
+  on conflict (actor_user_id, actor_space_id, operation, window_started_at)
+  do update set count = private.ordax_network_rate_windows.count + 1
+  returning count into v_count;
+
+  if v_count > p_limit then
+    raise exception 'network-rate-limit-exceeded' using errcode = 'P0001';
+  end if;
+end;
+$;
+
+revoke all on function private.ordax_network_consume_rate_v1(
+  uuid, uuid, text, integer, integer
+) from public, anon;
+grant execute on function private.ordax_network_consume_rate_v1(
+  uuid, uuid, text, integer, integer
+) to authenticated;
 
 create or replace function private.ordax_network_assert_community_member_v1(
   p_space_id uuid,
@@ -225,6 +292,7 @@ declare
   v_description text := nullif(btrim(p_description), '');
 begin
   v_actor := private.ordax_network_assert_space_actor_v1(p_space_id, true);
+  perform private.ordax_network_consume_rate_v1(v_actor, p_space_id, 'group-create', 10, 3600);
   perform private.ordax_network_assert_community_member_v1(p_space_id, p_community_id);
 
   if v_title is null or char_length(v_title) not between 1 and 120 then
@@ -310,6 +378,7 @@ declare
   v_existing public.ordax_network_group_memberships;
 begin
   v_actor := private.ordax_network_assert_space_actor_v1(p_space_id, true);
+  perform private.ordax_network_consume_rate_v1(v_actor, p_space_id, 'group-join', 40, 3600);
 
   select g.* into v_group
   from public.ordax_network_groups g
@@ -434,6 +503,7 @@ declare
   v_conversation_id uuid;
 begin
   v_actor := private.ordax_network_assert_space_actor_v1(p_space_id, true);
+  perform private.ordax_network_consume_rate_v1(v_actor, p_space_id, 'direct-create', 60, 3600);
   if p_target_space_id is null or p_target_space_id = p_space_id then
     raise exception 'network-direct-target-invalid' using errcode = '22023';
   end if;
@@ -588,6 +658,7 @@ begin
   v_actor := private.ordax_network_assert_conversation_sender_v1(
     p_space_id, p_conversation_id
   );
+  perform private.ordax_network_consume_rate_v1(v_actor, p_space_id, 'message-send', 120, 60);
 
   if p_client_idempotency_key is null
      or char_length(p_client_idempotency_key) not between 16 and 120
@@ -764,6 +835,7 @@ declare
   v_actor uuid;
 begin
   v_actor := private.ordax_network_assert_space_actor_v1(p_space_id, true);
+  perform private.ordax_network_consume_rate_v1(v_actor, p_space_id, 'block-change', 60, 3600);
   if p_target_space_id is null or p_target_space_id = p_space_id then
     raise exception 'network-block-target-invalid' using errcode = '22023';
   end if;
@@ -841,6 +913,7 @@ declare
   v_reason text := btrim(p_reason);
 begin
   v_actor := private.ordax_network_assert_space_actor_v1(p_space_id, false);
+  perform private.ordax_network_consume_rate_v1(v_actor, p_space_id, 'report-create', 20, 3600);
   if p_target_type not in ('space','group','message') then
     raise exception 'network-report-target-type-invalid' using errcode = '22023';
   end if;
@@ -849,6 +922,28 @@ begin
   end if;
   if v_reason is null or char_length(v_reason) not between 8 and 500 then
     raise exception 'network-report-reason-invalid' using errcode = '22023';
+  end if;
+
+  if p_target_type = 'space' and not exists (
+    select 1 from public.ordax_spaces s
+    where s.space_id::text = p_target_id and s.state = 'active'
+  ) then
+    raise exception 'network-report-target-not-found' using errcode = '22023';
+  elsif p_target_type = 'group' and not exists (
+    select 1 from public.ordax_network_groups g
+    where g.group_id::text = p_target_id and g.state = 'active'
+  ) then
+    raise exception 'network-report-target-not-found' using errcode = '22023';
+  elsif p_target_type = 'message' and not exists (
+    select 1
+    from public.ordax_network_messages m
+    join public.ordax_network_conversation_members cm
+      on cm.conversation_id = m.conversation_id
+    where m.message_id::text = p_target_id
+      and cm.space_id = p_space_id
+      and cm.state = 'active'
+  ) then
+    raise exception 'network-report-target-not-found' using errcode = '22023';
   end if;
 
   insert into public.ordax_network_reports(
