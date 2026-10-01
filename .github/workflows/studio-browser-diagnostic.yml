@@ -1,0 +1,60 @@
+name: Studio Browser Diagnostic
+
+on:
+  push:
+    branches:
+      - mvp/ordax-studio-first-party-main
+    paths:
+      - '.github/workflows/studio-browser-diagnostic.yml'
+      - 'system/apps/studio/**'
+      - 'system/apps/catalog.mjs'
+      - 'system/apps/component-catalog.mjs'
+      - 'system/composition/web/**'
+      - 'tools/surface-web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Build deterministic Web client
+        run: |
+          set -euo pipefail
+          python tools/surface-web/build.py check
+          python tools/surface-web/build.py build \
+            --source-commit "$GITHUB_SHA" \
+            --out-dir out/web-client
+          python tools/surface-web/build.py verify --out-dir out/web-client
+
+      - name: Run Chromium smoke with preserved diagnostics
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          node tools/surface-web/browser-smoke.mjs --bundle-dir out/web-client 2>&1 | tee "$RUNNER_TEMP/studio-browser-smoke.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo '## Studio Chromium diagnostic'
+            echo
+            echo '```text'
+            tail -c 12000 "$RUNNER_TEMP/studio-browser-smoke.log"
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
