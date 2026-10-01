@@ -39,6 +39,27 @@ async function mountActivityStyles(root) {
   return () => link.remove();
 }
 
+function withLiveApprovalAuthority(personalOrdax) {
+  if (
+    personalOrdax === null
+    || typeof personalOrdax?.reconcileApprovedAuthority !== "function"
+  ) {
+    return personalOrdax;
+  }
+  return new Proxy(personalOrdax, {
+    get(target, property) {
+      if (property === "getSnapshot") {
+        return () => {
+          target.reconcileApprovedAuthority();
+          return target.getSnapshot();
+        };
+      }
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 export const componentRuntime = Object.freeze({
   schema: COMPONENT_RUNTIME_SCHEMA,
   componentId: "activity",
@@ -55,9 +76,10 @@ export const componentRuntime = Object.freeze({
       releaseStyles();
     };
     try {
+      const activityPersonalOrdax = withLiveApprovalAuthority(personalOrdax);
       controls = mountPersonalActivityControls(
         root,
-        personalOrdax,
+        activityPersonalOrdax,
         surfaceLifecycle,
         personalOrdax?.approvalConsent ?? null,
       );
