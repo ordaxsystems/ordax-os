@@ -30,3 +30,29 @@ memory and unscoped GitHub authority before an adapter is called.
 A later Supabase adapter may implement this interface using the already-applied
 product schema, but the HTTP/product contract remains OrdaX-owned so the backend
 provider can be migrated without changing Web/Mobile/MCP semantics.
+
+
+## First-party product OAuth
+
+First-party products such as Achegue-se use the OrdaX product identity boundary,
+not the owner/development MCP authority.
+
+The canonical source contract is:
+
+- `docs/contracts/first-party-product-oauth.json`;
+- `system/contracts/first-party-product-oauth.mjs`.
+
+The first registered client is `acheguese`, but it remains
+`runtime_enabled=false` until a real OAuth backend, exact HTTPS redirect URI,
+Space authorization proof and revocation proof exist.
+
+A first-party product authorization must bind:
+
+`OrdaX subject + client id + explicit Space + exact scopes + audience`.
+
+The server revalidates current Space membership. Only owner/admin authority may
+establish the product link; member/viewer authority is insufficient.
+
+Product MCP and first-party products may share a future OrdaX issuer, but they
+must not share client registrations, audiences or bearer tokens. Development
+Control Plane MCP credentials remain a separate authority entirely.
