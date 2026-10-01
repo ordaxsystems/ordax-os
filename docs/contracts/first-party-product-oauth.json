@@ -1,0 +1,82 @@
+{
+  "$schema": "prototype-ordax.first-party-product-oauth/1",
+  "status": "source-foundation-runtime-disabled",
+  "oauth": {
+    "version": "2.1",
+    "authorization_code": true,
+    "pkce": {
+      "required": true,
+      "method": "S256"
+    },
+    "implicit_grant": false,
+    "password_grant": false,
+    "client_credentials_for_end_users": false,
+    "state_required": true,
+    "exact_redirect_uri_registration_required": true,
+    "issuer_https_required": true,
+    "tokens_server_side_only_for_web_products": true,
+    "refresh_rotation_required": true,
+    "revocation_required": true,
+    "audience_bound_tokens": true
+  },
+  "authority": {
+    "canonical_user": "ordax-account-subject",
+    "acting_identity": "ordax-space",
+    "space_selection_explicit": true,
+    "space_must_be_active": true,
+    "space_roles_allowed": [
+      "owner",
+      "admin"
+    ],
+    "viewer_or_member_cannot_link_product": true,
+    "client_supplied_space_authority": false,
+    "server_revalidates_membership": true
+  },
+  "clients": {
+    "acheguese": {
+      "kind": "first-party-product",
+      "runtime_enabled": false,
+      "redirect_uris": [],
+      "audience": "ordax:first-party:acheguese",
+      "scopes": {
+        "read": [
+          "network.space.read",
+          "network.directory.read",
+          "network.communities.read",
+          "network.messages.read"
+        ],
+        "write": [
+          "network.groups.join",
+          "network.messages.write",
+          "product.acheguese.publish"
+        ]
+      },
+      "wildcard_scopes": false,
+      "space_binding_required": true,
+      "connection_revocation_required": true
+    }
+  },
+  "token_separation": {
+    "development_mcp_credentials_reused": false,
+    "development_mcp_tokens_accepted": false,
+    "product_mcp_client_registration_reused": false,
+    "product_mcp_tokens_accepted": false,
+    "same_issuer_may_serve_distinct_product_clients": true,
+    "cross_audience_token_reuse": false
+  },
+  "persistence": {
+    "shared_service_role": false,
+    "raw_password_sync": false,
+    "provider_access_token_exposed_to_browser": false,
+    "token_hash_or_server_secret_owner_required": true,
+    "connection_metadata_may_be_product_visible": true
+  },
+  "runtime_gate": {
+    "enabled": false,
+    "requires_registered_https_redirect_uri": true,
+    "requires_product_oauth_backend": true,
+    "requires_space_authorization_e2e": true,
+    "requires_revocation_e2e": true,
+    "requires_two_account_cross_space_negative_proof": true
+  }
+}
