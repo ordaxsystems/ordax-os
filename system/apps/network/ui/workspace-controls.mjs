@@ -51,6 +51,11 @@ export function mountNetworkWorkspaceControls(
     if (!nextSlot) return;
     slot = nextSlot;
 
+    const previousInput = slot.querySelector("[data-network-draft-body]");
+    const restoreComposerFocus = previousInput === documentObject.activeElement;
+    const restoreStart = restoreComposerFocus ? previousInput.selectionStart : null;
+    const restoreEnd = restoreComposerFocus ? previousInput.selectionEnd : null;
+
     const snapshot = draftRuntime.getSnapshot();
     const view = node(documentObject, "div", "ordax-network-workspace");
 
@@ -132,6 +137,16 @@ export function mountNetworkWorkspaceControls(
     composer.append(textarea, status, actions);
     view.append(header, sender, composer);
     slot.replaceChildren(view);
+
+    if (restoreComposerFocus) {
+      textarea.focus({ preventScroll: true });
+      if (restoreStart !== null && restoreEnd !== null) {
+        textarea.setSelectionRange(
+          Math.min(restoreStart, textarea.value.length),
+          Math.min(restoreEnd, textarea.value.length),
+        );
+      }
+    }
   };
 
   const onInput = (event) => {
