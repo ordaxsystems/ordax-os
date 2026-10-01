@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 import { createMemoryRuntime } from "../system/services/memory/runtime.mjs";
+import { MEMORY_MUTATION_PORT_SCHEMA } from "../system/contracts/memory-mutation.mjs";
 import {
   MEMORY_REVIEW_SESSION_SCHEMA,
   createMemoryReviewSession,
@@ -194,5 +195,92 @@ test("review session exports only the currently selected owner", () => {
   const exported = review.exportSnapshot();
   assert.deepEqual(exported.items.map((entry) => entry.id), ["account-export"]);
   assert.deepEqual(exported.owner, { ownerKind: "account", ownerId: "account-1" });
+  review.dispose();
+});
+
+
+test("review session clearAll follows the selected owner without crossing ownership", async () => {
+  const memory = createMemoryRuntime();
+  memory.remember(memoryItem({
+    id: "device-keep-clear",
+    ownerKind: "device",
+    ownerId: null,
+    content: "local",
+  }));
+  memory.remember(memoryItem({ id: "account-clear-session", content: "conta" }));
+  const review = createMemoryReviewSession({
+    memoryPort: memory,
+    identitySessionPort: identityPort(signedIn()),
+  });
+
+  review.selectOwner({ ownerKind: "account", ownerId: "account-1" });
+  const result = await review.clearAll();
+
+  assert.equal(result.removed, 1);
+  assert.equal(result.ownerKind, "account");
+  assert.equal(result.ownerId, "account-1");
+  assert.deepEqual(review.list(), []);
+
+  review.selectOwner({ ownerKind: "device", ownerId: null });
+  assert.deepEqual(review.list().map((entry) => entry.id), ["device-keep-clear"]);
+  review.dispose();
+});
+
+
+test("in-flight clearAll keeps the owner captured before sign-out", async () => {
+  const memory = createMemoryRuntime();
+  memory.remember(memoryItem({
+    id: "device-must-survive",
+    ownerKind: "device",
+    ownerId: null,
+    content: "device",
+  }));
+  memory.remember(memoryItem({ id: "account-clear-a", content: "a" }));
+  memory.remember(memoryItem({ id: "account-clear-b", content: "b" }));
+
+  let releaseFirst;
+  const firstGate = new Promise((resolve) => { releaseFirst = resolve; });
+  let first = true;
+  const forgotten = [];
+  const mutationPort = {
+    schema: MEMORY_MUTATION_PORT_SCHEMA,
+    async remember(value) {
+      return memory.remember(value);
+    },
+    async forget(value) {
+      forgotten.push({ ...value });
+      if (first) {
+        first = false;
+        await firstGate;
+      }
+      return memory.forget(value);
+    },
+  };
+  const identity = identityPort(signedIn());
+  const review = createMemoryReviewSession({
+    memoryPort: memory,
+    mutationPort,
+    identitySessionPort: identity,
+  });
+  review.selectOwner({ ownerKind: "account", ownerId: "account-1" });
+
+  const clearing = review.clearAll();
+  await Promise.resolve();
+  identity.publish(signedOut());
+  assert.equal(review.getSnapshot().selectedOwner.key, "device");
+
+  releaseFirst();
+  const result = await clearing;
+
+  assert.equal(result.ownerKind, "account");
+  assert.equal(result.ownerId, "account-1");
+  assert.deepEqual(
+    forgotten.map((entry) => [entry.ownerKind, entry.ownerId]).sort(),
+    [["account", "account-1"], ["account", "account-1"]],
+  );
+  assert.deepEqual(
+    review.list().map((entry) => entry.id),
+    ["device-must-survive"],
+  );
   review.dispose();
 });

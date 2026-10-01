@@ -41,6 +41,7 @@ export function assertMemoryReviewSession(session) {
     "exportSnapshot",
     "update",
     "remove",
+    "clearAll",
     "flush",
     "dispose",
   ]) {
@@ -160,6 +161,10 @@ export function createMemoryReviewSession({
     async remove(id) {
       if (disposed) throw new Error("Memory review session is disposed");
       return review().remove(id);
+    },
+    async clearAll() {
+      if (disposed) throw new Error("Memory review session is disposed");
+      return review().clearAll();
     },
     async flush() {
       if (disposed) throw new Error("Memory review session is disposed");

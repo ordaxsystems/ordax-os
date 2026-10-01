@@ -819,6 +819,10 @@ export function mountAccountOverviewControls(
       export: t("account.memory.review.export"),
       exported: t("account.memory.review.exported"),
       exportError: t("account.memory.review.exportError"),
+      clearAll: t("account.memory.review.clearAll"),
+      clearAllPrompt: t("account.memory.review.clearAllPrompt"),
+      clearAllConfirm: t("account.memory.review.clearAllConfirm"),
+      clearAllCancel: t("account.memory.review.clearAllCancel"),
     });
   };
 

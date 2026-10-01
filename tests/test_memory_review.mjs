@@ -296,3 +296,100 @@ test("memory review delegates writes to the supplied async mutation port", async
     ["forget", "review-protected"],
   ]);
 });
+
+
+test("memory review clearAll removes only the selected owner through the mutation port", async () => {
+  const memory = createMemoryRuntime();
+  memory.remember(item({
+    id: "device-keep",
+    ownerKind: "device",
+    ownerId: null,
+    scope: "device",
+    spaceId: null,
+    projectId: null,
+    content: "permanece local",
+  }));
+  memory.remember(item({
+    id: "account-clear-a",
+    scope: "account",
+    spaceId: null,
+    projectId: null,
+    content: "conta a",
+  }));
+  memory.remember(item({
+    id: "account-clear-b",
+    scope: "account",
+    spaceId: null,
+    projectId: null,
+    content: "conta b",
+  }));
+
+  const calls = [];
+  const mutationPort = {
+    schema: MEMORY_MUTATION_PORT_SCHEMA,
+    async remember(value) {
+      return memory.remember(value);
+    },
+    async forget(value) {
+      calls.push({ ...value });
+      return memory.forget(value);
+    },
+  };
+  const review = createMemoryReviewRuntime(memory, {
+    ownerKind: "account",
+    ownerId: "user-1",
+    mutationPort,
+  });
+
+  const result = await review.clearAll();
+
+  assert.deepEqual(result, {
+    removed: 2,
+    ownerKind: "account",
+    ownerId: "user-1",
+  });
+  assert.deepEqual(
+    calls.map((entry) => [entry.id, entry.ownerKind, entry.ownerId]).sort(),
+    [
+      ["account-clear-a", "account", "user-1"],
+      ["account-clear-b", "account", "user-1"],
+    ],
+  );
+  assert.deepEqual(review.list(), []);
+  assert.deepEqual(
+    memory.search({
+      ownerKind: "device",
+      ownerId: null,
+      scopes: ["device"],
+      limit: 8,
+      offset: 0,
+    }).map((entry) => entry.id),
+    ["device-keep"],
+  );
+});
+
+test("memory review clearAll is independent of current page or query", async () => {
+  const memory = createMemoryRuntime();
+  for (let index = 0; index < 40; index += 1) {
+    memory.remember(item({
+      id: `clear-${index}`,
+      ownerKind: "device",
+      ownerId: null,
+      scope: "device",
+      spaceId: null,
+      projectId: null,
+      content: index === 39 ? "agulha" : `item ${index}`,
+    }));
+  }
+  const review = createMemoryReviewRuntime(memory, {
+    ownerKind: "device",
+    ownerId: null,
+  });
+
+  assert.equal(review.list({ query: "agulha", limit: 1 }).length, 1);
+  assert.equal(review.list({ limit: 4, offset: 32 }).length, 4);
+
+  const result = await review.clearAll();
+  assert.equal(result.removed, 40);
+  assert.deepEqual(review.list(), []);
+});
