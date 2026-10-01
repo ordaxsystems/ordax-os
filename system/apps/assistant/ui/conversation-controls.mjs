@@ -1,3 +1,4 @@
+import { INTELLIGENCE_MAX_PROMPT_CHARS } from "../../../contracts/intelligence.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { ASSISTANT_CONVERSATION_SCHEMA } from "../conversation.mjs";
 
@@ -20,6 +21,30 @@ function node(documentObject, tag, className, text) {
   if (className) element.className = className;
   if (text !== undefined) element.textContent = text;
   return element;
+}
+
+export function canSubmitAssistantDraft(snapshot, draft) {
+  if (!snapshot || typeof snapshot !== "object" || typeof draft !== "string") {
+    return false;
+  }
+  const normalized = draft.trim();
+  return (
+    snapshot.state === "ready"
+    && normalized.length > 0
+    && normalized.length <= INTELLIGENCE_MAX_PROMPT_CHARS
+  );
+}
+
+export function beginAssistantSubmission(conversation, draft) {
+  const value = typeof draft === "string" ? draft.trim() : "";
+  const before = conversation.getSnapshot();
+  if (!canSubmitAssistantDraft(before, value)) {
+    return Object.freeze({ accepted: false, pending: null });
+  }
+
+  const pending = conversation.send(value);
+  const accepted = conversation.getSnapshot().state === "busy";
+  return Object.freeze({ accepted, pending });
 }
 
 export function mountAssistantConversationControls(
@@ -106,7 +131,7 @@ export function mountAssistantConversationControls(
 
     const form = node(documentObject, "div", "ordax-assistant-compose");
     const textarea = documentObject.createElement("textarea");
-    textarea.maxLength = 32000;
+    textarea.maxLength = INTELLIGENCE_MAX_PROMPT_CHARS;
     textarea.rows = 3;
     textarea.placeholder = t("assistant.input.placeholder");
     textarea.setAttribute("aria-label", t("assistant.input.aria"));
@@ -129,11 +154,7 @@ export function mountAssistantConversationControls(
     );
     send.type = "button";
     send.dataset.assistantSend = "";
-    send.disabled = (
-      snapshot.state === "busy"
-      || snapshot.state === "unavailable"
-      || draft.trim().length === 0
-    );
+    send.disabled = !canSubmitAssistantDraft(snapshot, draft);
     actions.append(clear, send);
     form.append(actions);
     slot.append(form);
@@ -144,11 +165,13 @@ export function mountAssistantConversationControls(
   };
 
   const submit = () => {
-    const value = draft.trim();
-    if (!value) return;
-    draft = "";
-    render();
-    void conversation.send(value).catch(() => {});
+    const submission = beginAssistantSubmission(conversation, draft);
+    if (submission.pending === null) return;
+    if (submission.accepted) {
+      draft = "";
+      render();
+    }
+    void submission.pending.catch(() => render());
   };
 
   const onInput = (event) => {
@@ -157,12 +180,7 @@ export function mountAssistantConversationControls(
     draft = target.value;
     const button = mountedSlot?.querySelector("[data-assistant-send]");
     if (button) {
-      const snapshot = conversation.getSnapshot();
-      button.disabled = (
-        snapshot.state === "busy"
-        || snapshot.state === "unavailable"
-        || draft.trim().length === 0
-      );
+      button.disabled = !canSubmitAssistantDraft(conversation.getSnapshot(), draft);
     }
   };
 
