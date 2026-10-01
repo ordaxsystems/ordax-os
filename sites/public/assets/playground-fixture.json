@@ -28,6 +28,7 @@
       "notes",
       "assistant",
       "internet",
+      "network",
       "settings",
       "account",
       "system"
@@ -52,6 +53,10 @@
       {
         "id": "internet",
         "label": "Internet"
+      },
+      {
+        "id": "network",
+        "label": "Rede"
       },
       {
         "id": "settings",
@@ -95,6 +100,13 @@
       "description": "Escrita local, projetos, tarefas e referências disponíveis offline.",
       "monogram": "NO",
       "display_title": "Notas"
+    },
+    {
+      "id": "network",
+      "title": "Rede",
+      "description": "Comunidades profissionais e mensagens vinculadas explicitamente ao Space remetente.",
+      "monogram": "RE",
+      "display_title": "Rede"
     },
     {
       "id": "assistant",
