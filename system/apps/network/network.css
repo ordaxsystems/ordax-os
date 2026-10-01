@@ -1,0 +1,176 @@
+.ordax-network-workspace {
+  display: grid;
+  gap: 1.25rem;
+  min-height: 100%;
+  padding: 1.25rem;
+  color: var(--ordax-text);
+}
+
+.ordax-network-workspace-header {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 48rem;
+}
+
+.ordax-network-kicker,
+.ordax-network-label,
+.ordax-network-subtitle,
+.ordax-network-status,
+.ordax-network-warning {
+  margin: 0;
+  color: var(--ordax-muted);
+}
+
+.ordax-network-kicker,
+.ordax-network-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ordax-network-title {
+  margin: 0;
+  font-family: var(--ordax-font-display);
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  font-weight: var(--ordax-title-weight);
+  letter-spacing: var(--ordax-tracking-tight);
+}
+
+.ordax-network-sender,
+.ordax-network-composer {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 58%, transparent);
+  box-shadow: var(--ordax-shadow-soft);
+}
+
+.ordax-network-sender-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ordax-network-warning {
+  font-size: 0.82rem;
+}
+
+.ordax-network-composer textarea {
+  width: 100%;
+  min-height: 9rem;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: color-mix(in srgb, var(--ordax-panel) 72%, transparent);
+  color: inherit;
+  font: inherit;
+  line-height: 1.5;
+  transition:
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    background var(--ordax-motion-fast) var(--ordax-ease-standard);
+}
+
+.ordax-network-composer textarea:hover:not(:disabled),
+.ordax-network-composer textarea:focus-visible {
+  border-color: var(--ordax-accent);
+  background: var(--ordax-hover-bg);
+}
+
+.ordax-network-composer textarea:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
+
+.ordax-network-composer textarea:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.ordax-network-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ordax-network-action,
+.ordax-network-action-primary {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    opacity var(--ordax-motion-fast) var(--ordax-ease-standard);
+}
+
+.ordax-network-action {
+  background: transparent;
+  color: inherit;
+}
+
+.ordax-network-action-primary {
+  border-color: var(--ordax-accent);
+  background: var(--ordax-accent);
+  color: var(--ordax-panel);
+}
+
+.ordax-network-action:hover:not(:disabled),
+.ordax-network-action:focus-visible,
+.ordax-network-action-primary:hover:not(:disabled),
+.ordax-network-action-primary:focus-visible {
+  border-color: var(--ordax-accent);
+  background: var(--ordax-hover-bg);
+  color: var(--ordax-text);
+}
+
+.ordax-network-action:focus-visible,
+.ordax-network-action-primary:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
+
+.ordax-network-action:disabled,
+.ordax-network-action-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 680px) {
+  .ordax-network-workspace {
+    padding: 1rem;
+  }
+
+  .ordax-network-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .ordax-network-action,
+  .ordax-network-action-primary {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ordax-network-composer textarea,
+  .ordax-network-action,
+  .ordax-network-action-primary {
+    transition: none;
+  }
+}
+
+[data-ordax-motion="reduced"] .ordax-network-composer textarea,
+[data-ordax-motion="reduced"] .ordax-network-action,
+[data-ordax-motion="reduced"] .ordax-network-action-primary {
+  transition: none;
+}
