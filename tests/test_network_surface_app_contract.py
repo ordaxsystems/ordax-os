@@ -78,9 +78,13 @@ class NetworkSurfaceAppContractTests(unittest.TestCase):
         selection_subscription = draft.split("const unsubscribeSelection", 1)[1].split("const port", 1)[0]
         self.assertNotIn("draft =", selection_subscription)
 
-    def test_real_browser_smoke_serves_network_component_styles(self):
+    def test_real_browser_smoke_opens_network_and_proves_honest_offline_state(self):
         smoke = self.text(BROWSER_SMOKE)
         self.assertIn("'system/apps/network/network.css': 'text/css'", smoke)
+        self.assertIn("await launch('network')", smoke)
+        self.assertIn("networkOwnerMounted", smoke)
+        self.assertIn("networkWebUnavailableHonest", smoke)
+        self.assertIn("'networkComponentStyleMounted'", smoke)
 
     def test_surface_ci_executes_network_app_regressions(self):
         workflow = self.text(WORKFLOW)
