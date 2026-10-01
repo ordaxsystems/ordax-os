@@ -12,9 +12,11 @@ on:
       - 'tests/sql/test_network_multitenant_hardening.sql'
       - 'tests/sql/test_network_message_send_v2_prototype.sql'
       - 'tests/sql/test_network_direct_create_v2_prototype.sql'
+      - 'tests/sql/test_network_block_change_v2_prototype.sql'
       - 'tests/test_network_multitenant_proof_contract.py'
       - 'tests/test_network_message_send_v2_proof_contract.py'
       - 'tests/test_network_direct_create_v2_proof_contract.py'
+      - 'tests/test_network_block_change_v2_proof_contract.py'
       - '.github/workflows/network-multitenant-proof.yml'
   pull_request:
     paths:
@@ -26,9 +28,11 @@ on:
       - 'tests/sql/test_network_multitenant_hardening.sql'
       - 'tests/sql/test_network_message_send_v2_prototype.sql'
       - 'tests/sql/test_network_direct_create_v2_prototype.sql'
+      - 'tests/sql/test_network_block_change_v2_prototype.sql'
       - 'tests/test_network_multitenant_proof_contract.py'
       - 'tests/test_network_message_send_v2_proof_contract.py'
       - 'tests/test_network_direct_create_v2_proof_contract.py'
+      - 'tests/test_network_block_change_v2_proof_contract.py'
       - '.github/workflows/network-multitenant-proof.yml'
   workflow_dispatch:
 
@@ -92,3 +96,13 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.test_network_direct_create_v2_proof_contract -v
+
+      - name: Execute block-change v2 outcome proof
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_network_block_change_v2_prototype.sql
+
+      - name: Guard block-change v2 proof contract
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_network_block_change_v2_proof_contract -v
