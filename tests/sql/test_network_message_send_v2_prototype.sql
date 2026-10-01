@@ -62,7 +62,7 @@ begin
   -- Message bodies are stored as plain text. Tabs/newlines/carriage returns are
   -- valid formatting; other C0/DEL control characters are rejected before any
   -- authority lookup, rate consumption or persistence.
-  if regexp_replace(v_body, E'[\\t\\n\\r]', '', 'g') ~ '[[:cntrl:]]' then
+  if translate(v_body, E'\\t\\n\\r', '') ~ '[[:cntrl:]]' then
     return query select
       'prototype-ordax.network-mutation-outcome/2',
       'invalid',
