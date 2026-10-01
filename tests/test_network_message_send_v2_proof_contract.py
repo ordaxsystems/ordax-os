@@ -76,6 +76,13 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
         self.assertIn("network-message-v2-proof-invalid-shape-invalid", self.sql)
         self.assertIn("when sqlstate '42501'", self.sql)
 
+    def test_plain_text_control_characters_fail_before_persistence_or_rate(self):
+        self.assertIn("regexp_replace(v_body", self.sql)
+        self.assertIn("[[:cntrl:]]", self.sql)
+        self.assertIn("message-body-control-character", self.sql)
+        self.assertIn("network-message-v2-proof-control-character-persisted", self.sql)
+        self.assertIn("network-message-v2-proof-control-character-consumed-rate", self.sql)
+
     def test_workflow_orders_v1_before_v2_on_the_same_ephemeral_schema(self):
         v1 = self.workflow.index(
             "psql -v on_error_stop=1 -f tests/sql/test_network_multitenant_hardening.sql"
