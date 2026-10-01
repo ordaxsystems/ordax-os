@@ -4,6 +4,7 @@ import test from "node:test";
 import { defineFirstPartyApp } from "../system/apps/app-contract.mjs";
 import { internetApp } from "../system/apps/internet/app.mjs";
 import { notesApp } from "../system/apps/notes/app.mjs";
+import { networkApp } from "../system/apps/network/app.mjs";
 import { projectsApp } from "../system/apps/projects/app.mjs";
 import { validateFileListing } from "../system/contracts/file-space.mjs";
 
@@ -142,6 +143,15 @@ test("Notes stays a first-party app and advertises native file-space as optional
   assert.deepEqual(notesApp.optionalCapabilities, ["filesystem.user-space"]);
   assert.equal(notesApp.component.owner, "system/apps/notes");
   assert.equal(notesApp.component.releaseMode, "git-app");
+});
+
+test("Network stays a first-party optional app with independent delivery", () => {
+  assert.equal(networkApp.id, "network");
+  assert.deepEqual(networkApp.requiredCapabilities, []);
+  assert.equal(networkApp.panels[0].extensionId, "network-workspace");
+  assert.equal(networkApp.component.owner, "system/apps/network");
+  assert.equal(networkApp.component.releaseMode, "git-app");
+  assert.equal(networkApp.component.restartScope, "component");
 });
 
 test("Internet stays a first-party app while engine availability remains host-owned", () => {
