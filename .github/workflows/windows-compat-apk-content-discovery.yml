@@ -71,7 +71,7 @@ jobs:
           assert proof['gates']['execution_authorized'] is False
           assert proof['requested_package_count'] == 39
           assert proof['resolved_package_count'] == 342
-          expected = 'f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff'
+          expected = '99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e'
           assert proof['resolved_closure_sha256'] == expected
           assert proof['offline_replay_closure_sha256'] == expected
           assert 0 < proof['external_apk_package_count'] <= proof['resolved_package_count']

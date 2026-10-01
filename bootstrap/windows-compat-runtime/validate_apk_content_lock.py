@@ -65,9 +65,9 @@ def validate_lock(lock: dict, version_lock: dict, source: dict) -> dict:
         raise ApkContentLockError("external APK set missing")
     if apk_set.get("package_count") != 326:
         raise ApkContentLockError("external APK package count drifted")
-    if apk_set.get("total_size_bytes") != 595127154:
+    if apk_set.get("total_size_bytes") != 595141970:
         raise ApkContentLockError("external APK byte size drifted")
-    if apk_set.get("canonical_manifest_sha256") != "d4a5133c36b81a5123e3a3edbf5df485fe13aec994e088966bdba44a3b571c87":
+    if apk_set.get("canonical_manifest_sha256") != "9ecad632554f9f164294a803af9cfe8ccbfba525c71e1cd61c7cbd9fc7e8d7bf":
         raise ApkContentLockError("external APK manifest digest drifted")
     if not SHA256_RE.fullmatch(str(apk_set.get("canonical_manifest_sha256", ""))):
         raise ApkContentLockError("external APK manifest digest invalid")
@@ -82,13 +82,13 @@ def validate_lock(lock: dict, version_lock: dict, source: dict) -> dict:
     provenance = lock.get("provenance")
     if not isinstance(provenance, dict):
         raise ApkContentLockError("content discovery provenance missing")
-    if provenance.get("discovery_head_sha") != "ce86331f0ff1e885e48baa4408600f553b7a9097":
+    if provenance.get("discovery_head_sha") != "3c29aa03a7b26cdcfb95b74694e5ba4954ae9cb0":
         raise ApkContentLockError("content discovery source commit drifted")
-    if provenance.get("workflow_run_id") != 36515782046:
+    if provenance.get("workflow_run_id") != 36895104347:
         raise ApkContentLockError("content discovery workflow provenance drifted")
-    if provenance.get("artifact_id") != 11011685089:
+    if provenance.get("artifact_id") != 11179727536:
         raise ApkContentLockError("content discovery artifact provenance drifted")
-    if provenance.get("artifact_digest") != "sha256:b406c7e4c61cf0714e8dc0c28226758fd4aca22532e3ff8f38b2ee8a3d2b0eb8":
+    if provenance.get("artifact_digest") != "sha256:c5b381e5439452eb0a460efbc59e3af00f85ca4d92ed8d020f72d1c0180d1670":
         raise ApkContentLockError("content discovery artifact digest drifted")
     if not ARTIFACT_DIGEST_RE.fullmatch(str(provenance.get("artifact_digest", ""))):
         raise ApkContentLockError("content discovery artifact digest invalid")

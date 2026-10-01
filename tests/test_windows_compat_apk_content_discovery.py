@@ -43,7 +43,7 @@ class WindowsCompatibilityApkContentDiscoveryTests(unittest.TestCase):
         self.assertEqual(self.lock["resolved_closure"]["package_count"], 342)
         self.assertEqual(
             self.lock["resolved_closure"]["canonical_json_sha256"],
-            "f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff",
+            "99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e",
         )
 
     def test_discovery_module_exposes_no_build_or_execution_entrypoint(self):
