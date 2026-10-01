@@ -23,12 +23,16 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 # Generated payload paths are intentionally different from transient build-output
 # paths. The manifest names stable payload paths; this map is the only adapter
 # from repository build outputs to those payload names.
+#
+# The release-acquisition agent is deliberately NOT listed here. The minimal
+# bootstrap contract binds an immutable seed binary that may lag the current
+# source-built refresh target. Treating that seed as generated output would
+# silently replace physical-seed bytes whenever the refresh agent evolves.
 GENERATED_SOURCES = {
     "boot/esp/EFI/BOOT/BOOTX64.EFI": "out/esp/systemd-bootx64.efi",
     "bootstrap/kernel/vmlinuz-6.6.52": "out/kernel/vmlinuz-6.6.52",
     "bootstrap/initramfs/initramfs.cpio.gz": "out/initramfs/initramfs.cpio.gz",
     "bootstrap/network/bin/netbox": "out/network-bootstrap/netbox",
-    "bootstrap/release-acquisition/ordax-release-agent": "out/release-acquisition/ordax-release-agent",
 }
 
 

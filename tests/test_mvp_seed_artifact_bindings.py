@@ -9,6 +9,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MINIMAL = ROOT / "docs/contracts/minimal-bootstrap.json"
+CREATOR_WORKFLOW = ROOT / ".github/workflows/creator-payload-candidate.yml"
+FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
+ASSEMBLER = ROOT / "tools/creator/assemble.py"
 
 
 class MVPSeedArtifactBindingsTests(unittest.TestCase):
@@ -40,8 +43,9 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
             )
         )
         self.assertEqual(artifact["sha256"], "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66")
-        self.assertEqual(refresh["target_sha256"], "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66")
-        self.assertEqual(artifact["sha256"], refresh["target_sha256"])
+        self.assertEqual(refresh["target_sha256"], "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78")
+        self.assertNotEqual(artifact["sha256"], refresh["target_sha256"])
+        self.assertIn(artifact["sha256"], refresh["allowed_from_sha256"])
         self.assertIn("721f8a3fcec1ccfd2dd75c4d633ff2efd960909287c5e11fcf9abf19e5372740", refresh["allowed_from_sha256"])
         self.assertIn("102c9aeb531b582b4b60d8e808da7f50871c3ea2353c2dc82bd6373f9edc28da", refresh["allowed_from_sha256"])
         self.assertIn("ece358c676d6248798bc53f4f5ac52a4e6bc06cda3111b7978acbc917059bf4c", refresh["allowed_from_sha256"])
@@ -49,6 +53,40 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
             "ba633274ee2b9497a75a1b287979900ac31611ff93ec52179bd704daf0a6dbce",
             refresh["allowed_from_sha256"],
         )
+
+    def test_release_agent_seed_is_not_routed_to_current_generated_refresh_output(self):
+        assembler = ASSEMBLER.read_text(encoding="utf-8")
+        self.assertNotIn(
+            '"bootstrap/release-acquisition/ordax-release-agent": "out/release-acquisition/ordax-release-agent"',
+            assembler,
+        )
+        self.assertIn("release-acquisition agent is deliberately NOT listed here", assembler)
+
+    def test_bootstrap_assembly_restores_immutable_seed_after_refresh_target_build(self):
+        seed = "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66"
+        tag = f"ordax-release-agent-{seed}"
+        for workflow_path in (CREATOR_WORKFLOW, FULL_MEDIA_WORKFLOW):
+            workflow = workflow_path.read_text(encoding="utf-8")
+            self.assertIn("Restore canonical release-agent seed for bootstrap assembly", workflow)
+            self.assertIn(seed, workflow)
+            self.assertIn(tag, workflow)
+            self.assertIn(
+                "install -m 0755 \"$tmp\" bootstrap/release-acquisition/ordax-release-agent",
+                workflow,
+            )
+            self.assertIn("canonical release-agent seed hash mismatch", workflow)
+            self.assertIn("RELEASE_AGENT_REFRESH_TARGET_REMAINS_SEPARATE=YES", workflow)
+
+    def test_full_media_proof_removes_transient_seed_before_clean_checkout_assertion(self):
+        workflow = FULL_MEDIA_WORKFLOW.read_text(encoding="utf-8")
+        remove_seed = "rm -f bootstrap/release-acquisition/ordax-release-agent"
+        assert_seed_absent = "test ! -e bootstrap/release-acquisition/ordax-release-agent"
+        clean_checkout = 'test -z "$(git status --porcelain)"'
+        self.assertIn(remove_seed, workflow)
+        self.assertIn(assert_seed_absent, workflow)
+        self.assertIn(clean_checkout, workflow)
+        self.assertLess(workflow.index(remove_seed), workflow.index(clean_checkout))
+        self.assertLess(workflow.index(assert_seed_absent), workflow.index(clean_checkout))
 
     def test_canonical_release_trust_is_resolved_without_enabling_write(self):
         unresolved = [g["id"] for g in self.contract["artifact_groups"] if not g["resolved"]]

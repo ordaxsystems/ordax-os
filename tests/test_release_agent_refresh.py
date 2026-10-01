@@ -53,8 +53,9 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertEqual(artifact["mode"], descriptor["mode"])
         self.assertFalse(minimal["physical_write_allowed"])
         self.assertEqual(seed, "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66")
-        self.assertEqual(target, "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66")
-        self.assertEqual(seed, target)
+        self.assertEqual(target, "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78")
+        self.assertNotEqual(seed, target)
+        self.assertIn(seed, descriptor["allowed_from_sha256"])
         self.assertIn("721f8a3fcec1ccfd2dd75c4d633ff2efd960909287c5e11fcf9abf19e5372740", descriptor["allowed_from_sha256"])
         self.assertIn("102c9aeb531b582b4b60d8e808da7f50871c3ea2353c2dc82bd6373f9edc28da", descriptor["allowed_from_sha256"])
 
@@ -98,7 +99,7 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertTrue(refresh["current_seed_includes_activate_exact"])
         self.assertEqual(
             refresh["current_refresh_target_sha256"],
-            "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66",
+            "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78",
         )
         self.assertTrue(refresh["current_seed_includes_portable_v3_materialize"])
         self.assertTrue(refresh["current_seed_includes_portable_v3_verify_exact"])
