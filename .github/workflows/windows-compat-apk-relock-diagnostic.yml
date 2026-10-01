@@ -1,0 +1,99 @@
+name: Windows Compatibility APK Relock Diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  apk-relock-diagnostic:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install bounded proof host dependency
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends proot
+
+      - name: Apply current observed closure only in runner workspace
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('bootstrap/windows-compat-runtime/build-version-lock.json')
+          value = json.loads(path.read_text(encoding='utf-8'))
+          assert value['resolved_closure']['package_count'] == 342
+          assert value['resolved_closure']['canonical_json_sha256'] == 'f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff'
+          assert value['gates']['apk_content_hashes_pinned'] is False
+          assert value['gates']['full_build_proof_passed'] is False
+          assert value['gates']['activation_authorized'] is False
+          assert value['gates']['execution_authorized'] is False
+          value['resolved_closure']['canonical_json_sha256'] = '4597940033d5e70cd924974ee6a147da619042555eead2155bdd8c4209495c82'
+          path.write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Reproduce current closure and hash exact APK bytes
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-apk-relock-diagnostic"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
+          python bootstrap/windows-compat-runtime/discover_apk_content.py discover \
+            --work-dir "$work" \
+            --out "$proof_dir/apk-content-discovery.json"
+          python - <<'PY' "$proof_dir/apk-content-discovery.json"
+          import hashlib
+          import json
+          import pathlib
+          import sys
+
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          expected = '4597940033d5e70cd924974ee6a147da619042555eead2155bdd8c4209495c82'
+          assert proof['resolved_package_count'] == 342
+          assert proof['resolved_closure_sha256'] == expected
+          assert proof['offline_replay_closure_sha256'] == expected
+          assert proof['external_apk_package_count'] == 326
+          assert proof['gates']['apk_content_hashes_pinned'] is False
+          assert proof['gates']['full_build_proof_passed'] is False
+          assert proof['gates']['activation_authorized'] is False
+          assert proof['gates']['execution_authorized'] is False
+
+          manifest = proof['external_apk_manifest']
+          assert manifest['libpng']['version'] == '1.6.59-r0'
+          assert manifest['libpng-dev']['version'] == '1.6.59-r0'
+          canonical = json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode('utf-8')
+          summary = {
+              'resolved_closure_sha256': expected,
+              'external_apk_package_count': len(manifest),
+              'external_apk_total_size_bytes': sum(item['size_bytes'] for item in manifest.values()),
+              'external_apk_canonical_manifest_sha256': hashlib.sha256(canonical).hexdigest(),
+              'libpng': manifest['libpng'],
+              'libpng-dev': manifest['libpng-dev'],
+          }
+          (pathlib.Path(sys.argv[1]).parent / 'relock-summary.json').write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload diagnostic metadata only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-compat-apk-relock-diagnostic-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/windows-compat-apk-relock-diagnostic/
+          if-no-files-found: error
