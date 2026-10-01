@@ -55,15 +55,22 @@ export function createNativePersonalOrdaxComposition({
     revokeGrant: (grantId) => authority.issuer.revoke(grantId),
     store: createNativePersonalOrdaxStore(windowRef),
   });
-  for (const approval of runtime.getSnapshot().approvals) {
-    if (
-      approval.status === "approved"
-      && approval.grantRef !== null
-      && registry.resolve(approval.grantRef) === null
-    ) {
-      runtime.revokeApprovedAction(approval.workItemId, approval.id);
+
+  const reconcileApprovedAuthority = () => {
+    let changed = false;
+    for (const approval of runtime.getSnapshot().approvals) {
+      if (
+        approval.status === "approved"
+        && approval.grantRef !== null
+        && registry.resolve(approval.grantRef) === null
+      ) {
+        runtime.revokeApprovedAction(approval.workItemId, approval.id);
+        changed = true;
+      }
     }
-  }
+    return changed;
+  };
+  reconcileApprovedAuthority();
 
   const approvalConsent = createPersonalApprovalConsent({
     runtime,
@@ -83,7 +90,11 @@ export function createNativePersonalOrdaxComposition({
       }
       return catalog.request(runtime, workItemId, entryId, input);
     },
+    reconcileApprovedAuthority() {
+      return reconcileApprovedAuthority();
+    },
     canExecuteApprovedAction(workItemId, approvalId) {
+      reconcileApprovedAuthority();
       const snapshot = runtime.getSnapshot();
       const work = snapshot.workItems.find((candidate) => candidate.id === workItemId);
       const approval = snapshot.approvals.find((candidate) =>
@@ -111,6 +122,7 @@ export function createNativePersonalOrdaxComposition({
       }
     },
     async executeApprovedAction(workItemId, approvalId) {
+      reconcileApprovedAuthority();
       const execution = runtime.startActionExecution(workItemId, approvalId);
       let receipt;
       try {
