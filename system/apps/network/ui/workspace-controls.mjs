@@ -52,7 +52,8 @@ export function mountNetworkWorkspaceControls(
     slot = nextSlot;
 
     const previousInput = slot.querySelector("[data-network-draft-body]");
-    const restoreComposerFocus = previousInput === documentObject.activeElement;
+    const restoreComposerFocus =
+      previousInput !== null && previousInput === documentObject.activeElement;
     const restoreStart = restoreComposerFocus ? previousInput.selectionStart : null;
     const restoreEnd = restoreComposerFocus ? previousInput.selectionEnd : null;
 
