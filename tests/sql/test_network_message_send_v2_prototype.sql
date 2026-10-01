@@ -248,6 +248,79 @@ grant execute on function public.ordax_network_send_message_v2_proof(
   uuid, uuid, text, text
 ) to authenticated;
 
+-- Proof-only introspection helpers: authenticated callers can inspect only their
+-- own Space-scoped test state. Direct table grants remain closed.
+create or replace function private.ordax_network_rate_count_v2_proof(
+  p_actor_user_id uuid,
+  p_actor_space_id uuid,
+  p_operation text
+)
+returns integer
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $proof_rate$
+declare
+  v_actor uuid;
+  v_count integer;
+begin
+  v_actor := private.ordax_network_assert_space_actor_v1(
+    p_actor_space_id,
+    false
+  );
+
+  if v_actor <> p_actor_user_id then
+    raise exception 'network-v2-proof-rate-actor-mismatch'
+      using errcode = '42501';
+  end if;
+
+  select r.count into v_count
+  from private.ordax_network_rate_windows r
+  where r.actor_user_id = p_actor_user_id
+    and r.actor_space_id = p_actor_space_id
+    and r.operation = p_operation;
+
+  return coalesce(v_count, 0);
+end;
+$proof_rate$;
+
+revoke all on function private.ordax_network_rate_count_v2_proof(
+  uuid, uuid, text
+) from public, anon;
+grant execute on function private.ordax_network_rate_count_v2_proof(
+  uuid, uuid, text
+) to authenticated;
+
+create or replace function private.ordax_network_message_exists_v2_proof(
+  p_space_id uuid,
+  p_client_idempotency_key text
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $proof_message$
+begin
+  perform private.ordax_network_assert_space_actor_v1(p_space_id, false);
+
+  return exists (
+    select 1
+    from public.ordax_network_messages m
+    where m.sender_space_id = p_space_id
+      and m.client_idempotency_key = p_client_idempotency_key
+  );
+end;
+$proof_message$;
+
+revoke all on function private.ordax_network_message_exists_v2_proof(
+  uuid, text
+) from public, anon;
+grant execute on function private.ordax_network_message_exists_v2_proof(
+  uuid, text
+) to authenticated;
+
 insert into auth.users(id) values
   ('11111111-1111-4111-8111-111111111111'),
   ('22222222-2222-4222-8222-222222222222'),
@@ -348,11 +421,11 @@ begin
 
   v_first_id := v_outcome.resource_id;
 
-  select count into v_count
-  from private.ordax_network_rate_windows
-  where actor_user_id = '11111111-1111-4111-8111-111111111111'
-    and actor_space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-    and operation = 'message-send';
+  select private.ordax_network_rate_count_v2_proof(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    'message-send'
+  ) into v_count;
 
   if v_count <> 120 then
     raise exception 'network-message-v2-proof-applied-rate-count-invalid';
@@ -373,11 +446,11 @@ begin
     raise exception 'network-message-v2-proof-idempotent-shape-invalid';
   end if;
 
-  select count into v_count
-  from private.ordax_network_rate_windows
-  where actor_user_id = '11111111-1111-4111-8111-111111111111'
-    and actor_space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-    and operation = 'message-send';
+  select private.ordax_network_rate_count_v2_proof(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    'message-send'
+  ) into v_count;
 
   if v_count <> 120 then
     raise exception 'network-message-v2-proof-idempotent-consumed-rate';
@@ -398,21 +471,19 @@ begin
     raise exception 'network-message-v2-proof-rate-limit-shape-invalid';
   end if;
 
-  select count into v_count
-  from private.ordax_network_rate_windows
-  where actor_user_id = '11111111-1111-4111-8111-111111111111'
-    and actor_space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-    and operation = 'message-send';
+  select private.ordax_network_rate_count_v2_proof(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    'message-send'
+  ) into v_count;
 
   if v_count <> 121 then
     raise exception 'network-message-v2-proof-rate-state-not-durable';
   end if;
 
-  if exists (
-    select 1
-    from public.ordax_network_messages m
-    where m.sender_space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-      and m.client_idempotency_key = 'message-proof-key-0002'
+  if private.ordax_network_message_exists_v2_proof(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    'message-proof-key-0002'
   ) then
     raise exception 'network-message-v2-proof-rate-limited-message-persisted';
   end if;
@@ -426,11 +497,11 @@ declare
   v_before integer;
   v_after integer;
 begin
-  select count into v_before
-  from private.ordax_network_rate_windows
-  where actor_user_id = '11111111-1111-4111-8111-111111111111'
-    and actor_space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-    and operation = 'message-send';
+  select private.ordax_network_rate_count_v2_proof(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    'message-send'
+  ) into v_before;
 
   select * into v_outcome
   from public.ordax_network_send_message_v2_proof(
@@ -447,11 +518,11 @@ begin
     raise exception 'network-message-v2-proof-invalid-shape-invalid';
   end if;
 
-  select count into v_after
-  from private.ordax_network_rate_windows
-  where actor_user_id = '11111111-1111-4111-8111-111111111111'
-    and actor_space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-    and operation = 'message-send';
+  select private.ordax_network_rate_count_v2_proof(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    'message-send'
+  ) into v_after;
 
   if v_after <> v_before then
     raise exception 'network-message-v2-proof-invalid-consumed-rate';
