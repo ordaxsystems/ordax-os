@@ -27,6 +27,7 @@ export const componentRuntime = Object.freeze({
 
     try {
       controls = mountNetworkWorkspaceControls(root, drafts, {
+        surfaceLifecycle,
         onError(error) {
           reportDiagnostic?.("network-workspace", error);
         },
