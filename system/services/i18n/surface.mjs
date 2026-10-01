@@ -12,6 +12,7 @@ import { ACCOUNT_SOURCE_MESSAGES, ACCOUNT_ENGLISH_MESSAGES } from "./catalog/acc
 import { ASSISTANT_SOURCE_MESSAGES, ASSISTANT_ENGLISH_MESSAGES } from "./catalog/assistant.mjs";
 import { ACTIVITY_SOURCE_MESSAGES, ACTIVITY_ENGLISH_MESSAGES } from "./catalog/activity.mjs";
 import { NETWORK_SOURCE_MESSAGES, NETWORK_ENGLISH_MESSAGES } from "./catalog/network.mjs";
+import { NETWORK_APP_SOURCE_MESSAGES, NETWORK_APP_ENGLISH_MESSAGES } from "./catalog/network-app.mjs";
 import { POWER_SOURCE_MESSAGES, POWER_ENGLISH_MESSAGES } from "./catalog/power.mjs";
 import { NOTIFICATIONS_SOURCE_MESSAGES, NOTIFICATIONS_ENGLISH_MESSAGES } from "./catalog/notifications.mjs";
 import { LOCAL_SESSION_SOURCE_MESSAGES, LOCAL_SESSION_ENGLISH_MESSAGES } from "./catalog/local-session.mjs";
@@ -128,6 +129,11 @@ const SOURCE = Object.freeze({
   "app.internet.panel.0.label": "Navegador",
   "app.internet.panel.0.title": "Internet",
   "app.internet.panel.0.body": "A navegação integrada depende de um engine isolado fornecido pelo host.",
+  "app.network.title": "Rede",
+  "app.network.description": "Comunidades profissionais e mensagens vinculadas explicitamente ao Space remetente.",
+  "app.network.panel.0.label": "Rede",
+  "app.network.panel.0.title": "Rede profissional",
+  "app.network.panel.0.body": "O backend da Rede ainda não está ativo nesta composição.",
   "app.settings.title": "Ajustes",
   "app.settings.description": "Preferências compartilhadas, aparência e rede do OrdaX.",
   "app.settings.panel.0.label": "Ajustes",
@@ -154,6 +160,7 @@ const SOURCE = Object.freeze({
   ...INTERNET_SOURCE_MESSAGES,
   ...PROJECTS_SOURCE_MESSAGES,
   ...NETWORK_SOURCE_MESSAGES,
+  ...NETWORK_APP_SOURCE_MESSAGES,
   ...POWER_SOURCE_MESSAGES,
   ...NOTIFICATIONS_SOURCE_MESSAGES,
   ...LOCAL_SESSION_SOURCE_MESSAGES
@@ -267,6 +274,11 @@ const ENGLISH = Object.freeze({
   "app.internet.panel.0.label": "Browser",
   "app.internet.panel.0.title": "Internet",
   "app.internet.panel.0.body": "Integrated browsing depends on an isolated engine supplied by the host.",
+  "app.network.title": "Network",
+  "app.network.description": "Professional communities and messages explicitly bound to the sender Space.",
+  "app.network.panel.0.label": "Network",
+  "app.network.panel.0.title": "Professional network",
+  "app.network.panel.0.body": "The Network backend is not active in this composition yet.",
   "app.settings.title": "Settings",
   "app.settings.description": "Shared preferences, appearance, and OrdaX network settings.",
   "app.settings.panel.0.label": "Settings",
@@ -293,6 +305,7 @@ const ENGLISH = Object.freeze({
   ...INTERNET_ENGLISH_MESSAGES,
   ...PROJECTS_ENGLISH_MESSAGES,
   ...NETWORK_ENGLISH_MESSAGES,
+  ...NETWORK_APP_ENGLISH_MESSAGES,
   ...POWER_ENGLISH_MESSAGES,
   ...NOTIFICATIONS_ENGLISH_MESSAGES,
   ...LOCAL_SESSION_ENGLISH_MESSAGES
