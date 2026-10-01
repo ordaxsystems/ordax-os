@@ -40,13 +40,17 @@
       "resource_type": "conversation"
     },
     "message-send": {
-      "resource_type": "message"
+      "resource_type": "message",
+      "idempotency_key_required": true,
+      "idempotency_scope": "sender-space"
     },
     "block-change": {
       "resource_type": "block"
     },
     "report-create": {
-      "resource_type": "report"
+      "resource_type": "report",
+      "idempotency_key_required": true,
+      "idempotency_scope": "reporter-space"
     }
   }
 }

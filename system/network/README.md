@@ -36,3 +36,17 @@ The v2 outcome vocabulary is explicit:
 This source contract does not activate a new database RPC by itself. Schema/API
 implementation must preserve the already-proven v1 authority boundary and add a
 separate executable PostgreSQL proof before rollout.
+
+
+### Idempotency for create-style mutations
+
+`message-send` and `report-create` require client idempotency keys in v2.
+
+For reports, the future persisted schema must scope the key by
+`reporter_space_id`. Existing v1 rows must remain migratable, so the planned
+column is nullable for legacy data while the v2 RPC itself requires a valid key.
+A partial unique index over `(reporter_space_id, client_idempotency_key)`
+provides race-safe retry resolution without rewriting historical reports.
+
+This remains source/proof-only until the migration is generated through the
+official Supabase migration tooling and passes advisors plus PostgreSQL proof.
