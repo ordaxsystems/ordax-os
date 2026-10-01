@@ -364,17 +364,23 @@
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "discovery-required-current-index-drift",
-    "detected_by_qemu_run_id": 36854018233,
-    "discovery_run_id": null,
-    "discovery_source_commit": null,
-    "discovery_artifact_id": null,
-    "discovery_artifact_sha256": null,
+    "status": "reviewed-candidate-lock-refresh",
+    "detected_by_qemu_run_id": 36740192210,
+    "discovery_run_id": 36743616489,
+    "discovery_source_commit": "bbf20f52802ef9e31d7941c4a55ff98322cd530b",
+    "discovery_artifact_id": 11112010851,
+    "discovery_artifact_sha256": "83e1288e920e108b1c870f53d0db7b992a9d3bc0c13c35d0bb92918edebae6bb",
     "previous_package_count": 253,
-    "resolved_package_count": null,
+    "resolved_package_count": 253,
     "missing": [],
     "extra": [],
-    "changed": [],
+    "changed": [
+      {
+        "name": "libpng",
+        "from": "1.6.57-r0",
+        "to": "1.6.59-r0"
+      }
+    ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
     "reproducibility_reproof_required": true
