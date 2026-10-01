@@ -117,7 +117,15 @@
     "local_export_requires_account": false,
     "local_export_transport": "none-local-download",
     "local_export_schema": "ordax.memory-review-export/1",
-    "local_export_includes_restricted_for_authorized_owner": true
+    "local_export_includes_restricted_for_authorized_owner": true,
+    "bulk_clear_selected_owner_supported": true,
+    "bulk_clear_cross_owner_allowed": false,
+    "bulk_clear_requires_explicit_surface_confirmation": true,
+    "bulk_clear_preflight_before_first_delete": true,
+    "bulk_clear_max_items": 2048,
+    "bulk_clear_uses_owner_scoped_mutation_port": true,
+    "bulk_clear_multi_item_atomicity_claimed": false,
+    "bulk_clear_account_items_use_protected_mutations": true
   },
   "external_models": {
     "local_ai": "may-receive-authorized-context",
