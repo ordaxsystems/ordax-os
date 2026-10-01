@@ -311,7 +311,7 @@ class RuntimeDependencyDiscoveryTests(unittest.TestCase):
                 "gates": {"full_build_proof_passed": False},
             }
             with self.assertRaises(MODULE.RuntimeDependencyError):
-                MODULE.discover(stage, rootfs, proof)
+                MODULE.discover(stage, rootfs, proof, {})
 
 
 def _write(path: Path, content: bytes) -> Path:

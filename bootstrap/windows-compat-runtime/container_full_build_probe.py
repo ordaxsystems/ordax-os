@@ -21,6 +21,7 @@ HERE = Path(__file__).resolve().parent
 LEGACY_PROOF_PATH = HERE / "full_build_probe.py"
 CONTAINER_PATH = HERE / "locked_rootfs_container.py"
 HEADER_BARRIER_PATH = HERE / "generated_idl_header_barrier.py"
+UNIXLIB_POLICY_PATH = HERE / "unixlib_link_policy.py"
 SUBSTRATE_PATH = HERE / "full-build-execution-substrate.json"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -41,6 +42,7 @@ def load_module(name: str, path: Path):
 FULL = load_module("ordax_windows_compat_full_build_contract", LEGACY_PROOF_PATH)
 CONTAINER = load_module("ordax_windows_compat_locked_container", CONTAINER_PATH)
 HEADER_BARRIER = load_module("ordax_windows_compat_generated_idl_header_barrier", HEADER_BARRIER_PATH)
+UNIXLIB_POLICY = load_module("ordax_windows_compat_unixlib_link_policy", UNIXLIB_POLICY_PATH)
 
 
 def load_substrate() -> dict:
@@ -121,9 +123,12 @@ def prove_compiler(image: str, build_dir: Path, canonical_path: str, path: str) 
 
 def perform_build(work_dir: Path, jobs: int) -> dict:
     substrate = load_substrate()
+    link_policy_contract = UNIXLIB_POLICY.load_contract()
     content_lock, version_lock, _, toolchain = FULL.load_inputs()
     if substrate.get("runtime_id") != content_lock.get("runtime_id"):
         raise ContainerFullBuildError("execution substrate runtime identity drifted")
+    if link_policy_contract.get("runtime_id") != content_lock.get("runtime_id"):
+        raise ContainerFullBuildError("Unixlib link policy runtime identity drifted")
     if jobs < 1 or jobs > 8:
         raise ContainerFullBuildError("build jobs must be between 1 and 8")
 
@@ -158,7 +163,10 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
         source_root,
         source_contract["upstream"]["archive_root"],
     )
-    wine_source = "/build/wine-source/" + source_contract["upstream"]["archive_root"]
+    archive_root = source_contract["upstream"]["archive_root"]
+    wine_source_host = source_root / archive_root
+    unixlib_source_patch = UNIXLIB_POLICY.apply_source_policy(wine_source_host)
+    wine_source = "/build/wine-source/" + archive_root
     output_dir = build_dir / "wine-output"
     stage_dir = build_dir / "stage"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -168,6 +176,8 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
     image_tag = "ordax-wine-build-proof-" + content_lock["resolved_closure"]["canonical_json_sha256"][:16]
     image_id = CONTAINER.import_locked_rootfs(rootfs, image_tag)
     header_barrier = None
+    unixlib_generated_makefile = None
+    unixlib_preflight = None
     try:
         compiler_versions = {
             "cc": prove_compiler(image_tag, build_dir, canonical_path, native["cc"]),
@@ -214,6 +224,7 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
             f"cd /build/wine-output && {configure_env} {configure_command} > configure.log 2>&1 || "
             "{ rc=$?; tail -n 250 configure.log >&2; exit $rc; }",
         )
+        unixlib_generated_makefile = UNIXLIB_POLICY.verify_generated_makefile(output_dir / "Makefile")
 
         # Wine's generated Makefile is the authority for this barrier. The plan
         # contains every safe relative .h target whose prerequisites include
@@ -241,6 +252,15 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
             "cd /build/wine-output && make tools/winedump/winedump > winedump-build.log 2>&1 || "
             "{ rc=$?; tail -n 250 winedump-build.log >&2; exit $rc; }",
         )
+        preflight_target = link_policy_contract["policy"]["preflight_target"]
+        container_run(
+            image_tag,
+            build_dir,
+            canonical_path,
+            f"cd /build/wine-output && make -j{jobs} {FULL.shell_quote(preflight_target)} > unixlib-runpath-preflight.log 2>&1 || "
+            "{ rc=$?; tail -n 300 unixlib-runpath-preflight.log >&2; exit $rc; }",
+        )
+        unixlib_preflight = UNIXLIB_POLICY.verify_preflight_elf(output_dir / preflight_target)
         container_run(
             image_tag,
             build_dir,
@@ -260,6 +280,8 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
 
     if header_barrier is None:
         raise ContainerFullBuildError("generated IDL header barrier was not planned")
+    if unixlib_generated_makefile is None or unixlib_preflight is None:
+        raise ContainerFullBuildError("Unixlib $ORIGIN RUNPATH preflight policy was not proven")
 
     wine_entry = stage_dir / "usr/bin/wine"
     wine_lib = stage_dir / "usr/lib/wine"
@@ -267,6 +289,15 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
         raise ContainerFullBuildError("staged Wine entrypoint missing")
     if not wine_lib.is_dir():
         raise ContainerFullBuildError("staged Wine library tree missing")
+
+    staged_target = link_policy_contract["policy"]["staged_target"]
+    unixlib_staged = UNIXLIB_POLICY.verify_staged_elf(stage_dir / staged_target)
+    unixlib_link_policy = UNIXLIB_POLICY.finalize_evidence(
+        unixlib_source_patch,
+        unixlib_generated_makefile,
+        unixlib_preflight,
+        unixlib_staged,
+    )
 
     manifest, total_regular_bytes = FULL.staging_manifest(stage_dir)
     stage_digest = FULL.canonical_manifest_sha256(manifest)
@@ -285,6 +316,7 @@ def perform_build(work_dir: Path, jobs: int) -> dict:
         "apk_content_manifest_sha256": content_lock["external_apk_set"]["canonical_manifest_sha256"],
         "resolved_closure_sha256": content_lock["resolved_closure"]["canonical_json_sha256"],
         "build_jobs": jobs,
+        "unixlib_link_policy": unixlib_link_policy,
         "generated_idl_header_barrier": {
             "authority": header_barrier["authority"],
             "selection": header_barrier["selection"],
@@ -350,6 +382,7 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=2)
     args = parser.parse_args()
     load_substrate()
+    UNIXLIB_POLICY.load_contract()
     FULL.load_inputs()
     if args.command == "check":
         CONTAINER.require_docker()
@@ -371,6 +404,7 @@ if __name__ == "__main__":
         ContainerFullBuildError,
         CONTAINER.LockedRootfsContainerError,
         HEADER_BARRIER.GeneratedIdlHeaderBarrierError,
+        UNIXLIB_POLICY.UnixlibLinkPolicyError,
         FULL.FullBuildProofError,
         FULL.CONTENT_VALIDATOR.ApkContentLockError,
         FULL.DISCOVERY.ContentDiscoveryError,
