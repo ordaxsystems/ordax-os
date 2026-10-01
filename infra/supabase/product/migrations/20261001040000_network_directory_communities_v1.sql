@@ -294,12 +294,12 @@ grant execute on function public.ordax_network_upsert_space_profile_v1(
   uuid, text, text, text, text[], text
 ) to authenticated;
 
-create or replace function public.ordax_network_list_directory_v1(
-  p_search text default null,
-  p_category text default null,
-  p_after_name text default null,
-  p_after_space_id uuid default null,
-  p_limit integer default 20
+create or replace function private.ordax_network_list_directory_internal_v1(
+  p_search text,
+  p_category text,
+  p_after_name text,
+  p_after_space_id uuid,
+  p_limit integer
 )
 returns table(
   space_id uuid,
@@ -311,7 +311,7 @@ returns table(
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $network$
 declare
   v_user_id uuid := (select auth.uid());
   v_search text := nullif(btrim(p_search), '');
@@ -345,7 +345,7 @@ begin
     and (v_category is null or v_category = any(p.categories))
     and (
       v_search is null
-      or p.public_name ilike '%' || replace(replace(v_search, '%', '\%'), '_', '\_') || '%' escape '\'
+      or p.public_name ilike '%' || replace(replace(v_search, '%', '\\%'), '_', '\\_') || '%' escape '\\'
     )
     and (
       p_after_name is null
@@ -354,6 +354,37 @@ begin
   order by p.public_name, p.space_id
   limit p_limit;
 end;
+$network$;
+
+revoke all on function private.ordax_network_list_directory_internal_v1(
+  text, text, text, uuid, integer
+) from public, anon;
+grant execute on function private.ordax_network_list_directory_internal_v1(
+  text, text, text, uuid, integer
+) to authenticated;
+
+create or replace function public.ordax_network_list_directory_v1(
+  p_search text default null,
+  p_category text default null,
+  p_after_name text default null,
+  p_after_space_id uuid default null,
+  p_limit integer default 20
+)
+returns table(
+  space_id uuid,
+  public_name text,
+  description text,
+  region_label text,
+  categories text[]
+)
+language sql
+security invoker
+set search_path = ''
+as $$
+  select *
+  from private.ordax_network_list_directory_internal_v1(
+    p_search, p_category, p_after_name, p_after_space_id, p_limit
+  );
 $$;
 
 revoke all on function public.ordax_network_list_directory_v1(
@@ -363,8 +394,8 @@ grant execute on function public.ordax_network_list_directory_v1(
   text, text, text, uuid, integer
 ) to authenticated;
 
-create or replace function public.ordax_network_list_communities_v1(
-  p_limit integer default 50
+create or replace function private.ordax_network_list_communities_internal_v1(
+  p_limit integer
 )
 returns table(
   community_id text,
@@ -376,7 +407,7 @@ returns table(
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $network$
 begin
   if (select auth.uid()) is null then
     raise exception 'network-auth-required' using errcode = '42501';
@@ -392,6 +423,29 @@ begin
   order by c.title, c.community_id
   limit p_limit;
 end;
+$network$;
+
+revoke all on function private.ordax_network_list_communities_internal_v1(integer)
+from public, anon;
+grant execute on function private.ordax_network_list_communities_internal_v1(integer)
+to authenticated;
+
+create or replace function public.ordax_network_list_communities_v1(
+  p_limit integer default 50
+)
+returns table(
+  community_id text,
+  title text,
+  kind text,
+  jurisdiction text,
+  join_policy text
+)
+language sql
+security invoker
+set search_path = ''
+as $$
+  select *
+  from private.ordax_network_list_communities_internal_v1(p_limit);
 $$;
 
 revoke all on function public.ordax_network_list_communities_v1(integer)
@@ -559,9 +613,9 @@ from public, anon;
 grant execute on function public.ordax_network_leave_community_v1(uuid, text)
 to authenticated;
 
-create or replace function public.ordax_network_list_my_memberships_v1(
+create or replace function private.ordax_network_list_my_memberships_internal_v1(
   p_space_id uuid,
-  p_limit integer default 100
+  p_limit integer
 )
 returns table(
   community_id text,
@@ -573,7 +627,7 @@ returns table(
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $network$
 begin
   perform private.ordax_network_assert_space_actor_v1(p_space_id, false);
   if p_limit is null or p_limit < 1 or p_limit > 100 then
@@ -589,6 +643,30 @@ begin
   order by c.title, m.community_id
   limit p_limit;
 end;
+$network$;
+
+revoke all on function private.ordax_network_list_my_memberships_internal_v1(uuid, integer)
+from public, anon;
+grant execute on function private.ordax_network_list_my_memberships_internal_v1(uuid, integer)
+to authenticated;
+
+create or replace function public.ordax_network_list_my_memberships_v1(
+  p_space_id uuid,
+  p_limit integer default 100
+)
+returns table(
+  community_id text,
+  community_title text,
+  role text,
+  state text,
+  joined_at timestamptz
+)
+language sql
+security invoker
+set search_path = ''
+as $$
+  select *
+  from private.ordax_network_list_my_memberships_internal_v1(p_space_id, p_limit);
 $$;
 
 revoke all on function public.ordax_network_list_my_memberships_v1(uuid, integer)
