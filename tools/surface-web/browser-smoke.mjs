@@ -27,6 +27,7 @@ const COMPONENT_ASSET_FILES = Object.freeze({
   'system/apps/assistant/assistant.css': 'text/css',
   'system/apps/internet/internet.css': 'text/css',
   'system/apps/notes/notes.css': 'text/css',
+  'system/apps/network/network.css': 'text/css',
   'system/apps/projects/projects.css': 'text/css',
   'system/apps/studio/studio.css': 'text/css',
 });
