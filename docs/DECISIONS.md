@@ -371,3 +371,44 @@ The MVP Intelligence authority is consultative only. Prompt text never grants pr
 
 This decision selectively reimplements the useful architecture invariants documented in `washingtonmsdj/novo-ordax-os` rather than copying its runtime.
 
+## ADR-025 - Personal OrdaX is an orchestration layer, not a new authority
+
+Decision:
+
+```text
+identity + Workspace/Projects + Spaces + Memory + Intelligence
+                         |
+                         v
+                   Personal OrdaX
+                         |
+                  work + activity
+                         |
+            existing grants / Action Gateway
+                         |
+                 bounded execution
+```
+
+OrdaX may evolve toward persistent, proactive and eventually background work, but the personal
+orchestration layer must reuse the product's existing identity, Memory, Space/project scope,
+Intelligence and capability-grant authorities.
+
+The stable foundation is split into `ordax.personal-work-item/1`,
+`ordax.personal-activity/1` and `ordax.personal-action-decision/1`.
+
+Rules:
+
+- prompt, model output, Profile Pack, Memory content and project content never create action authority;
+- sensitive writes, external egress and device control require an explicit existing grant reference;
+- generic shell, raw disk, release-key access and physical-write authorization remain outside this layer;
+- activity is visible and ordered so autonomous evolution does not become hidden execution;
+- execution backend is replaceable: future local, Edge or cloud workers must preserve the same work,
+  activity and permission semantics;
+- specialist or multi-agent workers, if added later, operate below the same personal owner boundary
+  instead of creating parallel Memory or permission systems;
+- the current Stable/MVP remains consultative: background execution, proactive research and
+  specialist agents are not enabled by this ADR.
+
+Reason: the repository already contains the durable identity, Spaces, Projects, Memory, Intelligence
+and Action Gateway boundaries. Composing them into one personal work model scales the product
+without creating a second agent stack or coupling OrdaX to one model/provider.
+\n

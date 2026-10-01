@@ -8,6 +8,7 @@ import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser
 import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
+import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
 import { createNativeRecentFilesStore } from "../../adapters/native/recent-files.mjs";
 import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
@@ -53,6 +54,7 @@ import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
+import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
 import { createDiagnosticJournalRuntime } from "../../services/diagnostics/runtime.mjs";
@@ -81,6 +83,7 @@ import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
 import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
 import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
+import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -405,6 +408,31 @@ async function start() {
         identitySessionPort: identitySession,
         spaceSelectionPort: spaceSelection,
       });
+  const personalOrdaxFileActions = fileSpace === null
+    ? null
+    : await optionalNativeProbe(
+        "OrdaX Personal Native file actions unavailable",
+        () => createNativePersonalOrdaxFileActions({
+          windowRef: window,
+          fileSpace,
+        }),
+      );
+  const personalOrdaxActionCatalog = createPersonalActionCatalog({
+    registrations: personalOrdaxFileActions?.actionRegistrations ?? [],
+  });
+  const personalOrdax = await optionalNativeProbe(
+    "OrdaX Personal runtime unavailable",
+    () => createNativePersonalOrdaxComposition({
+      windowRef: window,
+      identitySession,
+      spaceSelection,
+      projects,
+      intelligence: selectedSpaceIntelligence,
+      toolResolver: personalOrdaxFileActions?.toolResolver ?? (() => null),
+      adapterResolver: personalOrdaxFileActions?.adapterResolver ?? (() => null),
+      actionCatalog: personalOrdaxActionCatalog,
+    }),
+  );
   const profileComponentInventory = await optionalNativeProbe(
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
@@ -761,6 +789,20 @@ async function start() {
     },
   });
 
+  const activityComponent = await loadOptionalComponentRuntime({
+    componentId: "activity",
+    importer: () => import("../../apps/activity/runtime.mjs"),
+    componentManager,
+    context: {
+      root,
+      surfaceLifecycle: surface,
+      personalOrdax,
+    },
+    onError(error) {
+      reportClientDiagnostic("activity-runtime", error);
+    },
+  });
+
   const internetComponent = await loadOptionalComponentRuntime({
     componentId: "internet",
     importer: () => import("../../apps/internet/runtime.mjs"),
@@ -832,6 +874,7 @@ async function start() {
       projectsComponent?.destroy();
       notesComponent?.destroy();
       assistantComponent?.destroy();
+      activityComponent?.destroy();
       internetComponent?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
@@ -843,6 +886,7 @@ async function start() {
       profileProvisioning.dispose();
       profileActivationState?.dispose();
       profileComponentInventory.dispose();
+      personalOrdax?.dispose();
       spaceSelection.dispose();
       spaces.dispose();
       accountSync.destroy();

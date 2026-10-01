@@ -977,3 +977,34 @@ Desktop/Native/MCP share the same future action boundary; account sync is not a 
 notifications are not source of truth, and push payloads are not command authority.
 
 Machine-readable owner: `docs/contracts/operational-realtime.json`.
+
+## Personal OrdaX orchestration foundation
+
+The source now defines a provider-neutral Personal OrdaX foundation without enabling an autonomous
+MVP runtime. `ordax.personal-work-item/1` binds goals to an explicit device/account owner plus
+optional Space/project scope; `ordax.personal-activity/1` defines ordered user-visible progress;
+and `ordax.personal-action-decision/1` reuses existing grants for read/write/egress/device-control
+decisions. Prompt/model/Profile/Memory/project content cannot create authority, sensitive allows
+require an explicit grant reference, and background execution remains disabled. The canonical
+boundary is `docs/PERSONAL-ORDAX.md` + `docs/contracts/personal-ordax.json`.
+
+
+### Personal OrdaX foreground runtime
+
+A source-only `ordax.personal-runtime/1` now implements the first orchestration lifecycle above the
+foundation contract. Work is explicitly device/account-owned and the work store is partitioned per
+owner; account switching pauses/saves the previous partition and loads the next one instead of
+sharing a quota or visible state. Corrupt durable partitions fall back to session state without
+overwriting the recoverable bytes. Space/project context is opt-in and validated;
+owner/Space/project changes pause affected active work; stale inference responses are discarded;
+and Intelligence remains consultative. Successful foreground reasoning persists a bounded
+`ordax.personal-work-result/1` with engine/model provenance and fixed `authority=none`, atomically
+with the completed Work state and exactly one completed Activity reference. Activity therefore
+does not duplicate raw model output, and persisted model output cannot become action authority.
+Work, Activity and Result remain inside the same owner partition and terminal removal clears all
+three. A Native device-store adapter now persists one validated record per owner through the
+privileged Surface device-local storage boundary; corrupt records are recovery-blocked per owner and
+their original bytes are not silently overwritten. This adapter is not account sync and does not
+turn Memory into a task database. The runtime/store are not mounted in Web/Native composition yet,
+so no public Activity UI, background execution or autonomous tool action is claimed.
+\n
