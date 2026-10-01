@@ -289,6 +289,20 @@ class NetworkGatewayV2Tests(unittest.TestCase):
         self.assertTrue(contract["rollout"]["requires_official_generated_migration"])
         self.assertTrue(contract["authority"]["authenticated_user_context_required_for_future_supabase_adapter"])
 
+        foundation = json.loads(
+            (ROOT / "docs" / "contracts" / "network-foundation.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        state = foundation["implementation_state"]
+        self.assertTrue(state["surface_app_source"])
+        self.assertTrue(state["client_transport_v2_source"])
+        self.assertTrue(state["provider_neutral_gateway_v2_source"])
+        self.assertFalse(state["supabase_gateway_adapter"])
+        self.assertFalse(state["generated_v2_migration"])
+        self.assertFalse(state["live_network_endpoint"])
+        self.assertFalse(state["production_rollout"])
+
     def test_provider_neutral_core_contains_no_supabase_or_privileged_key(self):
         source = MODULE.read_text(encoding="utf-8").lower()
         self.assertNotIn("supabase", source)
