@@ -45,12 +45,13 @@ test("logical file-picker paths stay absolute and traversal-free", () => {
   assert.throws(() => joinNotesLogicalPath("/Imagens", "pasta/foto.png"), /entry name is invalid/);
 });
 
-test("picker exposes bounded listing state and only selects listed files", async () => {
+test("picker enforces its purpose at the selection boundary", async () => {
   const port = fileSpace(async (path) => ({
     path,
     entries: [
       { name: "Pasta", kind: "directory", size: 0, modifiedAt: 1 },
       { name: "foto.png", kind: "file", size: 12, modifiedAt: 2 },
+      { name: "notas.txt", kind: "file", size: 6, modifiedAt: 3 },
     ],
   }));
   const picker = createNotesFilePicker({ fileSpace: port });
@@ -64,9 +65,11 @@ test("picker exposes bounded listing state and only selects listed files", async
   const ready = picker.getSnapshot();
   assert.equal(ready.pending, false);
   assert.equal(ready.path, "/Imagens");
-  assert.equal(ready.listing.entries.length, 2);
+  assert.equal(ready.listing.entries.length, 3);
   assert.equal(picker.select("/Imagens/Pasta"), false);
   assert.equal(picker.select("/Imagens/nao-listado.png"), false);
+  assert.equal(picker.select("/Imagens/notas.txt"), false);
+  assert.equal(picker.getSnapshot().selectedPath, null);
   assert.equal(picker.select("/Imagens/foto.png"), true);
   assert.equal(picker.getSnapshot().selectedPath, "/Imagens/foto.png");
 
@@ -74,6 +77,10 @@ test("picker exposes bounded listing state and only selects listed files", async
   assert.deepEqual(selection, { path: "/Imagens/foto.png", purpose: "image" });
   assert.equal(picker.getSnapshot().open, false);
   assert.equal(picker.getSnapshot().selectedPath, null);
+
+  assert.equal(await picker.open("file", "/Imagens"), true);
+  assert.equal(picker.select("/Imagens/notas.txt"), true);
+  assert.deepEqual(picker.consumeSelection(), { path: "/Imagens/notas.txt", purpose: "file" });
 });
 
 test("stale directory responses cannot overwrite a newer navigation result", async () => {

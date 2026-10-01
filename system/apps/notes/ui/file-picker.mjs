@@ -2,6 +2,7 @@ import {
   assertFileSpacePort,
   validateFileSpacePath,
 } from "../../../contracts/file-space.mjs";
+import { isNotesImageFileName } from "./image-previews.mjs";
 
 const PURPOSES = new Set(["file", "image"]);
 
@@ -29,6 +30,11 @@ function initialState(available) {
     purpose: "file",
     selectedPath: null,
   });
+}
+
+function entryMatchesPurpose(entry, purpose) {
+  if (entry?.kind !== "file") return false;
+  return purpose !== "image" || isNotesImageFileName(entry.name);
 }
 
 export function joinNotesLogicalPath(path, name) {
@@ -174,7 +180,7 @@ export function createNotesFilePicker({ fileSpace = null } = {}) {
       if (destroyed || !state.open || state.pending || !state.listing) return false;
       const target = validateFileSpacePath(path);
       const entry = state.listing.entries.find((candidate) => (
-        candidate.kind === "file"
+        entryMatchesPurpose(candidate, state.purpose)
         && joinNotesLogicalPath(state.listing.path, candidate.name) === target
       ));
       if (!entry) return false;
