@@ -199,7 +199,7 @@ language plpgsql
 volatile
 security definer
 set search_path = ''
-as $
+as $rate$
 declare
   v_now timestamptz := statement_timestamp();
   v_window timestamptz;
@@ -231,7 +231,7 @@ begin
     raise exception 'network-rate-limit-exceeded' using errcode = 'P0001';
   end if;
 end;
-$;
+$rate$;
 
 revoke all on function private.ordax_network_consume_rate_v1(
   uuid, uuid, text, integer, integer
