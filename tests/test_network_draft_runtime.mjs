@@ -6,6 +6,7 @@ import {
   NETWORK_DRAFT_SCHEMA,
   createNetworkDraftRuntime,
 } from "../system/apps/network/draft-runtime.mjs";
+import { componentRuntime } from "../system/apps/network/runtime.mjs";
 
 function selectionPort(seed) {
   let snapshot = seed;
@@ -124,4 +125,87 @@ test("successful send uses the bound Space and clears the draft", async () => {
   }]);
   assert.equal(draft.getSnapshot().body, "");
   assert.equal(draft.getSnapshot().senderSpaceId, null);
+});
+
+test("component runtime mounts with Surface lifecycle and cleans up", async () => {
+  const previousElement = globalThis.Element;
+  const previousTextAreaElement = globalThis.HTMLTextAreaElement;
+
+  class FakeElement {
+    constructor(tagName = "div", ownerDocument = null) {
+      this.tagName = tagName.toUpperCase();
+      this.ownerDocument = ownerDocument;
+      this.children = [];
+      this.dataset = {};
+      this.className = "";
+      this.textContent = "";
+      this.value = "";
+      this.disabled = false;
+    }
+
+    append(...children) {
+      this.children.push(...children);
+    }
+
+    replaceChildren(...children) {
+      this.children = [...children];
+    }
+
+    querySelector() {
+      return null;
+    }
+
+    addEventListener() {}
+    removeEventListener() {}
+  }
+
+  class FakeTextAreaElement extends FakeElement {}
+
+  class FakeDocument {
+    constructor() {
+      this.activeElement = null;
+    }
+
+    createElement(tagName) {
+      return tagName === "textarea"
+        ? new FakeTextAreaElement(tagName, this)
+        : new FakeElement(tagName, this);
+    }
+  }
+
+  globalThis.Element = FakeElement;
+  globalThis.HTMLTextAreaElement = FakeTextAreaElement;
+
+  try {
+    const documentObject = new FakeDocument();
+    const slot = new FakeElement("section", documentObject);
+    const root = new FakeElement("main", documentObject);
+    root.querySelector = () => slot;
+
+    const mounted = await componentRuntime.mount({
+      root,
+      spaceSelection: selectionPort(selected("space-a")),
+      surfaceLifecycle: {
+        localization: {
+          translate(messageId) {
+            return messageId;
+          },
+        },
+      },
+      networkTransport: null,
+      readOnline: () => true,
+    });
+
+    assert.equal(mounted.drafts.getSnapshot().state, "backend-unavailable");
+    assert.equal(slot.children.length, 1);
+
+    mounted.destroy();
+    assert.equal(slot.children.length, 0);
+  } finally {
+    if (previousElement === undefined) delete globalThis.Element;
+    else globalThis.Element = previousElement;
+
+    if (previousTextAreaElement === undefined) delete globalThis.HTMLTextAreaElement;
+    else globalThis.HTMLTextAreaElement = previousTextAreaElement;
+  }
 });
