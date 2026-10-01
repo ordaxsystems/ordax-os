@@ -1,0 +1,35 @@
+{
+  "$schema": "prototype-ordax.network-mutation-result/2",
+  "status": "source-contract-ready-schema-migration-pending",
+  "outcomes": [
+    "applied",
+    "idempotent",
+    "rate_limited",
+    "denied"
+  ],
+  "rules": {
+    "resource_id_required_for": ["applied", "idempotent"],
+    "retry_after_seconds_required_for": ["rate_limited"],
+    "retry_after_seconds_range": [1, 86400],
+    "denied_must_not_expose_internal_authorization_details": true,
+    "validation_errors_remain_rpc_errors": true,
+    "unexpected_server_errors_remain_rpc_errors": true,
+    "rate_limit_state_must_remain_durable": true,
+    "idempotent_retry_must_not_consume_second_quota": true,
+    "v1_compatibility_preserved": true
+  },
+  "security": {
+    "public_wrapper": "security-invoker",
+    "private_implementation": "security-definer",
+    "private_search_path": "",
+    "explicit_execute_grants_required": true,
+    "anon_execute_forbidden": true,
+    "direct_network_table_dml_for_authenticated_forbidden": true
+  },
+  "rollout_gate": {
+    "runtime_enabled": false,
+    "requires_generated_supabase_migration": true,
+    "requires_ephemeral_postgres_proof": true,
+    "requires_authenticated_remote_proof_before_public_activation": true
+  }
+}
