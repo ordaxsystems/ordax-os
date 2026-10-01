@@ -1,0 +1,52 @@
+{
+  "$schema": "prototype-ordax.network-mutation-outcome/2",
+  "status": "source-contract",
+  "outcomes": [
+    "applied",
+    "idempotent",
+    "rate_limited",
+    "denied",
+    "invalid"
+  ],
+  "rules": {
+    "rate_limited_must_be_explicit": true,
+    "null_or_void_success_for_rate_limit": false,
+    "idempotent_requires_canonical_resource": true,
+    "denied_must_not_create_resource": true,
+    "invalid_must_not_create_resource": true,
+    "resource_id_required_for": [
+      "applied",
+      "idempotent"
+    ],
+    "resource_id_forbidden_for": [
+      "rate_limited",
+      "denied",
+      "invalid"
+    ],
+    "retry_after_seconds_required_for_rate_limited": true,
+    "retry_after_seconds_max": 86400,
+    "machine_code_required": true,
+    "human_message_authoritative": false,
+    "server_authoritative": true
+  },
+  "operations": {
+    "group-create": {
+      "resource_type": "group"
+    },
+    "group-join": {
+      "resource_type": "group-membership"
+    },
+    "direct-create": {
+      "resource_type": "conversation"
+    },
+    "message-send": {
+      "resource_type": "message"
+    },
+    "block-change": {
+      "resource_type": "block"
+    },
+    "report-create": {
+      "resource_type": "report"
+    }
+  }
+}
