@@ -1,5 +1,5 @@
 {
-  "$schema": "ordax.network-foundation/1",
+  "$schema": "prototype-ordax.network-foundation/1",
   "status": "mvp-scope-adopted-implementation-required",
   "product_boundary": {
     "identity_subject": "account",
