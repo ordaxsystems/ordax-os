@@ -45,9 +45,15 @@ class WindowsCompatibilityBuildVersionLockTests(unittest.TestCase):
         self.assertEqual(value["resolved_closure"]["package_count"], 342)
         self.assertEqual(
             value["resolved_closure"]["canonical_json_sha256"],
-            "f54136e53b42482dc4f68159c12eb3d9af3533ad1c3d76aa6f1b274d24fff3ff",
+            "99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e",
         )
-        self.assertEqual(value["provenance"]["configure_proof_head_sha"], "07d27226190bb0ba4d516d8d01b281c8ad882ddd")
+        self.assertEqual(value["provenance"]["configure_proof_head_sha"], "3c29aa03a7b26cdcfb95b74694e5ba4954ae9cb0")
+
+    def test_configure_artifact_provenance_drift_is_rejected(self):
+        value = copy.deepcopy(self.lock)
+        value["provenance"]["configure_proof_artifact_digest"] = "sha256:" + ("0" * 64)
+        with self.assertRaisesRegex(validator.BuildVersionLockError, "artifact digest drifted"):
+            self.validate(value)
 
     def test_package_version_drift_is_rejected_indirectly_by_closure_gate(self):
         value = copy.deepcopy(self.lock)
