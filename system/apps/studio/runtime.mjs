@@ -1,11 +1,14 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
 import { STUDIO_VERSION } from "./version.mjs";
 
+const STYLESHEET_URL = new URL("./studio.css", import.meta.url).href;
+
 export const componentRuntime = Object.freeze({
   schema: COMPONENT_RUNTIME_SCHEMA,
   componentId: "studio",
   version: STUDIO_VERSION,
   async mount() {
+    void STYLESHEET_URL;
     let destroyed = false;
     return Object.freeze({
       status: Object.freeze({
