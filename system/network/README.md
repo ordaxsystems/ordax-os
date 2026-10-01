@@ -91,3 +91,20 @@ compositions intentionally do not instantiate this transport until the
 generated v2 backend migration/API exists and has passed the executable
 PostgreSQL, advisor and security gates. Failed, denied or rate-limited sends
 must preserve the user's draft; only `applied` or `idempotent` clears it.
+
+
+### Current v2 proof coverage
+
+Executable ephemeral-PostgreSQL proofs currently cover:
+
+- `group-create`;
+- `group-join`;
+- `direct-create`;
+- `message-send`;
+- `block-change`;
+- `report-create`.
+
+The remaining mutation boundaries are `space-profile-upsert`,
+`community-join`, `community-leave`, `group-leave` and
+`conversation-mark-read`. Read-only list operations do not require a mutation
+outcome. None of these proofs is a live migration or production rollout.
