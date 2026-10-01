@@ -141,6 +141,7 @@ on:
       - 'tests/test_project_files_ui_contract.py'
       - 'tests/test_app_activation.mjs'
       - 'tests/test_app_contract.mjs'
+      - 'tests/test_network_draft_runtime.mjs'
       - 'tests/test_component_manager.mjs'
       - 'tests/test_component_runtime.mjs'
       - 'tests/test_component_slot_source.mjs'
@@ -333,6 +334,7 @@ on:
       - 'tests/test_project_files_ui_contract.py'
       - 'tests/test_app_activation.mjs'
       - 'tests/test_app_contract.mjs'
+      - 'tests/test_network_draft_runtime.mjs'
       - 'tests/test_component_manager.mjs'
       - 'tests/test_component_runtime.mjs'
       - 'tests/test_component_slot_source.mjs'
@@ -470,6 +472,7 @@ jobs:
           node --test tests/test_file_notes_action.mjs
           node --test tests/test_app_activation.mjs
           node --test tests/test_app_contract.mjs
+          node --test tests/test_network_draft_runtime.mjs
           node --test tests/test_component_manager.mjs
           node --test tests/test_component_runtime.mjs
           node --test tests/test_component_slot_source.mjs
