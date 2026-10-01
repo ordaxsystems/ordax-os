@@ -145,6 +145,23 @@ class NetworkGatewayV2Tests(unittest.TestCase):
         self.assertEqual(sessions.calls, [])
         self.assertEqual(authority.calls, [])
 
+    def test_origin_host_mismatch_is_rejected_before_session(self):
+        sessions = StaticSessions()
+        authority = RecordingAuthority()
+        gateway = NetworkGatewayV2(sessions=sessions, authority=authority)
+        response = gateway.handle(
+            "POST",
+            "/network/v2/messages/send",
+            headers(**{
+                "Origin": "https://other.example",
+                "X-Forwarded-Host": "ordax.example",
+            }),
+            body(),
+        )
+        self.assertEqual(response.status, 403)
+        self.assertEqual(sessions.calls, [])
+        self.assertEqual(authority.calls, [])
+
     def test_request_accepts_exact_bounded_values_and_never_client_identity(self):
         context = object()
         sessions = StaticSessions(context)
