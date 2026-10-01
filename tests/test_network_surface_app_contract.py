@@ -62,6 +62,12 @@ class NetworkSurfaceAppContractTests(unittest.TestCase):
         self.assertIn("spaceSelection: null", web)
         self.assertIn("networkComponent?.destroy()", web)
 
+    def test_composer_preserves_focus_while_draft_body_updates(self):
+        controls = self.text(APP / "ui" / "workspace-controls.mjs")
+        self.assertIn('composer.dataset.networkConversation === target', controls)
+        self.assertIn('documentObject.activeElement !== existingTextarea', controls)
+        self.assertIn('existingTextarea.value !== desiredBody', controls)
+
     def test_draft_runtime_requires_explicit_retarget_and_clears_on_account_change(self):
         draft = self.text(DRAFT)
         self.assertIn("retargetToCurrentSpace()", draft)
