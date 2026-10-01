@@ -247,10 +247,10 @@
     "pkgconf": "2.4.3-r0",
     "py3-gobject3": "3.52.3-r1",
     "py3-gobject3-pyc": "3.52.3-r1",
-    "pyc": "3.12.14-r0",
-    "python3": "3.12.14-r0",
-    "python3-pyc": "3.12.14-r0",
-    "python3-pycache-pyc0": "3.12.14-r0",
+    "pyc": "3.12.15-r0",
+    "python3": "3.12.15-r0",
+    "python3-pyc": "3.12.15-r0",
+    "python3-pycache-pyc0": "3.12.15-r0",
     "readline": "8.2.13-r1",
     "sbc": "2.0-r2",
     "scanelf": "1.3.8-r1",
@@ -384,5 +384,34 @@
     "physical_artifact_created": false,
     "physical_write_authorized": false,
     "reproducibility_reproof_required": true
+  },
+  "pending_lock_revalidation": {
+    "status": "qemu-detected-drift-awaiting-full-lock-revalidation",
+    "detected_by_qemu_run_id": 36857553350,
+    "known_changed": [
+      {
+        "name": "pyc",
+        "from": "3.12.14-r0",
+        "to": "3.12.15-r0"
+      },
+      {
+        "name": "python3",
+        "from": "3.12.14-r0",
+        "to": "3.12.15-r0"
+      },
+      {
+        "name": "python3-pyc",
+        "from": "3.12.14-r0",
+        "to": "3.12.15-r0"
+      },
+      {
+        "name": "python3-pycache-pyc0",
+        "from": "3.12.14-r0",
+        "to": "3.12.15-r0"
+      }
+    ],
+    "full_transitive_lock_revalidation_required": true,
+    "physical_artifact_created": false,
+    "physical_write_authorized": false
   }
 }
