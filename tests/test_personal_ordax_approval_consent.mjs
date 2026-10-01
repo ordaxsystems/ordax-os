@@ -210,7 +210,7 @@ test("Space invalidation revokes an approved grant even after the Work is alread
   assert.equal(snapshot.workItems[0].state, "paused");
   assert.equal(snapshot.approvals[0].status, "revoked");
   assert.equal(snapshot.approvals[0].grantRef, decision.grantRef);
-  assert.match(snapshot.activities.at(-1).summary, /revoked/);
+  assert.match(snapshot.activities.at(-1).summary, /invalidated/);
 
   runtime.dispose();
   authority.dispose();

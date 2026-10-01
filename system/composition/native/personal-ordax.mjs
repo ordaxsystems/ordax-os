@@ -6,7 +6,7 @@ import {
 import { assertActionAdapter } from "../../contracts/action-executor.mjs";
 import { assertPersonalActionCatalog } from "../../contracts/personal-action-catalog.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
-import { createPersonalOrdaxActionExecutor } from "../../services/personal-ordax/action-executor.mjs";
+import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
 import { createPersonalOrdaxRuntime } from "../../services/personal-ordax/runtime.mjs";
@@ -117,7 +117,16 @@ export function createNativePersonalOrdaxComposition({
         receipt = await actionExecutor.execute(execution);
       } catch (error) {
         try {
-          runtime.failActionExecution(workItemId, approvalId);
+          const preSideEffect = error instanceof PersonalActionExecutionError
+            && error.phase === "pre-side-effect";
+          runtime.failActionExecution(
+            workItemId,
+            approvalId,
+            preSideEffect
+              ? "Foreground action failed before entering the typed adapter."
+              : "Foreground action entered the typed adapter but no verified receipt committed.",
+            { uncertain: !preSideEffect },
+          );
         } catch {
           // Owner/context changes may already have paused the original partition.
         }
@@ -125,7 +134,12 @@ export function createNativePersonalOrdaxComposition({
       }
       if (receipt.status !== "succeeded") {
         try {
-          runtime.failActionExecution(workItemId, approvalId, receipt.summary);
+          runtime.failActionExecution(
+            workItemId,
+            approvalId,
+            receipt.summary,
+            { uncertain: true },
+          );
         } catch {
           // Preserve the original receipt failure if the owner/context already changed.
         }
@@ -135,7 +149,12 @@ export function createNativePersonalOrdaxComposition({
         return runtime.finishActionExecution(workItemId, approvalId, receipt);
       } catch (error) {
         try {
-          runtime.failActionExecution(workItemId, approvalId);
+          runtime.failActionExecution(
+            workItemId,
+            approvalId,
+            "Foreground action produced a side effect receipt that could not be committed.",
+            { uncertain: true },
+          );
         } catch {
           // A switched owner cannot commit into the previous owner partition.
         }

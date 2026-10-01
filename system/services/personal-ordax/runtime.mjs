@@ -1,12 +1,14 @@
 import {
   validatePersonalActivityEvent,
   validatePersonalActionDecision,
+  validatePersonalActionAttempt,
   validatePersonalApproval,
   validatePersonalWorkItem,
   validatePersonalWorkResult,
 } from "../../contracts/personal-ordax.mjs";
 import {
   MAX_PERSONAL_ACTION_DECISIONS,
+  MAX_PERSONAL_ACTION_ATTEMPTS,
   MAX_PERSONAL_ACTIVITY_EVENTS,
   MAX_PERSONAL_APPROVALS,
   MAX_PERSONAL_WORK_ITEMS,
@@ -77,6 +79,10 @@ function sameDecision(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function sameAttempt(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function sameState(left, right) {
   return left.ownerKind === right.ownerKind
     && left.ownerId === right.ownerId
@@ -86,11 +92,13 @@ function sameState(left, right) {
     && left.results.length === right.results.length
     && left.approvals.length === right.approvals.length
     && left.decisions.length === right.decisions.length
+    && left.attempts.length === right.attempts.length
     && left.workItems.every((item, index) => sameWorkItem(item, right.workItems[index]))
     && left.activities.every((event, index) => sameActivity(event, right.activities[index]))
     && left.results.every((result, index) => sameResult(result, right.results[index]))
     && left.approvals.every((approval, index) => sameApproval(approval, right.approvals[index]))
-    && left.decisions.every((decision, index) => sameDecision(decision, right.decisions[index]));
+    && left.decisions.every((decision, index) => sameDecision(decision, right.decisions[index]))
+    && left.attempts.every((attempt, index) => sameAttempt(attempt, right.attempts[index]));
 }
 
 function currentOwner(identity) {
@@ -251,18 +259,46 @@ export function createPersonalOrdaxRuntime({
       (approval) => approval.status === "approved" && predicate(approval),
     );
     for (const approval of candidates) {
-      if (approval.grantRef === null) {
-        throw new TypeError("Approved Personal OrdaX action lost its grant reference");
+      const hasGrant = approval.grantRef !== null;
+      if (hasGrant) {
+        if (revokeGrant === null) {
+          throw new Error("Personal OrdaX cannot invalidate granted authority without a grant revoker");
+        }
+        revokeGrant(approval.grantRef);
+      } else if (approval.effect !== "read") {
+        throw new TypeError("Approved sensitive Personal OrdaX action lost its grant reference");
       }
-      if (revokeGrant === null) {
-        throw new Error("Personal OrdaX cannot invalidate approved authority without a grant revoker");
+      const resolvedApproval = hasGrant
+        ? validatePersonalApproval({
+          ...approval,
+          status: "revoked",
+          executedAt: null,
+        })
+        : approval;
+      const activeAttempt = next.attempts.find((attempt) =>
+        attempt.approvalId === approval.id && attempt.status === "started"
+      );
+      let activities = next.activities;
+      let attempts = next.attempts;
+      if (activeAttempt) {
+        const uncertain = validatePersonalActionAttempt({
+          ...activeAttempt,
+          status: "uncertain",
+          summary: "Execution outcome is uncertain; authority was revoked before a verified receipt committed.",
+          artifactRefs: [],
+          finishedAt: occurredAt,
+        });
+        attempts = attempts.map((candidate) =>
+          candidate.id === uncertain.id ? uncertain : candidate);
+        activities = appendActivityTo(
+          activities,
+          approval.workItemId,
+          "action-finished",
+          uncertain.summary,
+          occurredAt,
+          { approvalId: approval.id, actionId: approval.actionId },
+        );
       }
-      revokeGrant(approval.grantRef);
-      const revoked = validatePersonalApproval({
-        ...approval,
-        status: "revoked",
-        executedAt: null,
-      });
       next = {
         ...next,
         workItems: next.workItems.map((candidate) =>
@@ -270,9 +306,10 @@ export function createPersonalOrdaxRuntime({
             ? validatePersonalWorkItem({ ...candidate, updatedAt: occurredAt })
             : candidate),
         approvals: next.approvals.map((candidate) =>
-          candidate.id === revoked.id ? revoked : candidate),
+          candidate.id === resolvedApproval.id ? resolvedApproval : candidate),
+        attempts,
         activities: appendActivityTo(
-          next.activities,
+          activities,
           approval.workItemId,
           "progress",
           summary,
@@ -295,6 +332,7 @@ export function createPersonalOrdaxRuntime({
     results: state.results,
     approvals: state.approvals,
     decisions: state.decisions,
+    attempts: state.attempts,
   });
 
   const publish = () => {
@@ -331,6 +369,45 @@ export function createPersonalOrdaxRuntime({
     publish();
     return true;
   };
+
+  const recoverInterruptedAttempts = () => {
+    const interrupted = state.attempts.filter((attempt) => attempt.status === "started");
+    if (interrupted.length === 0) return;
+    let next = state;
+    for (const attempt of interrupted) {
+      const occurredAt = isoClock(now);
+      next = revokeApprovedApprovalsIn(
+        next,
+        (approval) => approval.id === attempt.approvalId,
+        occurredAt,
+        "Interrupted foreground action restored without a verified receipt; outcome is uncertain.",
+      );
+      const work = next.workItems.find((candidate) => candidate.id === attempt.workItemId);
+      if (!work || TERMINAL_STATES.has(work.state)) continue;
+      const paused = validatePersonalWorkItem({
+        ...work,
+        state: "paused",
+        pendingApprovalId: null,
+        updatedAt: occurredAt,
+      });
+      next = {
+        ...next,
+        workItems: next.workItems.map((candidate) =>
+          candidate.id === work.id ? paused : candidate),
+        activities: appendActivityTo(
+          next.activities,
+          work.id,
+          "paused",
+          "Work paused after restoring an interrupted action with uncertain outcome.",
+          occurredAt,
+          { approvalId: attempt.approvalId, actionId: attempt.actionId },
+        ),
+      };
+    }
+    replaceState(next);
+  };
+
+  recoverInterruptedAttempts();
 
   const findWork = (id) => {
     const item = state.workItems.find((candidate) => candidate.id === id);
@@ -401,7 +478,7 @@ export function createPersonalOrdaxRuntime({
           next,
           (approval) => approval.workItemId === item.id,
           occurredAt,
-          `Approved action authority revoked because its bound context is no longer valid: ${status}.`,
+          `Approved action authority invalidated because its bound context is no longer valid: ${status}.`,
         );
         changed = true;
       }
@@ -448,7 +525,7 @@ export function createPersonalOrdaxRuntime({
           next,
           (approval) => approval.workItemId === item.id,
           occurredAt,
-          "Approved action authority revoked because the active identity changed.",
+          "Approved action authority invalidated because the active identity changed.",
         );
         changed = true;
       }
@@ -489,6 +566,7 @@ export function createPersonalOrdaxRuntime({
     inFlight.clear();
     activeOwner = nextOwner;
     state = loadOwnerState(activeOwner);
+    recoverInterruptedAttempts();
     publish();
   };
 
@@ -510,6 +588,7 @@ export function createPersonalOrdaxRuntime({
     }
     const decision = state.decisions.find((candidate) =>
       candidate.workItemId === id
+      && candidate.approvalId === approval.id
       && candidate.actionId === approval.actionId
     );
     if (!decision || decision.decision !== "allow") {
@@ -887,14 +966,55 @@ export function createPersonalOrdaxRuntime({
       if (!approval || approval.status !== "approved" || approval.executedAt !== null) {
         throw new Error("Personal OrdaX action execution requires one unconsumed approved approval");
       }
+      if (state.attempts.length >= MAX_PERSONAL_ACTION_ATTEMPTS) {
+        throw new RangeError(
+          `Personal OrdaX supports at most ${MAX_PERSONAL_ACTION_ATTEMPTS} retained action attempts per owner`,
+        );
+      }
+      if (state.attempts.some(
+        (attempt) => attempt.approvalId === approvalId && attempt.status === "started",
+      )) {
+        throw new Error("Personal OrdaX approval already has an active action attempt");
+      }
       const execution = prepareActionExecution(id, approvalId);
-      updateWork(id, { state: "running", pendingApprovalId: null }, {
-        activity: {
-          type: "action-started",
-          summary: "Approved foreground action execution started.",
-          approvalId,
-          actionId: approval.actionId,
-        },
+      const startedAt = isoClock(now);
+      const ordinal = state.attempts.filter(
+        (attempt) => attempt.approvalId === approvalId,
+      ).length + 1;
+      const attempt = validatePersonalActionAttempt({
+        id: `personal-attempt-${approvalId}-${ordinal}`,
+        workItemId: id,
+        approvalId,
+        actionId: approval.actionId,
+        toolId: approval.toolId,
+        toolArtifactSha256: approval.toolArtifactSha256,
+        effect: approval.effect,
+        resourceRef: approval.resourceRef,
+        grantRef: approval.grantRef,
+        status: "started",
+        summary: null,
+        artifactRefs: [],
+        startedAt,
+        finishedAt: null,
+      });
+      const running = validatePersonalWorkItem({
+        ...item,
+        state: "running",
+        pendingApprovalId: null,
+        updatedAt: startedAt,
+      });
+      replaceState({
+        ...state,
+        workItems: state.workItems.map((candidate) => candidate.id === id ? running : candidate),
+        attempts: [...state.attempts, attempt],
+        activities: appendActivityTo(
+          state.activities,
+          id,
+          "action-started",
+          "Approved foreground action execution started with a durable attempt journal.",
+          startedAt,
+          { approvalId, actionId: approval.actionId },
+        ),
       });
       return execution;
     },
@@ -916,6 +1036,7 @@ export function createPersonalOrdaxRuntime({
       }
       const decision = state.decisions.find((candidate) =>
         candidate.workItemId === id
+        && candidate.approvalId === approval.id
         && candidate.actionId === approval.actionId
         && candidate.decision === "allow"
       );
@@ -937,10 +1058,23 @@ export function createPersonalOrdaxRuntime({
         throw new TypeError("Personal OrdaX action receipt cannot precede action start");
       }
 
+      const activeAttempt = state.attempts.find((attempt) =>
+        attempt.approvalId === approvalId && attempt.status === "started"
+      );
+      if (!activeAttempt) {
+        throw new Error("Personal OrdaX action receipt requires its durable active attempt");
+      }
       const consumed = validatePersonalApproval({
         ...approval,
         status: "executed",
         executedAt: receipt.executedAt,
+      });
+      const succeededAttempt = validatePersonalActionAttempt({
+        ...activeAttempt,
+        status: "succeeded",
+        summary: receipt.summary,
+        artifactRefs: receipt.artifactRefs,
+        finishedAt: receipt.executedAt,
       });
       const queued = validatePersonalWorkItem({
         ...item,
@@ -953,6 +1087,8 @@ export function createPersonalOrdaxRuntime({
         workItems: state.workItems.map((candidate) => candidate.id === id ? queued : candidate),
         approvals: state.approvals.map((candidate) =>
           candidate.id === approvalId ? consumed : candidate),
+        attempts: state.attempts.map((candidate) =>
+          candidate.id === activeAttempt.id ? succeededAttempt : candidate),
         activities: appendActivityTo(
           state.activities,
           id,
@@ -968,7 +1104,12 @@ export function createPersonalOrdaxRuntime({
       });
       return receipt;
     },
-    failActionExecution(id, approvalId, summary = "Foreground action execution failed before a verified receipt.") {
+    failActionExecution(
+      id,
+      approvalId,
+      summary = "Foreground action execution failed before a verified receipt.",
+      { uncertain = false } = {},
+    ) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
       const item = findWork(id);
       if (item.state !== "running") return item;
@@ -978,14 +1119,69 @@ export function createPersonalOrdaxRuntime({
       if (!approval || approval.status !== "approved") {
         throw new Error("Personal OrdaX action failure requires its approved retained approval");
       }
-      return updateWork(id, { state: "paused", pendingApprovalId: null }, {
-        activity: {
-          type: "action-finished",
+      const activeAttempt = state.attempts.find((attempt) =>
+        attempt.approvalId === approvalId && attempt.status === "started"
+      );
+      if (!activeAttempt) {
+        throw new Error("Personal OrdaX action failure requires its durable active attempt");
+      }
+      const finishedAt = isoClock(now);
+      if (uncertain) {
+        const revokedState = revokeApprovedApprovalsIn(
+          state,
+          (candidate) => candidate.id === approvalId && candidate.workItemId === id,
+          finishedAt,
           summary,
-          approvalId,
-          actionId: approval.actionId,
-        },
+        );
+        const paused = validatePersonalWorkItem({
+          ...item,
+          state: "paused",
+          pendingApprovalId: null,
+          updatedAt: finishedAt,
+        });
+        replaceState({
+          ...revokedState,
+          workItems: revokedState.workItems.map((candidate) =>
+            candidate.id === id ? paused : candidate),
+          activities: appendActivityTo(
+            revokedState.activities,
+            id,
+            "paused",
+            "Work paused because the foreground action outcome is uncertain.",
+            finishedAt,
+            { approvalId, actionId: approval.actionId },
+          ),
+        });
+        return paused;
+      }
+      const failedAttempt = validatePersonalActionAttempt({
+        ...activeAttempt,
+        status: "failed",
+        summary,
+        artifactRefs: [],
+        finishedAt,
       });
+      const paused = validatePersonalWorkItem({
+        ...item,
+        state: "paused",
+        pendingApprovalId: null,
+        updatedAt: finishedAt,
+      });
+      replaceState({
+        ...state,
+        workItems: state.workItems.map((candidate) => candidate.id === id ? paused : candidate),
+        attempts: state.attempts.map((candidate) =>
+          candidate.id === activeAttempt.id ? failedAttempt : candidate),
+        activities: appendActivityTo(
+          state.activities,
+          id,
+          "action-finished",
+          summary,
+          finishedAt,
+          { approvalId, actionId: approval.actionId },
+        ),
+      });
+      return paused;
     },
     revokeApprovedAction(id, approvalId) {
       if (disposed) throw new Error("Personal OrdaX runtime is disposed");
@@ -996,13 +1192,40 @@ export function createPersonalOrdaxRuntime({
       if (!approval || approval.status !== "approved") {
         throw new Error("Personal OrdaX grant revocation requires an approved unconsumed approval");
       }
+      if (approval.grantRef === null) {
+        throw new Error("Personal OrdaX approval has no explicit grant to revoke");
+      }
       const occurredAt = isoClock(now);
-      const next = revokeApprovedApprovalsIn(
+      let next = revokeApprovedApprovalsIn(
         state,
         (candidate) => candidate.id === approvalId && candidate.workItemId === id,
         occurredAt,
-        "Approved action authority was revoked before execution.",
+        "Approved action authority was invalidated before execution.",
       );
+      const current = next.workItems.find((candidate) => candidate.id === id);
+      const interrupted = next.attempts.some(
+        (attempt) => attempt.approvalId === approvalId && attempt.status === "uncertain",
+      );
+      if (current?.state === "running" && interrupted) {
+        const paused = validatePersonalWorkItem({
+          ...current,
+          state: "paused",
+          pendingApprovalId: null,
+          updatedAt: occurredAt,
+        });
+        next = {
+          ...next,
+          workItems: next.workItems.map((candidate) => candidate.id === id ? paused : candidate),
+          activities: appendActivityTo(
+            next.activities,
+            id,
+            "paused",
+            "Work paused because active action authority was revoked.",
+            occurredAt,
+            { approvalId, actionId: approval.actionId },
+          ),
+        };
+      }
       replaceState(next);
       return state.approvals.find((candidate) => candidate.id === approvalId);
     },
@@ -1011,6 +1234,37 @@ export function createPersonalOrdaxRuntime({
       const item = findWork(id);
       if (TERMINAL_STATES.has(item.state)) return item;
       inFlight.delete(id);
+      const activeAttempt = state.attempts.find(
+        (attempt) => attempt.workItemId === id && attempt.status === "started",
+      );
+      if (activeAttempt) {
+        const occurredAt = isoClock(now);
+        const next = revokeApprovedApprovalsIn(
+          state,
+          (approval) => approval.id === activeAttempt.approvalId,
+          occurredAt,
+          "Approved action authority invalidated because active execution was paused explicitly.",
+        );
+        const paused = validatePersonalWorkItem({
+          ...item,
+          state: "paused",
+          pendingApprovalId: null,
+          updatedAt: occurredAt,
+        });
+        replaceState({
+          ...next,
+          workItems: next.workItems.map((candidate) => candidate.id === id ? paused : candidate),
+          activities: appendActivityTo(
+            next.activities,
+            id,
+            "paused",
+            "Work paused explicitly while action outcome became uncertain.",
+            occurredAt,
+            { approvalId: activeAttempt.approvalId, actionId: activeAttempt.actionId },
+          ),
+        });
+        return paused;
+      }
       return updateWork(id, { state: "paused", pendingApprovalId: null }, {
         activity: { type: "paused", summary: "Work paused explicitly." },
       });
@@ -1043,7 +1297,7 @@ export function createPersonalOrdaxRuntime({
           state,
           (approval) => approval.workItemId === id,
           occurredAt,
-          "Approved action authority was revoked before Work cancellation.",
+          "Approved action authority was invalidated before Work cancellation.",
         ));
       }
       return updateWork(id, { state: "cancelled", pendingApprovalId: null }, {
@@ -1063,6 +1317,7 @@ export function createPersonalOrdaxRuntime({
         results: state.results.filter((result) => result.workItemId !== id),
         approvals: state.approvals.filter((approval) => approval.workItemId !== id),
         decisions: state.decisions.filter((decision) => decision.workItemId !== id),
+        attempts: state.attempts.filter((attempt) => attempt.workItemId !== id),
       });
       return snapshot();
     },

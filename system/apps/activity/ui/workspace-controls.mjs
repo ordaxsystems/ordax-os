@@ -202,6 +202,35 @@ export function mountPersonalActivityControls(
           );
         }
 
+        if (entry.latestAttempt) {
+          const attempt = entry.latestAttempt;
+          const attemptBox = node(
+            documentObject,
+            "section",
+            attempt.status === "uncertain"
+              ? "ordax-activity-approval ordax-activity-attempt-uncertain"
+              : "ordax-activity-approval",
+          );
+          attemptBox.append(
+            node(documentObject, "strong", "", t("activity.attempt.title")),
+            node(
+              documentObject,
+              "span",
+              "ordax-activity-result-meta",
+              `${t(`activity.attempt.status.${attempt.status}`)} · ${attempt.id}`,
+            ),
+          );
+          if (attempt.summary) {
+            attemptBox.append(node(documentObject, "p", "", attempt.summary));
+          }
+          if (attempt.status === "uncertain") {
+            attemptBox.append(
+              node(documentObject, "p", "ordax-activity-error", t("activity.attempt.uncertain.detail")),
+            );
+          }
+          article.append(attemptBox);
+        }
+
         if (
           (item.state === "queued" || item.state === "paused")
           && entry.pendingApproval === null
