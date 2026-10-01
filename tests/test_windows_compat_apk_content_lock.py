@@ -38,10 +38,10 @@ class WindowsCompatibilityApkContentLockTests(unittest.TestCase):
         value = self.validate(copy.deepcopy(self.lock))
         apk_set = value["external_apk_set"]
         self.assertEqual(apk_set["package_count"], 326)
-        self.assertEqual(apk_set["total_size_bytes"], 595127154)
+        self.assertEqual(apk_set["total_size_bytes"], 595141970)
         self.assertEqual(
             apk_set["canonical_manifest_sha256"],
-            "d4a5133c36b81a5123e3a3edbf5df485fe13aec994e088966bdba44a3b571c87",
+            "9ecad632554f9f164294a803af9cfe8ccbfba525c71e1cd61c7cbd9fc7e8d7bf",
         )
         self.assertEqual(apk_set["manifest_entry_fields"], ["filename", "sha256", "size_bytes", "version"])
 

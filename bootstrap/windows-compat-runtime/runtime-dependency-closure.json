@@ -1,0 +1,58 @@
+{
+  "$schema": "prototype-ordax.windows-compat-runtime-dependency-closure/1",
+  "status": "transitive-dt-needed-discovery-only-not-promotable",
+  "runtime_id": "wine-11.0-wow64-x86_64-candidate",
+  "input": {
+    "full_build_proof_schema": "prototype-ordax.windows-compat-full-build-proof/2",
+    "direct_dependency_proof_schema": "prototype-ordax.windows-compat-runtime-dependency-proof/1",
+    "direct_dependency_evidence_proof_schema": "prototype-ordax.windows-compat-runtime-dependency-evidence-proof/1",
+    "unixlib_preload_source_proof_schema": "prototype-ordax.windows-compat-runtime-unixlib-preload-source-proof/1",
+    "closure_loader_guard_proof_schema": "prototype-ordax.windows-compat-runtime-closure-loader-guard-proof/1",
+    "closure_evidence_proof_schema": "prototype-ordax.windows-compat-runtime-closure-evidence-proof/1",
+    "direct_loader_resolution_required": true,
+    "direct_authoritative_evidence_required": true,
+    "exact_staging_manifest_binding_required": true,
+    "locked_rootfs_required": true
+  },
+  "traversal": {
+    "roots": "every regular staged ELF object",
+    "edge": "DT_NEEDED",
+    "loader": "musl-needed-by-chain",
+    "ambient_ld_library_path_allowed": false,
+    "source_derived_dependency_attach_preloads_required": true,
+    "inherit_needed_by_dynamic_paths": true,
+    "system_path_after_dynamic_chain": true,
+    "cycle_detection_required": true,
+    "unresolved_dependency_allowed": false,
+    "cross_scope_collision_allowed": false,
+    "max_chain_depth": 128,
+    "max_context_states": 100000
+  },
+  "verification": {
+    "raw_closure_is_authoritative": false,
+    "first_existing_pathname_must_be_loadable": true,
+    "incompatible_first_pathname_may_be_skipped": false,
+    "preload_source_evidence_binding_required": true,
+    "global_shortname_target_invariance_required": true,
+    "origin_alias_context_must_be_unambiguous": true,
+    "context_expansion_completeness_required": true,
+    "closure_guard_proof_required": true,
+    "closure_evidence_finalizer_required": true
+  },
+  "classification": {
+    "transitive_dt_needed_closure": "all DT_NEEDED edges reachable from staged ELF roots under source-proven Wine preload semantics plus modeled musl loader search semantics after independent edge, loaded-shortname, cycle and context-expansion validation",
+    "raw_closure": "candidate traversal only; not authoritative until closure loader guard, context-expansion completeness and final evidence binding pass",
+    "dynamic_dlopen_inventory": "out-of-scope-for-this-gate",
+    "plugin_discovery": "out-of-scope-for-this-gate",
+    "runtime_dependency_inventory_complete_after_this_gate": false
+  },
+  "promotion": {
+    "runtime_dependency_inventory_complete": false,
+    "runtime_package_content_hashes_pinned": false,
+    "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false,
+    "wine_executed": false,
+    "windows_payload_executed": false
+  }
+}
