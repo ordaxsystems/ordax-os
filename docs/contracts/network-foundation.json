@@ -105,5 +105,24 @@
     "generated_v2_migration": false,
     "live_network_endpoint": false,
     "production_rollout": false
+  },
+  "mutation_v2_proof_coverage": {
+    "proven_ephemeral_postgresql": [
+      "group-create",
+      "group-join",
+      "direct-create",
+      "message-send",
+      "block-change",
+      "report-create"
+    ],
+    "remaining_mutations": [
+      "space-profile-upsert",
+      "community-join",
+      "community-leave",
+      "group-leave",
+      "conversation-mark-read"
+    ],
+    "read_operations_require_mutation_outcome": false,
+    "live_migration_generated": false
   }
 }
