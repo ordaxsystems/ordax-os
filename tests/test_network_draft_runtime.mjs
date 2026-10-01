@@ -127,7 +127,7 @@ test("successful send uses the bound Space and clears the draft", async () => {
   assert.equal(draft.getSnapshot().senderSpaceId, null);
 });
 
-test("component runtime mounts with Surface lifecycle and cleans up", async () => {
+test("component runtime mounts Surface lifecycle, owns styles, and cleans up", async () => {
   const previousElement = globalThis.Element;
   const previousTextAreaElement = globalThis.HTMLTextAreaElement;
 
@@ -135,28 +135,56 @@ test("component runtime mounts with Surface lifecycle and cleans up", async () =
     constructor(tagName = "div", ownerDocument = null) {
       this.tagName = tagName.toUpperCase();
       this.ownerDocument = ownerDocument;
+      this.parentNode = null;
       this.children = [];
       this.dataset = {};
       this.className = "";
       this.textContent = "";
       this.value = "";
       this.disabled = false;
+      this.href = "";
+      this.rel = "";
+      this.listeners = new Map();
     }
 
     append(...children) {
-      this.children.push(...children);
+      for (const child of children) {
+        if (child && typeof child === "object") child.parentNode = this;
+        this.children.push(child);
+        if (this.tagName === "HEAD" && child?.tagName === "LINK") {
+          for (const listener of child.listeners.get("load") ?? []) listener();
+        }
+      }
     }
 
     replaceChildren(...children) {
-      this.children = [...children];
+      for (const child of this.children) {
+        if (child && typeof child === "object") child.parentNode = null;
+      }
+      this.children = [];
+      this.append(...children);
     }
 
     querySelector() {
       return null;
     }
 
-    addEventListener() {}
-    removeEventListener() {}
+    addEventListener(type, listener) {
+      const listeners = this.listeners.get(type) ?? [];
+      listeners.push(listener);
+      this.listeners.set(type, listeners);
+    }
+
+    removeEventListener(type, listener) {
+      const listeners = this.listeners.get(type) ?? [];
+      this.listeners.set(type, listeners.filter((candidate) => candidate !== listener));
+    }
+
+    remove() {
+      if (!this.parentNode) return;
+      this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+      this.parentNode = null;
+    }
   }
 
   class FakeTextAreaElement extends FakeElement {}
@@ -164,12 +192,20 @@ test("component runtime mounts with Surface lifecycle and cleans up", async () =
   class FakeDocument {
     constructor() {
       this.activeElement = null;
+      this.head = new FakeElement("head", this);
     }
 
     createElement(tagName) {
       return tagName === "textarea"
         ? new FakeTextAreaElement(tagName, this)
         : new FakeElement(tagName, this);
+    }
+
+    querySelector(selector) {
+      if (selector !== 'link[data-ordax-component-style="network"]') return null;
+      return this.head.children.find(
+        (child) => child?.dataset?.ordaxComponentStyle === "network",
+      ) ?? null;
     }
   }
 
@@ -196,11 +232,18 @@ test("component runtime mounts with Surface lifecycle and cleans up", async () =
       readOnline: () => true,
     });
 
+    const style = documentObject.querySelector('link[data-ordax-component-style="network"]');
+    assert.ok(style);
+    assert.match(style.href, /network\.css$/);
     assert.equal(mounted.drafts.getSnapshot().state, "backend-unavailable");
     assert.equal(slot.children.length, 1);
 
     mounted.destroy();
     assert.equal(slot.children.length, 0);
+    assert.equal(
+      documentObject.querySelector('link[data-ordax-component-style="network"]'),
+      null,
+    );
   } finally {
     if (previousElement === undefined) delete globalThis.Element;
     else globalThis.Element = previousElement;
