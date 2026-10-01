@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MINIMAL = ROOT / "docs/contracts/minimal-bootstrap.json"
 CREATOR_WORKFLOW = ROOT / ".github/workflows/creator-payload-candidate.yml"
 FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
+ASSEMBLER = ROOT / "tools/creator/assemble.py"
 
 
 class MVPSeedArtifactBindingsTests(unittest.TestCase):
@@ -52,6 +53,14 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
             "ba633274ee2b9497a75a1b287979900ac31611ff93ec52179bd704daf0a6dbce",
             refresh["allowed_from_sha256"],
         )
+
+    def test_release_agent_seed_is_not_routed_to_current_generated_refresh_output(self):
+        assembler = ASSEMBLER.read_text(encoding="utf-8")
+        self.assertNotIn(
+            '"bootstrap/release-acquisition/ordax-release-agent": "out/release-acquisition/ordax-release-agent"',
+            assembler,
+        )
+        self.assertIn("release-acquisition agent is deliberately NOT listed here", assembler)
 
     def test_bootstrap_assembly_restores_immutable_seed_after_refresh_target_build(self):
         seed = "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66"
