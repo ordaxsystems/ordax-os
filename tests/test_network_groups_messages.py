@@ -22,6 +22,7 @@ class NetworkGroupsMessagesTests(unittest.TestCase):
             "public.ordax_network_messages",
             "public.ordax_network_blocks",
             "public.ordax_network_reports",
+            "private.ordax_network_rate_windows",
             "private.ordax_network_audit_events",
         )
         for table in tables:
