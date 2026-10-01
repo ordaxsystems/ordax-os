@@ -72,6 +72,10 @@ class NetworkBackendFoundationTests(unittest.TestCase):
         self.assertIn("'explicit-consent'", self.sql)
         self.assertIn("'industry.food.pizzeria.br'", self.sql)
 
+    def test_directory_prefix_search_has_collation_safe_index(self):
+        self.assertIn("lower(public_name) text_pattern_ops", self.sql)
+        self.assertIn("lower(p.public_name) like", self.sql)
+
     def test_directory_and_membership_reads_are_bounded(self):
         self.assertIn("p_limit integer default 20", self.sql)
         self.assertIn("p_limit > 50", self.sql)
