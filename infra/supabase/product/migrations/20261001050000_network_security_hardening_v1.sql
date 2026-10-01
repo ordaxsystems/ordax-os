@@ -819,116 +819,7 @@ begin
 end;
 $block$;
 
-create or replace function private.ordax_network_create_report_internal_v1(
-  p_space_id uuid,
-  p_target_type text,
-  p_target_id text,
-  p_reason text
-)
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $report$
-declare
-  v_actor uuid;
-  v_report_id uuid;
-  v_reason text := btrim(p_reason);
-begin
-  v_actor := private.ordax_network_assert_conversation_reader_v1(
-    p_space_id,
-    coalesce(
-      (
-        select m.conversation_id
-        from public.ordax_network_messages m
-        where p_target_type = 'message'
-          and m.message_id::text = p_target_id
-        limit 1
-      ),
-      (
-        select cm.conversation_id
-        from public.ordax_network_conversation_members cm
-        where false
-        limit 1
-      )
-    )
-  ) when p_target_type = 'message';
-
-  -- For Space/group reports, revalidate the acting Space normally.
-  if p_target_type <> 'message' then
-    v_actor := private.ordax_network_assert_space_actor_v1(p_space_id, false);
-  end if;
-
-  if not private.ordax_network_consume_rate_v1(
-    v_actor, p_space_id, 'report-create', 20, 3600
-  ) then
-    return null;
-  end if;
-
-  if p_target_type not in ('space','group','message') then
-    raise exception 'network-report-target-type-invalid' using errcode = '22023';
-  end if;
-  if p_target_id is null or char_length(p_target_id) not between 1 and 160 then
-    raise exception 'network-report-target-invalid' using errcode = '22023';
-  end if;
-  if v_reason is null or char_length(v_reason) not between 8 and 500 then
-    raise exception 'network-report-reason-invalid' using errcode = '22023';
-  end if;
-
-  if p_target_type = 'space' and not exists (
-    select 1
-    from public.ordax_network_space_profiles p
-    join public.ordax_spaces s on s.space_id = p.space_id
-    where p.space_id::text = p_target_id
-      and p.visibility = 'discoverable'
-      and s.state = 'active'
-      and s.kind = 'professional'
-  ) then
-    raise exception 'network-report-target-not-found' using errcode = '22023';
-
-  elsif p_target_type = 'group' and not exists (
-    select 1
-    from public.ordax_network_groups g
-    join public.ordax_network_memberships cm
-      on cm.community_id = g.community_id
-    where g.group_id::text = p_target_id
-      and g.state = 'active'
-      and cm.space_id = p_space_id
-      and cm.state = 'active'
-  ) then
-    raise exception 'network-report-target-not-found' using errcode = '22023';
-
-  elsif p_target_type = 'message' and not exists (
-    select 1
-    from public.ordax_network_messages m
-    join public.ordax_network_conversation_members cm
-      on cm.conversation_id = m.conversation_id
-    where m.message_id::text = p_target_id
-      and cm.space_id = p_space_id
-      and cm.state = 'active'
-  ) then
-    raise exception 'network-report-target-not-found' using errcode = '22023';
-  end if;
-
-  insert into public.ordax_network_reports(
-    reporter_space_id, target_type, target_id, reason, created_by
-  ) values (
-    p_space_id, p_target_type, p_target_id, v_reason, v_actor
-  )
-  returning report_id into v_report_id;
-
-  insert into private.ordax_network_audit_events(
-    actor_user_id, actor_space_id, event_type, resource_type, resource_id
-  ) values (
-    v_actor, p_space_id, 'report-created', 'report', v_report_id::text
-  );
-
-  return v_report_id;
-end;
-$report$;
-
--- The report implementation above cannot use PL/pgSQL conditional assignment
--- syntax around a function call. Replace it with an explicit, readable version.
+-- Report targets are validated against what the acting Space is allowed to see.
 create or replace function private.ordax_network_create_report_internal_v1(
   p_space_id uuid,
   p_target_type text,
@@ -994,10 +885,17 @@ begin
     from public.ordax_network_groups g
     join public.ordax_network_memberships cm
       on cm.community_id = g.community_id
+    left join public.ordax_network_group_memberships gm
+      on gm.group_id = g.group_id
+     and gm.space_id = p_space_id
     where g.group_id::text = p_target_id
       and g.state = 'active'
       and cm.space_id = p_space_id
       and cm.state = 'active'
+      and (
+        g.join_policy = 'members'
+        or gm.state = 'active'
+      )
   ) then
     raise exception 'network-report-target-not-found' using errcode = '22023';
   end if;
