@@ -27,6 +27,7 @@ const COMPONENT_ASSET_FILES = Object.freeze({
   'system/apps/assistant/assistant.css': 'text/css',
   'system/apps/internet/internet.css': 'text/css',
   'system/apps/notes/notes.css': 'text/css',
+  'system/apps/network/network.css': 'text/css',
   'system/apps/projects/projects.css': 'text/css',
   'system/apps/studio/studio.css': 'text/css',
 });
@@ -622,6 +623,19 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.projectsComponentStyleMounted = Boolean(
       firstProjectsStyle?.href?.startsWith('data:text/css;base64,'),
     );
+    const firstNetworkStyle = document.querySelector(
+      'link[data-ordax-component-style="network"]',
+    );
+    result.networkComponentStyleMounted = Boolean(
+      firstNetworkStyle?.href?.startsWith('data:text/css;base64,'),
+    );
+
+    await launch('network');
+    const networkWindow = root.querySelector('[data-window-id="network"]');
+    const networkSlot = networkWindow?.querySelector('[data-app-extension="network-workspace"]');
+    const networkBackend = networkSlot?.querySelector('[data-network-backend]');
+    result.networkOwnerMounted = networkSlot?.dataset.ordaxNetworkMounted === 'true';
+    result.networkWebUnavailableHonest = networkBackend?.dataset.networkBackend === 'unavailable';
 
     await launch('projects');
     const projectsWindow = root.querySelector('[data-window-id="projects"]');
@@ -1106,6 +1120,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'internetComponentStyleMounted',
+      'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
       'notesEmptyEditorState', 'notesHeadingEnterHandled',
       'notesBackspaceExitsBlock', 'notesBulletEnterContinuesList', 'notesShiftEnterKeepsBlock',

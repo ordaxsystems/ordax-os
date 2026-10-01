@@ -12,6 +12,7 @@ APP_OWNERS = {
     "projects": APPS / "projects" / "app.mjs",
     "notes": APPS / "notes" / "app.mjs",
     "internet": APPS / "internet" / "app.mjs",
+    "network": APPS / "network" / "app.mjs",
     "settings": APPS / "settings" / "app.mjs",
     "account": APPS / "account" / "app.mjs",
     "assistant": APPS / "assistant" / "app.mjs",
@@ -213,7 +214,7 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertIn(f'id: "{app_id}"', owner)
             self.assertIn("defineFirstPartyApp", owner)
             self.assertIn("component:", owner)
-            if app_id in {"assistant", "internet", "notes", "projects"}:
+            if app_id in {"assistant", "internet", "network", "notes", "projects"}:
                 self.assertIn("./component.mjs", owner)
             else:
                 self.assertIn("../../services/components/manifests/apps.mjs", owner)

@@ -757,6 +757,21 @@ async function start() {
     },
   });
 
+  const networkComponent = await loadOptionalComponentRuntime({
+    componentId: "network",
+    importer: () => import("../../apps/network/runtime.mjs"),
+    componentManager,
+    context: {
+      root,
+      surfaceLifecycle: surface,
+      identitySession,
+      spaceSelection,
+    },
+    onError(error) {
+      reportClientDiagnostic("network-app-runtime", error);
+    },
+  });
+
   const notesComponent = await loadOptionalComponentRuntime({
     componentId: "notes",
     importer: () => import("../../apps/notes/runtime.mjs"),
@@ -872,6 +887,7 @@ async function start() {
       batteryQuickPanel?.destroy();
       fileSpaceControls.destroy();
       projectsComponent?.destroy();
+      networkComponent?.destroy();
       notesComponent?.destroy();
       assistantComponent?.destroy();
       activityComponent?.destroy();

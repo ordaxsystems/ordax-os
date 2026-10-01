@@ -1,0 +1,84 @@
+.ordax-network-view {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.ordax-network-header,
+.ordax-network-card,
+.ordax-network-section {
+  display: grid;
+  gap: 8px;
+}
+
+.ordax-network-kicker,
+.ordax-network-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.ordax-network-title {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.ordax-network-intro,
+.ordax-network-detail,
+.ordax-network-note {
+  margin: 0;
+  line-height: 1.5;
+  opacity: 0.78;
+}
+
+.ordax-network-card,
+.ordax-network-section {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 14px;
+}
+
+.ordax-network-card[data-state="sender-mismatch"] {
+  border-width: 2px;
+}
+
+.ordax-network-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ordax-network-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ordax-network-action,
+.ordax-network-compose textarea {
+  font: inherit;
+}
+
+.ordax-network-action {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.ordax-network-compose {
+  display: grid;
+  gap: 10px;
+}
+
+.ordax-network-compose textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+@media (max-width: 760px) {
+  .ordax-network-grid {
+    grid-template-columns: 1fr;
+  }
+}

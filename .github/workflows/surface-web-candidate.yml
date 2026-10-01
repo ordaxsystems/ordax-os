@@ -31,6 +31,7 @@ on:
       - 'system/contracts/entitlements.mjs'
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
+      - 'system/contracts/network-draft.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/personal-ordax.mjs'
       - 'system/contracts/personal-ordax-store.mjs'
@@ -71,6 +72,7 @@ on:
       - 'system/services/account/**'
       - 'system/services/spaces/**'
       - 'system/services/network/**'
+      - 'system/services/professional-network/**'
       - 'system/services/apps/**'
       - 'system/services/components/**'
       - 'system/services/files/**'
@@ -110,6 +112,8 @@ on:
       - 'tests/test_projects.mjs'
       - 'tests/test_projects_app.mjs'
       - 'tests/test_projects_app_contract.py'
+      - 'tests/test_network_draft.mjs'
+      - 'tests/test_network_surface_app_contract.py'
       - 'tests/test_project_web_references.mjs'
       - 'tests/test_browser_favorites.mjs'
       - 'tests/test_internet_favorites_contract.py'
@@ -225,6 +229,7 @@ on:
       - 'system/contracts/entitlements.mjs'
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
+      - 'system/contracts/network-draft.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/personal-ordax.mjs'
       - 'system/contracts/personal-ordax-store.mjs'
@@ -265,6 +270,7 @@ on:
       - 'system/services/account/**'
       - 'system/services/spaces/**'
       - 'system/services/network/**'
+      - 'system/services/professional-network/**'
       - 'system/services/apps/**'
       - 'system/services/components/**'
       - 'system/services/files/**'
@@ -303,6 +309,8 @@ on:
       - 'tests/test_projects.mjs'
       - 'tests/test_projects_app.mjs'
       - 'tests/test_projects_app_contract.py'
+      - 'tests/test_network_draft.mjs'
+      - 'tests/test_network_surface_app_contract.py'
       - 'tests/test_project_web_references.mjs'
       - 'tests/test_browser_favorites.mjs'
       - 'tests/test_internet_favorites_contract.py'
@@ -448,6 +456,7 @@ jobs:
           node --test tests/test_recent_files.mjs
           node --test tests/test_projects.mjs
           node --test tests/test_projects_app.mjs
+          node --test tests/test_network_draft.mjs
           node --test tests/test_project_web_references.mjs
           node --test tests/test_browser_favorites.mjs
           node --test tests/test_browser_history.mjs
@@ -527,6 +536,7 @@ jobs:
           python -m unittest tests.test_recent_files_ui_contract -v
           python -m unittest tests.test_project_files_ui_contract -v
           python -m unittest tests.test_projects_app_contract -v
+          python -m unittest tests.test_network_surface_app_contract -v
           python -m unittest tests.test_home_continuation_contract -v
           python -m unittest tests.test_notification_center_ui_contract -v
           python -m unittest tests.test_files_to_notes_import_contract -v
