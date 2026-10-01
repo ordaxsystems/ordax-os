@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from typing import Mapping, Protocol
 from urllib.parse import urlsplit
 
+from services.product_core.session import ProductSession, SessionResolver
+
 JSON_CONTENT_TYPE = "application/json; charset=utf-8"
 NO_STORE = "no-store, max-age=0"
 ERROR_SCHEMA = "prototype-ordax.product-gateway-error/1"
@@ -58,26 +60,12 @@ class GatewayResponse:
 
 
 @dataclass(frozen=True)
-class ProductSession:
-    authenticated: bool
-    user_id: str | None = None
-    csrf_token: str | None = None
-
-
-@dataclass(frozen=True)
 class MutationReceipt:
     resource_type: str
     resource_id: str
     audit_id: str
     entitlements_checked: bool
     approval_checked: bool
-
-
-class SessionResolver(Protocol):
-    @property
-    def configured(self) -> bool: ...
-
-    def resolve(self, cookie_header: str | None) -> ProductSession: ...
 
 
 class ProductAuthority(Protocol):

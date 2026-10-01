@@ -1,0 +1,51 @@
+{
+  "$schema": "prototype-ordax.product-oauth/1",
+  "status": "source-foundation-fail-closed",
+  "purpose": "first-party and end-user product authorization without reusing owner/development MCP credentials",
+  "activation": {
+    "public_enabled": false,
+    "listener_deployed": false,
+    "default_authority": "disabled",
+    "account_public_gate_required": true
+  },
+  "protocol": {
+    "oauth_2_1_direction": true,
+    "authorization_code": true,
+    "pkce_s256_required": true,
+    "implicit_grant_forbidden": true,
+    "password_grant_forbidden": true,
+    "exact_redirect_uri_match": true,
+    "authorization_code_single_use_authority_required": true,
+    "short_lived_access_token_required": true,
+    "refresh_rotation_authority_required_when_enabled": true,
+    "refresh_tokens_enabled": false
+  },
+  "identity": {
+    "account_authenticates_person": true,
+    "space_is_product_actor": true,
+    "space_selection_explicit": true,
+    "space_membership_revalidated_on_exchange": true,
+    "space_membership_revalidated_on_token_use": true,
+    "client_asserted_role_authoritative": false
+  },
+  "security": {
+    "same_origin_consent": true,
+    "csrf_required_for_consent": true,
+    "state_round_trip_required": true,
+    "token_hashing_owned_by_server_adapter": true,
+    "raw_tokens_in_logs": false,
+    "supabase_service_role_in_core": false,
+    "development_mcp_credentials_reused": false,
+    "sec_fetch_site_same_origin_required": true
+  },
+  "initial_client": "acheguese",
+  "known_scopes": [
+    "network.space.read",
+    "network.directory.read",
+    "network.communities.read",
+    "network.messages.read",
+    "network.messages.write",
+    "network.groups.join",
+    "product.acheguese.publish"
+  ]
+}
