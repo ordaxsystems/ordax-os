@@ -103,7 +103,11 @@ unbounded read.
 Manual Memory entry is also explicit and user-owned. Account → Memory may create a new item only for the currently selected personal owner boundary: device owner creates `scope=device`, authenticated account owner creates `scope=account`. Manual entry cannot silently create Space/project/session memory, and persistence still passes through the same `flush()` durability confirmation.
 
 A dedicated memory-review runtime owns the user-review semantics above the stable port. It can
-list, edit and remove only inside one explicit owner/Space/project boundary. Editing may change
+list, edit and remove only inside one explicit owner/Space/project boundary. The user may also
+clear every item for the currently selected owner after an explicit destructive confirmation; the
+operation preflights the complete bounded owner set before the first delete, never crosses owners,
+and routes each deletion through the same durable mutation boundary. It does not claim a
+multi-item transaction. Editing may change
 content, provenance and sensitivity, but cannot silently change item identity, owner kind, owner
 id, kind, scope, Space or project. Review of more than one page walks the same bounded search API
 instead of gaining a privileged bypass. A review-session layer switches explicitly between the
