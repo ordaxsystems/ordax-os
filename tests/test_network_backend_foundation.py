@@ -32,6 +32,25 @@ class NetworkBackendFoundationTests(unittest.TestCase):
             self.sql,
         )
 
+    def test_public_network_rpcs_never_hold_definer_authority(self):
+        for public_rpc in (
+            "ordax_network_list_directory_v1",
+            "ordax_network_list_communities_v1",
+            "ordax_network_list_my_memberships_v1",
+        ):
+            section = self.sql.split(
+                f"create or replace function public.{public_rpc}", 1
+            )[1].split("revoke all on function", 1)[0]
+            self.assertIn("security invoker", section)
+            self.assertNotIn("security definer", section)
+
+        for private_rpc in (
+            "private.ordax_network_list_directory_internal_v1",
+            "private.ordax_network_list_communities_internal_v1",
+            "private.ordax_network_list_my_memberships_internal_v1",
+        ):
+            self.assertIn(private_rpc, self.sql)
+
     def test_mutations_revalidate_space_authority_server_side(self):
         self.assertIn("private.ordax_network_assert_space_actor_v1", self.sql)
         self.assertIn("select auth.uid()", self.sql)
