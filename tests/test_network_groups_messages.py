@@ -48,6 +48,26 @@ class NetworkGroupsMessagesTests(unittest.TestCase):
         )
         self.assertNotIn(" offset ", self.sql)
 
+    def test_rate_limits_are_server_side_and_bounded(self):
+        self.assertIn("private.ordax_network_rate_windows", self.sql)
+        self.assertIn("ordax_network_consume_rate_v1", self.sql)
+        self.assertIn("network-rate-limit-exceeded", self.sql)
+        for operation in (
+            "group-create",
+            "group-join",
+            "direct-create",
+            "message-send",
+            "block-change",
+            "report-create",
+        ):
+            self.assertIn(f"'{operation}'", self.sql)
+
+    def test_reports_validate_target_existence_and_message_membership(self):
+        self.assertIn("network-report-target-not-found", self.sql)
+        self.assertIn("m.message_id::text = p_target_id", self.sql)
+        self.assertIn("cm.space_id = p_space_id", self.sql)
+        self.assertIn("cm.state = 'active'", self.sql)
+
     def test_block_is_server_enforced_for_direct_chat(self):
         self.assertIn("network-direct-blocked", self.sql)
         self.assertIn("public.ordax_network_blocks", self.sql)
