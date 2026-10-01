@@ -47,7 +47,7 @@ Ajustes   0.1.0
 Conta     0.1.0
 Sistema   0.1.0
 Internet  0.3.0
-Notas     0.4.2
+Notas     0.4.1
 ```
 
 For first-party apps, OrdaX treats the `0.x` line as **Beta**. `1.0.0` is reserved for the first stable app release. The Beta label is an app maturity convention; it does not claim that independent production distribution is already enabled.
