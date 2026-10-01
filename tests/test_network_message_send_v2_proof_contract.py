@@ -103,6 +103,18 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
             self.workflow,
         )
 
+    def test_workflow_executes_message_content_contract(self):
+        for path in (
+            "docs/contracts/network-message-content-v1.json",
+            "system/contracts/network-message-content-v1.mjs",
+            "tests/test_network_message_content_v1.mjs",
+        ):
+            self.assertGreaterEqual(self.workflow.count(path), 2, path)
+        self.assertIn(
+            "node --test tests/test_network_message_content_v1.mjs",
+            self.workflow,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
