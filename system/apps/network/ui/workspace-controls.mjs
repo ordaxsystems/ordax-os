@@ -8,27 +8,27 @@ function node(documentObject, tag, className, text) {
   return element;
 }
 
-function stateCopy(snapshot) {
+function stateCopy(snapshot, t) {
   switch (snapshot.state) {
     case "selection-unavailable":
-      return "A seleção de Space está indisponível nesta sessão.";
+      return t("network.app.state.selectionUnavailable");
     case "space-required":
-      return "Escolha um Space em Conta antes de escrever.";
+      return t("network.app.state.spaceRequired");
     case "sender-changed":
-      return "O Space ativo mudou. O rascunho continua ligado ao remetente original.";
+      return t("network.app.state.senderChanged");
     case "offline":
-      return "Sem conexão. O rascunho permanece local e não será enviado.";
+      return t("network.app.state.offline");
     case "backend-unavailable":
-      return "O backend da Rede ainda não está ativado nesta composição.";
+      return t("network.app.state.backendUnavailable");
     default:
-      return "Pronto para enviar.";
+      return t("network.app.state.ready");
   }
 }
 
 export function mountNetworkWorkspaceControls(
   root,
   draftRuntime,
-  { onError = null } = {},
+  { surfaceLifecycle = null, onError = null } = {},
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Network workspace requires a Surface root Element");
@@ -38,6 +38,7 @@ export function mountNetworkWorkspaceControls(
   }
 
   const documentObject = root.ownerDocument;
+  const t = surfaceLifecycle?.localization?.translate ?? ((messageId) => messageId);
   let destroyed = false;
   let slot = null;
 
@@ -55,24 +56,24 @@ export function mountNetworkWorkspaceControls(
 
     const header = node(documentObject, "header", "ordax-network-workspace-header");
     header.append(
-      node(documentObject, "span", "ordax-network-kicker", "Rede"),
-      node(documentObject, "h3", "ordax-network-title", "Comunidades e mensagens"),
+      node(documentObject, "span", "ordax-network-kicker", t("network.app.kicker")),
+      node(documentObject, "h3", "ordax-network-title", t("network.app.title")),
       node(
         documentObject,
         "p",
         "ordax-network-subtitle",
-        "A Rede usa o Space como identidade profissional remetente.",
+        t("network.app.subtitle"),
       ),
     );
 
     const sender = node(documentObject, "section", "ordax-network-sender");
     sender.append(
-      node(documentObject, "span", "ordax-network-label", "Space remetente"),
+      node(documentObject, "span", "ordax-network-label", t("network.app.sender")),
       node(
         documentObject,
         "strong",
         "ordax-network-sender-value",
-        snapshot.senderSpaceId ?? snapshot.activeSpaceId ?? "Nenhum Space selecionado",
+        snapshot.senderSpaceId ?? snapshot.activeSpaceId ?? t("network.app.noSpace"),
       ),
     );
     if (snapshot.senderSpaceId && snapshot.senderSpaceId !== snapshot.activeSpaceId) {
@@ -81,7 +82,7 @@ export function mountNetworkWorkspaceControls(
           documentObject,
           "small",
           "ordax-network-warning",
-          `Space ativo atual: ${snapshot.activeSpaceId ?? "nenhum"}`,
+          t("network.app.activeSpace", { space: snapshot.activeSpaceId ?? t("network.app.activeSpace.none") }),
         ),
       );
     }
@@ -91,7 +92,7 @@ export function mountNetworkWorkspaceControls(
     textarea.rows = 6;
     textarea.maxLength = 4000;
     textarea.value = snapshot.body;
-    textarea.placeholder = "Escreva uma mensagem…";
+    textarea.placeholder = t("network.app.placeholder");
     textarea.dataset.networkDraftBody = "";
     textarea.disabled = snapshot.activeSpaceId === null && snapshot.senderSpaceId === null;
 
@@ -99,17 +100,17 @@ export function mountNetworkWorkspaceControls(
       documentObject,
       "p",
       "ordax-network-status",
-      stateCopy(snapshot),
+      stateCopy(snapshot, t),
     );
     status.dataset.state = snapshot.state;
 
     const actions = node(documentObject, "div", "ordax-network-actions");
-    const send = node(documentObject, "button", "ordax-network-action-primary", "Enviar");
+    const send = node(documentObject, "button", "ordax-network-action-primary", t("network.app.action.send"));
     send.type = "button";
     send.dataset.networkSend = "";
     send.disabled = !snapshot.canSend;
 
-    const discard = node(documentObject, "button", "ordax-network-action", "Descartar");
+    const discard = node(documentObject, "button", "ordax-network-action", t("network.app.action.discard"));
     discard.type = "button";
     discard.dataset.networkDiscard = "";
     discard.disabled = !snapshot.body;
@@ -121,7 +122,7 @@ export function mountNetworkWorkspaceControls(
         documentObject,
         "button",
         "ordax-network-action",
-        "Usar o Space ativo",
+        t("network.app.action.rebind"),
       );
       rebind.type = "button";
       rebind.dataset.networkRebind = "";
