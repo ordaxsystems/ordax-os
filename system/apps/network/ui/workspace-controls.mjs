@@ -177,30 +177,25 @@ export function mountNetworkWorkspaceControls(
     }
 
     const composer = slot.querySelector("[data-network-composer-body]");
-    composer.replaceChildren();
     const target = lifecycle.getAppTarget("network");
 
     if (typeof target !== "string" || !target.trim()) {
-      composer.append(
-        node(
-          documentObject,
-          "p",
-          "ordax-network-note",
-          t("networkApp.messages.noConversation"),
-        ),
-      );
+      if (composer.dataset.networkConversation !== "") {
+        composer.replaceChildren();
+        composer.dataset.networkConversation = "";
+      }
+      if (!composer.firstElementChild) {
+        composer.append(
+          node(
+            documentObject,
+            "p",
+            "ordax-network-note",
+            t("networkApp.messages.noConversation"),
+          ),
+        );
+      }
       return;
     }
-
-    const label = node(documentObject, "label", "ordax-network-compose");
-    label.append(node(documentObject, "span", "ordax-network-label", t("networkApp.messages.draftLabel")));
-    const textarea = documentObject.createElement("textarea");
-    textarea.maxLength = 4000;
-    textarea.placeholder = t("networkApp.messages.placeholder");
-    textarea.dataset.networkDraftBody = "";
-    textarea.value = draftSnapshot?.draft?.conversationId === target
-      ? draftSnapshot.draft.body
-      : "";
 
     const canDraft = Boolean(
       draft
@@ -211,13 +206,46 @@ export function mountNetworkWorkspaceControls(
         || draftSnapshot.draft.conversationId === target
       )
     );
-    textarea.disabled = !canDraft;
-    label.append(textarea);
-
+    const desiredBody = draftSnapshot?.draft?.conversationId === target
+      ? draftSnapshot.draft.body
+      : "";
     const noteId = draftSnapshot?.state === "sender-mismatch"
       ? "networkApp.messages.senderMismatch"
       : "networkApp.messages.sendUnavailable";
-    label.append(node(documentObject, "p", "ordax-network-note", t(noteId)));
+
+    const existingTextarea = composer.querySelector("[data-network-draft-body]");
+    if (
+      existingTextarea
+      && composer.dataset.networkConversation === target
+    ) {
+      existingTextarea.disabled = !canDraft;
+      existingTextarea.placeholder = t("networkApp.messages.placeholder");
+      if (
+        documentObject.activeElement !== existingTextarea
+        && existingTextarea.value !== desiredBody
+      ) {
+        existingTextarea.value = desiredBody;
+      }
+      const existingNote = composer.querySelector("[data-network-compose-note]");
+      if (existingNote) existingNote.textContent = t(noteId);
+      return;
+    }
+
+    composer.replaceChildren();
+    composer.dataset.networkConversation = target;
+    const label = node(documentObject, "label", "ordax-network-compose");
+    label.append(node(documentObject, "span", "ordax-network-label", t("networkApp.messages.draftLabel")));
+    const textarea = documentObject.createElement("textarea");
+    textarea.maxLength = 4000;
+    textarea.placeholder = t("networkApp.messages.placeholder");
+    textarea.dataset.networkDraftBody = "";
+    textarea.value = desiredBody;
+    textarea.disabled = !canDraft;
+    label.append(textarea);
+
+    const note = node(documentObject, "p", "ordax-network-note", t(noteId));
+    note.dataset.networkComposeNote = "";
+    label.append(note);
 
     const send = node(documentObject, "button", "ordax-network-action", t("networkApp.section.messages"));
     send.type = "button";
