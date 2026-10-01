@@ -13,6 +13,8 @@ import (
 	"sync"
 	"syscall"
 	"unsafe"
+
+	physicalchannel "github.com/washingtonmsdj/prototipo-ordax-os/tools/creator/physicalchannel"
 )
 
 const (
@@ -165,7 +167,14 @@ type appRefreshState struct {
 	Targets          []physicalTarget
 	Error            string
 	PhysicalReady    bool
+	PhysicalMode     string
 	BackendDirectory string
+	PortablePayload  *physicalchannel.PortablePayloadManifest
+}
+
+type physicalBackendReadiness struct {
+	LegacyOwner bool
+	Portable    bool
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -278,39 +287,43 @@ func runBackendHidden(directory string, args ...string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-func loadTargets(directory string) ([]physicalTarget, bool, error) {
+func loadTargets(directory string) ([]physicalTarget, physicalBackendReadiness, error) {
 	output, err := runBackendHidden(directory, "targets")
 	if err != nil {
-		return nil, false, fmt.Errorf("detectar pendrives: %w", err)
+		return nil, physicalBackendReadiness{}, fmt.Errorf("detectar pendrives: %w", err)
 	}
 	var document physicalTargetsDocument
 	if err := json.Unmarshal(output, &document); err != nil {
-		return nil, false, fmt.Errorf("ler lista de pendrives: %w", err)
+		return nil, physicalBackendReadiness{}, fmt.Errorf("ler lista de pendrives: %w", err)
 	}
 	if document.Schema != "prototype-ordax.creator-physical-test-targets/1" || document.Mode != "read-only" {
-		return nil, false, fmt.Errorf("resposta de dispositivos inesperada")
+		return nil, physicalBackendReadiness{}, fmt.Errorf("resposta de dispositivos inesperada")
 	}
 	for _, target := range document.Targets {
 		if target.SystemDisk || !target.PrototypeSafe || len(target.ConfirmationToken) != 64 {
-			return nil, false, fmt.Errorf("o backend retornou um alvo que não passou pela política de segurança")
+			return nil, physicalBackendReadiness{}, fmt.Errorf("o backend retornou um alvo que não passou pela política de segurança")
 		}
 	}
 
 	statusOutput, err := runBackendHidden(directory, "status")
 	if err != nil {
-		return nil, false, fmt.Errorf("consultar estado físico: %w", err)
+		return nil, physicalBackendReadiness{}, fmt.Errorf("consultar estado físico: %w", err)
 	}
 	var status struct {
-		RawBackendLinked bool `json:"raw_backend_linked"`
+		RawBackendLinked     bool `json:"raw_backend_linked"`
+		PortableWriterReady bool `json:"portable_writer_ready"`
 		Build struct {
 			PhysicalWriteAuthorized bool `json:"physical_write_authorized"`
 			Ready                   bool `json:"ready"`
 		} `json:"build"`
 	}
 	if err := json.Unmarshal(statusOutput, &status); err != nil {
-		return nil, false, fmt.Errorf("ler estado físico: %w", err)
+		return nil, physicalBackendReadiness{}, fmt.Errorf("ler estado físico: %w", err)
 	}
-	return document.Targets, status.RawBackendLinked && status.Build.PhysicalWriteAuthorized && status.Build.Ready, nil
+	return document.Targets, physicalBackendReadiness{
+		LegacyOwner: status.RawBackendLinked && status.Build.PhysicalWriteAuthorized && status.Build.Ready,
+		Portable: status.RawBackendLinked && status.Build.PhysicalWriteAuthorized && status.PortableWriterReady,
+	}, nil
 }
 
 func refreshAsync() {

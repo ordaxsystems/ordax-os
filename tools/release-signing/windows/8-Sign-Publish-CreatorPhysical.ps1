@@ -16,6 +16,8 @@ $Repository = 'washingtonmsdj/prototipo-ordax-os'
 $ReleaseTag = 'creator-physical'
 $KeyId = 'ordax-prototype-release-v1'
 $ExpectedManifestSchema = 'prototype-ordax.creator-physical-manifest/2'
+$ExpectedPortableManifestSchema = 'prototype-ordax.creator-physical-manifest/3'
+$ExpectedPortablePayloadSchema = 'prototype-ordax.creator-portable-payload/1'
 $ExpectedEnvelopeSchema = 'prototype-ordax.creator-physical-envelope/1'
 $ExpectedProvenanceSchema = 'prototype-ordax.physical-write-candidate/2'
 $ExpectedPurpose = 'creator-portable-physical-windows-amd64'
@@ -100,6 +102,26 @@ foreach ($name in $ExpectedFiles) {
     $null = Resolve-RealLeaf (Join-Path $CandidateDirectory $name) "Candidate file $name"
 }
 
+$ExpectedPortableArtifactIds = @(
+    'systemd-boot',
+    'loader-config',
+    'loader-normal',
+    'loader-recovery',
+    'kernel',
+    'initramfs',
+    'bootstrap-capsule',
+    'release-trust',
+    'stable-base',
+    'persistent-state',
+    'system-image',
+    'surface-runtime-image',
+    'surface-runtime-ref',
+    'local-ai-runtime-image',
+    'local-ai-runtime-ref',
+    'release-manifest',
+    'release-envelope'
+)
+
 $Provenance = Get-Content -LiteralPath $ProvenancePath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ([string]$Provenance.'$schema' -ne $ExpectedProvenanceSchema) { throw 'Unexpected physical candidate provenance schema.' }
 if ([string]$Provenance.status -ne 'authorized-candidate-not-published') { throw 'Physical candidate is not in authorized pre-publication state.' }
@@ -134,7 +156,10 @@ if ($ProvenanceAuthorizationSHA -ne $CandidateAuthorizationSHA) {
 
 $ManifestBytes = [IO.File]::ReadAllBytes($ManifestPath)
 $Manifest = Get-Content -LiteralPath $ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-if ([string]$Manifest.'$schema' -ne $ExpectedManifestSchema) { throw 'Unexpected Creator physical manifest schema.' }
+$ManifestSchema = [string]$Manifest.'$schema'
+if ($ManifestSchema -ne $ExpectedManifestSchema -and $ManifestSchema -ne $ExpectedPortableManifestSchema) {
+    throw 'Unexpected Creator physical manifest schema.'
+}
 if ([string]$Manifest.purpose -ne $ExpectedPurpose) { throw 'Unexpected Creator physical manifest purpose.' }
 if ([string]$Manifest.source_repository -ne $Repository) { throw 'Creator physical manifest repository mismatch.' }
 if ([string]$Manifest.created_from_recipe -ne $ExpectedRecipe) { throw 'Unexpected Creator physical manifest recipe.' }
@@ -158,6 +183,59 @@ foreach ($name in $ExpectedFiles) {
     $path = Join-Path $CandidateDirectory $name
     if ([string]$Bindings[$name].sha256 -ne (Get-Sha256 $path) -or [int64]$Bindings[$name].size -ne (Get-FileSize $path)) {
         throw "Creator physical candidate binding mismatch for $name"
+    }
+}
+
+if ($ManifestSchema -eq $ExpectedManifestSchema) {
+    if ($null -ne $Manifest.portable_payload) {
+        throw 'Creator physical manifest v2 may not carry a Portable payload.'
+    }
+} else {
+    if ($null -eq $Manifest.portable_payload) {
+        throw 'Creator physical manifest v3 requires the signed Portable payload.'
+    }
+    $PortablePayload = $Manifest.portable_payload
+    if ([string]$PortablePayload.'$schema' -ne $ExpectedPortablePayloadSchema) {
+        throw 'Unexpected Creator Portable payload schema.'
+    }
+    if ([string]$PortablePayload.release_source_commit -ne $ReleaseSourceCommit) {
+        throw 'Creator Portable payload is not bound to the canonical v4 release source commit.'
+    }
+    $PortableBindings = @{}
+    [int64]$PortableTotalBytes = 0
+    foreach ($binding in @($PortablePayload.artifacts)) {
+        $id = [string]$binding.id
+        if ($PortableBindings.ContainsKey($id)) {
+            throw "Duplicate Creator Portable payload binding: $id"
+        }
+        $PortableBindings[$id] = $binding
+        $sha = [string]$binding.sha256
+        Assert-LowerHex $sha 64 "Portable payload SHA-256 for $id"
+        [int64]$size = $binding.size_bytes
+        if ($size -le 0 -or $size -gt 17179869184) {
+            throw "Portable payload size is outside allowed range for $id"
+        }
+        if ($PortableTotalBytes -gt 34359738368 - $size) {
+            throw 'Creator Portable payload total size exceeds allowed range.'
+        }
+        $PortableTotalBytes += $size
+        $url = [Uri]([string]$binding.url)
+        if ($url.Scheme -cne 'https' -or
+            $url.Host -cne 'github.com' -or
+            -not $url.AbsolutePath.StartsWith("/$Repository/releases/download/", [StringComparison]::Ordinal)) {
+            throw "Portable payload URL is outside the canonical release namespace for $id"
+        }
+        if (-not [string]::IsNullOrEmpty($url.Query) -or -not [string]::IsNullOrEmpty($url.Fragment) -or -not [string]::IsNullOrEmpty($url.UserInfo)) {
+            throw "Portable payload URL contains forbidden query/fragment/userinfo for $id"
+        }
+    }
+    if ($PortableBindings.Count -ne $ExpectedPortableArtifactIds.Count) {
+        throw 'Creator physical manifest v3 must bind exactly 17 Portable artifacts.'
+    }
+    foreach ($id in $ExpectedPortableArtifactIds) {
+        if (-not $PortableBindings.ContainsKey($id)) {
+            throw "Creator physical manifest v3 is missing Portable artifact $id"
+        }
     }
 }
 
@@ -305,7 +383,7 @@ try {
             --repo $Repository `
             --target $WriterSourceCommit `
             --title "OrdaX Creator Physical sequence $($Provenance.release_sequence)" `
-            --notes "Purpose-bound Portable v2 physical writer for the first real Stable/MVP USB proof. This publisher release is not Stable/latest and does not itself select or write a USB target." `
+            --notes "Purpose-bound Portable physical writer for the first real Stable/MVP USB proof. Manifest v3 additionally binds the exact signed 17-artifact payload. This publisher release is not Stable/latest and does not itself select or write a USB target." `
             --prerelease
         if ($LASTEXITCODE -ne 0) { throw 'Publishing creator-physical release failed.' }
 

@@ -293,6 +293,7 @@ func runApplyPortable(args []string) error {
 	confirm := fs.String("confirm", "", "confirmation token from selected target")
 	planPath := fs.String("plan", "", "canonical Portable application-plan JSON")
 	authorize := fs.String("authorize", "", "destructive authorization emitted by prepare-portable")
+	diagnosticLog := fs.String("diagnostic-log", "", "optional UTF-8 error report path")
 	progressLog := fs.String("progress-log", "", "optional JSON progress path")
 	var sourceSpecs stringListFlag
 	fs.Var(&sourceSpecs, "source", "canonical artifact source in artifact-id=path form; repeat exactly 17 times")
@@ -309,6 +310,21 @@ func runApplyPortable(args []string) error {
 	if plan.SourceCommit != b.ReleaseSourceCommit {
 		return fmt.Errorf("Portable application plan source_commit does not match authorized canonical release")
 	}
+	diagnosticPath, err := validateApplySidecarPath(*planPath, *diagnosticLog, "ordax-physical-error.txt")
+	if err != nil {
+		return fmt.Errorf("validate Portable diagnostic log path: %w", err)
+	}
+	progressPath, err := validateApplySidecarPath(*planPath, *progressLog, "ordax-physical-progress.json")
+	if err != nil {
+		return fmt.Errorf("validate Portable progress log path: %w", err)
+	}
+	applyDiagnosticLog = diagnosticPath
+	if applyDiagnosticLog != "" {
+		_ = os.Remove(applyDiagnosticLog)
+	}
+	if progressPath != "" {
+		_ = os.Remove(progressPath)
+	}
 	sources, err := portableSourcesFromFlags(plan, sourceSpecs)
 	if err != nil {
 		return err
@@ -317,7 +333,7 @@ func runApplyPortable(args []string) error {
 	if err != nil {
 		return err
 	}
-	progressReporter := newApplyProgressReporter(*progressLog)
+	progressReporter := newApplyProgressReporter(progressPath)
 	progressReporter(windowsadapter.PhysicalApplyProgress{Phase:"starting-portable"})
 	result, err := windowsadapter.ApplyPortablePhysicalWithProgress(windowsadapter.PortablePhysicalApplyRequest{
 		Target:target,
