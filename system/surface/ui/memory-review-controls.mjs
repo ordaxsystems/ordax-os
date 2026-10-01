@@ -24,6 +24,7 @@ function requireViewModel(value) {
     "exportSnapshot",
     "update",
     "remove",
+    "clearAll",
   ]) {
     if (typeof value[method] !== "function") {
       throw new TypeError(`Memory review view model must implement ${method}()`);
@@ -56,6 +57,10 @@ function requireCopy(copy) {
     "export",
     "exported",
     "exportError",
+    "clearAll",
+    "clearAllPrompt",
+    "clearAllConfirm",
+    "clearAllCancel",
   ];
   if (!copy || typeof copy !== "object") {
     throw new TypeError("Memory review copy is required");
@@ -97,6 +102,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
   let destroyed = false;
   let mutationPending = false;
   let pendingRemovalId = null;
+  let clearAllConfirmation = false;
   let exportState = "idle";
 
   const render = (snapshot = viewModel.getSnapshot()) => {
@@ -157,6 +163,45 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     exportButton.dataset.memoryReviewExport = "";
     exportButton.disabled = mutationPending;
     toolbar.append(exportButton);
+
+    if (clearAllConfirmation) {
+      const clearPrompt = node(
+        documentObject,
+        "span",
+        "ordax-memory-review-clear-prompt",
+        copy.clearAllPrompt,
+      );
+      const clearConfirm = node(
+        documentObject,
+        "button",
+        "ordax-memory-review-clear-confirm",
+        copy.clearAllConfirm,
+      );
+      clearConfirm.type = "button";
+      clearConfirm.dataset.memoryReviewClearConfirm = "";
+      clearConfirm.disabled = mutationPending;
+      const clearCancel = node(
+        documentObject,
+        "button",
+        "ordax-memory-review-clear-cancel",
+        copy.clearAllCancel,
+      );
+      clearCancel.type = "button";
+      clearCancel.dataset.memoryReviewClearCancel = "";
+      clearCancel.disabled = mutationPending;
+      toolbar.append(clearPrompt, clearConfirm, clearCancel);
+    } else {
+      const clearButton = node(
+        documentObject,
+        "button",
+        "ordax-memory-review-clear",
+        copy.clearAll,
+      );
+      clearButton.type = "button";
+      clearButton.dataset.memoryReviewClear = "";
+      clearButton.disabled = mutationPending;
+      toolbar.append(clearButton);
+    }
     container.append(toolbar);
 
     const createBox = node(documentObject, "div", "ordax-memory-review-create");
@@ -280,6 +325,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     const target = event.target;
     if (!target || target.dataset?.memoryReviewSearch === undefined) return;
     pendingRemovalId = null;
+    clearAllConfirmation = false;
     viewModel.setQuery(target.value);
   };
 
@@ -336,6 +382,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     if (!target || !container.contains(target)) return;
     if (target.dataset.memoryReviewOwner) {
       pendingRemovalId = null;
+      clearAllConfirmation = false;
       exportState = "idle";
       viewModel.selectOwner({
         ownerKind: target.dataset.ownerKind,
@@ -345,6 +392,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     }
     if (target.dataset.memoryReviewExport !== undefined) {
       pendingRemovalId = null;
+      clearAllConfirmation = false;
       try {
         downloadExport();
         exportState = "exported";
@@ -356,6 +404,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     }
     if (target.dataset.memoryReviewCreate !== undefined) {
       pendingRemovalId = null;
+      clearAllConfirmation = false;
       const textarea = container.querySelector("textarea[data-memory-review-new]");
       if (!textarea || textarea.value.trim().length === 0) return;
       void runMutation(() => viewModel.create(textarea.value));
@@ -363,16 +412,19 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
     }
     if (target.dataset.memoryReviewPage === "previous") {
       pendingRemovalId = null;
+      clearAllConfirmation = false;
       viewModel.previousPage();
       return;
     }
     if (target.dataset.memoryReviewPage === "next") {
       pendingRemovalId = null;
+      clearAllConfirmation = false;
       viewModel.nextPage();
       return;
     }
     if (target.dataset.memoryReviewSave) {
       pendingRemovalId = null;
+      clearAllConfirmation = false;
       const id = target.dataset.memoryReviewSave;
       const textarea = findItemTextarea(container, id);
       if (!textarea) return;
@@ -380,6 +432,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
       return;
     }
     if (target.dataset.memoryReviewRemove) {
+      clearAllConfirmation = false;
       pendingRemovalId = target.dataset.memoryReviewRemove;
       render();
       findItemActionButton(
@@ -387,6 +440,30 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
         "memoryReviewRemoveConfirm",
         pendingRemovalId,
       )?.focus({ preventScroll: true });
+      return;
+    }
+    if (target.dataset.memoryReviewClear !== undefined) {
+      pendingRemovalId = null;
+      clearAllConfirmation = true;
+      render();
+      container.querySelector("button[data-memory-review-clear-confirm]")?.focus({
+        preventScroll: true,
+      });
+      return;
+    }
+    if (target.dataset.memoryReviewClearCancel !== undefined) {
+      clearAllConfirmation = false;
+      render();
+      container.querySelector("button[data-memory-review-clear]")?.focus({
+        preventScroll: true,
+      });
+      return;
+    }
+    if (target.dataset.memoryReviewClearConfirm !== undefined) {
+      if (!clearAllConfirmation) return;
+      clearAllConfirmation = false;
+      pendingRemovalId = null;
+      void runMutation(() => viewModel.clearAll());
       return;
     }
     if (target.dataset.memoryReviewRemoveCancel) {
@@ -424,6 +501,7 @@ export function mountMemoryReviewControls(containerValue, viewModelValue, copyVa
       if (destroyed) return;
       destroyed = true;
       pendingRemovalId = null;
+      clearAllConfirmation = false;
       unsubscribe();
       container.removeEventListener("input", onInput);
       container.removeEventListener("click", onClick);
