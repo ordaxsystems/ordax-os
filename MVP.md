@@ -128,7 +128,8 @@ Um usuário deve conseguir:
 10. atualizar por canal oficial;
 11. recuperar automaticamente de atualização defeituosa;
 12. escolher **Entrar**, **Criar conta** ou **Continuar sem conta**; conta continua opcional, mas Entrar/Criar conta devem funcionar de ponta a ponta no MVP;
-13. usar `/conta/` como área autenticada separada da landing quando uma sessão real existir, incluindo logout e recuperação de acesso.
+13. usar `/conta/` como área autenticada separada da landing quando uma sessão real existir, incluindo logout e recuperação de acesso;
+14. quando autenticado e usando um Space profissional opt-in, usar a **OrdaX Network** para descobrir outros Spaces do segmento, participar voluntariamente de comunidades/grupos e trocar mensagens 1:1 ou em grupo, sem expor automaticamente a conta pessoal.
 
 ## 5.1 Fechamento funcional que precedeu o primeiro USB Stable
 
@@ -154,12 +155,14 @@ alvo/UAC/confirmação continuam gates separados. O gate pré-USB exige, no mín
 - diagnóstico/recovery de produto e inventário mínimo de hardware/suporte;
 - release-manifest/4 real com `local-ai-runtime.erofs` assinada/materializável.
 
-Store pública, Mobile completo, Native em disco, sync cloud, federação, cobrança e
-tools/agentes mutáveis de IA permanecem pós-MVP. **A fundação arquitetural** de Store/distribuição,
-Spaces/Profile Packs profissionais, entitlements, memória provider-neutral, model router e ponte
-MCP externa entra no pré-MVP para evitar migrações destrutivas depois que contas/dados reais existirem.
-Essa fundação de source não habilita essas capacidades comercialmente e não cria um novo gate físico
-para a primeira prova Stable USB.
+Store pública, Mobile completo, Native em disco, sync cloud geral, federação, cobrança e
+tools/agentes mutáveis de IA permanecem pós-MVP. A exceção de colaboração é a **OrdaX Network MVP**
+deliberadamente limitada por `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md`: diretório opt-in
+por Space, comunidades, grupos, mensagens e trust & safety mínimos. **A fundação arquitetural** de
+Store/distribuição, Spaces/Profile Packs profissionais, entitlements, memória provider-neutral,
+model router e ponte MCP externa continua entrando cedo para evitar migrações destrutivas depois que
+contas/dados reais existirem. A Network é gate do lançamento público online, mas não cria dependência
+de boot nem novo gate físico para a primeira prova Stable USB.
 
 ```text
 PRE_USB_NOVA_ORDAX_AUDIT=PASS_SOURCE
@@ -192,7 +195,8 @@ Bloqueiam lançamento:
 - **Conta/Cadastro real funcional no MVP**, preservando `Continuar sem conta`: cadastro, login, logout/revogação e recuperação de acesso provados contra o owner real;
 - privacidade/termos finais, versionados e com data efetiva antes da ativação pública;
 - hardware suportado documentado;
-- **Profiles demonstráveis seguros**: `pizzaria-br@1` e `impressao-3d-br@1` ativáveis/desativáveis em Space profissional no Stable/MVP pelo mesmo boundary genérico, sem downloads extras ou privilégio novo.
+- **Profiles demonstráveis seguros**: `pizzaria-br@1` e `impressao-3d-br@1` ativáveis/desativáveis em Space profissional no Stable/MVP pelo mesmo boundary genérico, sem downloads extras ou privilégio novo;
+- **OrdaX Network MVP segura**: diretório de Spaces somente opt-in, membership explícita, grupos, mensagens 1:1/grupo, bloqueio/denúncia/rate limit, autorização server-side fail-closed e prova negativa de isolamento entre contas/Spaces; indisponibilidade da Network não pode impedir boot ou apps locais.
 
 **Não bloqueiam o MVP:** instalador Native, boot por SSD/NVMe/HD, dual boot, resize ou particionamento interno.
 
@@ -389,6 +393,23 @@ outro sistema, outra imagem ou reinstalação do USB. PDV, fiscal, delivery, est
 avançado e financeiro completo ficam para atualizações posteriores.
 
 Isso evita inflar o pendrive e preserva a evolução por atualização.
+
+## 10.3 OrdaX Network no MVP
+
+A Network é uma capability horizontal compartilhada por Profiles, não um recurso privado de
+`pizzaria-br`. O Profile pode recomendar a comunidade `industry.food.pizzeria.br`, mas não pode
+publicar o Space nem fazer auto-join. A identidade profissional visível é o **Space**; a conta pessoal,
+e-mail e localização exata permanecem privados por padrão.
+
+O recorte obrigatório do MVP é diretório opt-in, comunidades, grupos, mensagens 1:1/grupo,
+bloqueio, denúncia, rate limit e moderação/auditoria mínimas. Feed algorítmico, anúncios, marketplace,
+voz/vídeo e federação aberta ficam posteriores. O contrato de segurança é
+`docs/contracts/network-foundation.json`; afinidades Profile -> comunidade ficam em
+`system/network/profile-affiliations.json`.
+
+A Network é um domínio colaborativo próprio: não usa account sync como barramento de chat e não
+ingere conversa automaticamente em Memory. Toda autorização de membership/role é server-side e
+default-deny. O sistema local continua utilizável sem conta ou internet.
 
 ## 11. Conta OrdaX
 
