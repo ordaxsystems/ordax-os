@@ -16,7 +16,7 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
         cls.workflow = WORKFLOW.read_text(encoding="utf-8").lower()
 
     def test_prototype_is_transactional_and_not_a_migration(self):
-        self.assertIn("\\ir test_network_multitenant_hardening.sql", self.sql)
+        self.assertIn("test_network_multitenant_hardening.sql immediately", self.sql)
         self.assertIn("begin;", self.sql)
         self.assertIn("rollback;", self.sql)
         self.assertIn("_v2_proof", self.sql)
@@ -65,6 +65,16 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
         self.assertIn("network-message-v2-proof-denied-shape-invalid", self.sql)
         self.assertIn("network-message-v2-proof-invalid-shape-invalid", self.sql)
         self.assertIn("when sqlstate '42501'", self.sql)
+
+    def test_workflow_orders_v1_before_v2_on_the_same_ephemeral_schema(self):
+        v1 = self.workflow.index(
+            "psql -v on_error_stop=1 -f tests/sql/test_network_multitenant_hardening.sql"
+        )
+        v2 = self.workflow.index(
+            "psql -v on_error_stop=1 -f tests/sql/test_network_message_send_v2_prototype.sql"
+        )
+        self.assertLess(v1, v2)
+        self.assertNotIn("createdb network_message_v2", self.workflow)
 
     def test_workflow_executes_the_v2_proof(self):
         self.assertIn(
