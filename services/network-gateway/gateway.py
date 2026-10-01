@@ -28,6 +28,7 @@ UUID_RE = re.compile(
 )
 IDEMPOTENCY_RE = re.compile(r"^[A-Za-z0-9._:-]{16,120}$")
 MACHINE_CODE_RE = re.compile(r"^[a-z][a-z0-9-]{2,95}$")
+RESOURCE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,159}$")
 UNSAFE_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 OUTCOMES = frozenset({"applied", "idempotent", "rate_limited", "denied", "invalid"})
 
@@ -146,6 +147,19 @@ def _plain_text(value: object) -> str:
     return body
 
 
+def _cross_site_state_change(headers: Mapping[str, str]) -> bool:
+    if headers.get("sec-fetch-site", "").lower() == "cross-site":
+        return True
+    forwarded_host = headers.get("x-forwarded-host", "").strip().lower()
+    origin = headers.get("origin", "").strip()
+    if not forwarded_host or not origin:
+        return False
+    split = urlsplit(origin)
+    if split.scheme not in {"http", "https"} or not split.netloc:
+        return True
+    return split.netloc.lower() != forwarded_host
+
+
 def _payload(raw: bytes | None) -> Mapping[str, object]:
     if raw is None or len(raw) == 0 or len(raw) > MAX_BODY_BYTES:
         raise ValueError("body")
@@ -162,7 +176,9 @@ def _payload(raw: bytes | None) -> Mapping[str, object]:
 
 def _outcome_response(outcome: MutationOutcome, expected_key: str) -> GatewayResponse:
     if (
-        outcome.outcome not in OUTCOMES
+        not isinstance(outcome.outcome, str)
+        or outcome.outcome not in OUTCOMES
+        or not isinstance(outcome.code, str)
         or not MACHINE_CODE_RE.fullmatch(outcome.code)
         or outcome.idempotency_key != expected_key
     ):
@@ -171,7 +187,7 @@ def _outcome_response(outcome: MutationOutcome, expected_key: str) -> GatewayRes
     success_like = outcome.outcome in {"applied", "idempotent"}
     resource_id = outcome.resource_id
     if success_like:
-        if not isinstance(resource_id, str) or not 8 <= len(resource_id) <= 160:
+        if not isinstance(resource_id, str) or not RESOURCE_ID_RE.fullmatch(resource_id):
             return _error(502, "invalid-network-outcome", "A autoridade Network retornou um resultado inválido.")
     elif resource_id is not None:
         return _error(502, "invalid-network-outcome", "A autoridade Network retornou um resultado inválido.")
@@ -241,7 +257,7 @@ class NetworkGatewayV2:
 
         if method != "POST":
             return _method_not_allowed("POST")
-        if request_headers.get("sec-fetch-site", "").lower() == "cross-site":
+        if _cross_site_state_change(request_headers):
             return _error(403, "cross-site-request-rejected", "A solicitação cross-site foi rejeitada.")
         if request_headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
             return _error(415, "unsupported-media-type", "O corpo deve usar application/json.")
