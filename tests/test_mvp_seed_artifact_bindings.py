@@ -9,6 +9,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MINIMAL = ROOT / "docs/contracts/minimal-bootstrap.json"
+CREATOR_WORKFLOW = ROOT / ".github/workflows/creator-payload-candidate.yml"
+FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
 
 
 class MVPSeedArtifactBindingsTests(unittest.TestCase):
@@ -50,6 +52,21 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
             "ba633274ee2b9497a75a1b287979900ac31611ff93ec52179bd704daf0a6dbce",
             refresh["allowed_from_sha256"],
         )
+
+    def test_bootstrap_assembly_restores_immutable_seed_after_refresh_target_build(self):
+        seed = "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66"
+        tag = f"ordax-release-agent-{seed}"
+        for workflow_path in (CREATOR_WORKFLOW, FULL_MEDIA_WORKFLOW):
+            workflow = workflow_path.read_text(encoding="utf-8")
+            self.assertIn("Restore canonical release-agent seed for bootstrap assembly", workflow)
+            self.assertIn(seed, workflow)
+            self.assertIn(tag, workflow)
+            self.assertIn(
+                "install -m 0755 \"$tmp\" bootstrap/release-acquisition/ordax-release-agent",
+                workflow,
+            )
+            self.assertIn("canonical release-agent seed hash mismatch", workflow)
+            self.assertIn("RELEASE_AGENT_REFRESH_TARGET_REMAINS_SEPARATE=YES", workflow)
 
     def test_canonical_release_trust_is_resolved_without_enabling_write(self):
         unresolved = [g["id"] for g in self.contract["artifact_groups"] if not g["resolved"]]
