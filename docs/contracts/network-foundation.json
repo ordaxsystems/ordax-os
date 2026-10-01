@@ -1,0 +1,88 @@
+{
+  "$schema": "ordax.network-foundation/1",
+  "status": "mvp-scope-adopted-implementation-required",
+  "product_boundary": {
+    "identity_subject": "account",
+    "public_professional_actor": "space",
+    "profile_pack_is_authority": false,
+    "profile_pack_may_recommend_communities": true,
+    "automatic_directory_publication": false,
+    "automatic_membership": false,
+    "anonymous_local_ordax_remains_supported": true
+  },
+  "domains": [
+    "directory",
+    "communities",
+    "memberships",
+    "groups",
+    "conversations",
+    "messages",
+    "moderation"
+  ],
+  "mvp": {
+    "directory_opt_in": true,
+    "communities": true,
+    "groups": true,
+    "direct_messages": true,
+    "group_messages": true,
+    "block": true,
+    "report": true,
+    "rate_limits": true,
+    "binary_attachments_required": false,
+    "algorithmic_feed_required": false,
+    "voice_video_required": false
+  },
+  "authorization": {
+    "server_authoritative": true,
+    "default_deny": true,
+    "client_claimed_role_trusted": false,
+    "membership_checked_for_each_protected_operation": true,
+    "role_change_requires_authorized_actor": true,
+    "space_switch_must_not_retarget_pending_message": true,
+    "cross_tenant_direct_table_access": false
+  },
+  "data_security": {
+    "opaque_public_ids": true,
+    "exact_location_in_default_directory": false,
+    "personal_email_public_by_default": false,
+    "structured_or_plain_text_only": true,
+    "raw_html_from_client_trusted": false,
+    "bounded_payloads": true,
+    "bounded_pagination": true,
+    "idempotency_for_critical_mutations": true,
+    "database_integrity_constraints_required": true,
+    "retention_and_tombstone_policy_required": true,
+    "message_bodies_in_default_operational_logs": false
+  },
+  "abuse_resistance": {
+    "rate_limit_by_actor": true,
+    "rate_limit_by_space": true,
+    "anti_enumeration": true,
+    "anti_scraping_controls": true,
+    "block_enforced_server_side": true,
+    "moderation_audit": true
+  },
+  "isolation_proof": {
+    "two_accounts_required": true,
+    "multiple_spaces_required": true,
+    "negative_read_tests": true,
+    "negative_write_tests": true,
+    "role_escalation_tests": true,
+    "blocked_actor_tests": true
+  },
+  "availability": {
+    "network_failure_must_not_block_boot": true,
+    "network_failure_must_not_block_local_apps": true,
+    "offline_state_must_be_honest": true
+  },
+  "ai": {
+    "messages_auto_ingested_into_memory": false,
+    "summarization_requires_explicit_scope": true,
+    "model_output_grants_authority": false
+  },
+  "external_integrations": {
+    "direct_database_coupling": false,
+    "authenticated_api_or_capability_required": true,
+    "least_privilege_scopes": true
+  }
+}
