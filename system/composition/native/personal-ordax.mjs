@@ -1,0 +1,150 @@
+import { createNativePersonalOrdaxStore } from "../../adapters/native/personal-ordax.mjs";
+import {
+  assertIntelligenceToolGrantIssuer,
+  assertIntelligenceToolGrantRegistry,
+} from "../../contracts/intelligence-tool-grant-authority.mjs";
+import { assertActionAdapter } from "../../contracts/action-executor.mjs";
+import { assertPersonalActionCatalog } from "../../contracts/personal-action-catalog.mjs";
+import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
+import { createPersonalOrdaxActionExecutor } from "../../services/personal-ordax/action-executor.mjs";
+import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
+import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
+import { createPersonalOrdaxRuntime } from "../../services/personal-ordax/runtime.mjs";
+
+export function createNativePersonalOrdaxComposition({
+  windowRef = globalThis.window,
+  identitySession,
+  spaceSelection = null,
+  projects = null,
+  intelligence,
+  toolResolver = () => null,
+  adapterResolver = () => null,
+  actionCatalog = null,
+  grantAuthority = null,
+} = {}) {
+  if (!windowRef || typeof windowRef !== "object") {
+    throw new TypeError("Native Personal OrdaX composition requires a window-like host");
+  }
+  if (typeof toolResolver !== "function") {
+    throw new TypeError("Native Personal OrdaX composition tool resolver must be a function");
+  }
+  if (typeof adapterResolver !== "function") {
+    throw new TypeError("Native Personal OrdaX composition adapter resolver must be a function");
+  }
+  const catalog = actionCatalog === null ? null : assertPersonalActionCatalog(actionCatalog);
+
+  const ownsGrantAuthority = grantAuthority === null;
+  const authority = grantAuthority ?? createIntelligenceToolGrantAuthority();
+  const registry = assertIntelligenceToolGrantRegistry(authority.registry);
+  assertIntelligenceToolGrantIssuer(authority.issuer);
+
+  const actionGateway = createPersonalOrdaxActionGateway({
+    toolResolver,
+    grantResolver: (grantId) => registry.resolve(grantId),
+  });
+  const actionExecutor = createPersonalOrdaxActionExecutor({
+    actionGateway,
+    adapterResolver,
+  });
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: identitySession,
+    spaceSelectionPort: spaceSelection,
+    projectCatalogPort: projects,
+    intelligencePort: intelligence,
+    actionGatewayPort: actionGateway,
+    revokeGrant: (grantId) => authority.issuer.revoke(grantId),
+    store: createNativePersonalOrdaxStore(windowRef),
+  });
+  for (const approval of runtime.getSnapshot().approvals) {
+    if (
+      approval.status === "approved"
+      && approval.grantRef !== null
+      && registry.resolve(approval.grantRef) === null
+    ) {
+      runtime.revokeApprovedAction(approval.workItemId, approval.id);
+    }
+  }
+
+  const approvalConsent = createPersonalApprovalConsent({
+    runtime,
+    grantIssuer: authority.issuer,
+    toolResolver,
+  });
+
+  return Object.freeze({
+    ...runtime,
+    approvalConsent,
+    listAvailableActions() {
+      return catalog === null ? Object.freeze([]) : catalog.list();
+    },
+    requestAvailableAction(workItemId, entryId, input) {
+      if (catalog === null) {
+        throw new Error("Personal OrdaX action catalog is unavailable");
+      }
+      return catalog.request(runtime, workItemId, entryId, input);
+    },
+    canExecuteApprovedAction(workItemId, approvalId) {
+      const snapshot = runtime.getSnapshot();
+      const work = snapshot.workItems.find((candidate) => candidate.id === workItemId);
+      const approval = snapshot.approvals.find((candidate) =>
+        candidate.id === approvalId && candidate.workItemId === workItemId
+      );
+      if (!work || work.state !== "queued" || !approval || approval.status !== "approved") {
+        return false;
+      }
+      if (
+        approval.grantRef !== null
+        && registry.resolve(approval.grantRef) === null
+      ) {
+        return false;
+      }
+      try {
+        const adapter = assertActionAdapter(
+          adapterResolver(approval.toolId, approval.actionId),
+        );
+        return adapter.toolId === approval.toolId
+          && adapter.artifactSha256 === approval.toolArtifactSha256
+          && adapter.actionId === approval.actionId
+          && adapter.effect === approval.effect;
+      } catch {
+        return false;
+      }
+    },
+    async executeApprovedAction(workItemId, approvalId) {
+      const execution = runtime.startActionExecution(workItemId, approvalId);
+      let receipt;
+      try {
+        receipt = await actionExecutor.execute(execution);
+      } catch (error) {
+        try {
+          runtime.failActionExecution(workItemId, approvalId);
+        } catch {
+          // Owner/context changes may already have paused the original partition.
+        }
+        throw error;
+      }
+      if (receipt.status !== "succeeded") {
+        try {
+          runtime.failActionExecution(workItemId, approvalId, receipt.summary);
+        } catch {
+          // Preserve the original receipt failure if the owner/context already changed.
+        }
+        throw new Error("Personal OrdaX action did not produce a succeeded receipt");
+      }
+      try {
+        return runtime.finishActionExecution(workItemId, approvalId, receipt);
+      } catch (error) {
+        try {
+          runtime.failActionExecution(workItemId, approvalId);
+        } catch {
+          // A switched owner cannot commit into the previous owner partition.
+        }
+        throw error;
+      }
+    },
+    dispose() {
+      runtime.dispose();
+      if (ownsGrantAuthority) authority.dispose();
+    },
+  });
+}

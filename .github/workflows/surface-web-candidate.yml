@@ -9,6 +9,7 @@ on:
       - 'docs/contracts/device-update-coverage.json'
       - 'docs/contracts/device-agent.json'
       - 'docs/contracts/mobile-companion.json'
+      - 'docs/contracts/personal-ordax.json'
       - 'system/contracts/diagnostic-journal-store.mjs'
       - 'system/contracts/diagnostic-export.mjs'
       - 'system/contracts/diagnostic-copy.mjs'
@@ -31,6 +32,15 @@ on:
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
+      - 'system/contracts/personal-ordax.mjs'
+      - 'system/contracts/personal-ordax-store.mjs'
+      - 'system/contracts/intelligence-tool-grant-authority.mjs'
+      - 'system/contracts/action-executor.mjs'
+      - 'system/contracts/personal-approval-consent.mjs'
+      - 'tests/test_personal_ordax_action_catalog.mjs'
+      - 'system/services/personal-ordax/action-catalog.mjs'
+      - 'system/contracts/personal-action-catalog.mjs'
+      - 'system/services/personal-ordax/action-executor.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -65,6 +75,8 @@ on:
       - 'system/services/components/**'
       - 'system/services/files/**'
       - 'system/services/projects/**'
+      - 'system/services/personal-ordax/**'
+      - 'system/services/intelligence/**'
       - 'system/services/preferences/**'
       - 'system/services/i18n/**'
       - 'system/services/sync/**'
@@ -159,6 +171,17 @@ on:
       - 'tests/test_update_service_ci_ownership.py'
       - 'tests/test_account_runtime.mjs'
       - 'tests/test_ecosystem_contracts.mjs'
+      - 'tests/test_personal_ordax_contracts.mjs'
+      - 'tests/test_personal_ordax_runtime.mjs'
+      - 'tests/test_personal_ordax_store_adapters.mjs'
+      - 'tests/test_personal_ordax_native_file_action.mjs'
+      - 'system/adapters/native/tool-artifact-identity.mjs'
+      - 'system/adapters/native/personal-ordax-file-actions.mjs'
+      - 'tests/test_intelligence_tool_grant_authority.mjs'
+      - 'tests/test_personal_ordax_approval_consent.mjs'
+      - 'tests/test_personal_ordax_action_executor.mjs'
+      - 'tests/test_personal_ordax_action_lifecycle.mjs'
+      - 'tests/test_personal_ordax_first_foreground_action.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -180,6 +203,7 @@ on:
       - 'docs/contracts/device-update-coverage.json'
       - 'docs/contracts/device-agent.json'
       - 'docs/contracts/mobile-companion.json'
+      - 'docs/contracts/personal-ordax.json'
       - 'system/contracts/diagnostic-journal-store.mjs'
       - 'system/contracts/diagnostic-export.mjs'
       - 'system/contracts/diagnostic-copy.mjs'
@@ -202,6 +226,15 @@ on:
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/memory.mjs'
+      - 'system/contracts/personal-ordax.mjs'
+      - 'system/contracts/personal-ordax-store.mjs'
+      - 'system/contracts/intelligence-tool-grant-authority.mjs'
+      - 'system/contracts/action-executor.mjs'
+      - 'system/contracts/personal-approval-consent.mjs'
+      - 'tests/test_personal_ordax_action_catalog.mjs'
+      - 'system/services/personal-ordax/action-catalog.mjs'
+      - 'system/contracts/personal-action-catalog.mjs'
+      - 'system/services/personal-ordax/action-executor.mjs'
       - 'system/contracts/model-router.mjs'
       - 'system/contracts/power-actions.mjs'
       - 'system/contracts/power-status.mjs'
@@ -236,6 +269,8 @@ on:
       - 'system/services/components/**'
       - 'system/services/files/**'
       - 'system/services/projects/**'
+      - 'system/services/personal-ordax/**'
+      - 'system/services/intelligence/**'
       - 'system/services/preferences/**'
       - 'system/services/i18n/**'
       - 'system/services/sync/**'
@@ -327,6 +362,17 @@ on:
       - 'tests/test_update_service_ci_ownership.py'
       - 'tests/test_account_runtime.mjs'
       - 'tests/test_ecosystem_contracts.mjs'
+      - 'tests/test_personal_ordax_contracts.mjs'
+      - 'tests/test_personal_ordax_runtime.mjs'
+      - 'tests/test_personal_ordax_store_adapters.mjs'
+      - 'tests/test_personal_ordax_native_file_action.mjs'
+      - 'system/adapters/native/tool-artifact-identity.mjs'
+      - 'system/adapters/native/personal-ordax-file-actions.mjs'
+      - 'tests/test_intelligence_tool_grant_authority.mjs'
+      - 'tests/test_personal_ordax_approval_consent.mjs'
+      - 'tests/test_personal_ordax_action_executor.mjs'
+      - 'tests/test_personal_ordax_action_lifecycle.mjs'
+      - 'tests/test_personal_ordax_first_foreground_action.mjs'
       - 'tests/test_network_status.mjs'
       - 'tests/test_network_management.mjs'
       - 'tests/test_network_management_runtime.mjs'
@@ -377,6 +423,8 @@ jobs:
             system/services/components \
             system/services/files \
             system/services/projects \
+            system/services/personal-ordax \
+            system/services/intelligence \
             system/services/preferences \
             system/services/i18n \
             system/services/sync \
@@ -438,6 +486,20 @@ jobs:
           node --test tests/test_account_runtime.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_ecosystem_contracts.mjs
+          node --test tests/test_personal_ordax_contracts.mjs
+          node --test tests/test_personal_ordax_runtime.mjs
+          node --test tests/test_personal_ordax_store_adapters.mjs
+          node --test tests/test_personal_ordax_native_composition.mjs
+          node --test tests/test_personal_ordax_native_file_action.mjs
+          node --test tests/test_personal_ordax_activity_surface.mjs
+          node --test tests/test_personal_ordax_action_gateway.mjs
+          node --test tests/test_personal_ordax_approvals.mjs
+          node --test tests/test_intelligence_tool_grant_authority.mjs
+          node --test tests/test_personal_ordax_approval_consent.mjs
+          node --test tests/test_personal_ordax_action_executor.mjs
+          node --test tests/test_personal_ordax_action_lifecycle.mjs
+          node --test tests/test_personal_ordax_action_catalog.mjs
+          node --test tests/test_personal_ordax_first_foreground_action.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
           node --test tests/test_network_management_runtime.mjs

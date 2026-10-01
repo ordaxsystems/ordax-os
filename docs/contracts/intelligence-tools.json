@@ -30,7 +30,22 @@
     "space_project_scope_may_be_required_by_action": true,
     "grant_expiry_supported": true,
     "unknown_action": "deny",
-    "unknown_grant": "deny"
+    "unknown_grant": "deny",
+    "owner_kinds": [
+      "device",
+      "account"
+    ],
+    "device_owner_id": null,
+    "account_owner_id_required": true,
+    "content_sources_may_mint_grants": false,
+    "forbidden_grant_sources": [
+      "prompt",
+      "model",
+      "profile",
+      "profile-pack",
+      "memory",
+      "project-content"
+    ]
   },
   "supply_chain": {
     "tool_artifact_manifest": "ordax.intelligence-artifact/1",
