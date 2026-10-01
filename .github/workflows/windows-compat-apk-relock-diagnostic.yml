@@ -41,7 +41,7 @@ jobs:
           assert value['gates']['full_build_proof_passed'] is False
           assert value['gates']['activation_authorized'] is False
           assert value['gates']['execution_authorized'] is False
-          value['resolved_closure']['canonical_json_sha256'] = '4597940033d5e70cd924974ee6a147da619042555eead2155bdd8c4209495c82'
+          value['resolved_closure']['canonical_json_sha256'] = '99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e'
           path.write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
           PY
 
@@ -63,7 +63,7 @@ jobs:
           import sys
 
           proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-          expected = '4597940033d5e70cd924974ee6a147da619042555eead2155bdd8c4209495c82'
+          expected = '99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e'
           assert proof['resolved_package_count'] == 342
           assert proof['resolved_closure_sha256'] == expected
           assert proof['offline_replay_closure_sha256'] == expected
@@ -76,14 +76,18 @@ jobs:
           manifest = proof['external_apk_manifest']
           assert manifest['libpng']['version'] == '1.6.59-r0'
           assert manifest['libpng-dev']['version'] == '1.6.59-r0'
+          for name in ('python3', 'python3-pyc', 'python3-pycache-pyc0', 'pyc'):
+              assert manifest[name]['version'] == '3.12.15-r0', (name, manifest[name])
           canonical = json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode('utf-8')
           summary = {
               'resolved_closure_sha256': expected,
               'external_apk_package_count': len(manifest),
               'external_apk_total_size_bytes': sum(item['size_bytes'] for item in manifest.values()),
               'external_apk_canonical_manifest_sha256': hashlib.sha256(canonical).hexdigest(),
-              'libpng': manifest['libpng'],
-              'libpng-dev': manifest['libpng-dev'],
+              'changed_inputs': {
+                  name: manifest[name]
+                  for name in ('libpng', 'libpng-dev', 'python3', 'python3-pyc', 'python3-pycache-pyc0', 'pyc')
+              },
           }
           (pathlib.Path(sys.argv[1]).parent / 'relock-summary.json').write_text(
               json.dumps(summary, indent=2, sort_keys=True) + '\n', encoding='utf-8'
