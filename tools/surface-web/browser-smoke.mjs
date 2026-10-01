@@ -28,7 +28,6 @@ const COMPONENT_ASSET_FILES = Object.freeze({
   'system/apps/internet/internet.css': 'text/css',
   'system/apps/notes/notes.css': 'text/css',
   'system/apps/projects/projects.css': 'text/css',
-  'system/apps/studio/studio.css': 'text/css',
 });
 
 function parseArgs(argv) {
