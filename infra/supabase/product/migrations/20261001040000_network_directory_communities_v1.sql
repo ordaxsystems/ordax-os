@@ -407,7 +407,7 @@ returns public.ordax_network_memberships
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $network$
 declare
   v_actor uuid;
   v_policy text;
@@ -466,7 +466,7 @@ begin
 
   return v_row;
 end;
-$;
+$network$;
 
 revoke all on function private.ordax_network_join_community_internal_v1(uuid, text)
 from public, anon;
@@ -498,7 +498,7 @@ returns public.ordax_network_memberships
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $network$
 declare
   v_actor uuid;
   v_row public.ordax_network_memberships;
@@ -535,7 +535,7 @@ begin
 
   return v_row;
 end;
-$;
+$network$;
 
 revoke all on function private.ordax_network_leave_community_internal_v1(uuid, text)
 from public, anon;
