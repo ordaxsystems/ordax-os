@@ -1,0 +1,48 @@
+#!/bin/sh
+set -eu
+
+BIN_DIR=${0%/*}
+RUNTIME_RESOLVER=$BIN_DIR/ordax-proof-runtime.sh
+SCRIPT=/srv/ordax-system/surface/runtime/physical_kernel_log_probe.py
+
+validate_arguments() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                shift
+                ;;
+            *)
+                echo "ordax-kernel-log-evidence: unsupported physical entrypoint argument: $1" >&2
+                return 2
+                ;;
+        esac
+    done
+}
+validate_arguments "$@" || exit $?
+
+[ -x /bin/busybox ] || {
+    echo "ordax-kernel-log-evidence: /bin/busybox unavailable" >&2
+    exit 2
+}
+[ -r "$RUNTIME_RESOLVER" ] || {
+    echo "ordax-kernel-log-evidence: runtime resolver unavailable: $RUNTIME_RESOLVER" >&2
+    exit 2
+}
+. "$RUNTIME_RESOLVER"
+resolve_ordax_proof_runtime_root || exit 2
+
+[ -x "$RUNTIME_ROOT/usr/bin/python3" ] || {
+    echo "ordax-kernel-log-evidence: active WebKit runtime Python unavailable: $RUNTIME_ROOT/usr/bin/python3" >&2
+    exit 2
+}
+[ -r "$RUNTIME_ROOT$SCRIPT" ] || {
+    echo "ordax-kernel-log-evidence: kernel log collector is not mounted in the active runtime; keep the Surface running and retry" >&2
+    exit 2
+}
+[ -d "$RUNTIME_ROOT/dev" ] && [ -c "$RUNTIME_ROOT/dev/kmsg" ] && [ -d "$RUNTIME_ROOT/srv/ordax-system" ] || {
+    echo "ordax-kernel-log-evidence: active Surface runtime /dev/kmsg/source bindings are unavailable" >&2
+    exit 2
+}
+
+echo "ordax-kernel-log-evidence: proof profile=$ORDAX_PROOF_PROFILE runtime=$RUNTIME_ROOT" >&2
+exec /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 "$SCRIPT" "$@"
