@@ -383,6 +383,10 @@
 .ordax-memory-review-create-button:focus-visible,
 .ordax-memory-review-content-label textarea:focus-visible,
 .ordax-memory-review-owner:focus-visible,
+.ordax-memory-review-export:focus-visible,
+.ordax-memory-review-clear:focus-visible,
+.ordax-memory-review-clear-confirm:focus-visible,
+.ordax-memory-review-clear-cancel:focus-visible,
 .ordax-memory-review-save:focus-visible,
 .ordax-memory-review-remove:focus-visible,
 .ordax-memory-review-remove-confirm:focus-visible,
@@ -401,6 +405,10 @@
 }
 
 .ordax-memory-review-owner,
+.ordax-memory-review-export,
+.ordax-memory-review-clear,
+.ordax-memory-review-clear-confirm,
+.ordax-memory-review-clear-cancel,
 .ordax-memory-review-create-button,
 .ordax-memory-review-save,
 .ordax-memory-review-remove,
@@ -425,26 +433,35 @@
 }
 
 .ordax-memory-review-remove,
-.ordax-memory-review-remove-confirm {
+.ordax-memory-review-remove-confirm,
+.ordax-memory-review-clear,
+.ordax-memory-review-clear-confirm {
   color: var(--ordax-danger);
 }
 
-.ordax-memory-review-remove-prompt {
+.ordax-memory-review-remove-prompt,
+.ordax-memory-review-clear-prompt {
   align-self: center;
   color: var(--ordax-danger);
   font-size: 0.7rem;
   font-weight: 620;
 }
 
-.ordax-memory-review-remove-confirm {
+.ordax-memory-review-remove-confirm,
+.ordax-memory-review-clear-confirm {
   border-color: var(--ordax-danger);
 }
 
-.ordax-memory-review-remove-cancel {
+.ordax-memory-review-remove-cancel,
+.ordax-memory-review-clear-cancel {
   color: var(--ordax-muted);
 }
 
 .ordax-memory-review-owner:disabled,
+.ordax-memory-review-export:disabled,
+.ordax-memory-review-clear:disabled,
+.ordax-memory-review-clear-confirm:disabled,
+.ordax-memory-review-clear-cancel:disabled,
 .ordax-memory-review-create-button:disabled,
 .ordax-memory-review-save:disabled,
 .ordax-memory-review-remove:disabled,
