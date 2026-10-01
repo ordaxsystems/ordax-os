@@ -77,6 +77,14 @@ class RecordingAuthority:
                 retry_after_seconds=30,
                 idempotency_key=kwargs["idempotency_key"],
             )
+        if self.outcome == "invalid":
+            return MutationOutcome(
+                outcome="invalid",
+                code="message-body-invalid",
+                resource_id=None,
+                retry_after_seconds=None,
+                idempotency_key=kwargs["idempotency_key"],
+            )
         return MutationOutcome(
             outcome="denied",
             code="message-send-denied",
@@ -217,7 +225,7 @@ class NetworkGatewayV2Tests(unittest.TestCase):
         self.assertEqual(authority.calls, [])
 
     def test_canonical_mutation_rejections_are_http_success_with_v2_outcome(self):
-        for outcome_name in ("applied", "idempotent", "rate_limited", "denied"):
+        for outcome_name in ("applied", "idempotent", "rate_limited", "denied", "invalid"):
             with self.subTest(outcome=outcome_name):
                 gateway = NetworkGatewayV2(
                     sessions=StaticSessions(),
@@ -267,6 +275,19 @@ class NetworkGatewayV2Tests(unittest.TestCase):
         self.assertEqual(response.status, 502)
         self.assertEqual(payload(response)["error"], "invalid-network-outcome")
         self.assertNotIn("TOP-SECRET", response.body.decode("utf-8"))
+
+    def test_machine_readable_contract_keeps_rollout_disabled(self):
+        contract = json.loads(
+            (ROOT / "docs" / "contracts" / "network-gateway-v2.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertFalse(contract["authority"]["default_enabled"])
+        self.assertFalse(contract["authority"]["supabase_adapter_implemented"])
+        self.assertFalse(contract["rollout"]["live_endpoint_enabled"])
+        self.assertFalse(contract["rollout"]["live_supabase_migration_applied"])
+        self.assertTrue(contract["rollout"]["requires_official_generated_migration"])
+        self.assertTrue(contract["authority"]["authenticated_user_context_required_for_future_supabase_adapter"])
 
     def test_provider_neutral_core_contains_no_supabase_or_privileged_key(self):
         source = MODULE.read_text(encoding="utf-8").lower()
