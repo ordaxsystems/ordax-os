@@ -1,4 +1,7 @@
+import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
+
 const EXTENSION_SELECTOR = '[data-app-extension="studio-workspace"]';
+const WORKSPACE_SELECTOR = '[data-studio-workspace="true"]';
 
 function text(state) {
   if (state === "ready") return "Device Agent pronto";
@@ -6,18 +9,7 @@ function text(state) {
   return "Runtime ainda não conectado";
 }
 
-export function mountStudioWorkspaceControls(
-  root,
-  status,
-  surfaceLifecycle = null,
-) {
-  const extension = root?.querySelector?.(EXTENSION_SELECTOR);
-  if (!extension) throw new TypeError("Studio workspace extension is missing");
-
-  const existing = extension.querySelector('[data-studio-workspace="true"]');
-  existing?.remove();
-
-  const documentObject = extension.ownerDocument;
+function buildWorkspace(documentObject, status) {
   const workspace = documentObject.createElement("div");
   workspace.dataset.studioWorkspace = "true";
   workspace.className = "ordax-studio-workspace";
@@ -41,17 +33,48 @@ export function mountStudioWorkspaceControls(
   security.className = "ordax-studio-security-note";
   security.textContent = "Descoberta somente-leitura. Autoridade de mutação: nenhuma.";
   workspace.append(security);
+  return workspace;
+}
 
-  extension.append(workspace);
-  surfaceLifecycle?.requestLayout?.();
-
+export function mountStudioWorkspaceControls(
+  root,
+  status,
+  surfaceLifecycle,
+) {
+  if (!root || typeof root.querySelector !== "function" || !root.ownerDocument) {
+    throw new TypeError("Studio workspace requires a Surface root");
+  }
+  const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
+  const documentObject = root.ownerDocument;
+  let mountedWorkspace = null;
   let destroyed = false;
+
+  const render = () => {
+    if (destroyed) return;
+    const extension = root.querySelector(EXTENSION_SELECTOR);
+    if (!extension) {
+      mountedWorkspace = null;
+      return;
+    }
+    const existing = extension.querySelector(WORKSPACE_SELECTOR);
+    if (existing) {
+      mountedWorkspace = existing;
+      return;
+    }
+    mountedWorkspace = buildWorkspace(documentObject, status);
+    extension.append(mountedWorkspace);
+  };
+
+  const unsubscribeRender = lifecycle.subscribeRender(() => render());
+  render();
+
   return Object.freeze({
     destroy() {
       if (destroyed) return;
       destroyed = true;
-      workspace.remove();
-      surfaceLifecycle?.requestLayout?.();
+      unsubscribeRender();
+      mountedWorkspace?.remove();
+      mountedWorkspace = null;
     },
   });
 }
