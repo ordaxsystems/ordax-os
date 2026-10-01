@@ -57,7 +57,7 @@ function tool() {
   };
 }
 
-function grant(approvalId) {
+function grant(approvalId, overrides = {}) {
   return {
     grantId: "grant-1",
     workItemId: "personal-work-1",
@@ -74,6 +74,7 @@ function grant(approvalId) {
     projectId: null,
     resourceRef: "file-space:/Documentos/Novo",
     expiresAt: "2026-10-01T00:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -108,6 +109,7 @@ function setup() {
     work,
     approval,
     decision,
+    grants,
     nextTime() {
       now += 1000;
       return new Date(now).toISOString();
@@ -133,6 +135,65 @@ function receipt(workId, approvalId, executedAt, overrides = {}) {
   };
 }
 
+test("policy-authorized read attempt completes without a fabricated grant", () => {
+  let now = Date.parse("2026-09-30T22:30:00.000Z");
+  let revokeCalls = 0;
+  const gateway = createPersonalOrdaxActionGateway({
+    toolResolver: () => null,
+    grantResolver: () => null,
+    readPolicy: () => true,
+    now: () => now,
+  });
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: identity(),
+    spaceSelectionPort: spaces(),
+    actionGatewayPort: gateway,
+    revokeGrant() {
+      revokeCalls += 1;
+      throw new Error("policy read must not revoke a fabricated grant");
+    },
+    now: () => now++,
+  });
+  const work = runtime.create("Ler metadados autorizados", { spaceId: "space-a" });
+  const approval = runtime.requestApproval(work.id, {
+    actionId: "files.metadata.read",
+    toolId: "ordax-native-file-space",
+    toolArtifactSha256: "c".repeat(64),
+    effect: "read",
+    resourceRef: null,
+    reason: "Leitura autorizada por policy.",
+  });
+  const decision = runtime.resolveApproval(work.id, approval.id);
+  assert.equal(decision.decision, "allow");
+  assert.equal(decision.grantRef, null);
+
+  runtime.startActionExecution(work.id, approval.id);
+  const executedAt = new Date(now + 1000).toISOString();
+  runtime.finishActionExecution(work.id, approval.id, {
+    workItemId: work.id,
+    approvalId: approval.id,
+    toolId: "ordax-native-file-space",
+    toolArtifactSha256: "c".repeat(64),
+    actionId: "files.metadata.read",
+    effect: "read",
+    resourceRef: null,
+    grantRef: null,
+    status: "succeeded",
+    summary: "Leitura concluída.",
+    artifactRefs: [],
+    executedAt,
+  });
+
+  const snapshot = runtime.getSnapshot();
+  assert.equal(revokeCalls, 0);
+  assert.equal(snapshot.approvals[0].status, "executed");
+  assert.equal(snapshot.approvals[0].grantRef, null);
+  assert.equal(snapshot.attempts[0].status, "succeeded");
+  assert.equal(snapshot.attempts[0].grantRef, null);
+  assert.equal(snapshot.attempts[0].resourceRef, null);
+  runtime.dispose();
+});
+
 test("foreground action lifecycle atomically consumes approval after verified receipt", () => {
   const { runtime, work, approval, nextTime } = setup();
   const execution = runtime.startActionExecution(work.id, approval.id);
@@ -141,6 +202,9 @@ test("foreground action lifecycle atomically consumes approval after verified re
   assert.equal(snapshot.workItems[0].state, "running");
   assert.equal(snapshot.approvals[0].status, "approved");
   assert.equal(snapshot.activities.at(-1).type, "action-started");
+  assert.equal(snapshot.attempts.length, 1);
+  assert.equal(snapshot.attempts[0].status, "started");
+  assert.equal(snapshot.attempts[0].approvalId, approval.id);
   assert.equal(execution.request.resourceRef, "file-space:/Documentos/Novo");
 
   const actionReceipt = receipt(work.id, approval.id, nextTime());
@@ -153,6 +217,8 @@ test("foreground action lifecycle atomically consumes approval after verified re
   assert.equal(snapshot.activities.at(-1).type, "action-finished");
   assert.equal(snapshot.activities.at(-1).approvalId, approval.id);
   assert.deepEqual(snapshot.activities.at(-1).artifactRefs, ["file-space:/Documentos/Novo"]);
+  assert.equal(snapshot.attempts[0].status, "succeeded");
+  assert.equal(snapshot.attempts[0].finishedAt, actionReceipt.executedAt);
 
   assert.throws(
     () => runtime.startActionExecution(work.id, approval.id),
@@ -186,6 +252,37 @@ test("same bounded action type can be requested again through a new approval ide
   assert.equal(snapshot.approvals[0].status, "executed");
   assert.equal(snapshot.approvals[1].status, "pending");
   assert.equal(snapshot.workItems[0].pendingApprovalId, second.id);
+  runtime.dispose();
+});
+
+test("repeated action type executes against the exact second approval decision", () => {
+  const { runtime, work, approval, grants, nextTime } = setup();
+  runtime.startActionExecution(work.id, approval.id);
+  runtime.finishActionExecution(
+    work.id,
+    approval.id,
+    receipt(work.id, approval.id, nextTime()),
+  );
+
+  const second = runtime.requestApproval(work.id, {
+    actionId: "files.directory.ensure",
+    toolId: "ordax-native-file-space",
+    toolArtifactSha256: "c".repeat(64),
+    effect: "write",
+    resourceRef: "file-space:/Documentos/Outro",
+    reason: "Garantir outro diretório com decisão própria.",
+  });
+  grants.set("grant-2", grant(second.id, {
+    grantId: "grant-2",
+    resourceRef: "file-space:/Documentos/Outro",
+  }));
+  runtime.resolveApproval(work.id, second.id, { grantRef: "grant-2" });
+
+  const execution = runtime.startActionExecution(work.id, second.id);
+  assert.equal(execution.request.approvalId, second.id);
+  assert.equal(execution.request.resourceRef, "file-space:/Documentos/Outro");
+  assert.equal(execution.decision.approvalId, second.id);
+  assert.equal(execution.decision.grantRef, "grant-2");
   runtime.dispose();
 });
 
@@ -234,11 +331,14 @@ test("failed foreground action pauses without consuming approval so idempotent r
   assert.equal(snapshot.approvals[0].status, "approved");
   assert.equal(snapshot.approvals[0].executedAt, null);
   assert.equal(snapshot.activities.at(-1).type, "action-finished");
+  assert.equal(snapshot.attempts[0].status, "failed");
 
   runtime.resume(work.id);
   const execution = runtime.startActionExecution(work.id, approval.id);
   snapshot = runtime.getSnapshot();
   assert.equal(snapshot.workItems[0].state, "running");
   assert.equal(execution.request.approvalId, approval.id);
+  assert.equal(snapshot.attempts.length, 2);
+  assert.equal(snapshot.attempts[1].status, "started");
   runtime.dispose();
 });

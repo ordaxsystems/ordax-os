@@ -1,6 +1,7 @@
 import {
   validatePersonalActivityEvent,
   validatePersonalActionDecision,
+  validatePersonalActionAttempt,
   validatePersonalApproval,
   validatePersonalWorkItem,
   validatePersonalWorkResult,
@@ -14,6 +15,7 @@ export const MAX_PERSONAL_ACTIVITY_EVENTS = 512;
 export const MAX_PERSONAL_WORK_RESULTS = 32;
 export const MAX_PERSONAL_APPROVALS = 64;
 export const MAX_PERSONAL_ACTION_DECISIONS = 64;
+export const MAX_PERSONAL_ACTION_ATTEMPTS = 128;
 export const MAX_PERSONAL_ORDAX_STORE_BYTES = 4 * 1024 * 1024;
 
 const encoder = new TextEncoder();
@@ -72,6 +74,7 @@ export function createEmptyPersonalOrdaxStoreState(ownerValue) {
     results: Object.freeze([]),
     approvals: Object.freeze([]),
     decisions: Object.freeze([]),
+    attempts: Object.freeze([]),
   });
 }
 
@@ -106,6 +109,10 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
   const rawDecisions = value.decisions ?? [];
   if (!Array.isArray(rawDecisions) || rawDecisions.length > MAX_PERSONAL_ACTION_DECISIONS) {
     throw new TypeError("Personal OrdaX action decisions exceed their per-owner bound");
+  }
+  const rawAttempts = value.attempts ?? [];
+  if (!Array.isArray(rawAttempts) || rawAttempts.length > MAX_PERSONAL_ACTION_ATTEMPTS) {
+    throw new TypeError("Personal OrdaX action attempts exceed their per-owner bound");
   }
 
   const workItems = Object.freeze(value.workItems.map(validatePersonalWorkItem));
@@ -311,6 +318,87 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     }
   }
 
+  const attempts = Object.freeze(rawAttempts.map(validatePersonalActionAttempt));
+  const attemptIds = new Set();
+  const activeAttemptByApproval = new Set();
+  const succeededAttemptByApproval = new Set();
+  for (const attempt of attempts) {
+    if (attemptIds.has(attempt.id)) {
+      throw new TypeError("Personal OrdaX action attempt ids must be unique inside an owner partition");
+    }
+    attemptIds.add(attempt.id);
+    const work = workById.get(attempt.workItemId);
+    const approval = approvalById.get(attempt.approvalId);
+    const decision = decisionByApproval.get(attempt.approvalId);
+    if (
+      !work
+      || !approval
+      || approval.workItemId !== attempt.workItemId
+      || approval.actionId !== attempt.actionId
+      || approval.toolId !== attempt.toolId
+      || approval.toolArtifactSha256 !== attempt.toolArtifactSha256
+      || approval.effect !== attempt.effect
+      || approval.resourceRef !== attempt.resourceRef
+      || approval.grantRef !== attempt.grantRef
+      || !decision
+      || decision.decision !== "allow"
+      || decision.grantRef !== attempt.grantRef
+    ) {
+      throw new TypeError("Personal OrdaX action attempt does not match retained authority");
+    }
+    if (Date.parse(attempt.startedAt) < Date.parse(approval.resolvedAt)) {
+      throw new TypeError("Personal OrdaX action attempt cannot precede approval resolution");
+    }
+    const started = activities.filter((event) =>
+      event.workItemId === attempt.workItemId
+      && event.approvalId === attempt.approvalId
+      && event.actionId === attempt.actionId
+      && event.type === "action-started"
+      && Date.parse(event.occurredAt) === Date.parse(attempt.startedAt)
+    );
+    if (started.length !== 1) {
+      throw new TypeError("Personal OrdaX action attempt requires one matching start Activity");
+    }
+    if (attempt.status === "started") {
+      if (activeAttemptByApproval.has(attempt.approvalId)) {
+        throw new TypeError("Personal OrdaX approval cannot have multiple active attempts");
+      }
+      if (approval.status !== "approved" || work.state !== "running") {
+        throw new TypeError("started Personal OrdaX action attempt requires running approved Work");
+      }
+      activeAttemptByApproval.add(attempt.approvalId);
+      continue;
+    }
+    const finished = activities.filter((event) =>
+      event.workItemId === attempt.workItemId
+      && event.approvalId === attempt.approvalId
+      && event.actionId === attempt.actionId
+      && event.type === "action-finished"
+      && Date.parse(event.occurredAt) === Date.parse(attempt.finishedAt)
+    );
+    if (finished.length !== 1) {
+      throw new TypeError("terminal Personal OrdaX action attempt requires one matching finish Activity");
+    }
+    if (attempt.status === "succeeded") {
+      if (succeededAttemptByApproval.has(attempt.approvalId)) {
+        throw new TypeError("Personal OrdaX approval cannot have multiple succeeded attempts");
+      }
+      if (
+        approval.status !== "executed"
+        || Date.parse(approval.executedAt) !== Date.parse(attempt.finishedAt)
+      ) {
+        throw new TypeError("succeeded Personal OrdaX action attempt must consume its approval");
+      }
+      succeededAttemptByApproval.add(attempt.approvalId);
+    } else if (
+      attempt.status === "uncertain"
+      && attempt.grantRef !== null
+      && approval.status !== "revoked"
+    ) {
+      throw new TypeError("uncertain granted Personal OrdaX action attempt requires revoked authority");
+    }
+  }
+
   const resultByRef = new Map(results.map((result) => [`result:${result.id}`, result]));
   const resultReferenceCounts = new Map(results.map((result) => [result.id, 0]));
   for (const event of activities) {
@@ -342,6 +430,7 @@ export function validatePersonalOrdaxStoreState(value, expectedOwnerValue = null
     results,
     approvals,
     decisions,
+    attempts,
   });
   if (encoder.encode(JSON.stringify(snapshot)).byteLength > MAX_PERSONAL_ORDAX_STORE_BYTES) {
     throw new TypeError("Personal OrdaX owner partition exceeds its serialized byte limit");
@@ -384,6 +473,7 @@ export function validatePersonalOrdaxRuntimeSnapshot(value) {
     results: value.results,
     approvals: value.approvals,
     decisions: value.decisions,
+    attempts: value.attempts,
   });
   return Object.freeze({
     schema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
@@ -396,5 +486,6 @@ export function validatePersonalOrdaxRuntimeSnapshot(value) {
     results: state.results,
     approvals: state.approvals,
     decisions: state.decisions,
+    attempts: state.attempts,
   });
 }

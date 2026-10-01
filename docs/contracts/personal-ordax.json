@@ -216,7 +216,9 @@
     "action_catalog_entries": [
       "native-file.ensure-directory"
     ],
-    "model_generated_action_proposals_enabled": false
+    "model_generated_action_proposals_enabled": false,
+    "automatic_side_effect_retry": false,
+    "non_idempotent_file_mutations_enabled": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
@@ -225,5 +227,18 @@
     "phase_4": "hybrid local/cloud execution selected by capability, privacy, cost and availability",
     "new_execution_modes_must_reuse_same_contracts": true,
     "new_agents_must_not_create_parallel_memory_or_permission_systems": true
+  },
+  "action_execution": {
+    "attempt_schema": "ordax.personal-action-attempt/1",
+    "durable_attempt_journal": true,
+    "attempt_persisted_before_adapter_entry": true,
+    "exact_decision_approval_binding": true,
+    "pre_side_effect_failure_retryable_with_same_approval": true,
+    "adapter_entered_failure_outcome": "uncertain",
+    "interrupted_started_attempt_restore_outcome": "uncertain",
+    "uncertain_attempt_revokes_grant": true,
+    "uncertain_attempt_pauses_work": true,
+    "automatic_uncertain_replay": false,
+    "max_attempts_per_owner": 128
   }
 }

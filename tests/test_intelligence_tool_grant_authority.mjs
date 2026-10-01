@@ -131,6 +131,7 @@ test("typed Action Executor boundary rejects non-allow and mismatched decisions"
   };
   const decision = {
     workItemId: "personal-work-1",
+    approvalId: "personal-approval-personal-work-1-1",
     actionId: "files.document.write",
     effect: "write",
     decision: "allow",

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { ACTION_ADAPTER_SCHEMA } from "../system/contracts/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../system/services/personal-ordax/action-gateway.mjs";
-import { createPersonalOrdaxActionExecutor } from "../system/services/personal-ordax/action-executor.mjs";
+import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../system/services/personal-ordax/action-executor.mjs";
 
 const NOW = Date.parse("2026-09-30T22:30:00.000Z");
 
@@ -115,6 +115,51 @@ test("Action Executor revalidates authority immediately before invoking typed ad
   assert.deepEqual(receipt.artifactRefs, ["file-space:/Documentos/Novo"]);
 });
 
+test("policy-authorized read executes without inventing resource or grant references", async () => {
+  const gateway = createPersonalOrdaxActionGateway({
+    toolResolver: () => null,
+    grantResolver: () => null,
+    readPolicy: () => true,
+    now: () => NOW,
+  });
+  const actionRequest = request({
+    actionId: "files.document.read",
+    effect: "read",
+    resourceRef: null,
+  });
+  const decision = gateway.decide(actionRequest);
+  assert.equal(decision.decision, "allow");
+  assert.equal(decision.authoritySource, "system-policy");
+  assert.equal(decision.grantRef, null);
+
+  const executor = createPersonalOrdaxActionExecutor({
+    actionGateway: gateway,
+    adapterResolver() {
+      return {
+        schema: ACTION_ADAPTER_SCHEMA,
+        toolId: "files-inspector",
+        artifactSha256: "a".repeat(64),
+        actionId: "files.document.read",
+        effect: "read",
+        async execute() {
+          return {
+            status: "succeeded",
+            summary: "Read completed under trusted policy.",
+            artifactRefs: [],
+          };
+        },
+      };
+    },
+    now: () => NOW,
+  });
+
+  const receipt = await executor.execute({ request: actionRequest, decision });
+  assert.equal(receipt.status, "succeeded");
+  assert.equal(receipt.effect, "read");
+  assert.equal(receipt.resourceRef, null);
+  assert.equal(receipt.grantRef, null);
+});
+
 test("revoked grant fails closed before adapter side effect", async () => {
   const { grants, gateway } = setup();
   const actionRequest = request();
@@ -141,9 +186,75 @@ test("revoked grant fails closed before adapter side effect", async () => {
 
   await assert.rejects(
     () => executor.execute({ request: actionRequest, decision }),
-    /no longer valid/,
+    (error) => {
+      assert.ok(error instanceof PersonalActionExecutionError);
+      assert.equal(error.phase, "pre-side-effect");
+      assert.match(error.message, /no longer valid/);
+      return true;
+    },
   );
   assert.equal(calls, 0);
+});
+
+test("decision from another approval is rejected before adapter resolution", async () => {
+  const { gateway } = setup();
+  const approvedRequest = request();
+  const decision = gateway.decide(approvedRequest, { grantRef: "grant-1" });
+  let resolved = false;
+  const executor = createPersonalOrdaxActionExecutor({
+    actionGateway: gateway,
+    adapterResolver() {
+      resolved = true;
+      throw new Error("must not resolve adapter");
+    },
+    now: () => NOW,
+  });
+
+  await assert.rejects(
+    () => executor.execute({
+      request: request({ approvalId: "personal-approval-personal-work-1-2" }),
+      decision,
+    }),
+    (error) => {
+      assert.ok(error instanceof PersonalActionExecutionError);
+      assert.equal(error.phase, "pre-side-effect");
+      assert.match(error.message, /does not match/);
+      return true;
+    },
+  );
+  assert.equal(resolved, false);
+});
+
+test("adapter-entered exception is explicitly classified as uncertain", async () => {
+  const { gateway } = setup();
+  const actionRequest = request();
+  const decision = gateway.decide(actionRequest, { grantRef: "grant-1" });
+  const executor = createPersonalOrdaxActionExecutor({
+    actionGateway: gateway,
+    adapterResolver() {
+      return {
+        schema: ACTION_ADAPTER_SCHEMA,
+        toolId: "files-inspector",
+        artifactSha256: "a".repeat(64),
+        actionId: "files.directory.create",
+        effect: "write",
+        async execute() {
+          throw new Error("adapter crashed after entry");
+        },
+      };
+    },
+    now: () => NOW,
+  });
+
+  await assert.rejects(
+    () => executor.execute({ request: actionRequest, decision }),
+    (error) => {
+      assert.ok(error instanceof PersonalActionExecutionError);
+      assert.equal(error.phase, "adapter-entered");
+      assert.match(error.message, /adapter crashed after entry/);
+      return true;
+    },
+  );
 });
 
 test("resource substitution is denied before adapter resolution", async () => {

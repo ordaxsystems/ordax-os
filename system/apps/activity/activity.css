@@ -197,6 +197,12 @@
   cursor: not-allowed;
 }
 
+
+.ordax-activity-attempt-uncertain {
+  border-color: color-mix(in srgb, var(--ordax-danger) 42%, var(--ordax-border));
+  background: color-mix(in srgb, var(--ordax-danger) 6%, transparent);
+}
+
 @media (max-width: 760px) {
   .ordax-activity-header,
   .ordax-activity-work-top {

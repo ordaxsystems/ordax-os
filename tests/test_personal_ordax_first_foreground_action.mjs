@@ -122,6 +122,67 @@ test("explicit approval executes the verified Native file action and consumes au
   runtime.dispose();
 });
 
+test("Native restore turns a persisted started attempt into uncertain without retrying the side effect", async () => {
+  const files = fileSpace();
+  const actions = await createNativePersonalOrdaxFileActions({
+    windowRef: {},
+    fileSpace: files.port,
+    artifactIdentity: async () => "c".repeat(64),
+  });
+  const actionCatalog = createPersonalActionCatalog({
+    registrations: actions.actionRegistrations,
+  });
+  const storage = memoryStorage();
+  const windowRef = { localStorage: storage };
+
+  const first = createNativePersonalOrdaxComposition({
+    windowRef,
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+  });
+  const work = first.create("Garantir pasta com crash simulado");
+  const approval = first.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Crash" },
+  );
+  first.approvalConsent.approve(work.id, approval.id);
+  first.startActionExecution(work.id, approval.id);
+  let snapshot = first.getSnapshot();
+  assert.equal(snapshot.workItems[0].state, "running");
+  assert.equal(snapshot.attempts[0].status, "started");
+  assert.deepEqual(files.calls, []);
+  first.dispose();
+
+  const restored = createNativePersonalOrdaxComposition({
+    windowRef,
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+  });
+  snapshot = restored.getSnapshot();
+  assert.equal(snapshot.workItems[0].state, "paused");
+  assert.equal(snapshot.approvals[0].status, "revoked");
+  assert.equal(snapshot.attempts[0].status, "uncertain");
+  assert.match(snapshot.attempts[0].summary, /uncertain/i);
+  assert.deepEqual(files.calls, []);
+  assert.equal(restored.canExecuteApprovedAction(work.id, approval.id), false);
+
+  const replacement = restored.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Crash" },
+  );
+  assert.notEqual(replacement.id, approval.id);
+  assert.equal(restored.getSnapshot().approvals.at(-1).status, "pending");
+  restored.dispose();
+});
+
 test("Native restore revokes persisted approvals whose session grant no longer exists", async () => {
   const files = fileSpace();
   const actions = await createNativePersonalOrdaxFileActions({
@@ -176,6 +237,53 @@ test("Native restore revokes persisted approvals whose session grant no longer e
   assert.equal(snapshot.approvals.at(-1).status, "pending");
 
   restored.dispose();
+});
+
+test("adapter-entered failure revokes authority and retains an uncertain attempt", async () => {
+  const files = fileSpace();
+  const failingPort = {
+    ...files.port,
+    async createDirectory(path, name) {
+      files.calls.push({ path, name });
+      throw new Error("simulated adapter failure after entry");
+    },
+  };
+  const actions = await createNativePersonalOrdaxFileActions({
+    windowRef: {},
+    fileSpace: failingPort,
+    artifactIdentity: async () => "c".repeat(64),
+  });
+  const actionCatalog = createPersonalActionCatalog({
+    registrations: actions.actionRegistrations,
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identitySession(),
+    intelligence: null,
+    toolResolver: actions.toolResolver,
+    adapterResolver: actions.adapterResolver,
+    actionCatalog,
+  });
+  const work = runtime.create("Garantir pasta com falha incerta");
+  const approval = runtime.requestAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    { resourceValue: "/Documentos/Incerto" },
+  );
+  runtime.approvalConsent.approve(work.id, approval.id);
+
+  await assert.rejects(
+    () => runtime.executeApprovedAction(work.id, approval.id),
+    /uncertain after entering the typed adapter/,
+  );
+  const snapshot = runtime.getSnapshot();
+  assert.deepEqual(files.calls, [{ path: "/Documentos", name: "Incerto" }]);
+  assert.equal(snapshot.workItems[0].state, "paused");
+  assert.equal(snapshot.approvals[0].status, "revoked");
+  assert.equal(snapshot.attempts[0].status, "uncertain");
+  assert.equal(runtime.canExecuteApprovedAction(work.id, approval.id), false);
+
+  runtime.dispose();
 });
 
 test("missing or substituted adapter cannot execute an approved action", async () => {
