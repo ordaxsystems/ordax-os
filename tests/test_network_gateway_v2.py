@@ -303,6 +303,30 @@ class NetworkGatewayV2Tests(unittest.TestCase):
         self.assertFalse(state["live_network_endpoint"])
         self.assertFalse(state["production_rollout"])
 
+        coverage = foundation["mutation_v2_proof_coverage"]
+        self.assertEqual(
+            coverage["proven_ephemeral_postgresql"],
+            [
+                "group-create",
+                "group-join",
+                "direct-create",
+                "message-send",
+                "block-change",
+                "report-create",
+            ],
+        )
+        self.assertEqual(
+            coverage["remaining_mutations"],
+            [
+                "space-profile-upsert",
+                "community-join",
+                "community-leave",
+                "group-leave",
+                "conversation-mark-read",
+            ],
+        )
+        self.assertFalse(coverage["live_migration_generated"])
+
     def test_provider_neutral_core_contains_no_supabase_or_privileged_key(self):
         source = MODULE.read_text(encoding="utf-8").lower()
         self.assertNotIn("supabase", source)
