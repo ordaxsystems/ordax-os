@@ -1,8 +1,8 @@
 \set ON_ERROR_STOP on
 
--- Bootstrap the exact current Network schema and prove v1 first.
-\ir test_network_multitenant_hardening.sql
-
+-- The workflow executes test_network_multitenant_hardening.sql immediately
+-- before this file. That proof leaves the canonical schema/migrations in place
+-- but rolls back all fixture data, so v2 starts from a clean proven schema.
 begin;
 
 -- Prototype only: this function is intentionally created inside the proof
