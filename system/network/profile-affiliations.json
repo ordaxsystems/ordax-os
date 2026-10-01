@@ -1,0 +1,30 @@
+{
+  "$schema": "ordax.network-profile-affiliations/1",
+  "status": "mvp-catalog",
+  "rules": {
+    "recommendation_only": true,
+    "auto_join": false,
+    "auto_publish_space": false,
+    "membership_server_authoritative": true
+  },
+  "profiles": {
+    "pizzaria-br@1": {
+      "directory_categories": [
+        "food-service",
+        "pizzeria"
+      ],
+      "recommended_communities": [
+        "industry.food.pizzeria.br"
+      ]
+    }
+  },
+  "communities": {
+    "industry.food.pizzeria.br": {
+      "title": "Pizzarias Brasil",
+      "kind": "professional-industry",
+      "jurisdiction": "BR",
+      "visibility": "discoverable",
+      "join_policy": "explicit-consent"
+    }
+  }
+}
