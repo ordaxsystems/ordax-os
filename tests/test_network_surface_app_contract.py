@@ -68,7 +68,8 @@ class NetworkSurfaceAppContractTests(unittest.TestCase):
         self.assertIn("draft.senderSpaceId === currentSpace.id", draft)
         self.assertIn("if (previousSubject !== nextSubject)", draft)
         self.assertIn("draft = null;", draft)
-        self.assertNotIn("selectionSnapshot.selectedSpace.id,", draft.split("retargetToCurrentSpace()", 1)[0])
+        selection_subscription = draft.split("const unsubscribeSelection", 1)[1].split("const port", 1)[0]
+        self.assertNotIn("draft =", selection_subscription)
 
     def test_surface_ci_executes_network_app_regressions(self):
         workflow = self.text(WORKFLOW)
