@@ -72,8 +72,7 @@ jobs:
       - name: Execute message-send v2 outcome proof
         run: |
           set -euo pipefail
-          createdb network_message_v2
-          PGDATABASE=network_message_v2 psql -v ON_ERROR_STOP=1 -f tests/sql/test_network_message_send_v2_prototype.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_network_message_send_v2_prototype.sql
 
       - name: Guard message-send v2 proof contract
         run: |
