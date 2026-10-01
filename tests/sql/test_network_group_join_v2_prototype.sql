@@ -516,6 +516,72 @@ create temporary table group_join_v2_proof_state (
 );
 grant select, insert, update on group_join_v2_proof_state to authenticated;
 
+-- Runtime group creation intentionally rejects invite-only until the invite
+-- flow exists. Seed one schema-valid, internally consistent invite-only group
+-- as a proof fixture so group-join v2 can demonstrate that self-service join
+-- remains denied without weakening the product RPC.
+insert into public.ordax_network_groups(
+  group_id,
+  community_id,
+  owner_space_id,
+  title,
+  description,
+  join_policy,
+  state,
+  created_by
+) values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1',
+  'industry.education.school.br',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+  'Diretores convidados',
+  'Grupo fechado',
+  'invite-only',
+  'active',
+  '11111111-1111-4111-8111-111111111111'
+);
+
+insert into public.ordax_network_group_memberships(
+  group_id,
+  space_id,
+  role,
+  state,
+  joined_by
+) values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+  'owner',
+  'active',
+  '11111111-1111-4111-8111-111111111111'
+);
+
+insert into public.ordax_network_conversations(
+  conversation_id,
+  kind,
+  group_id,
+  state
+) values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee2',
+  'group',
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1',
+  'active'
+);
+
+insert into public.ordax_network_conversation_members(
+  conversation_id,
+  space_id,
+  state
+) values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee2',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+  'active'
+);
+
+insert into group_join_v2_proof_state(key, value)
+values (
+  'invite-group',
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1'
+);
+
 set local role authenticated;
 
 select set_config(
@@ -538,17 +604,6 @@ select
     'Gestores de escolas',
     'Troca profissional',
     'members'
-  );
-
-insert into group_join_v2_proof_state(key, value)
-select
-  'invite-group',
-  public.ordax_network_create_group_v1(
-    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
-    'industry.education.school.br',
-    'Diretores convidados',
-    'Grupo fechado',
-    'invite-only'
   );
 
 insert into group_join_v2_proof_state(key, value)
