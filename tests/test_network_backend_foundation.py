@@ -36,10 +36,16 @@ class NetworkBackendFoundationTests(unittest.TestCase):
         self.assertIn("private.ordax_network_assert_space_actor_v1", self.sql)
         self.assertIn("select auth.uid()", self.sql)
         self.assertIn("s.state = 'active'", self.sql)
+        self.assertIn("s.kind = 'professional'", self.sql)
         self.assertIn("m.state = 'active'", self.sql)
         self.assertIn("p_require_admin", self.sql)
         self.assertIn("security definer", self.sql)
         self.assertIn("set search_path = ''", self.sql)
+
+    def test_membership_retries_are_idempotent(self):
+        self.assertIn("if v_row.state = 'active' then", self.sql)
+        self.assertIn("if v_row.state = 'left' then", self.sql)
+        self.assertIn("for update", self.sql)
 
     def test_no_auto_join_or_auto_publication_path_is_seeded(self):
         self.assertIn("p_visibility text default 'hidden'", self.sql)
