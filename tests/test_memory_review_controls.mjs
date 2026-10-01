@@ -19,6 +19,9 @@ for (const marker of [
   'dataset.memoryReviewRemove',
   'dataset.memoryReviewPage',
   'dataset.memoryReviewExport',
+  'dataset.memoryReviewClear',
+  'dataset.memoryReviewClearConfirm',
+  'dataset.memoryReviewClearCancel',
   'article.dataset.sensitivity = item.sensitivity',
   '${item.kind} · ${item.scope} · ${item.sensitivity} · ${item.provenance}',
   'viewModel.setQuery(target.value)',
@@ -32,6 +35,7 @@ for (const marker of [
   'viewModel.nextPage()',
   'viewModel.update(id, { content: textarea.value })',
   'viewModel.remove(id)',
+  'viewModel.clearAll()',
   'viewModel.subscribe(render)',
   'unsubscribe()',
 ]) {
