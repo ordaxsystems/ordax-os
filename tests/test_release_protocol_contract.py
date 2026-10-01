@@ -198,6 +198,19 @@ class ReleaseProtocolContractTests(unittest.TestCase):
         self.assertIn('filepath.Join(root, "ai-runtimes", "sha256"', acquisition)
         self.assertIn("local-ai-runtime.sha256", acquisition)
 
+        verify_existing = acquisition.split(
+            "func verifyExistingPortableV4Release(", 1
+        )[1].split("\n}", 1)[0]
+        verify_exact = acquisition.split(
+            "func verifyPortableV4Exact(", 1
+        )[1].split("\n}", 1)[0]
+        self.assertEqual(verify_existing.count("verifyRuntimeStoreFile("), 1)
+        self.assertEqual(verify_existing.count("verifyAIRuntimeStoreFile("), 1)
+        self.assertNotIn("verifyRuntimeStoreFile(", verify_exact)
+        self.assertNotIn("verifyAIRuntimeStoreFile(", verify_exact)
+        self.assertIn('"runtimes",', verify_exact)
+        self.assertIn('"ai-runtimes",', verify_exact)
+
     def test_trust_transition_v1_is_separate_fail_closed_protocol(self):
         contract = self.load_contract()["trust_transition_v1"]
         self.assertEqual(
