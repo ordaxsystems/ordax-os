@@ -66,6 +66,8 @@ create table private.ordax_network_membership_audit (
 
 create index ordax_network_space_profiles_discovery_idx
   on public.ordax_network_space_profiles(visibility, public_name, space_id);
+create index ordax_network_space_profiles_discovery_lower_name_idx
+  on public.ordax_network_space_profiles(visibility, lower(public_name), space_id);
 create index ordax_network_space_profiles_categories_idx
   on public.ordax_network_space_profiles using gin(categories);
 create index ordax_network_memberships_space_state_idx
@@ -345,7 +347,8 @@ begin
     and (v_category is null or v_category = any(p.categories))
     and (
       v_search is null
-      or p.public_name ilike '%' || replace(replace(v_search, '%', '\\%'), '_', '\\_') || '%' escape '\\'
+      or lower(p.public_name) like
+        lower(replace(replace(v_search, '%', '\\%'), '_', '\\_')) || '%' escape '\\'
     )
     and (
       p_after_name is null
