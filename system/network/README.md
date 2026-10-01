@@ -70,3 +70,24 @@ retry resolution without rewriting historical rows.
 
 This remains source/proof-only until the migration is generated through the
 official Supabase migration tooling and passes advisors plus PostgreSQL proof.
+
+
+## Client transport v2 boundary
+
+The first same-origin client boundary for message delivery is defined by:
+
+- `system/contracts/network-transport-v2.mjs`;
+- `system/adapters/web/network-transport-v2.mjs`;
+- `system/services/professional-network/send.mjs`.
+
+The adapter targets `POST /network/v2/messages/send`, sends only the bound
+sender Space, conversation id, bounded idempotency key and validated plain-text
+body, and requires the canonical mutation outcome v2 response. It uses
+`credentials: "same-origin"` and never calls Supabase tables or RPC endpoints
+directly from Surface code.
+
+This is a **source boundary, not a live backend activation**. Native and Web
+compositions intentionally do not instantiate this transport until the
+generated v2 backend migration/API exists and has passed the executable
+PostgreSQL, advisor and security gates. Failed, denied or rate-limited sends
+must preserve the user's draft; only `applied` or `idempotent` clears it.
