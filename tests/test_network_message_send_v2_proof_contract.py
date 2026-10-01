@@ -77,7 +77,7 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
         self.assertIn("when sqlstate '42501'", self.sql)
 
     def test_plain_text_control_characters_fail_before_persistence_or_rate(self):
-        self.assertIn("regexp_replace(v_body", self.sql)
+        self.assertIn("translate(v_body", self.sql)
         self.assertIn("[[:cntrl:]]", self.sql)
         self.assertIn("message-body-control-character", self.sql)
         self.assertIn("network-message-v2-proof-control-character-persisted", self.sql)
