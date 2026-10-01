@@ -31,7 +31,7 @@ class NetworkMessageSendV2ProofContractTests(unittest.TestCase):
         public_section = self.sql.split(
             "function public.ordax_network_send_message_v2_proof", 1
         )[1].split(
-            "insert into auth.users", 1
+            "-- proof-only introspection helpers", 1
         )[0]
         self.assertIn("security definer", private_section)
         self.assertIn("set search_path = ''", private_section)
