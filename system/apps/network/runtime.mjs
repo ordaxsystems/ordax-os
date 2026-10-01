@@ -10,6 +10,7 @@ export const componentRuntime = Object.freeze({
   async mount({
     root,
     spaceSelection,
+    surfaceLifecycle = null,
     networkTransport = null,
     readOnline = () => globalThis.navigator?.onLine === true,
     reportDiagnostic = null,
