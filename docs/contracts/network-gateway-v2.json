@@ -1,0 +1,54 @@
+{
+  "$schema": "prototype-ordax.network-gateway-v2/1",
+  "status": "source-foundation-fail-closed-not-deployed",
+  "routes": {
+    "status": "GET /network/v2/status",
+    "message_send": "POST /network/v2/messages/send"
+  },
+  "request": {
+    "client_identity_fields_allowed": false,
+    "exact_fields": [
+      "space_id",
+      "conversation_id",
+      "idempotency_key",
+      "body"
+    ],
+    "plain_text_max_characters": 4000,
+    "idempotency_key_min_characters": 16,
+    "idempotency_key_max_characters": 120
+  },
+  "session": {
+    "source": "server-side OrdaX session resolver",
+    "cookie_read_by_browser_javascript": false,
+    "client_claimed_user_id_allowed": false,
+    "provider_authority_context_serialized": false,
+    "cross_site_mutation_allowed": false
+  },
+  "authority": {
+    "provider_neutral_core": true,
+    "default_enabled": false,
+    "supabase_adapter_implemented": false,
+    "service_role_required": false,
+    "authenticated_user_context_required_for_future_supabase_adapter": true,
+    "current_space_and_conversation_authority_revalidation_required": true
+  },
+  "outcome": {
+    "schema": "prototype-ordax.network-mutation-outcome/2",
+    "operation": "message-send",
+    "supported": [
+      "applied",
+      "idempotent",
+      "rate_limited",
+      "denied",
+      "invalid"
+    ],
+    "semantic_rejection_uses_transport_error": false
+  },
+  "rollout": {
+    "live_endpoint_enabled": false,
+    "live_supabase_migration_applied": false,
+    "requires_official_generated_migration": true,
+    "requires_database_advisors": true,
+    "requires_ephemeral_postgresql_proof": true
+  }
+}
