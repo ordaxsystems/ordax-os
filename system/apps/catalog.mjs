@@ -6,6 +6,7 @@ import { internetApp } from "./internet/app.mjs";
 import { filesApp } from "./files/app.mjs";
 import { projectsApp } from "./projects/app.mjs";
 import { notesApp } from "./notes/app.mjs";
+import { networkApp } from "./network/app.mjs";
 import { settingsApp } from "./settings/app.mjs";
 import { studioApp } from "./studio/app.mjs";
 import { systemApp } from "./system/app.mjs";
@@ -18,6 +19,7 @@ const APPS = Object.freeze([
   assistantApp,
   activityApp,
   internetApp,
+  networkApp,
   settingsApp,
   accountApp,
   systemApp,
