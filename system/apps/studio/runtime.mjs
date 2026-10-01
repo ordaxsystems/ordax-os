@@ -1,7 +1,6 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
 import { STUDIO_VERSION } from "./version.mjs";
 import { probeStudioDeviceAgent } from "./device-agent-status.mjs";
-import { mountStudioWorkspaceControls } from "./ui/workspace-controls.mjs";
 
 const STYLESHEET_URL = new URL("./studio.css", import.meta.url).href;
 const STYLE_SELECTOR = 'link[data-ordax-component-style="studio"]';
@@ -46,26 +45,21 @@ export const componentRuntime = Object.freeze({
   version: STUDIO_VERSION,
   async mount({
     root,
-    surfaceLifecycle,
     deviceAgentCapabilities = null,
   } = {}) {
     const releaseStyles = await mountStyles(root);
-    let controls = null;
     try {
       const status = await probeStudioDeviceAgent(deviceAgentCapabilities);
-      controls = mountStudioWorkspaceControls(root, status, surfaceLifecycle);
       let destroyed = false;
       return Object.freeze({
         status,
         destroy() {
           if (destroyed) return;
           destroyed = true;
-          controls?.destroy();
           releaseStyles();
         },
       });
     } catch (error) {
-      controls?.destroy();
       releaseStyles();
       throw error;
     }
