@@ -32,7 +32,8 @@ const space = (id, name) => ({
   name,
   kind: "professional",
   state: "active",
-  profilePackId: null,
+  ownerId: "owner-0001",
+  profilePack: null,
 });
 
 const selected = (id, name = id) => ({
