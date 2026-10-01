@@ -58,7 +58,15 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertRegex(refresh["discovery_artifact_sha256"], r"^[0-9a-f]{64}$")
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
-        self.assertTrue(refresh["reproducibility_reproof_required"])
+        self.assertFalse(refresh["reproducibility_reproof_required"])
+        proof = contract["reproducibility_proof"]
+        self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
+        self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
+        self.assertTrue(proof["repeat_digest_passed"])
+        self.assertRegex(proof["tree_manifest_sha256"], r"^[0-9a-f]{64}$")
+        self.assertRegex(proof["normalized_tar_sha256"], r"^[0-9a-f]{64}$")
+        self.assertRegex(proof["erofs_sha256"], r"^[0-9a-f]{64}$")
+        self.assertGreater(proof["erofs_size"], 0)
 
     def test_candidate_reuses_exact_stable_base_alpine_identity(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
