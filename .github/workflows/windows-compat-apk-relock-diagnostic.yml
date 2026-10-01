@@ -26,6 +26,42 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends proot
 
+      - name: Reproduce current configure proof
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          proof_dir="${RUNNER_TEMP}/windows-compat-apk-relock-diagnostic"
+          rm -rf "$proof_dir"
+          mkdir -p "$proof_dir"
+          python bootstrap/windows-compat-runtime/configure_probe.py probe \
+            --work-dir "$work" \
+            --proof-out "$proof_dir/configure-proof.json"
+          python - <<'PY' "$proof_dir/configure-proof.json"
+          import hashlib
+          import json
+          import pathlib
+          import sys
+
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert proof['configure_proof_passed'] is True
+          assert proof['package_versions_pinned'] is False
+          assert proof['full_build_proof_passed'] is False
+          assert proof['binary_artifact_pinned'] is False
+          assert proof['activation_authorized'] is False
+          assert proof['execution_authorized'] is False
+          packages = proof['resolved_installed_packages']
+          assert len(packages) == 342
+          canonical = json.dumps(packages, sort_keys=True, separators=(',', ':')).encode('utf-8')
+          digest = hashlib.sha256(canonical).hexdigest()
+          assert digest == '99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e', digest
+          assert packages['libpng'] == '1.6.59-r0'
+          assert packages['libpng-dev'] == '1.6.59-r0'
+          for name in ('python3', 'python3-pyc', 'python3-pycache-pyc0', 'pyc'):
+              assert packages[name] == '3.12.15-r0', (name, packages[name])
+          print('configure closure sha256:', digest)
+          PY
+
       - name: Apply current observed closure only in runner workspace
         run: |
           set -euo pipefail
@@ -51,8 +87,6 @@ jobs:
           work="$(mktemp -d)"
           trap 'rm -rf "$work"' EXIT
           proof_dir="${RUNNER_TEMP}/windows-compat-apk-relock-diagnostic"
-          rm -rf "$proof_dir"
-          mkdir -p "$proof_dir"
           python bootstrap/windows-compat-runtime/discover_apk_content.py discover \
             --work-dir "$work" \
             --out "$proof_dir/apk-content-discovery.json"
@@ -89,6 +123,8 @@ jobs:
                   for name in ('libpng', 'libpng-dev', 'python3', 'python3-pyc', 'python3-pycache-pyc0', 'pyc')
               },
           }
+          assert summary['external_apk_total_size_bytes'] == 595141970
+          assert summary['external_apk_canonical_manifest_sha256'] == '9ecad632554f9f164294a803af9cfe8ccbfba525c71e1cd61c7cbd9fc7e8d7bf'
           (pathlib.Path(sys.argv[1]).parent / 'relock-summary.json').write_text(
               json.dumps(summary, indent=2, sort_keys=True) + '\n', encoding='utf-8'
           )
