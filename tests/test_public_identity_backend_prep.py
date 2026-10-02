@@ -17,7 +17,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         contract = json.loads(IDENTITY_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "provider-adapter-source-v14-deployed-v14-revision-20-registration-disabled-close-disabled",
+            "provider-adapter-source-v15-deployed-v15-revision-21-legal-receipt-ready-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["backend"]["provider_configured"])
         self.assertTrue(contract["backend"]["password_auth_flow_implemented"])
@@ -26,9 +26,9 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["session_refresh_implemented"])
         self.assertTrue(contract["backend"]["dedicated_or_isolated_target_required"])
         self.assertFalse(contract["backend"]["conflicting_auth_user_trigger_allowed"])
-        self.assertEqual(contract["backend"]["gateway_source_version"], 14)
-        self.assertEqual(contract["backend"]["deployed_gateway_source_version"], 14)
-        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 20)
+        self.assertEqual(contract["backend"]["gateway_source_version"], 15)
+        self.assertEqual(contract["backend"]["deployed_gateway_source_version"], 15)
+        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 21)
         self.assertTrue(contract["backend"]["account_close_source_implemented"])
         self.assertEqual(contract["backend"]["account_close_gateway_route"], "/account/close")
         self.assertTrue(contract["backend"]["account_close_gateway_route_deployed"])
@@ -55,7 +55,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["backend"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            20,
+            21,
         )
         self.assertTrue(
             contract["backend"]["account_memory_entitlement_requires_authenticated_user"]
@@ -70,6 +70,15 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(contract["backend"]["public_site_account_enabled"])
         self.assertEqual(contract["backend"]["public_site_marker_header"], "X-OrdaX-Public-Site")
         self.assertTrue(contract["backend"]["native_direct_account_gateway_remains_available"])
+        self.assertTrue(contract["backend"]["account_registration_server_authoritative_receipt_implemented"])
+        self.assertEqual(
+            contract["backend"]["account_registration_legal_migration"],
+            "20261002221427_account_registration_legal_receipt_v1",
+        )
+        self.assertTrue(contract["backend"]["account_registration_legal_migration_applied"])
+        self.assertFalse(contract["backend"]["account_registration_active_legal_policy_present"])
+        self.assertFalse(contract["backend"]["account_registration_web_acceptance_bound"])
+        self.assertFalse(contract["backend"]["account_registration_native_acceptance_bound"])
         self.assertTrue(contract["backend"]["password_recovery_request_implemented"])
         self.assertFalse(contract["backend"]["password_recovery_request_enabled"])
         self.assertTrue(contract["backend"]["password_recovery_server_side_token_hash_implemented"])
