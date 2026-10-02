@@ -281,7 +281,7 @@ O contrato `ordax.personal-action-proposal/1` agora existe como boundary ephemer
 
 O catálogo valida o `entryId` e passa o `resourceValue` pela mesma registration real que futuramente canonicalizaria o recurso, mas descarta o `resourceRef` resultante. Portanto uma proposal não consegue fabricar recurso fora da ação registrada nem receber a referência canônica que alimenta authority. Transformar a proposal em approval continua sendo uma ação explícita separada, que deve chamar o catálogo novamente e revalidar o recurso.
 
-**Planner/model integration continua desabilitada neste corte.** O source agora possui o value contract e a porta Native `proposeAvailableAction()`, mas nenhuma saída do modelo é convertida automaticamente em proposal, approval ou execução.
+A integração foreground com planner/model agora é user-triggered: a Activity pede explicitamente uma sugestão, o planner envia à Intelligence somente descritores sanitizados do catálogo (`entryId + inputKind + resourceScheme`), exige JSON estrito e revalida o candidato via `catalog.propose()`. A proposal continua `authority=none` e efêmera. Converter essa sugestão em approval exige uma segunda ação explícita do usuário e chama o catálogo novamente; o rationale do modelo nunca substitui o reason confiável da registration. Troca de owner durante a inferência descarta o resultado. Approval e execução automáticos continuam desabilitados.
 
 ### Revogação ligada ao lifecycle
 
