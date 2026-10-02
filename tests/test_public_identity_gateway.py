@@ -40,7 +40,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v14-deployed-v14-revision-20-registration-disabled-close-disabled",
+            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v15-deployed-v15-revision-21-legal-receipt-ready-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["baseline"]["provider_configured"])
         self.assertTrue(contract["baseline"]["http_only_session_cookies"])
@@ -70,9 +70,9 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(contract["baseline"]["registration_password_minimum_chars"], 12)
         self.assertTrue(contract["baseline"]["registration_password_policy_enforced_at_edge"])
         self.assertFalse(contract["baseline"]["existing_login_passwords_retroactively_rejected"])
-        self.assertEqual(contract["runtime"]["gateway_source_version"], 14)
-        self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 14)
-        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 20)
+        self.assertEqual(contract["runtime"]["gateway_source_version"], 15)
+        self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 15)
+        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 21)
         self.assertTrue(contract["runtime"]["lifecycle_service_deployed"])
         self.assertEqual(contract["runtime"]["lifecycle_service_deployment_revision_observed"], 2)
         self.assertFalse(contract["runtime"]["lifecycle_service_enabled"])
@@ -107,7 +107,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertTrue(contract["baseline"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["baseline"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            20,
+            21,
         )
         self.assertFalse(contract["baseline"]["public_cloud_memory_enabled"])
         self.assertTrue(contract["baseline"]["account_close_source_implemented"])
@@ -120,7 +120,16 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertTrue(contract["baseline"]["public_site_server_activation_gate"])
         self.assertFalse(contract["baseline"]["account_registration_enabled"])
         self.assertTrue(contract["baseline"]["account_registration_legal_binding_required"])
-        self.assertFalse(contract["baseline"]["account_registration_server_authoritative_receipt_implemented"])
+        self.assertTrue(contract["baseline"]["account_registration_server_authoritative_receipt_implemented"])
+        self.assertEqual(
+            contract["baseline"]["account_registration_legal_intent_rpc"],
+            "ordax_begin_account_registration_legal_intent_v1",
+        )
+        self.assertTrue(contract["baseline"]["account_registration_legal_intent_service_role_only"])
+        self.assertFalse(contract["baseline"]["account_registration_client_document_versions_allowed"])
+        self.assertFalse(contract["baseline"]["account_registration_active_legal_policy_present"])
+        self.assertFalse(contract["baseline"]["account_registration_web_acceptance_bound"])
+        self.assertFalse(contract["baseline"]["account_registration_native_acceptance_bound"])
         self.assertFalse(contract["baseline"]["native_registration_may_bypass_legal_binding"])
         self.assertFalse(contract["baseline"]["public_site_account_enabled"])
         self.assertEqual(contract["baseline"]["public_site_marker_header"], "X-OrdaX-Public-Site")
