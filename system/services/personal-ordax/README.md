@@ -15,7 +15,7 @@ The current source runtime is deliberately foreground-only:
 - identity change, Space switch or project disappearance pauses affected active work;
 - an inference response that returns after its owner/context changed is discarded instead of being
   committed to the wrong work item;
-- Intelligence remains consultative and no action/tool execution is enabled;
+- Intelligence remains planning/reasoning-only authority; model output never grants actions, while one explicit user-approved bounded foreground action may execute through the canonical grant + Action Gateway + Action Executor chain;
 - lifecycle events are ordered and user-visible through `ordax.personal-activity/1`;
 - successful foreground reasoning commits `ordax.personal-work-result/1`, the completed Work state
   and its Activity reference in one validated state transition;
@@ -32,5 +32,9 @@ uses the privileged Surface's existing device-local storage boundary with one re
 Corrupt records are recovery-blocked per owner and their original bytes are never silently replaced;
 other owners remain usable. This is device-local persistence, not account sync or OrdaX Memory.
 
-The runtime/store are not yet mounted in Web/Native composition and therefore do not claim a public
-Activity UI or autonomous/background execution.
+The runtime/store are mounted in the Native composition and the Activity app projects the same
+owner-partitioned Work/Activity/Result/Approval state. Web does not invent an equivalent runtime.
+Native currently enables exactly one bounded foreground side effect,
+`ordax-native-file-space/files.directory.ensure`, only after explicit approval plus exact live
+grant/resource/tool-artifact revalidation. Background/autonomous execution, generic egress,
+device-control, shell, raw disk and non-idempotent file mutations remain disabled.
