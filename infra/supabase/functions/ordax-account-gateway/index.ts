@@ -227,7 +227,7 @@ async function beginRegistrationLegalIntent(email: string) {
   const normalized = email.trim().toLowerCase();
   const { data, error: rpcError } = await adminClient().rpc(
     "ordax_begin_account_registration_legal_intent_v1",
-    { p_normalized_email: normalized },
+    { p_normalized_email: normalized, p_accepted: true },
   );
   if (
     rpcError
