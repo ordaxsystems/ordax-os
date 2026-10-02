@@ -428,3 +428,100 @@ test("model proposal remains authority-free until explicit conversion to approva
 
   runtime.dispose();
 });
+
+
+test("model proposal is discarded when owner changes during inference", async () => {
+  const listeners = new Set();
+  let identitySnapshot = { state: "signed-in", subjectId: "user-a", displayName: "User A" };
+  const mutableIdentity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot() {
+      return identitySnapshot;
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  const changeOwner = (subjectId) => {
+    identitySnapshot = {
+      state: "signed-in",
+      subjectId,
+      displayName: subjectId,
+    };
+    for (const listener of [...listeners]) listener(identitySnapshot);
+  };
+
+  let resolveInference;
+  const proposalIntelligence = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot() {
+      return {
+        schema: INTELLIGENCE_PORT_SCHEMA,
+        state: "ready",
+        inferenceAvailable: true,
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+        toolExecution: false,
+      };
+    },
+    subscribe() {
+      return () => {};
+    },
+    respond() {
+      return new Promise((resolve) => {
+        resolveInference = resolve;
+      });
+    },
+  };
+  const catalog = createPersonalActionCatalog({
+    registrations: [{
+      entry: {
+        id: "native-file.ensure-directory",
+        toolId: "ordax-native-file-space",
+        toolArtifactSha256: "a".repeat(64),
+        actionId: "files.directory.ensure",
+        effect: "write",
+        inputKind: "resource-value",
+        resourceScheme: "file-space",
+      },
+      toResourceRef(value) {
+        return "file-space:" + String(value).trim();
+      },
+      reason: "Trusted catalog reason.",
+    }],
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: mutableIdentity,
+    intelligence: proposalIntelligence,
+    actionCatalog: catalog,
+  });
+  const work = runtime.create("Criar uma pasta para o briefing");
+  const pending = runtime.proposeActionForWork(work.id);
+
+  changeOwner("user-b");
+  resolveInference({
+    schema: INTELLIGENCE_RESPONSE_SCHEMA,
+    text: JSON.stringify({
+      kind: "proposal",
+      entryId: "native-file.ensure-directory",
+      resourceValue: "/Briefing",
+      rationale: "Sugestao tardia do owner anterior.",
+    }),
+    engineId: "llama.cpp",
+    modelId: "qwen-test",
+    authority: "none",
+  });
+
+  await assert.rejects(pending, /owner changed/);
+  const snapshot = runtime.getSnapshot();
+  assert.equal(snapshot.ownerId, "user-b");
+  assert.equal(snapshot.workItems.length, 0);
+  assert.equal(snapshot.approvals.length, 0);
+  assert.equal(snapshot.decisions.length, 0);
+  assert.equal(snapshot.attempts.length, 0);
+
+  runtime.dispose();
+});
