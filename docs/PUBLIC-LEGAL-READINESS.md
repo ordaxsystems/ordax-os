@@ -17,7 +17,7 @@ The public portal currently:
 
 The pages under `/privacidade/` and `/termos/` are therefore readiness pages, not final legal documents.
 
-The backend receipt mechanism is already implemented without activating registration. It stores no plaintext email in the short-lived intent, trusts no client-supplied document version, and can only create a registration receipt from the server-owned active policy in the same database transaction that creates the product account. There is deliberately no active legal policy yet, so this mechanism cannot be used to claim that consent has been collected.
+The backend receipt mechanism is already implemented without activating registration. It stores no plaintext email in the short-lived intent, trusts no client-supplied document version, and can only create a registration receipt from the server-owned active policy in the same database transaction that creates the product account. A service-role-only projection now supplies the active/effective policy metadata to the gateway; Web and Native source display that same metadata and send only affirmative acceptance. There is deliberately no active legal policy yet and the registration switches remain off, so this mechanism cannot be used to claim that consent has been collected.
 
 ## Account activation gate
 
@@ -27,7 +27,7 @@ A live account entry point must remain disabled until all of the following are t
 2. a final privacy notice has been reviewed and published;
 3. final terms applicable to account creation have been reviewed and published;
 4. both documents have stable version identifiers and effective dates;
-5. the final Web and Native account flows are bound to the already-implemented server-authoritative legal receipt mechanism so the reviewed document versions actually presented/accepted are the canonical active versions;
+5. the source-ready Web and Native flows have been E2E-proven against the final active policy and server-authoritative receipt so the reviewed document versions actually presented/accepted are the canonical active versions;
 6. account deletion/export/support ownership is defined;
 7. production redirects, cookies, mail templates and data processors are reviewed.
 
