@@ -26,11 +26,22 @@
     "account_lifecycle_owner_defined": true,
     "account_lifecycle_contract": "docs/contracts/account-lifecycle.json",
     "account_close_flow": true,
-    "account_data_export_flow": true
+    "account_data_export_flow": true,
+    "registration_legal_binding": true
   },
   "build_gate": {
     "identity_urls_must_remain_null_while_not_ready": true,
     "readiness_page_may_exist_before_activation": true,
     "placeholder_legal_acceptance_allowed": false
+  },
+  "registration_binding": {
+    "status": "pending-legal-policy-and-server-receipt",
+    "policy_reviewed": false,
+    "canonical_document_versions_server_owned": true,
+    "client_supplied_document_versions_trusted": false,
+    "server_authoritative_receipt_implemented": false,
+    "web_registration_bound": false,
+    "native_registration_bound": false,
+    "registration_activation_allowed": false
   }
 }

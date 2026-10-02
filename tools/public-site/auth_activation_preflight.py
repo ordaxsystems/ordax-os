@@ -29,12 +29,12 @@ REFERENCE_GATEWAY = Path("services/public-identity/gateway.py")
 LIFECYCLE_EDGE = Path("infra/supabase/functions/ordax-account-lifecycle/index.ts")
 
 EDGE_BOOL = re.compile(
-    r"^const\s+(PUBLIC_SITE_ACCOUNT_ENABLED|ACCOUNT_RECOVERY_REQUEST_ENABLED|"
+    r"^const\s+(PUBLIC_SITE_ACCOUNT_ENABLED|ACCOUNT_REGISTRATION_ENABLED|ACCOUNT_RECOVERY_REQUEST_ENABLED|"
     r"ACCOUNT_RECOVERY_COMPLETION_ENABLED|ACCOUNT_CLOSE_ENABLED)\s*=\s*(true|false);\s*$",
     re.MULTILINE,
 )
 PY_BOOL = re.compile(
-    r"^(PUBLIC_SITE_ACCOUNT_ENABLED|ACCOUNT_RECOVERY_REQUEST_ENABLED|"
+    r"^(PUBLIC_SITE_ACCOUNT_ENABLED|ACCOUNT_REGISTRATION_ENABLED|ACCOUNT_RECOVERY_REQUEST_ENABLED|"
     r"ACCOUNT_RECOVERY_COMPLETION_ENABLED|ACCOUNT_CLOSE_ENABLED)\s*=\s*(True|False)\s*$",
     re.MULTILINE,
 )
@@ -56,6 +56,7 @@ def source_switches(root: Path) -> dict[str, bool]:
     lifecycle = {name: value == "true" for name, value in EDGE_BOOL.findall(lifecycle_text)}
     names = (
         "PUBLIC_SITE_ACCOUNT_ENABLED",
+        "ACCOUNT_REGISTRATION_ENABLED",
         "ACCOUNT_RECOVERY_REQUEST_ENABLED",
         "ACCOUNT_RECOVERY_COMPLETION_ENABLED",
         "ACCOUNT_CLOSE_ENABLED",
@@ -100,6 +101,7 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     documents = legal.get("documents", {})
     privacy = documents.get("privacy", {})
     terms = documents.get("terms", {})
+    registration_binding = legal.get("registration_binding", {})
     need(legal.get("status") == "ready", "legal-status")
     need(legal.get("account_activation_ready") is True, "legal-account-activation")
     need(lifecycle.get("identity_owner") == "ordax-account-gateway", "account-lifecycle-owner")
@@ -123,6 +125,23 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
         need(document.get("final") is True, f"{name}-final")
         need(bool(document.get("version")), f"{name}-version")
         need(bool(document.get("effective_date")), f"{name}-effective-date")
+
+    need(registration_binding.get("policy_reviewed") is True, "registration-legal-policy-review")
+    need(
+        registration_binding.get("client_supplied_document_versions_trusted") is False,
+        "registration-legal-client-version-trust",
+    )
+    need(
+        registration_binding.get("server_authoritative_receipt_implemented") is True,
+        "registration-legal-receipt",
+    )
+    need(registration_binding.get("web_registration_bound") is True, "registration-legal-web-binding")
+    need(registration_binding.get("native_registration_bound") is True, "registration-legal-native-binding")
+    need(
+        registration_binding.get("registration_activation_allowed") is True,
+        "registration-legal-activation",
+    )
+    need(switches["ACCOUNT_REGISTRATION_ENABLED"] is True, "account-registration-switch")
 
     need(hardening.get("status") == "ready", "auth-hardening-status")
     need(provider_policy.get("confirm_email_required") is True, "provider-policy-confirm-email")
@@ -185,6 +204,7 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
         "identity_public_site_account": backend.get("public_site_account_enabled") is True,
         "deployment_public_gate": routing.get("gateway_public_activation_currently_enabled") is True,
         "edge_public_site_account": switches["PUBLIC_SITE_ACCOUNT_ENABLED"],
+        "edge_account_registration": switches["ACCOUNT_REGISTRATION_ENABLED"],
         "edge_recovery_request": switches["ACCOUNT_RECOVERY_REQUEST_ENABLED"],
         "edge_recovery_completion": switches["ACCOUNT_RECOVERY_COMPLETION_ENABLED"],
         "edge_account_close": switches["ACCOUNT_CLOSE_ENABLED"],

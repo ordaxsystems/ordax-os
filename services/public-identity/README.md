@@ -92,7 +92,7 @@ The previously suggested shared `Ordax-2026-1` project remains rejected for Orda
 
 The provider-specific email/password adapter in `supabase_password.py` and account-sync adapter in `supabase_sync.py` use only the Supabase publishable key plus the authenticated user's bearer token. Passwords are transient request inputs; provider tokens stay in HttpOnly cookies owned by the gateway and are never returned to Surface JavaScript.
 
-**Target prepared does not mean public identity enabled.** The gateway still fails closed until all of the following are true:
+**Target prepared does not mean public identity enabled.** Login and registration are gated independently. Registration is additionally disabled across Surface/Native/gateway until the final legal policy is reviewed and a server-authoritative receipt binds account creation to the canonical document versions; client-supplied document versions are never authority. The gateway still fails closed until all of the following are true:
 
 - a same-origin production deployment owns the session cookie;
 - the Supabase runtime configuration is supplied outside source;

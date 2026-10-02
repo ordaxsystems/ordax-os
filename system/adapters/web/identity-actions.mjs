@@ -4,9 +4,9 @@ import {
 } from "../../contracts/identity-actions.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 
-function actionsForSession(snapshot) {
+function actionsForSession(snapshot, registrationEnabled) {
   if (snapshot.state === "signed-out") {
-    return ["sign-in", "register"];
+    return registrationEnabled ? ["sign-in", "register"] : ["sign-in"];
   }
   if (snapshot.state === "signed-in") {
     return ["sign-out"];
@@ -17,13 +17,17 @@ function actionsForSession(snapshot) {
 export function createWebIdentityActions(
   windowRef = globalThis.window,
   identitySession = null,
+  { registrationEnabled = false } = {},
 ) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Web identity actions require window.fetch");
   }
+  if (typeof registrationEnabled !== "boolean") {
+    throw new TypeError("registrationEnabled must be boolean");
+  }
   const session = identitySession === null ? null : assertIdentitySessionPort(identitySession);
   let snapshot = validateIdentityActionsSnapshot({
-    supportedActions: actionsForSession(session?.getSnapshot() ?? { state: "unavailable" }),
+    supportedActions: actionsForSession(session?.getSnapshot() ?? { state: "unavailable" }, registrationEnabled),
   });
   const listeners = new Set();
   let disposed = false;
@@ -35,7 +39,7 @@ export function createWebIdentityActions(
 
   const update = (sessionSnapshot) => {
     const next = validateIdentityActionsSnapshot({
-      supportedActions: actionsForSession(sessionSnapshot),
+      supportedActions: actionsForSession(sessionSnapshot, registrationEnabled),
     });
     const before = snapshot.supportedActions.join(",");
     const after = next.supportedActions.join(",");

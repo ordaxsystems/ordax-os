@@ -82,6 +82,7 @@ SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
 ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
+ACCOUNT_REGISTRATION_ENABLED = False
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
 ACCOUNT_EXPORT_PATH = "/account/export"
 ACCOUNT_SPACES_PATH = "/account/spaces"
@@ -3986,6 +3987,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(503)
                 return
             try:
+                if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:
+                    self._empty(503)
+                    return
                 if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH}:
                     payload = self._read_account_credentials()
                     if payload is None or set(payload) != {"email", "password"}:

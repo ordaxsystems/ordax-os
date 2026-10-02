@@ -57,11 +57,38 @@ test("Web identity actions follow the real gateway session state", async () => {
   const session = createWebIdentitySession(windowRef);
   await session.refresh();
   const actions = createWebIdentityActions(windowRef, session);
-  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in", "register"]);
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in"]);
 
   await actions.execute("sign-in");
+  await assert.rejects(() => actions.execute("register"));
+  assert.deepEqual(assigned, ["/login/"]);
+
+  actions.dispose();
+  session.dispose();
+});
+
+test("registration action requires an explicit legal-ready capability", async () => {
+  const assigned = [];
+  const windowRef = {
+    location: { assign: (value) => assigned.push(value) },
+    fetch: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false,
+        provider: "supabase",
+        status: "anonymous",
+      }),
+    }),
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  const actions = createWebIdentityActions(windowRef, session, { registrationEnabled: true });
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in", "register"]);
+
   await actions.execute("register");
-  assert.deepEqual(assigned, ["/login/", "/cadastro/"]);
+  assert.deepEqual(assigned, ["/cadastro/"]);
 
   actions.dispose();
   session.dispose();

@@ -52,6 +52,12 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertNotIn("account-close-implementation", blockers)
         self.assertTrue(all(value is False for value in controls.values()))
         for expected in (
+            "registration-legal-policy-review",
+            "registration-legal-receipt",
+            "registration-legal-web-binding",
+            "registration-legal-native-binding",
+            "registration-legal-activation",
+            "account-registration-switch",
             "email-confirmation-provider-verification",
             "redirect-allowlist-provider-verification",
             "provider-password-policy-verification",
@@ -85,6 +91,22 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(preflight.main(["check", "--root", str(root)]), 1)
+        finally:
+            temporary.cleanup()
+
+    def test_registration_switch_must_match_edge_and_reference_gateway(self):
+        temporary, root = self.fixture_root()
+        try:
+            edge = root / preflight.EDGE
+            edge.write_text(
+                edge.read_text(encoding="utf-8").replace(
+                    "const ACCOUNT_REGISTRATION_ENABLED = false;",
+                    "const ACCOUNT_REGISTRATION_ENABLED = true;",
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "activation switch mismatch"):
+                preflight.readiness(root)
         finally:
             temporary.cleanup()
 

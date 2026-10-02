@@ -33,6 +33,7 @@ const PWNED_PASSWORDS_ORIGIN = "https://api.pwnedpasswords.com";
 const PWNED_PASSWORDS_MAX_RESPONSE = 256 * 1024;
 const PWNED_PASSWORDS_USER_AGENT = "OrdaX-Account-Gateway/1";
 const PUBLIC_SITE_ACCOUNT_ENABLED = false;
+const ACCOUNT_REGISTRATION_ENABLED = false;
 const ACCOUNT_CLOSE_ENABLED = false;
 const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;
 const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;
@@ -543,6 +544,13 @@ async function closeAccount(req: Request) {
 }
 
 async function credentials(req: Request, register: boolean) {
+  if (register && !ACCOUNT_REGISTRATION_ENABLED) {
+    return error(
+      503,
+      "account-registration-disabled",
+      "A criação de Conta OrdaX ainda não foi ativada.",
+    );
+  }
   let raw = "";
   try { raw = await boundedBody(req); } catch { return error(413, "request-too-large", "A solicitação excede o limite permitido."); }
   const type = req.headers.get("content-type") ?? "";
@@ -753,7 +761,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 13 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 14 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {

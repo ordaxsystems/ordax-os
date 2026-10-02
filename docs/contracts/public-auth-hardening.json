@@ -25,7 +25,7 @@
     "observed_date": "2026-10-02",
     "leaked_password_protection": "enabled-product-gateway",
     "public_login_enabled": false,
-    "edge_gateway": "source-v13-deployed-revision-19-close-disabled",
+    "edge_gateway": "source-v14-deployed-revision-20-registration-disabled-close-disabled",
     "csrf_state_change_protection": "pass-deployed",
     "secure_http_only_cookie_policy": "pass-source-and-edge",
     "same_origin_session_owner": "adapter-source-ready-not-deployed",
@@ -83,7 +83,10 @@
     "account_close": "gateway-route-deployed-disabled-lifecycle-rev2-global-revocation-disabled",
     "account_export": "pass-source-db-edge-native-public-disabled",
     "password_policy_reviewed": true,
-    "password_policy_provider_floor_chars": 12
+    "password_policy_provider_floor_chars": 12,
+    "account_registration_enabled": false,
+    "account_registration_legal_binding": "pending-server-authoritative-receipt",
+    "account_registration_native_bypass_allowed": false
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,

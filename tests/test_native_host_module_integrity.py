@@ -61,6 +61,15 @@ class NativeHostModuleIntegrityTests(unittest.TestCase):
             method_source = ast.get_source_segment(source, method_node) or ""
             self.assertIn("self._request_is_trusted()", method_source)
 
+    def test_account_registration_remains_fail_closed_in_native_host(self):
+        source = HOST.read_text(encoding="utf-8")
+        self.assertIn("ACCOUNT_REGISTRATION_ENABLED = False", source)
+        self.assertIn(
+            "if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:",
+            source,
+        )
+        self.assertIn("self._empty(503)", source)
+
 
 if __name__ == "__main__":
     unittest.main()

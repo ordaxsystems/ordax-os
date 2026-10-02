@@ -46,6 +46,7 @@ REFRESH_COOKIE = "ordax_refresh"
 RECOVERY_COOKIE = "ordax_recovery"
 RECOVERY_SESSION_MAX_AGE = 10 * 60
 PUBLIC_SITE_ACCOUNT_ENABLED = False
+ACCOUNT_REGISTRATION_ENABLED = False
 ACCOUNT_CLOSE_ENABLED = False
 ACCOUNT_RECOVERY_REQUEST_ENABLED = False
 ACCOUNT_RECOVERY_COMPLETION_ENABLED = False
@@ -440,6 +441,12 @@ class PublicIdentityGateway:
         request_headers: Mapping[str, str],
         body: bytes,
     ) -> GatewayResponse:
+        if registration and not ACCOUNT_REGISTRATION_ENABLED:
+            return _error(
+                503,
+                "account-registration-disabled",
+                "A criação de Conta OrdaX ainda não foi ativada.",
+            )
         if not self.provider:
             return self._provider_unavailable()
         if not _same_origin_state_change(request_headers):
