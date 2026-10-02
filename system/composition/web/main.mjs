@@ -270,7 +270,6 @@ window.addEventListener(
   () => {
     window.removeEventListener("online", onOnline);
     unsubscribeHostIdentity();
-    identityActions.dispose();
     systemOverviewControls.destroy();
     assistantComponent?.destroy();
     internetComponent?.destroy();
