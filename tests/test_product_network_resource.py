@@ -291,10 +291,21 @@ class ProductNetworkResourceTests(unittest.TestCase):
                 "network.communities.read",
             },
         )
-        serialized = json.dumps(contract)
-        self.assertNotIn("network.messages.write", serialized)
-        self.assertNotIn("network.groups.join", serialized)
-        self.assertNotIn("product.acheguese.publish", serialized)
+        self.assertEqual(
+            set(contract["out_of_scope"]),
+            {
+                "network.messages.read",
+                "network.messages.write",
+                "network.groups.join",
+                "product.acheguese.publish",
+                "refresh-token-rotation",
+                "public-listener-activation",
+            },
+        )
+        implemented = json.dumps(contract["resource"])
+        self.assertNotIn("network.messages.write", implemented)
+        self.assertNotIn("network.groups.join", implemented)
+        self.assertNotIn("product.acheguese.publish", implemented)
 
 
 if __name__ == "__main__":
