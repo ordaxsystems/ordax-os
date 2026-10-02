@@ -120,7 +120,7 @@ class NativeRequestBoundaryPolicyTests(unittest.TestCase):
     def test_account_and_sync_routes_are_privileged_loopback_apis(self):
         address = ("127.0.0.1", 8765)
         host = "127.0.0.1:8765"
-        for path in ("/auth/session", "/auth/login", "/sync/objects", "/sync/mutate"):
+        for path in ("/auth/session", "/auth/login", "/account/spaces", "/sync/objects", "/sync/mutate", "/network/v2/messages/send"):
             with self.subTest(path=path):
                 self.assertFalse(
                     boundary.request_is_trusted(
@@ -244,6 +244,16 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
     def test_account_session_rejects_foreign_browser_provenance(self):
         status, _body = self.request(
             native_host.ACCOUNT_SESSION_PATH,
+            headers={
+                "Origin": "https://attacker.example",
+                "Sec-Fetch-Site": "cross-site",
+            },
+        )
+        self.assertEqual(status, 403)
+
+    def test_network_send_rejects_foreign_browser_provenance(self):
+        status, _body = self.request(
+            native_host.NETWORK_MESSAGE_SEND_PATH,
             headers={
                 "Origin": "https://attacker.example",
                 "Sec-Fetch-Site": "cross-site",

@@ -90,9 +90,18 @@ export function createNetworkDraftRuntime({
   let identitySnapshot = validateIdentitySessionSnapshot(identity.getSnapshot());
   let selectionSnapshot = validateSpaceSelectionSnapshot(selection.getSnapshot());
   let draft = null;
+  let draftRevision = 0;
   let current = snapshotFor(identitySnapshot, selectionSnapshot, draft);
   let disposed = false;
   const listeners = new Set();
+
+  const advanceDraftRevision = () => {
+    if (draftRevision >= Number.MAX_SAFE_INTEGER) {
+      throw new Error("Network draft revision space is exhausted");
+    }
+    draftRevision += 1;
+    return draftRevision;
+  };
 
   const publish = () => {
     current = snapshotFor(identitySnapshot, selectionSnapshot, draft);
@@ -117,6 +126,7 @@ export function createNetworkDraftRuntime({
       : null;
 
     if (previousSubject !== nextSubject) {
+      if (draft !== null) advanceDraftRevision();
       draft = null;
     }
     publish();
@@ -161,6 +171,7 @@ export function createNetworkDraftRuntime({
         throw new Error("Clear the current Network draft before changing conversation");
       }
       if (draft === null) {
+        advanceDraftRevision();
         draft = Object.freeze({
           subjectId: identitySnapshot.subjectId,
           senderSpaceId: space.id,
@@ -182,6 +193,7 @@ export function createNetworkDraftRuntime({
       if (body.length > 0) {
         assertNetworkMessagePlainText(body);
       }
+      advanceDraftRevision();
       draft = Object.freeze({ ...draft, body });
       return publish();
     },
@@ -197,6 +209,7 @@ export function createNetworkDraftRuntime({
       if (draft.subjectId !== identitySnapshot.subjectId) {
         throw new Error("Network drafts cannot cross account identity");
       }
+      advanceDraftRevision();
       draft = Object.freeze({
         ...draft,
         senderSpaceId: space.id,
@@ -214,14 +227,25 @@ export function createNetworkDraftRuntime({
         throw new TypeError("Network message body cannot be blank");
       }
       return Object.freeze({
+        revision: draftRevision,
         subjectId: draft.subjectId,
         senderSpaceId: draft.senderSpaceId,
         conversationId: draft.conversationId,
         body,
       });
     },
-    clear() {
+    clear(expectedRevision = null) {
       if (disposed) return current;
+      if (expectedRevision !== null) {
+        if (!Number.isSafeInteger(expectedRevision) || expectedRevision <= 0) {
+          throw new TypeError("Network draft expected revision is invalid");
+        }
+        if (draft === null || draftRevision !== expectedRevision) {
+          return current;
+        }
+      }
+      if (draft === null) return current;
+      advanceDraftRevision();
       draft = null;
       return publish();
     },

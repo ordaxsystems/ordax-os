@@ -12,7 +12,7 @@ import hmac
 from urllib.parse import urlsplit
 
 NATIVE_API_PREFIX = "/__ordax/native/"
-ACCOUNT_API_PREFIXES = ("/auth/", "/sync/")
+ACCOUNT_API_PREFIXES = ("/auth/", "/sync/", "/account/", "/network/")
 TRUSTED_BIND_HOST = "127.0.0.1"
 _ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
 
