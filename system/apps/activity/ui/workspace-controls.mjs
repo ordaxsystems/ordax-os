@@ -627,7 +627,13 @@ export function mountPersonalActivityControls(
           : { kind: "proposal", value: proposal },
       );
     } catch {
-      localError = t("activity.error.proposal");
+      const current = personalOrdax.getSnapshot();
+      const currentOwnerKey = current.ownerKind === "account"
+        ? `account:${current.ownerId}`
+        : "device";
+      if (currentOwnerKey === ownerKey) {
+        localError = t("activity.error.proposal");
+      }
     } finally {
       proposalBusy.delete(workItemId);
       render();
