@@ -272,6 +272,7 @@ async function registrationLegalPolicy() {
   return {
     $schema: REGISTRATION_POLICY_SCHEMA,
     active: true,
+    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED,
     policyId: item.policy_id,
     privacy: {
       version: item.privacy_version,
