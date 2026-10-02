@@ -343,6 +343,103 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(response.status, 503)
         self.assertEqual(self.payload(response)["error"], "account-registration-disabled")
 
+    def test_enabled_registration_requires_explicit_legal_acceptance_before_authority(self):
+        class MustNotRunProvider:
+            def sign_up_with_password(self, *args, **kwargs):
+                raise AssertionError("provider must not run without legal acceptance")
+
+        class MustNotRunAuthority:
+            def begin_intent(self, email):
+                raise AssertionError("legal authority must not run without legal acceptance")
+
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=MustNotRunProvider(),
+            sync_provider=None,
+            registration_legal_authority=MustNotRunAuthority(),
+            password_checker=SafePasswordChecker(),
+        )
+        with patch.object(gateway_module, "ACCOUNT_REGISTRATION_ENABLED", True):
+            response = gateway.handle(
+                "POST",
+                "/auth/register",
+                {"content-type": "application/x-www-form-urlencoded"},
+                b"email=pessoa%40example.com&password=new-password-12",
+            )
+        self.assertEqual(response.status, 400)
+        self.assertEqual(self.payload(response)["error"], "legal-acceptance-required")
+
+    def test_enabled_registration_fails_closed_without_server_legal_authority(self):
+        class MustNotRunProvider:
+            def sign_up_with_password(self, *args, **kwargs):
+                raise AssertionError("provider must not run without legal authority")
+
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=MustNotRunProvider(),
+            sync_provider=None,
+            registration_legal_authority=None,
+            password_checker=SafePasswordChecker(),
+        )
+        gateway.registration_legal_authority = None
+        with patch.object(gateway_module, "ACCOUNT_REGISTRATION_ENABLED", True):
+            response = gateway.handle(
+                "POST",
+                "/auth/register",
+                {"content-type": "application/x-www-form-urlencoded"},
+                b"email=pessoa%40example.com&password=new-password-12&legal_acceptance=accepted",
+            )
+        self.assertEqual(response.status, 503)
+        self.assertEqual(self.payload(response)["error"], "registration-legal-policy-unavailable")
+
+    def test_enabled_registration_binds_provider_signup_to_server_issued_intent(self):
+        class FakeAuthority:
+            def __init__(self):
+                self.calls = []
+
+            def begin_intent(self, email):
+                self.calls.append(email)
+                return type(
+                    "Intent",
+                    (),
+                    {"intent_id": "11111111-1111-4111-8111-111111111111"},
+                )()
+
+        class FakeProvider:
+            def __init__(self):
+                self.calls = []
+
+            def sign_up_with_password(self, email, password, *, registration_intent_id=None):
+                self.calls.append((email, password, registration_intent_id))
+                return type("Result", (), {"session": None})()
+
+        authority = FakeAuthority()
+        provider = FakeProvider()
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=provider,
+            sync_provider=None,
+            registration_legal_authority=authority,
+            password_checker=SafePasswordChecker(),
+        )
+        with patch.object(gateway_module, "ACCOUNT_REGISTRATION_ENABLED", True):
+            response = gateway.handle(
+                "POST",
+                "/auth/register",
+                {"content-type": "application/x-www-form-urlencoded"},
+                b"email=pessoa%40example.com&password=new-password-12&legal_acceptance=accepted",
+            )
+        self.assertEqual(response.status, 303)
+        self.assertEqual(dict(response.headers)["Location"], "/login/?cadastro=verifique-email")
+        self.assertEqual(authority.calls, ["pessoa@example.com"])
+        self.assertEqual(
+            provider.calls,
+            [
+                (
+                    "pessoa@example.com",
+                    "new-password-12",
+                    "11111111-1111-4111-8111-111111111111",
+                )
+            ],
+        )
+
     def test_credential_login_fails_closed_until_provider_exists(self):
         response = self.gateway.handle(
             "POST",
