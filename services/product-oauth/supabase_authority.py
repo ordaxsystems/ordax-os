@@ -11,24 +11,47 @@ Public activation remains controlled outside this module.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
+from pathlib import Path
 import secrets
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Protocol
 
-from oauth import (
-    AuthorizationContext,
-    ConsumedGrant,
-    OAuthAccessDenied,
-    OAuthClient,
-    OAuthError,
-    OAuthUnavailable,
-    TokenPair,
-)
+
+def _load_oauth_core():
+    module_name = "ordax_product_oauth_core"
+    existing = sys.modules.get(module_name)
+    if existing is not None:
+        return existing
+
+    path = Path(__file__).with_name("oauth.py")
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("product OAuth core loader unavailable")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
+    return module
+
+
+_oauth = _load_oauth_core()
+AuthorizationContext = _oauth.AuthorizationContext
+ConsumedGrant = _oauth.ConsumedGrant
+OAuthAccessDenied = _oauth.OAuthAccessDenied
+OAuthClient = _oauth.OAuthClient
+OAuthError = _oauth.OAuthError
+OAuthUnavailable = _oauth.OAuthUnavailable
+TokenPair = _oauth.TokenPair
 
 DEFAULT_CODE_TTL_SECONDS = 300
 DEFAULT_ACCESS_TTL_SECONDS = 900
