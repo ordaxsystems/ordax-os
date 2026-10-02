@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.personal-ordax/1",
-  "status": "source-foreground-runtime-public-disabled",
+  "status": "native-foreground-runtime-bounded-action-enabled-public-autonomy-disabled",
   "product_role": "identity-bound personal orchestration above Intelligence and shared services",
   "principles": {
     "one_primary_personal_ordax_per_owner_context": true,
@@ -72,7 +72,11 @@
     "corrupt_owner_partition_blocks_only_that_owner": true,
     "account_sync_of_personal_work_enabled": false,
     "explicit_work_entry_enabled": true,
-    "assistant_messages_auto_create_work": false
+    "assistant_messages_auto_create_work": false,
+    "durable_pause_resume_enabled": true,
+    "interrupted_action_restore_pauses_without_replay": true,
+    "activity_retention_bounded_by_owner_partition": true,
+    "activity_terminal_delete_supported": true
   },
   "authority": {
     "effects": [
@@ -192,7 +196,10 @@
     "pending_approval_requires_waiting_work": true,
     "resolved_approval_requires_audit_activity": true,
     "approved_action_requires_matching_allow_decision": true,
-    "denied_action_requires_matching_deny_decision": true
+    "denied_action_requires_matching_deny_decision": true,
+    "native_activity_surface_enabled": true,
+    "explicit_pause_resume_controls_enabled": true,
+    "explicit_cancel_remove_controls_enabled": true
   },
   "mvp": {
     "public_mvp_enabled": false,
@@ -206,7 +213,7 @@
     "personal_foreground_runtime_source_enabled": true,
     "personal_foreground_runtime_mounted_in_surface": true,
     "approval_lifecycle_source_enabled": true,
-    "action_execution_enabled": false,
+    "action_execution_enabled": true,
     "approval_consent_surface_enabled": true,
     "authorized_side_effects_enabled": true,
     "authorized_side_effects_scope": [
@@ -218,7 +225,11 @@
     ],
     "model_generated_action_proposals_enabled": false,
     "automatic_side_effect_retry": false,
-    "non_idempotent_file_mutations_enabled": false
+    "non_idempotent_file_mutations_enabled": false,
+    "foreground_action_execution_enabled": true,
+    "generic_action_execution_enabled": false,
+    "autonomous_action_execution_enabled": false,
+    "public_stable_personal_autonomy_enabled": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
@@ -226,7 +237,11 @@
     "phase_3": "specialist workers coordinated by the same personal authority boundary",
     "phase_4": "hybrid local/cloud execution selected by capability, privacy, cost and availability",
     "new_execution_modes_must_reuse_same_contracts": true,
-    "new_agents_must_not_create_parallel_memory_or_permission_systems": true
+    "new_agents_must_not_create_parallel_memory_or_permission_systems": true,
+    "phase_1_status": "implemented-native-foreground",
+    "phase_2_status": "partial-durable-resume-complete-background-connectors-pending",
+    "phase_3_status": "not-started",
+    "phase_4_status": "not-started"
   },
   "action_execution": {
     "attempt_schema": "ordax.personal-action-attempt/1",
