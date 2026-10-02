@@ -14,6 +14,10 @@ on:
       - 'tests/sql/test_product_oauth_authority_v1.sql'
       - 'tests/test_product_oauth_authority_migration.py'
       - 'tests/test_product_oauth_supabase_authority.py'
+      - 'tests/sql/setup_product_oauth_http_e2e.sql'
+      - 'tests/test_product_oauth_persistent_http_e2e.py'
+      - 'tests/sql/setup_product_oauth_http_e2e.sql'
+      - 'tests/test_product_oauth_persistent_http_e2e.py'
       - 'tests/test_product_oauth.py'
       - 'tests/test_first_party_product_oauth.mjs'
       - '.github/workflows/product-oauth-authority-v1-proof.yml'
@@ -85,6 +89,16 @@ jobs:
             tests.test_product_oauth_http_gateway \
             tests.test_product_oauth \
             -v
+
+      - name: Prove HTTP boundary over persistent authority end to end
+        env:
+          PGDATABASE: oauth_http_e2e
+          ORDAX_PRODUCT_OAUTH_PG_E2E: '1'
+        run: |
+          set -euo pipefail
+          createdb oauth_http_e2e
+          psql -v ON_ERROR_STOP=1 -f tests/sql/setup_product_oauth_http_e2e.sql
+          python -m unittest tests.test_product_oauth_persistent_http_e2e -v
 
       - name: Guard first-party product OAuth contract
         run: |
