@@ -114,6 +114,19 @@ def _redirect(location: str) -> HttpResponse:
     )
 
 
+def _empty_response(status: int) -> HttpResponse:
+    return HttpResponse(
+        status=status,
+        headers=(
+            ("Cache-Control", NO_STORE),
+            ("Pragma", "no-cache"),
+            ("X-Content-Type-Options", "nosniff"),
+            ("Content-Length", "0"),
+        ),
+        body=b"",
+    )
+
+
 def _content_type(headers: Mapping[str, str]) -> str:
     return headers.get("content-type", "").split(";", 1)[0].strip().lower()
 
@@ -387,7 +400,7 @@ class ProductOAuthHttpGateway:
                 raise OAuthInvalidRequest("fields")
             self.boundary.revoke(form["token"])
             # RFC-style revocation does not disclose whether the token existed.
-            return _json_response(200, {"revoked": True})
+            return _empty_response(200)
         except OAuthUnavailable:
             return _error(
                 503,
