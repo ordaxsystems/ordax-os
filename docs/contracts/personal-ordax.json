@@ -206,7 +206,12 @@
     "model_proposal_runtime_local_binding_required": true,
     "model_proposal_clone_or_serialized_reuse_allowed": false,
     "model_proposal_exact_work_revision_required": true,
-    "model_proposal_cross_owner_reuse_allowed": false
+    "model_proposal_cross_owner_reuse_allowed": false,
+    "semantic_work_recovery_creates_authority": false,
+    "semantic_work_recovery_may_switch_owner": false,
+    "semantic_work_recovery_may_switch_space": false,
+    "semantic_work_recovery_may_switch_project": false,
+    "semantic_work_recovery_may_resume_automatically": false
   },
   "activity": {
     "ordered_sequence_required": true,
@@ -224,7 +229,15 @@
     "denied_action_requires_matching_deny_decision": true,
     "native_activity_surface_enabled": true,
     "explicit_pause_resume_controls_enabled": true,
-    "explicit_cancel_remove_controls_enabled": true
+    "explicit_cancel_remove_controls_enabled": true,
+    "semantic_work_recovery_source_enabled": true,
+    "semantic_work_recovery_requires_explicit_user_request": true,
+    "semantic_work_recovery_candidates": "current-owner queued-or-paused work without unresolved authority",
+    "semantic_work_recovery_model_projection": "workItemId+goal+state+spaceBound+projectBound-only",
+    "semantic_work_recovery_acceptance_requires_explicit_user_action": true,
+    "semantic_work_recovery_paused_acceptance_uses_canonical_resume": true,
+    "semantic_work_recovery_clone_or_serialized_reuse_allowed": false,
+    "semantic_work_recovery_owner_or_revision_drift": "discard"
   },
   "mvp": {
     "public_mvp_enabled": false,
@@ -277,7 +290,7 @@
     "phase_2_status": "partial-durable-resume-complete-background-connectors-pending",
     "phase_3_status": "not-started",
     "phase_4_status": "not-started",
-    "next_foreground_gate": "semantic Work recovery from explicit user requests without implicit owner/Space/project rebinding"
+    "next_foreground_gate": "explicit context-navigation assist for recovered Work without automatic owner/Space/project rebinding"
   },
   "action_execution": {
     "attempt_schema": "ordax.personal-action-attempt/1",
