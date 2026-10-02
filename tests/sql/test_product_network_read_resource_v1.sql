@@ -83,7 +83,7 @@ begin
       'ordax_product_network_list_communities_v1'
     )
     and p.prosecdef
-    and p.proconfig = array['search_path='];
+    and p.proconfig @> array['search_path=""'];
   if v_count <> 3 then
     raise exception 'product-network-public-rpc-hardening-invalid';
   end if;
