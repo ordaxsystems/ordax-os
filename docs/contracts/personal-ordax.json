@@ -198,7 +198,15 @@
     "action_proposal_may_carry_grant_ref": false,
     "action_proposal_may_carry_approval_id": false,
     "action_proposal_may_request_approval": false,
-    "action_proposal_may_authorize_execution": false
+    "action_proposal_may_authorize_execution": false,
+    "model_proposal_creates_authority": false,
+    "model_proposal_catalog_revalidation_required": true,
+    "model_proposal_owner_revalidated_after_inference": true,
+    "model_proposal_conversion_recanonicalizes_resource": true,
+    "model_proposal_runtime_local_binding_required": true,
+    "model_proposal_clone_or_serialized_reuse_allowed": false,
+    "model_proposal_exact_work_revision_required": true,
+    "model_proposal_cross_owner_reuse_allowed": false
   },
   "activity": {
     "ordered_sequence_required": true,
@@ -240,7 +248,7 @@
     "action_catalog_entries": [
       "native-file.ensure-directory"
     ],
-    "model_generated_action_proposals_enabled": false,
+    "model_generated_action_proposals_enabled": true,
     "automatic_side_effect_retry": false,
     "non_idempotent_file_mutations_enabled": false,
     "foreground_action_execution_enabled": true,
@@ -250,7 +258,13 @@
     "action_proposal_source_enabled": true,
     "action_proposal_native_composition_port_enabled": true,
     "automatic_proposal_to_approval_enabled": false,
-    "automatic_proposal_execution_enabled": false
+    "automatic_proposal_execution_enabled": false,
+    "model_proposal_generation_requires_explicit_user_action": true,
+    "model_proposal_catalog_projection": "entryId+inputKind+resourceScheme-only",
+    "model_proposal_exposes_tool_identity": false,
+    "model_proposal_exposes_grants": false,
+    "model_proposal_to_approval_requires_explicit_user_action": true,
+    "model_proposal_rationale_becomes_approval_reason": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
@@ -263,7 +277,7 @@
     "phase_2_status": "partial-durable-resume-complete-background-connectors-pending",
     "phase_3_status": "not-started",
     "phase_4_status": "not-started",
-    "next_foreground_gate": "planner-to-action-catalog proposal integration with authority=none and explicit user conversion to approval"
+    "next_foreground_gate": "semantic Work recovery from explicit user requests without implicit owner/Space/project rebinding"
   },
   "action_execution": {
     "attempt_schema": "ordax.personal-action-attempt/1",
