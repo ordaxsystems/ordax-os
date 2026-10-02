@@ -75,6 +75,27 @@ Both schema changes were applied through the Supabase migration boundary after
 their permanent migrations passed PostgreSQL proof, legacy-null compatibility
 checks, privilege metadata checks and the post-deploy Security Advisor review.
 
+### Retention and tombstones
+
+The MVP policy is explicit and non-destructive for collaborative history:
+
+- removing a Profile Pack does not mutate Network state;
+- Space/account deletion removes Space-scoped directory/membership/block/rate
+  edges that cannot remain authoritative without that Space;
+- groups owned by a deleted Space retain their collaborative record, tombstone
+  the owner, archive the group and close its group conversation;
+- messages remain as collaborative history while sender Space/user attribution
+  is tombstoned;
+- reports and audit events remain while actor/reporter attribution is
+  tombstoned;
+- direct collaborative history is retained;
+- there is no automatic time-based message purge and no user message-delete
+  mutation in the MVP.
+
+The machine-readable authority for this policy is
+`docs/contracts/network-foundation.json`. Future retention changes require an
+explicit contract/migration change; deletion behavior must not be inferred from
+UI state.
 
 ## Client transport v2 boundary
 
