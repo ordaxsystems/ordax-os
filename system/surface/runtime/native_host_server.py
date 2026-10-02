@@ -80,6 +80,7 @@ PROFILE_ACTIVATION_COMMAND_PATH = "/__ordax/native/profile-activation-command"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
+ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"
 ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
 ACCOUNT_REGISTRATION_ENABLED = False
@@ -3410,7 +3411,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if not self._request_is_trusted():
             return
         parsed_path = urlsplit(self.path).path
-        if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
+        if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_REGISTRATION_POLICY_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
             if self.client_address[0] != "127.0.0.1":
                 self._empty(403)
                 return
@@ -3438,6 +3439,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     return
                 if parsed_path == ACCOUNT_SESSION_PATH:
                     reply = self.server.account_gateway.session()
+                elif parsed_path == ACCOUNT_REGISTRATION_POLICY_PATH:
+                    reply = self.server.account_gateway.registration_policy()
                 elif parsed_path == ACCOUNT_EXPORT_PATH:
                     reply = self.server.account_gateway.account_export()
                 elif parsed_path == ACCOUNT_SPACES_PATH:
@@ -3992,7 +3995,12 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     return
                 if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH}:
                     payload = self._read_account_credentials()
-                    if payload is None or set(payload) != {"email", "password"}:
+                    expected_keys = (
+                        {"email", "password"}
+                        if parsed_path == ACCOUNT_LOGIN_PATH
+                        else {"email", "password", "legalAcceptance"}
+                    )
+                    if payload is None or set(payload) != expected_keys:
                         self._empty(400)
                         return
                     email = payload.get("email")
@@ -4000,10 +4008,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     if not isinstance(email, str) or not isinstance(password, str):
                         self._empty(400)
                         return
+                    if parsed_path == ACCOUNT_REGISTER_PATH and payload.get("legalAcceptance") is not True:
+                        self._empty(400)
+                        return
                     reply = (
                         self.server.account_gateway.login(email, password)
                         if parsed_path == ACCOUNT_LOGIN_PATH
-                        else self.server.account_gateway.register(email, password)
+                        else self.server.account_gateway.register(email, password, legal_accepted=True)
                     )
                     if reply.status not in {200, 202, 303}:
                         self._empty(reply.status)
