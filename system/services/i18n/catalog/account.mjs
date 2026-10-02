@@ -40,6 +40,11 @@ export const ACCOUNT_SOURCE_MESSAGES = Object.freeze({
   "account.credentials.email": "E-mail",
   "account.credentials.password": "Senha",
   "account.credentials.confirmationRequired": "Cadastro recebido. Confirme seu e-mail para entrar.",
+  "account.registration.legal.title": "Documentos vigentes",
+  "account.registration.legal.detail": "Leia os documentos canônicos antes de criar a conta.",
+  "account.registration.legal.privacy": "Privacidade",
+  "account.registration.legal.terms": "Termos",
+  "account.registration.legal.accept": "Li e aceito os documentos vigentes indicados acima.",
 
   "account.spaces.eyebrow": "Conta e contexto",
   "account.spaces.title": "Seus Spaces",
@@ -236,6 +241,11 @@ export const ACCOUNT_ENGLISH_MESSAGES = Object.freeze({
   "account.credentials.email": "Email",
   "account.credentials.password": "Password",
   "account.credentials.confirmationRequired": "Sign-up received. Confirm your email to sign in.",
+  "account.registration.legal.title": "Current documents",
+  "account.registration.legal.detail": "Read the canonical documents before creating the account.",
+  "account.registration.legal.privacy": "Privacy",
+  "account.registration.legal.terms": "Terms",
+  "account.registration.legal.accept": "I have read and accept the current documents shown above.",
 
   "account.spaces.eyebrow": "Account and context",
   "account.spaces.title": "Your Spaces",
