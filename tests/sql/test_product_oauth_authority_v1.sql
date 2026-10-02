@@ -356,14 +356,20 @@ select public.ordax_product_oauth_issue_access_token_v1(
   statement_timestamp() + interval '15 minutes'
 );
 
+select public.ordax_product_oauth_revoke_grant_v1(
+  :'owner_grant_id'::uuid
+) as owner_grant_revoke_ok
+\gset
+\if :owner_grant_revoke_ok
+\else
+  \echo 'product-oauth-grant-revoke-failed'
+  \quit 1
+\endif
+
 do $proof$
 declare
   v_count integer;
 begin
-  if not public.ordax_product_oauth_revoke_grant_v1(:'owner_grant_id'::uuid) then
-    raise exception 'product-oauth-grant-revoke-failed';
-  end if;
-
   select count(*) into v_count
   from public.ordax_product_oauth_resolve_access_token_v1(repeat('9', 64));
   if v_count <> 0 then
