@@ -22,10 +22,10 @@
   },
   "current_observation": {
     "source": "supabase-security-advisor",
-    "observed_date": "2026-09-25",
+    "observed_date": "2026-10-02",
     "leaked_password_protection": "enabled-product-gateway",
     "public_login_enabled": false,
-    "edge_gateway": "source-v12-deployed-revision-15-close-disabled",
+    "edge_gateway": "source-v13-deployed-revision-19-close-disabled",
     "csrf_state_change_protection": "pass-deployed",
     "secure_http_only_cookie_policy": "pass-source-and-edge",
     "same_origin_session_owner": "adapter-source-ready-not-deployed",
@@ -80,7 +80,7 @@
     "email_confirmation_provider_verified": false,
     "redirect_allowlist_provider_verified": false,
     "provider_policy_contract": "docs/contracts/public-auth-provider-policy.json",
-    "account_close": "gateway-route-deployed-disabled-lifecycle-rev1-disabled",
+    "account_close": "gateway-route-deployed-disabled-lifecycle-rev2-global-revocation-disabled",
     "account_export": "pass-source-db-edge-native-public-disabled",
     "password_policy_reviewed": true,
     "password_policy_provider_floor_chars": 12
