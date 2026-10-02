@@ -27,7 +27,7 @@ MAX_BODY_BYTES = 16 * 1024
 
 
 def _load_oauth_core():
-    module_name = "ordax_product_oauth_http_core"
+    module_name = "ordax_product_oauth_core"
     existing = sys.modules.get(module_name)
     if existing is not None:
         return existing

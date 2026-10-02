@@ -32,6 +32,17 @@ CODE = "C" * 48
 ACCESS_TOKEN = "ordax_access_" + ("T" * 43)
 
 
+def load_authority_module():
+    path = ROOT / "services" / "product-oauth" / "supabase_authority.py"
+    name = "ordax_product_oauth_http_gateway_authority_regression"
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def payload(response):
     return json.loads(response.body.decode("utf-8"))
 
@@ -151,6 +162,12 @@ class ProductOAuthHttpGatewayTests(unittest.TestCase):
             sessions=self.sessions,
             boundary=self.boundary,
         )
+
+    def test_http_and_persistent_authority_share_one_oauth_core_identity(self):
+        authority = load_authority_module()
+        self.assertIs(authority.OAuthAccessDenied, gateway.OAuthAccessDenied)
+        self.assertIs(authority.OAuthUnavailable, gateway.OAuthUnavailable)
+        self.assertIs(authority.OAuthError, gateway.OAuthError)
 
     def test_default_application_is_fail_closed_and_status_has_no_secret(self):
         http = gateway.ProductOAuthHttpGateway()
