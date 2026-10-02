@@ -271,7 +271,11 @@ A entrada de novas ações não fica hardcoded na Activity. Adapters first-party
 
 O primeiro registro é `native-file.ensure-directory`. A Activity pode solicitar approval para ele sem conhecer `file-space:`, tool IDs ou regras de filesystem. Decisions persistidas agora carregam o `approvalId` exato. Isso permite repetir o mesmo tipo de ação no mesmo Work em recursos diferentes, desde que cada tentativa tenha uma nova approval e um novo grant compatível.
 
-Propostas estruturadas vindas do modelo continuam desabilitadas neste corte. Quando forem adicionadas, deverão entrar pelo mesmo catálogo e permanecer sem autoridade até approval explícita.
+O contrato `ordax.personal-action-proposal/1` agora existe como boundary ephemeral e sem authority. Uma proposal carrega somente `workItemId + entryId + resourceValue + rationale`, fixa `authority=none`, `executionAuthorized=false` e `approvalRequested=false`, e rejeita campos de authority como tool/action IDs, canonical `resourceRef`, grant, approval, decision, effect ou artifact SHA.
+
+O catálogo valida o `entryId` e passa o `resourceValue` pela mesma registration real que futuramente canonicalizaria o recurso, mas descarta o `resourceRef` resultante. Portanto uma proposal não consegue fabricar recurso fora da ação registrada nem receber a referência canônica que alimenta authority. Transformar a proposal em approval continua sendo uma ação explícita separada, que deve chamar o catálogo novamente e revalidar o recurso.
+
+**Planner/model integration continua desabilitada neste corte.** O source agora possui o value contract e a porta Native `proposeAvailableAction()`, mas nenhuma saída do modelo é convertida automaticamente em proposal, approval ou execução.
 
 ### Revogação ligada ao lifecycle
 
