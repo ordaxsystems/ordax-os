@@ -92,7 +92,7 @@ The previously suggested shared `Ordax-2026-1` project remains rejected for Orda
 
 The provider-specific email/password adapter in `supabase_password.py` and account-sync adapter in `supabase_sync.py` use only the Supabase publishable key plus the authenticated user's bearer token. Passwords are transient request inputs; provider tokens stay in HttpOnly cookies owned by the gateway and are never returned to Surface JavaScript.
 
-**Target prepared does not mean public identity enabled.** Login and registration are gated independently. The server-authoritative registration receipt boundary is now implemented and applied: a backend-only legal intent is bound to the active canonical legal policy and normalized-email SHA-256, and the existing single `auth.users` trigger must atomically consume that intent and persist the Privacy/Terms snapshot when the account row is created. No active legal policy is seeded, and Web/Native acceptance UI is not yet bound, so registration remains disabled across Surface/Native/gateway. Client-supplied document versions are never authority. The gateway still fails closed until all of the following are true:
+**Target prepared does not mean public identity enabled.** Login and registration are gated independently. The server-authoritative registration receipt boundary is now implemented and applied: a backend-only legal intent is bound to the active canonical legal policy and normalized-email SHA-256, and the existing single `auth.users` trigger must atomically consume that intent and persist the Privacy/Terms snapshot when the account row is created. No active legal policy is seeded. The Web and Native acceptance UI is now source-bound to a service-role-only active-policy projection and submits only affirmative acceptance; registration remains disabled across Surface/Native/gateway until an approved active policy and the remaining public gates exist. Client-supplied document versions are never authority. The gateway still fails closed until all of the following are true:
 
 - a same-origin production deployment owns the session cookie;
 - the Supabase runtime configuration is supplied outside source;
@@ -115,7 +115,7 @@ The product domain remains provider-neutral, so the Supabase project can later b
 ## Deployed account gateway adapter
 
 The dedicated `ordax-control-plane` project now has the
-`ordax-account-gateway` Edge Function deployed from gateway source v15 as revision 21. Its source-controlled owner is
+`ordax-account-gateway` Edge Function deployed from gateway source v16 as revision 22. Its source-controlled owner is
 `infra/supabase/functions/ordax-account-gateway/index.ts`.
 
 The function deliberately has platform JWT pre-verification disabled because
@@ -123,10 +123,10 @@ The function deliberately has platform JWT pre-verification disabled because
 implements its own account/session boundary and validates sessions through
 Supabase Auth. User/session/sync reads and mutations continue to use the signed-in
 user's JWT and RLS-scoped RPCs. The only privileged write added to this gateway is
-the backend-only registration legal-intent RPC; it prefers the platform-provided
+the backend-only registration legal-intent RPC plus the read-only active-policy projection RPC; it prefers the platform-provided
 Supabase secret key (with legacy service-role fallback for compatibility), never
 ships that key to browser/Surface code, and the RPC itself is executable only by
-the backend service role.
+the backend service role. The public `/auth/registration-policy` route exposes only the validated active/effective document metadata and the server registration switch; it never exposes provider secrets or grants registration authority.
 
 Native/USB consumes the provider-neutral gateway base URL from the signed
 system configuration `system/services/account/gateway-base-url`. Browser
