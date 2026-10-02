@@ -93,6 +93,10 @@
     "requires_account_session_resolver": true,
     "requires_real_https_redirect_uri": true,
     "disposable_postgresql_http_authority_e2e_proven": true,
-    "real_https_redirect_e2e_proven": false
+    "real_https_redirect_e2e_proven": false,
+    "read_only_network_resource_source": "services/product-gateway/oauth_network.py",
+    "read_only_network_resource_server_adapter": "services/product-gateway/supabase_network.py",
+    "read_only_network_resource_migration": "infra/supabase/product/migrations/20261002151358_product_network_read_resource_v1.sql",
+    "initial_read_scope_resource_boundary_proven": true
   }
 }

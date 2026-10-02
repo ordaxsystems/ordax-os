@@ -1,0 +1,49 @@
+{
+  "$schema": "prototype-ordax.product-network-resource/1",
+  "status": "read-only-source-and-server-authority-ready-runtime-disabled",
+  "purpose": "serve the initial first-party Product OAuth Network read scopes without exposing Supabase credentials or accepting browser table access",
+  "activation": {
+    "public_enabled": false,
+    "listener_deployed": false,
+    "acheguese_client_enabled": false,
+    "real_https_redirect_required": true
+  },
+  "resource": {
+    "read_only": true,
+    "http_source": "services/product-gateway/oauth_network.py",
+    "server_adapter": "services/product-gateway/supabase_network.py",
+    "migration": "infra/supabase/product/migrations/20261002151358_product_network_read_resource_v1.sql",
+    "scopes": [
+      "network.space.read",
+      "network.directory.read",
+      "network.communities.read"
+    ],
+    "routes": {
+      "space": "GET /product/network/v1/space",
+      "directory": "GET /product/network/v1/directory",
+      "communities": "GET /product/network/v1/communities"
+    }
+  },
+  "security": {
+    "opaque_bearer_required": true,
+    "oauth_token_resolved_before_resource_access": true,
+    "scope_checked_before_resource_adapter": true,
+    "token_grant_client_and_space_revalidated_in_postgres": true,
+    "current_space_authority_revalidated": true,
+    "raw_access_token_persisted": false,
+    "raw_access_token_sent_to_postgres": false,
+    "postgres_receives_sha256_only": true,
+    "browser_rpc_grants": false,
+    "service_role_rpc_only": true,
+    "security_definer_search_path_empty": true,
+    "supabase_secret_in_browser": false
+  },
+  "out_of_scope": [
+    "network.messages.read",
+    "network.messages.write",
+    "network.groups.join",
+    "product.acheguese.publish",
+    "refresh-token-rotation",
+    "public-listener-activation"
+  ]
+}
