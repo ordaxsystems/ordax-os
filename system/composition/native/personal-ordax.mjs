@@ -63,6 +63,35 @@ export function createNativePersonalOrdaxComposition({
         intelligencePort: intelligence,
         actionCatalog: catalog,
       });
+  const proposalBindings = new WeakMap();
+
+  const ownerKeyFromSnapshot = (snapshot) => (
+    snapshot.ownerKind === "account"
+      ? `account:${snapshot.ownerId}`
+      : "device"
+  );
+
+  const workRevision = (work) => JSON.stringify({
+    id: work.id,
+    ownerKind: work.ownerKind,
+    ownerId: work.ownerId,
+    goal: work.goal,
+    state: work.state,
+    spaceId: work.spaceId,
+    projectId: work.projectId,
+    pendingApprovalId: work.pendingApprovalId,
+    contextRefs: work.contextRefs,
+    updatedAt: work.updatedAt,
+  });
+
+  const bindProposal = (proposal, work) => {
+    if (proposal === null) return null;
+    proposalBindings.set(proposal, Object.freeze({
+      ownerKey: ownerKeyFromSnapshot(runtime.getSnapshot()),
+      workRevision: workRevision(work),
+    }));
+    return proposal;
+  };
 
   const currentProposalWork = (workItemId) => {
     const snapshot = runtime.getSnapshot();
@@ -115,34 +144,48 @@ export function createNativePersonalOrdaxComposition({
         throw new Error("Personal OrdaX action catalog is unavailable");
       }
       const work = currentProposalWork(workItemId);
-      return catalog.propose(work.id, entryId, input);
+      return bindProposal(catalog.propose(work.id, entryId, input), work);
     },
     async proposeActionForWork(workItemId) {
       if (proposalPlanner === null) {
         throw new Error("Personal OrdaX action proposal planner is unavailable");
       }
       const before = runtime.getSnapshot();
-      const ownerKey = before.ownerKind === "account"
-        ? `account:${before.ownerId}`
-        : "device";
+      const ownerKey = ownerKeyFromSnapshot(before);
       const work = currentProposalWork(workItemId);
+      const revision = workRevision(work);
       const proposal = await proposalPlanner.propose(work);
       const after = runtime.getSnapshot();
-      const currentOwnerKey = after.ownerKind === "account"
-        ? `account:${after.ownerId}`
-        : "device";
-      if (currentOwnerKey !== ownerKey) {
+      if (ownerKeyFromSnapshot(after) !== ownerKey) {
         throw new Error("Personal OrdaX proposal owner changed while planning");
       }
-      currentProposalWork(workItemId);
-      return proposal;
+      const currentWork = currentProposalWork(workItemId);
+      if (workRevision(currentWork) !== revision) {
+        throw new Error("Personal OrdaX Work changed while planning");
+      }
+      return bindProposal(proposal, currentWork);
     },
     requestProposedAction(proposalValue) {
       if (catalog === null) {
         throw new Error("Personal OrdaX action catalog is unavailable");
       }
+      if (!proposalValue || typeof proposalValue !== "object") {
+        throw new TypeError("Personal OrdaX proposal must be an issued proposal object");
+      }
+      const binding = proposalBindings.get(proposalValue);
+      if (!binding) {
+        throw new Error("Personal OrdaX proposal binding is unavailable");
+      }
       const proposal = validatePersonalActionProposal(proposalValue);
+      const snapshot = runtime.getSnapshot();
+      if (ownerKeyFromSnapshot(snapshot) !== binding.ownerKey) {
+        throw new Error("Personal OrdaX proposal belongs to a different owner");
+      }
       const work = currentProposalWork(proposal.workItemId);
+      if (workRevision(work) !== binding.workRevision) {
+        throw new Error("Personal OrdaX proposal Work revision is stale");
+      }
+      proposalBindings.delete(proposalValue);
       return catalog.request(runtime, work.id, proposal.entryId, {
         resourceValue: proposal.resourceValue,
       });
