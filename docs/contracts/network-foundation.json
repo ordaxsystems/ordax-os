@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.network-foundation/1",
-  "status": "mvp-scope-adopted-implementation-required",
+  "status": "mvp-backend-applied-public-activation-disabled",
   "product_boundary": {
     "identity_subject": "account",
     "public_professional_actor": "space",
@@ -92,5 +92,40 @@
     "direct_database_coupling": false,
     "authenticated_api_or_capability_required": true,
     "least_privilege_scopes": true
+  },
+  "implementation": {
+    "backend_schema_applied": true,
+    "v1_foundation_applied": true,
+    "v2_mutations_applied": [
+      "message-send",
+      "direct-create",
+      "block-change",
+      "group-join",
+      "report-create",
+      "group-create"
+    ],
+    "direct_browser_table_grants": false,
+    "public_network_enabled": false
+  },
+  "retention_tombstone_policy": {
+    "version": 1,
+    "profile_pack_removal": "no-network-state-change",
+    "space_or_account_deletion": {
+      "directory_profile": "cascade-with-space",
+      "community_membership": "cascade-with-space",
+      "group_membership": "cascade-with-space",
+      "conversation_membership": "cascade-with-space",
+      "blocks": "cascade-with-space",
+      "rate_windows": "cascade-with-actor-or-space",
+      "owned_group": "retain-tombstoned-owner-and-archive",
+      "owned_group_conversation": "close-on-owner-loss",
+      "messages": "retain-content-tombstone-sender-attribution",
+      "reports": "retain-content-tombstone-reporter-and-creator-attribution",
+      "audit_events": "retain-event-tombstone-actor-attribution",
+      "direct_conversation": "retain-collaborative-history"
+    },
+    "automatic_time_based_message_purge": false,
+    "user_message_delete_in_mvp": false,
+    "retained_collaborative_content_expiry": "none-in-mvp"
   }
 }
