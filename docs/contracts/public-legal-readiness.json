@@ -35,13 +35,24 @@
     "placeholder_legal_acceptance_allowed": false
   },
   "registration_binding": {
-    "status": "pending-legal-policy-and-server-receipt",
+    "status": "server-receipt-implemented-policy-and-ui-binding-pending",
     "policy_reviewed": false,
     "canonical_document_versions_server_owned": true,
     "client_supplied_document_versions_trusted": false,
-    "server_authoritative_receipt_implemented": false,
+    "server_authoritative_receipt_implemented": true,
     "web_registration_bound": false,
     "native_registration_bound": false,
-    "registration_activation_allowed": false
+    "registration_activation_allowed": false,
+    "database_migration": "20261002221427_account_registration_legal_receipt_v1",
+    "database_migration_applied": true,
+    "active_legal_policy_present": false,
+    "intent_rpc": "ordax_begin_account_registration_legal_intent_v1",
+    "intent_rpc_browser_execute_allowed": false,
+    "intent_rpc_authenticated_execute_allowed": false,
+    "intent_rpc_service_role_execute_allowed": true,
+    "email_plaintext_stored_in_intent": false,
+    "email_sha256_bound": true,
+    "single_auth_user_trigger_preserved": true,
+    "receipt_created_in_auth_user_transaction": true
   }
 }

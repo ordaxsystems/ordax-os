@@ -75,3 +75,17 @@ identity.
 
 Authenticated clients receive SELECT only. Mutations continue through OrdaX
 server-side product gateways so entitlement, approval and audit cannot be bypassed.
+
+## Account registration legal receipt
+
+Migration `20261002221427_account_registration_legal_receipt_v1.sql` is applied to
+`ordax-control-plane`. It keeps legal policy, short-lived registration intents and
+immutable registration receipts in the private schema. Only the backend service role may
+issue an intent. The existing single `auth.users` product trigger consumes that intent and
+creates the receipt in the same database transaction as the user bootstrap.
+
+No active Privacy/Terms policy is seeded by the migration. Browser/authenticated roles have
+no direct table or RPC authority, client-supplied document versions are never trusted, and
+registration remains disabled until reviewed final documents and Web/Native acceptance
+binding are deliberately activated.
+

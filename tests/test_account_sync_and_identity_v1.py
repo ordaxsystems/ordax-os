@@ -113,8 +113,14 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("publicSiteRequest", text)
         self.assertIn("public-account-access-disabled", text)
         self.assertIn('Accept', (ROOT / "system" / "surface" / "runtime" / "native_account_gateway.py").read_text(encoding="utf-8"))
-        self.assertNotIn('service_role', text.lower())
-        self.assertNotIn('SUPABASE_SERVICE_ROLE_KEY', text)
+        self.assertIn("SUPABASE_SECRET_KEYS", text)
+        self.assertEqual(text.count("SUPABASE_SERVICE_ROLE_KEY"), 1)
+        self.assertIn("ordax_begin_account_registration_legal_intent_v1", text)
+        sync_start = text.index('if (path === "/sync/snapshot"')
+        sync_section = text[sync_start:]
+        self.assertNotIn("adminClient()", sync_section)
+        self.assertNotIn("SUPABASE_SECRET_KEYS", sync_section)
+        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", sync_section)
 
     def test_account_export_rpc_is_user_scoped_security_invoker(self):
         sql = ACCOUNT_EXPORT_MIGRATION.read_text(encoding="utf-8").lower()
@@ -165,7 +171,12 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn('path === "/account/close" && req.method === "POST"', edge)
         self.assertIn("/functions/v1/ordax-account-lifecycle/close", edge)
         self.assertIn("signInWithPassword", edge)
-        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", edge)
+        close_start = edge.index("async function closeAccount")
+        close_end = edge.index("async function credentials", close_start)
+        close_source = edge[close_start:close_end]
+        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", close_source)
+        self.assertNotIn("SUPABASE_SECRET_KEYS", close_source)
+        self.assertNotIn("adminClient()", close_source)
         self.assertNotIn("auth.admin.deleteUser", edge)
 
         self.assertIn("ACCOUNT_CLOSE_ENABLED = False", gateway)

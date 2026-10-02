@@ -83,6 +83,38 @@ class SupabasePasswordProviderTests(unittest.TestCase):
         self.assertIsNone(result.session)
         self.assertTrue(result.email_confirmation_required)
 
+    def test_signup_carries_only_server_issued_registration_intent_metadata(self):
+        provider, transport = self.provider([
+            (200, {"user": {"id": "user-2", "email": "new@example.com"}})
+        ])
+        intent_id = "11111111-1111-4111-8111-111111111111"
+        provider.sign_up_with_password(
+            "new@example.com",
+            "secret-pass-12",
+            registration_intent_id=intent_id,
+        )
+        body = json.loads(transport.calls[0][3])
+        self.assertEqual(
+            body,
+            {
+                "email": "new@example.com",
+                "password": "secret-pass-12",
+                "data": {"ordax_registration_intent_id": intent_id},
+            },
+        )
+        self.assertNotIn("privacy_version", json.dumps(body))
+        self.assertNotIn("terms_version", json.dumps(body))
+
+    def test_signup_rejects_invalid_registration_intent_before_network(self):
+        provider, transport = self.provider([])
+        with self.assertRaises(ValueError):
+            provider.sign_up_with_password(
+                "new@example.com",
+                "secret-pass-12",
+                registration_intent_id="not-a-uuid",
+            )
+        self.assertEqual(transport.calls, [])
+
     def test_signup_rejects_passwords_shorter_than_ordax_policy(self):
         provider, transport = self.provider([])
         with self.assertRaises(ValueError):

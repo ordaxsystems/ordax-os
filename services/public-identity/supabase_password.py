@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from typing import Mapping, Protocol
+from uuid import UUID
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
@@ -277,12 +278,30 @@ class SupabasePasswordProvider:
             raise SupabaseIdentityError("provider-session-missing")
         return AuthResult(subject, canonical_email, session, False)
 
-    def sign_up_with_password(self, email: str, password: str) -> AuthResult:
+    def sign_up_with_password(
+        self,
+        email: str,
+        password: str,
+        *,
+        registration_intent_id: str | None = None,
+    ) -> AuthResult:
         email, password = _credentials(email, password, registration=True)
+        payload: dict[str, object] = {"email": email, "password": password}
+        if registration_intent_id is not None:
+            if not isinstance(registration_intent_id, str):
+                raise TypeError("Registration intent id must be a string")
+            try:
+                parsed_intent = UUID(registration_intent_id)
+            except ValueError as exc:
+                raise ValueError("Registration intent id is invalid") from exc
+            canonical_intent = str(parsed_intent)
+            if canonical_intent != registration_intent_id.lower():
+                raise ValueError("Registration intent id is invalid")
+            payload["data"] = {"ordax_registration_intent_id": canonical_intent}
         value = self._request(
             "POST",
             "/auth/v1/signup",
-            {"email": email, "password": password},
+            payload,
         )
         subject, canonical_email = _user_identity(value.get("user"))
         session = _session(value)

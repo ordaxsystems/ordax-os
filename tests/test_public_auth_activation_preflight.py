@@ -51,9 +51,9 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertNotIn("password-policy-review", blockers)
         self.assertNotIn("account-close-implementation", blockers)
         self.assertTrue(all(value is False for value in controls.values()))
+        self.assertNotIn("registration-legal-receipt", blockers)
         for expected in (
             "registration-legal-policy-review",
-            "registration-legal-receipt",
             "registration-legal-web-binding",
             "registration-legal-native-binding",
             "registration-legal-activation",

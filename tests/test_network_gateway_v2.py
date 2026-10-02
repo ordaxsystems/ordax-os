@@ -23,8 +23,12 @@ class NetworkGatewayV2Tests(unittest.TestCase):
         self.assertIn('p_conversation_id: request.conversation_id', self.edge)
         self.assertIn('p_client_idempotency_key: request.idempotency_key', self.edge)
         self.assertIn('p_body: request.body', self.edge)
-        self.assertNotIn('SUPABASE_SERVICE_ROLE_KEY', self.edge)
-        self.assertNotIn('service_role', self.edge.lower())
+        start = self.edge.index("async function sendNetworkMessage")
+        end = self.edge.index("Deno.serve", start)
+        section = self.edge[start:end]
+        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", section)
+        self.assertNotIn("SUPABASE_SECRET_KEYS", section)
+        self.assertNotIn("adminClient()", section)
 
     def test_edge_revalidates_session_and_rpc_outcome(self):
         start = self.edge.index("async function sendNetworkMessage")

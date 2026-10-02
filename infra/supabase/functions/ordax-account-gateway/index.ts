@@ -34,6 +34,9 @@ const PWNED_PASSWORDS_MAX_RESPONSE = 256 * 1024;
 const PWNED_PASSWORDS_USER_AGENT = "OrdaX-Account-Gateway/1";
 const PUBLIC_SITE_ACCOUNT_ENABLED = false;
 const ACCOUNT_REGISTRATION_ENABLED = false;
+const LEGAL_ACCEPTANCE_FIELD = "legal_acceptance";
+const LEGAL_ACCEPTANCE_VALUE = "accepted";
+const REGISTRATION_INTENT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ACCOUNT_CLOSE_ENABLED = false;
 const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;
 const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;
@@ -111,10 +114,30 @@ function clearRecoveryCookie() {
   return cookie(RECOVERY_COOKIE, "", 0);
 }
 
+function firstNamedKey(raw: string, name: string) {
+  if (!raw.trim()) return null;
+  try {
+    const value = JSON.parse(raw);
+    const key = value && typeof value === "object" ? value[name] : null;
+    return typeof key === "string" && key.trim() ? key.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function config() {
-  const url = Deno.env.get("SUPABASE_URL") ?? "";
-  const key = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const url = (Deno.env.get("SUPABASE_URL") ?? "").trim();
+  const key = firstNamedKey(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "", "default")
+    ?? (Deno.env.get("SUPABASE_ANON_KEY") ?? "").trim();
   if (!url || !key) throw new Error("provider-unconfigured");
+  return { url, key };
+}
+
+function adminConfig() {
+  const url = (Deno.env.get("SUPABASE_URL") ?? "").trim();
+  const key = firstNamedKey(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "", "default")
+    ?? (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
+  if (!url || !key) throw new Error("provider-admin-unconfigured");
   return { url, key };
 }
 
@@ -191,6 +214,32 @@ function client(accessToken?: string) {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
   });
+}
+
+function adminClient() {
+  const { url, key } = adminConfig();
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}
+
+async function beginRegistrationLegalIntent(email: string) {
+  const normalized = email.trim().toLowerCase();
+  const { data, error: rpcError } = await adminClient().rpc(
+    "ordax_begin_account_registration_legal_intent_v1",
+    { p_normalized_email: normalized, p_accepted: true },
+  );
+  if (
+    rpcError
+    || !Array.isArray(data)
+    || data.length !== 1
+    || !data[0]
+    || typeof data[0].intent_id !== "string"
+    || !REGISTRATION_INTENT_UUID.test(data[0].intent_id)
+  ) {
+    throw new Error("registration-legal-intent-unavailable");
+  }
+  return data[0].intent_id;
 }
 
 function crossSiteStateChange(req: Request) {
@@ -562,6 +611,7 @@ async function credentials(req: Request, register: boolean) {
   const form = new URLSearchParams(raw);
   const email = (form.get("email") ?? "").trim();
   const password = form.get("password") ?? "";
+  const legalAcceptance = form.get(LEGAL_ACCEPTANCE_FIELD) ?? "";
   if (!email || !password) {
     return wantsJson(req)
       ? error(400, "invalid-credentials-form", "Revise o e-mail e a senha informados.")
@@ -592,8 +642,26 @@ async function credentials(req: Request, register: boolean) {
   }
 
   const supabase = client();
+  let registrationIntentId: string | null = null;
+  if (register) {
+    try {
+      registrationIntentId = await beginRegistrationLegalIntent(email);
+    } catch {
+      return wantsJson(req)
+        ? error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.")
+        : redirectResponse("/cadastro/?erro=politica-legal-indisponivel");
+    }
+  }
   const result = register
-    ? await supabase.auth.signUp({ email, password })
+    ? await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            ordax_registration_intent_id: registrationIntentId,
+          },
+        },
+      })
     : await supabase.auth.signInWithPassword({ email, password });
 
   if (result.error) {
@@ -761,7 +829,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 14 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 15 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
