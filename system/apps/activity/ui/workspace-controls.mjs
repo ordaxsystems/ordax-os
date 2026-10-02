@@ -1,6 +1,8 @@
 import { assertPersonalApprovalConsent } from "../../../contracts/personal-approval-consent.mjs";
+import { assertPersonalActivityExportPort } from "../../../contracts/personal-activity-export.mjs";
 import { PERSONAL_ORDAX_RUNTIME_SCHEMA } from "../../../contracts/personal-ordax-store.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
+import { createPersonalActivityExportDocument } from "../../../services/personal-ordax/export.mjs";
 import { projectPersonalActivitySnapshot } from "../view-model.mjs";
 
 const EXTENSION_SELECTOR = '[data-app-extension="personal-activity"]';
@@ -57,6 +59,7 @@ export function mountPersonalActivityControls(
   personalOrdaxValue,
   surfaceLifecycle,
   approvalConsentValue = null,
+  activityExportValue = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Activity controls require a Surface root Element");
@@ -65,6 +68,9 @@ export function mountPersonalActivityControls(
   const approvalConsent = approvalConsentValue === null
     ? null
     : assertPersonalApprovalConsent(approvalConsentValue);
+  const activityExport = activityExportValue === null
+    ? null
+    : assertPersonalActivityExportPort(activityExportValue);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const t = lifecycle.localization.translate;
   const documentObject = root.ownerDocument;
@@ -72,6 +78,8 @@ export function mountPersonalActivityControls(
   let draft = "";
   const actionDrafts = new Map();
   let localError = null;
+  let exportStatus = null;
+  let exportBusy = false;
   let mountedSlot = null;
 
   const render = () => {
@@ -115,7 +123,29 @@ export function mountPersonalActivityControls(
     );
     owner.dataset.persistence = view.persistence;
     header.append(owner);
+    if (activityExport !== null) {
+      const exportButton = node(
+        documentObject,
+        "button",
+        "",
+        exportBusy ? t("activity.export.saving") : t("activity.action.export"),
+      );
+      exportButton.type = "button";
+      exportButton.dataset.personalActivityExport = "";
+      exportButton.disabled = exportBusy;
+      header.append(exportButton);
+    }
     slot.append(header);
+    if (exportStatus) {
+      const status = node(
+        documentObject,
+        "p",
+        exportStatus.kind === "error" ? "ordax-activity-error" : "ordax-activity-latest",
+        exportStatus.text,
+      );
+      status.setAttribute("role", exportStatus.kind === "error" ? "alert" : "status");
+      slot.append(status);
+    }
 
     const createBox = node(documentObject, "section", "ordax-activity-create");
     createBox.append(node(documentObject, "strong", "", t("activity.create.title")));
@@ -471,6 +501,29 @@ export function mountPersonalActivityControls(
     }
   };
 
+  const runExport = async () => {
+    if (personalOrdax === null || activityExport === null || exportBusy) return;
+    exportBusy = true;
+    exportStatus = null;
+    render();
+    try {
+      const document = createPersonalActivityExportDocument(personalOrdax.getSnapshot());
+      const result = await activityExport.save(document);
+      if (!result || result.status !== "saved" || result.fileName !== document.fileName) {
+        throw new Error("Personal Activity export save confirmation is invalid");
+      }
+      exportStatus = {
+        kind: "success",
+        text: `${t("activity.export.saved")}: ${result.fileName}`,
+      };
+    } catch {
+      exportStatus = { kind: "error", text: t("activity.error.export") };
+    } finally {
+      exportBusy = false;
+      render();
+    }
+  };
+
   const onInput = (event) => {
     if (event.target?.dataset?.personalActionResource !== undefined) {
       const workItemId = event.target.dataset.personalWorkId;
@@ -492,6 +545,11 @@ export function mountPersonalActivityControls(
   const onClick = (event) => {
     const target = event.target?.closest?.("button");
     if (!target || !mountedSlot?.contains(target) || personalOrdax === null) return;
+
+    if (target.dataset.personalActivityExport !== undefined) {
+      void runExport();
+      return;
+    }
 
     const actionRequest = target.dataset.personalActionRequest;
     const actionEntryId = target.dataset.personalActionEntryId;
