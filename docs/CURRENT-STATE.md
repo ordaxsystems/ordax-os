@@ -1043,31 +1043,53 @@ Machine-readable owner: `docs/contracts/operational-realtime.json`.
 
 ## Personal OrdaX orchestration foundation
 
-The source now defines a provider-neutral Personal OrdaX foundation without enabling an autonomous
-MVP runtime. `ordax.personal-work-item/1` binds goals to an explicit device/account owner plus
-optional Space/project scope; `ordax.personal-activity/1` defines ordered user-visible progress;
-and `ordax.personal-action-decision/1` reuses existing grants for read/write/egress/device-control
-decisions. Prompt/model/Profile/Memory/project content cannot create authority, sensitive allows
-require an explicit grant reference, and background execution remains disabled. The canonical
-boundary is `docs/PERSONAL-ORDAX.md` + `docs/contracts/personal-ordax.json`.
+Personal OrdaX is now a mounted **Native foreground orchestration** capability, not merely a
+source-only architecture stub. It reuses the canonical identity session, Space selection, Projects,
+Memory/Intelligence and tool-grant authorities; it does not own a parallel identity, Memory, sync,
+permission or project system.
 
+`ordax.personal-work-item/1` binds every Work item to the exact device/account owner and optional
+explicit Space/project. `ordax.personal-activity/1` is the ordered user-visible activity stream,
+`ordax.personal-work-result/1` stores bounded reasoning results with fixed `authority=none`, and
+approvals/decisions/attempts are persisted in the same owner partition. Account/Space/project
+changes pause affected active Work and cannot silently retarget it. Stale inference responses are
+discarded.
 
 ### Personal OrdaX foreground runtime
 
-A source-only `ordax.personal-runtime/1` now implements the first orchestration lifecycle above the
-foundation contract. Work is explicitly device/account-owned and the work store is partitioned per
-owner; account switching pauses/saves the previous partition and loads the next one instead of
-sharing a quota or visible state. Corrupt durable partitions fall back to session state without
-overwriting the recoverable bytes. Space/project context is opt-in and validated;
-owner/Space/project changes pause affected active work; stale inference responses are discarded;
-and Intelligence remains consultative. Successful foreground reasoning persists a bounded
-`ordax.personal-work-result/1` with engine/model provenance and fixed `authority=none`, atomically
-with the completed Work state and exactly one completed Activity reference. Activity therefore
-does not duplicate raw model output, and persisted model output cannot become action authority.
-Work, Activity and Result remain inside the same owner partition and terminal removal clears all
-three. A Native device-store adapter now persists one validated record per owner through the
-privileged Surface device-local storage boundary; corrupt records are recovery-blocked per owner and
-their original bytes are not silently overwritten. This adapter is not account sync and does not
-turn Memory into a task database. The runtime/store are not mounted in Web/Native composition yet,
-so no public Activity UI, background execution or autonomous tool action is claimed.
-\n
+The Native composition mounts the canonical Personal OrdaX runtime plus its owner-partitioned
+device store and Activity app. The Surface supports deliberate Work creation, visible
+`waiting-approval`, explicit pause/resume/cancel/remove, approval/deny controls and bounded result
+review. Durable owner records are capped and validated; corrupt durable bytes are preserved rather
+than silently reset. Account sync remains separate from operational Work state.
+
+One real foreground side effect is enabled:
+`ordax-native-file-space/files.directory.ensure`. It is intentionally narrow and idempotent.
+Execution requires an explicit human approval, a short-lived exact grant, matching
+owner/Space/project/Work/approval/resource/tool/action/effect, matching SHA-256 identity for the
+tool/adapter artifact, and final revalidation immediately before the adapter is resolved. The
+runtime persists an `ordax.personal-action-attempt/1` before adapter entry. A crash or ambiguous
+post-adapter failure becomes `uncertain`, revokes live authority and pauses Work; there is no
+automatic replay.
+
+Background/autonomous execution remains disabled. Generic external egress, device-control, shell,
+raw disk, release-key access, physical writes, non-idempotent file mutations, model-generated action
+proposals, specialist workers and hybrid cloud execution are not enabled by this runtime.
+
+```text
+PERSONAL_ORDAX_NATIVE_RUNTIME=PASS_MOUNTED_FOREGROUND
+PERSONAL_ORDAX_ACTIVITY_SURFACE=PASS_NATIVE_VISIBLE
+PERSONAL_ORDAX_OWNER_PARTITIONED_STORE=PASS_NATIVE_DEVICE_WITH_SESSION_FALLBACK
+PERSONAL_ORDAX_CONTEXT_RETARGET=DENY_PAUSE_ON_OWNER_SPACE_PROJECT_CHANGE
+PERSONAL_ORDAX_APPROVAL_GATE=PASS_EXPLICIT_HUMAN_CONSENT
+PERSONAL_ORDAX_FOREGROUND_ACTION_EXECUTION=PASS_ONE_BOUNDED_ACTION
+PERSONAL_ORDAX_FOREGROUND_ACTION_SCOPE=ORDAX_NATIVE_FILE_SPACE_FILES_DIRECTORY_ENSURE
+PERSONAL_ORDAX_ACTION_ATTEMPT_JOURNAL=PASS_CRASH_SAFE_NO_AUTO_REPLAY
+PERSONAL_ORDAX_BACKGROUND_EXECUTION=NO
+PERSONAL_ORDAX_GENERIC_EGRESS=NO
+PERSONAL_ORDAX_GENERIC_DEVICE_CONTROL=NO
+PERSONAL_ORDAX_PUBLIC_STABLE_AUTONOMY=NO
+```
+
+Canonical authority: `docs/PERSONAL-ORDAX.md` +
+`docs/contracts/personal-ordax.json`.
