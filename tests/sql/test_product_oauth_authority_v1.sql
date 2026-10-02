@@ -293,13 +293,15 @@ from public.ordax_product_oauth_consume_code_v1(
 where outcome = 'applied'
 \gset
 
-do $proof$
-begin
-  if :'owner_space_id'::uuid <> 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2'::uuid then
-    raise exception 'product-oauth-explicit-space-binding-lost';
-  end if;
-end;
-$proof$;
+select (
+  :'owner_space_id'::uuid = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2'::uuid
+) as owner_space_binding_ok
+\\gset
+\\if :owner_space_binding_ok
+\\else
+  \\echo 'product-oauth-explicit-space-binding-lost'
+  \\quit 1
+\\endif
 
 select public.ordax_product_oauth_issue_access_token_v1(
   repeat('6', 64),
