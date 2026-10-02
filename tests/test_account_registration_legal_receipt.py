@@ -58,8 +58,10 @@ class AccountRegistrationLegalReceiptMigrationTests(unittest.TestCase):
             self.lower,
         )
         self.assertIn("to service_role", self.lower)
-        self.assertNotIn("normalized_email text", self.lower)
-        self.assertIn("email_sha256 text not null", self.lower)
+        intents = self.lower.split("create table private.ordax_account_registration_intents", 1)[1].split(");", 1)[0]
+        self.assertNotIn("normalized_email", intents)
+        self.assertNotIn("email text", intents)
+        self.assertIn("email_sha256 text not null", intents)
 
     def test_existing_single_account_trigger_function_is_hardened_not_duplicated(self):
         self.assertIn(
