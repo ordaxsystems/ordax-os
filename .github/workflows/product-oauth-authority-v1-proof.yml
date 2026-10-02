@@ -5,15 +5,21 @@ on:
     branches: [main]
     paths:
       - 'infra/supabase/product/migrations/20261002140612_product_oauth_authority_v1.sql'
+      - 'infra/supabase/product/migrations/20261002151358_product_network_read_resource_v1.sql'
       - 'services/product-oauth/oauth.py'
       - 'services/product-oauth/gateway.py'
       - 'services/product-oauth/supabase_authority.py'
+      - 'services/product-gateway/supabase_network.py'
+      - 'services/product-gateway/oauth_network.py'
       - 'services/product-oauth/README.md'
       - 'docs/contracts/product-oauth.json'
       - 'docs/contracts/first-party-product-oauth.json'
+      - 'docs/contracts/product-network-resource.json'
       - 'tests/sql/test_product_oauth_authority_v1.sql'
+      - 'tests/sql/test_product_network_read_resource_v1.sql'
       - 'tests/test_product_oauth_authority_migration.py'
       - 'tests/test_product_oauth_supabase_authority.py'
+      - 'tests/test_product_network_resource.py'
       - 'tests/sql/setup_product_oauth_http_e2e.sql'
       - 'tests/test_product_oauth_persistent_http_e2e.py'
       - 'tests/test_product_oauth.py'
@@ -22,15 +28,21 @@ on:
   pull_request:
     paths:
       - 'infra/supabase/product/migrations/20261002140612_product_oauth_authority_v1.sql'
+      - 'infra/supabase/product/migrations/20261002151358_product_network_read_resource_v1.sql'
       - 'services/product-oauth/oauth.py'
       - 'services/product-oauth/gateway.py'
       - 'services/product-oauth/supabase_authority.py'
+      - 'services/product-gateway/supabase_network.py'
+      - 'services/product-gateway/oauth_network.py'
       - 'services/product-oauth/README.md'
       - 'docs/contracts/product-oauth.json'
       - 'docs/contracts/first-party-product-oauth.json'
+      - 'docs/contracts/product-network-resource.json'
       - 'tests/sql/test_product_oauth_authority_v1.sql'
+      - 'tests/sql/test_product_network_read_resource_v1.sql'
       - 'tests/test_product_oauth_authority_migration.py'
       - 'tests/test_product_oauth_supabase_authority.py'
+      - 'tests/test_product_network_resource.py'
       - 'tests/sql/setup_product_oauth_http_e2e.sql'
       - 'tests/test_product_oauth_persistent_http_e2e.py'
       - 'tests/test_product_oauth.py'
@@ -99,6 +111,19 @@ jobs:
           PGDATABASE=postgres createdb oauth_http_e2e
           psql -v ON_ERROR_STOP=1 -f tests/sql/setup_product_oauth_http_e2e.sql
           python -m unittest tests.test_product_oauth_persistent_http_e2e -v
+
+      - name: Prove read-only Product Network resource on PostgreSQL 16
+        env:
+          PGDATABASE: product_network_resource
+        run: |
+          set -euo pipefail
+          PGDATABASE=postgres createdb product_network_resource
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_product_network_read_resource_v1.sql
+
+      - name: Guard read-only Product Network HTTP resource
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_product_network_resource -v
 
       - name: Guard first-party product OAuth contract
         run: |
