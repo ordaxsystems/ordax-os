@@ -125,20 +125,18 @@ begin
     raise exception 'product-oauth-private-table-grant-leak';
   end if;
 
-  if exists (
+  if not exists (
     select 1
     from private.ordax_product_oauth_clients
     where client_id = 'acheguese-web-01'
-      and (
-        state <> 'disabled'
-        or cardinality(redirect_uris) <> 0
-        or allowed_scopes <> array[
-          'network.space.read',
-          'network.directory.read',
-          'network.communities.read'
-        ]
-      )
-  ) is false then
+      and state = 'disabled'
+      and cardinality(redirect_uris) = 0
+      and allowed_scopes = array[
+        'network.space.read',
+        'network.directory.read',
+        'network.communities.read'
+      ]
+  ) then
     raise exception 'product-oauth-acheguese-seed-not-fail-closed';
   end if;
 end;
