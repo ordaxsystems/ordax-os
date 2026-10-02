@@ -57,7 +57,7 @@ export function createNativePersonalOrdaxComposition({
     revokeGrant: (grantId) => authority.issuer.revoke(grantId),
     store: createNativePersonalOrdaxStore(windowRef),
   });
-  const proposalPlanner = catalog === null
+  const proposalPlanner = catalog === null || intelligence === null
     ? null
     : createPersonalActionProposalPlanner({
         intelligencePort: intelligence,
