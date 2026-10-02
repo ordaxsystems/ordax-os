@@ -1,0 +1,50 @@
+name: Application Action Capability Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/APPLICATION-ACTIONS.md'
+      - 'system/contracts/application-action-capability.mjs'
+      - 'system/contracts/application-intelligence-awareness.mjs'
+      - 'system/services/intelligence/application-action-capabilities.mjs'
+      - 'system/services/intelligence/application-awareness.mjs'
+      - 'tests/test_application_action_capability.mjs'
+      - '.github/workflows/application-action-capability-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/APPLICATION-ACTIONS.md'
+      - 'system/contracts/application-action-capability.mjs'
+      - 'system/contracts/application-intelligence-awareness.mjs'
+      - 'system/services/intelligence/application-action-capabilities.mjs'
+      - 'system/services/intelligence/application-awareness.mjs'
+      - 'tests/test_application_action_capability.mjs'
+      - '.github/workflows/application-action-capability-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  capability-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate source syntax
+        run: |
+          set -euo pipefail
+          node --check system/contracts/application-action-capability.mjs
+          node --check system/contracts/application-intelligence-awareness.mjs
+          node --check system/services/intelligence/application-action-capabilities.mjs
+          node --check system/services/intelligence/application-awareness.mjs
+          node --check tests/test_application_action_capability.mjs
+
+      - name: Run capability and awareness contract tests
+        run: |
+          set -euo pipefail
+          node --test tests/test_application_action_capability.mjs
+          node --test tests/test_application_intelligence_awareness.mjs
