@@ -62,7 +62,7 @@ SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
 GRAPHICAL_SURFACE_SOURCE=IMPLEMENTED
 SHARED_WORKSPACE_WINDOW_MODEL=IMPLEMENTED
-FIRST_PARTY_APP_REGISTRY=FILES,PROJECTS,NOTES,INTERNET,SETTINGS,ACCOUNT,SYSTEM
+FIRST_PARTY_APP_REGISTRY=FILES,PROJECTS,STUDIO,NOTES,NETWORK,ASSISTANT,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,SYSTEM
 DEVICE_AGENT_PRODUCT_NAME=OrdaX_Device_Agent
 DEVICE_AGENT_FOUNDATION=PASS_SOURCE_CONTRACT
 DEVICE_AGENT_PROJECTS_CAPABILITY_READER=PASS_SOURCE_READ_ONLY_NO_EXECUTE
@@ -232,6 +232,37 @@ A separate product-domain foundation is now defined before public accounts carry
 Persistent Intelligence memory is now implemented as OrdaX-owned through `ordax.memory/1`, with explicit `device|account` ownership, device/account/space/project/session scopes, provenance, bounded search/review/edit/delete semantics and durable `flush()` confirmation. Native/USB owns a bounded private atomic memory state through a loopback-only endpoint and mounts the memory runtime fail-soft; Web fallback is explicitly ephemeral and cannot pretend durable device/account/Space/project state. Account → Memory now mounts a user-visible Native review surface over the same owner-scoped runtime, with device/account owner switching, bounded search/pagination, editing, deletion and durable flush feedback; the Web composition deliberately shows durable memory as unavailable instead of simulating persistence. `ordax.memory-context-auth/1` and the authorized-memory bridge require composition-layer authorization before any memory reaches Intelligence, and ordinary Intelligence requests still inject no memory automatically unless Native composition has an explicit identity-bound `Space em uso`; Native composition now explicitly authorizes a shared bounded Memory set: device scope always remains available locally, authenticated account scope is added only for the real signed-in `subjectId`, and selected-Space scope is added only for that same subject plus exact `spaceId`; project/session/restricted memory is not inferred. in that case only account-owned, non-restricted `scope=space` memory for that exact `subjectId + spaceId` is eligible as selected Space Memory context. `ordax.model-router/1` is now active in the Intelligence runtime, binds local routes to `engineId + modelId` and keeps future OpenAI/xAI routes fail-closed without explicit egress plus an enabled adapter. Local AI remains the offline baseline and no inference provider owns persistent memory.
 
 The dedicated Supabase project `ordax-control-plane` is the selected pre-MVP backend target for the product schema. The source-controlled migrations under `infra/supabase/product/` have been applied: `ordax_accounts`, Spaces/membership, server-authoritative entitlement grants, versioned Profile Packs, memory metadata + pgvector embeddings and project-connection metadata all use RLS. The older duplicate `ordax_profiles` migration was removed so Auth has one OrdaX product bootstrap owner. The Supabase password provider is implemented and the OrdaX account gateway is deployed to the dedicated control-plane backend. Sign-in, sign-up, refresh, validated session state and logout use HttpOnly cookies and never expose provider tokens to Surface JavaScript. Account sync now uses an atomic initial snapshot plus a subject-bound persisted incremental cursor for appearance, portable preferences and workspace metadata on Web and Native/USB. **Public browser login remains fail-closed** pending the same-origin production hosting boundary, leaked-password protection, remaining Auth hardening and legal readiness. The Account Surface now also has a minimal read-only Spaces view on Web and Native/USB: it consumes only `/account/spaces`, validates a bounded provider-neutral projection, clears cached Space data on sign-out and never invents a local Space. The v13 gateway is now deployed as Edge Function revision 16 and performs user-bearer RLS reads only. Public browser account access and account-close execution remain disabled.
+
+OrdaX Network now has a live server-authoritative MVP backend in the same
+`ordax-control-plane`. The six v1 Network migrations plus all six canonical v2
+mutation migrations are applied: message-send, direct-create, block-change,
+group-join, report-create and group-create. Public v2 wrappers remain
+`SECURITY INVOKER`; privileged implementations remain private
+`SECURITY DEFINER` with `search_path=''`. The live schema exposes zero direct
+Network table grants to `anon` or `authenticated`. Group/report idempotency
+columns are nullable for legacy v1 rows and protected by partial unique indexes
+for v2 retries. The multi-tenant PostgreSQL proof covers cross-account denial,
+viewer write denial, block behavior, idempotency, rate-limit durability, group
+lifecycle and deletion/tombstone behavior. The first-party Network app exists
+as an optional fail-soft component and pins a draft to its sender Space; a
+global Space change never silently retargets the pending draft. The same-origin
+message route is deployed through Native -> account gateway -> Edge ->
+`ordax_network_send_message_v2`, while `PUBLIC_SITE_NETWORK_ENABLED=false`
+keeps public Network activation fail-closed.
+
+```text
+ORDAX_NETWORK_MVP_BACKEND=PASS_APPLIED
+ORDAX_NETWORK_V1_SCHEMA=PASS_APPLIED
+ORDAX_NETWORK_V2_MUTATIONS=MESSAGE_SEND,DIRECT_CREATE,BLOCK_CHANGE,GROUP_JOIN,REPORT_CREATE,GROUP_CREATE
+ORDAX_NETWORK_V2_MIGRATIONS=PASS_APPLIED
+ORDAX_NETWORK_DIRECT_BROWSER_TABLE_GRANTS=NONE
+ORDAX_NETWORK_RPC_BOUNDARY=PUBLIC_INVOKER_PRIVATE_DEFINER_SEARCH_PATH_EMPTY
+ORDAX_NETWORK_MULTI_TENANT_PROOF=PASS_POSTGRESQL16
+ORDAX_NETWORK_SURFACE_APP=PASS_SOURCE_OPTIONAL_FAIL_SOFT
+ORDAX_NETWORK_DRAFT_SENDER_SPACE=PINNED_NO_SILENT_RETARGET
+ORDAX_NETWORK_MESSAGE_TRANSPORT_SERVER=PASS_DEPLOYED
+ORDAX_NETWORK_PUBLIC_SITE_ENABLED=NO
+```
 
 A Product MCP boundary is also specified separately from the owner/development Control Plane. Future ChatGPT/Grok clients authenticate to OrdaX OAuth, then receive only account/Space/project-scoped tools. GitHub is a separate connection, preferably through a GitHub App restricted to selected repositories; upstream GitHub credentials are never returned to the external model. Public Product MCP deployment, mutating tools, connectors and automations remain post-MVP functionality.
 
