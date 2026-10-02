@@ -69,7 +69,7 @@ test("Activity export is bounded, owner-scoped and intentionally non-replayable"
     { clock: () => "2026-10-02T18:00:00.000Z" },
   );
   assert.equal(document.schema, PERSONAL_ACTIVITY_EXPORT_SCHEMA);
-  assert.equal(document.fileName, "ordax-activity-20261002T180000Z.json");
+  assert.equal(document.fileName, "ordax-activity-20261002T180000731Z.json");
   assert.equal(document.mediaType, "application/json");
   assert.ok(document.bytes.byteLength > 0);
   assert.ok(document.bytes.byteLength <= MAX_PERSONAL_ACTIVITY_EXPORT_BYTES);
@@ -100,7 +100,7 @@ test("Activity export contract rejects unbounded or ambiguous files", () => {
   assert.throws(
     () => validatePersonalActivityExportDocument({
       schema: PERSONAL_ACTIVITY_EXPORT_SCHEMA,
-      fileName: "ordax-activity-20261002T180000Z.json",
+      fileName: "ordax-activity-20261002T180000731Z.json",
       mediaType: "text/plain",
       bytes: new Uint8Array([1]),
     }),
