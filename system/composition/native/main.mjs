@@ -879,7 +879,6 @@ async function start() {
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
       window.removeEventListener("online", onOnline);
       unsubscribeHostIdentity();
-      identityActions.dispose();
       localSessionLock?.destroy();
       firstRun?.destroy();
       surfaceHeartbeat.dispose();
