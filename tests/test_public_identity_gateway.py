@@ -118,6 +118,10 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertFalse(contract["baseline"]["account_close_service_role_in_public_gateway"])
         self.assertTrue(contract["baseline"]["account_close_service_role_isolated_to_lifecycle_service"])
         self.assertTrue(contract["baseline"]["public_site_server_activation_gate"])
+        self.assertFalse(contract["baseline"]["account_registration_enabled"])
+        self.assertTrue(contract["baseline"]["account_registration_legal_binding_required"])
+        self.assertFalse(contract["baseline"]["account_registration_server_authoritative_receipt_implemented"])
+        self.assertFalse(contract["baseline"]["native_registration_may_bypass_legal_binding"])
         self.assertFalse(contract["baseline"]["public_site_account_enabled"])
         self.assertEqual(contract["baseline"]["public_site_marker_header"], "X-OrdaX-Public-Site")
         self.assertEqual(contract["baseline"]["public_site_disabled_error"], "public-account-access-disabled")
@@ -232,12 +236,13 @@ class PublicIdentityGatewayTests(unittest.TestCase):
             sync_provider=None,
             password_checker=CompromisedChecker(),
         )
-        response = gateway.handle(
-            "POST",
-            "/auth/register",
-            {"content-type": "application/x-www-form-urlencoded"},
-            b"email=pessoa%40example.com&password=compromised-password-12",
-        )
+        with patch.object(gateway_module, "ACCOUNT_REGISTRATION_ENABLED", True):
+            response = gateway.handle(
+                "POST",
+                "/auth/register",
+                {"content-type": "application/x-www-form-urlencoded"},
+                b"email=pessoa%40example.com&password=compromised-password-12",
+            )
         self.assertEqual(response.status, 400)
         self.assertEqual(self.payload(response)["error"], "compromised-password")
         self.assertEqual(provider.calls, [])
@@ -256,12 +261,13 @@ class PublicIdentityGatewayTests(unittest.TestCase):
             sync_provider=None,
             password_checker=UnavailableChecker(),
         )
-        response = gateway.handle(
-            "POST",
-            "/auth/register",
-            {"content-type": "application/x-www-form-urlencoded"},
-            b"email=pessoa%40example.com&password=new-password-12",
-        )
+        with patch.object(gateway_module, "ACCOUNT_REGISTRATION_ENABLED", True):
+            response = gateway.handle(
+                "POST",
+                "/auth/register",
+                {"content-type": "application/x-www-form-urlencoded"},
+                b"email=pessoa%40example.com&password=new-password-12",
+            )
         self.assertEqual(response.status, 503)
         self.assertEqual(self.payload(response)["error"], "password-screening-unavailable")
 
@@ -319,21 +325,36 @@ class PublicIdentityGatewayTests(unittest.TestCase):
                 self.assertEqual(response.status, 303)
                 self.assertEqual(dict(response.headers)["Location"], location)
 
-    def test_credential_posts_fail_closed_until_provider_exists(self):
-        headers = {"content-type": "application/x-www-form-urlencoded"}
-        for path in ("/auth/login", "/auth/register"):
-            with self.subTest(path=path):
-                response = self.gateway.handle(
-                    "POST",
-                    path,
-                    headers,
-                    b"email=pessoa%40example.com&password=secret",
-                )
-                self.assertEqual(response.status, 503)
-                self.assertEqual(
-                    self.payload(response)["error"],
-                    "identity-provider-unavailable",
-                )
+    def test_registration_is_disabled_before_legal_binding_even_with_provider(self):
+        class MustNotRunProvider:
+            def sign_up_with_password(self, email, password):
+                raise AssertionError("registration provider must not run while legal binding is disabled")
+
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=MustNotRunProvider(),
+            sync_provider=None,
+        )
+        response = gateway.handle(
+            "POST",
+            "/auth/register",
+            {"content-type": "application/x-www-form-urlencoded"},
+            b"email=pessoa%40example.com&password=new-password-12",
+        )
+        self.assertEqual(response.status, 503)
+        self.assertEqual(self.payload(response)["error"], "account-registration-disabled")
+
+    def test_credential_login_fails_closed_until_provider_exists(self):
+        response = self.gateway.handle(
+            "POST",
+            "/auth/login",
+            {"content-type": "application/x-www-form-urlencoded"},
+            b"email=pessoa%40example.com&password=secret",
+        )
+        self.assertEqual(response.status, 503)
+        self.assertEqual(
+            self.payload(response)["error"],
+            "identity-provider-unavailable",
+        )
 
     def test_logout_is_idempotent_and_clears_local_session_cookies(self):
         response = self.gateway.handle("POST", "/auth/logout")
