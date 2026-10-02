@@ -17,7 +17,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         contract = json.loads(IDENTITY_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "provider-adapter-source-v13-deployed-v13-revision-17-close-disabled",
+            "provider-adapter-source-v13-deployed-v13-revision-19-close-disabled",
         )
         self.assertFalse(contract["backend"]["provider_configured"])
         self.assertTrue(contract["backend"]["password_auth_flow_implemented"])
@@ -55,7 +55,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["backend"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            17,
+            19,
         )
         self.assertTrue(
             contract["backend"]["account_memory_entitlement_requires_authenticated_user"]
