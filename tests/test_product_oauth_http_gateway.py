@@ -330,7 +330,8 @@ class ProductOAuthHttpGatewayTests(unittest.TestCase):
             form,
         )
         self.assertEqual(response.status, 200)
-        self.assertEqual(payload(response), {"revoked": True})
+        self.assertEqual(response.body, b"")
+        self.assertEqual(dict(response.headers)["Content-Length"], "0")
         self.assertIn(
             ("revoke_access_token", ACCESS_TOKEN),
             self.authority.calls,
