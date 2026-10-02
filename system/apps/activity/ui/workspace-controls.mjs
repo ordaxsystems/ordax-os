@@ -77,6 +77,9 @@ export function mountPersonalActivityControls(
   let destroyed = false;
   let draft = "";
   const actionDrafts = new Map();
+  const proposalStates = new Map();
+  const proposalBusy = new Set();
+  let proposalOwnerKey = null;
   let localError = null;
   let exportStatus = null;
   let exportBusy = false;
@@ -112,6 +115,14 @@ export function mountPersonalActivityControls(
     }
 
     const view = projectPersonalActivitySnapshot(personalOrdax.getSnapshot());
+    const currentProposalOwnerKey = view.ownerKind === "account"
+      ? `account:${view.ownerId}`
+      : "device";
+    if (proposalOwnerKey !== currentProposalOwnerKey) {
+      proposalOwnerKey = currentProposalOwnerKey;
+      proposalStates.clear();
+      proposalBusy.clear();
+    }
     const availableActions = typeof personalOrdax.listAvailableActions === "function"
       ? personalOrdax.listAvailableActions()
       : [];
@@ -217,6 +228,27 @@ export function mountPersonalActivityControls(
           addAction("cancel", t("activity.action.cancel"));
         }
         if (TERMINAL_STATES.has(item.state)) addAction("remove", t("activity.action.remove"));
+        if (
+          (item.state === "queued" || item.state === "paused")
+          && entry.pendingApproval === null
+          && entry.approvedApproval === null
+          && availableActions.length > 0
+          && typeof personalOrdax.proposeActionForWork === "function"
+        ) {
+          const suggest = node(
+            documentObject,
+            "button",
+            "",
+            proposalBusy.has(item.id)
+              ? t("activity.proposal.planning")
+              : t("activity.action.suggest"),
+          );
+          suggest.type = "button";
+          suggest.dataset.personalProposalSuggest = "";
+          suggest.dataset.personalWorkId = item.id;
+          suggest.disabled = proposalBusy.has(item.id);
+          actions.append(suggest);
+        }
         top.append(actions);
         article.append(top);
 
@@ -259,6 +291,65 @@ export function mountPersonalActivityControls(
             );
           }
           article.append(attemptBox);
+        }
+
+        const proposalState = proposalStates.get(item.id);
+        if (
+          proposalState
+          && (item.state === "queued" || item.state === "paused")
+          && entry.pendingApproval === null
+          && entry.approvedApproval === null
+        ) {
+          const proposalBox = node(documentObject, "section", "ordax-activity-approval");
+          proposalBox.append(
+            node(documentObject, "strong", "", t("activity.proposal.title")),
+          );
+          if (proposalState.kind === "none") {
+            proposalBox.append(node(documentObject, "p", "", t("activity.proposal.none")));
+          } else {
+            const proposal = proposalState.value;
+            proposalBox.append(
+              node(documentObject, "p", "", proposal.rationale),
+              node(
+                documentObject,
+                "span",
+                "ordax-activity-result-meta",
+                `${proposal.entryId} · authority=${proposal.authority}`,
+              ),
+              node(
+                documentObject,
+                "span",
+                "ordax-activity-result-meta",
+                `${t("activity.proposal.resource")}: ${proposal.resourceValue}`,
+              ),
+            );
+            const proposalActions = node(
+              documentObject,
+              "div",
+              "ordax-activity-work-actions ordax-activity-approval-actions",
+            );
+            const request = node(
+              documentObject,
+              "button",
+              "ordax-activity-primary",
+              t("activity.action.requestProposalApproval"),
+            );
+            request.type = "button";
+            request.dataset.personalProposalAction = "request";
+            request.dataset.personalWorkId = item.id;
+            const discard = node(
+              documentObject,
+              "button",
+              "",
+              t("activity.action.discardProposal"),
+            );
+            discard.type = "button";
+            discard.dataset.personalProposalAction = "discard";
+            discard.dataset.personalWorkId = item.id;
+            proposalActions.append(request, discard);
+            proposalBox.append(proposalActions);
+          }
+          article.append(proposalBox);
         }
 
         if (
@@ -501,6 +592,48 @@ export function mountPersonalActivityControls(
     }
   };
 
+  const runProposalSuggestion = async (workItemId) => {
+    if (
+      personalOrdax === null
+      || typeof personalOrdax.proposeActionForWork !== "function"
+      || proposalBusy.has(workItemId)
+    ) return;
+
+    const before = personalOrdax.getSnapshot();
+    const ownerKey = before.ownerKind === "account"
+      ? `account:${before.ownerId}`
+      : "device";
+    proposalBusy.add(workItemId);
+    proposalStates.delete(workItemId);
+    localError = null;
+    render();
+
+    try {
+      const proposal = await personalOrdax.proposeActionForWork(workItemId);
+      const after = personalOrdax.getSnapshot();
+      const currentOwnerKey = after.ownerKind === "account"
+        ? `account:${after.ownerId}`
+        : "device";
+      if (
+        currentOwnerKey !== ownerKey
+        || !after.workItems.some((item) => item.id === workItemId)
+      ) {
+        return;
+      }
+      proposalStates.set(
+        workItemId,
+        proposal === null
+          ? { kind: "none" }
+          : { kind: "proposal", value: proposal },
+      );
+    } catch {
+      localError = t("activity.error.proposal");
+    } finally {
+      proposalBusy.delete(workItemId);
+      render();
+    }
+  };
+
   const runExport = async () => {
     if (personalOrdax === null || activityExport === null || exportBusy) return;
     exportBusy = true;
@@ -549,6 +682,37 @@ export function mountPersonalActivityControls(
     if (target.dataset.personalActivityExport !== undefined) {
       void runExport();
       return;
+    }
+
+    const proposalWorkId = target.dataset.personalWorkId;
+    if (target.dataset.personalProposalSuggest !== undefined && proposalWorkId) {
+      void runProposalSuggestion(proposalWorkId);
+      return;
+    }
+
+    const proposalAction = target.dataset.personalProposalAction;
+    if (proposalAction && proposalWorkId) {
+      if (proposalAction === "discard") {
+        proposalStates.delete(proposalWorkId);
+        render();
+        return;
+      }
+      if (
+        proposalAction === "request"
+        && typeof personalOrdax.requestProposedAction === "function"
+      ) {
+        const proposalState = proposalStates.get(proposalWorkId);
+        if (proposalState?.kind !== "proposal") return;
+        try {
+          personalOrdax.requestProposedAction(proposalState.value);
+          proposalStates.delete(proposalWorkId);
+          localError = null;
+        } catch {
+          localError = t("activity.error.approval");
+        }
+        render();
+        return;
+      }
     }
 
     const actionRequest = target.dataset.personalActionRequest;
