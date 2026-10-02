@@ -56,3 +56,33 @@ establish the product link; member/viewer authority is insufficient.
 Product MCP and first-party products may share a future OrdaX issuer, but they
 must not share client registrations, audiences or bearer tokens. Development
 Control Plane MCP credentials remain a separate authority entirely.
+
+
+## First-party Network resource server
+
+The initial Product OAuth read scopes now have a dedicated read-only resource
+boundary in `oauth_network.py` with a server-only Supabase adapter in
+`supabase_network.py`.
+
+The resource server exposes only:
+
+- `GET /product/network/v1/space` -> `network.space.read`;
+- `GET /product/network/v1/directory` -> `network.directory.read`;
+- `GET /product/network/v1/communities` -> `network.communities.read`.
+
+It accepts only opaque OrdaX Product OAuth bearer tokens. The shared OAuth core
+resolves the token and checks the exact scope before the resource adapter is
+called. The server adapter sends only the token SHA-256 digest to PostgreSQL.
+The Product Network RPCs then revalidate token, grant, client, scope and current
+Space authority again before reading any Network row.
+
+The selected Space read is subject-bound and may return the authorized Space's
+own Network profile even when that profile is hidden from discovery. Directory
+reads remain discoverable-only. Archived communities are excluded.
+
+No write scope is implemented by this boundary. In particular
+`network.messages.write`, `network.groups.join` and
+`product.acheguese.publish` remain outside the resource server.
+
+Source presence does not deploy a listener, enable the canonical Achegue-se
+client or invent a production redirect URI.
