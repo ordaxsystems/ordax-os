@@ -5,10 +5,12 @@ import {
 } from "../../contracts/intelligence-tool-grant-authority.mjs";
 import { assertActionAdapter } from "../../contracts/action-executor.mjs";
 import { assertPersonalActionCatalog } from "../../contracts/personal-action-catalog.mjs";
+import { validatePersonalActionProposal } from "../../contracts/personal-action-proposal.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
 import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
+import { createPersonalActionProposalPlanner } from "../../services/personal-ordax/proposal-planner.mjs";
 import { createPersonalOrdaxRuntime } from "../../services/personal-ordax/runtime.mjs";
 
 export function createNativePersonalOrdaxComposition({
@@ -55,6 +57,30 @@ export function createNativePersonalOrdaxComposition({
     revokeGrant: (grantId) => authority.issuer.revoke(grantId),
     store: createNativePersonalOrdaxStore(windowRef),
   });
+  const proposalPlanner = catalog === null
+    ? null
+    : createPersonalActionProposalPlanner({
+        intelligencePort: intelligence,
+        actionCatalog: catalog,
+      });
+
+  const currentProposalWork = (workItemId) => {
+    const snapshot = runtime.getSnapshot();
+    const work = snapshot.workItems.find((candidate) => candidate.id === workItemId);
+    if (!work) {
+      throw new Error("Personal OrdaX proposal requires a current owner-bound Work item");
+    }
+    if (work.state !== "queued" && work.state !== "paused") {
+      throw new Error("Personal OrdaX proposal requires queued or paused Work");
+    }
+    if (snapshot.approvals.some((approval) =>
+      approval.workItemId === workItemId
+      && (approval.status === "pending" || approval.status === "approved")
+    )) {
+      throw new Error("Personal OrdaX proposal is blocked while Work has unresolved authority");
+    }
+    return work;
+  };
 
   const reconcileApprovedAuthority = () => {
     let changed = false;
@@ -88,14 +114,25 @@ export function createNativePersonalOrdaxComposition({
       if (catalog === null) {
         throw new Error("Personal OrdaX action catalog is unavailable");
       }
-      const work = runtime.getSnapshot().workItems.find((candidate) => candidate.id === workItemId);
-      if (!work) {
-        throw new Error("Personal OrdaX proposal requires a current owner-bound Work item");
-      }
-      if (work.state === "completed" || work.state === "failed" || work.state === "cancelled") {
-        throw new Error("Personal OrdaX proposal cannot target terminal Work");
-      }
+      const work = currentProposalWork(workItemId);
       return catalog.propose(work.id, entryId, input);
+    },
+    async proposeActionForWork(workItemId) {
+      if (proposalPlanner === null) {
+        throw new Error("Personal OrdaX action proposal planner is unavailable");
+      }
+      const work = currentProposalWork(workItemId);
+      return proposalPlanner.propose(work);
+    },
+    requestProposedAction(proposalValue) {
+      if (catalog === null) {
+        throw new Error("Personal OrdaX action catalog is unavailable");
+      }
+      const proposal = validatePersonalActionProposal(proposalValue);
+      const work = currentProposalWork(proposal.workItemId);
+      return catalog.request(runtime, work.id, proposal.entryId, {
+        resourceValue: proposal.resourceValue,
+      });
     },
     requestAvailableAction(workItemId, entryId, input) {
       if (catalog === null) {
