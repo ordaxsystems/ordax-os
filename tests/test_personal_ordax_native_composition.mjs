@@ -412,6 +412,12 @@ test("model proposal remains authority-free until explicit conversion to approva
   assert.equal(runtime.getSnapshot().attempts.length, before.attempts.length);
   assert.equal(requests.length, 1);
 
+  assert.throws(
+    () => runtime.requestProposedAction({ ...proposal }),
+    /binding is unavailable/,
+  );
+  assert.equal(runtime.getSnapshot().approvals.length, before.approvals.length);
+
   const approval = runtime.requestProposedAction(proposal);
   const after = runtime.getSnapshot();
   assert.equal(after.approvals.length, before.approvals.length + 1);
@@ -522,6 +528,97 @@ test("model proposal is discarded when owner changes during inference", async ()
   assert.equal(snapshot.approvals.length, 0);
   assert.equal(snapshot.decisions.length, 0);
   assert.equal(snapshot.attempts.length, 0);
+
+  runtime.dispose();
+});
+
+
+test("issued proposal cannot cross owners even when local work ids are reused", async () => {
+  const listeners = new Set();
+  let identitySnapshot = { state: "signed-in", subjectId: "user-a", displayName: "User A" };
+  const mutableIdentity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot() {
+      return identitySnapshot;
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  const switchOwner = (subjectId) => {
+    identitySnapshot = { state: "signed-in", subjectId, displayName: subjectId };
+    for (const listener of [...listeners]) listener(identitySnapshot);
+  };
+  const proposalIntelligence = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot() {
+      return {
+        schema: INTELLIGENCE_PORT_SCHEMA,
+        state: "ready",
+        inferenceAvailable: true,
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+        toolExecution: false,
+      };
+    },
+    subscribe() {
+      return () => {};
+    },
+    async respond() {
+      return {
+        schema: INTELLIGENCE_RESPONSE_SCHEMA,
+        text: JSON.stringify({
+          kind: "proposal",
+          entryId: "native-file.ensure-directory",
+          resourceValue: "/OwnerA",
+          rationale: "Suggestion for owner A only.",
+        }),
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+      };
+    },
+  };
+  const catalog = createPersonalActionCatalog({
+    registrations: [{
+      entry: {
+        id: "native-file.ensure-directory",
+        toolId: "ordax-native-file-space",
+        toolArtifactSha256: "a".repeat(64),
+        actionId: "files.directory.ensure",
+        effect: "write",
+        inputKind: "resource-value",
+        resourceScheme: "file-space",
+      },
+      toResourceRef(value) {
+        return "file-space:" + String(value).trim();
+      },
+      reason: "Trusted catalog reason.",
+    }],
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: mutableIdentity,
+    intelligence: proposalIntelligence,
+    actionCatalog: catalog,
+  });
+
+  const ownerAWork = runtime.create("Owner A work");
+  assert.equal(ownerAWork.id, "personal-work-1");
+  const proposal = await runtime.proposeActionForWork(ownerAWork.id);
+
+  switchOwner("user-b");
+  const ownerBWork = runtime.create("Owner B work");
+  assert.equal(ownerBWork.id, "personal-work-1");
+
+  assert.throws(
+    () => runtime.requestProposedAction(proposal),
+    /different owner/,
+  );
+  assert.equal(runtime.getSnapshot().ownerId, "user-b");
+  assert.equal(runtime.getSnapshot().approvals.length, 0);
 
   runtime.dispose();
 });
