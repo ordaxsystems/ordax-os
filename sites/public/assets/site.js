@@ -41,10 +41,12 @@
     if (typeof value !== "string") return false;
     try {
       const url = new URL(value);
+      const raw = value.trim();
+      const authority = raw.slice("https://".length).split("/", 1)[0];
       return (
         url.protocol === "https:"
-        && !url.username
-        && !url.password
+        && authority.length > 0
+        && !authority.includes("@")
         && !url.search
         && !url.hash
       );
