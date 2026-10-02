@@ -69,6 +69,11 @@ class NativeHostModuleIntegrityTests(unittest.TestCase):
             source,
         )
         self.assertIn("self._empty(503)", source)
+        self.assertIn('ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"', source)
+        self.assertIn('payload["registrationEnabled"] = bool(', source)
+        self.assertIn("and ACCOUNT_REGISTRATION_ENABLED", source)
+        self.assertIn('{"email", "password", "legalAcceptance"}', source)
+        self.assertIn('payload.get("legalAcceptance") is not True', source)
 
 
 if __name__ == "__main__":
