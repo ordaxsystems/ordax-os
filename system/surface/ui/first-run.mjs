@@ -133,6 +133,9 @@ export function mountFirstRunExperience(
   let identityMessage = "";
   let identityEmailDraft = "";
   let identityPasswordDraft = "";
+  let registrationPolicy = null;
+  let registrationLegalAccepted = false;
+  let registrationPolicyPending = false;
   let localSessionSnapshot = localSessionPort === null
     ? null
     : validateLocalSessionSnapshot(localSessionPort.getSnapshot());
@@ -452,6 +455,42 @@ export function mountFirstRunExperience(
       password.disabled = identityPending !== null;
       passwordField.append(password);
       form.append(emailField, passwordField);
+
+      if (
+        registrationPolicy
+        && isIdentityActionSupported(actionsSnapshot, "register")
+      ) {
+        const legal = el(documentObject, "div", "ordax-first-run-legal");
+        legal.append(
+          el(documentObject, "strong", "", "Documentos vigentes"),
+          el(documentObject, "p", "", "Leia os documentos canônicos antes de criar sua Conta OrdaX."),
+        );
+        const links = el(documentObject, "div", "ordax-first-run-legal-links");
+        const privacy = documentObject.createElement("a");
+        privacy.href = registrationPolicy.privacy.url;
+        privacy.target = "_blank";
+        privacy.rel = "noopener noreferrer";
+        privacy.textContent = `Privacidade · v${registrationPolicy.privacy.version} · ${registrationPolicy.privacy.effectiveDate}`;
+        const terms = documentObject.createElement("a");
+        terms.href = registrationPolicy.terms.url;
+        terms.target = "_blank";
+        terms.rel = "noopener noreferrer";
+        terms.textContent = `Termos · v${registrationPolicy.terms.version} · ${registrationPolicy.terms.effectiveDate}`;
+        links.append(privacy, terms);
+        const acceptance = el(documentObject, "label", "ordax-first-run-legal-acceptance");
+        const checkbox = documentObject.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = registrationLegalAccepted;
+        checkbox.dataset.firstRunRegistrationLegalAcceptance = "";
+        checkbox.disabled = identityPending !== null;
+        acceptance.append(
+          checkbox,
+          el(documentObject, "span", "", "Li e aceito os documentos vigentes indicados acima."),
+        );
+        legal.append(links, acceptance);
+        form.append(legal);
+      }
+
       body.append(form);
     }
 
@@ -461,8 +500,14 @@ export function mountFirstRunExperience(
     } else {
       const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
       signIn.disabled = identityPending !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
-      const register = action(documentObject, identityPending === "register" ? "Abrindo cadastro…" : "Criar conta", "account-register");
-      register.disabled = identityPending !== null || !isIdentityActionSupported(actionsSnapshot, "register");
+      const register = action(documentObject, identityPending === "register" ? "Criando conta…" : "Criar conta", "account-register");
+      register.disabled = (
+        identityPending !== null
+        || registrationPolicyPending
+        || !registrationPolicy
+        || !registrationLegalAccepted
+        || !isIdentityActionSupported(actionsSnapshot, "register")
+      );
       buttons.append(signIn, register);
     }
     const local = action(documentObject, "Continuar sem conta", "account-local");
@@ -665,10 +710,45 @@ export function mountFirstRunExperience(
     }
   };
 
+  const refreshRegistrationPolicy = async () => {
+    if (
+      destroyed
+      || registrationPolicyPending
+      || credentialsPort === null
+      || typeof credentialsPort.registrationPolicy !== "function"
+      || !isIdentityActionSupported(actionsSnapshot, "register")
+    ) {
+      if (!isIdentityActionSupported(actionsSnapshot, "register")) {
+        registrationPolicy = null;
+        registrationLegalAccepted = false;
+      }
+      return;
+    }
+    registrationPolicyPending = true;
+    try {
+      const policy = await credentialsPort.registrationPolicy();
+      if (destroyed) return;
+      registrationPolicy = policy.registrationEnabled === true ? policy : null;
+      if (registrationPolicy === null) registrationLegalAccepted = false;
+    } catch {
+      if (!destroyed) {
+        registrationPolicy = null;
+        registrationLegalAccepted = false;
+      }
+    } finally {
+      registrationPolicyPending = false;
+      if (!destroyed && STEPS[stepIndex] === "account") render();
+    }
+  };
+
   const runIdentity = async (kind) => {
     if (destroyed || identityPending || !isIdentityActionSupported(actionsSnapshot, kind)) return;
     const credentialInput = credentialsPort && (kind === "sign-in" || kind === "register")
-      ? { email: identityEmailDraft, password: identityPasswordDraft }
+      ? {
+          email: identityEmailDraft,
+          password: identityPasswordDraft,
+          ...(kind === "register" ? { legalAccepted: registrationLegalAccepted } : {}),
+        }
       : null;
     identityPasswordDraft = "";
     identityPending = kind;
@@ -783,7 +863,12 @@ export function mountFirstRunExperience(
       draft.locale = event.target.value;
       documentObject.documentElement.lang = draft.locale;
       render();
-    } else if (event.target.matches("[data-first-run-time-zone]")) draft.timeZone = event.target.value;
+    } else if (event.target.matches("[data-first-run-time-zone]")) {
+      draft.timeZone = event.target.value;
+    } else if (event.target.matches("[data-first-run-registration-legal-acceptance]")) {
+      registrationLegalAccepted = event.target.checked === true;
+      render();
+    }
   };
 
   const onKeyDown = (event) => {
@@ -811,11 +896,22 @@ export function mountFirstRunExperience(
 
   unsubscribeSession = sessionPort.subscribe((snapshot) => {
     sessionSnapshot = snapshot;
+    if (sessionSnapshot.state === "signed-in") {
+      registrationPolicy = null;
+      registrationLegalAccepted = false;
+    }
     if (!destroyed && STEPS[stepIndex] === "account") render();
   });
   unsubscribeActions = actionsPort.subscribe((snapshot) => {
     actionsSnapshot = snapshot;
+    if (!isIdentityActionSupported(actionsSnapshot, "register")) {
+      registrationPolicy = null;
+      registrationLegalAccepted = false;
+    }
     if (!destroyed && STEPS[stepIndex] === "account") render();
+    if (isIdentityActionSupported(actionsSnapshot, "register") && registrationPolicy === null) {
+      void refreshRegistrationPolicy();
+    }
   });
   unsubscribeLocalSession = localSessionPort?.subscribe((snapshot) => {
     localSessionSnapshot = validateLocalSessionSnapshot(snapshot);
@@ -823,6 +919,9 @@ export function mountFirstRunExperience(
   });
 
   render();
+  if (isIdentityActionSupported(actionsSnapshot, "register")) {
+    void refreshRegistrationPolicy();
+  }
   queueMicrotask(() => overlay.querySelector("button, select, input")?.focus?.());
 
   return Object.freeze({
