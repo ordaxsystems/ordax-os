@@ -1,0 +1,224 @@
+# Application Actions
+
+Status: **FOUNDATION / CAPABILITY DESCRIPTION AND PROPOSAL ONLY**
+
+OrdaX Intelligence may eventually help a user operate applications, but understanding that an action exists is not authority to perform it.
+
+This foundation introduces a strict semantic boundary between:
+
+1. application identity;
+2. a proven action capability;
+3. a data-only action proposal;
+4. future policy/grants/human confirmation;
+5. future execution by a bounded adapter.
+
+No executor is implemented here.
+
+## Architecture
+
+```text
+user intent
+  -> OrdaX Intelligence
+  -> Application Intelligence Awareness
+  -> Application Action Capability Registry
+       -> declared semantic capability
+       -> data-only validated proposal
+  -> FUTURE App Action Broker
+       -> current Space/session
+       -> permission policy
+       -> resource grants
+       -> human confirmation when required
+       -> audit receipt
+  -> FUTURE bounded adapter
+       -> first-party semantic API
+       -> generic application lifecycle adapter
+       -> verified Windows integration
+```
+
+The local model still has `authority=none` and `toolExecution=false`.
+
+## Capability contract
+
+`ordax.application-action-capability/1` identifies one semantic action for one exact application identity.
+
+A capability contains:
+
+- stable `appId`;
+- stable semantic `actionId`;
+- display title/description;
+- application source/platform class;
+- provider kind and opaque adapter identity/revision;
+- exact foreign payload SHA-256 binding for installed Windows applications;
+- typed semantic parameter declarations;
+- risk class;
+- confirmation class;
+- provenance;
+- mandatory `executionAuthorized=false`;
+- mandatory `modelDirectExecutionAuthorized=false`.
+
+The current provider kinds are descriptive only:
+
+- `first-party-native` — an OrdaX-owned semantic integration;
+- `generic-lifecycle` — a future OrdaX-provided generic lifecycle integration;
+- `verified-integration` — an integration bound to a specific installed foreign app payload.
+
+Declaring any of these kinds does not make an executor available.
+
+## Parameters are semantic, not operating-system authority
+
+Allowed parameter types are bounded scalar forms:
+
+- `string`;
+- `boolean`;
+- `integer`;
+- `number`;
+- `enum`;
+- `uri`;
+- `resource-grant-id`.
+
+Filesystem resources must cross the future broker as opaque resource-grant identities, not raw host paths.
+
+A `uri` parameter must also declare a bounded allowlist of schemes. The registry rejects a proposal whose URI scheme is not explicitly declared by that capability. For example, a web-navigation capability may declare `https`/`http` without thereby accepting `javascript`, `file`, a vendor URI scheme or any other scheme. A future broker/adapter may narrow this further; it must not widen the capability silently.
+
+The capability contract explicitly rejects parameter identities that would create a hidden authority channel such as:
+
+- `path` / `raw-path` / `host-path`;
+- `command` / `shell`;
+- `executable` / `executable-path`;
+- `wineprefix`;
+- `argv`;
+- `environment` / `env`;
+- `working-directory`.
+
+This is intentional. A future adapter can internally translate an authorized semantic resource grant into its implementation-specific path or handle. That mapping must remain behind the broker/sandbox boundary.
+
+## Installed Windows application binding
+
+A foreign capability is not attached only to a display name like `Photoshop`.
+
+It is bound to the installed OrdaX application identity and the exact `payloadSha256` already validated by `ordax.installed-application/1` and projected by Application Intelligence Awareness.
+
+Therefore an application update that changes payload identity does not silently inherit a previous verified integration. The registry fails closed until a capability matching the new installed identity is declared/reverified.
+
+A Windows application also cannot claim a `first-party-native` provider.
+
+## Risk and confirmation metadata
+
+The capability describes policy-relevant metadata without satisfying policy itself.
+
+Current risk classes:
+
+- `read-only`;
+- `local-change`;
+- `external-effect`;
+- `privileged`.
+
+Current confirmation classes:
+
+- `none`;
+- `policy-gated`;
+- `always`.
+
+Contract invariants include:
+
+- a `privileged` action requires `always` confirmation;
+- an `external-effect` action cannot use `none`.
+
+The proposal contract repeats those invariants instead of trusting a caller-provided risk/confirmation pair. A future broker still re-resolves the exact capability and may never treat a proposal as authority by itself.
+
+These are minimum structural constraints. A future App Action Broker may require *more* confirmation based on user policy, Space, resource grants, destination, session state or action-specific rules. It may never weaken the declared minimum.
+
+## Proposal is not execution
+
+`ordax.application-action-proposal/1` is a bounded data object produced only after:
+
+- exact `appId/actionId` lookup;
+- exact capability binding validation;
+- rejection of undeclared parameters;
+- validation of required arguments;
+- validation of parameter type/range/enum/resource-grant/URI-scheme constraints.
+
+A proposal still carries:
+
+```text
+executionAuthorized = false
+modelDirectExecutionAuthorized = false
+```
+
+There is deliberately no `execute()` step in this foundation.
+
+The read-only registry exposes only:
+
+- `list()`;
+- `get(appId, actionId)`;
+- `listForApp(appId)`;
+- `propose(appId, actionId, arguments)`;
+- `contextItem()`.
+
+It rejects or omits mutation/execution/grant methods such as `register`, `execute`, `invoke`, `launch`, `install`, `shell`, `spawn`, `grant`, `authorize` and `confirm`.
+
+## Intelligence context
+
+`contextItem()` exposes only the semantic subset useful for planning:
+
+- app id;
+- action id/title;
+- parameter ids/types/required flags and bounded semantic constraints such as enum values or allowed URI schemes;
+- risk class;
+- confirmation class;
+- execution flags fixed to false.
+
+It does **not** expose:
+
+- foreign payload SHA-256;
+- provider adapter id/revision;
+- Wine/runtime/profile ids;
+- executable paths;
+- shell commands;
+- grants;
+- confirmation receipts.
+
+The context itself says `authority=none` and `toolExecution=false`.
+
+## No production capabilities yet
+
+This foundation does not declare real actions for existing applications.
+
+That is deliberate. Real capabilities must arrive only when their implementation can be proven:
+
+1. first-party actions: explicit semantic contracts in the owning app;
+2. generic lifecycle actions: only after a safe OrdaX lifecycle executor exists;
+3. Windows app-specific actions: only after a version/payload-bound integration proves documented CLI/URI/IPC/file-association behavior;
+4. accessibility: later bounded fallback if a stable accessibility surface is proven;
+5. pixel/visual automation: last resort, not a generic authority escape hatch.
+
+A running Wine process is not proof that an app supports a semantic action.
+
+## Next gate: App Action Broker
+
+A later PR may introduce a broker, but it must remain separate from Intelligence and this read-only registry.
+
+Before executing anything it must validate at least:
+
+- exact application and capability identity;
+- current user/session/Space;
+- resource grants;
+- current installed payload/integration revision;
+- risk and confirmation policy;
+- human confirmation where required;
+- adapter availability/health;
+- bounded audit receipt.
+
+The broker must receive semantic arguments, never an arbitrary shell command generated by a model.
+
+## Relationship to Memory and automation
+
+Application capabilities do not imply memory and memory does not imply action authority.
+
+For example:
+
+- `user prefers WebP for Instagram exports` may become authorized per-app memory later;
+- `image.export` may be a declared capability later;
+- publishing externally still requires the broker/policy/confirmation rules for that external effect.
+
+This separation is required for the future Jarvis-style experience to remain useful without turning learned preferences into silent permissions.
