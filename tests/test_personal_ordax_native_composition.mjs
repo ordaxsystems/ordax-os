@@ -325,7 +325,7 @@ test("Native proposal port is catalog-bound and creates no approval or authority
         rationale: "Nao deve existir proposal em Work terminal.",
       },
     ),
-    /terminal Work/,
+    /queued or paused Work/,
   );
 
   runtime.dispose();
