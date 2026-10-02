@@ -303,5 +303,30 @@ test("Native proposal port is catalog-bound and creates no approval or authority
   assert.equal(after.decisions.length, before.decisions.length);
   assert.equal(after.attempts.length, before.attempts.length);
 
+  assert.throws(
+    () => runtime.proposeAvailableAction(
+      "fabricated-work",
+      "native-file.ensure-directory",
+      {
+        resourceValue: "/Operacao/Fora",
+        rationale: "Nao deve existir proposal fora do Work corrente.",
+      },
+    ),
+    /current owner-bound Work item/,
+  );
+
+  runtime.cancel(work.id);
+  assert.throws(
+    () => runtime.proposeAvailableAction(
+      work.id,
+      "native-file.ensure-directory",
+      {
+        resourceValue: "/Operacao/Fora",
+        rationale: "Nao deve existir proposal em Work terminal.",
+      },
+    ),
+    /terminal Work/,
+  );
+
   runtime.dispose();
 });
