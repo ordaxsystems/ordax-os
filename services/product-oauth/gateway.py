@@ -138,12 +138,15 @@ def _form_body(body: bytes | None) -> dict[str, str]:
     except UnicodeDecodeError as exc:
         raise OAuthInvalidRequest("body") from exc
 
-    pairs = parse_qsl(
-        text,
-        keep_blank_values=True,
-        strict_parsing=True,
-        max_num_fields=16,
-    )
+    try:
+        pairs = parse_qsl(
+            text,
+            keep_blank_values=True,
+            strict_parsing=True,
+            max_num_fields=16,
+        )
+    except ValueError as exc:
+        raise OAuthInvalidRequest("body") from exc
     result: dict[str, str] = {}
     for key, value in pairs:
         if key in result:
