@@ -294,12 +294,12 @@ where outcome = 'applied'
 select (
   :'owner_space_id'::uuid = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2'::uuid
 ) as owner_space_binding_ok
-\\gset
-\\if :owner_space_binding_ok
-\\else
-  \\echo 'product-oauth-explicit-space-binding-lost'
-  \\quit 1
-\\endif
+\gset
+\if :owner_space_binding_ok
+\else
+  \echo 'product-oauth-explicit-space-binding-lost'
+  \quit 1
+\endif
 
 select public.ordax_product_oauth_issue_access_token_v1(
   repeat('6', 64),
