@@ -887,15 +887,7 @@ Deno.serve(async (req: Request) => {
         return error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.");
       }
     }
-    if (path === "/auth/registration-policy" && req.method === "GET") {
-    try {
-      return json(200, await registrationLegalPolicy());
-    } catch {
-      return error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.");
-    }
-  }
-
-  if (path === "/auth/session" && req.method === "GET") {
+    if (path === "/auth/session" && req.method === "GET") {
       return json(200, {
         $schema: SESSION_SCHEMA,
         authenticated: false,
@@ -914,6 +906,14 @@ Deno.serve(async (req: Request) => {
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
     return sendNetworkMessage(req);
+  }
+
+  if (path === "/auth/registration-policy" && req.method === "GET") {
+    try {
+      return json(200, await registrationLegalPolicy());
+    } catch {
+      return error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.");
+    }
   }
 
   if (path === "/auth/session" && req.method === "GET") {
