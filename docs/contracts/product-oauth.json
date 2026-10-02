@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.product-oauth/1",
-  "status": "persistent-authority-and-http-boundary-source-ready-runtime-disabled",
+  "status": "persistent-authority-http-boundary-disposable-e2e-proven-runtime-disabled",
   "purpose": "first-party and end-user product authorization without reusing owner/development MCP credentials",
   "activation": {
     "public_enabled": false,
@@ -84,5 +84,25 @@
     "refresh_token_returned": false,
     "revocation_hides_token_existence": true,
     "maximum_request_body_bytes": 16384
+  },
+  "proofs": {
+    "persistent_http_authority_e2e": {
+      "status": "pass-disposable-postgresql-16",
+      "workflow": ".github/workflows/product-oauth-authority-v1-proof.yml",
+      "setup": "tests/sql/setup_product_oauth_http_e2e.sql",
+      "test": "tests/test_product_oauth_persistent_http_e2e.py",
+      "covers": [
+        "explicit-space-selection-with-multiple-spaces",
+        "cross-account-space-denial",
+        "scope-escalation-denial",
+        "pkce-s256-code-exchange",
+        "pkce-mismatch-burns-code",
+        "access-token-resolution",
+        "access-token-revocation",
+        "stale-space-authority-invalidates-token"
+      ],
+      "production_redirect_proven": false,
+      "public_runtime_enabled": false
+    }
   }
 }
