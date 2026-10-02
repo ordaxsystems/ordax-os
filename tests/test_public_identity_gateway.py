@@ -40,7 +40,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v13-deployed-v13-revision-17-close-disabled",
+            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v13-deployed-v13-revision-19-close-disabled",
         )
         self.assertFalse(contract["baseline"]["provider_configured"])
         self.assertTrue(contract["baseline"]["http_only_session_cookies"])
@@ -72,9 +72,9 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertFalse(contract["baseline"]["existing_login_passwords_retroactively_rejected"])
         self.assertEqual(contract["runtime"]["gateway_source_version"], 13)
         self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 13)
-        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 17)
+        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 19)
         self.assertTrue(contract["runtime"]["lifecycle_service_deployed"])
-        self.assertEqual(contract["runtime"]["lifecycle_service_deployment_revision_observed"], 1)
+        self.assertEqual(contract["runtime"]["lifecycle_service_deployment_revision_observed"], 2)
         self.assertFalse(contract["runtime"]["lifecycle_service_enabled"])
         self.assertTrue(contract["baseline"]["account_export_implemented"])
         self.assertEqual(contract["baseline"]["account_export_rpc"], "ordax_account_export_v1")
@@ -107,7 +107,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertTrue(contract["baseline"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["baseline"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            17,
+            19,
         )
         self.assertFalse(contract["baseline"]["public_cloud_memory_enabled"])
         self.assertTrue(contract["baseline"]["account_close_source_implemented"])

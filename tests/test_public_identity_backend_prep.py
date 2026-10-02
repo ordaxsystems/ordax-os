@@ -17,7 +17,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         contract = json.loads(IDENTITY_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "provider-adapter-source-v13-deployed-v13-revision-17-close-disabled",
+            "provider-adapter-source-v13-deployed-v13-revision-19-close-disabled",
         )
         self.assertFalse(contract["backend"]["provider_configured"])
         self.assertTrue(contract["backend"]["password_auth_flow_implemented"])
@@ -28,13 +28,13 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(contract["backend"]["conflicting_auth_user_trigger_allowed"])
         self.assertEqual(contract["backend"]["gateway_source_version"], 13)
         self.assertEqual(contract["backend"]["deployed_gateway_source_version"], 13)
-        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 17)
+        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 19)
         self.assertTrue(contract["backend"]["account_close_source_implemented"])
         self.assertEqual(contract["backend"]["account_close_gateway_route"], "/account/close")
         self.assertTrue(contract["backend"]["account_close_gateway_route_deployed"])
         self.assertFalse(contract["backend"]["account_close_enabled"])
         self.assertTrue(contract["backend"]["account_lifecycle_service_deployed"])
-        self.assertEqual(contract["backend"]["account_lifecycle_service_deployment_revision_observed"], 1)
+        self.assertEqual(contract["backend"]["account_lifecycle_service_deployment_revision_observed"], 2)
         self.assertFalse(contract["backend"]["account_lifecycle_service_enabled"])
         self.assertTrue(contract["backend"]["account_data_export_implemented"])
         self.assertEqual(contract["backend"]["account_data_export_route"], "/account/export")
@@ -55,7 +55,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["backend"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            17,
+            19,
         )
         self.assertTrue(
             contract["backend"]["account_memory_entitlement_requires_authenticated_user"]

@@ -231,7 +231,7 @@ A separate product-domain foundation is now defined before public accounts carry
 
 Persistent Intelligence memory is now implemented as OrdaX-owned through `ordax.memory/1`, with explicit `device|account` ownership, device/account/space/project/session scopes, provenance, bounded search/review/edit/delete semantics and durable `flush()` confirmation. Native/USB owns a bounded private atomic memory state through a loopback-only endpoint and mounts the memory runtime fail-soft; Web fallback is explicitly ephemeral and cannot pretend durable device/account/Space/project state. Account → Memory now mounts a user-visible Native review surface over the same owner-scoped runtime, with device/account owner switching, bounded search/pagination, editing, deletion and durable flush feedback; the Web composition deliberately shows durable memory as unavailable instead of simulating persistence. `ordax.memory-context-auth/1` and the authorized-memory bridge require composition-layer authorization before any memory reaches Intelligence, and ordinary Intelligence requests still inject no memory automatically unless Native composition has an explicit identity-bound `Space em uso`; Native composition now explicitly authorizes a shared bounded Memory set: device scope always remains available locally, authenticated account scope is added only for the real signed-in `subjectId`, and selected-Space scope is added only for that same subject plus exact `spaceId`; project/session/restricted memory is not inferred. in that case only account-owned, non-restricted `scope=space` memory for that exact `subjectId + spaceId` is eligible as selected Space Memory context. `ordax.model-router/1` is now active in the Intelligence runtime, binds local routes to `engineId + modelId` and keeps future OpenAI/xAI routes fail-closed without explicit egress plus an enabled adapter. Local AI remains the offline baseline and no inference provider owns persistent memory.
 
-The dedicated Supabase project `ordax-control-plane` is the selected pre-MVP backend target for the product schema. The source-controlled migrations under `infra/supabase/product/` have been applied: `ordax_accounts`, Spaces/membership, server-authoritative entitlement grants, versioned Profile Packs, memory metadata + pgvector embeddings and project-connection metadata all use RLS. The older duplicate `ordax_profiles` migration was removed so Auth has one OrdaX product bootstrap owner. The Supabase password provider is implemented and the OrdaX account gateway is deployed to the dedicated control-plane backend. Sign-in, sign-up, refresh, validated session state and logout use HttpOnly cookies and never expose provider tokens to Surface JavaScript. Account sync now uses an atomic initial snapshot plus a subject-bound persisted incremental cursor for appearance, portable preferences and workspace metadata on Web and Native/USB. **Public browser login remains fail-closed** pending the same-origin production hosting boundary, leaked-password protection, remaining Auth hardening and legal readiness. The Account Surface now also has a minimal read-only Spaces view on Web and Native/USB: it consumes only `/account/spaces`, validates a bounded provider-neutral projection, clears cached Space data on sign-out and never invents a local Space. The v13 gateway is now deployed as Edge Function revision 16 and performs user-bearer RLS reads only. Public browser account access and account-close execution remain disabled.
+The dedicated Supabase project `ordax-control-plane` is the selected pre-MVP backend target for the product schema. The source-controlled migrations under `infra/supabase/product/` have been applied: `ordax_accounts`, Spaces/membership, server-authoritative entitlement grants, versioned Profile Packs, memory metadata + pgvector embeddings and project-connection metadata all use RLS. The older duplicate `ordax_profiles` migration was removed so Auth has one OrdaX product bootstrap owner. The Supabase password provider is implemented and the OrdaX account gateway is deployed to the dedicated control-plane backend. Sign-in, sign-up, refresh, validated session state and logout use HttpOnly cookies and never expose provider tokens to Surface JavaScript. Account sync now uses an atomic initial snapshot plus a subject-bound persisted incremental cursor for appearance, portable preferences and workspace metadata on Web and Native/USB. **Public browser login remains fail-closed** pending the same-origin production hosting boundary, leaked-password protection, remaining Auth hardening and legal readiness. The Account Surface now also has a minimal read-only Spaces view on Web and Native/USB: it consumes only `/account/spaces`, validates a bounded provider-neutral projection, clears cached Space data on sign-out and never invents a local Space. The v13 gateway is deployed as Edge Function revision 19 and is byte-identical to the current source; the dedicated account lifecycle service is deployed as revision 2 with global session revocation before account deletion while account-close remains disabled. Public browser account access and account-close execution remain disabled.
 
 OrdaX Network now has a live server-authoritative MVP backend in the same
 `ordax-control-plane`. The six v1 Network migrations plus all six canonical v2
@@ -274,7 +274,7 @@ This foundation does not change the current physical release gate:
 ```text
 ECOSYSTEM_FOUNDATION=PASS_SOURCE_BACKEND_SCHEMA_PREPARED
 PUBLIC_IDENTITY_PASSWORD_FLOW=PASS_SOURCE_ACTIVATION_GATED
-PUBLIC_IDENTITY_EDGE_GATEWAY=DEPLOYED_ORDAX_CONTROL_PLANE_SOURCE_V12_CLOSE_DISABLED
+PUBLIC_IDENTITY_EDGE_GATEWAY=DEPLOYED_ORDAX_CONTROL_PLANE_SOURCE_V13_REV19_CLOSE_DISABLED
 PUBLIC_IDENTITY_EDGE_DEPLOYMENT_REVISION=15_SOURCE_V12_EXACT_MATCH
 PUBLIC_SITE_SAME_ORIGIN_ADAPTER=PASS_SOURCE_NGINX_NOT_DEPLOYED
 PUBLIC_IDENTITY_GATED_FORMS=PASS_SOURCE_NATIVE_POST_JS_NO_CREDENTIAL_READ
@@ -323,7 +323,7 @@ ACCOUNT_GATEWAY_STABLE_BOOTSTRAP_BINDING=PASS_SOURCE_OPTIONAL_HTTPS_ORIGIN
 ACCOUNT_SYNC_NATIVE_USB_INTEGRATION=PASS_SOURCE_GATEWAY_DEPLOYED_PHYSICAL_PROOF_PENDING
 ACCOUNT_SYNC_ACCOUNT_UI_CONTINUITY_STATUS=PASS_SOURCE_REAL_RUNTIME_SNAPSHOT
 ACCOUNT_SPACES_UI=PASS_SOURCE_READ_ONLY_WEB_NATIVE
-ACCOUNT_SPACES_GATEWAY_SOURCE=V13_DEPLOYED_REV16
+ACCOUNT_SPACES_GATEWAY_SOURCE=V13_DEPLOYED_REV19
 ACCOUNT_SPACES_RLS=OWNER_OR_ACTIVE_MEMBER
 ACCOUNT_SPACES_MUTATION_UI=NONE
 ACCOUNT_SYNC_PUBLIC_AVAILABILITY=NO
@@ -948,10 +948,10 @@ PUBLIC_ACCOUNT_DATA_EXPORT_FLOW=PASS_SOURCE_DB_EDGE_AUTHENTICATED_PUBLIC_DISABLE
 
 PUBLIC_ACCOUNT_DATA_EXPORT_RPC=ordax_account_export_v1_SECURITY_INVOKER_RLS
 
-PUBLIC_IDENTITY_GATEWAY_SOURCE=V13_SPACES_READ_DEPLOYED_REV16
+PUBLIC_IDENTITY_GATEWAY_SOURCE=V13_SPACES_READ_DEPLOYED_REV19
 PUBLIC_ACCOUNT_CLOSE_SOURCE=PASS_DISABLED
-PUBLIC_ACCOUNT_CLOSE_MAIN_GATEWAY_DEPLOYED=YES_SOURCE_V13_REV16_DISABLED
-PUBLIC_ACCOUNT_LIFECYCLE_SERVICE=DEPLOYED_REV1_DISABLED_VERIFY_JWT
+PUBLIC_ACCOUNT_CLOSE_MAIN_GATEWAY_DEPLOYED=YES_SOURCE_V13_REV19_DISABLED
+PUBLIC_ACCOUNT_LIFECYCLE_SERVICE=DEPLOYED_REV2_GLOBAL_REVOCATION_DISABLED_VERIFY_JWT
 
 PUBLIC_ACCOUNT_DATA_EXPORT_NATIVE_USB=PASS_SOURCE_READ_ONLY_SESSION_BOUND
 PUBLIC_ACCOUNT_DATA_EXPORT_SURFACE_UX=PASS_SOURCE_SIGNED_IN_SAME_ORIGIN_DOWNLOAD
