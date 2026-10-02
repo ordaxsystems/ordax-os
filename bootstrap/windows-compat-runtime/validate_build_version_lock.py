@@ -105,12 +105,14 @@ def validate_lock(lock: dict, source: dict, environment: dict) -> dict:
     provenance = lock.get("provenance")
     if not isinstance(provenance, dict):
         raise BuildVersionLockError("provenance missing")
-    if provenance.get("configure_proof_head_sha") != "07d27226190bb0ba4d516d8d01b281c8ad882ddd":
+    if provenance.get("configure_proof_head_sha") != "3c29aa03a7b26cdcfb95b74694e5ba4954ae9cb0":
         raise BuildVersionLockError("configure proof source commit drifted")
-    if provenance.get("configure_proof_workflow_run_id") != 36510940641:
+    if provenance.get("configure_proof_workflow_run_id") != 36895104347:
         raise BuildVersionLockError("configure proof workflow provenance drifted")
-    if provenance.get("configure_proof_artifact_id") != 11008304540:
+    if provenance.get("configure_proof_artifact_id") != 11179727536:
         raise BuildVersionLockError("configure proof artifact provenance drifted")
+    if provenance.get("configure_proof_artifact_digest") != "sha256:c5b381e5439452eb0a460efbc59e3af00f85ca4d92ed8d020f72d1c0180d1670":
+        raise BuildVersionLockError("configure proof artifact digest drifted")
     if not ARTIFACT_DIGEST_RE.fullmatch(str(provenance.get("configure_proof_artifact_digest", ""))):
         raise BuildVersionLockError("configure proof artifact digest invalid")
 
