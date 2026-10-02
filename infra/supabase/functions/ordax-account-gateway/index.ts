@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
+const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
 const ENTITLEMENTS_SCHEMA = "ordax.entitlements/1";
 const MEMORY_CLOUD_ENTITLEMENT = "memory.cloud.enabled";
@@ -221,6 +222,70 @@ function adminClient() {
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
+}
+
+async function registrationLegalPolicy() {
+  const { data, error: rpcError } = await adminClient().rpc(
+    "ordax_get_account_registration_legal_policy_v1",
+    {},
+  );
+  if (
+    rpcError
+    || !Array.isArray(data)
+    || data.length !== 1
+    || !data[0]
+  ) {
+    throw new Error("registration-legal-policy-unavailable");
+  }
+  const item = data[0] as Record<string, unknown>;
+  const validSha = (value: unknown) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+  const validVersion = (value: unknown) =>
+    typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value);
+  const validDate = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const validHttpsUrl = (value: unknown) => {
+    if (typeof value !== "string") return false;
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "https:"
+        && !parsed.username
+        && !parsed.password
+        && !parsed.search
+        && !parsed.hash;
+    } catch {
+      return false;
+    }
+  };
+  if (
+    typeof item.policy_id !== "string"
+    || !REGISTRATION_INTENT_UUID.test(item.policy_id)
+    || !validVersion(item.privacy_version)
+    || !validDate(item.privacy_effective_date)
+    || !validSha(item.privacy_sha256)
+    || !validHttpsUrl(item.privacy_url)
+    || !validVersion(item.terms_version)
+    || !validDate(item.terms_effective_date)
+    || !validSha(item.terms_sha256)
+    || !validHttpsUrl(item.terms_url)
+  ) {
+    throw new Error("registration-legal-policy-invalid");
+  }
+  return {
+    $schema: REGISTRATION_POLICY_SCHEMA,
+    active: true,
+    policyId: item.policy_id,
+    privacy: {
+      version: item.privacy_version,
+      effectiveDate: item.privacy_effective_date,
+      sha256: item.privacy_sha256,
+      url: item.privacy_url,
+    },
+    terms: {
+      version: item.terms_version,
+      effectiveDate: item.terms_effective_date,
+      sha256: item.terms_sha256,
+      url: item.terms_url,
+    },
+  };
 }
 
 async function beginRegistrationLegalIntent(email: string) {
@@ -815,7 +880,22 @@ Deno.serve(async (req: Request) => {
         ? json(200, { signedOut: true }, clearCookies())
         : redirectResponse("/", clearCookies());
     }
-    if (path === "/auth/session" && req.method === "GET") {
+    if (path === "/auth/registration-policy" && req.method === "GET") {
+      try {
+        return json(200, await registrationLegalPolicy());
+      } catch {
+        return error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.");
+      }
+    }
+    if (path === "/auth/registration-policy" && req.method === "GET") {
+    try {
+      return json(200, await registrationLegalPolicy());
+    } catch {
+      return error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.");
+    }
+  }
+
+  if (path === "/auth/session" && req.method === "GET") {
       return json(200, {
         $schema: SESSION_SCHEMA,
         authenticated: false,
@@ -829,7 +909,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 15 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 16 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
