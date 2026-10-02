@@ -204,6 +204,7 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
         "identity_public_site_account": backend.get("public_site_account_enabled") is True,
         "deployment_public_gate": routing.get("gateway_public_activation_currently_enabled") is True,
         "edge_public_site_account": switches["PUBLIC_SITE_ACCOUNT_ENABLED"],
+        "edge_account_registration": switches["ACCOUNT_REGISTRATION_ENABLED"],
         "edge_recovery_request": switches["ACCOUNT_RECOVERY_REQUEST_ENABLED"],
         "edge_recovery_completion": switches["ACCOUNT_RECOVERY_COMPLETION_ENABLED"],
         "edge_account_close": switches["ACCOUNT_CLOSE_ENABLED"],
