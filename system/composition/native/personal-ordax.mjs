@@ -121,8 +121,21 @@ export function createNativePersonalOrdaxComposition({
       if (proposalPlanner === null) {
         throw new Error("Personal OrdaX action proposal planner is unavailable");
       }
+      const before = runtime.getSnapshot();
+      const ownerKey = before.ownerKind === "account"
+        ? `account:${before.ownerId}`
+        : "device";
       const work = currentProposalWork(workItemId);
-      return proposalPlanner.propose(work);
+      const proposal = await proposalPlanner.propose(work);
+      const after = runtime.getSnapshot();
+      const currentOwnerKey = after.ownerKind === "account"
+        ? `account:${after.ownerId}`
+        : "device";
+      if (currentOwnerKey !== ownerKey) {
+        throw new Error("Personal OrdaX proposal owner changed while planning");
+      }
+      currentProposalWork(workItemId);
+      return proposal;
     },
     requestProposedAction(proposalValue) {
       if (catalog === null) {
