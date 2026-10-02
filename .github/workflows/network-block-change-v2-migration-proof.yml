@@ -1,0 +1,109 @@
+name: Network Block Change v2 Migration Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/supabase/product/migrations/20261002053000_network_block_change_v2.sql'
+      - 'tests/sql/test_network_block_change_v2_prototype.sql'
+      - 'tests/test_network_block_change_v2_migration_contract.py'
+      - '.github/workflows/network-block-change-v2-migration-proof.yml'
+  pull_request:
+    paths:
+      - 'infra/supabase/product/migrations/20261002053000_network_block_change_v2.sql'
+      - 'tests/sql/test_network_block_change_v2_prototype.sql'
+      - 'tests/test_network_block_change_v2_migration_contract.py'
+      - '.github/workflows/network-block-change-v2-migration-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  block-change-v2-migration-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Reconstruct proven Network v1 schema
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_network_multitenant_hardening.sql
+
+      - name: Apply promoted block-change v2 migration on ephemeral PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f infra/supabase/product/migrations/20261002053000_network_block_change_v2.sql
+
+          helper_metadata="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select p.prosecdef::text || ':' ||
+                 coalesce((p.proconfig @> array['search_path=""'])::text, 'false')
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'private'
+            and p.proname = 'ordax_network_block_resource_id_v2';
+          SQL
+          )"
+          test "$helper_metadata" = 'true:true' || test "$helper_metadata" = 't:t'
+
+          private_metadata="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select p.prosecdef::text || ':' ||
+                 coalesce((p.proconfig @> array['search_path=""'])::text, 'false')
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'private'
+            and p.proname = 'ordax_network_set_block_internal_v2';
+          SQL
+          )"
+          test "$private_metadata" = 'true:true' || test "$private_metadata" = 't:t'
+
+          public_metadata="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select p.prosecdef::text || ':' ||
+                 coalesce((p.proconfig @> array['search_path=""'])::text, 'false')
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.proname = 'ordax_network_set_block_v2';
+          SQL
+          )"
+          test "$public_metadata" = 'false:true' || test "$public_metadata" = 'f:t'
+
+      - name: Prove Network tables remain closed to browser roles
+        run: |
+          set -euo pipefail
+          direct_grants="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select count(*)
+          from information_schema.role_table_grants
+          where table_schema in ('public', 'private')
+            and table_name like 'ordax_network_%'
+            and grantee in ('anon', 'authenticated');
+          SQL
+          )"
+          test "$direct_grants" = '0'
+
+      - name: Guard promoted migration against proven prototype drift
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_network_block_change_v2_migration_contract -v
