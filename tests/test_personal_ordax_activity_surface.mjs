@@ -104,6 +104,10 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.match(source, /activity\.attempt\.status/);
   assert.match(source, /activity\.attempt\.uncertain\.detail/);
   assert.match(source, /dataset\.personalActivityExport/);
+  assert.match(source, /dataset\.personalRecoveryInput/);
+  assert.match(source, /dataset\.personalRecoveryFind/);
+  assert.match(source, /personalOrdax\.recoverWorkForRequest\(request\)/);
+  assert.match(source, /personalOrdax\.acceptRecoveredWork\(recoveryState\.value\)/);
   assert.match(source, /createPersonalActivityExportDocument\(personalOrdax\.getSnapshot\(\)\)/);
   assert.match(source, /activityExport\.save\(document\)/);
   assert.match(source, /dataset\.personalProposalSuggest/);

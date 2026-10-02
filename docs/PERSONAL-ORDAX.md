@@ -283,6 +283,14 @@ O catálogo valida o `entryId` e passa o `resourceValue` pela mesma registration
 
 A integração foreground com planner/model agora é user-triggered: a Activity pede explicitamente uma sugestão, o planner envia à Intelligence somente descritores sanitizados do catálogo (`entryId + inputKind + resourceScheme`), exige JSON estrito e revalida o candidato via `catalog.propose()`. A proposal continua `authority=none` e efêmera. Converter essa sugestão em approval exige uma segunda ação explícita do usuário e chama o catálogo novamente; o rationale do modelo nunca substitui o reason confiável da registration. Troca de owner durante a inferência descarta o resultado. Approval e execução automáticos continuam desabilitados.
 
+A recuperação semântica de Work segue a mesma regra de advisory-only. A Activity pode enviar um
+pedido explícito de continuidade ao planner, mas somente Work `queued|paused` do owner atual e sem
+authority pendente entram como candidatos. O modelo recebe `workItemId + goal + state` e apenas
+flags booleanas dizendo se existe Space/Project vinculado; IDs de owner/Space/Project não são
+expostos para matching. O resultado é uma suggestion `authority=none` presa à revisão exata do
+Work no runtime. Aceitar a suggestion nunca troca contexto. Se o Work está pausado, a aceitação usa
+o `resume()` canônico, que exige que o Space/Project original já esteja válido.
+
 ### Revogação ligada ao lifecycle
 
 Um runtime com Action Gateway agora é inválido sem um revoker de grants. A revogação deixou de ser responsabilidade da UI/composição e passou a fazer parte do lifecycle canônico do Personal OrdaX.

@@ -80,6 +80,9 @@ export function mountPersonalActivityControls(
   const proposalStates = new Map();
   const proposalBusy = new Set();
   let proposalOwnerKey = null;
+  let recoveryQuery = "";
+  let recoveryState = null;
+  let recoveryBusy = false;
   let localError = null;
   let exportStatus = null;
   let exportBusy = false;
@@ -122,6 +125,9 @@ export function mountPersonalActivityControls(
       proposalOwnerKey = currentProposalOwnerKey;
       proposalStates.clear();
       proposalBusy.clear();
+      recoveryQuery = "";
+      recoveryState = null;
+      recoveryBusy = false;
     }
     const availableActions = typeof personalOrdax.listAvailableActions === "function"
       ? personalOrdax.listAvailableActions()
@@ -178,6 +184,105 @@ export function mountPersonalActivityControls(
     createButton.disabled = draft.trim().length === 0;
     createBox.append(input, createButton);
     slot.append(createBox);
+
+    if (typeof personalOrdax.recoverWorkForRequest === "function") {
+      const recoveryBox = node(documentObject, "section", "ordax-activity-create");
+      recoveryBox.append(
+        node(documentObject, "strong", "", t("activity.recovery.title")),
+        node(documentObject, "p", "", t("activity.recovery.description")),
+      );
+      const recoveryInput = documentObject.createElement("textarea");
+      recoveryInput.maxLength = 1000;
+      recoveryInput.rows = 2;
+      recoveryInput.value = recoveryQuery;
+      recoveryInput.placeholder = t("activity.recovery.placeholder");
+      recoveryInput.setAttribute("aria-label", t("activity.recovery.aria"));
+      recoveryInput.dataset.personalRecoveryInput = "";
+      const recoveryButton = node(
+        documentObject,
+        "button",
+        "",
+        recoveryBusy
+          ? t("activity.recovery.searching")
+          : t("activity.action.findWork"),
+      );
+      recoveryButton.type = "button";
+      recoveryButton.dataset.personalRecoveryFind = "";
+      recoveryButton.disabled = recoveryBusy || recoveryQuery.trim().length === 0;
+      recoveryBox.append(recoveryInput, recoveryButton);
+
+      if (recoveryState?.kind === "none") {
+        recoveryBox.append(
+          node(documentObject, "p", "ordax-activity-latest", t("activity.recovery.none")),
+        );
+      } else if (recoveryState?.kind === "match") {
+        const suggestion = recoveryState.value;
+        const matched = view.work.find(
+          (entry) => entry.item.id === suggestion.workItemId,
+        )?.item ?? null;
+        if (matched !== null) {
+          const matchBox = node(documentObject, "section", "ordax-activity-approval");
+          matchBox.append(
+            node(documentObject, "strong", "", t("activity.recovery.match")),
+            node(documentObject, "p", "", matched.goal),
+            node(documentObject, "p", "", suggestion.rationale),
+            node(
+              documentObject,
+              "span",
+              "ordax-activity-result-meta",
+              `${t(stateMessageId(matched.state))} · ${matched.id}`,
+            ),
+          );
+          if (matched.spaceId !== null) {
+            matchBox.append(
+              node(
+                documentObject,
+                "span",
+                "ordax-activity-result-meta",
+                `${t("activity.recovery.space")}: ${matched.spaceId}`,
+              ),
+            );
+          }
+          if (matched.projectId !== null) {
+            matchBox.append(
+              node(
+                documentObject,
+                "span",
+                "ordax-activity-result-meta",
+                `${t("activity.recovery.project")}: ${matched.projectId}`,
+              ),
+            );
+          }
+          const recoveryActions = node(
+            documentObject,
+            "div",
+            "ordax-activity-work-actions",
+          );
+          const accept = node(
+            documentObject,
+            "button",
+            "ordax-activity-primary",
+            matched.state === "paused"
+              ? t("activity.action.resumeRecovered")
+              : t("activity.action.useRecovered"),
+          );
+          accept.type = "button";
+          accept.dataset.personalRecoveryAction = "accept";
+          const discard = node(
+            documentObject,
+            "button",
+            "",
+            t("activity.action.discardRecovery"),
+          );
+          discard.type = "button";
+          discard.dataset.personalRecoveryAction = "discard";
+          recoveryActions.append(accept, discard);
+          matchBox.append(recoveryActions);
+          recoveryBox.append(matchBox);
+        }
+      }
+      slot.append(recoveryBox);
+    }
 
     if (localError) {
       const error = node(documentObject, "p", "ordax-activity-error", localError);
@@ -592,6 +697,69 @@ export function mountPersonalActivityControls(
     }
   };
 
+  const runWorkRecovery = async () => {
+    if (
+      personalOrdax === null
+      || typeof personalOrdax.recoverWorkForRequest !== "function"
+      || recoveryBusy
+    ) return;
+    const request = recoveryQuery.trim();
+    if (!request) return;
+
+    const before = personalOrdax.getSnapshot();
+    const ownerKey = before.ownerKind === "account"
+      ? `account:${before.ownerId}`
+      : "device";
+    recoveryBusy = true;
+    recoveryState = null;
+    localError = null;
+    render();
+    try {
+      const suggestion = await personalOrdax.recoverWorkForRequest(request);
+      const after = personalOrdax.getSnapshot();
+      const currentOwnerKey = after.ownerKind === "account"
+        ? `account:${after.ownerId}`
+        : "device";
+      if (currentOwnerKey !== ownerKey) return;
+      recoveryState = suggestion === null
+        ? { kind: "none" }
+        : { kind: "match", value: suggestion };
+    } catch {
+      const current = personalOrdax.getSnapshot();
+      const currentOwnerKey = current.ownerKind === "account"
+        ? `account:${current.ownerId}`
+        : "device";
+      if (currentOwnerKey === ownerKey) {
+        localError = t("activity.error.recovery");
+      }
+    } finally {
+      recoveryBusy = false;
+      render();
+    }
+  };
+
+  const acceptWorkRecovery = () => {
+    if (
+      personalOrdax === null
+      || typeof personalOrdax.acceptRecoveredWork !== "function"
+      || recoveryState?.kind !== "match"
+    ) return;
+    try {
+      const accepted = personalOrdax.acceptRecoveredWork(recoveryState.value);
+      recoveryState = null;
+      recoveryQuery = "";
+      localError = null;
+      render();
+      const article = mountedSlot?.querySelector(
+        `[data-personal-work-id="${accepted.id}"]`,
+      );
+      article?.scrollIntoView?.({ block: "nearest" });
+    } catch {
+      localError = t("activity.error.recoveryContext");
+      render();
+    }
+  };
+
   const runProposalSuggestion = async (workItemId) => {
     if (
       personalOrdax === null
@@ -664,6 +832,13 @@ export function mountPersonalActivityControls(
   };
 
   const onInput = (event) => {
+    if (event.target?.dataset?.personalRecoveryInput !== undefined) {
+      recoveryQuery = event.target.value;
+      recoveryState = null;
+      const button = mountedSlot?.querySelector("[data-personal-recovery-find]");
+      if (button) button.disabled = recoveryBusy || recoveryQuery.trim().length === 0;
+      return;
+    }
     if (event.target?.dataset?.personalActionResource !== undefined) {
       const workItemId = event.target.dataset.personalWorkId;
       const entryId = event.target.dataset.personalActionEntryId;
@@ -687,6 +862,21 @@ export function mountPersonalActivityControls(
 
     if (target.dataset.personalActivityExport !== undefined) {
       void runExport();
+      return;
+    }
+
+    if (target.dataset.personalRecoveryFind !== undefined) {
+      void runWorkRecovery();
+      return;
+    }
+    const recoveryAction = target.dataset.personalRecoveryAction;
+    if (recoveryAction === "discard") {
+      recoveryState = null;
+      render();
+      return;
+    }
+    if (recoveryAction === "accept") {
+      acceptWorkRecovery();
       return;
     }
 

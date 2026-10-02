@@ -1072,15 +1072,24 @@ runtime persists an `ordax.personal-action-attempt/1` before adapter entry. A cr
 post-adapter failure becomes `uncertain`, revokes live authority and pauses Work; there is no
 automatic replay.
 
-The authority-free Action Proposal boundary is now source-ready. The catalog can produce an
-ephemeral `ordax.personal-action-proposal/1` only for an existing nonterminal Work in the current
-owner partition and a registered Action Catalog entry. A proposal carries only
-`workItemId + entryId + resourceValue + rationale`, fixes `authority=none`,
-`executionAuthorized=false` and `approvalRequested=false`, and rejects tool/action IDs,
-canonical resource references, grants, approvals, decisions, effects and artifact identities. The
-resource value is validated through the registration's canonicalizer but the resulting
-`resourceRef` is discarded. No planner/model output is connected to this port yet, and there is no
-automatic proposal -> approval or proposal -> execution path.
+The authority-free Action Proposal boundary is source-ready and connected to an explicit
+foreground planner action. The catalog can produce an ephemeral
+`ordax.personal-action-proposal/1` only for an existing nonterminal Work in the current owner
+partition and a registered Action Catalog entry. The planner sees only
+`entryId + inputKind + resourceScheme`, requires exact JSON and revalidates the candidate through
+the catalog. A proposal carries only `workItemId + entryId + resourceValue + rationale`, fixes
+`authority=none`, `executionAuthorized=false` and `approvalRequested=false`, and rejects
+tool/action IDs, canonical resource references, grants, approvals, decisions, effects and artifact
+identities. Proposal -> approval remains a separate explicit user action and there is no automatic
+proposal -> execution path.
+
+Semantic Work recovery is also source-ready as an explicit foreground lookup. Only current-owner
+`queued|paused` Work without unresolved authority is eligible. Intelligence sees
+`workItemId + goal + state + spaceBound + projectBound` and never receives owner/Space/Project
+IDs. The returned `ordax.personal-work-recovery-suggestion/1` carries no authority, cannot switch
+context and cannot resume automatically. A runtime-local binding pins owner and exact Work revision;
+accepting a paused match delegates to the canonical `resume()`, which still fails closed unless
+the original Space/Project context is valid.
 
 Background/autonomous execution remains disabled. Generic external egress, device-control, shell,
 raw disk, release-key access, physical writes, non-idempotent file mutations, model-generated action
@@ -1105,6 +1114,12 @@ PERSONAL_ORDAX_MODEL_PROPOSAL_CATALOG_VIEW=ENTRY_ID_INPUT_KIND_RESOURCE_SCHEME_O
 PERSONAL_ORDAX_MODEL_PROPOSAL_AUTHORITY=NONE
 PERSONAL_ORDAX_MODEL_PROPOSAL_OWNER_DRIFT=DISCARD
 PERSONAL_ORDAX_MODEL_PROPOSAL_TO_APPROVAL=EXPLICIT_USER_ACTION_ONLY
+PERSONAL_ORDAX_SEMANTIC_WORK_RECOVERY=PASS_SOURCE_CURRENT_OWNER_EXPLICIT_REQUEST
+PERSONAL_ORDAX_SEMANTIC_WORK_RECOVERY_MODEL_VIEW=WORK_ID_GOAL_STATE_CONTEXT_BOUND_FLAGS_ONLY
+PERSONAL_ORDAX_SEMANTIC_WORK_RECOVERY_OWNER_SPACE_PROJECT_IDS_TO_MODEL=NO
+PERSONAL_ORDAX_SEMANTIC_WORK_RECOVERY_CONTEXT_SWITCH=NO
+PERSONAL_ORDAX_SEMANTIC_WORK_RECOVERY_AUTO_RESUME=NO
+PERSONAL_ORDAX_SEMANTIC_WORK_RECOVERY_PAUSED_GATE=CANONICAL_RUNTIME_RESUME
 PERSONAL_ORDAX_AUTOMATIC_PROPOSAL_TO_APPROVAL=NO
 PERSONAL_ORDAX_AUTOMATIC_PROPOSAL_EXECUTION=NO
 PERSONAL_ORDAX_BACKGROUND_EXECUTION=NO
