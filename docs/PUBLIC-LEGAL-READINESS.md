@@ -8,12 +8,12 @@ This document defines a technical gate around the public portal's future account
 
 The public portal currently:
 
-- has no live identity provider;
-- does not expose a password form;
+- has a dedicated OrdaX account backend/gateway deployed, but public same-origin browser activation remains disabled and fail-closed;
+- does not expose a live public password form;
 - keeps login/register targets disabled;
 - has no first-party analytics or advertising runtime in `sites/public/`;
 - reads only same-origin public configuration and release catalog data;
-- exposes no public user account database.
+- does not expose direct browser authority over the product database; public account access remains behind the disabled server-side gateway boundary.
 
 The pages under `/privacidade/` and `/termos/` are therefore readiness pages, not final legal documents.
 
@@ -45,7 +45,7 @@ They may explain the current technical state and what still needs to be finalize
 
 - final legal terms are in force;
 - consent has been collected;
-- a provider is live when it is not;
+- public browser account activation is live when it is not;
 - a retention period that has not been adopted;
 - a controller/entity identity that has not been finalized;
 - cross-border processing details that have not been reviewed.
