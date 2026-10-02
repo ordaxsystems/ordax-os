@@ -216,26 +216,35 @@ Ainda falta nesta fase:
 - lifecycle/budgets/leases de background;
 - connectors com egress explícito.
 
-### Próximo corte funcional — Action Proposal sem authority
+### Action Proposal sem authority — **CONTRATO/PATH SOURCE IMPLEMENTADO**
 
-Intelligence poderá futuramente sugerir uma ação do Action Catalog, mas a proposta terá
-`authority=none`.
+O value contract `ordax.personal-action-proposal/1` e a porta Native
+`proposeAvailableAction()` agora existem. A proposal é validada contra uma entrada real do Action
+Catalog e contra a mesma validação de recurso da registration, mas contém somente
+`workItemId + entryId + resourceValue + rationale`.
 
-Fluxo alvo:
+Ela fixa:
+- `authority=none`;
+- `executionAuthorized=false`;
+- `approvalRequested=false`.
+
+Ela não pode carregar `toolId`, `actionId`, `resourceRef`, grant, approval, decision, effect ou
+artifact SHA. O catálogo descarta a referência canônica produzida durante a validação do recurso.
+
+**Ainda falta o planner/model integration.** Nenhuma resposta da Intelligence cria proposal
+automaticamente. O fluxo futuro permanece:
 
 ```text
 goal do Work
   -> Intelligence / planner
-  -> Action Proposal
-  -> validação contra Action Catalog
+  -> Action Proposal (authority=none)
   -> Activity mostra proposta
-  -> usuário solicita/aprova
-  -> grant
-  -> execução
+  -> usuário escolhe transformar em pedido de approval
+  -> Action Catalog revalida/canonicaliza de novo
+  -> approval -> grant -> execução
 ```
 
-O modelo não receberá acesso direto ao Action Executor e não poderá fabricar tool IDs, grants ou
-recursos fora do catálogo.
+O modelo continua sem acesso direto ao Action Executor e não pode fabricar authority.
 
 ### Ampliação de ações first-party bounded
 
