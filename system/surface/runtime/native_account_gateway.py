@@ -246,6 +246,17 @@ class NativeAccountGateway:
         with self._lock:
             return self._request("GET", "/account/entitlements/memory-cloud")
 
+    def send_network_message(self, body: bytes) -> GatewayReply:
+        if not isinstance(body, bytes) or not body:
+            raise TypeError("Network message request body must be non-empty bytes")
+        with self._lock:
+            return self._request(
+                "POST",
+                "/network/v2/messages/send",
+                body=body,
+                content_type="application/json",
+            )
+
     def list_sync_objects(self, query: str = "") -> GatewayReply:
         suffix = f"?{query}" if query else ""
         with self._lock:

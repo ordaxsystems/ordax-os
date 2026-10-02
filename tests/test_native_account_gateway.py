@@ -149,6 +149,40 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual(payload["key"], "memory.cloud.enabled")
             self.assertEqual(payload["decision"], "denied")
 
+    def test_network_send_is_post_only_json_and_reuses_device_bound_session(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(
+                    status=200,
+                    headers={},
+                    body=(
+                        b'{"schema":"prototype-ordax.network-mutation-outcome/2",'
+                        b'"outcome":"applied","operation":"message-send",'
+                        b'"code":"message-applied","resource_id":"message-00000001",'
+                        b'"retry_after_seconds":null,'
+                        b'"idempotency_key":"message-key-00000001"}'
+                    ),
+                )
+
+            client._request = fake_request
+            raw = b'{"space_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"}'
+            reply = client.send_network_message(raw)
+
+            self.assertEqual(reply.status, 200)
+            self.assertEqual(
+                calls,
+                [(
+                    "POST",
+                    "/network/v2/messages/send",
+                    {"body": raw, "content_type": "application/json"},
+                )],
+            )
+
     def test_native_adapter_has_no_provider_specific_supabase_dependency(self):
         source = MODULE.read_text(encoding="utf-8").lower()
         self.assertNotIn("supabase", source)
@@ -159,6 +193,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertIn("/sync/objects", source)
         self.assertIn("/sync/snapshot", source)
         self.assertIn("/sync/changes", source)
+        self.assertIn("/network/v2/messages/send", source)
 
 
 if __name__ == "__main__":

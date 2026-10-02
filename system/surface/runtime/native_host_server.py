@@ -90,6 +90,7 @@ ACCOUNT_SYNC_OBJECTS_PATH = "/sync/objects"
 ACCOUNT_SYNC_SNAPSHOT_PATH = "/sync/snapshot"
 ACCOUNT_SYNC_CHANGES_PATH = "/sync/changes"
 ACCOUNT_SYNC_MUTATE_PATH = "/sync/mutate"
+NETWORK_MESSAGE_SEND_PATH = "/network/v2/messages/send"
 DIAGNOSTIC_JOURNAL_PATH = "/__ordax/native/diagnostic-journal"
 FILES_PATH = "/__ordax/native/files"
 TRASH_PATH = "/__ordax/native/trash"
@@ -165,6 +166,7 @@ MAX_SYNC_STATE_BODY = 393216
 MAX_SYNC_CHECKPOINT_BODY = 8192
 MAX_ACCOUNT_CREDENTIAL_BODY = 4096
 MAX_ACCOUNT_SYNC_BODY = 65536
+MAX_NETWORK_MESSAGE_BODY = 24 * 1024
 MAX_DIAGNOSTIC_JOURNAL_PAYLOAD = 4 * 1024 * 1024
 MAX_DIAGNOSTIC_JOURNAL_BODY = 6 * MAX_DIAGNOSTIC_JOURNAL_PAYLOAD + 1024
 MAX_FILE_ACTION_BODY = 2048
@@ -3979,7 +3981,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
-        if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_SYNC_MUTATE_PATH}:
+        if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
             if self.server.account_gateway is None:
                 self._empty(503)
                 return
@@ -4018,6 +4020,30 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(reply.status)
                         return
                     self._empty(204)
+                    return
+                if parsed_path == NETWORK_MESSAGE_SEND_PATH:
+                    body = self._read_json_body(MAX_NETWORK_MESSAGE_BODY)
+                    if body is None or set(body) != {
+                        "space_id",
+                        "conversation_id",
+                        "idempotency_key",
+                        "body",
+                    }:
+                        self._empty(400)
+                        return
+                    raw = json.dumps(
+                        body,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                    ).encode("utf-8")
+                    reply = self.server.account_gateway.send_network_message(raw)
+                    if not reply.body:
+                        self._empty(reply.status)
+                        return
+                    response_payload = json.loads(reply.body.decode("utf-8"))
+                    if not isinstance(response_payload, dict):
+                        raise ValueError("invalid Network gateway payload")
+                    self._write_json(reply.status, response_payload)
                     return
                 body = self._read_json_body(MAX_ACCOUNT_SYNC_BODY)
                 if body is None:

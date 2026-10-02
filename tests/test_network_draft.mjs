@@ -120,12 +120,46 @@ test("retargeting a Network draft requires an explicit action and preserves its 
   assert.equal(snapshot.draft.body, "Conteúdo preservado");
 
   const bound = runtime.bindSend();
-  assert.deepEqual(bound, {
-    subjectId: "user-a",
-    senderSpaceId: "space-b",
-    conversationId: "conversation-0001",
-    body: "Conteúdo preservado",
-  });
+  assert.equal(Number.isSafeInteger(bound.revision), true);
+  assert.equal(bound.revision > 0, true);
+  assert.deepEqual(
+    {
+      subjectId: bound.subjectId,
+      senderSpaceId: bound.senderSpaceId,
+      conversationId: bound.conversationId,
+      body: bound.body,
+    },
+    {
+      subjectId: "user-a",
+      senderSpaceId: "space-b",
+      conversationId: "conversation-0001",
+      body: "Conteúdo preservado",
+    },
+  );
+
+  runtime.dispose();
+});
+
+test("revision-bound clear never removes a draft mutated after send binding", () => {
+  const { runtime } = fixture();
+  runtime.begin("conversation-0001");
+  runtime.setBody("Mensagem original");
+  const sent = runtime.bindSend();
+
+  runtime.setBody("Mensagem editada");
+  runtime.setBody("Mensagem original");
+  runtime.clear(sent.revision);
+
+  let snapshot = runtime.getSnapshot();
+  assert.equal(snapshot.state, "drafting");
+  assert.equal(snapshot.draft.body, "Mensagem original");
+
+  const current = runtime.bindSend();
+  assert.notEqual(current.revision, sent.revision);
+  runtime.clear(current.revision);
+  snapshot = runtime.getSnapshot();
+  assert.equal(snapshot.state, "ready");
+  assert.equal(snapshot.draft, null);
 
   runtime.dispose();
 });

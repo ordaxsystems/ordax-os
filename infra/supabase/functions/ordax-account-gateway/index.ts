@@ -7,6 +7,16 @@ const ENTITLEMENTS_SCHEMA = "ordax.entitlements/1";
 const MEMORY_CLOUD_ENTITLEMENT = "memory.cloud.enabled";
 const MAX_MEMORY_ENTITLEMENT_ROWS = 16;
 const MAX_VISIBLE_SPACES = 64;
+const NETWORK_MUTATION_SCHEMA = "prototype-ordax.network-mutation-outcome/2";
+const NETWORK_SEND_PATH = "/network/v2/messages/send";
+const MAX_NETWORK_MESSAGE_CHARACTERS = 4000;
+const NETWORK_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NETWORK_IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{16,120}$/;
+const NETWORK_MACHINE_CODE = /^[a-z][a-z0-9-]{2,95}$/;
+const NETWORK_RESOURCE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,159}$/;
+const NETWORK_UNSAFE_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+const NETWORK_OUTCOMES = new Set(["applied", "idempotent", "rate_limited", "denied", "invalid"]);
+const PUBLIC_SITE_NETWORK_ENABLED = false;
 const SYNC_BATCH_SCHEMA = "prototype-ordax.sync-batch/1";
 const SYNC_SNAPSHOT_SCHEMA = "prototype-ordax.sync-snapshot/1";
 const SYNC_CHANGES_SCHEMA = "prototype-ordax.sync-changes/1";
@@ -599,12 +609,126 @@ async function credentials(req: Request, register: boolean) {
     : redirectResponse("/conta/", cookies);
 }
 
+function exactObjectKeys(value: Record<string, unknown>, expected: string[]) {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  return actual.length === wanted.length && actual.every((key, index) => key === wanted[index]);
+}
+
+function validNetworkOutcomeRow(value: unknown, expectedIdempotencyKey: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  if (!exactObjectKeys(row, [
+    "schema",
+    "outcome",
+    "operation",
+    "code",
+    "resource_id",
+    "retry_after_seconds",
+    "idempotency_key",
+  ])) return false;
+  if (row.schema !== NETWORK_MUTATION_SCHEMA || row.operation !== "message-send") return false;
+  if (typeof row.outcome !== "string" || !NETWORK_OUTCOMES.has(row.outcome)) return false;
+  if (typeof row.code !== "string" || !NETWORK_MACHINE_CODE.test(row.code)) return false;
+  if (row.idempotency_key !== expectedIdempotencyKey) return false;
+
+  const successLike = row.outcome === "applied" || row.outcome === "idempotent";
+  if (successLike) {
+    if (typeof row.resource_id !== "string" || !NETWORK_RESOURCE_ID.test(row.resource_id)) return false;
+  } else if (row.resource_id !== null) {
+    return false;
+  }
+
+  if (row.outcome === "rate_limited") {
+    if (
+      !Number.isInteger(row.retry_after_seconds)
+      || Number(row.retry_after_seconds) < 1
+      || Number(row.retry_after_seconds) > 86400
+    ) return false;
+  } else if (row.retry_after_seconds !== null) {
+    return false;
+  }
+  return true;
+}
+
+async function sendNetworkMessage(req: Request) {
+  let session;
+  try {
+    session = await authenticated(req);
+  } catch {
+    return error(503, "network-identity-unavailable", "A identidade da Rede OrdaX está temporariamente indisponível.");
+  }
+  if (!session.user || !session.access) {
+    return json(401, {
+      $schema: ERROR_SCHEMA,
+      error: "authentication-required",
+      message: "Entre na Conta OrdaX para enviar mensagens.",
+    }, session.cookies);
+  }
+
+  const contentType = (req.headers.get("content-type") ?? "").toLowerCase();
+  if (!contentType.startsWith("application/json")) {
+    return error(400, "invalid-network-send-request", "A solicitação de envio é inválida.");
+  }
+
+  let request: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(await boundedBody(req));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("object-required");
+    request = parsed as Record<string, unknown>;
+  } catch {
+    return error(400, "invalid-network-send-request", "A solicitação de envio é inválida.");
+  }
+
+  if (
+    !exactObjectKeys(request, ["space_id", "conversation_id", "idempotency_key", "body"])
+    || typeof request.space_id !== "string"
+    || !NETWORK_UUID.test(request.space_id)
+    || typeof request.conversation_id !== "string"
+    || !NETWORK_UUID.test(request.conversation_id)
+    || typeof request.idempotency_key !== "string"
+    || !NETWORK_IDEMPOTENCY_KEY.test(request.idempotency_key)
+    || typeof request.body !== "string"
+    || request.body.length < 1
+    || request.body.length > MAX_NETWORK_MESSAGE_CHARACTERS
+    || NETWORK_UNSAFE_CONTROL.test(request.body)
+    || request.body.trim().length < 1
+  ) {
+    return error(400, "invalid-network-send-request", "A solicitação de envio é inválida.");
+  }
+
+  try {
+    const supabase = client(session.access);
+    const { data, error: rpcError } = await supabase.rpc("ordax_network_send_message_v2", {
+      p_space_id: request.space_id,
+      p_conversation_id: request.conversation_id,
+      p_client_idempotency_key: request.idempotency_key,
+      p_body: request.body,
+    });
+    if (
+      rpcError
+      || !Array.isArray(data)
+      || data.length !== 1
+      || !validNetworkOutcomeRow(data[0], request.idempotency_key)
+    ) {
+      return error(502, "network-send-failed", "Não foi possível concluir o envio pela Rede OrdaX.");
+    }
+    return json(200, data[0], session.cookies);
+  } catch {
+    return error(503, "network-unavailable", "A Rede OrdaX está temporariamente indisponível.");
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const path = routePath(url);
 
   if (crossSiteStateChange(req)) {
     return error(403, "cross-site-request-rejected", "Solicitação de outra origem rejeitada.");
+  }
+
+  if (publicSiteRequest(req) && path.startsWith("/network/") && !PUBLIC_SITE_NETWORK_ENABLED) {
+    return error(503, "public-network-access-disabled", "A Rede OrdaX pública ainda não foi ativada.");
   }
 
   if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED) {
@@ -630,6 +754,10 @@ Deno.serve(async (req: Request) => {
 
   if (path === "/health" && req.method === "GET") {
     return json(200, { status: "ok", service: "ordax-account-gateway", version: 13 });
+  }
+
+  if (path === NETWORK_SEND_PATH && req.method === "POST") {
+    return sendNetworkMessage(req);
   }
 
   if (path === "/auth/session" && req.method === "GET") {
@@ -973,7 +1101,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (
-    (path.startsWith("/auth/") || path.startsWith("/sync/") || path.startsWith("/account/")) &&
+    (path.startsWith("/auth/") || path.startsWith("/sync/") || path.startsWith("/account/") || path.startsWith("/network/")) &&
     !["GET", "POST"].includes(req.method)
   ) {
     return error(405, "method-not-allowed", "Método não permitido.");
