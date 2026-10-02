@@ -29,6 +29,10 @@ from supabase_password import (
     SupabaseIdentityError,
     SupabasePasswordProvider,
 )
+from supabase_registration_legal import (
+    RegistrationLegalError,
+    SupabaseRegistrationLegalAuthority,
+)
 from supabase_sync import SupabaseSyncError, SupabaseSyncProvider
 
 SESSION_SCHEMA = "prototype-ordax.public-identity-session/1"
@@ -47,6 +51,8 @@ RECOVERY_COOKIE = "ordax_recovery"
 RECOVERY_SESSION_MAX_AGE = 10 * 60
 PUBLIC_SITE_ACCOUNT_ENABLED = False
 ACCOUNT_REGISTRATION_ENABLED = False
+LEGAL_ACCEPTANCE_FIELD = "legal_acceptance"
+LEGAL_ACCEPTANCE_VALUE = "accepted"
 ACCOUNT_CLOSE_ENABLED = False
 ACCOUNT_RECOVERY_REQUEST_ENABLED = False
 ACCOUNT_RECOVERY_COMPLETION_ENABLED = False
@@ -81,6 +87,17 @@ def _provider_from_environment() -> SupabasePasswordProvider | None:
         return None
     try:
         return SupabasePasswordProvider(*config)
+    except (TypeError, ValueError):
+        return None
+
+
+def _registration_legal_authority_from_environment() -> SupabaseRegistrationLegalAuthority | None:
+    project_url = os.environ.get("ORDAX_SUPABASE_URL", "").strip()
+    secret_key = os.environ.get("ORDAX_SUPABASE_SECRET_KEY", "").strip()
+    if not project_url or not secret_key:
+        return None
+    try:
+        return SupabaseRegistrationLegalAuthority(project_url, secret_key)
     except (TypeError, ValueError):
         return None
 
@@ -305,6 +322,7 @@ class PublicIdentityGateway:
         lifecycle_provider: SupabaseLifecycleProvider | None = None,
         memory_provider: SupabaseMemoryProvider | None = None,
         password_checker: PwnedPasswordChecker | None = None,
+        registration_legal_authority: SupabaseRegistrationLegalAuthority | None = None,
     ) -> None:
         self.provider = provider if provider is not None else _provider_from_environment()
         self.sync_provider = (
@@ -322,6 +340,11 @@ class PublicIdentityGateway:
             memory_provider if memory_provider is not None else _memory_provider_from_environment()
         )
         self.password_checker = password_checker or PwnedPasswordChecker()
+        self.registration_legal_authority = (
+            registration_legal_authority
+            if registration_legal_authority is not None
+            else _registration_legal_authority_from_environment()
+        )
 
     @property
     def provider_configured(self) -> bool:
@@ -456,14 +479,36 @@ class PublicIdentityGateway:
             email = form.get("email", "")
             password = form.get("password", "")
             if registration:
+                if form.get(LEGAL_ACCEPTANCE_FIELD, "") != LEGAL_ACCEPTANCE_VALUE:
+                    return _error(
+                        400,
+                        "legal-acceptance-required",
+                        "É necessário aceitar os documentos legais vigentes para criar a Conta OrdaX.",
+                    )
                 screening = self._screen_new_password(password)
                 if screening is not None:
                     return screening
-            result = (
-                self.provider.sign_up_with_password(email, password)
-                if registration
-                else self.provider.sign_in_with_password(email, password)
-            )
+                if self.registration_legal_authority is None:
+                    return _error(
+                        503,
+                        "registration-legal-policy-unavailable",
+                        "A política legal de cadastro ainda não está disponível.",
+                    )
+                try:
+                    intent = self.registration_legal_authority.begin_intent(email)
+                except RegistrationLegalError:
+                    return _error(
+                        503,
+                        "registration-legal-policy-unavailable",
+                        "A política legal de cadastro ainda não está disponível.",
+                    )
+                result = self.provider.sign_up_with_password(
+                    email,
+                    password,
+                    registration_intent_id=intent.intent_id,
+                )
+            else:
+                result = self.provider.sign_in_with_password(email, password)
         except ValueError:
             return _error(400, "invalid-credentials-form", "Revise o e-mail e a senha informados.")
         except SupabaseIdentityError:
