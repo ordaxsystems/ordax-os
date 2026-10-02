@@ -40,7 +40,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v13-deployed-v13-revision-19-close-disabled",
+            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v14-deployed-v14-revision-20-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["baseline"]["provider_configured"])
         self.assertTrue(contract["baseline"]["http_only_session_cookies"])
@@ -70,9 +70,9 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(contract["baseline"]["registration_password_minimum_chars"], 12)
         self.assertTrue(contract["baseline"]["registration_password_policy_enforced_at_edge"])
         self.assertFalse(contract["baseline"]["existing_login_passwords_retroactively_rejected"])
-        self.assertEqual(contract["runtime"]["gateway_source_version"], 13)
-        self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 13)
-        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 19)
+        self.assertEqual(contract["runtime"]["gateway_source_version"], 14)
+        self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 14)
+        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 20)
         self.assertTrue(contract["runtime"]["lifecycle_service_deployed"])
         self.assertEqual(contract["runtime"]["lifecycle_service_deployment_revision_observed"], 2)
         self.assertFalse(contract["runtime"]["lifecycle_service_enabled"])
@@ -107,7 +107,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertTrue(contract["baseline"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["baseline"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            19,
+            20,
         )
         self.assertFalse(contract["baseline"]["public_cloud_memory_enabled"])
         self.assertTrue(contract["baseline"]["account_close_source_implemented"])
