@@ -93,3 +93,70 @@ test("registration action requires an explicit legal-ready capability", async ()
   actions.dispose();
   session.dispose();
 });
+
+
+test("registration action follows fail-closed policy refresh", async () => {
+  const windowRef = {
+    location: { assign: () => {} },
+    fetch: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false,
+        provider: "supabase",
+        status: "anonymous",
+      }),
+    }),
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+
+  let enabled = false;
+  const actions = createWebIdentityActions(windowRef, session, {
+    registrationPolicy: async () => ({ registrationEnabled: enabled }),
+  });
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in"]);
+
+  await actions.refresh();
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in"]);
+
+  enabled = true;
+  await actions.refresh();
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in", "register"]);
+
+  enabled = false;
+  await actions.refresh();
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in"]);
+
+  actions.dispose();
+  session.dispose();
+});
+
+test("registration policy errors fail closed", async () => {
+  const windowRef = {
+    location: { assign: () => {} },
+    fetch: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false,
+        provider: "supabase",
+        status: "anonymous",
+      }),
+    }),
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  const actions = createWebIdentityActions(windowRef, session, {
+    registrationEnabled: true,
+    registrationPolicy: async () => {
+      throw new Error("unavailable");
+    },
+  });
+  await actions.refresh();
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in"]);
+  actions.dispose();
+  session.dispose();
+});
