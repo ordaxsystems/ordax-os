@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-gateway/1",
-  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v14-deployed-v14-revision-20-registration-disabled-close-disabled",
+  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v15-deployed-v15-revision-21-legal-receipt-ready-registration-disabled-close-disabled",
   "runtime": {
     "entrypoint": "services/public-identity/gateway.py:application",
     "protocol": "WSGI",
@@ -9,9 +9,9 @@
     "provider_adapter": "supabase-password-and-sync-rest",
     "provider_configuration": "runtime-environment",
     "deployed_edge_adapter": "infra/supabase/functions/ordax-account-gateway/index.ts",
-    "gateway_source_version": 14,
-    "edge_deployment_revision_observed": 20,
-    "deployed_gateway_source_version": 14,
+    "gateway_source_version": 15,
+    "edge_deployment_revision_observed": 21,
+    "deployed_gateway_source_version": 15,
     "lifecycle_service_source": "infra/supabase/functions/ordax-account-lifecycle/index.ts",
     "lifecycle_service_deployed": true,
     "lifecycle_service_deployment_revision_observed": 2,
@@ -205,12 +205,18 @@
     "account_memory_entitlement_mutation_exposed": false,
     "account_memory_entitlement_service_role_used": false,
     "account_memory_entitlement_edge_deployed": true,
-    "account_memory_entitlement_edge_deployment_revision_observed": 20,
+    "account_memory_entitlement_edge_deployment_revision_observed": 21,
     "public_cloud_memory_enabled": false,
     "account_registration_enabled": false,
     "account_registration_legal_binding_required": true,
-    "account_registration_server_authoritative_receipt_implemented": false,
-    "native_registration_may_bypass_legal_binding": false
+    "account_registration_server_authoritative_receipt_implemented": true,
+    "native_registration_may_bypass_legal_binding": false,
+    "account_registration_legal_intent_rpc": "ordax_begin_account_registration_legal_intent_v1",
+    "account_registration_legal_intent_service_role_only": true,
+    "account_registration_client_document_versions_allowed": false,
+    "account_registration_active_legal_policy_present": false,
+    "account_registration_web_acceptance_bound": false,
+    "account_registration_native_acceptance_bound": false
   },
   "deployment": {
     "same_origin_required_for_public_site": true,
