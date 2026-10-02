@@ -64,10 +64,10 @@
       "browser_direct_delete_allowed": false,
       "service_role_isolated_to_lifecycle_service": true,
       "required_before_public_account_lifecycle_is_complete": true,
-      "gateway_route_deployment_revision_observed": 16,
-      "gateway_source_version": 13,
+      "gateway_route_deployment_revision_observed": 20,
+      "gateway_source_version": 14,
       "deployment_source_match_verified": true,
-      "deployment_source_match_observed_date": "2026-09-30",
+      "deployment_source_match_observed_date": "2026-10-02",
       "gateway_deployment_source_match_verified": true
     },
     "account_data_export": {
