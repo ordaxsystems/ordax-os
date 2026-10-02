@@ -32,25 +32,18 @@ insert into public.ordax_network_space_profiles(
     'discoverable'
   );
 
+-- The Network foundation migration already seeds the canonical Pizzarias Brasil
+-- community. Add only an archived row for negative visibility proof.
 insert into public.ordax_network_communities(
   community_id, title, kind, jurisdiction, state, join_policy
-) values
-  (
-    'industry.food.pizzeria.br',
-    'Pizzarias Brasil',
-    'professional-industry',
-    'BR',
-    'active',
-    'explicit-consent'
-  ),
-  (
-    'industry.archived.br',
-    'Archived Community',
-    'professional-industry',
-    'BR',
-    'archived',
-    'invite-only'
-  );
+) values (
+  'industry.archived.br',
+  'Archived Community',
+  'professional-industry',
+  'BR',
+  'archived',
+  'invite-only'
+);
 
 -- The public resource RPCs are server-only. Browser roles never receive EXECUTE
 -- and the private authorization helper remains uncallable even by service_role.
