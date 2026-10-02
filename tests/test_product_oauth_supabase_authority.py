@@ -100,6 +100,14 @@ class ProductOAuthSupabaseAuthorityTests(unittest.TestCase):
             config = adapter.SupabaseAuthorityConfig.from_environment()
         self.assertFalse(config.configured)
 
+        self.assertFalse(
+            adapter.SupabaseAuthorityConfig(
+                base_url="https://example.supabase.co",
+                secret_key="sb_publishable_not_server_authority",
+                enabled=True,
+            ).configured
+        )
+
     def test_raw_code_and_access_token_never_enter_rpc_payload(self):
         code = self.authority.issue_authorization_code(
             user_id=USER,
