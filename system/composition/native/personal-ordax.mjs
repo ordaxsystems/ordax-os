@@ -84,6 +84,12 @@ export function createNativePersonalOrdaxComposition({
     listAvailableActions() {
       return catalog === null ? Object.freeze([]) : catalog.list();
     },
+    proposeAvailableAction(workItemId, entryId, input) {
+      if (catalog === null) {
+        throw new Error("Personal OrdaX action catalog is unavailable");
+      }
+      return catalog.propose(workItemId, entryId, input);
+    },
     requestAvailableAction(workItemId, entryId, input) {
       if (catalog === null) {
         throw new Error("Personal OrdaX action catalog is unavailable");
