@@ -45,8 +45,11 @@ if (!root) {
 
 const identitySession = createWebIdentitySession(window);
 await identitySession.refresh();
-const identityActions = createWebIdentityActions(window, identitySession);
 const identityCredentials = createSameOriginIdentityCredentials(window);
+const identityActions = createWebIdentityActions(window, identitySession, {
+  registrationPolicy: () => identityCredentials.registrationPolicy(),
+});
+await identityActions.refresh();
 const spaces = createWebSpacesCatalog(window);
 const profileComponentInventory = createSessionProfileComponentInventory();
 let profileDistributions = [];
@@ -132,6 +135,7 @@ const accountSync = createAccountSyncRuntime({
   });
 const resumeAccountConnectivity = async () => {
   await identitySession.refresh();
+  await identityActions.refresh();
   await accountSync.refresh();
 };
 const onOnline = () => void resumeAccountConnectivity();

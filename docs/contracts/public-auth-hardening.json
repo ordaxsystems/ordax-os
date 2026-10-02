@@ -25,7 +25,7 @@
     "observed_date": "2026-10-02",
     "leaked_password_protection": "enabled-product-gateway",
     "public_login_enabled": false,
-    "edge_gateway": "source-v15-deployed-revision-21-legal-receipt-ready-registration-disabled-close-disabled",
+    "edge_gateway": "source-v16-deployed-revision-22-legal-policy-projection-ready-registration-disabled-close-disabled",
     "csrf_state_change_protection": "pass-deployed",
     "secure_http_only_cookie_policy": "pass-source-and-edge",
     "same_origin_session_owner": "adapter-source-ready-not-deployed",
@@ -85,12 +85,15 @@
     "password_policy_reviewed": true,
     "password_policy_provider_floor_chars": 12,
     "account_registration_enabled": false,
-    "account_registration_legal_binding": "server-receipt-implemented-policy-and-ui-binding-pending",
+    "account_registration_legal_binding": "server-receipt-and-policy-projection-implemented-final-policy-and-e2e-pending",
     "account_registration_native_bypass_allowed": false,
     "account_registration_server_authoritative_receipt_implemented": true,
     "account_registration_active_legal_policy_present": false,
     "account_registration_web_acceptance_bound": false,
-    "account_registration_native_acceptance_bound": false
+    "account_registration_native_acceptance_bound": false,
+    "account_registration_policy_projection_applied": true,
+    "account_registration_policy_active": false,
+    "account_registration_ui_source_ready": true
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,

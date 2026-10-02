@@ -184,6 +184,9 @@ export function mountAccountOverviewControls(
   let pendingMemoryConflict = null;
   let credentialEmailDraft = "";
   let credentialPasswordDraft = "";
+  let registrationPolicy = null;
+  let registrationLegalAccepted = false;
+  let registrationPolicyPending = false;
   let actionOrdinal = 0;
   let activeSection = validAccountSection(lifecycle.getAppTarget("account"))
     ? lifecycle.getAppTarget("account")
@@ -370,6 +373,44 @@ export function mountAccountOverviewControls(
       passwordLabel.append(passwordInput);
 
       form.append(emailLabel, passwordLabel);
+
+      if (
+        registrationPolicy
+        && isIdentityActionSupported(actionsSnapshot, "register")
+      ) {
+        const legal = node(documentObject, "div", "ordax-account-registration-legal");
+        legal.append(
+          node(documentObject, "strong", "", t("account.registration.legal.title")),
+          node(documentObject, "small", "", t("account.registration.legal.detail")),
+        );
+
+        const links = node(documentObject, "div", "ordax-account-registration-legal-links");
+        const privacy = documentObject.createElement("a");
+        privacy.href = registrationPolicy.privacy.url;
+        privacy.target = "_blank";
+        privacy.rel = "noopener noreferrer";
+        privacy.textContent = `${t("account.registration.legal.privacy")} · v${registrationPolicy.privacy.version} · ${registrationPolicy.privacy.effectiveDate}`;
+        const terms = documentObject.createElement("a");
+        terms.href = registrationPolicy.terms.url;
+        terms.target = "_blank";
+        terms.rel = "noopener noreferrer";
+        terms.textContent = `${t("account.registration.legal.terms")} · v${registrationPolicy.terms.version} · ${registrationPolicy.terms.effectiveDate}`;
+        links.append(privacy, terms);
+
+        const acceptance = node(documentObject, "label", "ordax-account-registration-legal-acceptance");
+        const checkbox = documentObject.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = registrationLegalAccepted;
+        checkbox.dataset.accountRegistrationLegalAcceptance = "";
+        checkbox.disabled = pendingAction !== null;
+        acceptance.append(
+          checkbox,
+          node(documentObject, "span", "", t("account.registration.legal.accept")),
+        );
+        legal.append(links, acceptance);
+        form.append(legal);
+      }
+
       section.append(form);
 
       const signIn = node(
@@ -391,7 +432,13 @@ export function mountAccountOverviewControls(
       );
       register.type = "button";
       register.dataset.accountIdentityAction = "register";
-      register.disabled = pendingAction !== null || !isIdentityActionSupported(actionsSnapshot, "register");
+      register.disabled = (
+        pendingAction !== null
+        || registrationPolicyPending
+        || !registrationPolicy
+        || !registrationLegalAccepted
+        || !isIdentityActionSupported(actionsSnapshot, "register")
+      );
       actions.append(register);
     } else if (action) {
       const label = pendingAction === action
@@ -1001,6 +1048,37 @@ export function mountAccountOverviewControls(
 
   const replaceView = () => renderView(true);
 
+  const refreshRegistrationPolicy = async () => {
+    if (
+      destroyed
+      || registrationPolicyPending
+      || credentialsPort === null
+      || typeof credentialsPort.registrationPolicy !== "function"
+      || !isIdentityActionSupported(actionsSnapshot, "register")
+    ) {
+      if (!isIdentityActionSupported(actionsSnapshot, "register")) {
+        registrationPolicy = null;
+        registrationLegalAccepted = false;
+      }
+      return;
+    }
+    registrationPolicyPending = true;
+    try {
+      const policy = await credentialsPort.registrationPolicy();
+      if (destroyed) return;
+      registrationPolicy = policy.registrationEnabled === true ? policy : null;
+      if (registrationPolicy === null) registrationLegalAccepted = false;
+    } catch {
+      if (!destroyed) {
+        registrationPolicy = null;
+        registrationLegalAccepted = false;
+      }
+    } finally {
+      registrationPolicyPending = false;
+      if (!destroyed) replaceView();
+    }
+  };
+
   const invoke = async (action) => {
     if (
       pendingAction !== null ||
@@ -1013,7 +1091,11 @@ export function mountAccountOverviewControls(
       && sessionSnapshot.state === "signed-out"
       && (action === "sign-in" || action === "register")
     )
-      ? { email: credentialEmailDraft, password: credentialPasswordDraft }
+      ? {
+          email: credentialEmailDraft,
+          password: credentialPasswordDraft,
+          ...(action === "register" ? { legalAccepted: registrationLegalAccepted } : {}),
+        }
       : null;
     credentialPasswordDraft = "";
     const ordinal = ++actionOrdinal;
@@ -1055,6 +1137,9 @@ export function mountAccountOverviewControls(
       credentialEmailDraft = input.value;
     } else if (input.matches("[data-account-credential-password]")) {
       credentialPasswordDraft = input.value;
+    } else if (input.matches("[data-account-registration-legal-acceptance]")) {
+      registrationLegalAccepted = input.checked;
+      replaceView();
     }
   };
 
@@ -1219,6 +1304,9 @@ export function mountAccountOverviewControls(
     sessionSnapshot = validateIdentitySessionSnapshot(snapshot);
     if (sessionSnapshot.state !== "signed-in") {
       spacesPort?.reset();
+    } else {
+      registrationPolicy = null;
+      registrationLegalAccepted = false;
     }
     actionMessage = "";
     replaceView();
@@ -1229,7 +1317,14 @@ export function mountAccountOverviewControls(
   const unsubscribeActions = actionsPort.subscribe((snapshot) => {
     actionsSnapshot = validateIdentityActionsSnapshot(snapshot);
     actionMessage = "";
+    if (!isIdentityActionSupported(actionsSnapshot, "register")) {
+      registrationPolicy = null;
+      registrationLegalAccepted = false;
+    }
     replaceView();
+    if (isIdentityActionSupported(actionsSnapshot, "register") && registrationPolicy === null) {
+      void refreshRegistrationPolicy();
+    }
   });
   const unsubscribeSync = syncPort?.subscribe((snapshot) => {
     syncSnapshot = validateSyncRuntimeSnapshot(snapshot);
@@ -1254,6 +1349,9 @@ export function mountAccountOverviewControls(
   if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
     refreshSpaces();
   }
+  if (isIdentityActionSupported(actionsSnapshot, "register")) {
+    void refreshRegistrationPolicy();
+  }
 
   return Object.freeze({
     destroy() {
@@ -1272,6 +1370,8 @@ export function mountAccountOverviewControls(
       unsubscribeActivation?.();
       unsubscribeRender();
       credentialPasswordDraft = "";
+      registrationPolicy = null;
+      registrationLegalAccepted = false;
       root.removeEventListener("input", onInput);
       root.removeEventListener("click", onClick);
       const slot = findSlot();

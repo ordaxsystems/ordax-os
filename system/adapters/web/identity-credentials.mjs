@@ -1,13 +1,18 @@
 import {
   IDENTITY_CREDENTIALS_SCHEMA,
   validateIdentityCredentialInput,
+  validateIdentityRegistrationInput,
+  validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
 
-async function submit(windowRef, path, credentials) {
-  const value = validateIdentityCredentialInput(credentials);
+async function submit(windowRef, path, credentials, { registration = false } = {}) {
+  const value = registration
+    ? validateIdentityRegistrationInput(credentials)
+    : validateIdentityCredentialInput(credentials);
   const body = new URLSearchParams();
   body.set("email", value.email);
   body.set("password", value.password);
+  if (registration) body.set("legal_acceptance", "accepted");
   const response = await windowRef.fetch(path, {
     method: "POST",
     credentials: "same-origin",
@@ -34,11 +39,23 @@ export function createSameOriginIdentityCredentials(windowRef = globalThis.windo
   }
   return Object.freeze({
     schema: IDENTITY_CREDENTIALS_SCHEMA,
+    async registrationPolicy() {
+      const response = await windowRef.fetch("/auth/registration-policy", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        throw new Error(`Registration policy request failed: ${response.status}`);
+      }
+      return validateRegistrationPolicy(await response.json());
+    },
     signIn(credentials) {
       return submit(windowRef, "/auth/login", credentials);
     },
     register(credentials) {
-      return submit(windowRef, "/auth/register", credentials);
+      return submit(windowRef, "/auth/register", credentials, { registration: true });
     },
   });
 }

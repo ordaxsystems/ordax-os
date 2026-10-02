@@ -33,6 +33,57 @@ class SupabaseRegistrationLegalAuthorityTests(unittest.TestCase):
         )
         return authority, transport
 
+    def test_active_policy_is_server_only_and_validates_canonical_metadata(self):
+        policy_id = "11111111-1111-4111-8111-111111111111"
+        authority, transport = self.authority([(
+            200,
+            json.dumps([{
+                "policy_id": policy_id,
+                "privacy_version": "2026-10-02",
+                "privacy_effective_date": "2026-10-02",
+                "privacy_sha256": "a" * 64,
+                "privacy_url": "https://ordax.example/privacidade/",
+                "terms_version": "2026-10-02",
+                "terms_effective_date": "2026-10-02",
+                "terms_sha256": "b" * 64,
+                "terms_url": "https://ordax.example/termos/",
+            }]).encode(),
+        )])
+
+        policy = authority.active_policy()
+        self.assertEqual(policy.policy_id, policy_id)
+        self.assertEqual(policy.privacy_version, "2026-10-02")
+        self.assertEqual(policy.privacy_url, "https://ordax.example/privacidade/")
+        self.assertEqual(policy.terms_url, "https://ordax.example/termos/")
+
+        method, url, headers, body = transport.calls[0]
+        self.assertEqual(method, "POST")
+        self.assertTrue(url.endswith("/rest/v1/rpc/ordax_get_account_registration_legal_policy_v1"))
+        self.assertEqual(headers["apikey"], "sb_secret_backend-only")
+        self.assertNotIn("Authorization", headers)
+        self.assertEqual(json.loads(body), {})
+
+    def test_active_policy_fails_closed_when_missing_or_invalid(self):
+        for response in (
+            (200, b"[]"),
+            (503, b"{}"),
+            (200, json.dumps([{
+                "policy_id": "11111111-1111-4111-8111-111111111111",
+                "privacy_version": "v1",
+                "privacy_effective_date": "2026-10-02",
+                "privacy_sha256": "a" * 64,
+                "privacy_url": "http://insecure.example/privacy",
+                "terms_version": "v1",
+                "terms_effective_date": "2026-10-02",
+                "terms_sha256": "b" * 64,
+                "terms_url": "https://ordax.example/terms",
+            }]).encode()),
+        ):
+            with self.subTest(response=response[0]):
+                authority, _ = self.authority([response])
+                with self.assertRaises(legal_module.RegistrationLegalError):
+                    authority.active_policy()
+
     def test_begin_intent_is_server_only_and_asserts_acceptance(self):
         intent_id = "11111111-1111-4111-8111-111111111111"
         authority, transport = self.authority([

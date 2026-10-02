@@ -17,7 +17,7 @@ function actionsForSession(snapshot, registrationEnabled) {
 export function createWebIdentityActions(
   windowRef = globalThis.window,
   identitySession = null,
-  { registrationEnabled = false } = {},
+  { registrationEnabled = false, registrationPolicy = null } = {},
 ) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Web identity actions require window.fetch");
@@ -25,9 +25,13 @@ export function createWebIdentityActions(
   if (typeof registrationEnabled !== "boolean") {
     throw new TypeError("registrationEnabled must be boolean");
   }
+  if (registrationPolicy !== null && typeof registrationPolicy !== "function") {
+    throw new TypeError("registrationPolicy must be a function when provided");
+  }
   const session = identitySession === null ? null : assertIdentitySessionPort(identitySession);
+  let registrationAllowed = registrationEnabled;
   let snapshot = validateIdentityActionsSnapshot({
-    supportedActions: actionsForSession(session?.getSnapshot() ?? { state: "unavailable" }, registrationEnabled),
+    supportedActions: actionsForSession(session?.getSnapshot() ?? { state: "unavailable" }, registrationAllowed),
   });
   const listeners = new Set();
   let disposed = false;
@@ -39,7 +43,7 @@ export function createWebIdentityActions(
 
   const update = (sessionSnapshot) => {
     const next = validateIdentityActionsSnapshot({
-      supportedActions: actionsForSession(sessionSnapshot, registrationEnabled),
+      supportedActions: actionsForSession(sessionSnapshot, registrationAllowed),
     });
     const before = snapshot.supportedActions.join(",");
     const after = next.supportedActions.join(",");
@@ -49,10 +53,31 @@ export function createWebIdentityActions(
 
   const unsubscribe = session?.subscribe(update) ?? (() => {});
 
+  const refreshRegistration = async () => {
+    let nextAllowed = registrationEnabled;
+    if (registrationPolicy !== null) {
+      try {
+        const policy = await registrationPolicy();
+        nextAllowed = policy?.registrationEnabled === true;
+      } catch {
+        nextAllowed = false;
+      }
+    }
+    if (disposed) return snapshot;
+    if (nextAllowed !== registrationAllowed) {
+      registrationAllowed = nextAllowed;
+      update(session?.getSnapshot() ?? { state: "unavailable" });
+    }
+    return snapshot;
+  };
+
   return Object.freeze({
     schema: IDENTITY_ACTIONS_SCHEMA,
     getSnapshot() {
       return snapshot;
+    },
+    async refresh() {
+      return refreshRegistration();
     },
     subscribe(listener) {
       if (typeof listener !== "function") {

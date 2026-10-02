@@ -86,6 +86,17 @@ creates the receipt in the same database transaction as the user bootstrap.
 
 No active Privacy/Terms policy is seeded by the migration. Browser/authenticated roles have
 no direct table or RPC authority, client-supplied document versions are never trusted, and
-registration remains disabled until reviewed final documents and Web/Native acceptance
-binding are deliberately activated.
+registration remains disabled until reviewed final documents are deliberately activated.
+
+Migration `20261002225800_account_registration_policy_projection_v1.sql` is also applied.
+It adds canonical HTTPS document URLs to the private policy, makes policy identity/document
+fields immutable after activation, and exposes a service-role-only read projection for the
+single active/effective policy. `anon` and `authenticated` have no EXECUTE authority on
+that RPC. Web and Native source consume the same server projection and submit only an
+affirmative acceptance flag; document versions/hashes remain server-owned. There is still
+no active policy and no public registration activation.
+
+Migration `20261002232500_account_registration_legal_fk_indexes_v1.sql` adds the
+covering policy foreign-key indexes used by registration intents and immutable legal
+receipts. It changes no authority and seeds no data.
 

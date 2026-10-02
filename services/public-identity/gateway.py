@@ -36,6 +36,7 @@ from supabase_registration_legal import (
 from supabase_sync import SupabaseSyncError, SupabaseSyncProvider
 
 SESSION_SCHEMA = "prototype-ordax.public-identity-session/1"
+REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1"
 ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1"
 SYNC_BATCH_SCHEMA = "prototype-ordax.sync-batch/1"
 SYNC_SNAPSHOT_SCHEMA = "prototype-ordax.sync-snapshot/1"
@@ -256,6 +257,10 @@ def _public_site_disabled_response(method: str, path: str) -> GatewayResponse | 
             "/",
             set_cookies=(_clear_cookie(ACCESS_COOKIE), _clear_cookie(REFRESH_COOKIE)),
         )
+    if path == "/auth/registration-policy" and method == "GET":
+        # Public-site registration remains fail-closed, but policy discovery is
+        # safe read-only metadata required before registration can ever open.
+        return None
     if path == "/auth/session" and method == "GET":
         return _json_response(
             200,
@@ -456,6 +461,43 @@ class PublicIdentityGateway:
                 "Escolha outra senha; esta senha aparece em bases públicas de credenciais comprometidas.",
             )
         return None
+
+    def _registration_policy(self) -> GatewayResponse:
+        if self.registration_legal_authority is None:
+            return _error(
+                503,
+                "registration-legal-policy-unavailable",
+                "A política legal de cadastro ainda não está disponível.",
+            )
+        try:
+            policy = self.registration_legal_authority.active_policy()
+        except RegistrationLegalError:
+            return _error(
+                503,
+                "registration-legal-policy-unavailable",
+                "A política legal de cadastro ainda não está disponível.",
+            )
+        return _json_response(
+            200,
+            {
+                "$schema": REGISTRATION_POLICY_SCHEMA,
+                "active": True,
+                "registrationEnabled": ACCOUNT_REGISTRATION_ENABLED,
+                "policyId": policy.policy_id,
+                "privacy": {
+                    "version": policy.privacy_version,
+                    "effectiveDate": policy.privacy_effective_date,
+                    "sha256": policy.privacy_sha256,
+                    "url": policy.privacy_url,
+                },
+                "terms": {
+                    "version": policy.terms_version,
+                    "effectiveDate": policy.terms_effective_date,
+                    "sha256": policy.terms_sha256,
+                    "url": policy.terms_url,
+                },
+            },
+        )
 
     def _credentials_action(
         self,
@@ -1044,6 +1086,11 @@ class PublicIdentityGateway:
             if method != "GET":
                 return self._method_not_allowed("GET")
             return self._session(request_headers)
+
+        if path == "/auth/registration-policy":
+            if method != "GET":
+                return self._method_not_allowed("GET")
+            return self._registration_policy()
 
         if path == "/auth/login":
             if method == "GET":

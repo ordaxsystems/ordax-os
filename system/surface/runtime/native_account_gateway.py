@@ -217,9 +217,19 @@ class NativeAccountGateway:
                 content_type="application/x-www-form-urlencoded",
             )
 
-    def register(self, email: str, password: str) -> GatewayReply:
+    def registration_policy(self) -> GatewayReply:
         with self._lock:
-            payload = urlencode({"email": email, "password": password}).encode("utf-8")
+            return self._request("GET", "/auth/registration-policy")
+
+    def register(self, email: str, password: str, *, legal_accepted: bool) -> GatewayReply:
+        if legal_accepted is not True:
+            raise NativeAccountGatewayError("legal-acceptance-required")
+        with self._lock:
+            payload = urlencode({
+                "email": email,
+                "password": password,
+                "legal_acceptance": "accepted",
+            }).encode("utf-8")
             return self._request(
                 "POST",
                 "/auth/register",

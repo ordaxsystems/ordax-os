@@ -35,7 +35,7 @@
     "placeholder_legal_acceptance_allowed": false
   },
   "registration_binding": {
-    "status": "server-receipt-implemented-policy-and-ui-binding-pending",
+    "status": "source-ready-policy-projection-applied-final-policy-and-e2e-pending",
     "policy_reviewed": false,
     "canonical_document_versions_server_owned": true,
     "client_supplied_document_versions_trusted": false,
@@ -53,6 +53,13 @@
     "email_plaintext_stored_in_intent": false,
     "email_sha256_bound": true,
     "single_auth_user_trigger_preserved": true,
-    "receipt_created_in_auth_user_transaction": true
+    "receipt_created_in_auth_user_transaction": true,
+    "server_authoritative_policy_projection_implemented": true,
+    "policy_projection_database_migration": "20261002225800_account_registration_policy_projection_v1",
+    "policy_projection_applied": true,
+    "policy_projection_service_role_only": true,
+    "policy_projection_active_policy_present": false,
+    "web_registration_binding_source_ready": true,
+    "native_registration_binding_source_ready": true
   }
 }
