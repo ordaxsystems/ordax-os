@@ -17,7 +17,7 @@ function fileStamp(iso) {
   return iso
     .replaceAll("-", "")
     .replaceAll(":", "")
-    .replace(/\.\d{3}Z$/, "Z");
+    .replace(".", "");
 }
 
 function stripGrantRef(value) {
