@@ -9,14 +9,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-OAUTH_PATH = ROOT / "services" / "product-oauth" / "oauth.py"
 ADAPTER_PATH = ROOT / "services" / "product-oauth" / "supabase_authority.py"
-
-oauth_spec = importlib.util.spec_from_file_location("oauth", OAUTH_PATH)
-oauth = importlib.util.module_from_spec(oauth_spec)
-assert oauth_spec.loader is not None
-sys.modules["oauth"] = oauth
-oauth_spec.loader.exec_module(oauth)
 
 adapter_spec = importlib.util.spec_from_file_location(
     "ordax_product_oauth_supabase_authority",
@@ -82,6 +75,13 @@ class FakeTransport:
 
 
 class ProductOAuthSupabaseAuthorityTests(unittest.TestCase):
+    def test_adapter_loads_its_sibling_core_without_sys_path_mutation(self):
+        self.assertNotIn("oauth", sys.modules)
+        self.assertEqual(
+            adapter.OAuthClient.__module__,
+            "ordax_product_oauth_core",
+        )
+
     def setUp(self):
         self.transport = FakeTransport()
         values = iter(["C" * 48, "T" * 43])
@@ -123,7 +123,7 @@ class ProductOAuthSupabaseAuthorityTests(unittest.TestCase):
         self.assertNotIn(code, json.dumps(payload))
         self.assertEqual(payload["p_code_hash"], adapter._sha256_hex(code))
 
-        grant = oauth.ConsumedGrant(
+        grant = adapter.ConsumedGrant(
             grant_id=GRANT,
             user_id=USER,
             client_id=CLIENT,
