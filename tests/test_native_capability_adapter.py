@@ -111,6 +111,7 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
         self.assertIn(
             "const resumeAccountConnectivity = async () => {\n"
             "    await identitySession.refresh();\n"
+            "    await identityActions.refresh();\n"
             "    await accountSync.refresh();\n"
             "  };",
             text,
