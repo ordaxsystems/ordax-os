@@ -336,7 +336,7 @@ Mutações de recursos sujeitos a quota/entitlement são **server-authoritative*
 
 ### P1 — após a fundação, sem bloquear o primeiro USB físico
 
-9. UI mínima de Spaces — **PASS_SOURCE + EDGE DEPLOYED READ-ONLY WEB + NATIVE**; Conta exibe somente Spaces reais da sessão via gateway OrdaX/RLS, limpa o snapshot no logout e não expõe criação/edição, billing ou Space fictício; gateway v13 está ativo no `ordax-control-plane` como Edge Function revisão 16; prova visual em USB físico continua separada;
+9. UI mínima de Spaces — **PASS_SOURCE + EDGE DEPLOYED READ-ONLY WEB + NATIVE**; Conta exibe somente Spaces reais da sessão via gateway OrdaX/RLS, limpa o snapshot no logout e não expõe criação/edição, billing ou Space fictício; gateway v13 está ativo no `ordax-control-plane` como Edge Function revisão 19; prova visual em USB físico continua separada;
 10. memória local real com revisão/apagar — **PASS_SOURCE RUNTIME + NATIVE REVIEW UI**; Conta → Memória expõe owners `device|account`, busca, paginação, edição e exclusão com `flush()` durável no USB/Native; o Web não finge persistência durável e a memória continua sem injeção automática na IA;
 11. primeiro Profile Pack interno (Developer) ativado como prova — **PASS_SOURCE INTERNAL SESSION PROOF**; somente `draft`, Space compatível, sem billing/cloud/entitlement, sem privilégios implícitos; Legal-BR permanece bloqueado pelo próprio manifesto;
 12. integrar o conceito OrdaX Device Agent ao app Projetos sem torná-lo boot-critical — **PASS_SOURCE READ-ONLY CAPABILITY BOUNDARY**; Projetos aceita somente um reader de capabilities, sem `execute()`, com probe bounded/fail-soft; adapter/runtime real continua separado e não é dependência de boot;
