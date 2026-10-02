@@ -185,10 +185,11 @@ export function createNativePersonalOrdaxComposition({
       if (workRevision(work) !== binding.workRevision) {
         throw new Error("Personal OrdaX proposal Work revision is stale");
       }
-      proposalBindings.delete(proposalValue);
-      return catalog.request(runtime, work.id, proposal.entryId, {
+      const approval = catalog.request(runtime, work.id, proposal.entryId, {
         resourceValue: proposal.resourceValue,
       });
+      proposalBindings.delete(proposalValue);
+      return approval;
     },
     requestAvailableAction(workItemId, entryId, input) {
       if (catalog === null) {
