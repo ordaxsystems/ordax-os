@@ -255,6 +255,22 @@ modelo é somente apresentação; ao converter a proposal em approval, o reason 
 vindo da registration do catálogo. Não existe proposal -> approval automático nem proposal ->
 execução automática.
 
+### Recuperação semântica de Work — **SOURCE FOREGROUND IMPLEMENTADO**
+
+A Activity agora aceita um pedido explícito como `continue o projeto da pizzaria` para localizar
+um Work já existente do **owner atual**. A Intelligence recebe somente candidatos `queued|paused`
+sem authority pendente e uma projeção limitada a `workItemId + goal + state + spaceBound +
+projectBound`; ownerId, SpaceId e ProjectId não entram no prompt de matching.
+
+O resultado usa `ordax.personal-work-recovery-suggestion/1`, sempre `authority=none`, sem
+autorização de resume e sem autorização de context switch. A sugestão é ligada ao runtime por
+WeakMap e à revisão exata do Work; clone/JSON, troca de owner ou mudança do Work invalidam o uso.
+
+Aceitar a sugestão é uma ação explícita. Work `queued` apenas é focalizado; Work `paused` passa
+pelo `runtime.resume()` canônico. Se o Space/Project original não estiver válido, o resume falha
+fechado e a pessoa precisa selecionar o contexto correto explicitamente. A recuperação nunca troca
+owner, Space ou Project sozinha e nunca executa o Work automaticamente.
+
 ### Ampliação de ações first-party bounded
 
 Novas ações entram uma por vez. Cada uma precisa de:
