@@ -3457,6 +3457,11 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 payload = json.loads(reply.body.decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise ValueError("gateway JSON object required")
+                if parsed_path == ACCOUNT_REGISTRATION_POLICY_PATH:
+                    payload["registrationEnabled"] = bool(
+                        payload.get("registrationEnabled") is True
+                        and ACCOUNT_REGISTRATION_ENABLED
+                    )
             except NativeMemoryEntitlementProxyError:
                 self._empty(503)
                 return
