@@ -32,8 +32,9 @@ renderers must never interpret message text as HTML or assign it to
 schemes remain inert text. External anchors must use `noopener noreferrer`.
 
 The executable Network gate validates both the shared content contract and the
-PostgreSQL rejection path. This is still source/proof-only and does not deploy
-Network schema to the live product database.
+PostgreSQL rejection path. The canonical Network schema is now applied to the
+live `ordax-control-plane` database; message-send v2 uses this same plain-text
+policy server-side. Public Network activation remains independently disabled.
 
 ## Mutation outcome v2 boundary
 
@@ -51,26 +52,50 @@ The v2 outcome vocabulary is explicit:
 - `denied` — authorization/policy rejected the operation;
 - `invalid` — validation rejected the operation.
 
-This source contract does not activate a new database RPC by itself. Schema/API
-implementation must preserve the already-proven v1 authority boundary and add a
-separate executable PostgreSQL proof before rollout.
+The v1 authority boundary is now deployed together with the six promoted v2
+mutations: `message-send`, `direct-create`, `block-change`, `group-join`,
+`report-create` and `group-create`. Every permanent v2 migration has its own
+PostgreSQL 16 proof and preserves the public `SECURITY INVOKER` -> private
+`SECURITY DEFINER` boundary with `search_path=''`.
 
 
 ### Idempotency for create-style mutations
 
 `group-create`, `message-send` and `report-create` require client idempotency keys in v2.
 
-For groups, the future persisted schema scopes the key by the creating
-`owner_space_id`; for reports, by `reporter_space_id`. Existing v1 rows must
-remain migratable, so both planned columns stay nullable for legacy data while
-the v2 RPCs require valid keys. Partial unique indexes over
+For groups, the persisted schema scopes the key by the creating
+`owner_space_id`; for reports, by `reporter_space_id`. Both columns are live
+and deliberately nullable for legacy v1 rows while the v2 RPCs require valid
+keys. Partial unique indexes over
 `(owner_space_id, client_idempotency_key)` for groups and
 `(reporter_space_id, client_idempotency_key)` for reports provide race-safe
 retry resolution without rewriting historical rows.
 
-This remains source/proof-only until the migration is generated through the
-official Supabase migration tooling and passes advisors plus PostgreSQL proof.
+Both schema changes were applied through the Supabase migration boundary after
+their permanent migrations passed PostgreSQL proof, legacy-null compatibility
+checks, privilege metadata checks and the post-deploy Security Advisor review.
 
+### Retention and tombstones
+
+The MVP policy is explicit and non-destructive for collaborative history:
+
+- removing a Profile Pack does not mutate Network state;
+- Space/account deletion removes Space-scoped directory/membership/block/rate
+  edges that cannot remain authoritative without that Space;
+- groups owned by a deleted Space retain their collaborative record, tombstone
+  the owner, archive the group and close its group conversation;
+- messages remain as collaborative history while sender Space/user attribution
+  is tombstoned;
+- reports and audit events remain while actor/reporter attribution is
+  tombstoned;
+- direct collaborative history is retained;
+- there is no automatic time-based message purge and no user message-delete
+  mutation in the MVP.
+
+The machine-readable authority for this policy is
+`docs/contracts/network-foundation.json`. Future retention changes require an
+explicit contract/migration change; deletion behavior must not be inferred from
+UI state.
 
 ## Client transport v2 boundary
 
@@ -86,11 +111,11 @@ body, and requires the canonical mutation outcome v2 response. It uses
 `credentials: "same-origin"` and never calls Supabase tables or RPC endpoints
 directly from Surface code.
 
-This is a **source boundary, not a live backend activation**. Native and Web
-compositions intentionally do not instantiate this transport until the
-generated v2 backend migration/API exists and has passed the executable
-PostgreSQL, advisor and security gates. Failed, denied or rate-limited sends
-must preserve the user's draft; only `applied` or `idempotent` clears it.
+The server-side route and `message-send v2` backend are deployed, but public
+Network activation remains fail-closed. The current product composition does
+not silently turn on remote messaging merely because the backend exists.
+Failed, denied or rate-limited sends preserve the user's draft; only `applied`
+or `idempotent` may clear it.
 
 
 ## Transport v2 server boundary
