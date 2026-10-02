@@ -1,0 +1,89 @@
+name: Product OAuth Authority v1 Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/supabase/product/migrations/20261002140612_product_oauth_authority_v1.sql'
+      - 'services/product-oauth/oauth.py'
+      - 'services/product-oauth/supabase_authority.py'
+      - 'services/product-oauth/README.md'
+      - 'docs/contracts/product-oauth.json'
+      - 'docs/contracts/first-party-product-oauth.json'
+      - 'tests/sql/test_product_oauth_authority_v1.sql'
+      - 'tests/test_product_oauth_authority_migration.py'
+      - 'tests/test_product_oauth_supabase_authority.py'
+      - 'tests/test_product_oauth.py'
+      - 'tests/test_first_party_product_oauth.mjs'
+      - '.github/workflows/product-oauth-authority-v1-proof.yml'
+  pull_request:
+    paths:
+      - 'infra/supabase/product/migrations/20261002140612_product_oauth_authority_v1.sql'
+      - 'services/product-oauth/oauth.py'
+      - 'services/product-oauth/supabase_authority.py'
+      - 'services/product-oauth/README.md'
+      - 'docs/contracts/product-oauth.json'
+      - 'docs/contracts/first-party-product-oauth.json'
+      - 'tests/sql/test_product_oauth_authority_v1.sql'
+      - 'tests/test_product_oauth_authority_migration.py'
+      - 'tests/test_product_oauth_supabase_authority.py'
+      - 'tests/test_product_oauth.py'
+      - 'tests/test_first_party_product_oauth.mjs'
+      - '.github/workflows/product-oauth-authority-v1-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  product-oauth-authority-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Prove persistent OAuth authority on PostgreSQL 16
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_product_oauth_authority_v1.sql
+
+      - name: Guard migration and server adapter
+        run: |
+          set -euo pipefail
+          python -m unittest \
+            tests.test_product_oauth_authority_migration \
+            tests.test_product_oauth_supabase_authority \
+            tests.test_product_oauth \
+            -v
+
+      - name: Guard first-party product OAuth contract
+        run: |
+          set -euo pipefail
+          node --test tests/test_first_party_product_oauth.mjs

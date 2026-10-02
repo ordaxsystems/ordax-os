@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.first-party-product-oauth/1",
-  "status": "source-foundation-runtime-disabled",
+  "status": "persistent-authority-source-ready-runtime-disabled",
   "oauth": {
     "version": "2.1",
     "authorization_code": true,
@@ -69,7 +69,16 @@
     "raw_password_sync": false,
     "provider_access_token_exposed_to_browser": false,
     "token_hash_or_server_secret_owner_required": true,
-    "connection_metadata_may_be_product_visible": true
+    "connection_metadata_may_be_product_visible": true,
+    "authority_migration": "infra/supabase/product/migrations/20261002140612_product_oauth_authority_v1.sql",
+    "authority_adapter": "services/product-oauth/supabase_authority.py",
+    "raw_authorization_code_persisted": false,
+    "raw_access_token_persisted": false,
+    "authorization_code_hash": "sha256",
+    "access_token_hash": "sha256",
+    "refresh_tokens_enabled": false,
+    "dedicated_server_secret_key_required": true,
+    "secret_key_in_authorization_bearer": false
   },
   "runtime_gate": {
     "enabled": false,

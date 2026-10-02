@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.product-oauth/1",
-  "status": "source-foundation-fail-closed",
+  "status": "persistent-authority-source-ready-runtime-disabled",
   "purpose": "first-party and end-user product authorization without reusing owner/development MCP credentials",
   "activation": {
     "public_enabled": false,
@@ -47,5 +47,23 @@
     "network.messages.write",
     "network.groups.join",
     "product.acheguese.publish"
-  ]
+  ],
+  "persistence": {
+    "provider": "supabase-postgres",
+    "migration": "infra/supabase/product/migrations/20261002140612_product_oauth_authority_v1.sql",
+    "server_adapter": "services/product-oauth/supabase_authority.py",
+    "private_tables": true,
+    "browser_table_grants": false,
+    "raw_authorization_codes_persisted": false,
+    "raw_access_tokens_persisted": false,
+    "code_hash": "sha256",
+    "access_token_hash": "sha256",
+    "authorization_code_max_age_seconds": 300,
+    "access_token_default_age_seconds": 900,
+    "access_token_max_age_seconds": 3600,
+    "refresh_tokens_enabled": false,
+    "dedicated_server_secret_key_required": true,
+    "secret_key_sent_as_bearer": false,
+    "service_role_direct_table_grants": false
+  }
 }
