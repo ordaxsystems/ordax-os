@@ -1,0 +1,189 @@
+name: Network Report Create v2 Migration Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/supabase/product/migrations/20261002054000_network_report_create_v2.sql'
+      - 'tests/sql/test_network_report_create_v2_prototype.sql'
+      - 'tests/test_network_report_create_v2_migration_contract.py'
+      - '.github/workflows/network-report-create-v2-migration-proof.yml'
+  pull_request:
+    paths:
+      - 'infra/supabase/product/migrations/20261002054000_network_report_create_v2.sql'
+      - 'tests/sql/test_network_report_create_v2_prototype.sql'
+      - 'tests/test_network_report_create_v2_migration_contract.py'
+      - '.github/workflows/network-report-create-v2-migration-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report-create-v2-migration-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Reconstruct proven Network v1 schema
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_network_multitenant_hardening.sql
+
+      - name: Apply already-promoted Network v2 migrations
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f infra/supabase/product/migrations/20261001220000_network_message_send_v2.sql
+          psql -v ON_ERROR_STOP=1 -f infra/supabase/product/migrations/20261002052000_network_direct_create_v2.sql
+          psql -v ON_ERROR_STOP=1 -f infra/supabase/product/migrations/20261002053000_network_block_change_v2.sql
+          psql -v ON_ERROR_STOP=1 -f infra/supabase/product/migrations/20261002053500_network_group_join_v2.sql
+
+      - name: Apply promoted report-create v2 migration on ephemeral PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f infra/supabase/product/migrations/20261002054000_network_report_create_v2.sql
+
+          column_nullable="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select is_nullable
+          from information_schema.columns
+          where table_schema='public'
+            and table_name='ordax_network_reports'
+            and column_name='client_idempotency_key';
+          SQL
+          )"
+          test "$column_nullable" = 'YES'
+
+          constraint_def="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select pg_get_constraintdef(c.oid)
+          from pg_constraint c
+          join pg_class t on t.oid=c.conrelid
+          join pg_namespace n on n.oid=t.relnamespace
+          where n.nspname='public'
+            and t.relname='ordax_network_reports'
+            and c.conname='ordax_network_reports_client_idempotency_key_v2_check';
+          SQL
+          )"
+          test -n "$constraint_def"
+          printf '%s' "$constraint_def" | grep -F "client_idempotency_key IS NULL" >/dev/null
+
+          index_def="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select pg_get_indexdef(i.indexrelid)
+          from pg_index i
+          join pg_class idx on idx.oid=i.indexrelid
+          join pg_class t on t.oid=i.indrelid
+          join pg_namespace n on n.oid=t.relnamespace
+          where n.nspname='public'
+            and t.relname='ordax_network_reports'
+            and idx.relname='ordax_network_reports_space_idempotency_v2_idx';
+          SQL
+          )"
+          test -n "$index_def"
+          printf '%s' "$index_def" | grep -F "UNIQUE INDEX" >/dev/null
+          printf '%s' "$index_def" | grep -F "client_idempotency_key IS NOT NULL" >/dev/null
+
+          private_metadata="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select p.prosecdef::text || ':' ||
+                 coalesce((p.proconfig @> array['search_path=""'])::text, 'false')
+          from pg_proc p
+          join pg_namespace n on n.oid=p.pronamespace
+          where n.nspname='private'
+            and p.proname='ordax_network_create_report_internal_v2';
+          SQL
+          )"
+          test "$private_metadata" = 'true:true' || test "$private_metadata" = 't:t'
+
+          public_metadata="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select p.prosecdef::text || ':' ||
+                 coalesce((p.proconfig @> array['search_path=""'])::text, 'false')
+          from pg_proc p
+          join pg_namespace n on n.oid=p.pronamespace
+          where n.nspname='public'
+            and p.proname='ordax_network_create_report_v2';
+          SQL
+          )"
+          test "$public_metadata" = 'false:true' || test "$public_metadata" = 'f:t'
+
+      - name: Prove legacy null-key report rows remain valid
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          insert into auth.users(id)
+          values ('aaaaaaaa-0000-4000-8000-000000000001');
+
+          insert into public.ordax_spaces(
+            space_id, owner_user_id, name, kind, state
+          ) values (
+            'aaaaaaaa-0000-4000-8000-000000000002',
+            'aaaaaaaa-0000-4000-8000-000000000001',
+            'Legacy Report Proof',
+            'professional',
+            'active'
+          );
+
+          insert into public.ordax_network_reports(
+            reporter_space_id,
+            target_type,
+            target_id,
+            reason,
+            created_by
+          ) values (
+            'aaaaaaaa-0000-4000-8000-000000000002',
+            'space',
+            'aaaaaaaa-0000-4000-8000-000000000002',
+            'Legacy report row remains compatible.',
+            'aaaaaaaa-0000-4000-8000-000000000001'
+          );
+
+          do $legacy$
+          begin
+            if not exists (
+              select 1
+              from public.ordax_network_reports
+              where reporter_space_id='aaaaaaaa-0000-4000-8000-000000000002'
+                and client_idempotency_key is null
+            ) then
+              raise exception 'network-report-v2-legacy-null-key-not-preserved';
+            end if;
+          end;
+          $legacy$;
+          SQL
+
+      - name: Prove Network tables remain closed to browser roles
+        run: |
+          set -euo pipefail
+          direct_grants="$(psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          select count(*)
+          from information_schema.role_table_grants
+          where table_schema in ('public', 'private')
+            and table_name like 'ordax_network_%'
+            and grantee in ('anon', 'authenticated');
+          SQL
+          )"
+          test "$direct_grants" = '0'
+
+      - name: Guard promoted migration against proven prototype drift
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_network_report_create_v2_migration_contract -v
