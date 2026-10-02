@@ -59,7 +59,7 @@ class SupabaseAuthorityConfig:
         return (
             self.enabled
             and self.base_url.startswith("https://")
-            and bool(self.secret_key)
+            and self.secret_key.startswith("sb_secret_")
         )
 
 
