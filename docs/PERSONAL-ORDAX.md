@@ -194,6 +194,12 @@ retryable only through explicit user flow; an ambiguous post-adapter failure or 
 `started` attempt becomes `uncertain`, revokes the live grant and pauses Work. Automatic replay is
 forbidden.
 
+Activity history now has a bounded explicit Native export flow. It serializes only the current
+owner partition into `ordax.personal-activity-export/1`, saves JSON through the existing
+user file-space into `/Downloads`, strips retained `grantRef` values and omits runtime
+`nextOrdinal`. The export is therefore review/audit data, not a restorable authority snapshot.
+There is no automatic export, account sync, upload or Web fake-file fallback.
+
 Phase 1 does **not** enable background autonomy, generic egress, generic device control, shell, raw
 disk, release-key access, physical writes, non-idempotent file mutations or model-generated action
 proposals.
