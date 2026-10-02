@@ -102,7 +102,10 @@
     "account_memory_entitlement_server_authoritative": true,
     "account_memory_entitlement_mutation_exposed": false,
     "account_memory_entitlement_service_role_used": false,
-    "public_cloud_memory_enabled": false
+    "public_cloud_memory_enabled": false,
+    "account_registration_enabled": false,
+    "account_registration_legal_binding_required": true,
+    "native_registration_enabled": false
   },
   "supabase_candidate": {
     "status": "dedicated-target-schema-and-edge-gateway-deployed",
