@@ -1,6 +1,6 @@
 # OrdaX — estado atual e prioridades de execução
 
-**Status:** overlay factual de execução. **Revisão:** 26/09/2026. **Base:** `main`, sempre revalidada contra contratos e source estruturado; este documento não fixa um SHA como autoridade.
+**Status:** overlay factual de execução. **Revisão:** 02/10/2026. **Base:** `main`, sempre revalidada contra contratos e source estruturado; este documento não fixa um SHA como autoridade.
 
 Este arquivo existe para impedir que inventários históricos dos planos longos sejam usados como se fossem o estado atual do repositório. Ele **não substitui a especificação de produto** de `PLANO-FUNCIONAL-SURFACE-E-APPS.md` nem a análise de legado de `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md`. Quando houver divergência sobre **o que já existe, o que já foi provado ou qual é a próxima prioridade**, prevalecem, nesta ordem:
 
@@ -41,7 +41,7 @@ Papel de parede arbitrário, idioma completo, periféricos/áudio avançados e o
 
 ### Conta e sincronização
 
-A conta continua opcional para usar o OrdaX. A `main` já possui identidade real provider-neutral por gateway OrdaX, com o Supabase dedicado `ordax-control-plane` como backend atual, além de cadastro, login, refresh, logout, exportação autenticada e isolamento de sessão sem expor tokens do provedor à Surface. O gateway source v13 está implantado como Edge Function revisão 16 e inclui leitura autenticada/RLS de Spaces; isso **não** ativa login público. O navegador público continua **fail-closed** até os gates de origem HTTPS/same-origin, Auth hardening e legal autorizarem a ativação; isso não invalida o caminho real Native/USB.
+A conta continua opcional para usar o OrdaX. A `main` já possui identidade real provider-neutral por gateway OrdaX, com o Supabase dedicado `ordax-control-plane` como backend atual, além de cadastro, login, refresh, logout, exportação autenticada e isolamento de sessão sem expor tokens do provedor à Surface. O gateway source v13 está implantado como Edge Function revisão 19 e inclui leitura autenticada/RLS de Spaces; isso **não** ativa login público. O navegador público continua **fail-closed** até os gates de origem HTTPS/same-origin, Auth hardening e legal autorizarem a ativação; isso não invalida o caminho real Native/USB.
 
 O backend de continuidade por conta também já está aplicado e a mesma semântica `ordax.sync-transport/1` está integrada em source na Web e no Native/USB para `appearance`, preferências portáveis e metadata portátil do workspace. O Native preserva sessão e checkpoint em estado privado do dispositivo. A tela Conta → Sincronização agora distingue transporte disponível, continuidade autenticada ativa e host ausente a partir do snapshot real do runtime.
 
