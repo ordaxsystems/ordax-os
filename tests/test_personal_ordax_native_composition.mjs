@@ -330,3 +330,101 @@ test("Native proposal port is catalog-bound and creates no approval or authority
 
   runtime.dispose();
 });
+
+
+test("model proposal remains authority-free until explicit conversion to approval", async () => {
+  const catalog = createPersonalActionCatalog({
+    registrations: [{
+      entry: {
+        id: "native-file.ensure-directory",
+        toolId: "ordax-native-file-space",
+        toolArtifactSha256: "a".repeat(64),
+        actionId: "files.directory.ensure",
+        effect: "write",
+        inputKind: "resource-value",
+        resourceScheme: "file-space",
+      },
+      toResourceRef(value) {
+        const path = String(value).trim();
+        if (!path.startsWith("/") || path.includes("..")) {
+          throw new TypeError("resource path is invalid");
+        }
+        return "file-space:" + path;
+      },
+      reason: "Trusted catalog reason for explicit directory approval.",
+    }],
+  });
+  const requests = [];
+  const proposalIntelligence = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot() {
+      return {
+        schema: INTELLIGENCE_PORT_SCHEMA,
+        state: "ready",
+        inferenceAvailable: true,
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+        toolExecution: false,
+      };
+    },
+    subscribe() {
+      return () => {};
+    },
+    async respond(request) {
+      requests.push(request);
+      return {
+        schema: INTELLIGENCE_RESPONSE_SCHEMA,
+        text: JSON.stringify({
+          kind: "proposal",
+          entryId: "native-file.ensure-directory",
+          resourceValue: "/Operacao/Briefing",
+          rationale: "Model rationale is advisory only.",
+        }),
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+      };
+    },
+  };
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identitySession(),
+    spaceSelection: selectedSpace(),
+    projects: projectCatalog(),
+    intelligence: proposalIntelligence,
+    actionCatalog: catalog,
+  });
+
+  const work = runtime.create("Organizar briefing", {
+    spaceId: "space-a",
+    projectId: "project-1",
+  });
+  const before = runtime.getSnapshot();
+  const proposal = await runtime.proposeActionForWork(work.id);
+
+  assert.equal(proposal.authority, "none");
+  assert.equal(proposal.approvalRequested, false);
+  assert.equal(proposal.executionAuthorized, false);
+  assert.equal(proposal.rationale, "Model rationale is advisory only.");
+  assert.equal(runtime.getSnapshot().approvals.length, before.approvals.length);
+  assert.equal(runtime.getSnapshot().decisions.length, before.decisions.length);
+  assert.equal(runtime.getSnapshot().attempts.length, before.attempts.length);
+  assert.equal(requests.length, 1);
+
+  const approval = runtime.requestProposedAction(proposal);
+  const after = runtime.getSnapshot();
+  assert.equal(after.approvals.length, before.approvals.length + 1);
+  assert.equal(after.workItems.find((item) => item.id === work.id)?.state, "waiting-approval");
+  assert.equal(approval.reason, "Trusted catalog reason for explicit directory approval.");
+  assert.notEqual(approval.reason, proposal.rationale);
+  assert.equal(approval.resourceRef, "file-space:/Operacao/Briefing");
+
+  await assert.rejects(
+    () => runtime.proposeActionForWork(work.id),
+    /queued or paused|unresolved authority/,
+  );
+  assert.equal(requests.length, 1);
+
+  runtime.dispose();
+});
