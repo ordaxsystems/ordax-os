@@ -165,60 +165,38 @@ becomes a permission source.
 
 ### Phase 1 — foundation and visible work
 
-The source now contains the stable work/activity contracts plus a foreground runtime under
-`system/services/personal-ordax/`. It binds work to the exact device/account owner and optional
-explicit Space/project, persists each owner in an isolated store partition, pauses the previous
-partition on identity change, preserves corrupt durable partitions without overwriting them,
-discards stale inference results, keeps Intelligence consultative and persists only through the
-dedicated bounded work-store contract. Successful foreground reasoning now also persists a bounded
-owner-partitioned Work Result atomically with the `completed` state and its Activity reference.
-A Native device-store adapter also exists with one storage record per owner. It preserves corrupt
-owner bytes and blocks only that owner instead of resetting silently. The adapter is deliberately
-device-local; it is not account sync and it does not reuse Memory as a task database. Native
-composition now mounts the Personal OrdaX runtime with the canonical identity session, Space
-selection, Projects catalog and selected-Space Intelligence ports. The composition does not infer
-Space or Project binding and owns no parallel context service.
+Phase 1 is implemented in the Native composition.
 
-The Native Surface now has an explicit Activity app entry point. Work is created only after a
-deliberate user action in that app; ordinary Assistant messages do not become Work automatically.
-The Activity/result view projects Work, Activity and Result directly from the same mounted runtime
-and owns no task/result persistence. It can inspect existing owner work even when Intelligence is
-temporarily unavailable; execution still fails closed unless the canonical Intelligence port is
-ready.
+The runtime under `system/services/personal-ordax/` binds Work to the exact device/account owner
+and optional explicit Space/project. Owner state is isolated in bounded partitions; the Native
+device-store persists one validated record per owner and degrades only the affected owner to session
+state when durable bytes are corrupt, preserving those bytes for recovery. Identity, Space and
+project changes pause affected active Work instead of retargeting it, and stale inference responses
+cannot complete Work under a different context.
 
-Approval/Action Gateway integration now has a source-level execution gate. Approval requests are
-owner-bound runtime state, transition Work to `waiting-approval`, and are recorded in ordered
-Activity. Resolution goes through `ordax.action-gateway/1`; the Personal OrdaX gateway reuses
-`ordax.intelligence-tool-grant/1` and requires an exact owner, optional Space/project, tool,
-action and read/write-mode match. Missing grants remain `approval-required`; invalid, expired or
-cross-context grants fail closed to `deny`. Approved sensitive actions require the exact grant
-reference, and resolved approvals are persisted with their terminal action decision and Activity
-event as one validated graph.
+The Native Activity app is mounted over the same runtime. Users deliberately create Work there;
+ordinary Assistant messages do not auto-create Work. Activity exposes ordered progress, results,
+`waiting-approval`, explicit approve/deny, pause/resume/cancel/remove and action outcome state.
+Work Result persistence remains bounded and keeps model output at fixed `authority=none`.
 
-The Action Gateway does not execute side effects yet. Native composition now owns a bounded
-session-scoped Intelligence tool grant authority and injects only its read-only registry into the
-Personal OrdaX Action Gateway. The issuer is a separate trusted port, requires explicit user
-approval, issues only exact owner/Space/project/tool/action grants with an initial five-minute
-maximum TTL, and is not exposed through the Personal OrdaX runtime or Activity app. This removes
-the previous fake-resolver gap without turning model output or app state into authority.
+Sensitive execution reuses the existing Intelligence tool-grant authority and
+`ordax.action-gateway/1`; there is no Personal-OrdaX-owned permission system. Approval binds the
+exact Work, owner, optional Space/project, resource, tool, action, effect and tool-artifact SHA-256.
+The Action Executor revalidates the same authority immediately before resolving an adapter.
 
-The typed `ordax.action-executor/1` boundary is also defined, and it rejects non-`allow`,
-mismatched or sensitive grant-less executions before an executor can receive them. Native
-composition now mounts `ordax.personal-approval-consent/1` as the only UI-facing path to the
-issuer. Activity receives that narrow controller, never the issuer itself. The Approve affordance is
-rendered only when the controller can resolve the retained tool/action to a compatible typed action;
-when available, an explicit Approve click can issue one short-lived exact `read|write` grant and
-resolve the retained approval. With the current Native main composition no typed Personal OrdaX
-tool is registered yet, so this preflight stays fail-closed instead of presenting a fake approval.
-An explicit Deny is routed through the Action Gateway and retained as a terminal deny decision.
-If context changes or approval resolution fails after issuance, the controller revokes the new
-grant instead of leaving orphan authority. Egress and device-control cannot be approved through
-this tool-grant controller.
+Exactly one first-party foreground mutation is currently registered and executable:
+`ordax-native-file-space/files.directory.ensure`. It is idempotent, file-space bounded and exposed
+only after explicit human approval. No model output, Profile, Memory or project content can create
+that authority.
 
-The executor implementation now exists as a typed, composition-independent service, but there is still no registered Native action adapter and therefore no side effect path in Native composition. Approval
-now means only that a bounded grant exists for the exact retained action; it does not execute the
-action. The next gate is a real typed tool/action adapter plus immediate grant/context revalidation
-at the executor boundary and an auditable action receipt. Background execution remains disabled.
+Each side-effect attempt is journaled durably before adapter entry. A proven pre-adapter failure is
+retryable only through explicit user flow; an ambiguous post-adapter failure or restored
+`started` attempt becomes `uncertain`, revokes the live grant and pauses Work. Automatic replay is
+forbidden.
+
+Phase 1 does **not** enable background autonomy, generic egress, generic device control, shell, raw
+disk, release-key access, physical writes, non-idempotent file mutations or model-generated action
+proposals.
 
 ### Phase 2 — resumable bounded background work
 
@@ -260,9 +238,10 @@ resolving a typed adapter. A revoked, expired, context-mismatched or resource-su
 fails before the adapter is resolved, and successful adapters return a bounded
 `ordax.action-receipt/1`. Activity also shows the exact retained resource before consent.
 
-This still does not register a Native tool or execute a side effect. The next implementation cut is
-a first-party typed adapter whose artifact identity can be verified honestly; no placeholder
-artifact hash or generic broker escape hatch will be introduced.
+This gate is now exercised by the first verified Native action
+`ordax-native-file-space/files.directory.ensure`. No placeholder artifact hash or generic broker
+escape hatch was introduced; additional mutations remain disabled until they satisfy the same
+resource/grant/artifact/receipt requirements.
 
 A autoridade sensível também fica presa ao SHA-256 exato do artefato da tool. A approval retém essa identidade, o grant a copia, o Action Gateway compara com a tool atualmente resolvida e o Action Executor compara novamente com o adapter imediatamente antes do efeito. Trocar a implementação mantendo apenas o mesmo `toolId/action` invalida a autorização existente.
 
@@ -270,7 +249,7 @@ A autoridade sensível também fica presa ao SHA-256 exato do artefato da tool. 
 
 O primeiro adapter concreto é `ordax-native-file-space/files.directory.ensure`. Ele usa somente o `fileSpace` canônico já montado na Surface, não expõe shell nem broker genérico e não recebe caminho fora de `file-space:`. A operação é deliberadamente idempotente: se o diretório exato já existir, a mesma execução termina com sucesso sem repetir mutação; se existir outro tipo de entrada no alvo, falha fechado.
 
-A identidade do adapter é o SHA-256 calculado sobre os bytes reais do próprio módulo servido pela mesma origem via Web Crypto. Essa identidade entra na tool e, pelo gate anterior, precisa coincidir com approval, grant, Action Gateway e Action Executor. A composição Native já registra essa tool para o fluxo de aprovação, mas ainda não conecta o `adapterResolver` ao Action Executor; portanto este corte continua sem habilitar side effect do Personal OrdaX.
+A identidade do adapter é o SHA-256 calculado sobre os bytes reais do próprio módulo servido pela mesma origem via Web Crypto. Essa identidade entra na tool e precisa coincidir com approval, grant, Action Gateway e Action Executor. A composição Native conecta somente esse `adapterResolver` verificado ao Action Executor; nenhum broker genérico ou segunda ação mutável é habilitado por consequência.
 
 ### Lifecycle foreground da ação
 
