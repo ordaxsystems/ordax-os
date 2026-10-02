@@ -55,7 +55,7 @@ export function assertPersonalActionCatalog(value) {
   ) {
     throw new TypeError("Compatible Personal action catalog is required");
   }
-  for (const method of ["list", "request"]) {
+  for (const method of ["list", "propose", "request"]) {
     if (typeof value[method] !== "function") {
       throw new TypeError(`Personal action catalog must implement ${method}()`);
     }

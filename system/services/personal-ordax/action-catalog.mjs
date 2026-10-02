@@ -2,6 +2,10 @@ import {
   PERSONAL_ACTION_CATALOG_SCHEMA,
   validatePersonalActionEntry,
 } from "../../contracts/personal-action-catalog.mjs";
+import {
+  PERSONAL_ACTION_PROPOSAL_SCHEMA,
+  validatePersonalActionProposal,
+} from "../../contracts/personal-action-proposal.mjs";
 import { PERSONAL_ORDAX_RUNTIME_SCHEMA } from "../../contracts/personal-ordax-store.mjs";
 
 function registration(value) {
@@ -57,6 +61,27 @@ export function createPersonalActionCatalog({ registrations = [] } = {}) {
     schema: PERSONAL_ACTION_CATALOG_SCHEMA,
     list() {
       return entries;
+    },
+    propose(workItemId, entryId, { resourceValue, rationale } = {}) {
+      const item = byId.get(entryId);
+      if (!item) {
+        throw new Error("Personal action entry is unavailable");
+      }
+      if (typeof resourceValue !== "string") {
+        throw new TypeError("Personal action proposal resource value must be text");
+      }
+      const normalizedResourceValue = resourceValue.trim();
+      item.toResourceRef(normalizedResourceValue);
+      return validatePersonalActionProposal({
+        schema: PERSONAL_ACTION_PROPOSAL_SCHEMA,
+        workItemId,
+        entryId: item.entry.id,
+        resourceValue: normalizedResourceValue,
+        rationale,
+        authority: "none",
+        executionAuthorized: false,
+        approvalRequested: false,
+      });
     },
     request(runtimeValue, workItemId, entryId, { resourceValue } = {}) {
       const runtime = assertRuntime(runtimeValue);

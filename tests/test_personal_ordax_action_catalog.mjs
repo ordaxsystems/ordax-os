@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { PERSONAL_ORDAX_RUNTIME_SCHEMA } from "../system/contracts/personal-ordax-store.mjs";
+import {
+  PERSONAL_ACTION_PROPOSAL_SCHEMA,
+  validatePersonalActionProposal,
+} from "../system/contracts/personal-action-proposal.mjs";
 import { createPersonalActionCatalog } from "../system/services/personal-ordax/action-catalog.mjs";
 
 function registration(overrides = {}) {
@@ -102,4 +106,102 @@ test("action catalog fails closed for unknown, duplicate and invalid resources",
     /invalid/,
   );
   assert.deepEqual(target.calls, []);
+});
+
+
+test("action proposal is catalog-bound, authority-free and creates no approval", () => {
+  const catalog = createPersonalActionCatalog({ registrations: [registration()] });
+  const proposal = catalog.propose(
+    "personal-work-1",
+    "native-file.ensure-directory",
+    {
+      resourceValue: " /Documentos/Novo ",
+      rationale: "Organizar os arquivos deste trabalho em uma pasta explícita.",
+    },
+  );
+
+  assert.deepEqual(proposal, {
+    schema: PERSONAL_ACTION_PROPOSAL_SCHEMA,
+    workItemId: "personal-work-1",
+    entryId: "native-file.ensure-directory",
+    resourceValue: "/Documentos/Novo",
+    rationale: "Organizar os arquivos deste trabalho em uma pasta explícita.",
+    authority: "none",
+    executionAuthorized: false,
+    approvalRequested: false,
+  });
+  assert.equal(Object.isFrozen(proposal), true);
+  for (const forbidden of [
+    "toolId",
+    "actionId",
+    "effect",
+    "resourceRef",
+    "grantRef",
+    "approvalId",
+    "toolArtifactSha256",
+    "decision",
+  ]) {
+    assert.equal(forbidden in proposal, false);
+  }
+});
+
+test("action proposal validates resource through catalog without exposing canonical ref", () => {
+  const catalog = createPersonalActionCatalog({ registrations: [registration()] });
+
+  assert.throws(
+    () => catalog.propose(
+      "personal-work-1",
+      "native-file.ensure-directory",
+      {
+        resourceValue: "../fora",
+        rationale: "Tentar sair do file-space.",
+      },
+    ),
+    /invalid/,
+  );
+  assert.throws(
+    () => catalog.propose(
+      "personal-work-1",
+      "missing",
+      {
+        resourceValue: "/Documentos/Novo",
+        rationale: "Ação não registrada.",
+      },
+    ),
+    /unavailable/,
+  );
+});
+
+test("personal action proposal contract rejects hidden authority and execution flags", () => {
+  const base = {
+    schema: PERSONAL_ACTION_PROPOSAL_SCHEMA,
+    workItemId: "personal-work-1",
+    entryId: "native-file.ensure-directory",
+    resourceValue: "/Documentos/Novo",
+    rationale: "Criar somente uma proposta revisável.",
+    authority: "none",
+    executionAuthorized: false,
+    approvalRequested: false,
+  };
+
+  assert.throws(
+    () => validatePersonalActionProposal({ ...base, toolId: "ordax-native-file-space" }),
+    /cannot carry authority field/,
+  );
+  assert.throws(
+    () => validatePersonalActionProposal({ ...base, resourceRef: "file-space:\/Documentos\/Novo" }),
+    /cannot carry authority field/,
+  );
+  assert.throws(
+    () => validatePersonalActionProposal({ ...base, authority: "model" }),
+    /authority must remain none/,
+  );
+  assert.throws(
+    () => validatePersonalActionProposal({ ...base, executionAuthorized: true }),
+    /cannot authorize execution/,
+  );
+  assert.throws(
+    () => validatePersonalActionProposal({ ...base, approvalRequested: true }),
+    /cannot authorize execution/,
+  );
 });

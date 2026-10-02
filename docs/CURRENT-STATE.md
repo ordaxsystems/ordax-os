@@ -1072,9 +1072,19 @@ runtime persists an `ordax.personal-action-attempt/1` before adapter entry. A cr
 post-adapter failure becomes `uncertain`, revokes live authority and pauses Work; there is no
 automatic replay.
 
+The authority-free Action Proposal boundary is now source-ready. The catalog can produce an
+ephemeral `ordax.personal-action-proposal/1` only for an existing nonterminal Work in the current
+owner partition and a registered Action Catalog entry. A proposal carries only
+`workItemId + entryId + resourceValue + rationale`, fixes `authority=none`,
+`executionAuthorized=false` and `approvalRequested=false`, and rejects tool/action IDs,
+canonical resource references, grants, approvals, decisions, effects and artifact identities. The
+resource value is validated through the registration's canonicalizer but the resulting
+`resourceRef` is discarded. No planner/model output is connected to this port yet, and there is no
+automatic proposal -> approval or proposal -> execution path.
+
 Background/autonomous execution remains disabled. Generic external egress, device-control, shell,
 raw disk, release-key access, physical writes, non-idempotent file mutations, model-generated action
-proposals, specialist workers and hybrid cloud execution are not enabled by this runtime.
+proposal generation, specialist workers and hybrid cloud execution are not enabled by this runtime.
 
 ```text
 PERSONAL_ORDAX_NATIVE_RUNTIME=PASS_MOUNTED_FOREGROUND
@@ -1085,6 +1095,11 @@ PERSONAL_ORDAX_APPROVAL_GATE=PASS_EXPLICIT_HUMAN_CONSENT
 PERSONAL_ORDAX_FOREGROUND_ACTION_EXECUTION=PASS_ONE_BOUNDED_ACTION
 PERSONAL_ORDAX_FOREGROUND_ACTION_SCOPE=ORDAX_NATIVE_FILE_SPACE_FILES_DIRECTORY_ENSURE
 PERSONAL_ORDAX_ACTION_ATTEMPT_JOURNAL=PASS_CRASH_SAFE_NO_AUTO_REPLAY
+PERSONAL_ORDAX_ACTION_PROPOSAL_CONTRACT=PASS_SOURCE_AUTHORITY_NONE
+PERSONAL_ORDAX_ACTION_PROPOSAL_NATIVE_PORT=PASS_SOURCE_CURRENT_WORK_BOUND
+PERSONAL_ORDAX_MODEL_TO_PROPOSAL=NO
+PERSONAL_ORDAX_AUTOMATIC_PROPOSAL_TO_APPROVAL=NO
+PERSONAL_ORDAX_AUTOMATIC_PROPOSAL_EXECUTION=NO
 PERSONAL_ORDAX_BACKGROUND_EXECUTION=NO
 PERSONAL_ORDAX_GENERIC_EGRESS=NO
 PERSONAL_ORDAX_GENERIC_DEVICE_CONTROL=NO

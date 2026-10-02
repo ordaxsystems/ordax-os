@@ -84,6 +84,19 @@ export function createNativePersonalOrdaxComposition({
     listAvailableActions() {
       return catalog === null ? Object.freeze([]) : catalog.list();
     },
+    proposeAvailableAction(workItemId, entryId, input) {
+      if (catalog === null) {
+        throw new Error("Personal OrdaX action catalog is unavailable");
+      }
+      const work = runtime.getSnapshot().workItems.find((candidate) => candidate.id === workItemId);
+      if (!work) {
+        throw new Error("Personal OrdaX proposal requires a current owner-bound Work item");
+      }
+      if (work.state === "completed" || work.state === "failed" || work.state === "cancelled") {
+        throw new Error("Personal OrdaX proposal cannot target terminal Work");
+      }
+      return catalog.propose(work.id, entryId, input);
+    },
     requestAvailableAction(workItemId, entryId, input) {
       if (catalog === null) {
         throw new Error("Personal OrdaX action catalog is unavailable");

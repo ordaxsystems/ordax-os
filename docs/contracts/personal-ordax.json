@@ -37,7 +37,8 @@
       "ordax.personal-action-decision/1",
       "ordax.personal-work-result/1",
       "ordax.personal-approval/1",
-      "ordax.personal-approval-consent/1"
+      "ordax.personal-approval-consent/1",
+      "ordax.personal-action-proposal/1"
     ],
     "direct_platform_adapter_imports_allowed": false,
     "direct_provider_sdk_imports_allowed": false,
@@ -181,7 +182,17 @@
     "paused_work_context_invalidation_revokes_approved_grants": true,
     "work_cancel_revocation_owned_by_runtime": true,
     "native_restore_revokes_missing_session_grants": true,
-    "approved_action_ui_requires_live_grant_when_grant_ref_exists": true
+    "approved_action_ui_requires_live_grant_when_grant_ref_exists": true,
+    "action_proposal_contract_enabled": true,
+    "action_proposal_authority": "none",
+    "action_proposal_catalog_entry_required": true,
+    "action_proposal_validates_resource_without_exposing_canonical_ref": true,
+    "action_proposal_may_carry_tool_id": false,
+    "action_proposal_may_carry_action_id": false,
+    "action_proposal_may_carry_grant_ref": false,
+    "action_proposal_may_carry_approval_id": false,
+    "action_proposal_may_request_approval": false,
+    "action_proposal_may_authorize_execution": false
   },
   "activity": {
     "ordered_sequence_required": true,
@@ -229,7 +240,11 @@
     "foreground_action_execution_enabled": true,
     "generic_action_execution_enabled": false,
     "autonomous_action_execution_enabled": false,
-    "public_stable_personal_autonomy_enabled": false
+    "public_stable_personal_autonomy_enabled": false,
+    "action_proposal_source_enabled": true,
+    "action_proposal_native_composition_port_enabled": true,
+    "automatic_proposal_to_approval_enabled": false,
+    "automatic_proposal_execution_enabled": false
   },
   "evolution": {
     "phase_1": "identity-bound work + visible activity + approval decisions",
@@ -241,7 +256,8 @@
     "phase_1_status": "implemented-native-foreground",
     "phase_2_status": "partial-durable-resume-complete-background-connectors-pending",
     "phase_3_status": "not-started",
-    "phase_4_status": "not-started"
+    "phase_4_status": "not-started",
+    "next_foreground_gate": "planner-to-action-catalog proposal integration with authority=none and explicit user conversion to approval"
   },
   "action_execution": {
     "attempt_schema": "ordax.personal-action-attempt/1",

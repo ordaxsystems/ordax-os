@@ -9,6 +9,7 @@ import {
 import { PROJECT_CATALOG_SCHEMA } from "../system/contracts/project-catalog.mjs";
 import { SPACE_SELECTION_SCHEMA } from "../system/contracts/space-selection.mjs";
 import { createIntelligenceToolGrantAuthority } from "../system/services/intelligence/tool-grants.mjs";
+import { createPersonalActionCatalog } from "../system/services/personal-ordax/action-catalog.mjs";
 import { createNativePersonalOrdaxComposition } from "../system/composition/native/personal-ordax.mjs";
 
 function memoryStorage() {
@@ -240,4 +241,92 @@ test("Native composition resolves approvals through the injected canonical grant
 
   runtime.dispose();
   authority.dispose();
+});
+
+
+test("Native proposal port is catalog-bound and creates no approval or authority", () => {
+  const catalog = createPersonalActionCatalog({
+    registrations: [{
+      entry: {
+        id: "native-file.ensure-directory",
+        toolId: "ordax-native-file-space",
+        toolArtifactSha256: "a".repeat(64),
+        actionId: "files.directory.ensure",
+        effect: "write",
+        inputKind: "resource-value",
+        resourceScheme: "file-space",
+      },
+      toResourceRef(value) {
+        if (typeof value !== "string") throw new TypeError("resource must be text");
+        const path = value.trim();
+        if (!path.startsWith("/") || path.includes("..")) {
+          throw new TypeError("resource path is invalid");
+        }
+        return `file-space:${path}`;
+      },
+      reason: "Ensure the explicitly selected directory exists.",
+    }],
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identitySession(),
+    spaceSelection: selectedSpace(),
+    projects: projectCatalog(),
+    intelligence: intelligence(),
+    actionCatalog: catalog,
+  });
+
+  const work = runtime.create("Planejar uma pasta para o projeto", {
+    spaceId: "space-a",
+    projectId: "project-1",
+  });
+  const before = runtime.getSnapshot();
+
+  const proposal = runtime.proposeAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    {
+      resourceValue: "/Operacao/Briefing",
+      rationale: "Separar os artefatos do briefing sem executar nenhuma mutacao.",
+    },
+  );
+
+  assert.equal(proposal.authority, "none");
+  assert.equal(proposal.executionAuthorized, false);
+  assert.equal(proposal.approvalRequested, false);
+  assert.equal("resourceRef" in proposal, false);
+  assert.equal("toolId" in proposal, false);
+  assert.equal("actionId" in proposal, false);
+
+  const after = runtime.getSnapshot();
+  assert.equal(after.approvals.length, before.approvals.length);
+  assert.equal(after.decisions.length, before.decisions.length);
+  assert.equal(after.attempts.length, before.attempts.length);
+
+  assert.throws(
+    () => runtime.proposeAvailableAction(
+      "fabricated-work",
+      "native-file.ensure-directory",
+      {
+        resourceValue: "/Operacao/Fora",
+        rationale: "Nao deve existir proposal fora do Work corrente.",
+      },
+    ),
+    /current owner-bound Work item/,
+  );
+
+  runtime.cancel(work.id);
+  assert.throws(
+    () => runtime.proposeAvailableAction(
+      work.id,
+      "native-file.ensure-directory",
+      {
+        resourceValue: "/Operacao/Fora",
+        rationale: "Nao deve existir proposal em Work terminal.",
+      },
+    ),
+    /terminal Work/,
+  );
+
+  runtime.dispose();
 });
