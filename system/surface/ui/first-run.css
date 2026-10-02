@@ -29,8 +29,8 @@
 .ordax-first-run-shell {
   position: relative;
   width: min(1080px, 100%);
-  height: min(720px, calc(100dvh - 20px));
-  max-height: calc(100dvh - 20px);
+  height: min(760px, calc(100dvh - 36px));
+  max-height: calc(100dvh - 36px);
   min-height: 0;
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);

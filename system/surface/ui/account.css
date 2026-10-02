@@ -576,3 +576,47 @@
 .ordax-memory-review-clear-cancel {
   color: var(--ordax-muted);
 }
+
+/* Reconciled destructive Memory confirmation controls from current main. */
+.ordax-memory-review-remove-confirm:focus-visible,
+.ordax-memory-review-remove-cancel:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 1px;
+}
+
+.ordax-memory-review-remove-confirm,
+.ordax-memory-review-remove-cancel {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: transparent;
+  color: var(--ordax-text);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    color var(--ordax-motion-fast) var(--ordax-ease-standard);
+}
+
+.ordax-memory-review-remove-confirm {
+  border-color: var(--ordax-danger);
+  color: var(--ordax-danger);
+}
+
+.ordax-memory-review-remove-cancel {
+  color: var(--ordax-muted);
+}
+
+.ordax-memory-review-remove-confirm:hover:not(:disabled),
+.ordax-memory-review-remove-cancel:hover:not(:disabled) {
+  background: var(--ordax-hover-bg);
+}
+
+.ordax-memory-review-remove-confirm:disabled,
+.ordax-memory-review-remove-cancel:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
