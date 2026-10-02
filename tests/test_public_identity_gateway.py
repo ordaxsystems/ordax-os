@@ -250,7 +250,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
                 "POST",
                 "/auth/register",
                 {"content-type": "application/x-www-form-urlencoded"},
-                b"email=pessoa%40example.com&password=compromised-password-12",
+                b"email=pessoa%40example.com&password=compromised-password-12&legal_acceptance=accepted",
             )
         self.assertEqual(response.status, 400)
         self.assertEqual(self.payload(response)["error"], "compromised-password")
@@ -275,7 +275,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
                 "POST",
                 "/auth/register",
                 {"content-type": "application/x-www-form-urlencoded"},
-                b"email=pessoa%40example.com&password=new-password-12",
+                b"email=pessoa%40example.com&password=new-password-12&legal_acceptance=accepted",
             )
         self.assertEqual(response.status, 503)
         self.assertEqual(self.payload(response)["error"], "password-screening-unavailable")
