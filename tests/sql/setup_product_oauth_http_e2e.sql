@@ -3,9 +3,19 @@
 -- Disposable database fixture for the integrated Product OAuth HTTP -> core ->
 -- persistent-authority proof. The workflow creates a dedicated database before
 -- executing this file, so none of this state can reach production.
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin;
+do $roles$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role nologin;
+  end if;
+end;
+$roles$;
 
 create schema auth;
 create schema private;
