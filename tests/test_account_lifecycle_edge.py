@@ -28,7 +28,10 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
             / "ordax-account-gateway"
             / "index.ts"
         ).read_text(encoding="utf-8")
-        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", public_gateway)
+        self.assertIn("SUPABASE_SECRET_KEYS", public_gateway)
+        self.assertEqual(public_gateway.count("SUPABASE_SERVICE_ROLE_KEY"), 1)
+        self.assertIn("function adminConfig()", public_gateway)
+        self.assertIn("ordax_begin_account_registration_legal_intent_v1", public_gateway)
         self.assertNotIn("auth.admin.signOut", public_gateway)
         self.assertNotIn("auth.admin.deleteUser", public_gateway)
 
@@ -59,7 +62,12 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
         self.assertIn('path === "/account/close" && req.method === "POST"', public_gateway)
         self.assertIn("/functions/v1/ordax-account-lifecycle/close", public_gateway)
         self.assertIn("signInWithPassword", public_gateway)
-        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", public_gateway)
+        close_start = public_gateway.index("async function closeAccount")
+        close_end = public_gateway.index("async function credentials", close_start)
+        close_source = public_gateway[close_start:close_end]
+        self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", close_source)
+        self.assertNotIn("SUPABASE_SECRET_KEYS", close_source)
+        self.assertNotIn("adminClient()", close_source)
         self.assertNotIn("auth.admin.deleteUser", public_gateway)
 
     def test_health_reports_disabled_state(self):
