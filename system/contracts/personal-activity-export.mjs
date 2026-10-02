@@ -2,7 +2,7 @@ export const PERSONAL_ACTIVITY_EXPORT_SCHEMA = "ordax.personal-activity-export/1
 export const PERSONAL_ACTIVITY_EXPORT_PORT_SCHEMA = "ordax.personal-activity-export-port/1";
 export const MAX_PERSONAL_ACTIVITY_EXPORT_BYTES = 5 * 1024 * 1024;
 
-const FILE_NAME_RE = /^ordax-activity-[0-9]{8}T[0-9]{6}Z\.json$/;
+const FILE_NAME_RE = /^ordax-activity-[0-9]{8}T[0-9]{9}Z\.json$/;
 
 export function validatePersonalActivityExportDocument(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
