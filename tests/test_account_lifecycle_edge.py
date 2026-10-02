@@ -18,6 +18,7 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
 
     def test_service_role_is_isolated_to_dedicated_lifecycle_service(self):
         self.assertIn("SUPABASE_SERVICE_ROLE_KEY", self.text)
+        self.assertIn('auth.admin.signOut(token, "global")', self.text)
         self.assertIn("auth.admin.deleteUser(userId)", self.text)
         public_gateway = (
             ROOT
@@ -28,12 +29,22 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
             / "index.ts"
         ).read_text(encoding="utf-8")
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", public_gateway)
+        self.assertNotIn("auth.admin.signOut", public_gateway)
         self.assertNotIn("auth.admin.deleteUser", public_gateway)
 
     def test_close_requires_explicit_confirmation_before_admin_delete(self):
         confirmation = self.text.index("payload.confirmation !== CLOSE_CONFIRMATION")
+        revoke = self.text.index('auth.admin.signOut(token, "global")')
         delete = self.text.index("auth.admin.deleteUser(userId)")
-        self.assertLess(confirmation, delete)
+        self.assertLess(confirmation, revoke)
+        self.assertLess(revoke, delete)
+
+    def test_close_fails_closed_if_global_session_revocation_fails(self):
+        revoke = self.text.index('auth.admin.signOut(token, "global")')
+        failure = self.text.index("account-close-session-revocation-failed")
+        delete = self.text.index("auth.admin.deleteUser(userId)")
+        self.assertLess(revoke, failure)
+        self.assertLess(failure, delete)
 
     def test_public_gateway_close_source_is_disabled_and_has_no_admin_key(self):
         public_gateway = (

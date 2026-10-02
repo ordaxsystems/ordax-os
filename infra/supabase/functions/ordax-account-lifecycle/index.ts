@@ -145,6 +145,14 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, serviceRole, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
+    const { error: signOutError } = await admin.auth.admin.signOut(token, "global");
+    if (signOutError) {
+      return error(
+        409,
+        "account-close-session-revocation-failed",
+        "Não foi possível revogar as sessões da conta.",
+      );
+    }
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
     if (deleteError) {
       return error(409, "account-close-blocked", "Não foi possível concluir o fechamento da conta.");
