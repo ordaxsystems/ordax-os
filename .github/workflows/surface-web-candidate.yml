@@ -40,6 +40,7 @@ on:
       - 'system/contracts/action-executor.mjs'
       - 'system/contracts/personal-approval-consent.mjs'
       - 'tests/test_personal_ordax_action_catalog.mjs'
+      - 'tests/test_personal_action_proposal_planner.mjs'
       - 'system/services/personal-ordax/action-catalog.mjs'
       - 'system/contracts/personal-action-catalog.mjs'
       - 'system/contracts/personal-action-proposal.mjs'
@@ -242,6 +243,7 @@ on:
       - 'system/contracts/action-executor.mjs'
       - 'system/contracts/personal-approval-consent.mjs'
       - 'tests/test_personal_ordax_action_catalog.mjs'
+      - 'tests/test_personal_action_proposal_planner.mjs'
       - 'system/services/personal-ordax/action-catalog.mjs'
       - 'system/contracts/personal-action-catalog.mjs'
       - 'system/contracts/personal-action-proposal.mjs'
@@ -519,6 +521,7 @@ jobs:
           node --test tests/test_personal_ordax_action_executor.mjs
           node --test tests/test_personal_ordax_action_lifecycle.mjs
           node --test tests/test_personal_ordax_action_catalog.mjs
+          node --test tests/test_personal_action_proposal_planner.mjs
           node --test tests/test_personal_ordax_first_foreground_action.mjs
           node --test tests/test_network_status.mjs
           node --test tests/test_network_management.mjs
