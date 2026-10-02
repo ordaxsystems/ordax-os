@@ -66,7 +66,7 @@ test("Activity export is bounded, owner-scoped and intentionally non-replayable"
 
   const document = createPersonalActivityExportDocument(
     runtime.getSnapshot(),
-    { clock: () => "2026-10-02T18:00:00.000Z" },
+    { clock: () => "2026-10-02T18:00:00.731Z" },
   );
   assert.equal(document.schema, PERSONAL_ACTIVITY_EXPORT_SCHEMA);
   assert.equal(document.fileName, "ordax-activity-20261002T180000Z.json");
