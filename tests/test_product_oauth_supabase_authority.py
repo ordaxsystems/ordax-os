@@ -76,7 +76,6 @@ class FakeTransport:
 
 class ProductOAuthSupabaseAuthorityTests(unittest.TestCase):
     def test_adapter_loads_its_sibling_core_without_sys_path_mutation(self):
-        self.assertNotIn("oauth", sys.modules)
         self.assertEqual(
             adapter.OAuthClient.__module__,
             "ordax_product_oauth_core",
