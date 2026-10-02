@@ -291,6 +291,23 @@ from public.ordax_product_oauth_consume_code_v1(
 where outcome = 'applied'
 \gset
 
+do $proof$
+declare
+  v_row record;
+begin
+  select * into v_row
+  from public.ordax_product_oauth_consume_code_v1(
+    repeat('5', 64),
+    'proof-client-01',
+    'https://acheguese.test/auth/ordax/callback',
+    repeat('C', 43)
+  );
+  if v_row.outcome <> 'denied' then
+    raise exception 'product-oauth-consumed-code-replayed';
+  end if;
+end;
+$proof$;
+
 select (
   :'owner_space_id'::uuid = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2'::uuid
 ) as owner_space_binding_ok
@@ -328,6 +345,29 @@ begin
   from public.ordax_product_oauth_resolve_access_token_v1(repeat('6', 64));
   if v_count <> 0 then
     raise exception 'product-oauth-revoked-token-resolved';
+  end if;
+end;
+$proof$;
+
+-- Grant revocation invalidates every token issued from that authorization.
+select public.ordax_product_oauth_issue_access_token_v1(
+  repeat('9', 64),
+  :'owner_grant_id'::uuid,
+  statement_timestamp() + interval '15 minutes'
+);
+
+do $proof$
+declare
+  v_count integer;
+begin
+  if not public.ordax_product_oauth_revoke_grant_v1(:'owner_grant_id'::uuid) then
+    raise exception 'product-oauth-grant-revoke-failed';
+  end if;
+
+  select count(*) into v_count
+  from public.ordax_product_oauth_resolve_access_token_v1(repeat('9', 64));
+  if v_count <> 0 then
+    raise exception 'product-oauth-revoked-grant-token-resolved';
   end if;
 end;
 $proof$;
