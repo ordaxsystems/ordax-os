@@ -77,7 +77,13 @@
     "durable_pause_resume_enabled": true,
     "interrupted_action_restore_pauses_without_replay": true,
     "activity_retention_bounded_by_owner_partition": true,
-    "activity_terminal_delete_supported": true
+    "activity_terminal_delete_supported": true,
+    "activity_history_export_source_enabled": true,
+    "activity_history_export_native_enabled": true,
+    "activity_history_export_web_enabled": false,
+    "activity_history_export_requires_explicit_user_action": true,
+    "activity_history_export_reimportable_as_authority": false,
+    "activity_history_export_strips_grant_refs": true
   },
   "authority": {
     "effects": [
@@ -271,5 +277,27 @@
     "uncertain_attempt_pauses_work": true,
     "automatic_uncertain_replay": false,
     "max_attempts_per_owner": 128
+  },
+  "activity_export": {
+    "schema": "ordax.personal-activity-export/1",
+    "port_schema": "ordax.personal-activity-export-port/1",
+    "native_directory": "/Downloads",
+    "media_type": "application/json",
+    "owner_partition_only": true,
+    "includes": [
+      "work-items",
+      "activity-events",
+      "results",
+      "approvals",
+      "decisions",
+      "attempts"
+    ],
+    "excludes": [
+      "next-ordinal",
+      "grant-ref-replay-authority"
+    ],
+    "authority_replayable": false,
+    "account_sync": false,
+    "automatic_export": false
   }
 }
