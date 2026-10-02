@@ -9,6 +9,7 @@ import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-h
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
 import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
+import { createNativePersonalActivityExport } from "../../adapters/native/personal-activity-export.mjs";
 import { createNativeRecentFilesStore } from "../../adapters/native/recent-files.mjs";
 import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
@@ -420,6 +421,9 @@ async function start() {
   const personalOrdaxActionCatalog = createPersonalActionCatalog({
     registrations: personalOrdaxFileActions?.actionRegistrations ?? [],
   });
+  const personalActivityExport = fileSpace === null
+    ? null
+    : createNativePersonalActivityExport(fileSpace);
   const personalOrdax = await optionalNativeProbe(
     "OrdaX Personal runtime unavailable",
     () => createNativePersonalOrdaxComposition({
@@ -812,6 +816,7 @@ async function start() {
       root,
       surfaceLifecycle: surface,
       personalOrdax,
+      activityExport: personalActivityExport,
     },
     onError(error) {
       reportClientDiagnostic("activity-runtime", error);

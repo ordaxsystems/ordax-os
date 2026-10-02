@@ -104,7 +104,9 @@ O app first-party `system/apps/activity/`:
 - projeta Work, Activity, Result e approvals do runtime canônico;
 - não possui task/result store paralelo;
 - permite pause/resume/cancel/remove conforme o estado do Work;
-- não converte mensagens do Assistant automaticamente em Work.
+- não converte mensagens do Assistant automaticamente em Work;
+- exporta explicitamente o histórico do owner atual para JSON em `/Downloads` no Native;
+- o export usa schema próprio, remove referências de grant e não pode ser reimportado como authority.
 
 ### Authority e approvals
 
@@ -207,11 +209,11 @@ Já existe:
 - `started` restaurado vira `uncertain`, revoga authority e pausa;
 - approval session-only sem grant vivo é reconciliada para `revoked`;
 - cancelamento/revogação impede uso posterior;
-- estado operacional continua separado de account sync.
+- estado operacional continua separado de account sync;
+- política/fluxo de export do histórico de Activity implementado no Native, por ação explícita e sem authority reimportável.
 
 Ainda falta nesta fase:
 
-- política/fluxo de export do histórico de Activity;
 - política real de background execution;
 - lifecycle/budgets/leases de background;
 - connectors com egress explícito.

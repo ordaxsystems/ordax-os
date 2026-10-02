@@ -68,6 +68,7 @@ export const componentRuntime = Object.freeze({
     root,
     surfaceLifecycle,
     personalOrdax = null,
+    activityExport = null,
   } = {}) {
     const releaseStyles = await mountActivityStyles(root);
     let controls = null;
@@ -82,6 +83,7 @@ export const componentRuntime = Object.freeze({
         activityPersonalOrdax,
         surfaceLifecycle,
         personalOrdax?.approvalConsent ?? null,
+        activityExport,
       );
       let destroyed = false;
       return Object.freeze({
