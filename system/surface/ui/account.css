@@ -550,3 +550,29 @@
     transition: none;
   }
 }
+
+/* Reconciled functional Memory controls from current main. */
+.ordax-memory-review-owner[aria-pressed="true"] {
+  border-color: var(--ordax-text);
+  background: var(--ordax-text);
+  color: var(--ordax-bg);
+}
+
+.ordax-memory-review-clear-confirm {
+  color: var(--ordax-danger);
+}
+
+.ordax-memory-review-clear-prompt {
+  align-self: center;
+  color: var(--ordax-danger);
+  font-size: 0.7rem;
+  font-weight: 620;
+}
+
+.ordax-memory-review-clear-confirm {
+  border-color: var(--ordax-danger);
+}
+
+.ordax-memory-review-clear-cancel {
+  color: var(--ordax-muted);
+}
