@@ -3,8 +3,9 @@
   min-height: 450px;
   overflow: hidden;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-md);
-  background: var(--ordax-surface-strong);
+  border-radius: var(--ordax-radius-lg);
+  background: color-mix(in srgb, var(--ordax-panel) 72%, var(--ordax-window-bg));
+  box-shadow: var(--ordax-shadow-soft);
 }
 
 .ordax-app-extension[data-app-extension="account-overview"]:not([data-ordax-account-overview-view]) {
@@ -17,24 +18,27 @@
 }
 
 .ordax-account-header {
-  padding: 24px 26px 22px;
+  padding: 26px 28px 24px;
   border-bottom: 1px solid var(--ordax-border-soft);
+  background:
+    radial-gradient(circle at 88% 18%, color-mix(in srgb, var(--ordax-accent) 10%, transparent), transparent 34%),
+    color-mix(in srgb, var(--ordax-panel) 42%, transparent);
 }
 
 .ordax-account-navigation {
   display: flex;
-  gap: 4px;
-  padding: 8px 18px;
+  gap: 5px;
+  padding: 9px 18px;
   overflow-x: auto;
   border-bottom: 1px solid var(--ordax-border-soft);
-  background: var(--ordax-subtle-bg);
+  background: color-mix(in srgb, var(--ordax-subtle-bg) 76%, transparent);
 }
 
 .ordax-account-navigation-item {
   min-height: 34px;
   flex: 0 0 auto;
-  padding: 0 11px;
-  border: 0;
+  padding: 0 12px;
+  border: 1px solid transparent;
   border-radius: var(--ordax-radius-sm);
   background: transparent;
   color: var(--ordax-muted);
@@ -42,10 +46,15 @@
   font-size: 0.72rem;
   font-weight: 620;
   cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    color var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-account-navigation-item:hover,
 .ordax-account-navigation-item:focus-visible {
+  border-color: var(--ordax-border-soft);
   background: var(--ordax-hover-bg);
   color: var(--ordax-text);
   outline: 2px solid var(--ordax-focus);
@@ -53,13 +62,14 @@
 }
 
 .ordax-account-navigation-item[data-active="true"] {
-  background: var(--ordax-window-bg);
+  border-color: color-mix(in srgb, var(--ordax-accent) 34%, var(--ordax-border-soft));
+  background: var(--ordax-selected-bg);
   color: var(--ordax-text);
   box-shadow: inset 0 -2px 0 var(--ordax-accent);
 }
 
 .ordax-account-section {
-  padding: 22px 26px 24px;
+  padding: 22px 28px 25px;
   border-bottom: 1px solid var(--ordax-border-soft);
 }
 
@@ -88,8 +98,8 @@
   margin: 7px 0 0;
   font-family: var(--ordax-font-display);
   font-size: clamp(1.8rem, 3vw, 2.5rem);
-  font-weight: 400;
-  letter-spacing: -0.035em;
+  font-weight: var(--ordax-title-weight);
+  letter-spacing: var(--ordax-tracking-tight);
 }
 
 .ordax-account-subtitle {
@@ -108,6 +118,7 @@
   padding: 0 11px;
   border: 1px solid var(--ordax-border);
   border-radius: 999px;
+  background: color-mix(in srgb, var(--ordax-panel) 52%, transparent);
   color: var(--ordax-muted);
   font-size: 0.72rem;
   font-weight: 650;
@@ -122,8 +133,14 @@
   background: var(--ordax-muted);
 }
 
+.ordax-account-status[data-state="signed-in"] {
+  border-color: color-mix(in srgb, var(--ordax-accent) 34%, var(--ordax-border));
+  color: var(--ordax-text);
+}
+
 .ordax-account-status[data-state="signed-in"]::before {
   background: var(--ordax-accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ordax-accent) 34%, transparent);
 }
 
 .ordax-account-status[data-state="signed-out"]::before {
@@ -137,25 +154,30 @@
 .ordax-account-identity {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 15px;
   margin-top: 20px;
-  padding: 16px;
+  padding: 17px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 58%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ordax-text) 4%, transparent);
 }
 
 .ordax-account-avatar {
   display: grid;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   flex: 0 0 auto;
   place-items: center;
+  border: 1px solid color-mix(in srgb, var(--ordax-accent) 42%, var(--ordax-border));
   border-radius: 50%;
-  background: var(--ordax-text);
-  color: var(--ordax-bg);
+  background:
+    radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--ordax-accent) 24%, transparent), transparent 38%),
+    var(--ordax-subtle-bg);
+  color: var(--ordax-accent);
   font-family: var(--ordax-font-display);
-  font-size: 1.2rem;
+  font-size: 1.15rem;
+  box-shadow: var(--ordax-glow-soft);
 }
 
 .ordax-account-identity-copy {
@@ -170,6 +192,7 @@
 .ordax-account-identity-copy strong {
   overflow: hidden;
   font-size: 0.94rem;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -198,19 +221,35 @@
   background: transparent;
   color: var(--ordax-text);
   font: inherit;
+  font-weight: 620;
   cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    transform var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-account-action-primary {
-  border-color: var(--ordax-text);
-  background: var(--ordax-text);
-  color: var(--ordax-bg);
+  border-color: var(--ordax-button-bg);
+  background: var(--ordax-button-bg);
+  color: var(--ordax-button-text);
 }
 
 .ordax-account-action:hover:not(:disabled),
 .ordax-account-action:focus-visible:not(:disabled) {
+  background: var(--ordax-hover-bg);
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
+}
+
+.ordax-account-action-primary:hover:not(:disabled),
+.ordax-account-action-primary:focus-visible:not(:disabled) {
+  background: color-mix(in srgb, var(--ordax-button-bg) 90%, var(--ordax-text));
+}
+
+.ordax-account-action:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .ordax-account-action:disabled {
@@ -225,8 +264,10 @@
 
 .ordax-account-message {
   margin: 10px 0 0;
-  padding: 9px 11px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--ordax-danger) 26%, transparent);
   border-left: 3px solid var(--ordax-danger);
+  border-radius: var(--ordax-radius-sm);
   background: var(--ordax-danger-bg);
   color: var(--ordax-danger);
   font-size: 0.74rem;
@@ -235,13 +276,13 @@
 .ordax-account-section-title {
   margin: 6px 0 0;
   font-size: 0.98rem;
-  font-weight: 650;
+  font-weight: 620;
 }
 
 .ordax-account-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
   margin-top: 15px;
 }
 
@@ -250,12 +291,16 @@
   min-height: 120px;
   padding: 16px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 54%, transparent);
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-account-card[data-state="available"] {
-  border-color: color-mix(in srgb, var(--ordax-accent) 35%, var(--ordax-border-soft));
+  border-color: color-mix(in srgb, var(--ordax-accent) 36%, var(--ordax-border-soft));
+  background: color-mix(in srgb, var(--ordax-selected-bg) 58%, transparent);
 }
 
 .ordax-account-card[data-state="unavailable"] {
@@ -266,7 +311,7 @@
   display: block;
   margin-top: 10px;
   font-size: 1rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .ordax-account-card-detail {
@@ -299,7 +344,6 @@
   .ordax-account-grid {
     grid-template-columns: 1fr;
   }
-
 }
 
 .ordax-account-action[href] {
@@ -309,9 +353,9 @@
   text-decoration: none;
 }
 
-
 .ordax-memory-review-host {
   margin-top: 18px;
+  padding-top: 2px;
 }
 
 .ordax-memory-review-header {
@@ -321,7 +365,7 @@
 .ordax-memory-review-title {
   margin: 0;
   font-size: 0.96rem;
-  font-weight: 650;
+  font-weight: 620;
 }
 
 .ordax-memory-review-description {
@@ -345,7 +389,7 @@
   box-sizing: border-box;
   border: 1px solid var(--ordax-border);
   border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-window-bg);
+  background: color-mix(in srgb, var(--ordax-window-bg) 88%, transparent);
   color: var(--ordax-text);
   font: inherit;
 }
@@ -424,12 +468,30 @@
   font: inherit;
   font-size: 0.72rem;
   cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    color var(--ordax-motion-fast) var(--ordax-ease-standard);
+}
+
+.ordax-memory-review-owner:hover:not(:disabled),
+.ordax-memory-review-export:hover:not(:disabled),
+.ordax-memory-review-clear:hover:not(:disabled),
+.ordax-memory-review-clear-confirm:hover:not(:disabled),
+.ordax-memory-review-clear-cancel:hover:not(:disabled),
+.ordax-memory-review-create-button:hover:not(:disabled),
+.ordax-memory-review-save:hover:not(:disabled),
+.ordax-memory-review-remove:hover:not(:disabled),
+.ordax-memory-review-remove-confirm:hover:not(:disabled),
+.ordax-memory-review-remove-cancel:hover:not(:disabled),
+.ordax-memory-review-page:hover:not(:disabled) {
+  background: var(--ordax-hover-bg);
 }
 
 .ordax-memory-review-owner[aria-pressed="true"] {
-  border-color: var(--ordax-text);
-  background: var(--ordax-text);
-  color: var(--ordax-bg);
+  border-color: color-mix(in srgb, var(--ordax-accent) 42%, var(--ordax-border));
+  background: var(--ordax-selected-bg);
+  color: var(--ordax-text);
 }
 
 .ordax-memory-review-remove,
@@ -490,8 +552,8 @@
 .ordax-memory-review-item {
   padding: 14px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 52%, transparent);
 }
 
 .ordax-memory-review-item[data-sensitivity="restricted"] {
@@ -521,7 +583,7 @@
   margin: 0;
   padding: 14px;
   border: 1px dashed var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
+  border-radius: var(--ordax-radius-md);
   color: var(--ordax-muted);
   font-size: 0.74rem;
 }
@@ -547,5 +609,24 @@
   .ordax-memory-review-remove-cancel,
   .ordax-memory-review-page {
     flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ordax-account-navigation-item,
+  .ordax-account-action,
+  .ordax-account-card,
+  .ordax-memory-review-owner,
+  .ordax-memory-review-export,
+  .ordax-memory-review-clear,
+  .ordax-memory-review-clear-confirm,
+  .ordax-memory-review-clear-cancel,
+  .ordax-memory-review-create-button,
+  .ordax-memory-review-save,
+  .ordax-memory-review-remove,
+  .ordax-memory-review-remove-confirm,
+  .ordax-memory-review-remove-cancel,
+  .ordax-memory-review-page {
+    transition: none;
   }
 }

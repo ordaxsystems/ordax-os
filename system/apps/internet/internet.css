@@ -16,7 +16,9 @@
   min-height: 620px;
   display: grid;
   grid-template-rows: 52px minmax(0, 1fr);
-  background: var(--ordax-app-bg);
+  background:
+    radial-gradient(circle at 82% 10%, color-mix(in srgb, var(--ordax-accent) 7%, transparent), transparent 30%),
+    var(--ordax-app-bg);
   color: var(--ordax-text);
 }
 
@@ -26,8 +28,10 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-  background: color-mix(in srgb, var(--ordax-panel) 82%, var(--ordax-app-bg));
+  border-bottom: 1px solid var(--ordax-border-soft);
+  background: color-mix(in srgb, var(--ordax-panel) 88%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .ordax-internet-icon-button,
@@ -202,7 +206,7 @@
 }
 
 .ordax-internet-tab[data-selected="true"] {
-  background: color-mix(in srgb, var(--ordax-accent) 14%, transparent);
+  background: var(--ordax-selected-bg);
   box-shadow: inset 3px 0 var(--ordax-accent);
 }
 
@@ -307,8 +311,9 @@
   min-height: 78px;
   padding: 14px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: 10px;
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 58%, transparent);
+  box-shadow: var(--ordax-shadow-soft);
 }
 
 .ordax-internet-home-link span { display: block; font-size: 9px; letter-spacing: .08em; color: var(--ordax-muted); margin-bottom: 8px; }
@@ -343,9 +348,10 @@
 }
 
 .ordax-internet-project-panel {
-  border-left: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-left: 1px solid var(--ordax-border-soft);
   padding: 13px 14px;
   overflow: auto;
+  background: color-mix(in srgb, var(--ordax-panel) 84%, transparent);
 }
 
 .ordax-internet-project-header {

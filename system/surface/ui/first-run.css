@@ -4,47 +4,66 @@
   z-index: 10001;
   display: grid;
   place-items: center;
-  padding: clamp(18px, 4vw, 56px);
-  overflow: auto;
+  padding: clamp(10px, 2vw, 24px);
+  overflow: hidden;
   background:
-    radial-gradient(circle at 78% 14%, color-mix(in srgb, var(--ordax-accent) 18%, transparent) 0, transparent 34%),
-    var(--ordax-bg);
+    radial-gradient(circle at 78% 14%, color-mix(in srgb, var(--ordax-accent) 16%, transparent) 0, transparent 31%),
+    radial-gradient(circle at 14% 82%, color-mix(in srgb, var(--ordax-accent) 6%, transparent) 0, transparent 28%),
+    linear-gradient(145deg, var(--ordax-bg-start), var(--ordax-bg-middle) 58%, var(--ordax-bg-end));
   color: var(--ordax-text);
 }
 
+.ordax-first-run::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0 49.9%, color-mix(in srgb, var(--ordax-border) 16%, transparent) 50%, transparent 50.1%),
+    linear-gradient(transparent 0 49.9%, color-mix(in srgb, var(--ordax-border) 12%, transparent) 50%, transparent 50.1%);
+  background-size: 84px 84px;
+  mask-image: radial-gradient(circle at 72% 28%, black, transparent 62%);
+  opacity: 0.22;
+}
+
 .ordax-first-run-shell {
+  position: relative;
   width: min(1080px, 100%);
   height: min(760px, calc(100dvh - 36px));
-  min-height: min(620px, calc(100dvh - 36px));
+  max-height: calc(100dvh - 36px);
+  min-height: 0;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 232px minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--ordax-border-soft);
-  border-radius: 28px;
-  background: var(--ordax-surface);
-  box-shadow: var(--ordax-shadow);
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-xl);
+  background: color-mix(in srgb, var(--ordax-surface) 92%, transparent);
+  box-shadow: var(--ordax-shadow), var(--ordax-glow-soft);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
 
 .ordax-first-run-progress {
-  min-height: 0;
   display: flex;
+  min-height: 0;
   flex-direction: column;
-  gap: 44px;
-  padding: 34px 28px;
-  overflow: auto;
+  gap: 36px;
+  padding: 30px 24px;
   border-right: 1px solid var(--ordax-border-soft);
-  background: color-mix(in srgb, var(--ordax-bg) 72%, var(--ordax-surface));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--ordax-panel) 76%, transparent), color-mix(in srgb, var(--ordax-bg) 72%, transparent));
 }
 
 .ordax-first-run-brand {
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .ordax-first-run-brand strong {
   font-family: var(--ordax-font-display);
-  font-size: 1.65rem;
-  letter-spacing: -0.04em;
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: var(--ordax-tracking-tight);
 }
 
 .ordax-first-run-brand span,
@@ -52,14 +71,15 @@
 .ordax-first-run-field > span,
 .ordax-first-run-network-current span {
   color: var(--ordax-muted);
-  font-size: 0.76rem;
-  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .ordax-first-run-steps {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -68,26 +88,45 @@
 
 .ordax-first-run-steps li {
   position: relative;
-  padding-left: 30px;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 6px 8px 6px 36px;
+  border: 1px solid transparent;
+  border-radius: var(--ordax-radius-sm);
   color: var(--ordax-muted);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  transition:
+    color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-first-run-steps li::before {
   counter-increment: ordax-first-run-step;
   content: counter(ordax-first-run-step, decimal-leading-zero);
   position: absolute;
-  left: 0;
+  left: 9px;
+  color: var(--ordax-faint);
+  font-size: 0.66rem;
   font-variant-numeric: tabular-nums;
-}
-
-.ordax-first-run-steps li[data-state="current"] {
-  color: var(--ordax-text);
   font-weight: 700;
 }
 
-.ordax-first-run-steps li[data-state="done"] {
+.ordax-first-run-steps li[data-state="current"] {
+  border-color: var(--ordax-border-soft);
+  background: var(--ordax-hover-bg);
+  color: var(--ordax-text);
+  font-weight: 650;
+}
+
+.ordax-first-run-steps li[data-state="current"]::before,
+.ordax-first-run-steps li[data-state="done"]::before {
   color: var(--ordax-accent);
+}
+
+.ordax-first-run-steps li[data-state="done"] {
+  color: color-mix(in srgb, var(--ordax-accent) 82%, var(--ordax-muted));
 }
 
 .ordax-first-run-card {
@@ -96,6 +135,9 @@
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--ordax-accent) 6%, transparent), transparent 30%),
+    color-mix(in srgb, var(--ordax-app-bg) 92%, transparent);
 }
 
 .ordax-first-run-body {
@@ -103,25 +145,24 @@
   min-height: 0;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: clamp(36px, 6vh, 72px) clamp(28px, 6vw, 72px) 32px;
+  padding: clamp(32px, 6vh, 64px) clamp(28px, 6vw, 72px) 28px;
   overflow: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
 }
 
 .ordax-first-run-header {
   display: grid;
-  gap: 14px;
-  margin-bottom: 34px;
+  gap: 12px;
+  margin-bottom: 30px;
 }
 
 .ordax-first-run-header h1 {
   max-width: 18ch;
   margin: 0;
   font-family: var(--ordax-font-display);
-  font-size: clamp(2.4rem, 5vw, 4.5rem);
-  font-weight: 550;
-  line-height: 0.96;
+  font-size: clamp(2.35rem, 5vw, 4.35rem);
+  font-weight: 430;
+  line-height: 0.98;
   letter-spacing: -0.055em;
 }
 
@@ -137,7 +178,7 @@
 .ordax-first-run-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .ordax-first-run-tile,
@@ -145,32 +186,33 @@
 .ordax-first-run-notice {
   display: grid;
   gap: 9px;
-  padding: 18px;
+  padding: 17px;
   border: 1px solid var(--ordax-border-soft);
   border-radius: var(--ordax-radius-lg);
-  background: var(--ordax-subtle-bg);
+  background: color-mix(in srgb, var(--ordax-panel) 54%, transparent);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--ordax-bg) 18%, transparent);
 }
 
 .ordax-first-run-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 16px;
 }
 
 .ordax-first-run-field {
   display: grid;
-  gap: 9px;
+  gap: 8px;
 }
 
 .ordax-first-run-field select,
 .ordax-first-run-field input {
   width: 100%;
-  min-height: 46px;
+  min-height: 44px;
   box-sizing: border-box;
   border: 1px solid var(--ordax-border);
   border-radius: var(--ordax-radius-md);
   padding: 0 13px;
-  background: var(--ordax-surface-strong);
+  background: color-mix(in srgb, var(--ordax-window-bg) 88%, transparent);
   color: var(--ordax-text);
   font: inherit;
 }
@@ -191,7 +233,7 @@
 .ordax-first-run-network-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   margin-top: 14px;
 }
 
@@ -209,6 +251,7 @@
 
 .ordax-first-run-network-list .ordax-first-run-action[data-selected="true"] {
   border-color: var(--ordax-accent);
+  background: var(--ordax-selected-bg);
 }
 
 .ordax-first-run-connect {
@@ -224,30 +267,36 @@
 .ordax-first-run-account-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   margin-top: 18px;
 }
 
 .ordax-first-run-action {
-  min-height: 42px;
+  min-height: 40px;
   border: 1px solid var(--ordax-border);
   border-radius: var(--ordax-radius-md);
-  padding: 10px 16px;
-  background: transparent;
+  padding: 9px 15px;
+  background: color-mix(in srgb, var(--ordax-panel) 24%, transparent);
   color: var(--ordax-text);
   font: inherit;
-  font-weight: 650;
+  font-weight: 620;
   cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    transform var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-first-run-action:hover:not(:disabled) {
   background: var(--ordax-hover-bg);
+  transform: translateY(-1px);
 }
 
 .ordax-first-run-action-primary {
-  border-color: var(--ordax-accent);
-  background: var(--ordax-accent);
-  color: var(--ordax-accent-ink);
+  border-color: var(--ordax-button-bg);
+  background: var(--ordax-button-bg);
+  color: var(--ordax-button-text);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--ordax-accent) 12%, transparent);
 }
 
 .ordax-first-run-action:disabled {
@@ -268,13 +317,15 @@
 .ordax-first-run-empty {
   margin: 16px 0 0;
   padding: 12px 14px;
+  border: 1px solid var(--ordax-border-soft);
   border-radius: var(--ordax-radius-md);
-  background: var(--ordax-subtle-bg);
+  background: color-mix(in srgb, var(--ordax-panel) 45%, transparent);
   line-height: 1.45;
 }
 
 .ordax-first-run-error {
-  border: 1px solid var(--ordax-danger);
+  border-color: color-mix(in srgb, var(--ordax-danger) 56%, transparent);
+  background: var(--ordax-danger-bg);
   color: var(--ordax-danger);
 }
 
@@ -285,6 +336,7 @@
   overflow: hidden;
   border: 1px solid var(--ordax-border-soft);
   border-radius: var(--ordax-radius-lg);
+  background: color-mix(in srgb, var(--ordax-panel) 38%, transparent);
 }
 
 .ordax-first-run-summary dt,
@@ -299,7 +351,7 @@
 }
 
 .ordax-first-run-summary dd {
-  font-weight: 650;
+  font-weight: 620;
 }
 
 .ordax-first-run-summary dt:last-of-type,
@@ -308,60 +360,60 @@
 }
 
 .ordax-first-run-footer {
-  position: relative;
-  z-index: 3;
-  min-height: 76px;
-  display: flex;
   flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+  min-height: 72px;
+  display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 16px clamp(28px, 6vw, 72px);
+  gap: 8px;
+  padding: 14px clamp(28px, 6vw, 72px);
   border-top: 1px solid var(--ordax-border-soft);
-  background: var(--ordax-surface);
-  box-shadow: 0 -10px 28px color-mix(in srgb, var(--ordax-bg) 14%, transparent);
+  background: color-mix(in srgb, var(--ordax-panel) 74%, var(--ordax-app-bg));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .ordax-first-run-footer .ordax-first-run-action:first-child:not(:last-child) {
   margin-right: auto;
 }
 
-@media (max-height: 740px) and (min-width: 821px) {
-  .ordax-first-run {
-    padding-block: 12px;
-  }
-
-  .ordax-first-run-shell {
-    height: calc(100dvh - 24px);
-    min-height: 0;
-  }
-
+@media (max-height: 800px) and (min-width: 821px) {
   .ordax-first-run-progress {
-    gap: 24px;
-    padding-block: 24px;
+    gap: 20px;
+    padding-top: 22px;
+    padding-bottom: 22px;
   }
 
   .ordax-first-run-steps {
-    gap: 12px;
+    gap: 8px;
+  }
+
+  .ordax-first-run-steps li {
+    min-height: 27px;
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 
   .ordax-first-run-body {
     padding-top: 28px;
-    padding-bottom: 24px;
+    padding-bottom: 20px;
   }
 
   .ordax-first-run-header {
     gap: 10px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
   .ordax-first-run-header h1 {
-    font-size: clamp(2.15rem, 4.4vw, 3.6rem);
+    font-size: clamp(2.1rem, 4.5vw, 3.7rem);
   }
 
   .ordax-first-run-footer {
-    min-height: 64px;
-    padding-block: 10px;
+    min-height: 62px;
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
 }
 
@@ -370,20 +422,23 @@
     padding: 0;
   }
 
+  .ordax-first-run::before {
+    display: none;
+  }
+
   .ordax-first-run-shell {
     width: 100%;
     height: 100dvh;
-    min-height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
     border: 0;
     border-radius: 0;
   }
 
   .ordax-first-run-progress {
     gap: 14px;
-    padding: 20px 24px;
-    overflow: visible;
+    padding: 18px 20px;
     border-right: 0;
     border-bottom: 1px solid var(--ordax-border-soft);
   }
@@ -394,24 +449,22 @@
   }
 
   .ordax-first-run-steps li {
+    min-height: 28px;
     overflow: hidden;
+    justify-content: center;
     padding: 0;
     font-size: 0;
   }
 
   .ordax-first-run-steps li::before {
     position: static;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
   }
 
   .ordax-first-run-grid,
   .ordax-first-run-form,
   .ordax-first-run-network-list {
     grid-template-columns: 1fr;
-  }
-
-  .ordax-first-run-footer {
-    flex-wrap: wrap;
   }
 }
 
