@@ -1,7 +1,9 @@
 name: Supabase Product Network Migration Name
 
 on:
-  pull_request:
+  push:
+    branches:
+      - 'feature/product-network-read-resource'
     paths:
       - '.github/workflows/product-network-migration-name.yml'
 
