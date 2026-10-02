@@ -25,7 +25,7 @@
     "observed_date": "2026-10-02",
     "leaked_password_protection": "enabled-product-gateway",
     "public_login_enabled": false,
-    "edge_gateway": "source-v13-deployed-revision-19-close-disabled",
+    "edge_gateway": "source-v14-deployed-revision-20-registration-disabled-close-disabled",
     "csrf_state_change_protection": "pass-deployed",
     "secure_http_only_cookie_policy": "pass-source-and-edge",
     "same_origin_session_owner": "adapter-source-ready-not-deployed",
