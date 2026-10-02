@@ -77,6 +77,55 @@ class NativeAccountGatewayTests(unittest.TestCase):
             client = gateway.NativeAccountGateway("https://accounts.example", str(link))
             self.assertEqual(client._cookies, {})
 
+    def test_registration_policy_is_read_only_and_uses_existing_session_boundary(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(
+                    status=200,
+                    headers={},
+                    body=b'{"$schema":"prototype-ordax.registration-legal-policy/1"}',
+                )
+
+            client._request = fake_request
+            reply = client.registration_policy()
+
+            self.assertEqual(reply.status, 200)
+            self.assertEqual(calls, [("GET", "/auth/registration-policy", {})])
+
+    def test_registration_posts_only_affirmative_legal_acceptance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(status=303, headers={}, body=b"")
+
+            client._request = fake_request
+            with self.assertRaises(gateway.NativeAccountGatewayError):
+                client.register("person@example.com", "secret-123456", legal_accepted=False)
+
+            reply = client.register(
+                "person@example.com",
+                "secret-123456",
+                legal_accepted=True,
+            )
+            self.assertEqual(reply.status, 303)
+            self.assertEqual(len(calls), 1)
+            method, route, kwargs = calls[0]
+            self.assertEqual((method, route), ("POST", "/auth/register"))
+            body = kwargs["body"].decode("utf-8")
+            self.assertIn("email=person%40example.com", body)
+            self.assertIn("legal_acceptance=accepted", body)
+            self.assertNotIn("privacy_version", body)
+            self.assertNotIn("terms_version", body)
+
     def test_account_export_is_read_only_and_uses_existing_session_boundary(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
@@ -187,6 +236,8 @@ class NativeAccountGatewayTests(unittest.TestCase):
         source = MODULE.read_text(encoding="utf-8").lower()
         self.assertNotIn("supabase", source)
         self.assertIn("/auth/session", source)
+        self.assertIn("/auth/registration-policy", source)
+        self.assertIn("legal_acceptance", source)
         self.assertIn("/account/export", source)
         self.assertIn("/account/spaces", source)
         self.assertIn("/account/entitlements/memory-cloud", source)
