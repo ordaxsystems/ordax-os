@@ -96,7 +96,7 @@ class SupabaseRegistrationLegalAuthority:
 
     def begin_intent(self, email: str) -> RegistrationLegalIntent:
         payload = json.dumps(
-            {"p_normalized_email": _email(email)},
+            {"p_normalized_email": _email(email), "p_accepted": True},
             separators=(",", ":"),
             ensure_ascii=False,
         ).encode("utf-8")
