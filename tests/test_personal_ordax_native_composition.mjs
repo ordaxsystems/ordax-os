@@ -622,3 +622,48 @@ test("issued proposal cannot cross owners even when local work ids are reused", 
 
   runtime.dispose();
 });
+
+
+test("issued proposal becomes stale when its Work revision changes", () => {
+  const catalog = createPersonalActionCatalog({
+    registrations: [{
+      entry: {
+        id: "native-file.ensure-directory",
+        toolId: "ordax-native-file-space",
+        toolArtifactSha256: "a".repeat(64),
+        actionId: "files.directory.ensure",
+        effect: "write",
+        inputKind: "resource-value",
+        resourceScheme: "file-space",
+      },
+      toResourceRef(value) {
+        return "file-space:" + String(value).trim();
+      },
+      reason: "Trusted catalog reason.",
+    }],
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identitySession(),
+    intelligence: intelligence(),
+    actionCatalog: catalog,
+  });
+  const work = runtime.create("Work revision proof");
+  const proposal = runtime.proposeAvailableAction(
+    work.id,
+    "native-file.ensure-directory",
+    {
+      resourceValue: "/Revision",
+      rationale: "Proposal before Work state changes.",
+    },
+  );
+
+  runtime.pause(work.id);
+  assert.throws(
+    () => runtime.requestProposedAction(proposal),
+    /Work revision is stale/,
+  );
+  assert.equal(runtime.getSnapshot().approvals.length, 0);
+
+  runtime.dispose();
+});
