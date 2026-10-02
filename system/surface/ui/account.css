@@ -383,6 +383,7 @@
 }
 
 .ordax-memory-review-toolbar input[type="search"],
+.ordax-memory-review-create textarea,
 .ordax-memory-review-content-label textarea {
   width: 100%;
   box-sizing: border-box;
@@ -398,6 +399,21 @@
   padding: 0 11px;
 }
 
+.ordax-memory-review-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.ordax-memory-review-create textarea {
+  min-height: 72px;
+  padding: 10px 11px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .ordax-memory-review-content-label textarea {
   min-height: 96px;
   margin-top: 7px;
@@ -407,10 +423,18 @@
 }
 
 .ordax-memory-review-toolbar input:focus-visible,
+.ordax-memory-review-create textarea:focus-visible,
+.ordax-memory-review-create-button:focus-visible,
 .ordax-memory-review-content-label textarea:focus-visible,
 .ordax-memory-review-owner:focus-visible,
+.ordax-memory-review-export:focus-visible,
+.ordax-memory-review-clear:focus-visible,
+.ordax-memory-review-clear-confirm:focus-visible,
+.ordax-memory-review-clear-cancel:focus-visible,
 .ordax-memory-review-save:focus-visible,
 .ordax-memory-review-remove:focus-visible,
+.ordax-memory-review-remove-confirm:focus-visible,
+.ordax-memory-review-remove-cancel:focus-visible,
 .ordax-memory-review-page:focus-visible {
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
@@ -425,8 +449,15 @@
 }
 
 .ordax-memory-review-owner,
+.ordax-memory-review-export,
+.ordax-memory-review-clear,
+.ordax-memory-review-clear-confirm,
+.ordax-memory-review-clear-cancel,
+.ordax-memory-review-create-button,
 .ordax-memory-review-save,
 .ordax-memory-review-remove,
+.ordax-memory-review-remove-confirm,
+.ordax-memory-review-remove-cancel,
 .ordax-memory-review-page {
   min-height: 34px;
   padding: 0 11px;
@@ -444,8 +475,15 @@
 }
 
 .ordax-memory-review-owner:hover:not(:disabled),
+.ordax-memory-review-export:hover:not(:disabled),
+.ordax-memory-review-clear:hover:not(:disabled),
+.ordax-memory-review-clear-confirm:hover:not(:disabled),
+.ordax-memory-review-clear-cancel:hover:not(:disabled),
+.ordax-memory-review-create-button:hover:not(:disabled),
 .ordax-memory-review-save:hover:not(:disabled),
 .ordax-memory-review-remove:hover:not(:disabled),
+.ordax-memory-review-remove-confirm:hover:not(:disabled),
+.ordax-memory-review-remove-cancel:hover:not(:disabled),
 .ordax-memory-review-page:hover:not(:disabled) {
   background: var(--ordax-hover-bg);
 }
@@ -456,15 +494,44 @@
   color: var(--ordax-text);
 }
 
-.ordax-memory-review-remove {
+.ordax-memory-review-remove,
+.ordax-memory-review-remove-confirm,
+.ordax-memory-review-clear,
+.ordax-memory-review-clear-confirm {
   color: var(--ordax-danger);
 }
 
+.ordax-memory-review-remove-prompt,
+.ordax-memory-review-clear-prompt {
+  align-self: center;
+  color: var(--ordax-danger);
+  font-size: 0.7rem;
+  font-weight: 620;
+}
+
+.ordax-memory-review-remove-confirm,
+.ordax-memory-review-clear-confirm {
+  border-color: var(--ordax-danger);
+}
+
+.ordax-memory-review-remove-cancel,
+.ordax-memory-review-clear-cancel {
+  color: var(--ordax-muted);
+}
+
 .ordax-memory-review-owner:disabled,
+.ordax-memory-review-export:disabled,
+.ordax-memory-review-clear:disabled,
+.ordax-memory-review-clear-confirm:disabled,
+.ordax-memory-review-clear-cancel:disabled,
+.ordax-memory-review-create-button:disabled,
 .ordax-memory-review-save:disabled,
 .ordax-memory-review-remove:disabled,
+.ordax-memory-review-remove-confirm:disabled,
+.ordax-memory-review-remove-cancel:disabled,
 .ordax-memory-review-page:disabled,
 .ordax-memory-review-toolbar input:disabled,
+.ordax-memory-review-create textarea:disabled,
 .ordax-memory-review-content-label textarea:disabled {
   opacity: 0.48;
   cursor: not-allowed;
@@ -527,6 +594,10 @@
 }
 
 @media (max-width: 760px) {
+  .ordax-memory-review-create {
+    grid-template-columns: 1fr;
+  }
+
   .ordax-memory-review-actions,
   .ordax-memory-review-pagination {
     justify-content: stretch;
@@ -534,6 +605,8 @@
 
   .ordax-memory-review-save,
   .ordax-memory-review-remove,
+  .ordax-memory-review-remove-confirm,
+  .ordax-memory-review-remove-cancel,
   .ordax-memory-review-page {
     flex: 1 1 auto;
   }
@@ -544,79 +617,16 @@
   .ordax-account-action,
   .ordax-account-card,
   .ordax-memory-review-owner,
+  .ordax-memory-review-export,
+  .ordax-memory-review-clear,
+  .ordax-memory-review-clear-confirm,
+  .ordax-memory-review-clear-cancel,
+  .ordax-memory-review-create-button,
   .ordax-memory-review-save,
   .ordax-memory-review-remove,
+  .ordax-memory-review-remove-confirm,
+  .ordax-memory-review-remove-cancel,
   .ordax-memory-review-page {
     transition: none;
   }
-}
-
-/* Reconciled functional Memory controls from current main. */
-.ordax-memory-review-owner[aria-pressed="true"] {
-  border-color: var(--ordax-text);
-  background: var(--ordax-text);
-  color: var(--ordax-bg);
-}
-
-.ordax-memory-review-clear-confirm {
-  color: var(--ordax-danger);
-}
-
-.ordax-memory-review-clear-prompt {
-  align-self: center;
-  color: var(--ordax-danger);
-  font-size: 0.7rem;
-  font-weight: 620;
-}
-
-.ordax-memory-review-clear-confirm {
-  border-color: var(--ordax-danger);
-}
-
-.ordax-memory-review-clear-cancel {
-  color: var(--ordax-muted);
-}
-
-/* Reconciled destructive Memory confirmation controls from current main. */
-.ordax-memory-review-remove-confirm:focus-visible,
-.ordax-memory-review-remove-cancel:focus-visible {
-  outline: 2px solid var(--ordax-focus);
-  outline-offset: 1px;
-}
-
-.ordax-memory-review-remove-confirm,
-.ordax-memory-review-remove-cancel {
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid var(--ordax-border);
-  border-radius: var(--ordax-radius-sm);
-  background: transparent;
-  color: var(--ordax-text);
-  font: inherit;
-  font-size: 0.72rem;
-  cursor: pointer;
-  transition:
-    background var(--ordax-motion-fast) var(--ordax-ease-standard),
-    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
-    color var(--ordax-motion-fast) var(--ordax-ease-standard);
-}
-
-.ordax-memory-review-remove-confirm {
-  border-color: var(--ordax-danger);
-  color: var(--ordax-danger);
-}
-
-.ordax-memory-review-remove-cancel {
-  color: var(--ordax-muted);
-}
-
-.ordax-memory-review-remove-confirm:hover:not(:disabled),
-.ordax-memory-review-remove-cancel:hover:not(:disabled) {
-  background: var(--ordax-hover-bg);
-}
-
-.ordax-memory-review-remove-confirm:disabled,
-.ordax-memory-review-remove-cancel:disabled {
-  opacity: 0.48;
-  cursor: not-allowed;
 }
