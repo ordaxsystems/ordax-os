@@ -386,8 +386,11 @@ async function start() {
   const memoryConflictReview = accountMemoryFoundation?.memorySync == null
     ? null
     : createMemoryConflictReviewRuntime(accountMemoryFoundation.memorySync);
-  const identityActions = createWebIdentityActions(window, identitySession);
   const identityCredentials = createSameOriginIdentityCredentials(window);
+  const identityActions = createWebIdentityActions(window, identitySession, {
+    registrationPolicy: () => identityCredentials.registrationPolicy(),
+  });
+  await identityActions.refresh();
   const spaces = createWebSpacesCatalog(window);
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
@@ -641,6 +644,7 @@ async function start() {
   });
   const resumeAccountConnectivity = async () => {
     await identitySession.refresh();
+    await identityActions.refresh();
     await accountSync.refresh();
   };
   const onOnline = () => {
@@ -875,6 +879,7 @@ async function start() {
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
       window.removeEventListener("online", onOnline);
       unsubscribeHostIdentity();
+      identityActions.dispose();
       localSessionLock?.destroy();
       firstRun?.destroy();
       surfaceHeartbeat.dispose();
