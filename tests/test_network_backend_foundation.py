@@ -2,6 +2,7 @@
 """Source regressions for the first OrdaX Network backend slice."""
 
 from pathlib import Path
+import json
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,6 +94,67 @@ class NetworkBackendFoundationTests(unittest.TestCase):
     def test_contract_and_affiliation_files_are_present(self):
         self.assertTrue(CONTRACT.is_file())
         self.assertTrue(AFFILIATIONS.is_file())
+
+    def test_contract_records_applied_backend_without_public_activation(self):
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        self.assertEqual(
+            contract["status"],
+            "mvp-backend-applied-public-activation-disabled",
+        )
+        implementation = contract["implementation"]
+        self.assertTrue(implementation["backend_schema_applied"])
+        self.assertTrue(implementation["v1_foundation_applied"])
+        self.assertEqual(
+            implementation["v2_mutations_applied"],
+            [
+                "message-send",
+                "direct-create",
+                "block-change",
+                "group-join",
+                "report-create",
+                "group-create",
+            ],
+        )
+        self.assertFalse(implementation["direct_browser_table_grants"])
+        self.assertFalse(implementation["public_network_enabled"])
+
+    def test_retention_and_tombstone_policy_is_explicit_and_deterministic(self):
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        policy = contract["retention_tombstone_policy"]
+        self.assertEqual(policy["version"], 1)
+        self.assertEqual(policy["profile_pack_removal"], "no-network-state-change")
+        deletion = policy["space_or_account_deletion"]
+        self.assertEqual(deletion["directory_profile"], "cascade-with-space")
+        self.assertEqual(deletion["community_membership"], "cascade-with-space")
+        self.assertEqual(deletion["group_membership"], "cascade-with-space")
+        self.assertEqual(deletion["conversation_membership"], "cascade-with-space")
+        self.assertEqual(deletion["blocks"], "cascade-with-space")
+        self.assertEqual(
+            deletion["owned_group"],
+            "retain-tombstoned-owner-and-archive",
+        )
+        self.assertEqual(
+            deletion["owned_group_conversation"],
+            "close-on-owner-loss",
+        )
+        self.assertEqual(
+            deletion["messages"],
+            "retain-content-tombstone-sender-attribution",
+        )
+        self.assertEqual(
+            deletion["reports"],
+            "retain-content-tombstone-reporter-and-creator-attribution",
+        )
+        self.assertEqual(
+            deletion["audit_events"],
+            "retain-event-tombstone-actor-attribution",
+        )
+        self.assertFalse(policy["automatic_time_based_message_purge"])
+        self.assertFalse(policy["user_message_delete_in_mvp"])
+        self.assertEqual(
+            policy["retained_collaborative_content_expiry"],
+            "none-in-mvp",
+        )
 
 
 if __name__ == "__main__":
