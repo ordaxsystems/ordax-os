@@ -202,7 +202,11 @@
     "model_proposal_creates_authority": false,
     "model_proposal_catalog_revalidation_required": true,
     "model_proposal_owner_revalidated_after_inference": true,
-    "model_proposal_conversion_recanonicalizes_resource": true
+    "model_proposal_conversion_recanonicalizes_resource": true,
+    "model_proposal_runtime_local_binding_required": true,
+    "model_proposal_clone_or_serialized_reuse_allowed": false,
+    "model_proposal_exact_work_revision_required": true,
+    "model_proposal_cross_owner_reuse_allowed": false
   },
   "activity": {
     "ordered_sequence_required": true,
