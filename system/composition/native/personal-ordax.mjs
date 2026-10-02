@@ -6,11 +6,13 @@ import {
 import { assertActionAdapter } from "../../contracts/action-executor.mjs";
 import { assertPersonalActionCatalog } from "../../contracts/personal-action-catalog.mjs";
 import { validatePersonalActionProposal } from "../../contracts/personal-action-proposal.mjs";
+import { validatePersonalWorkRecoverySuggestion } from "../../contracts/personal-work-recovery-suggestion.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
 import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
 import { createPersonalActionProposalPlanner } from "../../services/personal-ordax/proposal-planner.mjs";
+import { createPersonalWorkRecoveryPlanner } from "../../services/personal-ordax/work-recovery.mjs";
 import { createPersonalOrdaxRuntime } from "../../services/personal-ordax/runtime.mjs";
 
 export function createNativePersonalOrdaxComposition({
@@ -63,7 +65,13 @@ export function createNativePersonalOrdaxComposition({
         intelligencePort: intelligence,
         actionCatalog: catalog,
       });
+  const workRecoveryPlanner = intelligence === null
+    ? null
+    : createPersonalWorkRecoveryPlanner({
+        intelligencePort: intelligence,
+      });
   const proposalBindings = new WeakMap();
+  const recoveryBindings = new WeakMap();
 
   const ownerKeyFromSnapshot = (snapshot) => (
     snapshot.ownerKind === "account"
@@ -91,6 +99,23 @@ export function createNativePersonalOrdaxComposition({
       workRevision: workRevision(work),
     }));
     return proposal;
+  };
+
+  const recoverableWorks = (snapshot) => snapshot.workItems.filter((work) => (
+    (work.state === "queued" || work.state === "paused")
+    && !snapshot.approvals.some((approval) =>
+      approval.workItemId === work.id
+      && (approval.status === "pending" || approval.status === "approved")
+    )
+  ));
+
+  const bindRecoverySuggestion = (suggestion, work, ownerKey) => {
+    if (suggestion === null) return null;
+    recoveryBindings.set(suggestion, Object.freeze({
+      ownerKey,
+      workRevision: workRevision(work),
+    }));
+    return suggestion;
   };
 
   const currentProposalWork = (workItemId) => {
@@ -190,6 +215,55 @@ export function createNativePersonalOrdaxComposition({
       });
       proposalBindings.delete(proposalValue);
       return approval;
+    },
+    async recoverWorkForRequest(request) {
+      if (workRecoveryPlanner === null) {
+        throw new Error("Personal OrdaX Work recovery planner is unavailable");
+      }
+      const before = runtime.getSnapshot();
+      const ownerKey = ownerKeyFromSnapshot(before);
+      const candidates = recoverableWorks(before);
+      const revisions = new Map(
+        candidates.map((work) => [work.id, workRevision(work)]),
+      );
+      const suggestion = await workRecoveryPlanner.suggest(request, candidates);
+      const after = runtime.getSnapshot();
+      if (ownerKeyFromSnapshot(after) !== ownerKey) {
+        throw new Error("Personal OrdaX Work recovery owner changed while matching");
+      }
+      if (suggestion === null) return null;
+      const work = recoverableWorks(after).find(
+        (candidate) => candidate.id === suggestion.workItemId,
+      );
+      if (!work || workRevision(work) !== revisions.get(work.id)) {
+        throw new Error("Personal OrdaX Work changed while matching");
+      }
+      return bindRecoverySuggestion(suggestion, work, ownerKey);
+    },
+    acceptRecoveredWork(suggestionValue) {
+      if (!suggestionValue || typeof suggestionValue !== "object") {
+        throw new TypeError("Personal OrdaX recovery requires an issued suggestion object");
+      }
+      const binding = recoveryBindings.get(suggestionValue);
+      if (!binding) {
+        throw new Error("Personal OrdaX Work recovery binding is unavailable");
+      }
+      const suggestion = validatePersonalWorkRecoverySuggestion(suggestionValue);
+      const snapshot = runtime.getSnapshot();
+      if (ownerKeyFromSnapshot(snapshot) !== binding.ownerKey) {
+        throw new Error("Personal OrdaX Work recovery belongs to a different owner");
+      }
+      const work = recoverableWorks(snapshot).find(
+        (candidate) => candidate.id === suggestion.workItemId,
+      );
+      if (!work || workRevision(work) !== binding.workRevision) {
+        throw new Error("Personal OrdaX Work recovery suggestion is stale");
+      }
+      const accepted = work.state === "paused"
+        ? runtime.resume(work.id)
+        : work;
+      recoveryBindings.delete(suggestionValue);
+      return accepted;
     },
     requestAvailableAction(workItemId, entryId, input) {
       if (catalog === null) {
