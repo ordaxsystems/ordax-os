@@ -334,6 +334,95 @@ class PublicIdentityGatewayTests(unittest.TestCase):
                 self.assertEqual(response.status, 303)
                 self.assertEqual(dict(response.headers)["Location"], location)
 
+    def test_registration_policy_is_read_only_server_projection(self):
+        class FakeAuthority:
+            def active_policy(self):
+                return type(
+                    "Policy",
+                    (),
+                    {
+                        "policy_id": "11111111-1111-4111-8111-111111111111",
+                        "privacy_version": "2026-10-02",
+                        "privacy_effective_date": "2026-10-02",
+                        "privacy_sha256": "a" * 64,
+                        "privacy_url": "https://ordax.example/privacidade/",
+                        "terms_version": "2026-10-02",
+                        "terms_effective_date": "2026-10-02",
+                        "terms_sha256": "b" * 64,
+                        "terms_url": "https://ordax.example/termos/",
+                    },
+                )()
+
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=None,
+            sync_provider=None,
+            registration_legal_authority=FakeAuthority(),
+        )
+        response = gateway.handle("GET", "/auth/registration-policy")
+        self.assertEqual(response.status, 200)
+        payload = self.payload(response)
+        self.assertEqual(payload["$schema"], "prototype-ordax.registration-legal-policy/1")
+        self.assertTrue(payload["active"])
+        self.assertFalse(payload["registrationEnabled"])
+        self.assertEqual(payload["privacy"]["version"], "2026-10-02")
+        self.assertEqual(payload["privacy"]["url"], "https://ordax.example/privacidade/")
+        self.assertEqual(payload["terms"]["sha256"], "b" * 64)
+
+    def test_public_site_may_read_policy_while_account_actions_remain_gated(self):
+        class FakeAuthority:
+            def active_policy(self):
+                return type(
+                    "Policy",
+                    (),
+                    {
+                        "policy_id": "11111111-1111-4111-8111-111111111111",
+                        "privacy_version": "v1",
+                        "privacy_effective_date": "2026-10-02",
+                        "privacy_sha256": "a" * 64,
+                        "privacy_url": "https://ordax.example/privacidade/",
+                        "terms_version": "v1",
+                        "terms_effective_date": "2026-10-02",
+                        "terms_sha256": "b" * 64,
+                        "terms_url": "https://ordax.example/termos/",
+                    },
+                )()
+
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=None,
+            sync_provider=None,
+            registration_legal_authority=FakeAuthority(),
+        )
+        marker = {"X-OrdaX-Public-Site": "1"}
+        policy = gateway.handle("GET", "/auth/registration-policy", marker)
+        self.assertEqual(policy.status, 200)
+        self.assertFalse(self.payload(policy)["registrationEnabled"])
+
+        register = gateway.handle(
+            "POST",
+            "/auth/register",
+            {
+                "X-OrdaX-Public-Site": "1",
+                "content-type": "application/x-www-form-urlencoded",
+            },
+            b"email=pessoa%40example.com&password=new-password-12&legal_acceptance=accepted",
+        )
+        self.assertEqual(register.status, 503)
+        self.assertEqual(self.payload(register)["error"], "public-account-access-disabled")
+
+    def test_registration_policy_fails_closed_without_active_policy(self):
+        class MissingAuthority:
+            def active_policy(self):
+                raise gateway_module.RegistrationLegalError("registration-legal-policy-unavailable")
+
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=None,
+            sync_provider=None,
+            registration_legal_authority=MissingAuthority(),
+        )
+        response = gateway.handle("GET", "/auth/registration-policy")
+        self.assertEqual(response.status, 503)
+        self.assertEqual(self.payload(response)["error"], "registration-legal-policy-unavailable")
+
     def test_registration_is_disabled_before_legal_binding_even_with_provider(self):
         class MustNotRunProvider:
             def sign_up_with_password(self, email, password):
