@@ -233,20 +233,27 @@ Ela fixa:
 Ela não pode carregar `toolId`, `actionId`, `resourceRef`, grant, approval, decision, effect ou
 artifact SHA. O catálogo descarta a referência canônica produzida durante a validação do recurso.
 
-**Ainda falta o planner/model integration.** Nenhuma resposta da Intelligence cria proposal
-automaticamente. O fluxo futuro permanece:
+**Planner/model integration foreground agora está implementada.** A Activity possui uma ação
+explícita para pedir uma sugestão à OrdaX Intelligence. O planner entrega ao modelo somente a
+projeção sanitizada `entryId + inputKind + resourceScheme`, exige JSON estrito e passa qualquer
+candidato novamente pelo Action Catalog. Tool ID, action ID, effect, artifact SHA, grant e approval
+não entram no prompt de planejamento.
 
 ```text
 goal do Work
+  -> clique explícito "Sugerir ação"
   -> Intelligence / planner
   -> Action Proposal (authority=none)
-  -> Activity mostra proposta
-  -> usuário escolhe transformar em pedido de approval
+  -> Activity mostra proposta efêmera
+  -> clique explícito "Solicitar aprovação"
   -> Action Catalog revalida/canonicaliza de novo
   -> approval -> grant -> execução
 ```
 
-O modelo continua sem acesso direto ao Action Executor e não pode fabricar authority.
+Troca de owner ou mudança do Work durante a inferência invalida a resposta tardia. O rationale do
+modelo é somente apresentação; ao converter a proposal em approval, o reason confiável continua
+vindo da registration do catálogo. Não existe proposal -> approval automático nem proposal ->
+execução automática.
 
 ### Ampliação de ações first-party bounded
 
