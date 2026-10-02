@@ -149,6 +149,30 @@ test("issued Work recovery suggestion is runtime-local and clone cannot be accep
   runtime.dispose();
 });
 
+test("issued Work recovery suggestion becomes stale when the Work revision changes", async () => {
+  const ai = intelligence(() => JSON.stringify({
+    kind: "match",
+    workItemId: "personal-work-1",
+    rationale: "Match before the Work changes.",
+  }));
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: signedOutIdentity(),
+    intelligence: ai.port,
+  });
+  const created = runtime.create("Pizzaria revision proof");
+  const suggestion = await runtime.recoverWorkForRequest("continue pizzaria");
+
+  runtime.pause(created.id);
+  assert.throws(
+    () => runtime.acceptRecoveredWork(suggestion),
+    /stale/,
+  );
+  assert.equal(runtime.getSnapshot().workItems[0].state, "paused");
+  runtime.dispose();
+});
+
+
 test("issued Work recovery suggestion cannot cross owner partitions", async () => {
   const listeners = new Set();
   let snapshot = { state: "signed-in", subjectId: "user-a", displayName: "A" };
