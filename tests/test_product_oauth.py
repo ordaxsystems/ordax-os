@@ -159,6 +159,17 @@ class ProductOAuthTests(unittest.TestCase):
         with self.assertRaises(mod.OAuthInvalidRequest):
             self.authorize(request(redirect_uri="https://acheguese.example/other"))
         with self.assertRaises(mod.OAuthInvalidRequest):
+            self.authorize(
+                request(
+                    redirect_uri=(
+                        "https://acheguese.example/auth/ordax/callback"
+                        "?state=preexisting"
+                    )
+                )
+            )
+        with self.assertRaises(mod.OAuthInvalidRequest):
+            mod._valid_redirect_uri("https://acheguese.example:99999/callback")
+        with self.assertRaises(mod.OAuthInvalidRequest):
             self.authorize(request(code_challenge_method="plain"))
         with self.assertRaises(mod.OAuthAccessDenied):
             self.oauth.authorize(

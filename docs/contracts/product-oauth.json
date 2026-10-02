@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.product-oauth/1",
-  "status": "persistent-authority-source-ready-runtime-disabled",
+  "status": "persistent-authority-and-http-boundary-source-ready-runtime-disabled",
   "purpose": "first-party and end-user product authorization without reusing owner/development MCP credentials",
   "activation": {
     "public_enabled": false,
@@ -65,5 +65,24 @@
     "dedicated_server_secret_key_required": true,
     "secret_key_sent_as_bearer": false,
     "service_role_direct_table_grants": false
+  },
+  "http_boundary": {
+    "source": "services/product-oauth/gateway.py",
+    "default_application_enabled": false,
+    "status_route": "/oauth/status",
+    "authorize_route": "/oauth/authorize",
+    "token_route": "/oauth/token",
+    "revoke_route": "/oauth/revoke",
+    "authorization_success": "303-exact-registered-https-redirect",
+    "authorization_requires_same_origin": true,
+    "authorization_requires_ordax_session": true,
+    "authorization_requires_csrf": true,
+    "token_grant_types": [
+      "authorization_code"
+    ],
+    "token_content_type": "application/x-www-form-urlencoded",
+    "refresh_token_returned": false,
+    "revocation_hides_token_existence": true,
+    "maximum_request_body_bytes": 16384
   }
 }

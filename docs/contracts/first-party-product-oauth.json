@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.first-party-product-oauth/1",
-  "status": "persistent-authority-source-ready-runtime-disabled",
+  "status": "persistent-authority-and-http-boundary-source-ready-runtime-disabled",
   "oauth": {
     "version": "2.1",
     "authorization_code": true,
@@ -86,6 +86,11 @@
     "requires_product_oauth_backend": true,
     "requires_space_authorization_e2e": true,
     "requires_revocation_e2e": true,
-    "requires_two_account_cross_space_negative_proof": true
+    "requires_two_account_cross_space_negative_proof": true,
+    "http_boundary_source": "services/product-oauth/gateway.py",
+    "default_wsgi_application_enabled": false,
+    "public_linking_enabled": false,
+    "requires_account_session_resolver": true,
+    "requires_real_https_redirect_uri": true
   }
 }

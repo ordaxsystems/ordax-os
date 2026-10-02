@@ -16,7 +16,7 @@ import hmac
 import re
 from dataclasses import dataclass
 from typing import Protocol
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 from services.product_core.session import ProductSession
 
@@ -181,13 +181,27 @@ def _valid_uuid(value: str | None, field: str) -> str:
 def _valid_redirect_uri(value: str) -> str:
     if not isinstance(value, str) or len(value) > 512:
         raise OAuthInvalidRequest("redirect_uri")
-    parts = urlsplit(value)
+    try:
+        parts = urlsplit(value)
+        # Accessing port forces urllib to reject malformed/out-of-range ports.
+        _ = parts.port
+        query = parse_qsl(
+            parts.query,
+            keep_blank_values=True,
+            strict_parsing=True,
+            max_num_fields=32,
+        )
+    except ValueError as exc:
+        raise OAuthInvalidRequest("redirect_uri") from exc
+
+    reserved = {"code", "state", "error", "error_description"}
     if (
         parts.scheme != "https"
         or not parts.netloc
         or parts.username is not None
         or parts.password is not None
         or parts.fragment
+        or any(key in reserved for key, _ in query)
     ):
         raise OAuthInvalidRequest("redirect_uri")
     return value

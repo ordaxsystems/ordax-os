@@ -57,3 +57,9 @@ The source-controlled migration `20261002140612_product_oauth_authority_v1.sql` 
 The canonical Achegue-se client identity is seeded as `acheguese-web-01`, but it is deliberately `disabled` with an empty redirect allowlist. Only the three initial read scopes are registered. A real HTTPS redirect URI and public activation require a later reviewed migration after the Account/public-origin gates are proven.
 
 The adapter uses a dedicated backend Supabase secret key through the `apikey` header only. It never places an `sb_secret_*` key in `Authorization: Bearer`, never exposes it to browser code and does not auto-enable from source presence.
+
+## HTTP boundary
+
+`gateway.py` is the thin provider-neutral HTTP surface over the already-proven core. It exposes only `/oauth/status`, `/oauth/authorize`, `/oauth/token` and `/oauth/revoke`. Authorization requires the injected OrdaX session resolver, same-origin `Sec-Fetch-Site` and the session CSRF token. Successful consent returns HTTP 303 only to the exact registered HTTPS redirect URI with `code` and `state`; reserved OAuth query keys are rejected before code issuance.
+
+The token endpoint accepts only `grant_type=authorization_code` with client id, exact redirect, code and PKCE verifier. The revocation endpoint intentionally does not disclose whether a well-formed token existed. The module-level WSGI `application` remains fail-closed: it does not automatically construct a Supabase authority or session resolver from environment variables, so deploying source alone cannot enable Product OAuth.
