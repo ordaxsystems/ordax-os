@@ -3,8 +3,9 @@
   min-height: 430px;
   overflow: hidden;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-md);
-  background: var(--ordax-surface-strong);
+  border-radius: var(--ordax-radius-lg);
+  background: color-mix(in srgb, var(--ordax-app-bg) 94%, var(--ordax-panel));
+  box-shadow: var(--ordax-shadow-soft);
 }
 
 .ordax-app-extension[data-app-extension="file-space"]:not([data-ordax-file-space-view]) {
@@ -21,26 +22,29 @@
 
 .ordax-files-view {
   display: grid;
-  grid-template-columns: 172px minmax(0, 1fr);
+  grid-template-columns: 188px minmax(0, 1fr);
   min-height: 430px;
   color: var(--ordax-text);
+  background:
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--ordax-accent) 5%, transparent), transparent 24%),
+    var(--ordax-app-bg);
 }
 
 .ordax-files-locations {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   padding: 18px 12px;
   border-right: 1px solid var(--ordax-border-soft);
-  background: var(--ordax-subtle-bg);
+  background: color-mix(in srgb, var(--ordax-panel) 58%, transparent);
 }
 
 .ordax-files-section-label {
   margin: 0 8px 10px;
   color: var(--ordax-muted);
-  font-size: 0.66rem;
-  font-weight: 700;
+  font-size: 0.64rem;
+  font-weight: 650;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -55,17 +59,22 @@
 .ordax-files-location {
   min-height: 38px;
   padding: 0 10px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: var(--ordax-radius-sm);
   background: transparent;
   color: var(--ordax-muted);
   text-align: left;
   cursor: pointer;
+  transition:
+    color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-files-location:hover,
 .ordax-files-location:focus-visible,
 .ordax-files-location[data-active="true"] {
+  border-color: var(--ordax-border-soft);
   background: var(--ordax-hover-bg);
   color: var(--ordax-text);
   outline: none;
@@ -77,17 +86,19 @@
 
 .ordax-files-location[data-active="true"] {
   position: relative;
-  font-weight: 650;
+  font-weight: 620;
 }
 
 .ordax-files-location[data-active="true"]::before {
   content: "";
   position: absolute;
-  left: 0;
+  left: -1px;
   top: 9px;
   bottom: 9px;
-  width: 3px;
+  width: 2px;
+  border-radius: 99px;
   background: var(--ordax-accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--ordax-accent) 28%, transparent);
 }
 
 .ordax-files-content {
@@ -95,7 +106,7 @@
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  padding: 16px 18px 14px;
+  padding: 17px 18px 14px;
 }
 
 .ordax-files-toolbar {
@@ -104,23 +115,23 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding-bottom: 13px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--ordax-border-soft);
 }
 
 .ordax-files-navigation {
   display: flex;
   flex: 0 0 auto;
-  gap: 3px;
+  gap: 5px;
 }
 
 .ordax-files-nav-action {
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid var(--ordax-border);
-  border-radius: 7px;
-  background: transparent;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-sm);
+  background: color-mix(in srgb, var(--ordax-panel) 36%, transparent);
   color: var(--ordax-text);
   cursor: pointer;
   font: inherit;
@@ -129,6 +140,7 @@
 
 .ordax-files-nav-action:hover:not(:disabled),
 .ordax-files-nav-action:focus-visible:not(:disabled) {
+  border-color: var(--ordax-border);
   background: var(--ordax-hover-bg);
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
@@ -144,16 +156,16 @@
   min-width: 0;
   flex: 1;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   overflow: hidden;
 }
 
 .ordax-files-crumb {
   min-width: 0;
-  padding: 5px 7px;
+  padding: 5px 8px;
   overflow: hidden;
-  border: 0;
-  border-radius: 7px;
+  border: 1px solid transparent;
+  border-radius: var(--ordax-radius-sm);
   background: transparent;
   color: var(--ordax-text);
   text-overflow: ellipsis;
@@ -163,6 +175,7 @@
 
 .ordax-files-crumb:hover,
 .ordax-files-crumb:focus-visible {
+  border-color: var(--ordax-border-soft);
   background: var(--ordax-hover-bg);
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
@@ -170,25 +183,25 @@
 
 .ordax-files-crumb-separator {
   flex: 0 0 auto;
-  color: var(--ordax-muted);
+  color: var(--ordax-faint);
 }
 
 .ordax-files-search {
   display: flex;
   min-width: 160px;
-  max-width: 260px;
-  flex: 0 1 230px;
+  max-width: 280px;
+  flex: 0 1 240px;
   align-items: center;
   gap: 4px;
-  padding: 0 5px 0 9px;
-  border: 1px solid var(--ordax-border);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-window-bg);
+  padding: 0 5px 0 11px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ordax-panel) 54%, transparent);
 }
 
 .ordax-files-search:focus-within {
   border-color: var(--ordax-focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ordax-focus) 28%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ordax-focus) 22%, transparent);
 }
 
 .ordax-files-search-input {
@@ -216,7 +229,7 @@
   flex: 0 0 auto;
   padding: 4px 5px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 999px;
   background: transparent;
   color: var(--ordax-muted);
   cursor: pointer;
@@ -245,11 +258,16 @@
   background: transparent;
   color: var(--ordax-text);
   cursor: pointer;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
+    transform var(--ordax-motion-fast) var(--ordax-ease-standard);
 }
 
 .ordax-files-action:hover:not(:disabled),
 .ordax-files-action:focus-visible:not(:disabled) {
   background: var(--ordax-hover-bg);
+  transform: translateY(-1px);
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
 }
@@ -260,9 +278,9 @@
 }
 
 .ordax-files-action-primary {
-  border-color: var(--ordax-text);
-  background: var(--ordax-text);
-  color: var(--ordax-bg);
+  border-color: var(--ordax-button-bg);
+  background: var(--ordax-button-bg);
+  color: var(--ordax-button-text);
 }
 
 .ordax-files-status {
@@ -277,10 +295,10 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 6px;
   margin: 4px 0 10px;
-  padding: 8px;
-  border: 1px solid var(--ordax-border);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  padding: 9px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 50%, transparent);
 }
 
 .ordax-files-create-input {
@@ -288,7 +306,7 @@
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid var(--ordax-border);
-  border-radius: 7px;
+  border-radius: var(--ordax-radius-sm);
   outline: none;
   background: var(--ordax-window-bg);
   color: var(--ordax-text);
@@ -308,8 +326,8 @@
   padding: 10px 11px;
   border: 1px solid var(--ordax-border-soft);
   border-left: 3px solid var(--ordax-accent);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 46%, transparent);
 }
 
 .ordax-files-transfer-copy {
@@ -341,9 +359,11 @@
 
 .ordax-files-message {
   margin: 0 0 8px;
-  padding: 8px 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--ordax-border-soft);
   border-left: 3px solid var(--ordax-accent);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-sm);
+  background: color-mix(in srgb, var(--ordax-panel) 42%, transparent);
   color: var(--ordax-muted);
   font-size: 0.76rem;
 }
@@ -351,8 +371,9 @@
 .ordax-files-list {
   min-height: 180px;
   overflow: auto;
-  border-top: 1px solid var(--ordax-border-soft);
-  border-bottom: 1px solid var(--ordax-border-soft);
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 24%, transparent);
 }
 
 .ordax-files-list-header,
@@ -398,25 +419,33 @@
   position: sticky;
   z-index: 2;
   top: 0;
-  min-height: 32px;
-  padding: 0 9px;
-  background: var(--ordax-surface-strong);
+  min-height: 34px;
+  padding: 0 11px;
+  border-bottom: 1px solid var(--ordax-border-soft);
+  background: color-mix(in srgb, var(--ordax-panel) 88%, var(--ordax-app-bg));
   color: var(--ordax-muted);
-  font-size: 0.65rem;
-  font-weight: 700;
+  font-size: 0.63rem;
+  font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .ordax-file-row {
   width: 100%;
-  min-height: 44px;
-  padding: 0 9px;
+  min-height: 46px;
+  padding: 0 11px;
   border: 0;
   border-bottom: 1px solid var(--ordax-border-soft);
   background: transparent;
   color: var(--ordax-text);
   text-align: left;
+  transition:
+    background var(--ordax-motion-fast) var(--ordax-ease-standard),
+    color var(--ordax-motion-fast) var(--ordax-ease-standard);
+}
+
+.ordax-file-row:last-child {
+  border-bottom: 0;
 }
 
 button.ordax-file-row {
@@ -431,7 +460,8 @@ button.ordax-file-row[data-selected="true"] {
 }
 
 button.ordax-file-row[data-selected="true"] {
-  box-shadow: inset 3px 0 0 var(--ordax-accent);
+  background: var(--ordax-selected-bg);
+  box-shadow: inset 2px 0 0 var(--ordax-accent);
 }
 
 button.ordax-file-row:focus-visible {
@@ -462,6 +492,10 @@ button.ordax-file-row:focus-visible {
   color: var(--ordax-muted);
 }
 
+.ordax-file-icon[data-kind="directory"] {
+  color: var(--ordax-accent);
+}
+
 .ordax-file-icon[data-kind="directory"]::before {
   content: "";
   position: absolute;
@@ -472,7 +506,7 @@ button.ordax-file-row:focus-visible {
   border: 1.5px solid currentColor;
   border-bottom: 0;
   border-radius: 2px 2px 0 0;
-  background: var(--ordax-surface-strong);
+  background: var(--ordax-app-bg);
 }
 
 .ordax-file-icon[data-kind="file"] {
@@ -483,7 +517,7 @@ button.ordax-file-row:focus-visible {
 
 .ordax-file-meta {
   color: var(--ordax-muted);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
 }
 
 .ordax-files-empty {
@@ -583,8 +617,8 @@ button.ordax-file-row:focus-visible {
   margin-top: 12px;
   overflow: hidden;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 38%, transparent);
 }
 
 .ordax-files-preview-header {
@@ -594,6 +628,7 @@ button.ordax-file-row:focus-visible {
   gap: 12px;
   padding: 9px 10px;
   border-bottom: 1px solid var(--ordax-border-soft);
+  background: color-mix(in srgb, var(--ordax-panel) 46%, transparent);
 }
 
 .ordax-files-preview-identity {
@@ -651,8 +686,8 @@ button.ordax-file-row:focus-visible {
   margin-top: 10px;
   padding: 10px 11px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 38%, transparent);
 }
 
 .ordax-files-details-summary {
@@ -710,10 +745,10 @@ button.ordax-file-row:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 6px;
   margin-top: 8px;
-  padding: 8px;
+  padding: 9px;
   border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-sm);
-  background: var(--ordax-subtle-bg);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 42%, transparent);
 }
 
 .ordax-files-rename-input,
@@ -722,7 +757,7 @@ button.ordax-file-row:focus-visible {
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid var(--ordax-border);
-  border-radius: 7px;
+  border-radius: var(--ordax-radius-sm);
   outline: none;
   background: var(--ordax-window-bg);
   color: var(--ordax-text);

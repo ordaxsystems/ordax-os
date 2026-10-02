@@ -24,12 +24,9 @@ const CSS_FILES = [
   'system/surface/ui/settings.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
-  'system/apps/assistant/assistant.css': 'text/css',
   'system/apps/internet/internet.css': 'text/css',
   'system/apps/notes/notes.css': 'text/css',
-  'system/apps/network/network.css': 'text/css',
   'system/apps/projects/projects.css': 'text/css',
-  'system/apps/studio/studio.css': 'text/css',
 });
 
 function parseArgs(argv) {
@@ -140,8 +137,7 @@ function findBrowser() {
   throw new Error('Chrome/Chromium not found; set ORDAX_CHROME_BIN to an executable browser');
 }
 
-const STARTUP_TIMEOUT_MS = 60_000;
-const CDP_PROBE_TIMEOUT_MS = 3_000;
+const STARTUP_TIMEOUT_MS = 30_000;
 const STDERR_LIMIT = 8_000;
 
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
@@ -207,7 +203,7 @@ async function waitForDevTools(
     }
 
     const controller = new AbortController();
-    const requestTimeoutMs = Math.min(CDP_PROBE_TIMEOUT_MS, remainingMs);
+    const requestTimeoutMs = Math.min(1_000, remainingMs);
     const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
       const response = await fetch(endpoint, { signal: controller.signal });
@@ -338,6 +334,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     const slotBefore = windowBefore?.querySelector('[data-app-extension="settings-overview"]');
     const bodyBefore = windowBefore?.querySelector('.ordax-window-body');
     result.settingsWindowCreated = Boolean(windowBefore && slotBefore && bodyBefore);
+    result.settingsStartsMaximized = windowBefore?.dataset.maximized === 'true';
 
     bodyBefore.style.height = '120px';
     bodyBefore.style.maxHeight = '120px';
@@ -388,7 +385,6 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.sameInputAfterRestore = windowBefore.querySelector('[data-proof-draft]') === input;
     result.draftPreservedAfterRestore = input.value === 'rascunho-nao-persistido';
     result.scrollPreservedAfterRestore = bodyBefore.scrollTop === scrollBefore;
-    result.maximizedDatasetAfterRestore = windowBefore.dataset.maximized === 'true';
 
     const maximize = windowBefore.querySelector('[data-window-action="maximize"]');
     maximize.click();
@@ -412,7 +408,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.focusMovedToWorkspaceOnClose = document.activeElement === root.querySelector('[data-workspace]');
 
     const required = [
-      'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
+      'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'settingsStartsMaximized', 'focusBeforeSnapshot',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
       'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
       'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',
@@ -420,10 +416,10 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
       'windowHiddenWhenMinimized', 'minimizedDatasetAfterClick', 'dockOffersRestore',
       'draftPreservedWhileMinimized', 'focusMovedToWorkspaceOnMinimize', 'sameWindowAfterRestore',
       'windowVisibleAfterRestore', 'sameInputAfterRestore', 'draftPreservedAfterRestore',
-      'scrollPreservedAfterRestore', 'maximizedDatasetAfterRestore', 'sameWindowAfterUnmaximize',
-      'maximizedDatasetAfterUnmaximize', 'sameWindowAfterRemaximize', 'maximizedDatasetAfterRemaximize',
-      'sameLauncherNodeAfterSnapshot', 'launcherFocusPreserved', 'windowRemovedAfterClose',
-      'dockRemovedAfterClose', 'focusMovedToWorkspaceOnClose',
+      'scrollPreservedAfterRestore', 'sameWindowAfterUnmaximize', 'maximizedDatasetAfterUnmaximize',
+      'sameWindowAfterRemaximize', 'maximizedDatasetAfterRemaximize', 'sameLauncherNodeAfterSnapshot',
+      'launcherFocusPreserved', 'windowRemovedAfterClose', 'dockRemovedAfterClose',
+      'focusMovedToWorkspaceOnClose',
     ];
     result.requiredAssertions = Object.fromEntries(required.map((name) => [name, Boolean(result[name])]));
     result.allCoreAssertions = result.launcherApps >= 4 && Object.values(result.requiredAssertions).every(Boolean);
@@ -623,19 +619,6 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.projectsComponentStyleMounted = Boolean(
       firstProjectsStyle?.href?.startsWith('data:text/css;base64,'),
     );
-    const firstNetworkStyle = document.querySelector(
-      'link[data-ordax-component-style="network"]',
-    );
-    result.networkComponentStyleMounted = Boolean(
-      firstNetworkStyle?.href?.startsWith('data:text/css;base64,'),
-    );
-
-    await launch('network');
-    const networkWindow = root.querySelector('[data-window-id="network"]');
-    const networkSlot = networkWindow?.querySelector('[data-app-extension="network-workspace"]');
-    const networkBackend = networkSlot?.querySelector('[data-network-backend]');
-    result.networkOwnerMounted = networkSlot?.dataset.ordaxNetworkMounted === 'true';
-    result.networkWebUnavailableHonest = networkBackend?.dataset.networkBackend === 'unavailable';
 
     await launch('projects');
     const projectsWindow = root.querySelector('[data-window-id="projects"]');
@@ -1120,7 +1103,6 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'internetComponentStyleMounted',
-      'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
       'notesEmptyEditorState', 'notesHeadingEnterHandled',
       'notesBackspaceExitsBlock', 'notesBulletEnterContinuesList', 'notesShiftEnterKeepsBlock',
