@@ -42,9 +42,13 @@
     try {
       const url = new URL(value);
       const raw = value.trim();
-      const authority = raw.slice("https://".length).split("/", 1)[0];
+      const schemeBoundary = raw.indexOf("://");
+      const authority = schemeBoundary > 0
+        ? raw.slice(schemeBoundary + 3).split("/", 1)[0]
+        : "";
       return (
         url.protocol === "https:"
+        && schemeBoundary > 0
         && authority.length > 0
         && !authority.includes("@")
         && !url.search
