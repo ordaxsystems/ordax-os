@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import {
   canExecutePersonalAction,
@@ -175,3 +176,41 @@ test("personal work result is bounded provenance and never action authority", ()
   }), /outside bounds/);
 });
 
+
+
+test("machine-readable Personal OrdaX status matches mounted bounded foreground execution", async () => {
+  const contract = JSON.parse(await readFile(
+    new URL("../docs/contracts/personal-ordax.json", import.meta.url),
+    "utf8",
+  ));
+
+  assert.equal(
+    contract.status,
+    "native-foreground-runtime-bounded-action-enabled-public-autonomy-disabled",
+  );
+  assert.equal(contract.work_model.native_device_store_mounted_in_composition, true);
+  assert.equal(contract.work_model.durable_pause_resume_enabled, true);
+  assert.equal(contract.activity.native_activity_surface_enabled, true);
+  assert.equal(contract.activity.explicit_pause_resume_controls_enabled, true);
+
+  assert.equal(contract.mvp.personal_foreground_runtime_mounted_in_surface, true);
+  assert.equal(contract.mvp.action_execution_enabled, true);
+  assert.equal(contract.mvp.foreground_action_execution_enabled, true);
+  assert.equal(contract.mvp.authorized_side_effects_enabled, true);
+  assert.deepEqual(contract.mvp.authorized_side_effects_scope, [
+    "ordax-native-file-space/files.directory.ensure",
+  ]);
+
+  assert.equal(contract.mvp.generic_action_execution_enabled, false);
+  assert.equal(contract.mvp.autonomous_action_execution_enabled, false);
+  assert.equal(contract.mvp.background_execution_enabled, false);
+  assert.equal(contract.mvp.public_stable_personal_autonomy_enabled, false);
+  assert.equal(contract.work_model.background_execution_enabled, false);
+  assert.equal(contract.action_execution.automatic_uncertain_replay, false);
+
+  assert.equal(contract.evolution.phase_1_status, "implemented-native-foreground");
+  assert.equal(
+    contract.evolution.phase_2_status,
+    "partial-durable-resume-complete-background-connectors-pending",
+  );
+});
