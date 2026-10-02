@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.first-party-product-oauth/1",
-  "status": "persistent-authority-and-http-boundary-source-ready-runtime-disabled",
+  "status": "persistent-authority-http-boundary-disposable-e2e-proven-runtime-disabled",
   "oauth": {
     "version": "2.1",
     "authorization_code": true,
@@ -91,6 +91,8 @@
     "default_wsgi_application_enabled": false,
     "public_linking_enabled": false,
     "requires_account_session_resolver": true,
-    "requires_real_https_redirect_uri": true
+    "requires_real_https_redirect_uri": true,
+    "disposable_postgresql_http_authority_e2e_proven": true,
+    "real_https_redirect_e2e_proven": false
   }
 }
