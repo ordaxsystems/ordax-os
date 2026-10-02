@@ -206,7 +206,11 @@
     "account_memory_entitlement_service_role_used": false,
     "account_memory_entitlement_edge_deployed": true,
     "account_memory_entitlement_edge_deployment_revision_observed": 19,
-    "public_cloud_memory_enabled": false
+    "public_cloud_memory_enabled": false,
+    "account_registration_enabled": false,
+    "account_registration_legal_binding_required": true,
+    "account_registration_server_authoritative_receipt_implemented": false,
+    "native_registration_may_bypass_legal_binding": false
   },
   "deployment": {
     "same_origin_required_for_public_site": true,
