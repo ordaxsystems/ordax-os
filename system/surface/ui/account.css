@@ -630,3 +630,58 @@
     transition: none;
   }
 }
+
+.ordax-account-registration-legal {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 52%, transparent);
+}
+
+.ordax-account-registration-legal > strong {
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.ordax-account-registration-legal > small {
+  color: var(--ordax-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.ordax-account-registration-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.ordax-account-registration-legal-links a {
+  color: var(--ordax-accent);
+  font-size: 0.68rem;
+  text-decoration: none;
+}
+
+.ordax-account-registration-legal-links a:hover,
+.ordax-account-registration-legal-links a:focus-visible {
+  text-decoration: underline;
+}
+
+.ordax-account-registration-legal-acceptance {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--ordax-text);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.ordax-account-registration-legal-acceptance input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+  accent-color: var(--ordax-accent);
+}
