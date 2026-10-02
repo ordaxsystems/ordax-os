@@ -1,6 +1,6 @@
 # Personal OrdaX — plano canônico de implementação
 
-Status: **IMPLEMENTAÇÃO EM EXECUÇÃO / NÃO PROMOVIDO AO MVP PÚBLICO**
+Status: **FOREGROUND NATIVO IMPLEMENTADO / BACKGROUND E AUTONOMIA PÚBLICA DESABILITADOS**
 
 Este arquivo na raiz é a referência curta e canônica para **o que o Personal OrdaX é, o que já foi implementado e o que será implementado a seguir**. Ele consolida as conclusões dos relatórios já produzidos para o projeto e o estado real do código. O contrato detalhado permanece em `docs/PERSONAL-ORDAX.md` e as invariantes legíveis por máquina em `docs/contracts/personal-ordax.json`.
 
@@ -103,7 +103,7 @@ O app first-party `system/apps/activity/`:
 - cria Work somente por ação explícita do usuário;
 - projeta Work, Activity, Result e approvals do runtime canônico;
 - não possui task/result store paralelo;
-- permite pause/cancel durante execução foreground;
+- permite pause/resume/cancel/remove conforme o estado do Work;
 - não converte mensagens do Assistant automaticamente em Work.
 
 ### Authority e approvals
@@ -179,23 +179,47 @@ O runtime com Action Gateway deve possuir revoker; caso contrário, a composiç�
 
 Na restauração Native, approval persistida como `approved` não pode recuperar authority de uma sessão anterior. Se o grant session-only já não existe, ela é reconciliada para `revoked`, mantendo o Work recuperável para uma nova approval.
 
-## O que será implementado a seguir
+## Estado por fase
 
-### Fase 1 — estabilizar o foreground autorizado
+### Fase 1 — foreground visível e autorizado — **CONCLUÍDA**
 
-Antes de aumentar autonomia:
+Já estão implementados e montados no Native:
 
-- fechar CI e regressões da pilha atual;
-- consolidar restore/recovery de approvals e receipts;
-- garantir cancelamento/revogação em todos os boundaries de owner/context;
-- manter execução serial por Work;
-- provar que nenhuma authority sobrevive a reboot, logout ou mudança de escopo sem validação explícita.
+- Work/Activity/Result owner-bound;
+- persistência device-local particionada por owner;
+- pausa por troca/invalidação de owner/Space/Project;
+- Activity visível;
+- approvals/denials explícitos;
+- grants bounded;
+- Action Gateway + Action Executor;
+- primeiro adapter first-party verificado;
+- receipt + bloqueio de replay;
+- revogação por lifecycle;
+- Action Attempt journal crash-safe;
+- retomada explícita de Work pausado.
 
-### Fase 2 — propostas estruturadas sem authority
+### Fase 2 — continuidade durável — **PARCIAL**
 
-Adicionar um contrato explícito de **Action Proposal**.
+Já existe:
 
-Intelligence poderá sugerir uma ação do Action Catalog, mas a proposta terá `authority=none`.
+- durable Work/Activity/Result/Approval/Attempt por owner no Native;
+- restore de estado após reconstrução do runtime;
+- `started` restaurado vira `uncertain`, revoga authority e pausa;
+- approval session-only sem grant vivo é reconciliada para `revoked`;
+- cancelamento/revogação impede uso posterior;
+- estado operacional continua separado de account sync.
+
+Ainda falta nesta fase:
+
+- política/fluxo de export do histórico de Activity;
+- política real de background execution;
+- lifecycle/budgets/leases de background;
+- connectors com egress explícito.
+
+### Próximo corte funcional — Action Proposal sem authority
+
+Intelligence poderá futuramente sugerir uma ação do Action Catalog, mas a proposta terá
+`authority=none`.
 
 Fluxo alvo:
 
@@ -210,13 +234,12 @@ goal do Work
   -> execução
 ```
 
-O modelo não receberá acesso direto ao Action Executor e não poderá fabricar tool IDs, grants ou recursos fora do catálogo.
+O modelo não receberá acesso direto ao Action Executor e não poderá fabricar tool IDs, grants ou
+recursos fora do catálogo.
 
-### Fase 3 — ampliar ações first-party bounded
+### Ampliação de ações first-party bounded
 
-Novas ações serão adicionadas uma por vez.
-
-Cada ação deverá possuir:
+Novas ações entram uma por vez. Cada uma precisa de:
 
 - contrato tipado;
 - recurso canônico;
@@ -228,29 +251,12 @@ Cada ação deverá possuir:
 - testes de substituição/replay;
 - Activity/receipt auditáveis.
 
-Não será criada API paralela apenas para acelerar uma feature. Se a capacidade canônica necessária não existir, ela será implementada na camada correta primeiro.
+Não será criada API paralela apenas para acelerar uma feature.
 
-### Fase 4 — trabalho durável e retomável
+### Background bounded — **NÃO HABILITADO**
 
-Depois do foreground estar fechado:
+Só pode avançar depois de policy explícita para:
 
-- durable Work/Activity state;
-- checkpoints;
-- recovery após crash/reboot;
-- leases/ownership de execução;
-- cancelamento durável;
-- retomada explícita;
-- retenção/export/delete do histórico operacional.
-
-Account sync continuará separado do estado operacional até existir contrato próprio para isso.
-
-### Fase 5 — background bounded
-
-Background só entra depois da Fase 4.
-
-Requisitos mínimos:
-
-- policy explícita de background;
 - budgets;
 - timeout;
 - cancelamento;
@@ -260,53 +266,20 @@ Requisitos mínimos:
 - nenhuma authority implícita;
 - nenhuma execução ilimitada.
 
-### Fase 6 — conectores e external egress
+### Connectors / external egress — **NÃO HABILITADO**
 
-External egress terá autoridade própria.
+External egress terá autoridade própria. Cada conector deverá declarar destino, operação, dados
+enviados, owner, Space/Project, approval/grant, receipt e política de revogação.
 
-Não será promovido por tool grant genérico.
+### Workers especializados — **NÃO HABILITADO**
 
-Cada conector deverá declarar:
+Workers futuros herdam owner, Space/Project, Memory, catálogo e grants do Personal OrdaX. Não
+existirá worker-owned Memory ou permission system paralelo.
 
-- destino;
-- operação;
-- dados enviados;
-- owner;
-- Space/Project;
-- approval/grant;
-- receipt;
-- política de revogação.
+### Execução híbrida local / Edge / cloud — **NÃO HABILITADA**
 
-### Fase 7 — workers especializados
-
-Workers futuros não serão novos donos do sistema.
-
-Eles deverão:
-
-- herdar owner;
-- herdar Space/Project;
-- usar a mesma Memory canônica;
-- usar o mesmo Action Catalog;
-- usar o mesmo sistema de grants;
-- possuir budgets e concorrência bounded;
-- aparecer na Activity com atribuição clara.
-
-Não haverá worker-owned Memory nem permission system paralelo.
-
-### Fase 8 — execução híbrida local / Edge / cloud
-
-O backend de execução poderá ser substituível.
-
-Placement deverá considerar:
-
-- privacidade;
-- disponibilidade;
-- custo;
-- latência;
-- necessidade de hardware local;
-- estado offline.
-
-Cloud nunca ganhará autoridade sobre o dispositivo local apenas por executar um modelo remoto.
+Placement futuro poderá considerar privacidade, disponibilidade, custo, latência, necessidade de
+hardware local e estado offline. Cloud nunca ganha autoridade local apenas por executar um modelo.
 
 ## Experiência alvo
 
