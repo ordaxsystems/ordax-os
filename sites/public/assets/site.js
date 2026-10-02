@@ -4,6 +4,7 @@
   const CONFIG_PATH = "/config/public-site.json";
   const CONFIG_SCHEMA = "prototype-ordax.public-site-runtime/1";
   const CATALOG_SCHEMA = "prototype-ordax.public-release-catalog/1";
+  const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
 
   function sameOriginPath(value) {
     return (
@@ -36,6 +37,70 @@
     return config;
   }
 
+  function validHttpsDocumentUrl(value) {
+    if (typeof value !== "string") return false;
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === "https:"
+        && !url.username
+        && !url.password
+        && !url.search
+        && !url.hash
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  function validRegistrationDocument(value) {
+    return (
+      value
+      && typeof value === "object"
+      && typeof value.version === "string"
+      && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value.version)
+      && typeof value.effectiveDate === "string"
+      && /^\d{4}-\d{2}-\d{2}$/.test(value.effectiveDate)
+      && validSha256(value.sha256)
+      && validHttpsDocumentUrl(value.url)
+    );
+  }
+
+  function validRegistrationPolicy(value) {
+    return (
+      value
+      && value.$schema === REGISTRATION_POLICY_SCHEMA
+      && value.active === true
+      && typeof value.policyId === "string"
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.policyId)
+      && validRegistrationDocument(value.privacy)
+      && validRegistrationDocument(value.terms)
+    );
+  }
+
+  function renderRegistrationPolicy(form, policy) {
+    const host = form.querySelector("[data-registration-legal]");
+    if (!host) return false;
+    if (!validRegistrationPolicy(policy)) {
+      host.hidden = true;
+      return false;
+    }
+    const privacy = host.querySelector("[data-registration-privacy]");
+    const privacyMeta = host.querySelector("[data-registration-privacy-meta]");
+    const terms = host.querySelector("[data-registration-terms]");
+    const termsMeta = host.querySelector("[data-registration-terms-meta]");
+    if (!privacy || !privacyMeta || !terms || !termsMeta) {
+      host.hidden = true;
+      return false;
+    }
+    privacy.href = policy.privacy.url;
+    privacyMeta.textContent = `v${policy.privacy.version} · ${policy.privacy.effectiveDate}`;
+    terms.href = policy.terms.url;
+    termsMeta.textContent = `v${policy.terms.version} · ${policy.terms.effectiveDate}`;
+    host.hidden = false;
+    return true;
+  }
+
   function identityCopy(kind, available) {
     const copy = {
       login: {
@@ -60,7 +125,7 @@
     return available ? selected.ready : selected.gated;
   }
 
-  function renderIdentity(config) {
+  async function renderIdentity(config) {
     const state = document.querySelector("[data-identity-state]");
     const form = document.querySelector("[data-identity-form]");
     if (!state || !form) return;
@@ -76,7 +141,16 @@
     const expectedTarget = route?.[0] ?? null;
     const target = route?.[1] ?? null;
     const legalReady = config?.legal?.account_activation_ready === true;
-    const available = legalReady && target === expectedTarget && sameOriginPath(target);
+    let available = legalReady && target === expectedTarget && sameOriginPath(target);
+    if (available && kind === "register") {
+      try {
+        const policy = await loadJson("/auth/registration-policy");
+        available = renderRegistrationPolicy(form, policy);
+      } catch {
+        available = false;
+        renderRegistrationPolicy(form, null);
+      }
+    }
     const [title, detail] = identityCopy(kind, available);
 
     const strong = state.querySelector("strong");
@@ -376,7 +450,7 @@
       || page === "recuperar"
       || page === "recuperar-nova-senha"
     ) {
-      renderIdentity(config);
+      await renderIdentity(config);
     }
   }
 
