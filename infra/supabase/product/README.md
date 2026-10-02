@@ -96,3 +96,7 @@ that RPC. Web and Native source consume the same server projection and submit on
 affirmative acceptance flag; document versions/hashes remain server-owned. There is still
 no active policy and no public registration activation.
 
+Migration `20261002232500_account_registration_legal_fk_indexes_v1.sql` adds the
+covering policy foreign-key indexes used by registration intents and immutable legal
+receipts. It changes no authority and seeds no data.
+
