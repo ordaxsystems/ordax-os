@@ -10,6 +10,7 @@ import { UPDATE_STATUS_SCHEMA } from "../system/contracts/update-status.mjs";
 import { createDiagnosticReviewController } from "../system/services/diagnostics/controller.mjs";
 import { createDiagnosticJournalRuntime } from "../system/services/diagnostics/runtime.mjs";
 import { LOCALIZATION_SCHEMA } from "../system/contracts/localization.mjs";
+import { createLocaleProfile } from "../system/services/i18n/locale-profile.mjs";
 import {
   SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES,
   SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES,
@@ -28,6 +29,9 @@ function localization(locale = "pt-BR") {
     schema: LOCALIZATION_SCHEMA,
     getLocale() {
       return locale;
+    },
+    getProfile() {
+      return createLocaleProfile(locale);
     },
     translate(messageId, values = {}) {
       const source = SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES[messageId];
