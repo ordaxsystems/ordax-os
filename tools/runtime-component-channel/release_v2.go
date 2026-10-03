@@ -19,9 +19,9 @@ const (
 	compatibilitySchemaV1 = "ordax.component-compatibility/1"
 	maxCompatibilityBytes = int64(64 << 10)
 	maxCompatibilityItems = 128
-	maxContractMajor       = int64(10_000)
-	maxStateVersion        = int64(1_000_000)
-	maxCompatibilityIDLen  = 160
+	maxContractMajor      = int64(10_000)
+	maxStateVersion       = int64(1_000_000)
+	maxCompatibilityIDLen = 160
 )
 
 var compatibilityIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:[.-][a-z0-9]+)*$`)
