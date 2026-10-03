@@ -17,6 +17,7 @@ on:
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_localization_pack_contract.mjs'
+      - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
       - '.github/workflows/english-mvp-localization-audit.yml'
@@ -35,6 +36,7 @@ on:
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_localization_pack_contract.mjs'
+      - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
       - '.github/workflows/english-mvp-localization-audit.yml'
@@ -65,6 +67,8 @@ jobs:
           node --version
           node --check tests/test_localization_pack_contract.mjs
           node --test tests/test_localization_pack_contract.mjs
+          node --check tests/test_first_party_app_localization_contract.mjs
+          node --test tests/test_first_party_app_localization_contract.mjs
           node --check tests/test_english_mvp_localization_audit.mjs
           node --test tests/test_english_mvp_localization_audit.mjs
           node --check tests/test_english_surface_rendering_audit.mjs
