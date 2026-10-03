@@ -6,8 +6,10 @@ on:
       - 'docs/contracts/personal-ordax-native-state.json'
       - 'system/surface/runtime/native_personal_ordax_state.py'
       - 'system/surface/runtime/native_personal_ordax_endpoint.py'
+      - 'system/adapters/native/personal-ordax-state.mjs'
       - 'tests/test_personal_ordax_native_state.py'
       - 'tests/test_personal_ordax_native_endpoint.py'
+      - 'tests/test_personal_ordax_native_transport.mjs'
       - '.github/workflows/native-personal-ordax-state.yml'
   push:
     branches: [main]
@@ -15,8 +17,10 @@ on:
       - 'docs/contracts/personal-ordax-native-state.json'
       - 'system/surface/runtime/native_personal_ordax_state.py'
       - 'system/surface/runtime/native_personal_ordax_endpoint.py'
+      - 'system/adapters/native/personal-ordax-state.mjs'
       - 'tests/test_personal_ordax_native_state.py'
       - 'tests/test_personal_ordax_native_endpoint.py'
+      - 'tests/test_personal_ordax_native_transport.mjs'
       - '.github/workflows/native-personal-ordax-state.yml'
   workflow_dispatch:
 
@@ -40,6 +44,7 @@ jobs:
           python -m py_compile \
             system/surface/runtime/native_personal_ordax_state.py \
             system/surface/runtime/native_personal_ordax_endpoint.py
+          node --check system/adapters/native/personal-ordax-state.mjs
 
       - name: Prove private owner partitions CAS and fail-closed recovery
         run: |
@@ -47,3 +52,8 @@ jobs:
           python -m unittest \
             tests.test_personal_ordax_native_state \
             tests.test_personal_ordax_native_endpoint
+
+      - name: Prove async transport without browser state mirror
+        run: |
+          set -euo pipefail
+          node --test tests/test_personal_ordax_native_transport.mjs
