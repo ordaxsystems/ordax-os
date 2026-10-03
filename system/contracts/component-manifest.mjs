@@ -34,6 +34,54 @@ export function validateComponentVersion(value) {
   return value;
 }
 
+function parseComponentVersion(value) {
+  const version = validateComponentVersion(value);
+  const match = SEMVER_RE.exec(version);
+  return Object.freeze({
+    version,
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] == null ? Object.freeze([]) : Object.freeze(match[4].split(".")),
+  });
+}
+
+function comparePrereleaseIdentifier(left, right) {
+  const leftNumeric = /^[0-9]+$/.test(left);
+  const rightNumeric = /^[0-9]+$/.test(right);
+  if (leftNumeric && rightNumeric) {
+    const leftNumber = Number(left);
+    const rightNumber = Number(right);
+    return leftNumber === rightNumber ? 0 : leftNumber < rightNumber ? -1 : 1;
+  }
+  if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+  return left === right ? 0 : left < right ? -1 : 1;
+}
+
+export function compareComponentVersions(leftValue, rightValue) {
+  const left = parseComponentVersion(leftValue);
+  const right = parseComponentVersion(rightValue);
+  for (const field of ["major", "minor", "patch"]) {
+    if (left[field] !== right[field]) return left[field] < right[field] ? -1 : 1;
+  }
+  if (left.prerelease.length === 0 || right.prerelease.length === 0) {
+    if (left.prerelease.length === right.prerelease.length) return 0;
+    return left.prerelease.length === 0 ? 1 : -1;
+  }
+  const count = Math.max(left.prerelease.length, right.prerelease.length);
+  for (let index = 0; index < count; index += 1) {
+    if (index >= left.prerelease.length) return -1;
+    if (index >= right.prerelease.length) return 1;
+    const compared = comparePrereleaseIdentifier(left.prerelease[index], right.prerelease[index]);
+    if (compared !== 0) return compared;
+  }
+  return 0;
+}
+
+export function componentVersionIsNewer(candidate, current) {
+  return compareComponentVersions(candidate, current) > 0;
+}
+
 function enumValue(value, allowed, label) {
   if (!allowed.has(value)) {
     throw new TypeError(`Unsupported ${label}: ${String(value)}`);
