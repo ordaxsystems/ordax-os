@@ -1,6 +1,7 @@
 {
   "$schema": "prototype-ordax.cloud-memory-sync-boundary/1",
-  "status": "backend-mutation-deployed-rollout-disabled",
+  "status": "mvp-required-backend-mutation-deployed-rollout-disabled",
+  "mvp_required": true,
   "public_mvp_enabled": false,
   "source_of_truth": {
     "table": "public.ordax_memory_items",
@@ -11,8 +12,8 @@
   },
   "eligible_scopes": {
     "device": false,
-    "account": "future-explicit-policy",
-    "space": "future-explicit-policy",
+    "account": "mvp-required-explicit-policy-rollout-gated",
+    "space": "mvp-required-explicit-policy-rollout-gated",
     "project": false,
     "session": false
   },
