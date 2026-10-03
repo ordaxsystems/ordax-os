@@ -138,7 +138,7 @@ export function createDiagnosticReviewController({
       }
     },
 
-    async copyPreparedSummary() {
+    async copyPreparedSummary({ locale = "pt-BR" } = {}) {
       if (outputInFlight !== null) {
         return result("failed", { code: outputBusyCode() });
       }
@@ -160,7 +160,7 @@ export function createDiagnosticReviewController({
 
       let copyResult;
       try {
-        copyResult = await copyDiagnosticReviewSummary(document, copyPort);
+        copyResult = await copyDiagnosticReviewSummary(document, copyPort, { locale });
       } catch {
         copyResult = Object.freeze({ status: "failed", code: "copy-failed" });
       }
