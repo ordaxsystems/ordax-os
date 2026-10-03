@@ -126,6 +126,16 @@ No private signing key belongs in Git, Creator payloads or downloadable installe
 
 The Windows Creator now has a native graphical shell. Normal users select an eligible USB in the window and never need Prompt, PowerShell or a `.cmd` file. The destructive path remains fail-closed until a publisher-bound physical candidate is available.
 
+### Creator localization owner
+
+Creator owns its localization boundary independently from the OrdaX Surface. It does not import the Surface i18n runtime and user-facing copy must not be embedded directly in Win32 presentation/state files. The current public baseline bundles `pt-BR` and `en-US`; `pt-BR` is the source/final fallback locale.
+
+On Windows, Creator starts from the user's Windows locale when supported and persists an explicit locale choice under the current user's Creator preferences. Unsupported locale identifiers fall back deterministically to `pt-BR`. Message-key and interpolation-placeholder parity between bundled locales is enforced by Creator tests, and user-facing UI call sites are audited so new literal copy cannot bypass the localization owner. Internal technical diagnostics may remain canonical, but raw backend errors are not used as translated UI copy.
+
+This owner is compatible with the component-scoped language-pack architecture in `docs/contracts/localization-pack.json`: future Creator locales can be added deliberately without making every Surface app support the same locale at the same time. The MVP Creator itself exposes only `pt-BR` and `en-US` today.
+
+Creator distribution and update UX follow the actual Owner/Development artifact: `OrdaX-Creator-Owner-Prototype.zip` contains the GUI plus the separate privileged RAW helper and required payload. The published `prototype-ordax.creator-owner-bundle-update/1` manifest currently declares `automatic_in_app_update=false`; Creator may detect a newer bundle but must not apply the legacy single-EXE updater to that multi-file bundle.
+
 ```text
 CREATOR_NATIVE_WINDOWS_GUI=IMPLEMENTED
 USB_TARGET_DISCOVERY=IMPLEMENTED
@@ -161,7 +171,7 @@ MVP_INTERNAL_DISK_WRITE=FORBIDDEN
 NATIVE_INSTALL_FOUNDATION_PHASE=POST_MVP
 ```
 
-The development `OrdaX-Creator.exe` is intentionally useful for the graphical workflow, automatic development updates and safe USB discovery, but it still cannot acquire a raw writer: canonical public trust is resolved, while explicit Stable/MVP owner authorization and the public physical-apply boundary remain closed. This separation prevents an ordinary development build from becoming destructive by accident.
+The development `OrdaX-Creator.exe` is intentionally useful for the graphical workflow, signed bundle update discovery and safe USB discovery. The current split-bundle channel does not perform automatic in-app installation; bundle replacement remains explicit until a complete multi-file staging/rollback updater exists. The ordinary GUI also cannot acquire a raw writer by itself: canonical public trust is resolved, while explicit Stable/MVP owner authorization and the public physical-apply boundary remain closed. This separation prevents an ordinary development build from becoming destructive by accident.
 
 The final Portable physical flow is implemented behind the isolated tagged/publisher boundary, but it is not yet a public Creator capability:
 

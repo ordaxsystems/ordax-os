@@ -14,11 +14,11 @@ import (
 )
 
 type portablePhysicalPreparationDocument struct {
-	Schema                   string         `json:"$schema"`
-	Target                   physicalTarget `json:"target"`
-	ApplicationPlanSHA256    string         `json:"application_plan_sha256"`
-	DestructiveAuthorization string         `json:"destructive_authorization"`
-	WholeDiskRawImageRequired bool          `json:"whole_disk_raw_image_required"`
+	Schema                    string         `json:"$schema"`
+	Target                    physicalTarget `json:"target"`
+	ApplicationPlanSHA256     string         `json:"application_plan_sha256"`
+	DestructiveAuthorization  string         `json:"destructive_authorization"`
+	WholeDiskRawImageRequired bool           `json:"whole_disk_raw_image_required"`
 }
 
 func executePhysicalWrite(state appRefreshState, target physicalTarget) error {
@@ -100,7 +100,7 @@ func executePortablePhysicalWrite(
 	}
 
 	bindings := creatorcore.PortableMediaBindings{
-		Schema: creatorcore.PortableMediaBindingsSchema,
+		Schema:    creatorcore.PortableMediaBindingsSchema,
 		Artifacts: make([]creatorcore.PortableMediaArtifactBinding, 0, len(payload.Artifacts)),
 	}
 	for _, artifact := range payload.Artifacts {
@@ -108,8 +108,8 @@ func executePortablePhysicalWrite(
 			return fmt.Errorf("payload Portable inválido: %s", artifact.ID)
 		}
 		bindings.Artifacts = append(bindings.Artifacts, creatorcore.PortableMediaArtifactBinding{
-			ID: artifact.ID,
-			SHA256: artifact.SHA256,
+			ID:        artifact.ID,
+			SHA256:    artifact.SHA256,
 			SizeBytes: uint64(artifact.SizeBytes),
 		})
 	}
@@ -155,10 +155,7 @@ func executePortablePhysicalWrite(
 		return fmt.Errorf("gravar plano Portable target-specific: %w", err)
 	}
 
-	updateWriteProgress(
-		"Validando o plano Portable…",
-		"O Creator Core está vinculando o layout e os 17 artefatos assinados ao USB selecionado.",
-	)
+	updateWriteProgress(creatorT(msgPortablePlanStatus), creatorT(msgPortablePlanHint))
 	output, err := runBackendHidden(
 		directory,
 		"prepare-portable",
@@ -176,10 +173,7 @@ func executePortablePhysicalWrite(
 		return err
 	}
 
-	updateWriteProgress(
-		"Aguardando autorização do Windows…",
-		"Confirme o Controle de Conta de Usuário. O helper elevado revalidará o USB, os 17 sources e o plano antes da primeira escrita.",
-	)
+	updateWriteProgress(creatorT(msgProgressElevationStatus), creatorT(msgPortableElevationHint))
 	args := []string{
 		"apply-portable",
 		"--confirm", target.ConfirmationToken,
@@ -195,10 +189,6 @@ func executePortablePhysicalWrite(
 		return err
 	}
 
-	updateWritePercentage(
-		"Concluindo…",
-		"GPT, ORDAX-ESP, ORDAX-DATA e os 17 artefatos passaram pela verificação de leitura.",
-		100,
-	)
+	updateWritePercentage(creatorT(msgProgressCompleteStatus), creatorT(msgPortableVerifiedHint), 100)
 	return nil
 }

@@ -137,7 +137,7 @@ func completeWrite(err error) {
 	writeMu.Lock()
 	writeState.Active = false
 	if err != nil {
-		view := creatorExperience(creatorExperienceInput{Error: err.Error()})
+		view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
 		writeState.Success = false
 		writeState.Error = err.Error()
 		writeState.Status = view.Title
@@ -148,7 +148,7 @@ func completeWrite(err error) {
 		view := creatorExperience(creatorExperienceInput{WriteComplete: true})
 		writeState.Success = true
 		writeState.Error = ""
-		writeState.Status = "Pendrive OrdaX criado e verificado. " + view.Title
+		writeState.Status = creatorT(msgWriteCompleteStatus) + " " + view.Title
 		writeState.Hint = strings.TrimSpace(view.Body + " " + view.Detail)
 		writeState.Determinate = true
 		writeState.Percent = 100
@@ -172,6 +172,7 @@ func renderWriteProgress() {
 	enable(updateButton, false)
 	enable(writeButton, false)
 	enable(deviceCombo, false)
+	enable(localeCombo, false)
 }
 
 func renderWriteDone() {
@@ -184,20 +185,12 @@ func renderWriteDone() {
 	if state.Success {
 		view := creatorExperience(creatorExperienceInput{WriteComplete: true})
 		setProgressComplete()
-		messageBox(
-			"O pendrive OrdaX foi criado, passou pela verificação de leitura e o espaço ORDAX-DATA foi preparado em exFAT.\n\n"+view.Body+"\n\n"+view.Detail,
-			"OrdaX Creator — Tudo pronto",
-			mbOK|mbIconInformation,
-		)
+		messageBox(creatorT(msgWriteCompleteDialogBody)+"\n\n"+view.Body+"\n\n"+view.Detail, creatorT(msgWriteCompleteDialogTitle), mbOK|mbIconInformation)
 	} else {
 		setProgressIdle()
 		if state.Error != "" {
-			view := creatorExperience(creatorExperienceInput{Error: state.Error})
-			messageBox(
-				view.Body+"\n\n"+view.Detail,
-				"OrdaX Creator — Não foi possível continuar",
-				mbOK|mbIconError,
-			)
+			view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
+			messageBox(view.Body+"\n\n"+view.Detail, creatorT(msgWriteErrorDialogTitle), mbOK|mbIconError)
 		}
 	}
 
@@ -205,6 +198,7 @@ func renderWriteDone() {
 	current := refreshState
 	stateMu.Unlock()
 	enable(refreshButton, true)
+	enable(localeCombo, true)
 	enable(deviceCombo, len(current.Targets) > 0)
 	enable(writeButton, current.PhysicalReady && len(current.Targets) > 0)
 	renderUpdateUI()
@@ -213,7 +207,7 @@ func renderWriteDone() {
 func showWriteBusyMessage() {
 	view := creatorExperience(creatorExperienceInput{WriteActive: true})
 	messageBox(
-		view.Title+"\n\n"+view.Body+"\n\nNão feche o Creator nem remova o USB até a operação terminar.",
+		view.Title+"\n\n"+view.Body+"\n\n"+creatorT(msgWriteBusyDetail),
 		"OrdaX Creator",
 		mbOK|mbIconInformation,
 	)
@@ -243,31 +237,30 @@ func beginPhysicalWrite() {
 	}
 	target, state, err := selectedPhysicalTarget()
 	if err != nil {
-		messageBox(err.Error(), "OrdaX Creator", mbOK|mbIconError)
+		messageBox(creatorT(msgTargetSelectionFailed), windowTitle, mbOK|mbIconError)
 		return
 	}
 
 	label := strings.TrimSpace(target.VolumeLabel)
 	if label == "" {
-		label = "Sem nome"
+		label = creatorT(msgTargetUnnamed)
 	}
 	review := creatorExperience(creatorExperienceInput{TargetCount: 1, TargetSelected: true, PhysicalReady: true})
-	warning := fmt.Sprintf(
-		"%s\n\n%s\n\nTodos os dados deste pendrive serão apagados.\n\nDispositivo: %s\nNome: %s\nDisco: %d\nTamanho: %s\nSerial: %s\n\n%s\n\nDeseja criar o pendrive OrdaX?",
-		review.Title,
-		review.Body,
-		target.DriveLetter,
-		label,
-		target.DiskNumber,
-		formatBytes(target.PhysicalDiskBytes),
-		target.DeviceSerial,
-		review.Detail,
-	)
-	if messageBox(warning, "Confirmar criação do pendrive", mbYesNo|mbIconWarning|mbDefButton2) != idYes {
+	warning := creatorTValues(msgWriteConfirmBody, map[string]string{
+		"title":  review.Title,
+		"body":   review.Body,
+		"device": target.DriveLetter,
+		"name":   label,
+		"disk":   strconv.Itoa(target.DiskNumber),
+		"size":   formatBytes(target.PhysicalDiskBytes),
+		"serial": target.DeviceSerial,
+		"detail": review.Detail,
+	})
+	if messageBox(warning, creatorT(msgWriteConfirmTitle), mbYesNo|mbIconWarning|mbDefButton2) != idYes {
 		return
 	}
 
-	updateWriteProgress("Preparando o pendrive OrdaX…", "A imagem oficial está sendo validada e preparada para o tamanho exato do USB selecionado.")
+	updateWriteProgress(creatorT(msgWritePreparingStatus), creatorT(msgWritePreparingHint))
 	go func() {
 		completeWrite(executePhysicalWrite(state, target))
 	}()
@@ -299,7 +292,7 @@ func executeLegacyPhysicalWrite(directory string, target physicalTarget) error {
 	diagnosticPath := filepath.Join(workDir, "ordax-physical-error.txt")
 	progressPath := filepath.Join(workDir, "ordax-physical-progress.json")
 
-	updateWriteProgress("Preparando imagem para o USB…", "O Creator está conferindo a imagem do OrdaX e ajustando o layout GPT ao tamanho do pendrive, preservando o restante para ORDAX-DATA.")
+	updateWriteProgress(creatorT(msgProgressImageStatus), creatorT(msgWritePreparingHint))
 	output, err := runBackendHidden(
 		directory,
 		"prepare",
@@ -318,7 +311,7 @@ func executeLegacyPhysicalWrite(directory string, target physicalTarget) error {
 		return err
 	}
 
-	updateWriteProgress("Aguardando autorização do Windows…", "Confirme a janela de Controle de Conta de Usuário. Depois disso o Creator gravará, verificará e preparará automaticamente o espaço ORDAX-DATA.")
+	updateWriteProgress(creatorT(msgProgressElevationStatus), creatorT(msgProgressElevationHint))
 	args := []string{
 		"apply",
 		"--confirm", target.ConfirmationToken,
@@ -333,7 +326,7 @@ func executeLegacyPhysicalWrite(directory string, target physicalTarget) error {
 		return err
 	}
 
-	updateWritePercentage("Concluindo…", "Gravação, verificação por leitura e ORDAX-DATA foram confirmados. Finalizando o Creator.", 100)
+	updateWritePercentage(creatorT(msgProgressCompleteStatus), creatorT(msgProgressCompleteHint), 100)
 	return nil
 }
 
@@ -382,10 +375,7 @@ func runElevatedAndWait(executable, directory string, args []string, diagnosticP
 	}
 	defer procCloseHandle.Call(info.Process)
 
-	updateWriteProgress(
-		"Gravando, verificando e preparando arquivos…",
-		"Autorização do Windows confirmada. Não remova o USB; o Creator está iniciando a gravação segura.",
-	)
+	updateWriteProgress(creatorT(msgCreatingEyebrow), creatorT(msgCreatingTitle)+" "+creatorT(msgCreatingDetail))
 
 	lastProgress := ""
 	for {

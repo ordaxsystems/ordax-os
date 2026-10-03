@@ -34,15 +34,35 @@ func TestPhysicalProgressPresentationCompletesAtOneHundred(t *testing.T) {
 	}
 }
 
-func TestGuidedPhysicalProgressCopyKeepsSafetyInstructionVisible(t *testing.T) {
-	status, hint := guidedPhysicalProgressCopy("Gravando OrdaX no pendrive…", "Gravação: 1.0 de 2.0 MiB.")
-	if !strings.Contains(status, "Criando o OrdaX USB") {
-		t.Fatalf("status=%q must carry guided creation stage", status)
+func TestGuidedPhysicalProgressCopyKeepsLocalizedSafetyInstructionVisible(t *testing.T) {
+	statusInput := creatorT(msgProgressWritingStatus)
+	hintInput := creatorTValues(msgProgressWritingBytes, map[string]string{
+		"completed": "1.0",
+		"total":     "2.0",
+	})
+	status, hint := guidedPhysicalProgressCopy(statusInput, hintInput)
+	if !strings.Contains(status, creatorT(msgCreatingEyebrow)) {
+		t.Fatalf("status=%q must carry localized guided creation stage", status)
 	}
-	if !strings.Contains(hint, "Não remova o pendrive") {
-		t.Fatalf("hint=%q must keep the removal warning visible", hint)
+	if !strings.Contains(hint, creatorT(msgCreatingTitle)) {
+		t.Fatalf("hint=%q must keep localized removal warning visible", hint)
 	}
-	if !strings.Contains(hint, "Gravação: 1.0 de 2.0 MiB.") {
-		t.Fatalf("hint=%q must preserve backend byte progress", hint)
+	if !strings.Contains(hint, hintInput) {
+		t.Fatalf("hint=%q must preserve localized backend byte progress %q", hint, hintInput)
+	}
+}
+
+func TestPhysicalProgressSafetyCompositionWorksInBundledLocales(t *testing.T) {
+	previous := currentCreatorLocale()
+	t.Cleanup(func() { setCreatorLocale(string(previous)) })
+
+	for _, locale := range []creatorLocale{creatorLocalePTBR, creatorLocaleENUS} {
+		setCreatorLocale(string(locale))
+		statusInput := creatorT(msgProgressWritingStatus)
+		hintInput := creatorTValues(msgProgressWritingBytes, map[string]string{"completed": "1.0", "total": "2.0"})
+		status, hint := guidedPhysicalProgressCopy(statusInput, hintInput)
+		if !strings.Contains(status, creatorMessageFor(locale, msgCreatingEyebrow, nil)) || !strings.Contains(hint, creatorMessageFor(locale, msgCreatingTitle, nil)) {
+			t.Fatalf("locale %s lost guided safety copy: status=%q hint=%q", locale, status, hint)
+		}
 	}
 }

@@ -78,38 +78,41 @@ func physicalProgressPresentation(document physicalProgressDocument) (status, hi
 		}
 		return value
 	}
-	byteProgress := func(action string) string {
+	byteProgress := func(messageID creatorMessageID) string {
 		if document.TotalBytes <= 0 {
-			return action
+			return ""
 		}
 		const mib = float64(1024 * 1024)
-		return fmt.Sprintf("%s %.1f de %.1f MiB.", action, float64(document.CompletedBytes)/mib, float64(document.TotalBytes)/mib)
+		return creatorTValues(messageID, map[string]string{
+			"completed": fmt.Sprintf("%.1f", float64(document.CompletedBytes)/mib),
+			"total":     fmt.Sprintf("%.1f", float64(document.TotalBytes)/mib),
+		})
 	}
 	switch document.Phase {
 	case "starting":
-		return "Iniciando gravação elevada…", "O Creator abriu o backend autorizado e está iniciando as verificações finais.", 2, true
+		return creatorT(msgProgressStartingStatus), creatorT(msgProgressStartingHint), 2, true
 	case "checking-elevation":
-		return "Confirmando autorização do Windows…", "A operação destrutiva só continua dentro do processo elevado autorizado.", 3, true
+		return creatorT(msgProgressElevationStatus), creatorT(msgProgressElevationHint), 3, true
 	case "revalidating-target":
-		return "Confirmando o pendrive selecionado…", "O Creator está conferindo novamente a identidade física do USB antes de qualquer escrita.", 5, true
+		return creatorT(msgProgressTargetStatus), creatorT(msgProgressTargetHint), 5, true
 	case "validating-image":
-		return "Validando a imagem preparada…", byteProgress("Validação:"), ratioPercent(5, 7), true
+		return creatorT(msgProgressImageStatus), byteProgress(msgProgressValidationBytes), ratioPercent(5, 7), true
 	case "planning-write":
-		return "Planejando a gravação otimizada…", "O Creator está validando GPT, regiões necessárias e os limites exatos do dispositivo.", 13, true
+		return creatorT(msgProgressPlanningStatus), creatorT(msgProgressPlanningHint), 13, true
 	case "locking-target":
-		return "Reservando o pendrive com segurança…", "Os volumes do USB estão sendo bloqueados antes da escrita RAW.", 15, true
+		return creatorT(msgProgressLockStatus), creatorT(msgProgressLockHint), 15, true
 	case "writing":
-		return "Gravando OrdaX no pendrive…", byteProgress("Gravação:"), ratioPercent(15, 45), true
+		return creatorT(msgProgressWritingStatus), byteProgress(msgProgressWritingBytes), ratioPercent(15, 45), true
 	case "flushing":
-		return "Sincronizando dados com o pendrive…", "Os dados gravados estão sendo enviados ao dispositivo antes da leitura de verificação.", 62, true
+		return creatorT(msgProgressFlushStatus), creatorT(msgProgressFlushHint), 62, true
 	case "verifying":
-		return "Verificando a gravação por leitura…", byteProgress("Verificação:"), ratioPercent(62, 28), true
+		return creatorT(msgProgressVerifyingStatus), byteProgress(msgProgressVerifyingBytes), ratioPercent(62, 28), true
 	case "verified":
-		return "Gravação verificada com sucesso…", "As regiões gravadas conferem com os hashes calculados durante a escrita.", 92, true
+		return creatorT(msgProgressVerifiedStatus), creatorT(msgProgressVerifiedHint), 92, true
 	case "formatting-data":
-		return "Preparando ORDAX-DATA…", "O espaço restante está sendo formatado em exFAT e validado para uso normal no Windows.", 96, true
+		return creatorT(msgProgressDataStatus), creatorT(msgProgressDataHint), 96, true
 	case "complete":
-		return "Concluindo criação do pendrive…", "Gravação, verificação e ORDAX-DATA foram concluídos.", 100, true
+		return creatorT(msgProgressCompleteStatus), creatorT(msgProgressCompleteHint), 100, true
 	default:
 		return "", "", 0, false
 	}

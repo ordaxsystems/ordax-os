@@ -60,6 +60,7 @@ const (
 	idUpdate      = 1007
 	idProgress    = 1008
 	idBootHelp    = 1009
+	idLocaleCombo = 1010
 
 	cbAddString    = 0x0143
 	cbResetContent = 0x014B
@@ -94,15 +95,21 @@ var (
 	procGetStockObject       = gdi32.NewProc("GetStockObject")
 	procInitCommonControlsEx = comctl32.NewProc("InitCommonControlsEx")
 
-	mainWindow    uintptr
-	deviceCombo   uintptr
-	refreshButton uintptr
-	updateButton  uintptr
-	writeButton   uintptr
-	statusLabel   uintptr
-	versionLabel  uintptr
-	hintLabel     uintptr
-	progressBar   uintptr
+	mainWindow          uintptr
+	headerTitleLabel    uintptr
+	headerSubtitleLabel uintptr
+	languageLabel       uintptr
+	usbLabel            uintptr
+	deviceCombo         uintptr
+	localeCombo         uintptr
+	refreshButton       uintptr
+	updateButton        uintptr
+	writeButton         uintptr
+	statusLabel         uintptr
+	versionLabel        uintptr
+	hintLabel           uintptr
+	progressBar         uintptr
+	bootHelpButton      uintptr
 
 	stateMu      sync.Mutex
 	refreshState appRefreshState
@@ -260,7 +267,7 @@ func formatBytes(value uint64) string {
 func targetLabel(target physicalTarget) string {
 	label := strings.TrimSpace(target.VolumeLabel)
 	if label == "" {
-		label = "Sem nome"
+		label = creatorT(msgTargetUnnamed)
 	}
 	return fmt.Sprintf("%s  —  %s  —  %s", target.DriveLetter, label, formatBytes(target.PhysicalDiskBytes))
 }
@@ -310,9 +317,9 @@ func loadTargets(directory string) ([]physicalTarget, physicalBackendReadiness, 
 		return nil, physicalBackendReadiness{}, fmt.Errorf("consultar estado físico: %w", err)
 	}
 	var status struct {
-		RawBackendLinked     bool `json:"raw_backend_linked"`
+		RawBackendLinked    bool `json:"raw_backend_linked"`
 		PortableWriterReady bool `json:"portable_writer_ready"`
-		Build struct {
+		Build               struct {
 			PhysicalWriteAuthorized bool `json:"physical_write_authorized"`
 			Ready                   bool `json:"ready"`
 		} `json:"build"`
@@ -322,7 +329,7 @@ func loadTargets(directory string) ([]physicalTarget, physicalBackendReadiness, 
 	}
 	return document.Targets, physicalBackendReadiness{
 		LegacyOwner: status.RawBackendLinked && status.Build.PhysicalWriteAuthorized && status.Build.Ready,
-		Portable: status.RawBackendLinked && status.Build.PhysicalWriteAuthorized && status.PortableWriterReady,
+		Portable:    status.RawBackendLinked && status.Build.PhysicalWriteAuthorized && status.PortableWriterReady,
 	}, nil
 }
 
@@ -347,12 +354,11 @@ func selectedTargetIndex() int {
 func selectionExperience(state appRefreshState) creatorExperienceView {
 	index := selectedTargetIndex()
 	selected := index >= 0 && index < len(state.Targets)
-	return creatorExperience(creatorExperienceInput{
-		TargetCount:    len(state.Targets),
-		TargetSelected: selected,
-		PhysicalReady:  state.PhysicalReady,
-		Error:          state.Error,
-	})
+	var errorMessageID creatorMessageID
+	if state.Error != "" {
+		errorMessageID = msgRefreshFailedDetail
+	}
+	return creatorExperience(creatorExperienceInput{TargetCount: len(state.Targets), TargetSelected: selected, PhysicalReady: state.PhysicalReady, ErrorMessageID: errorMessageID})
 }
 
 func renderSelectionExperience(state appRefreshState) {
@@ -369,7 +375,7 @@ func renderSelectionExperience(state appRefreshState) {
 	if view.Step == creatorStepReview && view.PrimaryAction != "" {
 		setText(writeButton, view.PrimaryAction)
 	} else {
-		setText(writeButton, "Criar OrdaX")
+		setText(writeButton, creatorT(msgActionCreate))
 	}
 	invalidateGuidedVisual()
 }
@@ -403,7 +409,7 @@ func renderRefresh() {
 	if state.Version != "" {
 		version := "OrdaX Creator • " + state.Version
 		if state.Updated {
-			version += " • atualizado"
+			version += " • " + creatorT(msgVersionUpdated)
 		}
 		setText(versionLabel, version)
 	}
@@ -425,13 +431,48 @@ func beginRefresh() {
 		return
 	}
 	resetWriteResult()
-	setText(statusLabel, "Procurando pendrives…")
-	setText(hintLabel, "Atualizando a lista de dispositivos USB disponíveis. Seus discos internos continuam fora da seleção do Creator.")
+	setText(statusLabel, creatorT(msgRefreshSearching))
+	setText(hintLabel, creatorT(msgRefreshHint))
 	enable(refreshButton, false)
 	enable(writeButton, false)
 	enable(deviceCombo, false)
 	invalidateGuidedVisual()
 	refreshAsync()
+}
+
+func selectedCreatorLocale() (creatorLocale, bool) {
+	index := int32(send(localeCombo, cbGetCurSel, 0, 0))
+	locales := creatorSupportedLocales()
+	if index < 0 || int(index) >= len(locales) {
+		return creatorSourceLocale, false
+	}
+	return locales[index], true
+}
+
+func renderCreatorLocaleUI() {
+	setText(headerTitleLabel, creatorT(msgHeaderTitle))
+	setText(headerSubtitleLabel, creatorT(msgHeaderSubtitle))
+	setText(languageLabel, creatorT(msgFieldLanguage))
+	setText(usbLabel, creatorT(msgFieldUSB))
+	setText(refreshButton, creatorT(msgActionReloadUSB))
+	setText(bootHelpButton, creatorT(msgActionBootHelp))
+	stateMu.Lock()
+	state := refreshState
+	stateMu.Unlock()
+	if state.Version != "" {
+		version := "OrdaX Creator • " + state.Version
+		if state.Updated {
+			version += " • " + creatorT(msgVersionUpdated)
+		}
+		setText(versionLabel, version)
+	} else {
+		setText(versionLabel, "OrdaX Creator • "+creatorT(msgVersionChecking))
+	}
+	if !writeInProgress() {
+		renderSelectionExperience(state)
+	}
+	renderUpdateUI()
+	invalidateGuidedVisual()
 }
 
 func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
@@ -441,6 +482,14 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 	case wmCommand:
 		id := int(loword(wParam))
 		notify := hiword(wParam)
+		if id == idLocaleCombo && notify == cbnSelChange && !writeInProgress() {
+			if locale, ok := selectedCreatorLocale(); ok && locale != currentCreatorLocale() {
+				setCreatorLocale(string(locale))
+				_ = saveCreatorLocalePreference(locale)
+				renderCreatorLocaleUI()
+			}
+			return 0
+		}
 		if id == idDeviceCombo && notify == cbnSelChange {
 			updateSelectionUI()
 			return 0
@@ -454,7 +503,7 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 			return 0
 		}
 		if id == idBootHelp && notify == bnClicked {
-			messageBox(creatorBootHelpText(), "Como iniciar pelo USB", mbOK|mbIconInformation)
+			messageBox(creatorBootHelpText(), creatorT(msgActionBootHelp), mbOK|mbIconInformation)
 			return 0
 		}
 		if id == idWrite && notify == bnClicked {
@@ -523,23 +572,31 @@ func createMainWindow() {
 	}
 	mainWindow = hwnd
 
-	createControl("STATIC", "Criar pendrive OrdaX", 0, 28, 24, 630, 28, 0)
-	createControl("STATIC", "Assistente guiado: conecte o USB, confirme o destino e acompanhe a criação até a verificação final.", 0, 28, 56, 630, 22, 0)
-	createControl("STATIC", "Pendrive", 0, 28, 96, 630, 20, 0)
-	deviceCombo = createControl("COMBOBOX", "", wsTabStop|wsVScroll|cbsDropDownList|wsDisabled, 28, 122, 630, 220, idDeviceCombo)
-	statusLabel = createControl("STATIC", "Procurando pendrives…", 0, 28, 172, 630, 22, idStatus)
+	headerTitleLabel = createControl("STATIC", creatorT(msgHeaderTitle), 0, 28, 24, 630, 28, 0)
+	headerSubtitleLabel = createControl("STATIC", creatorT(msgHeaderSubtitle), 0, 28, 56, 630, 22, 0)
+	languageLabel = createControl("STATIC", creatorT(msgFieldLanguage), 0, 28, 88, 180, 20, 0)
+	usbLabel = createControl("STATIC", creatorT(msgFieldUSB), 0, 224, 88, 434, 20, 0)
+	localeCombo = createControl("COMBOBOX", "", wsTabStop|cbsDropDownList, 28, 112, 180, 160, idLocaleCombo)
+	for index, locale := range creatorSupportedLocales() {
+		label := creatorLocaleDisplayName(locale)
+		send(localeCombo, cbAddString, 0, uintptr(unsafe.Pointer(utf16Ptr(label))))
+		if locale == currentCreatorLocale() {
+			send(localeCombo, cbSetCurSel, uintptr(index), 0)
+		}
+	}
+	deviceCombo = createControl("COMBOBOX", "", wsTabStop|wsVScroll|cbsDropDownList|wsDisabled, 224, 112, 434, 220, idDeviceCombo)
+	statusLabel = createControl("STATIC", creatorT(msgRefreshSearching), 0, 28, 172, 630, 22, idStatus)
 	hintLabel = createControl("STATIC", "", 0, 28, 202, 630, 42, idHint)
 	progressBar = createControl("msctls_progress32", "", pbsMarquee, 28, 250, 630, 14, idProgress)
-	versionLabel = createControl("STATIC", "OrdaX Creator • verificando versão…", 0, 28, 292, 245, 20, idVersion)
-	updateButton = createControl("BUTTON", "Atualizações", wsTabStop|bsPushButton, 280, 280, 118, 36, idUpdate)
-	refreshButton = createControl("BUTTON", "Recarregar USB", wsTabStop|bsPushButton, 406, 280, 118, 36, idRefresh)
-	writeButton = createControl("BUTTON", "Criar OrdaX", wsTabStop|bsDefPushButton|wsDisabled, 532, 280, 126, 36, idWrite)
-	createControl("BUTTON", "Como iniciar pelo USB", wsTabStop|bsPushButton, 704, 294, 148, 32, idBootHelp)
+	versionLabel = createControl("STATIC", "OrdaX Creator • "+creatorT(msgVersionChecking), 0, 28, 292, 245, 20, idVersion)
+	updateButton = createControl("BUTTON", creatorT(msgUpdateControl), wsTabStop|bsPushButton, 280, 280, 118, 36, idUpdate)
+	refreshButton = createControl("BUTTON", creatorT(msgActionReloadUSB), wsTabStop|bsPushButton, 406, 280, 118, 36, idRefresh)
+	writeButton = createControl("BUTTON", creatorT(msgActionCreate), wsTabStop|bsDefPushButton|wsDisabled, 532, 280, 126, 36, idWrite)
+	bootHelpButton = createControl("BUTTON", creatorT(msgActionBootHelp), wsTabStop|bsPushButton, 704, 294, 148, 32, idBootHelp)
 	setProgressIdle()
 
 	procShowWindow.Call(mainWindow, swShow)
 	procUpdateWindow.Call(mainWindow)
-	markOwnerUpdateHealthy()
 	beginRefresh()
 	beginUpdateCheck(false)
 }
@@ -561,6 +618,7 @@ func messageLoop() int {
 
 func main() {
 	runtime.LockOSThread()
+	setCreatorLocale(string(loadCreatorLocalePreference()))
 	createMainWindow()
 	if code := messageLoop(); code != 0 {
 		panic("Windows message loop failed")

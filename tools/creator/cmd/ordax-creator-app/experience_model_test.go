@@ -1,9 +1,6 @@
 package main
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestCreatorExperienceConnectExplainsSafety(t *testing.T) {
 	view := creatorExperience(creatorExperienceInput{})
@@ -13,8 +10,8 @@ func TestCreatorExperienceConnectExplainsSafety(t *testing.T) {
 	if view.StepNumber != 1 || view.StepCount != 4 {
 		t.Fatalf("unexpected progress: %d/%d", view.StepNumber, view.StepCount)
 	}
-	if !strings.Contains(view.Detail, "discos internos") {
-		t.Fatalf("connect safety copy must mention internal disks: %q", view.Detail)
+	if view.Detail != creatorT(msgConnectDetail) {
+		t.Fatalf("connect safety copy bypassed localization owner: %q", view.Detail)
 	}
 	if view.Illustration != "usb-connect" {
 		t.Fatalf("illustration = %q", view.Illustration)
@@ -33,13 +30,13 @@ func TestCreatorExperienceReviewMakesDestructiveBoundaryExplicit(t *testing.T) {
 	if !view.Destructive || !view.CanContinue {
 		t.Fatalf("review must be an explicit actionable destructive boundary: %+v", view)
 	}
-	if !strings.Contains(view.Body, "apagado") {
-		t.Fatalf("review copy must say the USB will be erased: %q", view.Body)
+	if view.Body != creatorT(msgReviewBody) {
+		t.Fatalf("review destructive copy bypassed localization owner: %q", view.Body)
 	}
-	if !strings.Contains(view.Detail, "SSD ou HD interno") {
-		t.Fatalf("review copy must distinguish USB from internal disks: %q", view.Detail)
+	if view.Detail != creatorT(msgReviewDetail) {
+		t.Fatalf("review internal-disk boundary bypassed localization owner: %q", view.Detail)
 	}
-	if view.PrimaryAction != "Criar OrdaX" {
+	if view.PrimaryAction != creatorT(msgActionCreate) {
 		t.Fatalf("primary action = %q", view.PrimaryAction)
 	}
 }
@@ -52,11 +49,11 @@ func TestCreatorExperienceWriteProgressPreventsNavigation(t *testing.T) {
 	if view.CanContinue {
 		t.Fatal("write progress must not expose forward navigation")
 	}
-	if !strings.Contains(view.Title, "Não remova") {
-		t.Fatalf("write title must warn against removing USB: %q", view.Title)
+	if view.Title != creatorT(msgCreatingTitle) {
+		t.Fatalf("write removal warning bypassed localization owner: %q", view.Title)
 	}
-	if !strings.Contains(view.Detail, "verificação") {
-		t.Fatalf("write detail should explain verification: %q", view.Detail)
+	if view.Detail != creatorT(msgCreatingDetail) {
+		t.Fatalf("write verification detail bypassed localization owner: %q", view.Detail)
 	}
 }
 
@@ -68,10 +65,10 @@ func TestCreatorExperienceCompleteTeachesNextBootStep(t *testing.T) {
 	if !view.CanContinue {
 		t.Fatal("complete state must allow finishing")
 	}
-	if !strings.Contains(view.Body, "iniciar pelo USB") {
-		t.Fatalf("completion copy must explain next boot step: %q", view.Body)
+	if view.Body != creatorT(msgCompleteBody) {
+		t.Fatalf("completion next-boot copy bypassed localization owner: %q", view.Body)
 	}
-	if view.SecondaryAction != "Como iniciar pelo USB" {
+	if view.SecondaryAction != creatorT(msgActionBootHelp) {
 		t.Fatalf("secondary action = %q", view.SecondaryAction)
 	}
 }
@@ -88,20 +85,42 @@ func TestCreatorExperienceBlockedChannelNeverLooksReady(t *testing.T) {
 	if view.CanContinue || view.Destructive {
 		t.Fatalf("blocked channel must remain non-destructive: %+v", view)
 	}
-	if !strings.Contains(view.Detail, "Nenhuma alteração") {
-		t.Fatalf("blocked copy must state that media was untouched: %q", view.Detail)
+	if view.Detail != creatorT(msgBlockedDetail) {
+		t.Fatalf("blocked untouched-media copy bypassed localization owner: %q", view.Detail)
 	}
 }
 
 func TestCreatorExperienceErrorFailsClosed(t *testing.T) {
-	view := creatorExperience(creatorExperienceInput{Error: "falha de validação"})
+	view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
 	if view.Step != creatorStepBlocked {
 		t.Fatalf("step = %q, want %q", view.Step, creatorStepBlocked)
 	}
 	if view.CanContinue || view.Destructive {
 		t.Fatalf("error state must fail closed: %+v", view)
 	}
-	if view.Detail != "falha de validação" {
+	if view.Detail != creatorT(msgPhysicalWriteFailedDetail) {
 		t.Fatalf("detail = %q", view.Detail)
+	}
+}
+
+func TestCreatorExperienceSafetyStateIsLocaleIndependent(t *testing.T) {
+	previous := currentCreatorLocale()
+	t.Cleanup(func() { setCreatorLocale(string(previous)) })
+
+	var baseline creatorExperienceView
+	for index, locale := range []creatorLocale{creatorLocalePTBR, creatorLocaleENUS} {
+		setCreatorLocale(string(locale))
+		view := creatorExperience(creatorExperienceInput{
+			TargetCount:    1,
+			TargetSelected: true,
+			PhysicalReady:  true,
+		})
+		if index == 0 {
+			baseline = view
+			continue
+		}
+		if view.Step != baseline.Step || view.StepNumber != baseline.StepNumber || view.StepCount != baseline.StepCount || view.Destructive != baseline.Destructive || view.CanContinue != baseline.CanContinue || view.Illustration != baseline.Illustration {
+			t.Fatalf("safety/navigation state changed with locale: pt=%+v en=%+v", baseline, view)
+		}
 	}
 }

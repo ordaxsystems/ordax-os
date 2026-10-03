@@ -1,5 +1,5 @@
 {
-  "$schema": "prototype-ordax.creator-ux-baseline/1",
+  "$schema": "prototype-ordax.creator-ux-baseline/2",
   "status": "minimum-rufus-class-baseline",
   "primary_flow": [
     "detect_usb",
@@ -11,8 +11,11 @@
     "readback_verify",
     "complete"
   ],
-  "user_selectable_inputs": [
+  "user_required_inputs": [
     "usb_target"
+  ],
+  "user_optional_preferences": [
+    "locale"
   ],
   "forbidden_required_inputs": [
     "iso_path",
@@ -24,6 +27,35 @@
     "terminal_command",
     "publisher_key"
   ],
+  "localization": {
+    "owner": "creator",
+    "source_locale": "pt-BR",
+    "bundled_locales": [
+      "pt-BR",
+      "en-US"
+    ],
+    "initial_locale_source": "windows-user-locale",
+    "fallback_locale": "pt-BR",
+    "user_selection_persisted": true,
+    "catalog_parity_required": true,
+    "placeholder_parity_required": true,
+    "raw_diagnostic_hidden_from_user_copy": true,
+    "additional_locales_component_scoped": true
+  },
+  "owner_distribution": {
+    "format": "split-zip-bundle",
+    "artifact": "OrdaX-Creator-Owner-Prototype.zip",
+    "gui_raw_backend_separate": true,
+    "standalone_gui_published": false,
+    "bundle_extraction_required": true
+  },
+  "owner_update": {
+    "manifest_schema": "prototype-ordax.creator-owner-bundle-update/1",
+    "artifact": "OrdaX-Creator-Owner-Prototype.zip",
+    "automatic_in_app_update": false,
+    "anti_downgrade_check": true,
+    "unsupported_automatic_update_fails_closed": true
+  },
   "requirements": {
     "automatic_update_check_on_launch": true,
     "visible_update_control": true,
@@ -50,15 +82,13 @@
     "visuals_follow_guided_state_machine": true,
     "visuals_add_no_network_or_web_runtime_dependency": true,
     "owner_write_package_independent_from_creator_dev": true,
-    "owner_distribution_is_single_standalone_executable": true,
-    "owner_distribution_requires_no_zip_extraction": true,
-    "owner_elevated_backend_is_same_creator_build": true,
+    "owner_gui_and_raw_writer_are_separate": true,
     "physical_write_has_single_uac_elevation_boundary": true,
-    "owner_update_artifact_is_standalone_executable": true,
-    "owner_update_applies_inside_creator": true,
-    "owner_update_validates_sha256_and_size": true,
+    "owner_update_detects_published_bundle": true,
+    "owner_update_manifest_validates_sha256_and_size_binding": true,
     "owner_update_blocks_downgrade": true,
-    "owner_update_restarts_automatically": true,
-    "owner_update_has_automatic_rollback": true
+    "owner_update_does_not_run_unsupported_bundle_installer": true,
+    "creator_copy_uses_localization_owner": true,
+    "creator_locale_selection_is_persistent": true
   }
 }
