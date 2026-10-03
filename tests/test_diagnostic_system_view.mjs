@@ -10,7 +10,7 @@ import { UPDATE_STATUS_SCHEMA } from "../system/contracts/update-status.mjs";
 import { createDiagnosticReviewController } from "../system/services/diagnostics/controller.mjs";
 import { createDiagnosticJournalRuntime } from "../system/services/diagnostics/runtime.mjs";
 import { LOCALIZATION_SCHEMA } from "../system/contracts/localization.mjs";
-import { createLocaleProfile } from "../system/services/i18n/locale-profile.mjs";
+import { createLocaleProfile } from "../system/contracts/locale-profile.mjs";
 import {
   SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES,
   SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES,
