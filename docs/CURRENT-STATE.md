@@ -396,7 +396,7 @@ CANONICAL_STABLE_TARGET_HARDWARE_PROOF=PENDING_PHYSICAL
 
 ### Shared Surface localization
 
-The Surface now owns `ordax.localization/1`, derived from the existing persisted
+The Surface now owns `ordax.localization/2`, derived from the existing persisted
 `regional.locale` preference rather than a second locale state. The shell is
 created in the selected locale on its first frame and re-renders localized shell
 copy without rebuilding windows or losing interaction state. English entries now
@@ -430,7 +430,7 @@ stale rendered copy. The shared Home continuation/pending cards, power controls,
 global update accelerator, desktop-clock fallback and Surface boot screen also use the shared
 localization owner; first-party async feedback retains semantic message identity across live locale
 changes. Network and battery tray/quick-panel presentation plus the Notification Center use
-`ordax.localization/1` and rerender on locale changes. `ordax.notifications/3` keeps
+`ordax.localization/2` and rerender on locale changes. `ordax.notifications/3` keeps
 backward-compatible text fallbacks while first-party update events persist bounded semantic
 presentation identity, allowing stored update history to rerender in the active locale without
 heuristic text translation. The public MVP selectors expose only PT-BR and en-US. Spanish, German
