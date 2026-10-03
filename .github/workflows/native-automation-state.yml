@@ -6,8 +6,14 @@ on:
       - 'docs/contracts/native-automation-state.json'
       - 'system/surface/runtime/native_automation_state.py'
       - 'system/surface/runtime/native_automation_endpoint.py'
+      - 'system/adapters/native/automation-state.mjs'
+      - 'system/services/background/runtime.mjs'
+      - 'system/services/scheduler/runtime.mjs'
       - 'tests/test_automation_native_state.py'
       - 'tests/test_automation_native_endpoint.py'
+      - 'tests/test_native_automation_adapter.mjs'
+      - 'tests/test_background_runtime.mjs'
+      - 'tests/test_scheduler_runtime.mjs'
       - '.github/workflows/native-automation-state.yml'
   push:
     branches: [main]
@@ -15,8 +21,14 @@ on:
       - 'docs/contracts/native-automation-state.json'
       - 'system/surface/runtime/native_automation_state.py'
       - 'system/surface/runtime/native_automation_endpoint.py'
+      - 'system/adapters/native/automation-state.mjs'
+      - 'system/services/background/runtime.mjs'
+      - 'system/services/scheduler/runtime.mjs'
       - 'tests/test_automation_native_state.py'
       - 'tests/test_automation_native_endpoint.py'
+      - 'tests/test_native_automation_adapter.mjs'
+      - 'tests/test_background_runtime.mjs'
+      - 'tests/test_scheduler_runtime.mjs'
       - '.github/workflows/native-automation-state.yml'
   workflow_dispatch:
 
@@ -38,8 +50,18 @@ jobs:
           set -euo pipefail
           python -m json.tool docs/contracts/native-automation-state.json >/dev/null
           python -m py_compile system/surface/runtime/native_automation_state.py system/surface/runtime/native_automation_endpoint.py
+          node --check system/adapters/native/automation-state.mjs
+          node --check system/services/background/runtime.mjs
+          node --check system/services/scheduler/runtime.mjs
 
       - name: Prove private atomic CAS and outbox persistence
         run: |
           set -euo pipefail
           python -m unittest tests.test_automation_native_state tests.test_automation_native_endpoint
+
+      - name: Prove async Native bridge without mirrored state
+        run: |
+          set -euo pipefail
+          node --test tests/test_native_automation_adapter.mjs
+          node --test tests/test_background_runtime.mjs
+          node --test tests/test_scheduler_runtime.mjs

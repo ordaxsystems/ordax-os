@@ -92,37 +92,37 @@ function createOnce(runtime) {
   });
 }
 
-test("scheduler materializes a due occurrence exactly once in its transactional store", () => {
+test("scheduler materializes a due occurrence exactly once in its transactional store", async () => {
   const { runtime } = harness();
-  const schedule = createOnce(runtime);
+  const schedule = await createOnce(runtime);
   assert.equal(schedule.authority, "none");
 
-  const first = runtime.materializeDue();
+  const first = await runtime.materializeDue();
   assert.equal(first.length, 1);
   assert.equal(first[0].authority, "none");
-  assert.equal(runtime.getSchedule(schedule.scheduleId).enabled, false);
-  assert.equal(runtime.materializeDue().length, 0);
+  assert.equal((await runtime.getSchedule(schedule.scheduleId)).enabled, false);
+  assert.equal((await runtime.materializeDue()).length, 0);
 });
 
-test("delivery failure keeps occurrence pending and retry uses stable deduplication key", () => {
+test("delivery failure keeps occurrence pending and retry uses stable deduplication key", async () => {
   const h = harness({ dispatchAccepts: false });
-  createOnce(h.runtime);
-  const [occurrence] = h.runtime.materializeDue();
+  await createOnce(h.runtime);
+  const [occurrence] = await h.runtime.materializeDue();
 
-  assert.equal(h.runtime.deliverPending().length, 0);
+  assert.equal((await h.runtime.deliverPending()).length, 0);
   assert.equal(h.received.length, 1);
   assert.equal(h.received[0].deduplicationKey, occurrence.deduplicationKey);
 
   h.setDispatchAccepts(true);
-  const delivered = h.runtime.deliverPending();
+  const delivered = await h.runtime.deliverPending();
   assert.equal(delivered.length, 1);
   assert.equal(delivered[0].deduplicationKey, occurrence.deduplicationKey);
-  assert.equal(h.runtime.deliverPending().length, 0);
+  assert.equal((await h.runtime.deliverPending()).length, 0);
 });
 
-test("fixed interval coalesces missed periods and advances nextRunAt into the future", () => {
+test("fixed interval coalesces missed periods and advances nextRunAt into the future", async () => {
   const h = harness();
-  const schedule = h.runtime.createSchedule({
+  const schedule = await h.runtime.createSchedule({
     consumerId: "personal-ordax",
     subjectId: "work-2",
     ownerKind: "device",
@@ -133,16 +133,16 @@ test("fixed interval coalesces missed periods and advances nextRunAt into the fu
     deduplicationKey: "work-2-interval",
   });
 
-  const [occurrence] = h.runtime.materializeDue();
+  const [occurrence] = await h.runtime.materializeDue();
   assert.equal(occurrence.dueAt, "2026-10-03T14:55:00.000Z");
-  const updated = h.runtime.getSchedule(schedule.scheduleId);
+  const updated = await h.runtime.getSchedule(schedule.scheduleId);
   assert.equal(updated.runCount, 1);
   assert.equal(updated.nextRunAt, "2026-10-03T15:01:00.000Z");
 });
 
-test("manual disable is atomic and prevents future occurrence creation", () => {
+test("manual disable is atomic and prevents future occurrence creation", async () => {
   const h = harness();
-  const schedule = h.runtime.createSchedule({
+  const schedule = await h.runtime.createSchedule({
     consumerId: "personal-ordax",
     subjectId: "work-3",
     ownerKind: "device",
@@ -152,14 +152,14 @@ test("manual disable is atomic and prevents future occurrence creation", () => {
     maxRuns: 5,
     deduplicationKey: "work-3",
   });
-  const disabled = h.runtime.disable(schedule.scheduleId);
+  const disabled = await h.runtime.disable(schedule.scheduleId);
   assert.equal(disabled.enabled, false);
   assert.equal(disabled.nextRunAt, null);
   h.advance(120_000);
-  assert.equal(h.runtime.materializeDue().length, 0);
+  assert.equal((await h.runtime.materializeDue()).length, 0);
 });
 
-test("schedule concurrency conflict does not duplicate an occurrence", () => {
+test("schedule concurrency conflict does not duplicate an occurrence", async () => {
   const real = createStore();
   let rejectCommit = false;
   const store = {
@@ -170,15 +170,15 @@ test("schedule concurrency conflict does not duplicate an occurrence", () => {
     },
   };
   const h = harness({ store });
-  const schedule = createOnce(h.runtime);
+  const schedule = await createOnce(h.runtime);
   rejectCommit = true;
-  assert.equal(h.runtime.materializeDue().length, 0);
-  assert.equal(h.runtime.getSchedule(schedule.scheduleId).runCount, 0);
+  assert.equal((await h.runtime.materializeDue()).length, 0);
+  assert.equal((await h.runtime.getSchedule(schedule.scheduleId)).runCount, 0);
 });
 
-test("invalid timezone and unbounded recurrence fail closed", () => {
+test("invalid timezone and unbounded recurrence fail closed", async () => {
   const { runtime } = harness();
-  assert.throws(() => runtime.createSchedule({
+  await assert.rejects(runtime.createSchedule({
     consumerId: "personal-ordax",
     subjectId: "work-x",
     ownerKind: "device",
