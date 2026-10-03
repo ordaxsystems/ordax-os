@@ -33,16 +33,21 @@
     ],
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
+    "account_prefix": "/account/",
     "identity_gateway_entrypoint": "services/public-identity/gateway.py:application",
     "deployed_account_gateway": "ordax-control-plane:ordax-account-gateway",
     "same_origin_identity_required": true,
     "same_origin_sync_required": true,
+    "same_origin_account_required": true,
     "unknown_static_route_behavior": 404,
     "gateway_public_activation_gate_required": true,
     "gateway_public_activation_currently_enabled": false,
     "recovery_request_path": "/auth/recover",
     "recovery_verify_path": "/auth/recover/verify",
-    "recovery_complete_path": "/auth/recover/complete"
+    "recovery_complete_path": "/auth/recover/complete",
+    "account_export_path": "/account/export",
+    "account_close_path": "/account/close",
+    "account_spaces_path": "/account/spaces"
   },
   "security_headers": {
     "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'",
@@ -57,7 +62,8 @@
     "release_catalog": "no-store",
     "assets": "public, max-age=300",
     "identity": "no-store",
-    "sync": "no-store"
+    "sync": "no-store",
+    "account": "no-store"
   },
   "production_requirements": {
     "https": true,
@@ -74,7 +80,8 @@
     "recovery_tokens_must_not_enter_browser_javascript": true,
     "tls_terminator_must_append_real_client_ip": true,
     "adapter_must_trust_only_loopback_real_ip_source": true,
-    "public_auth_rate_limits_required": true
+    "public_auth_rate_limits_required": true,
+    "sensitive_account_mutation_rate_limit_required": true
   },
   "security_rate_limits": {
     "status_code": 429,
@@ -91,6 +98,11 @@
     "recovery_completion": {
       "rate": "10r/m",
       "burst": 5,
+      "key": "restored-real-client-ip"
+    },
+    "account_close": {
+      "rate": "5r/m",
+      "burst": 2,
       "key": "restored-real-client-ip"
     }
   }
