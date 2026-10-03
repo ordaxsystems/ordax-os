@@ -17,7 +17,7 @@ type creatorExperienceInput struct {
 	PhysicalReady  bool
 	WriteActive    bool
 	WriteComplete  bool
-	Error          string
+	ErrorMessageID creatorMessageID
 }
 
 type creatorExperienceView struct {
@@ -37,18 +37,20 @@ type creatorExperienceView struct {
 
 func creatorExperience(input creatorExperienceInput) creatorExperienceView {
 	const steps = 4
+	locale := currentCreatorLocale()
+	t := func(id creatorMessageID) string { return creatorMessageFor(locale, id, nil) }
 
-	if input.Error != "" {
+	if input.ErrorMessageID != "" {
 		return creatorExperienceView{
 			Step:            creatorStepBlocked,
 			StepNumber:      0,
 			StepCount:       steps,
-			Eyebrow:         creatorT(msgExperienceErrorEyebrow),
-			Title:           creatorT(msgExperienceErrorTitle),
-			Body:            creatorT(msgExperienceErrorBody),
-			Detail:          input.Error,
-			PrimaryAction:   creatorT(msgActionRetry),
-			SecondaryAction: creatorT(msgActionClose),
+			Eyebrow:         t(msgExperienceErrorEyebrow),
+			Title:           t(msgExperienceErrorTitle),
+			Body:            t(msgExperienceErrorBody),
+			Detail:          t(input.ErrorMessageID),
+			PrimaryAction:   t(msgActionRetry),
+			SecondaryAction: t(msgActionClose),
 			Illustration:    "shield-alert",
 		}
 	}
@@ -58,12 +60,12 @@ func creatorExperience(input creatorExperienceInput) creatorExperienceView {
 			Step:            creatorStepComplete,
 			StepNumber:      steps,
 			StepCount:       steps,
-			Eyebrow:         creatorT(msgCompleteEyebrow),
-			Title:           creatorT(msgCompleteTitle),
-			Body:            creatorT(msgCompleteBody),
-			Detail:          creatorT(msgCompleteDetail),
-			PrimaryAction:   creatorT(msgActionFinish),
-			SecondaryAction: creatorT(msgActionBootHelp),
+			Eyebrow:         t(msgCompleteEyebrow),
+			Title:           t(msgCompleteTitle),
+			Body:            t(msgCompleteBody),
+			Detail:          t(msgCompleteDetail),
+			PrimaryAction:   t(msgActionFinish),
+			SecondaryAction: t(msgActionBootHelp),
 			Illustration:    "usb-ready",
 			CanContinue:     true,
 		}
@@ -74,10 +76,10 @@ func creatorExperience(input creatorExperienceInput) creatorExperienceView {
 			Step:         creatorStepCreating,
 			StepNumber:   steps,
 			StepCount:    steps,
-			Eyebrow:      creatorT(msgCreatingEyebrow),
-			Title:        creatorT(msgCreatingTitle),
-			Body:         creatorT(msgCreatingBody),
-			Detail:       creatorT(msgCreatingDetail),
+			Eyebrow:      t(msgCreatingEyebrow),
+			Title:        t(msgCreatingTitle),
+			Body:         t(msgCreatingBody),
+			Detail:       t(msgCreatingDetail),
 			Illustration: "write-progress",
 			CanContinue:  false,
 		}
@@ -88,11 +90,11 @@ func creatorExperience(input creatorExperienceInput) creatorExperienceView {
 			Step:          creatorStepConnect,
 			StepNumber:    1,
 			StepCount:     steps,
-			Eyebrow:       creatorT(msgConnectEyebrow),
-			Title:         creatorT(msgConnectTitle),
-			Body:          creatorT(msgConnectBody),
-			Detail:        creatorT(msgConnectDetail),
-			PrimaryAction: creatorT(msgActionReloadUSB),
+			Eyebrow:       t(msgConnectEyebrow),
+			Title:         t(msgConnectTitle),
+			Body:          t(msgConnectBody),
+			Detail:        t(msgConnectDetail),
+			PrimaryAction: t(msgActionReloadUSB),
 			Illustration:  "usb-connect",
 			CanContinue:   false,
 		}
@@ -103,12 +105,12 @@ func creatorExperience(input creatorExperienceInput) creatorExperienceView {
 			Step:            creatorStepSelect,
 			StepNumber:      2,
 			StepCount:       steps,
-			Eyebrow:         creatorT(msgSelectEyebrow),
-			Title:           creatorT(msgSelectTitle),
-			Body:            creatorT(msgSelectBody),
-			Detail:          creatorT(msgSelectDetail),
-			PrimaryAction:   creatorT(msgActionContinue),
-			SecondaryAction: creatorT(msgActionReloadUSB),
+			Eyebrow:         t(msgSelectEyebrow),
+			Title:           t(msgSelectTitle),
+			Body:            t(msgSelectBody),
+			Detail:          t(msgSelectDetail),
+			PrimaryAction:   t(msgActionContinue),
+			SecondaryAction: t(msgActionReloadUSB),
 			Illustration:    "usb-select",
 			CanContinue:     false,
 		}
@@ -119,11 +121,11 @@ func creatorExperience(input creatorExperienceInput) creatorExperienceView {
 			Step:          creatorStepBlocked,
 			StepNumber:    3,
 			StepCount:     steps,
-			Eyebrow:       creatorT(msgBlockedEyebrow),
-			Title:         creatorT(msgBlockedTitle),
-			Body:          creatorT(msgBlockedBody),
-			Detail:        creatorT(msgBlockedDetail),
-			PrimaryAction: creatorT(msgActionReload),
+			Eyebrow:       t(msgBlockedEyebrow),
+			Title:         t(msgBlockedTitle),
+			Body:          t(msgBlockedBody),
+			Detail:        t(msgBlockedDetail),
+			PrimaryAction: t(msgActionReload),
 			Illustration:  "shield-lock",
 			CanContinue:   false,
 		}
@@ -133,12 +135,12 @@ func creatorExperience(input creatorExperienceInput) creatorExperienceView {
 		Step:            creatorStepReview,
 		StepNumber:      3,
 		StepCount:       steps,
-		Eyebrow:         creatorT(msgReviewEyebrow),
-		Title:           creatorT(msgReviewTitle),
-		Body:            creatorT(msgReviewBody),
-		Detail:          creatorT(msgReviewDetail),
-		PrimaryAction:   creatorT(msgActionCreate),
-		SecondaryAction: creatorT(msgActionBack),
+		Eyebrow:         t(msgReviewEyebrow),
+		Title:           t(msgReviewTitle),
+		Body:            t(msgReviewBody),
+		Detail:          t(msgReviewDetail),
+		PrimaryAction:   t(msgActionCreate),
+		SecondaryAction: t(msgActionBack),
 		Illustration:    "shield-check",
 		Destructive:     true,
 		CanContinue:     true,

@@ -18,7 +18,7 @@ const (
 	colorBtnFace       = 15
 	colorGrayText      = 17
 
-	transparent = 1
+	transparent  = 1
 	dtCenter     = 0x00000001
 	dtVCenter    = 0x00000004
 	dtSingleLine = 0x00000020
@@ -33,12 +33,12 @@ type rect struct {
 }
 
 type paintStruct struct {
-	Hdc         uintptr
-	Erase       int32
-	Paint       rect
-	Restore     int32
-	IncUpdate   int32
-	Reserved    [32]byte
+	Hdc       uintptr
+	Erase     int32
+	Paint     rect
+	Restore   int32
+	IncUpdate int32
+	Reserved  [32]byte
 }
 
 var (
@@ -83,7 +83,9 @@ func currentGuidedExperience() creatorExperienceView {
 		TargetCount:    len(state.Targets),
 		TargetSelected: selectedTargetIndex() >= 0,
 		PhysicalReady:  state.PhysicalReady,
-		Error:          state.Error,
+	}
+	if state.Error != "" {
+		input.ErrorMessageID = msgRefreshFailedDetail
 	}
 
 	writeMu.Lock()
@@ -91,8 +93,8 @@ func currentGuidedExperience() creatorExperienceView {
 	writeMu.Unlock()
 	input.WriteActive = write.Active
 	input.WriteComplete = !write.Active && write.Success
-	if input.Error == "" && write.Error != "" {
-		input.Error = write.Error
+	if write.Error != "" {
+		input.ErrorMessageID = msgPhysicalWriteFailedDetail
 	}
 	return creatorExperience(input)
 }

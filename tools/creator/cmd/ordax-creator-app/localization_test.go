@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 var creatorPlaceholderPattern = regexp.MustCompile(`\{([A-Za-z][A-Za-z0-9]*)\}`)
@@ -43,20 +44,27 @@ func TestCreatorLocalizationCatalogsHaveExactParity(t *testing.T) {
 		if creatorPortugueseMarker.MatchString(en) {
 			t.Fatalf("possible PT-BR leak in en-US %q: %q", id, en)
 		}
+		for _, value := range []string{pt, en} {
+			for _, r := range value {
+				if r == unicode.ReplacementChar || (unicode.IsControl(r) && r != '\n' && r != '\t') {
+					t.Fatalf("invalid character U+%04X in %q", r, id)
+				}
+			}
+		}
 	}
 }
 
 func TestCreatorLocaleResolutionIsDeterministic(t *testing.T) {
 	cases := map[string]creatorLocale{
-		"pt-BR": creatorLocalePTBR,
-		"pt_BR": creatorLocalePTBR,
-		"pt-PT": creatorLocalePTBR,
-		"en-US": creatorLocaleENUS,
-		"en_GB": creatorLocaleENUS,
-		"en": creatorLocaleENUS,
-		"zh-Hans": creatorSourceLocale,
+		"pt-BR":    creatorLocalePTBR,
+		"pt_BR":    creatorLocalePTBR,
+		"pt-PT":    creatorLocalePTBR,
+		"en-US":    creatorLocaleENUS,
+		"en_GB":    creatorLocaleENUS,
+		"en":       creatorLocaleENUS,
+		"zh-Hans":  creatorSourceLocale,
 		"mandarin": creatorSourceLocale,
-		"": creatorSourceLocale,
+		"":         creatorSourceLocale,
 	}
 	for input, want := range cases {
 		if got := resolveCreatorLocale(input); got != want {

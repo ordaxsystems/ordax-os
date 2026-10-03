@@ -40,27 +40,30 @@ var (
 )
 
 type ownerUpdateManifest struct {
-	Schema       string `json:"$schema"`
-	Channel      string `json:"channel"`
-	Version      string `json:"version"`
-	SourceCommit string `json:"source_commit"`
-	DownloadURL  string `json:"download_url"`
-	SHA256       string `json:"sha256"`
-	Size         int64  `json:"size"`
+	Schema               string `json:"$schema"`
+	Channel              string `json:"channel"`
+	Version              string `json:"version"`
+	SourceCommit         string `json:"source_commit"`
+	Artifact             string `json:"artifact"`
+	DownloadURL          string `json:"download_url"`
+	SHA256               string `json:"sha256"`
+	Size                 int64  `json:"size"`
+	AutomaticInAppUpdate bool   `json:"automatic_in_app_update"`
 }
 
 type updateUIState struct {
-	Checking     bool
-	Installing   bool
-	RestartReady bool
-	Manual       bool
-	Available    bool
-	Version      string
-	SourceCommit string
-	DownloadURL  string
-	SHA256       string
-	Size         int64
-	Error        string
+	Checking             bool
+	Installing           bool
+	RestartReady         bool
+	Manual               bool
+	Available            bool
+	AutomaticInAppUpdate bool
+	Version              string
+	SourceCommit         string
+	DownloadURL          string
+	SHA256               string
+	Size                 int64
+	Error                string
 }
 
 type ownerSelfUpdateTicket struct {
@@ -86,27 +89,33 @@ func validLowerHexString(value string, size int) bool {
 }
 
 func validateOwnerUpdateManifest(manifest ownerUpdateManifest) error {
-	if manifest.Schema != "prototype-ordax.creator-owner-update/2" {
-		return errors.New("manifesto de atualização incompatível")
+	if manifest.Schema != "prototype-ordax.creator-owner-bundle-update/1" {
+		return errors.New("Creator update manifest schema is incompatible")
 	}
 	if manifest.Channel != "owner-prototype" {
-		return errors.New("canal de atualização inesperado")
+		return errors.New("Creator update channel is unexpected")
 	}
 	if !validLowerHexString(manifest.SourceCommit, 40) {
-		return errors.New("source_commit inválido")
+		return errors.New("Creator update source_commit is invalid")
 	}
 	if manifest.Version != "owner-"+manifest.SourceCommit[:12] {
-		return errors.New("versão não corresponde ao commit publicado")
+		return errors.New("Creator update version does not match its source commit")
 	}
-	if !validLowerHexString(manifest.SHA256, 64) || manifest.Size <= 0 || manifest.Size > 256<<20 {
-		return errors.New("vínculo do executável de atualização inválido")
+	if manifest.Artifact != "OrdaX-Creator-Owner-Prototype.zip" {
+		return errors.New("Creator update artifact is unexpected")
+	}
+	if !validLowerHexString(manifest.SHA256, 64) || manifest.Size <= 0 || manifest.Size > 512<<20 {
+		return errors.New("Creator update bundle binding is invalid")
 	}
 	parsed, err := url.Parse(manifest.DownloadURL)
 	if err != nil || parsed.Scheme != "https" || parsed.Host != "github.com" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return errors.New("URL de atualização inválida")
+		return errors.New("Creator update URL is invalid")
 	}
-	if parsed.Path != "/washingtonmsdj/prototipo-ordax-os/releases/download/creator-owner-prototype/OrdaX-Creator.exe" {
-		return errors.New("executável de atualização fora do canal OrdaX")
+	if parsed.Path != "/washingtonmsdj/prototipo-ordax-os/releases/download/creator-owner-prototype/OrdaX-Creator-Owner-Prototype.zip" {
+		return errors.New("Creator update bundle is outside the OrdaX release channel")
+	}
+	if manifest.AutomaticInAppUpdate {
+		return errors.New("automatic in-app bundle update is not supported by this Creator")
 	}
 	return nil
 }
@@ -185,7 +194,13 @@ func ownerUpdateIsForward(currentSource, candidateSource string) (bool, error) {
 	if comparison.Status == "ahead" && comparison.AheadBy > 0 && comparison.BehindBy == 0 {
 		return true, nil
 	}
-	return false, fmt.Errorf("a versão publicada não é descendente da versão atual; atualização bloqueada (status=%s)", comparison.Status)
+	if comparison.Status == "behind" && comparison.BehindBy > 0 && comparison.AheadBy == 0 {
+		return false, nil
+	}
+	if comparison.Status == "identical" {
+		return false, nil
+	}
+	return false, fmt.Errorf("published Creator history diverges from the current version; update blocked (status=%s)", comparison.Status)
 }
 
 func ownerUpdateRoot() (string, error) {
@@ -355,6 +370,9 @@ func writeOwnerSelfUpdateTicket(manifest ownerUpdateManifest, stagedPath string)
 }
 
 func stageAndLaunchOwnerSelfUpdate(state updateUIState) error {
+	if !state.AutomaticInAppUpdate {
+		return errors.New("automatic in-app bundle update is disabled for this channel")
+	}
 	manifest := ownerUpdateManifest{
 		Schema:       "prototype-ordax.creator-owner-update/2",
 		Channel:      "owner-prototype",
@@ -613,7 +631,7 @@ func beginUpdateCheck(manual bool) {
 	_, currentSource, owner := ownerPrototypeBuildInfo()
 	if !owner {
 		if manual {
-			messageBox("Este build usa o canal de desenvolvimento. O Creator gravável possui o canal de atualização próprio.", "OrdaX Creator", mbOK|mbIconInformation)
+			messageBox(creatorT(msgUpdateDevChannelBody), windowTitle, mbOK|mbIconInformation)
 		}
 		return
 	}
@@ -635,6 +653,7 @@ func beginUpdateCheck(manual bool) {
 		} else {
 			state.Version = manifest.Version
 			state.SourceCommit = manifest.SourceCommit
+			state.AutomaticInAppUpdate = manifest.AutomaticInAppUpdate
 			state.DownloadURL = manifest.DownloadURL
 			state.SHA256 = manifest.SHA256
 			state.Size = manifest.Size
@@ -691,21 +710,25 @@ func renderUpdateUI() {
 		return
 	}
 	if state.Checking {
-		setText(updateButton, "Procurando…")
+		setText(updateButton, creatorT(msgUpdateChecking))
 		enable(updateButton, false)
 		return
 	}
 	if state.Installing {
-		setText(updateButton, "Atualizando…")
+		setText(updateButton, creatorT(msgUpdateInstalling))
 		enable(updateButton, false)
 		return
 	}
 	if state.Available {
-		setText(updateButton, "Atualizar agora")
+		if state.AutomaticInAppUpdate {
+			setText(updateButton, creatorT(msgUpdateNow))
+		} else {
+			setText(updateButton, creatorT(msgUpdateAvailableAction))
+		}
 		enable(updateButton, true)
 		return
 	}
-	setText(updateButton, "Atualizações")
+	setText(updateButton, creatorT(msgUpdateControl))
 	enable(updateButton, true)
 }
 
@@ -716,25 +739,29 @@ func renderUpdateDone() {
 	renderUpdateUI()
 
 	if state.RestartReady {
-		messageBox("A atualização foi baixada e validada. O OrdaX Creator será reiniciado agora; se a nova versão não iniciar corretamente, a versão anterior será restaurada automaticamente.", "Atualização pronta", mbOK|mbIconInformation)
+		messageBox(creatorT(msgUpdateReadyBody), creatorT(msgUpdateReadyTitle), mbOK|mbIconInformation)
 		procPostMessageW.Call(mainWindow, wmClose, 0, 0)
 		return
 	}
 	if state.Available && state.Error == "" {
-		setText(versionLabel, "OrdaX Creator • "+state.Version+" disponível")
+		setText(versionLabel, "OrdaX Creator • "+state.Version+" "+creatorT(msgVersionAvailable))
 		if state.Manual {
-			messageBox("Há uma nova versão do OrdaX Creator. Clique em ‘Atualizar agora’ para baixar, validar e reiniciar automaticamente; não há ZIP para extrair.", "Atualização disponível", mbOK|mbIconInformation)
+			body := creatorT(msgUpdateAvailableBody)
+			if !state.AutomaticInAppUpdate {
+				body = creatorT(msgUpdateBundleManualBody)
+			}
+			messageBox(body, creatorT(msgUpdateAvailableTitle), mbOK|mbIconInformation)
 		}
 		return
 	}
 	if state.Error != "" {
 		if state.Manual {
-			messageBox("Não foi possível concluir a atualização.\n\n"+state.Error, "OrdaX Creator", mbOK|mbIconError)
+			messageBox(creatorT(msgUpdateFailedBody), windowTitle, mbOK|mbIconError)
 		}
 		return
 	}
 	if state.Manual {
-		messageBox("Você já está usando a versão mais recente do OrdaX Creator.", "OrdaX Creator", mbOK|mbIconInformation)
+		messageBox(creatorT(msgUpdateCurrentBody), windowTitle, mbOK|mbIconInformation)
 	}
 }
 
@@ -745,17 +772,22 @@ func handleUpdateButton() {
 	updateMu.Lock()
 	state := currentUpdateState
 	updateMu.Unlock()
-	if state.Available && state.DownloadURL != "" && state.SHA256 != "" && state.Size > 0 {
-		beginOwnerSelfUpdate(state)
+	if state.Available {
+		if state.AutomaticInAppUpdate && state.DownloadURL != "" && state.SHA256 != "" && state.Size > 0 {
+			beginOwnerSelfUpdate(state)
+		} else {
+			messageBox(creatorT(msgUpdateBundleManualBody), creatorT(msgUpdateAvailableTitle), mbOK|mbIconInformation)
+		}
 		return
 	}
 	beginUpdateCheck(true)
 }
 
 func init() {
+	setCreatorLocale(string(loadCreatorLocalePreference()))
 	if len(os.Args) >= 2 && os.Args[1] == ownerSelfUpdateHelperCommand {
 		if err := runOwnerSelfUpdateHelper(os.Args[2:]); err != nil {
-			messageBox("A atualização não pôde ser concluída. A versão anterior foi preservada ou restaurada.\n\n"+err.Error(), "OrdaX Creator", mbOK|mbIconError)
+			messageBox(creatorT(msgUpdateRollbackBody), windowTitle, mbOK|mbIconError)
 			os.Exit(1)
 		}
 		os.Exit(0)

@@ -94,14 +94,14 @@ func TestCreatorExperienceBlockedChannelNeverLooksReady(t *testing.T) {
 }
 
 func TestCreatorExperienceErrorFailsClosed(t *testing.T) {
-	view := creatorExperience(creatorExperienceInput{Error: "falha de validação"})
+	view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
 	if view.Step != creatorStepBlocked {
 		t.Fatalf("step = %q, want %q", view.Step, creatorStepBlocked)
 	}
 	if view.CanContinue || view.Destructive {
 		t.Fatalf("error state must fail closed: %+v", view)
 	}
-	if view.Detail != "falha de validação" {
+	if view.Detail != creatorT(msgPhysicalWriteFailedDetail) {
 		t.Fatalf("detail = %q", view.Detail)
 	}
 }

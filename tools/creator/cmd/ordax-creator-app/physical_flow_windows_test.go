@@ -52,7 +52,6 @@ func TestValidatePhysicalPreparationRejectsAuthorizationMismatchShape(t *testing
 	}
 }
 
-
 func validPortablePreparationForTest() (portablePhysicalPreparationDocument, physicalTarget, string) {
 	target := physicalTarget{
 		DriveLetter:       "O:",
