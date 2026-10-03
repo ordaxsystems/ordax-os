@@ -11,6 +11,7 @@ import {
 import {
   compareComponentVersions,
   componentVersionIsNewer,
+  validateComponentVersion,
 } from "../system/contracts/component-manifest.mjs";
 import {
   coreRuntimeCompatibility,
@@ -97,14 +98,32 @@ test("canonical Local AI -> Intelligence compatibility chain is valid and author
   assert.equal(intelligenceCompatibility.authority, "none");
 });
 
-test("component semantic version ordering follows release precedence", () => {
+test("component semantic version ordering follows release precedence without integer precision loss", () => {
   assert.equal(compareComponentVersions("1.0.0", "1.0.0"), 0);
   assert.equal(compareComponentVersions("1.0.1", "1.0.0"), 1);
   assert.equal(compareComponentVersions("2.0.0", "1.99.99"), 1);
   assert.equal(compareComponentVersions("1.0.0-alpha.2", "1.0.0-alpha.10"), -1);
   assert.equal(compareComponentVersions("1.0.0-alpha", "1.0.0"), -1);
+  assert.equal(
+    compareComponentVersions(
+      "90071992547409930000000000000000001.0.0",
+      "90071992547409930000000000000000000.999999999999999999999.999999999999999999999",
+    ),
+    1,
+  );
+  assert.equal(
+    compareComponentVersions(
+      "1.0.0-alpha.90071992547409930000000000000000001",
+      "1.0.0-alpha.90071992547409930000000000000000000",
+    ),
+    1,
+  );
   assert.equal(componentVersionIsNewer("1.1.0", "1.0.9"), true);
   assert.equal(componentVersionIsNewer("1.0.0", "1.0.0"), false);
+  assert.throws(
+    () => validateComponentVersion(`1.0.0-${"a".repeat(129)}`),
+    /bounded semantic version/,
+  );
 });
 
 test("compatibility catalog fails closed when a required contract disappears", () => {
