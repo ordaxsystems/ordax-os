@@ -2,8 +2,8 @@ import { LOCALIZATION_SCHEMA, assertLocalizationPort } from "../../system/contra
 import { createLocaleProfile } from "../../system/contracts/locale-profile.mjs";
 
 export const PSEUDO_LOCALES = Object.freeze({
-  expanded: Object.freeze({ locale: "en-XA", direction: "ltr" }),
-  rtl: Object.freeze({ locale: "ar-XB", direction: "rtl" }),
+  expanded: Object.freeze({ locale: "en-XA", direction: "ltr", minimumExpansionRatio: 0.35 }),
+  rtl: Object.freeze({ locale: "ar-XB", direction: "rtl", minimumExpansionRatio: 0.35 }),
 });
 
 const ACCENTS = Object.freeze({
@@ -15,37 +15,40 @@ const ACCENTS = Object.freeze({
   s: "š", t: "ŧ", u: "ü", v: "ṽ", w: "ŵ", x: "ẋ", y: "ÿ", z: "ž",
 });
 
-const PLACEHOLDER = /\{[A-Za-z][A-Za-z0-9]*\}/g;
+const PLACEHOLDER = /{[A-Za-z][A-Za-z0-9]*}/g;
 
-function transformChunk(value) {
-  let transformed = "";
-  let letters = 0;
-  for (const char of value) {
-    if (/[A-Za-z]/.test(char)) letters += 1;
-    transformed += ACCENTS[char] ?? char;
-  }
-  const padding = " ~".repeat(Math.max(2, Math.ceil(letters * 0.35)));
-  return `${transformed}${padding}`;
+function transformSegment(value) {
+  return Array.from(value, character => ACCENTS[character] ?? character).join("");
+}
+
+function interpolate(value, variables = {}) {
+  return value.replace(/{([A-Za-z][A-Za-z0-9]*)}/g, (match, name) => (
+    Object.prototype.hasOwnProperty.call(variables, name)
+      && variables[name] !== undefined
+      && variables[name] !== null
+      ? String(variables[name])
+      : match
+  ));
 }
 
 export function pseudoLocalizeText(value, mode = "expanded") {
-  if (!Object.hasOwn(PSEUDO_LOCALES, mode)) {
+  const descriptor = PSEUDO_LOCALES[mode];
+  if (!descriptor) {
     throw new TypeError(`Unknown pseudo-locale mode: ${mode}`);
   }
-  const input = String(value);
-  let result = "";
-  let cursor = 0;
-  for (const match of input.matchAll(PLACEHOLDER)) {
-    result += transformChunk(input.slice(cursor, match.index));
-    result += match[0];
-    cursor = match.index + match[0].length;
-  }
-  result += transformChunk(input.slice(cursor));
 
-  if (mode === "rtl") {
-    return `⟦${result}⟧`;
-  }
-  return `[!! ${result} !!]`;
+  const input = String(value);
+  const tokens = input.split(/({[A-Za-z][A-Za-z0-9]*})/g);
+  let visibleLength = 0;
+  const transformed = tokens.map(token => {
+    if (/^{[A-Za-z][A-Za-z0-9]*}$/.test(token)) return token;
+    visibleLength += token.replace(/s+/g, "").length;
+    return transformSegment(token);
+  }).join("");
+
+  const padding = "·".repeat(Math.max(2, Math.ceil(visibleLength * descriptor.minimumExpansionRatio)));
+  const framed = `⟦${transformed}${padding}⟧`;
+  return mode === "rtl" ? `\u2067${framed}\u2069` : framed;
 }
 
 export function createPseudoLocalization(baseLocalization, mode = "expanded") {
@@ -67,7 +70,8 @@ export function createPseudoLocalization(baseLocalization, mode = "expanded") {
       return profile;
     },
     translate(messageId, values = {}) {
-      return pseudoLocalizeText(base.translate(messageId, values), mode);
+      const sourceWithPlaceholders = base.translate(messageId);
+      return interpolate(pseudoLocalizeText(sourceWithPlaceholders, mode), values);
     },
     subscribe(listener) {
       if (typeof listener !== "function") {
