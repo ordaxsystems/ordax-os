@@ -1,0 +1,61 @@
+name: MVP Account Cloud Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'infra/supabase/functions/ordax-account-gateway/**'
+      - 'services/public-identity/**'
+      - 'deploy/public-site/nginx.conf'
+      - 'docs/contracts/public-identity.json'
+      - 'docs/contracts/public-auth-hardening.json'
+      - 'docs/contracts/public-site.json'
+      - 'docs/contracts/public-site-deployment.json'
+      - 'docs/contracts/cloud-memory-sync-boundary.json'
+      - 'docs/contracts/mvp-account-cloud.json'
+      - 'docs/contracts/user-cloud-storage.json'
+      - 'tests/test_account_registration_activation_guard.py'
+      - 'tests/test_mvp_account_cloud_contract.py'
+      - 'tests/test_public_site_contract.py'
+      - 'tests/test_public_site_deployment.py'
+      - '.github/workflows/mvp-account-cloud-security.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  account-cloud-security:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate account cloud contracts
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/public-identity.json >/dev/null
+          python -m json.tool docs/contracts/public-auth-hardening.json >/dev/null
+          python -m json.tool docs/contracts/public-site.json >/dev/null
+          python -m json.tool docs/contracts/public-site-deployment.json >/dev/null
+          python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
+          python -m json.tool docs/contracts/mvp-account-cloud.json >/dev/null
+          python -m json.tool docs/contracts/user-cloud-storage.json >/dev/null
+
+      - name: Prove registration cannot be activated past missing Edge legal acceptance validation
+        run: python -m unittest tests.test_account_registration_activation_guard -v
+
+      - name: Prove MVP account cloud stays fail-closed while required
+        run: python -m unittest tests.test_mvp_account_cloud_contract -v
+
+      - name: Prove public same-origin account surface contract
+        run: |
+          python -m unittest tests.test_public_site_contract -v
+          python -m unittest tests.test_public_site_deployment -v
