@@ -13,18 +13,6 @@ const RTL_SCRIPTS = Object.freeze(new Set([
   "Thaa",
 ]));
 
-const RTL_DEFAULT_LANGUAGES = Object.freeze(new Set([
-  "ar",
-  "dv",
-  "fa",
-  "he",
-  "ps",
-  "sd",
-  "ug",
-  "ur",
-  "yi",
-]));
-
 function normalizeLocaleId(value) {
   const raw = String(value ?? "").trim();
   if (!raw) throw new TypeError("Locale id must be a non-empty string");
@@ -35,16 +23,10 @@ function normalizeLocaleId(value) {
   }
 }
 
-function explicitScript(locale) {
-  return locale.split("-").find((part, index) => index > 0 && /^[A-Z][a-z]{3}$/.test(part)) ?? null;
-}
-
 export function localeDirection(locale) {
   const id = normalizeLocaleId(locale);
-  const script = explicitScript(id);
-  if (script) return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
-  const language = id.split("-", 1)[0];
-  return RTL_DEFAULT_LANGUAGES.has(language) ? "rtl" : "ltr";
+  const script = new Intl.Locale(id).maximize().script;
+  return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
 }
 
 export function createLocaleProfile(locale) {
