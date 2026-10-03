@@ -23,12 +23,17 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 
 | Responsibility | Canonical owner |
 | --- | --- |
-| MVP scope | `MVP.md` |
+| MVP scope | `MVP.md` + exact gates in `docs/contracts/mvp-account-cloud.json` where applicable |
 | Current state / handoff | `docs/CURRENT-STATE.md` |
-| Architecture | `docs/ARCHITECTURE.md` |\n| Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
+| Architecture | `docs/ARCHITECTURE.md` |
+| Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
+| Account sync / plans | `docs/ACCOUNT-SYNC-AND-PLANS.md` |
+| MVP account cloud aggregate gate | `docs/contracts/mvp-account-cloud.json` |
+| User-selected private cloud objects | `system/services/user-cloud-storage/README.md` + `docs/contracts/user-cloud-storage.json` |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
-| Product modes | `docs/PRODUCT-MODES.md` |\n| Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
+| Product modes | `docs/PRODUCT-MODES.md` |
+| Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
 | Mobile Companion | `docs/MOBILE-COMPANION.md` |
 | Application compatibility | `docs/APPLICATION-COMPATIBILITY.md` |
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
@@ -39,7 +44,7 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 | Release trust ceremony | `docs/RELEASE-TRUST-CEREMONY.md` |
 | Release pipeline/channel/manifest | `docs/RELEASE-PIPELINE.md`, `docs/RELEASE-CHANNEL.md`, `docs/RELEASE-MANIFEST.md` |
 | Public site | `docs/PUBLIC-SITE.md` |
-| Storage | `docs/STORAGE-ARCHITECTURE.md` |
+| Physical/local storage | `docs/STORAGE-ARCHITECTURE.md` |
 | Update nomenclature | `docs/UPDATE-NOMENCLATURE.md` |
 | Legacy migration ledger | `docs/SOURCE-MIGRATION.md` |
 
