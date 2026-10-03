@@ -1,0 +1,67 @@
+{
+  "$schema": "prototype-ordax.first-party-app-delivery/1",
+  "status": "foundation-only-stable-payload-unchanged",
+  "owner": "system/services/apps",
+  "policy_schema": "ordax.first-party-app-delivery-policy/1",
+  "projection_schema": "ordax.first-party-app-delivery-projection/1",
+  "issue": 1016,
+  "principles": {
+    "catalogued_is_installed": false,
+    "launcher_entry_implies_launchable": false,
+    "store_ui_is_install_authority": false,
+    "delivery_policy_grants_authority": false,
+    "app_manifest_grants_authority": false,
+    "remove_app_removes_user_data": false,
+    "staged_means_activated": false,
+    "failed_update_may_retain_last_known_good": true,
+    "localization_policy": "component-scoped"
+  },
+  "delivery_classes": {
+    "structural": {
+      "meaning": "Surface/application shell is currently coupled to the System Platform and has no proven independent uninstall/recovery boundary.",
+      "store_installable": false,
+      "removable": false
+    },
+    "bootstrap": {
+      "meaning": "Shipped in the initial Stable experience but intended to become independently removable/updateable after lifecycle proof.",
+      "store_installable": true,
+      "removable": true
+    },
+    "on-demand": {
+      "meaning": "Known first-party product app that may be absent from the initial payload and installed later through the canonical component lifecycle.",
+      "store_installable": true,
+      "removable": true
+    }
+  },
+  "current_target_policy": {
+    "structural": ["settings", "account", "system"],
+    "bootstrap": ["files", "internet"],
+    "on_demand": ["assistant", "studio", "projects", "activity", "notes", "network"]
+  },
+  "surface_projection": {
+    "states": ["installed", "available", "installing", "staged", "blocked", "failed-retained", "not-catalogued"],
+    "missing_recommended_app_action": "show-install",
+    "missing_store_only_app_visible_in_launcher": false,
+    "installed_payload_required_for_launch": true
+  },
+  "inventory_boundary": {
+    "production_inventory_owner": "future-native-app-inventory",
+    "policy_is_inventory": false,
+    "catalog_is_inventory": false,
+    "surface_may_claim_installation": false
+  },
+  "store_boundary": {
+    "public_store_ui_enabled": false,
+    "store_ui_implemented": false,
+    "store_service_implemented": false,
+    "must_reuse_component_manager": true,
+    "must_reuse_runtime_component_release_v2_when_component_slot": true,
+    "may_create_parallel_updater": false
+  },
+  "mvp": {
+    "stable_payload_changed_by_this_foundation": false,
+    "existing_mvp_app_requirements_unchanged": true,
+    "public_store_is_mvp_blocker": false,
+    "promotion_to_on_demand_requires_install_reinstall_offline_rollback_uninstall_proof": true
+  }
+}
