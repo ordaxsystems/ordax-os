@@ -28,6 +28,7 @@
     "memory.cloud.enabled",
     "memory.cloud.bytes",
     "memory.history.days",
+    "storage.user.bytes",
     "ai.external.enabled",
     "ai.external.compute",
     "connectors.max",
@@ -164,6 +165,7 @@
     "cost_sensitive_quota_keys_pending_unit_cost_validation": [
       "memory.cloud.bytes",
       "memory.history.days",
+      "storage.user.bytes",
       "ai.external.compute",
       "sync.bytes",
       "backup.bytes"
