@@ -1,0 +1,90 @@
+{
+  "$schema": "prototype-ordax.user-cloud-storage/1",
+  "status": "mvp-required-source-foundation-provider-deployment-pending",
+  "owner": "system/services/user-cloud-storage",
+  "stable_object_contract": "ordax.user-cloud-object/1",
+  "upload_reservation_contract": "ordax.user-cloud-upload-reservation/1",
+  "mvp_required": true,
+  "public_rollout_enabled": false,
+  "principles": {
+    "explicit_user_selection_required": true,
+    "local_files_remain_usable_without_cloud": true,
+    "provider_neutral": true,
+    "public_bucket_allowed": false,
+    "provider_storage_is_authorization_source": false,
+    "transactional_metadata_is_authorization_source": true,
+    "client_claimed_quota_or_usage_is_authority": false,
+    "silent_delete_on_downgrade_allowed": false
+  },
+  "object_identity": {
+    "stable_object_id_required": true,
+    "opaque_provider_key_required": true,
+    "raw_local_path_in_provider_key_allowed": false,
+    "server_revision_required": true,
+    "sha256_required": true,
+    "size_bytes_required": true
+  },
+  "upload_protocol": {
+    "server_reservation_required": true,
+    "server_authoritative_quota_decision_required": true,
+    "short_lived_upload_authorization_required": true,
+    "reservation_bound_to_owner_object_size_digest": true,
+    "finalization_required": true,
+    "finalization_must_verify_size_and_digest": true,
+    "upsert_to_existing_provider_key_default": false,
+    "upload_authorization_creates_action_gateway_authority": false
+  },
+  "download_protocol": {
+    "private_by_default": true,
+    "short_lived_authorized_download_required": true,
+    "public_permanent_url_allowed": false
+  },
+  "deletion": {
+    "explicit_delete_required": true,
+    "metadata_tombstone_before_compaction_required": true,
+    "account_close_cleanup_required": true,
+    "quota_downgrade_may_delete_existing_objects": false
+  },
+  "authorization": {
+    "account_owner_supported": true,
+    "space_owner_supported": true,
+    "space_access_server_verified": true,
+    "cross_account_access_default": "deny",
+    "cross_space_access_default": "deny",
+    "service_role_in_client_allowed": false
+  },
+  "mvp_provider_adapter": {
+    "selected": "supabase-storage",
+    "bucket": "ordax-user-data",
+    "bucket_must_be_private": true,
+    "bucket_currently_deployed": false,
+    "storage_objects_direct_client_write_authority": false,
+    "signed_or_equivalent_upload_authorization": true,
+    "large_upload_resume_support_required": true
+  },
+  "future_provider_options": {
+    "cloudflare_r2": "eligible-adapter-for-large-blobs-after-cost-security-evaluation",
+    "provider_switch_may_change_domain_object_id": false,
+    "provider_switch_may_change_client_ownership_semantics": false
+  },
+  "quota": {
+    "key": "storage.user.bytes",
+    "numeric_limit_defined": false,
+    "numeric_limit_requires_measured_unit_cost": true,
+    "metering_authority": "server",
+    "growth_must_be_admitted_before_upload": true,
+    "delete_and_export_allowed_while_over_quota": true
+  },
+  "activation_gates": [
+    "private bucket exists with no anonymous/public object access",
+    "transactional metadata and reservation owner are deployed",
+    "server-side quota admission cannot be bypassed by direct provider writes",
+    "signed upload authorization is bound to an opaque reserved object key",
+    "finalization verifies exact reserved size and SHA-256 before object becomes active",
+    "negative cross-account and cross-Space read/write tests pass",
+    "delete, export, restore and account-close cleanup tests pass",
+    "oversized, expired, digest-mismatch and replay attempts fail closed",
+    "large resumable upload path is bounded and tested",
+    "public rollout switch remains disabled until every gate passes"
+  ]
+}
