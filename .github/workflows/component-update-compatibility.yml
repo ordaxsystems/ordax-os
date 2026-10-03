@@ -8,6 +8,7 @@ on:
       - 'docs/SYSTEM-FOUNDATION.md'
       - 'system/contracts/component-manifest.mjs'
       - 'system/contracts/component-update-compatibility.mjs'
+      - 'system/services/components/compatibility/**'
       - 'system/services/components/manager.mjs'
       - 'tests/test_component_manager.mjs'
       - 'tests/test_component_manager_update_safety.mjs'
@@ -19,6 +20,7 @@ on:
       - 'docs/SYSTEM-FOUNDATION.md'
       - 'system/contracts/component-manifest.mjs'
       - 'system/contracts/component-update-compatibility.mjs'
+      - 'system/services/components/compatibility/**'
       - 'system/services/components/manager.mjs'
       - 'tests/test_component_manager.mjs'
       - 'tests/test_component_manager_update_safety.mjs'
@@ -49,6 +51,7 @@ jobs:
           set -euo pipefail
           node --check system/contracts/component-manifest.mjs
           node --check system/contracts/component-update-compatibility.mjs
+          node --check system/services/components/compatibility/core.mjs
           node --check system/services/components/manager.mjs
 
       - name: Prove manager and compatibility regressions
