@@ -21,8 +21,7 @@ function reservation(overrides = {}) {
   return {
     reservationId: "reservation:12345678",
     objectId: "object:12345678",
-    ownerType: "account",
-    ownerId: "account-a",
+    accountId: "account-a",
     spaceId: null,
     expectedSizeBytes: 42,
     expectedSha256: digest,
@@ -33,20 +32,29 @@ function reservation(overrides = {}) {
 
 function quota(overrides = {}) {
   return {
+    schema: "ordax.service-quota-decision/1",
     subjectType: "account",
     subjectId: "account-a",
     key: "storage.user.bytes",
-    decision: "allowed",
-    authority: "server",
+    unit: "bytes",
+    state: "within-quota",
+    canAllocate: true,
+    retainExisting: true,
+    used: 100,
+    reserved: 0,
+    requested: 42,
+    limit: 1000,
+    remaining: 900,
+    authority: "server-quota-only",
+    actionAuthority: "none",
     ...overrides,
   };
 }
 
-test("cloud object contract keeps provider key opaque and owner-bound", () => {
+test("cloud object contract derives quota subject from account or Space context", () => {
   const value = validateUserCloudObject({
     objectId: "object:12345678",
-    ownerType: "space",
-    ownerId: "account-a",
+    accountId: "account-a",
     spaceId: "space-a",
     displayName: "model.glb",
     mediaType: "model/gltf-binary",
@@ -60,27 +68,50 @@ test("cloud object contract keeps provider key opaque and owner-bound", () => {
     updatedAt: "2029-01-01T00:00:00Z",
   });
   assert.equal(value.schema, USER_CLOUD_STORAGE_OBJECT_SCHEMA);
-  assert.equal(value.spaceId, "space-a");
+  assert.equal(value.subjectType, "space");
+  assert.equal(value.subjectId, "space-a");
+  assert.equal(value.accountId, "account-a");
   assert.throws(() => validateUserCloudObject({ ...value, providerObjectKey: "../escape" }));
 });
 
 test("reservation never carries action authority", () => {
   const value = validateUploadReservation(reservation());
   assert.equal(value.schema, USER_CLOUD_STORAGE_RESERVATION_SCHEMA);
+  assert.equal(value.subjectType, "account");
+  assert.equal(value.subjectId, "account-a");
   assert.equal(value.actionAuthority, "none");
 });
 
-test("remote upload requires a server-authoritative quota decision", () => {
+test("Space reservation uses Space as the quota subject without losing account actor", () => {
+  const value = validateUploadReservation(reservation({ spaceId: "space-a" }));
+  assert.equal(value.accountId, "account-a");
+  assert.equal(value.subjectType, "space");
+  assert.equal(value.subjectId, "space-a");
+});
+
+test("remote upload requires the canonical server-quota-only decision boundary", () => {
   assert.throws(
-    () => evaluateUserCloudUpload({ reservation: reservation(), quotaDecision: quota({ authority: "local-default" }), now }),
-    /server-authoritative/,
+    () => evaluateUserCloudUpload({
+      reservation: reservation(),
+      quotaDecision: quota({ authority: "server", actionAuthority: "none" }),
+      now,
+    }),
+    /server quota boundary/,
+  );
+  assert.throws(
+    () => evaluateUserCloudUpload({
+      reservation: reservation(),
+      quotaDecision: quota({ actionAuthority: "grant" }),
+      now,
+    }),
+    /server quota boundary/,
   );
 });
 
 test("quota downgrade blocks only new growth", () => {
   const result = evaluateUserCloudUpload({
     reservation: reservation(),
-    quotaDecision: quota({ decision: "limited" }),
+    quotaDecision: quota({ state: "over-quota-retained", canAllocate: false }),
     now,
   });
   assert.equal(result.schema, USER_CLOUD_STORAGE_POLICY_SCHEMA);
@@ -99,9 +130,20 @@ test("quota subject cannot be replayed across accounts", () => {
   assert.equal(result.reason, "quota-subject-mismatch");
 });
 
+test("quota reservation cannot authorize more or fewer bytes than the exact upload", () => {
+  const result = evaluateUserCloudUpload({
+    reservation: reservation(),
+    quotaDecision: quota({ requested: 41 }),
+    now,
+  });
+  assert.equal(result.uploadAuthorized, false);
+  assert.equal(result.reason, "quota-reservation-size-mismatch");
+});
+
 test("successful reservation remains bounded by expected size and digest", () => {
   const result = evaluateUserCloudUpload({ reservation: reservation(), quotaDecision: quota(), now });
   assert.equal(result.uploadAuthorized, true);
+  assert.equal(result.subjectType, "account");
   assert.equal(result.actionAuthority, "none");
   const finalized = verifyUploadFinalization({
     reservation: reservation(),
