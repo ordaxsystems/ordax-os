@@ -5,9 +5,24 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { listFirstPartyApps } from "../system/apps/catalog.mjs";
+import {
+  STUDIO_WORKSPACE_ENGLISH_MESSAGES,
+  STUDIO_WORKSPACE_SOURCE_MESSAGES,
+} from "../system/services/i18n/catalog/studio-workspace.mjs";
 import { translateSurfaceMessage } from "../system/services/i18n/surface.mjs";
 
-const PORTUGUESE_MARKER = /(?:[ãõáéíóúâêôç])|\b(?:abrir|ajustes|agora|aguarde|arquivo|arquivos|atualização|atualizando|bateria|cadastro|carregando|conectar|conectado|conta|continuar|criar|desconectado|disponível|documentos|energia|excluir|falha|fechar|fuso|idioma|indisponível|início|nenhum|nenhuma|notas|ontem|pendrive|primeiro|privacidade|pronto|procurar|rede|região|renomear|salvar|salvo|salva|segurança|senha|sessão|sinal|sistema|somente|termos|tudo|vigentes|voltar)\b/iu;
+const PORTUGUESE_MARKER = /(?:[ãõáéíóúâêôç])|\b(?:abrir|ajustes|agora|aguarde|arquivo|arquivos|atualização|atualizando|bateria|cadastro|carregando|conectar|conectado|conta|continuar|criar|degradado|desconectado|disponível|documentos|energia|escrita|excluir|falha|fechar|fuso|idioma|indisponível|início|leitura|nenhum|nenhuma|nota|notas|ontem|pendrive|primeiro|privacidade|pronto|procurar|rede|região|renomear|salvar|salvo|salva|segurança|senha|sessão|sinal|sistema|somente|termos|tudo|vigentes|voltar)\b/iu;
+
+const PROVEN_LOCALIZED_DEFAULTS = Object.freeze({
+  "system/apps/notes/ui/list-model.mjs": new Set([
+    "Agora",
+    "Ontem",
+    "Nota sem conteúdo",
+  ]),
+  "system/apps/notes/ui/rich-editor.mjs": new Set([
+    "Conteúdo da nota",
+  ]),
+});
 
 function literalBodies(source) {
   const values = [];
@@ -47,6 +62,23 @@ function assertEnglishCopy(messageId, sourceCopy = null) {
   );
 }
 
+function exactCatalogKeys(source, english, label) {
+  assert.deepEqual(
+    Object.keys(english).sort(),
+    Object.keys(source).sort(),
+    `${label}: en-US must have the exact PT-BR message-id set`,
+  );
+  for (const [messageId, value] of Object.entries(english)) {
+    assert.equal(typeof value, "string", `${messageId}: English copy must be text`);
+    assert.ok(value.length > 0, `${messageId}: English copy must not be empty`);
+    assert.equal(
+      PORTUGUESE_MARKER.test(value),
+      false,
+      `${messageId}: possible PT-BR copy leaked into English: ${value}`,
+    );
+  }
+}
+
 test("every registered first-party app has localized en-US display metadata", () => {
   const apps = listFirstPartyApps();
   assert.ok(apps.length >= 8, "audit must inspect the canonical first-party app catalog");
@@ -72,7 +104,36 @@ test("every registered first-party app has localized en-US display metadata", ()
   }
 });
 
-test("rendering modules outside First Run contain no direct Portuguese UI literals", async () => {
+test("Studio workspace has an exact shared pt-BR/en-US catalog", () => {
+  exactCatalogKeys(
+    STUDIO_WORKSPACE_SOURCE_MESSAGES,
+    STUDIO_WORKSPACE_ENGLISH_MESSAGES,
+    "Studio workspace",
+  );
+});
+
+test("Notes source defaults are overridden by localized runtime owners", async () => {
+  const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+  const workspace = await readFile(
+    path.join(repositoryRoot, "system/apps/notes/ui/workspace-controls.mjs"),
+    "utf8",
+  );
+  assert.match(workspace, /firstNotesBodyLine\(note\.body, t\("notes\.note\.emptyBody"\)\)/);
+  assert.match(workspace, /locale: localization\.getLocale\(\)/);
+  assert.match(workspace, /nowLabel: t\("notes\.time\.now"\)/);
+  assert.match(workspace, /yesterdayLabel: t\("notes\.time\.yesterday"\)/);
+
+  const runtime = await readFile(
+    path.join(repositoryRoot, "system/apps/notes/runtime.mjs"),
+    "utf8",
+  );
+  assert.match(runtime, /syncNotesEditorAccessibility/);
+  assert.match(runtime, /notes\.document\.kicker/);
+  assert.match(runtime, /notes\.format\.text/);
+  assert.match(runtime, /localization\.subscribe\(syncAccessibility\)/);
+});
+
+test("rendering modules outside First Run contain no unowned Portuguese UI literals", async () => {
   const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
   const surfaceUiRoot = path.join(repositoryRoot, "system", "surface", "ui");
   const appsRoot = path.join(repositoryRoot, "system", "apps");
@@ -87,9 +148,14 @@ test("rendering modules outside First Run contain no direct Portuguese UI litera
   const violations = [];
   for (const file of files) {
     const source = await readFile(file, "utf8");
+    const relative = path.relative(repositoryRoot, file).split(path.sep).join("/");
     for (const literal of literalBodies(source)) {
       if (!PORTUGUESE_MARKER.test(literal)) continue;
-      violations.push(`${path.relative(repositoryRoot, file)} :: ${literal}`);
+      // Absolute application paths are data, not presentation copy. They are rendered
+      // only where a path is intentionally shown to the user and must not be translated.
+      if (literal.startsWith("/")) continue;
+      if (PROVEN_LOCALIZED_DEFAULTS[relative]?.has(literal)) continue;
+      violations.push(`${relative} :: ${literal}`);
     }
   }
 
