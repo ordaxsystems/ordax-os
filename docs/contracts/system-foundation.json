@@ -1,0 +1,61 @@
+{
+  "$schema": "prototype-ordax.system-foundation/1",
+  "status": "source-foundation",
+  "owner": "system/services/system-foundation",
+  "principles": {
+    "apps_are_consumers_not_system_owners": true,
+    "capability_availability_is_not_authority": true,
+    "policy_can_restrict_but_not_mint_authority": true,
+    "action_gateway_remains_final_action_authority_boundary": true,
+    "service_dependency_cycles_allowed": false,
+    "missing_required_service_dependency": "fail-closed",
+    "events_are_bounded_and_metadata-only": true,
+    "personal_ordax_is_orchestrator_not_platform_kernel": true,
+    "studio_is_app_and_capability_consumer": true
+  },
+  "root_services": [
+    "identity",
+    "memory",
+    "intelligence",
+    "sync",
+    "system-foundation",
+    "personal-ordax",
+    "device-agent"
+  ],
+  "system_foundation": {
+    "capability_registry": "ordax.system-capability-state/1",
+    "service_descriptor": "ordax.system-service/1",
+    "event": "ordax.system-event/1",
+    "policy_decision": "ordax.system-policy-decision/1"
+  },
+  "planned_root_owners": {
+    "scheduler": {
+      "owner": "system/services/scheduler",
+      "rule": "wakes work but never grants authority",
+      "runtime_enabled": false
+    },
+    "background": {
+      "owner": "system/services/background",
+      "rule": "bounded leases budgets cancellation and recovery before autonomous mutation",
+      "runtime_enabled": false
+    }
+  },
+  "memory_longevity": {
+    "canonical_schema": "ordax.memory/1",
+    "storage_manifest": "ordax.memory-storage-manifest/1",
+    "canonical_and_derived_index_separated": true,
+    "derived_index_rebuildable": true,
+    "storage_migrations_sequential": true,
+    "downgrade_of_newer_storage_refused": true,
+    "migration_must_preserve_owner": true,
+    "future_segmented_storage_required_before_unbounded_growth": true,
+    "current_snapshot_v1_remains_compatibility_boundary": true
+  },
+  "studio": {
+    "identity_owner": "ordax-os",
+    "memory_owner": "ordax-os",
+    "intelligence_owner": "ordax-os",
+    "permission_owner": "ordax-os",
+    "parallel_runtime_forbidden": true
+  }
+}
