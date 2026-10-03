@@ -8,8 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
-	"strings"
 )
 
 func sharedReleaseFromV2(release releaseDescriptorV2) releaseDescriptor {
@@ -109,8 +107,8 @@ func verifySlotV2WithTrustBytes(slot string, trustBytes []byte) (releaseDescript
 	}
 
 	expected := map[string]struct{}{
-		packageManifestName:         {},
-		slotEnvelopeName:            {},
+		packageManifestName:        {},
+		slotEnvelopeName:           {},
 		release.Compatibility.Name: {},
 	}
 	for _, record := range manifest.Files {
@@ -283,21 +281,4 @@ func stageComponentV2(
 		return releaseDescriptorV2{}, "", false, errors.New("final runtime component release/2 slot identity changed after commit")
 	}
 	return release, finalDir, true, nil
-}
-
-func sortedExpectedReleaseV2Files(manifest componentPackageManifest, release releaseDescriptorV2) []string {
-	files := []string{packageManifestName, slotEnvelopeName, release.Compatibility.Name}
-	for _, record := range manifest.Files {
-		files = append(files, record.Path)
-	}
-	sort.Strings(files)
-	return files
-}
-
-func isReleaseV2SlotError(err error) bool {
-	if err == nil {
-		return false
-	}
-	text := err.Error()
-	return strings.Contains(text, "release/2") || strings.Contains(text, "compatibility")
 }
