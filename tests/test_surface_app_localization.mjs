@@ -47,7 +47,7 @@ test("Surface lifecycle v4 requires the shared localization port", () => {
   );
   const lifecycle = Object.freeze({ ...base, localization: localizationPort() });
   assert.equal(assertSurfaceRenderLifecycle(lifecycle), lifecycle);
-  assert.equal(SURFACE_RENDER_LIFECYCLE_SCHEMA, "ordax.surface-render-lifecycle/4");
+  assert.equal(SURFACE_RENDER_LIFECYCLE_SCHEMA, "ordax.surface-render-lifecycle/5");
 });
 
 test("Files primary journey consumes shared localization and live locale", async () => {
