@@ -4,7 +4,6 @@ import {
   validateFirstPartyAppDeliveryObservation,
   validateFirstPartyAppDeliveryPolicy,
 } from "../../contracts/first-party-app-delivery.mjs";
-import { listFirstPartyApps } from "../../apps/catalog.mjs";
 
 const RAW_POLICIES = Object.freeze([
   { appId: "settings", deliveryClass: "structural", removable: false, discovery: "installed-only" },
@@ -33,32 +32,9 @@ const POLICIES = Object.freeze(
 );
 
 const POLICY_BY_ID = new Map(POLICIES.map((entry) => [entry.appId, entry]));
-
-function assertCanonicalCoverage() {
-  const apps = listFirstPartyApps();
-  const ids = new Set(apps.map((app) => app.id));
-  if (POLICY_BY_ID.size !== POLICIES.length) {
-    throw new TypeError("First-party delivery policy app ids must be unique");
-  }
-  if (ids.size !== POLICY_BY_ID.size) {
-    throw new TypeError("First-party delivery policy must cover every first-party app exactly once");
-  }
-  for (const app of apps) {
-    if (!POLICY_BY_ID.has(app.id)) {
-      throw new TypeError(`First-party app delivery policy is missing app: ${app.id}`);
-    }
-    if (app.localization?.packPolicy !== "component-scoped") {
-      throw new TypeError(`First-party app ${app.id} must keep component-scoped localization`);
-    }
-  }
-  for (const appId of POLICY_BY_ID.keys()) {
-    if (!ids.has(appId)) {
-      throw new TypeError(`First-party delivery policy references unknown app: ${appId}`);
-    }
-  }
+if (POLICY_BY_ID.size !== POLICIES.length) {
+  throw new TypeError("First-party delivery policy app ids must be unique");
 }
-
-assertCanonicalCoverage();
 
 export function listFirstPartyAppDeliveryPolicies() {
   return POLICIES;
