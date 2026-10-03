@@ -597,7 +597,6 @@ func createMainWindow() {
 
 	procShowWindow.Call(mainWindow, swShow)
 	procUpdateWindow.Call(mainWindow)
-	markOwnerUpdateHealthy()
 	beginRefresh()
 	beginUpdateCheck(false)
 }

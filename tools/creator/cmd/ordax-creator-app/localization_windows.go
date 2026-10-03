@@ -28,6 +28,10 @@ type creatorLocalePreference struct {
 	Locale string `json:"locale"`
 }
 
+func init() {
+	setCreatorLocale(string(loadCreatorLocalePreference()))
+}
+
 func creatorSystemLocale() string {
 	buffer := make([]uint16, localeNameMaxLength)
 	result, _, _ := procGetUserDefaultLocaleName.Call(

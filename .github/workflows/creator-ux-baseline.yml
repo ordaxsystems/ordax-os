@@ -131,7 +131,7 @@ jobs:
           required = {
               'main': [
                   'idLocaleCombo', 'creatorSupportedLocales()', 'saveCreatorLocalePreference(locale)',
-                  'renderCreatorLocaleUI()', 'beginUpdateCheck(false)', 'markOwnerUpdateHealthy()',
+                  'renderCreatorLocaleUI()', 'beginUpdateCheck(false)',
                   'len(state.Targets) == 1', 'cbSetCurSel', 'paintGuidedVisual(hwnd)',
                   'creatorBootHelpText()', 'msgHeaderTitle', 'msgActionCreate',
               ],
@@ -163,9 +163,9 @@ jobs:
               ],
               'update': [
                   'creator-owner-update.json', 'prototype-ordax.creator-owner-bundle-update/1',
-                  'OrdaX-Creator-Owner-Prototype.zip', 'AutomaticInAppUpdate',
+                  'OrdaX-Creator-Owner-Prototype.zip', 'AutomaticInAppUpdate bool',
                   'ownerUpdateIsForward', '/compare/', 'msgUpdateBundleManualBody',
-                  'state.AutomaticInAppUpdate && state.DownloadURL',
+                  'manifest.AutomaticInAppUpdate',
                   'automatic in-app bundle update is not supported by this Creator',
               ],
               'localization': [
@@ -211,6 +211,13 @@ jobs:
           assert 'menu de boot/UEFI' not in files['boot_help']
           assert 'Gravando OrdaX no pendrive' not in files['progress']
           assert 'Atualizar agora' not in files['update']
+          for legacy_updater_anchor in [
+              'ownerSelfUpdateHelperCommand',
+              'prototype-ordax.creator-self-update/1',
+              'stageAndLaunchOwnerSelfUpdate',
+              'waitForUpdateHealth',
+          ]:
+              assert legacy_updater_anchor not in files['update'], f'legacy single-EXE updater remains reachable: {legacy_updater_anchor}'
 
           release = files['release']
           assert 'workflow_run:' not in release

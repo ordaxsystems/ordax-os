@@ -62,8 +62,6 @@ const (
 	msgFieldUSB                  creatorMessageID = "creator.field.usb"
 	msgFieldLanguage             creatorMessageID = "creator.field.language"
 	msgUpdateChecking            creatorMessageID = "creator.update.checking"
-	msgUpdateInstalling          creatorMessageID = "creator.update.installing"
-	msgUpdateNow                 creatorMessageID = "creator.update.now"
 	msgUpdateAvailableAction     creatorMessageID = "creator.update.availableAction"
 	msgUpdateControl             creatorMessageID = "creator.update.control"
 	msgProgressStartingStatus    creatorMessageID = "creator.progress.starting.status"
@@ -105,13 +103,9 @@ const (
 	msgWritePreparingStatus      creatorMessageID = "creator.write.preparing.status"
 	msgWritePreparingHint        creatorMessageID = "creator.write.preparing.hint"
 	msgUpdateDevChannelBody      creatorMessageID = "creator.update.devChannel.body"
-	msgUpdateReadyTitle          creatorMessageID = "creator.update.ready.title"
-	msgUpdateReadyBody           creatorMessageID = "creator.update.ready.body"
 	msgUpdateAvailableTitle      creatorMessageID = "creator.update.available.title"
-	msgUpdateAvailableBody       creatorMessageID = "creator.update.available.body"
 	msgUpdateFailedBody          creatorMessageID = "creator.update.failed.body"
 	msgUpdateCurrentBody         creatorMessageID = "creator.update.current.body"
-	msgUpdateRollbackBody        creatorMessageID = "creator.update.rollback.body"
 	msgUpdateBundleManualBody    creatorMessageID = "creator.update.bundleManual.body"
 	msgPortablePlanStatus        creatorMessageID = "creator.write.portablePlan.status"
 	msgPortablePlanHint          creatorMessageID = "creator.write.portablePlan.hint"
@@ -166,8 +160,6 @@ var creatorPTBRMessages = map[creatorMessageID]string{
 	msgFieldUSB:                  "Pendrive",
 	msgFieldLanguage:             "Idioma",
 	msgUpdateChecking:            "Procurando…",
-	msgUpdateInstalling:          "Atualizando…",
-	msgUpdateNow:                 "Atualizar agora",
 	msgUpdateControl:             "Atualizações",
 	msgProgressStartingStatus:    "Iniciando gravação elevada…",
 	msgProgressStartingHint:      "O Creator abriu o backend autorizado e está iniciando as verificações finais.",
@@ -208,14 +200,10 @@ var creatorPTBRMessages = map[creatorMessageID]string{
 	msgWritePreparingStatus:      "Preparando o pendrive OrdaX…",
 	msgWritePreparingHint:        "A imagem oficial está sendo validada e preparada para o tamanho exato do USB selecionado.",
 	msgUpdateDevChannelBody:      "Este build usa o canal de desenvolvimento. O Creator gravável possui o canal de atualização próprio.",
-	msgUpdateReadyTitle:          "Atualização pronta",
-	msgUpdateReadyBody:           "A atualização foi baixada e validada. O OrdaX Creator será reiniciado agora; se a nova versão não iniciar corretamente, a versão anterior será restaurada automaticamente.",
 	msgUpdateAvailableTitle:      "Atualização disponível",
-	msgUpdateAvailableBody:       "Há uma nova versão do OrdaX Creator pronta para atualização automática.",
 	msgUpdateAvailableAction:     "Atualização disponível",
 	msgUpdateFailedBody:          "Não foi possível concluir a atualização. A versão atual permanece preservada.",
 	msgUpdateCurrentBody:         "Você já está usando a versão mais recente do OrdaX Creator.",
-	msgUpdateRollbackBody:        "A atualização não pôde ser concluída. A versão anterior foi preservada ou restaurada.",
 	msgUpdateBundleManualBody:    "Há uma nova versão no bundle oficial do OrdaX Creator. Este canal ainda não permite atualização automática dentro do app; baixe o novo OrdaX-Creator-Owner-Prototype.zip da release oficial e substitua o bundle extraído completo. Não substitua apenas o EXE da interface.",
 	msgPortablePlanStatus:        "Validando o plano Portable…",
 	msgPortablePlanHint:          "O Creator Core está vinculando o layout e os 17 artefatos assinados ao USB selecionado.",
@@ -270,8 +258,6 @@ var creatorENUSMessages = map[creatorMessageID]string{
 	msgFieldUSB:                  "USB drive",
 	msgFieldLanguage:             "Language",
 	msgUpdateChecking:            "Checking…",
-	msgUpdateInstalling:          "Updating…",
-	msgUpdateNow:                 "Update now",
 	msgUpdateControl:             "Updates",
 	msgProgressStartingStatus:    "Starting elevated write…",
 	msgProgressStartingHint:      "Creator opened the authorized backend and is starting the final checks.",
@@ -312,14 +298,10 @@ var creatorENUSMessages = map[creatorMessageID]string{
 	msgWritePreparingStatus:      "Preparing the OrdaX USB…",
 	msgWritePreparingHint:        "The official image is being validated and prepared for the exact size of the selected USB device.",
 	msgUpdateDevChannelBody:      "This build uses the development channel. The write-capable Creator has its own update channel.",
-	msgUpdateReadyTitle:          "Update ready",
-	msgUpdateReadyBody:           "The update was downloaded and validated. OrdaX Creator will restart now; if the new version does not start correctly, the previous version will be restored automatically.",
 	msgUpdateAvailableTitle:      "Update available",
-	msgUpdateAvailableBody:       "A new OrdaX Creator version is ready for automatic update.",
 	msgUpdateAvailableAction:     "Update available",
 	msgUpdateFailedBody:          "The update could not be completed. The current version remains preserved.",
 	msgUpdateCurrentBody:         "You are already using the latest OrdaX Creator version.",
-	msgUpdateRollbackBody:        "The update could not be completed. The previous version was preserved or restored.",
 	msgUpdateBundleManualBody:    "A new version is available in the official OrdaX Creator bundle. This channel does not yet allow automatic in-app updates; download the new OrdaX-Creator-Owner-Prototype.zip from the official release and replace the complete extracted bundle. Do not replace only the UI executable.",
 	msgPortablePlanStatus:        "Validating the Portable plan…",
 	msgPortablePlanHint:          "Creator Core is binding the layout and all 17 signed artifacts to the selected USB device.",
