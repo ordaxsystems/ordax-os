@@ -311,6 +311,7 @@
     ["Seu espaço começa com uma ideia.\n\nEsta é uma demonstração interativa do OrdaX. Explore as pastas, escreva uma nota e escolha seu tema. Nada aqui acessa os arquivos do seu dispositivo.", "Your space starts with an idea.\n\nThis is an interactive OrdaX demo. Explore folders, write a note, and choose your theme. Nothing here accesses files on your device."],
     ["Um projeto, muitas possibilidades.\n\n1. Guardar referências\n2. Escrever a primeira ideia\n3. Escolher o próximo passo", "One project, many possibilities.\n\n1. Save references\n2. Write the first idea\n3. Choose the next step"],
     ["Referências de exemplo\n\nLuz natural. Materiais simples. Espaço para criar.\n\nNo OrdaX, a visão é aproximar conteúdo e contexto de trabalho.", "Sample references\n\nNatural light. Simple materials. Space to create.\n\nIn OrdaX, the vision is to bring content and work context closer together."],
+    ["Aplicativos principais", "Main applications"],
     ["DEMONSTRAÇÃO", "DEMO"],
     ["Dados de exemplo", "Sample data"],
     ["ESPAÇO CRIATIVO / PROJETO DE EXEMPLO", "CREATIVE SPACE / SAMPLE PROJECT"],
