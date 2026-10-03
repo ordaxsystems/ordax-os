@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.user-cloud-storage/1",
-  "status": "mvp-required-source-foundation-provider-deployment-pending",
+  "status": "mvp-required-source-foundation-provider-and-cleanup-worker-deployment-pending",
   "owner": "system/services/user-cloud-storage",
   "stable_object_contract": "ordax.user-cloud-object/1",
   "upload_reservation_contract": "ordax.user-cloud-upload-reservation/1",
@@ -43,7 +43,20 @@
     "explicit_delete_required": true,
     "metadata_tombstone_before_compaction_required": true,
     "account_close_cleanup_required": true,
-    "quota_downgrade_may_delete_existing_objects": false
+    "quota_downgrade_may_delete_existing_objects": false,
+    "durable_close_journal_source_implemented": true,
+    "durable_close_journal_migration": "20261003123000_account_close_cleanup_journal_v1",
+    "durable_close_journal_applied": false,
+    "close_journal_survives_identity_deletion": true,
+    "provider_references_copied_before_identity_delete": true,
+    "cloud_writes_frozen_after_close_begins": true,
+    "outstanding_upload_authorization_expiry_wait_required": true,
+    "identity_delete_requires_verified_provider_cleanup": true,
+    "cleanup_jobs_bounded_and_leased": true,
+    "cleanup_retry_budget_bounded": true,
+    "cleanup_worker_source_implemented": false,
+    "cleanup_worker_deployed": false,
+    "account_close_e2e_proven": false
   },
   "authorization": {
     "account_owner_supported": true,
@@ -51,7 +64,9 @@
     "space_access_server_verified": true,
     "cross_account_access_default": "deny",
     "cross_space_access_default": "deny",
-    "service_role_in_client_allowed": false
+    "service_role_in_client_allowed": false,
+    "cleanup_queue_client_read_allowed": false,
+    "cleanup_queue_client_write_allowed": false
   },
   "mvp_provider_adapter": {
     "selected": "supabase-storage",
@@ -60,7 +75,9 @@
     "bucket_currently_deployed": false,
     "storage_objects_direct_client_write_authority": false,
     "signed_or_equivalent_upload_authorization": true,
-    "large_upload_resume_support_required": true
+    "large_upload_resume_support_required": true,
+    "server_cleanup_adapter_required": true,
+    "server_cleanup_adapter_deployed": false
   },
   "future_provider_options": {
     "cloudflare_r2": "eligible-adapter-for-large-blobs-after-cost-security-evaluation",
@@ -82,6 +99,9 @@
     "signed upload authorization is bound to an opaque reserved object key",
     "finalization verifies exact reserved size and SHA-256 before object becomes active",
     "negative cross-account and cross-Space read/write tests pass",
+    "durable account-close journal is deployed and survives identity deletion",
+    "account close freezes cloud writes and waits for outstanding signed upload authorization to expire",
+    "server cleanup worker deletes every provider object before identity deletion and retries with bounded leases",
     "delete, export, restore and account-close cleanup tests pass",
     "oversized, expired, digest-mismatch and replay attempts fail closed",
     "large resumable upload path is bounded and tested",
