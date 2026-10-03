@@ -1,0 +1,45 @@
+name: Runtime Component Release v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/component-package/compatibility.mjs'
+      - 'tools/component-package/release_v2.py'
+      - 'system/contracts/component-update-compatibility.mjs'
+      - 'system/services/components/compatibility/core.mjs'
+      - 'tests/test_runtime_component_release_v2.py'
+      - '.github/workflows/runtime-component-release-v2.yml'
+  pull_request:
+    paths:
+      - 'tools/component-package/compatibility.mjs'
+      - 'tools/component-package/release_v2.py'
+      - 'system/contracts/component-update-compatibility.mjs'
+      - 'system/services/components/compatibility/core.mjs'
+      - 'tests/test_runtime_component_release_v2.py'
+      - '.github/workflows/runtime-component-release-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-v2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate helper syntax
+        run: |
+          set -euo pipefail
+          node --check tools/component-package/compatibility.mjs
+          python -m py_compile tools/component-package/release_v2.py
+
+      - name: Prove compatibility-bound release v2
+        run: |
+          set -euo pipefail
+          python -m unittest tests/test_runtime_component_package.py tests/test_runtime_component_release_v2.py
