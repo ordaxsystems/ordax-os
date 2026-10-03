@@ -35,7 +35,7 @@ const english = {
 
 test("localization packs are component/version scoped and preserve message contracts", () => {
   const pack = defineLocalizationPack(english);
-  assert.equal(pack.schema, "ordax.localization-pack/1");
+  assert.equal(pack.schema, "prototype-ordax.localization-pack/1");
   assert.equal(pack.componentId, "notes");
   assert.equal(pack.componentVersion, "20.4.0");
   assert.equal(pack.packVersion, "3.1.0");
