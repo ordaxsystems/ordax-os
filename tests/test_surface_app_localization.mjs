@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import { LOCALIZATION_SCHEMA } from "../system/contracts/localization.mjs";
-import { createLocaleProfile } from "../system/services/i18n/locale-profile.mjs";
+import { createLocaleProfile } from "../system/contracts/locale-profile.mjs";
 import {
   SURFACE_RENDER_LIFECYCLE_SCHEMA,
   assertSurfaceRenderLifecycle,
