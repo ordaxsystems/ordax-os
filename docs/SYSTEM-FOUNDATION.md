@@ -46,7 +46,16 @@ Action grants and the Action Gateway remain the authority boundary. The system f
 
 Scheduler and background execution belong at system level because updates, sync, backups and Personal OrdaX may all need them. They must not be hidden inside one app.
 
-They stay **runtime-disabled** in this foundation until their contracts cover leases, budgets, cancellation, checkpoints, missed-run policy, time zones, deduplication, immediate revocation and crash recovery. A scheduler may wake Work; it may never grant action authority.
+The source foundation now contains two deliberately non-composed runtimes:
+
+- `system/services/scheduler/runtime.mjs` owns one-shot/interval schedules, missed-run policy, bounded claiming and deterministic deduplication. Its only output is `ordax.schedule-wake-intent/1`, which always carries `authority: none`, `backgroundAuthorized: false`, `approvalAuthorized: false` and `executionAuthorized: false`.
+- `system/services/background/runtime.mjs` owns bounded run lifecycle: wall-clock budget, step budget, lease renewal, immediate cancellation, bounded checkpoints, snapshots and fail-closed crash recovery. Active runs restored after a crash are converted to `paused` with `recoveryRequired: true`; they cannot silently resume.
+
+This is **source capability, not product enablement**. Both runtimes remain absent from Native composition and public Surface. The first background policy version is intentionally local read-only: only the `read` effect is accepted, action budget is zero, egress budget is zero, and `write`, `external-egress` and `device-control` cannot be enabled by policy input.
+
+A scheduler may wake Work; it may never start execution or grant authority. A background policy may bound observation; it may never mint approval/grant/action authority. When later integration reaches mutable actions, those actions must still traverse the existing Action Catalog / approval / grant / Action Gateway / Action Executor boundaries and must be revalidated at execution time.
+
+The next promotion step is a separate integration proof from a scheduler wake into one explicitly selected Personal OrdaX Work item, using local read-only observation and visible Activity. External research/connectors and autonomous mutation remain separate future gates.
 
 ## Memory for years of use
 
