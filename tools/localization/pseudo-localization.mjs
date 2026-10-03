@@ -1,5 +1,5 @@
 import { LOCALIZATION_SCHEMA, assertLocalizationPort } from "../../system/contracts/localization.mjs";
-import { createLocaleProfile } from "../../system/services/i18n/locale-profile.mjs";
+import { createLocaleProfile } from "../../system/contracts/locale-profile.mjs";
 
 export const PSEUDO_LOCALES = Object.freeze({
   expanded: Object.freeze({ locale: "en-XA", direction: "ltr" }),
