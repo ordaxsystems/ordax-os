@@ -60,7 +60,7 @@ svg {
   min-height: 0;
   flex-direction: column;
   justify-content: space-between;
-  border-right: 1px solid var(--ordax-border);
+  border-inline-end: 1px solid var(--ordax-border);
   background: var(--ordax-rail-bg);
 }
 
@@ -89,7 +89,7 @@ svg {
 .ordax-rail-button::before {
   content: "";
   position: absolute;
-  left: -10px;
+  inset-inline-start: -10px;
   top: 16px;
   bottom: 16px;
   width: 3px;
@@ -263,12 +263,13 @@ svg {
   align-items: center;
   gap: 13px;
   margin-top: clamp(44px, 7vh, 72px);
-  padding: 0 0 0 2px;
+  padding: 0;
+  padding-inline-start: 2px;
   border: 0;
   border-bottom: 1px solid var(--ordax-muted);
   background: transparent;
   color: var(--ordax-muted);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -290,8 +291,8 @@ svg {
 }
 
 kbd {
-  padding-left: 16px;
-  border-left: 1px solid var(--ordax-border);
+  padding-inline-start: 16px;
+  border-inline-start: 1px solid var(--ordax-border);
   color: var(--ordax-muted);
   font-family: var(--ordax-font);
   font-size: 0.72rem;
@@ -319,13 +320,13 @@ kbd {
   border-bottom: 1px solid var(--ordax-border);
   background: transparent;
   color: var(--ordax-text);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
 .ordax-space-link:hover:not(:disabled),
 .ordax-space-link:focus-visible:not(:disabled) {
-  padding-left: 8px;
+  padding-inline-start: 8px;
   background: var(--ordax-hover-bg);
   outline: none;
 }
@@ -1578,7 +1579,7 @@ button.ordax-tray-item:focus-visible {
 
   .ordax-home-panel {
     width: min(470px, 55vw);
-    padding-left: 42px;
+    padding-inline-start: 42px;
   }
 
   .ordax-identity-art {
@@ -1607,7 +1608,7 @@ button.ordax-tray-item:focus-visible {
     grid-row: 1;
     flex-direction: row;
     align-items: center;
-    border-right: 0;
+    border-inline-end: 0;
     border-bottom: 1px solid var(--ordax-border);
   }
 
