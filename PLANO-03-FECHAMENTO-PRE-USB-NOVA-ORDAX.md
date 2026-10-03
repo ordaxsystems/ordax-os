@@ -421,7 +421,7 @@ O gate é de produto/source. Ele **não** substitui:
 ### P1 — experiência cotidiana
 
 4. Arquivos: remoção segura/lixeira. — **PASS_SOURCE**
-5. Cobertura real de idioma da Surface para os idiomas oferecidos no OOBE. — **PASS_SOURCE**: PT-BR e en-US são os únicos idiomas oferecidos pelo MVP público e ambos cobrem shell, Home, boot screen, Arquivos profundo, Ajustes, Sistema, Conta, Notas, Internet, trays/quick panels e Central de Notificações pelo mesmo `ordax.localization/1`; feedback first-party assíncrono relevante usa identidade semântica rerenderizável; o painel de rede continua sem persistir credenciais; es-ES/de-DE/fr-FR ficam preservados somente para compatibilidade/OOBE e rollout futuro, sem claim de Surface completa
+5. Cobertura real de idioma da Surface para os idiomas oferecidos no OOBE. — **PASS_SOURCE**: PT-BR e en-US são os únicos idiomas oferecidos pelo MVP público e ambos cobrem shell, Home, boot screen, Arquivos profundo, Ajustes, Sistema, Conta, Notas, Internet, trays/quick panels e Central de Notificações pelo mesmo `ordax.localization/2`; feedback first-party assíncrono relevante usa identidade semântica rerenderizável; o painel de rede continua sem persistir credenciais; es-ES/de-DE/fr-FR ficam preservados somente para compatibilidade/OOBE e rollout futuro, sem claim de Surface completa
 6. Diagnóstico/recovery em Sistema. — **PASS_SOURCE**: controller diagnóstico Native agora é composto de verdade e Sistema exibe recovery read-only a partir dos marcadores reais de `current`, `known-good`, candidato/transação e entrada local de recovery; prova física continua B
 7. Inventário mínimo/suporte de hardware. — **PASS_SOURCE** via `hardware-support-matrix/1`; prova física do hardware-alvo Stable continua B
 
