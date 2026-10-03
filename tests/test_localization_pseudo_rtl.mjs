@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import { PREFERENCE_RUNTIME_SCHEMA } from "../system/contracts/preference-runtime.mjs";
 import { createSurfaceLocalization } from "../system/services/i18n/surface.mjs";
-import { createLocaleProfile, localeDirection } from "../system/services/i18n/locale-profile.mjs";
+import { createLocaleProfile, localeDirection } from "../system/contracts/locale-profile.mjs";
 import { createDesktopShellMarkup } from "../system/surface/ui/desktop-shell.mjs";
 import { syncDocumentLocaleProfile } from "../system/surface/ui/document-localization.mjs";
 import {
