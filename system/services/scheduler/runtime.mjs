@@ -38,6 +38,11 @@ function nextIntervalAfter(dueMs, nowMs, intervalMs) {
   return dueMs + (skippedIntervals * intervalMs);
 }
 
+function readSchedule(store, scheduleId) {
+  const value = store.getSchedule(id(scheduleId, "Schedule id"));
+  return value == null ? null : validateSchedule(value);
+}
+
 export function createSchedulerRuntime({
   store: storeValue,
   dispatch: dispatchValue,
@@ -46,9 +51,6 @@ export function createSchedulerRuntime({
 } = {}) {
   const store = assertSchedulerStore(storeValue);
   const dispatch = assertScheduleDispatch(dispatchValue);
-  if (typeof store.compareAndSwapSchedule !== "function") {
-    throw new TypeError("Scheduler store requires atomic compareAndSwapSchedule for disable operations");
-  }
   if (typeof now !== "function" || typeof idFactory !== "function") throw new TypeError("Scheduler requires clock and id factory");
 
   return Object.freeze({
@@ -94,12 +96,11 @@ export function createSchedulerRuntime({
     },
 
     getSchedule(scheduleId) {
-      const value = store.getSchedule(id(scheduleId, "Schedule id"));
-      return value == null ? null : validateSchedule(value);
+      return readSchedule(store, scheduleId);
     },
 
     disable(scheduleId) {
-      const current = this.getSchedule(scheduleId);
+      const current = readSchedule(store, scheduleId);
       if (current === null) throw new Error("Schedule was not found");
       if (!current.enabled) return current;
       const next = validateSchedule({
