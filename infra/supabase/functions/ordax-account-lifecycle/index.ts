@@ -196,6 +196,27 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // The asynchronous cleanup worker may outlive this HTTP request. Persist the
+    // Auth fence only after both the login freeze and global session revocation
+    // succeeded, so a later worker can never infer that authority from cleanup
+    // completion alone.
+    const { data: fenceData, error: fenceError } = await admin.rpc(
+      "ordax_record_account_close_auth_fence_v1",
+      {
+        p_close_id: closeId,
+        p_subject_user_id: userId,
+        p_identity_frozen: true,
+        p_sessions_revoked: true,
+      },
+    );
+    if (fenceError || fenceData !== true) {
+      return error(
+        409,
+        "account-close-auth-fence-unavailable",
+        "Não foi possível registrar com segurança a revogação da conta.",
+      );
+    }
+
     const { data: verifyData, error: verifyError } = await admin.rpc(
       "ordax_verify_account_close_cleanup_v1",
       { p_close_id: closeId, p_subject_user_id: userId },
@@ -222,7 +243,7 @@ Deno.serve(async (req: Request) => {
 
     // Identity deletion is the last destructive step. It is unreachable until
     // the durable cleanup queue proves that every external provider object was
-    // deleted. Relational rows may then cascade without losing blob references.
+    // deleted and the durable Auth fence proves that sessions were closed.
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
     if (deleteError) {
       return error(409, "account-close-blocked", "Não foi possível concluir o fechamento da conta.");
