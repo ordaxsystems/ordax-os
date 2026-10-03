@@ -177,7 +177,7 @@ class RuntimeComponentReleaseV2CliE2ETests(unittest.TestCase):
                 timeout=30,
             )
             self.assertNotEqual(legacy.returncode, 0)
-            self.assertIn("unsupported runtime component release schema", legacy.stderr)
+            self.assertIn('unknown field "compatibility"', legacy.stderr)
 
 
 if __name__ == "__main__":
