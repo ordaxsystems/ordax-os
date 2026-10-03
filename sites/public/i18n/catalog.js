@@ -420,7 +420,12 @@
     ["telefone", "phone"],
     ["notebook", "notebook"],
     ["Apps no telefone", "Apps on phone"],
-    ["Apps no notebook", "Apps on notebook"]
+    ["Apps no notebook", "Apps on notebook"],
+    ["Seu trabalho", "Your work"],
+    ["Navegue, organize referências e conecte pesquisa ao seu trabalho.", "Browse, organize references, and connect research to your work."],
+    ["Preferências do OrdaX", "OrdaX preferences"],
+    ["Preferências compartilhadas, aparência e rede do OrdaX.", "Shared OrdaX preferences, appearance, and network."],
+    ["Identidade, acesso e continuidade segura entre os modos do OrdaX.", "Identity, access, and secure continuity across OrdaX modes."]
   ];
 
   const SEMANTIC = Object.freeze({
