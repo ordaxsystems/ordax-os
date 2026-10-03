@@ -323,6 +323,16 @@ function interpolate(text, values = {}) {
   });
 }
 
+function placeholderKeys(text) {
+  const keys = new Set();
+  for (const match of text.matchAll(/\{([A-Za-z][A-Za-z0-9]*)\}/g)) keys.add(match[1]);
+  return [...keys].sort();
+}
+
+function sameStringArray(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 export function translateSurfaceMessage(locale, messageId, values = {}) {
   if (typeof messageId !== "string" || !messageId) {
     throw new TypeError("Localization message id must be a non-empty string");
@@ -377,7 +387,27 @@ export function surfaceMessageIds() {
 
 export function surfaceCatalogCoverage(locale) {
   const table = TABLES[locale] ?? null;
-  const total = Object.keys(SOURCE).length;
-  const translated = table ? Object.keys(table).length : 0;
-  return Object.freeze({ locale, sourceLocale: SURFACE_SOURCE_LOCALE, translated, total, complete: locale === SURFACE_SOURCE_LOCALE || translated === total });
+  const sourceIds = Object.keys(SOURCE).sort();
+  const translatedIds = table ? Object.keys(table).sort() : [];
+  const missing = sourceIds.filter((id) => !Object.hasOwn(table ?? {}, id));
+  const extra = translatedIds.filter((id) => !Object.hasOwn(SOURCE, id));
+  const placeholderMismatches = sourceIds
+    .filter((id) => Object.hasOwn(table ?? {}, id))
+    .filter((id) => !sameStringArray(placeholderKeys(SOURCE[id]), placeholderKeys(table[id])));
+  const translated = sourceIds.length - missing.length;
+  const sourceLocale = locale === SURFACE_SOURCE_LOCALE;
+  return Object.freeze({
+    locale,
+    sourceLocale: SURFACE_SOURCE_LOCALE,
+    translated,
+    total: sourceIds.length,
+    missing: Object.freeze(missing),
+    extra: Object.freeze(extra),
+    placeholderMismatches: Object.freeze(placeholderMismatches),
+    complete: sourceLocale || (
+      missing.length === 0
+      && extra.length === 0
+      && placeholderMismatches.length === 0
+    ),
+  });
 }
