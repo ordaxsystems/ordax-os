@@ -59,6 +59,40 @@ class MvpAccountCloudContractTests(unittest.TestCase):
         self.assertTrue(self.storage["upload_protocol"]["finalization_must_verify_size_and_digest"])
         self.assertFalse(self.storage["upload_protocol"]["upload_authorization_creates_action_gateway_authority"])
 
+    def test_account_close_is_durable_and_provider_cleanup_precedes_identity_delete(self):
+        close = self.mvp["account_close"]
+        deletion = self.storage["deletion"]
+        self.assertTrue(close["durable_cleanup_journal_required"])
+        self.assertTrue(close["journal_must_survive_auth_identity_delete"])
+        self.assertTrue(close["provider_blob_references_must_be_copied_before_identity_delete"])
+        self.assertTrue(close["provider_cleanup_must_be_verified_before_identity_delete"])
+        self.assertTrue(close["durable_auth_fence_required_before_identity_delete"])
+        self.assertTrue(deletion["close_journal_survives_identity_deletion"])
+        self.assertTrue(deletion["provider_references_copied_before_identity_delete"])
+        self.assertTrue(deletion["identity_delete_requires_verified_provider_cleanup"])
+        self.assertTrue(deletion["identity_delete_requires_durable_auth_fence"])
+
+    def test_account_close_denies_stale_tokens_and_protects_shared_spaces(self):
+        close = self.mvp["account_close"]
+        deletion = self.storage["deletion"]
+        self.assertTrue(close["stale_access_jwt_must_lose_ordax_data_plane_access"])
+        self.assertTrue(close["owned_shared_space_requires_transfer_before_close"])
+        self.assertTrue(deletion["stale_access_jwt_data_plane_denied_after_close_begins"])
+        self.assertTrue(deletion["owned_shared_space_requires_transfer_before_account_close"])
+
+    def test_cleanup_worker_is_source_ready_but_rollout_disabled(self):
+        close = self.mvp["account_close"]
+        backend = self.identity["backend"]
+        self.assertTrue(close["cleanup_worker_source_implemented"])
+        self.assertFalse(close["cleanup_worker_enabled_in_source"])
+        self.assertFalse(close["cleanup_worker_deployed"])
+        self.assertFalse(close["public_gateway_pending_state_handling_implemented"])
+        self.assertTrue(backend["account_close_cleanup_worker_source_implemented"])
+        self.assertFalse(backend["account_close_cleanup_worker_enabled_in_source"])
+        self.assertFalse(backend["account_close_cleanup_worker_deployed"])
+        self.assertFalse(backend["account_close_pending_gateway_response_implemented"])
+        self.assertFalse(backend["account_close_enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()
