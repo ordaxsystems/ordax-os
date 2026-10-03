@@ -1,14 +1,14 @@
 # Plano 07 — Personal OrdaX e trabalho inteligente evolutivo
 
-> **Status:** PLANO DE IMPLEMENTAÇÃO / EXECUÇÃO EM ANDAMENTO / NÃO PROMOVIDO AO MVP PÚBLICO
+> **Status:** EXECUÇÃO EM ANDAMENTO / FOREGROUND PROMOVIDO / AUTOMAÇÃO PÚBLICA AINDA DESABILITADA
 >
-> Este documento consolida, em uma única direção executável, as conclusões dos relatórios de produto e arquitetura já produzidos para a evolução do OrdaX. Ele não autoriza capacidades por si só e não substitui os contratos canônicos, `PERSONAL-ORDAX.md`, `docs/ARCHITECTURE.md`, `docs/CURRENT-STATE.md` ou os promotion gates.
+> Este documento consolida a direção executável do Personal OrdaX. Ele não concede autoridade e não substitui os contratos canônicos, `PERSONAL-ORDAX.md`, `docs/ARCHITECTURE.md`, `docs/CURRENT-STATE.md`, `docs/SYSTEM-FOUNDATION.md` ou os promotion gates.
 
 ## 1. Resultado que queremos
 
 O OrdaX deve evoluir de um sistema que responde a comandos para um sistema pessoal capaz de **entender trabalho, manter continuidade, mostrar o que está fazendo e executar ações limitadas com autoridade explícita**.
 
-A experiência-alvo é simples:
+A experiência-alvo é:
 
 ```text
 usuário
@@ -22,11 +22,11 @@ usuário
   -> pode continuar depois sem perder contexto
 ```
 
-Exemplo de produto:
+Exemplo:
 
 > “Continue o projeto da pizzaria.”
 
-O comportamento correto não é adivinhar. O Personal OrdaX deve localizar o Work correto do owner atual, respeitar o Space/projeto explicitamente ligado, recuperar o contexto permitido, mostrar o que pretende fazer e pedir aprovação para qualquer efeito sensível.
+O Personal OrdaX deve localizar o Work correto do owner atual, respeitar o Space/projeto explicitamente ligado, recuperar somente o contexto permitido, mostrar o que pretende fazer e pedir aprovação para qualquer efeito sensível.
 
 ## 2. O princípio central
 
@@ -34,13 +34,14 @@ O comportamento correto não é adivinhar. O Personal OrdaX deve localizar o Wor
 
 Prompt, modelo, Profile, Memory, conteúdo de projeto e sugestões do planner podem ajudar a decidir **o que propor**, mas nunca criam permissão para executar.
 
-A cadeia permanente será:
+A cadeia permanente é:
 
 ```text
 objetivo
  -> planejamento
  -> proposta de ação sem autoridade
  -> Action Catalog canônico
+ -> Action Policy / Action Review
  -> approval explícita quando necessária
  -> grant exato
  -> Action Gateway
@@ -53,144 +54,121 @@ objetivo
 
 Nenhum modelo recebe shell genérico, disco RAW, chaves de release ou acesso irrestrito ao sistema.
 
-## 3. Fundação já implementada nas branches de execução
+## 3. Estado real já implementado
 
-A implementação atual já estabeleceu a base necessária para crescer sem criar um segundo sistema paralelo:
+A fundação já estabelecida inclui:
 
-- Work owner-bound, com estado persistível e Activity ordenada;
-- Results owner-bound com provenance e `authority=none`;
+- Work owner-bound, com Activity e Results persistíveis;
+- recuperação semântica de Work sem troca automática de owner/Space/Project;
+- Action Proposal via Intelligence, sempre `authority=none`;
 - armazenamento Native particionado por owner e corrupção fail-closed;
-- composição Native usando identidade, Spaces, Projects e Intelligence canônicos;
-- app Activity first-party como entrada explícita de Work;
-- mensagens comuns do Assistente **não** viram Work automaticamente;
-- Space e projeto não são ligados implicitamente;
+- composição com Identity, Spaces, Projects, Memory e Intelligence canônicos;
+- app Activity first-party como superfície explícita de Work;
+- mensagens comuns do Assistant não viram Work automaticamente;
 - approvals persistidas e consentimento explícito;
 - grants limitados por Work, approval, owner, contexto, recurso, tool, artefato e efeito;
-- Action Gateway e Action Executor separados;
+- Action Catalog, Action Policy, Action Review, Action Gateway e Action Executor separados;
 - identidade SHA-256 do artefato da tool;
 - lifecycle `approved -> running -> executed` com receipt;
 - replay bloqueado e retry limitado por semântica idempotente;
-- primeiro side effect Native: garantir um diretório no `file-space` canônico;
-- Action Catalog canônico, sem regras de filesystem dentro da Activity;
-- revogação de authority em cancelamento, troca de owner, Space/projeto inválido e restore sem grant vivo.
+- primeiro side effect Native bounded (`native-file.ensure-directory`);
+- revogação de authority em cancelamento, troca de owner, contexto inválido e restore sem grant vivo;
+- System Foundation com Capability Registry, lifecycle graph, eventos bounded e agregação restritiva de policy;
+- Background Runtime de sistema com budgets, leases, heartbeat, deadline, cancelamento, checkpoint e recovery fail-closed;
+- Scheduler de sistema com timezone IANA, one-shot/fixed-interval, `maxRuns`, transactional outbox e deduplicação;
+- criação idempotente de Background Run por trigger;
+- dispatch Scheduler -> Background com revalidação de consumer, subject, owner, Space/project e deduplication key;
+- Proactive Research local/read-only como workload `authority=none`;
+- owner Native atômico para metadados de automação e adapter JS assíncrono sem estado espelho.
 
-Esses itens ainda devem passar pelos gates da cadeia de PRs antes de serem considerados parte promovida do produto.
+Importante: **fundação implementada não significa feature pública ativada**. O Personal OrdaX ainda não cria schedules/background automaticamente, Proactive Research ainda não está exposto como autonomia pública e a rota de Automation State ainda precisa ser ligada ao host Native de produção.
 
-## 4. O que será implementado
+## 4. Fases
 
-### Fase A — fechar o foreground seguro
+### Fase A — foreground seguro — **CONCLUÍDA**
 
-Objetivo: tornar o Personal OrdaX útil para trabalho real curto sem background.
+Inclui Work/Activity/Result, owner isolation, Action Catalog, approvals, grants, Gateway, Executor, receipt, primeiro adapter bounded, revogação, crash-safe attempt journal e retomada explícita.
 
-Implementar:
+**Gate permanente:** nenhuma ação pode escapar de Work/owner/context/recurso/artefato/policy/authority autorizados.
 
-1. estabilizar Action Catalog e lifecycle de revogação;
-2. manter uma única fonte de authority e grants;
-3. melhorar a apresentação de approval, execução, falha e receipt na Activity;
-4. tornar retry/recovery explícitos;
-5. adicionar novas ações first-party somente quando a capability canônica tiver semântica segura e testável;
-6. manter ações destrutivas fora até haver precondições, idempotência ou confirmação adequadas.
+### Fase B — planner de ações sem autoridade — **CONCLUÍDA NO FOREGROUND**
 
-**Gate:** nenhuma ação pode escapar do Work/approval/grant/recurso/artefato autorizado.
+O planner usa somente entradas reais do Action Catalog e retorna proposta estruturada sem tool/grant/approval ocultos. Proposal nunca equivale a approval ou execução.
 
-### Fase B — planner de ações sem autoridade
+### Fase C — continuidade real de Work — **MAJORITARIAMENTE IMPLEMENTADA**
 
-Objetivo: permitir que a inteligência proponha próximos passos sem ganhar poder de execução.
+Já existem restore, recovery fail-closed, Activity/Result duráveis, export, revogação após restore, recuperação semântica e separação explícita entre Work e Memory/account sync.
 
-Implementar um contrato estruturado de proposta que produza somente:
+Ainda precisa amadurecer:
 
-- intenção de ação;
-- entrada para um `entryId` existente no Action Catalog;
-- recurso candidato;
-- explicação para o usuário;
-- nenhuma credencial, grant ou chamada direta a adapter.
+- persistência Native do Personal sem `localStorage` como source of truth;
+- migração owner-bound conservadora para o novo owner Native;
+- continuidade de Work entre dispositivos como domínio separado de Memory sync.
 
-O planner não poderá inventar tools. Se o `entryId` não estiver no catálogo atual, a proposta será rejeitada.
+### Fase D — background bounded — **FUNDAÇÃO DE SISTEMA IMPLEMENTADA / PERSONAL PÚBLICO DESABILITADO**
 
-**Gate:** proposta do modelo nunca é equivalente a approval.
+Já existem na raiz:
 
-### Fase C — continuidade real de Work
+- lifecycle de Background;
+- budgets de tempo, passos, ações e egress;
+- leases/heartbeat/expiry;
+- deadline e cancelamento;
+- checkpoints bounded;
+- recovery fail-closed;
+- Scheduler durável;
+- transactional outbox;
+- deduplication/idempotência;
+- Scheduler -> Background dispatch authority-free;
+- owner Native atômico para automation metadata;
+- adapter JS assíncrono sem cache espelho.
 
-Objetivo: o usuário poder sair e voltar sem perder o trabalho.
+Ainda falta para habilitar no Personal:
 
-Implementar:
+1. ligar a rota tipada `/__ordax/native/automation-state` no `native_host_server.py` e provar GET/POST/CAS no host real;
+2. compor stores Native no boot sem fallback que finja durabilidade;
+3. definir policy de quais Works podem ser agendados/background;
+4. projetar status de Scheduled/In Progress/Needs You na Activity;
+5. revalidar owner/Space/Project/policy/authority em cada wake/resume;
+6. provar reboot/cancel/revoke de ponta a ponta no runtime composto;
+7. manter background público desligado até esses gates passarem.
 
-- recuperação determinística do Work por owner;
-- vínculo explícito e restaurável com Space/projeto;
-- checkpoints de execução;
-- estado de pausa/recovery após crash ou reboot;
-- histórico de Activity e Results com retenção controlada;
-- exportação e exclusão do histórico;
-- reconciliação de grants session-only após restore;
-- política clara para Work órfão quando Space/projeto deixa de existir.
+Scheduler apenas acorda trabalho. Scheduler e Background nunca emitem grant.
 
-Memory continuará sendo contexto do OrdaX, não o banco operacional de Work.
+### Fase E — Proactive Research e conectores — **LOCAL READ-ONLY SOURCE IMPLEMENTADO / EGRESS DESABILITADO**
 
-### Fase D — background bounded
+Proactive Research local já pode consumir fontes explicitamente read-only e non-network como Memory autorizada, Work, Project, file metadata e system status.
 
-Objetivo: permitir trabalhos demorados sem transformar o OrdaX em um agente irrestrito.
+Ainda não estão habilitados:
 
-Somente depois dos gates anteriores:
+- web pública;
+- email/cloud connectors;
+- arbitrary file content;
+- writes;
+- envio/publicação;
+- device control.
 
-- lifecycle explícito de background;
-- orçamento de tempo, ações e recursos;
-- cancelamento/revogação imediatos;
-- pausa quando authority expira;
-- Activity sempre visível;
-- retomada após reboot apenas quando o estado puder ser reconciliado;
-- nenhuma approval antiga reaproveitada fora de seu escopo.
+Conectores futuros deverão ser tipados por domínio/capability. External egress terá efeito e policy próprios, secrets ficarão fora de prompt/Memory/Activity e toda mutação continuará passando pela mesma cadeia de authority.
 
-Background continuará desabilitado no MVP até esses invariantes terem prova automatizada e operacional.
-
-### Fase E — conectores e egress
-
-Objetivo: permitir trabalho com serviços externos sem transformar rede em permissão genérica.
-
-Implementar:
-
-- conectores bounded por domínio/capability;
-- external-egress como efeito explícito;
-- segredo fora de prompt, Memory e Activity;
-- grants por recurso e ação;
-- receipts sem vazar tokens;
-- revogação de conexão e authority;
-- tratamento offline como estado normal.
-
-Não haverá “internet livre” para o modelo como substituto de conectores governados.
-
-### Fase F — workers especialistas
-
-Objetivo: dividir trabalhos complexos sem criar múltiplos sistemas de identidade e permissão.
+### Fase F — workers especialistas — **NÃO HABILITADA**
 
 Workers futuros:
 
 - herdam owner e escopo do Work;
-- não possuem Memory própria paralela;
+- não possuem Memory paralela;
 - não criam grants;
-- não possuem sistema de permissões separado;
-- têm budgets e concorrência limitados;
+- não possuem permission system separado;
+- têm budgets, concorrência e profundidade de delegação limitados;
 - aparecem na Activity com atribuição;
 - produzem Results com provenance;
 - usam o mesmo Action Catalog/Gateway.
 
 O Personal OrdaX permanece o orquestrador; workers são executores especializados e substituíveis.
 
-### Fase G — execução híbrida local / Edge / cloud
+### Fase G — execução híbrida local / Edge / cloud — **NÃO HABILITADA**
 
-Objetivo: escolher onde processar sem mudar o contrato do trabalho.
+Placement futuro poderá considerar privacidade, disponibilidade, custo, latência, capacidade local e conectividade. O backend pode mudar, mas Work, Activity, Result, policy, approval e authority mantêm o mesmo significado.
 
-Implementar política de placement considerando:
-
-- privacidade;
-- disponibilidade;
-- custo;
-- latência;
-- capacidade local;
-- conectividade.
-
-O backend poderá mudar, mas Work, Activity, Result, approval e authority continuarão com o mesmo significado.
-
-Cloud nunca ganha authority local automaticamente. Acesso a dispositivo continua dependendo de capability/grant do Device Agent/Native.
+Cloud nunca ganha authority local automaticamente.
 
 ## 5. Relação com Assistant, Memory, Projects e Profiles
 
@@ -212,6 +190,12 @@ Profiles
 Intelligence
   -> raciocínio
 
+System Foundation
+  -> capabilities + lifecycle + events + restrictive policy
+
+Scheduler / Background
+  -> quando e como continuar trabalho bounded, sem authority
+
 Personal OrdaX
   -> Work + Activity + Result + orquestração
 
@@ -219,13 +203,11 @@ Action Gateway
   -> authority para efeitos reais
 ```
 
-Uma conversa pode ajudar o usuário a decidir criar um Work, mas não deve criar trabalho persistente ou side effect silenciosamente.
+Apps consomem capacidades do sistema; não são o sistema.
 
 ## 6. Experiência de produto pretendida
 
-A Activity será o lugar onde o usuário entende o trabalho em andamento.
-
-Ela deve responder claramente:
+A Activity deve responder claramente:
 
 - qual Work está ativo;
 - de quem é o Work;
@@ -236,13 +218,13 @@ Ela deve responder claramente:
 - por que uma approval é necessária;
 - exatamente qual recurso será afetado;
 - se a ação executou, falhou, foi revogada ou precisa de retry;
-- como pausar, cancelar, retomar ou remover o Work.
-
-O objetivo não é mostrar logs técnicos crus. É dar controle e confiança sem esconder eventos relevantes.
+- se o Work está Scheduled, In Progress, Needs You, Paused ou Completed;
+- qual budget/lease/checkpoint é relevante sem expor logs técnicos crus;
+- como pausar, cancelar, retomar, desabilitar agenda ou remover o Work.
 
 ## 7. O que não será implementado como atalho
 
-Para preservar a arquitetura, ficam proibidos como solução rápida:
+Ficam proibidos como solução rápida:
 
 - shell genérico entregue ao modelo;
 - escrita RAW genérica;
@@ -255,52 +237,55 @@ Para preservar a arquitetura, ficam proibidos como solução rápida:
 - approval global “sempre permitir tudo”;
 - parsing frágil de texto do modelo como comando privilegiado;
 - background irrestrito;
+- cache JS espelho apresentado como persistência Native;
+- XHR síncrono para esconder contrato assíncrono;
 - cloud computer como requisito do MVP;
 - copiar arquitetura externa inteira para dentro do OrdaX.
 
 ## 8. Ordem de execução a partir do estado atual
 
 ```text
-1. fechar CI + invariantes do Action Catalog
-2. fechar revogação/recovery de authority
-3. consolidar UX de proposal/approval/receipt
-4. criar contrato de Action Proposal sem authority
-5. integrar planner ao catálogo sem tools diretas
-6. expandir ações first-party uma por vez
-7. fechar continuidade/recovery durável
-8. provar cancelamento/revogação em todos os boundaries
-9. só então habilitar background bounded
-10. depois conectores
-11. depois workers especialistas
-12. depois placement híbrido local/Edge/cloud
+1. concluir owner Native + migração segura do estado do Personal
+2. ligar e provar a rota Native de Automation State
+3. compor Scheduler/Background com persistência Native real no boot
+4. compor Proactive Research local como primeiro workload background read-only
+5. evoluir Activity para Scheduled / In Progress / Needs You / Completed
+6. provar reboot, cancelamento, revogação e recovery end-to-end
+7. somente então habilitar background bounded no Personal
+8. adicionar conectores tipados e egress governado
+9. expandir ações first-party uma por vez
+10. ativar semantic Memory/index derivado quando o backend persistente estiver pronto
+11. adicionar workers especialistas bounded
+12. adicionar browser/computer sandbox e placement híbrido depois
 ```
 
 Cada passo deve ser pequeno, testável e reversível sem quebrar o contrato anterior.
 
 ## 9. Critérios para promoção
 
-O Personal OrdaX só deve ser considerado pronto para promoção quando for demonstrável que:
+O Personal OrdaX só deve ser considerado pronto para automação pública quando for demonstrável que:
 
-1. owner switching não mistura Work, Activity, Result ou grants;
+1. owner switching não mistura Work, Activity, Result, schedule, run ou grants;
 2. Space/project switching não retargeta trabalho silenciosamente;
 3. modelo/prompt/Memory/Profile não criam authority;
-4. ações reais passam pelo catálogo, approval/grant quando exigido, Gateway e adapter tipado;
+4. ações reais passam por policy/review, catálogo, approval/grant quando exigido, Gateway e adapter tipado;
 5. artefato executado é o artefato aprovado;
 6. grants são revogados quando contexto ou owner deixa de ser válido;
 7. reboot/crash não ressuscita authority expirada;
-8. retry não duplica efeitos perigosos;
-9. Activity explica o estado real;
+8. retry de Scheduler/outbox não duplica Background Run nem efeitos;
+9. Activity explica o estado real de foreground/background;
 10. cancelamento impede ações futuras;
 11. secrets não aparecem em prompt, Activity ou Result;
-12. offline continua sendo um modo suportado;
-13. o sistema funciona sem depender de um único modelo ou backend;
-14. nenhum recurso público anuncia autonomia que ainda não existe.
+12. offline continua sendo modo suportado;
+13. sistema funciona sem depender de um único modelo ou backend;
+14. nenhum recurso público anuncia autonomia que ainda não existe;
+15. a rota Native e os stores de produção provam durabilidade real, sem cache/fallback mascarando falha.
 
 ## 10. Definição de sucesso
 
 A evolução estará no caminho correto quando o usuário puder dizer:
 
-> “Continue o projeto da pizzaria.”
+> “Continue o projeto da pizzaria e me avise amanhã se houver algo que precise de mim.”
 
 E o OrdaX conseguir:
 
@@ -308,11 +293,12 @@ E o OrdaX conseguir:
 2. restaurar o Space/projeto correto sem inferência silenciosa;
 3. mostrar o estado anterior;
 4. raciocinar sobre o próximo passo;
-5. propor apenas ações disponíveis no catálogo;
-6. pedir aprovação exatamente quando necessário;
-7. executar somente o recurso aprovado;
-8. registrar receipt, Activity e Result;
-9. pausar ou continuar depois;
-10. fazer tudo isso sem transformar inteligência em autoridade.
+5. propor somente ações disponíveis no catálogo;
+6. agendar/continuar trabalho bounded sem ganhar authority;
+7. pedir aprovação exatamente quando necessário;
+8. executar somente o recurso aprovado;
+9. registrar receipts, Activity, Result e checkpoints;
+10. sobreviver a reboot/retry sem duplicar trabalho ou ressuscitar grants;
+11. fazer tudo isso sem transformar inteligência em autoridade.
 
-Esse é o núcleo do sistema inteligente e escalável: **continuidade + contexto + execução governada + componentes substituíveis**, em vez de um agente monolítico com acesso irrestrito.
+Esse é o núcleo do sistema inteligente e escalável: **continuidade + contexto + automação bounded + execução governada + componentes substituíveis**, em vez de um agente monolítico com acesso irrestrito.
