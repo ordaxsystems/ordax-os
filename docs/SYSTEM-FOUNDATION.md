@@ -62,6 +62,27 @@ This does **not** mean public autonomous background is enabled. Personal OrdaX s
 
 Native durable ownership also exists for automation metadata in `/var/lib/ordax/automation-state.json`, with private permissions, atomic replace, fsync, cross-process locking, CAS and corruption fail-closed. The JavaScript Background/Scheduler runtimes are async-store ready and have a bounded same-origin Native adapter. The production `native_host_server.py` route is still deliberately not wired at this cut, so the adapter remains fail-closed instead of pretending persistence is active.
 
+## Component evolution and independent updates
+
+The OrdaX component system already separates component identity/version, signed package staging, pending health, promotion and rollback. Independent component delivery must stay compatible with the same long-term rule used by whole-OS releases: an update is not safe merely because its signature and hash are valid.
+
+`ordax.component-compatibility/1` adds a data-only compatibility boundary for independently evolving components:
+
+- every provided contract has an explicit stable ID + major version;
+- every required contract declares an accepted major range and whether it is optional;
+- replacing one component must leave all non-optional requirements satisfiable;
+- normal candidate staging is forward-only; downgrade uses the explicit rollback path;
+- one pending candidate cannot be silently replaced by another;
+- a component that owns persistent state cannot simply stop owning that state during an update;
+- state-format changes require an explicit `ordax.component-state-migration/1` plan;
+- same-schema state migrations are sequential `N -> N+1`;
+- migrations are copy-on-write, owner-preserving, verified before switching and retain the previous generation;
+- compatibility descriptors and migration plans always carry `authority: none` and contain no executable migration code.
+
+The currently published signed `prototype-ordax.runtime-component-release/1` keeps its existing semantics. Compatibility metadata will **not** be silently added as a new required v1 field. When signed activation starts depending on this metadata, the correct target is a new release descriptor major (planned `runtime-component-release/2`) that hash-binds the compatibility descriptor. Old and new release schemas may coexist only through an explicit migration window.
+
+This lets Local AI, OrdaX Intelligence, Studio runtimes and later services evolve independently without turning the component manager into a plugin system with implicit authority or allowing an update to reinterpret user state in place.
+
 ## Memory for years of use
 
 The current native prototype persists `ordax.memory-snapshot/1` with a bounded item/byte ceiling. That remains a safe compatibility boundary, but it is not the final long-term storage design.
