@@ -11,9 +11,12 @@ on:
       - 'system/surface/runtime/native_security_prompt_i18n.py'
       - 'system/apps/**'
       - 'system/contracts/first-run-state-store.mjs'
+      - 'system/contracts/localization-pack.mjs'
       - 'docs/contracts/first-run.json'
+      - 'docs/LOCALIZATION-PACKS.md'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
+      - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
       - '.github/workflows/english-mvp-localization-audit.yml'
@@ -26,9 +29,12 @@ on:
       - 'system/surface/runtime/native_security_prompt_i18n.py'
       - 'system/apps/**'
       - 'system/contracts/first-run-state-store.mjs'
+      - 'system/contracts/localization-pack.mjs'
       - 'docs/contracts/first-run.json'
+      - 'docs/LOCALIZATION-PACKS.md'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
+      - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
       - '.github/workflows/english-mvp-localization-audit.yml'
@@ -53,10 +59,12 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
-      - name: Audit complete en-US Surface and First Run catalogs
+      - name: Audit localization contracts, complete en-US Surface and First Run catalogs
         run: |
           set -euo pipefail
           node --version
+          node --check tests/test_localization_pack_contract.mjs
+          node --test tests/test_localization_pack_contract.mjs
           node --check tests/test_english_mvp_localization_audit.mjs
           node --test tests/test_english_mvp_localization_audit.mjs
           node --check tests/test_english_surface_rendering_audit.mjs
