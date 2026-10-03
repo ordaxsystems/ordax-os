@@ -20,6 +20,7 @@ import {
   syncDesktopShellLocalization,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
+import { syncDocumentLocaleProfile } from "./document-localization.mjs";
 import { SURFACE_RENDER_LIFECYCLE_SCHEMA } from "../../contracts/surface-render-lifecycle.mjs";
 import {
   createSurfaceState,
@@ -680,9 +681,7 @@ export function mountSurface(
   };
 
   const render = () => {
-    const localeProfile = localization.getProfile();
-    documentElement.lang = localeProfile.locale;
-    documentElement.dir = localeProfile.direction;
+    syncDocumentLocaleProfile(documentElement, localization);
     syncDesktopShellLocalization(root, localization);
     root.dataset.ordaxTheme = state.preferences[APPEARANCE_PREFERENCE_ID];
     root.dataset.ordaxContrast = state.preferences[ACCESSIBILITY_CONTRAST_PREFERENCE_ID];
