@@ -25,6 +25,19 @@
     "compatibility_metadata_creates_authority": false,
     "migration_plan_contains_executable_code": false
   },
+  "state_evolution_ownership": {
+    "component_manager_executes_migration_code": false,
+    "component_compatibility_plan_is_data_only": true,
+    "device_state_owner": "system/services/state",
+    "device_state_contract": "prototype-ordax.state-evolution/1",
+    "device_state_plan_must_also_satisfy_state_evolution_contract": true,
+    "user_data_root": "/ordax/home",
+    "user_data_migration_is_separate_stricter_policy": true,
+    "device_state_checkpoint_is_user_data_backup": false,
+    "domain_owner_must_execute_verified_migration": true,
+    "unverified_migration_code_allowed": false,
+    "component_manager_may_not_infer_migration_implementation_from_id": true
+  },
   "release_protocol": {
     "runtime_component_release_v1_semantics_immutable": true,
     "compatibility_fields_must_not_be_silently_added_as_required_v1_fields": true,
@@ -46,7 +59,7 @@
     "declare compatibility descriptors for independently updated first-party runtime components",
     "bind the compatibility descriptor hash in runtime-component-release/2 without changing release/1 semantics",
     "verify compatibility before signed candidate staging",
-    "connect state migration IDs only to first-party signed migration implementations",
+    "connect state migration IDs only to first-party signed migration implementations owned by the correct state domain",
     "prove copy-on-write migration plus rollback with last-known-good state before public component-slot activation"
   ]
 }
