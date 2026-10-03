@@ -1,0 +1,50 @@
+name: First-party App Delivery Foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/README.md'
+      - 'docs/contracts/first-party-app-delivery.json'
+      - 'docs/contracts/app-distribution.json'
+      - 'tests/test_first_party_app_delivery.mjs'
+      - '.github/workflows/first-party-app-delivery.yml'
+  pull_request:
+    paths:
+      - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/README.md'
+      - 'docs/contracts/first-party-app-delivery.json'
+      - 'docs/contracts/app-distribution.json'
+      - 'tests/test_first_party_app_delivery.mjs'
+      - '.github/workflows/first-party-app-delivery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  first-party-app-delivery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contract syntax
+        run: |
+          set -euo pipefail
+          node --check system/contracts/first-party-app-delivery.mjs
+          node --check system/services/apps/delivery-policy.mjs
+          node --check tests/test_first_party_app_delivery.mjs
+          python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
+          python -m json.tool docs/contracts/app-distribution.json >/dev/null
+
+      - name: Prove delivery policy and projection invariants
+        run: |
+          set -euo pipefail
+          node --test tests/test_first_party_app_delivery.mjs
