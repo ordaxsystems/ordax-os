@@ -3,17 +3,29 @@ export const LOCALE_PROFILE_SCHEMA = "ordax.locale-profile/1";
 const RTL_SCRIPTS = Object.freeze(new Set([
   "Adlm",
   "Arab",
+  "Armi",
+  "Avst",
   "Hebr",
+  "Hatr",
+  "Hung",
+  "Lydi",
   "Mand",
   "Mend",
+  "Narb",
   "Nkoo",
+  "Phli",
+  "Phlp",
+  "Phnx",
+  "Prti",
   "Rohg",
   "Samr",
+  "Sarb",
   "Syrc",
   "Thaa",
+  "Yezi",
 ]));
 
-function normalizeLocaleId(value) {
+export function canonicalizeLocale(value) {
   const raw = String(value ?? "").trim();
   if (!raw) throw new TypeError("Locale id must be a non-empty string");
   try {
@@ -23,19 +35,29 @@ function normalizeLocaleId(value) {
   }
 }
 
-export function localeDirection(locale) {
-  const id = normalizeLocaleId(locale);
-  const script = new Intl.Locale(id).maximize().script;
-  return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
-}
-
 export function createLocaleProfile(locale) {
-  const id = normalizeLocaleId(locale);
+  const id = canonicalizeLocale(locale);
+  const parsed = new Intl.Locale(id);
+  const maximized = parsed.maximize();
+  const script = parsed.script ?? maximized.script ?? null;
+  const region = parsed.region ?? maximized.region ?? null;
+  const platformDirection = parsed.textInfo?.direction ?? maximized.textInfo?.direction ?? null;
+  const direction = platformDirection === "rtl" || platformDirection === "ltr"
+    ? platformDirection
+    : script !== null && RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
+
   return Object.freeze({
     schema: LOCALE_PROFILE_SCHEMA,
     locale: id,
-    direction: localeDirection(id),
+    language: parsed.language,
+    script,
+    region,
+    direction,
   });
+}
+
+export function localeDirection(locale) {
+  return createLocaleProfile(locale).direction;
 }
 
 export function assertLocaleProfile(value) {
@@ -43,8 +65,10 @@ export function assertLocaleProfile(value) {
     throw new TypeError("A compatible locale profile is required");
   }
   const expected = createLocaleProfile(value.locale);
-  if (value.direction !== expected.direction) {
-    throw new TypeError(`Locale direction mismatch for ${expected.locale}`);
+  for (const field of ["language", "script", "region", "direction"]) {
+    if (value[field] !== expected[field]) {
+      throw new TypeError(`Locale profile ${field} mismatch for ${expected.locale}`);
+    }
   }
   return value;
 }
