@@ -3,6 +3,13 @@
   "use strict";
   const root = document.querySelector(".playground");
   if (!root) return;
+  const i18n = window.OrdaXPublicI18n;
+  if (!i18n || i18n.schema !== "prototype-ordax.public-site-localization-runtime/1") {
+    throw new Error("public-site-localization-runtime-missing");
+  }
+  const t = (messageId, variables) => i18n.t(messageId, variables);
+  const local = source => i18n.fromSource(source);
+  const deviceLabel = device => local(device === "phone" ? "telefone" : "notebook");
   const fixtureNode = document.querySelector("#playground-fixture");
   let fixture;
   try {
@@ -14,7 +21,12 @@
     return;
   }
   const screens = [...root.querySelectorAll("[data-device]")];
-  const initial = () => ({theme: "dark", title: "Uma ideia começa aqui", body: "Um espaço para pensar com calma.\n\nEscreva algo aqui e veja sua ideia aparecer na outra tela.", done: false, analysis: "idle", accepted: false});
+  const defaultNote = () => ({
+    title: t("playground.note.initialTitle"),
+    body: t("playground.note.initialBody"),
+  });
+  let noteDefaults = defaultNote();
+  const initial = () => ({theme: "dark", title: noteDefaults.title, body: noteDefaults.body, done: false, analysis: "idle", accepted: false});
   let state = initial();
   const views = new Map(screens.map(screen => [screen, {app: "projects", folder: "", file: ""}]));
   let noticeTimer;
@@ -76,13 +88,16 @@
     screen.dataset.theme = state.theme;
     screen.dataset.app = view.app;
     // This template contains constants only; user text is assigned through value/textContent below.
-    screen.innerHTML = `<div class="demo-topbar"><b>OrdaX</b><span>DEMONSTRAÇÃO</span><span class="demo-system-icons" aria-hidden="true">▣ &nbsp; ◉ &nbsp; ▰</span></div><div class="demo-workspace"><nav class="demo-dock" aria-label="Apps no ${device === "phone" ? "telefone" : "notebook"}"></nav><div class="demo-window"><div class="demo-windowbar"><strong></strong><span>Dados de exemplo</span></div><div class="demo-content"></div></div></div>`;
+    screen.innerHTML = `<div class="demo-topbar"><b>OrdaX</b><span>DEMONSTRAÇÃO</span><span class="demo-system-icons" aria-hidden="true">▣ &nbsp; ◉ &nbsp; ▰</span></div><div class="demo-workspace"><nav class="demo-dock" aria-label="${t("playground.appsOnDevice", {device: deviceLabel(device)})}"></nav><div class="demo-window"><div class="demo-windowbar"><strong></strong><span>Dados de exemplo</span></div><div class="demo-content"></div></div></div>`;
     const dock = screen.querySelector(".demo-dock");
     for (const app of ["home", "projects", "context", "intelligence", "files", "settings", "system"]) {
       const tab = button("", "app", app);
       tab.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${iconPaths[app] ?? iconPaths.system}"></path></svg><span></span>`;
       tab.querySelector("span").textContent = names[app];
-      tab.setAttribute("aria-label", `${names[app]} no ${device === "phone" ? "telefone" : "notebook"}`);
+      tab.setAttribute("aria-label", t("playground.appOnDevice", {
+        app: local(names[app]),
+        device: deviceLabel(device),
+      }));
       tab.setAttribute("aria-pressed", String(view.app === app));
       dock.append(tab);
     }
@@ -138,7 +153,7 @@
         if(complete) actions.append(button("Consultar referências","app","context","context-link"));
       }
     } else if (view.app === "notes") {
-      content.innerHTML = `<p class="demo-eyebrow">MEU ESPAÇO / NOTA PESSOAL</p><label class="sr-only" for="${device}-title">Título da nota no ${device === "phone" ? "telefone" : "notebook"}</label><input id="${device}-title" class="demo-title" data-field="title" maxlength="70"><div class="demo-note-meta">Uma ideia, nas duas telas <span aria-hidden="true">↔</span></div><label class="sr-only" for="${device}-body">Texto da nota no ${device === "phone" ? "telefone" : "notebook"}</label><textarea id="${device}-body" data-field="body" maxlength="1800" spellcheck="true"></textarea><label class="demo-check"><input type="checkbox" data-field="done">Experimentar algo novo hoje</label><p class="demo-local">↔ Compartilhado nesta demonstração</p>`;
+      content.innerHTML = `<p class="demo-eyebrow">MEU ESPAÇO / NOTA PESSOAL</p><label class="sr-only" for="${device}-title">${t("playground.noteTitleOnDevice", {device: deviceLabel(device)})}</label><input id="${device}-title" class="demo-title" data-field="title" maxlength="70"><div class="demo-note-meta">Uma ideia, nas duas telas <span aria-hidden="true">↔</span></div><label class="sr-only" for="${device}-body">${t("playground.noteBodyOnDevice", {device: deviceLabel(device)})}</label><textarea id="${device}-body" data-field="body" maxlength="1800" spellcheck="true"></textarea><label class="demo-check"><input type="checkbox" data-field="done">Experimentar algo novo hoje</label><p class="demo-local">↔ Compartilhado nesta demonstração</p>`;
     } else if (view.app === "settings") {
       content.innerHTML = `<p class="demo-eyebrow">APARÊNCIA</p><h3>Do seu jeito.</h3><p class="demo-description">Uma pequena mudança faz diferença. Escolha a luz do seu espaço.</p><div class="theme-options"></div><p class="demo-local">O tema muda nas duas telas.</p>`;
       for (const [value,label] of [["light","☀ Claro"],["dark","☾ Escuro"]]) {
@@ -195,7 +210,7 @@
       if (!["title","body","done"].includes(field)) return;
       state[field] = field === "done" ? event.target.checked : event.target.value;
       sync(event.target);
-      announce(`Alteração no ${screen.dataset.device === "phone" ? "telefone" : "notebook"} refletida nas duas telas. Simulação local.`);
+      announce(t("playground.changeOnDevice", {device: deviceLabel(screen.dataset.device)}));
     });
     screen.addEventListener("click",event => {
       const control = event.target.closest("[data-action]");
@@ -211,7 +226,7 @@
         return;
       }
       if (action === "context-document") view.document=value;
-      if (action === "theme") { state.theme = value; sync(); announce("Tema alterado nas duas telas."); return; }
+      if (action === "theme") { state.theme = value; sync(); announce(local("Tema alterado nas duas telas.")); return; }
       if (action === "launcher") {
         const launcher = screen.querySelector("[data-home-launcher]");
         if (launcher) {
@@ -265,6 +280,14 @@
     screens.forEach(screen => { views.get(screen).app = app; render(screen); });
     screens[0].querySelector(".demo-content input, .demo-content button")?.focus({preventScroll:true});
     screens[0].scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",block:"center"});
-    announce(app === "home" ? "A Home do OrdaX reúne seus apps e espaços de trabalho." : app === "projects" ? "Projeto Aurora: objetivos, referências e próximos passos de exemplo." : app === "intelligence" ? "Explore uma análise predefinida. Esta página não executa inferência." : "Consulte as referências fictícias que sustentam a análise.");
+    announce(local(app === "home" ? "A Home do OrdaX reúne seus apps e espaços de trabalho." : app === "projects" ? "Projeto Aurora: objetivos, referências e próximos passos de exemplo." : app === "intelligence" ? "Explore uma análise predefinida. Esta página não executa inferência." : "Consulte as referências fictícias que sustentam a análise."));
   }));
+
+  document.addEventListener("ordax:localechange", () => {
+    const previousDefaults = noteDefaults;
+    noteDefaults = defaultNote();
+    if (state.title === previousDefaults.title) state.title = noteDefaults.title;
+    if (state.body === previousDefaults.body) state.body = noteDefaults.body;
+    screens.forEach(render);
+  });
 })();
