@@ -1,0 +1,44 @@
+name: Scheduler Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/scheduler.json'
+      - 'system/contracts/scheduler.mjs'
+      - 'system/services/scheduler/**'
+      - 'tests/test_scheduler_runtime.mjs'
+      - '.github/workflows/scheduler-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/scheduler.json'
+      - 'system/contracts/scheduler.mjs'
+      - 'system/services/scheduler/**'
+      - 'tests/test_scheduler_runtime.mjs'
+      - '.github/workflows/scheduler-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scheduler:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contracts and modules
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/scheduler.json >/dev/null
+          node --check system/contracts/scheduler.mjs
+          node --check system/services/scheduler/runtime.mjs
+
+      - name: Prove outbox recurrence disable and authority boundaries
+        run: |
+          set -euo pipefail
+          node --test tests/test_scheduler_runtime.mjs
