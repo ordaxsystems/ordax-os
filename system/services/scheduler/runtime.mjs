@@ -38,8 +38,8 @@ function nextIntervalAfter(dueMs, nowMs, intervalMs) {
   return dueMs + (skippedIntervals * intervalMs);
 }
 
-function readSchedule(store, scheduleId) {
-  const value = store.getSchedule(id(scheduleId, "Schedule id"));
+async function readSchedule(store, scheduleId) {
+  const value = await store.getSchedule(id(scheduleId, "Schedule id"));
   return value == null ? null : validateSchedule(value);
 }
 
@@ -56,7 +56,7 @@ export function createSchedulerRuntime({
   return Object.freeze({
     schema: SCHEDULER_SCHEMA,
 
-    createSchedule({
+    async createSchedule({
       consumerId,
       subjectId,
       ownerKind,
@@ -91,16 +91,16 @@ export function createSchedulerRuntime({
         createdAt: iso(at),
         authority: "none",
       });
-      if (store.createSchedule(schedule) !== true) throw new Error("Scheduler store refused schedule creation");
+      if (await store.createSchedule(schedule) !== true) throw new Error("Scheduler store refused schedule creation");
       return schedule;
     },
 
-    getSchedule(scheduleId) {
-      return readSchedule(store, scheduleId);
+    async getSchedule(scheduleId) {
+      return await readSchedule(store, scheduleId);
     },
 
-    disable(scheduleId) {
-      const current = readSchedule(store, scheduleId);
+    async disable(scheduleId) {
+      const current = await readSchedule(store, scheduleId);
       if (current === null) throw new Error("Schedule was not found");
       if (!current.enabled) return current;
       const next = validateSchedule({
@@ -109,16 +109,16 @@ export function createSchedulerRuntime({
         enabled: false,
         nextRunAt: null,
       });
-      if (store.compareAndSwapSchedule(current.scheduleId, current.revision, next) !== true) {
+      if (await store.compareAndSwapSchedule(current.scheduleId, current.revision, next) !== true) {
         throw new Error("Schedule changed concurrently");
       }
       return next;
     },
 
-    materializeDue({ limit = 32 } = {}) {
+    async materializeDue({ limit = 32 } = {}) {
       const at = epoch(now);
       const boundedLimit = positiveLimit(limit, "Scheduler materialize limit");
-      const candidates = store.listDueSchedules(iso(at), boundedLimit);
+      const candidates = await store.listDueSchedules(iso(at), boundedLimit);
       if (!Array.isArray(candidates) || candidates.length > boundedLimit) {
         throw new Error("Scheduler due set is invalid or unbounded");
       }
@@ -156,16 +156,16 @@ export function createSchedulerRuntime({
           nextRunAt,
         });
 
-        if (store.commitOccurrence(current.scheduleId, current.revision, next, occurrence) === true) {
+        if (await store.commitOccurrence(current.scheduleId, current.revision, next, occurrence) === true) {
           created.push(occurrence);
         }
       }
       return Object.freeze(created);
     },
 
-    deliverPending({ limit = 32 } = {}) {
+    async deliverPending({ limit = 32 } = {}) {
       const boundedLimit = positiveLimit(limit, "Scheduler delivery limit");
-      const pending = store.listPendingOccurrences(boundedLimit);
+      const pending = await store.listPendingOccurrences(boundedLimit);
       if (!Array.isArray(pending) || pending.length > boundedLimit) {
         throw new Error("Scheduler pending occurrence set is invalid or unbounded");
       }
@@ -174,12 +174,12 @@ export function createSchedulerRuntime({
         const occurrence = validateScheduleOccurrence(raw);
         let accepted = false;
         try {
-          accepted = dispatch.enqueue(occurrence) === true;
+          accepted = await dispatch.enqueue(occurrence) === true;
         } catch {
           accepted = false;
         }
         if (!accepted) continue;
-        if (store.ackOccurrence(occurrence.occurrenceId) === true) delivered.push(occurrence);
+        if (await store.ackOccurrence(occurrence.occurrenceId) === true) delivered.push(occurrence);
       }
       return Object.freeze(delivered);
     },
