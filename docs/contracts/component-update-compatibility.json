@@ -1,0 +1,65 @@
+{
+  "$schema": "prototype-ordax.component-update-compatibility/1",
+  "status": "source-foundation",
+  "owner": "system/services/components",
+  "contracts": {
+    "compatibility_descriptor": "ordax.component-compatibility/1",
+    "state_migration_plan": "ordax.component-state-migration/1",
+    "upgrade_decision": "ordax.component-upgrade-decision/1"
+  },
+  "principles": {
+    "normal_candidate_staging_is_forward_only": true,
+    "downgrade_requires_explicit_rollback": true,
+    "pending_candidate_replacement_without_decision_allowed": false,
+    "component_contract_majors_are_explicit": true,
+    "missing_required_contract_fails_closed": true,
+    "optional_required_contract_may_be_absent": true,
+    "dropping_owned_persistent_state_fails_closed": true,
+    "state_format_change_requires_explicit_migration": true,
+    "same_state_schema_migration_is_sequential_n_to_n_plus_1": true,
+    "state_schema_transition_must_start_at_version_1": true,
+    "migration_copy_on_write_required": true,
+    "migration_verify_before_switch_required": true,
+    "migration_previous_generation_retained": true,
+    "migration_owner_preserving_required": true,
+    "compatibility_metadata_creates_authority": false,
+    "migration_plan_contains_executable_code": false
+  },
+  "state_evolution_ownership": {
+    "component_manager_executes_migration_code": false,
+    "component_compatibility_plan_is_data_only": true,
+    "device_state_owner": "system/services/state",
+    "device_state_contract": "prototype-ordax.state-evolution/1",
+    "device_state_plan_must_also_satisfy_state_evolution_contract": true,
+    "user_data_root": "/ordax/home",
+    "user_data_migration_is_separate_stricter_policy": true,
+    "device_state_checkpoint_is_user_data_backup": false,
+    "domain_owner_must_execute_verified_migration": true,
+    "unverified_migration_code_allowed": false,
+    "component_manager_may_not_infer_migration_implementation_from_id": true
+  },
+  "release_protocol": {
+    "runtime_component_release_v1_semantics_immutable": true,
+    "compatibility_fields_must_not_be_silently_added_as_required_v1_fields": true,
+    "future_signed_compatibility_binding_requires_new_release_schema_major": true,
+    "target_future_release_schema": "prototype-ordax.runtime-component-release/2",
+    "future_descriptor_hash_binding_required": true,
+    "v1_remains_supported_until_explicit_migration_policy": true
+  },
+  "activation_boundary": {
+    "source_compatibility_gate_can_reject_candidate": true,
+    "source_compatibility_gate_can_activate_component": false,
+    "source_compatibility_gate_can_issue_grant": false,
+    "signed_package_verification_remains_separate": true,
+    "pending_health_remains_required": true,
+    "promotion_remains_separate": true,
+    "rollback_remains_explicit": true
+  },
+  "next_gates": [
+    "declare compatibility descriptors for independently updated first-party runtime components",
+    "bind the compatibility descriptor hash in runtime-component-release/2 without changing release/1 semantics",
+    "verify compatibility before signed candidate staging",
+    "connect state migration IDs only to first-party signed migration implementations owned by the correct state domain",
+    "prove copy-on-write migration plus rollback with last-known-good state before public component-slot activation"
+  ]
+}

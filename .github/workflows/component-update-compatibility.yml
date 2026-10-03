@@ -1,0 +1,62 @@
+name: Component Update Compatibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/component-update-compatibility.json'
+      - 'docs/SYSTEM-FOUNDATION.md'
+      - 'system/contracts/component-manifest.mjs'
+      - 'system/contracts/component-update-compatibility.mjs'
+      - 'system/services/components/compatibility/**'
+      - 'system/services/components/manager.mjs'
+      - 'tests/test_component_manager.mjs'
+      - 'tests/test_component_manager_update_safety.mjs'
+      - 'tests/test_component_update_compatibility.mjs'
+      - '.github/workflows/component-update-compatibility.yml'
+  pull_request:
+    paths:
+      - 'docs/contracts/component-update-compatibility.json'
+      - 'docs/SYSTEM-FOUNDATION.md'
+      - 'system/contracts/component-manifest.mjs'
+      - 'system/contracts/component-update-compatibility.mjs'
+      - 'system/services/components/compatibility/**'
+      - 'system/services/components/manager.mjs'
+      - 'tests/test_component_manager.mjs'
+      - 'tests/test_component_manager_update_safety.mjs'
+      - 'tests/test_component_update_compatibility.mjs'
+      - '.github/workflows/component-update-compatibility.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate machine-readable policy
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/component-update-compatibility.json >/dev/null
+
+      - name: Validate JavaScript syntax
+        run: |
+          set -euo pipefail
+          node --check system/contracts/component-manifest.mjs
+          node --check system/contracts/component-update-compatibility.mjs
+          node --check system/services/components/compatibility/core.mjs
+          node --check system/services/components/manager.mjs
+
+      - name: Prove manager and compatibility regressions
+        run: |
+          set -euo pipefail
+          node --test tests/test_component_manager.mjs
+          node --test tests/test_component_manager_update_safety.mjs
+          node --test tests/test_component_update_compatibility.mjs
