@@ -161,7 +161,7 @@ func addActivationV2Candidate(
 		},
 		Activation: activationPolicy{
 			DirectActivationAllowed: false,
-			PendingHealthRequired:    true,
+			PendingHealthRequired:   true,
 		},
 		Compatibility: compatibilityBinding{
 			Name:   "internet.compatibility.json",
