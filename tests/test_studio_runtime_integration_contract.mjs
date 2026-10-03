@@ -15,6 +15,9 @@ import {
   DEVICE_ACTION_RECEIPT_SCHEMA,
   DEVICE_ACTION_REQUEST_SCHEMA,
 } from "../system/contracts/operational-realtime.mjs";
+import {
+  STUDIO_DEVICE_ACTION_AUTHORIZATION_SCHEMA,
+} from "../system/services/device-agent/studio-action-authorizer.mjs";
 
 const rootUrl = new URL("../", import.meta.url);
 
@@ -40,7 +43,7 @@ test("Studio runtime integration reuses the existing OS app and platform authori
   assert.equal(contract.platform_authority.studio_must_not_create_parallel_model_router, true);
 });
 
-test("Studio discovery remains read-only while mutation activation stays behind the action gateway", async () => {
+test("Studio discovery remains read-only while authorization is real and dispatch stays disabled", async () => {
   const contract = await json("docs/contracts/studio-runtime-integration.json");
   const deviceAgent = await json("docs/contracts/device-agent.json");
 
@@ -51,9 +54,15 @@ test("Studio discovery remains read-only while mutation activation stays behind 
   assert.equal(contract.capability_discovery.surface_receives_raw_execute, false);
   assert.equal(contract.mutations.direct_device_agent_execute_from_surface_forbidden, true);
   assert.equal(contract.mutations.runtime_enabled, false);
+  assert.equal(contract.mutations.authorization_runtime_enabled, true);
+  assert.equal(contract.mutations.dispatch_runtime_enabled, false);
+  assert.equal(contract.mutations.authorization_schema, STUDIO_DEVICE_ACTION_AUTHORIZATION_SCHEMA);
+  assert.equal(contract.mutations.authorization_dispatch_authority, "none");
   assert.equal(contract.mutations.request_schema, DEVICE_ACTION_REQUEST_SCHEMA);
   assert.equal(contract.mutations.receipt_schema, DEVICE_ACTION_RECEIPT_SCHEMA);
   assert.equal(contract.mutations.same_action_gateway_required, true);
+  assert.equal(contract.activation_gate.authorization_only, true);
+  assert.equal(contract.activation_gate.does_not_enable_surface_mutations, true);
   assert.equal(deviceAgent.projects_integration.surface_execute_action_exposed, false);
 });
 
