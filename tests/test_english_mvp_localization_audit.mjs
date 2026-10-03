@@ -90,6 +90,17 @@ const CATALOG_PAIRS = Object.freeze([
   ["local-session", LOCAL_SESSION_SOURCE_MESSAGES, LOCAL_SESSION_ENGLISH_MESSAGES],
 ]);
 
+const FIRST_RUN_LEGAL_ENGLISH = Object.freeze({
+  "Documentos vigentes": "Current documents",
+  "Leia os documentos canônicos antes de criar sua Conta OrdaX.":
+    "Read the canonical documents before creating your OrdaX Account.",
+  "Privacidade": "Privacy",
+  "Termos": "Terms",
+  "Li e aceito os documentos vigentes indicados acima.":
+    "I have read and accept the current documents listed above.",
+  "Criando conta…": "Creating account…",
+});
+
 function placeholders(value) {
   return [...String(value).matchAll(/\{([A-Za-z][A-Za-z0-9]*)\}/g)]
     .map((match) => match[1])
@@ -108,14 +119,30 @@ const ENGLISH_NATIVE_LANGUAGE_EXCEPTIONS = new Set([
   "settings.keyboard.option.brAbnt2.description",
 ]);
 
-const PORTUGUESE_MARKER = /(?:[ãõáéíóúâêôç])|\b(?:abrir|ajustes|agora|aguarde|arquivo|arquivos|atualização|atualizando|bateria|carregando|conectar|conectado|conta|continuar|criar|desconectado|disponível|energia|excluir|falha|fechar|fuso|idioma|indisponível|início|nenhum|nenhuma|notas|ontem|pendrive|primeiro|privacidade|pronto|procurar|rede|região|renomear|salvar|salvo|salva|segurança|senha|sessão|sinal|sistema|somente|tudo|voltar)\b/iu;
+const PORTUGUESE_MARKER = /(?:[ãõáéíóúâêôç])|\b(?:abrir|ajustes|agora|aguarde|arquivo|arquivos|atualização|atualizando|bateria|carregando|conectar|conectado|conta|continuar|criar|desconectado|disponível|documentos|energia|excluir|falha|fechar|fuso|idioma|indisponível|início|nenhum|nenhuma|notas|ontem|pendrive|primeiro|privacidade|pronto|procurar|rede|região|renomear|salvar|salvo|salva|segurança|senha|sessão|sinal|sistema|somente|termos|tudo|vigentes|voltar)\b/iu;
+
+function decodeQuotedBody(body) {
+  return JSON.parse(`"${body}"`);
+}
+
+function collapseAdjacentStringConcats(source) {
+  const adjacent = /"((?:\\.|[^"\\])*)"\s*\+\s*"((?:\\.|[^"\\])*)"/g;
+  let current = source;
+  while (adjacent.test(current)) {
+    adjacent.lastIndex = 0;
+    current = current.replace(adjacent, (_match, left, right) =>
+      JSON.stringify(decodeQuotedBody(left) + decodeQuotedBody(right)));
+    adjacent.lastIndex = 0;
+  }
+  return current;
+}
 
 function parseDoubleQuotedLiterals(source) {
   const values = [];
   const regex = /"((?:\\.|[^"\\])*)"/g;
   for (const match of source.matchAll(regex)) {
     try {
-      values.push(JSON.parse(`"${match[1]}"`));
+      values.push(decodeQuotedBody(match[1]));
     } catch {
       // Non-JSON escape syntax is not a user-facing literal for this audit.
     }
@@ -175,17 +202,41 @@ test("public MVP locale selector stays limited to Surface-complete PT-BR and en-
   }
 });
 
+test("First Run legal registration copy is explicitly complete in en-US", () => {
+  for (const [source, expected] of Object.entries(FIRST_RUN_LEGAL_ENGLISH)) {
+    assert.equal(translateFirstRunText("en-US", source), expected, source);
+  }
+});
+
 test("every Portuguese first-run UI literal with product copy has an en-US translation", async () => {
   const source = await readFile(
     new URL("../system/surface/ui/first-run.mjs", import.meta.url),
     "utf8",
   );
+  const runtimeLiteralSource = collapseAdjacentStringConcats(source);
   const candidates = unique(
-    parseDoubleQuotedLiterals(source)
+    parseDoubleQuotedLiterals(runtimeLiteralSource)
       .filter((value) => typeof value === "string" && PORTUGUESE_MARKER.test(value)),
   );
-  assert.ok(candidates.length > 40, "audit must inspect the real first-run Portuguese copy set");
+  assert.ok(candidates.length > 45, "audit must inspect the real first-run Portuguese copy set");
 
   const missing = candidates.filter((value) => translateFirstRunText("en-US", value) === value);
   assert.deepEqual(missing, [], `First Run has untranslated en-US copy: ${missing.join(" | ")}`);
+});
+
+test("First Run legal links never bypass localization with raw PT-BR labels", async () => {
+  const source = await readFile(
+    new URL("../system/surface/ui/first-run.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /privacy\.textContent\s*=\s*`\$\{translateFirstRunText\(draft\.locale, "Privacidade"\)\}/,
+  );
+  assert.match(
+    source,
+    /terms\.textContent\s*=\s*`\$\{translateFirstRunText\(draft\.locale, "Termos"\)\}/,
+  );
+  assert.doesNotMatch(source, /privacy\.textContent\s*=\s*`Privacidade\s*·/);
+  assert.doesNotMatch(source, /terms\.textContent\s*=\s*`Termos\s*·/);
 });
