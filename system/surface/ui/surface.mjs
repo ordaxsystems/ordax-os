@@ -680,7 +680,9 @@ export function mountSurface(
   };
 
   const render = () => {
-    documentElement.lang = localization.getLocale();
+    const localeProfile = localization.getProfile();
+    documentElement.lang = localeProfile.locale;
+    documentElement.dir = localeProfile.direction;
     syncDesktopShellLocalization(root, localization);
     root.dataset.ordaxTheme = state.preferences[APPEARANCE_PREFERENCE_ID];
     root.dataset.ordaxContrast = state.preferences[ACCESSIBILITY_CONTRAST_PREFERENCE_ID];
