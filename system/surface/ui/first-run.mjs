@@ -470,12 +470,12 @@ export function mountFirstRunExperience(
         privacy.href = registrationPolicy.privacy.url;
         privacy.target = "_blank";
         privacy.rel = "noopener noreferrer";
-        privacy.textContent = `Privacidade · v${registrationPolicy.privacy.version} · ${registrationPolicy.privacy.effectiveDate}`;
+        privacy.textContent = `${translateFirstRunText(draft.locale, "Privacidade")} · v${registrationPolicy.privacy.version} · ${registrationPolicy.privacy.effectiveDate}`;
         const terms = documentObject.createElement("a");
         terms.href = registrationPolicy.terms.url;
         terms.target = "_blank";
         terms.rel = "noopener noreferrer";
-        terms.textContent = `Termos · v${registrationPolicy.terms.version} · ${registrationPolicy.terms.effectiveDate}`;
+        terms.textContent = `${translateFirstRunText(draft.locale, "Termos")} · v${registrationPolicy.terms.version} · ${registrationPolicy.terms.effectiveDate}`;
         links.append(privacy, terms);
         const acceptance = el(documentObject, "label", "ordax-first-run-legal-acceptance");
         const checkbox = documentObject.createElement("input");
