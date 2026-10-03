@@ -1,0 +1,54 @@
+{
+  "$schema": "prototype-ordax.service-quotas/1",
+  "status": "source-foundation-commercial-values-unassigned",
+  "owner": "system/services/entitlements",
+  "runtime": {
+    "policy_schema": "ordax.service-quota-policy/1",
+    "usage_schema": "ordax.service-quota-usage/1",
+    "decision_schema": "ordax.service-quota-decision/1",
+    "contract_source": "system/contracts/service-quota.mjs",
+    "service_source": "system/services/entitlements/quota.mjs"
+  },
+  "principles": {
+    "identity_is_never_quota_gated": true,
+    "offline_local_os_usage_is_never_quota_gated": true,
+    "local_intelligence_is_never_quota_gated": true,
+    "remote_usage_is_server_authoritative": true,
+    "client_preflight_is_authorization_authority": false,
+    "remote_allocation_must_be_checked_in_same_server_transaction_as_mutation": true,
+    "quota_decision_grants_action_authority": false,
+    "downgrade_silently_deletes_user_data": false,
+    "over_quota_downgrade_behavior": "retain-existing-block-new-growth",
+    "delete_and_export_may_be_blocked_by_overage": false,
+    "physical_provider_storage_bytes_are_billing_source_of_truth": false,
+    "logical_usage_units_are_provider_neutral": true
+  },
+  "prepared_resources": [
+    { "key": "memory.cloud.bytes", "unit": "bytes", "commercial_value_assigned": false },
+    { "key": "memory.history.days", "unit": "days", "commercial_value_assigned": false },
+    { "key": "ai.external.compute", "unit": "compute-units", "commercial_value_assigned": false },
+    { "key": "sync.bytes", "unit": "bytes", "commercial_value_assigned": false },
+    { "key": "backup.bytes", "unit": "bytes", "commercial_value_assigned": false },
+    { "key": "connectors.max", "unit": "items", "commercial_value_assigned": true },
+    { "key": "automations.max", "unit": "items", "commercial_value_assigned": true },
+    { "key": "spaces.active.max", "unit": "items", "commercial_value_assigned": true },
+    { "key": "spaces.members.max", "unit": "items", "commercial_value_assigned": true }
+  ],
+  "provider_boundary": {
+    "domain_semantics_provider_neutral": true,
+    "current_product_backend_adapter": "supabase",
+    "cloudflare_required_for_user_cloud": false,
+    "object_storage_may_be_added_for_large_blobs_later": true,
+    "object_storage_must_not_replace_transactional_identity_entitlement_or_memory_authority": true
+  },
+  "activation_gates": [
+    "server usage meter is implemented for the target resource",
+    "concurrent allocations are serialized or atomically compared",
+    "quota and mutation commit or roll back together",
+    "plan assignment is server-authoritative",
+    "downgrade overage retains existing user data",
+    "delete and export remain available while over quota",
+    "cost-sensitive numeric limits are backed by measured unit economics",
+    "real authenticated multi-session proof passes before public cloud rollout"
+  ]
+}
