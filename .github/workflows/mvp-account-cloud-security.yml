@@ -6,6 +6,8 @@ on:
   pull_request:
     paths:
       - 'infra/supabase/functions/ordax-account-gateway/**'
+      - 'infra/supabase/functions/ordax-account-lifecycle/**'
+      - 'infra/supabase/product/migrations/20261003123000_account_close_cleanup_journal_v1.sql'
       - 'services/public-identity/**'
       - 'deploy/public-site/nginx.conf'
       - 'docs/contracts/public-identity.json'
@@ -16,6 +18,9 @@ on:
       - 'docs/contracts/mvp-account-cloud.json'
       - 'docs/contracts/user-cloud-storage.json'
       - 'tests/test_account_registration_activation_guard.py'
+      - 'tests/test_account_close_activation_guard.py'
+      - 'tests/test_account_close_cleanup_source.py'
+      - 'tests/test_account_lifecycle_edge.py'
       - 'tests/test_mvp_account_cloud_contract.py'
       - 'tests/test_public_site_contract.py'
       - 'tests/test_public_site_deployment.py'
@@ -51,6 +56,12 @@ jobs:
 
       - name: Prove registration cannot be activated past missing Edge legal acceptance validation
         run: python -m unittest tests.test_account_registration_activation_guard -v
+
+      - name: Prove account close cannot bypass durable cleanup
+        run: |
+          python -m unittest tests.test_account_close_cleanup_source -v
+          python -m unittest tests.test_account_close_activation_guard -v
+          python -m unittest tests.test_account_lifecycle_edge -v
 
       - name: Prove MVP account cloud stays fail-closed while required
         run: python -m unittest tests.test_mvp_account_cloud_contract -v
