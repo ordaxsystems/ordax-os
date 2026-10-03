@@ -12,6 +12,12 @@ on:
       - 'system/apps/**'
       - 'system/contracts/first-run-state-store.mjs'
       - 'system/contracts/localization-pack.mjs'
+      - 'system/contracts/localization.mjs'
+      - 'system/services/i18n/locale-profile.mjs'
+      - 'system/surface/ui/document-localization.mjs'
+      - 'tools/localization/pseudo-localization.mjs'
+      - 'docs/contracts/localization.json'
+      - 'tests/test_localization_pseudo_rtl.mjs'
       - 'docs/contracts/first-run.json'
       - 'docs/LOCALIZATION-PACKS.md'
       - 'tests/test_english_mvp_localization_audit.mjs'
@@ -31,6 +37,12 @@ on:
       - 'system/apps/**'
       - 'system/contracts/first-run-state-store.mjs'
       - 'system/contracts/localization-pack.mjs'
+      - 'system/contracts/localization.mjs'
+      - 'system/services/i18n/locale-profile.mjs'
+      - 'system/surface/ui/document-localization.mjs'
+      - 'tools/localization/pseudo-localization.mjs'
+      - 'docs/contracts/localization.json'
+      - 'tests/test_localization_pseudo_rtl.mjs'
       - 'docs/contracts/first-run.json'
       - 'docs/LOCALIZATION-PACKS.md'
       - 'tests/test_english_mvp_localization_audit.mjs'
@@ -67,6 +79,8 @@ jobs:
           node --version
           node --check tests/test_localization_pack_contract.mjs
           node --test tests/test_localization_pack_contract.mjs
+          node --check tests/test_localization_pseudo_rtl.mjs
+          node --test tests/test_localization_pseudo_rtl.mjs
           node --check tests/test_first_party_app_localization_contract.mjs
           node --test tests/test_first_party_app_localization_contract.mjs
           node --check tests/test_english_mvp_localization_audit.mjs
