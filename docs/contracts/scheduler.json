@@ -1,0 +1,44 @@
+{
+  "$schema": "prototype-ordax.scheduler/1",
+  "status": "source-foundation-not-composed-into-personal-runtime",
+  "owner": "system/services/scheduler",
+  "authority": {
+    "creates_authority": false,
+    "issues_grants": false,
+    "schedule_authority": "none",
+    "occurrence_authority": "none"
+  },
+  "durability": {
+    "atomic_schedule_revision_required": true,
+    "transactional_occurrence_outbox_required": true,
+    "pending_occurrence_survives_dispatch_failure": true,
+    "consumer_deduplication_required": true,
+    "distributed_exactly_once_claimed": false
+  },
+  "recurrence": {
+    "one_shot": true,
+    "fixed_interval": true,
+    "minimum_interval_ms": 60000,
+    "maximum_interval_ms": 2592000000,
+    "iana_timezone_required": true,
+    "bounded_max_runs_required": true,
+    "overdue_interval_policy": "coalesce-one-and-advance",
+    "calendar_wall_clock_recurrence_enabled": false
+  },
+  "cancellation": {
+    "atomic_disable_required": true,
+    "revision_checked": true,
+    "history_deleted_on_disable": false
+  },
+  "composition": {
+    "system_service": true,
+    "personal_ordax_is_consumer_not_owner": true,
+    "background_runtime_wakeup_is_future_composition": true,
+    "scheduled_action_still_requires_normal_action_authority": true
+  },
+  "rollout": {
+    "production_store_enabled": false,
+    "personal_schedules_enabled": false,
+    "recurring_autonomous_mutation_enabled": false
+  }
+}
