@@ -2,16 +2,28 @@ import { validateUploadReservation } from "../../contracts/user-cloud-storage.mj
 
 export const USER_CLOUD_STORAGE_POLICY_SCHEMA = "ordax.user-cloud-storage-policy/1";
 
-function assertServerAuthority(value, label) {
-  if (!value || typeof value !== "object" || value.authority !== "server") {
-    throw new TypeError(`${label} must be server-authoritative`);
+function validateQuotaDecision(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Quota decision must be an object");
+  }
+  if (value.authority !== "server-quota-only" || value.actionAuthority !== "none") {
+    throw new TypeError("Quota decision must come from the server quota boundary");
+  }
+  if (typeof value.canAllocate !== "boolean") {
+    throw new TypeError("Quota decision allocation result is invalid");
+  }
+  if (value.key !== "storage.user.bytes" || value.unit !== "bytes") {
+    throw new TypeError("Quota decision must target storage.user.bytes");
+  }
+  if (!Number.isSafeInteger(value.requested) || value.requested < 0) {
+    throw new TypeError("Quota decision requested units are invalid");
   }
   return value;
 }
 
 export function evaluateUserCloudUpload({ reservation, quotaDecision, now = Date.now() }) {
   const validated = validateUploadReservation(reservation);
-  const quota = assertServerAuthority(quotaDecision, "Quota decision");
+  const quota = validateQuotaDecision(quotaDecision);
   const expiresAt = Date.parse(validated.expiresAt);
 
   if (!Number.isFinite(now) || now < 0) {
@@ -26,7 +38,7 @@ export function evaluateUserCloudUpload({ reservation, quotaDecision, now = Date
       actionAuthority: "none",
     });
   }
-  if (quota.subjectType !== validated.ownerType || quota.subjectId !== validated.ownerId) {
+  if (quota.subjectType !== validated.subjectType || quota.subjectId !== validated.subjectId) {
     return Object.freeze({
       schema: USER_CLOUD_STORAGE_POLICY_SCHEMA,
       decision: "deny",
@@ -35,11 +47,20 @@ export function evaluateUserCloudUpload({ reservation, quotaDecision, now = Date
       actionAuthority: "none",
     });
   }
-  if (quota.decision !== "allowed") {
+  if (quota.requested !== validated.expectedSizeBytes) {
     return Object.freeze({
       schema: USER_CLOUD_STORAGE_POLICY_SCHEMA,
       decision: "deny",
-      reason: quota.decision === "limited" ? "quota-growth-blocked" : "quota-denied",
+      reason: "quota-reservation-size-mismatch",
+      uploadAuthorized: false,
+      actionAuthority: "none",
+    });
+  }
+  if (!quota.canAllocate) {
+    return Object.freeze({
+      schema: USER_CLOUD_STORAGE_POLICY_SCHEMA,
+      decision: "deny",
+      reason: quota.state === "over-quota-retained" ? "quota-growth-blocked" : "quota-denied",
       uploadAuthorized: false,
       actionAuthority: "none",
     });
@@ -52,6 +73,8 @@ export function evaluateUserCloudUpload({ reservation, quotaDecision, now = Date
     uploadAuthorized: true,
     reservationId: validated.reservationId,
     objectId: validated.objectId,
+    subjectType: validated.subjectType,
+    subjectId: validated.subjectId,
     expectedSizeBytes: validated.expectedSizeBytes,
     expectedSha256: validated.expectedSha256,
     expiresAt: validated.expiresAt,
@@ -79,6 +102,8 @@ export function verifyUploadFinalization({ reservation, actualSizeBytes, actualS
     finalizationAccepted: true,
     reservationId: validated.reservationId,
     objectId: validated.objectId,
+    subjectType: validated.subjectType,
+    subjectId: validated.subjectId,
     actionAuthority: "none",
   });
 }
