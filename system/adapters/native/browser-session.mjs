@@ -1,5 +1,6 @@
 import {
   BROWSER_SESSION_SCHEMA,
+  BROWSER_UNAVAILABLE_REASONS,
   createUnavailableBrowserSession,
   validateBrowserSnapshot,
 } from "../../contracts/browser-session.mjs";
@@ -22,7 +23,9 @@ function nativeBridge(windowRef) {
 export function createNativeBrowserSession(windowRef = globalThis.window) {
   const bridge = nativeBridge(windowRef);
   if (!bridge || typeof bridge.postMessage !== "function") {
-    return createUnavailableBrowserSession("O host WebKit do OrdaX não expôs o engine de navegação isolado.");
+    return createUnavailableBrowserSession(
+      BROWSER_UNAVAILABLE_REASONS.NATIVE_ENGINE_UNAVAILABLE,
+    );
   }
 
   let snapshot = validateBrowserSnapshot({
