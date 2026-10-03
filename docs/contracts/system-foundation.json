@@ -20,7 +20,9 @@
     "sync",
     "system-foundation",
     "personal-ordax",
-    "device-agent"
+    "device-agent",
+    "scheduler",
+    "background"
   ],
   "system_foundation": {
     "capability_registry": "ordax.system-capability-state/1",
@@ -32,12 +34,24 @@
     "scheduler": {
       "owner": "system/services/scheduler",
       "rule": "wakes work but never grants authority",
-      "runtime_enabled": false
+      "schedule_schema": "ordax.schedule/1",
+      "wake_intent_schema": "ordax.schedule-wake-intent/1",
+      "source_runtime_implemented": true,
+      "composition_enabled": false,
+      "public_enabled": false
     },
     "background": {
       "owner": "system/services/background",
-      "rule": "bounded leases budgets cancellation and recovery before autonomous mutation",
-      "runtime_enabled": false
+      "rule": "bounded leases budgets cancellation checkpoints and recovery before autonomous mutation",
+      "policy_schema": "ordax.background-policy/1",
+      "run_schema": "ordax.background-run/1",
+      "checkpoint_schema": "ordax.background-checkpoint/1",
+      "source_runtime_implemented": true,
+      "read_only_only": true,
+      "external_egress_enabled": false,
+      "mutation_enabled": false,
+      "composition_enabled": false,
+      "public_enabled": false
     }
   },
   "memory_longevity": {
