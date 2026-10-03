@@ -11,6 +11,22 @@ import {
 
 const POLICY_RANK = Object.freeze({ pass: 0, "require-approval": 1, deny: 2 });
 
+export function evaluateSystemPolicyDecisions(decisions = []) {
+  if (!Array.isArray(decisions)) throw new TypeError("System policy decisions must be an array");
+  if (decisions.length === 0) {
+    return validateSystemPolicyDecision({
+      schema: SYSTEM_POLICY_DECISION_SCHEMA,
+      effect: "pass",
+      reasonCode: "system.no-additional-restriction",
+      source: "system.foundation",
+    });
+  }
+  const validated = decisions.map(validateSystemPolicyDecision);
+  return validated.reduce((strictest, candidate) => (
+    POLICY_RANK[candidate.effect] > POLICY_RANK[strictest.effect] ? candidate : strictest
+  ));
+}
+
 function cloneMapValues(map) {
   return Object.freeze([...map.values()]);
 }
@@ -153,21 +169,7 @@ export function createSystemFoundationRuntime({
       },
     }),
     policy: Object.freeze({
-      evaluate(decisions = []) {
-        if (!Array.isArray(decisions)) throw new TypeError("System policy decisions must be an array");
-        if (decisions.length === 0) {
-          return validateSystemPolicyDecision({
-            schema: SYSTEM_POLICY_DECISION_SCHEMA,
-            effect: "pass",
-            reasonCode: "system.no-additional-restriction",
-            source: "system.foundation",
-          });
-        }
-        const validated = decisions.map(validateSystemPolicyDecision);
-        return validated.reduce((strictest, candidate) => (
-          POLICY_RANK[candidate.effect] > POLICY_RANK[strictest.effect] ? candidate : strictest
-        ));
-      },
+      evaluate: evaluateSystemPolicyDecisions,
     }),
   });
 }
