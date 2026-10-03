@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import { PREFERENCE_RUNTIME_SCHEMA } from "../system/contracts/preference-runtime.mjs";
 import { createSurfaceLocalization } from "../system/services/i18n/surface.mjs";
@@ -101,4 +102,20 @@ test("normal public Surface locales remain LTR and unchanged by pseudo-locale to
   assert.match(createDesktopShellMarkup(base), /Main applications/);
 
   base.dispose();
+});
+
+test("machine-readable localization contract keeps pseudo-locales outside public product support", async () => {
+  const contract = JSON.parse(await readFile(
+    new URL("../docs/contracts/localization.json", import.meta.url),
+    "utf8",
+  ));
+
+  assert.equal(contract.$schema, "prototype-ordax.localization/2");
+  assert.equal(contract.runtime_schema, "ordax.localization/2");
+  assert.deepEqual(contract.public_complete_locales, ["pt-BR", "en-US"]);
+  assert.equal(contract.pseudo_locales.publicly_selectable, false);
+  assert.equal(contract.pseudo_locales.persistable_as_user_preference, false);
+  assert.equal(contract.pseudo_locales.expanded.locale, "en-XA");
+  assert.equal(contract.pseudo_locales.rtl.locale, "ar-XB");
+  assert.equal(contract.pseudo_locales.placeholder_identity_must_be_preserved, true);
 });
