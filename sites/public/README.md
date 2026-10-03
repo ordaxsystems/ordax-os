@@ -12,6 +12,18 @@ Routes:
 
 The baseline is dependency-free HTML/CSS/JavaScript. Runtime integration is configured by `config/public-site.json` and fails closed when identity or public release services are not authorized for public activation. The real account forms remain hidden and disabled until those gates pass.
 
+## Localization
+
+The portal owns localization independently from the OrdaX Surface runtime. Its source/default locale is `pt-BR`; `en-US` is bundled as a complete first-class locale. The owner lives under `i18n/`:
+
+- `i18n/catalog.js` owns message parity for PT-BR and en-US;
+- `i18n/runtime.js` resolves the locale, updates `<html lang>`, metadata, accessibility text and visible copy, and exposes the explicit language selector;
+- explicit selection is stored locally under `ordax.public.locale`;
+- an unsupported or invalid locale falls back deterministically to `pt-BR`;
+- the portal does not import the Surface localization runtime and does not fetch remote language resources.
+
+The public routes stay canonical and language-neutral; do not duplicate the site into `/en` copies. `tests/test_public_site_localization.mjs` enforces exact key/placeholder parity, complete route and playground-fixture coverage, dynamic message ownership, and the no-remote-runtime rule.
+
 Do not place secrets, privileged storage URLs, private release objects or provider service-role credentials in this tree. See `docs/PUBLIC-SITE.md`.
 
 

@@ -138,5 +138,28 @@
     "default_plan_id": "free",
     "paid_plans_purchasable": false,
     "plan_contract": "docs/contracts/entitlements.json"
+  },
+  "localization": {
+    "owner": "public-site",
+    "owner_root": "sites/public/i18n",
+    "catalog": "sites/public/i18n/catalog.js",
+    "runtime": "sites/public/i18n/runtime.js",
+    "source_locale": "pt-BR",
+    "bundled_locales": [
+      "pt-BR",
+      "en-US"
+    ],
+    "locale_selection": "explicit-selector-with-local-persistence",
+    "persistence_key": "ordax.public.locale",
+    "unsupported_locale_fallback": "pt-BR",
+    "message_key_parity_required": true,
+    "placeholder_parity_required": true,
+    "complete_route_parity_required": true,
+    "dynamic_copy_requires_message_ids": true,
+    "html_language_follows_active_locale": true,
+    "metadata_and_accessibility_follow_active_locale": true,
+    "surface_runtime_dependency": false,
+    "remote_localization_dependency": false,
+    "audit": "tests/test_public_site_localization.mjs"
   }
 }

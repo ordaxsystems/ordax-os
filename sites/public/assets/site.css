@@ -1027,3 +1027,33 @@ a {
     margin-top: 64px;
   }
 }
+
+
+/* Public-site localization owner */
+.public-locale-switcher {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: 0.35rem;
+}
+
+.public-locale-select {
+  min-height: 2rem;
+  max-width: 10rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0.42rem 1.8rem 0.42rem 0.7rem;
+}
+
+.public-locale-select option {
+  color: #111;
+}
+
+.public-locale-select:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
