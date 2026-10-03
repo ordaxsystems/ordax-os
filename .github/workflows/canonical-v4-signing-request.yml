@@ -1,0 +1,283 @@
+name: Canonical v4 Public Signing Request
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canonical-v4-signing-request.yml'
+      - 'docs/contracts/canonical-v4-signing-request.json'
+      - 'tools/release-operator/**'
+      - 'tests/test_canonical_v4_signing_request.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  assemble-public-signing-request:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout assembly source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
+      - name: Validate request before using any identifiers
+        run: |
+          set -euo pipefail
+          python tools/release-operator/validate_canonical_v4_signing_request.py \
+            --request docs/contracts/canonical-v4-signing-request.json \
+            --request-only
+
+      - name: Resolve validated request identities
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$GITHUB_OUTPUT" <<'PY'
+          import json, pathlib, sys
+          request = json.loads(pathlib.Path('docs/contracts/canonical-v4-signing-request.json').read_text(encoding='utf-8'))
+          out = pathlib.Path(sys.argv[1])
+          values = {
+              'source_commit': request['source_commit'],
+              'release_tag': request['release_tag'],
+              'system_run_id': request['operator_artifacts']['system']['run_id'],
+              'system_artifact_id': request['operator_artifacts']['system']['artifact_id'],
+              'surface_run_id': request['operator_artifacts']['surface']['run_id'],
+              'surface_artifact_id': request['operator_artifacts']['surface']['artifact_id'],
+              'local_ai_run_id': request['operator_artifacts']['local-ai']['run_id'],
+              'local_ai_artifact_id': request['operator_artifacts']['local-ai']['artifact_id'],
+          }
+          with out.open('a', encoding='utf-8') as stream:
+              for key, value in values.items():
+                  stream.write(f'{key}={value}\n')
+          PY
+
+      - name: Download exact operator artifacts by immutable artifact ID
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYSTEM_RUN_ID: ${{ steps.request.outputs.system_run_id }}
+          SYSTEM_ARTIFACT_ID: ${{ steps.request.outputs.system_artifact_id }}
+          SURFACE_RUN_ID: ${{ steps.request.outputs.surface_run_id }}
+          SURFACE_ARTIFACT_ID: ${{ steps.request.outputs.surface_artifact_id }}
+          LOCAL_AI_RUN_ID: ${{ steps.request.outputs.local_ai_run_id }}
+          LOCAL_AI_ARTIFACT_ID: ${{ steps.request.outputs.local_ai_artifact_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          metadata="$RUNNER_TEMP/canonical-v4-metadata"
+          artifacts="$RUNNER_TEMP/canonical-v4-operator-artifacts"
+          archives="$RUNNER_TEMP/canonical-v4-archives"
+          mkdir -p "$metadata" "$artifacts/system" "$artifacts/surface" "$artifacts/local-ai" "$archives"
+
+          api_get() {
+            local endpoint="$1"
+            local destination="$2"
+            curl --fail-with-body --silent --show-error --location \
+              --retry 3 --retry-all-errors \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/${endpoint}" \
+              --output "$destination"
+          }
+
+          fetch_one() {
+            local kind="$1"
+            local run_id="$2"
+            local artifact_id="$3"
+            local archive="$archives/${kind}.zip"
+            api_get "actions/runs/${run_id}" "$metadata/${kind}-run.json"
+            api_get "actions/artifacts/${artifact_id}" "$metadata/${kind}-artifact.json"
+            api_get "actions/artifacts/${artifact_id}/zip" "$archive"
+            python - "$metadata/${kind}-artifact.json" "$archive" <<'PY'
+          import hashlib, json, pathlib, sys
+          metadata = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          archive = pathlib.Path(sys.argv[2])
+          expected = metadata.get('digest')
+          actual = 'sha256:' + hashlib.sha256(archive.read_bytes()).hexdigest()
+          if expected != actual:
+              raise SystemExit(f'artifact ZIP digest mismatch: expected={expected} actual={actual}')
+          print(f'ARTIFACT_ZIP_DIGEST_VERIFIED={actual}')
+          PY
+            unzip -q "$archive" -d "$artifacts/$kind"
+          }
+
+          fetch_one system "$SYSTEM_RUN_ID" "$SYSTEM_ARTIFACT_ID"
+          fetch_one surface "$SURFACE_RUN_ID" "$SURFACE_ARTIFACT_ID"
+          fetch_one local-ai "$LOCAL_AI_RUN_ID" "$LOCAL_AI_ARTIFACT_ID"
+
+      - name: Build manifest and signer tooling from exact release source
+        env:
+          SOURCE_COMMIT: ${{ steps.request.outputs.source_commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_source="$RUNNER_TEMP/canonical-v4-release-source"
+          work="$RUNNER_TEMP/canonical-v4-public-assembly"
+          package="$RUNNER_TEMP/canonical-v4-signing-request-package"
+          mkdir -p "$work/bin" "$package"
+
+          git merge-base --is-ancestor "$SOURCE_COMMIT" HEAD
+          git fetch --no-tags --depth=1 origin "$SOURCE_COMMIT"
+          git worktree add --detach "$release_source" "$SOURCE_COMMIT"
+          test "$(git -C "$release_source" rev-parse HEAD)" = "$SOURCE_COMMIT"
+
+          (
+            cd "$release_source/tools/release-manifest"
+            CGO_ENABLED=0 go test -count=1 ./...
+            CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+              -o "$work/bin/ordax-release-manifest" .
+          )
+          (
+            cd "$release_source/tools/release-signing"
+            CGO_ENABLED=0 go test -count=1 ./...
+            CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o "$package/ordax-release-signing.exe" .
+          )
+
+          cp "$release_source/bootstrap/trust/release-ed25519.json" "$package/release-ed25519.json"
+          cp "$release_source/tools/release-signing/windows/4-Sign-Initial-OrdaXRelease.ps1" "$package/4-Sign-Initial-OrdaXRelease.ps1"
+          cp "$release_source/tools/release-signing/windows/4-Sign-Initial-OrdaXRelease.cmd" "$package/4-Sign-Initial-OrdaXRelease.cmd"
+
+      - name: Generate exact unsigned release-manifest v4
+        env:
+          SOURCE_COMMIT: ${{ steps.request.outputs.source_commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifacts="$RUNNER_TEMP/canonical-v4-operator-artifacts"
+          work="$RUNNER_TEMP/canonical-v4-public-assembly"
+          package="$RUNNER_TEMP/canonical-v4-signing-request-package"
+          request="docs/contracts/canonical-v4-signing-request.json"
+
+          find_one() {
+            local root="$1"
+            local name="$2"
+            mapfile -t matches < <(find "$root" -type f -name "$name" -print)
+            if [ "${#matches[@]}" -ne 1 ]; then
+              echo "expected exactly one ${name} under ${root}; found ${#matches[@]}" >&2
+              exit 1
+            fi
+            printf '%s\n' "${matches[0]}"
+          }
+
+          system_image="$(find_one "$artifacts/system" system.erofs)"
+          surface_image="$(find_one "$artifacts/surface" native-surface-runtime.erofs)"
+          local_ai_image="$(find_one "$artifacts/local-ai" local-ai-runtime.erofs)"
+          source_lock="$(find_one "$artifacts/local-ai" source-lock.json)"
+          system_url="$(python -c "import json; print(json.load(open('$request'))['artifact_urls']['system.erofs'])")"
+          surface_url="$(python -c "import json; print(json.load(open('$request'))['artifact_urls']['native-surface-runtime.erofs'])")"
+          local_ai_url="$(python -c "import json; print(json.load(open('$request'))['artifact_urls']['local-ai-runtime.erofs'])")"
+
+          "$work/bin/ordax-release-manifest" \
+            --manifest-schema 4 \
+            --artifact "$system_image" \
+            --runtime-artifact "$surface_image" \
+            --local-ai-artifact "$local_ai_image" \
+            --local-ai-source-lock "$source_lock" \
+            --source-commit "$SOURCE_COMMIT" \
+            --artifact-url "$system_url" \
+            --runtime-artifact-url "$surface_url" \
+            --local-ai-artifact-url "$local_ai_url" \
+            --out "$package/release-manifest.json"
+
+      - name: Revalidate bytes receipts metadata trust and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifacts="$RUNNER_TEMP/canonical-v4-operator-artifacts"
+          metadata="$RUNNER_TEMP/canonical-v4-metadata"
+          release_source="$RUNNER_TEMP/canonical-v4-release-source"
+          package="$RUNNER_TEMP/canonical-v4-signing-request-package"
+
+          python tools/release-operator/validate_canonical_v4_signing_request.py \
+            --request docs/contracts/canonical-v4-signing-request.json \
+            --metadata-dir "$metadata" \
+            --system-dir "$artifacts/system" \
+            --surface-dir "$artifacts/surface" \
+            --local-ai-dir "$artifacts/local-ai" \
+            --trust "$release_source/bootstrap/trust/release-ed25519.json" \
+            --manifest "$package/release-manifest.json" \
+            --out "$package/canonical-v4-signing-request-receipt.json"
+
+      - name: Assemble small public-only signing package
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifacts="$RUNNER_TEMP/canonical-v4-operator-artifacts"
+          package="$RUNNER_TEMP/canonical-v4-signing-request-package"
+
+          find_one() {
+            local root="$1"
+            local name="$2"
+            mapfile -t matches < <(find "$root" -type f -name "$name" -print)
+            if [ "${#matches[@]}" -ne 1 ]; then
+              echo "expected exactly one ${name} under ${root}; found ${#matches[@]}" >&2
+              exit 1
+            fi
+            printf '%s\n' "${matches[0]}"
+          }
+
+          cp docs/contracts/canonical-v4-signing-request.json "$package/canonical-v4-signing-request.json"
+          cp "$(find_one "$artifacts/system" operator-receipt.json)" "$package/system-operator-receipt.json"
+          cp "$(find_one "$artifacts/surface" operator-receipt.json)" "$package/surface-operator-receipt.json"
+          cp "$(find_one "$artifacts/local-ai" operator-receipt.json)" "$package/local-ai-operator-receipt.json"
+          cp "$(find_one "$artifacts/local-ai" source-lock.json)" "$package/local-ai-source-lock.json"
+
+          test ! -e "$package/release-envelope.json"
+          if find "$package" -type f \( -iname '*.erofs' -o -iname '*.pem' -o -iname '*.key' -o -iname '*.p12' -o -iname '*.pfx' -o -iname '*.dpapi' \) -print -quit | grep -q .; then
+            echo 'public signing package contains forbidden runtime/private material' >&2
+            exit 1
+          fi
+          (
+            cd "$package"
+            sha256sum \
+              4-Sign-Initial-OrdaXRelease.cmd \
+              4-Sign-Initial-OrdaXRelease.ps1 \
+              canonical-v4-signing-request.json \
+              canonical-v4-signing-request-receipt.json \
+              local-ai-operator-receipt.json \
+              local-ai-source-lock.json \
+              ordax-release-signing.exe \
+              release-ed25519.json \
+              release-manifest.json \
+              surface-operator-receipt.json \
+              system-operator-receipt.json \
+              > SHA256SUMS
+          )
+          echo 'CANONICAL_V4_PUBLIC_SIGNING_REQUEST=READY'
+          echo 'PRIVATE_KEY_INCLUDED=NO'
+          echo 'EROFS_INCLUDED=NO'
+          echo 'SIGNING_PERFORMED=NO'
+          echo 'PUBLICATION_PERFORMED=NO'
+          echo 'RELEASE_ACTIVATED=NO'
+          echo 'PHYSICAL_TARGET_SELECTED=NO'
+          echo 'PHYSICAL_WRITE_AUTHORIZED=NO'
+          echo 'PHYSICAL_WRITE_PERFORMED=NO'
+
+      - name: Upload small public-only signing request
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: canonical-v4-signing-request-${{ steps.request.outputs.source_commit }}
+          path: ${{ runner.temp }}/canonical-v4-signing-request-package/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
