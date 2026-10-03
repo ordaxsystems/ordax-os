@@ -28,25 +28,11 @@ const RTL_DEFAULT_LANGUAGES = Object.freeze(new Set([
 function normalizeLocaleId(value) {
   const raw = String(value ?? "").trim();
   if (!raw) throw new TypeError("Locale id must be a non-empty string");
-
-  const parts = raw.split("-").filter(Boolean);
-  if (parts.length === 0 || !/^[A-Za-z]{2,8}$/.test(parts[0])) {
+  try {
+    return Intl.getCanonicalLocales(raw)[0];
+  } catch {
     throw new TypeError(`Invalid locale id: ${raw}`);
   }
-
-  const normalized = [parts[0].toLowerCase()];
-  for (const part of parts.slice(1)) {
-    if (/^[A-Za-z]{4}$/.test(part)) {
-      normalized.push(part[0].toUpperCase() + part.slice(1).toLowerCase());
-    } else if (/^(?:[A-Za-z]{2}|\d{3})$/.test(part)) {
-      normalized.push(part.toUpperCase());
-    } else if (/^[A-Za-z0-9]{1,8}$/.test(part)) {
-      normalized.push(part.toLowerCase());
-    } else {
-      throw new TypeError(`Invalid locale subtag: ${part}`);
-    }
-  }
-  return normalized.join("-");
 }
 
 function explicitScript(locale) {
