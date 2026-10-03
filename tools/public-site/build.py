@@ -53,6 +53,8 @@ REQUIRED_FILES = (
     "termos/index.html",
     "assets/site.css",
     "assets/site.js",
+    "i18n/catalog.js",
+    "i18n/runtime.js",
     "assets/playground-fixture.json",
     "config/public-site.json",
 )
