@@ -408,10 +408,29 @@
     ["Escrita local, projetos, tarefas e referências disponíveis offline.", "Local writing, projects, tasks, and references available offline."],
     ["Conversa local com a OrdaX Intelligence, sem autoridade implícita para executar ações.", "Local conversation with OrdaX Intelligence, without implicit authority to execute actions."],
     ["Trabalho explícito do Personal OrdaX, com progresso e resultados visíveis.", "Explicit Personal OrdaX work, with visible progress and results."],
-    ["Entrega, atualizações, conectividade e recursos desta execução do OrdaX.", "Delivery, updates, connectivity, and resources for this OrdaX run."]
+    ["Entrega, atualizações, conectividade e recursos desta execução do OrdaX.", "Delivery, updates, connectivity, and resources for this OrdaX run."],
+    ["Consultar referências", "Review references"],
+    ["☀ Claro", "☀ Light"],
+    ["☾ Escuro", "☾ Dark"],
+    ["Tudo tem seu lugar.", "Everything has its place."],
+    ["Tema alterado nas duas telas.", "Theme changed on both screens."],
+    ["NAVEGAÇÃO", "BROWSING"],
+    ["CONTINUIDADE", "CONTINUITY"],
+    ["ESTADO DO SISTEMA", "SYSTEM STATUS"],
+    ["telefone", "phone"],
+    ["notebook", "notebook"],
+    ["Apps no telefone", "Apps on phone"],
+    ["Apps no notebook", "Apps on notebook"]
   ];
 
   const SEMANTIC = Object.freeze({
+    "playground.note.initialTitle": ["Uma ideia começa aqui", "An idea starts here"],
+    "playground.note.initialBody": ["Um espaço para pensar com calma.\n\nEscreva algo aqui e veja sua ideia aparecer na outra tela.", "A space to think calmly.\n\nWrite something here and watch your idea appear on the other screen."],
+    "playground.appsOnDevice": ["Apps no {device}", "Apps on {device}"],
+    "playground.appOnDevice": ["{app} no {device}", "{app} on {device}"],
+    "playground.noteTitleOnDevice": ["Título da nota no {device}", "Note title on {device}"],
+    "playground.noteBodyOnDevice": ["Texto da nota no {device}", "Note text on {device}"],
+    "playground.changeOnDevice": ["Alteração no {device} refletida nas duas telas. Simulação local.", "Change on {device} reflected on both screens. Local simulation."],
     "locale.selector.label": ["Idioma", "Language"],
     "locale.selector.pt-BR": ["Português (Brasil)", "Português (Brasil)"],
     "locale.selector.en-US": ["Inglês (EUA)", "English (US)"],
