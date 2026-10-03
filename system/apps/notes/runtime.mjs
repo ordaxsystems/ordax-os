@@ -1,10 +1,12 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
+import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { NOTES_VERSION } from "./version.mjs";
 import { createNotesRuntime } from "./domain/runtime.mjs";
 import { mountNotesWorkspaceControls } from "./ui/workspace-controls.mjs";
 
 const NOTES_STYLESHEET_URL = new URL("./notes.css", import.meta.url).href;
 const NOTES_STYLE_SELECTOR = 'link[data-ordax-component-style="notes"]';
+const NOTES_BODY_SELECTOR = '[data-notes-body]';
 
 async function mountNotesStyles(root) {
   const documentObject = root?.ownerDocument;
@@ -44,6 +46,16 @@ async function mountNotesStyles(root) {
   return () => link.remove();
 }
 
+function syncNotesEditorAccessibility(root, localization) {
+  const editor = root.querySelector(NOTES_BODY_SELECTOR);
+  if (!editor) return false;
+  editor.setAttribute(
+    "aria-label",
+    `${localization.translate("notes.document.kicker")} ${localization.translate("notes.format.text")}`,
+  );
+  return true;
+}
+
 export const componentRuntime = Object.freeze({
   schema: COMPONENT_RUNTIME_SCHEMA,
   componentId: "notes",
@@ -59,11 +71,16 @@ export const componentRuntime = Object.freeze({
     if (createStore !== null && typeof createStore !== "function") {
       throw new TypeError("Notes createStore must be a function or null");
     }
+    const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
     const releaseStyles = await mountNotesStyles(root);
     let notesRuntime = null;
     let controls = null;
+    let unsubscribeLocale = null;
+    let unsubscribeRender = null;
 
     const cleanup = () => {
+      unsubscribeLocale?.();
+      unsubscribeRender?.();
       controls?.destroy();
       notesRuntime?.destroy();
       releaseStyles();
@@ -75,9 +92,13 @@ export const componentRuntime = Object.freeze({
       controls = mountNotesWorkspaceControls(
         root,
         notesRuntime,
-        surfaceLifecycle,
+        lifecycle,
         { fileSpace, appActivation, intelligence },
       );
+      const syncAccessibility = () => syncNotesEditorAccessibility(root, lifecycle.localization);
+      unsubscribeRender = lifecycle.subscribeRender(syncAccessibility);
+      unsubscribeLocale = lifecycle.localization.subscribe(syncAccessibility);
+      syncAccessibility();
 
       let destroyed = false;
       return Object.freeze({
