@@ -44,9 +44,23 @@ Action grants and the Action Gateway remain the authority boundary. The system f
 
 ## Scheduler and background ownership
 
-Scheduler and background execution belong at system level because updates, sync, backups and Personal OrdaX may all need them. They must not be hidden inside one app.
+Scheduler and background execution belong at system level because updates, sync, backups and Personal OrdaX may all need them. They are not app-owned infrastructure.
 
-They stay **runtime-disabled** in this foundation until their contracts cover leases, budgets, cancellation, checkpoints, missed-run policy, time zones, deduplication, immediate revocation and crash recovery. A scheduler may wake Work; it may never grant action authority.
+The source foundation is now implemented with the safety primitives that were previously only roadmap items:
+
+- bounded wall-clock, step, action and egress budgets;
+- exclusive leases with heartbeat and expiry;
+- cancel, deadline handling and fail-closed recovery;
+- bounded checkpoints;
+- durable Scheduler state with IANA timezone, one-shot/fixed-interval recurrence and bounded run counts;
+- transactional occurrence outbox;
+- stable deduplication keys and idempotent Background run creation;
+- Scheduler-to-Background dispatch that revalidates consumer, subject, owner, Space/project and occurrence binding;
+- every Schedule, occurrence and Background Run remains `authority: none`.
+
+This does **not** mean public autonomous background is enabled. Personal OrdaX still does not automatically schedule or background Work, and no scheduled wake bypasses Action Policy, Action Review, approvals, exact grants, Action Gateway or Action Executor.
+
+Native durable ownership also exists for automation metadata in `/var/lib/ordax/automation-state.json`, with private permissions, atomic replace, fsync, cross-process locking, CAS and corruption fail-closed. The JavaScript Background/Scheduler runtimes are async-store ready and have a bounded same-origin Native adapter. The production `native_host_server.py` route is still deliberately not wired at this cut, so the adapter remains fail-closed instead of pretending persistence is active.
 
 ## Memory for years of use
 
