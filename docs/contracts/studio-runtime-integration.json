@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.studio-runtime-integration/1",
-  "status": "source-authorization-runtime-dispatch-disabled",
+  "status": "source-pinned-authorization-runtime-dispatch-disabled",
   "product": {
     "app_id": "studio",
     "product_name": "ORDAX Studio",
@@ -11,6 +11,8 @@
   },
   "runtime_source": {
     "historical_incubation_repository": "washingtonmsdj/mcp-blender",
+    "source_lock_path": "system/services/device-agent/studio-runtime-source-lock.json",
+    "source_binding_status": "pinned",
     "device_agent_schema": "ordax.device-agent/1",
     "capability_reader_schema": "ordax.device-agent-capability-reader/1",
     "same_action_gateway_required": true,
@@ -84,6 +86,7 @@
   },
   "activation_gate": {
     "source_contract_only": false,
+    "source_binding_pinned": true,
     "authorization_only": true,
     "does_not_enable_surface_mutations": true,
     "does_not_change_usb_release_gate": true,

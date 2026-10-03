@@ -1,0 +1,46 @@
+{
+  "$schema": "prototype-ordax.studio-runtime-source-lock/1",
+  "source": {
+    "repository": "https://github.com/washingtonmsdj/mcp-blender",
+    "commit": "c09128c320c02a2cf82e32a0f9119164e3455eff",
+    "compatibility_contract": {
+      "path": "docs/contracts/ordax-os-runtime-compatibility.json",
+      "schema": "ordax.studio-runtime-compatibility/1",
+      "sha256": "624ee6fc6705f09e6262154ccf78fbea9790f24cd62658831e465e1eace0afc5",
+      "product_version": "0.4.1"
+    }
+  },
+  "runtime": {
+    "profile": "headless",
+    "python": ">=3.11",
+    "entrypoints": [
+      "ordax-dev-agent",
+      "ordax-device-agent"
+    ],
+    "device_agent_schema": "ordax.device-agent/1",
+    "capability_reader_schema": "ordax.device-agent-capability-reader/1"
+  },
+  "distribution": {
+    "runtime_packaged_in_stable": false,
+    "runtime_network_download_allowed": false,
+    "runtime_artifact_claimed": false,
+    "source_binding_only": true
+  },
+  "authority": {
+    "identity_owner": "ordax-os",
+    "spaces_owner": "ordax-os",
+    "permissions_owner": "ordax-os",
+    "intelligence_owner": "ordax-os",
+    "memory_owner": "ordax-os",
+    "model_router_owner": "ordax-os",
+    "same_action_gateway_required": true,
+    "surface_raw_execute_forbidden": true,
+    "parallel_runtime_forbidden": true
+  },
+  "activation": {
+    "capability_discovery_contract_pinned": true,
+    "dispatch_enabled": false,
+    "action_gateway_activation_required": true,
+    "boot_critical": false
+  }
+}
