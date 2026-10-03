@@ -1,0 +1,44 @@
+name: Proactive Research Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/proactive-research.json'
+      - 'system/contracts/proactive-research.mjs'
+      - 'system/services/proactive-research/**'
+      - 'tests/test_proactive_research.mjs'
+      - '.github/workflows/proactive-research-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/proactive-research.json'
+      - 'system/contracts/proactive-research.mjs'
+      - 'system/services/proactive-research/**'
+      - 'tests/test_proactive_research.mjs'
+      - '.github/workflows/proactive-research-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proactive-research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contracts and modules
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/proactive-research.json >/dev/null
+          node --check system/contracts/proactive-research.mjs
+          node --check system/services/proactive-research/runtime.mjs
+
+      - name: Prove authorization privacy and authority boundaries
+        run: |
+          set -euo pipefail
+          node --test tests/test_proactive_research.mjs
