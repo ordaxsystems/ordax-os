@@ -1,6 +1,6 @@
 # Personal OrdaX — plano canônico de implementação
 
-Status: **FOREGROUND NATIVO IMPLEMENTADO / BACKGROUND E AUTONOMIA PÚBLICA DESABILITADOS**
+Status: **FOREGROUND NATIVO IMPLEMENTADO / OWNER HOST-NATIVE DURÁVEL EM MIGRAÇÃO / BACKGROUND E AUTONOMIA PÚBLICA DESABILITADOS**
 
 Este arquivo na raiz é a referência curta e canônica para **o que o Personal OrdaX é, o que já foi implementado e o que será implementado a seguir**. Ele consolida as conclusões dos relatórios já produzidos para o projeto e o estado real do código. O contrato detalhado permanece em `docs/PERSONAL-ORDAX.md` e as invariantes legíveis por máquina em `docs/contracts/personal-ordax.json`.
 
@@ -68,7 +68,7 @@ Personal OrdaX é **orquestração**, não uma segunda identidade, uma segunda M
 9. Work/Activity/Result não são Memory e não são account sync.
 10. Nenhuma conversa comum do Assistant cria Work ou executa ação automaticamente.
 11. Não haverá shell genérico, raw disk, release keys ou broker genérico como atalho de implementação.
-12. Background não será habilitado antes de recovery e revogação estarem comprovados.
+12. Background não será habilitado no Personal antes de recovery, durabilidade e revogação estarem comprovados ponta a ponta.
 
 ## Implementado até o corte atual
 
@@ -85,16 +85,25 @@ Já existem contratos e runtime para:
 - isolamento por owner;
 - pausa por troca/invalidação de contexto;
 - descarte de inferência obsoleta;
-- publicação atômica de Work concluído + Result + Activity.
+- publicação atômica de Work concluído + Result + Activity dentro do estado operacional do runtime.
 
-### Persistência Native
+### Persistência do Personal — estado real
 
-O Personal OrdaX possui store Native device-local por owner.
+O adapter de produção `system/adapters/native/personal-ordax.mjs` **ainda usa `window.localStorage`** para o estado Work/Activity/Result por owner. Ele é device-local no contexto do browser, mas **não deve ser descrito como owner host-Native durável**.
 
-- corrupção de uma partição bloqueia somente aquele owner;
-- bytes corrompidos recuperáveis não são sobrescritos;
-- fallback de sessão é explícito e não é chamado de persistência durável;
-- Work state continua separado de Memory e de account sync.
+A fundação para remover essa limitação existe em source:
+
+- owner host-Native privado por owner em `system/surface/runtime/native_personal_ordax_state.py`;
+- partições device/account separadas, com account filename derivado por SHA-256;
+- `0600` no arquivo e `0700` no diretório;
+- `O_NOFOLLOW`, `flock`, CAS por revision, `fsync` e `os.replace`;
+- corrupção fail-closed sem overwrite silencioso;
+- endpoint interno tipado em `native_personal_ordax_endpoint.py`;
+- contrato machine-readable em `docs/contracts/personal-ordax-native-state.json`.
+
+Essa fundação **ainda não está roteada no `native_host_server.py` e ainda não substitui o adapter `localStorage`**. Não existe migração automática ou deleção silenciosa do estado legado. A troca de source of truth só poderá ocorrer depois de bridge assíncrona, lifecycle de troca de owner e migração serem provados.
+
+Work state continua separado de Memory e de account sync.
 
 ### Activity / Work Surface
 
@@ -123,7 +132,7 @@ O fluxo já possui:
 - retry explícito para adapter idempotente;
 - revogação auditável.
 
-Action Decisions agora apontam para o `approvalId` exato, permitindo repetir o mesmo tipo de ação em recursos diferentes somente através de novas approvals.
+Action Decisions apontam para o `approvalId` exato, permitindo repetir o mesmo tipo de ação em recursos diferentes somente através de novas approvals.
 
 ### Action Catalog
 
@@ -179,7 +188,7 @@ Authority aprovada e ainda não consumida é revogada quando:
 
 O runtime com Action Gateway deve possuir revoker; caso contrário, a composição falha fechado.
 
-Na restauração Native, approval persistida como `approved` não pode recuperar authority de uma sessão anterior. Se o grant session-only já não existe, ela é reconciliada para `revoked`, mantendo o Work recuperável para uma nova approval.
+Na restauração, approval persistida como `approved` não pode recuperar authority de uma sessão anterior. Se o grant session-only já não existe, ela é reconciliada para `revoked`, mantendo o Work recuperável para uma nova approval.
 
 ## Estado por fase
 
@@ -188,7 +197,7 @@ Na restauração Native, approval persistida como `approved` não pode recuperar
 Já estão implementados e montados no Native:
 
 - Work/Activity/Result owner-bound;
-- persistência device-local particionada por owner;
+- persistência browser device-local particionada por owner no adapter atual;
 - pausa por troca/invalidação de owner/Space/Project;
 - Activity visível;
 - approvals/denials explícitos;
@@ -197,47 +206,43 @@ Já estão implementados e montados no Native:
 - primeiro adapter first-party verificado;
 - receipt + bloqueio de replay;
 - revogação por lifecycle;
-- Action Attempt journal crash-safe;
+- Action Attempt journal;
 - retomada explícita de Work pausado.
 
-### Fase 2 — continuidade durável — **PARCIAL**
+### Fase 2 — continuidade durável host-Native — **PARCIAL**
 
 Já existe:
 
-- durable Work/Activity/Result/Approval/Attempt por owner no Native;
-- restore de estado após reconstrução do runtime;
+- modelo Work/Activity/Result/Approval/Attempt bounded por owner;
+- restore a partir do store atual;
 - `started` restaurado vira `uncertain`, revoga authority e pausa;
 - approval session-only sem grant vivo é reconciliada para `revoked`;
 - cancelamento/revogação impede uso posterior;
 - estado operacional continua separado de account sync;
-- política/fluxo de export do histórico de Activity implementado no Native, por ação explícita e sem authority reimportável.
+- política/fluxo de export do histórico de Activity implementado no Native, por ação explícita e sem authority reimportável;
+- owner host-Native privado/atômico para substituir o `localStorage`, ainda não roteado nem ativado.
 
 Ainda falta nesta fase:
 
-- política real de background execution;
-- lifecycle/budgets/leases de background;
+- bridge assíncrona de produção entre Personal e owner host-Native;
+- lifecycle seguro de prepare/troca de owner;
+- migração explícita e testada do estado browser-local existente;
+- confirmação de durabilidade para commits que futuramente encerrem trabalho em background;
 - connectors com egress explícito.
 
 ### Action Proposal sem authority — **CONTRATO/PATH SOURCE IMPLEMENTADO**
 
-O value contract `ordax.personal-action-proposal/1` e a porta Native
-`proposeAvailableAction()` agora existem. A proposal é validada contra uma entrada real do Action
-Catalog e contra a mesma validação de recurso da registration, mas contém somente
-`workItemId + entryId + resourceValue + rationale`.
+O value contract `ordax.personal-action-proposal/1` e a porta Native `proposeAvailableAction()` existem. A proposal é validada contra uma entrada real do Action Catalog e contra a mesma validação de recurso da registration, mas contém somente `workItemId + entryId + resourceValue + rationale`.
 
 Ela fixa:
+
 - `authority=none`;
 - `executionAuthorized=false`;
 - `approvalRequested=false`.
 
-Ela não pode carregar `toolId`, `actionId`, `resourceRef`, grant, approval, decision, effect ou
-artifact SHA. O catálogo descarta a referência canônica produzida durante a validação do recurso.
+Ela não pode carregar `toolId`, `actionId`, `resourceRef`, grant, approval, decision, effect ou artifact SHA. O catálogo descarta a referência canônica produzida durante a validação do recurso.
 
-**Planner/model integration foreground agora está implementada.** A Activity possui uma ação
-explícita para pedir uma sugestão à OrdaX Intelligence. O planner entrega ao modelo somente a
-projeção sanitizada `entryId + inputKind + resourceScheme`, exige JSON estrito e passa qualquer
-candidato novamente pelo Action Catalog. Tool ID, action ID, effect, artifact SHA, grant e approval
-não entram no prompt de planejamento.
+**Planner/model integration foreground está implementada.** A Activity possui uma ação explícita para pedir uma sugestão à OrdaX Intelligence. O planner entrega ao modelo somente a projeção sanitizada `entryId + inputKind + resourceScheme`, exige JSON estrito e passa qualquer candidato novamente pelo Action Catalog. Tool ID, action ID, effect, artifact SHA, grant e approval não entram no prompt de planejamento.
 
 ```text
 goal do Work
@@ -250,26 +255,15 @@ goal do Work
   -> approval -> grant -> execução
 ```
 
-Troca de owner ou mudança do Work durante a inferência invalida a resposta tardia. O rationale do
-modelo é somente apresentação; ao converter a proposal em approval, o reason confiável continua
-vindo da registration do catálogo. Não existe proposal -> approval automático nem proposal ->
-execução automática.
+Troca de owner ou mudança do Work durante a inferência invalida a resposta tardia. O rationale do modelo é somente apresentação; ao converter a proposal em approval, o reason confiável continua vindo da registration do catálogo. Não existe proposal -> approval automático nem proposal -> execução automática.
 
 ### Recuperação semântica de Work — **SOURCE FOREGROUND IMPLEMENTADO**
 
-A Activity agora aceita um pedido explícito como `continue o projeto da pizzaria` para localizar
-um Work já existente do **owner atual**. A Intelligence recebe somente candidatos `queued|paused`
-sem authority pendente e uma projeção limitada a `workItemId + goal + state + spaceBound +
-projectBound`; ownerId, SpaceId e ProjectId não entram no prompt de matching.
+A Activity aceita um pedido explícito como `continue o projeto da pizzaria` para localizar um Work já existente do **owner atual**. A Intelligence recebe somente candidatos `queued|paused` sem authority pendente e uma projeção limitada a `workItemId + goal + state + spaceBound + projectBound`; ownerId, SpaceId e ProjectId não entram no prompt de matching.
 
-O resultado usa `ordax.personal-work-recovery-suggestion/1`, sempre `authority=none`, sem
-autorização de resume e sem autorização de context switch. A sugestão é ligada ao runtime por
-WeakMap e à revisão exata do Work; clone/JSON, troca de owner ou mudança do Work invalidam o uso.
+O resultado usa `ordax.personal-work-recovery-suggestion/1`, sempre `authority=none`, sem autorização de resume e sem autorização de context switch. A sugestão é ligada ao runtime por WeakMap e à revisão exata do Work; clone/JSON, troca de owner ou mudança do Work invalidam o uso.
 
-Aceitar a sugestão é uma ação explícita. Work `queued` apenas é focalizado; Work `paused` passa
-pelo `runtime.resume()` canônico. Se o Space/Project original não estiver válido, o resume falha
-fechado e a pessoa precisa selecionar o contexto correto explicitamente. A recuperação nunca troca
-owner, Space ou Project sozinha e nunca executa o Work automaticamente.
+Aceitar a sugestão é uma ação explícita. Work `queued` apenas é focalizado; Work `paused` passa pelo `runtime.resume()` canônico. Se o Space/Project original não estiver válido, o resume falha fechado e a pessoa precisa selecionar o contexto correto explicitamente. A recuperação nunca troca owner, Space ou Project sozinha e nunca executa o Work automaticamente.
 
 ### Ampliação de ações first-party bounded
 
@@ -287,33 +281,36 @@ Novas ações entram uma por vez. Cada uma precisa de:
 
 Não será criada API paralela apenas para acelerar uma feature.
 
-### Background bounded — **NÃO HABILITADO**
+### Background bounded — **FUNDAÇÃO DE SISTEMA IMPLEMENTADA / PERSONAL NÃO HABILITADO**
 
-Só pode avançar depois de policy explícita para:
+A `main` já contém fundações compartilhadas do sistema para:
 
-- budgets;
-- timeout;
-- cancelamento;
-- revogação imediata;
-- recovery;
-- Activity visível;
-- nenhuma authority implícita;
-- nenhuma execução ilimitada.
+- Background Runtime bounded com budgets, lease, heartbeat, checkpoint, cancel/recovery e `authority=none`;
+- Scheduler authority-free com recurrence bounded e transactional outbox;
+- Proactive Research local/read-only;
+- owner Native atômico de Automation State;
+- bridge JS assíncrona para stores Background/Scheduler, sem estado espelho.
+
+Isso **não significa** que o Personal OrdaX já execute Work em background. A ativação no Personal continua bloqueada até haver:
+
+- persistência host-Native real de Work/Activity/Result;
+- commit durável de resultado antes de concluir o Background Run;
+- lifecycle de owner reconciliado;
+- Activity visível para supervisão;
+- policy/review/authority preservados para qualquer efeito real;
+- nenhuma execução ilimitada ou authority implícita.
 
 ### Connectors / external egress — **NÃO HABILITADO**
 
-External egress terá autoridade própria. Cada conector deverá declarar destino, operação, dados
-enviados, owner, Space/Project, approval/grant, receipt e política de revogação.
+External egress terá autoridade própria. Cada conector deverá declarar destino, operação, dados enviados, owner, Space/Project, approval/grant, receipt e política de revogação.
 
 ### Workers especializados — **NÃO HABILITADO**
 
-Workers futuros herdam owner, Space/Project, Memory, catálogo e grants do Personal OrdaX. Não
-existirá worker-owned Memory ou permission system paralelo.
+Workers futuros herdam owner, Space/Project, Memory, catálogo e grants do Personal OrdaX. Não existirá worker-owned Memory ou permission system paralelo.
 
 ### Execução híbrida local / Edge / cloud — **NÃO HABILITADA**
 
-Placement futuro poderá considerar privacidade, disponibilidade, custo, latência, necessidade de
-hardware local e estado offline. Cloud nunca ganha autoridade local apenas por executar um modelo.
+Placement futuro poderá considerar privacidade, disponibilidade, custo, latência, necessidade de hardware local e estado offline. Cloud nunca ganha autoridade local apenas por executar um modelo.
 
 ## Experiência alvo
 
@@ -338,7 +335,7 @@ O Personal OrdaX deverá conseguir:
 
 Continuam desabilitados até seus gates específicos:
 
-- background autônomo;
+- background autônomo do Personal;
 - external egress genérico;
 - device-control genérico;
 - shell genérico;
@@ -361,9 +358,8 @@ Work visível
   -> primeiro efeito bounded
   -> revogação/recovery
   -> propostas sem authority
-  -> mais ações bounded
-  -> durable/resumable
-  -> background
+  -> owner host-Native durável
+  -> background Personal bounded
   -> connectors
   -> specialist workers
   -> hybrid execution
