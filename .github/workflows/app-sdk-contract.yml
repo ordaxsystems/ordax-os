@@ -1,0 +1,38 @@
+name: App SDK Contract Bundle
+
+on:
+  pull_request:
+    paths:
+      - "system/contracts/**"
+      - "sdk/app-sdk-v1/**"
+      - "tools/app-sdk/**"
+      - ".github/workflows/app-sdk-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "system/contracts/**"
+      - "sdk/app-sdk-v1/**"
+      - "tools/app-sdk/**"
+      - ".github/workflows/app-sdk-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  app-sdk-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate bundle JSON
+        run: python3 -m json.tool sdk/app-sdk-v1/bundle.json >/dev/null
+
+      - name: Prove deterministic contract export
+        run: python3 tools/app-sdk/export.py --check
+
+      - name: Verify published bundle digest
+        working-directory: sdk/app-sdk-v1
+        run: sha256sum --check bundle.sha256

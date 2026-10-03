@@ -1,0 +1,36 @@
+{
+  "$schema": "ordax.app-sdk-bundle/1",
+  "authority": "none",
+  "bundle_version": "1.0.0",
+  "compatibility_policy": "contract-major",
+  "contracts": [
+    {
+      "major": 1,
+      "name": "component-manifest",
+      "schema": "ordax.component-manifest/1",
+      "source_git_blob": "af8dcfe56414e9725f118279785d850b699aa0a9",
+      "source_path": "system/contracts/component-manifest.mjs"
+    },
+    {
+      "major": 1,
+      "name": "intelligence",
+      "schema": "ordax.intelligence/1",
+      "source_git_blob": "3ffeac788caed4867880baaefa0f3769eac7c277",
+      "source_path": "system/contracts/intelligence.mjs"
+    },
+    {
+      "major": 1,
+      "name": "localization-pack",
+      "schema": "prototype-ordax.localization-pack/1",
+      "source_git_blob": "6691d36b0c6d9664bd6f723cf9693a1395cd38db",
+      "source_path": "system/contracts/localization-pack.mjs"
+    },
+    {
+      "major": 1,
+      "name": "memory",
+      "schema": "ordax.memory/1",
+      "source_git_blob": "3b6e0b344379dd599fa7e0b77eba51020153610d",
+      "source_path": "system/contracts/memory.mjs"
+    }
+  ]
+}
