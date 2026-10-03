@@ -62,7 +62,9 @@ The new `ordax.memory-storage-manifest/1` foundation makes upgrades explicit:
 - an older system refuses to downgrade storage written by a newer OrdaX;
 - future segmented/partitioned persistence can replace the single snapshot without changing app-facing Memory semantics.
 
-Before removing the current snapshot ceiling, Native persistence and Account Memory sync must move together to an owner-partitioned/segmented backend with atomic generation switching and a last-known-good recovery point. Do not simply raise the 2,048-item or 8 MiB limits.
+The shared Memory runtime now also understands the optional `ordax.memory-record-store/1` persistence port. Unlike the legacy whole-snapshot port, it reads bounded candidate windows and writes/removes individual validated records, so the service itself no longer needs a global 2,048-item ceiling when that backend is selected. The service still revalidates every returned record and reapplies owner/Space/project/sensitivity authorization before ranking it. Session Memory remains volatile even when the record store is device-durable.
+
+This is a service boundary, not a claim that Native already stores unlimited history. Before promoting Native from `ordax.memory-store/1` to the record backend, Native persistence and Account Memory sync must move together to an owner-partitioned/segmented backend with atomic generation switching and a last-known-good recovery point. Do not simply raise the 2,048-item or 8 MiB limits.
 
 ## Profiles and local AI
 

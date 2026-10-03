@@ -49,7 +49,10 @@
     "downgrade_of_newer_storage_refused": true,
     "migration_must_preserve_owner": true,
     "future_segmented_storage_required_before_unbounded_growth": true,
-    "current_snapshot_v1_remains_compatibility_boundary": true
+    "current_snapshot_v1_remains_compatibility_boundary": true,
+    "record_store_contract": "ordax.memory-record-store/1",
+    "record_store_runtime_supported": true,
+    "native_record_store_enabled": false
   },
   "studio": {
     "identity_owner": "ordax-os",
