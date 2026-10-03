@@ -65,6 +65,35 @@ function newRun(runtime, budgets = {}) {
   });
 }
 
+function idempotentRun(runtime, overrides = {}) {
+  const {
+    idempotencyKey = "schedule-1:1:2026-10-03T15:00:00.000Z",
+    consumerId = "personal-ordax",
+    subjectId = "work-1",
+    ownerKind = "account",
+    ownerId = "user-1",
+    spaceId = "space-1",
+    projectId = "project-1",
+    budgets = {},
+  } = overrides;
+  return runtime.createRun({
+    consumerId,
+    subjectId,
+    ownerKind,
+    ownerId: ownerKind === "device" ? null : ownerId,
+    spaceId,
+    projectId,
+    idempotencyKey,
+    budgets: {
+      wallClockMs: 120_000,
+      stepLimit: 4,
+      actionLimit: 1,
+      egressBytesLimit: 0,
+      ...budgets,
+    },
+  });
+}
+
 test("background run starts authority-free and requires one exclusive lease", async () => {
   const { runtime } = harness();
   const created = await newRun(runtime);
@@ -160,4 +189,59 @@ test("atomic store conflict prevents two writers from silently overwriting state
     /changed concurrently/,
   );
   assert.equal((await runtime.get(created.runId)).state, "queued");
+});
+
+test("idempotent retry returns the original run without extending its deadline", async () => {
+  const h = harness();
+  const first = await idempotentRun(h.runtime);
+  h.advance(30_000);
+  const retried = await idempotentRun(h.runtime);
+
+  assert.match(first.runId, /^idem-[0-9a-f]{64}$/);
+  assert.equal(retried.runId, first.runId);
+  assert.equal(retried.createdAt, first.createdAt);
+  assert.equal(retried.deadlineAt, first.deadlineAt);
+  assert.equal(retried.revision, 1);
+});
+
+test("idempotent retry never resets an already completed run", async () => {
+  const { runtime } = harness();
+  const created = await idempotentRun(runtime);
+  const leased = await runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 10_000 });
+  const completed = await runtime.complete(created.runId, leased.lease.leaseId);
+  const retried = await idempotentRun(runtime);
+
+  assert.equal(retried.runId, created.runId);
+  assert.equal(retried.state, "completed");
+  assert.equal(retried.revision, completed.revision);
+  assert.equal(retried.finishedAt, completed.finishedAt);
+});
+
+test("idempotency key cannot be rebound to different work in the same owner namespace", async () => {
+  const { runtime } = harness();
+  await idempotentRun(runtime);
+  await assert.rejects(
+    idempotentRun(runtime, { subjectId: "work-2", projectId: "project-2" }),
+    /already bound to different work/,
+  );
+  await assert.rejects(
+    idempotentRun(runtime, { budgets: { actionLimit: 2 } }),
+    /already bound to different work/,
+  );
+});
+
+test("same external idempotency key is isolated between account owners", async () => {
+  const { runtime } = harness();
+  const first = await idempotentRun(runtime, { ownerId: "user-1" });
+  const second = await idempotentRun(runtime, { ownerId: "user-2" });
+
+  assert.notEqual(first.runId, second.runId);
+  assert.equal(first.ownerId, "user-1");
+  assert.equal(second.ownerId, "user-2");
+});
+
+test("invalid idempotency keys fail before any run is persisted", async () => {
+  const { runtime } = harness();
+  await assert.rejects(idempotentRun(runtime, { idempotencyKey: "   " }), /idempotency key/);
+  await assert.rejects(idempotentRun(runtime, { idempotencyKey: "x".repeat(513) }), /idempotency key/);
 });
