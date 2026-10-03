@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'system/services/i18n/**'
+      - 'system/services/intelligence/**'
       - 'system/services/notifications/**'
       - 'system/surface/ui/**'
       - 'system/surface/runtime/native_security_prompt_i18n.py'
@@ -13,11 +14,13 @@ on:
       - 'docs/contracts/first-run.json'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
+      - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
       - '.github/workflows/english-mvp-localization-audit.yml'
   pull_request:
     paths:
       - 'system/services/i18n/**'
+      - 'system/services/intelligence/**'
       - 'system/services/notifications/**'
       - 'system/surface/ui/**'
       - 'system/surface/runtime/native_security_prompt_i18n.py'
@@ -26,6 +29,7 @@ on:
       - 'docs/contracts/first-run.json'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
+      - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
       - '.github/workflows/english-mvp-localization-audit.yml'
   workflow_dispatch:
@@ -57,6 +61,8 @@ jobs:
           node --test tests/test_english_mvp_localization_audit.mjs
           node --check tests/test_english_surface_rendering_audit.mjs
           node --test tests/test_english_surface_rendering_audit.mjs
+          node --check tests/test_intelligence_client_actions.mjs
+          node --test tests/test_intelligence_client_actions.mjs
 
       - name: Audit Native security prompt en-US catalog
         run: |
