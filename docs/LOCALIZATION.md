@@ -36,7 +36,7 @@ its speakers. PT-BR remains fully supported as the source language throughout.
 ## Current implementation status
 
 The shared Surface now owns a provider-neutral localization runtime
-(`ordax.localization/1`) driven directly by the persisted `regional.locale`
+(`ordax.localization/2`) driven directly by the persisted `regional.locale`
 preference. PT-BR remains the source catalog. The shared desktop shell, launcher,
 window chrome, workspace labels, connectivity copy, first-party app titles and
 fallback panel metadata have explicit English catalog entries.
@@ -89,6 +89,29 @@ SURFACE_ES_ES=HIDDEN_MIGRATING
 SURFACE_DE_DE=HIDDEN_MIGRATING
 SURFACE_FR_FR=HIDDEN_MIGRATING
 ```
+
+## Locale profile, text direction and pseudo-locales
+
+`ordax.localization/2` adds an explicit `ordax.locale-profile/1` to the
+localization port. The profile normalizes the active locale and carries document
+direction as `ltr` or `rtl`. The shared Surface applies both `lang` and `dir`
+from that profile during the same render lifecycle; direction is not inferred by
+individual screens or CSS fragments.
+
+Direction resolution is deterministic. An explicit BCP 47 script subtag wins over
+language defaults, so a locale such as `az-Arab` is RTL while `az-Latn` is LTR.
+Locale remains presentation metadata only and cannot alter action identity,
+permissions or authority.
+
+Two pseudo-locales exist only for engineering verification:
+
+- `en-XA` — expanded LTR copy for truncation, wrapping and layout stress;
+- `ar-XB` — RTL profile for bidirectional layout and document-direction stress.
+
+They are not public product languages, cannot be persisted as user preferences and
+must never appear in release/public locale selectors. The deterministic pseudo
+transform preserves interpolation placeholders exactly. The machine-readable policy
+is `docs/contracts/localization.json`.
 
 ## Architecture
 
