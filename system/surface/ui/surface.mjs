@@ -20,6 +20,7 @@ import {
   syncDesktopShellLocalization,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
+import { describeLocale } from "../../services/i18n/locale-profile.mjs";
 import { SURFACE_RENDER_LIFECYCLE_SCHEMA } from "../../contracts/surface-render-lifecycle.mjs";
 import {
   createSurfaceState,
@@ -379,6 +380,19 @@ function createWindow(app, windowState, state, index, area, localization) {
   return windowNode;
 }
 
+export function syncSurfaceDocumentLocale(documentElement, localization) {
+  if (!documentElement || typeof documentElement.setAttribute !== "function") {
+    throw new TypeError("Surface document element must support attributes");
+  }
+  if (!localization || typeof localization.getLocale !== "function") {
+    throw new TypeError("Surface localization must expose getLocale()");
+  }
+  const profile = describeLocale(localization.getLocale());
+  documentElement.setAttribute("lang", profile.locale);
+  documentElement.setAttribute("dir", profile.direction);
+  return profile;
+}
+
 export function mountSurface(
   root,
   host,
@@ -395,6 +409,7 @@ export function mountSurface(
   const activationPort = appActivation === null ? null : assertAppActivationPort(appActivation);
   const documentElement = root.ownerDocument.documentElement;
   const originalDocumentLanguage = documentElement.getAttribute("lang");
+  const originalDocumentDirection = documentElement.getAttribute("dir");
   const preferenceSeed = store ? validatePreferenceRecord(store.load()) : {};
   const workspaceSeed = workspacePort ? validateWorkspaceRecord(workspacePort.load()) : null;
   let dragSession = null;
@@ -680,7 +695,7 @@ export function mountSurface(
   };
 
   const render = () => {
-    documentElement.lang = localization.getLocale();
+    syncSurfaceDocumentLocale(documentElement, localization);
     syncDesktopShellLocalization(root, localization);
     root.dataset.ordaxTheme = state.preferences[APPEARANCE_PREFERENCE_ID];
     root.dataset.ordaxContrast = state.preferences[ACCESSIBILITY_CONTRAST_PREFERENCE_ID];
@@ -1056,6 +1071,11 @@ export function mountSurface(
         documentElement.removeAttribute("lang");
       } else {
         documentElement.setAttribute("lang", originalDocumentLanguage);
+      }
+      if (originalDocumentDirection === null) {
+        documentElement.removeAttribute("dir");
+      } else {
+        documentElement.setAttribute("dir", originalDocumentDirection);
       }
       root.replaceChildren();
     },
