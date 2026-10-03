@@ -104,6 +104,33 @@ export function mountFileSpaceControls(
   const locale = () => localization.getLocale();
   const documentObject = root.ownerDocument;
 
+  const canonicalLocationMessageId = (path) =>
+    LOCATIONS.find((location) => location.path !== "/" && location.path === path)?.messageId ?? null;
+
+  const displayPath = (path) => {
+    if (typeof path !== "string" || path === "/" || !path.startsWith("/")) return path;
+    const parts = breadcrumbParts(path);
+    if (parts.length === 0) return path;
+    const firstPath = `/${parts[0]}`;
+    const messageId = canonicalLocationMessageId(firstPath);
+    if (messageId) parts[0] = t(messageId);
+    return `/${parts.join("/")}`;
+  };
+
+  const displayEntryName = (entry, parent = "/") => {
+    if (!entry || typeof entry.name !== "string") return "";
+    if (entry.kind !== "directory") return entry.name;
+    const messageId = canonicalLocationMessageId(joinPath(parent, entry.name));
+    return messageId ? t(messageId) : entry.name;
+  };
+
+  const displayTrashName = (entry) => {
+    if (!entry || typeof entry.name !== "string") return "";
+    if (entry.kind !== "directory") return entry.name;
+    const messageId = canonicalLocationMessageId(entry.originalPath);
+    return messageId ? t(messageId) : entry.name;
+  };
+
   let listing = null;
   let pending = false;
   let message = null;
@@ -360,7 +387,7 @@ export function mountFileSpaceControls(
         const button = node(documentObject, "button", "ordax-files-location", project.name);
         button.type = "button";
         button.dataset.fileOpenProject = project.id;
-        button.title = project.path;
+        button.title = displayPath(project.path);
         const active = Boolean(!recentMode && !trashMode && listing?.path === project.path);
         button.dataset.active = String(active);
         button.setAttribute("aria-current", active ? "page" : "false");
@@ -415,7 +442,13 @@ export function mountFileSpaceControls(
     for (const part of breadcrumbParts(listing?.path ?? "/")) {
       container.append(node(documentObject, "span", "ordax-files-crumb-separator", "/"));
       current += `/${part}`;
-      const button = node(documentObject, "button", "ordax-files-crumb", part);
+      const messageId = canonicalLocationMessageId(current);
+      const button = node(
+        documentObject,
+        "button",
+        "ordax-files-crumb",
+        messageId ? t(messageId) : part,
+      );
       button.type = "button";
       button.dataset.fileOpenPath = current;
       container.append(button);
@@ -498,7 +531,7 @@ export function mountFileSpaceControls(
       documentObject,
       "p",
       "ordax-files-boundary",
-      t("files.form.projectRenameHint", { path: project.path }),
+      t("files.form.projectRenameHint", { path: displayPath(project.path) }),
     );
     form.append(input, confirm, cancel, note);
     container.append(form);
@@ -553,18 +586,21 @@ export function mountFileSpaceControls(
     searchQuery.trim().toLocaleLowerCase(locale());
 
   const compareEntryNames = (left, right) =>
-    left.name.localeCompare(right.name, locale(), {
-      numeric: true,
-      sensitivity: "base",
-    });
+    displayEntryName(left, listing?.path ?? "/").localeCompare(
+      displayEntryName(right, listing?.path ?? "/"),
+      locale(),
+      { numeric: true, sensitivity: "base" },
+    );
 
   const visibleEntries = () => {
     if (!listing) return [];
     const query = normalizedSearchQuery();
     const filtered = query
-      ? listing.entries.filter((entry) =>
-          entry.name.toLocaleLowerCase(locale()).includes(query),
-        )
+      ? listing.entries.filter((entry) => {
+          const raw = entry.name.toLocaleLowerCase(locale());
+          const display = displayEntryName(entry, listing.path).toLocaleLowerCase(locale());
+          return raw.includes(query) || display.includes(query);
+        })
       : [...listing.entries];
 
     const direction = sortDirection === "desc" ? -1 : 1;
@@ -690,7 +726,7 @@ export function mountFileSpaceControls(
         "strong",
         "ordax-files-transfer-title",
         t(isCopy ? "files.transfer.titleCopy" : "files.transfer.titleMove", {
-          name: transferEntry.name,
+          name: displayEntryName(transferEntry, transferEntry.sourcePath),
         }),
       ),
       node(
@@ -698,7 +734,7 @@ export function mountFileSpaceControls(
         "span",
         "ordax-files-transfer-meta",
         listing
-          ? t("files.transfer.currentDestination", { path: listing.path })
+          ? t("files.transfer.currentDestination", { path: displayPath(listing.path) })
           : t("files.transfer.openingDestination"),
       ),
       node(
@@ -778,6 +814,7 @@ export function mountFileSpaceControls(
 
     for (const entry of entries) {
       const path = joinPath(listing.path, entry.name);
+      const displayName = displayEntryName(entry, listing.path);
       const selected = selectedPath === path;
       const row = node(documentObject, "button", "ordax-file-row");
       row.type = "button";
@@ -791,7 +828,7 @@ export function mountFileSpaceControls(
       row.setAttribute(
         "aria-label",
         t(selected ? "files.row.ariaSelected" : "files.row.aria", {
-          name: entry.name,
+          name: displayName,
           kind: localizedKind,
         }),
       );
@@ -800,7 +837,7 @@ export function mountFileSpaceControls(
       const icon = node(documentObject, "span", "ordax-file-icon");
       icon.dataset.kind = entry.kind;
       icon.setAttribute("aria-hidden", "true");
-      nameCell.append(icon, node(documentObject, "span", "", entry.name));
+      nameCell.append(icon, node(documentObject, "span", "", displayName));
 
       row.append(
         nameCell,
@@ -822,13 +859,14 @@ export function mountFileSpaceControls(
     if (transferEntry) return;
     const selected = selectedEntry();
     if (!selected) return;
+    const displayName = displayEntryName(selected, listing?.path ?? "/");
 
     const details = node(documentObject, "section", "ordax-files-details");
     details.setAttribute("aria-label", t("files.details.aria"));
 
     const summary = node(documentObject, "div", "ordax-files-details-summary");
     summary.append(
-      node(documentObject, "strong", "ordax-files-details-title", selected.name),
+      node(documentObject, "strong", "ordax-files-details-title", displayName),
       node(
         documentObject,
         "span",
@@ -837,7 +875,7 @@ export function mountFileSpaceControls(
           ? t("files.kind.folder")
           : `${t("files.kind.file")} · ${formatSize(selected.size)}`,
       ),
-      node(documentObject, "span", "ordax-files-details-path", selected.path),
+      node(documentObject, "span", "ordax-files-details-path", displayPath(selected.path)),
       node(
         documentObject,
         "span",
@@ -922,7 +960,7 @@ export function mountFileSpaceControls(
       input.autocomplete = "off";
       input.value = copyDraft;
       input.dataset.fileCopyName = "";
-      input.setAttribute("aria-label", t("files.form.copyNameAria", { name: selected.name }));
+      input.setAttribute("aria-label", t("files.form.copyNameAria", { name: displayName }));
 
       const confirm = node(
         documentObject,
@@ -951,7 +989,7 @@ export function mountFileSpaceControls(
       input.autocomplete = "off";
       input.value = renameDraft;
       input.dataset.fileRenameName = "";
-      input.setAttribute("aria-label", t("files.form.renameAria", { name: selected.name }));
+      input.setAttribute("aria-label", t("files.form.renameAria", { name: displayName }));
 
       const confirm = node(
         documentObject,
@@ -1018,7 +1056,8 @@ export function mountFileSpaceControls(
     if (!query) return [...entries];
     return entries.filter((entry) =>
       entry.name.toLocaleLowerCase(locale()).includes(query)
-      || entry.path.toLocaleLowerCase(locale()).includes(query),
+      || entry.path.toLocaleLowerCase(locale()).includes(query)
+      || displayPath(entry.path).toLocaleLowerCase(locale()).includes(query),
     );
   };
 
@@ -1085,7 +1124,7 @@ export function mountFileSpaceControls(
       row.append(
         nameCell,
         node(documentObject, "span", "ordax-file-meta", t("files.kind.file")),
-        node(documentObject, "span", "ordax-file-meta", parentPath(entry.path)),
+        node(documentObject, "span", "ordax-file-meta", displayPath(parentPath(entry.path))),
         node(documentObject, "span", "ordax-file-meta", formatModifiedAt(entry.openedAt, locale())),
       );
       list.append(row);
@@ -1102,7 +1141,7 @@ export function mountFileSpaceControls(
     summary.append(
       node(documentObject, "strong", "ordax-files-details-title", selected.name),
       node(documentObject, "span", "ordax-files-details-meta", t("files.recents.openedBy")),
-      node(documentObject, "span", "ordax-files-details-path", selected.path),
+      node(documentObject, "span", "ordax-files-details-path", displayPath(selected.path)),
       node(
         documentObject,
         "span",
@@ -1231,6 +1270,7 @@ export function mountFileSpaceControls(
     }
 
     for (const entry of entries) {
+      const displayName = displayTrashName(entry);
       const selected = selectedTrashId === entry.id;
       const row = node(documentObject, "button", "ordax-file-row");
       row.type = "button";
@@ -1244,7 +1284,7 @@ export function mountFileSpaceControls(
       row.setAttribute(
         "aria-label",
         t(selected ? "files.trash.rowSelected" : "files.trash.row", {
-          name: entry.name,
+          name: displayName,
           kind: localizedKind,
         }),
       );
@@ -1253,7 +1293,7 @@ export function mountFileSpaceControls(
       const icon = node(documentObject, "span", "ordax-file-icon");
       icon.dataset.kind = entry.kind;
       icon.setAttribute("aria-hidden", "true");
-      nameCell.append(icon, node(documentObject, "span", "", entry.name));
+      nameCell.append(icon, node(documentObject, "span", "", displayName));
       row.append(
         nameCell,
         node(
@@ -1262,7 +1302,7 @@ export function mountFileSpaceControls(
           "ordax-file-meta",
           entry.kind === "directory" ? t("files.kind.folder") : formatSize(entry.size),
         ),
-        node(documentObject, "span", "ordax-file-meta", parentPath(entry.originalPath)),
+        node(documentObject, "span", "ordax-file-meta", displayPath(parentPath(entry.originalPath))),
         node(documentObject, "span", "ordax-file-meta", formatModifiedAt(entry.trashedAt, locale())),
       );
       list.append(row);
@@ -1277,7 +1317,7 @@ export function mountFileSpaceControls(
     details.setAttribute("aria-label", t("files.trash.detailsAria"));
     const summary = node(documentObject, "div", "ordax-files-details-summary");
     summary.append(
-      node(documentObject, "strong", "ordax-files-details-title", selected.name),
+      node(documentObject, "strong", "ordax-files-details-title", displayTrashName(selected)),
       node(
         documentObject,
         "span",
@@ -1290,7 +1330,7 @@ export function mountFileSpaceControls(
         documentObject,
         "span",
         "ordax-files-details-path",
-        t("files.trash.origin", { path: selected.originalPath }),
+        t("files.trash.origin", { path: displayPath(selected.originalPath) }),
       ),
       node(
         documentObject,
@@ -1393,7 +1433,7 @@ export function mountFileSpaceControls(
       const renamed = projectSnapshot.projects.find((candidate) => candidate.id === project.id);
       renamingProjectId = null;
       projectRenameDraft = "";
-      setMessage("files.project.renamed", { name: renamed?.name ?? project.name, path: project.path });
+      setMessage("files.project.renamed", { name: renamed?.name ?? project.name, path: displayPath(project.path) });
     } catch {
       setMessage("files.project.renameFailed");
     }
@@ -1675,7 +1715,7 @@ export function mountFileSpaceControls(
         resumeProjectButton.type = "button";
         resumeProjectButton.dataset.fileProjectResume = currentProject.id;
         resumeProjectButton.disabled = pending || previewPending;
-        resumeProjectButton.title = currentProject.lastFilePath;
+        resumeProjectButton.title = displayPath(currentProject.lastFilePath);
         actions.append(resumeProjectButton);
         if (
           failedProjectResume?.projectId === currentProject.id
@@ -1991,7 +2031,7 @@ export function mountFileSpaceControls(
       textPreview = null;
       setMessage(
         source.mode === "copy" ? "files.transfer.copied" : "files.transfer.moved",
-        { name: source.name, path: destinationPath },
+        { name: displayEntryName(source, source.sourcePath), path: displayPath(destinationPath) },
       );
     } catch (error) {
       if (destroyed || ordinal !== requestOrdinal) return;
@@ -2064,7 +2104,7 @@ export function mountFileSpaceControls(
       previewRequestOrdinal += 1;
       previewPending = false;
       textPreview = null;
-      setMessage("files.import.imported", { name: targetName, path: targetPath });
+      setMessage("files.import.imported", { name: targetName, path: displayPath(targetPath) });
     } catch (error) {
       if (destroyed || ordinal !== requestOrdinal) return;
       const status = operationStatus(error);
@@ -2126,7 +2166,7 @@ export function mountFileSpaceControls(
       previewRequestOrdinal += 1;
       previewPending = false;
       textPreview = null;
-      setMessage("files.trash.moved", { name: selected.name });
+      setMessage("files.trash.moved", { name: displayEntryName(selected, listing.path) });
     } catch (error) {
       if (destroyed || ordinal !== requestOrdinal) return;
       const status = operationStatus(error);
@@ -2163,7 +2203,10 @@ export function mountFileSpaceControls(
       if (destroyed || ordinal !== requestOrdinal) return;
       trashListing = next;
       selectedTrashId = null;
-      setMessage("files.trash.restored", { name: selected.name, path: selected.originalPath });
+      setMessage("files.trash.restored", {
+        name: displayTrashName(selected),
+        path: displayPath(selected.originalPath),
+      });
     } catch (error) {
       if (destroyed || ordinal !== requestOrdinal) return;
       const status = operationStatus(error);
