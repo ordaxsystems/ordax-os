@@ -1,6 +1,6 @@
 {
-  "$schema": "ordax.localization-pack-contract/1",
-  "runtime_schema": "ordax.localization-pack/1",
+  "$schema": "prototype-ordax.localization-pack/1",
+  "runtime_schema": "prototype-ordax.localization-pack/1",
   "scope": "component",
   "source_locale": "pt-BR",
   "mvp_bundled_baseline": ["pt-BR", "en-US"],
