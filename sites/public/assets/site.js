@@ -5,6 +5,11 @@
   const CONFIG_SCHEMA = "prototype-ordax.public-site-runtime/1";
   const CATALOG_SCHEMA = "prototype-ordax.public-release-catalog/1";
   const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
+  const i18n = window.OrdaXPublicI18n;
+  if (!i18n || i18n.schema !== "prototype-ordax.public-site-localization-runtime/1") {
+    throw new Error("public-site-localization-runtime-missing");
+  }
+  const t = (messageId, variables) => i18n.t(messageId, variables);
 
   function sameOriginPath(value) {
     return (
@@ -111,25 +116,26 @@
   function identityCopy(kind, available) {
     const copy = {
       login: {
-        ready: ["Acesso disponível", "Continue para o serviço seguro de identidade OrdaX."],
-        gated: ["Serviço de identidade ainda não configurado", "Quando a integração for ativada, o acesso será conectado ao serviço seguro de identidade e sessão da OrdaX."],
+        ready: ["identity.login.ready.title", "identity.login.ready.detail"],
+        gated: ["identity.login.gated.title", "identity.login.gated.detail"],
       },
       register: {
-        ready: ["Cadastro disponível", "Continue para o serviço seguro de criação da conta OrdaX."],
-        gated: ["Cadastro ainda não configurado", "O botão será habilitado somente quando existir um endpoint de identidade aprovado para o portal."],
+        ready: ["identity.register.ready.title", "identity.register.ready.detail"],
+        gated: ["identity.register.gated.title", "identity.register.gated.detail"],
       },
       recover: {
-        ready: ["Recuperação disponível", "Informe o e-mail da Conta OrdaX para receber as instruções de recuperação."],
-        gated: ["Recuperação ainda não configurada", "Este recurso será habilitado somente depois que o fluxo completo e o endereço HTTPS forem aprovados."],
+        ready: ["identity.recover.ready.title", "identity.recover.ready.detail"],
+        gated: ["identity.recover.gated.title", "identity.recover.gated.detail"],
       },
       "recover-complete": {
-        ready: ["Sessão de recuperação validada", "Defina e confirme a nova credencial para concluir a recuperação."],
-        gated: ["Conclusão da recuperação ainda não ativada", "O formulário será habilitado somente quando o fluxo de recuperação estiver aprovado de ponta a ponta."],
+        ready: ["identity.recoverComplete.ready.title", "identity.recoverComplete.ready.detail"],
+        gated: ["identity.recoverComplete.gated.title", "identity.recoverComplete.gated.detail"],
       },
     };
     const selected = copy[kind];
-    if (!selected) return ["Indisponível", "Este fluxo não está configurado."];
-    return available ? selected.ready : selected.gated;
+    if (!selected) return [t("identity.unavailable.title"), t("identity.unavailable.detail")];
+    const messageIds = available ? selected.ready : selected.gated;
+    return messageIds.map((messageId) => t(messageId));
   }
 
   async function renderIdentity(config) {
@@ -216,13 +222,13 @@
     const link = document.createElement("a");
     link.className = "button button-primary";
     link.href = target.href;
-    link.textContent = "Baixar";
+    link.textContent = t("download.action");
 
     row.append(copy, link);
     return row;
   }
 
-  function complianceArtifactNode(label, artifact, actionLabel = "Abrir") {
+  function complianceArtifactNode(label, artifact, actionLabel = null) {
     if (!validIntegrityArtifact(artifact)) return null;
 
     const row = document.createElement("div");
@@ -240,7 +246,7 @@
     const link = document.createElement("a");
     link.className = "button button-quiet";
     link.href = artifact.href;
-    link.textContent = actionLabel;
+    link.textContent = actionLabel ?? t("compliance.open");
 
     row.append(copy, link);
     return row;
@@ -251,8 +257,8 @@
 
     const entries = [
       ["SBOM", compliance.sbom, "SBOM"],
-      ["Avisos e licenças de terceiros", compliance.third_party_notices, "Avisos"],
-      ["Pacote de código-fonte aplicável", compliance.source_bundle, "Código-fonte"],
+      [t("compliance.thirdParty.label"), compliance.third_party_notices, t("compliance.thirdParty.action")],
+      [t("compliance.source.label"), compliance.source_bundle, t("compliance.source.action")],
     ];
 
     const section = document.createElement("section");
@@ -262,9 +268,9 @@
     heading.className = "release-compliance-heading";
     const eyebrow = document.createElement("p");
     eyebrow.className = "eyebrow";
-    eyebrow.textContent = "CONFORMIDADE DA RELEASE";
+    eyebrow.textContent = t("compliance.heading");
     const intro = document.createElement("p");
-    intro.textContent = "Inventário, avisos e pacote de código-fonte vinculados aos mesmos bytes publicados.";
+    intro.textContent = t("compliance.intro");
     heading.append(eyebrow, intro);
     section.append(heading);
 
@@ -359,7 +365,7 @@
       const meta = document.createElement("p");
       const source = typeof release.source_commit === "string"
         ? `commit ${release.source_commit.slice(0, 12)}`
-        : "release pública";
+        : t("release.public");
       meta.textContent = source;
       header.append(title, meta);
       card.append(header, compliance);
@@ -393,21 +399,21 @@
       if (count === 0) {
         setStatus(
           "[data-download-status]",
-          "Nenhuma release pública disponível",
-          "O catálogo está ativo, mas nenhuma release passou ainda pelos gates de integridade, publicação e conformidade."
+          t("download.empty.title"),
+          t("download.empty.detail")
         );
         return;
       }
       setStatus(
         "[data-download-status]",
-        "Releases públicas verificadas",
-        "Os downloads abaixo incluem integridade e material de conformidade vinculados à mesma release."
+        t("download.ready.title"),
+        t("download.ready.detail")
       );
     } catch {
       setStatus(
         "[data-download-status]",
-        "Catálogo temporariamente indisponível",
-        "Nenhum download será oferecido até a fonte autorizada de releases responder corretamente."
+        t("download.error.title"),
+        t("download.error.detail")
       );
     }
   }
@@ -419,21 +425,21 @@
       if (count === 0) {
         setStatus(
           "[data-compliance-status]",
-          "Nenhuma release pública ainda",
-          "Quando a primeira release for autorizada, SBOM, avisos de terceiros e código-fonte aplicável aparecerão aqui."
+          t("compliance.empty.title"),
+          t("compliance.empty.detail")
         );
         return;
       }
       setStatus(
         "[data-compliance-status]",
-        "Conformidade publicada por release",
-        "Cada conjunto abaixo está vinculado por tamanho e SHA-256 à release pública correspondente."
+        t("compliance.ready.title"),
+        t("compliance.ready.detail")
       );
     } catch {
       setStatus(
         "[data-compliance-status]",
-        "Catálogo de conformidade indisponível",
-        "Nenhum material será anunciado até a fonte autorizada responder corretamente."
+        t("compliance.error.title"),
+        t("compliance.error.detail")
       );
     }
   }
@@ -460,6 +466,10 @@
       await renderIdentity(config);
     }
   }
+
+  document.addEventListener("ordax:localechange", () => {
+    void start();
+  });
 
   void start();
 })();
