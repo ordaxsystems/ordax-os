@@ -1,0 +1,50 @@
+name: Action Review Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/action-review.json'
+      - 'system/contracts/action-review.mjs'
+      - 'system/services/action-review/**'
+      - 'system/services/personal-ordax/action-gateway.mjs'
+      - 'tests/test_action_review.mjs'
+      - 'tests/test_personal_ordax_action_gateway.mjs'
+      - '.github/workflows/action-review-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/action-review.json'
+      - 'system/contracts/action-review.mjs'
+      - 'system/services/action-review/**'
+      - 'system/services/personal-ordax/action-gateway.mjs'
+      - 'tests/test_action_review.mjs'
+      - 'tests/test_personal_ordax_action_gateway.mjs'
+      - '.github/workflows/action-review-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contracts and modules
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/action-review.json >/dev/null
+          node --check system/contracts/action-review.mjs
+          node --check system/services/action-review/review-engine.mjs
+          node --check system/services/personal-ordax/action-gateway.mjs
+
+      - name: Prove independent review and gateway integration
+        run: |
+          set -euo pipefail
+          node --test tests/test_action_review.mjs
+          node --test tests/test_personal_ordax_action_gateway.mjs

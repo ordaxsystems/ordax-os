@@ -4,6 +4,7 @@ import test from "node:test";
 import { ACTION_GATEWAY_SCHEMA } from "../system/contracts/action-gateway.mjs";
 import { canExecutePersonalAction } from "../system/contracts/personal-ordax.mjs";
 import { createActionPolicyEngine } from "../system/services/action-policy/policy-engine.mjs";
+import { createActionReviewEngine } from "../system/services/action-review/review-engine.mjs";
 import { createPersonalOrdaxActionGateway } from "../system/services/personal-ordax/action-gateway.mjs";
 
 function tool(overrides = {}) {
@@ -70,7 +71,12 @@ function request(overrides = {}) {
   };
 }
 
-function gateway({ grants = [grant()], readPolicy = null, actionPolicyPort = null } = {}) {
+function gateway({
+  grants = [grant()],
+  readPolicy = null,
+  actionPolicyPort = null,
+  actionReviewPort = null,
+} = {}) {
   const byGrant = new Map(grants.map((entry) => [entry.grantId, entry]));
   return createPersonalOrdaxActionGateway({
     toolResolver(toolId) {
@@ -81,6 +87,7 @@ function gateway({ grants = [grant()], readPolicy = null, actionPolicyPort = nul
     },
     readPolicy,
     actionPolicyPort,
+    actionReviewPort,
     now: () => Date.parse("2026-09-30T21:00:00.000Z"),
   });
 }
@@ -258,4 +265,71 @@ test("Action Gateway fails closed when Action Policy evaluation is invalid", () 
   assert.equal(value.decision, "deny");
   assert.equal(value.authoritySource, "system-policy");
   assert.equal(canExecutePersonalAction(value), false);
+});
+
+test("Action Review can block an otherwise exact authorized action", () => {
+  const review = createActionReviewEngine({
+    reviewers: [{
+      id: "target-review",
+      review(value) {
+        return {
+          reviewerId: "target-review",
+          workItemId: value.workItemId,
+          actionId: value.actionId,
+          outcome: "block",
+          authority: "none",
+          reason: "The target is not safe for automated mutation.",
+          riskTags: ["target-risk"],
+        };
+      },
+    }],
+    now: () => Date.parse("2026-09-30T20:30:00.000Z"),
+  });
+  const value = gateway({ actionReviewPort: review }).decide(
+    request(),
+    { grantRef: "grant-1" },
+  );
+  assert.equal(value.decision, "deny");
+  assert.equal(value.authoritySource, "system-policy");
+  assert.equal(canExecutePersonalAction(value), false);
+});
+
+test("Action Review pass never replaces missing authority and reviewer failure blocks automation", () => {
+  const passing = createActionReviewEngine({
+    reviewers: [{
+      id: "pass-review",
+      review(value) {
+        return {
+          reviewerId: "pass-review",
+          workItemId: value.workItemId,
+          actionId: value.actionId,
+          outcome: "pass",
+          authority: "none",
+          reason: "No additional safety issue found.",
+          riskTags: [],
+        };
+      },
+    }],
+    now: () => Date.parse("2026-09-30T20:30:00.000Z"),
+  });
+  const withoutGrant = gateway({ actionReviewPort: passing }).decide(request());
+  assert.equal(withoutGrant.decision, "approval-required");
+  assert.equal(canExecutePersonalAction(withoutGrant), false);
+
+  const failing = createActionReviewEngine({
+    reviewers: [{
+      id: "broken-review",
+      review() {
+        throw new Error("review unavailable");
+      },
+    }],
+    now: () => Date.parse("2026-09-30T20:30:00.000Z"),
+  });
+  const blocked = gateway({ actionReviewPort: failing }).decide(
+    request(),
+    { grantRef: "grant-1" },
+  );
+  assert.equal(blocked.decision, "deny");
+  assert.equal(blocked.authoritySource, "system-policy");
+  assert.equal(canExecutePersonalAction(blocked), false);
 });
