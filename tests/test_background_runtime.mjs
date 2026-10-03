@@ -23,7 +23,9 @@ function createStore() {
       return true;
     },
     listRecoverable() {
-      return [...rows.values()].filter((run) => !["completed", "failed", "cancelled"].includes(run.state)).map(structuredClone);
+      return [...rows.values()]
+        .filter((run) => !["completed", "failed", "cancelled"].includes(run.state))
+        .map((run) => structuredClone(run));
     },
   };
 }
