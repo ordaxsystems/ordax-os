@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   BACKGROUND_CHECKPOINT_SCHEMA,
@@ -10,6 +10,7 @@ import {
 } from "../../contracts/background-runtime.mjs";
 
 const TERMINAL = new Set(["cancelled", "completed", "failed"]);
+const IDEMPOTENCY_DOMAIN = "ordax.background-run.idempotency/1";
 
 function epoch(now) {
   const value = now();
@@ -26,6 +27,46 @@ function id(value, label) {
     throw new TypeError(`${label} is invalid`);
   }
   return value.trim();
+}
+
+function optionalIdempotencyKey(value) {
+  if (value == null) return null;
+  if (typeof value !== "string" || !value.trim() || value.length > 512 || value.includes("\0")) {
+    throw new TypeError("Background idempotency key is invalid");
+  }
+  return value.trim();
+}
+
+function deterministicRunId(run, key) {
+  const digest = createHash("sha256")
+    .update(IDEMPOTENCY_DOMAIN)
+    .update("\0")
+    .update(run.consumerId)
+    .update("\0")
+    .update(run.ownerKind)
+    .update("\0")
+    .update(run.ownerId ?? "")
+    .update("\0")
+    .update(key)
+    .digest("hex");
+  return `idem-${digest}`;
+}
+
+function sameBudgets(left, right) {
+  return left.wallClockMs === right.wallClockMs
+    && left.stepLimit === right.stepLimit
+    && left.actionLimit === right.actionLimit
+    && left.egressBytesLimit === right.egressBytesLimit;
+}
+
+function sameCreationBinding(existing, requested) {
+  return existing.consumerId === requested.consumerId
+    && existing.subjectId === requested.subjectId
+    && existing.ownerKind === requested.ownerKind
+    && existing.ownerId === requested.ownerId
+    && existing.spaceId === requested.spaceId
+    && existing.projectId === requested.projectId
+    && sameBudgets(existing.budgets, requested.budgets);
 }
 
 function boundedInteger(value, label, max) {
@@ -78,13 +119,17 @@ export function createBackgroundRuntime({
       spaceId = null,
       projectId = null,
       budgets,
+      idempotencyKey = null,
     }) {
       const createdMs = epoch(now);
       const normalizedBudgets = validateBackgroundBudgets(budgets);
-      const run = validateBackgroundRun({
+      const normalizedIdempotencyKey = optionalIdempotencyKey(idempotencyKey);
+      const provisional = validateBackgroundRun({
         schema: BACKGROUND_RUN_SCHEMA,
         revision: 1,
-        runId: id(idFactory(), "Background generated run id"),
+        runId: normalizedIdempotencyKey === null
+          ? id(idFactory(), "Background generated run id")
+          : "idempotency-provisional",
         consumerId,
         subjectId,
         ownerKind,
@@ -104,8 +149,27 @@ export function createBackgroundRuntime({
         failureCode: null,
         authority: "none",
       });
-      if (await store.create(run) !== true) throw new Error("Background store refused run creation");
-      return run;
+      const run = normalizedIdempotencyKey === null
+        ? provisional
+        : validateBackgroundRun({
+            ...provisional,
+            runId: deterministicRunId(provisional, normalizedIdempotencyKey),
+          });
+
+      if (await store.create(run) === true) return run;
+      if (normalizedIdempotencyKey === null) {
+        throw new Error("Background store refused run creation");
+      }
+
+      const existingValue = await store.get(run.runId);
+      if (existingValue == null) {
+        throw new Error("Background store refused idempotent run creation");
+      }
+      const existing = validateBackgroundRun(existingValue);
+      if (!sameCreationBinding(existing, run)) {
+        throw new Error("Background idempotency key is already bound to different work");
+      }
+      return existing;
     },
 
     async get(runId) {
