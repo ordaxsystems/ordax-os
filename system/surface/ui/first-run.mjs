@@ -19,6 +19,7 @@ import {
   isSupportedRegionalTimeZone,
 } from "../../services/preferences/regional.mjs";
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
+import { translateFirstRunAccountText } from "../../services/i18n/first-run-account.mjs";
 import { completeFirstRunState, validateFirstRunState } from "../../services/state/first-run.mjs";
 import {
   networkManagementActionMessage,
@@ -99,6 +100,8 @@ export function mountFirstRunExperience(
     timeZone: isSupportedRegionalTimeZone(detectedTimeZone) ? detectedTimeZone : initial.timeZone,
     accountMode: null,
   };
+  const accountText = (messageId, params = Object.freeze({})) =>
+    translateFirstRunAccountText(draft.locale, messageId, params);
 
   documentObject.documentElement.lang = draft.locale;
 
@@ -462,20 +465,26 @@ export function mountFirstRunExperience(
       ) {
         const legal = el(documentObject, "div", "ordax-first-run-legal");
         legal.append(
-          el(documentObject, "strong", "", "Documentos vigentes"),
-          el(documentObject, "p", "", "Leia os documentos canônicos antes de criar sua Conta OrdaX."),
+          el(documentObject, "strong", "", accountText("firstRun.account.legal.title")),
+          el(documentObject, "p", "", accountText("firstRun.account.legal.detail")),
         );
         const links = el(documentObject, "div", "ordax-first-run-legal-links");
         const privacy = documentObject.createElement("a");
         privacy.href = registrationPolicy.privacy.url;
         privacy.target = "_blank";
         privacy.rel = "noopener noreferrer";
-        privacy.textContent = `Privacidade · v${registrationPolicy.privacy.version} · ${registrationPolicy.privacy.effectiveDate}`;
+        privacy.textContent = accountText("firstRun.account.legal.privacy", {
+          version: registrationPolicy.privacy.version,
+          effectiveDate: registrationPolicy.privacy.effectiveDate,
+        });
         const terms = documentObject.createElement("a");
         terms.href = registrationPolicy.terms.url;
         terms.target = "_blank";
         terms.rel = "noopener noreferrer";
-        terms.textContent = `Termos · v${registrationPolicy.terms.version} · ${registrationPolicy.terms.effectiveDate}`;
+        terms.textContent = accountText("firstRun.account.legal.terms", {
+          version: registrationPolicy.terms.version,
+          effectiveDate: registrationPolicy.terms.effectiveDate,
+        });
         links.append(privacy, terms);
         const acceptance = el(documentObject, "label", "ordax-first-run-legal-acceptance");
         const checkbox = documentObject.createElement("input");
@@ -485,7 +494,7 @@ export function mountFirstRunExperience(
         checkbox.disabled = identityPending !== null;
         acceptance.append(
           checkbox,
-          el(documentObject, "span", "", "Li e aceito os documentos vigentes indicados acima."),
+          el(documentObject, "span", "", accountText("firstRun.account.legal.accept")),
         );
         legal.append(links, acceptance);
         form.append(legal);
@@ -500,7 +509,11 @@ export function mountFirstRunExperience(
     } else {
       const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
       signIn.disabled = identityPending !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
-      const register = action(documentObject, identityPending === "register" ? "Criando conta…" : "Criar conta", "account-register");
+      const register = action(
+        documentObject,
+        identityPending === "register" ? accountText("firstRun.account.register.pending") : "Criar conta",
+        "account-register",
+      );
       register.disabled = (
         identityPending !== null
         || registrationPolicyPending
