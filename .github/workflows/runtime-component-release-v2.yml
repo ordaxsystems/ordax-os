@@ -7,6 +7,7 @@ on:
       - 'tools/component-package/compatibility.mjs'
       - 'tools/component-package/release_v2.py'
       - 'tools/runtime-component-channel/cli_v2.go'
+      - 'tools/runtime-component-channel/cli_v2_test.go'
       - 'tools/runtime-component-channel/release_v2.go'
       - 'tools/runtime-component-channel/release_v2_test.go'
       - 'tools/runtime-component-channel/stage_v2.go'
@@ -24,6 +25,7 @@ on:
       - 'tools/component-package/compatibility.mjs'
       - 'tools/component-package/release_v2.py'
       - 'tools/runtime-component-channel/cli_v2.go'
+      - 'tools/runtime-component-channel/cli_v2_test.go'
       - 'tools/runtime-component-channel/release_v2.go'
       - 'tools/runtime-component-channel/release_v2_test.go'
       - 'tools/runtime-component-channel/stage_v2.go'
@@ -67,12 +69,14 @@ jobs:
             tests/test_runtime_component_release_v2_cli_e2e.py
           gofmt -d \
             tools/runtime-component-channel/cli_v2.go \
+            tools/runtime-component-channel/cli_v2_test.go \
             tools/runtime-component-channel/release_v2.go \
             tools/runtime-component-channel/release_v2_test.go \
             tools/runtime-component-channel/stage_v2.go \
             tools/runtime-component-channel/stage_v2_test.go
           test -z "$(gofmt -l \
             tools/runtime-component-channel/cli_v2.go \
+            tools/runtime-component-channel/cli_v2_test.go \
             tools/runtime-component-channel/release_v2.go \
             tools/runtime-component-channel/release_v2_test.go \
             tools/runtime-component-channel/stage_v2.go \
