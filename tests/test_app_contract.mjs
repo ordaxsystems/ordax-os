@@ -5,6 +5,7 @@ import { defineFirstPartyApp } from "../system/apps/app-contract.mjs";
 import { internetApp } from "../system/apps/internet/app.mjs";
 import { notesApp } from "../system/apps/notes/app.mjs";
 import { projectsApp } from "../system/apps/projects/app.mjs";
+import { COMPONENT_LOCALIZATION_SCHEMA } from "../system/contracts/localization-pack.mjs";
 import { validateFileListing } from "../system/contracts/file-space.mjs";
 
 function baseSpec(panel) {
@@ -27,6 +28,12 @@ function baseSpec(panel) {
       owner: "tests/example",
       dependencies: [],
     },
+    localization: {
+      sourceLocale: "pt-BR",
+      bundledLocales: ["pt-BR", "en-US"],
+      optionalLocales: [],
+      allowAppOverride: true,
+    },
     requiredCapabilities: [],
     panels: [panel],
   };
@@ -42,6 +49,21 @@ test("app contract accepts a bounded extension slot", () => {
   }));
   assert.equal(app.panels[0].extensionId, "file-space");
   assert.equal(Object.isFrozen(app.panels[0]), true);
+});
+
+test("app contract exposes a validated and frozen localization manifest", () => {
+  const app = defineFirstPartyApp(baseSpec({
+    kind: "extension",
+    extensionId: "example-workspace",
+    label: "Example",
+    title: "Example",
+    body: "Fallback",
+  }));
+  assert.equal(app.localization.schema, COMPONENT_LOCALIZATION_SCHEMA);
+  assert.equal(app.localization.targetId, "example");
+  assert.deepEqual(app.localization.bundledLocales, ["pt-BR", "en-US"]);
+  assert.equal(Object.isFrozen(app.localization), true);
+  assert.equal(Object.isFrozen(app.localization.bundledLocales), true);
 });
 
 test("app contract models optional host capabilities without changing availability requirements", () => {
