@@ -1,0 +1,107 @@
+{
+  "$schema": "prototype-ordax.mvp-account-cloud/1",
+  "status": "mvp-required-blocked-until-security-and-e2e-gates-pass",
+  "mvp_required": true,
+  "account_required_for_boot": false,
+  "local_offline_product_must_remain_usable": true,
+  "pricing_required_for_mvp": false,
+  "billing_activation_required_for_mvp": false,
+  "commercial_quota_values_required_for_mvp": false,
+  "owners": {
+    "identity": "services/public-identity",
+    "account_sync": "system/services/sync",
+    "memory": "system/services/memory",
+    "entitlements": "system/services/entitlements",
+    "user_object_storage": "system/services/user-cloud-storage"
+  },
+  "required_capabilities": {
+    "registration": true,
+    "login": true,
+    "session_refresh": true,
+    "logout_and_session_revocation": true,
+    "password_recovery": true,
+    "account_export": true,
+    "account_close": true,
+    "account_sync_mvp_classes": true,
+    "cloud_memory_account_and_space": true,
+    "private_user_object_storage": true,
+    "server_authoritative_entitlements": true,
+    "server_authoritative_quota_admission": true
+  },
+  "mvp_sync_classes": [
+    "appearance",
+    "preferences",
+    "workspace-metadata",
+    "safe-app-state-metadata",
+    "user-selected-cloud-content-metadata"
+  ],
+  "cloud_memory": {
+    "eligible_scopes": ["account", "space"],
+    "never_sync_scopes": ["device", "session"],
+    "project_scope_rollout_enabled": false,
+    "restricted_memory_cloud_sync_allowed": false,
+    "provider_tokens_in_payload_allowed": false,
+    "semantic_embeddings_are_source_of_truth": false
+  },
+  "user_object_storage": {
+    "public_bucket_allowed": false,
+    "explicit_user_selection_required": true,
+    "provider_neutral_domain_required": true,
+    "opaque_provider_object_key_required": true,
+    "transactional_metadata_is_authorization_source": true,
+    "provider_object_store_is_authorization_source": false,
+    "short_lived_upload_authorization_required": true,
+    "server_reservation_before_growth_required": true,
+    "final_size_and_digest_verification_required": true,
+    "cross_account_negative_isolation_proof_required": true,
+    "delete_and_export_required": true,
+    "silent_delete_on_downgrade_allowed": false
+  },
+  "security": {
+    "public_rollout_fail_closed": true,
+    "ui_validation_is_authority": false,
+    "client_claimed_entitlement_is_authority": false,
+    "client_claimed_usage_is_authority": false,
+    "service_role_in_browser_allowed": false,
+    "provider_secrets_in_surface_allowed": false,
+    "provider_tokens_in_memory_allowed": false,
+    "same_origin_session_owner_required": true,
+    "secure_http_only_cookie_required": true,
+    "csrf_required_for_state_changes": true,
+    "rate_limit_proof_required": true,
+    "password_recovery_e2e_required": true,
+    "session_revocation_e2e_required": true,
+    "legal_policy_must_be_active_and_versioned": true
+  },
+  "activation_gates": [
+    "server-side registration legal acceptance is enforced independently of UI/client validation",
+    "final Privacy and Terms policy is active with immutable version/hash/effective-date/HTTPS URL projection",
+    "same-origin account gateway is deployed and public client IP/rate-limit behavior is proved",
+    "password policy, email confirmation and redirect allowlist are verified against the real provider",
+    "password recovery passes real end-to-end proof without account enumeration",
+    "session revocation passes real independent-session proof",
+    "account sync passes real two-client proof with sanitized receipt",
+    "Cloud Memory atomic mutation and bidirectional fresh-install restore proofs pass",
+    "user object storage passes private-bucket, reservation, quota, digest, delete/export and negative isolation proofs",
+    "account export and account close pass real end-to-end proof",
+    "all public activation switches remain disabled until every applicable gate passes"
+  ],
+  "current_blockers": {
+    "public_account_access_enabled": false,
+    "account_registration_enabled": false,
+    "account_recovery_enabled": false,
+    "account_close_enabled": false,
+    "account_sync_real_two_client_proof_completed": false,
+    "cloud_memory_public_rollout_enabled": false,
+    "cloud_memory_real_bidirectional_restore_proof_completed": false,
+    "user_object_storage_implemented": false,
+    "pricing_defined": false
+  },
+  "provider_policy": {
+    "transactional_backend_current_adapter": "supabase",
+    "transactional_project": "ordax-control-plane",
+    "object_storage_provider_frozen": false,
+    "cloudflare_r2_may_be_evaluated_for_large_blobs": true,
+    "backend_provider_may_redefine_domain_semantics": false
+  }
+}
