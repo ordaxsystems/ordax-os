@@ -94,8 +94,7 @@ function rankCandidates(candidates, request) {
   }
   const ranked = [];
   const identities = new Set();
-  for (const candidate of candidates) {
-    const item = validateMemoryItem(candidate);
+  for (const item of candidates) {
     const identity = memoryIdentityKey(item);
     if (identities.has(identity)) throw new Error("Memory record store returned duplicate identities");
     identities.add(identity);
@@ -137,7 +136,7 @@ function recordCandidates(store, request, maxCandidates) {
   if (!Array.isArray(candidates) || candidates.length > maxCandidates) {
     throw new Error("Memory record store returned an invalid candidate set");
   }
-  return candidates;
+  return candidates.map((candidate) => validateMemoryItem(candidate));
 }
 
 export function createMemoryRuntime({ store = null } = {}) {
