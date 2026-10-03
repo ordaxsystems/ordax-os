@@ -1,7 +1,10 @@
-import { createUnavailableBrowserSession } from "../../contracts/browser-session.mjs";
+import {
+  BROWSER_UNAVAILABLE_REASONS,
+  createUnavailableBrowserSession,
+} from "../../contracts/browser-session.mjs";
 
 export function createWebBrowserSession() {
   return createUnavailableBrowserSession(
-    "O modo Web não incorpora sites arbitrários dentro da Surface. Use OrdaX Desktop, USB ou Native para navegação integrada.",
+    BROWSER_UNAVAILABLE_REASONS.WEB_EMBEDDING_DISABLED,
   );
 }
