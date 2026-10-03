@@ -1,0 +1,48 @@
+{
+  "$schema": "prototype-ordax.proactive-research/1",
+  "status": "source-foundation-local-read-only-not-composed",
+  "owner": "system/services/proactive-research",
+  "authority": {
+    "creates_authority": false,
+    "issues_grants": false,
+    "result_authority": "none",
+    "include_restricted_is_authorization": false
+  },
+  "sources": {
+    "allowed_kinds": ["memory", "work", "project", "file-metadata", "system-status"],
+    "network_required_false": true,
+    "mutation_required_false": true,
+    "authorization_before_each_read": true,
+    "maximum_sources_per_run": 16,
+    "maximum_evidence_per_run": 64,
+    "maximum_evidence_per_source": 32
+  },
+  "analyzer": {
+    "network_required_false": true,
+    "mutation_required_false": true,
+    "may_create_authority": false,
+    "local_intelligence_adapter_future": true
+  },
+  "privacy": {
+    "evidence_provenance_required": true,
+    "sensitivity_required": true,
+    "restricted_filtered_by_default": true,
+    "restricted_still_requires_authorization": true
+  },
+  "forbidden": {
+    "public_web": true,
+    "email": true,
+    "cloud_connectors": true,
+    "writes": true,
+    "memory_mutation": true,
+    "publishing": true,
+    "device_control": true
+  },
+  "rollout": {
+    "scheduler_composed": false,
+    "background_runtime_composed": false,
+    "activity_surface_composed": false,
+    "personal_work_composed": false,
+    "public_background_enabled": false
+  }
+}
