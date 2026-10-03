@@ -8,6 +8,12 @@ export const activityApp = defineFirstPartyApp({
   monogram: "AT",
   singleton: true,
   component: activityComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    optionalLocales: [],
+    allowAppOverride: true,
+  },
   requiredCapabilities: [],
   panels: [
     {

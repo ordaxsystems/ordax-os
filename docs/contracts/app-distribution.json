@@ -12,10 +12,19 @@
     "supported_modes",
     "required_contracts",
     "requested_capabilities",
+    "localization",
     "content_hash",
     "signature",
     "update_policy"
   ],
+  "localization": {
+    "contract": "docs/contracts/localization-packs.json",
+    "manifest_required_per_app": true,
+    "language_pack_is_resource_only": true,
+    "language_pack_may_update_independently": true,
+    "language_pack_may_add_app_only_locale": true,
+    "language_pack_may_not_add_permissions": true
+  },
   "security": {
     "unsigned_third_party_install_allowed": false,
     "profile_pack_may_bypass_package_verification": false,

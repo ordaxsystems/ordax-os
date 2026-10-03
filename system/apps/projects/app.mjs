@@ -8,6 +8,12 @@ export const projectsApp = defineFirstPartyApp({
   monogram: "PR",
   singleton: true,
   component: projectsComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    optionalLocales: [],
+    allowAppOverride: true,
+  },
   requiredCapabilities: [],
   panels: [
     {

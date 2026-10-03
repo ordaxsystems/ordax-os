@@ -1,4 +1,5 @@
 import { defineComponentManifest } from "../contracts/component-manifest.mjs";
+import { defineComponentLocalization } from "../contracts/localization-pack.mjs";
 
 const APP_ID_RE = /^[a-z][a-z0-9-]*$/;
 const PANEL_KINDS = new Set([
@@ -82,6 +83,9 @@ export function defineFirstPartyApp(spec) {
   if (!Array.isArray(spec.requiredCapabilities) || !Array.isArray(spec.panels)) {
     throw new TypeError(`First-party app ${spec.id} has an invalid contract`);
   }
+  if (!spec.localization || typeof spec.localization !== "object") {
+    throw new TypeError(`First-party app ${spec.id} must declare its localization contract`);
+  }
   const requiredCapabilities = freezeCapabilities(
     spec.id,
     "required",
@@ -111,6 +115,10 @@ export function defineFirstPartyApp(spec) {
       `First-party app ${spec.id} component identity must match its app owner`,
     );
   }
+  const localization = defineComponentLocalization({
+    ...spec.localization,
+    targetId: spec.id,
+  });
 
   return Object.freeze({
     id: spec.id,
@@ -119,6 +127,7 @@ export function defineFirstPartyApp(spec) {
     monogram: spec.monogram,
     singleton: spec.singleton !== false,
     component,
+    localization,
     requiredCapabilities,
     optionalCapabilities,
     panels: Object.freeze(spec.panels.map((panel) => freezePanel(spec.id, panel))),

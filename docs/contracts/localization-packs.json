@@ -1,0 +1,53 @@
+{
+  "$schema": "prototype-ordax.localization-packs/1",
+  "status": "foundation-source",
+  "source_locale": "pt-BR",
+  "surface": {
+    "public_complete_locales": ["pt-BR", "en-US"],
+    "system_locale_is_global_default": true,
+    "surface_selector_only_lists_surface_complete_locales": true,
+    "app_locale_may_exceed_surface_locale_set": true
+  },
+  "apps": {
+    "localization_manifest_required": true,
+    "source_locale_required_in_bundled_locales": true,
+    "per_app_override_supported": true,
+    "inherit_system_locale_by_default": true,
+    "optional_locale_must_be_declared_before_install": true,
+    "first_party_current_bundled_locales": ["pt-BR", "en-US"]
+  },
+  "packs": {
+    "schema": "ordax.localization-pack/1",
+    "resource_only": true,
+    "executable_payload_allowed": false,
+    "permissions_allowed": false,
+    "capabilities_allowed": false,
+    "signature_required": true,
+    "content_sha256_required": true,
+    "message_contract_sha256_required": true,
+    "independent_versioning": true,
+    "independent_correction_updates": true
+  },
+  "selection": {
+    "order": [
+      "explicit-compatible-app-override",
+      "compatible-system-locale",
+      "app-source-locale"
+    ],
+    "unsupported_or_removed_app_override_uses_system_before_source": true,
+    "mixed_partial_catalog_rendering_allowed": false
+  },
+  "update_activation": {
+    "discover_from_authorized_catalog": true,
+    "download_to_inactive_staging": true,
+    "verify_size_hash_signature_target_locale_and_message_contract": true,
+    "atomic_activation_required": true,
+    "failed_activation_preserves_previous_pack": true,
+    "rollback_without_app_or_base_rollback": true,
+    "pack_update_may_not_change_app_permissions": true
+  },
+  "examples": {
+    "system_en_us_app_zh_hans": "The Surface may remain en-US while one app explicitly uses an installed zh-Hans pack.",
+    "future_surface_zh_hans": "A future complete Surface zh-Hans pack can be promoted independently after shell and first-party launch coverage is proven."
+  }
+}

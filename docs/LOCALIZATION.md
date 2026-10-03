@@ -2,109 +2,108 @@
 
 Status: **ACTIVE MVP POLICY**
 
-OrdaX must separate three things that are often incorrectly called “language
-support”:
-
-1. locale accepted and persisted by the system;
-2. first-use/OOBE translation;
-3. complete Surface/application translation.
+OrdaX separates system language, application language and installable language resources. A locale being recognized by the OS does not imply that every product surface or every app is complete in that locale.
 
 ## MVP language set
 
-The public Native/USB MVP selectors expose:
+The public Native/USB MVP Surface selectors expose:
 
 - `pt-BR` — Portuguese (Brazil), source/default language;
 - `en-US` — English.
 
-The system still recognizes and can read persisted `es-ES`, `de-DE` and `fr-FR`
-state, and their existing OOBE translations remain in source as retained
-compatibility/future rollout assets. They are intentionally hidden from the public
-MVP selectors until their shared Surface/application coverage reaches the same
-launch standard. This avoids advertising a language based only on OOBE translation.
+The system still recognizes retained `es-ES`, `de-DE` and `fr-FR` compatibility/OOBE state, but those locales remain hidden from the public Surface selector until complete Surface coverage reaches launch quality.
 
-## Expansion order
+## Component-owned localization
 
-1. keep PT-BR and English complete across the shared Surface and first-party apps;
-2. complete Spanish;
-3. complete German;
-4. complete French;
-5. add further languages only when the shared i18n owner can keep them tested.
+Every first-party app declares a localization contract. The system locale is the default for apps, but an app may expose an explicit per-app locale override. An app is not required to support every locale that the Surface supports, and an app may support additional locales that the Surface does not yet expose.
 
-This order is about engineering sequence, not the importance of a language or
-its speakers. PT-BR remains fully supported as the source language throughout.
-
-## Current implementation status
-
-The shared Surface now owns a provider-neutral localization runtime
-(`ordax.localization/1`) driven directly by the persisted `regional.locale`
-preference. PT-BR remains the source catalog. The shared desktop shell, launcher,
-window chrome, workspace labels, connectivity copy, first-party app titles and
-fallback panel metadata have explicit English catalog entries.
-
-`en-US` is now a complete Surface locale for the public MVP. Files covers
-navigation, search, locale-aware sorting, listing, selection, deep create/copy/move/
-rename/project/import/export flows, Recents, recoverable Trash, preview and Files → Notes
-presentation through the same owner. Projects, Settings, System, Account, Notes and Internet cover
-their primary and deep first-party journeys in English. The Native local-session lock,
-Home continuation/pending cards, power controls, global update accelerator, desktop clock,
-boot screen, network/battery trays and quick panels, and Notification Center also consume
-the shared owner. First-party async feedback that must survive repaint stores semantic
-message identity instead of already-rendered Portuguese text. First-party update
-notifications likewise persist bounded semantic presentation identity so stored history
-can rerender when the locale changes; generic producer text remains untouched by design.
-Spanish, German and French remain recognized compatibility locales and retain their
-translated OOBE catalogs, but are not offered by the public MVP selectors until their
-shared Surface catalogs are complete enough for launch.
+Example:
 
 ```text
-SURFACE_LOCALIZATION_OWNER=PASS_SOURCE
-SURFACE_SOURCE_LOCALE=pt-BR
-SURFACE_SHARED_SHELL_EN_US=PASS_SOURCE
-FILES_PRIMARY_JOURNEY_EN_US=PASS_SOURCE
-FILES_FORMS_SORT_EXPORT_PREVIEW_EN_US=PASS_SOURCE
-SETTINGS_SYSTEM_NAV_EN_US=PASS_SOURCE
-SYSTEM_OVERVIEW_SUMMARY_EN_US=PASS_SOURCE
-SETTINGS_NOTIFICATIONS_EN_US=PASS_SOURCE
-SETTINGS_SECURITY_EN_US=PASS_SOURCE
-LOCAL_SESSION_LOCK_EN_US=PASS_SOURCE
-ACCOUNT_EN_US=PASS_SOURCE
-PROJECTS_PRIMARY_JOURNEY_EN_US=PASS_SOURCE
-NOTES_PRIMARY_JOURNEY_EN_US=PASS_SOURCE
-INTERNET_PRIMARY_JOURNEY_EN_US=PASS_SOURCE
-NETWORK_TRAY_QUICK_PANEL_EN_US=PASS_SOURCE
-BATTERY_TRAY_QUICK_PANEL_EN_US=PASS_SOURCE
-NOTIFICATION_CENTER_EN_US=PASS_SOURCE
-FIRST_PARTY_UPDATE_NOTIFICATION_HISTORY_EN_US=PASS_SOURCE
-FILES_DEEP_EN_US=PASS_SOURCE
-FILES_SEMANTIC_OPERATIONAL_MESSAGES=PASS_SOURCE
-SETTINGS_DEEP_EN_US=PASS_SOURCE
-NOTES_DEEP_EN_US=PASS_SOURCE
-INTERNET_DEEP_EN_US=PASS_SOURCE
-SHELL_DEEP_EN_US=PASS_SOURCE
-MVP_PUBLIC_LOCALES=pt-BR,en-US
-RETAINED_COMPATIBLE_LOCALES=es-ES,de-DE,fr-FR
-SURFACE_COMPLETE_LOCALES=pt-BR,en-US
-SURFACE_EN_US_APP_CONTROLS=PASS_SOURCE
-SURFACE_ES_ES=HIDDEN_MIGRATING
-SURFACE_DE_DE=HIDDEN_MIGRATING
-SURFACE_FR_FR=HIDDEN_MIGRATING
+Surface locale = en-US
+Files locale   = en-US (inherits system)
+Notes locale   = en-US (inherits system)
+Example app    = zh-Hans (explicit app override, optional pack installed)
 ```
 
-## Architecture
+This is intentional. Adding Mandarin to one app must not falsely advertise the entire OrdaX Surface as Mandarin-complete.
 
-Translations belong to shared product owners, never platform forks:
+Each app declares:
+
+- source locale;
+- locales bundled with that app version;
+- optional locales that may be installed later;
+- whether the user may override the app locale independently.
+
+Current first-party MVP apps bundle `pt-BR` and `en-US`. PT-BR remains the guaranteed source fallback.
+
+## Language packs
+
+Optional translations are resource-only language packs under `ordax.localization-pack/1`. They are not applications, services or executable plugins.
+
+A pack binds to:
+
+- target kind and target id;
+- canonical locale;
+- independent semantic version;
+- SHA-256 of the message contract expected by the target;
+- SHA-256 and exact size of the pack bytes;
+- publisher and signature.
+
+A language pack cannot request permissions, capabilities, an entrypoint or executable payload. Installing a translation can therefore never grant filesystem, network, microphone, camera or other authority.
+
+The message-contract hash is the compatibility boundary. A translation correction can update independently when message ids/placeholders are unchanged. If an app update changes its message contract, an older incompatible pack is not activated.
+
+## Selection and fallback
+
+Locale resolution is deterministic:
+
+1. use a compatible explicit app override when present;
+2. otherwise use the compatible system locale;
+3. otherwise use the app source locale.
+
+If a user selected an optional app locale and later removes that pack, the app first falls back to the current system locale when supported. It does not render a partially translated mixture. Source fallback is the final safe state.
+
+## Updates
+
+Language packs are designed to travel through the authorized OrdaX update/catalog trust path without becoming a second updater.
+
+Activation order:
 
 ```text
-shared message identity/catalog
- -> locale selection
- -> Surface/apps/services
- -> Web/Mobile/Desktop/USB/Native adapters only where platform formatting differs
+authorized catalog
+ -> download to inactive staging
+ -> verify size + content hash + signature
+ -> verify target + locale + message-contract hash
+ -> atomically activate resource pack
+ -> preserve previous known-good pack for rollback
 ```
 
-Do not copy screens per language. Dynamic state such as Wi-Fi status must be
-translated as structured pieces rather than concatenated Portuguese strings.
+A failed language-pack update preserves the working app and previous translation. Rolling back a translation does not require rolling back the app, Surface or boot-critical Base when their contracts are still compatible.
 
-Locale and keyboard layout stay separate. Choosing English does not silently
-change a Brazilian physical keyboard, and choosing German/French does not
-invent an unproven XKB layout. Physical keyboard support remains governed by
-`docs/contracts/keyboard-layout.json`.
+This allows later delivery of:
+
+- a new locale for one app;
+- a new locale for several apps;
+- spelling/terminology corrections only;
+- accessibility-copy corrections;
+- a future full Surface locale after complete coverage is proven.
+
+## Product boundaries
+
+The shared Surface, public site and Creator are separate artifacts. They may share the same policy and pack schema, but each keeps its own localization owner and coverage gate. The public site must not import the Surface runtime, and Creator must not depend on the Surface to render its safety prompts.
+
+Translations belong to product owners, never platform forks:
+
+```text
+message identity/catalog
+ -> component localization contract
+ -> locale resolution
+ -> Web/Mobile/Desktop/USB/Native adapter only where platform formatting differs
+```
+
+Do not copy screens per language. Dynamic state must be translated from structured semantic state rather than concatenated source-language strings.
+
+Locale and keyboard layout stay separate. Choosing English does not silently change a Brazilian physical keyboard, and choosing another language does not invent an unproven keyboard layout. Physical keyboard support remains governed by `docs/contracts/keyboard-layout.json`.
+
+Machine-readable policy: `docs/contracts/localization-packs.json`.

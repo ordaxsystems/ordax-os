@@ -8,6 +8,12 @@ export const accountApp = defineFirstPartyApp({
   monogram: "CO",
   singleton: true,
   component: accountComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    optionalLocales: [],
+    allowAppOverride: true,
+  },
   requiredCapabilities: [],
   panels: [
     {

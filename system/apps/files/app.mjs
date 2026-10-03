@@ -8,6 +8,12 @@ export const filesApp = defineFirstPartyApp({
   monogram: "AR",
   singleton: true,
   component: filesComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    optionalLocales: [],
+    allowAppOverride: true,
+  },
   requiredCapabilities: [],
   panels: [
     {

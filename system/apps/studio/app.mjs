@@ -8,6 +8,12 @@ export const studioApp = defineFirstPartyApp({
   monogram: "ST",
   singleton: true,
   component: studioComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    optionalLocales: [],
+    allowAppOverride: true,
+  },
   requiredCapabilities: [],
   panels: [
     {

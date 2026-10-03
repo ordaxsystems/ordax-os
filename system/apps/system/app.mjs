@@ -8,6 +8,12 @@ export const systemApp = defineFirstPartyApp({
   monogram: "SI",
   singleton: true,
   component: systemComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    optionalLocales: [],
+    allowAppOverride: true,
+  },
   requiredCapabilities: [],
   panels: [
     {

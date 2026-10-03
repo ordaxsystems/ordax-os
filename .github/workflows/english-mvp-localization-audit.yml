@@ -10,8 +10,13 @@ on:
       - 'system/surface/ui/**'
       - 'system/surface/runtime/native_security_prompt_i18n.py'
       - 'system/apps/**'
+      - 'system/contracts/localization-pack.mjs'
       - 'system/contracts/first-run-state-store.mjs'
+      - 'docs/LOCALIZATION.md'
+      - 'docs/contracts/localization-packs.json'
+      - 'docs/contracts/app-distribution.json'
       - 'docs/contracts/first-run.json'
+      - 'tests/test_component_localization.mjs'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
@@ -25,8 +30,13 @@ on:
       - 'system/surface/ui/**'
       - 'system/surface/runtime/native_security_prompt_i18n.py'
       - 'system/apps/**'
+      - 'system/contracts/localization-pack.mjs'
       - 'system/contracts/first-run-state-store.mjs'
+      - 'docs/LOCALIZATION.md'
+      - 'docs/contracts/localization-packs.json'
+      - 'docs/contracts/app-distribution.json'
       - 'docs/contracts/first-run.json'
+      - 'tests/test_component_localization.mjs'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
@@ -52,6 +62,12 @@ jobs:
         with:
           python-version: '3.12'
           check-latest: false
+
+      - name: Audit component localization contracts and pack isolation
+        run: |
+          set -euo pipefail
+          node --check tests/test_component_localization.mjs
+          node --test tests/test_component_localization.mjs
 
       - name: Audit complete en-US Surface and First Run catalogs
         run: |
