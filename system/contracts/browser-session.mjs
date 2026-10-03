@@ -1,6 +1,13 @@
 export const BROWSER_SESSION_SCHEMA = "ordax.browser-session/1";
 
+export const BROWSER_UNAVAILABLE_REASONS = Object.freeze({
+  HOST_UNAVAILABLE: "host-unavailable",
+  WEB_EMBEDDING_DISABLED: "web-embedding-disabled",
+  NATIVE_ENGINE_UNAVAILABLE: "native-engine-unavailable",
+});
+
 const TAB_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
+const REASON_CODE_SET = new Set(Object.values(BROWSER_UNAVAILABLE_REASONS));
 const MAX_TABS = 16;
 
 function freezeTab(tab) {
@@ -37,9 +44,17 @@ export function validateBrowserSnapshot(snapshot) {
     throw new TypeError("Browser active tab is invalid");
   }
   if (typeof snapshot.reason !== "string") throw new TypeError("Browser reason is invalid");
+  const reasonCode = snapshot.reasonCode ?? null;
+  if (reasonCode !== null && !REASON_CODE_SET.has(reasonCode)) {
+    throw new TypeError("Browser reason code is invalid");
+  }
+  if (snapshot.supported && reasonCode !== null) {
+    throw new TypeError("Supported browser snapshots cannot expose an unavailable reason code");
+  }
   return Object.freeze({
     supported: snapshot.supported,
     reason: snapshot.reason,
+    reasonCode,
     activeTabId: snapshot.activeTabId,
     tabs: Object.freeze(tabs),
   });
@@ -67,10 +82,17 @@ export function assertBrowserSessionPort(value) {
   return value;
 }
 
-export function createUnavailableBrowserSession(reason = "Navegação integrada indisponível neste host.") {
+export function createUnavailableBrowserSession(
+  reasonCode = BROWSER_UNAVAILABLE_REASONS.HOST_UNAVAILABLE,
+) {
+  if (!REASON_CODE_SET.has(reasonCode)) {
+    throw new TypeError("Browser unavailable reason code is invalid");
+  }
   const snapshot = validateBrowserSnapshot({
     supported: false,
-    reason,
+    // Human-readable unavailable copy belongs to the localized Surface presentation.
+    reason: "",
+    reasonCode,
     activeTabId: null,
     tabs: [],
   });
