@@ -1,5 +1,6 @@
 import { listFirstPartyApps, getFirstPartyApp, isAppAvailable } from "../../apps/catalog.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
+import { localizationDirection } from "../../contracts/localization.mjs";
 import { PREFERENCE_RUNTIME_SCHEMA } from "../../contracts/preference-runtime.mjs";
 import { assertPreferenceStore, validatePreferenceRecord } from "../../contracts/preference-store.mjs";
 import { assertSurfaceHost } from "../../contracts/surface-host.mjs";
@@ -395,6 +396,7 @@ export function mountSurface(
   const activationPort = appActivation === null ? null : assertAppActivationPort(appActivation);
   const documentElement = root.ownerDocument.documentElement;
   const originalDocumentLanguage = documentElement.getAttribute("lang");
+  const originalDocumentDirection = documentElement.getAttribute("dir");
   const preferenceSeed = store ? validatePreferenceRecord(store.load()) : {};
   const workspaceSeed = workspacePort ? validateWorkspaceRecord(workspacePort.load()) : null;
   let dragSession = null;
@@ -681,6 +683,7 @@ export function mountSurface(
 
   const render = () => {
     documentElement.lang = localization.getLocale();
+    documentElement.dir = localizationDirection(localization);
     syncDesktopShellLocalization(root, localization);
     root.dataset.ordaxTheme = state.preferences[APPEARANCE_PREFERENCE_ID];
     root.dataset.ordaxContrast = state.preferences[ACCESSIBILITY_CONTRAST_PREFERENCE_ID];
@@ -1056,6 +1059,11 @@ export function mountSurface(
         documentElement.removeAttribute("lang");
       } else {
         documentElement.setAttribute("lang", originalDocumentLanguage);
+      }
+      if (originalDocumentDirection === null) {
+        documentElement.removeAttribute("dir");
+      } else {
+        documentElement.setAttribute("dir", originalDocumentDirection);
       }
       root.replaceChildren();
     },
