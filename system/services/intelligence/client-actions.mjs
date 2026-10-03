@@ -3,6 +3,7 @@ import { validateSurfaceSnapshot } from "../../contracts/surface-host.mjs";
 import { validateSystemMetricsSnapshot } from "../../contracts/system-metrics.mjs";
 
 const MAX_DOCUMENT_CONTEXT_CHARS = 7600;
+const COMPLETE_CLIENT_LOCALES = new Set(["pt-BR", "en-US"]);
 
 const CLIENT_COPY = Object.freeze({
   "pt-BR": Object.freeze({
@@ -27,8 +28,17 @@ const CLIENT_COPY = Object.freeze({
   }),
 });
 
+function resolveClientLocale(locale) {
+  if (locale !== null && locale !== undefined) {
+    if (!COMPLETE_CLIENT_LOCALES.has(locale)) return "pt-BR";
+    return locale;
+  }
+  const surfaceLocale = globalThis.document?.documentElement?.lang;
+  return COMPLETE_CLIENT_LOCALES.has(surfaceLocale) ? surfaceLocale : "pt-BR";
+}
+
 function clientCopy(locale) {
-  return CLIENT_COPY[locale] ?? CLIENT_COPY["pt-BR"];
+  return CLIENT_COPY[resolveClientLocale(locale)];
 }
 
 function bounded(value, label, max) {
@@ -62,7 +72,7 @@ export async function summarizeDocumentWithIntelligence(
     title,
     text,
     provenance,
-    locale = "pt-BR",
+    locale = null,
     prompt = null,
     maxTokens = 384,
   } = {},
@@ -70,8 +80,9 @@ export async function summarizeDocumentWithIntelligence(
   const port = assertIntelligencePort(portValue);
   const documentId = bounded(id, "Intelligence document id", 160);
   const source = bounded(provenance, "Intelligence document provenance", 512);
+  const resolvedLocale = resolveClientLocale(locale);
   const resolvedPrompt = prompt === null
-    ? clientCopy(locale).summarizePrompt
+    ? clientCopy(resolvedLocale).summarizePrompt
     : bounded(prompt, "Intelligence summary prompt", 2048);
   return port.respond({
     intent: "summarize",
@@ -79,7 +90,7 @@ export async function summarizeDocumentWithIntelligence(
     context: [{
       id: documentId,
       scope: "document",
-      text: documentContextText(title, text, locale),
+      text: documentContextText(title, text, resolvedLocale),
       provenance: source,
     }],
     maxTokens,
@@ -110,14 +121,15 @@ export async function explainSystemStateWithIntelligence(
   {
     surface,
     metrics = null,
-    locale = "pt-BR",
+    locale = null,
     maxTokens = 384,
   } = {},
 ) {
   const port = assertIntelligencePort(portValue);
+  const resolvedLocale = resolveClientLocale(locale);
   return port.respond({
     intent: "diagnose",
-    prompt: clientCopy(locale).diagnosePrompt,
+    prompt: clientCopy(resolvedLocale).diagnosePrompt,
     context: [{
       id: "system-local-snapshot",
       scope: "system",
