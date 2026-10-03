@@ -26,11 +26,13 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(self.contract["adapter"]["provider_specific_browser_api"])
         self.assertTrue(self.contract["routing"]["same_origin_identity_required"])
         self.assertTrue(self.contract["routing"]["same_origin_sync_required"])
+        self.assertTrue(self.contract["routing"]["same_origin_account_required"])
+        self.assertEqual(self.contract["routing"]["account_prefix"], "/account/")
         self.assertIn("/conta/", self.contract["routing"]["static_routes"])
 
     def test_adapter_is_loopback_only_and_routes_only_account_prefixes_to_gateway(self):
         self.assertIn("listen 127.0.0.1:8080;", self.nginx)
-        self.assertIn("location ~ ^/(auth|sync)/", self.nginx)
+        self.assertIn("location ~ ^/(auth|sync|account)/", self.nginx)
         self.assertIn(
             "/functions/v1/ordax-account-gateway$1",
             self.nginx,
@@ -52,10 +54,12 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertIn("ordax_auth_credentials:10m rate=10r/m", self.nginx)
         self.assertIn("ordax_auth_recovery_request:10m rate=3r/m", self.nginx)
         self.assertIn("ordax_auth_recovery_completion:10m rate=10r/m", self.nginx)
+        self.assertIn("ordax_account_sensitive:10m rate=5r/m", self.nginx)
         self.assertIn("limit_req_status 429;", self.nginx)
         self.assertIn("limit_req zone=ordax_auth_credentials burst=5 nodelay;", self.nginx)
         self.assertIn("limit_req zone=ordax_auth_recovery_request burst=2 nodelay;", self.nginx)
         self.assertIn("limit_req zone=ordax_auth_recovery_completion burst=5 nodelay;", self.nginx)
+        self.assertIn("limit_req zone=ordax_account_sensitive burst=2 nodelay;", self.nginx)
         self.assertIn("proxy_set_header X-Forwarded-For $remote_addr;", self.nginx)
         self.assertIn("proxy_set_header X-Real-IP $remote_addr;", self.nginx)
         adapter = self.contract["adapter"]
@@ -67,16 +71,18 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(adapter["public_auth_rate_limit_source_ready"])
         self.assertFalse(adapter["public_auth_rate_limit_deployed"])
         self.assertEqual(self.contract["security_rate_limits"]["status_code"], 429)
+        self.assertEqual(self.contract["security_rate_limits"]["account_close"]["rate"], "5r/m")
 
     def test_adapter_preserves_same_origin_security_and_no_store_account_routes(self):
         for name, value in self.contract["security_headers"].items():
             self.assertIn(name, self.nginx)
             self.assertIn(value, self.nginx)
-        self.assertIn('~^/(auth|sync)/ "no-store";', self.nginx)
+        self.assertIn('~^/(auth|sync|account)/ "no-store";', self.nginx)
         self.assertIn("proxy_hide_header Access-Control-Allow-Origin;", self.nginx)
         self.assertIn("proxy_hide_header Cache-Control;", self.nginx)
         self.assertIn("proxy_set_header X-Forwarded-Proto https;", self.nginx)
         self.assertIn("proxy_set_header X-Forwarded-Host $host;", self.nginx)
+        self.assertEqual(self.contract["cache_policy"]["account"], "no-store")
 
     def test_deployment_proof_is_credential_free_and_checks_real_same_origin_routes(self):
         text = DEPLOYMENT_PROOF.read_text(encoding="utf-8")
@@ -109,6 +115,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(requirements["tls_terminator_must_append_real_client_ip"])
         self.assertTrue(requirements["adapter_must_trust_only_loopback_real_ip_source"])
         self.assertTrue(requirements["public_auth_rate_limits_required"])
+        self.assertTrue(requirements["sensitive_account_mutation_rate_limit_required"])
 
 
 if __name__ == "__main__":
