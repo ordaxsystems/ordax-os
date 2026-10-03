@@ -32,7 +32,7 @@ function sameArray(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-const PORTUGUESE_MARKERS = /[ãõçÃÕÇ]|\b(?:não|uma|para|seu|sua|conta|cadastro|senha|licenças|privacidade|termos|recuperação|pendrive|disponível|indisponível|projeto|referências|arquivos|notas|preparação|pública|público|primeiro|atualizações|experiência|segurança|conhecer|criar|entrar|início|ainda|somente|quando|dados|exemplo|documentação|acesso|sessão|escrita|trabalho|entrega|preferências)\b/i;
+const PORTUGUESE_MARKERS = /[ãõçÃÕÇ]|\b(?:não|uma|para|seu|sua|conta|cadastro|senha|licenças|privacidade|termos|recuperação|pendrive|disponível|indisponível|projeto|referências|arquivos|notas|preparação|pública|público|primeiro|atualizações|experiência|segurança|conhecer|criar|entrar|início|ainda|somente|quando|dados|exemplo|documentação|acesso|sessão|escrita|trabalho|entrega|preferências|aplicativos|principais)\b/i;
 
 function looksPortuguese(value) {
   return PORTUGUESE_MARKERS.test(normalize(value));
@@ -64,6 +64,40 @@ function collectUserFacingHtml(html) {
     const value = decodeHtml(chunk);
     if (value) values.push(value);
   }
+  return values;
+}
+
+function collectUserFacingJsLiterals(source) {
+  const values = [];
+
+  function collect(raw) {
+    const decoded = raw
+      .replace(/\\n/g, "\n")
+      .replace(/\\(["'`\\])/g, "$1");
+
+    if (!decoded.includes("<")) {
+      const value = normalize(decoded);
+      if (value) values.push(value);
+      return;
+    }
+
+    const text = decoded
+      .replace(/\$\{[^}]*\}/g, " ")
+      .replace(/<[^>]+>/g, "\n");
+    for (const chunk of text.split(/\n+/)) {
+      const value = normalize(chunk).replace(/^[\s/·—–:;-]+/, "").trim();
+      if (value) values.push(value);
+    }
+  }
+
+  for (const expression of [
+    /"((?:\\.|[^"\\])*)"/g,
+    /'((?:\\.|[^'\\])*)'/g,
+    /`((?:\\.|[^`\\])*)`/g,
+  ]) {
+    for (const match of source.matchAll(expression)) collect(match[1]);
+  }
+
   return values;
 }
 
@@ -197,6 +231,10 @@ assert(
 );
 
 const playground = read("sites/public/assets/playground.js");
+for (const value of collectUserFacingJsLiterals(playground)) {
+  if (!looksPortuguese(value)) continue;
+  assert(sourceMessages.has(normalize(value)), `playground source copy missing from localization owner: ${value}`);
+}
 for (const id of [
   "playground.note.initialTitle",
   "playground.note.initialBody",
