@@ -57,6 +57,25 @@
     "delete_and_export_required": true,
     "silent_delete_on_downgrade_allowed": false
   },
+  "account_close": {
+    "durable_cleanup_journal_required": true,
+    "journal_source_implemented": true,
+    "journal_migration": "20261003123000_account_close_cleanup_journal_v1",
+    "journal_migration_applied": false,
+    "journal_must_survive_auth_identity_delete": true,
+    "provider_blob_references_must_be_copied_before_identity_delete": true,
+    "cloud_writes_must_freeze_after_close_begins": true,
+    "outstanding_upload_authorizations_must_expire_before_cleanup": true,
+    "new_sessions_must_be_frozen_during_close": true,
+    "all_existing_sessions_must_be_revoked": true,
+    "provider_cleanup_must_be_verified_before_identity_delete": true,
+    "cleanup_worker_required": true,
+    "cleanup_worker_source_implemented": false,
+    "cleanup_worker_deployed": false,
+    "public_gateway_pending_state_handling_required": true,
+    "public_gateway_pending_state_handling_implemented": false,
+    "e2e_proof_completed": false
+  },
   "security": {
     "public_rollout_fail_closed": true,
     "ui_validation_is_authority": false,
@@ -83,6 +102,8 @@
     "account sync passes real two-client proof with sanitized receipt",
     "Cloud Memory atomic mutation and bidirectional fresh-install restore proofs pass",
     "user object storage passes private-bucket, reservation, quota, digest, delete/export and negative isolation proofs",
+    "durable account-close cleanup journal is deployed before any close endpoint is enabled",
+    "provider cleanup worker and pending-close gateway behavior are deployed and proven",
     "account export and account close pass real end-to-end proof",
     "all public activation switches remain disabled until every applicable gate passes"
   ],
@@ -91,6 +112,8 @@
     "account_registration_enabled": false,
     "account_recovery_enabled": false,
     "account_close_enabled": false,
+    "account_close_cleanup_worker_implemented": false,
+    "account_close_pending_gateway_handling_implemented": false,
     "account_sync_real_two_client_proof_completed": false,
     "cloud_memory_public_rollout_enabled": false,
     "cloud_memory_real_bidirectional_restore_proof_completed": false,
