@@ -1,0 +1,53 @@
+{
+  "$schema": "prototype-ordax.action-policy/1",
+  "status": "foundation-enabled-no-user-editable-rules-yet",
+  "role": "shared restrictive policy layer before action authority",
+  "authority": {
+    "creates_authority": false,
+    "issues_grants": false,
+    "may_relax_action_gateway_requirements": false,
+    "verdict_authority": "none"
+  },
+  "outcomes": [
+    "allow-if-authorized",
+    "approval-required",
+    "handoff-to-user",
+    "deny"
+  ],
+  "layers": [
+    "core-security",
+    "device",
+    "user",
+    "work"
+  ],
+  "composition": {
+    "most_restrictive_matching_rule_wins": true,
+    "default_outcome": "allow-if-authorized",
+    "default_outcome_grants_execution": false,
+    "exact_work_and_action_binding_required": true,
+    "evaluation_failure": "deny"
+  },
+  "scope": {
+    "tool_id": true,
+    "action_id": true,
+    "effect": true,
+    "owner": true,
+    "space": true,
+    "project": true,
+    "resource_scheme": true
+  },
+  "integration": {
+    "personal_ordax_action_gateway": true,
+    "studio_may_consume_shared_service_later": true,
+    "apps_must_not_reimplement_policy_stack": true,
+    "external_egress_hard_gateway_restriction_unchanged": true,
+    "device_control_hard_gateway_restriction_unchanged": true
+  },
+  "rollout": {
+    "editable_user_rules_enabled": false,
+    "policy_sync_enabled": false,
+    "background_runtime_enabled_by_this_contract": false,
+    "scheduler_enabled_by_this_contract": false,
+    "autonomous_execution_enabled_by_this_contract": false
+  }
+}
