@@ -105,8 +105,9 @@
     const content = screen.querySelector(".demo-content");
     if (view.app === "home") {
       const now = new Date();
-      const clock = new Intl.DateTimeFormat("pt-BR", {timeZone: "America/Bahia", hour: "2-digit", minute: "2-digit", hour12: false}).format(now);
-      const rawDate = new Intl.DateTimeFormat("pt-BR", {timeZone: "America/Bahia", weekday: "long", day: "2-digit", month: "long"}).format(now);
+      const activeLocale = i18n.getLocale();
+      const clock = new Intl.DateTimeFormat(activeLocale, {timeZone: "America/Bahia", hour: "2-digit", minute: "2-digit", hour12: false}).format(now);
+      const rawDate = new Intl.DateTimeFormat(activeLocale, {timeZone: "America/Bahia", weekday: "long", day: "2-digit", month: "long"}).format(now);
       const date = rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
       content.innerHTML = `<div class="demo-home"><div class="demo-home-copy"><p class="demo-home-area">${displayHome.area_label}</p><time class="demo-home-clock" datetime="${now.toISOString()}">${clock}</time><p class="demo-home-date">${date}</p><button type="button" class="demo-home-command" data-action="launcher" aria-expanded="false"><span aria-hidden="true">⌕</span><span>${displayHome.command_label}</span><kbd>Ctrl + K</kbd></button><section class="demo-home-space" aria-labelledby="${device}-space-title"><p id="${device}-space-title">${displayHome.space_label}</p><div class="demo-home-space-list"></div></section><div class="demo-home-launcher" data-home-launcher hidden><p>Aplicativos principais</p></div></div><div class="demo-home-art" aria-hidden="true"><span></span><i></i><b></b></div></div>`;
       const spaceList = content.querySelector(".demo-home-space-list");
