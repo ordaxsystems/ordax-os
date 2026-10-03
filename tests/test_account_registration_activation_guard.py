@@ -46,7 +46,7 @@ class AccountRegistrationActivationGuardTests(unittest.TestCase):
         )
 
     def test_reference_gateway_already_enforces_request_bound_acceptance(self):
-        self.assertIn('legal_acceptance != LEGAL_ACCEPTANCE_VALUE', self.python)
+        self.assertIn('form.get(LEGAL_ACCEPTANCE_FIELD, "") != LEGAL_ACCEPTANCE_VALUE', self.python)
         self.assertIn('"legal-acceptance-required"', self.python)
 
 
