@@ -1,0 +1,46 @@
+{
+  "$schema": "ordax.personal-ordax-native-state-contract/1",
+  "status": "source-foundation-not-routed",
+  "owner": "system/surface/runtime/native_personal_ordax_state.py",
+  "endpoint_boundary": "system/surface/runtime/native_personal_ordax_endpoint.py",
+  "current_production_adapter": "system/adapters/native/personal-ordax.mjs",
+  "current_adapter_limitation": "browser-localStorage-until-async-native-migration-is-integrated",
+  "route_enabled": false,
+  "public_background_enabled": false,
+  "state_root": "/var/lib/ordax/personal-ordax",
+  "partitioning": {
+    "device": "device.json",
+    "account": "account-sha256(ownerId).json",
+    "account_id_exposed_in_filename": false,
+    "cross_owner_reads": false
+  },
+  "durability": {
+    "file_mode": "0600",
+    "directory_mode": "0700",
+    "nofollow": true,
+    "cross_process_flock": true,
+    "file_fsync_before_replace": true,
+    "directory_fsync_after_replace": true,
+    "compare_and_swap_revision": true,
+    "corrupt_partition_overwrite": false
+  },
+  "bounds": {
+    "payload_bytes": 4194304,
+    "work_items": 32,
+    "activity_events": 512,
+    "results": 32,
+    "approvals": 64,
+    "decisions": 64,
+    "attempts": 128
+  },
+  "authority": {
+    "persisted_authority_field": "none-only",
+    "backgroundExecution": false,
+    "grants_restored_as_live_authority": false
+  },
+  "migration_policy": {
+    "automatic_localStorage_deletion": false,
+    "silent_replace_of_corrupt_native_partition": false,
+    "activation_requires_async_adapter_and_explicit_migration_tests": true
+  }
+}
