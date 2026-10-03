@@ -109,10 +109,22 @@ def main(argv=None) -> int:
     expected_sync_status = 401 if activation_ready else 503
     if sync.status != expected_sync_status:
         fail(f"anonymous-sync-status:{sync.status}")
+    if "no-store" not in sync.headers.get("Cache-Control", ""):
+        fail("anonymous-sync-cache")
     sync_payload = read_json(sync)
     expected_error = "authentication-required" if activation_ready else "public-account-access-disabled"
     if sync_payload.get("error") != expected_error:
         fail("anonymous-sync-error")
+
+    account = request(origin, "/account/export")
+    expected_account_status = 401 if activation_ready else 503
+    if account.status != expected_account_status:
+        fail(f"anonymous-account-status:{account.status}")
+    if "no-store" not in account.headers.get("Cache-Control", ""):
+        fail("anonymous-account-cache")
+    account_payload = read_json(account)
+    if account_payload.get("error") != expected_error:
+        fail("anonymous-account-gate-not-enforced")
 
     if not activation_ready:
         recovery = request(
