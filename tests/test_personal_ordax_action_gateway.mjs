@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { ACTION_GATEWAY_SCHEMA } from "../system/contracts/action-gateway.mjs";
 import { canExecutePersonalAction } from "../system/contracts/personal-ordax.mjs";
+import { createActionPolicyEngine } from "../system/services/action-policy/policy-engine.mjs";
 import { createPersonalOrdaxActionGateway } from "../system/services/personal-ordax/action-gateway.mjs";
 
 function tool(overrides = {}) {
@@ -69,7 +70,7 @@ function request(overrides = {}) {
   };
 }
 
-function gateway({ grants = [grant()], readPolicy = null } = {}) {
+function gateway({ grants = [grant()], readPolicy = null, actionPolicyPort = null } = {}) {
   const byGrant = new Map(grants.map((entry) => [entry.grantId, entry]));
   return createPersonalOrdaxActionGateway({
     toolResolver(toolId) {
@@ -79,6 +80,7 @@ function gateway({ grants = [grant()], readPolicy = null } = {}) {
       return byGrant.get(grantId) ?? null;
     },
     readPolicy,
+    actionPolicyPort,
     now: () => Date.parse("2026-09-30T21:00:00.000Z"),
   });
 }
@@ -161,7 +163,6 @@ test("Model or prompt content never participates in Action Gateway authority", (
   assert.equal(value.authoritySource, "intelligence-tool-grant");
 });
 
-
 test("explicit user denial is terminal, grant-less and auditable", () => {
   const port = gateway();
   const value = port.decide(request(), { userDecision: "deny" });
@@ -178,4 +179,83 @@ test("explicit user denial is terminal, grant-less and auditable", () => {
     () => port.decide(request(), { userDecision: "deny", grantRef: "grant-1" }),
     /must not carry an execution grant/,
   );
+});
+
+test("Action Policy can deny an otherwise exact grant but cannot create authority", () => {
+  const denyPolicy = createActionPolicyEngine({
+    rules: [{
+      id: "core-block-write",
+      layer: "core-security",
+      outcome: "deny",
+      effect: "write",
+      reason: "Writes are disabled by core policy for this test.",
+    }],
+    now: () => Date.parse("2026-09-30T20:30:00.000Z"),
+  });
+  const denied = gateway({ actionPolicyPort: denyPolicy }).decide(
+    request(),
+    { grantRef: "grant-1" },
+  );
+  assert.equal(denied.decision, "deny");
+  assert.equal(denied.authoritySource, "system-policy");
+  assert.equal(canExecutePersonalAction(denied), false);
+
+  const permissivePolicy = createActionPolicyEngine({
+    rules: [{
+      id: "user-pref",
+      layer: "user",
+      outcome: "allow-if-authorized",
+      effect: "write",
+      reason: "User preference permits use only when separately authorized.",
+    }],
+    now: () => Date.parse("2026-09-30T20:30:00.000Z"),
+  });
+  const stillNeedsGrant = gateway({ actionPolicyPort: permissivePolicy }).decide(request());
+  assert.equal(stillNeedsGrant.decision, "approval-required");
+  assert.equal(canExecutePersonalAction(stillNeedsGrant), false);
+});
+
+test("Action Policy can require approval even when trusted read policy would allow", () => {
+  const policy = createActionPolicyEngine({
+    rules: [{
+      id: "ask-read",
+      layer: "device",
+      outcome: "approval-required",
+      effect: "read",
+      reason: "This device requires explicit approval for the read.",
+    }],
+    now: () => Date.parse("2026-09-30T20:30:00.000Z"),
+  });
+  const value = gateway({ readPolicy: () => true, actionPolicyPort: policy }).decide(request({
+    actionId: "files.metadata.read",
+    effect: "read",
+    reason: "Read metadata.",
+  }));
+  assert.equal(value.decision, "approval-required");
+  assert.equal(canExecutePersonalAction(value), false);
+});
+
+test("Action Gateway fails closed when Action Policy evaluation is invalid", () => {
+  const badPolicy = Object.freeze({
+    schema: "ordax.action-policy/1",
+    evaluate() {
+      return {
+        schema: "ordax.action-policy-verdict/1",
+        workItemId: "another-work",
+        actionId: "files.document.write",
+        outcome: "allow-if-authorized",
+        authority: "none",
+        matchedRuleIds: [],
+        reason: "Invalid binding.",
+        evaluatedAt: "2026-09-30T20:30:00.000Z",
+      };
+    },
+  });
+  const value = gateway({ actionPolicyPort: badPolicy }).decide(
+    request(),
+    { grantRef: "grant-1" },
+  );
+  assert.equal(value.decision, "deny");
+  assert.equal(value.authoritySource, "system-policy");
+  assert.equal(canExecutePersonalAction(value), false);
 });
