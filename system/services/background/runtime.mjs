@@ -33,15 +33,15 @@ function boundedInteger(value, label, max) {
   return value;
 }
 
-function load(store, runId) {
-  const value = store.get(id(runId, "Background run id"));
+async function load(store, runId) {
+  const value = await store.get(id(runId, "Background run id"));
   if (value == null) throw new Error("Background run was not found");
   return validateBackgroundRun(value);
 }
 
-function commit(store, current, nextValue) {
+async function commit(store, current, nextValue) {
   const next = validateBackgroundRun({ ...nextValue, revision: current.revision + 1 });
-  const swapped = store.compareAndSwap(current.runId, current.revision, next);
+  const swapped = await store.compareAndSwap(current.runId, current.revision, next);
   if (swapped !== true) throw new Error("Background run changed concurrently");
   return next;
 }
@@ -70,7 +70,7 @@ export function createBackgroundRuntime({
   const runtime = {
     schema: BACKGROUND_RUNTIME_SCHEMA,
 
-    createRun({
+    async createRun({
       consumerId,
       subjectId,
       ownerKind,
@@ -104,21 +104,21 @@ export function createBackgroundRuntime({
         failureCode: null,
         authority: "none",
       });
-      if (store.create(run) !== true) throw new Error("Background store refused run creation");
+      if (await store.create(run) !== true) throw new Error("Background store refused run creation");
       return run;
     },
 
-    get(runId) {
-      return load(store, runId);
+    async get(runId) {
+      return await load(store, runId);
     },
 
-    acquireLease(runId, { workerId, leaseMs = 60_000 } = {}) {
+    async acquireLease(runId, { workerId, leaseMs = 60_000 } = {}) {
       const at = epoch(now);
-      const current = load(store, runId);
+      const current = await load(store, runId);
       if (TERMINAL.has(current.state)) throw new Error("Terminal background run cannot be leased");
       if (current.cancelRequestedAt !== null) throw new Error("Cancelled background run cannot be leased");
       if (Date.parse(current.deadlineAt) <= at) {
-        return commit(store, current, {
+        return await commit(store, current, {
           ...current,
           state: "failed",
           lease: null,
@@ -134,7 +134,7 @@ export function createBackgroundRuntime({
       const expiresMs = Math.min(at + requestedLeaseMs, Date.parse(current.deadlineAt));
       if (expiresMs <= at) throw new Error("Background run cannot obtain a lease past its deadline");
 
-      return commit(store, current, {
+      return await commit(store, current, {
         ...current,
         state: "running",
         startedAt: current.startedAt ?? iso(at),
@@ -149,9 +149,9 @@ export function createBackgroundRuntime({
       });
     },
 
-    reserveBudget(runId, leaseId, { steps = 0, actions = 0, egressBytes = 0 } = {}) {
+    async reserveBudget(runId, leaseId, { steps = 0, actions = 0, egressBytes = 0 } = {}) {
       const at = epoch(now);
-      const current = load(store, runId);
+      const current = await load(store, runId);
       assertLease(current, id(leaseId, "Background lease id"), at);
       const delta = {
         steps: boundedInteger(steps, "Background reserved steps", 10_000),
@@ -168,7 +168,7 @@ export function createBackgroundRuntime({
         && usage.actions <= current.budgets.actionLimit
         && usage.egressBytes <= current.budgets.egressBytesLimit;
       if (!fits) {
-        const paused = commit(store, current, {
+        const paused = await commit(store, current, {
           ...current,
           state: "paused",
           lease: null,
@@ -176,16 +176,16 @@ export function createBackgroundRuntime({
         });
         return Object.freeze({ accepted: false, run: paused });
       }
-      return Object.freeze({ accepted: true, run: commit(store, current, { ...current, usage }) });
+      return Object.freeze({ accepted: true, run: await commit(store, current, { ...current, usage }) });
     },
 
-    heartbeat(runId, leaseId, { leaseMs = 60_000 } = {}) {
+    async heartbeat(runId, leaseId, { leaseMs = 60_000 } = {}) {
       const at = epoch(now);
-      const current = load(store, runId);
+      const current = await load(store, runId);
       assertLease(current, id(leaseId, "Background lease id"), at);
       const requestedLeaseMs = boundedInteger(leaseMs, "Background lease duration", maxLeaseMs);
       if (requestedLeaseMs < 5_000) throw new TypeError("Background lease duration is too short");
-      return commit(store, current, {
+      return await commit(store, current, {
         ...current,
         lease: {
           ...current.lease,
@@ -195,11 +195,11 @@ export function createBackgroundRuntime({
       });
     },
 
-    checkpoint(runId, leaseId, { cursor = null, digest } = {}) {
+    async checkpoint(runId, leaseId, { cursor = null, digest } = {}) {
       const at = epoch(now);
-      const current = load(store, runId);
+      const current = await load(store, runId);
       assertLease(current, id(leaseId, "Background lease id"), at);
-      return commit(store, current, {
+      return await commit(store, current, {
         ...current,
         checkpoint: {
           schema: BACKGROUND_CHECKPOINT_SCHEMA,
@@ -211,11 +211,11 @@ export function createBackgroundRuntime({
       });
     },
 
-    cancel(runId) {
+    async cancel(runId) {
       const at = epoch(now);
-      const current = load(store, runId);
+      const current = await load(store, runId);
       if (TERMINAL.has(current.state)) return current;
-      return commit(store, current, {
+      return await commit(store, current, {
         ...current,
         state: "cancelled",
         lease: null,
@@ -225,11 +225,11 @@ export function createBackgroundRuntime({
       });
     },
 
-    complete(runId, leaseId) {
+    async complete(runId, leaseId) {
       const at = epoch(now);
-      const current = load(store, runId);
+      const current = await load(store, runId);
       assertLease(current, id(leaseId, "Background lease id"), at);
-      return commit(store, current, {
+      return await commit(store, current, {
         ...current,
         state: "completed",
         lease: null,
@@ -238,11 +238,11 @@ export function createBackgroundRuntime({
       });
     },
 
-    fail(runId, leaseId, failureCode) {
+    async fail(runId, leaseId, failureCode) {
       const at = epoch(now);
-      const current = load(store, runId);
+      const current = await load(store, runId);
       assertLease(current, id(leaseId, "Background lease id"), at);
-      return commit(store, current, {
+      return await commit(store, current, {
         ...current,
         state: "failed",
         lease: null,
@@ -251,16 +251,16 @@ export function createBackgroundRuntime({
       });
     },
 
-    recover() {
+    async recover() {
       const at = epoch(now);
-      const candidates = store.listRecoverable();
+      const candidates = await store.listRecoverable();
       if (!Array.isArray(candidates) || candidates.length > 10_000) throw new Error("Background recovery set is invalid or unbounded");
       const recovered = [];
       for (const raw of candidates) {
         const current = validateBackgroundRun(raw);
         if (TERMINAL.has(current.state)) continue;
         if (Date.parse(current.deadlineAt) <= at) {
-          recovered.push(commit(store, current, {
+          recovered.push(await commit(store, current, {
             ...current,
             state: "failed",
             lease: null,
@@ -270,7 +270,7 @@ export function createBackgroundRuntime({
           continue;
         }
         if (current.state === "running" && Date.parse(current.lease.expiresAt) <= at) {
-          recovered.push(commit(store, current, {
+          recovered.push(await commit(store, current, {
             ...current,
             state: "paused",
             lease: null,
