@@ -1,0 +1,50 @@
+name: Action Policy Foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/action-policy.json'
+      - 'system/contracts/action-policy.mjs'
+      - 'system/services/action-policy/**'
+      - 'system/services/personal-ordax/action-gateway.mjs'
+      - 'tests/test_action_policy.mjs'
+      - 'tests/test_personal_ordax_action_gateway.mjs'
+      - '.github/workflows/action-policy-foundation.yml'
+  pull_request:
+    paths:
+      - 'docs/contracts/action-policy.json'
+      - 'system/contracts/action-policy.mjs'
+      - 'system/services/action-policy/**'
+      - 'system/services/personal-ordax/action-gateway.mjs'
+      - 'tests/test_action_policy.mjs'
+      - 'tests/test_personal_ordax_action_gateway.mjs'
+      - '.github/workflows/action-policy-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contracts and modules
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/action-policy.json >/dev/null
+          node --check system/contracts/action-policy.mjs
+          node --check system/services/action-policy/policy-engine.mjs
+          node --check system/services/personal-ordax/action-gateway.mjs
+
+      - name: Prove restrictive policy and gateway integration
+        run: |
+          set -euo pipefail
+          node --test tests/test_action_policy.mjs
+          node --test tests/test_personal_ordax_action_gateway.mjs
