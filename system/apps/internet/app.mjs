@@ -8,6 +8,11 @@ export const internetApp = defineFirstPartyApp({
   monogram: "IN",
   singleton: true,
   component: internetComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    packPolicy: "component-scoped",
+  },
   requiredCapabilities: [],
   optionalCapabilities: ["browser.web-content"],
   panels: [
