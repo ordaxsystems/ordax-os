@@ -26,7 +26,10 @@ class PublicSiteContractTests(unittest.TestCase):
 
     def test_public_site_is_distinct_from_product_web_mode(self):
         contract = json.loads(PUBLIC_CONTRACT.read_text(encoding="utf-8"))
-        self.assertEqual(contract["status"], "foundation-same-origin-adapter-gated-auth-and-recovery-forms-source-ready-not-deployed")
+        self.assertEqual(
+            contract["status"],
+            "foundation-same-origin-adapter-gated-auth-account-cloud-source-ready-not-deployed",
+        )
         self.assertEqual(contract["artifact_class"], "public-site")
         self.assertTrue(contract["separate_from_product_web_mode"])
         self.assertEqual(contract["source_root"], "sites/public")
@@ -37,9 +40,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertFalse(distribution["public_runtime_depends_on_git"])
         self.assertTrue(distribution["public_updates_use_official_channels"])
         self.assertFalse(distribution["landing_may_explain_git_operations"])
-        self.assertFalse(
-            distribution["landing_may_expose_branch_pr_commit_as_normal_ux"]
-        )
+        self.assertFalse(distribution["landing_may_expose_branch_pr_commit_as_normal_ux"])
         self.assertTrue(distribution["creator_is_primary_public_media_path"])
         self.assertTrue(distribution["landing_is_public_product_surface"])
         self.assertFalse(distribution["authenticated_workspace_may_replace_landing"])
@@ -60,30 +61,40 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertEqual(scope["execution_mode"], "usb-only")
         self.assertFalse(scope["account_required_for_public_download"])
         self.assertFalse(scope["account_required_for_first_use"])
+        self.assertFalse(scope["account_required_for_local_os_use"])
+        self.assertTrue(scope["account_cloud_required_for_public_mvp_release"])
+        self.assertEqual(scope["account_cloud_gate_contract"], "docs/contracts/mvp-account-cloud.json")
+        self.assertEqual(scope["private_user_storage_gate_contract"], "docs/contracts/user-cloud-storage.json")
         self.assertFalse(scope["native_installation_available"])
         self.assertFalse(scope["internal_disk_write_available"])
         self.assertFalse(scope["dual_boot_available"])
         self.assertTrue(contract["deployment"]["adapter_selected"])
         self.assertEqual(contract["deployment"]["adapter_source"], "deploy/public-site/nginx.conf")
         self.assertFalse(contract["deployment"]["adapter_deployed"])
+        self.assertTrue(contract["deployment"]["same_origin_identity_required"])
+        self.assertTrue(contract["deployment"]["same_origin_sync_required"])
+        self.assertTrue(contract["deployment"]["same_origin_account_required"])
         self.assertTrue(contract["identity"]["server_side_public_activation_gate_required"])
         self.assertFalse(contract["identity"]["server_side_public_activation_currently_enabled"])
         self.assertEqual(contract["deployment"]["account_request_marker_header"], "X-OrdaX-Public-Site")
         self.assertTrue(contract["deployment"]["gateway_public_activation_gate_required"])
+        online = contract["online_mvp"]
+        self.assertEqual(online["status"], "required-fail-closed-until-real-proofs-pass")
+        self.assertEqual(online["registration_login_recovery"], "required")
+        self.assertEqual(online["bounded_account_sync"], "required")
+        self.assertEqual(online["cloud_memory_account_space"], "required")
+        self.assertEqual(online["private_user_selected_storage"], "required")
+        self.assertEqual(online["full_web_client"], "post-mvp")
+        self.assertEqual(online["full_mobile_client"], "post-mvp")
         commerce = contract["commerce"]
         self.assertFalse(commerce["billing_implemented"])
         self.assertFalse(commerce["pricing_published"])
         self.assertTrue(commerce["commercial_tiers_defined"])
-        self.assertEqual(
-            commerce["commercial_tier_ids"],
-            ["free", "personal", "professional", "team"],
-        )
+        self.assertFalse(commerce["account_cloud_mvp_depends_on_pricing"])
+        self.assertEqual(commerce["commercial_tier_ids"], ["free", "personal", "professional", "team"])
         self.assertEqual(commerce["default_plan_id"], "free")
         self.assertFalse(commerce["paid_plans_purchasable"])
-        self.assertEqual(
-            commerce["plan_contract"],
-            "docs/contracts/entitlements.json",
-        )
+        self.assertEqual(commerce["plan_contract"], "docs/contracts/entitlements.json")
         self.assertFalse(commerce["commercial_device_limit_defined"])
 
     def test_identity_fails_closed_and_downloads_use_generated_catalog(self):
@@ -116,9 +127,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn("A preparação apaga o conteúdo do USB escolhido", download)
         self.assertIn("não oferece instalação", download)
 
-        publications = json.loads(
-            (ROOT / "platform" / "releases" / "publications.json").read_text(encoding="utf-8")
-        )
+        publications = json.loads((ROOT / "platform" / "releases" / "publications.json").read_text(encoding="utf-8"))
         self.assertEqual(publications["$schema"], "prototype-ordax.public-release-publications/1")
         self.assertEqual(publications["releases"], [])
 
@@ -175,21 +184,12 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn("SHA-256", script)
 
     def test_public_identity_and_release_catalog_contracts_exist(self):
-        identity = json.loads(
-            (ROOT / "docs" / "contracts" / "public-identity.json").read_text(encoding="utf-8")
-        )
-        releases = json.loads(
-            (ROOT / "docs" / "contracts" / "public-release-catalog.json").read_text(encoding="utf-8")
-        )
-        compliance = json.loads(
-            (ROOT / "docs" / "contracts" / "release-compliance.json").read_text(encoding="utf-8")
-        )
+        identity = json.loads((ROOT / "docs" / "contracts" / "public-identity.json").read_text(encoding="utf-8"))
+        releases = json.loads((ROOT / "docs" / "contracts" / "public-release-catalog.json").read_text(encoding="utf-8"))
+        compliance = json.loads((ROOT / "docs" / "contracts" / "release-compliance.json").read_text(encoding="utf-8"))
         self.assertTrue(identity["credentials"]["static_site_renders_gated_credential_form"])
         self.assertFalse(identity["credentials"]["static_site_javascript_reads_credentials"])
-        self.assertEqual(
-            identity["credentials"]["credential_form_submission"],
-            "native-browser-post-to-same-origin-gateway",
-        )
+        self.assertEqual(identity["credentials"]["credential_form_submission"], "native-browser-post-to-same-origin-gateway")
         self.assertTrue(identity["account_model"]["one_identity_across_product_modes"])
         self.assertTrue(releases["rules"]["public_authorization_required_per_release"])
         self.assertTrue(releases["rules"]["artifact_sha256_required"])
@@ -225,7 +225,6 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertNotIn('data-page="conta"', landing)
         self.assertNotIn("Área da conta", landing)
 
-
     def test_interactive_playground_remains_local_disposable_marketing_demo(self):
         landing = (SITE / "index.html").read_text(encoding="utf-8")
         script = (SITE / "assets" / "playground.js").read_text(encoding="utf-8")
@@ -247,6 +246,7 @@ class PublicSiteContractTests(unittest.TestCase):
             "document.cookie",
         ):
             self.assertNotIn(forbidden, script)
+
 
 if __name__ == "__main__":
     unittest.main()
