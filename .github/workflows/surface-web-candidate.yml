@@ -109,6 +109,7 @@ on:
       - 'tests/test_surface_web_builder.py'
       - 'tests/test_surface_preferences.mjs'
       - 'tests/test_surface_localization.mjs'
+      - 'tests/test_localization_qa.mjs'
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
       - 'tests/test_surface_workspace.mjs'
@@ -313,6 +314,7 @@ on:
       - 'tests/test_surface_web_builder.py'
       - 'tests/test_surface_preferences.mjs'
       - 'tests/test_surface_localization.mjs'
+      - 'tests/test_localization_qa.mjs'
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
       - 'tests/test_surface_workspace.mjs'
@@ -466,6 +468,7 @@ jobs:
             | xargs -0 -n1 node --check
           node --test tests/test_surface_preferences.mjs
           node --test tests/test_surface_localization.mjs
+          node --test tests/test_localization_qa.mjs
           node --test tests/test_surface_app_localization.mjs
           node --test tests/test_surface_workspace.mjs
           node --test tests/test_recent_files.mjs
