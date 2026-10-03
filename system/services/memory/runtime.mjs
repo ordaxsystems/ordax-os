@@ -8,10 +8,16 @@ import {
 } from "../../contracts/memory.mjs";
 import {
   MEMORY_SNAPSHOT_SCHEMA,
+  MEMORY_STORE_SCHEMA,
   MAX_MEMORY_ITEMS,
   assertMemoryStore,
   validateMemorySnapshot,
 } from "../../contracts/memory-store.mjs";
+import {
+  MAX_MEMORY_RECORD_CANDIDATES,
+  MEMORY_RECORD_STORE_SCHEMA,
+  assertMemoryRecordStore,
+} from "../../contracts/memory-record-store.mjs";
 
 function normalizedSearchText(value) {
   return value
@@ -71,51 +77,127 @@ function assertItemCompatibleWithStore(item, store) {
   }
 }
 
+function resolvePersistence(store) {
+  if (store === null) return Object.freeze({ kind: "none", store: null });
+  if (store?.schema === MEMORY_STORE_SCHEMA) {
+    return Object.freeze({ kind: "snapshot", store: assertMemoryStore(store) });
+  }
+  if (store?.schema === MEMORY_RECORD_STORE_SCHEMA) {
+    return Object.freeze({ kind: "record", store: assertMemoryRecordStore(store) });
+  }
+  throw new TypeError("A compatible memory store is required");
+}
+
+function rankCandidates(candidates, request) {
+  if (!Array.isArray(candidates) || candidates.length > MAX_MEMORY_RECORD_CANDIDATES) {
+    throw new Error("Memory record store returned an invalid candidate set");
+  }
+  const ranked = [];
+  const identities = new Set();
+  for (const item of candidates) {
+    const identity = memoryIdentityKey(item);
+    if (identities.has(identity)) throw new Error("Memory record store returned duplicate identities");
+    identities.add(identity);
+    if (!isAuthorizedForSearch(item, request)) continue;
+    const score = lexicalScore(item, request.query);
+    if (request.query && score === 0) continue;
+    ranked.push({ item, score });
+  }
+  ranked.sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score;
+    const timestamp = right.item.sourceTimestamp.localeCompare(left.item.sourceTimestamp);
+    if (timestamp !== 0) return timestamp;
+    return left.item.id.localeCompare(right.item.id);
+  });
+  const end = request.offset + request.limit;
+  return Object.freeze(ranked.slice(request.offset, end).map(({ item }) => item));
+}
+
+function recordQuery(request, storeScope, maxCandidates) {
+  const scopes = storeScope === "device"
+    ? request.scopes.filter((scope) => scope !== "session")
+    : request.scopes;
+  return Object.freeze({
+    ownerKind: request.ownerKind,
+    ownerId: request.ownerId,
+    scopes: Object.freeze(scopes),
+    spaceId: request.spaceId,
+    projectId: request.projectId,
+    includeRestricted: request.includeRestricted,
+    query: request.query,
+    maxCandidates,
+  });
+}
+
+function recordCandidates(store, request, maxCandidates) {
+  const query = recordQuery(request, store.scope, maxCandidates);
+  if (query.scopes.length === 0) return [];
+  const candidates = store.query(query);
+  if (!Array.isArray(candidates) || candidates.length > maxCandidates) {
+    throw new Error("Memory record store returned an invalid candidate set");
+  }
+  return candidates.map((candidate) => validateMemoryItem(candidate));
+}
+
 export function createMemoryRuntime({ store = null } = {}) {
-  const persistence = store === null ? null : assertMemoryStore(store);
-  const loaded = persistence?.load?.() ?? null;
+  const persistence = resolvePersistence(store);
+  const snapshotStore = persistence.kind === "snapshot" ? persistence.store : null;
+  const recordStore = persistence.kind === "record" ? persistence.store : null;
+  const loaded = snapshotStore?.load?.() ?? null;
   let items = loaded === null
     ? []
     : [...validateMemorySnapshot(loaded).items];
+  let volatileItems = [];
 
-  if (persistence?.scope === "device" && items.some((item) => item.scope === "session")) {
+  if (snapshotStore?.scope === "device" && items.some((item) => item.scope === "session")) {
     throw new Error("Device memory store must not persist session-scoped memory");
   }
-  if (persistence?.scope === "session" && items.some((item) => item.scope !== "session")) {
+  if (snapshotStore?.scope === "session" && items.some((item) => item.scope !== "session")) {
     throw new Error("Session-only memory store must contain only session-scoped memory");
   }
 
-  const persist = (nextItems) => {
-    if (persistence === null) return;
-    const accepted = persistence.save(snapshotForStore(nextItems, persistence));
-    if (accepted !== true) {
-      throw new Error("Memory store rejected the snapshot");
-    }
+  const persistSnapshot = (nextItems) => {
+    if (snapshotStore === null) return;
+    const accepted = snapshotStore.save(snapshotForStore(nextItems, snapshotStore));
+    if (accepted !== true) throw new Error("Memory store rejected the snapshot");
   };
 
   return Object.freeze({
     schema: MEMORY_PORT_SCHEMA,
     search(value) {
       const request = validateMemorySearchRequest(value);
-      const ranked = [];
-      for (const item of items) {
-        if (!isAuthorizedForSearch(item, request)) continue;
-        const score = lexicalScore(item, request.query);
-        if (request.query && score === 0) continue;
-        ranked.push({ item, score });
+      if (recordStore !== null) {
+        const volatileCandidates = request.scopes.includes("session") ? volatileItems : [];
+        const maxDurableCandidates = MAX_MEMORY_RECORD_CANDIDATES - volatileCandidates.length;
+        const durableCandidates = recordCandidates(recordStore, request, maxDurableCandidates);
+        return rankCandidates([...durableCandidates, ...volatileCandidates], request);
       }
-      ranked.sort((left, right) => {
-        if (right.score !== left.score) return right.score - left.score;
-        const timestamp = right.item.sourceTimestamp.localeCompare(left.item.sourceTimestamp);
-        if (timestamp !== 0) return timestamp;
-        return left.item.id.localeCompare(right.item.id);
-      });
-      const end = request.offset + request.limit;
-      return Object.freeze(ranked.slice(request.offset, end).map(({ item }) => item));
+      return rankCandidates(items, request);
     },
     remember(value) {
       const item = validateMemoryItem(value);
-      assertItemCompatibleWithStore(item, persistence);
+      const activeStore = recordStore ?? snapshotStore;
+      assertItemCompatibleWithStore(item, activeStore);
+      if (recordStore !== null) {
+        if (recordStore.scope === "device" && item.scope === "session") {
+          const identity = memoryIdentityKey(item);
+          const nextItems = [...volatileItems];
+          const existingIndex = nextItems.findIndex(
+            (candidate) => memoryIdentityKey(candidate) === identity,
+          );
+          if (existingIndex >= 0) nextItems[existingIndex] = item;
+          else {
+            if (nextItems.length >= MAX_MEMORY_ITEMS) {
+              throw new Error("Memory runtime session item limit reached");
+            }
+            nextItems.push(item);
+          }
+          volatileItems = nextItems;
+          return item;
+        }
+        if (recordStore.put(item) !== true) throw new Error("Memory record store rejected the item");
+        return item;
+      }
       const identity = memoryIdentityKey(item);
       const nextItems = [...items];
       const existingIndex = nextItems.findIndex(
@@ -129,32 +211,46 @@ export function createMemoryRuntime({ store = null } = {}) {
         }
         nextItems.push(item);
       }
-      persist(nextItems);
+      persistSnapshot(nextItems);
       items = nextItems;
       return item;
     },
     forget(value) {
       const request = validateMemoryForgetRequest(value);
+      if (recordStore !== null) {
+        const volatileIndex = volatileItems.findIndex(
+          (item) => item.id === request.id && memoryOwnersEqual(item, request),
+        );
+        if (volatileIndex >= 0) {
+          const nextItems = [...volatileItems];
+          nextItems.splice(volatileIndex, 1);
+          volatileItems = nextItems;
+          return true;
+        }
+        const removed = recordStore.remove(request);
+        if (typeof removed !== "boolean") throw new Error("Memory record store returned an invalid remove result");
+        return removed;
+      }
       const index = items.findIndex(
         (item) => item.id === request.id && memoryOwnersEqual(item, request),
       );
       if (index < 0) return false;
       const nextItems = [...items];
       nextItems.splice(index, 1);
-      persist(nextItems);
+      persistSnapshot(nextItems);
       items = nextItems;
       return true;
     },
     async flush() {
-      if (persistence === null) return true;
-      const flushed = await persistence.flush();
-      if (flushed !== true) {
-        throw new Error("Memory store did not confirm persistence flush");
-      }
+      const storePort = recordStore ?? snapshotStore;
+      if (storePort === null) return true;
+      const flushed = await storePort.flush();
+      if (flushed !== true) throw new Error("Memory store did not confirm persistence flush");
       return true;
     },
     getPersistenceSnapshot() {
-      const scope = persistence?.scope ?? "session";
+      const storePort = recordStore ?? snapshotStore;
+      const scope = storePort?.scope ?? "session";
       return Object.freeze({
         scope,
         durable: scope === "device",
