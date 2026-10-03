@@ -48,7 +48,7 @@ function grant(overrides = {}) {
   };
 }
 
-function reader({ state = "ready", modes = ["read", "write"], id = "project.text_write" } = {}) {
+function reader({ state = "ready", modes = ["write"], id = "project.text_write" } = {}) {
   return Object.freeze({
     schema: DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
     async capabilities({ client }) {
@@ -73,7 +73,7 @@ test("Studio authorizes only an exact live write grant for an available capabili
   assert.equal(value.request.actionId, "studio-action-1");
   assert.equal(value.grant.actionGateway, "ordax");
   assert.equal(value.capability.id, "project.text_write");
-  assert.deepEqual(value.capability.modes, ["read", "write"]);
+  assert.deepEqual(value.capability.modes, ["write"]);
   assert.equal(value.authorizedAt, 2_000);
   assert.equal(value.dispatchAuthority, "none");
 });
