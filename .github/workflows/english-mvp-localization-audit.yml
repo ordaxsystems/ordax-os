@@ -1,0 +1,56 @@
+name: English MVP Localization Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/services/i18n/**'
+      - 'system/surface/ui/first-run.mjs'
+      - 'system/surface/runtime/native_security_prompt_i18n.py'
+      - 'system/contracts/first-run-state-store.mjs'
+      - 'docs/contracts/first-run.json'
+      - 'tests/test_english_mvp_localization_audit.mjs'
+      - 'tests/test_native_security_prompt_english_audit.py'
+      - '.github/workflows/english-mvp-localization-audit.yml'
+  pull_request:
+    paths:
+      - 'system/services/i18n/**'
+      - 'system/surface/ui/first-run.mjs'
+      - 'system/surface/runtime/native_security_prompt_i18n.py'
+      - 'system/contracts/first-run-state-store.mjs'
+      - 'docs/contracts/first-run.json'
+      - 'tests/test_english_mvp_localization_audit.mjs'
+      - 'tests/test_native_security_prompt_english_audit.py'
+      - '.github/workflows/english-mvp-localization-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  english-mvp-localization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Audit complete en-US Surface and First Run catalogs
+        run: |
+          set -euo pipefail
+          node --version
+          node --check tests/test_english_mvp_localization_audit.mjs
+          node --test tests/test_english_mvp_localization_audit.mjs
+
+      - name: Audit Native security prompt en-US catalog
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_native_security_prompt_english_audit -v

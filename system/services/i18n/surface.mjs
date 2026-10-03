@@ -377,7 +377,21 @@ export function surfaceMessageIds() {
 
 export function surfaceCatalogCoverage(locale) {
   const table = TABLES[locale] ?? null;
-  const total = Object.keys(SOURCE).length;
-  const translated = table ? Object.keys(table).length : 0;
-  return Object.freeze({ locale, sourceLocale: SURFACE_SOURCE_LOCALE, translated, total, complete: locale === SURFACE_SOURCE_LOCALE || translated === total });
+  const sourceIds = Object.keys(SOURCE);
+  const tableIds = table ? Object.keys(table) : [];
+  const total = sourceIds.length;
+  const translated = table
+    ? sourceIds.reduce((count, messageId) => count + (typeof table[messageId] === "string" ? 1 : 0), 0)
+    : 0;
+  const exactIdentity = table !== null
+    && tableIds.length === total
+    && sourceIds.every((messageId) => Object.prototype.hasOwnProperty.call(table, messageId))
+    && tableIds.every((messageId) => Object.prototype.hasOwnProperty.call(SOURCE, messageId));
+  return Object.freeze({
+    locale,
+    sourceLocale: SURFACE_SOURCE_LOCALE,
+    translated,
+    total,
+    complete: locale === SURFACE_SOURCE_LOCALE || exactIdentity,
+  });
 }
