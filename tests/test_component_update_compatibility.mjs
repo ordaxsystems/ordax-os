@@ -12,6 +12,11 @@ import {
   compareComponentVersions,
   componentVersionIsNewer,
 } from "../system/contracts/component-manifest.mjs";
+import {
+  coreRuntimeCompatibility,
+  intelligenceCompatibility,
+  localAiCompatibility,
+} from "../system/services/components/compatibility/core.mjs";
 
 function compatibility({
   componentId,
@@ -72,6 +77,25 @@ function migration({
     authority: "none",
   };
 }
+
+test("canonical Local AI -> Intelligence compatibility chain is valid and authority-free", () => {
+  assert.equal(validateComponentCompatibilityCatalog(coreRuntimeCompatibility).length, 2);
+  assert.equal(localAiCompatibility.componentId, "local-ai-service");
+  assert.deepEqual(localAiCompatibility.provides, [{ id: "ordax.local-ai", major: 1 }]);
+  assert.equal(localAiCompatibility.state, null);
+  assert.equal(localAiCompatibility.authority, "none");
+
+  assert.equal(intelligenceCompatibility.componentId, "ordax-intelligence");
+  assert.deepEqual(intelligenceCompatibility.provides, [{ id: "ordax.intelligence", major: 1 }]);
+  assert.deepEqual(intelligenceCompatibility.requires, [{
+    id: "ordax.local-ai",
+    minMajor: 1,
+    maxMajor: 1,
+    optional: false,
+  }]);
+  assert.equal(intelligenceCompatibility.state, null);
+  assert.equal(intelligenceCompatibility.authority, "none");
+});
 
 test("component semantic version ordering follows release precedence", () => {
   assert.equal(compareComponentVersions("1.0.0", "1.0.0"), 0);
