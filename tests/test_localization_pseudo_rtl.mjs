@@ -119,3 +119,51 @@ test("machine-readable localization contract keeps pseudo-locales outside public
   assert.equal(contract.pseudo_locales.rtl.locale, "ar-XB");
   assert.equal(contract.pseudo_locales.placeholder_identity_must_be_preserved, true);
 });
+
+test("representative Surface and First Run RTL edges use logical CSS properties", async () => {
+  const [surfaceCss, identityCss, firstRunCss] = await Promise.all([
+    readFile(new URL("../system/surface/ui/surface.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/first-run.css", import.meta.url), "utf8"),
+  ]);
+
+  for (const legacy of [
+    "border-right: 1px solid var(--ordax-border);",
+    "left: -10px;",
+    "padding-left: 16px;",
+    "border-left: 1px solid var(--ordax-border);",
+  ]) {
+    assert.ok(!surfaceCss.includes(legacy), `Surface RTL regression: ${legacy}`);
+  }
+  assert.match(surfaceCss, /border-inline-end: 1px solid var\(--ordax-border\)/);
+  assert.match(surfaceCss, /inset-inline-start: -10px/);
+  assert.match(surfaceCss, /padding-inline-start: 16px/);
+  assert.match(surfaceCss, /border-inline-start: 1px solid var\(--ordax-border\)/);
+
+  for (const legacy of [
+    "margin: 12px 0 12px 12px;",
+    "left: -7px;",
+    "border-left-color: var(--ordax-border-soft);",
+    "padding-left: 8px;",
+  ]) {
+    assert.ok(!identityCss.includes(legacy), `Identity RTL regression: ${legacy}`);
+  }
+  assert.match(identityCss, /margin-inline-start: 12px/);
+  assert.match(identityCss, /inset-inline-start: -7px/);
+  assert.match(identityCss, /border-inline-start-color: var\(--ordax-border-soft\)/);
+
+  for (const legacy of [
+    "border-right: 1px solid var(--ordax-border-soft);",
+    "padding: 6px 8px 6px 36px;",
+    "left: 9px;",
+    "margin-right: auto;",
+    "text-align: left;",
+  ]) {
+    assert.ok(!firstRunCss.includes(legacy), `First Run RTL regression: ${legacy}`);
+  }
+  assert.match(firstRunCss, /border-inline-end: 1px solid var\(--ordax-border-soft\)/);
+  assert.match(firstRunCss, /padding-inline-start: 36px/);
+  assert.match(firstRunCss, /inset-inline-start: 9px/);
+  assert.match(firstRunCss, /margin-inline-end: auto/);
+  assert.match(firstRunCss, /text-align: start/);
+});
