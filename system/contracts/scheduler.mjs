@@ -120,11 +120,12 @@ export function assertSchedulerStore(value) {
     || value.schema !== SCHEDULER_STORE_SCHEMA
     || typeof value.createSchedule !== "function"
     || typeof value.getSchedule !== "function"
+    || typeof value.compareAndSwapSchedule !== "function"
     || typeof value.listDueSchedules !== "function"
     || typeof value.commitOccurrence !== "function"
     || typeof value.listPendingOccurrences !== "function"
     || typeof value.ackOccurrence !== "function"
-  ) throw new TypeError("A compatible durable Scheduler store is required");
+  ) throw new TypeError("A compatible atomic durable Scheduler store is required");
   return value;
 }
 
