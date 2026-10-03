@@ -6,21 +6,25 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"regexp"
 )
 
 const (
-	releaseSchemaV2        = "prototype-ordax.runtime-component-release/2"
-	compatibilitySchemaV1  = "ordax.component-compatibility/1"
-	maxCompatibilityBytes  = int64(64 << 10)
-	maxCompatibilityItems  = 64
-	maxCompatibilityNumber = int64(1<<31 - 1)
+	releaseSchemaV2       = "prototype-ordax.runtime-component-release/2"
+	compatibilitySchemaV1 = "ordax.component-compatibility/1"
+	maxCompatibilityBytes = int64(64 << 10)
+	maxCompatibilityItems = 128
+	maxContractMajor       = int64(10_000)
+	maxStateVersion        = int64(1_000_000)
+	maxCompatibilityIDLen  = 160
 )
 
-var compatibilityContractPattern = regexp.MustCompile(`^[a-z][a-z0-9.-]{0,127}$`)
+var compatibilityIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:[.-][a-z0-9]+)*$`)
 
 type compatibilityBinding struct {
 	Name   string `json:"name"`
@@ -69,8 +73,15 @@ type componentCompatibilityDescriptor struct {
 	Authority        string                          `json:"authority"`
 }
 
-func validateCompatibilityPositive(value int64, label string) error {
-	if value <= 0 || value > maxCompatibilityNumber {
+func validateCompatibilityID(value, label string) error {
+	if len(value) < 1 || len(value) > maxCompatibilityIDLen || !compatibilityIDPattern.MatchString(value) {
+		return fmt.Errorf("%s is invalid", label)
+	}
+	return nil
+}
+
+func validateCompatibilityNumber(value, max int64, label string) error {
+	if value <= 0 || value > max {
 		return fmt.Errorf("%s is outside the supported bound", label)
 	}
 	return nil
@@ -106,6 +117,87 @@ func validateReleaseDescriptorV2(value releaseDescriptorV2) error {
 	return nil
 }
 
+func exactJSONObjectKeys(raw json.RawMessage, expected []string, label string) error {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
+		return fmt.Errorf("%s must be an object", label)
+	}
+	if len(object) != len(expected) {
+		return fmt.Errorf("%s shape is invalid", label)
+	}
+	for _, key := range expected {
+		if _, exists := object[key]; !exists {
+			return fmt.Errorf("%s shape is invalid", label)
+		}
+	}
+	return nil
+}
+
+func validateCompatibilityJSONShape(data []byte) error {
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(data, &root); err != nil || root == nil {
+		return errors.New("component compatibility descriptor must be an object")
+	}
+	expectedRoot := []string{"schema", "componentId", "componentVersion", "provides", "requires", "state", "authority"}
+	if len(root) != len(expectedRoot) {
+		return errors.New("component compatibility descriptor shape is invalid")
+	}
+	for _, key := range expectedRoot {
+		if _, exists := root[key]; !exists {
+			return errors.New("component compatibility descriptor shape is invalid")
+		}
+	}
+	var provides []json.RawMessage
+	if err := json.Unmarshal(root["provides"], &provides); err != nil {
+		return errors.New("component compatibility provides must be an array")
+	}
+	for _, raw := range provides {
+		if err := exactJSONObjectKeys(raw, []string{"id", "major"}, "provided component contract"); err != nil {
+			return err
+		}
+	}
+	var requires []json.RawMessage
+	if err := json.Unmarshal(root["requires"], &requires); err != nil {
+		return errors.New("component compatibility requires must be an array")
+	}
+	for _, raw := range requires {
+		if err := exactJSONObjectKeys(raw, []string{"id", "minMajor", "maxMajor", "optional"}, "required component contract"); err != nil {
+			return err
+		}
+	}
+	if string(root["state"]) != "null" {
+		if err := exactJSONObjectKeys(root["state"], []string{"id", "writeVersion", "readableFrom", "readableThrough"}, "component state contract"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCanonicalCompatibilityJSON(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("multiple JSON values are forbidden")
+		}
+		return err
+	}
+	payload, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	payload = append(payload, '\n')
+	if !bytes.Equal(payload, data) {
+		return errors.New("runtime component compatibility JSON is not canonical deterministic encoding")
+	}
+	return nil
+}
+
 func validateCompatibilityDescriptor(value componentCompatibilityDescriptor, release releaseDescriptorV2) error {
 	if value.Schema != compatibilitySchemaV1 {
 		return errors.New("unsupported runtime component compatibility schema")
@@ -124,13 +216,13 @@ func validateCompatibilityDescriptor(value componentCompatibilityDescriptor, rel
 	}
 	provided := make(map[string]struct{}, len(value.Provides))
 	for _, contract := range value.Provides {
-		if !compatibilityContractPattern.MatchString(contract.ID) {
-			return errors.New("runtime component provided compatibility contract id is invalid")
-		}
-		if err := validateCompatibilityPositive(contract.Major, "provided compatibility contract major"); err != nil {
+		if err := validateCompatibilityID(contract.ID, "provided compatibility contract id"); err != nil {
 			return err
 		}
-		key := fmt.Sprintf("%s/%d", contract.ID, contract.Major)
+		if err := validateCompatibilityNumber(contract.Major, maxContractMajor, "provided compatibility contract major"); err != nil {
+			return err
+		}
+		key := fmt.Sprintf("%s@%d", contract.ID, contract.Major)
 		if _, exists := provided[key]; exists {
 			return errors.New("runtime component provided compatibility contracts must be unique")
 		}
@@ -138,17 +230,17 @@ func validateCompatibilityDescriptor(value componentCompatibilityDescriptor, rel
 	}
 	required := make(map[string]struct{}, len(value.Requires))
 	for _, contract := range value.Requires {
-		if !compatibilityContractPattern.MatchString(contract.ID) {
-			return errors.New("runtime component required compatibility contract id is invalid")
+		if err := validateCompatibilityID(contract.ID, "required compatibility contract id"); err != nil {
+			return err
 		}
 		if _, exists := required[contract.ID]; exists {
 			return errors.New("runtime component required compatibility contracts must be unique by id")
 		}
 		required[contract.ID] = struct{}{}
-		if err := validateCompatibilityPositive(contract.MinMajor, "required compatibility contract minMajor"); err != nil {
+		if err := validateCompatibilityNumber(contract.MinMajor, maxContractMajor, "required compatibility contract minMajor"); err != nil {
 			return err
 		}
-		if err := validateCompatibilityPositive(contract.MaxMajor, "required compatibility contract maxMajor"); err != nil {
+		if err := validateCompatibilityNumber(contract.MaxMajor, maxContractMajor, "required compatibility contract maxMajor"); err != nil {
 			return err
 		}
 		if contract.MaxMajor < contract.MinMajor {
@@ -156,19 +248,21 @@ func validateCompatibilityDescriptor(value componentCompatibilityDescriptor, rel
 		}
 	}
 	if value.State != nil {
-		if !compatibilityContractPattern.MatchString(value.State.ID) {
-			return errors.New("runtime component compatibility state id is invalid")
-		}
-		if err := validateCompatibilityPositive(value.State.WriteVersion, "compatibility state writeVersion"); err != nil {
+		if err := validateCompatibilityID(value.State.ID, "compatibility state id"); err != nil {
 			return err
 		}
-		if err := validateCompatibilityPositive(value.State.ReadableFrom, "compatibility state readableFrom"); err != nil {
+		if err := validateCompatibilityNumber(value.State.WriteVersion, maxStateVersion, "compatibility state writeVersion"); err != nil {
 			return err
 		}
-		if err := validateCompatibilityPositive(value.State.ReadableThrough, "compatibility state readableThrough"); err != nil {
+		if err := validateCompatibilityNumber(value.State.ReadableFrom, maxStateVersion, "compatibility state readableFrom"); err != nil {
 			return err
 		}
-		if value.State.ReadableFrom > value.State.WriteVersion || value.State.ReadableThrough < value.State.WriteVersion {
+		if err := validateCompatibilityNumber(value.State.ReadableThrough, maxStateVersion, "compatibility state readableThrough"); err != nil {
+			return err
+		}
+		if value.State.ReadableFrom > value.State.ReadableThrough ||
+			value.State.WriteVersion < value.State.ReadableFrom ||
+			value.State.WriteVersion > value.State.ReadableThrough {
 			return errors.New("runtime component compatibility state readable range excludes writeVersion")
 		}
 	}
@@ -188,6 +282,12 @@ func validateCompatibilityBytes(release releaseDescriptorV2, compatibilityName s
 	digest := sha256.Sum256(compatibilityBytes)
 	if hex.EncodeToString(digest[:]) != release.Compatibility.SHA256 {
 		return errors.New("runtime component compatibility SHA-256 does not match signed release")
+	}
+	if err := validateCompatibilityJSONShape(compatibilityBytes); err != nil {
+		return err
+	}
+	if err := validateCanonicalCompatibilityJSON(compatibilityBytes); err != nil {
+		return err
 	}
 	var compatibility componentCompatibilityDescriptor
 	if err := decodeStrict(compatibilityBytes, int(maxCompatibilityBytes), &compatibility); err != nil {
