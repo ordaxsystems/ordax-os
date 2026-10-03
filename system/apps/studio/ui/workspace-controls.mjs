@@ -1,37 +1,50 @@
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
+import { createStudioLocalization } from "../i18n.mjs";
 
 const EXTENSION_SELECTOR = '[data-app-extension="studio-workspace"]';
 const WORKSPACE_SELECTOR = '[data-studio-workspace="true"]';
 
-function text(state) {
-  if (state === "ready") return "Device Agent pronto";
-  if (state === "degraded") return "Device Agent degradado";
-  return "Runtime ainda não conectado";
+function runtimeStateMessageId(state) {
+  if (state === "ready") return "studio.runtime.ready";
+  if (state === "degraded") return "studio.runtime.degraded";
+  return "studio.runtime.disconnected";
 }
 
-function buildWorkspace(documentObject, status) {
+function metric(documentObject, label, value) {
+  const item = documentObject.createElement("div");
+  const strong = documentObject.createElement("strong");
+  strong.textContent = String(value);
+  const span = documentObject.createElement("span");
+  span.textContent = label;
+  item.append(strong, span);
+  return item;
+}
+
+function buildWorkspace(documentObject, status, localization) {
+  const t = localization.translate;
   const workspace = documentObject.createElement("div");
   workspace.dataset.studioWorkspace = "true";
+  workspace.dataset.studioLocale = localization.getLocale();
   workspace.className = "ordax-studio-workspace";
 
   const heading = documentObject.createElement("div");
   heading.className = "ordax-studio-runtime-state";
-  heading.textContent = text(status.state);
+  heading.textContent = t(runtimeStateMessageId(status.state));
   heading.dataset.state = status.state;
   workspace.append(heading);
 
   const metrics = documentObject.createElement("div");
   metrics.className = "ordax-studio-metrics";
-  metrics.innerHTML = [
-    ["Capabilities", status.capabilityCount],
-    ["Leitura", status.readCount],
-    ["Escrita", status.writeCount],
-  ].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join("");
+  metrics.append(
+    metric(documentObject, t("studio.metrics.capabilities"), status.capabilityCount),
+    metric(documentObject, t("studio.metrics.read"), status.readCount),
+    metric(documentObject, t("studio.metrics.write"), status.writeCount),
+  );
   workspace.append(metrics);
 
   const security = documentObject.createElement("p");
   security.className = "ordax-studio-security-note";
-  security.textContent = "Descoberta somente-leitura. Autoridade de mutação: nenhuma.";
+  security.textContent = t("studio.security.readOnly");
   workspace.append(security);
   return workspace;
 }
@@ -45,6 +58,7 @@ export function mountStudioWorkspaceControls(
     throw new TypeError("Studio workspace requires a Surface root");
   }
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
+  const localization = createStudioLocalization(lifecycle.localization);
   const documentObject = root.ownerDocument;
   let mountedWorkspace = null;
   let destroyed = false;
@@ -57,14 +71,17 @@ export function mountStudioWorkspaceControls(
       return;
     }
     const existing = extension.querySelector(WORKSPACE_SELECTOR);
-    if (existing) {
+    const locale = localization.getLocale();
+    if (existing?.dataset.studioLocale === locale) {
       mountedWorkspace = existing;
       return;
     }
-    mountedWorkspace = buildWorkspace(documentObject, status);
+    existing?.remove();
+    mountedWorkspace = buildWorkspace(documentObject, status, localization);
     extension.append(mountedWorkspace);
   };
 
+  const unsubscribeLocalization = localization.subscribe(() => render());
   const unsubscribeRender = lifecycle.subscribeRender(() => render());
   render();
 
@@ -73,6 +90,7 @@ export function mountStudioWorkspaceControls(
       if (destroyed) return;
       destroyed = true;
       unsubscribeRender();
+      unsubscribeLocalization();
       mountedWorkspace?.remove();
       mountedWorkspace = null;
     },
