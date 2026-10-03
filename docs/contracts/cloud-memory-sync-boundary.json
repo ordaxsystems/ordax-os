@@ -12,8 +12,8 @@
   },
   "eligible_scopes": {
     "device": false,
-    "account": "mvp-required-explicit-policy-rollout-gated",
-    "space": "mvp-required-explicit-policy-rollout-gated",
+    "account": "future-explicit-policy",
+    "space": "future-explicit-policy",
     "project": false,
     "session": false
   },
@@ -61,6 +61,7 @@
     "two-client proof passes with dedicated non-admin account",
     "bidirectional edit convergence and fresh-session restore proof passes with dedicated non-admin account",
     "quota/entitlement behavior is server-authoritative under real authenticated sessions",
+    "account and Space rollout policy is explicitly approved before the MVP release is closed",
     "public copy remains disabled until rollout gates pass"
   ],
   "implementation": {
