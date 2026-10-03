@@ -2,6 +2,7 @@ export const COMPONENT_MANIFEST_SCHEMA = "ordax.component-manifest/1";
 
 const COMPONENT_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+const MAX_COMPONENT_VERSION_CHARS = 128;
 const COMPONENT_KINDS = new Set(["base", "shell", "service", "app"]);
 const RELEASE_MODES = new Set(["base-ab", "component-slot", "git-app", "bundled"]);
 const CRITICALITIES = new Set(["boot-critical", "system", "optional"]);
@@ -28,8 +29,12 @@ export function validateComponentId(value) {
 }
 
 export function validateComponentVersion(value) {
-  if (typeof value !== "string" || !SEMVER_RE.test(value)) {
-    throw new TypeError("Component version must be semantic version x.y.z");
+  if (
+    typeof value !== "string"
+    || value.length > MAX_COMPONENT_VERSION_CHARS
+    || !SEMVER_RE.test(value)
+  ) {
+    throw new TypeError("Component version must be bounded semantic version x.y.z");
   }
   return value;
 }
@@ -39,9 +44,9 @@ function parseComponentVersion(value) {
   const match = SEMVER_RE.exec(version);
   return Object.freeze({
     version,
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
+    major: BigInt(match[1]),
+    minor: BigInt(match[2]),
+    patch: BigInt(match[3]),
     prerelease: match[4] == null ? Object.freeze([]) : Object.freeze(match[4].split(".")),
   });
 }
@@ -50,8 +55,8 @@ function comparePrereleaseIdentifier(left, right) {
   const leftNumeric = /^[0-9]+$/.test(left);
   const rightNumeric = /^[0-9]+$/.test(right);
   if (leftNumeric && rightNumeric) {
-    const leftNumber = Number(left);
-    const rightNumber = Number(right);
+    const leftNumber = BigInt(left);
+    const rightNumber = BigInt(right);
     return leftNumber === rightNumber ? 0 : leftNumber < rightNumber ? -1 : 1;
   }
   if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
