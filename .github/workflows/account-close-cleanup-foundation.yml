@@ -1,0 +1,70 @@
+name: Account Close Cleanup Foundation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'infra/supabase/functions/ordax-account-lifecycle/**'
+      - 'infra/supabase/functions/ordax-account-cleanup/**'
+      - 'infra/supabase/product/migrations/20261003123000_account_close_cleanup_journal_v1.sql'
+      - 'infra/supabase/product/migrations/20261003124500_account_close_auth_fence_and_worker_v1.sql'
+      - 'infra/supabase/product/migrations/20261003130000_account_close_shared_space_and_stale_jwt_guard_v1.sql'
+      - 'docs/contracts/mvp-account-cloud.json'
+      - 'docs/contracts/public-identity.json'
+      - 'docs/contracts/user-cloud-storage.json'
+      - 'tests/test_account_cleanup_worker_source.py'
+      - 'tests/test_account_close_activation_guard.py'
+      - 'tests/test_account_close_cleanup_source.py'
+      - 'tests/sql/test_account_close_cleanup.sql'
+      - '.github/workflows/account-close-cleanup-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  account-close-cleanup-foundation:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate close contracts and source guards
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/mvp-account-cloud.json >/dev/null
+          python -m json.tool docs/contracts/public-identity.json >/dev/null
+          python -m json.tool docs/contracts/user-cloud-storage.json >/dev/null
+          python -m unittest tests.test_account_close_cleanup_source -v
+          python -m unittest tests.test_account_cleanup_worker_source -v
+          python -m unittest tests.test_account_close_activation_guard -v
+
+      - name: Prove journal, RLS, lease, auth fence and identity-finalization ordering on PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_account_close_cleanup.sql
