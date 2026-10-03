@@ -295,7 +295,7 @@ func verifyIdentitySlot(root, componentID string, identity slotIdentity, trustBy
 	if err != nil {
 		return releaseDescriptor{}, "", err
 	}
-	release, err := verifySlotWithTrustBytes(slot, trustBytes)
+	release, err := verifyActivationSlotWithTrustBytes(slot, trustBytes)
 	if err != nil {
 		return releaseDescriptor{}, "", err
 	}
@@ -311,7 +311,7 @@ func verifyIdentitySlot(root, componentID string, identity slotIdentity, trustBy
 }
 
 func verifiedRuntimeManifest(slot string, release releaseDescriptor, trustBytes []byte) (componentPackageManifest, error) {
-	verifiedRelease, err := verifySlotWithTrustBytes(slot, trustBytes)
+	verifiedRelease, err := verifyActivationSlotWithTrustBytes(slot, trustBytes)
 	if err != nil {
 		return componentPackageManifest{}, err
 	}
@@ -467,7 +467,7 @@ func armPendingState(slot, trustPath, root string) (activationState, error) {
 	if err != nil {
 		return activationState{}, err
 	}
-	release, err := verifySlotWithTrustBytes(slot, trustBytes)
+	release, err := verifyActivationSlotWithTrustBytes(slot, trustBytes)
 	if err != nil {
 		return activationState{}, err
 	}
