@@ -213,5 +213,13 @@ assert(
   playground.includes('document.addEventListener("ordax:localechange"'),
   "playground must rerender locale-sensitive values after selection changes"
 );
+assert(
+  playground.includes("new Intl.DateTimeFormat(activeLocale"),
+  "playground dates/times must use the active public-site locale"
+);
+assert(
+  !/Intl\.(?:DateTimeFormat|NumberFormat)\(\s*["']pt-BR["']/.test(playground),
+  "playground must not hard-code pt-BR into locale-aware formatters"
+);
 
 console.log(`PUBLIC_SITE_LOCALIZATION=PASS messages=${ptKeys.length} routes=${routes.length} locales=pt-BR,en-US`);
