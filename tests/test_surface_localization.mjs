@@ -129,7 +129,10 @@ test("shared Surface is wired to localization instead of hardcoded locale render
   assert.match(surface, /createSurfaceLocalization\(preferences\)/);
   assert.match(surface, /createDesktopShellMarkup\(localization\)/);
   assert.match(surface, /localization,/);
-  assert.match(surface, /documentElement\.lang = localization\.getLocale\(\)/);
+  assert.match(surface, /syncSurfaceDocumentLocale\(documentElement, localization\)/);
+  assert.match(surface, /documentElement\.setAttribute\("dir", profile\.direction\)/);
+  assert.match(surface, /const originalDocumentDirection = documentElement\.getAttribute\("dir"\)/);
+  assert.match(surface, /documentElement\.removeAttribute\("dir"\)/);
   assert.match(surface, /syncDesktopShellLocalization\(root, localization\)/);
   assert.doesNotMatch(surface, /toLocaleLowerCase\("pt-BR"\)/);
   assert.match(shell, /syncDesktopShellLocalization/);
