@@ -22,6 +22,8 @@ O MVP **não oferece instalação permanente** em SSD, NVMe ou HD. Também não 
 
 A instalação **OrdaX Native** continua sendo uma direção arquitetural válida. Todo o trabalho técnico já realizado deve ser preservado, testado e evoluído como fundação **pós-MVP**. Preservar a fundação não significa expor a capability ao usuário do MVP.
 
+**Conta e nuvem mínima fazem parte do fechamento do MVP público, mas não do boot.** O sistema local deve continuar utilizável sem conta ou internet. Cadastro/login, recuperação, revogação, exportação, fechamento, sync bounded das classes MVP, Cloud Memory de account/Space e armazenamento privado explicitamente selecionado pelo usuário só podem ser ativados depois que seus gates de segurança e E2E estiverem verdes. Preço e billing são decisões comerciais separadas e não substituem esses gates.
+
 ## 2. Um produto, dois perfis de distribuição
 
 O OrdaX não deve virar dois sistemas nem dois códigos divergentes.
@@ -128,8 +130,11 @@ Um usuário deve conseguir:
 10. atualizar por canal oficial;
 11. recuperar automaticamente de atualização defeituosa;
 12. escolher **Entrar**, **Criar conta** ou **Continuar sem conta**; conta continua opcional, mas Entrar/Criar conta devem funcionar de ponta a ponta no MVP;
-13. usar `/conta/` como área autenticada separada da landing quando uma sessão real existir, incluindo logout e recuperação de acesso;
-14. quando autenticado e usando um Space profissional opt-in, usar a **OrdaX Network** para descobrir outros Spaces do segmento, participar voluntariamente de comunidades/grupos e trocar mensagens 1:1 ou em grupo, sem expor automaticamente a conta pessoal.
+13. usar `/conta/` como área autenticada separada da landing quando uma sessão real existir, incluindo logout, recuperação, exportação e fechamento de conta;
+14. quando autenticado, recuperar em outro cliente autorizado o estado MVP sincronizável — appearance, preferências, workspace metadata e demais classes explicitamente aprovadas — sem transportar secrets/device-private state;
+15. usar Cloud Memory limitada aos scopes `account` e `Space` depois de entitlement/policy server-authoritative, com tombstones, conflitos e restore provados; Memory `device`, `session` e `restricted` continuam locais;
+16. armazenar na nuvem arquivos explicitamente selecionados pelo usuário por um serviço OrdaX privado, com ownership/quota server-side, upload reservado, objeto opaco e verificação de tamanho/SHA-256; arquivos locais continuam independentes da nuvem;
+17. quando autenticado e usando um Space profissional opt-in, usar a **OrdaX Network** para descobrir outros Spaces do segmento, participar voluntariamente de comunidades/grupos e trocar mensagens 1:1 ou em grupo, sem expor automaticamente a conta pessoal.
 
 ## 5.1 Fechamento funcional que precedeu o primeiro USB Stable
 
@@ -155,14 +160,16 @@ alvo/UAC/confirmação continuam gates separados. O gate pré-USB exige, no mín
 - diagnóstico/recovery de produto e inventário mínimo de hardware/suporte;
 - release-manifest/4 real com `local-ai-runtime.erofs` assinada/materializável.
 
-Store pública, Mobile completo, Native em disco, sync cloud geral, federação, cobrança e
-tools/agentes mutáveis de IA permanecem pós-MVP. A exceção de colaboração é a **OrdaX Network MVP**
+Store pública, Mobile completo, Native em disco, **sync irrestrito de toda classe de dado**, federação, cobrança e
+tools/agentes mutáveis de IA permanecem pós-MVP. O MVP inclui, porém, a **nuvem mínima bounded da conta**:
+cadastro/sessão/recovery/export/close, sync das classes explicitamente aprovadas, Cloud Memory `account`/`Space`
+e armazenamento privado de arquivos explicitamente selecionados. A exceção de colaboração é a **OrdaX Network MVP**
 deliberadamente limitada por `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md`: diretório opt-in
 por Space, comunidades, grupos, mensagens e trust & safety mínimos. **A fundação arquitetural** de
 Store/distribuição, Spaces/Profile Packs profissionais, entitlements, memória provider-neutral,
 model router e ponte MCP externa continua entrando cedo para evitar migrações destrutivas depois que
-contas/dados reais existirem. A Network é gate do lançamento público online, mas não cria dependência
-de boot nem novo gate físico para a primeira prova Stable USB.
+contas/dados reais existirem. A Network e a nuvem mínima de conta são gates do lançamento público online,
+mas não criam dependência de boot nem novo gate físico para a primeira prova Stable USB.
 
 ```text
 PRE_USB_NOVA_ORDAX_AUDIT=PASS_SOURCE
@@ -192,13 +199,20 @@ Bloqueiam lançamento:
 - update oficial sem Git;
 - recovery/rollback;
 - catálogo público fail-closed;
-- **Conta/Cadastro real funcional no MVP**, preservando `Continuar sem conta`: cadastro, login, logout/revogação e recuperação de acesso provados contra o owner real;
-- privacidade/termos finais, versionados e com data efetiva antes da ativação pública;
+- **Conta/Cadastro real funcional no MVP**, preservando `Continuar sem conta`: cadastro, login, refresh, logout/revogação e recuperação de acesso provados contra o owner real;
+- **ciclo de vida da conta**: exportação e fechamento provados E2E; fechamento exige reautenticação recente, revoga sessões e limpa/tombstoneia dados cloud sem deixar blobs órfãos;
+- privacidade/termos finais, versionados, com hash/URL/data efetiva, e aceite validado server-side pelo request antes da ativação pública;
+- same-origin account gateway implantado, cookies Secure/HttpOnly/SameSite, CSRF e rate limits/proxy de IP real provados;
+- configuração real do provider de identidade revisada/provada para password policy, confirmação de e-mail, redirects e recuperação;
+- **Account Sync bounded**: prova real com sessões independentes, ownership por conta, cursor/revisão/tombstone, conflito e restore, sem provider tokens no payload;
+- **Cloud Memory do MVP**: scopes `account`/`Space` com entitlement server-authoritative, mutação atômica, isolamento negativo, conflito, tombstone e fresh-install restore provados; `device`, `session`, `project` e `restricted` continuam fora do rollout inicial;
+- **armazenamento privado de arquivos do usuário**: bucket não público, metadata canônica separada dos bytes, reservation + quota server-side, autorização curta de upload/download, chave opaca, verificação de tamanho/SHA-256, isolamento negativo entre contas/Spaces, delete/export/restore e limpeza no fechamento da conta;
+- **downgrade seguro**: exceder quota nunca apaga dados silenciosamente; novo crescimento pode ser bloqueado, mas export/delete continuam disponíveis;
 - hardware suportado documentado;
 - **Profiles demonstráveis seguros**: `pizzaria-br@1` e `impressao-3d-br@1` ativáveis/desativáveis em Space profissional no Stable/MVP pelo mesmo boundary genérico, sem downloads extras ou privilégio novo;
 - **OrdaX Network MVP segura**: diretório de Spaces somente opt-in, membership explícita, grupos, mensagens 1:1/grupo, bloqueio/denúncia/rate limit, autorização server-side fail-closed e prova negativa de isolamento entre contas/Spaces; indisponibilidade da Network não pode impedir boot ou apps locais.
 
-**Não bloqueiam o MVP:** instalador Native, boot por SSD/NVMe/HD, dual boot, resize ou particionamento interno.
+**Não bloqueiam o MVP:** instalador Native, boot por SSD/NVMe/HD, dual boot, resize/particionamento interno, preço final, cobrança ativa, compra de plano pago, cliente Web completo ou cliente Mobile completo. A arquitetura de entitlement/quota deve estar pronta antes disso, mas valores comerciais sensíveis a custo só são definidos após medir o custo real.
 
 O layout do teclado físico é uma capability do host Native, não uma preferência Web. A alteração feita em Ajustes é gravada no USB e aplicada pelo Cage no próximo início da Surface. O seletor não deve aparecer no primeiro uso enquanto não existir uma troca segura na sessão atual ou um handoff gráfico anterior ao compositor.
 
@@ -321,38 +335,39 @@ A mídia transitória atual continua apenas como caminho de validação de hardw
 
 A Surface/área do usuário nunca substitui `/`. OrdaX Web é experiência autenticada futura e separada do portal público.
 
-Landing e Download comunicam MVP USB-only. Instalação permanente só pode aparecer como **futuro/pós-MVP**. Web, Mobile, sync, backup e continuidade ainda indisponíveis podem aparecer apenas como **Em breve**.
+Landing e Download comunicam MVP USB-only. Instalação permanente só pode aparecer como **futuro/pós-MVP**. Web completo e Mobile completo continuam pós-MVP; a conta/nuvem bounded do MVP só pode ser anunciada como disponível depois que `docs/contracts/mvp-account-cloud.json` estiver verde e o rollout real estiver ativado.
 
 ## 10. Conta e monetização
 
 No MVP:
 
-- não implementar cobrança;
-- não publicar preços;
-- não definir tiers comerciais definitivos;
+- não ativar cobrança antes de a política comercial estar deliberadamente definida;
+- não publicar preços antes da decisão comercial final;
+- os IDs estruturais `free`, `personal`, `professional` e `team` podem existir para preparar entitlements, mas não constituem por si só uma oferta paga ativa;
 - não impor limite comercial de dispositivos;
 - não cobrar arbitrariamente pelo segundo dispositivo;
 - conta, quando ativada, é uma identidade única;
 - registro de dispositivos/sessões pode existir por segurança e revogação, não como paywall.
 
-A arquitetura continua preparada para dispositivos, sincronização, backup, continuidade PC/Web/Mobile, armazenamento, assinatura/entitlements e serviços premium.
+A arquitetura deve estar pronta para dispositivos, sincronização, backup, continuidade PC/Web/Mobile, armazenamento, assinatura/entitlements e serviços premium, sem tornar preço uma dependência técnica para login, export/delete ou uso local.
 
-Antes do MVP público, a fundação passa a distinguir:
+Antes do MVP público, a fundação distingue:
 
 - **perfil da conta**: identidade pessoal do usuário, nunca um produto premium;
 - **Space**: contexto pessoal/de trabalho/profissional que contém projetos, memória e futuras memberships;
 - **Profile Pack**: composição versionada aplicada a um Space, por exemplo Developer, Creator, Business ou Legal/Advocacia;
-- **entitlement**: decisão server-authoritative para capacidade/serviço premium, nunca uma alegação do cliente.
+- **entitlement**: decisão server-authoritative para capacidade/serviço remoto, nunca uma alegação do cliente;
+- **quota**: limite/uso medido server-side; cliente não pode alegar consumo menor nem transformar quota em autoridade de ação.
 
 A experiência gratuita fica **arquiteturalmente preparada** para até 2 Spaces privados ativos como
-default provisório. Isso não é preço, tier comercial definitivo nem promessa de quota pública.
+default provisório. Isso não é preço nem promessa pública de capacidade de cloud.
 Categorias de Profile Pack não são bloqueadas só pelo nome: a monetização futura deve recair sobre
 valor mensurável como Spaces adicionais/compartilhados, membros, memória cloud/histórico, sync/backup,
-compute externo, conectores, automações e suporte.
+armazenamento de objetos, compute externo, conectores, automações e suporte.
 
 A direção futura de monetização é vender **valor do ecossistema** — sincronização, backup, continuidade, armazenamento, colaboração, compute e serviços — e não transformar quantidade de dispositivos isoladamente no produto vendido.
 
-Nenhuma política de preço, nome de plano comercial definitivo ou limite comercial de dispositivos está definida.
+Preços, franquias de bytes/histórico/compute e cobrança permanecem abertos até existirem unit economics medidos. Downgrade nunca autoriza exclusão silenciosa dos dados do usuário.
 
 ## 10.1 Fundação de ecossistema pré-MVP
 
@@ -413,13 +428,13 @@ default-deny. O sistema local continua utilizável sem conta ou internet.
 
 ## 11. Conta OrdaX
 
-A conta OrdaX é **opcional para usar o sistema operacional**. O primeiro uso deve oferecer uma rota explícita **Continuar sem conta**, preservando Arquivos, Notas, Internet, Ajustes, atualizações e preferências locais no USB.
+A conta OrdaX é **opcional para usar o sistema operacional**. O primeiro uso deve oferecer uma rota explícita **Continuar sem conta**, preservando Arquivos, Notas, Internet, Ajustes, atualizações, Intelligence local, Memory local e preferências locais no USB.
 
-O mínimo futuro da conta pública é criar conta, entrar, sair, recuperar acesso, sessão real, perfil básico e `/conta/`. Entrar/Criar conta no OOBE são capability-driven: ficam inativos enquanto nenhum provedor real estiver conectado e nunca bloqueiam a conclusão local do primeiro uso.
+O mínimo da conta para **fechar o MVP público** é criar conta, entrar, refresh, sair/revogar, recuperar acesso, sessão real, perfil básico, `/conta/`, exportar os próprios dados, fechar a conta com reautenticação recente, Account Sync bounded, Cloud Memory `account`/`Space` e armazenamento privado de arquivos explicitamente selecionados. Entrar/Criar conta no OOBE são capability-driven: ficam inativos enquanto os owners reais não estiverem prontos e nunca bloqueiam a conclusão local do primeiro uso.
 
-`/conta/` permanece fail-closed enquanto identidade/sessão reais não estiverem conectadas. Não simular dados, dispositivos, sync ou assinatura.
+`/conta/` permanece fail-closed enquanto identidade/sessão reais não estiverem conectadas. Não simular dados, dispositivos, sync ou assinatura. O portal público usa o mesmo gateway same-origin para `/auth/*`, `/sync/*` e `/account/*`; provider tokens nunca entram em JavaScript da Surface.
 
-Conta online e PIN/senha local do dispositivo são responsabilidades diferentes. Web, Mobile, backup e sincronização aparecem somente como **Em breve** até existirem de verdade; sincronização cloud não é requisito para o MVP USB.
+Conta online e PIN/senha local do dispositivo são responsabilidades diferentes. Cliente Web completo, Mobile completo, sync irrestrito de toda classe de dado e políticas avançadas de backup permanecem pós-MVP. A nuvem bounded definida por `docs/contracts/mvp-account-cloud.json` é requisito de lançamento, mas continua com rollout desligado até todas as provas reais passarem.
 
 ## 11.1 Idiomas do lançamento
 
@@ -439,8 +454,9 @@ O MVP público oferece **pt-BR e en-US** nos seletores de primeiro uso e da Surf
 9. validar cold-health -> known-good e o rollback/recovery offline físicos
 10. executar o smoke físico estruturado da Surface com FAIL=0
 11. fechar Secure Boot ou registrar explicitamente a política de suporte do MVP sem alegar prova inexistente
-12. conectar Conta OrdaX real apenas se o portal público for ativado, sem torná-la requisito de boot
-13. fechar legal/publicação e publicar o MVP USB-only
+12. fechar o gate de Conta/Nuvem do MVP: legal/auth hardening, cadastro/login/recovery/revogação, export/close, Account Sync, Cloud Memory e user object storage com provas reais; a conta continua opcional no boot
+13. definir preços/quotas comerciais apenas quando os custos reais estiverem medidos; billing não precisa ser ativado para provar segurança/arquitetura
+14. fechar legal/publicação e publicar o MVP USB-only somente com os gates físico, local e online obrigatórios verdes
 ```
 
 Native permanece em trilha técnica pós-MVP, sem bloquear a sequência.
@@ -453,8 +469,10 @@ Native permanece em trilha técnica pós-MVP, sem bloquear a sequência.
 - preserve fundações Native, mas não as exponha no MVP;
 - não introduza escrita destrutiva em disco interno no MVP;
 - não introduza Git operacional no Stable/MVP;
+- conta/nuvem bounded fazem parte do gate do MVP, mas conta nunca bloqueia boot/uso local;
+- mantenha rollout público de conta, Memory e storage desligado até os gates reais passarem;
 - não anuncie recurso futuro como disponível;
-- não invente preços, tiers ou limites comerciais;
+- não invente preços nem quotas de custo sem medição; IDs estruturais de plano não são oferta comercial ativa;
 - preserve gates fail-closed;
 - não declare prova física quando houve apenas CI/prova descartável;
 - não use exemplos de documentação como snapshot atual quando há manifest/contrato estruturado;
@@ -475,6 +493,9 @@ Native permanece em trilha técnica pós-MVP, sem bloquear a sequência.
 - `docs/contracts/portable-boot-handoff.json`;
 - `docs/contracts/native-installation.json`;
 - `docs/contracts/public-site.json`;
+- `docs/contracts/mvp-account-cloud.json`;
+- `docs/contracts/user-cloud-storage.json`;
+- `docs/contracts/cloud-memory-sync-boundary.json`;
 - `docs/contracts/foundation.json`;
 - `docs/contracts/sync-model.json`;
 - `docs/contracts/first-run.json`.
