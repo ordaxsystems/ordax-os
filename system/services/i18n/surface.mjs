@@ -1,6 +1,7 @@
 import { LOCALIZATION_SCHEMA, assertLocalizationPort } from "../../contracts/localization.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { REGIONAL_LOCALE_PREFERENCE_ID } from "../preferences/regional.mjs";
+import { createLocaleProfile } from "./locale-profile.mjs";
 import { FILES_SOURCE_MESSAGES, FILES_ENGLISH_MESSAGES } from "./catalog/files.mjs";
 import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "./catalog/settings.mjs";
 import { SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES } from "./catalog/system.mjs";
@@ -347,6 +348,7 @@ export function createSurfaceLocalization(preferenceRuntime) {
   const port = {
     schema: LOCALIZATION_SCHEMA,
     getLocale() { return currentLocale(); },
+    getProfile() { return createLocaleProfile(currentLocale()); },
     translate,
     subscribe(listener) {
       if (typeof listener !== "function") throw new TypeError("Localization listener must be a function");
