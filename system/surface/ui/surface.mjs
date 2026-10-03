@@ -396,6 +396,7 @@ export function mountSurface(
   const activationPort = appActivation === null ? null : assertAppActivationPort(appActivation);
   const documentElement = root.ownerDocument.documentElement;
   const originalDocumentLanguage = documentElement.getAttribute("lang");
+  const originalDocumentDirection = documentElement.getAttribute("dir");
   const preferenceSeed = store ? validatePreferenceRecord(store.load()) : {};
   const workspaceSeed = workspacePort ? validateWorkspaceRecord(workspacePort.load()) : null;
   let dragSession = null;
@@ -1057,6 +1058,11 @@ export function mountSurface(
         documentElement.removeAttribute("lang");
       } else {
         documentElement.setAttribute("lang", originalDocumentLanguage);
+      }
+      if (originalDocumentDirection === null) {
+        documentElement.removeAttribute("dir");
+      } else {
+        documentElement.setAttribute("dir", originalDocumentDirection);
       }
       root.replaceChildren();
     },
