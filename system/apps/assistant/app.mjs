@@ -8,6 +8,11 @@ export const assistantApp = defineFirstPartyApp({
   monogram: "IA",
   singleton: true,
   component: assistantComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    packPolicy: "component-scoped",
+  },
   requiredCapabilities: [],
   panels: [
     {

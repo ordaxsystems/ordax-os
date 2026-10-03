@@ -8,6 +8,11 @@ export const notesApp = defineFirstPartyApp({
   monogram: "NO",
   singleton: true,
   component: notesComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    packPolicy: "component-scoped",
+  },
   requiredCapabilities: [],
   optionalCapabilities: ["filesystem.user-space"],
   panels: [

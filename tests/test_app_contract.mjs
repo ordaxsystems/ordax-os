@@ -27,6 +27,11 @@ function baseSpec(panel) {
       owner: "tests/example",
       dependencies: [],
     },
+    localization: {
+      sourceLocale: "pt-BR",
+      bundledLocales: ["pt-BR", "en-US"],
+      packPolicy: "component-scoped",
+    },
     requiredCapabilities: [],
     panels: [panel],
   };
@@ -42,6 +47,58 @@ test("app contract accepts a bounded extension slot", () => {
   }));
   assert.equal(app.panels[0].extensionId, "file-space");
   assert.equal(Object.isFrozen(app.panels[0]), true);
+});
+
+test("app contract requires explicit component-scoped localization metadata", () => {
+  const spec = baseSpec({
+    kind: "extension",
+    extensionId: "example-workspace",
+    label: "Example",
+    title: "Example",
+    body: "Fallback",
+  });
+  const app = defineFirstPartyApp(spec);
+  assert.equal(app.localization.sourceLocale, "pt-BR");
+  assert.deepEqual(app.localization.bundledLocales, ["pt-BR", "en-US"]);
+  assert.equal(app.localization.packPolicy, "component-scoped");
+  assert.equal(Object.isFrozen(app.localization), true);
+  assert.equal(Object.isFrozen(app.localization.bundledLocales), true);
+
+  const missing = { ...spec };
+  delete missing.localization;
+  assert.throws(() => defineFirstPartyApp(missing), /missing localization metadata/);
+});
+
+test("app localization must bundle the source locale and reject duplicates", () => {
+  const panel = {
+    kind: "extension",
+    extensionId: "example-workspace",
+    label: "Example",
+    title: "Example",
+    body: "Fallback",
+  };
+  assert.throws(
+    () => defineFirstPartyApp({
+      ...baseSpec(panel),
+      localization: {
+        sourceLocale: "pt-BR",
+        bundledLocales: ["en-US"],
+        packPolicy: "component-scoped",
+      },
+    }),
+    /must bundle its source locale/,
+  );
+  assert.throws(
+    () => defineFirstPartyApp({
+      ...baseSpec(panel),
+      localization: {
+        sourceLocale: "pt-BR",
+        bundledLocales: ["pt-BR", "pt-BR"],
+        packPolicy: "component-scoped",
+      },
+    }),
+    /duplicate bundled locales/,
+  );
 });
 
 test("app contract models optional host capabilities without changing availability requirements", () => {
@@ -126,6 +183,7 @@ test("app owner exposes validated component identity", () => {
   assert.equal(app.component.releaseMode, "bundled");
   assert.equal(Object.isFrozen(app.component), true);
 });
+
 test("Projects stays a first-party app with independent development delivery", () => {
   assert.equal(projectsApp.id, "projects");
   assert.deepEqual(projectsApp.requiredCapabilities, []);
@@ -134,6 +192,7 @@ test("Projects stays a first-party app with independent development delivery", (
   assert.equal(projectsApp.component.owner, "system/apps/projects");
   assert.equal(projectsApp.component.releaseMode, "git-app");
   assert.equal(projectsApp.component.restartScope, "component");
+  assert.deepEqual(projectsApp.localization.bundledLocales, ["pt-BR", "en-US"]);
 });
 
 test("Notes stays a first-party app and advertises native file-space as optional", () => {
@@ -142,6 +201,7 @@ test("Notes stays a first-party app and advertises native file-space as optional
   assert.deepEqual(notesApp.optionalCapabilities, ["filesystem.user-space"]);
   assert.equal(notesApp.component.owner, "system/apps/notes");
   assert.equal(notesApp.component.releaseMode, "git-app");
+  assert.deepEqual(notesApp.localization.bundledLocales, ["pt-BR", "en-US"]);
 });
 
 test("Internet stays a first-party app while engine availability remains host-owned", () => {
@@ -151,6 +211,7 @@ test("Internet stays a first-party app while engine availability remains host-ow
   assert.equal(internetApp.panels[0].extensionId, "internet-browser");
   assert.equal(internetApp.component.owner, "system/apps/internet");
   assert.equal(internetApp.component.releaseMode, "git-app");
+  assert.deepEqual(internetApp.localization.bundledLocales, ["pt-BR", "en-US"]);
 });
 
 test("app contract rejects obsolete identity-specific panel kinds", () => {

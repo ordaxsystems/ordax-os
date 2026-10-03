@@ -8,6 +8,11 @@ export const networkApp = defineFirstPartyApp({
   monogram: "RE",
   singleton: true,
   component: networkComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    packPolicy: "component-scoped",
+  },
   requiredCapabilities: [],
   panels: [
     {
