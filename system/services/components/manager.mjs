@@ -7,6 +7,7 @@ import {
 } from "../../contracts/component-manager.mjs";
 import {
   componentSupportsIndependentUpdate,
+  componentVersionIsNewer,
   validateComponentManifests,
 } from "../../contracts/component-manifest.mjs";
 import {
@@ -175,8 +176,11 @@ export function createComponentManager({
       requireIndependent(componentId);
       const candidate = validateComponentVersion(version);
       const entry = state.components[componentId];
-      if (candidate === entry.currentVersion) {
-        throw new TypeError("Component candidate version already matches current");
+      if (entry.pendingVersion !== null) {
+        throw new TypeError("Component already has a pending candidate; promote or reject it first");
+      }
+      if (!componentVersionIsNewer(candidate, entry.currentVersion)) {
+        throw new TypeError("Component candidate must be newer than current; use explicit rollback for downgrade");
       }
       return updateEntry(componentId, {
         pendingVersion: candidate,
