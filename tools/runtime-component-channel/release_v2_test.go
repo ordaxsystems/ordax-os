@@ -74,7 +74,7 @@ func writeReleaseV2Fixture(t *testing.T) releaseV2Fixture {
 		},
 		Activation: activationPolicy{
 			DirectActivationAllowed: false,
-			PendingHealthRequired:    true,
+			PendingHealthRequired:   true,
 		},
 		Compatibility: compatibilityBinding{
 			Name:   filepath.Base(compatibilityPath),
