@@ -308,7 +308,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     importMap.textContent = JSON.stringify({ imports });
     document.head.append(importMap);
 
-    const { mountSurface } = await import(urls[${JSON.stringify('system/surface/ui/surface.mjs')}]);
+    const { mountSurface, syncSurfaceDocumentLocale } = await import(urls[${JSON.stringify('system/surface/ui/surface.mjs')}]);
     let snapshot = { capabilityIds: [], connectivity: 'offline' };
     const listeners = new Set();
     const host = {
@@ -328,6 +328,22 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     const result = {};
     result.shellMounted = Boolean(root.querySelector('[data-workspace]'));
     result.launcherApps = root.querySelectorAll('[data-launch-app]').length;
+    result.initialDocumentDirection = document.documentElement.getAttribute('dir') === 'ltr';
+
+    const rtlProfile = syncSurfaceDocumentLocale(document.documentElement, {
+      getLocale() { return 'ar-XB'; },
+    });
+    result.rtlProfileResolved = rtlProfile.locale === 'ar-XB' && rtlProfile.direction === 'rtl';
+    result.rtlDocumentAttributes = document.documentElement.getAttribute('lang') === 'ar-XB'
+      && document.documentElement.getAttribute('dir') === 'rtl';
+    result.rtlComputedDirection = getComputedStyle(document.documentElement).direction === 'rtl';
+
+    syncSurfaceDocumentLocale(document.documentElement, {
+      getLocale() { return 'pt-BR'; },
+    });
+    result.ltrDirectionRestored = document.documentElement.getAttribute('lang') === 'pt-BR'
+      && document.documentElement.getAttribute('dir') === 'ltr'
+      && getComputedStyle(document.documentElement).direction === 'ltr';
 
     root.querySelector('[data-launcher-toggle]').click();
     const settingsLaunch = root.querySelector('[data-launch-app="settings"]');
@@ -412,7 +428,8 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.focusMovedToWorkspaceOnClose = document.activeElement === root.querySelector('[data-workspace]');
 
     const required = [
-      'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
+      'shellMounted', 'initialDocumentDirection', 'rtlProfileResolved', 'rtlDocumentAttributes',
+      'rtlComputedDirection', 'ltrDirectionRestored', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
       'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
       'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',
