@@ -13,10 +13,13 @@ on:
       - 'system/contracts/first-run-state-store.mjs'
       - 'system/contracts/localization-pack.mjs'
       - 'docs/contracts/first-run.json'
+      - 'docs/contracts/localization-pack.json'
+      - 'docs/LOCALIZATION.md'
       - 'docs/LOCALIZATION-PACKS.md'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_localization_pack_contract.mjs'
+      - 'tests/test_localization_qa.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
@@ -32,10 +35,13 @@ on:
       - 'system/contracts/first-run-state-store.mjs'
       - 'system/contracts/localization-pack.mjs'
       - 'docs/contracts/first-run.json'
+      - 'docs/contracts/localization-pack.json'
+      - 'docs/LOCALIZATION.md'
       - 'docs/LOCALIZATION-PACKS.md'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_localization_pack_contract.mjs'
+      - 'tests/test_localization_qa.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
@@ -67,6 +73,8 @@ jobs:
           node --version
           node --check tests/test_localization_pack_contract.mjs
           node --test tests/test_localization_pack_contract.mjs
+          node --check tests/test_localization_qa.mjs
+          node --test tests/test_localization_qa.mjs
           node --check tests/test_first_party_app_localization_contract.mjs
           node --test tests/test_first_party_app_localization_contract.mjs
           node --check tests/test_english_mvp_localization_audit.mjs
