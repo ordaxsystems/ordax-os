@@ -3,7 +3,10 @@
   "runtime_schema": "prototype-ordax.localization-pack/1",
   "scope": "component",
   "source_locale": "pt-BR",
-  "mvp_bundled_baseline": ["pt-BR", "en-US"],
+  "mvp_bundled_baseline": [
+    "pt-BR",
+    "en-US"
+  ],
   "additional_locale_policy": "component-independent",
   "external_pack_policy": {
     "enabled": true,
@@ -25,5 +28,16 @@
     "pack_version_separate_from_component_version": true,
     "translation_fix_without_app_update": true,
     "new_locale_without_base_ab_update": true
+  },
+  "qa": {
+    "pseudo_locales": [
+      "en-XA",
+      "ar-XB"
+    ],
+    "publicly_selectable": false,
+    "distributable_as_language_pack": false,
+    "placeholder_preservation_required": true,
+    "expanded_layout_gate_required": true,
+    "rtl_direction_gate_required": true
   }
 }
