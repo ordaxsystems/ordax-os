@@ -13,6 +13,10 @@ on:
       - 'system/contracts/first-run-state-store.mjs'
       - 'system/contracts/localization-pack.mjs'
       - 'system/contracts/localization.mjs'
+      - 'system/contracts/surface-render-lifecycle.mjs'
+      - 'tests/test_surface_localization.mjs'
+      - 'tests/test_surface_app_localization.mjs'
+      - 'tests/test_first_run_contract.py'
       - 'system/contracts/locale-profile.mjs'
       - 'system/surface/ui/document-localization.mjs'
       - 'tools/localization/pseudo-localization.mjs'
@@ -38,6 +42,10 @@ on:
       - 'system/contracts/first-run-state-store.mjs'
       - 'system/contracts/localization-pack.mjs'
       - 'system/contracts/localization.mjs'
+      - 'system/contracts/surface-render-lifecycle.mjs'
+      - 'tests/test_surface_localization.mjs'
+      - 'tests/test_surface_app_localization.mjs'
+      - 'tests/test_first_run_contract.py'
       - 'system/contracts/locale-profile.mjs'
       - 'system/surface/ui/document-localization.mjs'
       - 'tools/localization/pseudo-localization.mjs'
@@ -81,6 +89,10 @@ jobs:
           node --test tests/test_localization_pack_contract.mjs
           node --check tests/test_localization_pseudo_rtl.mjs
           node --test tests/test_localization_pseudo_rtl.mjs
+          node --check tests/test_surface_localization.mjs
+          node --test tests/test_surface_localization.mjs
+          node --check tests/test_surface_app_localization.mjs
+          node --test tests/test_surface_app_localization.mjs
           node --check tests/test_first_party_app_localization_contract.mjs
           node --test tests/test_first_party_app_localization_contract.mjs
           node --check tests/test_english_mvp_localization_audit.mjs
@@ -94,3 +106,4 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.test_native_security_prompt_english_audit -v
+          python -m unittest tests.test_first_run_contract -v
