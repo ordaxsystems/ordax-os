@@ -1,6 +1,6 @@
 import { assertLocalizationPort } from "./localization.mjs";
 
-export const SURFACE_RENDER_LIFECYCLE_SCHEMA = "ordax.surface-render-lifecycle/4";
+export const SURFACE_RENDER_LIFECYCLE_SCHEMA = "ordax.surface-render-lifecycle/5";
 
 export function assertSurfaceRenderLifecycle(value) {
   if (
