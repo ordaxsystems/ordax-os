@@ -90,6 +90,30 @@ SURFACE_DE_DE=HIDDEN_MIGRATING
 SURFACE_FR_FR=HIDDEN_MIGRATING
 ```
 
+## Localization QA locales
+
+OrdaX uses two engineering-only pseudo-locales to test localization quality
+without advertising unfinished languages:
+
+- `en-XA` expands and accents source copy to expose fixed-width layout,
+  truncation and wrapping assumptions;
+- `ar-XB` uses the same deterministic pseudo-localization path with RTL
+  direction to exercise bidirectional document presentation.
+
+These identifiers are **not** public selector options, launch-complete Surface
+locales or distributable language packs. They exist only in automated QA.
+
+Pseudo-localization preserves interpolation placeholders exactly. Surface
+document direction is derived from canonical BCP 47 locale metadata through the
+shared locale-profile owner; the UI does not contain locale-specific
+`if (locale === ...)` direction branches. The Surface restores the host
+document's original `lang` and `dir` attributes when unmounted.
+
+The localization gates must fail if a pseudo-localized Surface message loses or
+changes a placeholder, if the expansion pass stops increasing message length,
+if the RTL pseudo-locale is not resolved as `dir="rtl"`, or if either QA
+pseudo-locale becomes publicly selectable by accident.
+
 ## Architecture
 
 Translations belong to shared product owners, never platform forks:
