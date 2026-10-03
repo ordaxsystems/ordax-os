@@ -1,4 +1,4 @@
-import { assertLocalizationPort } from "../../contracts/localization.mjs";
+import { assertLocalizationPort, localizationDirection } from "../../contracts/localization.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import {
   REGIONAL_LOCALE_PREFERENCE_ID,
@@ -56,8 +56,9 @@ function spaceLink(messageId, target, t) {
 export function createDesktopShellMarkup(localization) {
   const localizationPort = assertLocalizationPort(localization);
   const t = localizationPort.translate;
+  const direction = localizationDirection(localizationPort);
   return `
-    <div class="ordax-shell" data-ordax-shell>
+    <div class="ordax-shell" data-ordax-shell dir="${direction}">
       <aside class="ordax-rail" aria-label="${t("shell.rail.aria")}">
         <nav class="ordax-rail-nav">
           ${railButton("files", t("app.files.title"), ICONS.files, t)}
@@ -204,6 +205,8 @@ export function createDesktopShellMarkup(localization) {
 export function syncDesktopShellLocalization(root, localization) {
   const localizationPort = assertLocalizationPort(localization);
   const t = localizationPort.translate;
+  const shell = root.querySelector("[data-ordax-shell]");
+  if (shell) shell.setAttribute("dir", localizationDirection(localizationPort));
   const text = (selector, messageId) => {
     const node = root.querySelector(selector);
     if (node) node.textContent = t(messageId);
