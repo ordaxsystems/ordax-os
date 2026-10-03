@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site/1",
-  "status": "foundation-same-origin-adapter-gated-auth-and-recovery-forms-source-ready-not-deployed",
+  "status": "foundation-same-origin-adapter-gated-auth-account-cloud-source-ready-not-deployed",
   "artifact_class": "public-site",
   "source_root": "sites/public",
   "build_recipe": "tools/public-site/build.py",
@@ -72,9 +72,10 @@
     "preview_runtime": "tools/public-site/preview_server.py",
     "production_https_required": true,
     "same_origin_identity_required": true,
+    "same_origin_sync_required": true,
+    "same_origin_account_required": true,
     "adapter_source": "deploy/public-site/nginx.conf",
     "adapter_deployed": false,
-    "same_origin_sync_required": true,
     "account_request_marker_header": "X-OrdaX-Public-Site",
     "gateway_public_activation_gate_required": true
   },
@@ -102,18 +103,33 @@
     "execution_mode": "usb-only",
     "account_required_for_public_download": false,
     "account_required_for_first_use": false,
+    "account_required_for_local_os_use": false,
+    "account_cloud_required_for_public_mvp_release": true,
+    "account_cloud_gate_contract": "docs/contracts/mvp-account-cloud.json",
+    "private_user_storage_gate_contract": "docs/contracts/user-cloud-storage.json",
     "native_installation_available": false,
     "internal_disk_write_available": false,
     "dual_boot_available": false,
     "partition_resize_available": false,
     "native_installation_future_phase": "post-mvp"
   },
+  "online_mvp": {
+    "status": "required-fail-closed-until-real-proofs-pass",
+    "registration_login_recovery": "required",
+    "account_export_close": "required",
+    "bounded_account_sync": "required",
+    "cloud_memory_account_space": "required",
+    "private_user_selected_storage": "required",
+    "full_web_client": "post-mvp",
+    "full_mobile_client": "post-mvp",
+    "unbounded_all-data-sync": "post-mvp"
+  },
   "future_experiences": {
     "web": "coming-soon",
     "mobile": "coming-soon",
-    "synchronization": "coming-soon",
-    "backup": "coming-soon",
-    "cross_device_continuity": "coming-soon"
+    "unbounded_all-data-synchronization": "post-mvp",
+    "advanced_backup_policy": "post-mvp",
+    "cross_device_beyond_mvp_classes": "post-mvp"
   },
   "commerce": {
     "billing_implemented": false,
@@ -122,6 +138,7 @@
     "commercial_device_limit_defined": false,
     "second_device_fee_policy_defined": false,
     "entitlement_architecture_prepared": true,
+    "account_cloud_mvp_depends_on_pricing": false,
     "future_value_model": [
       "synchronization",
       "backup",
