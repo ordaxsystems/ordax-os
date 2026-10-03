@@ -28,9 +28,11 @@ import build as package_builder  # noqa: E402
 RELEASE_SCHEMA_V2 = "prototype-ordax.runtime-component-release/2"
 COMPATIBILITY_SCHEMA = "ordax.component-compatibility/1"
 MAX_COMPATIBILITY_BYTES = 64 * 1024
-MAX_COMPATIBILITY_ENTRIES = 64
-CONTRACT_ID_RE = re.compile(r"^[a-z][a-z0-9.-]{0,127}$")
-STATE_ID_RE = re.compile(r"^[a-z][a-z0-9.-]{0,127}$")
+MAX_COMPATIBILITY_ENTRIES = 128
+MAX_CONTRACT_MAJOR = 10_000
+MAX_STATE_VERSION = 1_000_000
+MAX_COMPATIBILITY_ID_LEN = 160
+COMPATIBILITY_ID_RE = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
 
 
 class ReleaseV2Error(RuntimeError):
@@ -47,16 +49,23 @@ def sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def positive_int(value: object, label: str) -> int:
+def positive_int(value: object, label: str, *, maximum: int) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise ReleaseV2Error(f"{label} must be a positive integer")
-    if value > 2**31 - 1:
+    if value > maximum:
         raise ReleaseV2Error(f"{label} is outside the supported bound")
     return value
 
 
-def validate_contract_id(value: object, label: str) -> str:
-    if not isinstance(value, str) or not CONTRACT_ID_RE.fullmatch(value):
+def validate_compatibility_id(value: object, label: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) < 1
+        or len(value) > MAX_COMPATIBILITY_ID_LEN
+        or value != value.strip()
+        or "\x00" in value
+        or not COMPATIBILITY_ID_RE.fullmatch(value)
+    ):
         raise ReleaseV2Error(f"{label} is invalid")
     return value
 
@@ -103,8 +112,12 @@ def validate_compatibility_descriptor(
     for entry in provides:
         if not isinstance(entry, dict) or set(entry) != {"id", "major"}:
             raise ReleaseV2Error("compatibility provided contract is malformed")
-        contract_id = validate_contract_id(entry["id"], "provided contract id")
-        major = positive_int(entry["major"], "provided contract major")
+        contract_id = validate_compatibility_id(entry["id"], "provided contract id")
+        major = positive_int(
+            entry["major"],
+            "provided contract major",
+            maximum=MAX_CONTRACT_MAJOR,
+        )
         key = (contract_id, major)
         if key in seen_provides:
             raise ReleaseV2Error("compatibility provided contracts must be unique")
@@ -122,12 +135,20 @@ def validate_compatibility_descriptor(
             "optional",
         }:
             raise ReleaseV2Error("compatibility required contract is malformed")
-        contract_id = validate_contract_id(entry["id"], "required contract id")
+        contract_id = validate_compatibility_id(entry["id"], "required contract id")
         if contract_id in seen_requires:
             raise ReleaseV2Error("compatibility required contracts must be unique by id")
         seen_requires.add(contract_id)
-        minimum = positive_int(entry["minMajor"], "required contract minMajor")
-        maximum = positive_int(entry["maxMajor"], "required contract maxMajor")
+        minimum = positive_int(
+            entry["minMajor"],
+            "required contract minMajor",
+            maximum=MAX_CONTRACT_MAJOR,
+        )
+        maximum = positive_int(
+            entry["maxMajor"],
+            "required contract maxMajor",
+            maximum=MAX_CONTRACT_MAJOR,
+        )
         if maximum < minimum:
             raise ReleaseV2Error("required contract major range is invalid")
         if not isinstance(entry["optional"], bool):
@@ -142,12 +163,21 @@ def validate_compatibility_descriptor(
             "readableThrough",
         }:
             raise ReleaseV2Error("compatibility state descriptor is malformed")
-        if not isinstance(state["id"], str) or not STATE_ID_RE.fullmatch(state["id"]):
-            raise ReleaseV2Error("compatibility state id is invalid")
-        write_version = positive_int(state["writeVersion"], "state writeVersion")
-        readable_from = positive_int(state["readableFrom"], "state readableFrom")
+        validate_compatibility_id(state["id"], "compatibility state id")
+        write_version = positive_int(
+            state["writeVersion"],
+            "state writeVersion",
+            maximum=MAX_STATE_VERSION,
+        )
+        readable_from = positive_int(
+            state["readableFrom"],
+            "state readableFrom",
+            maximum=MAX_STATE_VERSION,
+        )
         readable_through = positive_int(
-            state["readableThrough"], "state readableThrough"
+            state["readableThrough"],
+            "state readableThrough",
+            maximum=MAX_STATE_VERSION,
         )
         if readable_from > write_version or readable_through < write_version:
             raise ReleaseV2Error("compatibility state readable range excludes writeVersion")
