@@ -65,32 +65,32 @@ function newRun(runtime, budgets = {}) {
   });
 }
 
-test("background run starts authority-free and requires one exclusive lease", () => {
+test("background run starts authority-free and requires one exclusive lease", async () => {
   const { runtime } = harness();
-  const created = newRun(runtime);
+  const created = await newRun(runtime);
   assert.equal(created.state, "queued");
   assert.equal(created.authority, "none");
 
-  const leased = runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 10_000 });
+  const leased = await runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 10_000 });
   assert.equal(leased.state, "running");
   assert.equal(leased.authority, "none");
-  assert.throws(
-    () => runtime.acquireLease(created.runId, { workerId: "worker-2", leaseMs: 10_000 }),
+  await assert.rejects(
+    runtime.acquireLease(created.runId, { workerId: "worker-2", leaseMs: 10_000 }),
     /active lease/,
   );
 });
 
-test("budget must be reserved before work and exhaustion pauses without granting authority", () => {
+test("budget must be reserved before work and exhaustion pauses without granting authority", async () => {
   const { runtime } = harness();
-  const created = newRun(runtime, { actionLimit: 1 });
-  const leased = runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 20_000 });
+  const created = await newRun(runtime, { actionLimit: 1 });
+  const leased = await runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 20_000 });
 
-  const first = runtime.reserveBudget(created.runId, leased.lease.leaseId, { actions: 1, steps: 1 });
+  const first = await runtime.reserveBudget(created.runId, leased.lease.leaseId, { actions: 1, steps: 1 });
   assert.equal(first.accepted, true);
   assert.equal(first.run.usage.actions, 1);
   assert.equal(first.run.authority, "none");
 
-  const second = runtime.reserveBudget(created.runId, leased.lease.leaseId, { actions: 1 });
+  const second = await runtime.reserveBudget(created.runId, leased.lease.leaseId, { actions: 1 });
   assert.equal(second.accepted, false);
   assert.equal(second.run.state, "paused");
   assert.equal(second.run.failureCode, "budget-exhausted");
@@ -98,32 +98,32 @@ test("budget must be reserved before work and exhaustion pauses without granting
   assert.equal(second.run.usage.actions, 1);
 });
 
-test("checkpoint is monotonic and stale lease cannot continue after cancellation", () => {
+test("checkpoint is monotonic and stale lease cannot continue after cancellation", async () => {
   const { runtime } = harness();
-  const created = newRun(runtime);
-  const leased = runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 20_000 });
+  const created = await newRun(runtime);
+  const leased = await runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 20_000 });
   const leaseId = leased.lease.leaseId;
 
-  const one = runtime.checkpoint(created.runId, leaseId, { cursor: "phase:1", digest: "a".repeat(64) });
-  const two = runtime.checkpoint(created.runId, leaseId, { cursor: "phase:2", digest: "b".repeat(64) });
+  const one = await runtime.checkpoint(created.runId, leaseId, { cursor: "phase:1", digest: "a".repeat(64) });
+  const two = await runtime.checkpoint(created.runId, leaseId, { cursor: "phase:2", digest: "b".repeat(64) });
   assert.equal(one.checkpoint.sequence, 1);
   assert.equal(two.checkpoint.sequence, 2);
 
-  const cancelled = runtime.cancel(created.runId);
+  const cancelled = await runtime.cancel(created.runId);
   assert.equal(cancelled.state, "cancelled");
   assert.equal(cancelled.lease, null);
-  assert.throws(() => runtime.heartbeat(created.runId, leaseId), /active run/);
-  assert.throws(() => runtime.complete(created.runId, leaseId), /active run/);
+  await assert.rejects(runtime.heartbeat(created.runId, leaseId), /active run/);
+  await assert.rejects(runtime.complete(created.runId, leaseId), /active run/);
 });
 
-test("expired lease is recovered to paused with checkpoint preserved", () => {
+test("expired lease is recovered to paused with checkpoint preserved", async () => {
   const { runtime, advance } = harness();
-  const created = newRun(runtime);
-  const leased = runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 5_000 });
-  runtime.checkpoint(created.runId, leased.lease.leaseId, { cursor: "safe", digest: "c".repeat(64) });
+  const created = await newRun(runtime);
+  const leased = await runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 5_000 });
+  await runtime.checkpoint(created.runId, leased.lease.leaseId, { cursor: "safe", digest: "c".repeat(64) });
   advance(5_001);
 
-  const recovered = runtime.recover();
+  const recovered = await runtime.recover();
   assert.equal(recovered.length, 1);
   assert.equal(recovered[0].state, "paused");
   assert.equal(recovered[0].failureCode, "lease-expired-recovery");
@@ -131,18 +131,18 @@ test("expired lease is recovered to paused with checkpoint preserved", () => {
   assert.equal(recovered[0].lease, null);
 });
 
-test("deadline fails closed and cannot be renewed into unlimited background execution", () => {
+test("deadline fails closed and cannot be renewed into unlimited background execution", async () => {
   const { runtime, advance } = harness();
-  const created = newRun(runtime, { wallClockMs: 10_000 });
-  const leased = runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 10_000 });
+  const created = await newRun(runtime, { wallClockMs: 10_000 });
+  const leased = await runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 10_000 });
   assert.equal(leased.lease.expiresAt, created.deadlineAt);
   advance(10_001);
-  const recovered = runtime.recover();
+  const recovered = await runtime.recover();
   assert.equal(recovered[0].state, "failed");
   assert.equal(recovered[0].failureCode, "deadline-exceeded");
 });
 
-test("atomic store conflict prevents two writers from silently overwriting state", () => {
+test("atomic store conflict prevents two writers from silently overwriting state", async () => {
   const real = createStore();
   let rejectSwap = false;
   const store = {
@@ -153,11 +153,11 @@ test("atomic store conflict prevents two writers from silently overwriting state
     },
   };
   const { runtime } = harness({ store });
-  const created = newRun(runtime);
+  const created = await newRun(runtime);
   rejectSwap = true;
-  assert.throws(
-    () => runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 10_000 }),
+  await assert.rejects(
+    runtime.acquireLease(created.runId, { workerId: "worker-1", leaseMs: 10_000 }),
     /changed concurrently/,
   );
-  assert.equal(runtime.get(created.runId).state, "queued");
+  assert.equal((await runtime.get(created.runId)).state, "queued");
 });
