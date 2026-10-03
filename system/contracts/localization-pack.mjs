@@ -2,6 +2,7 @@ export const LOCALIZATION_PACK_SCHEMA = "ordax.localization-pack/1";
 
 const LOCALE_RE = /^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?$/;
 const COMPONENT_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
+const MESSAGE_ID_RE = /^[a-z][A-Za-z0-9.-]{0,159}$/;
 const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
 export function validateLocale(value) {
@@ -34,7 +35,7 @@ function validateMessageMap(messages) {
     throw new TypeError("Localization pack messages must not be empty");
   }
   for (const [messageId, value] of entries) {
-    if (!/^[a-z][a-z0-9.-]{0,159}$/.test(messageId)) {
+    if (!MESSAGE_ID_RE.test(messageId)) {
       throw new TypeError(`Invalid localization message id: ${messageId}`);
     }
     if (typeof value !== "string" || value.length === 0) {
