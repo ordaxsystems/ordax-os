@@ -1,4 +1,4 @@
-import { assertLocaleProfile } from "../services/i18n/locale-profile.mjs";
+import { assertLocaleProfile } from "./locale-profile.mjs";
 
 export const LOCALIZATION_SCHEMA = "ordax.localization/2";
 
