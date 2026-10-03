@@ -1,4 +1,5 @@
 import { defineComponentManifest } from "../contracts/component-manifest.mjs";
+import { validateLocale } from "../contracts/localization-pack.mjs";
 
 const APP_ID_RE = /^[a-z][a-z0-9-]*$/;
 const PANEL_KINDS = new Set([
@@ -9,6 +10,7 @@ const PANEL_KINDS = new Set([
   "preference-choice",
   "extension",
 ]);
+const PACK_POLICIES = new Set(["bundled-only", "component-scoped"]);
 
 function freezeCapabilities(appId, label, values) {
   if (!Array.isArray(values)) {
@@ -22,6 +24,32 @@ function freezeCapabilities(appId, label, values) {
     throw new TypeError(`First-party app ${appId} has invalid ${label} capabilities`);
   }
   return Object.freeze(capabilities);
+}
+
+function freezeLocalization(appId, localization) {
+  if (!localization || typeof localization !== "object" || Array.isArray(localization)) {
+    throw new TypeError(`First-party app ${appId} is missing localization metadata`);
+  }
+  const sourceLocale = validateLocale(localization.sourceLocale);
+  if (!Array.isArray(localization.bundledLocales) || localization.bundledLocales.length === 0) {
+    throw new TypeError(`First-party app ${appId} must declare bundledLocales`);
+  }
+  const bundledLocales = localization.bundledLocales.map(validateLocale);
+  if (new Set(bundledLocales).size !== bundledLocales.length) {
+    throw new TypeError(`First-party app ${appId} has duplicate bundled locales`);
+  }
+  if (!bundledLocales.includes(sourceLocale)) {
+    throw new TypeError(`First-party app ${appId} must bundle its source locale`);
+  }
+  const packPolicy = localization.packPolicy ?? "component-scoped";
+  if (!PACK_POLICIES.has(packPolicy)) {
+    throw new TypeError(`First-party app ${appId} has unsupported localization pack policy`);
+  }
+  return Object.freeze({
+    sourceLocale,
+    bundledLocales: Object.freeze([...bundledLocales]),
+    packPolicy,
+  });
 }
 
 function freezeChoiceOptions(appId, panel) {
@@ -92,6 +120,7 @@ export function defineFirstPartyApp(spec) {
     "optional",
     spec.optionalCapabilities ?? [],
   );
+  const localization = freezeLocalization(spec.id, spec.localization);
   const requiredSet = new Set(requiredCapabilities);
   if (optionalCapabilities.some((capabilityId) => requiredSet.has(capabilityId))) {
     throw new TypeError(
@@ -119,6 +148,7 @@ export function defineFirstPartyApp(spec) {
     monogram: spec.monogram,
     singleton: spec.singleton !== false,
     component,
+    localization,
     requiredCapabilities,
     optionalCapabilities,
     panels: Object.freeze(spec.panels.map((panel) => freezePanel(spec.id, panel))),

@@ -1,0 +1,29 @@
+{
+  "$schema": "prototype-ordax.localization-pack/1",
+  "runtime_schema": "prototype-ordax.localization-pack/1",
+  "scope": "component",
+  "source_locale": "pt-BR",
+  "mvp_bundled_baseline": ["pt-BR", "en-US"],
+  "additional_locale_policy": "component-independent",
+  "external_pack_policy": {
+    "enabled": true,
+    "executable_payload_allowed": false,
+    "cross_component_override_allowed": false,
+    "exact_component_version_binding": true,
+    "message_key_parity_required": true,
+    "placeholder_parity_required": true,
+    "atomic_activation_required": true,
+    "rollback_required": true,
+    "failure_must_preserve_previous_pack": true
+  },
+  "resolution": {
+    "exact_locale_first": true,
+    "same_language_fallback_allowed": true,
+    "final_fallback": "component-source-locale"
+  },
+  "independent_updates": {
+    "pack_version_separate_from_component_version": true,
+    "translation_fix_without_app_update": true,
+    "new_locale_without_base_ab_update": true
+  }
+}

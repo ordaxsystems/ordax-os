@@ -8,6 +8,11 @@ export const settingsApp = defineFirstPartyApp({
   monogram: "AJ",
   singleton: true,
   component: settingsComponent,
+  localization: {
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    packPolicy: "component-scoped",
+  },
   requiredCapabilities: [],
   panels: [
     {

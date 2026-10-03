@@ -1,4 +1,4 @@
-export const LOCALIZATION_PACK_SCHEMA = "ordax.localization-pack/1";
+export const LOCALIZATION_PACK_SCHEMA = "prototype-ordax.localization-pack/1";
 
 const LOCALE_RE = /^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?$/;
 const COMPONENT_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
