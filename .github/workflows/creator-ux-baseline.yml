@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'tools/creator/cmd/ordax-creator-app/**'
+      - 'tools/creator/README.md'
       - 'docs/contracts/creator-ux-baseline.json'
       - '.github/workflows/creator-ux-baseline.yml'
       - '.github/workflows/creator-owner-dev-git.yml'
   pull_request:
     paths:
       - 'tools/creator/cmd/ordax-creator-app/**'
+      - 'tools/creator/README.md'
       - 'docs/contracts/creator-ux-baseline.json'
       - '.github/workflows/creator-ux-baseline.yml'
       - '.github/workflows/creator-owner-dev-git.yml'
@@ -123,6 +125,7 @@ jobs:
               'locale_windows': (base / 'localization_windows.go').read_text(encoding='utf-8'),
               'locale_audit': (base / 'localization_source_audit_test.go').read_text(encoding='utf-8'),
               'release': (root / '.github/workflows/creator-owner-dev-git.yml').read_text(encoding='utf-8'),
+              'docs': (root / 'tools/creator/README.md').read_text(encoding='utf-8'),
           }
 
           required = {
@@ -183,6 +186,11 @@ jobs:
               'split_owner': [
                   'windows && ordax_owner_prototype && !ordax_single_exe',
                   'ordax-creator-physical-test.exe', 'ordax-bootstrap-seed.raw', 'provenance.json',
+              ],
+              'docs': [
+                  'Creator localization owner', 'independently from the OrdaX Surface',
+                  '`pt-BR` and `en-US`', 'Unsupported locale identifiers fall back deterministically to `pt-BR`',
+                  'prototype-ordax.creator-owner-bundle-update/1', '`automatic_in_app_update=false`',
               ],
               'release': [
                   'name: Creator Owner Development Git USB', "-tags 'ordax_raw_backend'",
