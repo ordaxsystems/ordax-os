@@ -1,0 +1,55 @@
+{
+  "$schema": "prototype-ordax.background-runtime/1",
+  "status": "source-foundation-runtime-disabled-for-public-autonomy",
+  "owner": "system/services/background",
+  "authority": {
+    "creates_authority": false,
+    "issues_grants": false,
+    "lease_is_action_authority": false,
+    "run_authority": "none"
+  },
+  "durability": {
+    "store_contract": "ordax.background-store/1",
+    "atomic_compare_and_swap_required": true,
+    "last_write_wins_store_allowed": false,
+    "revision_required": true
+  },
+  "bounds": {
+    "wall_clock_required": true,
+    "step_budget_required": true,
+    "action_budget_required": true,
+    "egress_bytes_budget_required": true,
+    "budget_must_be_reserved_before_operation": true,
+    "unlimited_run_allowed": false,
+    "lease_max_ms": 900000
+  },
+  "lifecycle": {
+    "states": ["queued", "running", "paused", "cancelled", "completed", "failed"],
+    "single_active_lease": true,
+    "heartbeat_required_for_long_runs": true,
+    "expired_lease_recovery": "pause-preserve-checkpoint",
+    "deadline_recovery": "fail",
+    "cancellation_revokes_lease": true,
+    "stale_worker_may_continue": false
+  },
+  "checkpoint": {
+    "schema": "ordax.background-checkpoint/1",
+    "metadata_only": true,
+    "monotonic_sequence": true,
+    "arbitrary_prompt_or_document_storage": false,
+    "credentials_allowed": false
+  },
+  "composition": {
+    "system_service": true,
+    "personal_ordax_is_consumer_not_owner": true,
+    "studio_is_consumer_not_owner": true,
+    "side_effects_still_require_action_policy_review_gateway": true
+  },
+  "rollout": {
+    "production_store_enabled": false,
+    "personal_background_enabled": false,
+    "scheduler_enabled": false,
+    "auto_resume_after_reboot_enabled": false,
+    "autonomous_mutation_enabled": false
+  }
+}

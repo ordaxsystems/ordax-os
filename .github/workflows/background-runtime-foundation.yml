@@ -1,0 +1,44 @@
+name: Background Runtime Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/background-runtime.json'
+      - 'system/contracts/background-runtime.mjs'
+      - 'system/services/background/**'
+      - 'tests/test_background_runtime.mjs'
+      - '.github/workflows/background-runtime-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/background-runtime.json'
+      - 'system/contracts/background-runtime.mjs'
+      - 'system/services/background/**'
+      - 'tests/test_background_runtime.mjs'
+      - '.github/workflows/background-runtime-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  background-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contracts and modules
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/background-runtime.json >/dev/null
+          node --check system/contracts/background-runtime.mjs
+          node --check system/services/background/runtime.mjs
+
+      - name: Prove leases budgets checkpoints cancellation and recovery
+        run: |
+          set -euo pipefail
+          node --test tests/test_background_runtime.mjs
