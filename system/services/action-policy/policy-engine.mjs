@@ -4,13 +4,15 @@ import {
   validateActionPolicyVerdict,
 } from "../../contracts/action-policy.mjs";
 import { validateActionRequest } from "../../contracts/action-gateway.mjs";
+import { SYSTEM_POLICY_DECISION_SCHEMA } from "../../contracts/system-foundation.mjs";
+import { evaluateSystemPolicyDecisions } from "../system-foundation/runtime.mjs";
 
-const RESTRICTIVENESS = new Map([
-  ["allow-if-authorized", 0],
-  ["approval-required", 1],
-  ["handoff-to-user", 2],
-  ["deny", 3],
-]);
+const SYSTEM_EFFECT_FOR_OUTCOME = Object.freeze({
+  "allow-if-authorized": "pass",
+  "approval-required": "require-approval",
+  "handoff-to-user": "deny",
+  deny: "deny",
+});
 
 function schemeOf(resourceRef) {
   if (resourceRef == null) return null;
@@ -41,6 +43,25 @@ function readClock(now) {
   return value;
 }
 
+function systemDecisionForRule(rule) {
+  return {
+    schema: SYSTEM_POLICY_DECISION_SCHEMA,
+    effect: SYSTEM_EFFECT_FOR_OUTCOME[rule.outcome],
+    reasonCode: `action-policy.${rule.layer}.${rule.outcome}`,
+    source: "action-policy",
+  };
+}
+
+function actionOutcomeForRootDecision(rootDecision, matched) {
+  if (rootDecision.effect === "pass") return "allow-if-authorized";
+  if (rootDecision.effect === "require-approval") return "approval-required";
+
+  // Both handoff and hard deny intentionally map to the root `deny` effect.
+  // The action specialization keeps the stricter tie-break without inventing
+  // a second generic policy hierarchy.
+  return matched.some((rule) => rule.outcome === "deny") ? "deny" : "handoff-to-user";
+}
+
 export function createActionPolicyEngine({ rules = [], now = Date.now } = {}) {
   if (!Array.isArray(rules) || rules.length > 256) {
     throw new TypeError("Action Policy rules must be a bounded array");
@@ -60,16 +81,12 @@ export function createActionPolicyEngine({ rules = [], now = Date.now } = {}) {
     evaluate(requestValue) {
       const request = validateActionRequest(requestValue);
       const matched = validatedRules.filter((rule) => matches(rule, request));
-      let outcome = "allow-if-authorized";
-      for (const rule of matched) {
-        if (RESTRICTIVENESS.get(rule.outcome) > RESTRICTIVENESS.get(outcome)) {
-          outcome = rule.outcome;
-        }
-      }
+      const rootDecision = evaluateSystemPolicyDecisions(matched.map(systemDecisionForRule));
+      const outcome = actionOutcomeForRootDecision(rootDecision, matched);
 
       const reason = matched.length === 0
-        ? "No restrictive policy rule matched; existing authority is still required."
-        : `Most restrictive matching policy outcome is ${outcome}.`;
+        ? "System policy found no additional restriction; existing action authority is still required."
+        : `System policy reduced matching action rules to ${rootDecision.effect}; action outcome is ${outcome}.`;
 
       return validateActionPolicyVerdict({
         workItemId: request.workItemId,
