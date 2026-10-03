@@ -1,0 +1,34 @@
+{
+  "$schema": "prototype-ordax.action-review/1",
+  "status": "foundation-enabled-no-model-reviewer-installed",
+  "role": "independent safety review after policy and before action authority is accepted for automation",
+  "authority": {
+    "creates_authority": false,
+    "issues_grants": false,
+    "may_replace_action_policy": false,
+    "may_replace_action_gateway": false,
+    "verdict_authority": "none"
+  },
+  "outcomes": [
+    "pass",
+    "needs-human",
+    "block"
+  ],
+  "composition": {
+    "most_restrictive_reviewer_wins": true,
+    "reviewer_failure": "needs-human",
+    "malformed_or_misbound_result": "needs-human",
+    "gateway_review_failure": "deny",
+    "pass_still_requires_normal_authority": true,
+    "needs_human_blocks_automated_execution": true,
+    "block_denies_automated_execution": true
+  },
+  "rollout": {
+    "deterministic_review_engine_enabled": true,
+    "model_based_reviewer_enabled": false,
+    "cloud_reviewer_enabled": false,
+    "user_editable_reviewers_enabled": false,
+    "background_runtime_enabled_by_this_contract": false,
+    "autonomous_execution_enabled_by_this_contract": false
+  }
+}

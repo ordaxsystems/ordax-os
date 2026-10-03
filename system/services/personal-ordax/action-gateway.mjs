@@ -7,6 +7,10 @@ import {
   validateActionPolicyVerdict,
 } from "../../contracts/action-policy.mjs";
 import {
+  assertActionReviewPort,
+  validateActionReviewVerdict,
+} from "../../contracts/action-review.mjs";
+import {
   authorizeIntelligenceToolAction,
   defineIntelligenceTool,
   validateIntelligenceToolGrant,
@@ -54,6 +58,7 @@ export function createPersonalOrdaxActionGateway({
   grantResolver,
   readPolicy = null,
   actionPolicyPort = null,
+  actionReviewPort = null,
   now = Date.now,
 } = {}) {
   if (typeof toolResolver !== "function" || typeof grantResolver !== "function") {
@@ -63,6 +68,7 @@ export function createPersonalOrdaxActionGateway({
     throw new TypeError("Personal OrdaX Action Gateway read policy must be a function");
   }
   const actionPolicy = actionPolicyPort === null ? null : assertActionPolicyPort(actionPolicyPort);
+  const actionReview = actionReviewPort === null ? null : assertActionReviewPort(actionReviewPort);
   if (typeof now !== "function") {
     throw new TypeError("Personal OrdaX Action Gateway requires a clock function");
   }
@@ -116,6 +122,32 @@ export function createPersonalOrdaxActionGateway({
             : "Action policy denies this operation.",
           decidedAt,
         });
+      }
+
+      if (actionReview !== null) {
+        try {
+          const verdict = validateActionReviewVerdict(actionReview.review(request));
+          if (verdict.workItemId !== request.workItemId || verdict.actionId !== request.actionId) {
+            throw new TypeError("Action Review verdict is not bound to the exact request");
+          }
+          if (verdict.outcome === "block" || verdict.outcome === "needs-human") {
+            return decision(request, {
+              decision: "deny",
+              authoritySource: "system-policy",
+              reason: verdict.outcome === "needs-human"
+                ? "Independent action review requires human attention before automation may continue."
+                : "Independent action review blocked this operation.",
+              decidedAt,
+            });
+          }
+        } catch {
+          return decision(request, {
+            decision: "deny",
+            authoritySource: "system-policy",
+            reason: "Action review evaluation failed closed.",
+            decidedAt,
+          });
+        }
       }
 
       if (request.effect === "external-egress" || request.effect === "device-control") {
