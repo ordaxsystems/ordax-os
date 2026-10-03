@@ -1,0 +1,52 @@
+name: Background Scheduler Foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/background-runtime.mjs'
+      - 'system/contracts/scheduler.mjs'
+      - 'system/services/background/**'
+      - 'system/services/scheduler/**'
+      - 'tests/test_background_scheduler_foundation.mjs'
+      - 'docs/SYSTEM-FOUNDATION.md'
+      - 'docs/contracts/system-foundation.json'
+      - '.github/workflows/background-scheduler-foundation.yml'
+  pull_request:
+    paths:
+      - 'system/contracts/background-runtime.mjs'
+      - 'system/contracts/scheduler.mjs'
+      - 'system/services/background/**'
+      - 'system/services/scheduler/**'
+      - 'tests/test_background_scheduler_foundation.mjs'
+      - 'docs/SYSTEM-FOUNDATION.md'
+      - 'docs/contracts/system-foundation.json'
+      - '.github/workflows/background-scheduler-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bounded-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Prove Node runtime is available
+        run: node --version
+
+      - name: Run bounded background and scheduler regressions
+        run: node --test tests/test_background_scheduler_foundation.mjs
+
+      - name: Validate machine-readable contracts
+        run: python tools/verify/json_contracts.py
+
+      - name: Validate module import boundaries
+        run: python tools/verify/module_boundaries.py
+
+      - name: Validate GitHub Actions supply chain
+        run: python tools/verify/github_actions_supply_chain.py
