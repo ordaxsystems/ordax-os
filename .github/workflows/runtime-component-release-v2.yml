@@ -6,6 +6,10 @@ on:
     paths:
       - 'tools/component-package/compatibility.mjs'
       - 'tools/component-package/release_v2.py'
+      - 'tools/runtime-component-channel/release_v2.go'
+      - 'tools/runtime-component-channel/release_v2_test.go'
+      - 'tools/runtime-component-channel/main.go'
+      - 'tools/runtime-component-channel/main_test.go'
       - 'system/contracts/component-update-compatibility.mjs'
       - 'system/services/components/compatibility/core.mjs'
       - 'tests/test_runtime_component_release_v2.py'
@@ -14,6 +18,10 @@ on:
     paths:
       - 'tools/component-package/compatibility.mjs'
       - 'tools/component-package/release_v2.py'
+      - 'tools/runtime-component-channel/release_v2.go'
+      - 'tools/runtime-component-channel/release_v2_test.go'
+      - 'tools/runtime-component-channel/main.go'
+      - 'tools/runtime-component-channel/main_test.go'
       - 'system/contracts/component-update-compatibility.mjs'
       - 'system/services/components/compatibility/core.mjs'
       - 'tests/test_runtime_component_release_v2.py'
@@ -26,20 +34,34 @@ permissions:
 jobs:
   release-v2:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: tools/runtime-component-channel/go.mod
+          cache: false
+
       - name: Validate helper syntax
         run: |
           set -euo pipefail
           node --check tools/component-package/compatibility.mjs
           python -m py_compile tools/component-package/release_v2.py
+          gofmt -d tools/runtime-component-channel/release_v2.go tools/runtime-component-channel/release_v2_test.go
+          test -z "$(gofmt -l tools/runtime-component-channel/release_v2.go tools/runtime-component-channel/release_v2_test.go)"
 
-      - name: Prove compatibility-bound release v2
+      - name: Prove compatibility-bound release v2 generator
         run: |
           set -euo pipefail
           python -m unittest tests/test_runtime_component_package.py tests/test_runtime_component_release_v2.py
+
+      - name: Prove release v1 and v2 trust boundaries together
+        working-directory: tools/runtime-component-channel
+        run: |
+          set -euo pipefail
+          go test ./...
