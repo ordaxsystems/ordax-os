@@ -29,6 +29,18 @@ It is built as the independent `public-site` artifact class. A site-only change 
 
 Keeping the portal in the monorepo does not make it part of the operating-system runtime. It has its own build recipe, candidate artifact and deployment boundary.
 
+## Localization boundary
+
+The public portal has its own localization owner under `sites/public/i18n/`; it does not import the OrdaX Surface localization runtime.
+
+PT-BR is the source/default locale and en-US is a complete bundled locale for the public MVP. The two catalogs must have exact message-key parity and interpolation-placeholder parity. Locale resolution is deterministic: a valid persisted explicit choice wins, then a supported browser locale, then PT-BR. The explicit selector persists to `ordax.public.locale`; unsupported values fall back safely to PT-BR.
+
+The same canonical routes serve both locales. Language selection changes presentation only: `<html lang>`, title/description metadata, visible copy, form labels/placeholders, status/empty/error messages, ARIA labels and the marketing playground follow the active locale. Identity availability, legal readiness, release authorization, same-origin policy and every fail-closed security decision are locale-independent.
+
+No remote translation service, remote JavaScript, remote CSS or remote font is part of this boundary. `tests/test_public_site_localization.mjs` is run by the Public Site Candidate workflow and rejects missing catalog coverage, key drift, placeholder drift, residual Portuguese in en-US and dynamic copy that escapes the locale owner.
+
+The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
+
 ## Route ownership
 
 - `/`: public landing page. It must never become the authenticated OrdaX workspace.
