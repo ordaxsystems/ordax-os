@@ -76,6 +76,11 @@
     return sourceIndex.get(normalize(source)) ?? null;
   }
 
+  function fromSource(source) {
+    const id = findMessageId(source);
+    return id ? t(id) : source;
+  }
+
   function textRecord(node) {
     let record = textSources.get(node);
     if (record) return record;
@@ -225,6 +230,7 @@
     getLocale,
     setLocale,
     t,
+    fromSource,
   });
 
   document.documentElement.lang = activeLocale;
