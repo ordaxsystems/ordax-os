@@ -3,8 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ACCOUNT_CLOSE_ENABLED = false;
 const CLOSE_CONFIRMATION = "close-account";
+const CLOSE_BAN_DURATION = "876000h";
 const MAX_BODY = 8 * 1024;
 const MAX_FRESH_TOKEN_AGE_SECONDS = 5 * 60;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function json(status: number, value: unknown) {
   return new Response(JSON.stringify(value) + "\n", {
@@ -78,6 +80,13 @@ function adminConfig() {
   return { url, serviceRole };
 }
 
+function exactlyOneRow(data: unknown) {
+  if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== "object") {
+    return null;
+  }
+  return data[0] as Record<string, unknown>;
+}
+
 Deno.serve(async (req: Request) => {
   const path = routePath(new URL(req.url));
 
@@ -85,8 +94,9 @@ Deno.serve(async (req: Request) => {
     return json(200, {
       status: "ok",
       service: "ordax-account-lifecycle",
-      version: 1,
+      version: 2,
       accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
+      durableCleanupRequired: true,
     });
   }
 
@@ -145,6 +155,38 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, serviceRole, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
+
+    // Persist cleanup authority and freeze cloud writes before touching Auth. The
+    // journal intentionally survives auth.users deletion and copies external blob
+    // references before any ON DELETE CASCADE can remove their metadata.
+    const { data: beginData, error: beginError } = await admin.rpc(
+      "ordax_begin_account_close_v1",
+      { p_subject_user_id: userId },
+    );
+    const close = exactlyOneRow(beginData);
+    const closeId = typeof close?.close_id === "string" ? close.close_id : "";
+    if (beginError || !UUID.test(closeId)) {
+      return error(
+        409,
+        "account-close-journal-unavailable",
+        "Não foi possível iniciar o fechamento seguro da conta.",
+      );
+    }
+
+    // A closing account must not be able to create a fresh session while its
+    // external-object cleanup is pending. This runs only on the server-side
+    // service-role client; the public gateway never receives this credential.
+    const { error: banError } = await admin.auth.admin.updateUserById(userId, {
+      ban_duration: CLOSE_BAN_DURATION,
+    });
+    if (banError) {
+      return error(
+        409,
+        "account-close-identity-freeze-failed",
+        "Não foi possível bloquear novas sessões durante o fechamento.",
+      );
+    }
+
     const { error: signOutError } = await admin.auth.admin.signOut(token, "global");
     if (signOutError) {
       return error(
@@ -153,13 +195,53 @@ Deno.serve(async (req: Request) => {
         "Não foi possível revogar as sessões da conta.",
       );
     }
+
+    const { data: verifyData, error: verifyError } = await admin.rpc(
+      "ordax_verify_account_close_cleanup_v1",
+      { p_close_id: closeId, p_subject_user_id: userId },
+    );
+    const verification = exactlyOneRow(verifyData);
+    if (verifyError || !verification) {
+      return error(
+        409,
+        "account-close-cleanup-state-unavailable",
+        "Não foi possível verificar a limpeza dos dados da conta.",
+      );
+    }
+
+    if (verification.ready_for_identity_delete !== true) {
+      const remaining = Number.isInteger(verification.remaining_cleanup_count)
+        ? verification.remaining_cleanup_count
+        : null;
+      return json(202, {
+        closed: false,
+        cleanupPending: true,
+        remainingCleanupCount: remaining,
+      });
+    }
+
+    // Identity deletion is the last destructive step. It is unreachable until
+    // the durable cleanup queue proves that every external provider object was
+    // deleted. Relational rows may then cascade without losing blob references.
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
     if (deleteError) {
       return error(409, "account-close-blocked", "Não foi possível concluir o fechamento da conta.");
+    }
+
+    const { data: markData, error: markError } = await admin.rpc(
+      "ordax_mark_account_closed_v1",
+      { p_close_id: closeId, p_subject_user_id: userId },
+    );
+    if (markError || markData !== true) {
+      return error(
+        503,
+        "account-close-journal-finalization-pending",
+        "A identidade foi removida, mas a finalização do comprovante de fechamento precisa ser reconciliada.",
+      );
     }
   } catch {
     return error(503, "account-close-unavailable", "O serviço de fechamento está indisponível.");
   }
 
-  return json(200, { closed: true });
+  return json(200, { closed: true, cleanupPending: false });
 });
