@@ -19,11 +19,19 @@ function observation(overrides = {}) {
   };
 }
 
-test("delivery policy covers every current first-party app exactly once", () => {
-  const appIds = listFirstPartyApps().map((app) => app.id).sort();
+test("delivery policy covers every current first-party app exactly once without service-to-app imports", () => {
+  const apps = listFirstPartyApps();
+  const appIds = apps.map((app) => app.id).sort();
   const policyIds = listFirstPartyAppDeliveryPolicies().map((policy) => policy.appId).sort();
   assert.deepEqual(policyIds, appIds);
   assert.equal(new Set(policyIds).size, policyIds.length);
+  for (const app of apps) {
+    assert.equal(
+      app.localization.packPolicy,
+      "component-scoped",
+      `${app.id}: independently delivered first-party apps must keep component-scoped localization`,
+    );
+  }
   assert.equal(getFirstPartyAppDeliveryPolicy("store"), null, "future Store UI must not be fabricated before it exists");
 });
 
