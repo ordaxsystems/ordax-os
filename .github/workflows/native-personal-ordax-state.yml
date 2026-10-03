@@ -1,0 +1,49 @@
+name: Native Personal OrdaX State Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/personal-ordax-native-state.json'
+      - 'system/surface/runtime/native_personal_ordax_state.py'
+      - 'system/surface/runtime/native_personal_ordax_endpoint.py'
+      - 'tests/test_personal_ordax_native_state.py'
+      - 'tests/test_personal_ordax_native_endpoint.py'
+      - '.github/workflows/native-personal-ordax-state.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/personal-ordax-native-state.json'
+      - 'system/surface/runtime/native_personal_ordax_state.py'
+      - 'system/surface/runtime/native_personal_ordax_endpoint.py'
+      - 'tests/test_personal_ordax_native_state.py'
+      - 'tests/test_personal_ordax_native_endpoint.py'
+      - '.github/workflows/native-personal-ordax-state.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-personal-ordax-state:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate modules and contract
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/personal-ordax-native-state.json >/dev/null
+          python -m py_compile \
+            system/surface/runtime/native_personal_ordax_state.py \
+            system/surface/runtime/native_personal_ordax_endpoint.py
+
+      - name: Prove private owner partitions CAS and fail-closed recovery
+        run: |
+          set -euo pipefail
+          python -m unittest \
+            tests.test_personal_ordax_native_state \
+            tests.test_personal_ordax_native_endpoint
