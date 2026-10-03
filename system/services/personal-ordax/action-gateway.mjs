@@ -3,6 +3,10 @@ import {
   validateActionRequest,
 } from "../../contracts/action-gateway.mjs";
 import {
+  assertActionPolicyPort,
+  validateActionPolicyVerdict,
+} from "../../contracts/action-policy.mjs";
+import {
   authorizeIntelligenceToolAction,
   defineIntelligenceTool,
   validateIntelligenceToolGrant,
@@ -49,6 +53,7 @@ export function createPersonalOrdaxActionGateway({
   toolResolver,
   grantResolver,
   readPolicy = null,
+  actionPolicyPort = null,
   now = Date.now,
 } = {}) {
   if (typeof toolResolver !== "function" || typeof grantResolver !== "function") {
@@ -57,6 +62,7 @@ export function createPersonalOrdaxActionGateway({
   if (readPolicy !== null && typeof readPolicy !== "function") {
     throw new TypeError("Personal OrdaX Action Gateway read policy must be a function");
   }
+  const actionPolicy = actionPolicyPort === null ? null : assertActionPolicyPort(actionPolicyPort);
   if (typeof now !== "function") {
     throw new TypeError("Personal OrdaX Action Gateway requires a clock function");
   }
@@ -83,6 +89,35 @@ export function createPersonalOrdaxActionGateway({
         });
       }
 
+      let policyOutcome = "allow-if-authorized";
+      if (actionPolicy !== null) {
+        try {
+          const verdict = validateActionPolicyVerdict(actionPolicy.evaluate(request));
+          if (verdict.workItemId !== request.workItemId || verdict.actionId !== request.actionId) {
+            throw new TypeError("Action Policy verdict is not bound to the exact request");
+          }
+          policyOutcome = verdict.outcome;
+        } catch {
+          return decision(request, {
+            decision: "deny",
+            authoritySource: "system-policy",
+            reason: "Action policy evaluation failed closed.",
+            decidedAt,
+          });
+        }
+      }
+
+      if (policyOutcome === "deny" || policyOutcome === "handoff-to-user") {
+        return decision(request, {
+          decision: "deny",
+          authoritySource: "system-policy",
+          reason: policyOutcome === "handoff-to-user"
+            ? "Action policy requires this operation to be handed off to the user."
+            : "Action policy denies this operation.",
+          decidedAt,
+        });
+      }
+
       if (request.effect === "external-egress" || request.effect === "device-control") {
         return decision(request, {
           decision: "deny",
@@ -93,7 +128,11 @@ export function createPersonalOrdaxActionGateway({
       }
 
       if (grantRef == null || grantRef === "") {
-        if (request.effect === "read" && readPolicy?.(request) === true) {
+        if (
+          policyOutcome !== "approval-required"
+          && request.effect === "read"
+          && readPolicy?.(request) === true
+        ) {
           return decision(request, {
             decision: "allow",
             authoritySource: "system-policy",
@@ -104,7 +143,9 @@ export function createPersonalOrdaxActionGateway({
         return decision(request, {
           decision: "approval-required",
           authoritySource: "intelligence-tool-grant",
-          reason: "Explicit scoped grant is required before this action can execute.",
+          reason: policyOutcome === "approval-required"
+            ? "Action policy requires explicit approval before existing authority may be used."
+            : "Explicit scoped grant is required before this action can execute.",
           decidedAt,
         });
       }
