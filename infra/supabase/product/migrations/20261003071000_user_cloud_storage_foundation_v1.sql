@@ -15,8 +15,7 @@ create table public.ordax_user_objects (
   state text not null default 'active' check (state in ('active','deleted')),
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
-  unique (provider, provider_bucket, provider_object_key),
-  check (space_id is null or private.ordax_can_access_space(space_id))
+  unique (provider, provider_bucket, provider_object_key)
 );
 
 create table private.ordax_user_upload_reservations (
@@ -71,6 +70,6 @@ using (
 comment on table public.ordax_user_objects is
   'OrdaX canonical metadata for explicitly selected private cloud objects. Provider bytes are not authorization state.';
 comment on table private.ordax_user_upload_reservations is
-  'Server-only bounded upload reservations. Clients receive only short-lived provider upload authorization after quota admission.';
+  'Server-only bounded upload reservations. Space/account authorization is checked by the server owner before reservation; clients receive only short-lived provider upload authorization after quota admission.';
 
 commit;
