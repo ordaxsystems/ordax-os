@@ -65,18 +65,26 @@ export function validateSchedule(value) {
   if (trigger.kind === "once" && source.missedRunPolicy !== "run-once") {
     throw new TypeError("One-shot schedules must use run-once missed-run policy");
   }
+  const maxRuns = integer(source.maxRuns, "Schedule max runs", 1, 1_000_000);
+  const runCount = integer(source.runCount ?? 0, "Schedule run count", 0, 1_000_000);
+  if (runCount > maxRuns) throw new TypeError("Schedule run count cannot exceed max runs");
+  const nextRunAt = optionalTimestamp(source.nextRunAt, "Schedule next run timestamp");
+  const enabled = source.enabled === true;
+  if (runCount === maxRuns && (enabled || nextRunAt !== null)) {
+    throw new TypeError("Exhausted schedule must be disabled and have no next run");
+  }
   return Object.freeze({
     schema: SCHEDULE_SCHEMA,
     scheduleId: text(source.scheduleId, "Schedule id", 160),
     ...normalizeOwner(source),
     workItemId: text(source.workItemId, "Schedule work item id", 160),
-    enabled: source.enabled === true,
+    enabled,
     timezone: text(source.timezone, "Schedule timezone", 128),
     trigger,
     missedRunPolicy: source.missedRunPolicy,
-    maxRuns: integer(source.maxRuns, "Schedule max runs", 1, 1_000_000),
-    runCount: integer(source.runCount ?? 0, "Schedule run count", 0, 1_000_000),
-    nextRunAt: optionalTimestamp(source.nextRunAt, "Schedule next run timestamp"),
+    maxRuns,
+    runCount,
+    nextRunAt,
     deduplicationKey: text(source.deduplicationKey, "Schedule deduplication key", 160),
     authority: "none",
   });
