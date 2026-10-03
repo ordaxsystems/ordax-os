@@ -1,5 +1,5 @@
 {
-  "$schema": "ordax.personal-ordax-native-state-contract/1",
+  "$schema": "prototype-ordax.personal-ordax-native-state/1",
   "status": "source-foundation-not-routed",
   "owner": "system/surface/runtime/native_personal_ordax_state.py",
   "endpoint_boundary": "system/surface/runtime/native_personal_ordax_endpoint.py",
