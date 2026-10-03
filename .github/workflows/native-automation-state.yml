@@ -1,0 +1,45 @@
+name: Native Automation State Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/native-automation-state.json'
+      - 'system/surface/runtime/native_automation_state.py'
+      - 'system/surface/runtime/native_automation_endpoint.py'
+      - 'tests/test_automation_native_state.py'
+      - 'tests/test_automation_native_endpoint.py'
+      - '.github/workflows/native-automation-state.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/native-automation-state.json'
+      - 'system/surface/runtime/native_automation_state.py'
+      - 'system/surface/runtime/native_automation_endpoint.py'
+      - 'tests/test_automation_native_state.py'
+      - 'tests/test_automation_native_endpoint.py'
+      - '.github/workflows/native-automation-state.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-automation-state:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate modules and contract
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/native-automation-state.json >/dev/null
+          python -m py_compile system/surface/runtime/native_automation_state.py system/surface/runtime/native_automation_endpoint.py
+
+      - name: Prove private atomic CAS and outbox persistence
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_automation_native_state tests.test_automation_native_endpoint

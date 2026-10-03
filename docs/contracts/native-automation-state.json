@@ -1,0 +1,49 @@
+{
+  "$schema": "prototype-ordax.native-automation-state/1",
+  "status": "native-state-owner-and-typed-endpoint-source-ready-host-route-not-wired",
+  "owner": "system/surface/runtime/native_automation_state.py",
+  "file": "/var/lib/ordax/automation-state.json",
+  "authority": {
+    "stores_authority": false,
+    "background_run_authority": "none",
+    "schedule_authority": "none",
+    "occurrence_authority": "none"
+  },
+  "durability": {
+    "private_mode": "0600",
+    "directory_mode": "0700",
+    "nofollow_reads_and_temporary_writes": true,
+    "fsync_file_before_replace": true,
+    "atomic_replace": true,
+    "fsync_directory_after_replace": true,
+    "process_thread_lock": true,
+    "cross_process_flock": true,
+    "generation_monotonic": true
+  },
+  "transactions": {
+    "background_compare_and_swap": true,
+    "schedule_compare_and_swap": true,
+    "schedule_occurrence_outbox_atomic": true,
+    "occurrence_ack_atomic": true,
+    "last_write_wins": false
+  },
+  "bounds": {
+    "max_state_bytes": 8388608,
+    "max_background_runs": 1024,
+    "max_schedules": 1024,
+    "max_pending_occurrences": 2048,
+    "max_request_body_bytes": 524288
+  },
+  "endpoint": {
+    "raw_snapshot_replace": false,
+    "typed_mutations_only": true,
+    "host_route_wired": false,
+    "surface_bridge_enabled": false
+  },
+  "rollout": {
+    "background_production_store_enabled": false,
+    "scheduler_production_store_enabled": false,
+    "personal_background_enabled": false,
+    "public_autonomy_enabled": false
+  }
+}
