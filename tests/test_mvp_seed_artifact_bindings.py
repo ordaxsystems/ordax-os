@@ -13,6 +13,9 @@ CREATOR_WORKFLOW = ROOT / ".github/workflows/creator-payload-candidate.yml"
 FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
 ASSEMBLER = ROOT / "tools/creator/assemble.py"
 
+CURRENT_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
+PREVIOUS_REFRESH_TARGET = "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78"
+
 
 class MVPSeedArtifactBindingsTests(unittest.TestCase):
     @classmethod
@@ -43,9 +46,10 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
             )
         )
         self.assertEqual(artifact["sha256"], "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66")
-        self.assertEqual(refresh["target_sha256"], "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78")
+        self.assertEqual(refresh["target_sha256"], CURRENT_REFRESH_TARGET)
         self.assertNotEqual(artifact["sha256"], refresh["target_sha256"])
         self.assertIn(artifact["sha256"], refresh["allowed_from_sha256"])
+        self.assertIn(PREVIOUS_REFRESH_TARGET, refresh["allowed_from_sha256"])
         self.assertIn("721f8a3fcec1ccfd2dd75c4d633ff2efd960909287c5e11fcf9abf19e5372740", refresh["allowed_from_sha256"])
         self.assertIn("102c9aeb531b582b4b60d8e808da7f50871c3ea2353c2dc82bd6373f9edc28da", refresh["allowed_from_sha256"])
         self.assertIn("ece358c676d6248798bc53f4f5ac52a4e6bc06cda3111b7978acbc917059bf4c", refresh["allowed_from_sha256"])

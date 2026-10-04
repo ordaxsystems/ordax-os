@@ -12,6 +12,10 @@ BASE = ROOT / "docs/contracts/base-update.json"
 WORKFLOW = ROOT / ".github/workflows/release-agent-refresh.yml"
 OWNER = ROOT / "system/services/base-update/orchestrator.py"
 
+CURRENT_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
+PREVIOUS_REFRESH_TARGET = "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78"
+CURRENT_SEED = "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66"
+
 
 class ReleaseAgentRefreshTests(unittest.TestCase):
     def test_descriptor_is_one_way_hash_addressed_and_non_destructive(self):
@@ -27,12 +31,15 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
             descriptor["target_path"],
             "/ordax/bootstrap/release-acquisition/ordax-release-agent",
         )
+        self.assertEqual(target, CURRENT_REFRESH_TARGET)
+        self.assertEqual(descriptor["target_size"], 7245984)
         self.assertEqual(len(target), 64)
         self.assertEqual(descriptor["mode"], "0755")
         self.assertFalse(descriptor["physical_media_rewrite_required"])
         self.assertFalse(descriptor["raw_device_write_allowed"])
         self.assertEqual(descriptor["unknown_installed_hash_policy"], "block")
         self.assertNotIn(target, descriptor["allowed_from_sha256"])
+        self.assertIn(PREVIOUS_REFRESH_TARGET, descriptor["allowed_from_sha256"])
         self.assertEqual(
             descriptor["download_url"],
             (
@@ -52,10 +59,11 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertEqual(artifact["target_path"], descriptor["target_path"])
         self.assertEqual(artifact["mode"], descriptor["mode"])
         self.assertFalse(minimal["physical_write_allowed"])
-        self.assertEqual(seed, "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66")
-        self.assertEqual(target, "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78")
+        self.assertEqual(seed, CURRENT_SEED)
+        self.assertEqual(target, CURRENT_REFRESH_TARGET)
         self.assertNotEqual(seed, target)
         self.assertIn(seed, descriptor["allowed_from_sha256"])
+        self.assertIn(PREVIOUS_REFRESH_TARGET, descriptor["allowed_from_sha256"])
         self.assertIn("721f8a3fcec1ccfd2dd75c4d633ff2efd960909287c5e11fcf9abf19e5372740", descriptor["allowed_from_sha256"])
         self.assertIn("102c9aeb531b582b4b60d8e808da7f50871c3ea2353c2dc82bd6373f9edc28da", descriptor["allowed_from_sha256"])
 
@@ -79,10 +87,7 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertTrue(refresh["seed_media_agent_may_precede_refresh_target"])
         self.assertTrue(refresh["seed_media_agent_must_be_recognized_migration_source"])
         self.assertTrue(refresh["refresh_target_may_advance_without_physical_media_rewrite"])
-        self.assertEqual(
-            refresh["current_seed_sha256"],
-            "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66",
-        )
+        self.assertEqual(refresh["current_seed_sha256"], CURRENT_SEED)
         self.assertTrue(refresh["current_seed_includes_inspect"])
         self.assertIn(
             "ba633274ee2b9497a75a1b287979900ac31611ff93ec52179bd704daf0a6dbce",
@@ -97,10 +102,9 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
             refresh["legacy_seed_sha256"],
         )
         self.assertTrue(refresh["current_seed_includes_activate_exact"])
-        self.assertEqual(
-            refresh["current_refresh_target_sha256"],
-            "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78",
-        )
+        self.assertEqual(refresh["current_refresh_target_sha256"], CURRENT_REFRESH_TARGET)
+        self.assertEqual(refresh["previous_refresh_target_sha256"], PREVIOUS_REFRESH_TARGET)
+        self.assertTrue(refresh["previous_refresh_target_refreshes_without_physical_media_rewrite"])
         self.assertTrue(refresh["current_seed_includes_portable_v3_materialize"])
         self.assertTrue(refresh["current_seed_includes_portable_v3_verify_exact"])
         self.assertTrue(refresh["current_refresh_target_includes_portable_v3_materialize"])
