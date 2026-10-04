@@ -46,7 +46,11 @@
     "source_version": "component-semver",
     "source_commit_is_version": false,
     "stable_base_is_payload_authority": false,
-    "release_signing_key_is_publisher_principal": false
+    "release_signing_key_is_publisher_principal": false,
+    "producer_accepts_source_digest_argument": false,
+    "verified_handoff_path": "/run/portable-release-verify.json",
+    "verified_handoff_requires_artifact_sha256": true,
+    "boot_handoff_artifact_sha256_connected": false
   },
   "capability_boundary": {
     "receipt_is_runtime_capability": false,
@@ -58,6 +62,8 @@
   },
   "implementation": {
     "native_receipt_consumer": "system/surface/runtime/native_app_install_identity.py",
+    "producer_core": "system/surface/runtime/native_app_install_identity_producer.py",
+    "producer_core_implemented": true,
     "producer_implemented": false,
     "production_external_publisher_trust_implemented": false,
     "native_app_data_route_implemented": false,
