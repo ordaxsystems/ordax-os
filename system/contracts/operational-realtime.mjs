@@ -1,27 +1,22 @@
 import { validateDeviceCapabilityGrant } from "./device-agent.mjs";
+import {
+  DEVICE_ACTION_RECEIPT_SCHEMA,
+  DEVICE_ACTION_REQUEST_SCHEMA,
+  validateDeviceActionReceipt,
+  validateDeviceActionRequest,
+} from "./device-action-envelope.mjs";
+
+export {
+  DEVICE_ACTION_RECEIPT_SCHEMA,
+  DEVICE_ACTION_REQUEST_SCHEMA,
+  validateDeviceActionReceipt,
+  validateDeviceActionRequest,
+} from "./device-action-envelope.mjs";
 
 export const OPERATIONAL_EVENT_SCHEMA = "ordax.operational-event/1";
 export const OPERATIONAL_SUBSCRIPTION_SCHEMA = "ordax.operational-subscription/1";
-export const DEVICE_ACTION_REQUEST_SCHEMA = "ordax.device-action-request/1";
-export const DEVICE_ACTION_RECEIPT_SCHEMA = "ordax.device-action-receipt/1";
 
-const CLIENTS = new Set(["ordax-web", "ordax-mobile", "ordax-desktop", "ordax-native", "mcp"]);
 const SOURCE_KINDS = new Set(["server", "client", "device"]);
-const ACTION_STATES = new Set([
-  "accepted",
-  "running",
-  "succeeded",
-  "failed",
-  "rejected",
-  "expired",
-  "cancelled",
-]);
-const FORBIDDEN_CAPABILITIES = new Set([
-  "shell.generic",
-  "disk.raw",
-  "release.signing-key",
-  "admin.implicit",
-]);
 const FORBIDDEN_PAYLOAD_KEYS = new Set([
   "authorization",
   "cookie",
@@ -31,7 +26,6 @@ const FORBIDDEN_PAYLOAD_KEYS = new Set([
 ]);
 const DOMAIN_RE = /^[a-z][a-z0-9.-]{0,95}$/;
 const TYPE_RE = /^[a-z][a-z0-9._-]{0,95}$/;
-const OPERATION_RE = /^[a-z][a-z0-9._-]{0,95}$/;
 const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 
 function boundedText(value, label, max = 160) {
@@ -159,50 +153,6 @@ export function validateOperationalSubscription(value) {
   });
 }
 
-export function validateDeviceActionRequest(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("Device action request must be an object");
-  }
-  if (value.schema !== DEVICE_ACTION_REQUEST_SCHEMA) {
-    throw new TypeError("Device action request schema is incompatible");
-  }
-  if (!CLIENTS.has(value.client)) {
-    throw new TypeError("Device action client is invalid");
-  }
-  const capability = boundedText(value.capability, "Device action capability", 120);
-  if (FORBIDDEN_CAPABILITIES.has(capability)) {
-    throw new TypeError("Device action capability is forbidden");
-  }
-  if (typeof value.operation !== "string" || !OPERATION_RE.test(value.operation)) {
-    throw new TypeError("Device action operation is invalid");
-  }
-
-  const requestedAt = safeInteger(value.requestedAt, "Device action requestedAt");
-  const expiresAt = safeInteger(value.expiresAt, "Device action expiresAt");
-  if (expiresAt <= requestedAt) {
-    throw new TypeError("Device action expiresAt must be after requestedAt");
-  }
-
-  return Object.freeze({
-    schema: DEVICE_ACTION_REQUEST_SCHEMA,
-    actionId: boundedText(value.actionId, "Device action id", 128),
-    idempotencyKey: boundedText(value.idempotencyKey, "Device action idempotency key", 128),
-    accountId: boundedText(value.accountId, "Device action account id", 128),
-    spaceId: boundedText(value.spaceId, "Device action Space id", 128),
-    projectId: boundedText(value.projectId, "Device action project id", 128),
-    deviceId: boundedText(value.deviceId, "Device action device id", 128),
-    client: value.client,
-    capability,
-    operation: value.operation,
-    parameters: validateStructuredValue(value.parameters ?? {}, "Device action parameters"),
-    requestedAt,
-    expiresAt,
-    expectedDeviceRevision: value.expectedDeviceRevision == null
-      ? null
-      : safeInteger(value.expectedDeviceRevision, "Device action expectedDeviceRevision"),
-  });
-}
-
 export function validateAuthorizedDeviceActionRequest(value, grantValue) {
   const request = validateDeviceActionRequest(value);
   const grant = validateDeviceCapabilityGrant(grantValue);
@@ -224,34 +174,4 @@ export function validateAuthorizedDeviceActionRequest(value, grantValue) {
     throw new TypeError("Device action requires an approved write grant");
   }
   return request;
-}
-
-export function validateDeviceActionReceipt(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("Device action receipt must be an object");
-  }
-  if (value.schema !== DEVICE_ACTION_RECEIPT_SCHEMA) {
-    throw new TypeError("Device action receipt schema is incompatible");
-  }
-  if (!ACTION_STATES.has(value.state)) {
-    throw new TypeError("Device action receipt state is invalid");
-  }
-
-  return Object.freeze({
-    schema: DEVICE_ACTION_RECEIPT_SCHEMA,
-    actionId: boundedText(value.actionId, "Device action receipt action id", 128),
-    deviceId: boundedText(value.deviceId, "Device action receipt device id", 128),
-    state: value.state,
-    acceptedAt: value.acceptedAt == null
-      ? null
-      : safeInteger(value.acceptedAt, "Device action acceptedAt"),
-    completedAt: value.completedAt == null
-      ? null
-      : safeInteger(value.completedAt, "Device action completedAt"),
-    deviceRevision: value.deviceRevision == null
-      ? null
-      : safeInteger(value.deviceRevision, "Device action deviceRevision"),
-    resultCode: nullableBoundedText(value.resultCode, "Device action resultCode", 96),
-    message: nullableBoundedText(value.message, "Device action receipt message", 240),
-  });
 }

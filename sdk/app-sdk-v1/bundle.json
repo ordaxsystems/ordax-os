@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.1.0",
+  "bundle_version": "1.2.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -24,6 +24,34 @@
       "schema": "ordax.component-runtime/1",
       "source_git_blob": "32dcacae6962b48e17b0abac0d64355aca1cecd5",
       "source_path": "system/contracts/component-runtime.mjs"
+    },
+    {
+      "major": 1,
+      "name": "device-action-receipt",
+      "schema": "ordax.device-action-receipt/1",
+      "source_git_blob": "9b04afd2f5c3b5fd56ffedacf655696d1e7996c6",
+      "source_path": "system/contracts/device-action-envelope.mjs"
+    },
+    {
+      "major": 1,
+      "name": "device-action-request",
+      "schema": "ordax.device-action-request/1",
+      "source_git_blob": "9b04afd2f5c3b5fd56ffedacf655696d1e7996c6",
+      "source_path": "system/contracts/device-action-envelope.mjs"
+    },
+    {
+      "major": 1,
+      "name": "device-capabilities",
+      "schema": "ordax.device-agent-capabilities/1",
+      "source_git_blob": "e6317d3826102f5283a840139b48d11d95564752",
+      "source_path": "system/contracts/device-capabilities.mjs"
+    },
+    {
+      "major": 1,
+      "name": "device-capability-reader",
+      "schema": "ordax.device-agent-capability-reader/1",
+      "source_git_blob": "e6317d3826102f5283a840139b48d11d95564752",
+      "source_path": "system/contracts/device-capabilities.mjs"
     },
     {
       "major": 11,
@@ -66,6 +94,20 @@
       "schema": "ordax.memory/1",
       "source_git_blob": "3b6e0b344379dd599fa7e0b77eba51020153610d",
       "source_path": "system/contracts/memory.mjs"
+    },
+    {
+      "major": 1,
+      "name": "project-catalog",
+      "schema": "ordax.project-catalog/1",
+      "source_git_blob": "2d2cc1359f6af92539c32bab61adf1ca724710d9",
+      "source_path": "system/contracts/project-catalog.mjs"
+    },
+    {
+      "major": 1,
+      "name": "studio-runtime",
+      "schema": "ordax.studio-runtime/1",
+      "source_git_blob": "266be800ab09e9561efa97c38c9a108a9984d016",
+      "source_path": "system/contracts/studio-runtime.mjs"
     },
     {
       "major": 4,
