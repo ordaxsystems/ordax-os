@@ -361,6 +361,34 @@ def _cleanup_unreferenced_blobs(manifest: dict, root: str) -> None:
 
 
 @contextmanager
+def _shared_partition_lock_if_present(identity: dict, root: str):
+    paths = _existing_partition_paths(root, identity)
+    if paths is None:
+        yield False
+        return
+    _, manifest_path, lock_path, _ = paths
+    if not os.path.lexists(lock_path):
+        if os.path.lexists(manifest_path):
+            raise ValueError("App Data partition lock is missing")
+        yield False
+        return
+    _validate_private_regular(lock_path, "App Data partition lock")
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(lock_path, flags)
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) & 0o077:
+            raise ValueError("App Data partition lock is unsafe")
+        fcntl.flock(descriptor, fcntl.LOCK_SH)
+        yield True
+    finally:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
+
+
+@contextmanager
 def _exclusive_partition_lock(identity: dict, root: str):
     partition, _, lock_path, _ = _ensure_partition_directories(root, identity)
     if os.path.lexists(lock_path):
@@ -384,16 +412,19 @@ def _exclusive_partition_lock(identity: dict, root: str):
 def read_app_data(identity: object, key: object, root: str = DEFAULT_APP_DATA_ROOT) -> dict:
     bound = _identity(identity)
     validated_key = _key(key)
-    manifest, _ = _read_manifest(bound, root)
-    record = manifest["entries"].get(validated_key)
-    if record is None:
-        return {"revision": manifest["revision"], "found": False, "key": validated_key, "value": None}
-    paths = _existing_partition_paths(root, bound)
-    if paths is None:
-        raise ValueError("App Data partition disappeared during read")
-    _, _, _, blobs = paths
-    value = _verify_blob(blobs, record)
-    return {"revision": manifest["revision"], "found": True, "key": validated_key, "value": value}
+    with _shared_partition_lock_if_present(bound, root) as locked:
+        if not locked:
+            return {"revision": 0, "found": False, "key": validated_key, "value": None}
+        manifest, _ = _read_manifest(bound, root)
+        record = manifest["entries"].get(validated_key)
+        if record is None:
+            return {"revision": manifest["revision"], "found": False, "key": validated_key, "value": None}
+        paths = _existing_partition_paths(root, bound)
+        if paths is None:
+            raise ValueError("App Data partition disappeared during read")
+        _, _, _, blobs = paths
+        value = _verify_blob(blobs, record)
+        return {"revision": manifest["revision"], "found": True, "key": validated_key, "value": value}
 
 
 def list_app_data(
