@@ -15,6 +15,7 @@ import {
   DEVICE_ACTION_RECEIPT_SCHEMA,
   DEVICE_ACTION_REQUEST_SCHEMA,
 } from "../system/contracts/operational-realtime.mjs";
+import { STUDIO_ACTION_CATALOG_SCHEMA } from "../system/contracts/studio-action-catalog.mjs";
 import {
   STUDIO_DEVICE_ACTION_AUTHORIZATION_SCHEMA,
 } from "../system/services/device-agent/studio-action-authorizer.mjs";
@@ -50,8 +51,11 @@ test("Studio discovery remains read-only while authorization is real and dispatc
   assert.equal(contract.runtime_source.historical_incubation_repository, deviceAgent.historical_incubation_repository);
   assert.equal(contract.runtime_source.device_agent_schema, DEVICE_AGENT_PORT_SCHEMA);
   assert.equal(contract.runtime_source.capability_reader_schema, DEVICE_AGENT_CAPABILITY_READER_SCHEMA);
+  assert.equal(contract.runtime_source.action_catalog_schema, STUDIO_ACTION_CATALOG_SCHEMA);
+  assert.equal(contract.runtime_source.same_action_catalog_required, true);
   assert.equal(contract.capability_discovery.surface_receives_capability_reader_only, true);
   assert.equal(contract.capability_discovery.surface_receives_raw_execute, false);
+  assert.equal(contract.capability_discovery.public_action_catalog_is_authority, false);
   assert.equal(contract.mutations.direct_device_agent_execute_from_surface_forbidden, true);
   assert.equal(contract.mutations.runtime_enabled, false);
   assert.equal(contract.mutations.authorization_runtime_enabled, true);
@@ -60,6 +64,8 @@ test("Studio discovery remains read-only while authorization is real and dispatc
   assert.equal(contract.mutations.authorization_dispatch_authority, "none");
   assert.equal(contract.mutations.request_schema, DEVICE_ACTION_REQUEST_SCHEMA);
   assert.equal(contract.mutations.receipt_schema, DEVICE_ACTION_RECEIPT_SCHEMA);
+  assert.equal(contract.mutations.action_catalog_schema, STUDIO_ACTION_CATALOG_SCHEMA);
+  assert.equal(contract.mutations.capability_operation_binding_required, true);
   assert.equal(contract.mutations.same_action_gateway_required, true);
   assert.equal(contract.activation_gate.authorization_only, true);
   assert.equal(contract.activation_gate.does_not_enable_surface_mutations, true);
