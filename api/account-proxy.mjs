@@ -2,6 +2,8 @@ const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
 const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
+const PROXY_SECRET_RE = /^[A-Za-z0-9_-]{32,128}$/;
+const EDGE_ADDRESS_RE = /^[0-9A-Fa-f:.]{3,64}$/;
 const PASSTHROUGH_REQUEST_HEADERS = [
   "accept",
   "content-type",
@@ -71,6 +73,19 @@ export function normalizeProductPath(raw) {
   return `${parsed.pathname}${parsed.search}`;
 }
 
+export function normalizeProxySecret(raw) {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  return PROXY_SECRET_RE.test(value) ? value : null;
+}
+
+export function normalizeTrustedEdgeAddress(raw) {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  if (!EDGE_ADDRESS_RE.test(value) || value.includes(",")) return null;
+  return value;
+}
+
 function copyResponseHeaders(upstream) {
   const headers = new Headers();
   headers.set("cache-control", "no-store, max-age=0");
@@ -101,6 +116,7 @@ export async function proxyPublicAccountRequest(
   request,
   {
     gatewayUrl = process.env.ORDAX_ACCOUNT_GATEWAY_URL,
+    proxySecret = process.env.ORDAX_PUBLIC_PROXY_SECRET,
     timeoutMs = DEFAULT_TIMEOUT_MS,
   } = {},
 ) {
@@ -118,6 +134,9 @@ export async function proxyPublicAccountRequest(
   const gateway = normalizeGatewayUrl(gatewayUrl);
   if (!gateway) return error(503, "account-gateway-unconfigured");
 
+  const trustedProxySecret = normalizeProxySecret(proxySecret);
+  if (!trustedProxySecret) return error(503, "public-proxy-auth-unconfigured");
+
   let body;
   try {
     body = await boundedBody(request);
@@ -132,18 +151,22 @@ export async function proxyPublicAccountRequest(
     if (value) headers.set(name, value);
   }
 
-  const realIp = (request.headers.get("x-forwarded-for") ?? "").trim();
+  const realIp = normalizeTrustedEdgeAddress(request.headers.get("x-forwarded-for"));
   const host = (request.headers.get("host") ?? incoming.host).trim();
   if (!realIp || !host) return error(400, "trusted-edge-context-required");
 
   // Vercel overwrites x-forwarded-for at its edge, so this value cannot be
-  // selected by an arbitrary Internet client. Never forward a client-provided
-  // Authorization header or provider credential through this boundary.
+  // selected by an arbitrary Internet client. The dedicated OrdaX header is
+  // authenticated separately by the gateway before it is trusted for quotas.
+  // Never forward browser-supplied authorization, proxy credentials or client
+  // address assertions through this boundary.
   headers.set("x-forwarded-for", realIp);
   headers.set("x-real-ip", realIp);
   headers.set("x-forwarded-host", host);
   headers.set("x-forwarded-proto", "https");
   headers.set("x-ordax-public-site", "1");
+  headers.set("x-ordax-client-address", realIp);
+  headers.set("x-ordax-public-proxy-secret", trustedProxySecret);
 
   const target = new URL(`${gateway.pathname}${productPath}`, gateway.origin);
   let upstream;
