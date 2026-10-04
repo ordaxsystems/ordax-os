@@ -1,0 +1,44 @@
+{
+  "$schema": "prototype-ordax.native-app-data-binding/1",
+  "status": "broker-core-dormant",
+  "public_app_contract": "ordax.app-data/1",
+  "verified_identity_contract": "ordax.verified-app-install-identity/1",
+  "scope": "device-local-private-app-data",
+  "binding": {
+    "mint_input": "trusted-exact-receipt-sha256-only",
+    "raw_identity_mint_allowed": false,
+    "request_identity_fields_allowed": false,
+    "capability_kind": "ephemeral-opaque-path-segment",
+    "capability_entropy_bits": 256,
+    "capability_published_in_global_native_session": false,
+    "max_active_bindings_default": 64,
+    "same_receipt_is_idempotent": true,
+    "new_receipt_same_durable_identity_rotates_capability": true,
+    "old_capability_revoked_on_rotation": true,
+    "publisher_principal_partitions_same_app_id": true
+  },
+  "app_facing_surface": {
+    "receives_typed_port_only": true,
+    "receives_endpoint_property": false,
+    "receives_receipt_sha256": false,
+    "transport_identity_closed_by_trusted_composition": true,
+    "same_realm_third_party_isolation_claimed": false,
+    "third_party_enablement_requires_separate_realm_or_origin": true
+  },
+  "transport": {
+    "endpoint_prefix": "/__ordax/native/app-data/",
+    "http_method": "POST",
+    "identity_from_request_body": false,
+    "typed_request_owner": "system/surface/runtime/native_app_data_endpoint.py",
+    "durable_store_owner": "system/surface/runtime/native_app_data.py",
+    "host_route_connected": false
+  },
+  "non_goals": [
+    "package-signature-verification",
+    "receipt-production",
+    "third-party-sandboxing",
+    "account-sync",
+    "credentials-storage",
+    "notes-cutover"
+  ]
+}
