@@ -1,9 +1,16 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.0.0",
+  "bundle_version": "1.1.0",
   "compatibility_policy": "contract-major",
   "contracts": [
+    {
+      "major": 1,
+      "name": "app-activation",
+      "schema": "ordax.app-activation/1",
+      "source_git_blob": "1de6af71e6f20b14f3d7892d4d4758d23a0d1e90",
+      "source_path": "system/contracts/app-activation.mjs"
+    },
     {
       "major": 1,
       "name": "component-manifest",
@@ -13,10 +20,38 @@
     },
     {
       "major": 1,
+      "name": "component-runtime",
+      "schema": "ordax.component-runtime/1",
+      "source_git_blob": "32dcacae6962b48e17b0abac0d64355aca1cecd5",
+      "source_path": "system/contracts/component-runtime.mjs"
+    },
+    {
+      "major": 11,
+      "name": "file-space",
+      "schema": "ordax.file-space/11",
+      "source_git_blob": "7a06d1a372b29b50ed8521ac9f7bd98cd11d288f",
+      "source_path": "system/contracts/file-space.mjs"
+    },
+    {
+      "major": 1,
+      "name": "first-party-app-delivery",
+      "schema": "ordax.first-party-app-delivery-policy/1",
+      "source_git_blob": "12951c15983ec5237561c9c1b07e8eec9bb58515",
+      "source_path": "system/contracts/first-party-app-delivery.mjs"
+    },
+    {
+      "major": 1,
       "name": "intelligence",
       "schema": "ordax.intelligence/1",
       "source_git_blob": "3ffeac788caed4867880baaefa0f3769eac7c277",
       "source_path": "system/contracts/intelligence.mjs"
+    },
+    {
+      "major": 1,
+      "name": "localization",
+      "schema": "ordax.localization/1",
+      "source_git_blob": "47fe573bf8b506e741c15b5230f9908c74d80920",
+      "source_path": "system/contracts/localization.mjs"
     },
     {
       "major": 1,
@@ -31,6 +66,13 @@
       "schema": "ordax.memory/1",
       "source_git_blob": "3b6e0b344379dd599fa7e0b77eba51020153610d",
       "source_path": "system/contracts/memory.mjs"
+    },
+    {
+      "major": 4,
+      "name": "surface-render-lifecycle",
+      "schema": "ordax.surface-render-lifecycle/4",
+      "source_git_blob": "c80ac1e005df08e627ada845f3939597a69247c6",
+      "source_path": "system/contracts/surface-render-lifecycle.mjs"
     }
   ]
 }
