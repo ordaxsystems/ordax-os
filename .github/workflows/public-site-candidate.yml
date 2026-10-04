@@ -6,6 +6,8 @@ on:
     paths:
       - 'sites/public/**'
       - 'deploy/public-site/**'
+      - 'api/account-proxy.mjs'
+      - 'vercel.json'
       - 'tools/public-site/**'
       - 'docs/PUBLIC-SITE.md'
       - 'docs/RELEASE-COMPLIANCE.md'
@@ -33,6 +35,7 @@ on:
       - 'tests/test_public_identity_gateway.py'
       - 'tests/test_public_site_runtime_smoke.py'
       - 'tests/test_public_site_deployment.py'
+      - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_legal_readiness.py'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
@@ -44,6 +47,8 @@ on:
     paths:
       - 'sites/public/**'
       - 'deploy/public-site/**'
+      - 'api/account-proxy.mjs'
+      - 'vercel.json'
       - 'tools/public-site/**'
       - 'docs/PUBLIC-SITE.md'
       - 'docs/RELEASE-COMPLIANCE.md'
@@ -71,6 +76,7 @@ on:
       - 'tests/test_public_identity_gateway.py'
       - 'tests/test_public_site_runtime_smoke.py'
       - 'tests/test_public_site_deployment.py'
+      - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_legal_readiness.py'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
@@ -105,6 +111,7 @@ jobs:
           python tools/public-site/build.py check
           python tools/public-site/auth_activation_preflight.py check
           node tests/test_public_site_localization.mjs
+          node --test tests/test_public_site_vercel_proxy.mjs
           python -m unittest tests.test_public_site_contract -v
           python -m unittest tests.test_public_release_catalog -v
           python -m unittest tests.test_public_identity_backend_prep -v

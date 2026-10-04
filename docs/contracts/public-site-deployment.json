@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "host-neutral-same-origin-adapter-source-ready-not-deployed",
+  "status": "host-neutral-and-vercel-same-origin-adapters-source-ready-not-deployed",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -15,6 +15,28 @@
       "::1"
     ],
     "public_auth_rate_limit_source_ready": true,
+    "public_auth_rate_limit_deployed": false
+  },
+  "vercel_adapter": {
+    "status": "source-ready-not-deployed",
+    "project_config_source": "vercel.json",
+    "function_source": "api/account-proxy.mjs",
+    "static_output_directory": "sites/public",
+    "identity_prefix": "/auth/",
+    "sync_prefix": "/sync/",
+    "provider_specific_browser_api": false,
+    "account_request_marker_header": "X-OrdaX-Public-Site",
+    "account_request_marker_value": "1",
+    "trusted_real_ip_header": "x-forwarded-for",
+    "trusted_real_ip_property": "vercel-edge-overwrites-client-supplied-value",
+    "authorization_header_forwarded": false,
+    "maximum_request_body_bytes": 65536,
+    "gateway_url_environment_variable": "ORDAX_ACCOUNT_GATEWAY_URL",
+    "gateway_url_must_be_https": true,
+    "gateway_url_path_suffix": "/functions/v1/ordax-account-gateway",
+    "upstream_timeout_milliseconds": 15000,
+    "set_cookie_preserved": true,
+    "provider_cors_forwarded": false,
     "public_auth_rate_limit_deployed": false
   },
   "routing": {
@@ -73,7 +95,7 @@
     "recovery_completion_must_remain_server_owned": true,
     "recovery_tokens_must_not_enter_browser_javascript": true,
     "tls_terminator_must_append_real_client_ip": true,
-    "adapter_must_trust_only_loopback_real_ip_source": true,
+    "adapter_must_use_platform_trusted_real_ip_source": true,
     "public_auth_rate_limits_required": true
   },
   "security_rate_limits": {
