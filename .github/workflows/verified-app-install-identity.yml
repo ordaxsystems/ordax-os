@@ -5,18 +5,22 @@ on:
     paths:
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_install_identity_producer.py'
+      - 'system/services/apps/first-party-identities.json'
       - 'docs/contracts/verified-app-install-identity.json'
       - 'tests/test_native_app_install_identity.py'
       - 'tests/test_native_app_install_identity_producer.py'
+      - 'tests/test_first_party_identity_inventory.mjs'
       - '.github/workflows/verified-app-install-identity.yml'
   push:
     branches: [main]
     paths:
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_install_identity_producer.py'
+      - 'system/services/apps/first-party-identities.json'
       - 'docs/contracts/verified-app-install-identity.json'
       - 'tests/test_native_app_install_identity.py'
       - 'tests/test_native_app_install_identity_producer.py'
+      - 'tests/test_first_party_identity_inventory.mjs'
       - '.github/workflows/verified-app-install-identity.yml'
 
 permissions:
@@ -36,7 +40,11 @@ jobs:
           set -euo pipefail
           python3 -m py_compile system/surface/runtime/native_app_install_identity.py
           python3 -m py_compile system/surface/runtime/native_app_install_identity_producer.py
+          python3 -m json.tool system/services/apps/first-party-identities.json >/dev/null
           python3 -m json.tool docs/contracts/verified-app-install-identity.json >/dev/null
+
+      - name: Prove first-party identity inventory matches component catalog
+        run: node --test tests/test_first_party_identity_inventory.mjs
 
       - name: Prove verified identity receipt boundary and dormant producer
         run: |
