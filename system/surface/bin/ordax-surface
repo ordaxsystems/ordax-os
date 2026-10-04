@@ -1289,6 +1289,7 @@ start_network_broker || echo "ordax-surface: native Wi-Fi management broker unav
 start_native_install_broker || echo "ordax-surface: Native install discovery broker unavailable; installer remains disabled" >>"$HOST_LOG"
 [ -f "$SYSTEM_ROOT/composition/native/index.html" ] || fallback_with_reason "native Surface composition is missing: $SYSTEM_ROOT/composition/native/index.html"
 [ -f "$SYSTEM_ROOT/surface/runtime/native_host_server.py" ] || fallback_with_reason "native Surface host server is missing: $SYSTEM_ROOT/surface/runtime/native_host_server.py"
+[ -f "$SYSTEM_ROOT/surface/runtime/native_app_data_runtime.py" ] || fallback_with_reason "private App Data Native runtime is missing: $SYSTEM_ROOT/surface/runtime/native_app_data_runtime.py"
 [ -f "$SYSTEM_ROOT/surface/runtime/native_app_install_identity_bootstrap.py" ] || fallback_with_reason "verified app install identity bootstrap is missing: $SYSTEM_ROOT/surface/runtime/native_app_install_identity_bootstrap.py"
 [ -f "$SYSTEM_ROOT/surface/runtime/ordax_browser_host.py" ] || fallback_with_reason "native browser host is missing: $SYSTEM_ROOT/surface/runtime/ordax_browser_host.py"
 [ -x /bin/busybox ] || fallback_with_reason "/bin/busybox is unavailable in the bootstrap base"
@@ -1319,7 +1320,7 @@ export XDG_CACHE_HOME=/tmp/ordax-web-cache-$SOURCE_SHA
 export ORDAX_SURFACE_MODE=native-graphical
 
 /bin/busybox chroot "$RUNTIME_ROOT" \
-    /usr/bin/python3 /srv/ordax-system/surface/runtime/native_host_server.py \
+    /usr/bin/python3 /srv/ordax-system/surface/runtime/native_app_data_runtime.py \
     --bind 127.0.0.1 --port 8765 --directory /srv/ordax-system \
     --user-root /var/lib/ordax-user --power-request /run/ordax-surface/power-request \
     --product-mode "$PRODUCT_MODE" \
