@@ -4,10 +4,17 @@ import test from "node:test";
 import {
   normalizeGatewayUrl,
   normalizeProductPath,
+  normalizeProxySecret,
+  normalizeTrustedEdgeAddress,
   proxyPublicAccountRequest,
 } from "../api/account-proxy.mjs";
 
 const GATEWAY = "https://example.supabase.co/functions/v1/ordax-account-gateway";
+const PROXY_SECRET = "test_proxy_secret_0123456789_ABCDEFGHIJKLMN";
+
+function options(extra = {}) {
+  return { gatewayUrl: GATEWAY, proxySecret: PROXY_SECRET, ...extra };
+}
 
 function request(path, init = {}) {
   return new Request(
@@ -43,18 +50,30 @@ test("only auth and sync product paths are accepted", () => {
   assert.equal(normalizeProductPath("/auth/../network"), null);
 });
 
+test("proxy credential and edge address are bounded before upstream use", () => {
+  assert.equal(normalizeProxySecret(PROXY_SECRET), PROXY_SECRET);
+  assert.equal(normalizeProxySecret("short"), null);
+  assert.equal(normalizeProxySecret("x".repeat(129)), null);
+  assert.equal(normalizeProxySecret("A".repeat(31) + "!"), null);
+
+  assert.equal(normalizeTrustedEdgeAddress("203.0.113.15"), "203.0.113.15");
+  assert.equal(normalizeTrustedEdgeAddress("2001:db8::1"), "2001:db8::1");
+  assert.equal(normalizeTrustedEdgeAddress("203.0.113.15, 10.0.0.1"), null);
+  assert.equal(normalizeTrustedEdgeAddress("not-an-ip"), null);
+});
+
 test("public proxy accepts only GET and POST", async () => {
   for (const method of ["PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]) {
     const response = await proxyPublicAccountRequest(
       request("/auth/session", { method }),
-      { gatewayUrl: GATEWAY },
+      options(),
     );
     assert.equal(response.status, 405, method);
     assert.equal(response.headers.get("allow"), "GET, POST");
   }
 });
 
-test("proxy injects trusted public-site provenance and never forwards browser authorization", async () => {
+test("proxy injects authenticated provenance and never forwards browser authority", async () => {
   const originalFetch = globalThis.fetch;
   let observed;
   globalThis.fetch = async (url, init) => {
@@ -75,15 +94,21 @@ test("proxy injects trusted public-site provenance and never forwards browser au
   try {
     const response = await proxyPublicAccountRequest(
       request("/auth/session", {
-        headers: { authorization: "Bearer must-not-cross-boundary" },
+        headers: {
+          authorization: "Bearer must-not-cross-boundary",
+          "x-ordax-public-proxy-secret": "browser-must-not-control-this",
+          "x-ordax-client-address": "198.51.100.99",
+        },
       }),
-      { gatewayUrl: GATEWAY, timeoutMs: 1000 },
+      options({ timeoutMs: 1000 }),
     );
     assert.equal(response.status, 503);
     assert.equal(observed.url, `${GATEWAY}/auth/session`);
     assert.equal(observed.init.headers.get("x-ordax-public-site"), "1");
     assert.equal(observed.init.headers.get("x-forwarded-for"), "203.0.113.15");
     assert.equal(observed.init.headers.get("x-real-ip"), "203.0.113.15");
+    assert.equal(observed.init.headers.get("x-ordax-client-address"), "203.0.113.15");
+    assert.equal(observed.init.headers.get("x-ordax-public-proxy-secret"), PROXY_SECRET);
     assert.equal(observed.init.headers.get("x-forwarded-host"), "ordax.com.br");
     assert.equal(observed.init.headers.get("x-forwarded-proto"), "https");
     assert.equal(observed.init.headers.has("authorization"), false);
@@ -95,15 +120,25 @@ test("proxy injects trusted public-site provenance and never forwards browser au
   }
 });
 
-test("proxy fails closed when deployment context or configuration is missing", async () => {
-  const missingGateway = await proxyPublicAccountRequest(request("/auth/session"), { gatewayUrl: "" });
+test("proxy fails closed when deployment context or private credential is missing", async () => {
+  const missingGateway = await proxyPublicAccountRequest(
+    request("/auth/session"),
+    { gatewayUrl: "", proxySecret: PROXY_SECRET },
+  );
   assert.equal(missingGateway.status, 503);
+
+  const missingSecret = await proxyPublicAccountRequest(
+    request("/auth/session"),
+    { gatewayUrl: GATEWAY, proxySecret: "" },
+  );
+  assert.equal(missingSecret.status, 503);
+  assert.equal((await missingSecret.json()).error, "public-proxy-auth-unconfigured");
 
   const missingEdgeIp = await proxyPublicAccountRequest(
     new Request("https://ordax.com.br/api/account-proxy?ordax_path=%2Fauth%2Fsession", {
       headers: { host: "ordax.com.br" },
     }),
-    { gatewayUrl: GATEWAY },
+    options(),
   );
   assert.equal(missingEdgeIp.status, 400);
 });
@@ -118,7 +153,7 @@ test("proxy rejects oversized bodies before upstream access", async () => {
       },
       body: "x=1",
     }),
-    { gatewayUrl: GATEWAY },
+    options(),
   );
   assert.equal(response.status, 413);
 });
