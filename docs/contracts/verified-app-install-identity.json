@@ -1,0 +1,59 @@
+{
+  "$schema": "prototype-ordax.verified-app-install-identity/1",
+  "receipt_schema": "ordax.verified-app-install-identity/1",
+  "status": "consumer-foundation",
+  "purpose": "trusted handoff from package/install provenance to runtime-bound app capabilities",
+  "publisher_principal": {
+    "stable_across_authorized_signing_key_rotation": true,
+    "manifest_publisher_text_is_principal": false,
+    "signing_key_id_is_principal": false,
+    "public_key_fingerprint_is_principal": false,
+    "component_owner_text_is_principal": false,
+    "catalog_or_store_metadata_is_principal": false,
+    "assigned_by_trust_policy_owner": true
+  },
+  "receipt": {
+    "root": "/var/lib/ordax/app-install/verified-identities/v1",
+    "immutable_content_addressed": true,
+    "filename": "<receipt-sha256>.json",
+    "exact_digest_must_come_from_trusted_inventory_owner": true,
+    "request_or_app_may_choose_receipt_digest": false,
+    "directory_mode": "0700",
+    "file_mode": "0600",
+    "nofollow": true,
+    "single_hardlink_required": true,
+    "max_bytes": 16384,
+    "owner_scope_v1": "device",
+    "fields": [
+      "publisherPrincipalId",
+      "appId",
+      "ownerScope",
+      "sourceClass",
+      "sourceVersion",
+      "sourceDigest",
+      "verificationOwner",
+      "verificationPolicy",
+      "verificationGeneration"
+    ]
+  },
+  "source_classes": {
+    "stable-base-bundled": "stable-base-release",
+    "component-release-v2": "component-manager",
+    "external-app-production": "app-install-owner"
+  },
+  "capability_boundary": {
+    "receipt_is_runtime_capability": false,
+    "receipt_alone_mints_app_data_binding": false,
+    "package_or_manifest_mints_binding": false,
+    "store_or_catalog_mints_binding": false,
+    "native_host_must_receive_exact_verified_receipt_from_trusted_runtime_or_inventory_owner": true,
+    "opaque_runtime_binding_is_separate_step": true
+  },
+  "implementation": {
+    "native_receipt_consumer": "system/surface/runtime/native_app_install_identity.py",
+    "producer_implemented": false,
+    "production_external_publisher_trust_implemented": false,
+    "native_app_data_route_implemented": false,
+    "sdk_published": false
+  }
+}

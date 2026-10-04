@@ -1,0 +1,37 @@
+name: Verified App Install Identity
+
+on:
+  pull_request:
+    paths:
+      - 'system/surface/runtime/native_app_install_identity.py'
+      - 'docs/contracts/verified-app-install-identity.json'
+      - 'tests/test_native_app_install_identity.py'
+      - '.github/workflows/verified-app-install-identity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/surface/runtime/native_app_install_identity.py'
+      - 'docs/contracts/verified-app-install-identity.json'
+      - 'tests/test_native_app_install_identity.py'
+      - '.github/workflows/verified-app-install-identity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verified-install-identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate source and contract syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile system/surface/runtime/native_app_install_identity.py
+          python3 -m json.tool docs/contracts/verified-app-install-identity.json >/dev/null
+
+      - name: Prove verified identity receipt boundary
+        run: python3 -m unittest tests.test_native_app_install_identity -v
