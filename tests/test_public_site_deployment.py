@@ -5,6 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "contracts" / "public-site-deployment.json"
 NGINX = ROOT / "deploy" / "public-site" / "nginx.conf"
+VERCEL = ROOT / "vercel.json"
+VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
 DEPLOYMENT_PROOF = ROOT / "tools" / "public-site" / "prove_deployment.py"
 
 
@@ -12,11 +14,13 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def setUp(self):
         self.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         self.nginx = NGINX.read_text(encoding="utf-8")
+        self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
+        self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_host_neutral_same_origin_adapter_without_claiming_deployment(self):
+    def test_contract_records_same_origin_adapters_without_claiming_deployment(self):
         self.assertEqual(
             self.contract["status"],
-            "host-neutral-same-origin-adapter-source-ready-not-deployed",
+            "host-neutral-and-vercel-same-origin-adapters-source-ready-not-deployed",
         )
         self.assertEqual(
             self.contract["adapter"]["kind"],
@@ -24,6 +28,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         )
         self.assertFalse(self.contract["adapter"]["public_listener_in_adapter_allowed"])
         self.assertFalse(self.contract["adapter"]["provider_specific_browser_api"])
+        self.assertEqual(self.contract["vercel_adapter"]["status"], "source-ready-not-deployed")
+        self.assertFalse(self.contract["vercel_adapter"]["provider_specific_browser_api"])
         self.assertTrue(self.contract["routing"]["same_origin_identity_required"])
         self.assertTrue(self.contract["routing"]["same_origin_sync_required"])
         self.assertIn("/conta/", self.contract["routing"]["static_routes"])
@@ -78,6 +84,44 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertIn("proxy_set_header X-Forwarded-Proto https;", self.nginx)
         self.assertIn("proxy_set_header X-Forwarded-Host $host;", self.nginx)
 
+    def test_vercel_routes_only_auth_and_sync_through_bounded_server_function(self):
+        self.assertEqual(self.vercel["outputDirectory"], "sites/public")
+        rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
+        self.assertEqual(
+            rewrites["/auth/:path*"],
+            "/api/account-proxy?ordax_path=/auth/:path*",
+        )
+        self.assertEqual(
+            rewrites["/sync/:path*"],
+            "/api/account-proxy?ordax_path=/sync/:path*",
+        )
+        self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
+        self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"];', self.vercel_proxy)
+        self.assertIn('headers.set("x-ordax-public-site", "1")', self.vercel_proxy)
+        self.assertIn('headers.set("x-forwarded-for", realIp)', self.vercel_proxy)
+        self.assertIn('headers.set("x-real-ip", realIp)', self.vercel_proxy)
+        self.assertIn('headers.set("x-forwarded-proto", "https")', self.vercel_proxy)
+        self.assertIn('headers.set("x-forwarded-host", host)', self.vercel_proxy)
+        self.assertIn('process.env.ORDAX_ACCOUNT_GATEWAY_URL', self.vercel_proxy)
+        self.assertIn('/functions/v1/ordax-account-gateway', self.vercel_proxy)
+        self.assertNotIn('authorization",', self.vercel_proxy.lower())
+        self.assertNotIn("service_role", self.vercel_proxy.lower())
+        self.assertFalse(self.contract["vercel_adapter"]["authorization_header_forwarded"])
+        self.assertEqual(self.contract["vercel_adapter"]["maximum_request_body_bytes"], 65536)
+
+    def test_vercel_adapter_is_fail_closed_until_real_rollout_gates_are_proven(self):
+        adapter = self.contract["vercel_adapter"]
+        self.assertFalse(adapter["public_auth_rate_limit_deployed"])
+        self.assertFalse(self.contract["routing"]["gateway_public_activation_currently_enabled"])
+        self.assertEqual(adapter["trusted_real_ip_header"], "x-forwarded-for")
+        self.assertEqual(
+            adapter["trusted_real_ip_property"],
+            "vercel-edge-overwrites-client-supplied-value",
+        )
+        self.assertTrue(adapter["gateway_url_must_be_https"])
+        self.assertTrue(adapter["set_cookie_preserved"])
+        self.assertFalse(adapter["provider_cors_forwarded"])
+
     def test_deployment_proof_is_credential_free_and_checks_real_same_origin_routes(self):
         text = DEPLOYMENT_PROOF.read_text(encoding="utf-8")
         self.assertIn("PUBLIC_SITE_DEPLOYMENT_PROOF=PASS", text)
@@ -107,7 +151,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(requirements["host_adapter_must_mark_public_account_requests"])
         self.assertTrue(requirements["gateway_server_side_public_activation_gate_required"])
         self.assertTrue(requirements["tls_terminator_must_append_real_client_ip"])
-        self.assertTrue(requirements["adapter_must_trust_only_loopback_real_ip_source"])
+        self.assertTrue(requirements["adapter_must_use_platform_trusted_real_ip_source"])
         self.assertTrue(requirements["public_auth_rate_limits_required"])
 
 
