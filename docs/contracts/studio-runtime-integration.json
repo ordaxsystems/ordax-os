@@ -15,7 +15,9 @@
     "source_binding_status": "pinned",
     "device_agent_schema": "ordax.device-agent/1",
     "capability_reader_schema": "ordax.device-agent-capability-reader/1",
+    "action_catalog_schema": "ordax.studio-action-catalog/1",
     "same_action_gateway_required": true,
+    "same_action_catalog_required": true,
     "parallel_runtime_forbidden": true
   },
   "platform_authority": {
@@ -32,6 +34,7 @@
   "capability_discovery": {
     "surface_receives_capability_reader_only": true,
     "surface_receives_raw_execute": false,
+    "public_action_catalog_is_authority": false,
     "missing_runtime_is_non_boot_critical": true,
     "probe_failure_is_component_scoped": true
   },
@@ -42,6 +45,8 @@
     "authorization_schema": "ordax.studio-device-action-authorization/1",
     "request_schema": "ordax.device-action-request/1",
     "receipt_schema": "ordax.device-action-receipt/1",
+    "action_catalog_schema": "ordax.studio-action-catalog/1",
+    "capability_operation_binding_required": true,
     "write_grant_schema": "ordax.device-agent/1",
     "explicit_write_approval_required": true,
     "live_capability_write_mode_required": true,
