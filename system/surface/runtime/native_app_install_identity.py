@@ -30,7 +30,7 @@ _SEMVER_RE = re.compile(
 _POLICY_RE = re.compile(r"^[a-z][a-z0-9.-]{0,95}/[1-9][0-9]{0,5}$")
 
 _SOURCE_OWNER = {
-    "stable-base-bundled": "stable-base-release",
+    "system-release-bundled": "release-acquisition",
     "component-release-v2": "component-manager",
     "external-app-production": "app-install-owner",
 }

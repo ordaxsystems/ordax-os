@@ -37,9 +37,16 @@
     ]
   },
   "source_classes": {
-    "stable-base-bundled": "stable-base-release",
+    "system-release-bundled": "release-acquisition",
     "component-release-v2": "component-manager",
     "external-app-production": "app-install-owner"
+  },
+  "system_release_bundled": {
+    "source_digest": "exact-verified-system-erofs-sha256",
+    "source_version": "component-semver",
+    "source_commit_is_version": false,
+    "stable_base_is_payload_authority": false,
+    "release_signing_key_is_publisher_principal": false
   },
   "capability_boundary": {
     "receipt_is_runtime_capability": false,
