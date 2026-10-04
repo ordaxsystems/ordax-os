@@ -13,6 +13,8 @@
     "physical_path_exposed_to_app": false,
     "read_or_list_creates_partition": false,
     "read_or_list_creates_root": false,
+    "read_or_list_creates_root_parent": false,
+    "mutation_root_parent_provisioning": "one-private-level-under-existing-real-ancestor",
     "single_key_update_rewrites_other_values": false
   },
   "atomicity": {
@@ -24,6 +26,7 @@
     "commit_point": "manifest-atomic-replace",
     "target_mode": "0600",
     "directory_mode": "0700",
+    "root_parent_mode": "0700",
     "nofollow": true,
     "unreferenced_blob_is_not_authoritative": true,
     "orphan_temp_is_not_authoritative": true,
