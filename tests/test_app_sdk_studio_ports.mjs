@@ -20,6 +20,7 @@ import {
   DEVICE_ACTION_REQUEST_SCHEMA as LEGACY_REQUEST_SCHEMA,
 } from "../system/contracts/operational-realtime.mjs";
 import { PROJECT_CATALOG_SCHEMA } from "../system/contracts/project-catalog.mjs";
+import { STUDIO_ACTION_CATALOG_SCHEMA } from "../system/contracts/studio-action-catalog.mjs";
 import {
   STUDIO_RUNTIME_PORT_SCHEMA,
   assertStudioRuntimePort,
@@ -132,9 +133,9 @@ test("public action envelopes remain data, not grants or credential carriers", (
   );
 });
 
-test("App SDK 1.2 exports Studio-safe contracts but not the raw Device Agent port", async () => {
+test("App SDK 1.3 exports Studio-safe contracts and semantic catalog but not raw Device Agent authority", async () => {
   const bundle = await json("sdk/app-sdk-v1/bundle.json");
-  assert.equal(bundle.bundle_version, "1.2.0");
+  assert.equal(bundle.bundle_version, "1.3.0");
   assert.equal(bundle.authority, "none");
 
   const byName = new Map(bundle.contracts.map((contract) => [contract.name, contract]));
@@ -144,11 +145,13 @@ test("App SDK 1.2 exports Studio-safe contracts but not the raw Device Agent por
     "device-capabilities",
     "device-capability-reader",
     "project-catalog",
+    "studio-action-catalog",
     "studio-runtime",
   ]) {
     assert.ok(byName.has(name), `missing App SDK contract ${name}`);
   }
 
+  assert.equal(byName.get("studio-action-catalog").schema, STUDIO_ACTION_CATALOG_SCHEMA);
   assert.equal(byName.get("studio-runtime").schema, STUDIO_RUNTIME_PORT_SCHEMA);
   assert.equal(byName.get("project-catalog").schema, PROJECT_CATALOG_SCHEMA);
   assert.equal(byName.get("device-capability-reader").schema, DEVICE_AGENT_CAPABILITY_READER_SCHEMA);
