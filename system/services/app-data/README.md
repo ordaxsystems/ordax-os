@@ -14,9 +14,11 @@ Production `publisherId` must be derived from the verified package/install owner
 
 ## State model
 
-The v1 model is a bounded key/value partition of opaque bytes with a partition-wide monotonic revision. Every mutation is compare-and-swap against that revision. Hard protocol ceilings are safety bounds, not subscription quotas; production quota policy remains an owner decision below those ceilings.
+The v1 app-facing model is a bounded key/value partition of opaque bytes with a partition-wide monotonic revision. Every mutation is compare-and-swap against that revision. Hard protocol ceilings are safety bounds, not subscription quotas; production quota policy remains an owner decision below those ceilings.
 
-The Native owner persists one private file per hashed `(publisherId, appId, device)` identity under `/var/lib/ordax/app-data/v1`. Reads and list operations do not materialize missing partitions. Mutations use a per-partition lock, temp-file fsync, atomic replace and parent-directory fsync. Symlinks, permissive targets and corrupt state fail closed.
+The Native owner does **not** rewrite a whole app snapshot for each change. Each hashed app partition contains a small authoritative manifest plus immutable SHA-256 content-addressed blobs. A mutation writes and verifies the new blob first and commits only by atomically replacing the manifest. Unreferenced blobs or temp files left by an interrupted write are never authoritative and are collected on a later successful mutation.
+
+Reads and list operations do not materialize missing partitions. Mutations use a per-partition lock, fsync, atomic manifest replacement and directory fsync. Symlinks, permissive targets, corrupt manifests and blob digest mismatches fail closed.
 
 ## Transport
 
@@ -41,10 +43,11 @@ App payload lifecycle and user data lifecycle stay separate:
 Implemented and tested:
 
 - in-memory reference store and bound public port;
-- private atomic Native partition owner;
+- private atomic Native manifest/blob owner;
 - typed endpoint helper with no request identity self-claims;
 - async Native adapter using an opaque bound endpoint;
-- crash/orphan, reboot, CAS, quota, corruption, symlink and isolation regressions.
+- crash/orphan, reboot, CAS, quota, corruption, symlink, content-integrity and isolation regressions;
+- single-key updates do not rewrite unrelated values.
 
 Still deliberately disabled:
 
