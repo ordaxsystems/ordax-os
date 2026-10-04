@@ -12,7 +12,9 @@
     "publisher_identity_must_come_from_verified_install_owner": true,
     "publisher_display_label_is_identity": false,
     "raw_manifest_publisher_may_be_used_as_identity": false,
-    "publisher_identity_requires_verified_provenance": true
+    "signing_key_or_fingerprint_is_publisher_identity": false,
+    "publisher_identity_requires_verified_provenance": true,
+    "publisher_identity_survives_authorized_key_rotation": true
   },
   "runtime_port": {
     "is_bounded_operational_capability": true,
