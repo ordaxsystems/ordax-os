@@ -41,13 +41,28 @@
     "component-release-v2": "component-manager",
     "external-app-production": "app-install-owner"
   },
+  "first_party_identity_inventory": {
+    "schema": "ordax.first-party-app-identity-inventory/1",
+    "repository_path": "system/services/apps/first-party-identities.json",
+    "runtime_path": "/srv/ordax-system/services/apps/first-party-identities.json",
+    "authority": "semantic-identity-only",
+    "authenticated_by": "verified-system-erofs",
+    "publisher_principal_source": true,
+    "component_version_source": true,
+    "exact_catalog_membership_required": true,
+    "component_version_must_match_catalog": true,
+    "install_authority": false,
+    "signing_authority": false,
+    "request_or_app_may_supply_identity": false
+  },
   "system_release_bundled": {
     "source_digest": "exact-verified-system-erofs-sha256",
-    "source_version": "component-semver",
+    "source_version": "verified-first-party-inventory-component-semver",
     "source_commit_is_version": false,
     "stable_base_is_payload_authority": false,
     "release_signing_key_is_publisher_principal": false,
     "producer_accepts_source_digest_argument": false,
+    "producer_accepts_raw_publisher_app_or_version": false,
     "verified_handoff_path": "/run/portable-release-verify.json",
     "verified_handoff_requires_artifact_sha256": true,
     "boot_handoff_artifact_sha256_connected": false
@@ -63,6 +78,7 @@
   "implementation": {
     "native_receipt_consumer": "system/surface/runtime/native_app_install_identity.py",
     "producer_core": "system/surface/runtime/native_app_install_identity_producer.py",
+    "first_party_identity_inventory": "system/services/apps/first-party-identities.json",
     "producer_core_implemented": true,
     "producer_implemented": false,
     "production_external_publisher_trust_implemented": false,
