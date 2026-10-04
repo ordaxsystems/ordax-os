@@ -9,7 +9,7 @@ import {
   proxyPublicAccountRequest,
 } from "../api/account-proxy.mjs";
 
-const GATEWAY = "https://example.supabase.co/functions/v1/ordax-account-gateway";
+const GATEWAY = "https://example.supabase.co/functions/v1/ordax-public-account-gateway";
 const PROXY_SECRET = "test_proxy_secret_0123456789_ABCDEFGHIJKLMN";
 
 function options(extra = {}) {
@@ -31,13 +31,14 @@ function request(path, init = {}) {
   );
 }
 
-test("gateway configuration is strict https and exact account gateway path", () => {
+test("gateway configuration is strict https and exact public account gateway path", () => {
   assert.equal(normalizeGatewayUrl(GATEWAY)?.origin, "https://example.supabase.co");
   for (const invalid of [
-    "http://example.supabase.co/functions/v1/ordax-account-gateway",
-    "https://user@example.supabase.co/functions/v1/ordax-account-gateway",
+    "http://example.supabase.co/functions/v1/ordax-public-account-gateway",
+    "https://user@example.supabase.co/functions/v1/ordax-public-account-gateway",
+    "https://example.supabase.co/functions/v1/ordax-account-gateway",
     "https://example.supabase.co/functions/v1/other",
-    "https://example.supabase.co/functions/v1/ordax-account-gateway?x=1",
+    "https://example.supabase.co/functions/v1/ordax-public-account-gateway?x=1",
   ]) {
     assert.equal(normalizeGatewayUrl(invalid), null);
   }
