@@ -10,11 +10,23 @@ A runtime creates a bound App Data port for exactly one `(publisherId, appId, de
 
 The runtime port is an operational capability: possession of the injected port permits bounded mutation of that one partition. A package, catalog entry, Store UI, manifest, model output, or SDK descriptor does not create that capability.
 
+Production `publisherId` must be derived from the verified package/install owner. It is not accepted as a self-claim from the app request body.
+
 ## State model
 
-The v1 reference model is a bounded key/value partition of opaque bytes with a partition-wide monotonic revision. Every mutation is compare-and-swap against that revision. This favors simple crash-safe Native implementations and makes stale writers fail closed.
+The v1 app-facing model is a bounded key/value partition of opaque bytes with a partition-wide monotonic revision. Every mutation is compare-and-swap against that revision. Hard protocol ceilings are safety bounds, not subscription quotas; production quota policy remains an owner decision below those ceilings.
 
-Hard protocol ceilings are safety bounds, not subscription quotas. Production quota policy remains an owner decision below those ceilings.
+The Native owner does **not** rewrite a whole app snapshot for each change. Each hashed app partition contains a small authoritative manifest plus immutable SHA-256 content-addressed blobs. A mutation writes and verifies the new blob first and commits only by atomically replacing the manifest. Unreferenced blobs or temp files left by an interrupted write are never authoritative and are collected on a later successful mutation.
+
+Reads and list operations do not materialize missing partitions. Mutations use a per-partition lock, fsync, atomic manifest replacement and directory fsync. Symlinks, permissive targets, corrupt manifests and blob digest mismatches fail closed.
+
+## Transport
+
+`native_app_data_endpoint.py` defines the typed JSON boundary, but it deliberately accepts the app identity as a trusted host argument rather than from JSON. Request bodies contain only `action`, keys, bytes and revisions.
+
+`system/adapters/native/app-data.mjs` is an async adapter for an opaque runtime-injected endpoint. It verifies that the store cannot be retargeted after binding and never serializes publisher/app identity into requests.
+
+The actual `native_host_server.py` route and verified publisher-to-endpoint binding remain a separate next stage. Until they land, this is not a production-enabled app capability.
 
 ## Lifecycle
 
@@ -28,6 +40,21 @@ App payload lifecycle and user data lifecycle stay separate:
 
 ## Current status
 
-This directory currently contains only an in-memory reference store and bound-port proof. There is no Native owner, route, App SDK publication, Store integration, or Notes migration yet.
+Implemented and tested:
 
-Notes is the first migration candidate because its current specialized Native/Web persistence demonstrates why the platform needs a generic App Data boundary instead of one core endpoint per app.
+- in-memory reference store and bound public port;
+- private atomic Native manifest/blob owner;
+- typed endpoint helper with no request identity self-claims;
+- async Native adapter using an opaque bound endpoint;
+- crash/orphan, reboot, CAS, quota, corruption, symlink, content-integrity and isolation regressions;
+- single-key updates do not rewrite unrelated values.
+
+Still deliberately disabled:
+
+- route registration in `native_host_server.py`;
+- binding opaque endpoint identity to verified install/publisher provenance;
+- App SDK publication;
+- Store integration;
+- Notes migration/cutover.
+
+Notes remains the first migration candidate because its current specialized Native/Web persistence demonstrates why the platform needs a generic App Data boundary instead of one core endpoint per app.
