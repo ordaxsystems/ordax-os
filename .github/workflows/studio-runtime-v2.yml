@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'system/contracts/device-action-envelope-v2.mjs'
+      - 'system/contracts/studio-action-context.mjs'
       - 'system/contracts/studio-runtime-v2.mjs'
       - 'tests/test_studio_runtime_v2.mjs'
       - '.github/workflows/studio-runtime-v2.yml'
   pull_request:
     paths:
       - 'system/contracts/device-action-envelope-v2.mjs'
+      - 'system/contracts/studio-action-context.mjs'
       - 'system/contracts/studio-runtime-v2.mjs'
       - 'tests/test_studio_runtime_v2.mjs'
       - '.github/workflows/studio-runtime-v2.yml'
@@ -33,6 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check system/contracts/device-action-envelope-v2.mjs
+          node --check system/contracts/studio-action-context.mjs
           node --check system/contracts/studio-runtime-v2.mjs
           node --check tests/test_studio_runtime_v2.mjs
 
