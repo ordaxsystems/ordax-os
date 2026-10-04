@@ -56,7 +56,10 @@
     "producer": "system/surface/runtime/native_app_data_runtime.py",
     "consumer": "system/surface/runtime/ordax_browser_host.py",
     "browser_bridge_request": "app-data.bootstrap.request",
-    "browser_bridge_response_event": "ordax-native-app-data-bootstrap",
+    "browser_bridge_delivery": "direct-privileged-module-call",
+    "browser_bridge_module": "/composition/native/app-data-bootstrap.mjs",
+    "browser_bridge_export": "acceptTrustedNativeAppDataBootstrap",
+    "browser_bridge_response_event": null,
     "global_native_session_exposure": false,
     "dom_exposure": false,
     "catalog_or_store_exposure": false
