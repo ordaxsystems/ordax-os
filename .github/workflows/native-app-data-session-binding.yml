@@ -1,0 +1,57 @@
+name: Native App Data Session Binding
+
+on:
+  pull_request:
+    paths:
+      - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
+      - 'system/surface/runtime/native_app_data_session_binding.py'
+      - 'system/surface/runtime/native_app_install_identity.py'
+      - 'system/surface/runtime/native_app_install_identity_bootstrap.py'
+      - 'system/surface/runtime/native_app_install_identity_producer.py'
+      - 'system/services/apps/first-party-identities.json'
+      - 'docs/contracts/native-app-data-binding.json'
+      - 'tests/test_native_app_data_session_binding.py'
+      - '.github/workflows/native-app-data-session-binding.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
+      - 'system/surface/runtime/native_app_data_session_binding.py'
+      - 'system/surface/runtime/native_app_install_identity.py'
+      - 'system/surface/runtime/native_app_install_identity_bootstrap.py'
+      - 'system/surface/runtime/native_app_install_identity_producer.py'
+      - 'system/services/apps/first-party-identities.json'
+      - 'docs/contracts/native-app-data-binding.json'
+      - 'tests/test_native_app_data_session_binding.py'
+      - '.github/workflows/native-app-data-session-binding.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  current-boot-session-binding:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate source and contract syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            system/surface/runtime/native_app_data_binding.py \
+            system/surface/runtime/native_app_data_host.py \
+            system/surface/runtime/native_app_data_session_binding.py \
+            system/surface/runtime/native_app_install_identity.py \
+            system/surface/runtime/native_app_install_identity_bootstrap.py \
+            system/surface/runtime/native_app_install_identity_producer.py
+          python3 -m json.tool docs/contracts/native-app-data-binding.json >/dev/null
+
+      - name: Prove current-boot receipt index binds only verified identities
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests.test_native_app_data_session_binding -v
