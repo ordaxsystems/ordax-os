@@ -36,10 +36,10 @@ def receipt(**overrides):
         "publisherPrincipalId": "ordax-official",
         "appId": "notes",
         "ownerScope": "device",
-        "sourceClass": "stable-base-bundled",
-        "sourceVersion": "1.0.0",
+        "sourceClass": "system-release-bundled",
+        "sourceVersion": "0.4.1",
         "sourceDigest": "1" * 64,
-        "verificationOwner": "stable-base-release",
+        "verificationOwner": "release-acquisition",
         "verificationPolicy": "ordax.publisher-trust/1",
         "verificationGeneration": 1,
     }
@@ -103,7 +103,7 @@ class NativeAppDataBindingTest(unittest.TestCase):
 
         second_digest = self.write_receipt(
             receipt(
-                sourceVersion="1.1.0",
+                sourceVersion="0.4.2",
                 sourceDigest="2" * 64,
                 verificationGeneration=2,
             )
@@ -129,7 +129,9 @@ class NativeAppDataBindingTest(unittest.TestCase):
             self.write_receipt(
                 receipt(
                     publisherPrincipalId="example-vendor",
+                    sourceClass="external-app-production",
                     sourceDigest="3" * 64,
+                    verificationOwner="app-install-owner",
                 )
             )
         )
@@ -194,7 +196,7 @@ class NativeAppDataBindingTest(unittest.TestCase):
         rotated = registry.mint_from_receipt(
             self.write_receipt(
                 receipt(
-                    sourceVersion="1.0.1",
+                    sourceVersion="0.4.2",
                     sourceDigest="4" * 64,
                     verificationGeneration=2,
                 )
