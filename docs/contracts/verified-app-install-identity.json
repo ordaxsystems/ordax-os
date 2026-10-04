@@ -65,7 +65,7 @@
     "producer_accepts_raw_publisher_app_or_version": false,
     "verified_handoff_path": "/run/portable-release-verify.json",
     "verified_handoff_requires_artifact_sha256": true,
-    "boot_handoff_artifact_sha256_connected": false
+    "boot_handoff_artifact_sha256_connected": true
   },
   "capability_boundary": {
     "receipt_is_runtime_capability": false,
@@ -79,6 +79,7 @@
     "native_receipt_consumer": "system/surface/runtime/native_app_install_identity.py",
     "producer_core": "system/surface/runtime/native_app_install_identity_producer.py",
     "first_party_identity_inventory": "system/services/apps/first-party-identities.json",
+    "release_verifier_handoff": "bootstrap/release-acquisition/portable_verify_handoff.go",
     "producer_core_implemented": true,
     "producer_implemented": false,
     "production_external_publisher_trust_implemented": false,

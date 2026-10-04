@@ -3,6 +3,7 @@ name: Verified App Install Identity
 on:
   pull_request:
     paths:
+      - 'bootstrap/release-acquisition/**'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_install_identity_producer.py'
       - 'system/services/apps/first-party-identities.json'
@@ -14,6 +15,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'bootstrap/release-acquisition/**'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_install_identity_producer.py'
       - 'system/services/apps/first-party-identities.json'
@@ -35,13 +37,29 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
       - name: Validate source and contract syntax
         run: |
           set -euo pipefail
+          if [ -n "$(gofmt -d bootstrap/release-acquisition/portable_verify_handoff.go bootstrap/release-acquisition/portable_verify_handoff_test.go)" ]; then
+            echo 'release handoff Go sources are not gofmt-clean' >&2
+            gofmt -d bootstrap/release-acquisition/portable_verify_handoff.go bootstrap/release-acquisition/portable_verify_handoff_test.go
+            exit 1
+          fi
           python3 -m py_compile system/surface/runtime/native_app_install_identity.py
           python3 -m py_compile system/surface/runtime/native_app_install_identity_producer.py
           python3 -m json.tool system/services/apps/first-party-identities.json >/dev/null
           python3 -m json.tool docs/contracts/verified-app-install-identity.json >/dev/null
+
+      - name: Prove exact release verifier emits authenticated system digest
+        working-directory: bootstrap/release-acquisition
+        run: go test ./... -count=1
 
       - name: Prove first-party identity inventory matches component catalog
         run: node --test tests/test_first_party_identity_inventory.mjs
