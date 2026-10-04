@@ -6,6 +6,9 @@ import {
 import {
   validateAuthorizedDeviceActionRequest,
 } from "../../contracts/operational-realtime.mjs";
+import {
+  validateStudioActionCatalogRequest,
+} from "../../contracts/studio-action-catalog.mjs";
 
 export const STUDIO_DEVICE_ACTION_AUTHORIZATION_SCHEMA =
   "ordax.studio-device-action-authorization/1";
@@ -18,12 +21,13 @@ function readClock(now) {
   return value;
 }
 
-function authorization(request, grant, capability, authorizedAt) {
+function authorization(request, grant, capability, binding, authorizedAt) {
   return Object.freeze({
     schema: STUDIO_DEVICE_ACTION_AUTHORIZATION_SCHEMA,
     request,
     grant,
     capability,
+    binding,
     authorizedAt,
     dispatchAuthority: "none",
   });
@@ -41,10 +45,15 @@ export function createStudioDeviceActionAuthorizer({
   return Object.freeze({
     schema: STUDIO_DEVICE_ACTION_AUTHORIZATION_SCHEMA,
     async authorize(requestValue, grantValue) {
-      const request = validateAuthorizedDeviceActionRequest(requestValue, grantValue);
+      const catalogValue = validateStudioActionCatalogRequest(requestValue);
+      const request = validateAuthorizedDeviceActionRequest(catalogValue.request, grantValue);
+      const binding = catalogValue.binding;
       const grant = validateDeviceCapabilityGrant(grantValue);
       const authorizedAt = readClock(now);
 
+      if (binding.mode !== "write") {
+        throw new TypeError("Studio mutation authorization requires a write catalog binding");
+      }
       if (request.expiresAt <= authorizedAt) {
         throw new TypeError("Studio device action request is expired");
       }
@@ -75,7 +84,7 @@ export function createStudioDeviceActionAuthorizer({
         throw new TypeError("Studio device action must use the OrdaX Action Gateway");
       }
 
-      return authorization(request, grant, capability, authorizedAt);
+      return authorization(request, grant, capability, binding, authorizedAt);
     },
   });
 }
