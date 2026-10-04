@@ -20,9 +20,13 @@ from native_app_install_identity import (  # noqa: E402
     read_verified_app_install_identity,
 )
 from native_app_install_identity_producer import (  # noqa: E402
+    FirstPartyIdentityInventoryError,
+    VerifiedBundledAppIdentity,
     VerifiedSystemReleaseHandoffError,
     produce_system_release_bundled_receipt,
+    read_bundled_first_party_identity,
     read_verified_system_release_handoff,
+    validate_first_party_identity_inventory,
     validate_verified_system_release_handoff,
 )
 
@@ -63,6 +67,25 @@ def handoff_for_schema(version: int):
     return value
 
 
+def inventory(**overrides):
+    value = {
+        "$schema": "ordax.first-party-app-identity-inventory/1",
+        "status": "system-release-authenticated-source",
+        "authority": "semantic-identity-only",
+        "verificationPolicy": "ordax.publisher-trust/1",
+        "verificationGeneration": 1,
+        "apps": [
+            {
+                "appId": "notes",
+                "publisherPrincipalId": "ordax-official",
+                "version": "0.4.1",
+            }
+        ],
+    }
+    value.update(overrides)
+    return value
+
+
 class SystemReleaseReceiptProducerTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -71,6 +94,7 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
         self.receipt_root.mkdir(mode=0o700)
         os.chmod(self.receipt_root, 0o700)
         self.handoff_path = self.temp / "portable-release-verify.json"
+        self.inventory_path = self.temp / "first-party-identities.json"
         self.uid = os.getuid()
 
     def tearDown(self):
@@ -85,6 +109,15 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
         self.handoff_path.write_bytes(payload)
         os.chmod(self.handoff_path, mode)
 
+    def write_inventory(self, value=None, *, mode=0o644):
+        payload = json.dumps(
+            inventory() if value is None else value,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8") + b"\n"
+        self.inventory_path.write_bytes(payload)
+        os.chmod(self.inventory_path, mode)
+
     def read_handoff(self):
         return read_verified_system_release_handoff(
             str(self.handoff_path),
@@ -92,22 +125,27 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
             portable_root=PORTABLE_ROOT,
         )
 
-    def produce(self, verified):
+    def read_identity(self, app_id="notes"):
+        return read_bundled_first_party_identity(
+            app_id,
+            path=str(self.inventory_path),
+            expected_uid=self.uid,
+        )
+
+    def produce(self, verified_handoff, verified_identity):
         return produce_system_release_bundled_receipt(
-            verified,
-            publisher_principal_id="ordax-official",
-            app_id="notes",
-            source_version="0.4.1",
-            verification_policy="ordax.publisher-trust/1",
-            verification_generation=1,
+            verified_handoff,
+            verified_identity,
             root=str(self.receipt_root),
             expected_uid=self.uid,
         )
 
-    def test_verified_handoff_produces_content_addressed_bundled_receipt(self):
+    def test_verified_inputs_produce_content_addressed_bundled_receipt(self):
         self.write_handoff()
+        self.write_inventory()
         verified_handoff = self.read_handoff()
-        receipt_digest = self.produce(verified_handoff)
+        verified_identity = self.read_identity()
+        receipt_digest = self.produce(verified_handoff, verified_identity)
         verified = read_verified_app_install_identity(
             receipt_digest,
             root=str(self.receipt_root),
@@ -122,6 +160,7 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
         self.assertEqual(verified.source_digest, SYSTEM_DIGEST)
         self.assertEqual(verified.verification_owner, "release-acquisition")
         self.assertEqual(verified.verification_policy, "ordax.publisher-trust/1")
+        self.assertEqual(verified.verification_generation, 1)
 
         stored = self.receipt_root / f"{receipt_digest}.json"
         self.assertTrue(stored.is_file())
@@ -142,37 +181,96 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
                     f"{PORTABLE_ROOT}/releases/{COMMIT}/system.erofs",
                 )
 
-    def test_same_input_is_idempotent_and_does_not_duplicate_receipts(self):
+    def test_same_verified_inputs_are_idempotent(self):
         self.write_handoff()
+        self.write_inventory()
         verified_handoff = self.read_handoff()
-        first = self.produce(verified_handoff)
-        second = self.produce(verified_handoff)
+        verified_identity = self.read_identity()
+        first = self.produce(verified_handoff, verified_identity)
+        second = self.produce(verified_handoff, verified_identity)
         self.assertEqual(first, second)
         self.assertEqual(
             sorted(path.name for path in self.receipt_root.iterdir()),
             [f"{first}.json"],
         )
 
-    def test_caller_cannot_override_system_digest_or_source_authority(self):
+    def test_producer_has_no_raw_identity_or_source_authority_parameters(self):
         signature = inspect.signature(produce_system_release_bundled_receipt)
-        self.assertNotIn("source_digest", signature.parameters)
-        self.assertNotIn("source_class", signature.parameters)
-        self.assertNotIn("verification_owner", signature.parameters)
+        for forbidden in (
+            "publisher_principal_id",
+            "app_id",
+            "source_version",
+            "verification_policy",
+            "verification_generation",
+            "source_digest",
+            "source_class",
+            "verification_owner",
+        ):
+            self.assertNotIn(forbidden, signature.parameters)
+        self.assertIn("app_identity", signature.parameters)
 
-        self.write_handoff()
-        verified_handoff = self.read_handoff()
-        with self.assertRaises(TypeError):
-            produce_system_release_bundled_receipt(
-                verified_handoff,
-                publisher_principal_id="ordax-official",
+    def test_bundled_identity_cannot_be_constructed_without_inventory_authority(self):
+        with self.assertRaisesRegex(TypeError, "verified inventory"):
+            VerifiedBundledAppIdentity(
+                publisher_principal_id="attacker",
                 app_id="notes",
-                source_version="0.4.1",
+                source_version="9.9.9",
                 verification_policy="ordax.publisher-trust/1",
                 verification_generation=1,
-                source_digest="f" * 64,
-                root=str(self.receipt_root),
-                expected_uid=self.uid,
+                _authority=object(),
             )
+
+    def test_inventory_projects_semantic_identity_and_rejects_unknown_app(self):
+        self.write_inventory()
+        identity = self.read_identity()
+        self.assertEqual(identity.publisher_principal_id, "ordax-official")
+        self.assertEqual(identity.app_id, "notes")
+        self.assertEqual(identity.source_version, "0.4.1")
+        self.assertEqual(identity.verification_policy, "ordax.publisher-trust/1")
+        self.assertEqual(identity.verification_generation, 1)
+        with self.assertRaisesRegex(FirstPartyIdentityInventoryError, "not in inventory"):
+            self.read_identity("internet")
+
+    def test_inventory_rejects_display_or_signing_metadata_and_duplicates(self):
+        candidate = inventory()
+        candidate["keyId"] = "release-key"
+        with self.assertRaises(FirstPartyIdentityInventoryError):
+            validate_first_party_identity_inventory(candidate)
+
+        duplicated = inventory(
+            apps=[
+                {
+                    "appId": "notes",
+                    "publisherPrincipalId": "ordax-official",
+                    "version": "0.4.1",
+                },
+                {
+                    "appId": "notes",
+                    "publisherPrincipalId": "other",
+                    "version": "0.4.2",
+                },
+            ]
+        )
+        with self.assertRaisesRegex(FirstPartyIdentityInventoryError, "duplicated"):
+            validate_first_party_identity_inventory(duplicated)
+
+    def test_inventory_must_be_sorted_and_canonical(self):
+        unsorted = inventory(
+            apps=[
+                {
+                    "appId": "notes",
+                    "publisherPrincipalId": "ordax-official",
+                    "version": "0.4.1",
+                },
+                {
+                    "appId": "files",
+                    "publisherPrincipalId": "ordax-official",
+                    "version": "0.1.0",
+                },
+            ]
+        )
+        with self.assertRaisesRegex(FirstPartyIdentityInventoryError, "sorted"):
+            validate_first_party_identity_inventory(unsorted)
 
     def test_missing_extra_or_malformed_handoff_fields_fail_closed(self):
         missing = handoff()
@@ -232,7 +330,7 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
                 portable_root=PORTABLE_ROOT,
             )
 
-    def test_handoff_symlink_is_rejected(self):
+    def test_handoff_and_inventory_symlinks_are_rejected(self):
         target = self.temp / "real-handoff.json"
         target.write_text(json.dumps(handoff()), encoding="utf-8")
         os.chmod(target, 0o600)
@@ -240,20 +338,33 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
         with self.assertRaises(VerifiedSystemReleaseHandoffError):
             self.read_handoff()
 
-    def test_group_writable_handoff_is_rejected(self):
+        inventory_target = self.temp / "real-inventory.json"
+        inventory_target.write_text(json.dumps(inventory()), encoding="utf-8")
+        os.chmod(inventory_target, 0o644)
+        os.symlink(inventory_target.name, self.inventory_path)
+        with self.assertRaises(FirstPartyIdentityInventoryError):
+            self.read_identity()
+
+    def test_group_writable_trusted_inputs_are_rejected(self):
         self.write_handoff(mode=0o620)
         with self.assertRaisesRegex(VerifiedSystemReleaseHandoffError, "metadata"):
             self.read_handoff()
 
+        self.write_inventory(mode=0o664)
+        with self.assertRaisesRegex(FirstPartyIdentityInventoryError, "metadata"):
+            self.read_identity()
+
     def test_receipt_root_wrong_mode_is_rejected(self):
         self.write_handoff()
+        self.write_inventory()
         verified_handoff = self.read_handoff()
+        verified_identity = self.read_identity()
         os.chmod(self.receipt_root, 0o750)
         with self.assertRaisesRegex(
             VerifiedAppInstallIdentityError,
             "root ownership/mode",
         ):
-            self.produce(verified_handoff)
+            self.produce(verified_handoff, verified_identity)
 
 
 if __name__ == "__main__":
