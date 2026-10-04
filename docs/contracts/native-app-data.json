@@ -1,0 +1,71 @@
+{
+  "$schema": "prototype-ordax.native-app-data/1",
+  "public_contract": "ordax.app-data/1",
+  "status": "native-owner-foundation",
+  "storage": {
+    "root": "/var/lib/ordax/app-data/v1",
+    "partition_identity": ["publisherId", "appId", "ownerScope=device"],
+    "partition_directory": "sha256-of-bound-identity",
+    "manifest_format": "ordax.native-app-data-partition/2",
+    "manifest": "small-authoritative-key-to-blob-map",
+    "values": "immutable-content-addressed-opaque-byte-blobs",
+    "blob_digest": "sha256",
+    "physical_path_exposed_to_app": false,
+    "read_or_list_creates_partition": false,
+    "read_or_list_creates_root": false,
+    "single_key_update_rewrites_other_values": false
+  },
+  "atomicity": {
+    "mutation_concurrency": "per-partition-flock",
+    "read_blob_consistency": "shared-lock-through-manifest-and-blob-read",
+    "compare_and_swap": "partition-wide-revision",
+    "blob_write_strategy": "write-fsync-verify-before-reference",
+    "manifest_write_strategy": "temp-file-fsync-atomic-replace-directory-fsync",
+    "commit_point": "manifest-atomic-replace",
+    "target_mode": "0600",
+    "directory_mode": "0700",
+    "nofollow": true,
+    "unreferenced_blob_is_not_authoritative": true,
+    "orphan_temp_is_not_authoritative": true,
+    "orphan_cleanup_on_next_successful_mutation": true
+  },
+  "bounds": {
+    "value_bytes_max": 1048576,
+    "partition_bytes_hard_max": 67108864,
+    "partition_keys_hard_max": 4096,
+    "manifest_bytes_max": 2097152,
+    "default_partition_quota_bytes": 8388608,
+    "default_partition_keys": 1024,
+    "revision_max": 9007199254740991
+  },
+  "transport_foundation": {
+    "request_identity_fields_allowed": false,
+    "request_actions": ["get", "list", "put", "delete"],
+    "app_receives_opaque_bound_endpoint": true,
+    "async_fetch_adapter": true,
+    "host_route_wired": false,
+    "publisher_binding_from_verified_install_owner": false,
+    "publisher_binding_source": "verified-install-provenance",
+    "manifest_publisher_text_is_binding_source": false,
+    "signing_key_is_binding_source": false,
+    "authorized_key_rotation_preserves_publisher_binding": true
+  },
+  "security": {
+    "publisher_self_claim_accepted": false,
+    "app_id_self_claim_per_request_accepted": false,
+    "display_publisher_is_storage_identity": false,
+    "arbitrary_path_accepted": false,
+    "symlink_target_accepted": false,
+    "manifest_corruption_fails_closed": true,
+    "blob_digest_mismatch_fails_closed": true,
+    "cross_partition_access": false,
+    "package_or_manifest_mints_data_capability": false,
+    "store_ui_has_data_capability": false
+  },
+  "lifecycle": {
+    "uninstall_deletes_data": false,
+    "data_delete_is_separate_action": true,
+    "rollback_rewinds_data": false,
+    "legacy_notes_migrated": false
+  }
+}
