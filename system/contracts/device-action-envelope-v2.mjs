@@ -23,6 +23,21 @@ const FORBIDDEN_PAYLOAD_KEYS = new Set([
 ]);
 const CAPABILITY_RE = /^[a-z][a-z0-9._-]{0,119}$/;
 const CONTROL_RE = /[\u0000-\u001f\u007f]/;
+const REQUEST_FIELDS = Object.freeze([
+  "schema",
+  "actionId",
+  "idempotencyKey",
+  "actor",
+  "spaceId",
+  "projectId",
+  "deviceId",
+  "client",
+  "capability",
+  "parameters",
+  "requestedAt",
+  "expiresAt",
+  "expectedDeviceRevision",
+]);
 
 function boundedText(value, label, max = 160) {
   if (
@@ -106,16 +121,30 @@ export function validateDeviceActionActorV2(value) {
   return Object.freeze({ kind: value.kind, subjectId });
 }
 
+export function validateDeviceActionClientV2(value) {
+  if (!CLIENTS.has(value)) {
+    throw new TypeError("Device action client is invalid");
+  }
+  return value;
+}
+
+export function validateDeviceActionDeviceIdV2(value) {
+  return boundedText(value, "Device action device id", 128);
+}
+
+export function validateDeviceActionScopeIdV2(value, label) {
+  return nullableBoundedText(value, label, 128);
+}
+
 export function validateDeviceActionRequestV2(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Device action request v2 must be an object");
   }
+  exactKeys(value, REQUEST_FIELDS, "Device action request v2");
   if (value.schema !== DEVICE_ACTION_REQUEST_V2_SCHEMA) {
     throw new TypeError("Device action request v2 schema is incompatible");
   }
-  if (!CLIENTS.has(value.client)) {
-    throw new TypeError("Device action client is invalid");
-  }
+  const client = validateDeviceActionClientV2(value.client);
   if (typeof value.capability !== "string" || !CAPABILITY_RE.test(value.capability)) {
     throw new TypeError("Device action capability id is invalid");
   }
@@ -135,10 +164,10 @@ export function validateDeviceActionRequestV2(value) {
     actionId: boundedText(value.actionId, "Device action id", 128),
     idempotencyKey: boundedText(value.idempotencyKey, "Device action idempotency key", 128),
     actor: validateDeviceActionActorV2(value.actor),
-    spaceId: nullableBoundedText(value.spaceId, "Device action Space id", 128),
-    projectId: nullableBoundedText(value.projectId, "Device action project id", 128),
-    deviceId: boundedText(value.deviceId, "Device action device id", 128),
-    client: value.client,
+    spaceId: validateDeviceActionScopeIdV2(value.spaceId, "Device action Space id"),
+    projectId: validateDeviceActionScopeIdV2(value.projectId, "Device action project id"),
+    deviceId: validateDeviceActionDeviceIdV2(value.deviceId),
+    client,
     capability,
     parameters: validateStructuredValue(value.parameters ?? {}, "Device action parameters"),
     requestedAt,
