@@ -74,7 +74,13 @@
     "skippable": true,
     "uses_existing_network_management_port": true,
     "password_is_transient_only": true,
-    "password_must_not_enter_first_run_state": true
+    "password_must_not_enter_first_run_state": true,
+    "first_online_update_policy": "docs/contracts/mvp-app-delivery.json",
+    "successful_connection_triggers_official_update_discovery": true,
+    "update_discovery_failure_must_not_block_completion": true,
+    "offline_skip_defers_update_discovery": true,
+    "retry_after_first_run_allowed": true,
+    "runtime_hook_status": "required-not-yet-proven"
   },
   "account": {
     "optional": true,
