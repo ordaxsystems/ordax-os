@@ -4,30 +4,38 @@ on:
   pull_request:
     paths:
       - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
+      - 'system/surface/runtime/native_host_server.py'
+      - 'system/surface/runtime/native_request_boundary.py'
       - 'system/adapters/native/app-data.mjs'
       - 'system/adapters/native/bound-app-data.mjs'
       - 'system/contracts/app-data.mjs'
       - 'system/services/app-data/runtime.mjs'
       - 'docs/contracts/native-app-data-binding.json'
       - 'tests/test_native_app_data_binding.py'
+      - 'tests/test_native_app_data_host.py'
       - 'tests/test_native_bound_app_data_port.mjs'
       - '.github/workflows/native-app-data-binding.yml'
   push:
     branches: [main]
     paths:
       - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
+      - 'system/surface/runtime/native_host_server.py'
+      - 'system/surface/runtime/native_request_boundary.py'
       - 'system/adapters/native/app-data.mjs'
       - 'system/adapters/native/bound-app-data.mjs'
       - 'system/contracts/app-data.mjs'
       - 'system/services/app-data/runtime.mjs'
       - 'docs/contracts/native-app-data-binding.json'
       - 'tests/test_native_app_data_binding.py'
+      - 'tests/test_native_app_data_host.py'
       - 'tests/test_native_bound_app_data_port.mjs'
       - '.github/workflows/native-app-data-binding.yml'
 
@@ -43,15 +51,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate broker sources
+      - name: Validate binding and route sources
         run: |
           set -euo pipefail
           python3 -m py_compile system/surface/runtime/native_app_data_binding.py
+          python3 -m py_compile system/surface/runtime/native_app_data_host.py
           node --check system/adapters/native/bound-app-data.mjs
           python3 -m json.tool docs/contracts/native-app-data-binding.json >/dev/null
 
       - name: Prove verified opaque binding lifecycle
         run: python3 tests/test_native_app_data_binding.py
+
+      - name: Prove thin Native HTTP capability route
+        run: python3 tests/test_native_app_data_host.py
 
       - name: Prove app-facing port hides transport capability
         run: node --test tests/test_native_bound_app_data_port.mjs
