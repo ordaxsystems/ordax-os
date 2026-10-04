@@ -7,19 +7,27 @@ on:
       - 'system/surface/runtime/native_app_data_binding.py'
       - 'system/surface/runtime/native_app_data_host.py'
       - 'system/surface/runtime/native_app_data_runtime.py'
+      - 'system/surface/runtime/native_app_data_port_bootstrap.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
       - 'system/surface/runtime/native_request_boundary.py'
+      - 'system/surface/runtime/ordax_browser_host.py'
+      - 'system/composition/native/index.html'
+      - 'system/composition/native/app-data-bootstrap.mjs'
       - 'system/adapters/native/app-data.mjs'
       - 'system/adapters/native/bound-app-data.mjs'
       - 'system/contracts/app-data.mjs'
       - 'system/services/app-data/runtime.mjs'
+      - 'system/services/components/runtime-loader.mjs'
       - 'docs/contracts/native-app-data-binding.json'
       - 'tests/test_native_app_data_binding.py'
       - 'tests/test_native_app_data_host.py'
+      - 'tests/test_native_app_data_port_bootstrap.py'
       - 'tests/test_native_app_data_runtime_wiring.py'
+      - 'tests/test_native_app_data_no_global_bootstrap_event.py'
+      - 'tests/test_native_app_data_composition_bootstrap.mjs'
       - 'tests/test_native_bound_app_data_port.mjs'
       - '.github/workflows/native-app-data-binding.yml'
   push:
@@ -29,19 +37,27 @@ on:
       - 'system/surface/runtime/native_app_data_binding.py'
       - 'system/surface/runtime/native_app_data_host.py'
       - 'system/surface/runtime/native_app_data_runtime.py'
+      - 'system/surface/runtime/native_app_data_port_bootstrap.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
       - 'system/surface/runtime/native_request_boundary.py'
+      - 'system/surface/runtime/ordax_browser_host.py'
+      - 'system/composition/native/index.html'
+      - 'system/composition/native/app-data-bootstrap.mjs'
       - 'system/adapters/native/app-data.mjs'
       - 'system/adapters/native/bound-app-data.mjs'
       - 'system/contracts/app-data.mjs'
       - 'system/services/app-data/runtime.mjs'
+      - 'system/services/components/runtime-loader.mjs'
       - 'docs/contracts/native-app-data-binding.json'
       - 'tests/test_native_app_data_binding.py'
       - 'tests/test_native_app_data_host.py'
+      - 'tests/test_native_app_data_port_bootstrap.py'
       - 'tests/test_native_app_data_runtime_wiring.py'
+      - 'tests/test_native_app_data_no_global_bootstrap_event.py'
+      - 'tests/test_native_app_data_composition_bootstrap.mjs'
       - 'tests/test_native_bound_app_data_port.mjs'
       - '.github/workflows/native-app-data-binding.yml'
 
@@ -57,14 +73,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate binding and route sources
+      - name: Validate binding and trusted composition sources
         run: |
           set -euo pipefail
           python3 -m py_compile \
             system/surface/runtime/native_app_data_binding.py \
             system/surface/runtime/native_app_data_host.py \
-            system/surface/runtime/native_app_data_runtime.py
+            system/surface/runtime/native_app_data_runtime.py \
+            system/surface/runtime/native_app_data_port_bootstrap.py \
+            system/surface/runtime/ordax_browser_host.py
           node --check system/adapters/native/bound-app-data.mjs
+          node --check system/composition/native/app-data-bootstrap.mjs
+          node --check system/services/components/runtime-loader.mjs
           python3 -m json.tool docs/contracts/native-app-data-binding.json >/dev/null
           sh -n system/surface/bin/ordax-surface
 
@@ -74,8 +94,17 @@ jobs:
       - name: Prove thin Native HTTP capability route
         run: python3 tests/test_native_app_data_host.py
 
-      - name: Prove private runtime wiring keeps capability undistributed
+      - name: Prove root-owned one-shot composition handoff
+        run: python3 -m unittest tests.test_native_app_data_port_bootstrap -v
+
+      - name: Prove trusted runtime wiring and bridge boundaries
         run: python3 -m unittest tests.test_native_app_data_runtime_wiring -v
+
+      - name: Prove App Data bootstrap never uses a global DOM event
+        run: python3 -m unittest tests.test_native_app_data_no_global_bootstrap_event -v
+
+      - name: Prove trusted composition injects only typed app port
+        run: node --test tests/test_native_app_data_composition_bootstrap.mjs
 
       - name: Prove app-facing port hides transport capability
         run: node --test tests/test_native_bound_app_data_port.mjs

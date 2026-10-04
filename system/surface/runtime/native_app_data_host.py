@@ -44,8 +44,16 @@ class NativeAppDataHostServer(NativeHostServer):
         app_data_quota_bytes: int = DEFAULT_APP_DATA_QUOTA_BYTES,
         app_data_max_keys: int = DEFAULT_APP_DATA_MAX_KEYS,
         app_data_max_bindings: int = 64,
+        app_data_defer_listener_activation: bool = False,
         **kwargs,
     ):
+        if not isinstance(app_data_defer_listener_activation, bool):
+            raise TypeError("App Data listener activation mode must be boolean")
+        # HTTPServer binds first and then calls server_activate(). Overriding
+        # only activation lets Stable reserve its exact loopback port without
+        # accepting a connection until verified App Data bootstrap state has
+        # been published for the privileged browser host.
+        self._app_data_listener_activation_deferred = app_data_defer_listener_activation
         super().__init__(server_address, handler_class, **kwargs)
         expected_uid = os.geteuid() if app_data_expected_uid is None else app_data_expected_uid
         self.app_data_bindings = NativeAppDataBindingRegistry(
@@ -56,6 +64,22 @@ class NativeAppDataHostServer(NativeHostServer):
         self.app_data_root = app_data_root
         self.app_data_quota_bytes = app_data_quota_bytes
         self.app_data_max_keys = app_data_max_keys
+
+    def server_activate(self) -> None:
+        if getattr(self, "_app_data_listener_activation_deferred", False):
+            return
+        super().server_activate()
+
+    def activate_private_listener(self) -> None:
+        """Begin listening exactly once after trusted bootstrap publication."""
+        if not self._app_data_listener_activation_deferred:
+            raise RuntimeError("Native App Data listener is already active")
+        self._app_data_listener_activation_deferred = False
+        try:
+            super().server_activate()
+        except Exception:
+            self.server_close()
+            raise
 
     def bind_app_data_receipt(self, receipt_sha256: str):
         """Trusted in-process handoff; never exposed as an HTTP mint endpoint."""
