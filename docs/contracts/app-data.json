@@ -9,7 +9,10 @@
     "owner_scope_v1": "device",
     "app_may_retarget_identity_per_operation": false,
     "publisher_and_app_id_both_partition_data": true,
-    "publisher_identity_must_come_from_verified_install_owner": true
+    "publisher_identity_must_come_from_verified_install_owner": true,
+    "publisher_display_label_is_identity": false,
+    "raw_manifest_publisher_may_be_used_as_identity": false,
+    "publisher_identity_requires_verified_provenance": true
   },
   "runtime_port": {
     "is_bounded_operational_capability": true,
