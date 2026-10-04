@@ -12,6 +12,7 @@ import {
   assertNotesRuntime,
 } from "../domain/runtime.mjs";
 import { createNotesStatistics } from "../domain/statistics.mjs";
+import { summarizeNoteWithIntelligence } from "../platform/intelligence-summary.mjs";
 import {
   createNotesImagePreviewCache,
   isNotesImageFileName,
@@ -51,7 +52,6 @@ import {
   undoNotesRichEditor,
 } from "./rich-editor.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
-import { summarizeDocumentWithIntelligence } from "../../../services/intelligence/client-actions.mjs";
 
 const NOTES_WINDOW_SELECTOR = '[data-window-id="notes"]';
 const NOTES_EXTENSION_SELECTOR = '[data-app-extension="notes-workspace"]';
@@ -1197,11 +1197,12 @@ export function mountNotesWorkspaceControls(
       intelligenceResult = "";
       intelligenceErrorMessageId = null;
       render();
-      void summarizeDocumentWithIntelligence(intelligencePort, {
+      void summarizeNoteWithIntelligence(intelligencePort, {
         id: latest.id,
         title: latest.title || t("notes.note.untitled"),
         text: latest.body || t("notes.note.emptyBody"),
         provenance: `notes:${latest.id}:device-local`,
+        locale: localization.getLocale(),
       }).then((response) => {
         if (destroyed || intelligenceNoteId !== latest.id) return;
         intelligenceResult = response.text;
