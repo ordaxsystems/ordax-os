@@ -5,7 +5,7 @@ This module consumes the root-only receipt index produced by the verified
 first-party receipt bootstrap, cross-checks it against the authenticated
 portable release handoff and first-party inventory, reopens every immutable
 receipt through the canonical consumer, and only then asks the Native App Data
-registry to mint opaque per-app bindings.
+registry to mint opaque per-app bindings transactionally.
 
 The app-facing descriptor returned here deliberately omits receipt SHA. Apps do
 not select receipts, identity, or capability tokens through request metadata.
@@ -219,9 +219,9 @@ def load_current_boot_app_data_bindings(
     portable_root: str = DEFAULT_PORTABLE_ROOT,
 ) -> tuple[TrustedAppDataPortBinding, ...]:
     uid = _validate_uid(expected_uid)
-    mint = getattr(server, "bind_app_data_receipt", None)
-    if not callable(mint):
-        raise TypeError("Native App Data host must provide bind_app_data_receipt")
+    mint_many = getattr(server, "bind_app_data_receipts", None)
+    if not callable(mint_many):
+        raise TypeError("Native App Data host must provide transactional bind_app_data_receipts")
 
     index = validate_session_receipt_index(_read_owned_index(index_path, expected_uid=uid))
     handoff = read_verified_system_release_handoff(
@@ -237,18 +237,22 @@ def load_current_boot_app_data_bindings(
             "session receipt index does not match current verified release"
         )
 
-    # Validate every receipt before minting the first capability. A malformed or
-    # stale index must never leave a partially authorized registry behind.
+    # Validate every receipt before requesting the single transactional batch
+    # mint. Capacity/entropy failure in the registry must therefore leave zero
+    # new authority from this bootstrap attempt.
     validated = _validate_receipts_before_mint(
         index,
         expected_uid=uid,
         receipt_root=receipt_root,
         inventory_path=inventory_path,
     )
+    receipt_shas = tuple(receipt_sha for _app_id, receipt_sha, _verified in validated)
+    bindings = mint_many(receipt_shas)
+    if not isinstance(bindings, (tuple, list)) or len(bindings) != len(validated):
+        raise NativeAppDataSessionBindingError("Native App Data registry returned an invalid batch")
 
     descriptors = []
-    for app_id, receipt_sha, verified in validated:
-        binding = mint(receipt_sha)
+    for (app_id, receipt_sha, verified), binding in zip(validated, bindings, strict=True):
         if (
             getattr(binding, "receipt_sha256", None) != receipt_sha
             or getattr(binding, "app_id", None) != app_id
