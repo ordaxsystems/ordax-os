@@ -1,0 +1,69 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import { listFirstPartyApps } from "../system/apps/catalog.mjs";
+
+const inventoryUrl = new URL(
+  "../system/services/apps/first-party-identities.json",
+  import.meta.url,
+);
+
+async function readInventory() {
+  return JSON.parse(await readFile(inventoryUrl, "utf8"));
+}
+
+test("first-party identity inventory is exact and matches the runtime app catalog", async () => {
+  const inventory = await readInventory();
+  assert.deepEqual(Object.keys(inventory).sort(), [
+    "$schema",
+    "apps",
+    "authority",
+    "status",
+    "verificationGeneration",
+    "verificationPolicy",
+  ]);
+  assert.equal(inventory.$schema, "ordax.first-party-app-identity-inventory/1");
+  assert.equal(inventory.status, "system-release-authenticated-source");
+  assert.equal(inventory.authority, "semantic-identity-only");
+  assert.equal(inventory.verificationPolicy, "ordax.publisher-trust/1");
+  assert.equal(inventory.verificationGeneration, 1);
+  assert.ok(Array.isArray(inventory.apps));
+
+  const expected = new Map(
+    listFirstPartyApps().map((app) => [app.id, app.component.version]),
+  );
+  const actual = new Map();
+  for (const entry of inventory.apps) {
+    assert.deepEqual(Object.keys(entry).sort(), [
+      "appId",
+      "publisherPrincipalId",
+      "version",
+    ]);
+    assert.match(entry.appId, /^[a-z][a-z0-9-]{0,63}$/);
+    assert.match(entry.publisherPrincipalId, /^[a-z][a-z0-9.-]{0,95}$/);
+    assert.match(entry.version, /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/);
+    assert.equal(entry.publisherPrincipalId, "ordax-official");
+    assert.equal(actual.has(entry.appId), false, `duplicate app identity: ${entry.appId}`);
+    actual.set(entry.appId, entry.version);
+  }
+
+  assert.deepEqual([...actual.keys()].sort(), [...expected.keys()].sort());
+  for (const [appId, version] of expected) {
+    assert.equal(actual.get(appId), version, `${appId} identity version drifted from component manifest`);
+  }
+});
+
+test("identity inventory never treats signing or display metadata as the durable principal", async () => {
+  const inventory = await readInventory();
+  const serialized = JSON.stringify(inventory);
+  for (const forbidden of [
+    "keyId",
+    "key_id",
+    "publicKeyFingerprint",
+    "signingKeyFingerprint",
+    "publisherDisplayName",
+  ]) {
+    assert.equal(serialized.includes(forbidden), false, `${forbidden} must not enter durable app identity`);
+  }
+});
