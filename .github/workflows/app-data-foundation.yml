@@ -1,0 +1,40 @@
+name: App Data Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/app-data.mjs'
+      - 'system/services/app-data/**'
+      - 'docs/contracts/app-data.json'
+      - 'tests/test_app_data.mjs'
+      - '.github/workflows/app-data-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/app-data.mjs'
+      - 'system/services/app-data/**'
+      - 'docs/contracts/app-data.json'
+      - 'tests/test_app_data.mjs'
+      - '.github/workflows/app-data-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  app-data-foundation:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate App Data sources
+        run: |
+          set -euo pipefail
+          node --check system/contracts/app-data.mjs
+          node --check system/services/app-data/runtime.mjs
+          python3 -m json.tool docs/contracts/app-data.json >/dev/null
+
+      - name: Prove bound isolation CAS copies and quotas
+        run: node --test tests/test_app_data.mjs
