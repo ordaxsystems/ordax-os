@@ -49,6 +49,20 @@ def handoff(**overrides):
     return value
 
 
+def handoff_for_schema(version: int):
+    value = handoff()
+    if version == 2:
+        value["status"] = "verified-portable-exact"
+        value.pop("runtime_path")
+        value.pop("ai_runtime_path")
+    elif version == 3:
+        value["status"] = "verified-portable-v3-exact"
+        value.pop("ai_runtime_path")
+    elif version != 4:
+        raise ValueError("unsupported test schema")
+    return value
+
+
 class SystemReleaseReceiptProducerTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -114,6 +128,20 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
         self.assertEqual(stored.stat().st_mode & 0o777, 0o600)
         self.assertEqual(stored.stat().st_nlink, 1)
 
+    def test_v2_v3_and_v4_exact_handoffs_preserve_verified_system_digest(self):
+        for version in (2, 3, 4):
+            with self.subTest(version=version):
+                verified = validate_verified_system_release_handoff(
+                    handoff_for_schema(version),
+                    portable_root=PORTABLE_ROOT,
+                )
+                self.assertEqual(verified.source_commit, COMMIT)
+                self.assertEqual(verified.artifact_sha256, SYSTEM_DIGEST)
+                self.assertEqual(
+                    verified.artifact_path,
+                    f"{PORTABLE_ROOT}/releases/{COMMIT}/system.erofs",
+                )
+
     def test_same_input_is_idempotent_and_does_not_duplicate_receipts(self):
         self.write_handoff()
         verified_handoff = self.read_handoff()
@@ -146,7 +174,7 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
                 expected_uid=self.uid,
             )
 
-    def test_missing_or_extra_handoff_fields_fail_closed(self):
+    def test_missing_extra_or_malformed_handoff_fields_fail_closed(self):
         missing = handoff()
         del missing["artifact_sha256"]
         with self.assertRaises(VerifiedSystemReleaseHandoffError):
@@ -161,6 +189,29 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
                 extra,
                 portable_root=PORTABLE_ROOT,
             )
+
+        for digest in ("B" * 64, "b" * 63, "g" * 64):
+            with self.subTest(digest=digest):
+                with self.assertRaises(VerifiedSystemReleaseHandoffError):
+                    validate_verified_system_release_handoff(
+                        handoff(artifact_sha256=digest),
+                        portable_root=PORTABLE_ROOT,
+                    )
+
+    def test_status_specific_fields_fail_closed(self):
+        v2_with_runtime = handoff_for_schema(2)
+        v2_with_runtime["runtime_path"] = (
+            f"{PORTABLE_ROOT}/runtimes/sha256/{RUNTIME_DIGEST}/native-surface-runtime.erofs"
+        )
+        v3_missing_runtime = handoff_for_schema(3)
+        del v3_missing_runtime["runtime_path"]
+        for candidate in (v2_with_runtime, v3_missing_runtime):
+            with self.subTest(candidate=candidate):
+                with self.assertRaises(VerifiedSystemReleaseHandoffError):
+                    validate_verified_system_release_handoff(
+                        candidate,
+                        portable_root=PORTABLE_ROOT,
+                    )
 
     def test_noncanonical_release_or_artifact_path_fails_closed(self):
         for candidate in (
