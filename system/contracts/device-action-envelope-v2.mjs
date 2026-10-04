@@ -21,7 +21,7 @@ const FORBIDDEN_PAYLOAD_KEYS = new Set([
   "secret",
   "token",
 ]);
-const OPERATION_RE = /^[a-z][a-z0-9._-]{0,95}$/;
+const CAPABILITY_RE = /^[a-z][a-z0-9._-]{0,119}$/;
 const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 
 function boundedText(value, label, max = 160) {
@@ -116,12 +116,12 @@ export function validateDeviceActionRequestV2(value) {
   if (!CLIENTS.has(value.client)) {
     throw new TypeError("Device action client is invalid");
   }
-  const capability = boundedText(value.capability, "Device action capability", 120);
+  if (typeof value.capability !== "string" || !CAPABILITY_RE.test(value.capability)) {
+    throw new TypeError("Device action capability id is invalid");
+  }
+  const capability = value.capability;
   if (FORBIDDEN_CAPABILITIES.has(capability)) {
     throw new TypeError("Device action capability is forbidden");
-  }
-  if (typeof value.operation !== "string" || !OPERATION_RE.test(value.operation)) {
-    throw new TypeError("Device action operation is invalid");
   }
 
   const requestedAt = safeInteger(value.requestedAt, "Device action requestedAt");
@@ -140,7 +140,6 @@ export function validateDeviceActionRequestV2(value) {
     deviceId: boundedText(value.deviceId, "Device action device id", 128),
     client: value.client,
     capability,
-    operation: value.operation,
     parameters: validateStructuredValue(value.parameters ?? {}, "Device action parameters"),
     requestedAt,
     expiresAt,
