@@ -1,0 +1,131 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import {
+  MVP_APP_DELIVERY_SCHEMA,
+  MVP_FIRST_ONLINE_REFRESH_SCHEMA,
+  getMvpAppDeliveryPolicy,
+  planMvpFirstOnlineRefresh,
+} from "../system/services/apps/mvp-delivery-policy.mjs";
+
+const rootUrl = new URL("../", import.meta.url);
+
+async function json(path) {
+  return JSON.parse(await readFile(new URL(path, rootUrl), "utf8"));
+}
+
+function sorted(values) {
+  return [...values].sort();
+}
+
+test("minimal MVP payload keeps only structural plus Files and Internet as launch blockers", async () => {
+  const policy = getMvpAppDeliveryPolicy();
+  const contract = await json("docs/contracts/mvp-app-delivery.json");
+  const distribution = await json("docs/contracts/app-distribution.json");
+
+  assert.equal(policy.schema, MVP_APP_DELIVERY_SCHEMA);
+  assert.equal(policy.authority, "none");
+  assert.equal(policy.optionalAppsBlockPublicLaunch, false);
+  assert.equal(policy.networkSkipPreservesUsableOfflineSystem, true);
+
+  assert.deepEqual(sorted(policy.structuralAppIds), ["account", "settings", "system"]);
+  assert.deepEqual(sorted(policy.bundledBootstrapAppIds), ["files", "internet"]);
+  assert.deepEqual(
+    sorted(policy.onDemandAppIds),
+    ["activity", "assistant", "network", "notes", "projects", "studio"],
+  );
+
+  assert.deepEqual(sorted(contract.initial_usb.structural_app_ids), sorted(policy.structuralAppIds));
+  assert.deepEqual(sorted(contract.initial_usb.bootstrap_app_ids), sorted(policy.bundledBootstrapAppIds));
+  assert.deepEqual(sorted(contract.initial_usb.on_demand_app_ids), sorted(policy.onDemandAppIds));
+  assert.equal(contract.initial_usb.optional_apps_block_public_launch, false);
+  assert.equal(distribution.mvp.optional_apps_block_public_launch, false);
+  assert.equal(contract.payload_transition_gate.notes_completion_required_before_public_launch, false);
+});
+
+test("offline First Run stays usable and defers update discovery", async () => {
+  const firstRun = await json("docs/contracts/first-run.json");
+  const plan = planMvpFirstOnlineRefresh({ online: false });
+
+  assert.equal(plan.schema, MVP_FIRST_ONLINE_REFRESH_SCHEMA);
+  assert.equal(plan.state, "offline");
+  assert.equal(plan.checkBaseUpdate, false);
+  assert.equal(plan.refreshSignedAppCatalog, false);
+  assert.deepEqual(plan.ensureBootstrapAppIds, []);
+  assert.equal(plan.blocksFirstRunCompletion, false);
+  assert.equal(plan.authority, "none");
+
+  assert.equal(firstRun.network.skippable, true);
+  assert.equal(firstRun.network.offline_skip_defers_update_discovery, true);
+  assert.equal(firstRun.network.update_discovery_failure_must_not_block_completion, true);
+});
+
+test("first successful online state checks Base, bootstrap apps and signed app catalog without auto-installing optional apps", async () => {
+  const contract = await json("docs/contracts/mvp-app-delivery.json");
+  const distribution = await json("docs/contracts/app-distribution.json");
+  const firstRun = await json("docs/contracts/first-run.json");
+  const plan = planMvpFirstOnlineRefresh({ online: true });
+
+  assert.equal(plan.schema, MVP_FIRST_ONLINE_REFRESH_SCHEMA);
+  assert.equal(plan.state, "online-refresh-required");
+  assert.equal(plan.checkBaseUpdate, true);
+  assert.equal(plan.refreshSignedAppCatalog, true);
+  assert.deepEqual(sorted(plan.ensureBootstrapAppIds), ["files", "internet"]);
+  assert.deepEqual(
+    sorted(plan.onDemandAppIds),
+    ["activity", "assistant", "network", "notes", "projects", "studio"],
+  );
+  assert.equal(plan.onDemandAutoInstall, false);
+  assert.equal(plan.blocksFirstRunCompletion, false);
+  assert.equal(plan.authority, "none");
+
+  assert.equal(firstRun.network.first_online_update_policy, "docs/contracts/mvp-app-delivery.json");
+  assert.equal(firstRun.network.successful_connection_triggers_official_update_discovery, true);
+  assert.equal(firstRun.network.retry_after_first_run_allowed, true);
+  assert.equal(firstRun.network.runtime_hook_status, "required-not-yet-proven");
+
+  assert.equal(contract.first_online_refresh.check_official_base_update, true);
+  assert.equal(contract.first_online_refresh.ensure_current_bootstrap_apps, true);
+  assert.equal(contract.first_online_refresh.refresh_signed_first_party_app_catalog, true);
+  assert.equal(contract.first_online_refresh.auto_install_on_demand_apps, false);
+  assert.equal(contract.evolution.store_or_catalog_may_mint_install_authority, false);
+  assert.equal(distribution.security.first_online_catalog_refresh_may_mint_install_authority, false);
+});
+
+test("future app promotion to bootstrap still requires signed release policy and safe delivery proofs", async () => {
+  const contract = await json("docs/contracts/mvp-app-delivery.json");
+
+  assert.equal(contract.evolution.new_first_party_app_may_start_on_demand, true);
+  assert.equal(contract.evolution.promote_to_bootstrap_requires_signed_release_policy_change, true);
+  assert.equal(contract.evolution.bootstrap_promotion_may_provision_app_without_reimaging_usb, true);
+
+  assert.deepEqual(contract.installation_pipeline, [
+    "catalog",
+    "artifact-identity",
+    "trust-provenance",
+    "compatibility",
+    "stage",
+    "health-probation",
+    "promote",
+    "inventory-receipt",
+  ]);
+
+  const required = new Set(contract.payload_transition_gate.remove_on_demand_payloads_from_stable_image_only_after);
+  for (const proof of [
+    "native-installed-inventory-proof",
+    "verified-first-install-proof",
+    "reinstall-proof",
+    "offline-retained-installed-app-proof",
+    "failed-update-keeps-last-known-good-proof",
+    "rollback-proof",
+    "uninstall-keeps-user-data-proof",
+  ]) {
+    assert.equal(required.has(proof), true, `missing delivery proof gate ${proof}`);
+  }
+});
+
+test("first-online planner rejects ambiguous connectivity instead of guessing", () => {
+  assert.throws(() => planMvpFirstOnlineRefresh({ online: "yes" }), /boolean online state/);
+  assert.throws(() => planMvpFirstOnlineRefresh({}), /boolean online state/);
+});
