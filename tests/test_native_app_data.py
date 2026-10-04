@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import stat
 import sys
 import tempfile
 import threading
@@ -60,6 +61,31 @@ class NativeAppDataTests(unittest.TestCase):
             self.assertEqual(listing["keys"], [])
             self.assertEqual(listing["bytesUsed"], 0)
             self.assertFalse(Path(root).exists())
+
+    def test_first_mutation_provisions_only_missing_private_parent_and_root(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            platform_root = Path(temporary) / "ordax"
+            platform_root.mkdir(mode=0o700)
+            root = platform_root / "app-data" / "v1"
+            self.assertFalse(root.parent.exists())
+
+            result = app_data.put_app_data(identity(), "state", b"ready", 0, str(root))
+            self.assertEqual(result, {"revision": 1, "stored": True})
+            self.assertEqual(stat.S_IMODE(root.parent.stat().st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(root.stat().st_mode), 0o700)
+            self.assertEqual(app_data.read_app_data(identity(), "state", str(root))["value"], b"ready")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            platform_root = Path(temporary) / "ordax"
+            platform_root.mkdir(mode=0o700)
+            real_parent = platform_root / "real-parent"
+            real_parent.mkdir(mode=0o700)
+            app_data_parent = platform_root / "app-data"
+            app_data_parent.symlink_to(real_parent, target_is_directory=True)
+            root = app_data_parent / "v1"
+            with self.assertRaisesRegex(ValueError, "root parent is not a real directory"):
+                app_data.put_app_data(identity(), "state", b"blocked", 0, str(root))
+            self.assertFalse((real_parent / "v1").exists())
 
     def test_put_reboot_read_delete_and_partition_wide_cas(self):
         with tempfile.TemporaryDirectory() as temporary:
