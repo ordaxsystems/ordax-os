@@ -61,6 +61,10 @@ class NativeAppDataHostServer(NativeHostServer):
         """Trusted in-process handoff; never exposed as an HTTP mint endpoint."""
         return self.app_data_bindings.mint_from_receipt(receipt_sha256)
 
+    def bind_app_data_receipts(self, receipt_sha256s: list[str] | tuple[str, ...]):
+        """Trusted all-or-nothing batch handoff for current-boot composition."""
+        return self.app_data_bindings.mint_many_from_receipts(receipt_sha256s)
+
 
 class NativeAppDataHostHandler(NativeHostHandler):
     def _is_app_data_path(self) -> bool:
