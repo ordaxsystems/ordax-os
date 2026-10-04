@@ -34,10 +34,10 @@ def receipt():
         "publisherPrincipalId": "ordax-official",
         "appId": "notes",
         "ownerScope": "device",
-        "sourceClass": "stable-base-bundled",
-        "sourceVersion": "1.0.0",
+        "sourceClass": "system-release-bundled",
+        "sourceVersion": "0.4.1",
         "sourceDigest": "1" * 64,
-        "verificationOwner": "stable-base-release",
+        "verificationOwner": "release-acquisition",
         "verificationPolicy": "ordax.publisher-trust/1",
         "verificationGeneration": 1,
     }

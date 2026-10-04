@@ -25,10 +25,10 @@ def receipt(**overrides):
         "publisherPrincipalId": "ordax-official",
         "appId": "notes",
         "ownerScope": "device",
-        "sourceClass": "stable-base-bundled",
-        "sourceVersion": "1.0.0",
+        "sourceClass": "system-release-bundled",
+        "sourceVersion": "0.4.1",
         "sourceDigest": "1" * 64,
-        "verificationOwner": "stable-base-release",
+        "verificationOwner": "release-acquisition",
         "verificationPolicy": "ordax.publisher-trust/1",
         "verificationGeneration": 1,
     }
@@ -41,6 +41,18 @@ class VerifiedAppInstallIdentityValidationTest(unittest.TestCase):
         normalized = validate_verified_app_install_identity(receipt())
         self.assertEqual(normalized["publisherPrincipalId"], "ordax-official")
         self.assertEqual(normalized["appId"], "notes")
+        self.assertEqual(normalized["sourceClass"], "system-release-bundled")
+        self.assertEqual(normalized["sourceVersion"], "0.4.1")
+        self.assertEqual(normalized["verificationOwner"], "release-acquisition")
+
+    def test_legacy_stable_base_bundled_class_is_rejected(self):
+        with self.assertRaises(VerifiedAppInstallIdentityError):
+            validate_verified_app_install_identity(
+                receipt(
+                    sourceClass="stable-base-bundled",
+                    verificationOwner="stable-base-release",
+                )
+            )
 
     def test_manifest_publisher_or_signing_key_fields_are_rejected(self):
         for field, value in (
@@ -59,7 +71,7 @@ class VerifiedAppInstallIdentityValidationTest(unittest.TestCase):
             validate_verified_app_install_identity(
                 receipt(
                     sourceClass="component-release-v2",
-                    verificationOwner="stable-base-release",
+                    verificationOwner="release-acquisition",
                 )
             )
 
@@ -113,6 +125,9 @@ class VerifiedAppInstallIdentityFileTest(unittest.TestCase):
                 "ownerScope": "device",
             },
         )
+        self.assertEqual(verified.source_class, "system-release-bundled")
+        self.assertEqual(verified.source_version, "0.4.1")
+        self.assertEqual(verified.verification_owner, "release-acquisition")
         self.assertEqual(verified.receipt_sha256, digest)
 
     def test_digest_mismatch_fails_closed(self):
