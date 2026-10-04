@@ -12,6 +12,13 @@ DIGEST_PATH = ROOT / "sdk" / "app-sdk-v1" / "bundle.sha256"
 
 CONTRACTS = (
     {
+        "name": "app-activation",
+        "path": "system/contracts/app-activation.mjs",
+        "constant": "APP_ACTIVATION_SCHEMA",
+        "schema": "ordax.app-activation/1",
+        "major": 1,
+    },
+    {
         "name": "component-manifest",
         "path": "system/contracts/component-manifest.mjs",
         "constant": "COMPONENT_MANIFEST_SCHEMA",
@@ -19,10 +26,38 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "component-runtime",
+        "path": "system/contracts/component-runtime.mjs",
+        "constant": "COMPONENT_RUNTIME_SCHEMA",
+        "schema": "ordax.component-runtime/1",
+        "major": 1,
+    },
+    {
+        "name": "file-space",
+        "path": "system/contracts/file-space.mjs",
+        "constant": "FILE_SPACE_SCHEMA",
+        "schema": "ordax.file-space/11",
+        "major": 11,
+    },
+    {
+        "name": "first-party-app-delivery",
+        "path": "system/contracts/first-party-app-delivery.mjs",
+        "constant": "FIRST_PARTY_APP_DELIVERY_POLICY_SCHEMA",
+        "schema": "ordax.first-party-app-delivery-policy/1",
+        "major": 1,
+    },
+    {
         "name": "intelligence",
         "path": "system/contracts/intelligence.mjs",
         "constant": "INTELLIGENCE_PORT_SCHEMA",
         "schema": "ordax.intelligence/1",
+        "major": 1,
+    },
+    {
+        "name": "localization",
+        "path": "system/contracts/localization.mjs",
+        "constant": "LOCALIZATION_SCHEMA",
+        "schema": "ordax.localization/1",
         "major": 1,
     },
     {
@@ -38,6 +73,13 @@ CONTRACTS = (
         "constant": "MEMORY_PORT_SCHEMA",
         "schema": "ordax.memory/1",
         "major": 1,
+    },
+    {
+        "name": "surface-render-lifecycle",
+        "path": "system/contracts/surface-render-lifecycle.mjs",
+        "constant": "SURFACE_RENDER_LIFECYCLE_SCHEMA",
+        "schema": "ordax.surface-render-lifecycle/4",
+        "major": 4,
     },
 )
 
@@ -91,7 +133,7 @@ def build_bundle() -> dict:
     return {
         "$schema": "ordax.app-sdk-bundle/1",
         "authority": "none",
-        "bundle_version": "1.0.0",
+        "bundle_version": "1.1.0",
         "compatibility_policy": "contract-major",
         "contracts": contracts,
     }
@@ -127,7 +169,7 @@ def check() -> None:
 
     print("APP_SDK_BUNDLE=PASS")
     print("APP_SDK_SCHEMA=ordax.app-sdk-bundle/1")
-    print("APP_SDK_VERSION=1.0.0")
+    print("APP_SDK_VERSION=1.1.0")
     print(f"APP_SDK_CONTRACT_COUNT={len(CONTRACTS)}")
     print("APP_SDK_AUTHORITY=none")
 
