@@ -1,0 +1,64 @@
+{
+  "$schema": "ordax.first-party-app-identity-inventory/1",
+  "status": "system-release-authenticated-source",
+  "authority": "semantic-identity-only",
+  "verificationPolicy": "ordax.publisher-trust/1",
+  "verificationGeneration": 1,
+  "apps": [
+    {
+      "appId": "account",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.0"
+    },
+    {
+      "appId": "activity",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.0"
+    },
+    {
+      "appId": "assistant",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.1"
+    },
+    {
+      "appId": "files",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.0"
+    },
+    {
+      "appId": "internet",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.3.0"
+    },
+    {
+      "appId": "network",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.0"
+    },
+    {
+      "appId": "notes",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.4.1"
+    },
+    {
+      "appId": "projects",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.0"
+    },
+    {
+      "appId": "settings",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.0"
+    },
+    {
+      "appId": "studio",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.0"
+    },
+    {
+      "appId": "system",
+      "publisherPrincipalId": "ordax-official",
+      "version": "0.1.0"
+    }
+  ]
+}
