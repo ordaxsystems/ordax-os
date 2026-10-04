@@ -17,12 +17,10 @@ function createManager() {
   });
 }
 
-test("privileged bootstrap injects only ordax.app-data/1 into matching first-party context", async () => {
-  const listeners = new Map();
+test("privileged bootstrap injects only ordax.app-data/1 without a DOM event channel", async () => {
   const bridgeRequests = [];
   const transportRequests = [];
   const previous = {
-    addEventListener: globalThis.addEventListener,
     clearTimeout: globalThis.clearTimeout,
     setTimeout: globalThis.setTimeout,
     webkit: globalThis.webkit,
@@ -31,30 +29,11 @@ test("privileged bootstrap injects only ordax.app-data/1 into matching first-par
     atob: globalThis.atob,
   };
 
-  globalThis.addEventListener = (name, listener) => {
-    listeners.set(name, listener);
-  };
   globalThis.webkit = {
     messageHandlers: {
       ordaxBrowser: {
         postMessage(raw) {
           bridgeRequests.push(JSON.parse(raw));
-          queueMicrotask(() => {
-            const listener = listeners.get("ordax-native-app-data-bootstrap");
-            listener?.({
-              detail: {
-                schema: "ordax.native-app-data-composition-bootstrap/1",
-                bindings: [
-                  {
-                    appId: "notes",
-                    endpoint: `/__ordax/native/app-data/${"a".repeat(43)}`,
-                    ownerScope: "device",
-                    publisherId: "ordax-official",
-                  },
-                ],
-              },
-            });
-          });
         },
       },
     },
@@ -79,10 +58,29 @@ test("privileged bootstrap injects only ordax.app-data/1 into matching first-par
   globalThis.atob = (value) => Buffer.from(value, "base64").toString("binary");
 
   try {
-    await import(`../system/composition/native/app-data-bootstrap.mjs?test=${Date.now()}`);
+    const module = await import(`../system/composition/native/app-data-bootstrap.mjs?test=${Date.now()}`);
     assert.deepEqual(bridgeRequests, [{ type: "app-data.bootstrap.request" }]);
     assert.equal(JSON.stringify(bridgeRequests).includes("publisherId"), false);
     assert.equal(JSON.stringify(bridgeRequests).includes("appId"), false);
+
+    module.acceptTrustedNativeAppDataBootstrap({
+      schema: "ordax.native-app-data-composition-bootstrap/1",
+      bindings: [
+        {
+          appId: "notes",
+          endpoint: `/__ordax/native/app-data/${"a".repeat(43)}`,
+          ownerScope: "device",
+          publisherId: "ordax-official",
+        },
+      ],
+    });
+    assert.throws(
+      () => module.acceptTrustedNativeAppDataBootstrap({
+        schema: "ordax.native-app-data-composition-bootstrap/1",
+        bindings: [],
+      }),
+      /already consumed/,
+    );
 
     const manager = createManager();
     const notes = manager.getSnapshot().components.find(
@@ -126,8 +124,6 @@ test("privileged bootstrap injects only ordax.app-data/1 into matching first-par
     assert.equal(transportRequests[0].options.body.includes("appId"), false);
     manager.destroy();
   } finally {
-    if (previous.addEventListener === undefined) delete globalThis.addEventListener;
-    else globalThis.addEventListener = previous.addEventListener;
     globalThis.clearTimeout = previous.clearTimeout;
     globalThis.setTimeout = previous.setTimeout;
     if (previous.webkit === undefined) delete globalThis.webkit;
