@@ -4,6 +4,7 @@ const PUBLIC_CLIENT_ADDRESS_HEADER = "x-ordax-client-address";
 const EDGE_CLIENT_ADDRESS_HEADER = "cf-connecting-ip";
 const PUBLIC_PROXY_SECRET_SHA256 = "7417269164ec41346a74864a6d9f91dbc9f19960cea9815a9cdbeabf103e51d7";
 const PROXY_SECRET_RE = /^[A-Za-z0-9_-]{32,128}$/;
+const SHA256_RE = /^[0-9a-f]{64}$/;
 const ADDRESS_RE = /^[0-9A-Fa-f:.]{3,64}$/;
 const RATE_LIMIT_SCHEMA = "prototype-ordax.public-auth-rate-limit/1";
 const RATE_LIMIT_BUCKETS = new Set([
@@ -19,7 +20,7 @@ function boundedAddress(raw) {
   return value;
 }
 
-async function sha256Hex(value) {
+export async function sha256Hex(value) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
@@ -36,7 +37,13 @@ function constantTimeHexEqual(left, right) {
   return difference === 0;
 }
 
-export async function trustedRateLimitAddress(request) {
+export async function trustedRateLimitAddress(
+  request,
+  { publicProxySecretSha256 = PUBLIC_PROXY_SECRET_SHA256 } = {},
+) {
+  if (!SHA256_RE.test(publicProxySecretSha256)) {
+    return { ok: false, code: "public-proxy-authentication-required" };
+  }
   const publicSite = (request.headers.get(PUBLIC_SITE_HEADER) ?? "") === "1";
   if (publicSite) {
     const secret = (request.headers.get(PUBLIC_PROXY_SECRET_HEADER) ?? "").trim();
@@ -44,7 +51,7 @@ export async function trustedRateLimitAddress(request) {
       return { ok: false, code: "public-proxy-authentication-required" };
     }
     const digest = await sha256Hex(secret);
-    if (!constantTimeHexEqual(digest, PUBLIC_PROXY_SECRET_SHA256)) {
+    if (!constantTimeHexEqual(digest, publicProxySecretSha256)) {
       return { ok: false, code: "public-proxy-authentication-required" };
     }
     const address = boundedAddress(request.headers.get(PUBLIC_CLIENT_ADDRESS_HEADER));
