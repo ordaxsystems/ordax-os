@@ -16,7 +16,7 @@ create table private.ordax_public_auth_rate_limits (
   attempt_count integer not null
     check (attempt_count >= 1),
   updated_at timestamptz not null,
-  primary key (bucket, client_sha256),
+  constraint ordax_public_auth_rate_limits_pkey primary key (bucket, client_sha256),
   check (updated_at >= window_started_at)
 );
 
@@ -100,7 +100,7 @@ begin
     1,
     v_now
   )
-  on conflict (bucket, client_sha256) do update
+  on conflict on constraint ordax_public_auth_rate_limits_pkey do update
   set
     window_started_at = case
       when current_window.window_started_at + interval '1 minute' <= v_now
