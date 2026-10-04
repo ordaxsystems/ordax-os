@@ -5,7 +5,8 @@ import {
 
 export const DEVICE_ACTION_RESULT_SCHEMA = "ordax.device-action-result/1";
 
-const CONTROL_RE = /[\u0000-\u001f\u007f]/;
+const KEY_CONTROL_RE = /[\u0000-\u001f\u007f]/;
+const TEXT_CONTROL_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const FORBIDDEN_RESULT_KEYS = new Set([
   "authorization",
   "cookie",
@@ -32,7 +33,7 @@ function validateKey(value, label, budget) {
     typeof value !== "string"
     || value.length === 0
     || value.length > MAX_KEY_LENGTH
-    || CONTROL_RE.test(value)
+    || KEY_CONTROL_RE.test(value)
   ) {
     throw new TypeError(`${label} contains an invalid field name`);
   }
@@ -50,7 +51,7 @@ function validateResultValue(value, label, budget, depth = 0) {
   if (value === null || typeof value === "boolean") return value;
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    if (value.length > MAX_STRING_LENGTH || CONTROL_RE.test(value)) {
+    if (value.length > MAX_STRING_LENGTH || TEXT_CONTROL_RE.test(value)) {
       throw new TypeError(`${label} contains invalid text`);
     }
     consume(budget, value.length, label);
