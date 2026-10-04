@@ -46,7 +46,9 @@
     "host_route_wired": false,
     "publisher_binding_from_verified_install_owner": false,
     "publisher_binding_source": "verified-install-provenance",
-    "manifest_publisher_text_is_binding_source": false
+    "manifest_publisher_text_is_binding_source": false,
+    "signing_key_is_binding_source": false,
+    "authorized_key_rotation_preserves_publisher_binding": true
   },
   "security": {
     "publisher_self_claim_accepted": false,
