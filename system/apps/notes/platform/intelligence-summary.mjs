@@ -18,13 +18,13 @@ const COPY = Object.freeze({
     title: "Título",
     content: "Conteúdo",
     truncated: "conteúdo truncado pelo limite de contexto local",
-    prompt: "Resuma a nota em português, preservando os fatos principais e sem inventar informações.",
+    prompt: "Resuma o documento em português, preservando os fatos principais e sem inventar informações.",
   }),
   "en-US": Object.freeze({
     title: "Title",
     content: "Content",
     truncated: "content truncated by the local context limit",
-    prompt: "Summarize the note in English, preserving the main facts and without inventing information.",
+    prompt: "Summarize the document in English, preserving the main facts and without inventing information.",
   }),
 });
 
