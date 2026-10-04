@@ -7,6 +7,7 @@ on:
       - 'system/surface/runtime/native_app_install_identity_producer.py'
       - 'system/surface/runtime/native_app_install_identity_bootstrap.py'
       - 'system/services/apps/first-party-identities.json'
+      - 'docs/contracts/verified-app-install-identity.json'
       - 'tests/test_native_app_install_identity.py'
       - 'tests/test_native_app_install_identity_producer.py'
       - 'tests/test_native_app_install_identity_bootstrap.py'
@@ -18,6 +19,7 @@ on:
       - 'system/surface/runtime/native_app_install_identity_producer.py'
       - 'system/surface/runtime/native_app_install_identity_bootstrap.py'
       - 'system/services/apps/first-party-identities.json'
+      - 'docs/contracts/verified-app-install-identity.json'
       - 'tests/test_native_app_install_identity.py'
       - 'tests/test_native_app_install_identity_producer.py'
       - 'tests/test_native_app_install_identity_bootstrap.py'
@@ -42,6 +44,7 @@ jobs:
             system/surface/runtime/native_app_install_identity.py \
             system/surface/runtime/native_app_install_identity_producer.py \
             system/surface/runtime/native_app_install_identity_bootstrap.py
+          python3 -m json.tool docs/contracts/verified-app-install-identity.json >/dev/null
 
       - name: Prove verified receipt producer and bootstrap boundary
         run: |
