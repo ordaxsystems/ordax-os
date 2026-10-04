@@ -289,11 +289,17 @@ async function registrationLegalPolicy() {
   };
 }
 
-async function beginRegistrationLegalIntent(email: string) {
+async function beginRegistrationLegalIntent(email: string, legalAcceptance: string) {
+  if (legalAcceptance !== LEGAL_ACCEPTANCE_VALUE) {
+    throw new Error("registration-legal-acceptance-required");
+  }
   const normalized = email.trim().toLowerCase();
   const { data, error: rpcError } = await adminClient().rpc(
     "ordax_begin_account_registration_legal_intent_v1",
-    { p_normalized_email: normalized, p_accepted: true },
+    {
+      p_normalized_email: normalized,
+      p_accepted: legalAcceptance === LEGAL_ACCEPTANCE_VALUE,
+    },
   );
   if (
     rpcError
@@ -683,6 +689,15 @@ async function credentials(req: Request, register: boolean) {
       ? error(400, "invalid-credentials-form", "Revise o e-mail e a senha informados.")
       : redirectResponse(register ? "/cadastro/?erro=formulario" : "/login/?erro=formulario");
   }
+  if (register && legalAcceptance !== LEGAL_ACCEPTANCE_VALUE) {
+    return wantsJson(req)
+      ? error(
+          400,
+          "registration-legal-acceptance-required",
+          "Confirme o aceite da Política de Privacidade e dos Termos para criar a Conta OrdaX.",
+        )
+      : redirectResponse("/cadastro/?erro=aceite-legal");
+  }
   if (
     register &&
     (password.length < MIN_REGISTRATION_PASSWORD_CHARS ||
@@ -711,7 +726,7 @@ async function credentials(req: Request, register: boolean) {
   let registrationIntentId: string | null = null;
   if (register) {
     try {
-      registrationIntentId = await beginRegistrationLegalIntent(email);
+      registrationIntentId = await beginRegistrationLegalIntent(email, legalAcceptance);
     } catch {
       return wantsJson(req)
         ? error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.")
