@@ -5,13 +5,13 @@ import {
   sha256Hex,
   trustedRateLimitAddress,
   validateRateLimitRpcResult,
-} from "../infra/supabase/functions/ordax-account-gateway/public_auth_rate_limit.mjs";
+} from "../infra/supabase/functions/ordax-public-account-gateway/public_auth_rate_limit.mjs";
 
 const TEST_SECRET = "test_proxy_secret_0123456789_ABCDEFGHIJKLMN";
 const TEST_SECRET_SHA256 = await sha256Hex(TEST_SECRET);
 
 function request(headers = {}) {
-  return new Request("https://edge.example/functions/v1/ordax-account-gateway/auth/login", {
+  return new Request("https://edge.example/functions/v1/ordax-public-account-gateway/auth/login", {
     method: "POST",
     headers,
   });
@@ -44,7 +44,7 @@ test("marked public traffic requires the authenticated proxy secret before trust
     source: "authenticated-public-proxy",
   });
 
-  for (const secret of ["", "wrong_secret_0123456789_ABCDEFGHIJKLMN"] ) {
+  for (const secret of ["", "wrong_secret_0123456789_ABCDEFGHIJKLMN"]) {
     const invalid = await trustedRateLimitAddress(request({
       "x-ordax-public-site": "1",
       "x-ordax-public-proxy-secret": secret,
