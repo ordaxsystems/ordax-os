@@ -48,7 +48,6 @@ from native_security_prompt_i18n import (
 
 BRIDGE_NAME = "ordaxBrowser"
 APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-bootstrap/1"
-APP_DATA_COMPOSITION_BOOTSTRAP_EVENT = "ordax-native-app-data-bootstrap"
 TRUSTED_STATE_UID = 0
 TAB_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 MAX_TABS = 16
@@ -447,11 +446,10 @@ class OrdaXBrowserHost:
         }
         encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         script = (
-            "window.dispatchEvent(new CustomEvent('"
-            + APP_DATA_COMPOSITION_BOOTSTRAP_EVENT
-            + "',{detail:"
+            "(async()=>{const module=await import('/composition/native/app-data-bootstrap.mjs');"
+            "module.acceptTrustedNativeAppDataBootstrap("
             + encoded
-            + "}));"
+            + ");})().catch((error)=>console.error('OrdaX App Data bootstrap delivery failed',error));"
         )
         self.surface_view.run_javascript(script, None, None, None)
         self.app_data_bootstrap_served = True
