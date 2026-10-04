@@ -1,5 +1,5 @@
 {
-  "$schema": "ordax.mvp-app-delivery/1",
+  "$schema": "prototype-ordax.mvp-app-delivery/1",
   "status": "launch-policy-defined-delivery-proof-required",
   "initial_usb": {
     "structural_app_ids": [
