@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.app-distribution/1",
-  "status": "mvp-minimal-payload-policy-defined",
+  "status": "mvp-minimal-product-scope-signed-release-delivery",
   "catalog_owner": "future-store-service",
   "runtime_catalog": "system/apps/catalog.mjs",
   "first_party_delivery_policy_owner": "system/services/apps",
@@ -38,7 +38,7 @@
     "third_party_installation_enabled": false,
     "store_ui_enabled": false,
     "foundation_prepared": true,
-    "minimal_initial_payload_target": true,
+    "minimal_initial_product_scope_target": true,
     "structural_app_ids": [
       "account",
       "settings",
@@ -57,12 +57,16 @@
       "studio"
     ],
     "optional_apps_block_public_launch": false,
+    "physical_payload_shrink_required_before_public_launch": false,
+    "signed_stable_release_can_add_or_upgrade_optional_apps": true,
+    "usb_reimage_required_for_optional_app_addition": false,
+    "independent_component_delivery_required_before_public_launch": false,
     "successful_network_makes_official_update_polling_reachable": true,
     "official_update_discovery_owner": "system/supervisor",
     "official_update_discovery_default_interval_seconds": 60,
     "first_run_is_not_a_second_updater": true,
     "network_skip_must_not_block_first_run": true,
-    "stable_payload_may_drop_on_demand_apps_only_after_delivery_proofs": true,
+    "independent_payload_removal_requires_delivery_proofs": true,
     "stable_payload_changed_by_this_policy_only": false
   }
 }
