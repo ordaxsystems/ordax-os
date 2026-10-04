@@ -19,7 +19,7 @@ function sorted(values) {
   return [...values].sort();
 }
 
-test("minimal MVP payload keeps only structural plus Files and Internet as launch blockers", async () => {
+test("minimal MVP surface keeps only structural plus Files and Internet as launch blockers", async () => {
   const policy = getMvpAppDeliveryPolicy();
   const contract = await json("docs/contracts/mvp-app-delivery.json");
   const distribution = await json("docs/contracts/app-distribution.json");
@@ -40,8 +40,10 @@ test("minimal MVP payload keeps only structural plus Files and Internet as launc
   assert.deepEqual(sorted(contract.initial_usb.bootstrap_app_ids), sorted(policy.bundledBootstrapAppIds));
   assert.deepEqual(sorted(contract.initial_usb.on_demand_app_ids), sorted(policy.onDemandAppIds));
   assert.equal(contract.initial_usb.optional_apps_block_public_launch, false);
+  assert.equal(contract.initial_usb.physical_payload_shrink_required_before_public_launch, false);
+  assert.equal(contract.initial_usb.current_image_may_retain_dormant_on_demand_payloads, true);
   assert.equal(distribution.mvp.optional_apps_block_public_launch, false);
-  assert.equal(contract.payload_transition_gate.notes_completion_required_before_public_launch, false);
+  assert.equal(contract.launch_scope.notes_completion_required_before_public_launch, false);
 });
 
 test("offline First Run stays usable and defers successful update discovery", async () => {
@@ -91,6 +93,9 @@ test("first online state reuses the Stable supervisor update owner without makin
   assert.equal(firstRun.network.retry_after_first_run_owned_by_supervisor, true);
   assert.equal(firstRun.network.runtime_update_polling_status, "source-connected-physical-proof-pending");
 
+  assert.equal(contract.first_online_refresh.discovery_owner, "system/supervisor");
+  assert.equal(contract.first_online_refresh.discovery_mode, "periodic-signed-channel-polling");
+  assert.equal(contract.first_online_refresh.default_interval_seconds, 60);
   assert.equal(contract.first_online_refresh.check_official_base_update, true);
   assert.equal(contract.first_online_refresh.ensure_current_bootstrap_apps, true);
   assert.equal(contract.first_online_refresh.refresh_signed_first_party_app_catalog, true);
@@ -99,14 +104,27 @@ test("first online state reuses the Stable supervisor update owner without makin
   assert.equal(distribution.security.first_online_catalog_refresh_may_mint_install_authority, false);
 });
 
-test("future app promotion to bootstrap still requires signed release policy and safe delivery proofs", async () => {
+test("signed Stable releases can add optional first-party apps without making independent app delivery a launch blocker", async () => {
+  const contract = await json("docs/contracts/mvp-app-delivery.json");
+
+  assert.equal(contract.launch_delivery.owner, "system/supervisor");
+  assert.equal(contract.launch_delivery.transport, "official-signed-release-channel");
+  assert.equal(contract.launch_delivery.optional_app_completion_may_arrive_via_signed_stable_release, true);
+  assert.equal(contract.launch_delivery.signed_stable_release_may_add_or_upgrade_first_party_apps, true);
+  assert.equal(contract.launch_delivery.usb_reimage_required_for_later_first_party_app_addition, false);
+  assert.equal(contract.launch_delivery.independent_component_slot_delivery_required_before_public_launch, false);
+  assert.equal(contract.launch_delivery.store_required_before_public_launch, false);
+});
+
+test("future independent app delivery remains hardened but is a post-launch optimization", async () => {
   const contract = await json("docs/contracts/mvp-app-delivery.json");
 
   assert.equal(contract.evolution.new_first_party_app_may_start_on_demand, true);
   assert.equal(contract.evolution.promote_to_bootstrap_requires_signed_release_policy_change, true);
   assert.equal(contract.evolution.bootstrap_promotion_may_provision_app_without_reimaging_usb, true);
+  assert.equal(contract.evolution.independent_app_delivery_is_post_launch_optimization, true);
 
-  assert.deepEqual(contract.installation_pipeline, [
+  assert.deepEqual(contract.independent_delivery_pipeline, [
     "catalog",
     "artifact-identity",
     "trust-provenance",
@@ -117,7 +135,11 @@ test("future app promotion to bootstrap still requires signed release policy and
     "inventory-receipt",
   ]);
 
-  const required = new Set(contract.payload_transition_gate.remove_on_demand_payloads_from_stable_image_only_after);
+  assert.equal(contract.independent_delivery_transition_gate.does_not_block_first_public_launch, true);
+  const required = new Set(
+    contract.independent_delivery_transition_gate
+      .remove_dormant_on_demand_payloads_from_base_when_independent_delivery_is_used_only_after,
+  );
   for (const proof of [
     "native-installed-inventory-proof",
     "verified-first-install-proof",
