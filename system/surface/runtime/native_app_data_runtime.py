@@ -2,8 +2,9 @@
 """Run the canonical Native host with private current-boot App Data authority.
 
 This entrypoint composes the existing Native host with the receipt-bound App
-Data route. It deliberately keeps opaque endpoints inside the trusted Python
-process; browser/app composition is a later, separate boundary.
+Data route. Stable/MVP publishes the already-verified opaque binding descriptors
+only through a root-owned one-shot tmpfs handoff consumed by the privileged
+WebKit host; apps never receive those descriptors directly.
 """
 
 from __future__ import annotations
@@ -13,6 +14,11 @@ import sys
 from functools import partial
 
 from native_app_data_host import NativeAppDataHostHandler, NativeAppDataHostServer
+from native_app_data_port_bootstrap import (
+    DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
+    NativeAppDataPortBootstrapError,
+    publish_app_data_port_bootstrap,
+)
 from native_app_data_session_binding import (
     NativeAppDataSessionBindingError,
     load_current_boot_app_data_bindings,
@@ -29,8 +35,13 @@ from native_host_server import (
 TRUSTED_STATE_UID = 0
 
 
-def prepare_private_app_data_authority(server, distribution_profile: str) -> int:
-    """Load Stable current-boot bindings without returning opaque endpoints."""
+def prepare_private_app_data_authority(
+    server,
+    distribution_profile: str,
+    *,
+    bootstrap_path: str = DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
+) -> int:
+    """Load Stable bindings and publish only the trusted one-shot composition handoff."""
     if distribution_profile == "owner-development":
         return 0
     if distribution_profile != "stable-mvp":
@@ -42,9 +53,16 @@ def prepare_private_app_data_authority(server, distribution_profile: str) -> int
         server,
         expected_uid=TRUSTED_STATE_UID,
     )
-    # Deliberately collapse descriptors to a count. endpoint/publisher/receipt
-    # data must not cross this process boundary during B2g.
-    return len(bindings)
+    published = publish_app_data_port_bootstrap(
+        bindings,
+        bootstrap_path,
+        expected_uid=TRUSTED_STATE_UID,
+    )
+    if published != len(bindings):
+        raise NativeAppDataPortBootstrapError(
+            "App Data port bootstrap count does not match verified bindings"
+        )
+    return published
 
 
 def main() -> int:
@@ -95,6 +113,7 @@ def main() -> int:
             args.distribution_profile,
         )
     except (
+        NativeAppDataPortBootstrapError,
         NativeAppDataSessionBindingError,
         OSError,
         PermissionError,
