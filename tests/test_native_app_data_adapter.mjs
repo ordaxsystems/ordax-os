@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import {
+  MAX_APP_DATA_PARTITION_BYTES,
+  MAX_APP_DATA_PARTITION_KEYS,
+} from "../system/contracts/app-data.mjs";
 import { createNativeAppDataStore } from "../system/adapters/native/app-data.mjs";
 import { createBoundAppDataPort } from "../system/services/app-data/runtime.mjs";
 
@@ -138,4 +142,78 @@ test("native App Data adapter rejects malformed bindings and response payloads",
   };
   const store = createNativeAppDataStore({ windowRef: badWindow, endpoint, identity });
   await assert.rejects(() => store.get(identity, "state"), /missing value/);
+});
+
+test("native App Data adapter rejects non-canonical Base64 responses", async () => {
+  const native = fakeNative();
+  const windowRef = {
+    btoa: native.windowRef.btoa,
+    atob: native.windowRef.atob,
+    async fetch() {
+      return jsonResponse(200, { revision: 1, found: true, key: "state", valueBase64: "AQ" });
+    },
+  };
+  const store = createNativeAppDataStore({ windowRef, endpoint, identity });
+  await assert.rejects(() => store.get(identity, "state"), /not canonical/);
+});
+
+test("native App Data adapter rejects list metadata beyond hard bounds", async () => {
+  const native = fakeNative();
+
+  const tooManyKeys = createNativeAppDataStore({
+    endpoint,
+    identity,
+    windowRef: {
+      btoa: native.windowRef.btoa,
+      atob: native.windowRef.atob,
+      async fetch() {
+        return jsonResponse(200, {
+          revision: 0,
+          keys: ["a", "b"],
+          bytesUsed: 0,
+          quotaBytes: 1024,
+          maxKeys: 1,
+        });
+      },
+    },
+  });
+  await assert.rejects(() => tooManyKeys.list(identity), /exceeds maxKeys/);
+
+  const excessiveQuota = createNativeAppDataStore({
+    endpoint,
+    identity,
+    windowRef: {
+      btoa: native.windowRef.btoa,
+      atob: native.windowRef.atob,
+      async fetch() {
+        return jsonResponse(200, {
+          revision: 0,
+          keys: [],
+          bytesUsed: 0,
+          quotaBytes: MAX_APP_DATA_PARTITION_BYTES + 1,
+          maxKeys: 1,
+        });
+      },
+    },
+  });
+  await assert.rejects(() => excessiveQuota.list(identity), /quotaBytes is invalid/);
+
+  const excessiveKeyLimit = createNativeAppDataStore({
+    endpoint,
+    identity,
+    windowRef: {
+      btoa: native.windowRef.btoa,
+      atob: native.windowRef.atob,
+      async fetch() {
+        return jsonResponse(200, {
+          revision: 0,
+          keys: [],
+          bytesUsed: 0,
+          quotaBytes: 1024,
+          maxKeys: MAX_APP_DATA_PARTITION_KEYS + 1,
+        });
+      },
+    },
+  });
+  await assert.rejects(() => excessiveKeyLimit.list(identity), /maxKeys is invalid/);
 });
