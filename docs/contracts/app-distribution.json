@@ -1,11 +1,13 @@
 {
   "$schema": "prototype-ordax.app-distribution/1",
-  "status": "pre-mvp-foundation",
+  "status": "mvp-minimal-payload-policy-defined",
   "catalog_owner": "future-store-service",
   "runtime_catalog": "system/apps/catalog.mjs",
   "first_party_delivery_policy_owner": "system/services/apps",
   "first_party_delivery_contract": "ordax.first-party-app-delivery-policy/1",
   "first_party_delivery_projection": "ordax.first-party-app-delivery-projection/1",
+  "mvp_delivery_contract": "docs/contracts/mvp-app-delivery.json",
+  "mvp_delivery_policy_owner": "system/services/apps/mvp-delivery-policy.mjs",
   "package_manifest_required": true,
   "package_fields": [
     "app_id",
@@ -29,12 +31,35 @@
     "store_is_not_a_second_updater": true,
     "catalogued_app_may_be_treated_as_installed": false,
     "store_ui_may_claim_install_authority": false,
-    "missing_payload_may_launch_from_residual_path": false
+    "missing_payload_may_launch_from_residual_path": false,
+    "first_online_catalog_refresh_may_mint_install_authority": false
   },
   "mvp": {
     "third_party_installation_enabled": false,
     "store_ui_enabled": false,
     "foundation_prepared": true,
-    "stable_payload_changed_by_first_party_delivery_foundation": false
+    "minimal_initial_payload_target": true,
+    "structural_app_ids": [
+      "account",
+      "settings",
+      "system"
+    ],
+    "bootstrap_app_ids": [
+      "files",
+      "internet"
+    ],
+    "on_demand_app_ids": [
+      "activity",
+      "assistant",
+      "network",
+      "notes",
+      "projects",
+      "studio"
+    ],
+    "optional_apps_block_public_launch": false,
+    "first_successful_network_triggers_official_update_discovery": true,
+    "network_skip_must_not_block_first_run": true,
+    "stable_payload_may_drop_on_demand_apps_only_after_delivery_proofs": true,
+    "stable_payload_changed_by_this_policy_only": false
   }
 }
