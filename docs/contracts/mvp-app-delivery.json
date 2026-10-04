@@ -1,0 +1,69 @@
+{
+  "$schema": "ordax.mvp-app-delivery/1",
+  "status": "launch-policy-defined-delivery-proof-required",
+  "initial_usb": {
+    "structural_app_ids": [
+      "account",
+      "settings",
+      "system"
+    ],
+    "bootstrap_app_ids": [
+      "files",
+      "internet"
+    ],
+    "on_demand_app_ids": [
+      "activity",
+      "assistant",
+      "network",
+      "notes",
+      "projects",
+      "studio"
+    ],
+    "optional_apps_block_public_launch": false,
+    "network_skip_preserves_usable_offline_system": true
+  },
+  "first_online_refresh": {
+    "trigger": "first-successful-network-availability-and-later-online-resume",
+    "check_official_base_update": true,
+    "ensure_current_bootstrap_apps": true,
+    "refresh_signed_first_party_app_catalog": true,
+    "auto_install_on_demand_apps": false,
+    "failure_must_not_block_first_run_completion": true,
+    "retry_after_first_run_allowed": true
+  },
+  "evolution": {
+    "new_first_party_app_may_start_on_demand": true,
+    "promote_to_bootstrap_requires_signed_release_policy_change": true,
+    "bootstrap_promotion_may_provision_app_without_reimaging_usb": true,
+    "existing_installed_app_updates_reuse_component_pipeline": true,
+    "store_or_catalog_may_mint_install_authority": false
+  },
+  "installation_pipeline": [
+    "catalog",
+    "artifact-identity",
+    "trust-provenance",
+    "compatibility",
+    "stage",
+    "health-probation",
+    "promote",
+    "inventory-receipt"
+  ],
+  "payload_transition_gate": {
+    "remove_on_demand_payloads_from_stable_image_only_after": [
+      "native-installed-inventory-proof",
+      "verified-first-install-proof",
+      "reinstall-proof",
+      "offline-retained-installed-app-proof",
+      "failed-update-keeps-last-known-good-proof",
+      "rollback-proof",
+      "uninstall-keeps-user-data-proof"
+    ],
+    "notes_completion_required_before_public_launch": false,
+    "assistant_completion_required_before_public_launch": false,
+    "studio_completion_required_before_public_launch": false,
+    "projects_completion_required_before_public_launch": false,
+    "activity_completion_required_before_public_launch": false,
+    "network_app_completion_required_before_public_launch": false
+  },
+  "authority": "none"
+}
