@@ -945,6 +945,25 @@ bind_runtime_mounts() {
     RUN_BOUND=1
 }
 
+bootstrap_verified_app_install_identities() {
+    case "$DISTRIBUTION_PROFILE" in
+        stable-mvp)
+            /bin/busybox chroot "$RUNTIME_ROOT" \
+                /usr/bin/python3 /srv/ordax-system/surface/runtime/native_app_install_identity_bootstrap.py \
+                >>"$HOST_LOG" 2>&1 || return 1
+            ;;
+        owner-development)
+            rm -f "$SESSION_DIR/app-install-identities.json" >/dev/null 2>&1 || return 1
+            echo "ordax-surface: verified app install identity bootstrap is unavailable in Owner/Development without a verified system-release handoff; App Data binding remains disabled" >>"$HOST_LOG"
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    return 0
+}
+
 publish_runtime_proof_context() {
     runtime_mode=
     evidence_scope=
@@ -1270,6 +1289,7 @@ start_network_broker || echo "ordax-surface: native Wi-Fi management broker unav
 start_native_install_broker || echo "ordax-surface: Native install discovery broker unavailable; installer remains disabled" >>"$HOST_LOG"
 [ -f "$SYSTEM_ROOT/composition/native/index.html" ] || fallback_with_reason "native Surface composition is missing: $SYSTEM_ROOT/composition/native/index.html"
 [ -f "$SYSTEM_ROOT/surface/runtime/native_host_server.py" ] || fallback_with_reason "native Surface host server is missing: $SYSTEM_ROOT/surface/runtime/native_host_server.py"
+[ -f "$SYSTEM_ROOT/surface/runtime/native_app_install_identity_bootstrap.py" ] || fallback_with_reason "verified app install identity bootstrap is missing: $SYSTEM_ROOT/surface/runtime/native_app_install_identity_bootstrap.py"
 [ -f "$SYSTEM_ROOT/surface/runtime/ordax_browser_host.py" ] || fallback_with_reason "native browser host is missing: $SYSTEM_ROOT/surface/runtime/ordax_browser_host.py"
 [ -x /bin/busybox ] || fallback_with_reason "/bin/busybox is unavailable in the bootstrap base"
 [ -e /dev/dri/card0 ] || fallback_with_reason "DRM device /dev/dri/card0 is unavailable"
@@ -1284,6 +1304,7 @@ sync_runtime_resolver || echo "ordax-surface: external DNS unavailable inside gr
 ensure_shared_memory || fallback_with_reason "failed to prepare /dev/shm for wlroots/Xwayland"
 configure_graphics_host || fallback_with_reason "failed to configure OrdaX WebKit graphics host"
 bind_runtime_mounts || fallback_with_reason "failed to bind host resources into graphical runtime"
+bootstrap_verified_app_install_identities || fallback_with_reason "failed to bootstrap verified app install identities"
 prepare_input_stack || fallback_with_reason "failed to prepare physical keyboard/touchpad input devices"
 configure_keyboard_layout
 publish_runtime_proof_context || fallback_with_reason "failed to publish active Surface runtime proof context"
