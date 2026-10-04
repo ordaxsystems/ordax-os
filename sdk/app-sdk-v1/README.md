@@ -2,9 +2,9 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
-## Bundle 1.2.0
+## Bundle 1.3.0
 
-Version `1.2.0` keeps the 1.1 contracts and adds the narrowed runtime-facing contracts required to externalize ORDAX Studio without exporting raw Device Agent authority:
+Version `1.3.0` keeps the 1.2 contracts and adds the authority-free Studio action semantic catalog required to make Windows and OrdaX OS adapters agree on public `capability + operation` semantics before source cutover:
 
 - `ordax.app-activation/1`
 - `ordax.component-manifest/1`
@@ -20,6 +20,7 @@ Version `1.2.0` keeps the 1.1 contracts and adds the narrowed runtime-facing con
 - `prototype-ordax.localization-pack/1`
 - `ordax.memory/1`
 - `ordax.project-catalog/1`
+- `ordax.studio-action-catalog/1`
 - `ordax.studio-runtime/1`
 - `ordax.surface-render-lifecycle/4`
 
@@ -34,6 +35,14 @@ External `apps/studio` code receives `ordax.studio-runtime/1` from the host comp
 - `requestAction(request)`, which accepts a validated `ordax.device-action-request/1` and returns an `ordax.device-action-receipt/1`.
 
 The Studio port explicitly rejects raw `execute` and a raw `deviceAgent` object. An action request is data, not authority: authorization, write approval, expiry, idempotency, audit and dispatch remain platform-owned and continue through the canonical action gateway.
+
+### Studio action semantic catalog
+
+`ordax.studio-action-catalog/1` is descriptive data only. It binds the portable Studio capability namespace to operations, read/write mode, project/device scope, confirmation policy and bounded parameter names.
+
+The catalog deliberately does not expose the host's implementation action name, `ActionRegistry`, `execute`, grants, authorization objects or provider identity. Each host keeps its implementation binding private, while Windows and OrdaX OS must prove that the same public catalog request reaches equivalent typed action semantics.
+
+The initial 1.3 catalog covers the portable Studio runtime core required for extraction: project/file reads and writes, search, preview lifecycle/status/capture/logs/image, execution status, runtime health/briefing and Git diff. Memory, Intelligence, Project Catalog, Identity/host policy and Blender/Unity adapter responsibilities remain in their own owners rather than being folded into this catalog.
 
 The SDK deliberately does **not** export `ordax.device-agent/1`, the grant validator, the Studio action authorizer implementation, or the full operational realtime service contract.
 
