@@ -1,21 +1,28 @@
 {
   "$schema": "prototype-ordax.app-data-foundation/1",
   "public_contract": "ordax.app-data/1",
-  "status": "foundation-only",
+  "status": "native-owner-foundation",
   "purpose": "device-local private durable-state boundary for independently delivered apps",
   "identity": {
     "bound_by_runtime": true,
     "fields": ["publisherId", "appId", "ownerScope"],
     "owner_scope_v1": "device",
     "app_may_retarget_identity_per_operation": false,
-    "publisher_and_app_id_both_partition_data": true
+    "publisher_and_app_id_both_partition_data": true,
+    "publisher_identity_must_come_from_verified_install_owner": true,
+    "publisher_display_label_is_identity": false,
+    "raw_manifest_publisher_may_be_used_as_identity": false,
+    "signing_key_or_fingerprint_is_publisher_identity": false,
+    "publisher_identity_requires_verified_provenance": true,
+    "publisher_identity_survives_authorized_key_rotation": true
   },
   "runtime_port": {
     "is_bounded_operational_capability": true,
     "operations": ["get", "list", "put", "delete"],
     "mutation_concurrency": "partition-wide-compare-and-swap",
     "opaque_value_type": "bytes",
-    "physical_path_exposed": false
+    "physical_path_exposed": false,
+    "request_body_carries_identity": false
   },
   "hard_bounds": {
     "value_bytes_max": 1048576,
@@ -26,8 +33,8 @@
   "quota_policy": {
     "store_configuration_required": true,
     "hard_bounds_are_protocol_safety_ceilings_not_plan_entitlements": true,
-    "default_test_store_bytes": 8388608,
-    "default_test_store_keys": 1024
+    "default_native_store_bytes": 8388608,
+    "default_native_store_keys": 1024
   },
   "separation": {
     "app_data_is_memory": false,
@@ -48,12 +55,17 @@
     "store_ui_has_data_authority": false,
     "cross_app_namespace_access": false,
     "arbitrary_filesystem_paths": false,
-    "credentials_or_secrets_allowed_as_generic_app_data": false
+    "credentials_or_secrets_allowed_as_generic_app_data": false,
+    "native_target_symlinks_allowed": false,
+    "corruption_fails_closed": true
   },
   "implementation": {
     "in_memory_reference_store": true,
-    "native_owner_implemented": false,
-    "native_route_implemented": false,
+    "native_owner_implemented": true,
+    "native_endpoint_helper_implemented": true,
+    "async_native_adapter_implemented": true,
+    "native_host_route_implemented": false,
+    "verified_publisher_binding_implemented": false,
     "published_in_app_sdk": false,
     "notes_migrated": false,
     "production_enabled": false
