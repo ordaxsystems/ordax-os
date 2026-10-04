@@ -18,7 +18,7 @@ BOOTSTRAP_RUNTIME = (
     "/srv/ordax-system/surface/runtime/native_app_install_identity_bootstrap.py"
 )
 NATIVE_HOST_RUNTIME = (
-    "/usr/bin/python3 /srv/ordax-system/surface/runtime/native_host_server.py"
+    "/usr/bin/python3 /srv/ordax-system/surface/runtime/native_app_data_runtime.py"
 )
 
 
@@ -80,7 +80,7 @@ class VerifiedInstallRuntimeWiringTest(unittest.TestCase):
         self.assertIn(expected, self.launcher)
         self.assertIn(BOOTSTRAP_RUNTIME, self.launcher)
 
-    def test_contract_records_profile_scoped_runtime_wiring_without_route_or_sdk(self):
+    def test_contract_records_profile_scoped_runtime_wiring_without_sdk(self):
         bootstrap = self.contract["receipt_bootstrap"]
         implementation = self.contract["implementation"]
         self.assertTrue(bootstrap["runtime_wiring_enabled"])
@@ -94,7 +94,7 @@ class VerifiedInstallRuntimeWiringTest(unittest.TestCase):
             "remove-stale-session-index-and-leave-binding-unavailable",
         )
         self.assertTrue(implementation["receipt_bootstrap_runtime_wiring"])
-        self.assertFalse(implementation["native_app_data_route_implemented"])
+        self.assertTrue(implementation["native_app_data_route_implemented"])
         self.assertFalse(implementation["sdk_published"])
         self.assertFalse(implementation["production_external_publisher_trust_implemented"])
 
