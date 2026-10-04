@@ -30,7 +30,6 @@ function request(overrides = {}) {
     deviceId: "device-1",
     client: "ordax-desktop",
     capability: "computer.windows",
-    operation: "list",
     parameters: {},
     requestedAt: 1000,
     expiresAt: 2000,
@@ -86,6 +85,16 @@ test("device-owner v2 action needs no fabricated account, Space or project", () 
   assert.deepEqual(value.actor, { kind: "device-owner", subjectId: null });
   assert.equal(value.spaceId, null);
   assert.equal(value.projectId, null);
+});
+
+test("capability is the canonical typed action id with no second operation mapping", () => {
+  const value = validateDeviceActionRequestV2(request());
+  assert.equal(value.capability, "computer.windows");
+  assert.equal("operation" in value, false);
+  assert.throws(
+    () => validateDeviceActionRequestV2(request({ capability: "computer/windows" })),
+    /capability id is invalid/,
+  );
 });
 
 test("account actor requires a real subject id", () => {
