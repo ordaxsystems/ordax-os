@@ -9,8 +9,10 @@ import { DEVICE_ACTION_RECEIPT_SCHEMA } from "../system/contracts/device-action-
 import {
   STUDIO_RUNTIME_V2_PORT_SCHEMA,
   assertStudioRuntimeV2Port,
+  readStudioActionContext,
   requestStudioDeviceActionV2,
 } from "../system/contracts/studio-runtime-v2.mjs";
+import { STUDIO_ACTION_CONTEXT_SCHEMA } from "../system/contracts/studio-action-context.mjs";
 import {
   DEVICE_AGENT_CAPABILITIES_SCHEMA,
   DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
@@ -53,7 +55,18 @@ function projectCatalog() {
   };
 }
 
-function runtime(receiptOverrides = {}) {
+function actionContext(overrides = {}) {
+  return {
+    schema: STUDIO_ACTION_CONTEXT_SCHEMA,
+    actor: { kind: "device-owner", subjectId: null },
+    deviceId: "device-1",
+    client: "ordax-desktop",
+    spaceId: null,
+    ...overrides,
+  };
+}
+
+function runtime(receiptOverrides = {}, contextOverrides = {}) {
   return {
     schema: STUDIO_RUNTIME_V2_PORT_SCHEMA,
     capabilityReader: {
@@ -65,6 +78,7 @@ function runtime(receiptOverrides = {}) {
       }),
     },
     projectCatalog: projectCatalog(),
+    getActionContext: async () => actionContext(contextOverrides),
     requestAction: async (value) => ({
       schema: DEVICE_ACTION_RECEIPT_SCHEMA,
       actionId: value.actionId,
@@ -91,6 +105,10 @@ test("capability is the canonical typed action id with no second operation mappi
   const value = validateDeviceActionRequestV2(request());
   assert.equal(value.capability, "computer.windows");
   assert.equal("operation" in value, false);
+  assert.throws(
+    () => validateDeviceActionRequestV2({ ...request(), operation: "list" }),
+    /fields are incompatible/,
+  );
   assert.throws(
     () => validateDeviceActionRequestV2(request({ capability: "computer/windows" })),
     /capability id is invalid/,
@@ -130,10 +148,39 @@ test("v2 preserves forbidden capability and credential-like payload rules", () =
   );
 });
 
+test("Studio runtime v2 requires and validates host-derived action context", async () => {
+  const context = await readStudioActionContext(runtime());
+  assert.equal(context.schema, STUDIO_ACTION_CONTEXT_SCHEMA);
+  assert.deepEqual(context.actor, { kind: "device-owner", subjectId: null });
+  assert.equal(context.deviceId, "device-1");
+
+  const withoutContext = { ...runtime() };
+  delete withoutContext.getActionContext;
+  assert.throws(
+    () => assertStudioRuntimeV2Port(withoutContext),
+    /must implement getActionContext/,
+  );
+});
+
 test("Studio runtime v2 rejects raw and generic dispatch", () => {
   for (const field of ["execute", "deviceAgent", "call"]) {
     const port = { ...runtime(), [field]: noop };
     assert.throws(() => assertStudioRuntimeV2Port(port), /raw or generic dispatch/, field);
+  }
+});
+
+test("Studio runtime v2 rejects request identity that differs from host context", async () => {
+  for (const [label, changed] of [
+    ["actor", { actor: { kind: "account", subjectId: "subject-1" } }],
+    ["device", { deviceId: "device-other" }],
+    ["client", { client: "ordax-native" }],
+    ["space", { spaceId: "space-1" }],
+  ]) {
+    await assert.rejects(
+      requestStudioDeviceActionV2(runtime(), request(changed)),
+      /identity does not match host context/,
+      label,
+    );
   }
 });
 
