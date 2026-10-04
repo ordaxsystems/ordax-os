@@ -24,8 +24,8 @@ function request(overrides = {}) {
     projectId: "ordax-project",
     deviceId: "device-1",
     client: "ordax-native",
-    capability: "project.text_write",
-    operation: "write",
+    capability: "files.write",
+    operation: "text.write",
     parameters: { path: "README.md", content: "hello" },
     requestedAt: 1_000,
     expiresAt: 10_000,
@@ -41,14 +41,14 @@ function grant(overrides = {}) {
     projectId: "ordax-project",
     deviceId: "device-1",
     client: "ordax-native",
-    capability: "project.text_write",
+    capability: "files.write",
     mode: "write",
     approved: true,
     ...overrides,
   };
 }
 
-function reader({ state = "ready", modes = ["write"], id = "project.text_write" } = {}) {
+function reader({ state = "ready", modes = ["write"], id = "files.write" } = {}) {
   return Object.freeze({
     schema: DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
     async capabilities({ client }) {
@@ -62,7 +62,7 @@ function reader({ state = "ready", modes = ["write"], id = "project.text_write" 
   });
 }
 
-test("Studio authorizes only an exact live write grant for an available capability", async () => {
+test("Studio authorizes only a catalog-bound exact live write grant", async () => {
   const authorizer = createStudioDeviceActionAuthorizer({
     capabilityReader: reader(),
     now: () => 2_000,
@@ -72,10 +72,24 @@ test("Studio authorizes only an exact live write grant for an available capabili
   assert.equal(value.schema, STUDIO_DEVICE_ACTION_AUTHORIZATION_SCHEMA);
   assert.equal(value.request.actionId, "studio-action-1");
   assert.equal(value.grant.actionGateway, "ordax");
-  assert.equal(value.capability.id, "project.text_write");
+  assert.equal(value.capability.id, "files.write");
   assert.deepEqual(value.capability.modes, ["write"]);
+  assert.equal(value.binding.capability, "files.write");
+  assert.equal(value.binding.operation, "text.write");
+  assert.equal(value.binding.confirmation, "policy-gated");
   assert.equal(value.authorizedAt, 2_000);
   assert.equal(value.dispatchAuthority, "none");
+});
+
+test("Studio authorization rejects a capability-operation pair outside the canonical catalog", async () => {
+  const authorizer = createStudioDeviceActionAuthorizer({
+    capabilityReader: reader(),
+    now: () => 2_000,
+  });
+  await assert.rejects(
+    () => authorizer.authorize(request({ operation: "unknown.write" }), grant()),
+    /not in the Studio action catalog/,
+  );
 });
 
 test("Studio authorization fails closed for mismatched, expired, absent or read-only authority", async () => {
@@ -96,7 +110,7 @@ test("Studio authorization fails closed for mismatched, expired, absent or read-
   await assert.rejects(() => expired.authorize(request(), grant()), /expired/);
 
   const absent = createStudioDeviceActionAuthorizer({
-    capabilityReader: reader({ id: "git.status" }),
+    capabilityReader: reader({ id: "git.read" }),
     now: () => 2_000,
   });
   await assert.rejects(() => absent.authorize(request(), grant()), /not currently available/);
@@ -106,6 +120,20 @@ test("Studio authorization fails closed for mismatched, expired, absent or read-
     now: () => 2_000,
   });
   await assert.rejects(() => readOnly.authorize(request(), grant()), /not currently writable/);
+});
+
+test("Studio mutation authorizer refuses read catalog bindings", async () => {
+  const readAuthorizer = createStudioDeviceActionAuthorizer({
+    capabilityReader: reader({ modes: ["read"], id: "files.read" }),
+    now: () => 2_000,
+  });
+  await assert.rejects(
+    () => readAuthorizer.authorize(
+      request({ capability: "files.read", operation: "text.read", parameters: { path: "README.md" } }),
+      grant({ capability: "files.read", mode: "write" }),
+    ),
+    /write catalog binding/,
+  );
 });
 
 test("Studio authorization refuses degraded or malformed capability discovery", async () => {
