@@ -128,10 +128,20 @@ def _create_private_directory(path: str, parent: str, label: str) -> None:
         raise ValueError(f"{label} was not created safely")
 
 
-def _ensure_partition_directories(root: str, identity: dict) -> tuple[str, str, str, str]:
+def _ensure_storage_root(root: str) -> None:
     _validate_absolute_root(root)
+    parent = os.path.dirname(root)
+    if not _validate_private_directory(parent, "App Data root parent"):
+        grandparent = os.path.dirname(parent)
+        if not grandparent or grandparent == parent:
+            raise ValueError("App Data root parent cannot be provisioned safely")
+        _create_private_directory(parent, grandparent, "App Data root parent")
     if not _validate_private_directory(root, "App Data root"):
-        _create_private_directory(root, os.path.dirname(root), "App Data root")
+        _create_private_directory(root, parent, "App Data root")
+
+
+def _ensure_partition_directories(root: str, identity: dict) -> tuple[str, str, str, str]:
+    _ensure_storage_root(root)
     partition, manifest, lock, blobs = _partition_paths(root, identity)
     if not _validate_private_directory(partition, "App Data partition directory"):
         _create_private_directory(partition, root, "App Data partition directory")
