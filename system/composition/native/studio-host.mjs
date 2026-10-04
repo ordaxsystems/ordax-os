@@ -1,10 +1,10 @@
-import { assertStudioRuntimePort } from "../../contracts/studio-runtime.mjs";
+import { assertStudioRuntimeV2Port } from "../../contracts/studio-runtime-v2.mjs";
 import { assertMemoryPort } from "../../contracts/memory.mjs";
 import { assertIntelligencePort } from "../../contracts/intelligence.mjs";
 import { assertLocalizationPort } from "../../contracts/localization.mjs";
 
 export const NATIVE_STUDIO_HOST_COMPOSITION_SCHEMA =
-  "prototype-ordax.studio-native-host-composition/1";
+  "prototype-ordax.studio-native-host-composition/2";
 
 const INPUT_FIELDS = Object.freeze([
   "studioRuntime",
@@ -30,7 +30,7 @@ function assertExactInput(value) {
 
 export function createNativeStudioHostComposition(value) {
   const input = assertExactInput(value);
-  const studioRuntime = assertStudioRuntimePort(input.studioRuntime);
+  const studioRuntime = assertStudioRuntimeV2Port(input.studioRuntime);
   const memory = assertMemoryPort(input.memory);
   const intelligence = assertIntelligencePort(input.intelligence);
   const localization = assertLocalizationPort(input.localization);
