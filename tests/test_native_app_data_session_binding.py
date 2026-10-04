@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import stat
 import sys
 import tempfile
 import unittest
@@ -16,7 +15,10 @@ RUNTIME = ROOT / "system" / "surface" / "runtime"
 if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
-from native_app_data_binding import NativeAppDataBindingRegistry  # noqa: E402
+from native_app_data_binding import (  # noqa: E402
+    NativeAppDataBindingCapacityError,
+    NativeAppDataBindingRegistry,
+)
 from native_app_install_identity_bootstrap import (  # noqa: E402
     SESSION_INDEX_NAME,
     bootstrap_system_release_bundled_receipts,
@@ -72,14 +74,15 @@ def inventory():
 
 
 class FakeAppDataHost:
-    def __init__(self, *, receipt_root: str, expected_uid: int):
+    def __init__(self, *, receipt_root: str, expected_uid: int, max_bindings: int = 64):
         self.registry = NativeAppDataBindingRegistry(
             receipt_root=receipt_root,
             expected_uid=expected_uid,
+            max_bindings=max_bindings,
         )
 
-    def bind_app_data_receipt(self, receipt_sha256: str):
-        return self.registry.mint_from_receipt(receipt_sha256)
+    def bind_app_data_receipts(self, receipt_sha256s):
+        return self.registry.mint_many_from_receipts(receipt_sha256s)
 
 
 class NativeAppDataSessionBindingTest(unittest.TestCase):
@@ -119,10 +122,11 @@ class NativeAppDataSessionBindingTest(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def new_host(self):
+    def new_host(self, *, max_bindings: int = 64):
         return FakeAppDataHost(
             receipt_root=self.receipt_root,
             expected_uid=self.uid,
+            max_bindings=max_bindings,
         )
 
     def load(self, host):
@@ -164,6 +168,12 @@ class NativeAppDataSessionBindingTest(unittest.TestCase):
             [(item.app_id, item.endpoint) for item in second],
         )
         self.assertEqual(host.registry.active_binding_count(), 2)
+
+    def test_capacity_failure_is_transactional(self):
+        host = self.new_host(max_bindings=1)
+        with self.assertRaises(NativeAppDataBindingCapacityError):
+            self.load(host)
+        self.assertEqual(host.registry.active_binding_count(), 0)
 
     def test_stale_system_digest_fails_before_any_capability_is_minted(self):
         value = json.loads(self.index_path.read_text(encoding="utf-8"))
