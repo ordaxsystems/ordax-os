@@ -17,6 +17,7 @@
   },
   "atomicity": {
     "mutation_concurrency": "per-partition-flock",
+    "read_blob_consistency": "shared-lock-through-manifest-and-blob-read",
     "compare_and_swap": "partition-wide-revision",
     "blob_write_strategy": "write-fsync-verify-before-reference",
     "manifest_write_strategy": "temp-file-fsync-atomic-replace-directory-fsync",
@@ -43,11 +44,14 @@
     "app_receives_opaque_bound_endpoint": true,
     "async_fetch_adapter": true,
     "host_route_wired": false,
-    "publisher_binding_from_verified_install_owner": false
+    "publisher_binding_from_verified_install_owner": false,
+    "publisher_binding_source": "verified-install-provenance",
+    "manifest_publisher_text_is_binding_source": false
   },
   "security": {
     "publisher_self_claim_accepted": false,
     "app_id_self_claim_per_request_accepted": false,
+    "display_publisher_is_storage_identity": false,
     "arbitrary_path_accepted": false,
     "symlink_target_accepted": false,
     "manifest_corruption_fails_closed": true,
