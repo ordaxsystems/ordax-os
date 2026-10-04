@@ -1,0 +1,53 @@
+name: Native App Data Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/app-data.mjs'
+      - 'system/services/app-data/**'
+      - 'system/surface/runtime/native_app_data.py'
+      - 'system/surface/runtime/native_app_data_endpoint.py'
+      - 'system/adapters/native/app-data.mjs'
+      - 'docs/contracts/app-data.json'
+      - 'docs/contracts/native-app-data.json'
+      - 'tests/test_native_app_data.py'
+      - 'tests/test_native_app_data_adapter.mjs'
+      - '.github/workflows/native-app-data.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/app-data.mjs'
+      - 'system/services/app-data/**'
+      - 'system/surface/runtime/native_app_data.py'
+      - 'system/surface/runtime/native_app_data_endpoint.py'
+      - 'system/adapters/native/app-data.mjs'
+      - 'docs/contracts/app-data.json'
+      - 'docs/contracts/native-app-data.json'
+      - 'tests/test_native_app_data.py'
+      - 'tests/test_native_app_data_adapter.mjs'
+      - '.github/workflows/native-app-data.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  native-app-data:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate source and contract syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile system/surface/runtime/native_app_data.py system/surface/runtime/native_app_data_endpoint.py
+          node --check system/adapters/native/app-data.mjs
+          python3 -m json.tool docs/contracts/native-app-data.json >/dev/null
+
+      - name: Prove filesystem owner crash CAS quota and isolation
+        run: python3 -m unittest tests.test_native_app_data -v
+
+      - name: Prove async bound transport without identity self-claims
+        run: node --test tests/test_native_app_data_adapter.mjs
