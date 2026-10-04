@@ -57,7 +57,10 @@
       "studio"
     ],
     "optional_apps_block_public_launch": false,
-    "first_successful_network_triggers_official_update_discovery": true,
+    "successful_network_makes_official_update_polling_reachable": true,
+    "official_update_discovery_owner": "system/supervisor",
+    "official_update_discovery_default_interval_seconds": 60,
+    "first_run_is_not_a_second_updater": true,
     "network_skip_must_not_block_first_run": true,
     "stable_payload_may_drop_on_demand_apps_only_after_delivery_proofs": true,
     "stable_payload_changed_by_this_policy_only": false
