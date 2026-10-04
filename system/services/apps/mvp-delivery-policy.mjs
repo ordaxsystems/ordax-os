@@ -1,6 +1,6 @@
 import { listFirstPartyAppDeliveryPolicies } from "./delivery-policy.mjs";
 
-export const MVP_APP_DELIVERY_SCHEMA = "ordax.mvp-app-delivery/1";
+export const MVP_APP_DELIVERY_SCHEMA = "prototype-ordax.mvp-app-delivery/1";
 export const MVP_FIRST_ONLINE_REFRESH_SCHEMA = "ordax.mvp-first-online-refresh/1";
 
 const STRUCTURAL_APP_IDS = Object.freeze(["account", "settings", "system"]);
