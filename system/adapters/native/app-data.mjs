@@ -1,4 +1,6 @@
 import {
+  MAX_APP_DATA_PARTITION_BYTES,
+  MAX_APP_DATA_PARTITION_KEYS,
   validateAppDataBytes,
   validateAppDataDelete,
   validateAppDataIdentity,
@@ -53,6 +55,9 @@ function base64ToBytes(value, windowRef) {
     binary = windowRef.atob(value);
   } catch (error) {
     throw new TypeError("Native App Data response valueBase64 is invalid", { cause: error });
+  }
+  if (windowRef.btoa(binary) !== value) {
+    throw new TypeError("Native App Data response valueBase64 is not canonical");
   }
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
@@ -109,13 +114,28 @@ function validateListResponse(payload) {
   if (new Set(keys).size !== keys.length || [...keys].sort().some((entry, index) => entry !== keys[index])) {
     throw new TypeError("Native App Data list keys must be unique and sorted");
   }
-  for (const field of ["bytesUsed", "quotaBytes", "maxKeys"]) {
-    if (!Number.isSafeInteger(payload[field]) || payload[field] < 0) {
-      throw new TypeError(`Native App Data list ${field} is invalid`);
-    }
+  if (!Number.isSafeInteger(payload.bytesUsed) || payload.bytesUsed < 0) {
+    throw new TypeError("Native App Data list bytesUsed is invalid");
+  }
+  if (
+    !Number.isSafeInteger(payload.quotaBytes)
+    || payload.quotaBytes < 1
+    || payload.quotaBytes > MAX_APP_DATA_PARTITION_BYTES
+  ) {
+    throw new TypeError("Native App Data list quotaBytes is invalid");
+  }
+  if (
+    !Number.isSafeInteger(payload.maxKeys)
+    || payload.maxKeys < 1
+    || payload.maxKeys > MAX_APP_DATA_PARTITION_KEYS
+  ) {
+    throw new TypeError("Native App Data list maxKeys is invalid");
   }
   if (payload.bytesUsed > payload.quotaBytes) {
     throw new TypeError("Native App Data list response exceeds quota");
+  }
+  if (keys.length > payload.maxKeys) {
+    throw new TypeError("Native App Data list response exceeds maxKeys");
   }
   return Object.freeze({
     revision,
