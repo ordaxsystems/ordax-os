@@ -1,5 +1,4 @@
 import {
-  APP_DATA_AUTHORITY,
   APP_DATA_OWNER_SCOPE,
   APP_DATA_SCHEMA,
   MAX_APP_DATA_PARTITION_BYTES,
@@ -164,7 +163,6 @@ export function createBoundAppDataPort({ store, appId, publisherId } = {}) {
 
   const port = Object.freeze({
     schema: APP_DATA_SCHEMA,
-    authority: APP_DATA_AUTHORITY,
     identity,
     async get(key) {
       return store.get(identity, key);
