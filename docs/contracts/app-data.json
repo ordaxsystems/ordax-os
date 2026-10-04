@@ -1,0 +1,61 @@
+{
+  "$schema": "prototype-ordax.app-data-foundation/1",
+  "public_contract": "ordax.app-data/1",
+  "status": "foundation-only",
+  "purpose": "device-local private durable-state boundary for independently delivered apps",
+  "identity": {
+    "bound_by_runtime": true,
+    "fields": ["publisherId", "appId", "ownerScope"],
+    "owner_scope_v1": "device",
+    "app_may_retarget_identity_per_operation": false,
+    "publisher_and_app_id_both_partition_data": true
+  },
+  "runtime_port": {
+    "is_bounded_operational_capability": true,
+    "operations": ["get", "list", "put", "delete"],
+    "mutation_concurrency": "partition-wide-compare-and-swap",
+    "opaque_value_type": "bytes",
+    "physical_path_exposed": false
+  },
+  "hard_bounds": {
+    "value_bytes_max": 1048576,
+    "partition_bytes_max": 67108864,
+    "partition_keys_max": 4096,
+    "key_chars_max": 128
+  },
+  "quota_policy": {
+    "store_configuration_required": true,
+    "hard_bounds_are_protocol_safety_ceilings_not_plan_entitlements": true,
+    "default_test_store_bytes": 8388608,
+    "default_test_store_keys": 1024
+  },
+  "separation": {
+    "app_data_is_memory": false,
+    "app_data_is_file_space": false,
+    "app_data_is_account_sync": false,
+    "app_data_is_secret_store": false,
+    "app_owned_schema_is_platform_schema": false
+  },
+  "lifecycle": {
+    "install_implies_data_restore_authority": false,
+    "update_may_destructively_migrate_in_place": false,
+    "uninstall_implies_data_delete": false,
+    "data_delete_requires_separate_explicit_action": true,
+    "app_rollback_may_rewind_user_data_silently": false
+  },
+  "security": {
+    "manifest_or_package_may_mint_storage_authority": false,
+    "store_ui_has_data_authority": false,
+    "cross_app_namespace_access": false,
+    "arbitrary_filesystem_paths": false,
+    "credentials_or_secrets_allowed_as_generic_app_data": false
+  },
+  "implementation": {
+    "in_memory_reference_store": true,
+    "native_owner_implemented": false,
+    "native_route_implemented": false,
+    "published_in_app_sdk": false,
+    "notes_migrated": false,
+    "production_enabled": false
+  }
+}
