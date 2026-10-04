@@ -6,6 +6,7 @@ on:
       - 'system/apps/notes/**'
       - 'system/contracts/intelligence.mjs'
       - 'tests/test_notes_intelligence_summary.mjs'
+      - 'tests/test_intelligence_product_consumers.py'
       - '.github/workflows/notes-externalization-boundary.yml'
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - 'system/apps/notes/**'
       - 'system/contracts/intelligence.mjs'
       - 'tests/test_notes_intelligence_summary.mjs'
+      - 'tests/test_intelligence_product_consumers.py'
       - '.github/workflows/notes-externalization-boundary.yml'
 
 permissions:
@@ -33,11 +35,14 @@ jobs:
           find system/apps/notes -type f -name '*.mjs' -print0 | sort -z | xargs -0 -n1 node --check
 
       - name: Prove Notes-owned public Intelligence adapter
-        run: node --test tests/test_notes_intelligence_summary.mjs
+        run: |
+          set -euo pipefail
+          node --test tests/test_notes_intelligence_summary.mjs
+          python tests/test_intelligence_product_consumers.py
 
       - name: Guard provider neutrality and private implementation ownership
         run: |
           set -euo pipefail
-          ! grep -R -n -E 'services/local-ai|contracts/local-ai|qwen|llama' system/apps/notes
+          ! grep -R -n -E 'services/|contracts/local-ai|qwen|llama' system/apps/notes
           grep -q 'assertIntelligencePort' system/apps/notes/platform/intelligence-summary.mjs
           grep -q 'intent: "summarize"' system/apps/notes/platform/intelligence-summary.mjs
