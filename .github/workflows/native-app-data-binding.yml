@@ -26,6 +26,7 @@ on:
       - 'tests/test_native_app_data_host.py'
       - 'tests/test_native_app_data_port_bootstrap.py'
       - 'tests/test_native_app_data_runtime_wiring.py'
+      - 'tests/test_native_app_data_no_global_bootstrap_event.py'
       - 'tests/test_native_app_data_composition_bootstrap.mjs'
       - 'tests/test_native_bound_app_data_port.mjs'
       - '.github/workflows/native-app-data-binding.yml'
@@ -55,6 +56,7 @@ on:
       - 'tests/test_native_app_data_host.py'
       - 'tests/test_native_app_data_port_bootstrap.py'
       - 'tests/test_native_app_data_runtime_wiring.py'
+      - 'tests/test_native_app_data_no_global_bootstrap_event.py'
       - 'tests/test_native_app_data_composition_bootstrap.mjs'
       - 'tests/test_native_bound_app_data_port.mjs'
       - '.github/workflows/native-app-data-binding.yml'
@@ -97,6 +99,9 @@ jobs:
 
       - name: Prove trusted runtime wiring and bridge boundaries
         run: python3 -m unittest tests.test_native_app_data_runtime_wiring -v
+
+      - name: Prove App Data bootstrap never uses a global DOM event
+        run: python3 -m unittest tests.test_native_app_data_no_global_bootstrap_event -v
 
       - name: Prove trusted composition injects only typed app port
         run: node --test tests/test_native_app_data_composition_bootstrap.mjs
