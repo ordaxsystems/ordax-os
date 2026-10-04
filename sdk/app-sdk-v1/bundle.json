@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.2.0",
+  "bundle_version": "1.3.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -38,6 +38,13 @@
       "schema": "ordax.device-action-request/1",
       "source_git_blob": "9b04afd2f5c3b5fd56ffedacf655696d1e7996c6",
       "source_path": "system/contracts/device-action-envelope.mjs"
+    },
+    {
+      "major": 2,
+      "name": "device-action-request-v2",
+      "schema": "ordax.device-action-request/2",
+      "source_git_blob": "36bca48f441adbe0164aaa17418085797a34d4f4",
+      "source_path": "system/contracts/device-action-envelope-v2.mjs"
     },
     {
       "major": 1,
@@ -104,10 +111,24 @@
     },
     {
       "major": 1,
+      "name": "studio-action-context",
+      "schema": "ordax.studio-action-context/1",
+      "source_git_blob": "8998f074ada0cc25009e24330063436d728b3751",
+      "source_path": "system/contracts/studio-action-context.mjs"
+    },
+    {
+      "major": 1,
       "name": "studio-runtime",
       "schema": "ordax.studio-runtime/1",
       "source_git_blob": "266be800ab09e9561efa97c38c9a108a9984d016",
       "source_path": "system/contracts/studio-runtime.mjs"
+    },
+    {
+      "major": 2,
+      "name": "studio-runtime-v2",
+      "schema": "ordax.studio-runtime/2",
+      "source_git_blob": "deeb1158e18076d289b532490adf1893a13e0cc2",
+      "source_path": "system/contracts/studio-runtime-v2.mjs"
     },
     {
       "major": 4,
