@@ -15,7 +15,10 @@ RUNTIME = ROOT / "system" / "surface" / "runtime"
 if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
-from native_app_install_identity import read_verified_app_install_identity  # noqa: E402
+from native_app_install_identity import (  # noqa: E402
+    VerifiedAppInstallIdentityError,
+    read_verified_app_install_identity,
+)
 from native_app_install_identity_producer import (  # noqa: E402
     VerifiedSystemReleaseHandoffError,
     produce_system_release_bundled_receipt,
@@ -195,7 +198,10 @@ class SystemReleaseReceiptProducerTest(unittest.TestCase):
         self.write_handoff()
         verified_handoff = self.read_handoff()
         os.chmod(self.receipt_root, 0o750)
-        with self.assertRaisesRegex(Exception, "root ownership/mode"):
+        with self.assertRaisesRegex(
+            VerifiedAppInstallIdentityError,
+            "root ownership/mode",
+        ):
             self.produce(verified_handoff)
 
 
