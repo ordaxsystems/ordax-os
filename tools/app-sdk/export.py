@@ -19,6 +19,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "app-data",
+        "path": "system/contracts/app-data.mjs",
+        "constant": "APP_DATA_SCHEMA",
+        "schema": "ordax.app-data/1",
+        "major": 1,
+    },
+    {
         "name": "component-manifest",
         "path": "system/contracts/component-manifest.mjs",
         "constant": "COMPONENT_MANIFEST_SCHEMA",
@@ -146,6 +153,8 @@ CONTRACTS = (
     },
 )
 
+BUNDLE_VERSION = "1.4.0"
+
 
 def git_blob(path: Path) -> str:
     result = subprocess.run(
@@ -196,7 +205,7 @@ def build_bundle() -> dict:
     return {
         "$schema": "ordax.app-sdk-bundle/1",
         "authority": "none",
-        "bundle_version": "1.3.0",
+        "bundle_version": BUNDLE_VERSION,
         "compatibility_policy": "contract-major",
         "contracts": contracts,
     }
@@ -232,7 +241,7 @@ def check() -> None:
 
     print("APP_SDK_BUNDLE=PASS")
     print("APP_SDK_SCHEMA=ordax.app-sdk-bundle/1")
-    print("APP_SDK_VERSION=1.3.0")
+    print(f"APP_SDK_VERSION={BUNDLE_VERSION}")
     print(f"APP_SDK_CONTRACT_COUNT={len(CONTRACTS)}")
     print("APP_SDK_AUTHORITY=none")
 
