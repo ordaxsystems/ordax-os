@@ -98,7 +98,11 @@ test("App Data copies caller bytes and returned bytes", async () => {
 
 test("App Data enforces configurable partition byte and key quotas", async () => {
   const byteStore = createInMemoryAppDataStore({ quotaBytes: 4, maxKeys: 4 });
-  const byteApp = createBoundAppDataPort({ byteStore, appId: "notes", publisherId: "ordax.first-party" });
+  const byteApp = createBoundAppDataPort({
+    store: byteStore,
+    appId: "notes",
+    publisherId: "ordax.first-party",
+  });
   await byteApp.put({ key: "one", value: bytes(1, 2, 3, 4), expectedRevision: 0 });
   await assert.rejects(
     byteApp.put({ key: "two", value: bytes(5), expectedRevision: 1 }),
@@ -106,7 +110,11 @@ test("App Data enforces configurable partition byte and key quotas", async () =>
   );
 
   const keyStore = createInMemoryAppDataStore({ quotaBytes: 32, maxKeys: 1 });
-  const keyApp = createBoundAppDataPort({ keyStore, appId: "notes", publisherId: "ordax.first-party" });
+  const keyApp = createBoundAppDataPort({
+    store: keyStore,
+    appId: "notes",
+    publisherId: "ordax.first-party",
+  });
   await keyApp.put({ key: "one", value: bytes(1), expectedRevision: 0 });
   await assert.rejects(
     keyApp.put({ key: "two", value: bytes(2), expectedRevision: 1 }),
