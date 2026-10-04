@@ -1,0 +1,40 @@
+name: Public Account Edge
+
+on:
+  pull_request:
+    paths:
+      - "infra/cloudflare/ordax-public-account-edge/**"
+      - "docs/contracts/public-account-edge.json"
+      - "tests/test_public_account_edge.mjs"
+      - ".github/workflows/public-account-edge.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/cloudflare/ordax-public-account-edge/**"
+      - "docs/contracts/public-account-edge.json"
+      - "tests/test_public_account_edge.mjs"
+      - ".github/workflows/public-account-edge.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  public-account-edge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22.20.0"
+      - name: Validate Worker syntax and contract
+        run: |
+          node --check infra/cloudflare/ordax-public-account-edge/index.mjs
+          node -e 'const fs=require("fs"); JSON.parse(fs.readFileSync("infra/cloudflare/ordax-public-account-edge/wrangler.json","utf8")); JSON.parse(fs.readFileSync("docs/contracts/public-account-edge.json","utf8"));'
+      - name: Run edge regressions
+        run: node --test tests/test_public_account_edge.mjs
