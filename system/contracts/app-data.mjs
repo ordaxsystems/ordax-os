@@ -1,6 +1,5 @@
 export const APP_DATA_SCHEMA = "ordax.app-data/1";
 export const APP_DATA_OWNER_SCOPE = "device";
-export const APP_DATA_AUTHORITY = "none";
 
 export const MAX_APP_DATA_KEY_CHARS = 128;
 export const MAX_APP_DATA_VALUE_BYTES = 1024 * 1024;
@@ -107,9 +106,6 @@ export function assertAppDataPort(value) {
   const port = objectValue(value, "App Data port");
   if (port.schema !== APP_DATA_SCHEMA) {
     throw new TypeError("App Data port schema is incompatible");
-  }
-  if (port.authority !== APP_DATA_AUTHORITY) {
-    throw new TypeError("App Data port metadata must not carry authority");
   }
   validateAppDataIdentity(port.identity);
   for (const method of ["get", "list", "put", "delete"]) {
