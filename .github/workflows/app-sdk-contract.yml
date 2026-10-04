@@ -6,6 +6,7 @@ on:
       - "system/contracts/**"
       - "sdk/app-sdk-v1/**"
       - "tools/app-sdk/**"
+      - "tests/test_app_sdk_app_data.mjs"
       - ".github/workflows/app-sdk-contract.yml"
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - "system/contracts/**"
       - "sdk/app-sdk-v1/**"
       - "tools/app-sdk/**"
+      - "tests/test_app_sdk_app_data.mjs"
       - ".github/workflows/app-sdk-contract.yml"
 
 permissions:
@@ -36,3 +38,6 @@ jobs:
       - name: Verify published bundle digest
         working-directory: sdk/app-sdk-v1
         run: sha256sum --check bundle.sha256
+
+      - name: Prove App Data publication is contract-only
+        run: node --test tests/test_app_sdk_app_data.mjs
