@@ -1,0 +1,75 @@
+{
+  "$schema": "prototype-ordax.public-account-edge/1",
+  "status": "source-ready-not-routed",
+  "production_hosts": [
+    "ordax.com.br",
+    "www.ordax.com.br"
+  ],
+  "deployment_owner": "infra/cloudflare/ordax-public-account-edge",
+  "worker_name": "ordax-public-account-edge",
+  "upstream": {
+    "origin": "https://eobcxuyvhkvdmkbaihwh.supabase.co",
+    "function_prefix": "/functions/v1/ordax-account-gateway",
+    "fixed": true,
+    "browser_selectable": false
+  },
+  "route_scope": {
+    "prefixes": [
+      "/auth/",
+      "/account/",
+      "/sync/"
+    ],
+    "network_routes_included": false,
+    "exact_method_route_allowlist": true,
+    "unowned_path_fails_closed": true
+  },
+  "request_boundary": {
+    "https_required": true,
+    "cloudflare_client_ip_header": "CF-Connecting-IP",
+    "client_supplied_forwarding_headers_trusted": false,
+    "browser_authorization_header_forwarded": false,
+    "cookies_forwarded": true,
+    "origin_and_sec_fetch_metadata_forwarded": true,
+    "public_site_marker": "X-OrdaX-Public-Site: 1",
+    "forwarded_host_rebuilt_from_verified_request_host": true,
+    "forwarded_proto_forced_https": true,
+    "forwarded_for_rebuilt_from_cloudflare_client_ip": true,
+    "real_ip_rebuilt_from_cloudflare_client_ip": true
+  },
+  "response_boundary": {
+    "upstream_redirect_mode": "manual",
+    "relative_redirects_preserved": true,
+    "absolute_upstream_redirects_allowed": false,
+    "set_cookie_preserved": true,
+    "cors_response_headers_removed": true,
+    "cache_control": "no-store"
+  },
+  "rate_limits": {
+    "implementation": "cloudflare-workers-rate-limit-bindings",
+    "fail_closed_if_required_binding_missing": true,
+    "credential_posts_per_minute": 10,
+    "recovery_requests_per_minute": 3,
+    "recovery_completion_requests_per_minute": 10,
+    "account_close_requests_per_minute": 10,
+    "key_source": "cloudflare-client-ip",
+    "accounting_authority": "abuse-protection-only-not-billing-or-entitlement"
+  },
+  "authority": {
+    "identity_owner": "ordax-account-gateway",
+    "edge_role": "transport-only",
+    "service_role_secret_present": false,
+    "provider_refresh_or_access_token_stored": false,
+    "edge_may_enable_public_account": false,
+    "edge_may_mint_session": false,
+    "edge_may_mint_legal_receipt": false
+  },
+  "rollout": {
+    "source_tests_required": true,
+    "worker_deployment_required": true,
+    "production_routes_required": false,
+    "production_routes_currently_attached": false,
+    "public_account_flags_currently_enabled": false,
+    "routing_must_precede_public_flag_activation": true,
+    "real_request_proof_required_before_account_activation": true
+  }
+}
