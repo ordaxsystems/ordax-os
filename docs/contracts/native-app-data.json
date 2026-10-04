@@ -1,0 +1,56 @@
+{
+  "$schema": "prototype-ordax.native-app-data/1",
+  "public_contract": "ordax.app-data/1",
+  "status": "native-owner-foundation",
+  "storage": {
+    "root": "/var/lib/ordax/app-data/v1",
+    "partition_identity": ["publisherId", "appId", "ownerScope=device"],
+    "partition_filename": "sha256-of-bound-identity",
+    "format": "ordax.native-app-data-partition/1",
+    "values": "canonical-base64-encoded-opaque-bytes",
+    "physical_path_exposed_to_app": false,
+    "read_or_list_creates_partition": false,
+    "read_or_list_creates_root": false
+  },
+  "atomicity": {
+    "mutation_concurrency": "per-partition-flock",
+    "compare_and_swap": "partition-wide-revision",
+    "write_strategy": "temp-file-fsync-atomic-replace-directory-fsync",
+    "target_mode": "0600",
+    "root_mode": "0700",
+    "nofollow": true,
+    "orphan_temp_is_not_authoritative": true
+  },
+  "bounds": {
+    "value_bytes_max": 1048576,
+    "partition_bytes_hard_max": 67108864,
+    "partition_keys_hard_max": 4096,
+    "default_partition_quota_bytes": 8388608,
+    "default_partition_keys": 1024,
+    "revision_max": 9007199254740991
+  },
+  "transport_foundation": {
+    "request_identity_fields_allowed": false,
+    "request_actions": ["get", "list", "put", "delete"],
+    "app_receives_opaque_bound_endpoint": true,
+    "async_fetch_adapter": true,
+    "host_route_wired": false,
+    "publisher_binding_from_verified_install_owner": false
+  },
+  "security": {
+    "publisher_self_claim_accepted": false,
+    "app_id_self_claim_per_request_accepted": false,
+    "arbitrary_path_accepted": false,
+    "symlink_target_accepted": false,
+    "corrupt_partition_fails_closed": true,
+    "cross_partition_access": false,
+    "package_or_manifest_mints_data_capability": false,
+    "store_ui_has_data_capability": false
+  },
+  "lifecycle": {
+    "uninstall_deletes_data": false,
+    "data_delete_is_separate_action": true,
+    "rollback_rewinds_data": false,
+    "legacy_notes_migrated": false
+  }
+}
