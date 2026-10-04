@@ -1,5 +1,6 @@
 const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 15_000;
+const ALLOWED_METHODS = new Set(["GET", "POST"]);
 const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
 const PASSTHROUGH_REQUEST_HEADERS = [
   "accept",
@@ -88,7 +89,7 @@ function copyResponseHeaders(upstream) {
 }
 
 async function boundedBody(request) {
-  if (["GET", "HEAD"].includes(request.method)) return undefined;
+  if (request.method === "GET") return undefined;
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) throw new RangeError("request-too-large");
   const value = new Uint8Array(await request.arrayBuffer());
@@ -104,6 +105,12 @@ export async function proxyPublicAccountRequest(
   } = {},
 ) {
   if (!request || typeof request.url !== "string") return error(400, "invalid-request");
+  if (!ALLOWED_METHODS.has(request.method)) {
+    const response = error(405, "method-not-allowed");
+    response.headers.set("allow", "GET, POST");
+    return response;
+  }
+
   const incoming = new URL(request.url);
   const productPath = normalizeProductPath(incoming.searchParams.get("ordax_path"));
   if (!productPath) return error(404, "unsupported-account-route");
