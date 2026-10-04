@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
       - 'system/surface/runtime/native_app_data_session_binding.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_install_identity_bootstrap.py'
@@ -16,6 +17,7 @@ on:
     branches: [main]
     paths:
       - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
       - 'system/surface/runtime/native_app_data_session_binding.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_install_identity_bootstrap.py'
@@ -42,6 +44,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile \
             system/surface/runtime/native_app_data_binding.py \
+            system/surface/runtime/native_app_data_host.py \
             system/surface/runtime/native_app_data_session_binding.py \
             system/surface/runtime/native_app_install_identity.py \
             system/surface/runtime/native_app_install_identity_bootstrap.py \
