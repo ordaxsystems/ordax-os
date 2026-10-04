@@ -15,7 +15,28 @@
     "same_receipt_is_idempotent": true,
     "new_receipt_same_durable_identity_rotates_capability": true,
     "old_capability_revoked_on_rotation": true,
-    "publisher_principal_partitions_same_app_id": true
+    "publisher_principal_partitions_same_app_id": true,
+    "batch_mint_transactional": true,
+    "batch_capacity_preflight_before_mutation": true,
+    "batch_capability_allocation_before_mutation": true,
+    "duplicate_durable_identity_in_batch_rejected": true
+  },
+  "current_boot_receipt_index": {
+    "schema": "ordax.verified-app-install-session/1",
+    "path": "/run/ordax-surface/app-install-identities.json",
+    "mode": "0600",
+    "nofollow": true,
+    "single_hardlink_required": true,
+    "source_commit_must_match_verified_handoff": true,
+    "system_digest_must_match_verified_handoff": true,
+    "all_receipts_validated_before_first_mint": true,
+    "all_current_boot_receipts_minted_as_one_transactional_batch": true,
+    "receipt_app_id_must_match_index": true,
+    "receipt_identity_must_match_authenticated_first_party_inventory": true,
+    "receipt_source_digest_must_match_current_system": true,
+    "consumer_core": "system/surface/runtime/native_app_data_session_binding.py",
+    "consumer_core_implemented": true,
+    "runtime_wiring_enabled": false
   },
   "app_facing_surface": {
     "receives_typed_port_only": true,
