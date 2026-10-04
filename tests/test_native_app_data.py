@@ -139,6 +139,21 @@ class NativeAppDataTests(unittest.TestCase):
             self.assertEqual(updated, {"revision": 2, "stored": True})
             self.assertEqual(app_data.read_app_data(identity(), "state", str(root))["value"], b"beta")
 
+    def test_existing_manifest_without_partition_lock_fails_closed_on_get(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "state", b"known-good", 0, str(root))
+            partition = only_partition(root)
+            lock_path = partition / "lock"
+            manifest_path = partition / "manifest.json"
+            self.assertTrue(manifest_path.exists())
+            lock_path.unlink()
+
+            with self.assertRaisesRegex(ValueError, "partition lock is missing"):
+                app_data.read_app_data(identity(), "state", str(root))
+            self.assertTrue(manifest_path.exists())
+            self.assertEqual(len(list((partition / "blobs").glob("*.bin"))), 1)
+
     def test_values_are_content_addressed_and_update_does_not_rewrite_unrelated_blob(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "app-data"
