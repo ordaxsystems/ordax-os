@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import base64
+import fcntl
 import importlib.util
 import json
 import os
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,6 +86,58 @@ class NativeAppDataTests(unittest.TestCase):
             deleted = app_data.delete_app_data(identity(), "document.main", 2, root)
             self.assertEqual(deleted, {"revision": 3, "deleted": True})
             self.assertFalse(app_data.read_app_data(identity(), "document.main", root)["found"])
+
+    def test_read_holds_shared_partition_lock_through_blob_verification(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "state", b"alpha", 0, str(root))
+            partition = only_partition(root)
+            lock_path = partition / "lock"
+            reader_in_blob = threading.Event()
+            release_reader = threading.Event()
+            result: dict[str, object] = {}
+            failure: list[BaseException] = []
+            original_verify_blob = app_data._verify_blob
+
+            def paused_verify_blob(blobs: str, record: dict) -> bytes:
+                reader_in_blob.set()
+                if not release_reader.wait(2):
+                    raise AssertionError("timed out waiting to release App Data reader")
+                return original_verify_blob(blobs, record)
+
+            def reader() -> None:
+                try:
+                    result.update(app_data.read_app_data(identity(), "state", str(root)))
+                except BaseException as exc:  # surfaced in the test thread after join
+                    failure.append(exc)
+
+            app_data._verify_blob = paused_verify_blob
+            thread = threading.Thread(target=reader, daemon=True)
+            try:
+                thread.start()
+                self.assertTrue(reader_in_blob.wait(2), "reader did not reach blob verification")
+
+                descriptor = os.open(lock_path, os.O_RDWR)
+                try:
+                    with self.assertRaises(BlockingIOError):
+                        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                finally:
+                    os.close(descriptor)
+            finally:
+                release_reader.set()
+                thread.join(2)
+                app_data._verify_blob = original_verify_blob
+
+            self.assertFalse(thread.is_alive(), "App Data reader did not finish")
+            if failure:
+                raise failure[0]
+            self.assertEqual(result["revision"], 1)
+            self.assertEqual(result["value"], b"alpha")
+
+            # Once the reader releases LOCK_SH, the writer can commit and collect the old blob.
+            updated = app_data.put_app_data(identity(), "state", b"beta", 1, str(root))
+            self.assertEqual(updated, {"revision": 2, "stored": True})
+            self.assertEqual(app_data.read_app_data(identity(), "state", str(root))["value"], b"beta")
 
     def test_values_are_content_addressed_and_update_does_not_rewrite_unrelated_blob(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -249,7 +303,7 @@ class NativeAppDataTests(unittest.TestCase):
 
     def test_owner_source_contains_required_filesystem_hardening(self):
         source = MODULE.read_text(encoding="utf-8")
-        for marker in ("O_NOFOLLOW", "fcntl.flock", "os.fsync", "os.replace", "0o600", "sha256"):
+        for marker in ("O_NOFOLLOW", "fcntl.flock", "LOCK_SH", "os.fsync", "os.replace", "0o600", "sha256"):
             self.assertIn(marker, source)
 
 
