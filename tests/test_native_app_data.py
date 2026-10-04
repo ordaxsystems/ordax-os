@@ -87,6 +87,30 @@ class NativeAppDataTests(unittest.TestCase):
                 app_data.put_app_data(identity(), "state", b"blocked", 0, str(root))
             self.assertFalse((real_parent / "v1").exists())
 
+    def test_safe_concurrent_directory_winner_is_revalidated(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            original_mkdir = app_data.os.mkdir
+            simulated = {"done": False}
+
+            def concurrent_winner(path: str, mode: int = 0o777, *args, **kwargs):
+                if os.fspath(path) == os.fspath(root) and not simulated["done"]:
+                    simulated["done"] = True
+                    original_mkdir(path, mode, *args, **kwargs)
+                    raise FileExistsError(path)
+                return original_mkdir(path, mode, *args, **kwargs)
+
+            app_data.os.mkdir = concurrent_winner
+            try:
+                result = app_data.put_app_data(identity(), "state", b"winner", 0, str(root))
+            finally:
+                app_data.os.mkdir = original_mkdir
+
+            self.assertTrue(simulated["done"])
+            self.assertEqual(result, {"revision": 1, "stored": True})
+            self.assertEqual(stat.S_IMODE(root.stat().st_mode), 0o700)
+            self.assertEqual(app_data.read_app_data(identity(), "state", str(root))["value"], b"winner")
+
     def test_put_reboot_read_delete_and_partition_wide_cas(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = str(Path(temporary) / "app-data")
