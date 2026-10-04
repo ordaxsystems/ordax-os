@@ -1,0 +1,86 @@
+{
+  "$schema": "prototype-ordax.mvp-app-delivery/1",
+  "status": "launch-policy-defined-signed-release-path",
+  "initial_usb": {
+    "structural_app_ids": [
+      "account",
+      "settings",
+      "system"
+    ],
+    "bootstrap_app_ids": [
+      "files",
+      "internet"
+    ],
+    "on_demand_app_ids": [
+      "activity",
+      "assistant",
+      "network",
+      "notes",
+      "projects",
+      "studio"
+    ],
+    "optional_apps_block_public_launch": false,
+    "physical_payload_shrink_required_before_public_launch": false,
+    "current_image_may_retain_dormant_on_demand_payloads": true,
+    "network_skip_preserves_usable_offline_system": true
+  },
+  "launch_delivery": {
+    "owner": "system/supervisor",
+    "transport": "official-signed-release-channel",
+    "optional_app_completion_may_arrive_via_signed_stable_release": true,
+    "signed_stable_release_may_add_or_upgrade_first_party_apps": true,
+    "usb_reimage_required_for_later_first_party_app_addition": false,
+    "independent_component_slot_delivery_required_before_public_launch": false,
+    "store_required_before_public_launch": false
+  },
+  "first_online_refresh": {
+    "availability_condition": "network-reachable",
+    "discovery_owner": "system/supervisor",
+    "discovery_mode": "periodic-signed-channel-polling",
+    "default_interval_seconds": 60,
+    "check_official_base_update": true,
+    "ensure_current_bootstrap_apps": true,
+    "refresh_signed_first_party_app_catalog": true,
+    "auto_install_on_demand_apps": false,
+    "failure_must_not_block_first_run_completion": true,
+    "retry_after_first_run_allowed": true
+  },
+  "evolution": {
+    "new_first_party_app_may_start_on_demand": true,
+    "promote_to_bootstrap_requires_signed_release_policy_change": true,
+    "bootstrap_promotion_may_provision_app_without_reimaging_usb": true,
+    "independent_app_delivery_is_post_launch_optimization": true,
+    "store_or_catalog_may_mint_install_authority": false
+  },
+  "independent_delivery_pipeline": [
+    "catalog",
+    "artifact-identity",
+    "trust-provenance",
+    "compatibility",
+    "stage",
+    "health-probation",
+    "promote",
+    "inventory-receipt"
+  ],
+  "independent_delivery_transition_gate": {
+    "remove_dormant_on_demand_payloads_from_base_when_independent_delivery_is_used_only_after": [
+      "native-installed-inventory-proof",
+      "verified-first-install-proof",
+      "reinstall-proof",
+      "offline-retained-installed-app-proof",
+      "failed-update-keeps-last-known-good-proof",
+      "rollback-proof",
+      "uninstall-keeps-user-data-proof"
+    ],
+    "does_not_block_first_public_launch": true
+  },
+  "launch_scope": {
+    "notes_completion_required_before_public_launch": false,
+    "assistant_completion_required_before_public_launch": false,
+    "studio_completion_required_before_public_launch": false,
+    "projects_completion_required_before_public_launch": false,
+    "activity_completion_required_before_public_launch": false,
+    "network_app_completion_required_before_public_launch": false
+  },
+  "authority": "none"
+}

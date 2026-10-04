@@ -74,7 +74,19 @@
     "skippable": true,
     "uses_existing_network_management_port": true,
     "password_is_transient_only": true,
-    "password_must_not_enter_first_run_state": true
+    "password_must_not_enter_first_run_state": true,
+    "first_online_update_policy": "docs/contracts/mvp-app-delivery.json",
+    "successful_connection_makes_official_update_discovery_reachable": true,
+    "update_discovery_owner": "system/supervisor",
+    "update_discovery_transport": "official-signed-release-channel",
+    "update_discovery_mode": "periodic-signed-channel-polling",
+    "update_discovery_default_interval_seconds": 60,
+    "direct_oobe_update_executor_allowed": false,
+    "direct_oobe_wake_required_for_launch": false,
+    "update_discovery_failure_must_not_block_completion": true,
+    "offline_skip_defers_successful_discovery": true,
+    "retry_after_first_run_owned_by_supervisor": true,
+    "runtime_update_polling_status": "source-connected-physical-proof-pending"
   },
   "account": {
     "optional": true,
