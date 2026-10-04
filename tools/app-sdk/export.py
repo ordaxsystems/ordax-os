@@ -33,6 +33,34 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "device-action-receipt",
+        "path": "system/contracts/device-action-envelope.mjs",
+        "constant": "DEVICE_ACTION_RECEIPT_SCHEMA",
+        "schema": "ordax.device-action-receipt/1",
+        "major": 1,
+    },
+    {
+        "name": "device-action-request",
+        "path": "system/contracts/device-action-envelope.mjs",
+        "constant": "DEVICE_ACTION_REQUEST_SCHEMA",
+        "schema": "ordax.device-action-request/1",
+        "major": 1,
+    },
+    {
+        "name": "device-capabilities",
+        "path": "system/contracts/device-capabilities.mjs",
+        "constant": "DEVICE_AGENT_CAPABILITIES_SCHEMA",
+        "schema": "ordax.device-agent-capabilities/1",
+        "major": 1,
+    },
+    {
+        "name": "device-capability-reader",
+        "path": "system/contracts/device-capabilities.mjs",
+        "constant": "DEVICE_AGENT_CAPABILITY_READER_SCHEMA",
+        "schema": "ordax.device-agent-capability-reader/1",
+        "major": 1,
+    },
+    {
         "name": "file-space",
         "path": "system/contracts/file-space.mjs",
         "constant": "FILE_SPACE_SCHEMA",
@@ -72,6 +100,20 @@ CONTRACTS = (
         "path": "system/contracts/memory.mjs",
         "constant": "MEMORY_PORT_SCHEMA",
         "schema": "ordax.memory/1",
+        "major": 1,
+    },
+    {
+        "name": "project-catalog",
+        "path": "system/contracts/project-catalog.mjs",
+        "constant": "PROJECT_CATALOG_SCHEMA",
+        "schema": "ordax.project-catalog/1",
+        "major": 1,
+    },
+    {
+        "name": "studio-runtime",
+        "path": "system/contracts/studio-runtime.mjs",
+        "constant": "STUDIO_RUNTIME_PORT_SCHEMA",
+        "schema": "ordax.studio-runtime/1",
         "major": 1,
     },
     {
@@ -133,7 +175,7 @@ def build_bundle() -> dict:
     return {
         "$schema": "ordax.app-sdk-bundle/1",
         "authority": "none",
-        "bundle_version": "1.1.0",
+        "bundle_version": "1.2.0",
         "compatibility_policy": "contract-major",
         "contracts": contracts,
     }
@@ -169,7 +211,7 @@ def check() -> None:
 
     print("APP_SDK_BUNDLE=PASS")
     print("APP_SDK_SCHEMA=ordax.app-sdk-bundle/1")
-    print("APP_SDK_VERSION=1.1.0")
+    print("APP_SDK_VERSION=1.2.0")
     print(f"APP_SDK_CONTRACT_COUNT={len(CONTRACTS)}")
     print("APP_SDK_AUTHORITY=none")
 
