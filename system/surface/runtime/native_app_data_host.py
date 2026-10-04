@@ -9,7 +9,6 @@ everything else unchanged.
 from __future__ import annotations
 
 import errno
-import json
 import os
 import sys
 from urllib.parse import urlsplit
@@ -68,23 +67,26 @@ class NativeAppDataHostHandler(NativeHostHandler):
         return urlsplit(self.path).path.startswith(APP_DATA_ENDPOINT_PREFIX)
 
     def _write_app_data_error(self, status: int, message: str, **fields) -> None:
-        payload = {"error": message, **fields}
-        self._write_json(status, payload)
+        self._write_json(status, {"error": message, **fields})
 
-    def _read_app_data_body(self) -> bytes | None:
+    def _read_app_data_body(self) -> tuple[bytes | None, int, str]:
         if self.headers.get("Transfer-Encoding"):
-            return None
+            return None, 400, "Native App Data transfer encoding is unsupported"
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
-            return None
-        if length <= 0 or length > MAX_APP_DATA_REQUEST_BODY_BYTES:
-            return None
+            return None, 400, "Native App Data Content-Length is invalid"
+        if length <= 0:
+            return None, 400, "Native App Data request body is empty"
+        if length > MAX_APP_DATA_REQUEST_BODY_BYTES:
+            return None, 413, "Native App Data request body exceeds byte limit"
         content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
         if content_type != "application/json":
-            return None
+            return None, 415, "Native App Data requires application/json"
         body = self.rfile.read(length)
-        return body if len(body) == length else None
+        if len(body) != length:
+            return None, 400, "Native App Data request body is incomplete"
+        return body, 200, ""
 
     def do_GET(self) -> None:  # noqa: N802
         if not self._is_app_data_path():
@@ -117,25 +119,32 @@ class NativeAppDataHostHandler(NativeHostHandler):
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
-        if urlsplit(self.path).query:
+
+        parsed = urlsplit(self.path)
+        if parsed.query:
             self._write_app_data_error(400, "Native App Data capability does not accept a query")
             return
+        if self.server.app_data_bindings.resolve(parsed.path) is None:
+            self._write_app_data_error(404, "Native App Data capability is unknown")
+            return
 
-        body = self._read_app_data_body()
+        body, status, message = self._read_app_data_body()
         if body is None:
-            self._write_app_data_error(400, "Native App Data request body is invalid")
+            self._write_app_data_error(status, message)
             return
 
         try:
             result = handle_bound_app_data_request(
                 self.server.app_data_bindings,
-                urlsplit(self.path).path,
+                parsed.path,
                 body,
                 root=self.server.app_data_root,
                 quota_bytes=self.server.app_data_quota_bytes,
                 max_keys=self.server.app_data_max_keys,
             )
         except NativeAppDataBindingNotFoundError:
+            # Binding rotation can race request dispatch; fail closed rather
+            # than re-resolving to a different identity.
             self._write_app_data_error(404, "Native App Data capability is unknown")
             return
         except AppDataEndpointRequestError as exc:
