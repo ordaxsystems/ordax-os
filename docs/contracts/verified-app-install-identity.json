@@ -102,7 +102,7 @@
     "receipt_bootstrap_runtime_wiring": true,
     "producer_implemented": false,
     "production_external_publisher_trust_implemented": false,
-    "native_app_data_route_implemented": false,
+    "native_app_data_route_implemented": true,
     "sdk_published": false
   }
 }

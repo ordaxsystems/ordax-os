@@ -232,7 +232,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
         server = NATIVE_HOST_SERVER.read_text(encoding="utf-8")
         self.assertIn('/bin/busybox mount -o bind "$SYSTEM_ROOT"', launcher)
         self.assertIn("$RUNTIME_ROOT/srv/ordax-system", launcher)
-        self.assertIn("/usr/bin/python3 /srv/ordax-system/surface/runtime/native_host_server.py", launcher)
+        self.assertIn("/usr/bin/python3 /srv/ordax-system/surface/runtime/native_app_data_runtime.py", launcher)
         self.assertIn("--bind 127.0.0.1", launcher)
         self.assertIn("--directory /srv/ordax-system", launcher)
         self.assertIn("/sbin/ip link set dev lo up", launcher)

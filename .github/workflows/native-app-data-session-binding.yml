@@ -3,8 +3,10 @@ name: Native App Data Session Binding
 on:
   pull_request:
     paths:
+      - 'system/surface/bin/ordax-surface'
       - 'system/surface/runtime/native_app_data_binding.py'
       - 'system/surface/runtime/native_app_data_host.py'
+      - 'system/surface/runtime/native_app_data_runtime.py'
       - 'system/surface/runtime/native_app_data_session_binding.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_install_identity_bootstrap.py'
@@ -12,12 +14,15 @@ on:
       - 'system/services/apps/first-party-identities.json'
       - 'docs/contracts/native-app-data-binding.json'
       - 'tests/test_native_app_data_session_binding.py'
+      - 'tests/test_native_app_data_runtime_wiring.py'
       - '.github/workflows/native-app-data-session-binding.yml'
   push:
     branches: [main]
     paths:
+      - 'system/surface/bin/ordax-surface'
       - 'system/surface/runtime/native_app_data_binding.py'
       - 'system/surface/runtime/native_app_data_host.py'
+      - 'system/surface/runtime/native_app_data_runtime.py'
       - 'system/surface/runtime/native_app_data_session_binding.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_install_identity_bootstrap.py'
@@ -25,6 +30,7 @@ on:
       - 'system/services/apps/first-party-identities.json'
       - 'docs/contracts/native-app-data-binding.json'
       - 'tests/test_native_app_data_session_binding.py'
+      - 'tests/test_native_app_data_runtime_wiring.py'
       - '.github/workflows/native-app-data-session-binding.yml'
 
 permissions:
@@ -45,13 +51,20 @@ jobs:
           python3 -m py_compile \
             system/surface/runtime/native_app_data_binding.py \
             system/surface/runtime/native_app_data_host.py \
+            system/surface/runtime/native_app_data_runtime.py \
             system/surface/runtime/native_app_data_session_binding.py \
             system/surface/runtime/native_app_install_identity.py \
             system/surface/runtime/native_app_install_identity_bootstrap.py \
             system/surface/runtime/native_app_install_identity_producer.py
           python3 -m json.tool docs/contracts/native-app-data-binding.json >/dev/null
+          sh -n system/surface/bin/ordax-surface
 
       - name: Prove current-boot receipt index binds only verified identities
         run: |
           set -euo pipefail
           python3 -m unittest tests.test_native_app_data_session_binding -v
+
+      - name: Prove private runtime consumes verified bindings fail-closed
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests.test_native_app_data_runtime_wiring -v

@@ -3,8 +3,10 @@ name: Native App Data Binding
 on:
   pull_request:
     paths:
+      - 'system/surface/bin/ordax-surface'
       - 'system/surface/runtime/native_app_data_binding.py'
       - 'system/surface/runtime/native_app_data_host.py'
+      - 'system/surface/runtime/native_app_data_runtime.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
@@ -17,13 +19,16 @@ on:
       - 'docs/contracts/native-app-data-binding.json'
       - 'tests/test_native_app_data_binding.py'
       - 'tests/test_native_app_data_host.py'
+      - 'tests/test_native_app_data_runtime_wiring.py'
       - 'tests/test_native_bound_app_data_port.mjs'
       - '.github/workflows/native-app-data-binding.yml'
   push:
     branches: [main]
     paths:
+      - 'system/surface/bin/ordax-surface'
       - 'system/surface/runtime/native_app_data_binding.py'
       - 'system/surface/runtime/native_app_data_host.py'
+      - 'system/surface/runtime/native_app_data_runtime.py'
       - 'system/surface/runtime/native_app_install_identity.py'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
@@ -36,6 +41,7 @@ on:
       - 'docs/contracts/native-app-data-binding.json'
       - 'tests/test_native_app_data_binding.py'
       - 'tests/test_native_app_data_host.py'
+      - 'tests/test_native_app_data_runtime_wiring.py'
       - 'tests/test_native_bound_app_data_port.mjs'
       - '.github/workflows/native-app-data-binding.yml'
 
@@ -54,16 +60,22 @@ jobs:
       - name: Validate binding and route sources
         run: |
           set -euo pipefail
-          python3 -m py_compile system/surface/runtime/native_app_data_binding.py
-          python3 -m py_compile system/surface/runtime/native_app_data_host.py
+          python3 -m py_compile \
+            system/surface/runtime/native_app_data_binding.py \
+            system/surface/runtime/native_app_data_host.py \
+            system/surface/runtime/native_app_data_runtime.py
           node --check system/adapters/native/bound-app-data.mjs
           python3 -m json.tool docs/contracts/native-app-data-binding.json >/dev/null
+          sh -n system/surface/bin/ordax-surface
 
       - name: Prove verified opaque binding lifecycle
         run: python3 tests/test_native_app_data_binding.py
 
       - name: Prove thin Native HTTP capability route
         run: python3 tests/test_native_app_data_host.py
+
+      - name: Prove private runtime wiring keeps capability undistributed
+        run: python3 -m unittest tests.test_native_app_data_runtime_wiring -v
 
       - name: Prove app-facing port hides transport capability
         run: node --test tests/test_native_bound_app_data_port.mjs
