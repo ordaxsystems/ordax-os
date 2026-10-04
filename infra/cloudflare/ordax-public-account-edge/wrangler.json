@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "ordax-public-account-edge",
+  "main": "index.mjs",
+  "compatibility_date": "2026-10-04",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true
+  },
+  "ratelimits": [
+    {
+      "name": "AUTH_CREDENTIALS_RATE_LIMITER",
+      "namespace_id": "106901",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    },
+    {
+      "name": "AUTH_RECOVERY_REQUEST_RATE_LIMITER",
+      "namespace_id": "106902",
+      "simple": {
+        "limit": 3,
+        "period": 60
+      }
+    },
+    {
+      "name": "AUTH_RECOVERY_COMPLETION_RATE_LIMITER",
+      "namespace_id": "106903",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    },
+    {
+      "name": "ACCOUNT_MUTATION_RATE_LIMITER",
+      "namespace_id": "106904",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ]
+}
