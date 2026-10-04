@@ -1,0 +1,43 @@
+name: Notes Externalization Boundary
+
+on:
+  pull_request:
+    paths:
+      - 'system/apps/notes/**'
+      - 'system/contracts/intelligence.mjs'
+      - 'tests/test_notes_intelligence_summary.mjs'
+      - '.github/workflows/notes-externalization-boundary.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/apps/notes/**'
+      - 'system/contracts/intelligence.mjs'
+      - 'tests/test_notes_intelligence_summary.mjs'
+      - '.github/workflows/notes-externalization-boundary.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  public-intelligence-boundary:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate Notes app modules
+        run: |
+          set -euo pipefail
+          find system/apps/notes -type f -name '*.mjs' -print0 | sort -z | xargs -0 -n1 node --check
+
+      - name: Prove Notes-owned public Intelligence adapter
+        run: node --test tests/test_notes_intelligence_summary.mjs
+
+      - name: Guard provider neutrality and private implementation ownership
+        run: |
+          set -euo pipefail
+          ! grep -R -n -E 'services/local-ai|contracts/local-ai|qwen|llama' system/apps/notes
+          grep -q 'assertIntelligencePort' system/apps/notes/platform/intelligence-summary.mjs
+          grep -q 'intent: "summarize"' system/apps/notes/platform/intelligence-summary.mjs
