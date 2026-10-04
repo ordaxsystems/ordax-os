@@ -79,7 +79,9 @@
     "request_or_app_may_select_identity": false,
     "receipt_sha_is_capability": false,
     "runtime_wiring_enabled": true,
-    "runtime_wiring_owner": "system/surface/bin/ordax-surface"
+    "runtime_wiring_owner": "system/surface/bin/ordax-surface",
+    "runtime_wiring_profiles": ["stable-mvp"],
+    "owner_development_behavior": "remove-stale-session-index-and-leave-binding-unavailable"
   },
   "capability_boundary": {
     "receipt_is_runtime_capability": false,
