@@ -4,15 +4,19 @@ on:
   pull_request:
     paths:
       - 'system/surface/runtime/native_app_install_identity.py'
+      - 'system/surface/runtime/native_app_install_identity_producer.py'
       - 'docs/contracts/verified-app-install-identity.json'
       - 'tests/test_native_app_install_identity.py'
+      - 'tests/test_native_app_install_identity_producer.py'
       - '.github/workflows/verified-app-install-identity.yml'
   push:
     branches: [main]
     paths:
       - 'system/surface/runtime/native_app_install_identity.py'
+      - 'system/surface/runtime/native_app_install_identity_producer.py'
       - 'docs/contracts/verified-app-install-identity.json'
       - 'tests/test_native_app_install_identity.py'
+      - 'tests/test_native_app_install_identity_producer.py'
       - '.github/workflows/verified-app-install-identity.yml'
 
 permissions:
@@ -31,7 +35,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile system/surface/runtime/native_app_install_identity.py
+          python3 -m py_compile system/surface/runtime/native_app_install_identity_producer.py
           python3 -m json.tool docs/contracts/verified-app-install-identity.json >/dev/null
 
-      - name: Prove verified identity receipt boundary
-        run: python3 -m unittest tests.test_native_app_install_identity -v
+      - name: Prove verified identity receipt boundary and dormant producer
+        run: |
+          set -euo pipefail
+          python3 -m unittest \
+            tests.test_native_app_install_identity \
+            tests.test_native_app_install_identity_producer \
+            -v
