@@ -5,7 +5,8 @@ import {
   NATIVE_STUDIO_HOST_COMPOSITION_SCHEMA,
   createNativeStudioHostComposition,
 } from "../system/composition/native/studio-host.mjs";
-import { STUDIO_RUNTIME_PORT_SCHEMA } from "../system/contracts/studio-runtime.mjs";
+import { STUDIO_RUNTIME_V2_PORT_SCHEMA } from "../system/contracts/studio-runtime-v2.mjs";
+import { STUDIO_ACTION_CONTEXT_SCHEMA } from "../system/contracts/studio-action-context.mjs";
 import {
   DEVICE_AGENT_CAPABILITIES_SCHEMA,
   DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
@@ -19,7 +20,7 @@ const noop = () => {};
 
 function studioRuntime() {
   return {
-    schema: STUDIO_RUNTIME_PORT_SCHEMA,
+    schema: STUDIO_RUNTIME_V2_PORT_SCHEMA,
     capabilityReader: {
       schema: DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
       capabilities: async () => ({
@@ -40,6 +41,13 @@ function studioRuntime() {
       relocateLastFilePath: noop,
       remove: noop,
     },
+    getActionContext: async () => ({
+      schema: STUDIO_ACTION_CONTEXT_SCHEMA,
+      actor: { kind: "device-owner", subjectId: null },
+      deviceId: "device-native",
+      client: "ordax-native",
+      spaceId: null,
+    }),
     requestAction: async () => {
       throw new Error("not dispatched by composition test");
     },
@@ -91,7 +99,7 @@ function validInput() {
   };
 }
 
-test("native Studio host composes only the four reviewed public facets", () => {
+test("native Studio host v2 composes only the four reviewed public facets", () => {
   const input = validInput();
   const host = createNativeStudioHostComposition(input);
 
@@ -99,6 +107,7 @@ test("native Studio host composes only the four reviewed public facets", () => {
   assert.equal(host.authority, "none");
   assert.equal(host.target, "ordax-os");
   assert.equal(host.studioRuntime, input.studioRuntime);
+  assert.equal(host.studioRuntime.schema, STUDIO_RUNTIME_V2_PORT_SCHEMA);
   assert.equal(host.memory, input.memory);
   assert.equal(host.intelligence, input.intelligence);
   assert.equal(host.localization, input.localization);
@@ -132,18 +141,30 @@ test("native Studio host rejects authority and implementation leaks", () => {
   }
 });
 
-test("native Studio host refuses raw execution hidden inside studioRuntime", () => {
+test("native Studio host refuses raw or generic dispatch hidden inside runtime v2", () => {
+  for (const field of ["execute", "deviceAgent", "call"]) {
+    const input = validInput();
+    input.studioRuntime = { ...input.studioRuntime, [field]: noop };
+    assert.throws(
+      () => createNativeStudioHostComposition(input),
+      /raw or generic dispatch/,
+      field,
+    );
+  }
+});
+
+test("native Studio host requires runtime v2 action context", () => {
   const input = validInput();
-  input.studioRuntime = { ...input.studioRuntime, execute: noop };
+  delete input.studioRuntime.getActionContext;
   assert.throws(
     () => createNativeStudioHostComposition(input),
-    /must not expose raw device execution/,
+    /must implement getActionContext/,
   );
 });
 
 test("native Studio host validates every public owner independently", () => {
   const cases = [
-    ["studioRuntime", { schema: STUDIO_RUNTIME_PORT_SCHEMA }],
+    ["studioRuntime", { schema: STUDIO_RUNTIME_V2_PORT_SCHEMA }],
     ["memory", { schema: MEMORY_PORT_SCHEMA }],
     ["intelligence", { schema: INTELLIGENCE_PORT_SCHEMA }],
     ["localization", { schema: LOCALIZATION_SCHEMA }],
