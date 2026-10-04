@@ -67,6 +67,19 @@
     "verified_handoff_requires_artifact_sha256": true,
     "boot_handoff_artifact_sha256_connected": true
   },
+  "receipt_bootstrap": {
+    "core": "system/surface/runtime/native_app_install_identity_bootstrap.py",
+    "session_index_schema": "ordax.verified-app-install-session/1",
+    "session_index_path": "/run/ordax-surface/app-install-identities.json",
+    "session_index_mode": "0600",
+    "persistent_namespace_created_with_nofollow": true,
+    "stale_session_index_removed_before_refresh": true,
+    "all_receipts_reopened_and_verified_before_index_publish": true,
+    "atomic_index_replace_and_fsync": true,
+    "request_or_app_may_select_identity": false,
+    "receipt_sha_is_capability": false,
+    "runtime_wiring_enabled": false
+  },
   "capability_boundary": {
     "receipt_is_runtime_capability": false,
     "receipt_alone_mints_app_data_binding": false,
@@ -78,9 +91,12 @@
   "implementation": {
     "native_receipt_consumer": "system/surface/runtime/native_app_install_identity.py",
     "producer_core": "system/surface/runtime/native_app_install_identity_producer.py",
+    "receipt_bootstrap_core": "system/surface/runtime/native_app_install_identity_bootstrap.py",
     "first_party_identity_inventory": "system/services/apps/first-party-identities.json",
     "release_verifier_handoff": "bootstrap/release-acquisition/portable_verify_handoff.go",
     "producer_core_implemented": true,
+    "receipt_bootstrap_core_implemented": true,
+    "receipt_bootstrap_runtime_wiring": false,
     "producer_implemented": false,
     "production_external_publisher_trust_implemented": false,
     "native_app_data_route_implemented": false,
