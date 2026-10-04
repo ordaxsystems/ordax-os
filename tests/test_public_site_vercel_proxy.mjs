@@ -43,6 +43,17 @@ test("only auth and sync product paths are accepted", () => {
   assert.equal(normalizeProductPath("/auth/../network"), null);
 });
 
+test("public proxy accepts only GET and POST", async () => {
+  for (const method of ["PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]) {
+    const response = await proxyPublicAccountRequest(
+      request("/auth/session", { method }),
+      { gatewayUrl: GATEWAY },
+    );
+    assert.equal(response.status, 405, method);
+    assert.equal(response.headers.get("allow"), "GET, POST");
+  }
+});
+
 test("proxy injects trusted public-site provenance and never forwards browser authorization", async () => {
   const originalFetch = globalThis.fetch;
   let observed;
