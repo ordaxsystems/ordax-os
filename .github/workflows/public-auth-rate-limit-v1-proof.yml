@@ -1,0 +1,53 @@
+name: Public Auth Rate Limit v1 Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/supabase/product/migrations/20261004202500_public_auth_rate_limit_v1.sql'
+      - 'tests/sql/test_public_auth_rate_limit_v1.sql'
+      - '.github/workflows/public-auth-rate-limit-v1-proof.yml'
+  pull_request:
+    paths:
+      - 'infra/supabase/product/migrations/20261004202500_public_auth_rate_limit_v1.sql'
+      - 'tests/sql/test_public_auth_rate_limit_v1.sql'
+      - '.github/workflows/public-auth-rate-limit-v1-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Prove private atomic auth rate limit
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql \
+            --host 127.0.0.1 \
+            --username postgres \
+            --dbname postgres \
+            --set ON_ERROR_STOP=1 \
+            --file tests/sql/test_public_auth_rate_limit_v1.sql
