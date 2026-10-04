@@ -110,6 +110,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "studio-action-catalog",
+        "path": "system/contracts/studio-action-catalog.mjs",
+        "constant": "STUDIO_ACTION_CATALOG_SCHEMA",
+        "schema": "ordax.studio-action-catalog/1",
+        "major": 1,
+    },
+    {
         "name": "studio-runtime",
         "path": "system/contracts/studio-runtime.mjs",
         "constant": "STUDIO_RUNTIME_PORT_SCHEMA",
@@ -175,7 +182,7 @@ def build_bundle() -> dict:
     return {
         "$schema": "ordax.app-sdk-bundle/1",
         "authority": "none",
-        "bundle_version": "1.2.0",
+        "bundle_version": "1.3.0",
         "compatibility_policy": "contract-major",
         "contracts": contracts,
     }
@@ -211,7 +218,7 @@ def check() -> None:
 
     print("APP_SDK_BUNDLE=PASS")
     print("APP_SDK_SCHEMA=ordax.app-sdk-bundle/1")
-    print("APP_SDK_VERSION=1.2.0")
+    print("APP_SDK_VERSION=1.3.0")
     print(f"APP_SDK_CONTRACT_COUNT={len(CONTRACTS)}")
     print("APP_SDK_AUTHORITY=none")
 
