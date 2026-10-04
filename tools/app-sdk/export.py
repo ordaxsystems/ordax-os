@@ -47,6 +47,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "device-action-request-v2",
+        "path": "system/contracts/device-action-envelope-v2.mjs",
+        "constant": "DEVICE_ACTION_REQUEST_V2_SCHEMA",
+        "schema": "ordax.device-action-request/2",
+        "major": 2,
+    },
+    {
         "name": "device-capabilities",
         "path": "system/contracts/device-capabilities.mjs",
         "constant": "DEVICE_AGENT_CAPABILITIES_SCHEMA",
@@ -110,11 +117,25 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "studio-action-context",
+        "path": "system/contracts/studio-action-context.mjs",
+        "constant": "STUDIO_ACTION_CONTEXT_SCHEMA",
+        "schema": "ordax.studio-action-context/1",
+        "major": 1,
+    },
+    {
         "name": "studio-runtime",
         "path": "system/contracts/studio-runtime.mjs",
         "constant": "STUDIO_RUNTIME_PORT_SCHEMA",
         "schema": "ordax.studio-runtime/1",
         "major": 1,
+    },
+    {
+        "name": "studio-runtime-v2",
+        "path": "system/contracts/studio-runtime-v2.mjs",
+        "constant": "STUDIO_RUNTIME_V2_PORT_SCHEMA",
+        "schema": "ordax.studio-runtime/2",
+        "major": 2,
     },
     {
         "name": "surface-render-lifecycle",
@@ -175,7 +196,7 @@ def build_bundle() -> dict:
     return {
         "$schema": "ordax.app-sdk-bundle/1",
         "authority": "none",
-        "bundle_version": "1.2.0",
+        "bundle_version": "1.3.0",
         "compatibility_policy": "contract-major",
         "contracts": contracts,
     }
@@ -211,7 +232,7 @@ def check() -> None:
 
     print("APP_SDK_BUNDLE=PASS")
     print("APP_SDK_SCHEMA=ordax.app-sdk-bundle/1")
-    print("APP_SDK_VERSION=1.2.0")
+    print("APP_SDK_VERSION=1.3.0")
     print(f"APP_SDK_CONTRACT_COUNT={len(CONTRACTS)}")
     print("APP_SDK_AUTHORITY=none")
 
