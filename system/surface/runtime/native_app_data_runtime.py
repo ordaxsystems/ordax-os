@@ -105,6 +105,7 @@ def main() -> int:
         component_slot_root=args.component_slot_root,
         account_gateway_origin=args.account_gateway_origin,
         app_data_expected_uid=TRUSTED_STATE_UID,
+        app_data_defer_listener_activation=True,
     )
 
     try:
@@ -112,11 +113,16 @@ def main() -> int:
             server,
             args.distribution_profile,
         )
+        # TCP readiness is the launcher gate for starting the privileged WebKit
+        # host. Do not accept connections until the one-shot App Data handoff
+        # is fully published, otherwise the browser can race the producer.
+        server.activate_private_listener()
     except (
         NativeAppDataPortBootstrapError,
         NativeAppDataSessionBindingError,
         OSError,
         PermissionError,
+        RuntimeError,
         TypeError,
         ValueError,
     ) as exc:
