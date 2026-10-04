@@ -118,7 +118,12 @@ def _create_private_directory(path: str, parent: str, label: str) -> None:
     parent_metadata = os.lstat(parent)
     if not stat.S_ISDIR(parent_metadata.st_mode) or stat.S_ISLNK(parent_metadata.st_mode):
         raise ValueError(f"{label} parent is unsafe")
-    os.mkdir(path, 0o700)
+    try:
+        os.mkdir(path, 0o700)
+    except FileExistsError:
+        # A concurrent first writer may have created the same directory after
+        # our lstat. Accept only the exact private real-directory boundary.
+        pass
     directory = os.open(parent, os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0))
     try:
         os.fsync(directory)
