@@ -35,39 +35,63 @@ class VerifiedInstallRuntimeWiringTest(unittest.TestCase):
         )
         self.assertIn(expected, self.launcher)
 
-    def test_bootstrap_runs_after_mounts_and_before_native_host(self):
+    def test_bootstrap_invocation_runs_after_mounts_and_before_native_host(self):
         bind_offset = self.launcher.index(
             'bind_runtime_mounts || fallback_with_reason '
             '"failed to bind host resources into graphical runtime"'
         )
-        bootstrap_offset = self.launcher.index(BOOTSTRAP_RUNTIME)
+        bootstrap_offset = self.launcher.index(
+            'bootstrap_verified_app_install_identities || fallback_with_reason '
+            '"failed to bootstrap verified app install identities"'
+        )
         native_host_offset = self.launcher.index(NATIVE_HOST_RUNTIME)
         self.assertLess(bind_offset, bootstrap_offset)
         self.assertLess(bootstrap_offset, native_host_offset)
 
-    def test_bootstrap_is_synchronous_and_fail_closed(self):
+    def test_stable_bootstrap_is_synchronous_and_fail_closed(self):
         expected = (
-            '/bin/busybox chroot "$RUNTIME_ROOT" \\\n'
-            '    /usr/bin/python3 '
+            '        stable-mvp)\n'
+            '            /bin/busybox chroot "$RUNTIME_ROOT" \\\n'
+            '                /usr/bin/python3 '
             '/srv/ordax-system/surface/runtime/native_app_install_identity_bootstrap.py '
             '\\\n'
-            '    >>"$HOST_LOG" 2>&1 || fallback_with_reason '
-            '"failed to bootstrap verified app install identities"'
+            '                >>"$HOST_LOG" 2>&1 || return 1\n'
+            '            ;;'
         )
         self.assertIn(expected, self.launcher)
-        bootstrap_offset = self.launcher.index(BOOTSTRAP_RUNTIME)
-        host_offset = self.launcher.index(NATIVE_HOST_RUNTIME)
-        bootstrap_slice = self.launcher[bootstrap_offset:host_offset]
-        self.assertNotIn("&\n", bootstrap_slice)
-        self.assertNotIn("|| true", bootstrap_slice)
+        function = self.launcher.split(
+            "bootstrap_verified_app_install_identities() {", 1
+        )[1].split("\n}\n", 1)[0]
+        self.assertNotIn("&\n", function)
+        self.assertNotIn("|| true", function)
 
-    def test_contract_records_runtime_wiring_without_enabling_route_or_sdk(self):
+    def test_owner_development_cannot_reuse_a_stale_verified_index(self):
+        expected = (
+            '        owner-development)\n'
+            '            rm -f "$SESSION_DIR/app-install-identities.json" '
+            '>/dev/null 2>&1 || return 1\n'
+            '            echo "ordax-surface: verified app install identity '
+            'bootstrap is unavailable in Owner/Development without a verified '
+            'system-release handoff; App Data binding remains disabled" '
+            '>>"$HOST_LOG"\n'
+            '            return 0\n'
+            '            ;;'
+        )
+        self.assertIn(expected, self.launcher)
+        self.assertIn(BOOTSTRAP_RUNTIME, self.launcher)
+
+    def test_contract_records_profile_scoped_runtime_wiring_without_route_or_sdk(self):
         bootstrap = self.contract["receipt_bootstrap"]
         implementation = self.contract["implementation"]
         self.assertTrue(bootstrap["runtime_wiring_enabled"])
         self.assertEqual(
             bootstrap["runtime_wiring_owner"],
             "system/surface/bin/ordax-surface",
+        )
+        self.assertEqual(bootstrap["runtime_wiring_profiles"], ["stable-mvp"])
+        self.assertEqual(
+            bootstrap["owner_development_behavior"],
+            "remove-stale-session-index-and-leave-binding-unavailable",
         )
         self.assertTrue(implementation["receipt_bootstrap_runtime_wiring"])
         self.assertFalse(implementation["native_app_data_route_implemented"])
