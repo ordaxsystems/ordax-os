@@ -44,7 +44,7 @@ test("minimal MVP payload keeps only structural plus Files and Internet as launc
   assert.equal(contract.payload_transition_gate.notes_completion_required_before_public_launch, false);
 });
 
-test("offline First Run stays usable and defers update discovery", async () => {
+test("offline First Run stays usable and defers successful update discovery", async () => {
   const firstRun = await json("docs/contracts/first-run.json");
   const plan = planMvpFirstOnlineRefresh({ online: false });
 
@@ -57,11 +57,11 @@ test("offline First Run stays usable and defers update discovery", async () => {
   assert.equal(plan.authority, "none");
 
   assert.equal(firstRun.network.skippable, true);
-  assert.equal(firstRun.network.offline_skip_defers_update_discovery, true);
+  assert.equal(firstRun.network.offline_skip_defers_successful_discovery, true);
   assert.equal(firstRun.network.update_discovery_failure_must_not_block_completion, true);
 });
 
-test("first successful online state checks Base, bootstrap apps and signed app catalog without auto-installing optional apps", async () => {
+test("first online state reuses the Stable supervisor update owner without making OOBE a second updater", async () => {
   const contract = await json("docs/contracts/mvp-app-delivery.json");
   const distribution = await json("docs/contracts/app-distribution.json");
   const firstRun = await json("docs/contracts/first-run.json");
@@ -81,9 +81,15 @@ test("first successful online state checks Base, bootstrap apps and signed app c
   assert.equal(plan.authority, "none");
 
   assert.equal(firstRun.network.first_online_update_policy, "docs/contracts/mvp-app-delivery.json");
-  assert.equal(firstRun.network.successful_connection_triggers_official_update_discovery, true);
-  assert.equal(firstRun.network.retry_after_first_run_allowed, true);
-  assert.equal(firstRun.network.runtime_hook_status, "required-not-yet-proven");
+  assert.equal(firstRun.network.successful_connection_makes_official_update_discovery_reachable, true);
+  assert.equal(firstRun.network.update_discovery_owner, "system/supervisor");
+  assert.equal(firstRun.network.update_discovery_transport, "official-signed-release-channel");
+  assert.equal(firstRun.network.update_discovery_mode, "periodic-signed-channel-polling");
+  assert.equal(firstRun.network.update_discovery_default_interval_seconds, 60);
+  assert.equal(firstRun.network.direct_oobe_update_executor_allowed, false);
+  assert.equal(firstRun.network.direct_oobe_wake_required_for_launch, false);
+  assert.equal(firstRun.network.retry_after_first_run_owned_by_supervisor, true);
+  assert.equal(firstRun.network.runtime_update_polling_status, "source-connected-physical-proof-pending");
 
   assert.equal(contract.first_online_refresh.check_official_base_update, true);
   assert.equal(contract.first_online_refresh.ensure_current_bootstrap_apps, true);
