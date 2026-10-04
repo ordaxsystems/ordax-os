@@ -114,8 +114,8 @@ begin
     end,
     updated_at = v_now
   returning
-    ordax_public_auth_rate_limits.window_started_at,
-    ordax_public_auth_rate_limits.attempt_count
+    current_window.window_started_at,
+    current_window.attempt_count
   into v_window_started_at, v_attempt_count;
 
   v_reset_at := v_window_started_at + interval '1 minute';
