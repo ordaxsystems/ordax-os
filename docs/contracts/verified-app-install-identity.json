@@ -78,7 +78,10 @@
     "atomic_index_replace_and_fsync": true,
     "request_or_app_may_select_identity": false,
     "receipt_sha_is_capability": false,
-    "runtime_wiring_enabled": false
+    "runtime_wiring_enabled": true,
+    "runtime_wiring_owner": "system/surface/bin/ordax-surface",
+    "runtime_wiring_profiles": ["stable-mvp"],
+    "owner_development_behavior": "remove-stale-session-index-and-leave-binding-unavailable"
   },
   "capability_boundary": {
     "receipt_is_runtime_capability": false,
@@ -96,7 +99,7 @@
     "release_verifier_handoff": "bootstrap/release-acquisition/portable_verify_handoff.go",
     "producer_core_implemented": true,
     "receipt_bootstrap_core_implemented": true,
-    "receipt_bootstrap_runtime_wiring": false,
+    "receipt_bootstrap_runtime_wiring": true,
     "producer_implemented": false,
     "production_external_publisher_trust_implemented": false,
     "native_app_data_route_implemented": false,
