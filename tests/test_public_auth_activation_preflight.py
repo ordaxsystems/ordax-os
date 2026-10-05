@@ -46,6 +46,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             hardening["current_observation"]["product_leaked_password_protection_verified"]
         )
         self.assertTrue(deployment["public_edge_gateway"]["deployed"])
+        self.assertTrue(deployment["public_edge_gateway"]["oidc_source_ready"])
         self.assertNotIn("leaked-password-protection", blockers)
         self.assertNotIn("account-data-export-implementation", blockers)
         self.assertNotIn("email-confirmation-policy", blockers)
@@ -53,6 +54,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertNotIn("password-policy-review", blockers)
         self.assertNotIn("account-close-implementation", blockers)
         self.assertNotIn("public-edge-gateway-deployment", blockers)
+        self.assertNotIn("public-edge-oidc-source", blockers)
         self.assertTrue(all(value is False for value in controls.values()))
         self.assertNotIn("registration-legal-receipt", blockers)
         for expected in (
@@ -64,7 +66,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "email-confirmation-provider-verification",
             "redirect-allowlist-provider-verification",
             "provider-password-policy-verification",
-            "public-edge-proxy-digest-config",
+            "public-edge-oidc-deployment",
             "public-edge-provenance-proof",
             "vercel-same-origin-adapter-deployment",
             "vercel-public-edge-routing",
@@ -78,15 +80,16 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
         self.assertEqual(preflight.main(["require-ready", "--root", str(ROOT)]), 1)
 
-    def test_edge_presence_alone_cannot_satisfy_public_rollout(self):
+    def test_edge_presence_and_oidc_source_alone_cannot_satisfy_public_rollout(self):
         temporary, root = self.fixture_root()
         try:
             deployment_path = root / preflight.DEPLOYMENT
             deployment = preflight.load_json(root, preflight.DEPLOYMENT)
             deployment["public_edge_gateway"]["deployed"] = True
-            deployment["public_edge_gateway"]["proxy_secret_sha256_configured"] = False
+            deployment["public_edge_gateway"]["oidc_source_ready"] = True
+            deployment["public_edge_gateway"]["oidc_deployed"] = False
             deployment["public_edge_gateway"]["runtime_provenance_e2e_verified"] = False
-            deployment["vercel_adapter"]["status"] = "source-ready-not-deployed"
+            deployment["vercel_adapter"]["status"] = "oidc-source-ready-not-deployed"
             deployment["routing"]["vercel_adapter_routed_to_public_edge_gateway"] = False
             deployment_path.write_text(
                 __import__("json").dumps(deployment, indent=2) + "\n",
@@ -94,7 +97,8 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             )
             blockers, _ = preflight.readiness(root)
             self.assertNotIn("public-edge-gateway-deployment", blockers)
-            self.assertIn("public-edge-proxy-digest-config", blockers)
+            self.assertNotIn("public-edge-oidc-source", blockers)
+            self.assertIn("public-edge-oidc-deployment", blockers)
             self.assertIn("public-edge-provenance-proof", blockers)
             self.assertIn("vercel-same-origin-adapter-deployment", blockers)
             self.assertIn("vercel-public-edge-routing", blockers)
