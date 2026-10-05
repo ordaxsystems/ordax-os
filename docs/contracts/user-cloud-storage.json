@@ -1,0 +1,65 @@
+{
+  "$schema": "prototype-ordax.user-cloud-storage/2",
+  "status": "mvp-required-source-foundation-rollout-disabled",
+  "owner": "system/services/user-cloud-storage",
+  "stable_object_contract": "ordax.user-cloud-object/1",
+  "upload_reservation_contract": "ordax.user-cloud-upload-reservation/1",
+  "quota_decision_contract": "ordax.service-quota-decision/1",
+  "quota_key": "storage.user.bytes",
+  "mvp_required": true,
+  "public_rollout_enabled": false,
+  "principles": {
+    "explicit_user_selection_required": true,
+    "local_files_remain_usable_without_cloud": true,
+    "provider_neutral": true,
+    "public_bucket_allowed": false,
+    "provider_storage_is_authorization_source": false,
+    "transactional_metadata_is_authorization_source": true,
+    "client_claimed_quota_or_usage_is_authority": false,
+    "silent_delete_on_downgrade_allowed": false,
+    "provider_or_service_secret_in_client_allowed": false
+  },
+  "upload_protocol": {
+    "server_reservation_required": true,
+    "canonical_server_quota_decision_required": true,
+    "quota_decision_validator": "validateServiceQuotaDecision",
+    "short_lived_upload_authorization_required": true,
+    "reservation_bound_to_owner_object_size_digest": true,
+    "finalization_required": true,
+    "finalization_must_verify_size_and_digest": true,
+    "upload_authorization_creates_action_gateway_authority": false
+  },
+  "database_boundary": {
+    "private_schema_api_roles_allowed": false,
+    "public_rls_predicate_schema": "ordax_policy",
+    "service_role_direct_private_authority_allowed": false,
+    "runtime_mutation_boundary_enabled": false,
+    "source_tables_may_be_created_before_rollout": true
+  },
+  "provider_target": {
+    "mvp_adapter": "supabase-storage",
+    "bucket": "ordax-user-data",
+    "bucket_must_be_private": true,
+    "bucket_currently_deployed": false,
+    "future_adapters_may_change_provider": true,
+    "provider_switch_may_change_domain_object_id": false
+  },
+  "separate_mvp_gates": {
+    "account_close_cleanup": "required-not-owned-here",
+    "durable_auth_fence": "required-not-owned-here",
+    "provider_cleanup_worker": "required-not-owned-here",
+    "aggregate_account_cloud_release_gate": "required-not-owned-here"
+  },
+  "activation_gates": [
+    "private provider bucket exists with no anonymous/public object access",
+    "transactional metadata and upload reservation source is deployed",
+    "storage mutation path uses an audited dedicated executor/server boundary",
+    "quota and metadata allocation are atomic or otherwise proven non-bypassable",
+    "signed upload authorization is bound to the exact reserved object/size/SHA-256",
+    "finalization verifies exact reserved size and SHA-256 before activation",
+    "negative cross-account and cross-Space tests pass",
+    "large resumable upload path is bounded and tested",
+    "account-close cleanup and auth-fence gates pass",
+    "public rollout switch remains disabled until every gate passes"
+  ]
+}
