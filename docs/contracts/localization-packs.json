@@ -1,0 +1,69 @@
+{
+  "$schema": "prototype-ordax.localization-packs-policy/1",
+  "status": "mvp-foundation-source",
+  "source_locale": "pt-BR",
+  "schemas": {
+    "component_localization": "prototype-ordax.component-localization/1",
+    "content_pack": "prototype-ordax.localization-pack/1",
+    "release_descriptor": "prototype-ordax.localization-pack-release/1"
+  },
+  "surface": {
+    "public_complete_locales": ["pt-BR", "en-US"],
+    "system_locale_is_global_default": true,
+    "surface_selector_only_lists_surface_complete_locales": true,
+    "app_locale_may_exceed_surface_locale_set": true
+  },
+  "apps": {
+    "localization_metadata_required": true,
+    "source_locale_required_in_bundled_locales": true,
+    "optional_locale_must_be_declared_by_component": true,
+    "per_app_override_is_component_policy": true,
+    "default_allow_app_override": true,
+    "inherit_system_locale_by_default": true,
+    "first_party_current_bundled_locales": ["pt-BR", "en-US"]
+  },
+  "content_pack": {
+    "messages_only": true,
+    "component_version_bound": true,
+    "message_id_parity_required": true,
+    "placeholder_parity_required": true,
+    "source_locale_external_install_allowed": false,
+    "independent_pack_versioning": true
+  },
+  "release_descriptor": {
+    "resource_only": true,
+    "signature_required": true,
+    "content_sha256_required": true,
+    "message_contract_sha256_required": true,
+    "component_version_required": true,
+    "exact_size_required": true,
+    "forbidden_authority_fields": [
+      "capabilities",
+      "requestedCapabilities",
+      "permissions",
+      "entrypoint",
+      "executable"
+    ]
+  },
+  "selection": {
+    "order": [
+      "compatible-explicit-app-override",
+      "compatible-system-locale",
+      "component-source-locale"
+    ],
+    "installed_optional_pack_required_for_optional_locale": true,
+    "removed_or_unavailable_app_override_uses_system_before_source": true,
+    "mixed_partial_catalog_rendering_allowed": false
+  },
+  "activation": {
+    "authorized_update_path_only": true,
+    "store_is_second_updater": false,
+    "download_to_inactive_staging_required": true,
+    "verify_size_hash_signature_target_locale_component_version_and_message_contract": true,
+    "atomic_activation_required": true,
+    "failed_activation_preserves_previous_pack": true,
+    "known_good_pack_retained_for_rollback": true,
+    "pack_rollback_may_not_rollback_user_data": true,
+    "pack_update_may_not_change_app_permissions": true
+  }
+}
