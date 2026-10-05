@@ -16,8 +16,20 @@ function assertNativeStateTransport(value) {
   return value;
 }
 
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalValue(value[key])]),
+    );
+  }
+  return value;
+}
+
 function sameState(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return JSON.stringify(canonicalValue(left)) === JSON.stringify(canonicalValue(right));
 }
 
 function readLegacy(store, owner) {
@@ -40,6 +52,20 @@ function validateNativeRecord(value, owner) {
     revision: value.revision,
     state: validatePersonalOrdaxStoreState(value.state, owner),
   });
+}
+
+function validateCasResult(value) {
+  if (!value || typeof value !== "object" || typeof value.accepted !== "boolean") {
+    throw new TypeError("Personal OrdaX Native migration received an invalid CAS result");
+  }
+  if (value.accepted) {
+    if (!Number.isSafeInteger(value.revision) || value.revision < 1) {
+      throw new TypeError("Personal OrdaX Native migration received an invalid accepted CAS revision");
+    }
+  } else if (value.revision !== null) {
+    throw new TypeError("Personal OrdaX Native migration conflict revision must remain unknown until readback");
+  }
+  return value;
 }
 
 export function createPersonalOrdaxNativeStateMigration({
@@ -84,17 +110,9 @@ export function createPersonalOrdaxNativeStateMigration({
         throw new Error("Personal OrdaX legacy and Native states diverged; automatic migration is blocked");
       }
 
-      const write = await nativeTransport.compareAndSwap(before.owner, 0, before.legacy);
-      if (
-        !write
-        || typeof write !== "object"
-        || typeof write.accepted !== "boolean"
-        || !Number.isSafeInteger(write.revision)
-        || write.revision < 0
-      ) {
-        throw new TypeError("Personal OrdaX Native migration received an invalid CAS result");
-      }
-
+      const write = validateCasResult(
+        await nativeTransport.compareAndSwap(before.owner, 0, before.legacy),
+      );
       const after = validateNativeRecord(await nativeTransport.read(before.owner), before.owner);
       if (after === null || !sameState(after.state, before.legacy)) {
         throw new Error("Personal OrdaX Native migration could not verify the exact legacy state durably");
