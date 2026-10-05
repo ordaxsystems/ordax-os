@@ -35,6 +35,22 @@
     "missing_runtime_is_non_boot_critical": true,
     "probe_failure_is_component_scoped": true
   },
+  "portable_action_catalog": {
+    "schema": "ordax.studio-action-catalog/2",
+    "source": "system/contracts/studio-action-catalog-v2.mjs",
+    "request_schema": "ordax.device-action-request/2",
+    "source_runtime_repository": "washingtonmsdj/mcp-blender",
+    "source_runtime_commit": "c09128c320c02a2cf82e32a0f9119164e3455eff",
+    "source_runtime_product_version": "0.4.1",
+    "canonical_capability_id_is_full_action_id": true,
+    "secondary_operation_mapping_allowed": false,
+    "project_scope_source": "request.projectId",
+    "project_parameter_duplicate_allowed": false,
+    "authority": "none",
+    "published_in_app_sdk": false,
+    "authorization_binding_enabled": false,
+    "dispatch_binding_enabled": false
+  },
   "mutations": {
     "runtime_enabled": false,
     "authorization_runtime_enabled": true,
