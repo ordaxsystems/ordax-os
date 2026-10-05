@@ -4,33 +4,31 @@ import {
   validateAppDataBytes,
   validateAppDataKey,
 } from "../../../contracts/app-data.mjs";
+import { validateNotesSnapshot } from "../../../contracts/notes-store.mjs";
 import {
-  MAX_NOTE_PROJECTS,
-  MAX_NOTES,
-  validateNotesSnapshot,
-} from "../../../contracts/notes-store.mjs";
-import {
+  MAX_NOTES_APP_DATA_KEYS,
+  MAX_NOTES_APP_DATA_NOTE_CHUNKS,
   NOTES_APP_DATA_HEAD_KEY,
   decodeNotesAppDataId,
   encodeNotesAppDataHead,
-  notesNoteAppDataKey,
+  notesNoteAppDataKeys,
   notesProjectAppDataKey,
   planNotesAppDataTransition,
   validateNotesAppDataHead,
 } from "./app-data-layout.mjs";
 
-export const NOTES_APP_DATA_TRANSITION_JOURNAL_SCHEMA = "ordax.notes-app-data-transition-journal/1";
+export const NOTES_APP_DATA_TRANSITION_JOURNAL_SCHEMA = "ordax.notes-app-data-transition-journal/2";
 export const NOTES_APP_DATA_TRANSITION_JOURNAL_KEY = "transition-journal";
 
-const MAX_ENTITY_COUNT = MAX_NOTE_PROJECTS + MAX_NOTES;
-const MAX_TRANSITION_KEYS = 2 * MAX_ENTITY_COUNT;
-export const MAX_NOTES_APP_DATA_TRANSACTION_KEYS = 2 + (3 * MAX_ENTITY_COUNT);
+const MAX_TRANSITION_KEYS = MAX_NOTES_APP_DATA_KEYS - 2;
+export const MAX_NOTES_APP_DATA_TRANSACTION_KEYS = 2 + (2 * MAX_TRANSITION_KEYS);
 
 if (MAX_NOTES_APP_DATA_TRANSACTION_KEYS >= MAX_APP_DATA_PARTITION_KEYS) {
-  throw new Error("Notes App Data transaction key bound exceeds App Data partition ceiling");
+  throw new Error("Notes App Data transaction operation bound exceeds App Data partition ceiling");
 }
 
-const ENTITY_KEY_RE = /^(p|n)\.([a-z0-9][a-z0-9._Z-]{0,95})\.([01])$/;
+const PROJECT_KEY_RE = /^p\.([a-z0-9][a-z0-9._Z-]{0,95})\.([01])$/;
+const NOTE_CHUNK_KEY_RE = /^n\.([a-z0-9][a-z0-9._Z-]{0,95})\.([01])\.([0-9]{1,2})$/;
 
 function exactKeys(value, expected, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -59,27 +57,37 @@ function sameHead(left, right) {
 function activeKeys(head) {
   return new Set([
     ...head.projects.map(({ id, slot }) => notesProjectAppDataKey(id, slot)),
-    ...head.notes.map(({ id, slot }) => notesNoteAppDataKey(id, slot)),
+    ...head.notes.flatMap(({ id, slot, chunks }) => notesNoteAppDataKeys(id, slot, chunks)),
   ]);
-}
-
-function activeIds(head) {
-  return {
-    projects: new Set(head.projects.map(({ id }) => id)),
-    notes: new Set(head.notes.map(({ id }) => id)),
-  };
 }
 
 function parseEntityKey(value, label) {
   const key = validateAppDataKey(value);
-  const match = ENTITY_KEY_RE.exec(key);
-  if (!match) throw new TypeError(`${label} is not a Notes entity key`);
-  return Object.freeze({
-    key,
-    kind: match[1],
-    id: decodeNotesAppDataId(match[2]),
-    slot: Number(match[3]),
-  });
+  const projectMatch = PROJECT_KEY_RE.exec(key);
+  if (projectMatch) {
+    return Object.freeze({
+      key,
+      kind: "p",
+      id: decodeNotesAppDataId(projectMatch[1]),
+      slot: Number(projectMatch[2]),
+      chunk: null,
+    });
+  }
+  const noteMatch = NOTE_CHUNK_KEY_RE.exec(key);
+  if (noteMatch) {
+    const chunk = Number(noteMatch[3]);
+    if (!Number.isInteger(chunk) || chunk < 0 || chunk >= MAX_NOTES_APP_DATA_NOTE_CHUNKS) {
+      throw new TypeError(`${label} note chunk index is invalid`);
+    }
+    return Object.freeze({
+      key,
+      kind: "n",
+      id: decodeNotesAppDataId(noteMatch[1]),
+      slot: Number(noteMatch[2]),
+      chunk,
+    });
+  }
+  throw new TypeError(`${label} is not a Notes entity key`);
 }
 
 function normalizeKeyList(value, label) {
@@ -108,6 +116,11 @@ function decodeJsonBytes(value) {
   }
 }
 
+function sameSortedKeys(left, right) {
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
+}
+
 export function validateNotesAppDataTransitionJournal(value) {
   const journal = exactKeys(
     value,
@@ -128,7 +141,6 @@ export function validateNotesAppDataTransitionJournal(value) {
   const cleanupKeys = normalizeKeyList(journal.cleanupKeys, "Notes cleanup key list");
   const sourceActive = activeKeys(sourceHead);
   const targetActive = activeKeys(targetHead);
-  const targetIds = activeIds(targetHead);
 
   for (const key of stagedKeys) {
     parseEntityKey(key, "Notes staged key");
@@ -138,17 +150,20 @@ export function validateNotesAppDataTransitionJournal(value) {
   }
 
   for (const key of cleanupKeys) {
-    const parsed = parseEntityKey(key, "Notes cleanup key");
-    const stillPresent = parsed.kind === "p"
-      ? targetIds.projects.has(parsed.id)
-      : targetIds.notes.has(parsed.id);
-    if (stillPresent || targetActive.has(key)) {
-      throw new TypeError("Notes cleanup key targets a live entity");
+    parseEntityKey(key, "Notes cleanup key");
+    if (!sourceActive.has(key) || targetActive.has(key)) {
+      throw new TypeError("Notes cleanup key binding is unsafe");
     }
   }
 
   if (stagedKeys.some((key) => cleanupKeys.includes(key))) {
     throw new TypeError("Notes transition journal cannot stage and clean the same key");
+  }
+
+  const expectedStaged = [...targetActive].filter((key) => !sourceActive.has(key)).sort();
+  const expectedCleanup = [...sourceActive].filter((key) => !targetActive.has(key)).sort();
+  if (!sameSortedKeys(stagedKeys, expectedStaged) || !sameSortedKeys(cleanupKeys, expectedCleanup)) {
+    throw new TypeError("Notes transition journal must exactly cover the head key delta");
   }
 
   return Object.freeze({
@@ -168,27 +183,20 @@ export function decodeNotesAppDataTransitionJournal(value) {
   return validateNotesAppDataTransitionJournal(decodeJsonBytes(value));
 }
 
-function removedEntityCleanupKeys(currentValues, nextValues, keyFor) {
-  const nextIds = new Set(nextValues.map(({ id }) => id));
-  const keys = [];
-  for (const { id } of currentValues) {
-    if (nextIds.has(id)) continue;
-    keys.push(keyFor(id, 0), keyFor(id, 1));
-  }
-  return keys;
-}
-
 export function planCrashSafeNotesAppDataTransition(rawCurrentHead, rawCurrentSnapshot, rawNextSnapshot) {
   const sourceHead = validateNotesAppDataHead(rawCurrentHead);
   const current = validateNotesSnapshot(rawCurrentSnapshot);
   const basePlan = planNotesAppDataTransition(sourceHead, current, rawNextSnapshot);
-  const next = basePlan.snapshot;
 
-  const stagedKeys = basePlan.stagedWrites.map(({ key }) => key);
-  const cleanupKeys = [
-    ...removedEntityCleanupKeys(current.projects, next.projects, notesProjectAppDataKey),
-    ...removedEntityCleanupKeys(current.notes, next.notes, notesNoteAppDataKey),
-  ].sort();
+  const sourceActive = activeKeys(sourceHead);
+  const targetActive = activeKeys(basePlan.head);
+  const stagedKeys = basePlan.stagedWrites.map(({ key }) => key).sort();
+  const cleanupKeys = [...sourceActive].filter((key) => !targetActive.has(key)).sort();
+
+  const expectedStaged = [...targetActive].filter((key) => !sourceActive.has(key)).sort();
+  if (!sameSortedKeys(stagedKeys, expectedStaged)) {
+    throw new TypeError("Notes staged writes do not exactly cover the target head delta");
+  }
 
   const journalRequired = basePlan.headChanged && (stagedKeys.length > 0 || cleanupKeys.length > 0);
   const journal = journalRequired
