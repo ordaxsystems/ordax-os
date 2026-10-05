@@ -1,7 +1,7 @@
 {
   "$schema": "prototype-ordax.native-app-data/1",
   "public_contract": "ordax.app-data/1",
-  "status": "native-owner-foundation",
+  "status": "trusted-first-party-port-injection-active",
   "storage": {
     "root": "/var/lib/ordax/app-data/v1",
     "partition_identity": [
@@ -57,14 +57,16 @@
       "put",
       "delete"
     ],
-    "app_receives_opaque_bound_endpoint": true,
+    "app_receives_opaque_bound_endpoint": false,
     "async_fetch_adapter": true,
-    "host_route_wired": false,
-    "publisher_binding_from_verified_install_owner": false,
+    "host_route_wired": true,
+    "publisher_binding_from_verified_install_owner": true,
     "publisher_binding_source": "verified-install-provenance",
     "manifest_publisher_text_is_binding_source": false,
     "signing_key_is_binding_source": false,
-    "authorized_key_rotation_preserves_publisher_binding": true
+    "authorized_key_rotation_preserves_publisher_binding": true,
+    "trusted_composition_receives_opaque_bound_endpoint": true,
+    "port_injection_to_first_party_component_context": true
   },
   "security": {
     "publisher_self_claim_accepted": false,
