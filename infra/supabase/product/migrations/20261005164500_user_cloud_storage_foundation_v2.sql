@@ -4,6 +4,7 @@
 --   * authenticated may read only logical metadata authorized by RLS;
 --   * provider bindings and upload reservations remain private with zero API-role grants;
 --   * service_role receives no direct private authority;
+--   * identity/Space deletion is RESTRICTed while cloud cleanup references remain;
 --   * no upload/finalization RPC is created until the storage executor + atomic quota meter
 --     are reconciled in a later activation migration.
 
@@ -27,8 +28,8 @@ $preflight$;
 
 create table public.ordax_user_objects (
   object_id uuid primary key default gen_random_uuid(),
-  owner_user_id uuid not null references auth.users(id) on delete cascade,
-  space_id uuid references public.ordax_spaces(space_id) on delete cascade,
+  owner_user_id uuid not null references auth.users(id) on delete restrict,
+  space_id uuid references public.ordax_spaces(space_id) on delete restrict,
   display_name text not null check (char_length(display_name) between 1 and 255),
   media_type text not null check (char_length(media_type) between 1 and 160),
   size_bytes bigint not null check (size_bytes >= 0),
@@ -57,8 +58,8 @@ create table private.ordax_user_object_bindings (
 create table private.ordax_user_upload_reservations (
   reservation_id uuid primary key default gen_random_uuid(),
   object_id uuid not null unique,
-  owner_user_id uuid not null references auth.users(id) on delete cascade,
-  space_id uuid references public.ordax_spaces(space_id) on delete cascade,
+  owner_user_id uuid not null references auth.users(id) on delete restrict,
+  space_id uuid references public.ordax_spaces(space_id) on delete restrict,
   quota_key text not null default 'storage.user.bytes' check (quota_key = 'storage.user.bytes'),
   expected_size_bytes bigint not null check (expected_size_bytes >= 0),
   expected_sha256 text not null check (expected_sha256 ~ '^[0-9a-f]{64}$'),
@@ -103,7 +104,7 @@ using (
 );
 
 comment on table public.ordax_user_objects is
-  'User-visible logical metadata for explicitly selected cloud objects. Provider location and upload authority are not stored here.';
+  'User-visible logical metadata for explicitly selected cloud objects. Provider location and upload authority are not stored here. Identity/Space deletion remains blocked until lifecycle cleanup resolves cloud references.';
 comment on table private.ordax_user_object_bindings is
   'Server-only object-store binding. API roles have zero direct private authority.';
 comment on table private.ordax_user_upload_reservations is
