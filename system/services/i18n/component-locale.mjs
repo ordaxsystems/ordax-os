@@ -42,7 +42,7 @@ export function resolveComponentLocaleSelection({
         locale: appMatch,
         requestedLocale: canonicalAppLocale,
         source: "app-override",
-        degraded: false,
+        degraded: appMatch !== canonicalAppLocale,
         availableLocales,
       });
     }
@@ -73,7 +73,7 @@ export function resolveComponentLocaleSelection({
       locale: systemMatch,
       requestedLocale: canonicalSystemLocale,
       source: "system",
-      degraded: false,
+      degraded: systemMatch !== canonicalSystemLocale,
       availableLocales,
     });
   }
