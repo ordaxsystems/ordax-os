@@ -5,8 +5,10 @@ on:
     branches: [main]
     paths:
       - 'system/services/i18n/**'
+      - 'system/services/diagnostics/**'
       - 'system/services/intelligence/**'
       - 'system/services/notifications/**'
+      - 'system/composition/native/diagnostics.mjs'
       - 'system/surface/ui/**'
       - 'system/surface/runtime/native_security_prompt_i18n.py'
       - 'system/apps/**'
@@ -17,6 +19,7 @@ on:
       - 'system/contracts/localization-pack.mjs'
       - 'docs/contracts/first-run.json'
       - 'docs/LOCALIZATION-PACKS.md'
+      - 'tests/test_diagnostic_summary_localization.mjs'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_localization_pack_contract.mjs'
@@ -28,8 +31,10 @@ on:
   pull_request:
     paths:
       - 'system/services/i18n/**'
+      - 'system/services/diagnostics/**'
       - 'system/services/intelligence/**'
       - 'system/services/notifications/**'
+      - 'system/composition/native/diagnostics.mjs'
       - 'system/surface/ui/**'
       - 'system/surface/runtime/native_security_prompt_i18n.py'
       - 'system/apps/**'
@@ -40,6 +45,7 @@ on:
       - 'system/contracts/localization-pack.mjs'
       - 'docs/contracts/first-run.json'
       - 'docs/LOCALIZATION-PACKS.md'
+      - 'tests/test_diagnostic_summary_localization.mjs'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_localization_pack_contract.mjs'
@@ -81,6 +87,8 @@ jobs:
           node --test tests/test_english_mvp_localization_audit.mjs
           node --check tests/test_english_surface_rendering_audit.mjs
           node --test tests/test_english_surface_rendering_audit.mjs
+          node --check tests/test_diagnostic_summary_localization.mjs
+          node --test tests/test_diagnostic_summary_localization.mjs
           node --check tests/test_intelligence_client_actions.mjs
           node --test tests/test_intelligence_client_actions.mjs
           node --check tests/test_browser_unavailable_localization.mjs

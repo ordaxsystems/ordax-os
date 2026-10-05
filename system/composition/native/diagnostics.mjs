@@ -2,6 +2,11 @@ import { createNativeDiagnosticCopy } from "../../adapters/native/diagnostic-cop
 import { createNativeDiagnosticExport } from "../../adapters/native/diagnostic-export.mjs";
 import { createDiagnosticReviewController } from "../../services/diagnostics/controller.mjs";
 
+function nativeSurfaceLocale() {
+  const locale = globalThis.document?.documentElement?.lang;
+  return locale === "en-US" ? "en-US" : "pt-BR";
+}
+
 export function createNativeDiagnosticReviewComposition({
   host,
   updateStatus = null,
@@ -11,6 +16,7 @@ export function createNativeDiagnosticReviewComposition({
   fileSpace = null,
   clipboard = globalThis.navigator?.clipboard ?? null,
   updateMaxAgeSeconds = undefined,
+  localeProvider = nativeSurfaceLocale,
   clock = () => new Date().toISOString(),
 }) {
   const diagnosticExport = fileSpace === null
@@ -31,6 +37,7 @@ export function createNativeDiagnosticReviewComposition({
     ...(updateMaxAgeSeconds === undefined
       ? {}
       : { updateMaxAgeSeconds }),
+    localeProvider,
     clock,
   });
 }

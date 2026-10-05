@@ -29,10 +29,14 @@ export function createDiagnosticReviewController({
   diagnosticExport = null,
   diagnosticCopy = null,
   updateMaxAgeSeconds = undefined,
+  localeProvider = () => "pt-BR",
   clock = () => new Date().toISOString(),
 }) {
   if (typeof clock !== "function") {
     throw new TypeError("Diagnostic review controller clock must be a function");
+  }
+  if (typeof localeProvider !== "function") {
+    throw new TypeError("Diagnostic review controller localeProvider must be a function");
   }
   const exportPort = diagnosticExport === null
     ? null
@@ -160,7 +164,9 @@ export function createDiagnosticReviewController({
 
       let copyResult;
       try {
-        copyResult = await copyDiagnosticReviewSummary(document, copyPort);
+        copyResult = await copyDiagnosticReviewSummary(document, copyPort, {
+          locale: localeProvider(),
+        });
       } catch {
         copyResult = Object.freeze({ status: "failed", code: "copy-failed" });
       }

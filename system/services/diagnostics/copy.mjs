@@ -29,7 +29,11 @@ export async function copyDiagnosticSummary(summary, copyPort) {
   }
 }
 
-export async function copyDiagnosticReviewSummary(document, copyPort) {
-  const summary = createDiagnosticReviewSummary(document);
+export async function copyDiagnosticReviewSummary(
+  document,
+  copyPort,
+  { locale = "pt-BR" } = {},
+) {
+  const summary = createDiagnosticReviewSummary(document, { locale });
   return copyDiagnosticSummary(summary, copyPort);
 }

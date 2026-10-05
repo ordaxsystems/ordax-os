@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "system" / "contracts" / "diagnostic-copy.mjs"
 SUMMARY = ROOT / "system" / "services" / "diagnostics" / "summary.mjs"
 COPY = ROOT / "system" / "services" / "diagnostics" / "copy.mjs"
+CATALOG = ROOT / "system" / "services" / "i18n" / "catalog" / "diagnostic-summary.mjs"
 WEB_ADAPTER = ROOT / "system" / "adapters" / "web" / "diagnostic-copy.mjs"
 
 
@@ -26,9 +27,25 @@ class DiagnosticSummaryCopyContractTests(unittest.TestCase):
         self.assertNotIn("document.text", source)
         self.assertIn("redactDiagnosticText", source)
         self.assertIn("contradicts report content", source)
+        self.assertIn("translateDiagnosticSummaryMessage", source)
+        self.assertIn("resolveDiagnosticSummaryLocale", source)
+        self.assertIn('diagnostic.summary.journal.unavailableCaveat', source)
+        self.assertIn('diagnostic.summary.journal.empty', source)
+        self.assertIn('diagnostic.summary.freshness.stale', source)
+        self.assertNotIn("A ausência do registro não comprova ausência de problemas", source)
+        self.assertNotIn("isso não é um atestado geral de saúde", source)
+        self.assertNotIn("Isso não prova falha do supervisor", source)
+        self.assertNotIn("Sistema saudável", source)
+        self.assertNotIn("Nenhum problema registrado", source)
+
+    def test_safety_copy_is_owned_by_localization_catalog(self):
+        source = CATALOG.read_text(encoding="utf-8")
         self.assertIn("A ausência do registro não comprova ausência de problemas", source)
         self.assertIn("isso não é um atestado geral de saúde", source)
         self.assertIn("Isso não prova falha do supervisor", source)
+        self.assertIn("The absence of the log does not prove the absence of problems", source)
+        self.assertIn("this is not a general statement of system health", source)
+        self.assertIn("This does not prove supervisor failure", source)
         self.assertNotIn("Sistema saudável", source)
         self.assertNotIn("Nenhum problema registrado", source)
 
