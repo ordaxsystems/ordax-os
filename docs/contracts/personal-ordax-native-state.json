@@ -3,9 +3,12 @@
   "status": "source-foundation-not-routed",
   "owner": "system/surface/runtime/native_personal_ordax_state.py",
   "endpoint_boundary": "system/surface/runtime/native_personal_ordax_endpoint.py",
+  "transport": "system/adapters/native/personal-ordax-state.mjs",
+  "migration": "system/services/personal-ordax/native-state-migration.mjs",
   "current_production_adapter": "system/adapters/native/personal-ordax.mjs",
-  "current_adapter_limitation": "browser-localStorage-until-async-native-migration-is-integrated",
+  "current_adapter_limitation": "browser-localStorage-remains-active-until-native-route-and-cutover-gates-pass",
   "route_enabled": false,
+  "production_source_of_truth": "legacy-native-browser-store",
   "public_background_enabled": false,
   "state_root": "/var/lib/ordax/personal-ordax",
   "partitioning": {
@@ -22,6 +25,7 @@
     "file_fsync_before_replace": true,
     "directory_fsync_after_replace": true,
     "compare_and_swap_revision": true,
+    "conflict_revision_is_unknown_until_readback": true,
     "corrupt_partition_overwrite": false
   },
   "bounds": {
@@ -39,8 +43,24 @@
     "grants_restored_as_live_authority": false
   },
   "migration_policy": {
+    "direction": "legacy-to-native-only",
     "automatic_localStorage_deletion": false,
-    "silent_replace_of_corrupt_native_partition": false,
-    "activation_requires_async_adapter_and_explicit_migration_tests": true
+    "legacy_store_mutation_during_migration": false,
+    "native_create_requires_expected_revision": 0,
+    "existing_native_state_overwrite": false,
+    "divergent_native_and_legacy_state": "fail-closed",
+    "successful_or_racing_create_requires_exact_readback": true,
+    "semantic_state_comparison_ignores_object_key_order": true,
+    "silent_replace_of_corrupt_native_partition": false
+  },
+  "activation_gates": {
+    "route_wiring_proven": false,
+    "js_python_validation_parity_proven": false,
+    "durable_reboot_restore_proven": false,
+    "per_owner_migration_proven": false,
+    "conflict_recovery_proven": false,
+    "legacy_rollback_preserved": true,
+    "zero_data_loss_proven": false,
+    "production_adapter_cutover_allowed": false
   }
 }
