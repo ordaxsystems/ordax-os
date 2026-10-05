@@ -1,0 +1,26 @@
+{
+  "$schema": "prototype-ordax.repository-migration-status/1",
+  "status": "in-progress",
+  "canonical_repositories": {
+    "platform": "washingtonmsdj/prototipo-ordax-os",
+    "apps": "washingtonmsdj/ordax-apps",
+    "runtime": "washingtonmsdj/ordax-runtime",
+    "control_plane": "washingtonmsdj/ordax-control-plane"
+  },
+  "legacy_repository": "washingtonmsdj/mcp-blender",
+  "gates": {
+    "studio_portable_canonical_in_ordax_apps": true,
+    "studio_version_authority_in_ordax_apps": true,
+    "runtime_canonical_in_ordax_runtime": false,
+    "runtime_windows_build_repointed": false,
+    "control_plane_canonical_in_ordax_control_plane": false,
+    "provider_connector_repointed": false,
+    "production_deploy_repointed": false,
+    "windows_packaging_repointed": false,
+    "chatgpt_control_plane_runtime_e2e_green": false,
+    "no_functional_legacy_build_deploy_launch_reference": false,
+    "safe_to_delete_legacy_repository": false
+  },
+  "deletion_rule": "safe_to_delete_legacy_repository may become true only when every prerequisite gate is true",
+  "authority": "none"
+}
