@@ -7,7 +7,9 @@ on:
       - 'system/services/entitlements/quota.mjs'
       - 'system/services/entitlements/README.md'
       - 'docs/contracts/service-quotas.json'
+      - 'docs/contracts/entitlements.json'
       - 'tests/test_service_quota.mjs'
+      - 'tests/test_service_quota_ssot.mjs'
       - '.github/workflows/service-quota-foundation.yml'
   push:
     branches: [main]
@@ -16,7 +18,9 @@ on:
       - 'system/services/entitlements/quota.mjs'
       - 'system/services/entitlements/README.md'
       - 'docs/contracts/service-quotas.json'
+      - 'docs/contracts/entitlements.json'
       - 'tests/test_service_quota.mjs'
+      - 'tests/test_service_quota_ssot.mjs'
       - '.github/workflows/service-quota-foundation.yml'
   workflow_dispatch:
 
@@ -39,9 +43,12 @@ jobs:
           node --check system/contracts/service-quota.mjs
           node --check system/services/entitlements/quota.mjs
           node --check tests/test_service_quota.mjs
+          node --check tests/test_service_quota_ssot.mjs
           python -m json.tool docs/contracts/service-quotas.json >/dev/null
+          python -m json.tool docs/contracts/entitlements.json >/dev/null
 
       - name: Prove fail-closed server quota semantics
         run: |
           set -euo pipefail
           node --test tests/test_service_quota.mjs
+          node --test tests/test_service_quota_ssot.mjs
