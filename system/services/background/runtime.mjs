@@ -16,6 +16,59 @@ function iso(ms) {
   return new Date(ms).toISOString();
 }
 
+function assertRunPolicyBinding(run, policy) {
+  if (
+    run.policyId !== policy.policyId
+    || run.ownerKind !== policy.ownerKind
+    || run.ownerId !== policy.ownerId
+    || run.workItemId !== policy.workItemId
+  ) {
+    throw new Error("Background restored run does not match its policy binding");
+  }
+
+  const expectedDeadline = Date.parse(run.startedAt) + policy.limits.maxWallClockMs;
+  if (Date.parse(run.deadlineAt) !== expectedDeadline) {
+    throw new Error("Background restored run deadline does not match its policy budget");
+  }
+  if (
+    run.usage.steps > policy.limits.maxSteps
+    || run.usage.actions > policy.limits.maxActions
+    || run.usage.egressBytes > policy.limits.maxEgressBytes
+  ) {
+    throw new Error("Background restored run usage exceeds its policy budget");
+  }
+
+  if (run.state === "active") {
+    if (run.leaseExpiresAt === null || Date.parse(run.leaseExpiresAt) > Date.parse(run.deadlineAt)) {
+      throw new Error("Background active restored run has an invalid lease");
+    }
+    if (run.terminalReason !== null || run.recoveryRequired) {
+      throw new Error("Background active restored run carries incompatible recovery state");
+    }
+  } else if (run.leaseExpiresAt !== null) {
+    throw new Error("Background non-active restored run must not retain a lease");
+  }
+
+  if (run.recoveryRequired && run.state !== "paused") {
+    throw new Error("Background recovery-required state must be paused");
+  }
+  if (TERMINAL.has(run.state) && run.terminalReason === null) {
+    throw new Error("Background terminal restored run requires a terminal reason");
+  }
+}
+
+function assertCheckpointBinding(checkpoint, run) {
+  if (checkpoint.workItemId !== run.workItemId) {
+    throw new Error("Background checkpoint work item does not match restored run");
+  }
+  if (checkpoint.revision !== run.checkpointRevision) {
+    throw new Error("Background checkpoint revision does not match restored run");
+  }
+  if (Date.parse(checkpoint.createdAt) > Date.parse(run.updatedAt)) {
+    throw new Error("Background checkpoint timestamp exceeds restored run update time");
+  }
+}
+
 export function createBackgroundRuntime({
   clockMs = () => Date.now(),
   idFactory = (() => {
@@ -241,27 +294,67 @@ export function createBackgroundRuntime({
         throw new Error("Background restore requires an empty runtime");
       }
       const snapshot = validateBackgroundSnapshot(snapshotInput);
+      const candidatePolicies = new Map();
       for (const input of policyInputs) {
         const policy = validateBackgroundPolicy(input);
-        if (policies.has(policy.policyId)) throw new Error(`Duplicate background policy id: ${policy.policyId}`);
-        policies.set(policy.policyId, policy);
+        if (candidatePolicies.has(policy.policyId)) throw new Error(`Duplicate background policy id: ${policy.policyId}`);
+        candidatePolicies.set(policy.policyId, policy);
       }
+
       const now = clockMs();
+      const candidateRuns = new Map();
       for (const sourceRun of snapshot.runs) {
-        if (!policies.has(sourceRun.policyId)) throw new Error(`Missing background policy during restore: ${sourceRun.policyId}`);
-        storeRun(sourceRun.state === "active" ? {
-          ...sourceRun,
-          state: "paused",
-          updatedAt: iso(now),
-          leaseExpiresAt: null,
-          recoveryRequired: true,
-          terminalReason: "restored-active-run",
-        } : sourceRun);
+        if (candidateRuns.has(sourceRun.runId)) throw new Error(`Duplicate background run id: ${sourceRun.runId}`);
+        const policy = candidatePolicies.get(sourceRun.policyId);
+        if (!policy) throw new Error(`Missing background policy during restore: ${sourceRun.policyId}`);
+        assertRunPolicyBinding(sourceRun, policy);
+        let restoredRun = sourceRun;
+        if (sourceRun.state === "active") {
+          restoredRun = now >= Date.parse(sourceRun.deadlineAt)
+            ? {
+              ...sourceRun,
+              state: "exhausted",
+              updatedAt: iso(now),
+              leaseExpiresAt: null,
+              recoveryRequired: false,
+              terminalReason: "restored-active-run-budget-expired",
+            }
+            : {
+              ...sourceRun,
+              state: "paused",
+              updatedAt: iso(now),
+              leaseExpiresAt: null,
+              recoveryRequired: true,
+              terminalReason: "restored-active-run",
+            };
+        }
+        candidateRuns.set(sourceRun.runId, validateBackgroundRun(restoredRun));
       }
+
+      const candidateCheckpoints = new Map();
       for (const checkpoint of snapshot.checkpoints) {
-        if (!runs.has(checkpoint.runId)) throw new Error(`Checkpoint references unknown background run: ${checkpoint.runId}`);
-        checkpoints.set(checkpoint.runId, checkpoint);
+        if (candidateCheckpoints.has(checkpoint.runId)) {
+          throw new Error(`Duplicate background checkpoint for run: ${checkpoint.runId}`);
+        }
+        const run = candidateRuns.get(checkpoint.runId);
+        if (!run) throw new Error(`Checkpoint references unknown background run: ${checkpoint.runId}`);
+        assertCheckpointBinding(checkpoint, run);
+        candidateCheckpoints.set(checkpoint.runId, checkpoint);
       }
+
+      for (const run of candidateRuns.values()) {
+        const checkpoint = candidateCheckpoints.get(run.runId) ?? null;
+        if (run.checkpointRevision === 0 && checkpoint !== null) {
+          throw new Error(`Unexpected background checkpoint for revision zero run: ${run.runId}`);
+        }
+        if (run.checkpointRevision > 0 && checkpoint === null) {
+          throw new Error(`Missing background checkpoint for run: ${run.runId}`);
+        }
+      }
+
+      for (const [policyId, policy] of candidatePolicies) policies.set(policyId, policy);
+      for (const [runId, run] of candidateRuns) runs.set(runId, run);
+      for (const [runId, checkpoint] of candidateCheckpoints) checkpoints.set(runId, checkpoint);
       return api.list();
     },
   };
