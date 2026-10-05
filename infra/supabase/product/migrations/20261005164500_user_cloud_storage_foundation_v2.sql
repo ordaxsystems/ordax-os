@@ -47,8 +47,8 @@ create table private.ordax_user_object_bindings (
   provider_object_key text not null check (
     char_length(provider_object_key) between 8 and 512
     and left(provider_object_key, 1) <> '/'
-    and position('../' in provider_object_key) = 0
     and position(E'\\' in provider_object_key) = 0
+    and provider_object_key !~ '(^|/)[.]{1,2}(/|$)'
   ),
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
@@ -68,8 +68,8 @@ create table private.ordax_user_upload_reservations (
   provider_object_key text not null check (
     char_length(provider_object_key) between 8 and 512
     and left(provider_object_key, 1) <> '/'
-    and position('../' in provider_object_key) = 0
     and position(E'\\' in provider_object_key) = 0
+    and provider_object_key !~ '(^|/)[.]{1,2}(/|$)'
   ),
   state text not null default 'reserved' check (state in ('reserved','consumed','cancelled','expired')),
   expires_at timestamptz not null,
