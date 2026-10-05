@@ -165,7 +165,9 @@ function snapshotFitsPerValueBounds(snapshot) {
   }
 }
 
-export async function createNotesAppDataStore(appDataValue) {
+export async function createNotesAppDataStore(appDataValue, {
+  seedSnapshot = null,
+} = {}) {
   const appData = assertAppDataPort(appDataValue);
   if (appData.identity.appId !== "notes") {
     throw new TypeError("Notes App Data port must be bound to the notes app");
@@ -399,5 +401,22 @@ export async function createNotesAppDataStore(appDataValue) {
   };
 
   assertNotesStore(store);
+
+  // One-way migration: legacy state may seed an empty App Data partition once.
+  // Once notes.manifest exists, App Data is authoritative and legacy state is
+  // ignored completely. A failed seed never creates an authoritative manifest.
+  if (activeManifest === null && seedSnapshot !== null) {
+    const seed = validateNotesSnapshot(seedSnapshot);
+    if (!snapshotFitsPerValueBounds(seed)) {
+      throw new RangeError("Legacy Notes content exceeds App Data record bounds");
+    }
+    memory = seed;
+    desiredRevision += 1;
+    await scheduleDrain();
+    if (durableRevision < desiredRevision) {
+      throw lastPersistError ?? new Error("Legacy Notes migration to App Data failed");
+    }
+  }
+
   return Object.freeze(store);
 }
