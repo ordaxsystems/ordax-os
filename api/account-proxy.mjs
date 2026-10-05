@@ -2,6 +2,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
 const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
+const PUBLIC_GATEWAY_PATH = "/functions/v1/ordax-public-account-gateway";
 const PROXY_SECRET_RE = /^[A-Za-z0-9_-]{32,128}$/;
 const EDGE_ADDRESS_RE = /^[0-9A-Fa-f:.]{3,64}$/;
 const PASSTHROUGH_REQUEST_HEADERS = [
@@ -51,7 +52,7 @@ export function normalizeGatewayUrl(raw) {
     url.password ||
     url.search ||
     url.hash ||
-    !url.pathname.endsWith("/functions/v1/ordax-account-gateway")
+    url.pathname !== PUBLIC_GATEWAY_PATH
   ) {
     return null;
   }
@@ -157,7 +158,7 @@ export async function proxyPublicAccountRequest(
 
   // Vercel overwrites x-forwarded-for at its edge, so this value cannot be
   // selected by an arbitrary Internet client. The dedicated OrdaX header is
-  // authenticated separately by the gateway before it is trusted for quotas.
+  // authenticated separately by the public Edge boundary before quotas run.
   // Never forward browser-supplied authorization, proxy credentials or client
   // address assertions through this boundary.
   headers.set("x-forwarded-for", realIp);

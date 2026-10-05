@@ -29,15 +29,50 @@
     "account_request_marker_value": "1",
     "trusted_real_ip_header": "x-forwarded-for",
     "trusted_real_ip_property": "vercel-edge-overwrites-client-supplied-value",
+    "trusted_client_address_header": "x-ordax-client-address",
+    "proxy_auth_secret_environment_variable": "ORDAX_PUBLIC_PROXY_SECRET",
+    "proxy_auth_secret_browser_visible": false,
+    "proxy_auth_secret_source_controlled": false,
     "authorization_header_forwarded": false,
     "maximum_request_body_bytes": 65536,
     "gateway_url_environment_variable": "ORDAX_ACCOUNT_GATEWAY_URL",
     "gateway_url_must_be_https": true,
-    "gateway_url_path_suffix": "/functions/v1/ordax-account-gateway",
+    "gateway_url_path_suffix": "/functions/v1/ordax-public-account-gateway",
+    "direct_inner_gateway_target_allowed": false,
     "upstream_timeout_milliseconds": 15000,
     "set_cookie_preserved": true,
     "provider_cors_forwarded": false,
     "public_auth_rate_limit_deployed": false
+  },
+  "public_edge_gateway": {
+    "status": "source-ready-not-deployed",
+    "function_name": "ordax-public-account-gateway",
+    "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
+    "provenance_source": "infra/supabase/functions/ordax-public-account-gateway/public_auth_rate_limit.mjs",
+    "inner_gateway": "ordax-account-gateway",
+    "allowed_methods": [
+      "GET",
+      "POST"
+    ],
+    "allowed_prefixes": [
+      "/auth/",
+      "/sync/"
+    ],
+    "proxy_authentication_required": true,
+    "proxy_secret_compared_as_sha256": true,
+    "proxy_secret_sha256_environment_variable": "ORDAX_PUBLIC_PROXY_SECRET_SHA256",
+    "proxy_secret_sha256_source_controlled": false,
+    "raw_proxy_secret_in_source": false,
+    "trusted_client_address_requires_authenticated_proxy": true,
+    "sensitive_proxy_headers_forwarded_to_inner_gateway": false,
+    "browser_authorization_forwarded": false,
+    "rate_limit_rpc": "ordax_consume_public_auth_rate_limit_v1",
+    "rate_limit_rpc_service_role_only": true,
+    "database_rate_limit_authority_deployed": true,
+    "rate_limit_fail_closed": true,
+    "maximum_request_body_bytes": 65536,
+    "maximum_upstream_response_bytes": 2097152,
+    "native_direct_path_covered_by_this_boundary": false
   },
   "routing": {
     "static_routes": [
@@ -57,6 +92,8 @@
     "sync_prefix": "/sync/",
     "identity_gateway_entrypoint": "services/public-identity/gateway.py:application",
     "deployed_account_gateway": "ordax-control-plane:ordax-account-gateway",
+    "public_edge_gateway_required_for_vercel": true,
+    "public_edge_gateway_deployed": false,
     "same_origin_identity_required": true,
     "same_origin_sync_required": true,
     "unknown_static_route_behavior": 404,
@@ -96,10 +133,21 @@
     "recovery_tokens_must_not_enter_browser_javascript": true,
     "tls_terminator_must_append_real_client_ip": true,
     "adapter_must_use_platform_trusted_real_ip_source": true,
-    "public_auth_rate_limits_required": true
+    "public_proxy_must_be_authenticated_before_trusting_forwarded_client_ip": true,
+    "public_proxy_digest_must_be_environment_configured": true,
+    "public_auth_rate_limits_required": true,
+    "native_auth_rate_limit_required_before_public_account_activation": true
   },
   "security_rate_limits": {
     "status_code": 429,
+    "authoritative_backend": {
+      "rpc": "ordax_consume_public_auth_rate_limit_v1",
+      "window": "1 minute",
+      "key_material_persisted": "sha256-of-canonical-client-ip-only",
+      "raw_client_ip_persisted": false,
+      "direct_table_access_allowed": false,
+      "deployed": true
+    },
     "login_and_register": {
       "rate": "10r/m",
       "burst": 5,
