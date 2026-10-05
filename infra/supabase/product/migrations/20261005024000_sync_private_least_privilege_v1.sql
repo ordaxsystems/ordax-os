@@ -64,6 +64,11 @@ alter policy ordax_sync_mutations_insert_own
   on private.ordax_sync_mutations
   to authenticated, ordax_sync_executor;
 
+-- PostgreSQL requires a prospective function owner to have CREATE on the
+-- containing schema. Grant it only for the ownership transfer window and
+-- remove it before commit; runtime execution retains only schema USAGE.
+grant create on schema public to ordax_sync_executor;
+
 alter function public.ordax_apply_sync_mutation_v1(
   text, text, text, integer, integer, bigint, boolean, jsonb
 ) security definer;
@@ -105,6 +110,8 @@ alter function public.ordax_sync_snapshot_page_v2(
 alter function public.ordax_sync_snapshot_page_v2(
   bigint, text, text, integer
 ) owner to ordax_sync_executor;
+
+revoke create on schema public from ordax_sync_executor;
 
 -- Export is intentionally not owned by the Sync executor because it spans
 -- several account domains. Its SQL is read-only, search_path-pinned and
