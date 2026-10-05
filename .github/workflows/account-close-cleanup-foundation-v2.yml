@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'infra/supabase/product/migrations/20261005183000_account_close_cleanup_foundation_v2.sql'
+      - 'infra/supabase/product/migrations/20261005184500_account_close_cleanup_rpc_v2.sql'
       - 'docs/contracts/account-close-cleanup.json'
       - 'tests/test_account_close_cleanup_reconvergence.py'
       - '.github/workflows/account-close-cleanup-foundation-v2.yml'
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'infra/supabase/product/migrations/20261005183000_account_close_cleanup_foundation_v2.sql'
+      - 'infra/supabase/product/migrations/20261005184500_account_close_cleanup_rpc_v2.sql'
       - 'docs/contracts/account-close-cleanup.json'
       - 'tests/test_account_close_cleanup_reconvergence.py'
       - '.github/workflows/account-close-cleanup-foundation-v2.yml'
