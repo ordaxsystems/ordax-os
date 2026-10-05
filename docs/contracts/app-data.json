@@ -76,12 +76,23 @@
     "native_target_symlinks_allowed": false,
     "corruption_fails_closed": true
   },
+  "web_owner": {
+    "implemented": true,
+    "durable_backend": "localStorage",
+    "session_memory_fallback_allowed": false,
+    "mutation_lock": "Web Locks API exclusive lock per verified partition",
+    "missing_lock_authority_fails_closed": true,
+    "persisted_state_revalidates_hard_bounds": true,
+    "persisted_state_revalidates_configured_quota": true,
+    "cross_context_compare_and_swap_proven": true
+  },
   "implementation": {
     "in_memory_reference_store": true,
     "native_owner_implemented": true,
     "native_endpoint_helper_implemented": true,
     "async_native_adapter_implemented": true,
     "native_host_route_implemented": true,
+    "web_owner_implemented": true,
     "verified_publisher_binding_implemented": true,
     "published_in_app_sdk": true,
     "notes_migrated": false,
