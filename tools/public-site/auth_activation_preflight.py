@@ -87,6 +87,8 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     blockers: list[str] = []
     observation = hardening.get("current_observation", {})
     adapter = deployment.get("adapter", {})
+    vercel_adapter = deployment.get("vercel_adapter", {})
+    public_edge_gateway = deployment.get("public_edge_gateway", {})
     routing = deployment.get("routing", {})
     backend = identity.get("backend", {})
     lifecycle_operations = lifecycle.get("operations", {})
@@ -187,6 +189,11 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     need(observation.get("session_revocation_tested") is True, "session-revocation-proof")
     need(observation.get("privacy_terms_ready") is True, "privacy-terms-hardening-proof")
 
+    need(public_edge_gateway.get("deployed") is True, "public-edge-gateway-deployment")
+    need(public_edge_gateway.get("proxy_secret_sha256_configured") is True, "public-edge-proxy-digest-config")
+    need(public_edge_gateway.get("runtime_provenance_e2e_verified") is True, "public-edge-provenance-proof")
+    need(vercel_adapter.get("status") == "deployed", "vercel-same-origin-adapter-deployment")
+    need(routing.get("vercel_adapter_routed_to_public_edge_gateway") is True, "vercel-public-edge-routing")
     need(adapter.get("public_auth_rate_limit_deployed") is True, "deployment-rate-limit")
     need(deployment.get("status") == "deployed", "same-origin-adapter-deployment")
     need(routing.get("same_origin_identity_required") is True, "same-origin-identity-contract")

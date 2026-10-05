@@ -17,10 +17,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_same_origin_adapters_without_claiming_deployment(self):
+    def test_contract_records_deployed_edge_without_claiming_public_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "host-neutral-and-vercel-same-origin-adapters-source-ready-not-deployed",
+            "public-edge-deployed-same-origin-routing-pending",
         )
         self.assertEqual(
             self.contract["adapter"]["kind"],
@@ -30,6 +30,13 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(self.contract["adapter"]["provider_specific_browser_api"])
         self.assertEqual(self.contract["vercel_adapter"]["status"], "source-ready-not-deployed")
         self.assertFalse(self.contract["vercel_adapter"]["provider_specific_browser_api"])
+        edge = self.contract["public_edge_gateway"]
+        self.assertTrue(edge["deployed"])
+        self.assertEqual(edge["deployed_version"], 1)
+        self.assertFalse(edge["proxy_secret_sha256_configured"])
+        self.assertFalse(edge["runtime_provenance_e2e_verified"])
+        self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
+        self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
         self.assertTrue(self.contract["routing"]["same_origin_identity_required"])
         self.assertTrue(self.contract["routing"]["same_origin_sync_required"])
         self.assertIn("/conta/", self.contract["routing"]["static_routes"])
@@ -112,8 +119,13 @@ class PublicSiteDeploymentTests(unittest.TestCase):
 
     def test_vercel_adapter_is_fail_closed_until_real_rollout_gates_are_proven(self):
         adapter = self.contract["vercel_adapter"]
+        edge = self.contract["public_edge_gateway"]
         self.assertFalse(adapter["public_auth_rate_limit_deployed"])
         self.assertFalse(self.contract["routing"]["gateway_public_activation_currently_enabled"])
+        self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
+        self.assertTrue(edge["deployed"])
+        self.assertFalse(edge["proxy_secret_sha256_configured"])
+        self.assertFalse(edge["runtime_provenance_e2e_verified"])
         self.assertEqual(adapter["trusted_real_ip_header"], "x-forwarded-for")
         self.assertEqual(
             adapter["trusted_real_ip_property"],
@@ -153,6 +165,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(requirements["gateway_server_side_public_activation_gate_required"])
         self.assertTrue(requirements["tls_terminator_must_append_real_client_ip"])
         self.assertTrue(requirements["adapter_must_use_platform_trusted_real_ip_source"])
+        self.assertTrue(requirements["public_proxy_digest_must_be_environment_configured"])
         self.assertTrue(requirements["public_auth_rate_limits_required"])
 
 
