@@ -9,7 +9,9 @@ on:
       - 'docs/contracts/user-cloud-storage.json'
       - 'docs/contracts/mvp-account-cloud.json'
       - 'docs/contracts/service-quotas.json'
+      - 'infra/supabase/product/migrations/*user_cloud_storage*'
       - 'tests/test_user_cloud_storage_reconvergence.mjs'
+      - 'tests/test_user_cloud_storage_source.py'
       - '.github/workflows/user-cloud-storage-contract.yml'
   push:
     branches: [main]
@@ -20,7 +22,9 @@ on:
       - 'docs/contracts/user-cloud-storage.json'
       - 'docs/contracts/mvp-account-cloud.json'
       - 'docs/contracts/service-quotas.json'
+      - 'infra/supabase/product/migrations/*user_cloud_storage*'
       - 'tests/test_user_cloud_storage_reconvergence.mjs'
+      - 'tests/test_user_cloud_storage_source.py'
       - '.github/workflows/user-cloud-storage-contract.yml'
 
 permissions:
@@ -40,6 +44,7 @@ jobs:
           node --check system/contracts/user-cloud-storage.mjs
           node --check system/services/user-cloud-storage/policy.mjs
           node --check tests/test_user_cloud_storage_reconvergence.mjs
+          python3 -m py_compile tests/test_user_cloud_storage_source.py
           node - <<'NODE'
           const fs = require('fs');
           const storage = JSON.parse(fs.readFileSync('docs/contracts/user-cloud-storage.json', 'utf8'));
@@ -60,3 +65,4 @@ jobs:
           }
           NODE
           node --test tests/test_user_cloud_storage_reconvergence.mjs
+          python3 -m unittest tests.test_user_cloud_storage_source
