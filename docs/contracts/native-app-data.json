@@ -4,7 +4,11 @@
   "status": "native-owner-foundation",
   "storage": {
     "root": "/var/lib/ordax/app-data/v1",
-    "partition_identity": ["publisherId", "appId", "ownerScope=device"],
+    "partition_identity": [
+      "publisherId",
+      "appId",
+      "ownerScope=device"
+    ],
     "partition_directory": "sha256-of-bound-identity",
     "manifest_format": "ordax.native-app-data-partition/2",
     "manifest": "small-authoritative-key-to-blob-map",
@@ -36,11 +40,23 @@
     "manifest_bytes_max": 2097152,
     "default_partition_quota_bytes": 8388608,
     "default_partition_keys": 1024,
-    "revision_max": 9007199254740991
+    "revision_max": 9007199254740991,
+    "verified_first_party_overrides": {
+      "ordax-official/notes": {
+        "partition_quota_bytes": 67108864,
+        "partition_keys": 2048,
+        "authority": "native-owner-after-verified-install-identity"
+      }
+    }
   },
   "transport_foundation": {
     "request_identity_fields_allowed": false,
-    "request_actions": ["get", "list", "put", "delete"],
+    "request_actions": [
+      "get",
+      "list",
+      "put",
+      "delete"
+    ],
     "app_receives_opaque_bound_endpoint": true,
     "async_fetch_adapter": true,
     "host_route_wired": false,
