@@ -6,10 +6,13 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "infra" / "supabase" / "product" / "migrations"
 SEAL = MIGRATIONS / "20261005034500_private_api_seal_v1.sql"
 API_ROLES = ("public", "anon", "authenticated", "service_role")
-EXECUTOR_ROLES = (
+SEALED_EXECUTOR_ROLES = (
     "ordax_sync_executor",
     "ordax_network_executor",
     "ordax_memory_executor",
+)
+KNOWN_EXECUTOR_ROLES = SEALED_EXECUTOR_ROLES + (
+    "ordax_account_close_executor",
 )
 GUARD_FUNCTION = "ordax_enforce_private_function_acl"
 GUARD_TRIGGER = "ordax_private_function_acl_seal"
@@ -54,6 +57,11 @@ def has_explicit_api_revoke(sql: str, function_name: str) -> bool:
     return False
 
 
+def is_rls_policy_statement(statement: str) -> bool:
+    normalized = " ".join(statement.lower().split())
+    return re.match(r"^(?:create|alter)\s+policy\b", normalized) is not None
+
+
 class PrivateApiSealTests(unittest.TestCase):
     def setUp(self):
         self.sql = SEAL.read_text(encoding="utf-8").lower()
@@ -69,7 +77,7 @@ class PrivateApiSealTests(unittest.TestCase):
         self.assertIn("executor role contract drifted", self.sql)
         self.assertIn("executor private usage missing", self.sql)
         self.assertIn("private function acl guard already exists", self.sql)
-        for role in EXECUTOR_ROLES:
+        for role in SEALED_EXECUTOR_ROLES:
             self.assertIn(role, self.sql)
         for attribute in (
             "rolsuper",
@@ -213,10 +221,29 @@ class PrivateApiSealTests(unittest.TestCase):
                     violations.append((path.name, pattern))
         self.assertEqual([], violations, f"future migration disables private function ACL guard: {violations}")
 
+    def test_future_executor_roles_are_explicitly_catalogued(self):
+        discovered = set()
+        role_pattern = re.compile(r"\bordax_[a-z0-9_]+_executor\b", re.IGNORECASE)
+        for path in sorted(MIGRATIONS.glob("*.sql")):
+            if path.name <= SEAL.name:
+                continue
+            discovered.update(
+                role.lower()
+                for role in role_pattern.findall(strip_sql_comments(path.read_text(encoding="utf-8")))
+            )
+
+        unexpected = sorted(discovered.difference(KNOWN_EXECUTOR_ROLES))
+        self.assertEqual(
+            [],
+            unexpected,
+            f"future migration introduces uncatalogued executor role: {unexpected}",
+        )
+
     def test_future_migrations_cannot_make_api_roles_executor_members(self):
         violations = []
+        known_roles = "|".join(re.escape(role) for role in KNOWN_EXECUTOR_ROLES)
         membership = re.compile(
-            r"^grant\s+(ordax_(?:sync|network|memory)_executor)\s+to\s+(.+)$",
+            rf"^grant\s+({known_roles})\s+to\s+(.+)$",
             re.IGNORECASE | re.DOTALL,
         )
         for path in sorted(MIGRATIONS.glob("*.sql")):
@@ -232,6 +259,23 @@ class PrivateApiSealTests(unittest.TestCase):
 
         self.assertEqual([], violations, f"future migration grants executor membership to API role: {violations}")
 
+    def test_rls_policy_detector_does_not_confuse_policy_schema_functions(self):
+        self.assertTrue(
+            is_rls_policy_statement(
+                "create policy example on public.items using (not ordax_policy.example())"
+            )
+        )
+        self.assertTrue(
+            is_rls_policy_statement(
+                "alter policy example on public.items using (ordax_policy.example())"
+            )
+        )
+        self.assertFalse(
+            is_rls_policy_statement(
+                "create function ordax_policy.example() returns boolean as $$ select exists (select 1 from private.items) $$"
+            )
+        )
+
     def test_future_rls_migrations_cannot_call_private_schema(self):
         violations = []
         for path in sorted(MIGRATIONS.glob("*.sql")):
@@ -239,7 +283,7 @@ class PrivateApiSealTests(unittest.TestCase):
                 continue
             for statement in split_statements(path.read_text(encoding="utf-8")):
                 normalized = " ".join(statement.lower().split())
-                if "policy" in normalized and "private." in normalized:
+                if is_rls_policy_statement(statement) and "private." in normalized:
                     violations.append((path.name, normalized[:240]))
         self.assertEqual([], violations, f"future RLS policy references private schema: {violations}")
 

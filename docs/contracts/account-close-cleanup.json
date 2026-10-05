@@ -1,0 +1,80 @@
+{
+  "$schema": "prototype-ordax.account-close-cleanup/2",
+  "status": "source-foundation-rollout-disabled",
+  "account_close_public_enabled": false,
+  "worker_enabled": false,
+  "identity_delete_enabled": false,
+  "journal": {
+    "schema": "private",
+    "requests_table": "ordax_account_close_requests",
+    "jobs_table": "ordax_account_close_cleanup_jobs",
+    "api_role_direct_access": false,
+    "provider_cleanup_required_before_identity_delete": true
+  },
+  "stale_jwt_fence": {
+    "policy_schema": "ordax_policy",
+    "predicate": "account_is_closing",
+    "subject_bound": true,
+    "caller_supplied_subject": false,
+    "authenticated_execute_only": true,
+    "restrictive_rls": true,
+    "coverage_status": "core-relations-only",
+    "covered_relations": [
+      "ordax_accounts",
+      "ordax_spaces",
+      "ordax_space_members",
+      "ordax_entitlement_grants",
+      "ordax_memory_items",
+      "ordax_memory_embeddings",
+      "ordax_project_connections",
+      "ordax_user_objects"
+    ],
+    "authenticated_rpc_denial_proven": false,
+    "global_authenticated_data_plane_denial_proven": false
+  },
+  "shared_space_safety": {
+    "owned_space_with_other_active_members_must_be_resolved_first": true,
+    "implicit_shared_space_cascade": false
+  },
+  "executor": {
+    "role": "ordax_account_close_executor",
+    "login": false,
+    "superuser": false,
+    "bypass_rls": false,
+    "owns_relations": false,
+    "api_roles_execute_private_helpers": false,
+    "service_role_uses_public_wrappers_only": true
+  },
+  "cleanup_rpc": {
+    "source_ready": true,
+    "server_only": true,
+    "max_work_items_per_scan": 20,
+    "max_jobs_per_claim": 100,
+    "lease_seconds_min": 30,
+    "lease_seconds_max": 600,
+    "retry_budget": 10,
+    "finish_requires_live_matching_lease_token": true,
+    "expired_lease_may_be_reclaimed": true,
+    "verification_requires_auth_fence": true,
+    "verification_requires_zero_remaining_jobs": true,
+    "identity_delete_side_effect": false
+  },
+  "storage_cleanup": {
+    "provider_refs_private": true,
+    "upload_reservations_private": true,
+    "provider_delete_must_be_verified": true,
+    "direct_storage_metadata_delete_forbidden": true,
+    "supported_provider_activation": "none"
+  },
+  "activation_gates": [
+    "account-lifecycle-route-remains-disabled-until-source-and-live-backend-match",
+    "session-revocation-and-sign-in-freeze-proven-before-identity-delete",
+    "provider-delete-worker-uses-storage-provider-api-not-direct-metadata-delete",
+    "cleanup-lease-retry-and-readback-proof",
+    "shared-space-transfer-or-removal-proof",
+    "stale-jwt-data-plane-denial-proof",
+    "backend-migration-drift-and-acl-proof",
+    "account-export-remains-available-before-close-commit",
+    "zero-user-data-loss-proof"
+  ]
+}

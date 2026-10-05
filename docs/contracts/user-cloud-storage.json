@@ -1,0 +1,51 @@
+{
+  "$schema": "prototype-ordax.user-cloud-storage/1",
+  "status": "source-foundation-rollout-disabled",
+  "owner": "system/services/user-cloud-storage",
+  "object_schema": "ordax.user-cloud-object/1",
+  "reservation_schema": "ordax.user-cloud-upload-reservation/1",
+  "quota": {
+    "decision_schema": "ordax.service-quota-decision/1",
+    "key": "storage.user.bytes",
+    "unit": "bytes",
+    "server_authoritative": true,
+    "numeric_limit_defined": false,
+    "numeric_limit_requires_measured_unit_cost": true
+  },
+  "invariants": {
+    "explicit_user_selection_required": true,
+    "local_files_remain_usable_without_cloud": true,
+    "provider_neutral_domain": true,
+    "provider_storage_is_authorization_source": false,
+    "transactional_metadata_is_authorization_source": true,
+    "client_claimed_quota_or_usage_is_authority": false,
+    "upload_reservation_required": true,
+    "reservation_bound_to_subject_object_size_digest_and_expiry": true,
+    "finalization_verifies_exact_size_and_sha256": true,
+    "public_bucket_allowed": false,
+    "action_gateway_authority_created": false,
+    "quota_downgrade_may_delete_existing_objects": false,
+    "delete_and_export_allowed_while_over_quota": true,
+    "cross_account_default": "deny",
+    "cross_space_default": "deny"
+  },
+  "provider": {
+    "mvp_candidate": "supabase-storage",
+    "bucket_name_reserved": "ordax-user-data",
+    "bucket_required_private": true,
+    "bucket_deployed_by_this_foundation": false,
+    "cloudflare_r2_future_adapter_allowed": true,
+    "provider_switch_may_change_domain_object_id": false
+  },
+  "activation_gates": [
+    "transactional metadata and reservation schema are deployed",
+    "private provider bucket exists with no anonymous or public object access",
+    "server-side quota admission cannot be bypassed by direct provider writes",
+    "upload authorization is short-lived and bound to opaque reserved provider key",
+    "finalization verifies exact reserved size and SHA-256 before activation",
+    "negative cross-account and cross-Space read/write tests pass",
+    "delete, export, restore and account-close cleanup are proven end-to-end",
+    "oversized, expired, replayed and digest-mismatched uploads fail closed",
+    "public rollout remains disabled until every gate passes"
+  ]
+}
