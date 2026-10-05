@@ -15,12 +15,18 @@
     "device": "device.json",
     "account": "account-sha256(ownerId).json",
     "account_id_exposed_in_filename": false,
-    "cross_owner_reads": false
+    "cross_owner_reads": false,
+    "request_owner_must_match_authoritative_owner": true,
+    "client_selected_foreign_owner_allowed": false
   },
   "durability": {
     "file_mode": "0600",
     "directory_mode": "0700",
     "nofollow": true,
+    "root_opened_as_directory": true,
+    "root_fd_anchors_lock_read_write": true,
+    "root_ownership_verified": true,
+    "target_ownership_verified": true,
     "cross_process_flock": true,
     "file_fsync_before_replace": true,
     "directory_fsync_after_replace": true,
@@ -40,7 +46,9 @@
   "authority": {
     "persisted_authority_field": "none-only",
     "backgroundExecution": false,
-    "grants_restored_as_live_authority": false
+    "grants_restored_as_live_authority": false,
+    "endpoint_owner_source": "authoritative-caller-context",
+    "payload_owner_is_authority": false
   },
   "migration_policy": {
     "direction": "legacy-to-native-only",
@@ -56,6 +64,8 @@
   "activation_gates": {
     "route_wiring_proven": false,
     "js_python_validation_parity_proven": false,
+    "authoritative_owner_binding_source_proven": true,
+    "fd_anchored_root_hardening_source_proven": true,
     "durable_reboot_restore_proven": false,
     "per_owner_migration_proven": false,
     "conflict_recovery_proven": false,
