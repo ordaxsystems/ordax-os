@@ -49,7 +49,7 @@
   flex-direction: column;
   gap: 36px;
   padding: 30px 24px;
-  border-right: 1px solid var(--ordax-border-soft);
+  border-inline-end: 1px solid var(--ordax-border-soft);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--ordax-panel) 76%, transparent), color-mix(in srgb, var(--ordax-bg) 72%, transparent));
 }
@@ -91,7 +91,8 @@
   min-height: 30px;
   display: flex;
   align-items: center;
-  padding: 6px 8px 6px 36px;
+  padding: 6px 8px;
+  padding-inline-start: 36px;
   border: 1px solid transparent;
   border-radius: var(--ordax-radius-sm);
   color: var(--ordax-muted);
@@ -106,7 +107,7 @@
   counter-increment: ordax-first-run-step;
   content: counter(ordax-first-run-step, decimal-leading-zero);
   position: absolute;
-  left: 9px;
+  inset-inline-start: 9px;
   color: var(--ordax-faint);
   font-size: 0.66rem;
   font-variant-numeric: tabular-nums;
@@ -241,7 +242,7 @@
   display: grid;
   justify-items: start;
   gap: 5px;
-  text-align: left;
+  text-align: start;
 }
 
 .ordax-first-run-network-list small {
@@ -376,7 +377,7 @@
 }
 
 .ordax-first-run-footer .ordax-first-run-action:first-child:not(:last-child) {
-  margin-right: auto;
+  margin-inline-end: auto;
 }
 
 @media (max-height: 800px) and (min-width: 821px) {
@@ -439,7 +440,7 @@
   .ordax-first-run-progress {
     gap: 14px;
     padding: 18px 20px;
-    border-right: 0;
+    border-inline-end: 0;
     border-bottom: 1px solid var(--ordax-border-soft);
   }
 

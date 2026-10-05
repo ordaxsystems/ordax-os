@@ -16,10 +16,15 @@ on:
       - 'system/adapters/native/browser-session.mjs'
       - 'system/contracts/browser-session.mjs'
       - 'system/contracts/first-run-state-store.mjs'
+      - 'system/contracts/locale-profile.mjs'
+      - 'system/contracts/localization.mjs'
       - 'system/contracts/localization-pack.mjs'
+      - 'system/contracts/surface-render-lifecycle.mjs'
+      - 'tools/localization/**'
       - 'docs/LOCALIZATION.md'
       - 'docs/LOCALIZATION-PACKS.md'
       - 'docs/contracts/first-run.json'
+      - 'docs/contracts/localization.json'
       - 'docs/contracts/localization-packs.json'
       - 'docs/contracts/app-distribution.json'
       - 'tests/test_diagnostic_summary_localization.mjs'
@@ -28,6 +33,8 @@ on:
       - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_component_localization.mjs'
+      - 'tests/test_localization_pseudo_rtl_reconvergence.mjs'
+      - 'tests/test_surface_localization.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_browser_unavailable_localization.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
@@ -46,10 +53,15 @@ on:
       - 'system/adapters/native/browser-session.mjs'
       - 'system/contracts/browser-session.mjs'
       - 'system/contracts/first-run-state-store.mjs'
+      - 'system/contracts/locale-profile.mjs'
+      - 'system/contracts/localization.mjs'
       - 'system/contracts/localization-pack.mjs'
+      - 'system/contracts/surface-render-lifecycle.mjs'
+      - 'tools/localization/**'
       - 'docs/LOCALIZATION.md'
       - 'docs/LOCALIZATION-PACKS.md'
       - 'docs/contracts/first-run.json'
+      - 'docs/contracts/localization.json'
       - 'docs/contracts/localization-packs.json'
       - 'docs/contracts/app-distribution.json'
       - 'tests/test_diagnostic_summary_localization.mjs'
@@ -58,6 +70,8 @@ on:
       - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_component_localization.mjs'
+      - 'tests/test_localization_pseudo_rtl_reconvergence.mjs'
+      - 'tests/test_surface_localization.mjs'
       - 'tests/test_intelligence_client_actions.mjs'
       - 'tests/test_browser_unavailable_localization.mjs'
       - 'tests/test_native_security_prompt_english_audit.py'
@@ -93,6 +107,10 @@ jobs:
           node --test tests/test_first_party_app_localization_contract.mjs
           node --check tests/test_component_localization.mjs
           node --test tests/test_component_localization.mjs
+          node --check tests/test_localization_pseudo_rtl_reconvergence.mjs
+          node --test tests/test_localization_pseudo_rtl_reconvergence.mjs
+          node --check tests/test_surface_localization.mjs
+          node --test tests/test_surface_localization.mjs
           node --check tests/test_english_mvp_localization_audit.mjs
           node --test tests/test_english_mvp_localization_audit.mjs
           node --check tests/test_english_surface_rendering_audit.mjs

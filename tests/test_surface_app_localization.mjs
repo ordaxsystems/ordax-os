@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import { LOCALIZATION_SCHEMA } from "../system/contracts/localization.mjs";
+import { createLocaleProfile } from "../system/contracts/locale-profile.mjs";
 import {
   SURFACE_RENDER_LIFECYCLE_SCHEMA,
   assertSurfaceRenderLifecycle,
@@ -13,6 +14,9 @@ function localizationPort() {
     schema: LOCALIZATION_SCHEMA,
     getLocale() {
       return "en-US";
+    },
+    getProfile() {
+      return createLocaleProfile("en-US");
     },
     translate(messageId) {
       return messageId;
@@ -43,7 +47,7 @@ test("Surface lifecycle v4 requires the shared localization port", () => {
   );
   const lifecycle = Object.freeze({ ...base, localization: localizationPort() });
   assert.equal(assertSurfaceRenderLifecycle(lifecycle), lifecycle);
-  assert.equal(SURFACE_RENDER_LIFECYCLE_SCHEMA, "ordax.surface-render-lifecycle/4");
+  assert.equal(SURFACE_RENDER_LIFECYCLE_SCHEMA, "ordax.surface-render-lifecycle/5");
 });
 
 test("Files primary journey consumes shared localization and live locale", async () => {

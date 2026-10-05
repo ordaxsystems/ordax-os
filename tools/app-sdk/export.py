@@ -103,11 +103,18 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "locale-profile",
+        "path": "system/contracts/locale-profile.mjs",
+        "constant": "LOCALE_PROFILE_SCHEMA",
+        "schema": "ordax.locale-profile/1",
+        "major": 1,
+    },
+    {
         "name": "localization",
         "path": "system/contracts/localization.mjs",
         "constant": "LOCALIZATION_SCHEMA",
-        "schema": "ordax.localization/1",
-        "major": 1,
+        "schema": "ordax.localization/2",
+        "major": 2,
     },
     {
         "name": "localization-pack",
@@ -162,12 +169,12 @@ CONTRACTS = (
         "name": "surface-render-lifecycle",
         "path": "system/contracts/surface-render-lifecycle.mjs",
         "constant": "SURFACE_RENDER_LIFECYCLE_SCHEMA",
-        "schema": "ordax.surface-render-lifecycle/4",
-        "major": 4,
+        "schema": "ordax.surface-render-lifecycle/5",
+        "major": 5,
     },
 )
 
-BUNDLE_VERSION = "1.5.0"
+BUNDLE_VERSION = "1.6.0"
 
 
 def git_blob(path: Path) -> str:
