@@ -7,9 +7,10 @@
 --     relation or sequence authority.
 --
 -- This migration removes the last residual API authority: authenticated USAGE
--- on schema private. It also locks PostgreSQL default privileges for objects
--- subsequently created by postgres in private, so the platform default EXECUTE
--- grant on new functions cannot silently reopen the boundary.
+-- on schema private. PostgreSQL gives new functions EXECUTE to PUBLIC by
+-- default, so a private-only DDL event guard revokes API-role EXECUTE whenever
+-- a private function is created or replaced. This keeps the zero-EXECUTE
+-- invariant inside the database without widening default ACLs globally.
 
 begin;
 
@@ -27,6 +28,14 @@ begin
 
   if to_regnamespace('ordax_policy') is null then
     raise exception 'OrdaX private API seal: policy schema missing';
+  end if;
+
+  if to_regprocedure('private.ordax_enforce_private_function_acl()') is not null
+     or exists (
+       select 1 from pg_event_trigger
+       where evtname = 'ordax_private_function_acl_seal'
+     ) then
+    raise exception 'OrdaX private API seal: private function ACL guard already exists';
   end if;
 
   select count(*) into private_rls_refs
@@ -124,6 +133,59 @@ begin
 end;
 $preflight$;
 
+-- PostgreSQL gives a newly-created function EXECUTE to PUBLIC. A schema-scoped
+-- default-privilege REVOKE is not a catalog-verifiable invariant on this hosted
+-- project, while a global default change would affect unrelated schemas. Keep
+-- the correction local to private and fail closed if it cannot revoke the
+-- generated function ACL.
+create function private.ordax_enforce_private_function_acl()
+returns event_trigger
+language plpgsql
+security definer
+set search_path = 'pg_catalog'
+as $function$
+declare
+  cmd record;
+  function_identity text;
+begin
+  for cmd in
+    select *
+    from pg_event_trigger_ddl_commands()
+    where command_tag = 'CREATE FUNCTION'
+      and schema_name = 'private'
+      and object_type = 'function'
+  loop
+    select format(
+      '%I.%I(%s)',
+      n.nspname,
+      p.proname,
+      pg_get_function_identity_arguments(p.oid)
+    )
+    into function_identity
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where p.oid = cmd.objid;
+
+    if function_identity is null then
+      raise exception 'OrdaX private API seal: created private function identity unavailable';
+    end if;
+
+    execute format(
+      'revoke all on function %s from public, anon, authenticated, service_role',
+      function_identity
+    );
+  end loop;
+end;
+$function$;
+
+revoke all on function private.ordax_enforce_private_function_acl()
+  from public, anon, authenticated, service_role;
+
+create event trigger ordax_private_function_acl_seal
+on ddl_command_end
+when tag in ('CREATE FUNCTION')
+execute function private.ordax_enforce_private_function_acl();
+
 -- Seal current objects and the schema namespace itself. Executor roles are not
 -- included here; their narrow private authority remains intact.
 revoke all on schema private from public, anon, authenticated, service_role;
@@ -134,16 +196,15 @@ revoke all privileges on all tables in schema private
 revoke all privileges on all sequences in schema private
   from public, anon, authenticated, service_role;
 
--- PostgreSQL grants EXECUTE on newly-created functions to PUBLIC by default.
--- Override that default for private objects created by postgres. Tables and
--- sequences are included explicitly so API-role grants cannot become a hidden
--- default later without changing this migration contract.
-alter default privileges for role postgres in schema private
-  revoke execute on functions from public, anon, authenticated, service_role;
-alter default privileges for role postgres in schema private
-  revoke all privileges on tables from public, anon, authenticated, service_role;
-alter default privileges for role postgres in schema private
-  revoke all privileges on sequences from public, anon, authenticated, service_role;
+-- Runtime proof: this CREATE FUNCTION must fire the event guard. If any API role
+-- retains EXECUTE on the probe, postflight aborts the whole migration.
+create function private.ordax_private_function_acl_seal_probe()
+returns boolean
+language sql
+set search_path = ''
+as $probe$
+  select true;
+$probe$;
 
 do $postflight$
 declare
@@ -151,9 +212,49 @@ declare
   api_relation_authority integer;
   api_sequence_authority integer;
   public_schema_privileges integer;
-  bad_default_acl integer;
   private_rls_refs integer;
+  guard_function_oid oid;
 begin
+  select p.oid into guard_function_oid
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'private'
+    and p.proname = 'ordax_enforce_private_function_acl'
+    and p.prokind = 'f'
+    and pg_get_function_identity_arguments(p.oid) = '';
+
+  if guard_function_oid is null then
+    raise exception 'OrdaX private API seal: private function ACL guard function missing';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_proc p
+    where p.oid = guard_function_oid
+      and p.prosecdef
+      and 'search_path=pg_catalog' = any(coalesce(p.proconfig, '{}'::text[]))
+  ) then
+    raise exception 'OrdaX private API seal: private function ACL guard contract drifted';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_event_trigger e
+    where e.evtname = 'ordax_private_function_acl_seal'
+      and e.evtevent = 'ddl_command_end'
+      and e.evtenabled = 'O'
+      and 'CREATE FUNCTION' = any(e.evttags)
+      and e.evtfoid = guard_function_oid
+  ) then
+    raise exception 'OrdaX private API seal: private function ACL event guard missing';
+  end if;
+
+  if has_function_privilege('anon', 'private.ordax_private_function_acl_seal_probe()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.ordax_private_function_acl_seal_probe()', 'EXECUTE')
+     or has_function_privilege('service_role', 'private.ordax_private_function_acl_seal_probe()', 'EXECUTE') then
+    raise exception 'OrdaX private API seal: private function ACL runtime probe failed';
+  end if;
+
   select count(*) into public_schema_privileges
   from pg_namespace n
   cross join lateral aclexplode(coalesce(n.nspacl, acldefault('n', n.nspowner))) a
@@ -213,35 +314,6 @@ begin
     raise exception 'OrdaX private API seal: private sequence authority reopened';
   end if;
 
-  select count(*) into bad_default_acl
-  from pg_default_acl d
-  join pg_roles owner_role on owner_role.oid = d.defaclrole
-  join pg_namespace n on n.oid = d.defaclnamespace
-  cross join lateral aclexplode(d.defaclacl) a
-  left join pg_roles grantee_role on grantee_role.oid = a.grantee
-  where owner_role.rolname = 'postgres'
-    and n.nspname = 'private'
-    and d.defaclobjtype in ('f', 'r', 'S')
-    and (
-      a.grantee = 0
-      or grantee_role.rolname in ('anon', 'authenticated', 'service_role')
-    );
-  if bad_default_acl <> 0 then
-    raise exception 'OrdaX private API seal: API grant remains in private default ACL';
-  end if;
-
-  if not exists (
-    select 1
-    from pg_default_acl d
-    join pg_roles owner_role on owner_role.oid = d.defaclrole
-    join pg_namespace n on n.oid = d.defaclnamespace
-    where owner_role.rolname = 'postgres'
-      and n.nspname = 'private'
-      and d.defaclobjtype = 'f'
-  ) then
-    raise exception 'OrdaX private API seal: private function default ACL override missing';
-  end if;
-
   select count(*) into private_rls_refs
   from pg_policies p
   where p.schemaname = 'public'
@@ -268,5 +340,7 @@ begin
   end if;
 end;
 $postflight$;
+
+drop function private.ordax_private_function_acl_seal_probe();
 
 commit;

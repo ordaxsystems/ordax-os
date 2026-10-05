@@ -11,6 +11,8 @@ EXECUTOR_ROLES = (
     "ordax_network_executor",
     "ordax_memory_executor",
 )
+GUARD_FUNCTION = "ordax_enforce_private_function_acl"
+GUARD_TRIGGER = "ordax_private_function_acl_seal"
 
 
 def strip_sql_comments(sql: str) -> str:
@@ -30,6 +32,28 @@ def targets_api_role(statement: str) -> bool:
     return any(re.search(rf"\b{re.escape(role)}\b", target) for role in API_ROLES)
 
 
+def private_function_creations(sql: str):
+    cleaned = strip_sql_comments(sql)
+    return re.findall(
+        r"\bcreate\s+(?:or\s+replace\s+)?function\s+private\.([a-z_][a-z0-9_]*)\s*\(",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+
+
+def has_explicit_api_revoke(sql: str, function_name: str) -> bool:
+    pattern = re.compile(
+        rf"\brevoke\s+(?:all(?:\s+privileges)?|execute)\s+on\s+function\s+"
+        rf"private\.{re.escape(function_name)}\s*\([^;]*\)\s+from\s+(?P<roles>[^;]+);",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    for match in pattern.finditer(strip_sql_comments(sql)):
+        roles = match.group("roles").lower()
+        if all(re.search(rf"\b{re.escape(role)}\b", roles) for role in API_ROLES):
+            return True
+    return False
+
+
 class PrivateApiSealTests(unittest.TestCase):
     def setUp(self):
         self.sql = SEAL.read_text(encoding="utf-8").lower()
@@ -44,6 +68,7 @@ class PrivateApiSealTests(unittest.TestCase):
         self.assertIn("dedicated executor role missing", self.sql)
         self.assertIn("executor role contract drifted", self.sql)
         self.assertIn("executor private usage missing", self.sql)
+        self.assertIn("private function acl guard already exists", self.sql)
         for role in EXECUTOR_ROLES:
             self.assertIn(role, self.sql)
         for attribute in (
@@ -75,21 +100,43 @@ class PrivateApiSealTests(unittest.TestCase):
             self.sql,
         )
 
-    def test_private_default_privileges_fail_closed_for_future_objects(self):
+    def test_private_function_ddl_guard_enforces_future_zero_execute(self):
         self.assertIn(
-            "alter default privileges for role postgres in schema private\n  revoke execute on functions from public, anon, authenticated, service_role;",
+            "create function private.ordax_enforce_private_function_acl()",
+            self.sql,
+        )
+        self.assertIn("returns event_trigger", self.sql)
+        self.assertIn("security definer", self.sql)
+        self.assertIn("set search_path = 'pg_catalog'", self.sql)
+        self.assertIn("pg_event_trigger_ddl_commands()", self.sql)
+        self.assertIn("command_tag = 'create function'", self.sql)
+        self.assertIn("schema_name = 'private'", self.sql)
+        self.assertIn("object_type = 'function'", self.sql)
+        self.assertIn(
+            "revoke all on function %s from public, anon, authenticated, service_role",
             self.sql,
         )
         self.assertIn(
-            "alter default privileges for role postgres in schema private\n  revoke all privileges on tables from public, anon, authenticated, service_role;",
+            "create event trigger ordax_private_function_acl_seal",
             self.sql,
         )
+        self.assertIn("on ddl_command_end", self.sql)
+        self.assertIn("when tag in ('create function')", self.sql)
         self.assertIn(
-            "alter default privileges for role postgres in schema private\n  revoke all privileges on sequences from public, anon, authenticated, service_role;",
+            "execute function private.ordax_enforce_private_function_acl();",
             self.sql,
         )
-        self.assertIn("private function default acl override missing", self.sql)
-        self.assertIn("api grant remains in private default acl", self.sql)
+        self.assertIn("private function acl guard contract drifted", self.sql)
+        self.assertIn("private function acl event guard missing", self.sql)
+        self.assertIn(
+            "create function private.ordax_private_function_acl_seal_probe()",
+            self.sql,
+        )
+        self.assertIn("private function acl runtime probe failed", self.sql)
+        self.assertIn(
+            "drop function private.ordax_private_function_acl_seal_probe();",
+            self.sql,
+        )
 
     def test_postflight_proves_zero_api_authority_without_breaking_policy_or_executors(self):
         for marker in (
@@ -134,6 +181,37 @@ class PrivateApiSealTests(unittest.TestCase):
                     violations.append((path.name, normalized[:240]))
 
         self.assertEqual([], violations, f"future migration reopens private API authority: {violations}")
+
+    def test_future_private_functions_require_explicit_api_revoke(self):
+        violations = []
+        for path in sorted(MIGRATIONS.glob("*.sql")):
+            if path.name <= SEAL.name:
+                continue
+            sql = path.read_text(encoding="utf-8")
+            for function_name in private_function_creations(sql):
+                if not has_explicit_api_revoke(sql, function_name):
+                    violations.append((path.name, function_name))
+        self.assertEqual(
+            [],
+            violations,
+            f"future private function lacks explicit API-role EXECUTE revoke: {violations}",
+        )
+
+    def test_future_migrations_cannot_disable_private_function_guard(self):
+        violations = []
+        forbidden = (
+            rf"\bdrop\s+event\s+trigger\s+(?:if\s+exists\s+)?{GUARD_TRIGGER}\b",
+            rf"\balter\s+event\s+trigger\s+{GUARD_TRIGGER}\s+disable\b",
+            rf"\bdrop\s+function\s+(?:if\s+exists\s+)?private\.{GUARD_FUNCTION}\b",
+        )
+        for path in sorted(MIGRATIONS.glob("*.sql")):
+            if path.name <= SEAL.name:
+                continue
+            cleaned = strip_sql_comments(path.read_text(encoding="utf-8"))
+            for pattern in forbidden:
+                if re.search(pattern, cleaned, flags=re.IGNORECASE):
+                    violations.append((path.name, pattern))
+        self.assertEqual([], violations, f"future migration disables private function ACL guard: {violations}")
 
     def test_future_migrations_cannot_make_api_roles_executor_members(self):
         violations = []
