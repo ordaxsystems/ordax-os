@@ -47,10 +47,19 @@ test("Surface localization reads the live regional locale synchronously", () => 
   const localization = createSurfaceLocalization(preferences);
 
   assert.equal(localization.getLocale(), "pt-BR");
+  assert.deepEqual(localization.getProfile(), {
+    schema: "ordax.locale-profile/1",
+    locale: "pt-BR",
+    language: "pt",
+    script: "Latn",
+    region: "BR",
+    direction: "ltr",
+  });
   assert.equal(localization.translate("app.files.title"), "Arquivos");
 
   preferences.set("regional.locale", "en-US", { notify: false });
   assert.equal(localization.getLocale(), "en-US");
+  assert.equal(localization.getProfile().direction, "ltr");
   assert.equal(localization.translate("app.files.title"), "Files");
   assert.equal(
     localization.translate("surface.window.close", { app: "Files" }),
@@ -129,7 +138,7 @@ test("shared Surface is wired to localization instead of hardcoded locale render
   assert.match(surface, /createSurfaceLocalization\(preferences\)/);
   assert.match(surface, /createDesktopShellMarkup\(localization\)/);
   assert.match(surface, /localization,/);
-  assert.match(surface, /documentElement\.lang = localization\.getLocale\(\)/);
+  assert.match(surface, /syncDocumentLocaleProfile\(documentElement, localization\)/);
   assert.match(surface, /syncDesktopShellLocalization\(root, localization\)/);
   assert.doesNotMatch(surface, /toLocaleLowerCase\("pt-BR"\)/);
   assert.match(shell, /syncDesktopShellLocalization/);

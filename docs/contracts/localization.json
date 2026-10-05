@@ -1,0 +1,40 @@
+{
+  "$schema": "prototype-ordax.localization/2",
+  "runtime_schema": "ordax.localization/2",
+  "locale_profile_schema": "ordax.locale-profile/1",
+  "source_locale": "pt-BR",
+  "public_complete_locales": ["pt-BR", "en-US"],
+  "profile": {
+    "normalized_locale_required": true,
+    "language_required": true,
+    "script_required_when_platform_can_derive_it": true,
+    "region_required_when_platform_can_derive_it": true,
+    "direction_required": true,
+    "directions": ["ltr", "rtl"],
+    "explicit_script_precedes_language_default": true,
+    "document_lang_and_dir_must_follow_profile": true
+  },
+  "pseudo_locales": {
+    "publicly_selectable": false,
+    "persistable_as_user_preference": false,
+    "release_catalog_locale": false,
+    "expanded": {
+      "locale": "en-XA",
+      "direction": "ltr",
+      "purpose": "layout-expansion-and-truncation-testing"
+    },
+    "rtl": {
+      "locale": "ar-XB",
+      "direction": "rtl",
+      "purpose": "bidirectional-layout-and-document-direction-testing"
+    },
+    "placeholder_identity_must_be_preserved": true,
+    "deterministic_transform_required": true
+  },
+  "safety": {
+    "locale_never_changes_authority": true,
+    "locale_never_changes_permissions": true,
+    "locale_never_changes_action_ids": true,
+    "unknown_product_locale_falls_back_to_source_catalog": true
+  }
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.3.0",
+  "bundle_version": "1.6.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -10,6 +10,20 @@
       "schema": "ordax.app-activation/1",
       "source_git_blob": "1de6af71e6f20b14f3d7892d4d4758d23a0d1e90",
       "source_path": "system/contracts/app-activation.mjs"
+    },
+    {
+      "major": 1,
+      "name": "app-data",
+      "schema": "ordax.app-data/1",
+      "source_git_blob": "ee770b9445f8700e89a4c59f29ed7172a37f2cbe",
+      "source_path": "system/contracts/app-data.mjs"
+    },
+    {
+      "major": 1,
+      "name": "component-localization",
+      "schema": "prototype-ordax.component-localization/1",
+      "source_git_blob": "9e72bcbf8b89a6d3f089331dcbbdc5d3c543a020",
+      "source_path": "system/contracts/localization-pack.mjs"
     },
     {
       "major": 1,
@@ -83,16 +97,30 @@
     },
     {
       "major": 1,
+      "name": "locale-profile",
+      "schema": "ordax.locale-profile/1",
+      "source_git_blob": "2edd61c44e76d87e7fd1873ff833d48009b9a95c",
+      "source_path": "system/contracts/locale-profile.mjs"
+    },
+    {
+      "major": 2,
       "name": "localization",
-      "schema": "ordax.localization/1",
-      "source_git_blob": "47fe573bf8b506e741c15b5230f9908c74d80920",
+      "schema": "ordax.localization/2",
+      "source_git_blob": "cae60c0041064a036509d1ca6b205d9672326aba",
       "source_path": "system/contracts/localization.mjs"
     },
     {
       "major": 1,
       "name": "localization-pack",
       "schema": "prototype-ordax.localization-pack/1",
-      "source_git_blob": "6691d36b0c6d9664bd6f723cf9693a1395cd38db",
+      "source_git_blob": "9e72bcbf8b89a6d3f089331dcbbdc5d3c543a020",
+      "source_path": "system/contracts/localization-pack.mjs"
+    },
+    {
+      "major": 1,
+      "name": "localization-pack-release",
+      "schema": "prototype-ordax.localization-pack-release/1",
+      "source_git_blob": "9e72bcbf8b89a6d3f089331dcbbdc5d3c543a020",
       "source_path": "system/contracts/localization-pack.mjs"
     },
     {
@@ -131,10 +159,10 @@
       "source_path": "system/contracts/studio-runtime-v2.mjs"
     },
     {
-      "major": 4,
+      "major": 5,
       "name": "surface-render-lifecycle",
-      "schema": "ordax.surface-render-lifecycle/4",
-      "source_git_blob": "c80ac1e005df08e627ada845f3939597a69247c6",
+      "schema": "ordax.surface-render-lifecycle/5",
+      "source_git_blob": "4808fd208be87926bc62fe192a841ad521e13783",
       "source_path": "system/contracts/surface-render-lifecycle.mjs"
     }
   ]

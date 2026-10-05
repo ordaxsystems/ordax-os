@@ -6,7 +6,10 @@ on:
     paths:
       - 'sites/public/**'
       - 'deploy/public-site/**'
+      - 'api/account-proxy.mjs'
+      - 'vercel.json'
       - 'tools/public-site/**'
+      - 'tools/security/**'
       - 'docs/PUBLIC-SITE.md'
       - 'docs/RELEASE-COMPLIANCE.md'
       - 'docs/PUBLIC-LEGAL-READINESS.md'
@@ -22,6 +25,7 @@ on:
       - 'services/public-identity/**'
       - 'infra/supabase/identity/**'
       - 'infra/supabase/functions/ordax-account-gateway/**'
+      - 'infra/supabase/functions/ordax-public-account-gateway/**'
       - 'infra/supabase/functions/ordax-account-lifecycle/**'
       - 'platform/releases/publications.json'
       - 'docs/contracts/build-autonomy.json'
@@ -33,6 +37,16 @@ on:
       - 'tests/test_public_identity_gateway.py'
       - 'tests/test_public_site_runtime_smoke.py'
       - 'tests/test_public_site_deployment.py'
+      - 'tests/test_public_site_vercel_proxy.mjs'
+      - 'tests/test_public_proxy_request_context.mjs'
+      - 'tests/test_public_proxy_vercel_oidc.mjs'
+      - 'tests/test_public_auth_edge_rate_limit.mjs'
+      - 'tests/test_public_account_edge_gateway_source.py'
+      - 'tests/test_auth_provider_probe.py'
+      - 'tests/test_account_release_provider_proof.py'
+      - 'tests/test_control_plane_privilege_probe.py'
+      - 'tests/test_account_release_database_proof.py'
+      - 'tests/test_account_release_session_revocation_proof.py'
       - 'tests/test_public_legal_readiness.py'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
@@ -44,7 +58,10 @@ on:
     paths:
       - 'sites/public/**'
       - 'deploy/public-site/**'
+      - 'api/account-proxy.mjs'
+      - 'vercel.json'
       - 'tools/public-site/**'
+      - 'tools/security/**'
       - 'docs/PUBLIC-SITE.md'
       - 'docs/RELEASE-COMPLIANCE.md'
       - 'docs/PUBLIC-LEGAL-READINESS.md'
@@ -60,6 +77,7 @@ on:
       - 'services/public-identity/**'
       - 'infra/supabase/identity/**'
       - 'infra/supabase/functions/ordax-account-gateway/**'
+      - 'infra/supabase/functions/ordax-public-account-gateway/**'
       - 'infra/supabase/functions/ordax-account-lifecycle/**'
       - 'platform/releases/publications.json'
       - 'docs/contracts/build-autonomy.json'
@@ -71,6 +89,16 @@ on:
       - 'tests/test_public_identity_gateway.py'
       - 'tests/test_public_site_runtime_smoke.py'
       - 'tests/test_public_site_deployment.py'
+      - 'tests/test_public_site_vercel_proxy.mjs'
+      - 'tests/test_public_proxy_request_context.mjs'
+      - 'tests/test_public_proxy_vercel_oidc.mjs'
+      - 'tests/test_public_auth_edge_rate_limit.mjs'
+      - 'tests/test_public_account_edge_gateway_source.py'
+      - 'tests/test_auth_provider_probe.py'
+      - 'tests/test_account_release_provider_proof.py'
+      - 'tests/test_control_plane_privilege_probe.py'
+      - 'tests/test_account_release_database_proof.py'
+      - 'tests/test_account_release_session_revocation_proof.py'
       - 'tests/test_public_legal_readiness.py'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
@@ -105,6 +133,16 @@ jobs:
           python tools/public-site/build.py check
           python tools/public-site/auth_activation_preflight.py check
           node tests/test_public_site_localization.mjs
+          node --test tests/test_public_site_vercel_proxy.mjs
+          node --test tests/test_public_proxy_request_context.mjs
+          node --test tests/test_public_proxy_vercel_oidc.mjs
+          node --test tests/test_public_auth_edge_rate_limit.mjs
+          python -m unittest tests.test_public_account_edge_gateway_source -v
+          python -m unittest tests.test_auth_provider_probe -v
+          python -m unittest tests.test_account_release_provider_proof -v
+          python -m unittest tests.test_control_plane_privilege_probe -v
+          python -m unittest tests.test_account_release_database_proof -v
+          python -m unittest tests.test_account_release_session_revocation_proof -v
           python -m unittest tests.test_public_site_contract -v
           python -m unittest tests.test_public_release_catalog -v
           python -m unittest tests.test_public_identity_backend_prep -v

@@ -1,5 +1,5 @@
 import { defineComponentManifest } from "../contracts/component-manifest.mjs";
-import { validateLocale } from "../contracts/localization-pack.mjs";
+import { defineComponentLocalization } from "../contracts/localization-pack.mjs";
 
 const APP_ID_RE = /^[a-z][a-z0-9-]*$/;
 const PANEL_KINDS = new Set([
@@ -10,7 +10,6 @@ const PANEL_KINDS = new Set([
   "preference-choice",
   "extension",
 ]);
-const PACK_POLICIES = new Set(["bundled-only", "component-scoped"]);
 
 function freezeCapabilities(appId, label, values) {
   if (!Array.isArray(values)) {
@@ -30,25 +29,9 @@ function freezeLocalization(appId, localization) {
   if (!localization || typeof localization !== "object" || Array.isArray(localization)) {
     throw new TypeError(`First-party app ${appId} is missing localization metadata`);
   }
-  const sourceLocale = validateLocale(localization.sourceLocale);
-  if (!Array.isArray(localization.bundledLocales) || localization.bundledLocales.length === 0) {
-    throw new TypeError(`First-party app ${appId} must declare bundledLocales`);
-  }
-  const bundledLocales = localization.bundledLocales.map(validateLocale);
-  if (new Set(bundledLocales).size !== bundledLocales.length) {
-    throw new TypeError(`First-party app ${appId} has duplicate bundled locales`);
-  }
-  if (!bundledLocales.includes(sourceLocale)) {
-    throw new TypeError(`First-party app ${appId} must bundle its source locale`);
-  }
-  const packPolicy = localization.packPolicy ?? "component-scoped";
-  if (!PACK_POLICIES.has(packPolicy)) {
-    throw new TypeError(`First-party app ${appId} has unsupported localization pack policy`);
-  }
-  return Object.freeze({
-    sourceLocale,
-    bundledLocales: Object.freeze([...bundledLocales]),
-    packPolicy,
+  return defineComponentLocalization({
+    ...localization,
+    targetId: appId,
   });
 }
 

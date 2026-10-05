@@ -19,6 +19,20 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "app-data",
+        "path": "system/contracts/app-data.mjs",
+        "constant": "APP_DATA_SCHEMA",
+        "schema": "ordax.app-data/1",
+        "major": 1,
+    },
+    {
+        "name": "component-localization",
+        "path": "system/contracts/localization-pack.mjs",
+        "constant": "COMPONENT_LOCALIZATION_SCHEMA",
+        "schema": "prototype-ordax.component-localization/1",
+        "major": 1,
+    },
+    {
         "name": "component-manifest",
         "path": "system/contracts/component-manifest.mjs",
         "constant": "COMPONENT_MANIFEST_SCHEMA",
@@ -89,17 +103,31 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "locale-profile",
+        "path": "system/contracts/locale-profile.mjs",
+        "constant": "LOCALE_PROFILE_SCHEMA",
+        "schema": "ordax.locale-profile/1",
+        "major": 1,
+    },
+    {
         "name": "localization",
         "path": "system/contracts/localization.mjs",
         "constant": "LOCALIZATION_SCHEMA",
-        "schema": "ordax.localization/1",
-        "major": 1,
+        "schema": "ordax.localization/2",
+        "major": 2,
     },
     {
         "name": "localization-pack",
         "path": "system/contracts/localization-pack.mjs",
         "constant": "LOCALIZATION_PACK_SCHEMA",
         "schema": "prototype-ordax.localization-pack/1",
+        "major": 1,
+    },
+    {
+        "name": "localization-pack-release",
+        "path": "system/contracts/localization-pack.mjs",
+        "constant": "LOCALIZATION_PACK_RELEASE_SCHEMA",
+        "schema": "prototype-ordax.localization-pack-release/1",
         "major": 1,
     },
     {
@@ -141,10 +169,12 @@ CONTRACTS = (
         "name": "surface-render-lifecycle",
         "path": "system/contracts/surface-render-lifecycle.mjs",
         "constant": "SURFACE_RENDER_LIFECYCLE_SCHEMA",
-        "schema": "ordax.surface-render-lifecycle/4",
-        "major": 4,
+        "schema": "ordax.surface-render-lifecycle/5",
+        "major": 5,
     },
 )
+
+BUNDLE_VERSION = "1.6.0"
 
 
 def git_blob(path: Path) -> str:
@@ -196,7 +226,7 @@ def build_bundle() -> dict:
     return {
         "$schema": "ordax.app-sdk-bundle/1",
         "authority": "none",
-        "bundle_version": "1.3.0",
+        "bundle_version": BUNDLE_VERSION,
         "compatibility_policy": "contract-major",
         "contracts": contracts,
     }
@@ -232,7 +262,7 @@ def check() -> None:
 
     print("APP_SDK_BUNDLE=PASS")
     print("APP_SDK_SCHEMA=ordax.app-sdk-bundle/1")
-    print("APP_SDK_VERSION=1.3.0")
+    print(f"APP_SDK_VERSION={BUNDLE_VERSION}")
     print(f"APP_SDK_CONTRACT_COUNT={len(CONTRACTS)}")
     print("APP_SDK_AUTHORITY=none")
 

@@ -11,6 +11,7 @@ import {
 } from "../../contracts/local-session.mjs";
 import { assertNetworkManagementPort } from "../../contracts/network-management.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
+import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
 import {
   REGIONAL_LOCALE_OPTIONS,
   REGIONAL_LOCALE_PREFERENCE_ID,
@@ -28,6 +29,13 @@ import {
 
 const STEPS = Object.freeze(["welcome", "regional", "network", "security", "account", "privacy", "ready"]);
 const STEP_LABELS = Object.freeze(["Início", "Região", "Rede", "Segurança", "Conta", "Privacidade", "Pronto"]);
+
+function syncFirstRunDocumentLocale(documentObject, locale) {
+  const profile = createLocaleProfile(locale);
+  documentObject.documentElement.lang = profile.locale;
+  documentObject.documentElement.dir = profile.direction;
+  return profile;
+}
 
 function el(documentObject, tag, className = "", text = undefined) {
   const node = documentObject.createElement(tag);
@@ -100,7 +108,7 @@ export function mountFirstRunExperience(
     accountMode: null,
   };
 
-  documentObject.documentElement.lang = draft.locale;
+  syncFirstRunDocumentLocale(documentObject, draft.locale);
 
   const previousInert = root.inert;
   const previousAriaHidden = root.getAttribute("aria-hidden");
@@ -861,7 +869,7 @@ export function mountFirstRunExperience(
   const onChange = (event) => {
     if (event.target.matches("[data-first-run-locale]")) {
       draft.locale = event.target.value;
-      documentObject.documentElement.lang = draft.locale;
+      syncFirstRunDocumentLocale(documentObject, draft.locale);
       render();
     } else if (event.target.matches("[data-first-run-time-zone]")) {
       draft.timeZone = event.target.value;

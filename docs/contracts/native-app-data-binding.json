@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.native-app-data-binding/1",
-  "status": "broker-core-dormant",
+  "status": "trusted-first-party-port-injection-active",
   "public_app_contract": "ordax.app-data/1",
   "verified_identity_contract": "ordax.verified-app-install-identity/1",
   "scope": "device-local-private-app-data",
@@ -36,13 +36,44 @@
     "receipt_source_digest_must_match_current_system": true,
     "consumer_core": "system/surface/runtime/native_app_data_session_binding.py",
     "consumer_core_implemented": true,
-    "runtime_wiring_enabled": false
+    "runtime_wiring_enabled": true,
+    "runtime_entrypoint": "system/surface/runtime/native_app_data_runtime.py",
+    "stable_runtime_state_uid": 0,
+    "owner_development_mints_bindings": false
+  },
+  "trusted_composition_handoff": {
+    "schema": "ordax.native-app-data-port-bootstrap/1",
+    "path": "/run/ordax-surface/app-data-port-bindings.json",
+    "mode": "0600",
+    "directory_mode": "0700",
+    "root_owned_stable": true,
+    "nofollow": true,
+    "single_hardlink_required": true,
+    "atomic_replace": true,
+    "one_shot_consume": true,
+    "receipt_sha256_included": false,
+    "publisher_and_app_identity_derived_from_verified_binding": true,
+    "producer": "system/surface/runtime/native_app_data_runtime.py",
+    "consumer": "system/surface/runtime/ordax_browser_host.py",
+    "browser_bridge_request": "app-data.bootstrap.request",
+    "browser_bridge_delivery": "direct-privileged-module-call",
+    "browser_bridge_module": "/composition/native/app-data-bootstrap.mjs",
+    "browser_bridge_export": "acceptTrustedNativeAppDataBootstrap",
+    "browser_bridge_response_event": null,
+    "global_native_session_exposure": false,
+    "dom_exposure": false,
+    "catalog_or_store_exposure": false
   },
   "app_facing_surface": {
     "receives_typed_port_only": true,
     "receives_endpoint_property": false,
     "receives_receipt_sha256": false,
+    "port_injection_enabled": true,
+    "opaque_endpoint_visible_only_during_trusted_composition_bootstrap": true,
+    "opaque_endpoint_exposed_to_app_context": false,
+    "trusted_component_context_provider_installed_before_first_app": true,
     "transport_identity_closed_by_trusted_composition": true,
+    "first_party_only": true,
     "same_realm_third_party_isolation_claimed": false,
     "third_party_enablement_requires_separate_realm_or_origin": true
   },
@@ -52,7 +83,8 @@
     "identity_from_request_body": false,
     "typed_request_owner": "system/surface/runtime/native_app_data_endpoint.py",
     "durable_store_owner": "system/surface/runtime/native_app_data.py",
-    "host_route_connected": false
+    "host_route_connected": true,
+    "route_activation_scope": "trusted-native-process-only"
   },
   "non_goals": [
     "package-signature-verification",

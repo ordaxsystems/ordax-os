@@ -132,8 +132,11 @@ class InternetBrowserContractTests(unittest.TestCase):
 
     def test_web_mode_fails_closed_instead_of_claiming_embedded_navigation(self):
         adapter = self.text(WEB_ADAPTER)
+        contract = self.text(CONTRACT)
         self.assertIn('createUnavailableBrowserSession', adapter)
-        self.assertIn('não incorpora sites arbitrários', adapter)
+        self.assertIn('BROWSER_UNAVAILABLE_REASONS.WEB_EMBEDDING_DISABLED', adapter)
+        self.assertIn('WEB_EMBEDDING_DISABLED: "web-embedding-disabled"', contract)
+        self.assertNotIn('não incorpora sites arbitrários', adapter.lower())
         self.assertNotIn('iframe', adapter.lower())
 
     def test_native_adapter_uses_one_explicit_browser_bridge(self):

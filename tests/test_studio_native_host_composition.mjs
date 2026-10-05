@@ -15,6 +15,7 @@ import { PROJECT_CATALOG_SCHEMA } from "../system/contracts/project-catalog.mjs"
 import { MEMORY_PORT_SCHEMA } from "../system/contracts/memory.mjs";
 import { INTELLIGENCE_PORT_SCHEMA } from "../system/contracts/intelligence.mjs";
 import { LOCALIZATION_SCHEMA } from "../system/contracts/localization.mjs";
+import { createLocaleProfile } from "../system/contracts/locale-profile.mjs";
 
 const noop = () => {};
 
@@ -85,6 +86,7 @@ function localization() {
   return {
     schema: LOCALIZATION_SCHEMA,
     getLocale: () => "pt-BR",
+    getProfile: () => createLocaleProfile("pt-BR"),
     translate: (key) => key,
     subscribe: noop,
   };

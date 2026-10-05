@@ -28,6 +28,11 @@ gi.require_version("WebKit2", "4.1")
 from gi.repository import GLib, Gtk, WebKit2  # type: ignore  # noqa: E402
 
 from browser_session_store import load_browser_session, save_browser_session
+from native_app_data_port_bootstrap import (
+    DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
+    NativeAppDataPortBootstrapError,
+    consume_app_data_port_bootstrap,
+)
 from native_component_probation import (
     ComponentProbationReceiptError,
     record_system_component_probation,
@@ -42,6 +47,8 @@ from native_security_prompt_i18n import (
 )
 
 BRIDGE_NAME = "ordaxBrowser"
+APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-bootstrap/1"
+TRUSTED_STATE_UID = 0
 TAB_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 MAX_TABS = 16
 MAX_URI_LENGTH = 8192
@@ -157,6 +164,16 @@ class OrdaXBrowserHost:
         self.distribution_profile = distribution_profile
         if self.distribution_profile not in {"owner-development", "stable-mvp"}:
             raise ValueError("invalid OrdaX distribution profile")
+        if self.distribution_profile == "stable-mvp":
+            if os.geteuid() != TRUSTED_STATE_UID:
+                raise PermissionError("Stable App Data browser bootstrap requires root-owned runtime state")
+            self.app_data_bootstrap_bindings = consume_app_data_port_bootstrap(
+                DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
+                expected_uid=TRUSTED_STATE_UID,
+            )
+        else:
+            self.app_data_bootstrap_bindings = ()
+        self.app_data_bootstrap_served = False
         self.component_probation_started = False
         self.component_probation_nonce: str | None = None
         self.session_path = os.path.join(self.profile_root, "session.json")
@@ -212,7 +229,6 @@ class OrdaXBrowserHost:
         if self.distribution_profile == "owner-development":
             self.start_profile_consent_listener()
         self.restore_session()
-
 
     def start_profile_consent_listener(self) -> None:
         self.profile_consent_listener = self.profile_consent_ipc.open()
@@ -421,6 +437,24 @@ class OrdaXBrowserHost:
             flush=True,
         )
 
+    def emit_app_data_bootstrap(self) -> None:
+        if self.app_data_bootstrap_served:
+            raise ValueError("App Data bootstrap was already consumed by Native composition")
+        payload = {
+            "schema": APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA,
+            "bindings": [entry.as_payload() for entry in self.app_data_bootstrap_bindings],
+        }
+        encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        script = (
+            "(async()=>{const module=await import('/composition/native/app-data-bootstrap.mjs');"
+            "module.acceptTrustedNativeAppDataBootstrap("
+            + encoded
+            + ");})().catch((error)=>console.error('OrdaX App Data bootstrap delivery failed',error));"
+        )
+        self.surface_view.run_javascript(script, None, None, None)
+        self.app_data_bootstrap_served = True
+        self.app_data_bootstrap_bindings = ()
+
     def emit_host_event(self, payload: dict) -> None:
         encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         script = (
@@ -477,7 +511,11 @@ class OrdaXBrowserHost:
             return
         command = payload.get("type")
         try:
-            if command == "snapshot.request":
+            if command == "app-data.bootstrap.request":
+                if set(payload) != {"type"}:
+                    raise ValueError("App Data bootstrap request fields are invalid")
+                self.emit_app_data_bootstrap()
+            elif command == "snapshot.request":
                 self.emit_snapshot()
             elif command == "tab.open":
                 self.open_tab(payload.get("tabId"), payload.get("url", ""))
@@ -788,6 +826,7 @@ class OrdaXBrowserHost:
             pass
 
     def on_window_destroy(self, _window: Gtk.Window) -> None:
+        self.app_data_bootstrap_bindings = ()
         self.persist_session()
         self.profile_consent_stopping.set()
         self.profile_consent_ipc.close()
@@ -828,6 +867,9 @@ def main() -> int:
             args.cache_root,
             args.distribution_profile,
         )
+    except NativeAppDataPortBootstrapError as exc:
+        print(f"ordax-browser-host: App Data bootstrap failed closed: {exc}", file=sys.stderr, flush=True)
+        return 3
     except Exception as exc:
         print(f"ordax-browser-host: startup failed: {exc}", file=sys.stderr, flush=True)
         return 1

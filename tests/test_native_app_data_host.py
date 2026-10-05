@@ -6,6 +6,7 @@ import hashlib
 import http.client
 import json
 import os
+import socket
 import sys
 import tempfile
 import threading
@@ -93,6 +94,27 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
         self.server.server_close()
         self.temporary.cleanup()
 
+    def make_deferred_server(self):
+        handler = partial(NativeAppDataHostHandler, directory=str(self.static))
+        return NativeAppDataHostServer(
+            ("127.0.0.1", 0),
+            handler,
+            user_root=str(self.user_root),
+            power_request_path=str(self.temp / "missing-power-fifo"),
+            network_session_dir=str(self.session),
+            product_mode="usb",
+            distribution_profile="owner-development",
+            native_install_capability="disabled",
+            component_channel_bin=str(self.temp / "missing-component-helper"),
+            component_trust_path=str(self.temp / "missing-component-trust.json"),
+            component_slot_root=str(self.temp / "deferred-components"),
+            account_gateway_origin="",
+            app_data_receipt_root=str(self.receipts),
+            app_data_expected_uid=os.getuid(),
+            app_data_root=str(self.temp / "deferred-app-data"),
+            app_data_defer_listener_activation=True,
+        )
+
     def request(
         self,
         method: str,
@@ -137,6 +159,22 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
         )
         decoded = json.loads(payload.decode("utf-8")) if payload else None
         return status, headers, decoded
+
+    def test_deferred_listener_is_not_tcp_ready_before_explicit_activation(self):
+        server = self.make_deferred_server()
+        port = server.server_address[1]
+        try:
+            with self.assertRaises(OSError):
+                connection = socket.create_connection(("127.0.0.1", port), timeout=0.2)
+                connection.close()
+
+            server.activate_private_listener()
+            connection = socket.create_connection(("127.0.0.1", port), timeout=1)
+            connection.close()
+            with self.assertRaises(RuntimeError):
+                server.activate_private_listener()
+        finally:
+            server.server_close()
 
     def test_bound_route_persists_and_cas_conflict_reports_actual_revision(self):
         status, _headers, stored = self.json_post(

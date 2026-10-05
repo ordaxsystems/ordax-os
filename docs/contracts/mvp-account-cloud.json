@@ -1,0 +1,36 @@
+{
+  "$schema": "prototype-ordax.mvp-account-cloud/1",
+  "status": "required-for-public-mvp-rollout-disabled",
+  "account_optional_for_boot_and_local_use": true,
+  "public_rollout_enabled": false,
+  "owners": {
+    "identity_sessions_spaces": "server-authoritative control plane",
+    "service_quota": "system/services/entitlements",
+    "user_cloud_storage": "system/services/user-cloud-storage",
+    "sync": "system/services/sync",
+    "memory": "system/services/memory"
+  },
+  "provider_boundaries": {
+    "transactional_adapter_current": "supabase",
+    "object_storage_is_separate_responsibility": true,
+    "object_storage_may_not_own_identity_entitlement_or_quota": true,
+    "provider_secrets_in_browser_allowed": false
+  },
+  "required_public_gates": [
+    "account registration legal acceptance is validated server-side",
+    "login session recovery and sign-out are proven end-to-end",
+    "account export and close are proven end-to-end",
+    "sync remote path is server-authoritative and recoverable",
+    "cloud memory rollout gates are explicitly satisfied before enablement",
+    "user cloud storage activation gates all pass",
+    "quota usage and admission are server-authoritative",
+    "negative cross-account and cross-Space authorization tests pass",
+    "no provider service credential is exposed to client surfaces"
+  ],
+  "not_activated_by_contract": [
+    "billing",
+    "public cloud memory",
+    "user storage bucket",
+    "public account rollout"
+  ]
+}

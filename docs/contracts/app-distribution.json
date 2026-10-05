@@ -1,11 +1,13 @@
 {
   "$schema": "prototype-ordax.app-distribution/1",
-  "status": "pre-mvp-foundation",
+  "status": "mvp-minimal-product-scope-signed-release-delivery",
   "catalog_owner": "future-store-service",
   "runtime_catalog": "system/apps/catalog.mjs",
   "first_party_delivery_policy_owner": "system/services/apps",
   "first_party_delivery_contract": "ordax.first-party-app-delivery-policy/1",
   "first_party_delivery_projection": "ordax.first-party-app-delivery-projection/1",
+  "mvp_delivery_contract": "docs/contracts/mvp-app-delivery.json",
+  "mvp_delivery_policy_owner": "system/services/apps/mvp-delivery-policy.mjs",
   "package_manifest_required": true,
   "package_fields": [
     "app_id",
@@ -19,6 +21,17 @@
     "signature",
     "update_policy"
   ],
+  "localization": {
+    "policy_contract": "docs/contracts/localization-packs.json",
+    "component_metadata_required": true,
+    "content_pack_schema": "prototype-ordax.localization-pack/1",
+    "release_descriptor_schema": "prototype-ordax.localization-pack-release/1",
+    "external_pack_may_add_component_only_locale": true,
+    "external_pack_may_update_independently": true,
+    "external_pack_may_not_add_permissions_or_capabilities": true,
+    "external_pack_activation_uses_authorized_update_path": true,
+    "store_is_not_a_second_updater": true
+  },
   "security": {
     "unsigned_third_party_install_allowed": false,
     "profile_pack_may_bypass_package_verification": false,
@@ -29,12 +42,42 @@
     "store_is_not_a_second_updater": true,
     "catalogued_app_may_be_treated_as_installed": false,
     "store_ui_may_claim_install_authority": false,
-    "missing_payload_may_launch_from_residual_path": false
+    "missing_payload_may_launch_from_residual_path": false,
+    "first_online_catalog_refresh_may_mint_install_authority": false
   },
   "mvp": {
     "third_party_installation_enabled": false,
     "store_ui_enabled": false,
     "foundation_prepared": true,
-    "stable_payload_changed_by_first_party_delivery_foundation": false
+    "minimal_initial_product_scope_target": true,
+    "structural_app_ids": [
+      "account",
+      "settings",
+      "system"
+    ],
+    "bootstrap_app_ids": [
+      "files",
+      "internet"
+    ],
+    "on_demand_app_ids": [
+      "activity",
+      "assistant",
+      "network",
+      "notes",
+      "projects",
+      "studio"
+    ],
+    "optional_apps_block_public_launch": false,
+    "physical_payload_shrink_required_before_public_launch": false,
+    "signed_stable_release_can_add_or_upgrade_optional_apps": true,
+    "usb_reimage_required_for_optional_app_addition": false,
+    "independent_component_delivery_required_before_public_launch": false,
+    "successful_network_makes_official_update_polling_reachable": true,
+    "official_update_discovery_owner": "system/supervisor",
+    "official_update_discovery_default_interval_seconds": 60,
+    "first_run_is_not_a_second_updater": true,
+    "network_skip_must_not_block_first_run": true,
+    "independent_payload_removal_requires_delivery_proofs": true,
+    "stable_payload_changed_by_this_policy_only": false
   }
 }
