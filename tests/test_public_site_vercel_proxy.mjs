@@ -26,13 +26,17 @@ function options(extra = {}) {
 }
 
 function request(path, init = {}) {
+  const method = init.method ?? "GET";
   return new Request(
     `${PUBLIC_ORIGIN}/api/account-proxy?ordax_path=${encodeURIComponent(path)}`,
     {
-      method: init.method ?? "GET",
+      method,
       headers: {
         host: init.host ?? "attacker-controlled.example",
         "x-forwarded-for": "203.0.113.15",
+        ...(method === "POST"
+          ? { origin: PUBLIC_ORIGIN, "sec-fetch-site": "same-origin" }
+          : {}),
         ...(init.headers ?? {}),
       },
       body: init.body,
@@ -135,6 +139,53 @@ test("proxy rejects non-canonical incoming origins before upstream access", asyn
     );
     assert.equal(response.status, 421);
     assert.equal((await response.json()).error, "public-origin-mismatch");
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("proxy rejects POST without exact Origin and same-origin Fetch Metadata before upstream access", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response("unexpected");
+  };
+  try {
+    const noOrigin = new Request(
+      `${PUBLIC_ORIGIN}/api/account-proxy?ordax_path=%2Fauth%2Flogin`,
+      {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": "203.0.113.15",
+          "content-type": "application/x-www-form-urlencoded",
+          "sec-fetch-site": "same-origin",
+        },
+        body: "email=a%40b.test&password=example-password",
+      },
+    );
+    let response = await proxyPublicAccountRequest(noOrigin, options());
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).error, "browser-origin-required");
+
+    const wrongSite = request("/auth/login", {
+      method: "POST",
+      headers: { "sec-fetch-site": "same-site" },
+      body: "email=a%40b.test&password=example-password",
+    });
+    response = await proxyPublicAccountRequest(wrongSite, options());
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).error, "same-origin-fetch-metadata-required");
+
+    const wrongOrigin = request("/auth/login", {
+      method: "POST",
+      headers: { origin: "https://evil.example" },
+      body: "email=a%40b.test&password=example-password",
+    });
+    response = await proxyPublicAccountRequest(wrongOrigin, options());
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).error, "browser-origin-mismatch");
     assert.equal(calls, 0);
   } finally {
     globalThis.fetch = originalFetch;
