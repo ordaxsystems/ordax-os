@@ -37,14 +37,17 @@ export function pseudoLocalizeText(value, mode = "expanded") {
 
   const input = String(value);
   const tokens = input.split(/({[A-Za-z][A-Za-z0-9]*})/g);
-  let visibleLength = 0;
   const transformed = tokens.map(token => {
     if (/^{[A-Za-z][A-Za-z0-9]*}$/.test(token)) return token;
-    visibleLength += token.replace(/\s+/g, "").length;
     return transformSegment(token);
   }).join("");
 
-  const padding = "·".repeat(Math.max(2, Math.ceil(visibleLength * descriptor.minimumExpansionRatio)));
+  // Expansion is a layout-testing contract, so guarantee the configured ratio
+  // against the complete source string while keeping placeholders byte-identical.
+  const minimumLength = Math.ceil(input.length * (1 + descriptor.minimumExpansionRatio));
+  const frameLength = 2;
+  const paddingLength = Math.max(2, minimumLength - transformed.length - frameLength);
+  const padding = "·".repeat(paddingLength);
   const framed = `⟦${transformed}${padding}⟧`;
   return mode === "rtl" ? `\u2067${framed}\u2069` : framed;
 }
