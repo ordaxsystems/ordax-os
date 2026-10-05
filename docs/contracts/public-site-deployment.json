@@ -126,10 +126,16 @@
     "recovery_complete_path": "/auth/recover/complete"
   },
   "security_headers": {
-    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'",
+    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; upgrade-insecure-requests",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Embedder-Policy": "require-corp",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Origin-Agent-Cluster": "?1",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
+    "X-Permitted-Cross-Domain-Policies": "none",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()"
   },
   "cache_policy": {
@@ -142,6 +148,10 @@
   },
   "production_requirements": {
     "https": true,
+    "hsts_required": true,
+    "cross_origin_process_isolation_required": true,
+    "origin_agent_cluster_required": true,
+    "legacy_cross_domain_policy_disabled": true,
     "host_adapter_must_apply_security_headers": true,
     "host_adapter_must_preserve_auth_status_codes": true,
     "host_adapter_must_preserve_session_set_cookie": true,
