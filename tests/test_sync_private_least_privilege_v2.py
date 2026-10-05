@@ -16,16 +16,15 @@ class SyncPrivateLeastPrivilegeV2Tests(unittest.TestCase):
     def setUp(self):
         self.sql = MIGRATION.read_text(encoding="utf-8").lower()
 
-    def test_executor_attributes_are_reasserted_even_if_role_already_exists(self):
-        create = re.search(r"create role ordax_sync_executor\s*;", self.sql)
-        self.assertIsNotNone(create)
-        alter = re.search(
-            r"alter\s+role\s+ordax_sync_executor\s+with(?P<body>[^;]+);",
+    def test_executor_bootstrap_is_hosted_safe_and_fail_closed(self):
+        self.assertNotRegex(self.sql, r"alter\s+role\s+ordax_sync_executor")
+        create = re.search(
+            r"create\s+role\s+ordax_sync_executor(?P<body>[^;]+);",
             self.sql,
             re.DOTALL,
         )
-        self.assertIsNotNone(alter)
-        body = alter.group("body")
+        self.assertIsNotNone(create)
+        body = create.group("body")
         for required in (
             "nosuperuser",
             "nocreatedb",
@@ -36,8 +35,17 @@ class SyncPrivateLeastPrivilegeV2Tests(unittest.TestCase):
             "nobypassrls",
         ):
             self.assertIn(required, body)
-        self.assertNotIn("bypassrls", body.replace("nobypassrls", ""))
-        self.assertNotIn("superuser", body.replace("nosuperuser", ""))
+        for observed in (
+            "r.rolsuper",
+            "r.rolcreatedb",
+            "r.rolcreaterole",
+            "r.rolinherit",
+            "r.rolcanlogin",
+            "r.rolreplication",
+            "r.rolbypassrls",
+        ):
+            self.assertIn(observed, self.sql)
+        self.assertIn("raise exception 'ordax_sync_executor violates least-privilege role contract';", self.sql)
 
     def test_executor_receives_only_sync_transport_relation_rights(self):
         self.assertIn("revoke all on schema private from ordax_sync_executor;", self.sql)
