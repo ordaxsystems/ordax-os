@@ -136,8 +136,10 @@ test("single-note edit uses the inactive bounded slot and leaves no transition j
 
   const after = await base.list();
   assert.equal(after.keys.includes(NOTES_APP_DATA_TRANSITION_JOURNAL_KEY), false);
-  assert.equal(after.keys.filter((key) => /^n\.note-2\.[01]$/.test(key)).length, 2);
-  assert.equal(after.keys.length, before.keys.length + 1);
+  const editedKeys = after.keys.filter((key) => /^n\.note-2\.[01]\.\d+$/.test(key));
+  assert.deepEqual(editedKeys, ["n.note-2.1.0"]);
+  assert.equal(after.keys.some((key) => /^n\.note-2\.0\.\d+$/.test(key)), false);
+  assert.equal(after.keys.length, before.keys.length);
 
   const reopened = await createNotesAppDataStore(base);
   assert.equal(reopened.load().notes[1].title, "Alterada");
@@ -182,7 +184,7 @@ test("crash after head flip completes committed cleanup on reopen", async () => 
   let failCleanup = true;
   const injected = wrappedPort(base, {
     failDelete(command) {
-      return failCleanup && /^n\.note-2\.[01]$/.test(command.key);
+      return failCleanup && /^n\.note-2\.[01]\.\d+$/.test(command.key);
     },
   });
   const writer = await createNotesAppDataStore(injected);
@@ -197,7 +199,7 @@ test("crash after head flip completes committed cleanup on reopen", async () => 
   assert.deepEqual(reopened.load(), reduced);
   assert.equal((await base.get(NOTES_APP_DATA_TRANSITION_JOURNAL_KEY)).found, false);
   const listing = await base.list();
-  assert.equal(listing.keys.some((key) => /^n\.note-2\.[01]$/.test(key)), false);
+  assert.equal(listing.keys.some((key) => /^n\.note-2\.[01]\.\d+$/.test(key)), false);
 });
 
 test("Notes App Data store rejects a port bound to another app", async () => {
