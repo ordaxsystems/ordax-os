@@ -182,6 +182,12 @@ class NotesNativeTests(unittest.TestCase):
         self.assertIn('componentId: "notes"', component_runtime)
         self.assertIn("createNotesRuntime", component_runtime)
         self.assertIn("mountNotesWorkspaceControls", component_runtime)
+        self.assertIn("createNotesAppDataStore", component_runtime)
+        self.assertIn("appData = null", component_runtime)
+        self.assertIn("appData === null", component_runtime)
+        self.assertIn("seedSnapshot:", component_runtime)
+        self.assertIn("./services/app-data-store.mjs", component_runtime)
+        self.assertNotIn("/__ordax/native/app-data/", component_runtime)
         self.assertIn('new URL("./notes.css", import.meta.url).href', component_runtime)
         self.assertIn('NOTES_VERSION = "0.4.1"', version)
 
