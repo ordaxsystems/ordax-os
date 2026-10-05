@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Generate a sanitized proof of live PostgreSQL privilege boundaries.
 
-Live mode reads ORDAX_CONTROL_PLANE_DATABASE_URL, maps it to libpq environment
-variables, and invokes psql without putting credentials in argv. A JSON fixture
-mode exists only for deterministic CI tests. Output never contains the project
-ref, DSN, role password, table contents, policy expressions, or function bodies.
+Live mode reads ORDAX_CONTROL_PLANE_DATABASE_URL and invokes psql without
+putting credentials in argv. Output contains counts/booleans only: never project
+refs, DSNs, role passwords, table contents, policy expressions or function bodies.
 """
 
 from __future__ import annotations
@@ -17,12 +16,17 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-SCHEMA = "prototype-ordax.control-plane-privilege-proof/1"
-ALLOWED_AUTHENTICATED_WRITES = {
-    ("private", "ordax_sync_mutations", "INSERT"),
-    ("private", "ordax_sync_objects", "INSERT"),
-    ("private", "ordax_sync_objects", "UPDATE"),
-}
+SCHEMA = "prototype-ordax.control-plane-privilege-proof/2"
+
+SYNC_USER_RPCS = (
+    "ordax_apply_sync_mutation_v1",
+    "ordax_apply_sync_mutation_v2",
+    "ordax_pull_sync_changes_v1",
+    "ordax_list_sync_objects_v1",
+    "ordax_sync_snapshot_v1",
+    "ordax_sync_snapshot_page_v2",
+    "ordax_account_export_v1",
+)
 
 SQL = r"""
 with ordax_functions as (
@@ -38,12 +42,36 @@ with ordax_functions as (
   where grantee = 'authenticated'
     and table_schema in ('public','private')
     and privilege_type in ('INSERT','UPDATE','DELETE','TRUNCATE','TRIGGER','REFERENCES')
-), unexpected_auth_writes as (
-  select * from auth_writes
-  where not (
-    (table_schema='private' and table_name='ordax_sync_mutations' and privilege_type='INSERT')
-    or (table_schema='private' and table_name='ordax_sync_objects' and privilege_type in ('INSERT','UPDATE'))
-  )
+), authenticated_sync_direct_grants as (
+  select table_schema, table_name, privilege_type
+  from information_schema.role_table_grants
+  where grantee = 'authenticated'
+    and table_schema = 'private'
+    and table_name in ('ordax_sync_objects','ordax_sync_mutations')
+), service_sync_direct_grants as (
+  select table_schema, table_name, privilege_type
+  from information_schema.role_table_grants
+  where grantee = 'service_role'
+    and table_schema = 'private'
+    and table_name in ('ordax_sync_objects','ordax_sync_mutations')
+), sync_policies as (
+  select policyname, roles
+  from pg_policies
+  where schemaname = 'private'
+    and tablename in ('ordax_sync_objects','ordax_sync_mutations')
+), sync_user_rpcs as (
+  select f.oid
+  from ordax_functions f
+  where f.nspname = 'public'
+    and f.proname in (
+      'ordax_apply_sync_mutation_v1',
+      'ordax_apply_sync_mutation_v2',
+      'ordax_pull_sync_changes_v1',
+      'ordax_list_sync_objects_v1',
+      'ordax_sync_snapshot_v1',
+      'ordax_sync_snapshot_page_v2',
+      'ordax_account_export_v1'
+    )
 )
 select json_build_object(
   'anon_table_grants', (
@@ -67,22 +95,49 @@ select json_build_object(
       and not ('search_path=""' = any(coalesce(f.proconfig, '{}'::text[])))
   ),
   'anon_private_schema_usage', has_schema_privilege('anon','private','USAGE'),
+  'authenticated_private_schema_usage', has_schema_privilege('authenticated','private','USAGE'),
+  'authenticated_private_function_execute', (
+    select count(*) from ordax_functions f
+    where f.nspname='private'
+      and has_function_privilege('authenticated', f.oid, 'EXECUTE')
+  ),
+  'authenticated_sync_table_grants', (
+    select count(*) from authenticated_sync_direct_grants
+  ),
+  'service_role_sync_table_grants', (
+    select count(*) from service_sync_direct_grants
+  ),
+  'sync_policy_count', (
+    select count(*) from sync_policies
+  ),
+  'non_executor_sync_policy_count', (
+    select count(*) from sync_policies
+    where cardinality(roles) <> 1
+       or roles[1]::text <> 'ordax_sync_executor'
+  ),
+  'service_role_user_sync_rpc_execute', (
+    select count(*) from sync_user_rpcs f
+    where has_function_privilege('service_role', f.oid, 'EXECUTE')
+  ),
+  'app_role_sync_sequence_privilege', (
+    has_sequence_privilege('anon', 'private.ordax_sync_mutations_change_seq_seq', 'USAGE')
+    or has_sequence_privilege('anon', 'private.ordax_sync_mutations_change_seq_seq', 'SELECT')
+    or has_sequence_privilege('anon', 'private.ordax_sync_mutations_change_seq_seq', 'UPDATE')
+    or has_sequence_privilege('authenticated', 'private.ordax_sync_mutations_change_seq_seq', 'USAGE')
+    or has_sequence_privilege('authenticated', 'private.ordax_sync_mutations_change_seq_seq', 'SELECT')
+    or has_sequence_privilege('authenticated', 'private.ordax_sync_mutations_change_seq_seq', 'UPDATE')
+    or has_sequence_privilege('service_role', 'private.ordax_sync_mutations_change_seq_seq', 'USAGE')
+    or has_sequence_privilege('service_role', 'private.ordax_sync_mutations_change_seq_seq', 'SELECT')
+    or has_sequence_privilege('service_role', 'private.ordax_sync_mutations_change_seq_seq', 'UPDATE')
+  ),
   'unexpected_authenticated_write_grants', coalesce((
     select json_agg(json_build_object(
       'schema', table_schema,
       'table', table_name,
       'privilege', privilege_type
     ) order by table_schema, table_name, privilege_type)
-    from unexpected_auth_writes
-  ), '[]'::json),
-  'allowed_authenticated_write_grants_present', (
-    select count(*) from auth_writes
-    where (table_schema, table_name, privilege_type) in (
-      ('private','ordax_sync_mutations','INSERT'),
-      ('private','ordax_sync_objects','INSERT'),
-      ('private','ordax_sync_objects','UPDATE')
-    )
-  )
+    from auth_writes
+  ), '[]'::json)
 );
 """
 
@@ -90,6 +145,12 @@ select json_build_object(
 def _as_nonnegative_int(value: object, name: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         raise ValueError(f"{name} must be a non-negative integer")
+    return value
+
+
+def _as_bool(value: object, name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{name} must be boolean")
     return value
 
 
@@ -104,9 +165,35 @@ def evaluate(observed: object) -> dict:
         observed.get("unsafe_security_definer_search_path"),
         "unsafe_security_definer_search_path",
     )
-    allowed_writes = _as_nonnegative_int(
-        observed.get("allowed_authenticated_write_grants_present"),
-        "allowed_authenticated_write_grants_present",
+    private_exec = _as_nonnegative_int(
+        observed.get("authenticated_private_function_execute"),
+        "authenticated_private_function_execute",
+    )
+    authenticated_sync_grants = _as_nonnegative_int(
+        observed.get("authenticated_sync_table_grants"),
+        "authenticated_sync_table_grants",
+    )
+    service_sync_grants = _as_nonnegative_int(
+        observed.get("service_role_sync_table_grants"),
+        "service_role_sync_table_grants",
+    )
+    sync_policy_count = _as_nonnegative_int(observed.get("sync_policy_count"), "sync_policy_count")
+    non_executor_policy_count = _as_nonnegative_int(
+        observed.get("non_executor_sync_policy_count"),
+        "non_executor_sync_policy_count",
+    )
+    service_rpc_execute = _as_nonnegative_int(
+        observed.get("service_role_user_sync_rpc_execute"),
+        "service_role_user_sync_rpc_execute",
+    )
+    anon_private_usage = _as_bool(observed.get("anon_private_schema_usage"), "anon_private_schema_usage")
+    auth_private_usage = _as_bool(
+        observed.get("authenticated_private_schema_usage"),
+        "authenticated_private_schema_usage",
+    )
+    sequence_exposed = _as_bool(
+        observed.get("app_role_sync_sequence_privilege"),
+        "app_role_sync_sequence_privilege",
     )
     unexpected = observed.get("unexpected_authenticated_write_grants")
     if not isinstance(unexpected, list):
@@ -114,9 +201,6 @@ def evaluate(observed: object) -> dict:
     for item in unexpected:
         if not isinstance(item, dict) or set(item) != {"schema", "table", "privilege"}:
             raise ValueError("unexpected authenticated write grant record malformed")
-    anon_private_usage = observed.get("anon_private_schema_usage")
-    if not isinstance(anon_private_usage, bool):
-        raise ValueError("anon_private_schema_usage must be boolean")
 
     checks = {
         "no_anon_table_grants": anon_table_grants == 0,
@@ -124,7 +208,17 @@ def evaluate(observed: object) -> dict:
         "no_public_function_execute": public_function_execute == 0,
         "security_definer_search_path": unsafe_search_path == 0,
         "no_anon_private_schema_usage": anon_private_usage is False,
-        "authenticated_write_allowlist": len(unexpected) == 0 and allowed_writes == len(ALLOWED_AUTHENTICATED_WRITES),
+        "no_authenticated_sync_table_grants": authenticated_sync_grants == 0,
+        "no_service_role_sync_table_grants": service_sync_grants == 0,
+        "sync_policies_executor_only": sync_policy_count == 5 and non_executor_policy_count == 0,
+        "no_service_role_user_sync_rpc_execute": service_rpc_execute == 0,
+        "no_app_role_sync_sequence_privilege": sequence_exposed is False,
+        "no_unexpected_authenticated_write_grants": len(unexpected) == 0,
+        # These two checks deliberately cover the next private-schema hardening
+        # gate as well. Until Network/Memory wrappers are migrated safely, the
+        # public account release remains fail-closed instead of hiding the debt.
+        "no_authenticated_private_schema_usage": auth_private_usage is False,
+        "no_authenticated_private_function_execute": private_exec == 0,
     }
     return {
         "$schema": SCHEMA,
@@ -137,8 +231,15 @@ def evaluate(observed: object) -> dict:
             "public_function_execute_count": public_function_execute,
             "unsafe_security_definer_search_path_count": unsafe_search_path,
             "anon_private_schema_usage": anon_private_usage,
+            "authenticated_private_schema_usage": auth_private_usage,
+            "authenticated_private_function_execute_count": private_exec,
+            "authenticated_sync_table_grant_count": authenticated_sync_grants,
+            "service_role_sync_table_grant_count": service_sync_grants,
+            "sync_policy_count": sync_policy_count,
+            "non_executor_sync_policy_count": non_executor_policy_count,
+            "service_role_user_sync_rpc_execute_count": service_rpc_execute,
+            "app_role_sync_sequence_privilege": sequence_exposed,
             "unexpected_authenticated_write_grant_count": len(unexpected),
-            "allowed_authenticated_write_grant_count": allowed_writes,
         },
         "ready": all(checks.values()),
     }
@@ -151,15 +252,13 @@ def _libpq_env(database_url: str) -> dict[str, str]:
     if not parsed.username:
         raise ValueError("database URL must include a user")
     env = os.environ.copy()
-    env.update(
-        {
-            "PGHOST": parsed.hostname,
-            "PGPORT": str(parsed.port or 5432),
-            "PGDATABASE": unquote(parsed.path.lstrip("/")),
-            "PGUSER": unquote(parsed.username),
-            "PGSSLMODE": "require",
-        }
-    )
+    env.update({
+        "PGHOST": parsed.hostname,
+        "PGPORT": str(parsed.port or 5432),
+        "PGDATABASE": unquote(parsed.path.lstrip("/")),
+        "PGUSER": unquote(parsed.username),
+        "PGSSLMODE": "require",
+    })
     if parsed.password is not None:
         env["PGPASSWORD"] = unquote(parsed.password)
     return env
@@ -193,7 +292,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--observation-file")
     parser.add_argument("--output")
     args = parser.parse_args(argv)
-
     try:
         if args.observation_file:
             observed = load_fixture(Path(args.observation_file).resolve())
