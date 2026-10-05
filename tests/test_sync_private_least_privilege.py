@@ -64,6 +64,15 @@ class SyncPrivateLeastPrivilegeTests(unittest.TestCase):
             r"alter\s+function\s+public\.ordax_account_export_v1\s*\(\s*\)\s*owner\s+to\s+ordax_sync_executor",
         )
 
+    def test_public_schema_create_is_granted_only_for_owner_transfer_window(self):
+        grant = self.sql.index("grant create on schema public to ordax_sync_executor;")
+        first_owner_transfer = self.sql.index("owner to ordax_sync_executor;")
+        revoke = self.sql.index("revoke create on schema public from ordax_sync_executor;")
+        self.assertLess(grant, first_owner_transfer)
+        self.assertGreater(revoke, first_owner_transfer)
+        self.assertEqual(self.sql.count("grant create on schema public to ordax_sync_executor;"), 1)
+        self.assertEqual(self.sql.count("revoke create on schema public from ordax_sync_executor;"), 1)
+
     def test_executor_privileges_are_sync_scoped_and_rls_remains_authoritative(self):
         self.assertIn("grant usage on schema private to ordax_sync_executor;", self.sql)
         self.assertIn("grant usage on schema auth to ordax_sync_executor;", self.sql)
