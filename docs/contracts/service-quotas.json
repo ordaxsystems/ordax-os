@@ -29,6 +29,7 @@
     { "key": "ai.external.compute", "unit": "compute-units", "commercial_value_assigned": false },
     { "key": "sync.bytes", "unit": "bytes", "commercial_value_assigned": false },
     { "key": "backup.bytes", "unit": "bytes", "commercial_value_assigned": false },
+    { "key": "storage.user.bytes", "unit": "bytes", "commercial_value_assigned": false },
     { "key": "connectors.max", "unit": "items", "commercial_value_assigned": true },
     { "key": "automations.max", "unit": "items", "commercial_value_assigned": true },
     { "key": "spaces.active.max", "unit": "items", "commercial_value_assigned": true },
