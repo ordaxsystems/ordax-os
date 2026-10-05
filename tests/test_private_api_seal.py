@@ -128,6 +128,15 @@ class PrivateApiSealTests(unittest.TestCase):
         )
         self.assertIn("private function acl guard contract drifted", self.sql)
         self.assertIn("private function acl event guard missing", self.sql)
+        self.assertIn(
+            "create function private.ordax_private_function_acl_seal_probe()",
+            self.sql,
+        )
+        self.assertIn("private function acl runtime probe failed", self.sql)
+        self.assertIn(
+            "drop function private.ordax_private_function_acl_seal_probe();",
+            self.sql,
+        )
 
     def test_postflight_proves_zero_api_authority_without_breaking_policy_or_executors(self):
         for marker in (
