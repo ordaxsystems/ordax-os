@@ -3,6 +3,7 @@ import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lif
 import { NOTES_VERSION } from "./version.mjs";
 import { createNotesRuntime } from "./domain/runtime.mjs";
 import { mountNotesWorkspaceControls } from "./ui/workspace-controls.mjs";
+import { createNotesAppDataStore } from "./services/app-data-store.mjs";
 
 const NOTES_STYLESHEET_URL = new URL("./notes.css", import.meta.url).href;
 const NOTES_STYLE_SELECTOR = 'link[data-ordax-component-style="notes"]';
@@ -56,6 +57,23 @@ function syncNotesEditorAccessibility(root, localization) {
   return true;
 }
 
+export async function resolveNotesPersistence({
+  appData = null,
+  createStore = null,
+} = {}) {
+  if (createStore !== null && typeof createStore !== "function") {
+    throw new TypeError("Notes createStore must be a function or null");
+  }
+  if (appData === null) {
+    return createStore?.() ?? null;
+  }
+  return createNotesAppDataStore(appData, {
+    seedSnapshot: createStore === null
+      ? null
+      : () => createStore()?.load() ?? null,
+  });
+}
+
 export const componentRuntime = Object.freeze({
   schema: COMPONENT_RUNTIME_SCHEMA,
   componentId: "notes",
@@ -63,14 +81,12 @@ export const componentRuntime = Object.freeze({
   async mount({
     root,
     createStore = null,
+    appData = null,
     surfaceLifecycle,
     fileSpace = null,
     appActivation = null,
     intelligence = null,
   } = {}) {
-    if (createStore !== null && typeof createStore !== "function") {
-      throw new TypeError("Notes createStore must be a function or null");
-    }
     const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
     const releaseStyles = await mountNotesStyles(root);
     let notesRuntime = null;
@@ -87,7 +103,7 @@ export const componentRuntime = Object.freeze({
     };
 
     try {
-      const store = createStore?.() ?? null;
+      const store = await resolveNotesPersistence({ appData, createStore });
       notesRuntime = createNotesRuntime({ store });
       controls = mountNotesWorkspaceControls(
         root,
