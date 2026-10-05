@@ -60,6 +60,8 @@
     ],
     "proxy_authentication_required": true,
     "proxy_secret_compared_as_sha256": true,
+    "proxy_secret_sha256_environment_variable": "ORDAX_PUBLIC_PROXY_SECRET_SHA256",
+    "proxy_secret_sha256_source_controlled": false,
     "raw_proxy_secret_in_source": false,
     "trusted_client_address_requires_authenticated_proxy": true,
     "sensitive_proxy_headers_forwarded_to_inner_gateway": false,
@@ -132,6 +134,7 @@
     "tls_terminator_must_append_real_client_ip": true,
     "adapter_must_use_platform_trusted_real_ip_source": true,
     "public_proxy_must_be_authenticated_before_trusting_forwarded_client_ip": true,
+    "public_proxy_digest_must_be_environment_configured": true,
     "public_auth_rate_limits_required": true,
     "native_auth_rate_limit_required_before_public_account_activation": true
   },
