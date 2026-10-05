@@ -49,10 +49,12 @@ The content contract validates message-key parity and interpolation-placeholder 
 - independent pack version;
 - SHA-256 of the target message contract;
 - SHA-256 and exact byte size of the pack artifact;
-- publisher;
-- signature.
+- bounded non-empty publisher identity;
+- bounded non-empty signature metadata.
 
-The descriptor is structurally forbidden from declaring permissions, capabilities, requested capabilities, an entrypoint or an executable payload. Installing a translation therefore cannot mint filesystem, network, microphone, camera or other application authority.
+Whitespace-only publisher or signature values are invalid. The descriptor is structurally forbidden from declaring permissions, capabilities, requested capabilities, an entrypoint or an executable payload. Installing a translation therefore cannot mint filesystem, network, microphone, camera or other application authority.
+
+External release matching is fail-closed: the receiving component must carry an explicit localization `packPolicy`, and only `component-scoped` policy may match an external localization release. A `bundled-only` component cannot accept one even if unrelated release metadata appears valid.
 
 Structural descriptor validation is not cryptographic signature verification. Signature/provenance verification remains the responsibility of the authorized OrdaX release/update path before activation.
 
@@ -72,17 +74,19 @@ Notes          pt-BR en-US + optional zh-Hans
 Creator        pt-BR en-US
 ```
 
-A component with `bundled-only` pack policy cannot declare optional installable locales.
+A component with `bundled-only` pack policy cannot declare optional installable locales and cannot match an external localization release.
 
 ## Locale resolution and per-app overrides
 
 Resolution is deterministic and uses complete catalogs, never a partially mixed translation:
 
-1. if the component allows app override and the requested app locale is available, use it;
-2. otherwise use the compatible system locale when available;
+1. if the component allows app override and the requested app locale has an exact or compatible available match, use it;
+2. otherwise use an exact or compatible system locale when available;
 3. otherwise use the component source locale.
 
 Only bundled locales plus optional locales that are both declared **and installed** participate in availability.
+
+A compatible but non-exact language match is explicitly reported as degraded. For example, a request for `pt-PT` may resolve to available `pt-BR`; that remains an app-override or system match according to its source, but it is not reported as an exact locale match.
 
 If a user selected an optional app locale and later removes that pack, the app falls back to the current compatible system locale before falling back to its source locale. Missing translation resources are an availability/degraded-localization state, not an app-health or boot-health verdict.
 
@@ -108,7 +112,7 @@ A language pack belongs to one component version. It cannot silently override un
 - a new app can support a locale before the rest of the system does;
 - translation corrections can be released without forcing a boot-critical Base A/B update.
 
-The message-contract hash provides an additional compatibility boundary for external releases. A pack release is compatible only when its target, locale declaration, component version and expected message-contract hash all match.
+The message-contract hash provides an additional compatibility boundary for external releases. A pack release is compatible only when its target, declared optional locale, explicit component-scoped policy, component version and expected message-contract hash all match.
 
 ## Independent update model
 
@@ -183,7 +187,9 @@ Every publicly supported pack must prove:
 - placeholder parity;
 - no empty message strings;
 - deterministic whole-catalog fallback;
+- compatible non-exact matches are marked degraded;
 - optional locale is declared by its component;
+- external release matching requires explicit component-scoped policy;
 - release descriptor is authority-free;
 - content and release hashes are structurally valid;
 - rendered accessibility/status/error copy stays under the owning localization boundary.
