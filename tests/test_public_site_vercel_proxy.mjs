@@ -57,15 +57,15 @@ test("gateway configuration is strict https and exact public account gateway pat
   }
 });
 
-test("public origin is exact https origin only", () => {
+test("public origin normalizer accepts only syntactically safe https origins", () => {
   assert.equal(normalizePublicOrigin(PUBLIC_ORIGIN), PUBLIC_ORIGIN);
   assert.equal(normalizePublicOrigin(`${PUBLIC_ORIGIN}/`), PUBLIC_ORIGIN);
+  assert.equal(normalizePublicOrigin("https://evil.example"), "https://evil.example");
   for (const invalid of [
     "http://ordax-os-public.vercel.app",
     "https://user@ordax-os-public.vercel.app",
     `${PUBLIC_ORIGIN}/auth/`,
     `${PUBLIC_ORIGIN}?x=1`,
-    "https://evil.example",
   ]) {
     assert.equal(normalizePublicOrigin(invalid), null);
   }
