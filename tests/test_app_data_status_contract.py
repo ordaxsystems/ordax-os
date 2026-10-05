@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+import json
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+APP_DATA = ROOT / "docs" / "contracts" / "app-data.json"
+NATIVE = ROOT / "docs" / "contracts" / "native-app-data.json"
+BINDING = ROOT / "docs" / "contracts" / "native-app-data-binding.json"
+SDK = ROOT / "sdk" / "app-sdk-v1" / "bundle.json"
+
+
+class AppDataStatusContractTest(unittest.TestCase):
+    def setUp(self):
+        self.app_data = json.loads(APP_DATA.read_text(encoding="utf-8"))
+        self.native = json.loads(NATIVE.read_text(encoding="utf-8"))
+        self.binding = json.loads(BINDING.read_text(encoding="utf-8"))
+        self.sdk = json.loads(SDK.read_text(encoding="utf-8"))
+
+    def test_active_foundation_matches_binding_and_sdk(self):
+        expected = "trusted-first-party-port-injection-active"
+        self.assertEqual(self.app_data["status"], expected)
+        self.assertEqual(self.native["status"], expected)
+        self.assertEqual(self.binding["status"], expected)
+
+        implementation = self.app_data["implementation"]
+        self.assertTrue(implementation["native_host_route_implemented"])
+        self.assertTrue(implementation["verified_publisher_binding_implemented"])
+        self.assertTrue(implementation["published_in_app_sdk"])
+        self.assertEqual(implementation["published_app_sdk_bundle_version"], "1.6.0")
+        self.assertTrue(implementation["trusted_first_party_port_injection_active"])
+
+        self.assertEqual(self.sdk["bundle_version"], "1.6.0")
+        schemas = {entry["schema"] for entry in self.sdk["contracts"]}
+        self.assertIn("ordax.app-data/1", schemas)
+
+    def test_active_foundation_does_not_overclaim_product_lifecycle(self):
+        implementation = self.app_data["implementation"]
+        self.assertFalse(implementation["notes_migrated"])
+        self.assertFalse(implementation["independent_app_install_lifecycle_proven"])
+        self.assertFalse(implementation["third_party_enabled"])
+        self.assertFalse(implementation["production_enabled"])
+        self.assertEqual(
+            implementation["production_scope"],
+            "trusted-first-party-native-composition-only",
+        )
+
+        transport = self.native["transport_foundation"]
+        self.assertTrue(transport["host_route_wired"])
+        self.assertTrue(transport["publisher_binding_from_verified_install_owner"])
+        self.assertTrue(transport["trusted_composition_receives_opaque_bound_endpoint"])
+        self.assertTrue(transport["port_injection_to_first_party_component_context"])
+        self.assertFalse(transport["app_receives_opaque_bound_endpoint"])
+        self.assertFalse(self.native["lifecycle"]["legacy_notes_migrated"])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -16,6 +16,8 @@ from native_app_data import (
     DEFAULT_APP_DATA_MAX_KEYS,
     DEFAULT_APP_DATA_QUOTA_BYTES,
     DEFAULT_APP_DATA_ROOT,
+    MAX_APP_DATA_PARTITION_BYTES,
+    MAX_APP_DATA_PARTITION_KEYS,
 )
 from native_app_data_endpoint import handle_app_data_request
 from native_app_install_identity import (
@@ -26,6 +28,27 @@ from native_app_install_identity import (
 APP_DATA_ENDPOINT_PREFIX = "/__ordax/native/app-data/"
 DEFAULT_MAX_APP_DATA_BINDINGS = 64
 _CAPABILITY_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
+
+# Quota is an owner-side policy derived only after install provenance has been
+# verified. App/package metadata and request bodies cannot widen these limits.
+_TRUSTED_FIRST_PARTY_LIMITS = {
+    ("ordax-official", "notes", "device"): (
+        MAX_APP_DATA_PARTITION_BYTES,
+        2048,
+    ),
+}
+
+
+def _storage_limits_for_verified_identity(identity: dict) -> tuple[int, int]:
+    key = (
+        identity["publisherId"],
+        identity["appId"],
+        identity["ownerScope"],
+    )
+    return _TRUSTED_FIRST_PARTY_LIMITS.get(
+        key,
+        (DEFAULT_APP_DATA_QUOTA_BYTES, DEFAULT_APP_DATA_MAX_KEYS),
+    )
 
 
 class NativeAppDataBindingError(RuntimeError):
@@ -47,6 +70,8 @@ class NativeAppDataBinding:
     publisher_id: str
     app_id: str
     owner_scope: str
+    quota_bytes: int
+    max_keys: int
 
     @property
     def endpoint(self) -> str:
@@ -180,12 +205,15 @@ class NativeAppDataBindingRegistry:
 
                 identity = verified.app_data_identity()
                 capability = self._new_capability_locked(reserved_endpoints)
+                quota_bytes, max_keys = _storage_limits_for_verified_identity(identity)
                 binding = NativeAppDataBinding(
                     capability=capability,
                     receipt_sha256=verified.receipt_sha256,
                     publisher_id=identity["publisherId"],
                     app_id=identity["appId"],
                     owner_scope=identity["ownerScope"],
+                    quota_bytes=quota_bytes,
+                    max_keys=max_keys,
                 )
                 reserved_endpoints.add(binding.endpoint)
                 planned.append((key, binding, previous.endpoint if previous is not None else None))
@@ -232,10 +260,20 @@ def handle_bound_app_data_request(
     binding = registry.resolve(endpoint)
     if binding is None:
         raise NativeAppDataBindingNotFoundError("Native App Data capability is unknown")
+    effective_quota_bytes = (
+        binding.quota_bytes
+        if quota_bytes == DEFAULT_APP_DATA_QUOTA_BYTES
+        else quota_bytes
+    )
+    effective_max_keys = (
+        binding.max_keys
+        if max_keys == DEFAULT_APP_DATA_MAX_KEYS
+        else max_keys
+    )
     return handle_app_data_request(
         body,
         identity=binding.app_data_identity(),
         root=root,
-        quota_bytes=quota_bytes,
-        max_keys=max_keys,
+        quota_bytes=effective_quota_bytes,
+        max_keys=effective_max_keys,
     )

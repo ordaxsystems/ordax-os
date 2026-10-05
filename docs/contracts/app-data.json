@@ -1,11 +1,15 @@
 {
   "$schema": "prototype-ordax.app-data-foundation/1",
   "public_contract": "ordax.app-data/1",
-  "status": "native-owner-foundation",
+  "status": "trusted-first-party-port-injection-active",
   "purpose": "device-local private durable-state boundary for independently delivered apps",
   "identity": {
     "bound_by_runtime": true,
-    "fields": ["publisherId", "appId", "ownerScope"],
+    "fields": [
+      "publisherId",
+      "appId",
+      "ownerScope"
+    ],
     "owner_scope_v1": "device",
     "app_may_retarget_identity_per_operation": false,
     "publisher_and_app_id_both_partition_data": true,
@@ -18,7 +22,12 @@
   },
   "runtime_port": {
     "is_bounded_operational_capability": true,
-    "operations": ["get", "list", "put", "delete"],
+    "operations": [
+      "get",
+      "list",
+      "put",
+      "delete"
+    ],
     "mutation_concurrency": "partition-wide-compare-and-swap",
     "opaque_value_type": "bytes",
     "physical_path_exposed": false,
@@ -34,7 +43,15 @@
     "store_configuration_required": true,
     "hard_bounds_are_protocol_safety_ceilings_not_plan_entitlements": true,
     "default_native_store_bytes": 8388608,
-    "default_native_store_keys": 1024
+    "default_native_store_keys": 1024,
+    "verified_first_party_overrides": {
+      "ordax-official/notes": {
+        "bytes": 67108864,
+        "keys": 2048,
+        "source": "trusted-host-policy",
+        "self_assertable_by_app": false
+      }
+    }
   },
   "separation": {
     "app_data_is_memory": false,
@@ -64,10 +81,15 @@
     "native_owner_implemented": true,
     "native_endpoint_helper_implemented": true,
     "async_native_adapter_implemented": true,
-    "native_host_route_implemented": false,
-    "verified_publisher_binding_implemented": false,
-    "published_in_app_sdk": false,
+    "native_host_route_implemented": true,
+    "verified_publisher_binding_implemented": true,
+    "published_in_app_sdk": true,
     "notes_migrated": false,
-    "production_enabled": false
+    "production_enabled": false,
+    "published_app_sdk_bundle_version": "1.6.0",
+    "trusted_first_party_port_injection_active": true,
+    "independent_app_install_lifecycle_proven": false,
+    "third_party_enabled": false,
+    "production_scope": "trusted-first-party-native-composition-only"
   }
 }

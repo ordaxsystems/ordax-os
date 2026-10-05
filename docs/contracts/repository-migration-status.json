@@ -1,0 +1,36 @@
+{
+  "$schema": "prototype-ordax.repository-migration-status/1",
+  "status": "cutover-mostly-complete-production-proof-pending",
+  "canonical_repositories": {
+    "platform": "washingtonmsdj/prototipo-ordax-os",
+    "apps": "washingtonmsdj/ordax-apps",
+    "runtime": "washingtonmsdj/ordax-runtime",
+    "control_plane": "washingtonmsdj/ordax-control-plane"
+  },
+  "legacy_repository": "washingtonmsdj/mcp-blender",
+  "gates": {
+    "studio_portable_canonical_in_ordax_apps": true,
+    "studio_version_authority_in_ordax_apps": true,
+    "runtime_canonical_in_ordax_runtime": true,
+    "runtime_windows_build_repointed": true,
+    "control_plane_canonical_in_ordax_control_plane": true,
+    "provider_connector_repointed": true,
+    "production_deploy_repointed": false,
+    "windows_packaging_repointed": true,
+    "chatgpt_control_plane_runtime_e2e_green": true,
+    "no_functional_legacy_build_deploy_launch_reference": false,
+    "safe_to_delete_legacy_repository": false
+  },
+  "deletion_rule": "safe_to_delete_legacy_repository may become true only when every prerequisite gate is true",
+  "authority": "none",
+  "evidence": {
+    "ordax_apps_main": "d16977092dbce6ce6e1be35132789e16586c0d67",
+    "ordax_runtime_main": "a205c3271adab3ff6f0b359be94cf5424db3c4c8",
+    "ordax_control_plane_main": "56db2f32fde92938314a03081d560afdc8bed668",
+    "runtime_contract_ci": "PASS",
+    "product_mcp_source_present_in_control_plane": true,
+    "live_plugin_surface_revision": "2026-10-05.1",
+    "computer_windows_e2e_request_id": "8746c465-0ccb-4fd5-8ff8-00701ba467a7",
+    "computer_windows_e2e_status": "succeeded"
+  }
+}
