@@ -35,11 +35,14 @@ its speakers. PT-BR remains fully supported as the source language throughout.
 
 ## Current implementation status
 
-The shared Surface now owns a provider-neutral localization runtime
-(`ordax.localization/1`) driven directly by the persisted `regional.locale`
-preference. PT-BR remains the source catalog. The shared desktop shell, launcher,
-window chrome, workspace labels, connectivity copy, first-party app titles and
-fallback panel metadata have explicit English catalog entries.
+The shared Surface owns a provider-neutral localization runtime
+(`ordax.localization/2`) driven directly by the persisted `regional.locale`
+preference. Locale metadata is represented by `ordax.locale-profile/1`, so locale,
+language, script, region and writing direction come from one canonical profile
+instead of being inferred independently by UI surfaces. PT-BR remains the source
+catalog. The shared desktop shell, launcher, window chrome, workspace labels,
+connectivity copy, first-party app titles and fallback panel metadata have explicit
+English catalog entries.
 
 `en-US` is now a complete Surface locale for the public MVP. Files covers
 navigation, search, locale-aware sorting, listing, selection, deep create/copy/move/
@@ -96,7 +99,7 @@ Translations belong to shared product owners, never platform forks:
 
 ```text
 shared message identity/catalog
- -> locale selection
+ -> locale profile and locale selection
  -> Surface/apps/services
  -> Web/Mobile/Desktop/USB/Native adapters only where platform formatting differs
 ```
@@ -109,6 +112,30 @@ change a Brazilian physical keyboard, and choosing German/French does not
 invent an unproven XKB layout. Physical keyboard support remains governed by
 `docs/contracts/keyboard-layout.json`.
 
+## Direction and RTL
+
+Writing direction is part of the canonical locale profile. Surfaces consume the
+profile and synchronize both document `lang` and `dir`; they do not maintain a
+second hardcoded list of RTL languages. Explicit script subtags take precedence
+over a language default, so a locale such as `az-Arab-AZ` is RTL while
+`az-Latn-AZ` is LTR.
+
+Layout CSS must use logical properties for directional spacing, borders and
+alignment wherever direction matters (`inline-start`, `inline-end`, `text-align:
+start`, and equivalent logical declarations). Direction changes presentation only:
+they never change action ids, permissions, capabilities or update authority.
+
+## Engineering pseudo-locales
+
+`en-XA` and `ar-XB` are engineering-only pseudo-locales used to expose clipping,
+expansion, bidi and direction defects before a real locale is launched. They are
+not public selector options, are not persisted as user product preferences and are
+not release-catalog locales.
+
+Pseudo-localization is deterministic, expands visible copy, preserves interpolation
+placeholder identity exactly and isolates RTL test output. The canonical machine-
+readable rules live in `docs/contracts/localization.json`.
+
 ## Component-scoped app locales
 
 The system locale is the default for first-party apps, but localization availability is component-scoped. A component may declare optional locales and may allow an explicit per-app locale override without advertising that locale as complete for the whole Surface.
@@ -117,4 +144,4 @@ Locale selection for an app is deterministic: compatible explicit app override, 
 
 Translation content and release authority are separate contracts. `prototype-ordax.localization-pack/1` contains the component-owned message catalog; `prototype-ordax.localization-pack-release/1` is an authority-free signed release descriptor used by the authorized update path. A language-pack release cannot declare permissions, capabilities, an entrypoint or executable payload.
 
-Detailed architecture and security rules: `docs/LOCALIZATION-PACKS.md`. Machine-readable policy: `docs/contracts/localization-packs.json`.
+Detailed language-pack architecture and security rules: `docs/LOCALIZATION-PACKS.md`. Machine-readable policies: `docs/contracts/localization.json` and `docs/contracts/localization-packs.json`.
