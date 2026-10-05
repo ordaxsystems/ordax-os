@@ -27,10 +27,10 @@ class SupabaseSecurityPostureTests(unittest.TestCase):
     def setUp(self):
         self.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
 
-    def test_external_security_warnings_are_not_hidden_or_auto_silenced(self):
+    def test_external_security_findings_are_not_hidden_or_auto_silenced(self):
         self.assertEqual(
             self.contract["status"],
-            "reviewed-warnings-present-public-rollout-blocked",
+            "reviewed-advisor-posture-public-rollout-blocked",
         )
         self.assertFalse(self.contract["public_account_activation_allowed"])
         self.assertFalse(self.contract["automatic_advisor_silencing_allowed"])
@@ -40,10 +40,29 @@ class SupabaseSecurityPostureTests(unittest.TestCase):
         self.assertFalse(self.contract["blanket_security_definer_execute_revoke_allowed"])
 
         advisor = self.contract["advisor"]
-        self.assertEqual(advisor["rls_enabled_no_policy"]["level"], "INFO")
-        self.assertEqual(advisor["rls_enabled_no_policy"]["count"], 72)
-        self.assertFalse(advisor["rls_enabled_no_policy"]["review_complete"])
-        self.assertFalse(advisor["rls_enabled_no_policy"]["auto_fix_allowed"])
+        rls = advisor["rls_enabled_no_policy"]
+        self.assertEqual(rls["level"], "INFO")
+        self.assertEqual(rls["count"], 72)
+        self.assertEqual(
+            rls["classification"],
+            "reviewed-client-deny-by-default-no-api-role-grants",
+        )
+        self.assertTrue(rls["review_complete"])
+        self.assertFalse(rls["auto_fix_allowed"])
+        self.assertEqual(rls["schema_counts"], {"private": 12, "public": 60})
+        self.assertEqual(
+            rls["direct_data_privilege_table_counts"],
+            {
+                "public_pseudorole": 0,
+                "anon": 0,
+                "authenticated": 0,
+                "service_role": 59,
+            },
+        )
+        self.assertEqual(rls["tables_without_service_role_data_privilege"], 13)
+        self.assertFalse(rls["client_policy_required_for_current_access_model"])
+        self.assertTrue(rls["service_role_bypasses_rls"])
+        self.assertTrue(rls["permissive_policy_would_not_harden_service_role"])
 
         definers = advisor["authenticated_security_definer_function_executable"]
         self.assertEqual(definers["level"], "WARN")
@@ -169,16 +188,14 @@ class SupabaseSecurityPostureTests(unittest.TestCase):
         self.assertFalse(rate_limit["anon_execute"])
         self.assertTrue(rate_limit["service_role_execute"])
 
-    def test_security_definer_domain_review_is_complete_but_rollout_stays_blocked(self):
+    def test_advisor_domain_review_is_complete_but_rollout_stays_blocked(self):
         self.assertEqual(self.contract["pending_security_definer_domains"], {})
         gate = self.contract["activation_gate"]
         self.assertTrue(gate["advisor_external_warns_must_be_resolved_or_explicitly_reviewed"])
         self.assertTrue(gate["security_definer_review_complete"])
         self.assertEqual(gate["pending_security_definer_domain_count"], 0)
+        self.assertTrue(gate["rls_no_policy_review_complete"])
         self.assertTrue(gate["provider_leaked_password_setting_must_be_resolved"])
-        self.assertTrue(
-            gate["rls_info_findings_require_domain_classification_not_permissive_policies"]
-        )
         self.assertFalse(gate["current_public_activation"])
 
     def test_structured_contract_explicitly_supersedes_stale_snapshot_key(self):
