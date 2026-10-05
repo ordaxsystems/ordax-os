@@ -4,6 +4,7 @@ import { createSameOriginIdentityCredentials } from "../../adapters/web/identity
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebNotesStore } from "../../adapters/web/notes.mjs";
+import { createWebAppDataStore } from "../../adapters/web/app-data.mjs";
 import { createWebBrowserSession } from "../../adapters/web/browser-session.mjs";
 import { createWebPreferenceStore } from "../../adapters/web/preferences.mjs";
 import { createWebSurfaceHost } from "../../adapters/web/runtime.mjs";
@@ -16,6 +17,7 @@ import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
+import { createBoundAppDataPort } from "../../services/app-data/runtime.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createPreferenceSyncRuntime } from "../../services/sync/preference-runtime.mjs";
 import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mjs";
@@ -83,6 +85,21 @@ const syncStateStore = createWebSyncStateStore(window);
 const syncCheckpointStore = createWebSyncCheckpointStore(window);
 const syncTransport = createWebSyncTransport(window);
 const appActivation = createAppActivationChannel();
+let notesAppData = null;
+try {
+  const notesAppDataStore = createWebAppDataStore({
+    windowRef: window,
+    quotaBytes: 64 * 1024 * 1024,
+    maxKeys: 2048,
+  });
+  notesAppData = createBoundAppDataPort({
+    store: notesAppDataStore,
+    appId: "notes",
+    publisherId: "ordax-official",
+  });
+} catch (error) {
+  console.warn("OrdaX Notes App Data unavailable on Web", error);
+}
 const componentManager = createComponentManager({
   manifests: listSystemComponents(),
 });
@@ -228,6 +245,7 @@ const notesComponent = await loadOptionalComponentRuntime({
   context: {
     root,
     createStore: () => createWebNotesStore(window),
+    appData: notesAppData,
     surfaceLifecycle: surface,
     appActivation,
   },
