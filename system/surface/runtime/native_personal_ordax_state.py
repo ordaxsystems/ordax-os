@@ -58,24 +58,50 @@ def _owner_stem(owner_kind: str, owner_id: str | None) -> str:
     return f"account-{digest}"
 
 
+def _state_name(owner_kind: str, owner_id: str | None) -> str:
+    return f"{_owner_stem(owner_kind, owner_id)}.json"
+
+
+def _lock_name(owner_kind: str, owner_id: str | None) -> str:
+    return f"{_owner_stem(owner_kind, owner_id)}.lock"
+
+
 def _state_path(root: str, owner_kind: str, owner_id: str | None) -> str:
-    return os.path.join(root, f"{_owner_stem(owner_kind, owner_id)}.json")
+    return os.path.join(root, _state_name(owner_kind, owner_id))
 
 
-def _lock_path(root: str, owner_kind: str, owner_id: str | None) -> str:
-    return os.path.join(root, f"{_owner_stem(owner_kind, owner_id)}.lock")
-
-
-def _ensure_private_root(root: str) -> None:
-    try:
-        metadata = os.lstat(root)
-    except FileNotFoundError:
-        os.makedirs(root, mode=0o700, exist_ok=False)
-        metadata = os.lstat(root)
-    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
-        raise ValueError("Personal OrdaX Native state root is unsafe")
+def _assert_private_metadata(metadata: os.stat_result, label: str, *, directory: bool) -> None:
+    expected_type = stat.S_ISDIR if directory else stat.S_ISREG
+    if not expected_type(metadata.st_mode):
+        raise ValueError(f"Personal OrdaX Native {label} has unsafe type")
     if stat.S_IMODE(metadata.st_mode) & 0o077:
-        raise ValueError("Personal OrdaX Native state root permissions are not private")
+        raise ValueError(f"Personal OrdaX Native {label} permissions are not private")
+    if hasattr(os, "geteuid") and metadata.st_uid != os.geteuid():
+        raise ValueError(f"Personal OrdaX Native {label} ownership is unsafe")
+
+
+def _ensure_root_exists(root: str) -> None:
+    try:
+        os.mkdir(root, mode=0o700)
+    except FileExistsError:
+        pass
+
+
+def _open_private_root(root: str) -> int:
+    _ensure_root_exists(root)
+    descriptor = os.open(
+        root,
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0),
+    )
+    try:
+        _assert_private_metadata(os.fstat(descriptor), "state root", directory=True)
+        return descriptor
+    except Exception:
+        os.close(descriptor)
+        raise
 
 
 def _bounded_array(state: dict, key: str, maximum: int) -> list:
@@ -171,31 +197,35 @@ def _validate_record(value: object, owner_kind: str, owner_id: str | None) -> di
     }
 
 
-def _validate_existing_target(path: str) -> None:
+def _validate_existing_target(root_fd: int, name: str) -> None:
     try:
-        metadata = os.lstat(path)
+        metadata = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
     except FileNotFoundError:
         return
-    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-        raise ValueError("Personal OrdaX Native state target is unsafe")
-    if stat.S_IMODE(metadata.st_mode) & 0o077:
-        raise ValueError("Personal OrdaX Native state target permissions are not private")
+    _assert_private_metadata(metadata, "state target", directory=False)
     if metadata.st_size > MAX_PERSONAL_RECORD_BYTES:
         raise ValueError("Personal OrdaX Native state target exceeds byte limit")
 
 
-def _read_unlocked(path: str, owner_kind: str, owner_id: str | None) -> dict | None:
-    _validate_existing_target(path)
+def _read_unlocked(
+    root_fd: int,
+    name: str,
+    owner_kind: str,
+    owner_id: str | None,
+) -> dict | None:
+    _validate_existing_target(root_fd, name)
     try:
         descriptor = os.open(
-            path,
+            name,
             os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=root_fd,
         )
     except FileNotFoundError:
         return None
     try:
         metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_PERSONAL_RECORD_BYTES:
+        _assert_private_metadata(metadata, "opened state target", directory=False)
+        if metadata.st_size > MAX_PERSONAL_RECORD_BYTES:
             raise ValueError("Personal OrdaX Native state changed to an unsafe file")
         chunks: list[bytes] = []
         remaining = MAX_PERSONAL_RECORD_BYTES + 1
@@ -217,22 +247,15 @@ def _read_unlocked(path: str, owner_kind: str, owner_id: str | None) -> dict | N
     return _validate_record(value, owner_kind, owner_id)
 
 
-def _write_unlocked(record: dict, path: str, root: str) -> None:
+def _write_unlocked(record: dict, root_fd: int, name: str) -> None:
     encoded = (
         json.dumps(record, separators=(",", ":"), sort_keys=True, ensure_ascii=False, allow_nan=False)
         + "\n"
     ).encode("utf-8")
     if len(encoded) > MAX_PERSONAL_RECORD_BYTES:
         raise ValueError("Personal OrdaX Native record exceeds byte limit")
-    _validate_existing_target(path)
-    directory_fd = os.open(
-        root,
-        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0),
-    )
-    temporary = os.path.join(
-        root,
-        f".{os.path.basename(path)}.tmp.{os.getpid()}.{threading.get_ident()}.{secrets.token_hex(4)}",
-    )
+    _validate_existing_target(root_fd, name)
+    temporary = f".{name}.tmp.{os.getpid()}.{threading.get_ident()}.{secrets.token_hex(4)}"
     descriptor = -1
     try:
         descriptor = os.open(
@@ -240,7 +263,10 @@ def _write_unlocked(record: dict, path: str, root: str) -> None:
             os.O_WRONLY | os.O_CREAT | os.O_EXCL
             | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
             0o600,
+            dir_fd=root_fd,
         )
+        metadata = os.fstat(descriptor)
+        _assert_private_metadata(metadata, "temporary state target", directory=False)
         offset = 0
         while offset < len(encoded):
             written = os.write(descriptor, encoded[offset:])
@@ -250,41 +276,43 @@ def _write_unlocked(record: dict, path: str, root: str) -> None:
         os.fsync(descriptor)
         os.close(descriptor)
         descriptor = -1
-        os.replace(temporary, path)
-        os.chmod(path, 0o600, follow_symlinks=False)
-        os.fsync(directory_fd)
+        os.replace(temporary, name, src_dir_fd=root_fd, dst_dir_fd=root_fd)
+        os.chmod(name, 0o600, dir_fd=root_fd, follow_symlinks=False)
+        _validate_existing_target(root_fd, name)
+        os.fsync(root_fd)
     except Exception:
         if descriptor >= 0:
             os.close(descriptor)
         try:
-            os.unlink(temporary)
+            os.unlink(temporary, dir_fd=root_fd)
         except FileNotFoundError:
             pass
         raise
-    finally:
-        os.close(directory_fd)
 
 
 @contextmanager
 def _partition_lock(root: str, owner_kind: str, owner_id: str | None, *, exclusive: bool):
-    _ensure_private_root(root)
-    lock_path = _lock_path(root, owner_kind, owner_id)
-    descriptor = os.open(
-        lock_path,
-        os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
-        0o600,
-    )
+    root_fd = _open_private_root(root)
+    lock_name = _lock_name(owner_kind, owner_id)
+    descriptor = -1
     try:
+        descriptor = os.open(
+            lock_name,
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+            dir_fd=root_fd,
+        )
         metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) & 0o077:
-            raise ValueError("Personal OrdaX Native state lock is unsafe")
+        _assert_private_metadata(metadata, "state lock", directory=False)
         fcntl.flock(descriptor, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
-        yield
+        yield root_fd
     finally:
-        try:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
-        finally:
-            os.close(descriptor)
+        if descriptor >= 0:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+        os.close(root_fd)
 
 
 def read_personal_ordax_record(
@@ -293,10 +321,10 @@ def read_personal_ordax_record(
     root: str = DEFAULT_PERSONAL_ORDAX_STATE_ROOT,
 ) -> dict | None:
     owner_kind, owner_id = normalize_owner(owner_kind, owner_id)
-    path = _state_path(root, owner_kind, owner_id)
+    name = _state_name(owner_kind, owner_id)
     with _STATE_LOCK:
-        with _partition_lock(root, owner_kind, owner_id, exclusive=False):
-            return _read_unlocked(path, owner_kind, owner_id)
+        with _partition_lock(root, owner_kind, owner_id, exclusive=False) as root_fd:
+            return _read_unlocked(root_fd, name, owner_kind, owner_id)
 
 
 def compare_and_swap_personal_ordax_payload(
@@ -315,10 +343,10 @@ def compare_and_swap_personal_ordax_payload(
     ):
         raise ValueError("Personal OrdaX expected revision is invalid")
     payload = validate_personal_payload(payload, owner_kind, owner_id)
-    path = _state_path(root, owner_kind, owner_id)
+    name = _state_name(owner_kind, owner_id)
     with _STATE_LOCK:
-        with _partition_lock(root, owner_kind, owner_id, exclusive=True):
-            current = _read_unlocked(path, owner_kind, owner_id)
+        with _partition_lock(root, owner_kind, owner_id, exclusive=True) as root_fd:
+            current = _read_unlocked(root_fd, name, owner_kind, owner_id)
             current_revision = 0 if current is None else current["revision"]
             if current_revision != expected_revision:
                 return None
@@ -329,5 +357,5 @@ def compare_and_swap_personal_ordax_payload(
                 "ownerId": owner_id,
                 "payload": payload,
             }
-            _write_unlocked(record, path, root)
+            _write_unlocked(record, root_fd, name)
             return record
