@@ -3,6 +3,7 @@ import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lif
 import { NOTES_VERSION } from "./version.mjs";
 import { createNotesRuntime } from "./domain/runtime.mjs";
 import { mountNotesWorkspaceControls } from "./ui/workspace-controls.mjs";
+import { createNotesAppDataStore } from "./platform/app-data-store.mjs";
 
 const NOTES_STYLESHEET_URL = new URL("./notes.css", import.meta.url).href;
 const NOTES_STYLE_SELECTOR = 'link[data-ordax-component-style="notes"]';
@@ -63,6 +64,7 @@ export const componentRuntime = Object.freeze({
   async mount({
     root,
     createStore = null,
+    appData = null,
     surfaceLifecycle,
     fileSpace = null,
     appActivation = null,
@@ -87,7 +89,15 @@ export const componentRuntime = Object.freeze({
     };
 
     try {
-      const store = createStore?.() ?? null;
+      const store = appData === null
+        ? (createStore?.() ?? null)
+        : await createNotesAppDataStore(appData, {
+          // The legacy store is read only when App Data has no committed
+          // manifest. It is never used as a concurrent writer.
+          seedSnapshot: createStore === null
+            ? null
+            : () => createStore()?.load() ?? null,
+        });
       notesRuntime = createNotesRuntime({ store });
       controls = mountNotesWorkspaceControls(
         root,
