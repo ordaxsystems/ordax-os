@@ -49,6 +49,34 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertIn("proxy_set_header X-OrdaX-Public-Site 1;", self.nginx)
         self.assertFalse(self.contract["routing"]["gateway_public_activation_currently_enabled"])
 
+    def test_public_surface_enforces_transport_and_cross_origin_isolation(self):
+        expected = {
+            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp",
+            "Cross-Origin-Resource-Policy": "same-origin",
+            "Origin-Agent-Cluster": "?1",
+            "X-Permitted-Cross-Domain-Policies": "none",
+        }
+        contract_headers = self.contract["security_headers"]
+        vercel_headers = {
+            item["key"]: item["value"]
+            for rule in self.vercel["headers"]
+            if rule["source"] == "/(.*)"
+            for item in rule["headers"]
+        }
+        for name, value in expected.items():
+            self.assertEqual(contract_headers[name], value)
+            self.assertEqual(vercel_headers[name], value)
+            self.assertIn(f'add_header {name} "{value}" always;', self.nginx)
+        self.assertIn("upgrade-insecure-requests", contract_headers["Content-Security-Policy"])
+        self.assertIn("upgrade-insecure-requests", vercel_headers["Content-Security-Policy"])
+        requirements = self.contract["production_requirements"]
+        self.assertTrue(requirements["hsts_required"])
+        self.assertTrue(requirements["cross_origin_process_isolation_required"])
+        self.assertTrue(requirements["origin_agent_cluster_required"])
+        self.assertTrue(requirements["legacy_cross_domain_policy_disabled"])
+
     def test_host_neutral_adapter_keeps_rate_limits_as_defense_in_depth(self):
         self.assertIn("ordax_auth_credentials:10m rate=10r/m", self.nginx)
         self.assertIn("ordax_auth_recovery_request:10m rate=3r/m", self.nginx)
