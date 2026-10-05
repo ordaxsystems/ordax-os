@@ -21,6 +21,17 @@
     "signature",
     "update_policy"
   ],
+  "localization": {
+    "policy_contract": "docs/contracts/localization-packs.json",
+    "component_metadata_required": true,
+    "content_pack_schema": "prototype-ordax.localization-pack/1",
+    "release_descriptor_schema": "prototype-ordax.localization-pack-release/1",
+    "external_pack_may_add_component_only_locale": true,
+    "external_pack_may_update_independently": true,
+    "external_pack_may_not_add_permissions_or_capabilities": true,
+    "external_pack_activation_uses_authorized_update_path": true,
+    "store_is_not_a_second_updater": true
+  },
   "security": {
     "unsigned_third_party_install_allowed": false,
     "profile_pack_may_bypass_package_verification": false,
