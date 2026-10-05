@@ -5,6 +5,7 @@ from pathlib import Path
 import stat
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "system" / "surface" / "runtime" / "native_personal_ordax_state.py"
@@ -77,6 +78,9 @@ class NativePersonalOrdaxStateTests(unittest.TestCase):
             state_path = next(path for path in files if path.suffix == ".json")
             self.assertEqual(stat.S_IMODE(os.stat(state_path).st_mode), 0o600)
             self.assertEqual(stat.S_IMODE(os.stat(root).st_mode), 0o700)
+            if hasattr(os, "geteuid"):
+                self.assertEqual(os.stat(state_path).st_uid, os.geteuid())
+                self.assertEqual(os.stat(root).st_uid, os.geteuid())
 
     def test_cas_rejects_stale_writer_and_partitions_device_from_accounts(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -150,9 +154,41 @@ class NativePersonalOrdaxStateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "permissions"):
                 state_owner.read_personal_ordax_record("device", None, str(root))
 
-    def test_source_uses_private_atomic_primitives(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            actual = directory / "actual"
+            actual.mkdir(mode=0o700)
+            root = directory / "personal"
+            root.symlink_to(actual, target_is_directory=True)
+            with self.assertRaises((OSError, ValueError)):
+                state_owner.read_personal_ordax_record("device", None, str(root))
+
+    @unittest.skipUnless(hasattr(os, "geteuid"), "POSIX ownership semantics required")
+    def test_foreign_root_ownership_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "personal"
+            root.mkdir(mode=0o700)
+            real_fstat = os.fstat
+
+            def foreign_root(descriptor):
+                metadata = real_fstat(descriptor)
+                if stat.S_ISDIR(metadata.st_mode):
+                    values = list(metadata)
+                    values[4] = os.geteuid() + 1
+                    return os.stat_result(values)
+                return metadata
+
+            with mock.patch.object(state_owner.os, "fstat", side_effect=foreign_root):
+                with self.assertRaisesRegex(ValueError, "ownership"):
+                    state_owner.read_personal_ordax_record("device", None, str(root))
+
+    def test_source_uses_fd_anchored_private_atomic_primitives(self):
         source = MODULE.read_text(encoding="utf-8")
-        for marker in ("O_NOFOLLOW", "fcntl.flock", "os.fsync", "os.replace", "0o600", "0o700"):
+        for marker in (
+            "O_NOFOLLOW", "O_DIRECTORY", "fcntl.flock", "os.fsync", "os.replace",
+            "dir_fd=root_fd", "src_dir_fd=root_fd", "dst_dir_fd=root_fd", "0o600", "0o700",
+            "os.geteuid", "os.fstat",
+        ):
             self.assertIn(marker, source)
         self.assertNotIn("localStorage", source)
 
