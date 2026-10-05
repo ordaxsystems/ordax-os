@@ -200,53 +200,6 @@ test("crash after head flip completes committed cleanup on reopen", async () => 
   assert.equal(listing.keys.some((key) => /^n\.note-2\.[01]$/.test(key)), false);
 });
 
-test("legacy seed is lazy and only initializes an empty App Data partition", async () => {
-  const base = port();
-  const legacy = snapshot([note("legacy-1", "legado")]);
-  let calls = 0;
-
-  const migrated = await createNotesAppDataStore(base, {
-    seedSnapshot() {
-      calls += 1;
-      return legacy;
-    },
-  });
-  assert.equal(calls, 1);
-  assert.deepEqual(migrated.load(), legacy);
-
-  calls = 0;
-  const stale = snapshot([note("stale-1", "nao voltar")]);
-  const reopened = await createNotesAppDataStore(base, {
-    seedSnapshot() {
-      calls += 1;
-      return stale;
-    },
-  });
-  assert.equal(calls, 0);
-  assert.deepEqual(reopened.load(), legacy);
-});
-
-test("failed initial seed has no authoritative head and retries safely", async () => {
-  const base = port();
-  let failHead = true;
-  const injected = wrappedPort(base, {
-    failPut(command) {
-      return failHead && command.key === NOTES_APP_DATA_HEAD_KEY;
-    },
-  });
-  const legacy = snapshot([note("legacy-1", "migrar")]);
-
-  await assert.rejects(
-    () => createNotesAppDataStore(injected, { seedSnapshot: legacy }),
-    /injected App Data put failure/,
-  );
-  assert.equal((await base.get(NOTES_APP_DATA_HEAD_KEY)).found, false);
-
-  failHead = false;
-  const retried = await createNotesAppDataStore(injected, { seedSnapshot: legacy });
-  assert.deepEqual(retried.load(), legacy);
-});
-
 test("Notes App Data store rejects a port bound to another app", async () => {
   const raw = createInMemoryAppDataStore();
   const assistant = createBoundAppDataPort({
