@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  MAX_APP_DATA_PARTITION_BYTES,
+  MAX_APP_DATA_VALUE_BYTES,
+} from "../system/contracts/app-data.mjs";
+import {
   MAX_NOTES_APP_DATA_KEYS,
+  MAX_NOTES_APP_DATA_SNAPSHOT_BYTES,
+  MAX_NOTES_APP_DATA_TRANSITION_BYTES,
   NOTES_APP_DATA_HEAD_KEY,
   createInitialNotesAppDataLayout,
   decodeNotesAppDataId,
@@ -49,6 +55,30 @@ function snapshot({ title = "One", body = "alpha", second = false, selectedNoteI
   };
 }
 
+function richSnapshot(blockCount, { wide = false } = {}) {
+  const base = snapshot();
+  const prefix = "https://example.com/";
+  const fill = wide ? "é" : "a";
+  const href = prefix + fill.repeat(4096 - prefix.length);
+  const blocks = Array.from({ length: blockCount }, () => ({
+    type: "paragraph",
+    text: "x",
+    marks: Array.from({ length: 64 }, () => ({
+      type: "link",
+      start: 0,
+      end: 1,
+      href,
+    })),
+  }));
+  const body = blocks.map(({ text }) => text).join("\n");
+  base.notes[0] = {
+    ...base.notes[0],
+    body,
+    richBody: { blocks },
+  };
+  return base;
+}
+
 function materialize(layout) {
   return new Map(layout.stagedWrites.map(({ key, value }) => [key, value]));
 }
@@ -65,18 +95,41 @@ test("initial layout writes slot zero records and reconstructs exact snapshot", 
   const initial = createInitialNotesAppDataLayout(snapshot({ second: true }));
   assert.equal(initial.headWrite.key, NOTES_APP_DATA_HEAD_KEY);
   assert.deepEqual(initial.head.projects, [{ id: "p:1", slot: 0 }]);
-  assert.deepEqual(initial.head.notes, [{ id: "n:1", slot: 0 }, { id: "n:2", slot: 0 }]);
+  assert.deepEqual(initial.head.notes, [
+    { id: "n:1", slot: 0, chunks: 1 },
+    { id: "n:2", slot: 0, chunks: 1 },
+  ]);
   const rebuilt = reconstructNotesSnapshotFromAppData(initial.head, materialize(initial));
   assert.deepEqual(rebuilt, initial.snapshot);
 });
 
-test("single-note edit stages only inactive note slot and head is commit point", () => {
+test("valid note larger than one App Data value is chunked and reconstructs exactly", () => {
+  const initial = createInitialNotesAppDataLayout(richSnapshot(5));
+  assert.ok(initial.head.notes[0].chunks > 1);
+  const noteWrites = initial.stagedWrites.filter(({ key }) => key.startsWith("n."));
+  assert.equal(noteWrites.length, initial.head.notes[0].chunks);
+  assert.ok(noteWrites.every(({ value }) => value.byteLength <= MAX_APP_DATA_VALUE_BYTES));
+  assert.deepEqual(
+    reconstructNotesSnapshotFromAppData(initial.head, materialize(initial)),
+    initial.snapshot,
+  );
+});
+
+test("snapshot beyond finite App Data capacity fails explicitly instead of truncating", () => {
+  const oversized = richSnapshot(50, { wide: true });
+  assert.throws(
+    () => createInitialNotesAppDataLayout(oversized),
+    /snapshot exceeds App Data storage capacity/,
+  );
+});
+
+test("single-note edit stages only inactive note chunks and head is commit point", () => {
   const initial = createInitialNotesAppDataLayout(snapshot());
   const values = materialize(initial);
   const next = snapshot({ title: "Changed", body: "alpha changed" });
   const plan = planNotesAppDataTransition(initial.head, initial.snapshot, next);
   assert.equal(plan.stagedWrites.length, 1);
-  assert.match(plan.stagedWrites[0].key, /^n\..+\.1$/);
+  assert.match(plan.stagedWrites[0].key, /^n\..+\.1\.0$/);
   values.set(plan.stagedWrites[0].key, plan.stagedWrites[0].value);
   assert.deepEqual(reconstructNotesSnapshotFromAppData(initial.head, values), initial.snapshot);
   assert.deepEqual(reconstructNotesSnapshotFromAppData(plan.head, values), plan.snapshot);
@@ -107,7 +160,7 @@ test("repeated edits toggle between two bounded slots", () => {
     snapshot({ title: "Third", body: "c" }),
   );
   assert.equal(second.stagedWrites.length, 1);
-  assert.match(second.stagedWrites[0].key, /^n\..+\.0$/);
+  assert.match(second.stagedWrites[0].key, /^n\..+\.0\.0$/);
   for (const write of second.stagedWrites) values.set(write.key, write.value);
   assert.deepEqual(reconstructNotesSnapshotFromAppData(second.head, values), second.snapshot);
   const noteKeys = [...values.keys()].filter((key) => key.startsWith("n."));
@@ -129,14 +182,16 @@ test("no-op transition has no staged writes and unchanged head", () => {
   assert.equal(plan.headChanged, false);
 });
 
-test("missing active slot fails closed", () => {
+test("missing active note chunk fails closed", () => {
   const initial = createInitialNotesAppDataLayout(snapshot());
   const values = materialize(initial);
   values.delete([...values.keys()].find((key) => key.startsWith("n.")));
   assert.throws(() => reconstructNotesSnapshotFromAppData(initial.head, values));
 });
 
-test("bounded two-slot layout stays below App Data partition key ceiling", () => {
-  assert.equal(MAX_NOTES_APP_DATA_KEYS, 1153);
-  assert.ok(MAX_NOTES_APP_DATA_KEYS < 4096);
+test("chunked two-slot layout fits assigned Notes keys and App Data byte ceiling", () => {
+  assert.equal(MAX_NOTES_APP_DATA_SNAPSHOT_BYTES, 24 * 1024 * 1024);
+  assert.equal(MAX_NOTES_APP_DATA_KEYS, 1250);
+  assert.ok(MAX_NOTES_APP_DATA_KEYS < 2048);
+  assert.ok(MAX_NOTES_APP_DATA_TRANSITION_BYTES < MAX_APP_DATA_PARTITION_BYTES);
 });
