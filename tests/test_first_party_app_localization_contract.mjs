@@ -11,6 +11,8 @@ test("every first-party app declares an explicit component-scoped localization b
   for (const app of apps) {
     assert.equal(app.localization.sourceLocale, "pt-BR", `${app.id}: unexpected source locale`);
     assert.equal(app.localization.packPolicy, "component-scoped", `${app.id}: pack policy drifted`);
+    assert.equal(app.localization.allowAppOverride, true, `${app.id}: app locale override policy drifted`);
+    assert.deepEqual(app.localization.optionalLocales, [], `${app.id}: MVP must not advertise unshipped optional locales`);
     for (const locale of MVP_BASELINE) {
       assert.ok(
         app.localization.bundledLocales.includes(locale),
@@ -26,11 +28,11 @@ test("locale availability is app-scoped rather than a global equality invariant"
     ...apps[0],
     localization: {
       ...apps[0].localization,
-      bundledLocales: [...apps[0].localization.bundledLocales, "zh-Hans"],
+      optionalLocales: ["zh-Hans"],
     },
   };
-  assert.ok(hypothetical.localization.bundledLocales.includes("zh-Hans"));
+  assert.ok(hypothetical.localization.optionalLocales.includes("zh-Hans"));
   for (const app of apps.slice(1)) {
-    assert.equal(app.localization.bundledLocales.includes("zh-Hans"), false);
+    assert.equal(app.localization.optionalLocales.includes("zh-Hans"), false);
   }
 });
