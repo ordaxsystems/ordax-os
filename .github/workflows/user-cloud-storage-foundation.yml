@@ -1,0 +1,54 @@
+name: User Cloud Storage Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/user-cloud-storage.mjs'
+      - 'system/services/user-cloud-storage/**'
+      - 'system/contracts/service-quota.mjs'
+      - 'system/services/entitlements/quota.mjs'
+      - 'docs/contracts/user-cloud-storage.json'
+      - 'infra/supabase/product/migrations/*user_cloud_storage*'
+      - 'tests/test_user_cloud_storage.mjs'
+      - 'tests/test_user_cloud_storage_source.py'
+      - '.github/workflows/user-cloud-storage-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/user-cloud-storage.mjs'
+      - 'system/services/user-cloud-storage/**'
+      - 'system/contracts/service-quota.mjs'
+      - 'system/services/entitlements/quota.mjs'
+      - 'docs/contracts/user-cloud-storage.json'
+      - 'infra/supabase/product/migrations/*user_cloud_storage*'
+      - 'tests/test_user_cloud_storage.mjs'
+      - 'tests/test_user_cloud_storage_source.py'
+      - '.github/workflows/user-cloud-storage-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  user-cloud-storage-foundation:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate provider-neutral storage contracts
+        run: |
+          set -euo pipefail
+          node --check system/contracts/user-cloud-storage.mjs
+          node --check system/services/user-cloud-storage/policy.mjs
+          node --check tests/test_user_cloud_storage.mjs
+          node --test tests/test_service_quota.mjs tests/test_user_cloud_storage.mjs
+          python -m unittest tests.test_user_cloud_storage_source -v
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          contract = json.loads(Path('docs/contracts/user-cloud-storage.json').read_text(encoding='utf-8'))
+          assert contract['public_rollout_enabled'] is False
+          assert contract['quota_key'] == 'storage.user.bytes'
+          assert contract['database_boundary']['service_role_direct_private_authority_allowed'] is False
+          PY
