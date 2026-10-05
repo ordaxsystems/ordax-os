@@ -20,18 +20,29 @@
     "silent_delete_on_downgrade_allowed": false,
     "provider_or_service_secret_in_client_allowed": false
   },
+  "ownership": {
+    "exactly_one_subject_required": true,
+    "account_owned_object_uses_owner_user_id": true,
+    "space_owned_object_uses_space_id": true,
+    "space_object_uploader_is_owner": false,
+    "creator_identity_is_audit_not_authority": true,
+    "creator_identity_may_be_anonymized_after_account_delete": true,
+    "outstanding_reservation_requester_blocks_identity_delete_until_resolved": true
+  },
   "metadata_projection": {
     "service_object_may_join_private_provider_binding": true,
     "authenticated_public_table_is_sanitized_projection": true,
     "public_projection_contains_provider_bucket": false,
     "public_projection_contains_provider_object_key": false,
+    "public_projection_contains_owner_user_id": false,
+    "public_projection_contains_created_by_user_id": false,
     "provider_binding_relation": "private.ordax_user_object_bindings"
   },
   "lifecycle_safety": {
     "identity_delete_cascades_cloud_metadata": false,
     "space_delete_cascades_cloud_metadata": false,
-    "identity_delete_blocked_while_cleanup_references_exist": true,
-    "space_delete_blocked_while_cleanup_references_exist": true,
+    "identity_delete_blocked_while_owned_cleanup_references_exist": true,
+    "space_delete_blocked_while_owned_cleanup_references_exist": true,
     "provider_binding_may_cascade_only_after_logical_object_delete": true
   },
   "upload_protocol": {
@@ -74,7 +85,8 @@
     "finalization verifies exact reserved size and SHA-256 before activation",
     "negative cross-account and cross-Space tests pass",
     "large resumable upload path is bounded and tested",
-    "account-close cleanup copies provider bindings before deleting logical objects and releases identity/Space RESTRICT only after cleanup",
+    "account-close cleanup copies provider bindings before deleting account-owned logical objects and resolves outstanding reservations before identity delete",
+    "Space lifecycle resolves Space-owned objects before Space deletion",
     "account-close cleanup and auth-fence gates pass",
     "public rollout switch remains disabled until every gate passes"
   ]
