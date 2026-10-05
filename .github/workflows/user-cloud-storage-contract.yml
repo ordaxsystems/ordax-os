@@ -1,0 +1,62 @@
+name: User Cloud Storage Contract
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/user-cloud-storage.mjs'
+      - 'system/contracts/service-quota.mjs'
+      - 'system/services/user-cloud-storage/**'
+      - 'docs/contracts/user-cloud-storage.json'
+      - 'docs/contracts/mvp-account-cloud.json'
+      - 'docs/contracts/service-quotas.json'
+      - 'tests/test_user_cloud_storage_reconvergence.mjs'
+      - '.github/workflows/user-cloud-storage-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/user-cloud-storage.mjs'
+      - 'system/contracts/service-quota.mjs'
+      - 'system/services/user-cloud-storage/**'
+      - 'docs/contracts/user-cloud-storage.json'
+      - 'docs/contracts/mvp-account-cloud.json'
+      - 'docs/contracts/service-quotas.json'
+      - 'tests/test_user_cloud_storage_reconvergence.mjs'
+      - '.github/workflows/user-cloud-storage-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  user-cloud-storage-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate storage contracts and policy
+        run: |
+          set -euo pipefail
+          node --check system/contracts/user-cloud-storage.mjs
+          node --check system/services/user-cloud-storage/policy.mjs
+          node --check tests/test_user_cloud_storage_reconvergence.mjs
+          node - <<'NODE'
+          const fs = require('fs');
+          const storage = JSON.parse(fs.readFileSync('docs/contracts/user-cloud-storage.json', 'utf8'));
+          const aggregate = JSON.parse(fs.readFileSync('docs/contracts/mvp-account-cloud.json', 'utf8'));
+          const quotas = JSON.parse(fs.readFileSync('docs/contracts/service-quotas.json', 'utf8'));
+          const quota = quotas.prepared_resources.find((item) => item.key === 'storage.user.bytes');
+          if (!quota || quota.unit !== 'bytes' || quota.commercial_value_assigned !== false) {
+            throw new Error('storage.user.bytes must remain prepared and cost-unassigned');
+          }
+          if (storage.quota.key !== 'storage.user.bytes' || storage.quota.unit !== 'bytes') {
+            throw new Error('user cloud storage quota binding drifted');
+          }
+          if (storage.status !== 'source-foundation-rollout-disabled' || aggregate.public_rollout_enabled !== false) {
+            throw new Error('user/account cloud rollout must remain disabled in foundation');
+          }
+          if (storage.invariants.public_bucket_allowed !== false || storage.invariants.action_gateway_authority_created !== false) {
+            throw new Error('cloud storage authority/privacy invariant drifted');
+          }
+          NODE
+          node --test tests/test_user_cloud_storage_reconvergence.mjs
