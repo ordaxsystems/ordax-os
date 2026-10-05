@@ -18,4 +18,4 @@ The current product backend adapter is Supabase. The quota contract intentionall
 
 ## Pricing
 
-Cost-sensitive numeric quotas are deliberately not guessed. `memory.cloud.bytes`, `memory.history.days`, `ai.external.compute`, `sync.bytes` and `backup.bytes` stay unset until real unit costs and retention behavior are measured. Structural limits already present in the plan catalog (Spaces, connectors, automations, members) remain independent of this accounting foundation.
+Cost-sensitive numeric quotas are deliberately not guessed. `memory.cloud.bytes`, `memory.history.days`, `ai.external.compute`, `sync.bytes`, `backup.bytes` and `storage.user.bytes` stay unset until real unit costs and retention behavior are measured. Structural limits already present in the plan catalog (Spaces, connectors, automations, members) remain independent of this accounting foundation.
