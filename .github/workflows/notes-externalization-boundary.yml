@@ -6,6 +6,7 @@ on:
       - 'system/apps/notes/**'
       - 'system/contracts/intelligence.mjs'
       - 'tests/test_notes_intelligence_summary.mjs'
+      - 'tests/test_notes_persistence_resolution.mjs'
       - 'tests/test_intelligence_product_consumers.py'
       - '.github/workflows/notes-externalization-boundary.yml'
   push:
@@ -14,6 +15,7 @@ on:
       - 'system/apps/notes/**'
       - 'system/contracts/intelligence.mjs'
       - 'tests/test_notes_intelligence_summary.mjs'
+      - 'tests/test_notes_persistence_resolution.mjs'
       - 'tests/test_intelligence_product_consumers.py'
       - '.github/workflows/notes-externalization-boundary.yml'
 
@@ -38,11 +40,12 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_notes_intelligence_summary.mjs
+          node --test tests/test_notes_persistence_resolution.mjs
           python tests/test_intelligence_product_consumers.py
 
       - name: Guard provider neutrality and private implementation ownership
         run: |
           set -euo pipefail
-          ! grep -R -n -E 'services/|contracts/local-ai|qwen|llama' system/apps/notes
+          ! grep -R -n -E '(\.\./){2,}services/|system/services/|contracts/local-ai|qwen|llama' system/apps/notes
           grep -q 'assertIntelligencePort' system/apps/notes/platform/intelligence-summary.mjs
           grep -q 'intent: "summarize"' system/apps/notes/platform/intelligence-summary.mjs
