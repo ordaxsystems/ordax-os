@@ -35,6 +35,25 @@ function reservation(overrides = {}) {
   };
 }
 
+function cloudObject(overrides = {}) {
+  return {
+    objectId: "object:12345678",
+    accountId: "account-a",
+    spaceId: "space-a",
+    displayName: "model.glb",
+    mediaType: "model/gltf-binary",
+    sizeBytes: 42,
+    sha256: digest,
+    provider: "supabase-storage",
+    providerObjectKey: "acct/opaque-object-key",
+    state: "active",
+    serverRevision: 1,
+    createdAt: "2029-01-01T00:00:00Z",
+    updatedAt: "2029-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
 function quotaDecision({
   subjectType = "account",
   subjectId = "account-a",
@@ -76,27 +95,25 @@ function quotaDecision({
 }
 
 test("cloud object contract derives quota subject from account or Space context", () => {
-  const value = validateUserCloudObject({
-    objectId: "object:12345678",
-    accountId: "account-a",
-    spaceId: "space-a",
-    displayName: "model.glb",
-    mediaType: "model/gltf-binary",
-    sizeBytes: 42,
-    sha256: digest,
-    provider: "supabase-storage",
-    providerObjectKey: "acct/opaque-object-key",
-    state: "active",
-    serverRevision: 1,
-    createdAt: "2029-01-01T00:00:00Z",
-    updatedAt: "2029-01-01T00:00:00Z",
-  });
+  const value = validateUserCloudObject(cloudObject());
   assert.equal(value.schema, USER_CLOUD_STORAGE_OBJECT_SCHEMA);
   assert.equal(value.subjectType, "space");
   assert.equal(value.subjectId, "space-a");
   assert.equal(value.accountId, "account-a");
-  assert.throws(() => validateUserCloudObject({ ...value, providerObjectKey: "../escape" }));
-  assert.throws(() => validateUserCloudObject({ ...value, providerObjectKey: "acct\\escape" }));
+});
+
+test("provider object keys and revisions fail closed at the same bounds as storage source", () => {
+  for (const providerObjectKey of [
+    "../escape-key",
+    "acct/../escape",
+    "acct/./escape",
+    "acct/path/..",
+    "acct\\escape",
+    "/absolute/key",
+  ]) {
+    assert.throws(() => validateUserCloudObject(cloudObject({ providerObjectKey })));
+  }
+  assert.throws(() => validateUserCloudObject(cloudObject({ serverRevision: 0 })), /positive safe integer/);
 });
 
 test("reservation never carries action authority", () => {
