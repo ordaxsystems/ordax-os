@@ -17,7 +17,20 @@
     "subject_bound": true,
     "caller_supplied_subject": false,
     "authenticated_execute_only": true,
-    "restrictive_rls": true
+    "restrictive_rls": true,
+    "coverage_status": "core-relations-only",
+    "covered_relations": [
+      "ordax_accounts",
+      "ordax_spaces",
+      "ordax_space_members",
+      "ordax_entitlement_grants",
+      "ordax_memory_items",
+      "ordax_memory_embeddings",
+      "ordax_project_connections",
+      "ordax_user_objects"
+    ],
+    "authenticated_rpc_denial_proven": false,
+    "global_authenticated_data_plane_denial_proven": false
   },
   "shared_space_safety": {
     "owned_space_with_other_active_members_must_be_resolved_first": true,
