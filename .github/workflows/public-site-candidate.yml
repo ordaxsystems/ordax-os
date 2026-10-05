@@ -46,6 +46,7 @@ on:
       - 'tests/test_account_release_provider_proof.py'
       - 'tests/test_control_plane_privilege_probe.py'
       - 'tests/test_account_release_database_proof.py'
+      - 'tests/test_account_release_session_revocation_proof.py'
       - 'tests/test_public_legal_readiness.py'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
@@ -97,6 +98,7 @@ on:
       - 'tests/test_account_release_provider_proof.py'
       - 'tests/test_control_plane_privilege_probe.py'
       - 'tests/test_account_release_database_proof.py'
+      - 'tests/test_account_release_session_revocation_proof.py'
       - 'tests/test_public_legal_readiness.py'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
@@ -140,6 +142,7 @@ jobs:
           python -m unittest tests.test_account_release_provider_proof -v
           python -m unittest tests.test_control_plane_privilege_probe -v
           python -m unittest tests.test_account_release_database_proof -v
+          python -m unittest tests.test_account_release_session_revocation_proof -v
           python -m unittest tests.test_public_site_contract -v
           python -m unittest tests.test_public_release_catalog -v
           python -m unittest tests.test_public_identity_backend_prep -v
