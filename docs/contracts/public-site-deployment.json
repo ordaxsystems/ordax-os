@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "host-neutral-and-vercel-same-origin-adapters-source-ready-not-deployed",
+  "status": "public-edge-deployed-same-origin-routing-pending",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -45,11 +45,16 @@
     "public_auth_rate_limit_deployed": false
   },
   "public_edge_gateway": {
-    "status": "source-ready-not-deployed",
+    "status": "deployed-fail-closed-awaiting-proxy-digest",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "provenance_source": "infra/supabase/functions/ordax-public-account-gateway/public_auth_rate_limit.mjs",
     "inner_gateway": "ordax-account-gateway",
+    "deployed": true,
+    "deployed_version": 1,
+    "deployment_source_commit": "3327678208868df6c7a5ecc7229ced09f2def33e",
+    "verify_jwt": false,
+    "custom_proxy_authentication": true,
     "allowed_methods": [
       "GET",
       "POST"
@@ -62,6 +67,8 @@
     "proxy_secret_compared_as_sha256": true,
     "proxy_secret_sha256_environment_variable": "ORDAX_PUBLIC_PROXY_SECRET_SHA256",
     "proxy_secret_sha256_source_controlled": false,
+    "proxy_secret_sha256_configured": false,
+    "runtime_provenance_e2e_verified": false,
     "raw_proxy_secret_in_source": false,
     "trusted_client_address_requires_authenticated_proxy": true,
     "sensitive_proxy_headers_forwarded_to_inner_gateway": false,
@@ -93,7 +100,8 @@
     "identity_gateway_entrypoint": "services/public-identity/gateway.py:application",
     "deployed_account_gateway": "ordax-control-plane:ordax-account-gateway",
     "public_edge_gateway_required_for_vercel": true,
-    "public_edge_gateway_deployed": false,
+    "public_edge_gateway_deployed": true,
+    "vercel_adapter_routed_to_public_edge_gateway": false,
     "same_origin_identity_required": true,
     "same_origin_sync_required": true,
     "unknown_static_route_behavior": 404,
