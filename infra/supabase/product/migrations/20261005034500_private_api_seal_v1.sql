@@ -196,6 +196,16 @@ revoke all privileges on all tables in schema private
 revoke all privileges on all sequences in schema private
   from public, anon, authenticated, service_role;
 
+-- Runtime proof: this CREATE FUNCTION must fire the event guard. If any API role
+-- retains EXECUTE on the probe, postflight aborts the whole migration.
+create function private.ordax_private_function_acl_seal_probe()
+returns boolean
+language sql
+set search_path = ''
+as $probe$
+  select true;
+$probe$;
+
 do $postflight$
 declare
   api_function_authority integer;
@@ -237,6 +247,12 @@ begin
       and e.evtfoid = guard_function_oid
   ) then
     raise exception 'OrdaX private API seal: private function ACL event guard missing';
+  end if;
+
+  if has_function_privilege('anon', 'private.ordax_private_function_acl_seal_probe()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.ordax_private_function_acl_seal_probe()', 'EXECUTE')
+     or has_function_privilege('service_role', 'private.ordax_private_function_acl_seal_probe()', 'EXECUTE') then
+    raise exception 'OrdaX private API seal: private function ACL runtime probe failed';
   end if;
 
   select count(*) into public_schema_privileges
@@ -324,5 +340,7 @@ begin
   end if;
 end;
 $postflight$;
+
+drop function private.ordax_private_function_acl_seal_probe();
 
 commit;
