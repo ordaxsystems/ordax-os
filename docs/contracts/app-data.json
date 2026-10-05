@@ -1,7 +1,7 @@
 {
   "$schema": "prototype-ordax.app-data-foundation/1",
   "public_contract": "ordax.app-data/1",
-  "status": "native-owner-foundation",
+  "status": "trusted-first-party-port-injection-active",
   "purpose": "device-local private durable-state boundary for independently delivered apps",
   "identity": {
     "bound_by_runtime": true,
@@ -81,10 +81,15 @@
     "native_owner_implemented": true,
     "native_endpoint_helper_implemented": true,
     "async_native_adapter_implemented": true,
-    "native_host_route_implemented": false,
-    "verified_publisher_binding_implemented": false,
-    "published_in_app_sdk": false,
+    "native_host_route_implemented": true,
+    "verified_publisher_binding_implemented": true,
+    "published_in_app_sdk": true,
     "notes_migrated": false,
-    "production_enabled": false
+    "production_enabled": false,
+    "published_app_sdk_bundle_version": "1.6.0",
+    "trusted_first_party_port_injection_active": true,
+    "independent_app_install_lifecycle_proven": false,
+    "third_party_enabled": false,
+    "production_scope": "trusted-first-party-native-composition-only"
   }
 }

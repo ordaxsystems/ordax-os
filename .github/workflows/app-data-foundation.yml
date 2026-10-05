@@ -7,6 +7,7 @@ on:
       - 'system/services/app-data/**'
       - 'docs/contracts/app-data.json'
       - 'tests/test_app_data.mjs'
+      - 'tests/test_app_data_status_contract.py'
       - '.github/workflows/app-data-foundation.yml'
   push:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - 'system/services/app-data/**'
       - 'docs/contracts/app-data.json'
       - 'tests/test_app_data.mjs'
+      - 'tests/test_app_data_status_contract.py'
       - '.github/workflows/app-data-foundation.yml'
 
 permissions:
@@ -37,4 +39,6 @@ jobs:
           python3 -m json.tool docs/contracts/app-data.json >/dev/null
 
       - name: Prove bound isolation CAS copies and quotas
-        run: node --test tests/test_app_data.mjs
+        run: |
+          node --test tests/test_app_data.mjs
+          python tests/test_app_data_status_contract.py
