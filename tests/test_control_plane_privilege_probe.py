@@ -21,6 +21,11 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
             "authenticated_private_schema_usage": False,
             "authenticated_private_function_execute": 0,
             "authenticated_sync_table_grants": 0,
+            "service_role_sync_table_grants": 0,
+            "sync_policy_count": 5,
+            "non_executor_sync_policy_count": 0,
+            "service_role_user_sync_rpc_execute": 0,
+            "app_role_sync_sequence_privilege": False,
             "unexpected_authenticated_write_grants": [],
         }
 
@@ -51,10 +56,34 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
         ]
         self.assertFalse(MODULE.evaluate(observed)["checks"]["no_unexpected_authenticated_write_grants"])
 
-    def test_direct_sync_table_grant_blocks_even_when_read_only(self):
+    def test_direct_authenticated_sync_table_grant_blocks_even_when_read_only(self):
         observed = self.valid_observation()
         observed["authenticated_sync_table_grants"] = 1
         self.assertFalse(MODULE.evaluate(observed)["checks"]["no_authenticated_sync_table_grants"])
+
+    def test_service_role_sync_authority_blocks(self):
+        observed = self.valid_observation()
+        observed["service_role_sync_table_grants"] = 1
+        observed["service_role_user_sync_rpc_execute"] = 1
+        proof = MODULE.evaluate(observed)
+        self.assertFalse(proof["checks"]["no_service_role_sync_table_grants"])
+        self.assertFalse(proof["checks"]["no_service_role_user_sync_rpc_execute"])
+
+    def test_sync_policies_must_be_exact_executor_only_set(self):
+        observed = self.valid_observation()
+        observed["non_executor_sync_policy_count"] = 1
+        proof = MODULE.evaluate(observed)
+        self.assertFalse(proof["checks"]["sync_policies_executor_only"])
+
+        observed = self.valid_observation()
+        observed["sync_policy_count"] = 4
+        proof = MODULE.evaluate(observed)
+        self.assertFalse(proof["checks"]["sync_policies_executor_only"])
+
+    def test_sync_sequence_must_not_be_exposed_to_application_roles(self):
+        observed = self.valid_observation()
+        observed["app_role_sync_sequence_privilege"] = True
+        self.assertFalse(MODULE.evaluate(observed)["checks"]["no_app_role_sync_sequence_privilege"])
 
     def test_authenticated_private_surface_blocks_release(self):
         observed = self.valid_observation()
