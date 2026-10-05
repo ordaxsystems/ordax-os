@@ -8,6 +8,17 @@ FOUNDATION = ROOT / "infra/supabase/product/migrations/20261005183000_account_cl
 RPC = ROOT / "infra/supabase/product/migrations/20261005184500_account_close_cleanup_rpc_v2.sql"
 CONTRACT = ROOT / "docs/contracts/account-close-cleanup.json"
 
+CORE_FENCED_RELATIONS = (
+    "ordax_accounts",
+    "ordax_spaces",
+    "ordax_space_members",
+    "ordax_entitlement_grants",
+    "ordax_memory_items",
+    "ordax_memory_embeddings",
+    "ordax_project_connections",
+    "ordax_user_objects",
+)
+
 
 class AccountCloseCleanupReconvergenceTests(unittest.TestCase):
     @classmethod
@@ -23,6 +34,10 @@ class AccountCloseCleanupReconvergenceTests(unittest.TestCase):
         self.assertFalse(self.contract["worker_enabled"])
         self.assertFalse(self.contract["identity_delete_enabled"])
         self.assertFalse(self.contract["cleanup_rpc"]["identity_delete_side_effect"])
+        self.assertFalse(self.contract["stale_jwt_fence"]["authenticated_rpc_denial_proven"])
+        self.assertFalse(
+            self.contract["stale_jwt_fence"]["global_authenticated_data_plane_denial_proven"]
+        )
 
     def test_private_state_is_not_exposed_to_api_roles(self):
         for relation in (
@@ -57,8 +72,30 @@ class AccountCloseCleanupReconvergenceTests(unittest.TestCase):
                     normalized,
                     rf"grant execute on function {re.escape(helper)} to (?:[^;]*,\s*)?{api_role}(?:\s*,|;)",
                 )
-        self.assertGreaterEqual(self.foundation.count("as restrictive for all to authenticated"), 8)
-        self.assertGreaterEqual(self.foundation.count("not ordax_policy.account_is_closing()"), 16)
+
+    def test_stale_jwt_core_relation_coverage_is_exact_and_not_overclaimed(self):
+        fence = self.contract["stale_jwt_fence"]
+        self.assertEqual(fence["coverage_status"], "core-relations-only")
+        self.assertEqual(tuple(fence["covered_relations"]), CORE_FENCED_RELATIONS)
+
+        foundation = re.sub(r"\s+", " ", self.foundation.lower())
+        for relation in CORE_FENCED_RELATIONS:
+            self.assertIn(
+                f"on public.{relation} as restrictive for all to authenticated",
+                foundation,
+            )
+
+        self.assertEqual(
+            self.foundation.count("as restrictive for all to authenticated"),
+            len(CORE_FENCED_RELATIONS),
+        )
+        self.assertEqual(
+            self.foundation.count("not ordax_policy.account_is_closing()"),
+            len(CORE_FENCED_RELATIONS) * 2,
+        )
+        self.assertFalse(fence["authenticated_rpc_denial_proven"])
+        self.assertFalse(fence["global_authenticated_data_plane_denial_proven"])
+        self.assertIn("stale-jwt-data-plane-denial-proof", self.contract["activation_gates"])
 
     def test_executor_is_non_login_and_service_role_uses_wrappers(self):
         self.assertIn("create role ordax_account_close_executor", self.foundation)
