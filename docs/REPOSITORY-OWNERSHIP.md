@@ -163,3 +163,28 @@ A exclusão só é permitida depois que:
 - contratos entre repositórios devem ser públicos/versionados;
 - cada release deve poder evoluir sem exigir rebuild indevido dos outros repos;
 - migration residue nunca pode virar segunda fonte de verdade.
+
+
+## Estado operacional da migração
+
+Atualizado em 2026-10-05.
+
+| Camada | Repositório canônico | Estado |
+| --- | --- | --- |
+| OrdaX OS / plataforma | `washingtonmsdj/prototipo-ordax-os` | canônico |
+| Apps first-party / ORDAX Studio | `washingtonmsdj/ordax-apps` | canônico; Studio portátil em `apps/studio` |
+| Runtime / Device Host Windows | `washingtonmsdj/ordax-runtime` | repositório criado; migração do legado pendente |
+| Product MCP / Control Plane / connectors | `washingtonmsdj/ordax-control-plane` | repositório criado; migração do legado pendente |
+| Incubação antiga | `washingtonmsdj/mcp-blender` | legado congelado; exclusão bloqueada até conclusão dos gates |
+
+### Rastreamento cruzado
+
+- `washingtonmsdj/ordax-apps#31` — retirar dependência operacional de `mcp-blender`;
+- `washingtonmsdj/ordax-runtime#1` — migrar Runtime/Device Host;
+- `washingtonmsdj/ordax-control-plane#2` — migrar Product MCP/Control Plane e connector;
+- `washingtonmsdj/ordax-apps#22` — roadmap operacional do Studio;
+- `washingtonmsdj/ordax-apps#23` a `#27` — projetos, continuidade, preview, transactions/undo e Blender tipado.
+
+### Regra de atualização
+
+Mudanças relevantes de ownership ou cutover devem atualizar este documento e `docs/contracts/repository-ownership.json` no mesmo PR. Issues são rastreamento; este documento + contrato são o SSOT.
