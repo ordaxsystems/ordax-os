@@ -4,25 +4,34 @@ import test from "node:test";
 import {
   normalizeGatewayUrl,
   normalizeProductPath,
+  normalizePublicOrigin,
   normalizeTrustedEdgeAddress,
+  normalizeUpstreamLocation,
   normalizeVercelOidcToken,
   proxyPublicAccountRequest,
+  trustedSetCookie,
 } from "../api/account-proxy.mjs";
 
 const GATEWAY = "https://example.supabase.co/functions/v1/ordax-public-account-gateway";
+const PUBLIC_ORIGIN = "https://ordax-os-public.vercel.app";
 const OIDC_TOKEN = `${"a".repeat(24)}.${"b".repeat(32)}.${"c".repeat(32)}`;
 
 function options(extra = {}) {
-  return { gatewayUrl: GATEWAY, oidcToken: OIDC_TOKEN, ...extra };
+  return {
+    gatewayUrl: GATEWAY,
+    oidcToken: OIDC_TOKEN,
+    publicOrigin: PUBLIC_ORIGIN,
+    ...extra,
+  };
 }
 
 function request(path, init = {}) {
   return new Request(
-    `https://ordax.com.br/api/account-proxy?ordax_path=${encodeURIComponent(path)}`,
+    `${PUBLIC_ORIGIN}/api/account-proxy?ordax_path=${encodeURIComponent(path)}`,
     {
       method: init.method ?? "GET",
       headers: {
-        host: "ordax.com.br",
+        host: init.host ?? "attacker-controlled.example",
         "x-forwarded-for": "203.0.113.15",
         ...(init.headers ?? {}),
       },
@@ -44,11 +53,26 @@ test("gateway configuration is strict https and exact public account gateway pat
   }
 });
 
+test("public origin is exact https origin only", () => {
+  assert.equal(normalizePublicOrigin(PUBLIC_ORIGIN), PUBLIC_ORIGIN);
+  assert.equal(normalizePublicOrigin(`${PUBLIC_ORIGIN}/`), PUBLIC_ORIGIN);
+  for (const invalid of [
+    "http://ordax-os-public.vercel.app",
+    "https://user@ordax-os-public.vercel.app",
+    `${PUBLIC_ORIGIN}/auth/`,
+    `${PUBLIC_ORIGIN}?x=1`,
+    "https://evil.example",
+  ]) {
+    assert.equal(normalizePublicOrigin(invalid), null);
+  }
+});
+
 test("only auth and sync product paths are accepted", () => {
   assert.equal(normalizeProductPath("/auth/session"), "/auth/session");
   assert.equal(normalizeProductPath("/sync/snapshot?limit=1"), "/sync/snapshot?limit=1");
   assert.equal(normalizeProductPath("/network/v2/messages/send"), null);
   assert.equal(normalizeProductPath("/auth/../network"), null);
+  assert.equal(normalizeProductPath("/auth/%2e%2e/network"), null);
 });
 
 test("Vercel OIDC token and edge address are bounded before upstream use", () => {
@@ -62,6 +86,28 @@ test("Vercel OIDC token and edge address are bounded before upstream use", () =>
   assert.equal(normalizeTrustedEdgeAddress("not-an-ip"), null);
 });
 
+test("redirect and cookie passthrough are fail-closed", () => {
+  assert.equal(normalizeUpstreamLocation("/conta/?ok=1"), "/conta/?ok=1");
+  assert.equal(normalizeUpstreamLocation("https://evil.example/steal"), null);
+  assert.equal(normalizeUpstreamLocation("//evil.example/steal"), null);
+  assert.equal(normalizeUpstreamLocation("/safe\\evil"), null);
+
+  const valid = "ordax_access=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600";
+  assert.equal(trustedSetCookie(valid), valid);
+  assert.equal(
+    trustedSetCookie("evil=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600"),
+    null,
+  );
+  assert.equal(
+    trustedSetCookie("ordax_access=value; Domain=evil.example; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600"),
+    null,
+  );
+  assert.equal(
+    trustedSetCookie("ordax_access=value; Path=/; Secure; SameSite=Lax; Max-Age=3600"),
+    null,
+  );
+});
+
 test("public proxy accepts only GET and POST", async () => {
   for (const method of ["PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]) {
     const response = await proxyPublicAccountRequest(
@@ -73,7 +119,29 @@ test("public proxy accepts only GET and POST", async () => {
   }
 });
 
-test("proxy replaces browser authority with Vercel runtime OIDC and trusted edge address", async () => {
+test("proxy rejects non-canonical incoming origins before upstream access", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response("unexpected");
+  };
+  try {
+    const response = await proxyPublicAccountRequest(
+      new Request("https://preview.example/api/account-proxy?ordax_path=%2Fauth%2Fsession", {
+        headers: { "x-forwarded-for": "203.0.113.15" },
+      }),
+      options(),
+    );
+    assert.equal(response.status, 421);
+    assert.equal((await response.json()).error, "public-origin-mismatch");
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("proxy derives forwarded authority from canonical config, never browser Host", async () => {
   const originalFetch = globalThis.fetch;
   let observed;
   globalThis.fetch = async (url, init) => {
@@ -94,8 +162,12 @@ test("proxy replaces browser authority with Vercel runtime OIDC and trusted edge
   try {
     const response = await proxyPublicAccountRequest(
       request("/auth/session", {
+        host: "evil.example",
         headers: {
           authorization: "Bearer browser-must-not-cross-boundary",
+          "x-forwarded-host": "evil.example",
+          "x-forwarded-proto": "http",
+          "x-ordax-public-origin": "https://evil.example",
           "x-ordax-client-address": "198.51.100.99",
         },
       }),
@@ -108,8 +180,9 @@ test("proxy replaces browser authority with Vercel runtime OIDC and trusted edge
     assert.equal(observed.init.headers.get("x-forwarded-for"), "203.0.113.15");
     assert.equal(observed.init.headers.get("x-real-ip"), "203.0.113.15");
     assert.equal(observed.init.headers.get("x-ordax-client-address"), "203.0.113.15");
-    assert.equal(observed.init.headers.get("x-forwarded-host"), "ordax.com.br");
+    assert.equal(observed.init.headers.get("x-forwarded-host"), "ordax-os-public.vercel.app");
     assert.equal(observed.init.headers.get("x-forwarded-proto"), "https");
+    assert.equal(observed.init.headers.get("x-ordax-public-origin"), PUBLIC_ORIGIN);
     assert.equal(observed.init.headers.has("x-ordax-public-proxy-secret"), false);
     assert.equal(response.headers.get("cache-control"), "no-store, max-age=0");
     assert.equal(response.headers.has("access-control-allow-origin"), false);
@@ -119,24 +192,54 @@ test("proxy replaces browser authority with Vercel runtime OIDC and trusted edge
   }
 });
 
-test("proxy fails closed when deployment identity or trusted edge context is missing", async () => {
+test("proxy rejects unsafe upstream redirects and cookies", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(null, {
+      status: 303,
+      headers: { location: "https://evil.example/steal" },
+    });
+    let response = await proxyPublicAccountRequest(request("/auth/login"), options());
+    assert.equal(response.status, 502);
+    assert.equal((await response.json()).error, "unsafe-account-gateway-response");
+
+    globalThis.fetch = async () => new Response("bad", {
+      status: 200,
+      headers: {
+        "set-cookie": "attacker=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600",
+      },
+    });
+    response = await proxyPublicAccountRequest(request("/auth/session"), options());
+    assert.equal(response.status, 502);
+    assert.equal((await response.json()).error, "unsafe-account-gateway-response");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("proxy fails closed when deployment identity, origin, or trusted edge context is missing", async () => {
   const missingGateway = await proxyPublicAccountRequest(
     request("/auth/session"),
-    { gatewayUrl: "", oidcToken: OIDC_TOKEN },
+    { gatewayUrl: "", oidcToken: OIDC_TOKEN, publicOrigin: PUBLIC_ORIGIN },
   );
   assert.equal(missingGateway.status, 503);
 
   const missingOidc = await proxyPublicAccountRequest(
     request("/auth/session"),
-    { gatewayUrl: GATEWAY, oidcToken: "" },
+    { gatewayUrl: GATEWAY, oidcToken: "", publicOrigin: PUBLIC_ORIGIN },
   );
   assert.equal(missingOidc.status, 503);
   assert.equal((await missingOidc.json()).error, "public-proxy-identity-unavailable");
 
+  const missingOrigin = await proxyPublicAccountRequest(
+    request("/auth/session"),
+    { gatewayUrl: GATEWAY, oidcToken: OIDC_TOKEN, publicOrigin: "" },
+  );
+  assert.equal(missingOrigin.status, 503);
+  assert.equal((await missingOrigin.json()).error, "public-origin-unconfigured");
+
   const missingEdgeIp = await proxyPublicAccountRequest(
-    new Request("https://ordax.com.br/api/account-proxy?ordax_path=%2Fauth%2Fsession", {
-      headers: { host: "ordax.com.br" },
-    }),
+    new Request(`${PUBLIC_ORIGIN}/api/account-proxy?ordax_path=%2Fauth%2Fsession`),
     options(),
   );
   assert.equal(missingEdgeIp.status, 400);
