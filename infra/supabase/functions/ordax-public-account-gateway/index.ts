@@ -1,9 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
-  trustedRateLimitAddress,
+  trustedPublicClientAddress,
   validateRateLimitRpcResult,
 } from "./public_auth_rate_limit.mjs";
+import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
@@ -159,9 +160,14 @@ Deno.serve(async (req: Request) => {
   }
   const productUrl = new URL(productPath, "https://ordax.invalid");
 
-  const provenance = await trustedRateLimitAddress(req);
-  if (!provenance.ok || provenance.source !== "authenticated-public-proxy") {
+  const identity = await verifyPublicProxyIdentity(req);
+  if (!identity.ok || identity.source !== "vercel-production-oidc") {
     return error(403, "public-proxy-authentication-required", "Boundary público não autenticado.");
+  }
+
+  const trustedAddress = trustedPublicClientAddress(req);
+  if (!trustedAddress.ok) {
+    return error(400, "trusted-client-address-required", "Endereço de origem confiável ausente.");
   }
 
   let body;
@@ -181,7 +187,7 @@ Deno.serve(async (req: Request) => {
     try {
       const result = await adminClient().rpc("ordax_consume_public_auth_rate_limit_v1", {
         p_bucket: bucket,
-        p_client_address: provenance.address,
+        p_client_address: trustedAddress.address,
       });
       data = result.data;
       rpcError = result.error;
