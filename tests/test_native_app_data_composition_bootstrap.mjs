@@ -84,7 +84,7 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
 
     const manager = createManager();
     const files = manager.getSnapshot().components.find(
-      (component) => component.manifest.id === "notes",
+      (component) => component.manifest.id === "files",
     );
     let mountedContext = null;
     const mounted = await loadOptionalComponentRuntime({
