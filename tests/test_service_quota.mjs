@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   SERVICE_QUOTA_POLICY_SCHEMA,
   SERVICE_QUOTA_USAGE_SCHEMA,
+  validateServiceQuotaDecision,
 } from "../system/contracts/service-quota.mjs";
 import { evaluateServiceQuota } from "../system/services/entitlements/quota.mjs";
 
@@ -85,4 +86,25 @@ test("unmetered policy is explicit and still does not grant action authority", (
   assert.equal(decision.canAllocate, true);
   assert.equal(decision.remaining, null);
   assert.equal(decision.actionAuthority, "none");
+});
+
+test("downstream services can validate the canonical quota decision without duplicating semantics", () => {
+  const decision = evaluateServiceQuota({ policy: policy(), usage: usage(), request: request() });
+  assert.deepEqual(validateServiceQuotaDecision(decision), decision);
+});
+
+test("tampered quota decisions fail closed", () => {
+  const decision = evaluateServiceQuota({ policy: policy(), usage: usage(), request: request() });
+  assert.throws(
+    () => validateServiceQuotaDecision({ ...decision, actionAuthority: "granted" }),
+    /authority is invalid/,
+  );
+  assert.throws(
+    () => validateServiceQuotaDecision({ ...decision, remaining: 499 }),
+    /remaining units are inconsistent/,
+  );
+  assert.throws(
+    () => validateServiceQuotaDecision({ ...decision, state: "quota-exceeded", canAllocate: false }),
+    /state is inconsistent/,
+  );
 });
