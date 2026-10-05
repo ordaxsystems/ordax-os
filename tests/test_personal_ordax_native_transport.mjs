@@ -97,7 +97,7 @@ test("CAS sends validated owner-bound state and accepts exact next revision", as
   assert.equal(JSON.parse(requestBody.payload).ownerId, "user-1");
 });
 
-test("CAS conflict returns false without treating stale state as durable", async () => {
+test("CAS conflict keeps the authoritative revision unknown until explicit readback", async () => {
   const transport = createNativePersonalOrdaxStateTransport({
     async fetch() {
       return new Response(null, { status: 409 });
@@ -108,7 +108,7 @@ test("CAS conflict returns false without treating stale state as durable", async
     2,
     state(),
   );
-  assert.deepEqual(result, { accepted: false, revision: 2 });
+  assert.deepEqual(result, { accepted: false, revision: null });
 });
 
 test("transport rejects foreign owner record and malformed response", async () => {
