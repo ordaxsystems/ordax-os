@@ -1,0 +1,61 @@
+{
+  "$schema": "prototype-ordax.localization-packs-policy/1",
+  "status": "foundation-source",
+  "source_locale": "pt-BR",
+  "surface": {
+    "public_complete_locales": ["pt-BR", "en-US"],
+    "system_locale_is_global_default": true,
+    "surface_selector_only_lists_surface_complete_locales": true,
+    "app_locale_may_exceed_surface_locale_set": true
+  },
+  "apps": {
+    "localization_metadata_required": true,
+    "source_locale_required_in_bundled_locales": true,
+    "per_app_override_supported": true,
+    "inherit_system_locale_by_default": true,
+    "optional_locale_must_be_declared_before_activation": true,
+    "first_party_current_bundled_locales": ["pt-BR", "en-US"]
+  },
+  "content_pack": {
+    "schema": "prototype-ordax.localization-pack/1",
+    "owner": "system/contracts/localization-pack.mjs",
+    "component_and_version_scoped": true,
+    "message_id_and_placeholder_parity_required": true,
+    "source_locale_may_not_be_external": true
+  },
+  "delivery_envelope": {
+    "schema": "prototype-ordax.localization-pack-delivery/1",
+    "owner": "system/contracts/localization-pack-delivery.mjs",
+    "resource_only": true,
+    "permissions_allowed": false,
+    "capabilities_allowed": false,
+    "entrypoint_allowed": false,
+    "executable_payload_allowed": false,
+    "publisher_required": true,
+    "signature_required": true,
+    "content_sha256_required": true,
+    "message_contract_sha256_required": true,
+    "exact_size_required": true
+  },
+  "selection": {
+    "owner": "system/services/i18n/component-locale.mjs",
+    "order": [
+      "explicit-compatible-app-override",
+      "compatible-system-locale",
+      "app-source-locale"
+    ],
+    "unsupported_or_removed_app_override_uses_system_before_source": true,
+    "undeclared_optional_locale_may_activate": false,
+    "mixed_partial_catalog_rendering_allowed": false
+  },
+  "update_activation": {
+    "authorized_catalog_required": true,
+    "inactive_staging_required": true,
+    "verify_size_hash_signature_target_locale_and_message_contract": true,
+    "atomic_activation_required": true,
+    "failed_activation_preserves_previous_pack": true,
+    "rollback_without_app_or_base_rollback": true,
+    "pack_update_may_not_change_app_permissions": true,
+    "store_or_localization_service_may_become_second_updater": false
+  }
+}
