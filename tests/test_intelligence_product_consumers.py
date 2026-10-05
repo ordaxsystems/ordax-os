@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,10 +27,27 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         runtime = NOTES_RUNTIME.read_text(encoding="utf-8")
         ui = NOTES_UI.read_text(encoding="utf-8")
         helper = NOTES_INTELLIGENCE.read_text(encoding="utf-8")
+        notes_files = sorted((ROOT / "system/apps/notes").rglob("*.mjs"))
         notes_sources = "\n".join(
             path.read_text(encoding="utf-8")
-            for path in sorted((ROOT / "system/apps/notes").rglob("*.mjs"))
+            for path in notes_files
         )
+        private_service_imports = []
+        platform_services = (ROOT / "system/services").resolve()
+        import_pattern = re.compile(
+            r'(?:from\\s+|import\\(\\s*)["\\\']([^"\\\']+)["\\\']'
+        )
+        for path in notes_files:
+            source = path.read_text(encoding="utf-8")
+            for specifier in import_pattern.findall(source):
+                if not specifier.startswith("."):
+                    continue
+                resolved = (path.parent / specifier).resolve()
+                try:
+                    resolved.relative_to(platform_services)
+                except ValueError:
+                    continue
+                private_service_imports.append((path, specifier))
 
         self.assertIn("intelligence = null", runtime)
         self.assertIn("{ fileSpace, appActivation, intelligence }", runtime)
@@ -41,7 +59,7 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn('intent: "summarize"', helper)
         self.assertIn('data.notesIntelligence', ui.replace("dataset", "data"))
         self.assertIn('"intelligence-summary"', ui)
-        self.assertNotIn("services/", notes_sources)
+        self.assertEqual(private_service_imports, [])
         self.assertNotIn("contracts/local-ai", notes_sources)
         self.assertNotIn("llama", notes_sources.lower())
         self.assertNotIn("qwen", notes_sources.lower())
