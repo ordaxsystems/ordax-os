@@ -1,3 +1,10 @@
+import {
+  normalizePublicOrigin,
+  verifyBrowserOriginContext,
+} from "../infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs";
+
+export { normalizePublicOrigin };
+
 const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
@@ -57,27 +64,6 @@ export function normalizeGatewayUrl(raw) {
     return null;
   }
   return url;
-}
-
-export function normalizePublicOrigin(raw) {
-  if (typeof raw !== "string" || raw.length === 0 || raw.length > 512) return null;
-  let url;
-  try {
-    url = new URL(raw);
-  } catch {
-    return null;
-  }
-  if (
-    url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
-    url.pathname !== "/"
-  ) {
-    return null;
-  }
-  return url.origin;
 }
 
 export function normalizeProductPath(raw) {
@@ -208,6 +194,9 @@ export async function proxyPublicAccountRequest(
 
   const incoming = new URL(request.url);
   if (incoming.origin !== trustedPublicOrigin) return error(421, "public-origin-mismatch");
+
+  const browserContext = verifyBrowserOriginContext(request, trustedPublicOrigin);
+  if (!browserContext.ok) return error(403, browserContext.code);
 
   const productPath = normalizeProductPath(incoming.searchParams.get("ordax_path"));
   if (!productPath) return error(404, "unsupported-account-route");
