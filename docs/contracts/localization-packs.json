@@ -32,7 +32,10 @@
   },
   "release_descriptor": {
     "resource_only": true,
+    "component_scoped_policy_required_for_external_release": true,
+    "bundled_only_policy_may_accept_external_release": false,
     "signature_required": true,
+    "publisher_and_signature_must_be_bounded_non_whitespace_text": true,
     "content_sha256_required": true,
     "message_contract_sha256_required": true,
     "component_version_required": true,
@@ -53,6 +56,7 @@
     ],
     "installed_optional_pack_required_for_optional_locale": true,
     "removed_or_unavailable_app_override_uses_system_before_source": true,
+    "compatible_non_exact_match_is_degraded": true,
     "mixed_partial_catalog_rendering_allowed": false
   },
   "activation": {
