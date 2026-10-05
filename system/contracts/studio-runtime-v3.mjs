@@ -12,7 +12,35 @@ import { validateStudioActionContext } from "./studio-action-context.mjs";
 
 export const STUDIO_RUNTIME_V3_PORT_SCHEMA = "ordax.studio-runtime/3";
 
-const ACTION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$/;
+function assertRequestMatchesContext(request, context) {
+  if (
+    request.actor.kind !== context.actor.kind
+    || request.actor.subjectId !== context.actor.subjectId
+    || request.deviceId !== context.deviceId
+    || request.client !== context.client
+    || request.spaceId !== context.spaceId
+  ) {
+    throw new TypeError("Studio action request identity does not match host context");
+  }
+}
+
+function assertResultMatchesRequest(result, request) {
+  const binding = result.binding;
+  if (
+    binding.actionId !== request.actionId
+    || binding.actor.kind !== request.actor.kind
+    || binding.actor.subjectId !== request.actor.subjectId
+    || binding.spaceId !== request.spaceId
+    || binding.projectId !== request.projectId
+    || binding.deviceId !== request.deviceId
+    || binding.client !== request.client
+  ) {
+    throw new TypeError("Studio action result binding does not match its request");
+  }
+  if (result.receipt.actionId !== request.actionId || result.receipt.deviceId !== request.deviceId) {
+    throw new TypeError("Studio action result receipt does not match its request");
+  }
+}
 
 export function assertStudioRuntimeV3Port(port) {
   if (!port || typeof port !== "object" || port.schema !== STUDIO_RUNTIME_V3_PORT_SCHEMA) {
@@ -30,7 +58,7 @@ export function assertStudioRuntimeV3Port(port) {
     throw new TypeError("Studio runtime v3 port must implement requestAction(request)");
   }
   if (typeof port.getActionResult !== "function") {
-    throw new TypeError("Studio runtime v3 port must implement getActionResult(actionId)");
+    throw new TypeError("Studio runtime v3 port must implement getActionResult(request)");
   }
   return port;
 }
@@ -49,15 +77,7 @@ export async function requestStudioDeviceActionV3(portValue, requestValue) {
   const port = assertStudioRuntimeV3Port(portValue);
   const request = validateDeviceActionRequestV2(requestValue);
   const context = validateStudioActionContext(await port.getActionContext());
-  if (
-    request.actor.kind !== context.actor.kind
-    || request.actor.subjectId !== context.actor.subjectId
-    || request.deviceId !== context.deviceId
-    || request.client !== context.client
-    || request.spaceId !== context.spaceId
-  ) {
-    throw new TypeError("Studio action request identity does not match host context");
-  }
+  assertRequestMatchesContext(request, context);
   const receipt = validateDeviceActionReceipt(await port.requestAction(request));
   if (receipt.actionId !== request.actionId || receipt.deviceId !== request.deviceId) {
     throw new TypeError("Studio action receipt does not match its request");
@@ -65,18 +85,12 @@ export async function requestStudioDeviceActionV3(portValue, requestValue) {
   return receipt;
 }
 
-export async function readStudioDeviceActionResult(portValue, actionIdValue) {
+export async function readStudioDeviceActionResult(portValue, requestValue) {
   const port = assertStudioRuntimeV3Port(portValue);
-  if (typeof actionIdValue !== "string" || !ACTION_ID_RE.test(actionIdValue)) {
-    throw new TypeError("Studio action result id is invalid");
-  }
+  const request = validateDeviceActionRequestV2(requestValue);
   const context = validateStudioActionContext(await port.getActionContext());
-  const result = validateDeviceActionResult(await port.getActionResult(actionIdValue));
-  if (result.receipt.actionId !== actionIdValue) {
-    throw new TypeError("Studio action result does not match requested action id");
-  }
-  if (result.receipt.deviceId !== context.deviceId) {
-    throw new TypeError("Studio action result device does not match host context");
-  }
+  assertRequestMatchesContext(request, context);
+  const result = validateDeviceActionResult(await port.getActionResult(request));
+  assertResultMatchesRequest(result, request);
   return result;
 }
