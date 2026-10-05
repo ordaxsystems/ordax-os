@@ -4,6 +4,7 @@ import {
   trustedPublicClientAddress,
   validateRateLimitRpcResult,
 } from "./public_auth_rate_limit.mjs";
+import { verifyTrustedPublicRequestContext } from "./public_request_context.mjs";
 import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
@@ -163,6 +164,11 @@ Deno.serve(async (req: Request) => {
   const identity = await verifyPublicProxyIdentity(req);
   if (!identity.ok || identity.source !== "vercel-production-oidc") {
     return error(403, "public-proxy-authentication-required", "Boundary público não autenticado.");
+  }
+
+  const requestContext = verifyTrustedPublicRequestContext(req);
+  if (!requestContext.ok) {
+    return error(403, "public-request-context-rejected", "Contexto público inválido.");
   }
 
   const trustedAddress = trustedPublicClientAddress(req);
