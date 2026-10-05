@@ -25,7 +25,6 @@
     "rail_apps": [
       "files",
       "projects",
-      "notes",
       "assistant",
       "internet",
       "network",
@@ -41,10 +40,6 @@
       {
         "id": "projects",
         "label": "Projetos"
-      },
-      {
-        "id": "notes",
-        "label": "Notas"
       },
       {
         "id": "assistant",
@@ -93,13 +88,6 @@
       "description": "Crie e opere projetos com o runtime agentic do ORDAX e ferramentas locais tipadas.",
       "monogram": "ST",
       "display_title": "ORDAX Studio"
-    },
-    {
-      "id": "notes",
-      "title": "Seu espaço de escrita",
-      "description": "Escrita local, projetos, tarefas e referências disponíveis offline.",
-      "monogram": "NO",
-      "display_title": "Notas"
     },
     {
       "id": "network",
