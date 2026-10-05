@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Generate a sanitized proof of live PostgreSQL privilege boundaries.
 
-Live mode reads ORDAX_CONTROL_PLANE_DATABASE_URL, maps it to libpq environment
-variables, and invokes psql without putting credentials in argv. A JSON fixture
-mode exists only for deterministic CI tests. Output never contains the project
-ref, DSN, role password, table contents, policy expressions, or function bodies.
+Live mode reads ORDAX_CONTROL_PLANE_DATABASE_URL and invokes psql without
+putting credentials in argv. Output contains counts/booleans only: never project
+refs, DSNs, role passwords, table contents, policy expressions or function bodies.
 """
 
 from __future__ import annotations
@@ -17,12 +16,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-SCHEMA = "prototype-ordax.control-plane-privilege-proof/1"
-ALLOWED_AUTHENTICATED_WRITES = {
-    ("private", "ordax_sync_mutations", "INSERT"),
-    ("private", "ordax_sync_objects", "INSERT"),
-    ("private", "ordax_sync_objects", "UPDATE"),
-}
+SCHEMA = "prototype-ordax.control-plane-privilege-proof/2"
 
 SQL = r"""
 with ordax_functions as (
@@ -38,12 +32,12 @@ with ordax_functions as (
   where grantee = 'authenticated'
     and table_schema in ('public','private')
     and privilege_type in ('INSERT','UPDATE','DELETE','TRUNCATE','TRIGGER','REFERENCES')
-), unexpected_auth_writes as (
-  select * from auth_writes
-  where not (
-    (table_schema='private' and table_name='ordax_sync_mutations' and privilege_type='INSERT')
-    or (table_schema='private' and table_name='ordax_sync_objects' and privilege_type in ('INSERT','UPDATE'))
-  )
+), sync_direct_grants as (
+  select table_schema, table_name, privilege_type
+  from information_schema.role_table_grants
+  where grantee = 'authenticated'
+    and table_schema = 'private'
+    and table_name in ('ordax_sync_objects','ordax_sync_mutations')
 )
 select json_build_object(
   'anon_table_grants', (
@@ -67,22 +61,21 @@ select json_build_object(
       and not ('search_path=""' = any(coalesce(f.proconfig, '{}'::text[])))
   ),
   'anon_private_schema_usage', has_schema_privilege('anon','private','USAGE'),
+  'authenticated_private_schema_usage', has_schema_privilege('authenticated','private','USAGE'),
+  'authenticated_private_function_execute', (
+    select count(*) from ordax_functions f
+    where f.nspname='private'
+      and has_function_privilege('authenticated', f.oid, 'EXECUTE')
+  ),
+  'authenticated_sync_table_grants', (select count(*) from sync_direct_grants),
   'unexpected_authenticated_write_grants', coalesce((
     select json_agg(json_build_object(
       'schema', table_schema,
       'table', table_name,
       'privilege', privilege_type
     ) order by table_schema, table_name, privilege_type)
-    from unexpected_auth_writes
-  ), '[]'::json),
-  'allowed_authenticated_write_grants_present', (
-    select count(*) from auth_writes
-    where (table_schema, table_name, privilege_type) in (
-      ('private','ordax_sync_mutations','INSERT'),
-      ('private','ordax_sync_objects','INSERT'),
-      ('private','ordax_sync_objects','UPDATE')
-    )
-  )
+    from auth_writes
+  ), '[]'::json)
 );
 """
 
@@ -93,6 +86,12 @@ def _as_nonnegative_int(value: object, name: str) -> int:
     return value
 
 
+def _as_bool(value: object, name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{name} must be boolean")
+    return value
+
+
 def evaluate(observed: object) -> dict:
     if not isinstance(observed, dict):
         raise ValueError("database observation must be an object")
@@ -100,23 +99,17 @@ def evaluate(observed: object) -> dict:
     anon_table_grants = _as_nonnegative_int(observed.get("anon_table_grants"), "anon_table_grants")
     anon_function_execute = _as_nonnegative_int(observed.get("anon_function_execute"), "anon_function_execute")
     public_function_execute = _as_nonnegative_int(observed.get("public_function_execute"), "public_function_execute")
-    unsafe_search_path = _as_nonnegative_int(
-        observed.get("unsafe_security_definer_search_path"),
-        "unsafe_security_definer_search_path",
-    )
-    allowed_writes = _as_nonnegative_int(
-        observed.get("allowed_authenticated_write_grants_present"),
-        "allowed_authenticated_write_grants_present",
-    )
+    unsafe_search_path = _as_nonnegative_int(observed.get("unsafe_security_definer_search_path"), "unsafe_security_definer_search_path")
+    private_exec = _as_nonnegative_int(observed.get("authenticated_private_function_execute"), "authenticated_private_function_execute")
+    sync_grants = _as_nonnegative_int(observed.get("authenticated_sync_table_grants"), "authenticated_sync_table_grants")
+    anon_private_usage = _as_bool(observed.get("anon_private_schema_usage"), "anon_private_schema_usage")
+    auth_private_usage = _as_bool(observed.get("authenticated_private_schema_usage"), "authenticated_private_schema_usage")
     unexpected = observed.get("unexpected_authenticated_write_grants")
     if not isinstance(unexpected, list):
         raise ValueError("unexpected_authenticated_write_grants must be an array")
     for item in unexpected:
         if not isinstance(item, dict) or set(item) != {"schema", "table", "privilege"}:
             raise ValueError("unexpected authenticated write grant record malformed")
-    anon_private_usage = observed.get("anon_private_schema_usage")
-    if not isinstance(anon_private_usage, bool):
-        raise ValueError("anon_private_schema_usage must be boolean")
 
     checks = {
         "no_anon_table_grants": anon_table_grants == 0,
@@ -124,7 +117,10 @@ def evaluate(observed: object) -> dict:
         "no_public_function_execute": public_function_execute == 0,
         "security_definer_search_path": unsafe_search_path == 0,
         "no_anon_private_schema_usage": anon_private_usage is False,
-        "authenticated_write_allowlist": len(unexpected) == 0 and allowed_writes == len(ALLOWED_AUTHENTICATED_WRITES),
+        "no_authenticated_sync_table_grants": sync_grants == 0,
+        "no_unexpected_authenticated_write_grants": len(unexpected) == 0,
+        "no_authenticated_private_schema_usage": auth_private_usage is False,
+        "no_authenticated_private_function_execute": private_exec == 0,
     }
     return {
         "$schema": SCHEMA,
@@ -137,8 +133,10 @@ def evaluate(observed: object) -> dict:
             "public_function_execute_count": public_function_execute,
             "unsafe_security_definer_search_path_count": unsafe_search_path,
             "anon_private_schema_usage": anon_private_usage,
+            "authenticated_private_schema_usage": auth_private_usage,
+            "authenticated_private_function_execute_count": private_exec,
+            "authenticated_sync_table_grant_count": sync_grants,
             "unexpected_authenticated_write_grant_count": len(unexpected),
-            "allowed_authenticated_write_grant_count": allowed_writes,
         },
         "ready": all(checks.values()),
     }
@@ -151,15 +149,13 @@ def _libpq_env(database_url: str) -> dict[str, str]:
     if not parsed.username:
         raise ValueError("database URL must include a user")
     env = os.environ.copy()
-    env.update(
-        {
-            "PGHOST": parsed.hostname,
-            "PGPORT": str(parsed.port or 5432),
-            "PGDATABASE": unquote(parsed.path.lstrip("/")),
-            "PGUSER": unquote(parsed.username),
-            "PGSSLMODE": "require",
-        }
-    )
+    env.update({
+        "PGHOST": parsed.hostname,
+        "PGPORT": str(parsed.port or 5432),
+        "PGDATABASE": unquote(parsed.path.lstrip("/")),
+        "PGUSER": unquote(parsed.username),
+        "PGSSLMODE": "require",
+    })
     if parsed.password is not None:
         env["PGPASSWORD"] = unquote(parsed.password)
     return env
@@ -168,11 +164,8 @@ def _libpq_env(database_url: str) -> dict[str, str]:
 def live_observation(database_url: str) -> object:
     result = subprocess.run(
         ["psql", "-X", "--no-password", "-v", "ON_ERROR_STOP=1", "-At", "-c", SQL],
-        env=_libpq_env(database_url),
-        text=True,
-        capture_output=True,
-        check=False,
-        timeout=20,
+        env=_libpq_env(database_url), text=True, capture_output=True,
+        check=False, timeout=20,
     )
     if result.returncode != 0:
         raise RuntimeError("database privilege probe failed")
@@ -193,7 +186,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--observation-file")
     parser.add_argument("--output")
     args = parser.parse_args(argv)
-
     try:
         if args.observation_file:
             observed = load_fixture(Path(args.observation_file).resolve())
