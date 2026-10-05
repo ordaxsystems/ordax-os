@@ -8,6 +8,7 @@ NGINX = ROOT / "deploy" / "public-site" / "nginx.conf"
 VERCEL = ROOT / "vercel.json"
 VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
 DEPLOYMENT_PROOF = ROOT / "tools" / "public-site" / "prove_deployment.py"
+PUBLIC_EDGE_RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_auth_rate_limit.mjs"
 
 
 class PublicSiteDeploymentTests(unittest.TestCase):
@@ -17,10 +18,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_live_oidc_v2_without_claiming_zero_trust_rollout(self):
+    def test_contract_records_live_oidc_v4_without_claiming_zero_trust_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-oidc-v2-live-vercel-zero-trust-source-not-deployed",
+            "public-edge-oidc-v4-live-vercel-zero-trust-source-not-deployed",
         )
         self.assertEqual(
             self.contract["vercel_adapter"]["status"],
@@ -28,7 +29,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         )
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 2)
+        self.assertEqual(edge["deployed_version"], 4)
+        self.assertEqual(
+            edge["deployment_source_commit"],
+            "ecfe1f41b9d2881ee2f8667b50719f26fe650f95",
+        )
         self.assertEqual(edge["deployed_authentication"], "vercel-production-oidc-v2")
         self.assertEqual(edge["source_authentication"], "vercel-production-oidc-v2")
         self.assertTrue(edge["oidc_source_ready"])
@@ -37,6 +42,13 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(edge["oidc_preview_allowed"])
         self.assertTrue(edge["request_context_validation_connected"])
         self.assertTrue(edge["trusted_public_origin_requires_authenticated_proxy"])
+        self.assertEqual(edge["trusted_client_address_canonicalization"], "strict-ipv4-ipv6")
+        self.assertTrue(edge["ambiguous_client_address_rejected"])
+        rate_limit_source = PUBLIC_EDGE_RATE_LIMIT.read_text(encoding="utf-8")
+        self.assertIn("canonicalizePublicClientAddress", rate_limit_source)
+        self.assertIn("canonicalIpv4", rate_limit_source)
+        self.assertIn("canonicalIpv6", rate_limit_source)
+        self.assertNotIn("const ADDRESS_RE", rate_limit_source)
         self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
 
