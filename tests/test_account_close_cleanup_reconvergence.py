@@ -32,9 +32,22 @@ class AccountCloseCleanupReconvergenceTests(unittest.TestCase):
         )
 
     def test_stale_jwt_predicate_lives_in_policy_schema(self):
+        normalized = re.sub(r"\s+", " ", self.sql.lower())
         self.assertIn("create function ordax_policy.account_is_closing()", self.sql)
         self.assertIn("grant execute on function ordax_policy.account_is_closing() to authenticated", self.sql)
-        self.assertNotIn("grant execute on function private.", self.sql.lower().replace("\n  ", " "))
+        for helper in (
+            "private.ordax_begin_account_close_internal_v2(uuid)",
+            "private.ordax_record_account_close_auth_fence_internal_v2(uuid, uuid)",
+        ):
+            self.assertIn(
+                f"grant execute on function {helper} to ordax_account_close_executor",
+                normalized,
+            )
+            for api_role in ("public", "anon", "authenticated", "service_role"):
+                self.assertNotRegex(
+                    normalized,
+                    rf"grant execute on function {re.escape(helper)} to (?:[^;]*,\s*)?{api_role}(?:\s*,|;)",
+                )
         self.assertGreaterEqual(self.sql.count("as restrictive for all to authenticated"), 8)
         self.assertGreaterEqual(self.sql.count("not ordax_policy.account_is_closing()"), 16)
 
