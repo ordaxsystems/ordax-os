@@ -121,18 +121,24 @@ test("signed delivery envelope binds to component version, declared optional loc
   );
 });
 
-test("bundled-only components fail closed for external localization delivery", () => {
+test("bundled-only and missing pack policy fail closed for external localization delivery", () => {
   const delivery = defineLocalizationPackDelivery(validDeliverySpec());
+  const expectedComponent = {
+    componentId: "notes",
+    componentVersion: "20.4.0",
+    messageContractSha256: HASH_A,
+  };
   assert.equal(
     localizationDeliveryMatchesComponent(delivery, {
       ...localization,
       packPolicy: "bundled-only",
-    }, {
-      componentId: "notes",
-      componentVersion: "20.4.0",
-      messageContractSha256: HASH_A,
-    }),
+    }, expectedComponent),
     false,
+  );
+  const { packPolicy: _packPolicy, ...missingPolicy } = localization;
+  assert.throws(
+    () => localizationDeliveryMatchesComponent(delivery, missingPolicy, expectedComponent),
+    /packPolicy is invalid/,
   );
 });
 
