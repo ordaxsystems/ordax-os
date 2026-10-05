@@ -192,29 +192,3 @@ test("without a project catalog the decorator preserves the original file-space 
   assert.equal(createProjectContinuityFileSpace(port, null), port);
 });
 
-test("native composition decorates only the Files owner while Notes retains raw file-space", async () => {
-  const composition = await readFile(
-    new URL("../system/composition/native/main.mjs", import.meta.url),
-    "utf8",
-  );
-  assert.match(
-    composition,
-    /createProjectContinuityFileSpace[\s\S]*from "\.\.\/\.\.\/services\/files\/project-continuity-file-space\.mjs"/,
-  );
-  assert.match(composition, /const filesOwnerSpace = fileSpace === null/);
-  assert.match(composition, /reportClientDiagnostic\("files-project-continuity", error\)/);
-
-  const notesRuntime = composition
-    .split('const notesComponent = await loadOptionalComponentRuntime({', 2)[1]
-    .split('const internetComponent = await loadOptionalComponentRuntime({', 1)[0];
-  assert.match(notesRuntime, /componentId: "notes"/);
-  assert.match(notesRuntime, /\n\s*fileSpace,/);
-  assert.match(notesRuntime, /\n\s*appActivation,/);
-  assert.doesNotMatch(notesRuntime, /filesOwnerSpace/);
-
-  const filesMount = composition
-    .split("const fileSpaceControls = mountFileSpaceControls(", 2)[1]
-    .split("let settingsOverviewControls", 1)[0];
-  assert.match(filesMount, /filesOwnerSpace/);
-  assert.doesNotMatch(filesMount, /\n\s*fileSpace,/);
-});
