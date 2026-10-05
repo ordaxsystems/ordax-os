@@ -60,7 +60,7 @@ svg {
   min-height: 0;
   flex-direction: column;
   justify-content: space-between;
-  border-right: 1px solid var(--ordax-border);
+  border-inline-end: 1px solid var(--ordax-border);
   background: var(--ordax-rail-bg);
 }
 
@@ -89,7 +89,7 @@ svg {
 .ordax-rail-button::before {
   content: "";
   position: absolute;
-  left: -10px;
+  inset-inline-start: -10px;
   top: 16px;
   bottom: 16px;
   width: 3px;
@@ -148,8 +148,7 @@ svg {
   position: absolute;
   z-index: 40;
   top: 26px;
-  left: 38px;
-  right: 38px;
+  inset-inline: 38px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -223,7 +222,8 @@ svg {
   position: relative;
   z-index: 12;
   width: min(500px, 42vw);
-  padding: clamp(150px, 20vh, 210px) 0 72px clamp(48px, 5vw, 92px);
+  padding: clamp(150px, 20vh, 210px) 0 72px;
+  padding-inline-start: clamp(48px, 5vw, 92px);
 }
 
 .ordax-area-kicker,
@@ -268,7 +268,7 @@ svg {
   border-bottom: 1px solid var(--ordax-muted);
   background: transparent;
   color: var(--ordax-muted);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -290,8 +290,8 @@ svg {
 }
 
 kbd {
-  padding-left: 16px;
-  border-left: 1px solid var(--ordax-border);
+  padding-inline-start: 16px;
+  border-inline-start: 1px solid var(--ordax-border);
   color: var(--ordax-muted);
   font-family: var(--ordax-font);
   font-size: 0.72rem;
@@ -319,13 +319,13 @@ kbd {
   border-bottom: 1px solid var(--ordax-border);
   background: transparent;
   color: var(--ordax-text);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
 .ordax-space-link:hover:not(:disabled),
 .ordax-space-link:focus-visible:not(:disabled) {
-  padding-left: 8px;
+  padding-inline-start: 8px;
   background: var(--ordax-hover-bg);
   outline: none;
 }
@@ -780,7 +780,7 @@ kbd {
   border-radius: var(--ordax-radius-md);
   background: transparent;
   color: var(--ordax-text);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -894,8 +894,8 @@ kbd {
   flex: 1;
   align-items: center;
   gap: 3px;
-  padding-left: 9px;
-  border-left: 1px solid var(--ordax-border);
+  padding-inline-start: 9px;
+  border-inline-start: 1px solid var(--ordax-border);
 }
 
 .ordax-running-app {
@@ -947,8 +947,8 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding-left: 10px;
-  border-left: 1px solid var(--ordax-border);
+  padding-inline-start: 10px;
+  border-inline-start: 1px solid var(--ordax-border);
   color: var(--ordax-muted);
 }
 
@@ -1267,7 +1267,7 @@ button.ordax-tray-item:focus-visible {
   color: var(--ordax-text);
   cursor: pointer;
   font: inherit;
-  text-align: left;
+  text-align: start;
 }
 
 .ordax-quick-network[data-selected="true"] {

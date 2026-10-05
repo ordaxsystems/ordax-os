@@ -18,6 +18,7 @@ import {
 import { createNotificationsRuntime } from "../system/services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../system/services/notifications/update-bridge.mjs";
 import { LOCALIZATION_SCHEMA } from "../system/contracts/localization.mjs";
+import { createLocaleProfile } from "../system/contracts/locale-profile.mjs";
 import { notificationPresentationCopy } from "../system/services/notifications/presentation.mjs";
 
 function draft(overrides = {}) {
@@ -123,6 +124,9 @@ test("semantic first-party presentation rerenders without rewriting stored fallb
     schema: LOCALIZATION_SCHEMA,
     getLocale() {
       return "en-US";
+    },
+    getProfile() {
+      return createLocaleProfile("en-US");
     },
     translate(messageId, values = {}) {
       const messages = {

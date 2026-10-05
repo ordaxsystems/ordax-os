@@ -151,7 +151,9 @@ class FirstRunContractTests(unittest.TestCase):
 
         self.assertIn("Continuar sem conta", ui)
         self.assertIn("translateFirstRunText", ui)
-        self.assertIn('documentObject.documentElement.lang = draft.locale', ui)
+        self.assertIn("syncFirstRunDocumentLocale(documentObject, draft.locale)", ui)
+        self.assertIn("documentObject.documentElement.lang = profile.locale", ui)
+        self.assertIn("documentObject.documentElement.dir = profile.direction", ui)
         self.assertIn('isIdentityActionSupported(actionsSnapshot, "sign-in")', ui)
         self.assertIn('isIdentityActionSupported(actionsSnapshot, "register")', ui)
         self.assertIn("passwordDraft", ui)
