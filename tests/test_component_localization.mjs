@@ -29,6 +29,21 @@ function chineseReadyManifest(overrides = {}) {
   });
 }
 
+function validReleaseSpec() {
+  return {
+    targetKind: "app",
+    targetId: "notes",
+    componentVersion: "20.4.0",
+    locale: "zh-Hans",
+    packVersion: "1.0.1",
+    messageContractSha256: HASH_A,
+    contentSha256: HASH_B,
+    size: 4096,
+    publisher: "OrdaX",
+    signature: "test-signature",
+  };
+}
+
 test("first-party apps expose one validated component-localization contract", () => {
   const apps = listFirstPartyApps();
   assert.ok(apps.length >= 10);
@@ -67,6 +82,28 @@ test("an installed optional locale remains scoped to its declaring app", () => {
   assert.equal(resolved.degraded, false);
 });
 
+test("compatible app override remains higher priority even when it resolves to source language", () => {
+  const resolved = resolveComponentLocaleSelection({
+    manifest: chineseReadyManifest(),
+    systemLocale: "en-US",
+    appLocale: "pt-PT",
+  });
+  assert.equal(resolved.locale, "pt-BR");
+  assert.equal(resolved.requestedLocale, "pt-PT");
+  assert.equal(resolved.source, "app-override");
+  assert.equal(resolved.degraded, true);
+});
+
+test("compatible system locale is distinguished from source fallback", () => {
+  const resolved = resolveComponentLocaleSelection({
+    manifest: chineseReadyManifest(),
+    systemLocale: "pt-PT",
+  });
+  assert.equal(resolved.locale, "pt-BR");
+  assert.equal(resolved.source, "system");
+  assert.equal(resolved.degraded, true);
+});
+
 test("removed app override falls back to system locale before source locale", () => {
   const resolved = resolveComponentLocaleSelection({
     manifest: chineseReadyManifest(),
@@ -103,18 +140,7 @@ test("component policy can disable per-app override without changing system fall
 
 test("signed release descriptor is authority-free and binds exact component contract", () => {
   const manifest = chineseReadyManifest();
-  const release = defineLocalizationPackRelease({
-    targetKind: "app",
-    targetId: "notes",
-    componentVersion: "20.4.0",
-    locale: "zh-Hans",
-    packVersion: "1.0.1",
-    messageContractSha256: HASH_A,
-    contentSha256: HASH_B,
-    size: 4096,
-    publisher: "OrdaX",
-    signature: "test-signature",
-  });
+  const release = defineLocalizationPackRelease(validReleaseSpec());
 
   assert.equal(release.schema, LOCALIZATION_PACK_RELEASE_SCHEMA);
   assert.equal(
@@ -139,19 +165,60 @@ test("signed release descriptor is authority-free and binds exact component cont
     false,
   );
 
-  assert.throws(
-    () => defineLocalizationPackRelease({
-      ...release,
-      permissions: ["filesystem.user-space"],
+  for (const [field, value] of [
+    ["permissions", ["filesystem.user-space"]],
+    ["capabilities", ["network.client"]],
+    ["requestedCapabilities", ["microphone"]],
+    ["entrypoint", "payload.mjs"],
+    ["executable", true],
+  ]) {
+    assert.throws(
+      () => defineLocalizationPackRelease({
+        ...validReleaseSpec(),
+        [field]: value,
+      }),
+      new RegExp(`cannot declare ${field}`),
+      field,
+    );
+  }
+});
+
+test("release matching requires explicit component-scoped policy", () => {
+  const release = defineLocalizationPackRelease(validReleaseSpec());
+  const bundledOnly = defineComponentLocalization({
+    targetId: "notes",
+    sourceLocale: "pt-BR",
+    bundledLocales: ["pt-BR", "en-US"],
+    optionalLocales: [],
+    allowAppOverride: true,
+    packPolicy: "bundled-only",
+  });
+  assert.equal(
+    localizationPackReleaseMatchesComponent(release, bundledOnly, {
+      componentVersion: "20.4.0",
+      messageContractSha256: HASH_A,
     }),
-    /cannot declare permissions/,
+    false,
+  );
+
+  const { packPolicy: _packPolicy, ...missingPolicy } = chineseReadyManifest();
+  assert.throws(
+    () => localizationPackReleaseMatchesComponent(release, missingPolicy, {
+      componentVersion: "20.4.0",
+      messageContractSha256: HASH_A,
+    }),
+    /packPolicy is required/,
+  );
+});
+
+test("release text identity rejects whitespace-only publisher or signature", () => {
+  assert.throws(
+    () => defineLocalizationPackRelease({ ...validReleaseSpec(), publisher: "   " }),
+    /publisher must be bounded non-empty text/,
   );
   assert.throws(
-    () => defineLocalizationPackRelease({
-      ...release,
-      entrypoint: "payload.mjs",
-    }),
-    /cannot declare entrypoint/,
+    () => defineLocalizationPackRelease({ ...validReleaseSpec(), signature: "   " }),
+    /signature must be bounded non-empty text/,
   );
 });
 
