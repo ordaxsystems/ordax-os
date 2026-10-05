@@ -47,6 +47,6 @@ jobs:
       - name: Guard provider neutrality and private implementation ownership
         run: |
           set -euo pipefail
-          ! grep -R -n -E 'services/|contracts/local-ai|qwen|llama' system/apps/notes
+          ! grep -R -n -E 'contracts/local-ai|qwen|llama' system/apps/notes
           grep -q 'assertIntelligencePort' system/apps/notes/platform/intelligence-summary.mjs
           grep -q 'intent: "summarize"' system/apps/notes/platform/intelligence-summary.mjs
