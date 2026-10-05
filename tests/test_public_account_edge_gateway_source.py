@@ -62,12 +62,15 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("x-ordax-public-proxy-secret", trustedProxySecret)', self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
 
-    def test_provenance_uses_hash_only_and_native_edge_fallback_is_not_accepted_by_public_wrapper(self):
-        self.assertIn("PUBLIC_PROXY_SECRET_SHA256", self.provenance)
+    def test_provenance_uses_environment_digest_only_and_native_edge_fallback_is_not_accepted_by_public_wrapper(self):
+        self.assertIn('ORDAX_PUBLIC_PROXY_SECRET_SHA256', self.provenance)
+        self.assertIn('runtimeProxySecretSha256()', self.provenance)
+        self.assertIn('normalizeProxySecretSha256', self.provenance)
         self.assertIn('"cf-connecting-ip"', self.provenance)
         self.assertIn('source: "authenticated-public-proxy"', self.provenance)
         self.assertIn('source: "supabase-edge"', self.provenance)
-        self.assertNotIn("ORDAX_PUBLIC_PROXY_SECRET", self.provenance)
+        self.assertNotIn('const PUBLIC_PROXY_SECRET_SHA256 = "', self.provenance)
+        self.assertNotIn("ORDAX_PUBLIC_PROXY_SECRET\"", self.provenance)
         self.assertIn('provenance.source !== "authenticated-public-proxy"', self.edge)
 
     def test_inner_gateway_remains_fail_closed_during_boundary_rollout(self):
