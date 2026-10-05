@@ -42,10 +42,8 @@ class SyncPrivateLeastPrivilegeTests(unittest.TestCase):
         self.assertNotIn("superuser", body)
         self.assertNotIn("createrole", body)
         self.assertNotIn("createdb", body)
-        self.assertIn(
-            "grant ordax_sync_executor to postgres with admin option;",
-            self.sql,
-        )
+        self.assertIn("grant ordax_sync_executor to postgres;", self.sql)
+        self.assertNotIn("grant ordax_sync_executor to postgres with admin option", self.sql)
         self.assertNotIn("grant authenticated to ordax_sync_executor", self.sql)
         self.assertNotIn("grant service_role to ordax_sync_executor", self.sql)
 
