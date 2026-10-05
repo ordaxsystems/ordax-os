@@ -48,6 +48,7 @@ export function createDiagnosticReviewController({
   let generation = 0;
   let preparedDocument = null;
   let outputInFlight = null;
+  // phase describes this explicit review workflow only; it is not a device/service health verdict.
   let phase = "idle";
   let lastResult = null;
   const listeners = new Set();
