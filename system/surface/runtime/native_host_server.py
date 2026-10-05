@@ -4392,27 +4392,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._write_json(200, result)
             return
 
-        if self.path == NOTES_PATH:
-            body = self._read_json_body(MAX_NOTES_BODY)
-            if body is None or set(body) != {"payload"}:
-                self._empty(400)
-                return
-            payload = body["payload"]
-            if not valid_notes_payload(payload):
-                self._empty(400)
-                return
-            try:
-                write_notes_payload(payload)
-            except OSError as exc:
-                print(f"ordax-native-host: could not persist notes: {exc}", file=sys.stderr, flush=True)
-                self._empty(507 if exc.errno == errno.ENOSPC else 500)
-                return
-            except ValueError:
-                self._empty(400)
-                return
-            self._empty(204)
-            return
-
         if self.path == COMPONENT_STATE_PATH:
             body = self._read_json_body(MAX_COMPONENT_STATE_BODY)
             if body is None or set(body) != {"payload"}:
