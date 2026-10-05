@@ -16,6 +16,7 @@ on:
       - 'infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql'
       - 'infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql'
       - 'infra/supabase/product/migrations/20260929214500_cloud_memory_local_first_identity_v1.sql'
+      - 'infra/supabase/product/migrations/20261005033000_private_domain_executors_v1.sql'
       - 'services/public-identity/memory_entitlements.py'
       - 'services/public-identity/supabase_memory.py'
       - 'services/public-identity/supabase_sync.py'
@@ -39,6 +40,7 @@ on:
       - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
       - 'tests/test_cloud_memory_atomic_mutation.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_executor_ssot.py'
       - 'tests/test_cloud_memory_privacy_hardening.py'
       - 'tests/test_memory_entitlements.py'
       - 'tests/test_account_memory_authorization.mjs'
@@ -77,6 +79,7 @@ on:
       - 'infra/supabase/product/migrations/20260929193000_cloud_memory_privacy_hardening_v1.sql'
       - 'infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql'
       - 'infra/supabase/product/migrations/20260929214500_cloud_memory_local_first_identity_v1.sql'
+      - 'infra/supabase/product/migrations/20261005033000_private_domain_executors_v1.sql'
       - 'services/public-identity/memory_entitlements.py'
       - 'services/public-identity/supabase_memory.py'
       - 'services/public-identity/supabase_sync.py'
@@ -100,6 +103,7 @@ on:
       - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
       - 'tests/test_cloud_memory_atomic_mutation.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
+      - 'tests/test_cloud_memory_executor_ssot.py'
       - 'tests/test_cloud_memory_privacy_hardening.py'
       - 'tests/test_memory_entitlements.py'
       - 'tests/test_account_memory_authorization.mjs'
@@ -205,6 +209,7 @@ jobs:
           python -m py_compile tools/cloud-memory/prove_authenticated_atomic_sync.py
           python -m py_compile tests/test_cloud_memory_atomic_mutation.py
           python -m py_compile tests/test_cloud_memory_authenticated_proof.py
+          python -m py_compile tests/test_cloud_memory_executor_ssot.py
           python -m py_compile tests/test_cloud_memory_privacy_hardening.py
           python -m py_compile tests/test_memory_entitlements.py
           python -m py_compile tests/test_account_canonical_navigation.py
@@ -241,6 +246,7 @@ jobs:
           node --test tests/test_native_account_sync_memory_wiring.mjs
           python -m unittest tests.test_cloud_memory_atomic_mutation -v
           python -m unittest tests.test_cloud_memory_authenticated_proof -v
+          python -m unittest tests.test_cloud_memory_executor_ssot -v
           python -m unittest tests.test_cloud_memory_privacy_hardening -v
           python -m unittest tests.test_memory_entitlements -v
           python -m unittest tests.test_account_canonical_navigation -v
