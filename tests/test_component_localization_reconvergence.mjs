@@ -21,6 +21,20 @@ const localization = Object.freeze({
   packPolicy: "component-scoped",
 });
 
+function validDeliverySpec() {
+  return {
+    componentId: "notes",
+    componentVersion: "20.4.0",
+    packVersion: "3.1.1",
+    locale: "zh-Hans",
+    messageContractSha256: HASH_A,
+    contentSha256: HASH_B,
+    size: 4096,
+    publisher: "OrdaX",
+    signature: "test-signature",
+  };
+}
+
 test("installed optional locale stays component-scoped and may exceed Surface locales", () => {
   assert.deepEqual(
     availableComponentLocales(localization, ["zh-Hans"]),
@@ -67,18 +81,8 @@ test("undeclared installed locale never becomes available", () => {
   );
 });
 
-test("signed delivery envelope carries no executable authority and binds to component contract", () => {
-  const delivery = defineLocalizationPackDelivery({
-    componentId: "notes",
-    componentVersion: "20.4.0",
-    packVersion: "3.1.1",
-    locale: "zh-Hans",
-    messageContractSha256: HASH_A,
-    contentSha256: HASH_B,
-    size: 4096,
-    publisher: "OrdaX",
-    signature: "test-signature",
-  });
+test("signed delivery envelope binds to component version, declared optional locale and message contract", () => {
+  const delivery = defineLocalizationPackDelivery(validDeliverySpec());
   assert.equal(delivery.schema, "prototype-ordax.localization-pack-delivery/1");
   assert.equal(
     localizationDeliveryMatchesComponent(delivery, localization, {
@@ -96,11 +100,57 @@ test("signed delivery envelope carries no executable authority and binds to comp
     }),
     false,
   );
-  assert.throws(
-    () => defineLocalizationPackDelivery({
-      ...delivery,
-      permissions: ["filesystem.user-space"],
+  assert.equal(
+    localizationDeliveryMatchesComponent(delivery, localization, {
+      componentId: "notes",
+      componentVersion: "20.5.0",
+      messageContractSha256: HASH_A,
     }),
-    /cannot declare permissions/,
+    false,
   );
+  assert.equal(
+    localizationDeliveryMatchesComponent(delivery, {
+      ...localization,
+      optionalLocales: [],
+    }, {
+      componentId: "notes",
+      componentVersion: "20.4.0",
+      messageContractSha256: HASH_A,
+    }),
+    false,
+  );
+});
+
+test("bundled-only components fail closed for external localization delivery", () => {
+  const delivery = defineLocalizationPackDelivery(validDeliverySpec());
+  assert.equal(
+    localizationDeliveryMatchesComponent(delivery, {
+      ...localization,
+      packPolicy: "bundled-only",
+    }, {
+      componentId: "notes",
+      componentVersion: "20.4.0",
+      messageContractSha256: HASH_A,
+    }),
+    false,
+  );
+});
+
+test("localization delivery rejects every authority-bearing field", () => {
+  for (const [field, value] of [
+    ["permissions", ["filesystem.user-space"]],
+    ["capabilities", ["network.client"]],
+    ["requestedCapabilities", ["microphone"]],
+    ["entrypoint", "index.mjs"],
+    ["executable", true],
+  ]) {
+    assert.throws(
+      () => defineLocalizationPackDelivery({
+        ...validDeliverySpec(),
+        [field]: value,
+      }),
+      new RegExp(`cannot declare ${field}`),
+      field,
+    );
+  }
 });
