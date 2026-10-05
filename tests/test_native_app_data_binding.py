@@ -96,6 +96,22 @@ class NativeAppDataBindingTest(unittest.TestCase):
             registry.mint_from_receipt("0" * 64)
         self.assertEqual(registry.active_binding_count(), 1)
 
+    def test_verified_notes_identity_gets_owner_managed_storage_limits(self):
+        registry = self.registry()
+        binding = registry.mint_from_receipt(self.write_receipt())
+
+        self.assertEqual(binding.quota_bytes, 64 * 1024 * 1024)
+        self.assertEqual(binding.max_keys, 2048)
+
+    def test_other_verified_identity_keeps_default_storage_limits(self):
+        registry = self.registry()
+        binding = registry.mint_from_receipt(
+            self.write_receipt(receipt(appId="assistant", sourceVersion="0.1.1"))
+        )
+
+        self.assertEqual(binding.quota_bytes, 8 * 1024 * 1024)
+        self.assertEqual(binding.max_keys, 1024)
+
     def test_new_verified_receipt_for_same_identity_rotates_capability(self):
         registry = self.registry()
         first_digest = self.write_receipt()
