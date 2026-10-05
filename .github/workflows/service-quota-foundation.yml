@@ -1,0 +1,47 @@
+name: Service Quota Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/service-quota.mjs'
+      - 'system/services/entitlements/quota.mjs'
+      - 'system/services/entitlements/README.md'
+      - 'docs/contracts/service-quotas.json'
+      - 'tests/test_service_quota.mjs'
+      - '.github/workflows/service-quota-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/service-quota.mjs'
+      - 'system/services/entitlements/quota.mjs'
+      - 'system/services/entitlements/README.md'
+      - 'docs/contracts/service-quotas.json'
+      - 'tests/test_service_quota.mjs'
+      - '.github/workflows/service-quota-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  service-quota-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate quota contracts and SSOT
+        run: |
+          set -euo pipefail
+          node --check system/contracts/service-quota.mjs
+          node --check system/services/entitlements/quota.mjs
+          node --check tests/test_service_quota.mjs
+          python -m json.tool docs/contracts/service-quotas.json >/dev/null
+
+      - name: Prove fail-closed server quota semantics
+        run: |
+          set -euo pipefail
+          node --test tests/test_service_quota.mjs
