@@ -41,6 +41,7 @@ on:
       - 'tests/test_public_auth_edge_rate_limit.mjs'
       - 'tests/test_public_account_edge_gateway_source.py'
       - 'tests/test_auth_provider_probe.py'
+      - 'tests/test_account_release_provider_proof.py'
       - 'tests/test_public_legal_readiness.py'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
@@ -87,6 +88,7 @@ on:
       - 'tests/test_public_auth_edge_rate_limit.mjs'
       - 'tests/test_public_account_edge_gateway_source.py'
       - 'tests/test_auth_provider_probe.py'
+      - 'tests/test_account_release_provider_proof.py'
       - 'tests/test_public_legal_readiness.py'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
@@ -126,6 +128,7 @@ jobs:
           node --test tests/test_public_auth_edge_rate_limit.mjs
           python -m unittest tests.test_public_account_edge_gateway_source -v
           python -m unittest tests.test_auth_provider_probe -v
+          python -m unittest tests.test_account_release_provider_proof -v
           python -m unittest tests.test_public_site_contract -v
           python -m unittest tests.test_public_release_catalog -v
           python -m unittest tests.test_public_identity_backend_prep -v
