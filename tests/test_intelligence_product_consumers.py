@@ -35,7 +35,7 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         private_service_imports = []
         platform_services = (ROOT / "system/services").resolve()
         import_pattern = re.compile(
-            r'(?:from\\s+|import\\(\\s*)["\\\']([^"\\\']+)["\\\']'
+            r"""(?:from\s+|import\(\s*)["']([^"']+)["']"""
         )
         for path in notes_files:
             source = path.read_text(encoding="utf-8")
