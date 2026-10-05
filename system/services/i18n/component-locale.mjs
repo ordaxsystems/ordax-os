@@ -1,7 +1,4 @@
-import {
-  resolveComponentLocale as resolveAvailableLocale,
-  validateLocale,
-} from "../../contracts/localization-pack.mjs";
+import { validateLocale } from "../../contracts/localization-pack.mjs";
 
 function normalizeLocalization(localization) {
   if (!localization || typeof localization !== "object" || Array.isArray(localization)) {
@@ -47,12 +44,13 @@ export function availableComponentLocales(localization, installedOptionalLocales
   return Object.freeze([...manifest.bundledLocales, ...activeOptionalLocales]);
 }
 
-function resolveRequestedLocale(requestedLocale, manifest, availableLocales) {
-  return resolveAvailableLocale({
-    requestedLocale: validateLocale(requestedLocale),
-    sourceLocale: manifest.sourceLocale,
-    availableLocales,
-  });
+function findCompatibleLocale(requestedLocale, availableLocales) {
+  const requested = validateLocale(requestedLocale);
+  if (availableLocales.includes(requested)) {
+    return requested;
+  }
+  const requestedLanguage = requested.split("-")[0];
+  return availableLocales.find((locale) => locale.split("-")[0] === requestedLanguage) ?? null;
 }
 
 export function resolveComponentLocale({
@@ -67,37 +65,53 @@ export function resolveComponentLocale({
 
   if (appLocale !== null && manifest.allowAppOverride) {
     const normalizedAppLocale = validateLocale(appLocale);
-    const appResolved = resolveRequestedLocale(normalizedAppLocale, manifest, availableLocales);
-    if (appResolved !== manifest.sourceLocale || normalizedAppLocale === manifest.sourceLocale) {
+    const appMatch = findCompatibleLocale(normalizedAppLocale, availableLocales);
+    if (appMatch !== null) {
       return Object.freeze({
-        locale: appResolved,
+        locale: appMatch,
         requestedLocale: normalizedAppLocale,
         source: "app-override",
-        degraded: appResolved !== normalizedAppLocale,
+        degraded: appMatch !== normalizedAppLocale,
         availableLocales,
       });
     }
 
-    const systemResolved = resolveRequestedLocale(normalizedSystemLocale, manifest, availableLocales);
-    if (systemResolved !== manifest.sourceLocale || normalizedSystemLocale === manifest.sourceLocale) {
+    const systemMatch = findCompatibleLocale(normalizedSystemLocale, availableLocales);
+    if (systemMatch !== null) {
       return Object.freeze({
-        locale: systemResolved,
+        locale: systemMatch,
         requestedLocale: normalizedAppLocale,
         source: "system-fallback-after-unavailable-app-override",
         degraded: true,
         availableLocales,
       });
     }
+
+    return Object.freeze({
+      locale: manifest.sourceLocale,
+      requestedLocale: normalizedAppLocale,
+      source: "source-fallback",
+      degraded: true,
+      availableLocales,
+    });
   }
 
-  const systemResolved = resolveRequestedLocale(normalizedSystemLocale, manifest, availableLocales);
+  const systemMatch = findCompatibleLocale(normalizedSystemLocale, availableLocales);
+  if (systemMatch !== null) {
+    return Object.freeze({
+      locale: systemMatch,
+      requestedLocale: normalizedSystemLocale,
+      source: "system",
+      degraded: systemMatch !== normalizedSystemLocale,
+      availableLocales,
+    });
+  }
+
   return Object.freeze({
-    locale: systemResolved,
+    locale: manifest.sourceLocale,
     requestedLocale: normalizedSystemLocale,
-    source: systemResolved === manifest.sourceLocale && normalizedSystemLocale !== manifest.sourceLocale
-      ? "source-fallback"
-      : "system",
-    degraded: systemResolved !== normalizedSystemLocale,
+    source: "source-fallback",
+    degraded: true,
     availableLocales,
   });
 }
