@@ -1,0 +1,134 @@
+{
+  "$schema": "prototype-ordax.supabase-security-posture/1",
+  "status": "reviewed-advisor-posture-public-rollout-blocked",
+  "backend": "ordax-control-plane",
+  "reviewed_at": "2026-10-05",
+  "source": "supabase-security-advisor-plus-live-catalog-verification",
+  "public_account_activation_allowed": false,
+  "automatic_advisor_silencing_allowed": false,
+  "permissive_policy_creation_to_silence_linter_allowed": false,
+  "blanket_security_definer_execute_revoke_allowed": false,
+  "supersedes_current_state_keys": [
+    "SUPABASE_SECURITY_ADVISOR_RLS_NO_POLICY"
+  ],
+  "current_state_snapshot_reconciliation_pending": true,
+  "advisor": {
+    "rls_enabled_no_policy": {
+      "level": "INFO",
+      "count": 72,
+      "classification": "reviewed-client-deny-by-default-no-api-role-grants",
+      "review_complete": true,
+      "auto_fix_allowed": false,
+      "schema_counts": {
+        "private": 12,
+        "public": 60
+      },
+      "direct_data_privilege_table_counts": {
+        "public_pseudorole": 0,
+        "anon": 0,
+        "authenticated": 0,
+        "service_role": 59
+      },
+      "tables_without_service_role_data_privilege": 13,
+      "client_policy_required_for_current_access_model": false,
+      "service_role_bypasses_rls": true,
+      "permissive_policy_would_not_harden_service_role": true
+    },
+    "authenticated_security_definer_function_executable": {
+      "level": "WARN",
+      "count": 31,
+      "classification": "reviewed-intentional-public-boundaries",
+      "reviewed_count": 31,
+      "pending_count": 0,
+      "review_complete": true,
+      "blanket_revoke_allowed": false
+    },
+    "auth_leaked_password_protection": {
+      "level": "WARN",
+      "count": 1,
+      "provider_setting_enabled": false,
+      "product_gateway_hibp_is_provider_setting_substitute": false,
+      "blocks_public_identity_activation": true
+    }
+  },
+  "reviewed_security_definer_boundaries": {
+    "account_export": {
+      "warn_count": 1,
+      "status": "reviewed-intentional-authenticated-boundary",
+      "rpc": "public.ordax_account_export_v1",
+      "authenticated_execute_intentional": true,
+      "owner_bound_by_auth_uid": true,
+      "search_path_pinned_empty": true,
+      "cross_subject_reads_allowed": false
+    },
+    "cloud_memory": {
+      "warn_count": 1,
+      "status": "reviewed-intentional-domain-executor-boundary",
+      "contract": "docs/contracts/cloud-memory-sync-boundary.json",
+      "rpc": "public.ordax_apply_memory_mutation_v1",
+      "authenticated_execute_intentional": true,
+      "owner_bound_by_auth_uid": true,
+      "space_access_server_verified": true,
+      "entitlement_server_verified": true,
+      "api_roles_direct_private_helper_execute_allowed": false
+    },
+    "account_sync": {
+      "warn_count": 6,
+      "status": "reviewed-intentional-domain-executor-boundaries",
+      "migration": "infra/supabase/product/migrations/20261005025500_sync_private_least_privilege_v2.sql",
+      "authenticated_execute_intentional": true,
+      "owner_bound_by_auth_uid": true,
+      "direct_private_relation_authority_for_api_roles": false,
+      "executor_login_allowed": false,
+      "executor_bypass_rls_allowed": false
+    },
+    "network": {
+      "warn_count": 23,
+      "status": "reviewed-intentional-domain-executor-boundaries",
+      "migration": "infra/supabase/product/migrations/20261005033000_private_domain_executors_v1.sql",
+      "public_wrapper_count": 23,
+      "public_wrappers_owned_by_executor": true,
+      "public_wrappers_search_path_pinned_empty": true,
+      "public_wrappers_anon_execute": false,
+      "public_wrappers_authenticated_execute": true,
+      "public_wrappers_service_role_execute": true,
+      "public_wrapper_authorization_chain_proven_count": 23,
+      "all_public_wrappers_map_to_authorized_private_target": true,
+      "private_helper_count": 32,
+      "private_helpers_security_definer": true,
+      "private_helpers_search_path_pinned_empty": true,
+      "private_helpers_executor_execute": true,
+      "api_roles_direct_private_helper_execute_allowed": false,
+      "executor_role": "ordax_network_executor",
+      "executor_login_allowed": false,
+      "executor_inherit_allowed": false,
+      "executor_bypass_rls_allowed": false,
+      "executor_superuser_allowed": false,
+      "executor_create_db_allowed": false,
+      "executor_create_role_allowed": false,
+      "executor_replication_allowed": false,
+      "executor_direct_table_grants": false,
+      "executor_owned_relations": false,
+      "executor_public_schema_create": false,
+      "blanket_revoke_allowed": false
+    },
+    "public_auth_rate_limit": {
+      "advisor_warn_member": false,
+      "status": "reviewed-service-role-only",
+      "rpc": "public.ordax_consume_public_auth_rate_limit_v1",
+      "security_definer": true,
+      "authenticated_execute": false,
+      "anon_execute": false,
+      "service_role_execute": true
+    }
+  },
+  "pending_security_definer_domains": {},
+  "activation_gate": {
+    "advisor_external_warns_must_be_resolved_or_explicitly_reviewed": true,
+    "security_definer_review_complete": true,
+    "pending_security_definer_domain_count": 0,
+    "rls_no_policy_review_complete": true,
+    "provider_leaked_password_setting_must_be_resolved": true,
+    "current_public_activation": false
+  }
+}
