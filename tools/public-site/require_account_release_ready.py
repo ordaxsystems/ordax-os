@@ -33,6 +33,10 @@ REQUIRED_DB_CHECKS = (
     "security_definer_search_path",
     "no_anon_private_schema_usage",
     "no_authenticated_sync_table_grants",
+    "no_service_role_sync_table_grants",
+    "sync_policies_executor_only",
+    "no_service_role_user_sync_rpc_execute",
+    "no_app_role_sync_sequence_privilege",
     "no_unexpected_authenticated_write_grants",
     "no_authenticated_private_schema_usage",
     "no_authenticated_private_function_execute",
@@ -120,10 +124,17 @@ def validate_database_proof(value: object) -> list[str]:
             "unsafe_security_definer_search_path_count",
             "authenticated_private_function_execute_count",
             "authenticated_sync_table_grant_count",
+            "service_role_sync_table_grant_count",
+            "non_executor_sync_policy_count",
+            "service_role_user_sync_rpc_execute_count",
             "unexpected_authenticated_write_grant_count",
         ):
             if observed.get(name) != 0:
                 blockers.append(f"database-proof-{name}")
+        if observed.get("sync_policy_count") != 5:
+            blockers.append("database-proof-sync_policy_count")
+        if observed.get("app_role_sync_sequence_privilege") is not False:
+            blockers.append("database-proof-app-role-sync-sequence-privilege")
         if observed.get("anon_private_schema_usage") is not False:
             blockers.append("database-proof-anon-private-schema-usage")
         if observed.get("authenticated_private_schema_usage") is not False:
