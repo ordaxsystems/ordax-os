@@ -60,12 +60,16 @@ function normalizeTrigger(value) {
 export function validateSchedule(value) {
   const source = object(value, "Schedule");
   if (source.schema !== SCHEDULE_SCHEMA) throw new TypeError("Schedule schema is invalid");
+  const scheduleId = text(source.scheduleId, "Schedule id", 160);
   const trigger = normalizeTrigger(source.trigger);
   if (!MISSED_POLICIES.has(source.missedRunPolicy)) throw new TypeError("Schedule missed-run policy is invalid");
   if (trigger.kind === "once" && source.missedRunPolicy !== "run-once") {
     throw new TypeError("One-shot schedules must use run-once missed-run policy");
   }
   const maxRuns = integer(source.maxRuns, "Schedule max runs", 1, 1_000_000);
+  if (trigger.kind === "once" && maxRuns !== 1) {
+    throw new TypeError("One-shot schedules must have exactly one run");
+  }
   const runCount = integer(source.runCount ?? 0, "Schedule run count", 0, 1_000_000);
   if (runCount > maxRuns) throw new TypeError("Schedule run count cannot exceed max runs");
   const nextRunAt = optionalTimestamp(source.nextRunAt, "Schedule next run timestamp");
@@ -73,9 +77,13 @@ export function validateSchedule(value) {
   if (runCount === maxRuns && (enabled || nextRunAt !== null)) {
     throw new TypeError("Exhausted schedule must be disabled and have no next run");
   }
+  const deduplicationKey = text(source.deduplicationKey, "Schedule deduplication key", 160);
+  if (deduplicationKey !== scheduleId) {
+    throw new TypeError("Schedule deduplication key must equal schedule id in v1");
+  }
   return Object.freeze({
     schema: SCHEDULE_SCHEMA,
-    scheduleId: text(source.scheduleId, "Schedule id", 160),
+    scheduleId,
     ...normalizeOwner(source),
     workItemId: text(source.workItemId, "Schedule work item id", 160),
     enabled,
@@ -85,7 +93,7 @@ export function validateSchedule(value) {
     maxRuns,
     runCount,
     nextRunAt,
-    deduplicationKey: text(source.deduplicationKey, "Schedule deduplication key", 160),
+    deduplicationKey,
     authority: "none",
   });
 }
