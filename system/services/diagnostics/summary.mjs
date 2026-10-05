@@ -144,7 +144,7 @@ function sourceLines(review, t) {
   });
 }
 
-function updateLines(review, locale, t) {
+function updateLines(review, t) {
   const report = review.report;
   if (report.update === null) return [t("diagnostic.summary.update.unavailable")];
 
@@ -180,9 +180,7 @@ function updateLines(review, locale, t) {
     lines.push(t("diagnostic.summary.freshness.fresh"));
   } else if (freshness.state === "stale") {
     const age = Number.isFinite(freshness.ageSeconds) && freshness.ageSeconds >= 0
-      ? locale === "en-US"
-        ? ` (${Math.round(freshness.ageSeconds)}s old)`
-        : ` (${Math.round(freshness.ageSeconds)}s de idade)`
+      ? t("diagnostic.summary.freshness.age", { value: Math.round(freshness.ageSeconds) })
       : "";
     lines.push(t("diagnostic.summary.freshness.stale", { age }));
   } else {
@@ -307,7 +305,7 @@ export function createDiagnosticReviewSummary(document, { locale = "pt-BR" } = {
         : surface.capabilityIds.map(safeText).join(", "),
     }),
     "",
-    ...updateLines(review, resolvedLocale, t),
+    ...updateLines(review, t),
     "",
     ...metricLines(report, t),
     "",
