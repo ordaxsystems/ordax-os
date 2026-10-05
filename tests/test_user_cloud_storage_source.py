@@ -38,6 +38,17 @@ class UserCloudStorageSourceTests(unittest.TestCase):
         self.assertNotIn("provider_object_key", public_table)
         self.assertIn("create table private.ordax_user_object_bindings", sql)
 
+    def test_identity_and_space_delete_cannot_drop_cleanup_references(self):
+        sql = MIGRATION.read_text(encoding="utf-8")
+        self.assertGreaterEqual(sql.count("references auth.users(id) on delete restrict"), 2)
+        self.assertGreaterEqual(sql.count("references public.ordax_spaces(space_id) on delete restrict"), 2)
+        self.assertNotIn("references auth.users(id) on delete cascade", sql)
+        self.assertNotIn("references public.ordax_spaces(space_id) on delete cascade", sql)
+        self.assertIn(
+            "object_id uuid primary key references public.ordax_user_objects(object_id) on delete cascade",
+            sql,
+        )
+
     def test_rollout_contract_remains_disabled(self):
         import json
 
@@ -45,6 +56,8 @@ class UserCloudStorageSourceTests(unittest.TestCase):
         self.assertFalse(contract["public_rollout_enabled"])
         self.assertTrue(contract["mvp_required"])
         self.assertEqual(contract["quota_key"], "storage.user.bytes")
+        self.assertTrue(contract["metadata_projection"]["authenticated_public_table_is_sanitized_projection"])
+        self.assertFalse(contract["metadata_projection"]["public_projection_contains_provider_object_key"])
         self.assertFalse(contract["database_boundary"]["private_schema_api_roles_allowed"])
         self.assertFalse(contract["database_boundary"]["service_role_direct_private_authority_allowed"])
         self.assertFalse(contract["database_boundary"]["runtime_mutation_boundary_enabled"])
