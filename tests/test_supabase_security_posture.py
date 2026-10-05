@@ -12,6 +12,14 @@ SYNC_MIGRATION = (
     / "migrations"
     / "20261005025500_sync_private_least_privilege_v2.sql"
 )
+NETWORK_EXECUTOR_MIGRATION = (
+    ROOT
+    / "infra"
+    / "supabase"
+    / "product"
+    / "migrations"
+    / "20261005033000_private_domain_executors_v1.sql"
+)
 MEMORY_CONTRACT = ROOT / "docs" / "contracts" / "cloud-memory-sync-boundary.json"
 
 
@@ -40,10 +48,13 @@ class SupabaseSecurityPostureTests(unittest.TestCase):
         definers = advisor["authenticated_security_definer_function_executable"]
         self.assertEqual(definers["level"], "WARN")
         self.assertEqual(definers["count"], 31)
-        self.assertEqual(definers["reviewed_count"], 8)
-        self.assertEqual(definers["pending_count"], 23)
-        self.assertEqual(definers["reviewed_count"] + definers["pending_count"], definers["count"])
-        self.assertFalse(definers["review_complete"])
+        self.assertEqual(definers["reviewed_count"], 31)
+        self.assertEqual(definers["pending_count"], 0)
+        self.assertEqual(
+            definers["reviewed_count"] + definers["pending_count"],
+            definers["count"],
+        )
+        self.assertTrue(definers["review_complete"])
         self.assertFalse(definers["blanket_revoke_allowed"])
 
         leaked = advisor["auth_leaked_password_protection"]
@@ -57,9 +68,9 @@ class SupabaseSecurityPostureTests(unittest.TestCase):
         reviewed = self.contract["reviewed_security_definer_boundaries"]
         reviewed_warns = sum(
             reviewed[name]["warn_count"]
-            for name in ("account_export", "cloud_memory", "account_sync")
+            for name in ("account_export", "cloud_memory", "account_sync", "network")
         )
-        self.assertEqual(reviewed_warns, 8)
+        self.assertEqual(reviewed_warns, 31)
 
         account = reviewed["account_export"]
         self.assertTrue(account["authenticated_execute_intentional"])
@@ -81,19 +92,52 @@ class SupabaseSecurityPostureTests(unittest.TestCase):
         self.assertFalse(sync["executor_login_allowed"])
         self.assertFalse(sync["executor_bypass_rls_allowed"])
 
+        network = reviewed["network"]
+        self.assertEqual(network["warn_count"], 23)
+        self.assertEqual(network["public_wrapper_count"], 23)
+        self.assertEqual(network["public_wrapper_authorization_chain_proven_count"], 23)
+        self.assertTrue(network["all_public_wrappers_map_to_authorized_private_target"])
+        self.assertEqual(network["private_helper_count"], 32)
+        self.assertTrue(network["public_wrappers_owned_by_executor"])
+        self.assertTrue(network["public_wrappers_search_path_pinned_empty"])
+        self.assertFalse(network["public_wrappers_anon_execute"])
+        self.assertTrue(network["public_wrappers_authenticated_execute"])
+        self.assertTrue(network["public_wrappers_service_role_execute"])
+        self.assertTrue(network["private_helpers_security_definer"])
+        self.assertTrue(network["private_helpers_search_path_pinned_empty"])
+        self.assertTrue(network["private_helpers_executor_execute"])
+        self.assertFalse(network["api_roles_direct_private_helper_execute_allowed"])
+        self.assertFalse(network["executor_login_allowed"])
+        self.assertFalse(network["executor_inherit_allowed"])
+        self.assertFalse(network["executor_bypass_rls_allowed"])
+        self.assertFalse(network["executor_superuser_allowed"])
+        self.assertFalse(network["executor_create_db_allowed"])
+        self.assertFalse(network["executor_create_role_allowed"])
+        self.assertFalse(network["executor_replication_allowed"])
+        self.assertFalse(network["executor_direct_table_grants"])
+        self.assertFalse(network["executor_owned_relations"])
+        self.assertFalse(network["executor_public_schema_create"])
+        self.assertFalse(network["blanket_revoke_allowed"])
+
     def test_reviewed_boundaries_are_backed_by_current_source_contracts(self):
         sync_sql = SYNC_MIGRATION.read_text(encoding="utf-8").lower()
         self.assertIn("create role ordax_sync_executor", sync_sql)
         self.assertIn("nologin", sync_sql)
         self.assertIn("nobypassrls", sync_sql)
-        self.assertIn("grant execute on function public.ordax_account_export_v1() to authenticated;", sync_sql)
-        self.assertIn("auth.uid()", "\n".join(
-            (ROOT / path).read_text(encoding="utf-8").lower()
-            for path in (
-                "infra/supabase/product/migrations/20260925004832_account_sync_private_store_v1.sql",
-                "infra/supabase/product/migrations/20260925031000_account_data_export_v1.sql",
-            )
-        ))
+        self.assertIn(
+            "grant execute on function public.ordax_account_export_v1() to authenticated;",
+            sync_sql,
+        )
+        self.assertIn(
+            "auth.uid()",
+            "\n".join(
+                (ROOT / path).read_text(encoding="utf-8").lower()
+                for path in (
+                    "infra/supabase/product/migrations/20260925004832_account_sync_private_store_v1.sql",
+                    "infra/supabase/product/migrations/20260925031000_account_data_export_v1.sql",
+                )
+            ),
+        )
 
         memory = json.loads(MEMORY_CONTRACT.read_text(encoding="utf-8"))
         impl = memory["implementation"]
@@ -102,27 +146,39 @@ class SupabaseSecurityPostureTests(unittest.TestCase):
         self.assertTrue(impl["authenticated_authority_limited_to_public_wrapper"])
         self.assertFalse(impl["api_roles_direct_private_helper_execute_allowed"])
 
+        network_sql = NETWORK_EXECUTOR_MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("create role ordax_network_executor", network_sql)
+        self.assertIn("nosuperuser", network_sql)
+        self.assertIn("noinherit", network_sql)
+        self.assertIn("nologin", network_sql)
+        self.assertIn("nobypassrls", network_sql)
+        self.assertIn("network executor can execute unexpected private function", network_sql)
+        self.assertIn("api role still executes private domain helper", network_sql)
+        self.assertIn("direct table grant detected", network_sql)
+        self.assertIn("executor owns relation", network_sql)
+        self.assertIn("create privilege leaked", network_sql)
+        self.assertIn("to authenticated, service_role", network_sql)
+
     def test_public_auth_rate_limit_is_not_misclassified_as_authenticated_warning(self):
-        rate_limit = self.contract["reviewed_security_definer_boundaries"]["public_auth_rate_limit"]
+        rate_limit = self.contract["reviewed_security_definer_boundaries"][
+            "public_auth_rate_limit"
+        ]
         self.assertFalse(rate_limit["advisor_warn_member"])
         self.assertTrue(rate_limit["security_definer"])
         self.assertFalse(rate_limit["authenticated_execute"])
         self.assertFalse(rate_limit["anon_execute"])
         self.assertTrue(rate_limit["service_role_execute"])
 
-    def test_network_definer_domain_remains_fail_closed_pending_live_audit(self):
-        network = self.contract["pending_security_definer_domains"]["network"]
-        self.assertEqual(network["warn_count"], 23)
-        self.assertEqual(network["status"], "live-per-function-audit-pending")
-        self.assertTrue(network["source_executor_foundation_present"])
-        self.assertFalse(network["blanket_revoke_allowed"])
-        self.assertTrue(network["public_rollout_must_remain_gated"])
-
+    def test_security_definer_domain_review_is_complete_but_rollout_stays_blocked(self):
+        self.assertEqual(self.contract["pending_security_definer_domains"], {})
         gate = self.contract["activation_gate"]
         self.assertTrue(gate["advisor_external_warns_must_be_resolved_or_explicitly_reviewed"])
-        self.assertTrue(gate["pending_security_definer_domain_count_must_be_zero"])
+        self.assertTrue(gate["security_definer_review_complete"])
+        self.assertEqual(gate["pending_security_definer_domain_count"], 0)
         self.assertTrue(gate["provider_leaked_password_setting_must_be_resolved"])
-        self.assertTrue(gate["rls_info_findings_require_domain_classification_not_permissive_policies"])
+        self.assertTrue(
+            gate["rls_info_findings_require_domain_classification_not_permissive_policies"]
+        )
         self.assertFalse(gate["current_public_activation"])
 
     def test_structured_contract_explicitly_supersedes_stale_snapshot_key(self):
