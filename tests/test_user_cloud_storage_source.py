@@ -25,11 +25,25 @@ class UserCloudStorageSourceTests(unittest.TestCase):
             "revoke all on table public.ordax_user_objects from public, anon, authenticated, service_role;",
             sql,
         )
-        self.assertIn("grant select on table public.ordax_user_objects to authenticated;", sql)
+        self.assertIn("on table public.ordax_user_objects to authenticated;", sql)
+        self.assertIn("has_column_privilege('authenticated', 'public.ordax_user_objects', 'object_id', 'SELECT')", sql)
+        self.assertIn("has_column_privilege('authenticated', 'public.ordax_user_objects', 'owner_user_id', 'SELECT')", sql)
+        self.assertIn("has_column_privilege('authenticated', 'public.ordax_user_objects', 'created_by_user_id', 'SELECT')", sql)
         for role in ("anon", "authenticated", "service_role"):
             self.assertNotIn(f"grant insert on table public.ordax_user_objects to {role}", sql.lower())
             self.assertNotIn(f"grant update on table public.ordax_user_objects to {role}", sql.lower())
             self.assertNotIn(f"grant delete on table public.ordax_user_objects to {role}", sql.lower())
+
+    def test_space_ownership_is_not_uploader_ownership(self):
+        sql = MIGRATION.read_text(encoding="utf-8")
+        public_table = sql.split("create table public.ordax_user_objects (", 1)[1].split(");", 1)[0]
+        reservation_table = sql.split("create table private.ordax_user_upload_reservations (", 1)[1].split(");", 1)[0]
+        self.assertIn("owner_user_id uuid references auth.users(id) on delete restrict", public_table)
+        self.assertIn("space_id uuid references public.ordax_spaces(space_id) on delete restrict", public_table)
+        self.assertIn("created_by_user_id uuid references auth.users(id) on delete set null", public_table)
+        self.assertIn("check ((owner_user_id is not null) <> (space_id is not null))", public_table)
+        self.assertIn("requested_by_user_id uuid not null references auth.users(id) on delete restrict", reservation_table)
+        self.assertIn("check ((owner_user_id is not null) <> (space_id is not null))", reservation_table)
 
     def test_provider_binding_is_not_in_public_metadata_table(self):
         sql = MIGRATION.read_text(encoding="utf-8")
@@ -38,7 +52,7 @@ class UserCloudStorageSourceTests(unittest.TestCase):
         self.assertNotIn("provider_object_key", public_table)
         self.assertIn("create table private.ordax_user_object_bindings", sql)
 
-    def test_identity_and_space_delete_cannot_drop_cleanup_references(self):
+    def test_identity_and_space_delete_cannot_drop_owned_cleanup_references(self):
         sql = MIGRATION.read_text(encoding="utf-8")
         self.assertGreaterEqual(sql.count("references auth.users(id) on delete restrict"), 2)
         self.assertGreaterEqual(sql.count("references public.ordax_spaces(space_id) on delete restrict"), 2)
@@ -49,6 +63,11 @@ class UserCloudStorageSourceTests(unittest.TestCase):
             sql,
         )
 
+    def test_provider_key_source_blocks_path_segments(self):
+        sql = MIGRATION.read_text(encoding="utf-8")
+        self.assertGreaterEqual(sql.count("provider_object_key !~ '(^|/)[.]{1,2}(/|$)'"), 2)
+        self.assertGreaterEqual(sql.count("position(E'\\\\' in provider_object_key) = 0"), 2)
+
     def test_rollout_contract_remains_disabled(self):
         import json
 
@@ -58,6 +77,8 @@ class UserCloudStorageSourceTests(unittest.TestCase):
         self.assertEqual(contract["quota_key"], "storage.user.bytes")
         self.assertTrue(contract["metadata_projection"]["authenticated_public_table_is_sanitized_projection"])
         self.assertFalse(contract["metadata_projection"]["public_projection_contains_provider_object_key"])
+        self.assertTrue(contract["lifecycle_safety"]["identity_delete_blocked_while_cleanup_references_exist"])
+        self.assertTrue(contract["lifecycle_safety"]["space_delete_blocked_while_cleanup_references_exist"])
         self.assertFalse(contract["database_boundary"]["private_schema_api_roles_allowed"])
         self.assertFalse(contract["database_boundary"]["service_role_direct_private_authority_allowed"])
         self.assertFalse(contract["database_boundary"]["runtime_mutation_boundary_enabled"])
