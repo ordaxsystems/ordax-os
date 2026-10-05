@@ -8,6 +8,7 @@
   "quota_key": "storage.user.bytes",
   "mvp_required": true,
   "public_rollout_enabled": false,
+  "source_migration": "20261005164500_user_cloud_storage_foundation_v2",
   "principles": {
     "explicit_user_selection_required": true,
     "local_files_remain_usable_without_cloud": true,
@@ -18,6 +19,13 @@
     "client_claimed_quota_or_usage_is_authority": false,
     "silent_delete_on_downgrade_allowed": false,
     "provider_or_service_secret_in_client_allowed": false
+  },
+  "metadata_projection": {
+    "service_object_may_join_private_provider_binding": true,
+    "authenticated_public_table_is_sanitized_projection": true,
+    "public_projection_contains_provider_bucket": false,
+    "public_projection_contains_provider_object_key": false,
+    "provider_binding_relation": "private.ordax_user_object_bindings"
   },
   "upload_protocol": {
     "server_reservation_required": true,
