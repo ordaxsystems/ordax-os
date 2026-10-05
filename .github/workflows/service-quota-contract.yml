@@ -34,5 +34,12 @@ jobs:
           node --check system/contracts/service-quota.mjs
           node --check system/services/entitlements/quota.mjs
           node --check tests/test_service_quota.mjs
-          node -e 'JSON.parse(require("fs").readFileSync("docs/contracts/service-quotas.json", "utf8"))'
+          node - <<'NODE'
+          const fs = require('fs');
+          const contract = JSON.parse(fs.readFileSync('docs/contracts/service-quotas.json', 'utf8'));
+          const storage = contract.prepared_resources.find((item) => item.key === 'storage.user.bytes');
+          if (!storage || storage.unit !== 'bytes' || storage.commercial_value_assigned !== false) {
+            throw new Error('storage.user.bytes must remain a prepared, cost-unassigned bytes quota');
+          }
+          NODE
           node --test tests/test_service_quota.mjs
