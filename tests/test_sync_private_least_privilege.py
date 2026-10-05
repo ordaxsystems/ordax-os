@@ -42,6 +42,12 @@ class SyncPrivateLeastPrivilegeTests(unittest.TestCase):
         self.assertNotIn("superuser", body)
         self.assertNotIn("createrole", body)
         self.assertNotIn("createdb", body)
+        self.assertIn(
+            "grant ordax_sync_executor to postgres with admin option;",
+            self.sql,
+        )
+        self.assertNotIn("grant authenticated to ordax_sync_executor", self.sql)
+        self.assertNotIn("grant service_role to ordax_sync_executor", self.sql)
 
     def test_sync_rpc_ownership_is_moved_off_postgres(self):
         sync_rpcs = (
@@ -127,6 +133,23 @@ class SyncPrivateLeastPrivilegeTests(unittest.TestCase):
             tail = sources[start : start + 14000]
             self.assertIn("set search_path = ''", tail, function)
             self.assertIn("auth.uid()", tail, function)
+
+    def test_account_export_definer_is_read_only_and_explicitly_owner_bound(self):
+        source = EXPORT.read_text(encoding="utf-8").lower()
+        start = source.index("create or replace function public.ordax_account_export_v1")
+        body = source[start:]
+        for forbidden in (
+            " insert ",
+            " update ",
+            " delete ",
+            " truncate ",
+            " execute ",
+            " dynamic sql",
+        ):
+            self.assertNotIn(forbidden, body)
+        self.assertIn("auth.uid()", body)
+        self.assertIn("where o.owner_user_id = (select user_id from me)", body)
+        self.assertIn("set search_path = ''", body)
 
     def test_hardening_does_not_create_parallel_rpc_or_compatibility_bridge(self):
         self.assertNotIn("create or replace function", self.sql)
