@@ -28,11 +28,31 @@ function nonNegativeSafeInteger(value, label) {
   return value;
 }
 
+function positiveSafeInteger(value, label) {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new TypeError(`${label} must be a positive safe integer`);
+  }
+  return value;
+}
+
 function timestamp(value, label) {
   const normalized = boundedText(value, label, 64);
   const parsed = Date.parse(normalized);
   if (!Number.isFinite(parsed)) throw new TypeError(`${label} must be an ISO timestamp`);
   return new Date(parsed).toISOString();
+}
+
+function providerKey(value) {
+  const normalized = boundedText(value, "Provider object key", 512);
+  const segments = normalized.split("/");
+  if (
+    normalized.startsWith("/")
+    || normalized.includes("\\")
+    || segments.some(segment => segment === "." || segment === "..")
+  ) {
+    throw new TypeError("Provider object key must be opaque and relative");
+  }
+  return normalized;
 }
 
 function storageSubject(accountId, spaceId) {
@@ -54,10 +74,6 @@ export function validateUserCloudObject(value) {
   if (!SHA256_RE.test(digest)) throw new TypeError("User cloud object SHA-256 is invalid");
   const objectId = boundedText(value.objectId, "User cloud object id", 160);
   if (!ID_RE.test(objectId)) throw new TypeError("User cloud object id is invalid");
-  const providerObjectKey = boundedText(value.providerObjectKey, "Provider object key", 512);
-  if (providerObjectKey.startsWith("/") || providerObjectKey.includes("../") || providerObjectKey.includes("\\")) {
-    throw new TypeError("Provider object key must be opaque and relative");
-  }
   const accountId = boundedText(value.accountId, "User cloud object account id", 160);
   const spaceId = optionalBoundedText(value.spaceId, "User cloud object Space id", 160);
   return Object.freeze({
@@ -71,9 +87,9 @@ export function validateUserCloudObject(value) {
     sizeBytes: nonNegativeSafeInteger(value.sizeBytes, "User cloud object size"),
     sha256: digest,
     provider: boundedText(value.provider, "User cloud object provider", 80),
-    providerObjectKey,
+    providerObjectKey: providerKey(value.providerObjectKey),
     state: value.state,
-    serverRevision: nonNegativeSafeInteger(value.serverRevision, "User cloud object server revision"),
+    serverRevision: positiveSafeInteger(value.serverRevision, "User cloud object server revision"),
     createdAt: timestamp(value.createdAt, "User cloud object createdAt"),
     updatedAt: timestamp(value.updatedAt, "User cloud object updatedAt"),
   });
