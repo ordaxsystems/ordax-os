@@ -10,7 +10,7 @@ import {
   NOTES_APP_DATA_HEAD_KEY,
   createInitialNotesAppDataLayout,
   decodeNotesAppDataHead,
-  notesNoteAppDataKey,
+  notesNoteAppDataKeys,
   notesProjectAppDataKey,
   reconstructNotesSnapshotFromAppData,
 } from "./app-data-layout.mjs";
@@ -124,17 +124,18 @@ async function loadCanonicalState(appData) {
     }
     values.set(key, result.value);
   }
-  for (const { id, slot } of head.notes) {
-    const key = notesNoteAppDataKey(id, slot);
-    const result = assertSameRevision(
-      await appData.get(key),
-      revision,
-      `reading note record ${key}`,
-    );
-    if (!result.found) {
-      throw new Error(`Notes App Data active note record is missing: ${key}`);
+  for (const { id, slot, chunks } of head.notes) {
+    for (const key of notesNoteAppDataKeys(id, slot, chunks)) {
+      const result = assertSameRevision(
+        await appData.get(key),
+        revision,
+        `reading note chunk ${key}`,
+      );
+      if (!result.found) {
+        throw new Error(`Notes App Data active note chunk is missing: ${key}`);
+      }
+      values.set(key, result.value);
     }
-    values.set(key, result.value);
   }
 
   return Object.freeze({
@@ -231,26 +232,13 @@ async function commitTransition(appData, rawSnapshot, state) {
   });
 }
 
-export async function createNotesAppDataStore(appDataValue, {
-  seedSnapshot = null,
-} = {}) {
+export async function createNotesAppDataStore(appDataValue) {
   const appData = assertAppDataPort(appDataValue);
   if (appData.identity.appId !== "notes") {
     throw new TypeError("Notes App Data port must be bound to the notes app");
   }
 
-  let canonical = await loadCanonicalState(appData);
-
-  if (canonical.head === null && seedSnapshot !== null) {
-    const rawSeed = typeof seedSnapshot === "function"
-      ? await seedSnapshot()
-      : seedSnapshot;
-    if (rawSeed !== null && rawSeed !== undefined) {
-      const seed = validateNotesSnapshot(rawSeed);
-      await commitInitialSnapshot(appData, seed, canonical);
-      canonical = await loadCanonicalState(appData);
-    }
-  }
+  const canonical = await loadCanonicalState(appData);
 
   let memory = canonical.snapshot;
   let desiredRevision = 0;
