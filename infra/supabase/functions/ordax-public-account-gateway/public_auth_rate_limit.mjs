@@ -2,6 +2,7 @@ const PUBLIC_SITE_HEADER = "x-ordax-public-site";
 const PUBLIC_PROXY_SECRET_HEADER = "x-ordax-public-proxy-secret";
 const PUBLIC_CLIENT_ADDRESS_HEADER = "x-ordax-client-address";
 const EDGE_CLIENT_ADDRESS_HEADER = "cf-connecting-ip";
+const PUBLIC_PROXY_SECRET_SHA256_ENV = "ORDAX_PUBLIC_PROXY_SECRET_SHA256";
 const PROXY_SECRET_RE = /^[A-Za-z0-9_-]{32,128}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const ADDRESS_RE = /^[0-9A-Fa-f:.]{3,64}$/;
@@ -25,6 +26,14 @@ export function normalizeProxySecretSha256(raw) {
   return SHA256_RE.test(value) ? value : null;
 }
 
+function runtimeProxySecretSha256() {
+  try {
+    return normalizeProxySecretSha256(globalThis.Deno?.env?.get(PUBLIC_PROXY_SECRET_SHA256_ENV));
+  } catch {
+    return null;
+  }
+}
+
 export async function sha256Hex(value) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest))
@@ -44,7 +53,7 @@ function constantTimeHexEqual(left, right) {
 
 export async function trustedRateLimitAddress(
   request,
-  { publicProxySecretSha256 } = {},
+  { publicProxySecretSha256 = runtimeProxySecretSha256() } = {},
 ) {
   const configuredDigest = normalizeProxySecretSha256(publicProxySecretSha256);
   if (!configuredDigest) {
