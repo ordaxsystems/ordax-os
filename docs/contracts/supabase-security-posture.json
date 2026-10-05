@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.supabase-security-posture/1",
-  "status": "reviewed-warnings-present-public-rollout-blocked",
+  "status": "reviewed-advisor-posture-public-rollout-blocked",
   "backend": "ordax-control-plane",
   "reviewed_at": "2026-10-05",
   "source": "supabase-security-advisor-plus-live-catalog-verification",
@@ -16,9 +16,23 @@
     "rls_enabled_no_policy": {
       "level": "INFO",
       "count": 72,
-      "classification": "mixed-private-and-public-deny-by-default-domain-review-required",
-      "review_complete": false,
-      "auto_fix_allowed": false
+      "classification": "reviewed-client-deny-by-default-no-api-role-grants",
+      "review_complete": true,
+      "auto_fix_allowed": false,
+      "schema_counts": {
+        "private": 12,
+        "public": 60
+      },
+      "direct_data_privilege_table_counts": {
+        "public_pseudorole": 0,
+        "anon": 0,
+        "authenticated": 0,
+        "service_role": 59
+      },
+      "tables_without_service_role_data_privilege": 13,
+      "client_policy_required_for_current_access_model": false,
+      "service_role_bypasses_rls": true,
+      "permissive_policy_would_not_harden_service_role": true
     },
     "authenticated_security_definer_function_executable": {
       "level": "WARN",
@@ -113,8 +127,8 @@
     "advisor_external_warns_must_be_resolved_or_explicitly_reviewed": true,
     "security_definer_review_complete": true,
     "pending_security_definer_domain_count": 0,
+    "rls_no_policy_review_complete": true,
     "provider_leaked_password_setting_must_be_resolved": true,
-    "rls_info_findings_require_domain_classification_not_permissive_policies": true,
     "current_public_activation": false
   }
 }
