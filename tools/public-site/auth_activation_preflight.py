@@ -190,7 +190,8 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     need(observation.get("privacy_terms_ready") is True, "privacy-terms-hardening-proof")
 
     need(public_edge_gateway.get("deployed") is True, "public-edge-gateway-deployment")
-    need(public_edge_gateway.get("proxy_secret_sha256_configured") is True, "public-edge-proxy-digest-config")
+    need(public_edge_gateway.get("oidc_source_ready") is True, "public-edge-oidc-source")
+    need(public_edge_gateway.get("oidc_deployed") is True, "public-edge-oidc-deployment")
     need(public_edge_gateway.get("runtime_provenance_e2e_verified") is True, "public-edge-provenance-proof")
     need(vercel_adapter.get("status") == "deployed", "vercel-same-origin-adapter-deployment")
     need(routing.get("vercel_adapter_routed_to_public_edge_gateway") is True, "vercel-public-edge-routing")

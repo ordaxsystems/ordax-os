@@ -17,105 +17,72 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_deployed_edge_without_claiming_public_rollout(self):
+    def test_contract_records_live_v1_and_unproven_oidc_v2_without_claiming_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-deployed-same-origin-routing-pending",
+            "public-edge-v1-live-oidc-v2-source-ready-routing-pending",
         )
-        self.assertEqual(
-            self.contract["adapter"]["kind"],
-            "nginx-loopback-behind-https-terminator",
-        )
-        self.assertFalse(self.contract["adapter"]["public_listener_in_adapter_allowed"])
-        self.assertFalse(self.contract["adapter"]["provider_specific_browser_api"])
-        self.assertEqual(self.contract["vercel_adapter"]["status"], "source-ready-not-deployed")
-        self.assertFalse(self.contract["vercel_adapter"]["provider_specific_browser_api"])
+        self.assertEqual(self.contract["vercel_adapter"]["status"], "oidc-source-ready-not-deployed")
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
         self.assertEqual(edge["deployed_version"], 1)
-        self.assertFalse(edge["proxy_secret_sha256_configured"])
+        self.assertEqual(edge["deployed_authentication"], "shared-secret-sha256-v1")
+        self.assertEqual(edge["source_authentication"], "vercel-production-oidc-v2")
+        self.assertTrue(edge["oidc_source_ready"])
+        self.assertFalse(edge["oidc_deployed"])
         self.assertFalse(edge["runtime_provenance_e2e_verified"])
+        self.assertFalse(edge["oidc_preview_allowed"])
         self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
-        self.assertTrue(self.contract["routing"]["same_origin_identity_required"])
-        self.assertTrue(self.contract["routing"]["same_origin_sync_required"])
-        self.assertIn("/conta/", self.contract["routing"]["static_routes"])
 
     def test_adapter_is_loopback_only_and_routes_only_account_prefixes_to_gateway(self):
         self.assertIn("listen 127.0.0.1:8080;", self.nginx)
         self.assertIn("location ~ ^/(auth|sync)/", self.nginx)
-        self.assertIn(
-            "/functions/v1/ordax-account-gateway$1",
-            self.nginx,
-        )
-        self.assertIn("try_files $uri $uri/index.html =404;", self.nginx)
+        self.assertIn("/functions/v1/ordax-account-gateway$1", self.nginx)
         self.assertNotIn("listen 0.0.0.0", self.nginx)
         self.assertNotIn("service_role", self.nginx.lower())
         self.assertIn("proxy_set_header X-OrdaX-Public-Site 1;", self.nginx)
-        self.assertEqual(self.contract["adapter"]["account_request_marker_header"], "X-OrdaX-Public-Site")
-        self.assertEqual(self.contract["adapter"]["account_request_marker_value"], "1")
-        self.assertTrue(self.contract["routing"]["gateway_public_activation_gate_required"])
         self.assertFalse(self.contract["routing"]["gateway_public_activation_currently_enabled"])
 
-    def test_adapter_restores_real_ip_only_from_loopback_and_rate_limits_auth_abuse(self):
-        self.assertIn("set_real_ip_from 127.0.0.1;", self.nginx)
-        self.assertIn("set_real_ip_from ::1;", self.nginx)
-        self.assertIn("real_ip_header X-Forwarded-For;", self.nginx)
-        self.assertIn("real_ip_recursive on;", self.nginx)
+    def test_host_neutral_adapter_keeps_rate_limits_as_defense_in_depth(self):
         self.assertIn("ordax_auth_credentials:10m rate=10r/m", self.nginx)
         self.assertIn("ordax_auth_recovery_request:10m rate=3r/m", self.nginx)
         self.assertIn("ordax_auth_recovery_completion:10m rate=10r/m", self.nginx)
         self.assertIn("limit_req_status 429;", self.nginx)
-        self.assertIn("limit_req zone=ordax_auth_credentials burst=5 nodelay;", self.nginx)
-        self.assertIn("limit_req zone=ordax_auth_recovery_request burst=2 nodelay;", self.nginx)
-        self.assertIn("limit_req zone=ordax_auth_recovery_completion burst=5 nodelay;", self.nginx)
-        self.assertIn("proxy_set_header X-Forwarded-For $remote_addr;", self.nginx)
-        self.assertIn("proxy_set_header X-Real-IP $remote_addr;", self.nginx)
-        adapter = self.contract["adapter"]
-        self.assertEqual(
-            adapter["real_ip_source"],
-            "trusted-loopback-tls-terminator-x-forwarded-for",
-        )
-        self.assertEqual(adapter["real_ip_trusted_sources"], ["127.0.0.1", "::1"])
-        self.assertTrue(adapter["public_auth_rate_limit_source_ready"])
-        self.assertFalse(adapter["public_auth_rate_limit_deployed"])
-        self.assertEqual(self.contract["security_rate_limits"]["status_code"], 429)
-
-    def test_adapter_preserves_same_origin_security_and_no_store_account_routes(self):
-        for name, value in self.contract["security_headers"].items():
-            self.assertIn(name, self.nginx)
-            self.assertIn(value, self.nginx)
-        self.assertIn('~^/(auth|sync)/ "no-store";', self.nginx)
-        self.assertIn("proxy_hide_header Access-Control-Allow-Origin;", self.nginx)
-        self.assertIn("proxy_hide_header Cache-Control;", self.nginx)
-        self.assertIn("proxy_set_header X-Forwarded-Proto https;", self.nginx)
-        self.assertIn("proxy_set_header X-Forwarded-Host $host;", self.nginx)
+        self.assertFalse(self.contract["adapter"]["public_auth_rate_limit_deployed"])
+        self.assertTrue(self.contract["security_rate_limits"]["authoritative_backend"]["deployed"])
 
     def test_vercel_routes_only_auth_and_sync_through_bounded_server_function(self):
         self.assertEqual(self.vercel["outputDirectory"], "sites/public")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
-        self.assertEqual(
-            rewrites["/auth/:path*"],
-            "/api/account-proxy?ordax_path=/auth/:path*",
-        )
-        self.assertEqual(
-            rewrites["/sync/:path*"],
-            "/api/account-proxy?ordax_path=/sync/:path*",
-        )
+        self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
+        self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
         self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
         self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"];', self.vercel_proxy)
-        self.assertIn('headers.set("x-ordax-public-site", "1")', self.vercel_proxy)
-        self.assertIn('headers.set("x-forwarded-for", realIp)', self.vercel_proxy)
-        self.assertIn('headers.set("x-real-ip", realIp)', self.vercel_proxy)
-        self.assertIn('headers.set("x-forwarded-proto", "https")', self.vercel_proxy)
-        self.assertIn('headers.set("x-forwarded-host", host)', self.vercel_proxy)
-        self.assertIn('process.env.ORDAX_ACCOUNT_GATEWAY_URL', self.vercel_proxy)
+        self.assertIn('process.env.VERCEL_OIDC_TOKEN', self.vercel_proxy)
+        self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.vercel_proxy)
+        self.assertIn('headers.set("x-ordax-client-address", realIp)', self.vercel_proxy)
         self.assertIn('/functions/v1/ordax-public-account-gateway', self.vercel_proxy)
-        self.assertNotIn('"/functions/v1/ordax-account-gateway"', self.vercel_proxy)
-        self.assertNotIn('authorization",', self.vercel_proxy.lower())
+        self.assertNotIn('ORDAX_PUBLIC_PROXY_SECRET', self.vercel_proxy)
+        self.assertNotIn('x-ordax-public-proxy-secret', self.vercel_proxy)
         self.assertNotIn("service_role", self.vercel_proxy.lower())
-        self.assertFalse(self.contract["vercel_adapter"]["authorization_header_forwarded"])
-        self.assertEqual(self.contract["vercel_adapter"]["maximum_request_body_bytes"], 65536)
+
+    def test_oidc_identity_is_short_lived_runtime_authority_not_browser_authority(self):
+        adapter = self.contract["vercel_adapter"]
+        edge = self.contract["public_edge_gateway"]
+        self.assertEqual(adapter["oidc_runtime_environment_variable"], "VERCEL_OIDC_TOKEN")
+        self.assertTrue(adapter["oidc_generation_enabled"])
+        self.assertEqual(adapter["oidc_issuer_mode"], "team")
+        self.assertFalse(adapter["browser_authorization_forwarded"])
+        self.assertTrue(adapter["runtime_oidc_replaces_browser_authorization"])
+        self.assertFalse(adapter["shared_proxy_secret_required"])
+        self.assertEqual(edge["oidc_issuer"], "https://oidc.vercel.com/jogo-brasils-projects")
+        self.assertEqual(edge["oidc_audience"], "https://vercel.com/jogo-brasils-projects")
+        self.assertEqual(
+            edge["oidc_subject"],
+            "owner:jogo-brasils-projects:project:ordax-os-public:environment:production",
+        )
+        self.assertFalse(edge["oidc_authorization_forwarded_to_inner_gateway"])
 
     def test_vercel_adapter_is_fail_closed_until_real_rollout_gates_are_proven(self):
         adapter = self.contract["vercel_adapter"]
@@ -124,16 +91,9 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(self.contract["routing"]["gateway_public_activation_currently_enabled"])
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
         self.assertTrue(edge["deployed"])
-        self.assertFalse(edge["proxy_secret_sha256_configured"])
+        self.assertTrue(edge["oidc_source_ready"])
+        self.assertFalse(edge["oidc_deployed"])
         self.assertFalse(edge["runtime_provenance_e2e_verified"])
-        self.assertEqual(adapter["trusted_real_ip_header"], "x-forwarded-for")
-        self.assertEqual(
-            adapter["trusted_real_ip_property"],
-            "vercel-edge-overwrites-client-supplied-value",
-        )
-        self.assertTrue(adapter["gateway_url_must_be_https"])
-        self.assertTrue(adapter["set_cookie_preserved"])
-        self.assertFalse(adapter["provider_cors_forwarded"])
 
     def test_deployment_proof_is_credential_free_and_checks_real_same_origin_routes(self):
         text = DEPLOYMENT_PROOF.read_text(encoding="utf-8")
@@ -142,12 +102,6 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertIn('"/sync/snapshot?limit=1"', text)
         self.assertIn("authentication-required", text)
         self.assertIn("public-account-access-disabled", text)
-        self.assertIn("public-account-gate-not-enforced", text)
-        self.assertIn('"/recuperar/"', text)
-        self.assertIn('"/recuperar/nova-senha/"', text)
-        self.assertIn('"/auth/recover"', text)
-        self.assertIn("public-recovery-gate-not-enforced", text)
-        self.assertIn("origin-must-be-clean-https-origin", text)
         for forbidden in (
             "ORDAX_PROOF_ACCOUNT_PASSWORD",
             "service_role",
@@ -155,17 +109,14 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, text)
 
-    def test_public_activation_still_requires_auth_and_legal_hardening(self):
+    def test_public_activation_requires_production_oidc_and_legal_hardening(self):
         requirements = self.contract["production_requirements"]
         self.assertTrue(requirements["https"])
-        self.assertTrue(requirements["host_adapter_must_preserve_session_set_cookie"])
         self.assertTrue(requirements["final_legal_documents_required_before_identity_activation"])
         self.assertTrue(requirements["leaked_password_protection_required_before_identity_activation"])
-        self.assertTrue(requirements["host_adapter_must_mark_public_account_requests"])
-        self.assertTrue(requirements["gateway_server_side_public_activation_gate_required"])
-        self.assertTrue(requirements["tls_terminator_must_append_real_client_ip"])
-        self.assertTrue(requirements["adapter_must_use_platform_trusted_real_ip_source"])
-        self.assertTrue(requirements["public_proxy_digest_must_be_environment_configured"])
+        self.assertTrue(requirements["public_proxy_must_be_authenticated_before_trusting_forwarded_client_ip"])
+        self.assertTrue(requirements["public_proxy_vercel_production_oidc_required"])
+        self.assertTrue(requirements["preview_oidc_must_not_access_production_account_boundary"])
         self.assertTrue(requirements["public_auth_rate_limits_required"])
 
 

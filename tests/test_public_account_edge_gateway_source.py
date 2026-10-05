@@ -3,7 +3,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "index.ts"
-PROVENANCE = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_auth_rate_limit.mjs"
+RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_auth_rate_limit.mjs"
+OIDC = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "vercel_oidc.mjs"
 INNER_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "index.ts"
 VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
 
@@ -11,27 +12,46 @@ VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
 class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
     def setUp(self):
         self.edge = PUBLIC_EDGE.read_text(encoding="utf-8")
-        self.provenance = PROVENANCE.read_text(encoding="utf-8")
+        self.rate_limit = RATE_LIMIT.read_text(encoding="utf-8")
+        self.oidc = OIDC.read_text(encoding="utf-8")
         self.inner = INNER_EDGE.read_text(encoding="utf-8")
         self.proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_public_boundary_requires_authenticated_proxy_before_forward(self):
-        self.assertIn("trustedRateLimitAddress(req)", self.edge)
-        self.assertIn('provenance.source !== "authenticated-public-proxy"', self.edge)
+    def test_public_boundary_requires_verified_production_oidc_before_forward(self):
+        self.assertIn("verifyPublicProxyIdentity(req)", self.edge)
+        self.assertIn('identity.source !== "vercel-production-oidc"', self.edge)
         self.assertIn('"public-proxy-authentication-required"', self.edge)
-        auth_index = self.edge.index("trustedRateLimitAddress(req)")
+        auth_index = self.edge.index("verifyPublicProxyIdentity(req)")
+        address_index = self.edge.index("trustedPublicClientAddress(req)")
+        rpc_index = self.edge.index('rpc("ordax_consume_public_auth_rate_limit_v1"')
         forward_index = self.edge.index("fetch(innerTarget")
-        self.assertLess(auth_index, forward_index)
+        self.assertLess(auth_index, address_index)
+        self.assertLess(address_index, rpc_index)
+        self.assertLess(rpc_index, forward_index)
 
-    def test_sensitive_proxy_headers_are_consumed_not_forwarded(self):
+    def test_oidc_is_scoped_to_team_project_and_production_environment(self):
+        self.assertIn('https://oidc.vercel.com/jogo-brasils-projects', self.oidc)
+        self.assertIn('https://vercel.com/jogo-brasils-projects', self.oidc)
+        self.assertIn(
+            'owner:jogo-brasils-projects:project:ordax-os-public:environment:production',
+            self.oidc,
+        )
+        self.assertIn('npm:jose@6.2.12', self.oidc)
+        self.assertIn('new URL("/.well-known/jwks", VERCEL_OIDC_ISSUER)', self.oidc)
+        self.assertIn('algorithms: ["RS256", "ES256"]', self.oidc)
+        self.assertNotIn('environment:preview', self.oidc)
+
+    def test_runtime_oidc_and_client_address_are_consumed_not_forwarded(self):
         request_headers_start = self.edge.index("const REQUEST_HEADERS")
         request_headers_end = self.edge.index("];", request_headers_start)
         request_headers = self.edge[request_headers_start:request_headers_end]
-        self.assertNotIn("x-ordax-public-proxy-secret", request_headers)
         self.assertNotIn("x-ordax-client-address", request_headers)
         self.assertNotIn("authorization", request_headers.lower())
         self.assertIn('headers.set("x-ordax-public-site", "1")', self.edge)
         self.assertIn('headers.set("apikey", publishableKey)', self.edge)
+        self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
+        self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
+        self.assertNotIn("x-ordax-public-proxy-secret", self.proxy)
 
     def test_auth_rate_limit_runs_before_inner_account_gateway(self):
         self.assertIn('ordax_consume_public_auth_rate_limit_v1', self.edge)
@@ -41,9 +61,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('"auth-rate-limit-unavailable"', self.edge)
         self.assertIn('"auth-rate-limited"', self.edge)
         self.assertIn('"retry-after"', self.edge)
-        rpc_index = self.edge.index('rpc("ordax_consume_public_auth_rate_limit_v1"')
-        forward_index = self.edge.index("fetch(innerTarget")
-        self.assertLess(rpc_index, forward_index)
+        self.assertIn('trustedPublicClientAddress', self.rate_limit)
 
     def test_public_boundary_is_narrow_and_bounded(self):
         self.assertIn('const MAX_BODY = 64 * 1024', self.edge)
@@ -53,25 +71,15 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn('/account/', self.edge)
         self.assertNotIn('/network/', self.edge)
 
-    def test_proxy_targets_only_the_authenticated_public_boundary(self):
+    def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
         self.assertIn(
             'const PUBLIC_GATEWAY_PATH = "/functions/v1/ordax-public-account-gateway"',
             self.proxy,
         )
         self.assertIn("url.pathname !== PUBLIC_GATEWAY_PATH", self.proxy)
-        self.assertIn('headers.set("x-ordax-public-proxy-secret", trustedProxySecret)', self.proxy)
+        self.assertIn("process.env.VERCEL_OIDC_TOKEN", self.proxy)
+        self.assertNotIn("ORDAX_PUBLIC_PROXY_SECRET", self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
-
-    def test_provenance_uses_environment_digest_only_and_native_edge_fallback_is_not_accepted_by_public_wrapper(self):
-        self.assertIn('ORDAX_PUBLIC_PROXY_SECRET_SHA256', self.provenance)
-        self.assertIn('runtimeProxySecretSha256()', self.provenance)
-        self.assertIn('normalizeProxySecretSha256', self.provenance)
-        self.assertIn('"cf-connecting-ip"', self.provenance)
-        self.assertIn('source: "authenticated-public-proxy"', self.provenance)
-        self.assertIn('source: "supabase-edge"', self.provenance)
-        self.assertNotIn('const PUBLIC_PROXY_SECRET_SHA256 = "', self.provenance)
-        self.assertNotIn("ORDAX_PUBLIC_PROXY_SECRET\"", self.provenance)
-        self.assertIn('provenance.source !== "authenticated-public-proxy"', self.edge)
 
     def test_inner_gateway_remains_fail_closed_during_boundary_rollout(self):
         self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", self.inner)

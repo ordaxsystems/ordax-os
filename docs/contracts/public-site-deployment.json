@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "public-edge-deployed-same-origin-routing-pending",
+  "status": "public-edge-v1-live-oidc-v2-source-ready-routing-pending",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -10,15 +10,14 @@
     "account_request_marker_header": "X-OrdaX-Public-Site",
     "account_request_marker_value": "1",
     "real_ip_source": "trusted-loopback-tls-terminator-x-forwarded-for",
-    "real_ip_trusted_sources": [
-      "127.0.0.1",
-      "::1"
-    ],
+    "real_ip_trusted_sources": ["127.0.0.1", "::1"],
     "public_auth_rate_limit_source_ready": true,
     "public_auth_rate_limit_deployed": false
   },
   "vercel_adapter": {
-    "status": "source-ready-not-deployed",
+    "status": "oidc-source-ready-not-deployed",
+    "project": "ordax-os-public",
+    "team": "jogo-brasils-projects",
     "project_config_source": "vercel.json",
     "function_source": "api/account-proxy.mjs",
     "static_output_directory": "sites/public",
@@ -30,10 +29,12 @@
     "trusted_real_ip_header": "x-forwarded-for",
     "trusted_real_ip_property": "vercel-edge-overwrites-client-supplied-value",
     "trusted_client_address_header": "x-ordax-client-address",
-    "proxy_auth_secret_environment_variable": "ORDAX_PUBLIC_PROXY_SECRET",
-    "proxy_auth_secret_browser_visible": false,
-    "proxy_auth_secret_source_controlled": false,
-    "authorization_header_forwarded": false,
+    "oidc_runtime_environment_variable": "VERCEL_OIDC_TOKEN",
+    "oidc_generation_enabled": true,
+    "oidc_issuer_mode": "team",
+    "browser_authorization_forwarded": false,
+    "runtime_oidc_replaces_browser_authorization": true,
+    "shared_proxy_secret_required": false,
     "maximum_request_body_bytes": 65536,
     "gateway_url_environment_variable": "ORDAX_ACCOUNT_GATEWAY_URL",
     "gateway_url_must_be_https": true,
@@ -45,34 +46,35 @@
     "public_auth_rate_limit_deployed": false
   },
   "public_edge_gateway": {
-    "status": "deployed-fail-closed-awaiting-proxy-digest",
+    "status": "v1-live-v2-oidc-source-ready-not-deployed",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
-    "provenance_source": "infra/supabase/functions/ordax-public-account-gateway/public_auth_rate_limit.mjs",
+    "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
+    "rate_limit_source": "infra/supabase/functions/ordax-public-account-gateway/public_auth_rate_limit.mjs",
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
     "deployed_version": 1,
     "deployment_source_commit": "3327678208868df6c7a5ecc7229ced09f2def33e",
+    "deployed_authentication": "shared-secret-sha256-v1",
+    "source_authentication": "vercel-production-oidc-v2",
+    "oidc_source_ready": true,
+    "oidc_deployed": false,
+    "runtime_provenance_e2e_verified": false,
     "verify_jwt": false,
     "custom_proxy_authentication": true,
-    "allowed_methods": [
-      "GET",
-      "POST"
-    ],
-    "allowed_prefixes": [
-      "/auth/",
-      "/sync/"
-    ],
+    "allowed_methods": ["GET", "POST"],
+    "allowed_prefixes": ["/auth/", "/sync/"],
     "proxy_authentication_required": true,
-    "proxy_secret_compared_as_sha256": true,
-    "proxy_secret_sha256_environment_variable": "ORDAX_PUBLIC_PROXY_SECRET_SHA256",
-    "proxy_secret_sha256_source_controlled": false,
-    "proxy_secret_sha256_configured": false,
-    "runtime_provenance_e2e_verified": false,
-    "raw_proxy_secret_in_source": false,
+    "oidc_jose_version": "6.2.12",
+    "oidc_issuer": "https://oidc.vercel.com/jogo-brasils-projects",
+    "oidc_audience": "https://vercel.com/jogo-brasils-projects",
+    "oidc_subject": "owner:jogo-brasils-projects:project:ordax-os-public:environment:production",
+    "oidc_jwks": "https://oidc.vercel.com/.well-known/jwks",
+    "oidc_preview_allowed": false,
+    "shared_proxy_secret_required": false,
     "trusted_client_address_requires_authenticated_proxy": true,
+    "oidc_authorization_forwarded_to_inner_gateway": false,
     "sensitive_proxy_headers_forwarded_to_inner_gateway": false,
-    "browser_authorization_forwarded": false,
     "rate_limit_rpc": "ordax_consume_public_auth_rate_limit_v1",
     "rate_limit_rpc_service_role_only": true,
     "database_rate_limit_authority_deployed": true,
@@ -82,19 +84,7 @@
     "native_direct_path_covered_by_this_boundary": false
   },
   "routing": {
-    "static_routes": [
-      "/",
-      "/download/",
-      "/login/",
-      "/cadastro/",
-      "/recuperar/",
-      "/recuperar/nova-senha/",
-      "/conta/",
-      "/releases/catalog.json",
-      "/licencas/",
-      "/privacidade/",
-      "/termos/"
-    ],
+    "static_routes": ["/", "/download/", "/login/", "/cadastro/", "/recuperar/", "/recuperar/nova-senha/", "/conta/", "/releases/catalog.json", "/licencas/", "/privacidade/", "/termos/"],
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
     "identity_gateway_entrypoint": "services/public-identity/gateway.py:application",
@@ -142,7 +132,8 @@
     "tls_terminator_must_append_real_client_ip": true,
     "adapter_must_use_platform_trusted_real_ip_source": true,
     "public_proxy_must_be_authenticated_before_trusting_forwarded_client_ip": true,
-    "public_proxy_digest_must_be_environment_configured": true,
+    "public_proxy_vercel_production_oidc_required": true,
+    "preview_oidc_must_not_access_production_account_boundary": true,
     "public_auth_rate_limits_required": true,
     "native_auth_rate_limit_required_before_public_account_activation": true
   },
@@ -156,20 +147,8 @@
       "direct_table_access_allowed": false,
       "deployed": true
     },
-    "login_and_register": {
-      "rate": "10r/m",
-      "burst": 5,
-      "key": "restored-real-client-ip"
-    },
-    "recovery_request": {
-      "rate": "3r/m",
-      "burst": 2,
-      "key": "restored-real-client-ip"
-    },
-    "recovery_completion": {
-      "rate": "10r/m",
-      "burst": 5,
-      "key": "restored-real-client-ip"
-    }
+    "login_and_register": {"rate": "10r/m", "burst": 5, "key": "restored-real-client-ip"},
+    "recovery_request": {"rate": "3r/m", "burst": 2, "key": "restored-real-client-ip"},
+    "recovery_completion": {"rate": "10r/m", "burst": 5, "key": "restored-real-client-ip"}
   }
 }
