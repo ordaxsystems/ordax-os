@@ -66,7 +66,41 @@
     "atomic_mutation": "deployed-v1",
     "rpc": "public.ordax_apply_memory_mutation_v1",
     "migration": "infra/supabase/product/migrations/20260929184500_cloud_memory_atomic_mutation_v1.sql",
-    "security_mode": "invoker-plus-rls",
+    "security_mode": "domain-executor-definer-wrapper",
+    "executor_migration": "infra/supabase/product/migrations/20261005033000_private_domain_executors_v1.sql",
+    "public_wrapper_security_definer": true,
+    "public_wrapper_owner": "ordax_memory_executor",
+    "public_wrapper_search_path_pinned_empty": true,
+    "public_wrapper_execute": {
+      "anon": false,
+      "authenticated": true,
+      "service_role": true
+    },
+    "private_helper": "private.ordax_apply_memory_mutation_internal_v1",
+    "private_helper_security_definer": true,
+    "private_helper_owner": "postgres",
+    "private_helper_search_path_pinned_empty": true,
+    "private_helper_execute": {
+      "anon": false,
+      "authenticated": false,
+      "service_role": false,
+      "ordax_memory_executor": true
+    },
+    "executor_role": {
+      "login": false,
+      "inherit": false,
+      "bypass_rls": false,
+      "superuser": false,
+      "create_db": false,
+      "create_role": false,
+      "replication": false,
+      "direct_table_grants": false,
+      "owned_relations": false,
+      "public_schema_create": false
+    },
+    "authenticated_security_definer_execute_intentional": true,
+    "authenticated_authority_limited_to_public_wrapper": true,
+    "api_roles_direct_private_helper_execute_allowed": false,
     "public_rollout_enabled": false,
     "generic_sync_rpc_accepts_memory": false,
     "authenticated_proof": {
