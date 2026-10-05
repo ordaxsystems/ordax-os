@@ -201,7 +201,7 @@ export function createNativePersonalOrdaxStateTransport(
         async (response) => {
           if (response.status === 409) {
             cancelBody(response);
-            return Object.freeze({ accepted: false, revision: expectedRevision });
+            return Object.freeze({ accepted: false, revision: null });
           }
           if (!response.ok) {
             cancelBody(response);
