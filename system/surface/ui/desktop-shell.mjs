@@ -11,7 +11,6 @@ const SURFACE_TIME_ZONE = "America/Bahia";
 const ICONS = Object.freeze({
   files: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l2 2h9v10.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 8.5v-3A1.5 1.5 0 0 1 5 4h4.3l2.2 2.5"/></svg>`,
   projects: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7.5" height="6.5" rx="1.2"/><rect x="13" y="4" width="7.5" height="6.5" rx="1.2"/><rect x="3.5" y="13.5" width="7.5" height="6.5" rx="1.2"/><rect x="13" y="13.5" width="7.5" height="6.5" rx="1.2"/></svg>`,
-  notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M8.5 8h7M8.5 12h7M8.5 16h5"/></svg>`,
   assistant: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H9l-4 3v-13z"/><path d="M9 9h6M9 12h4"/></svg>`,
   internet: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.8 12h16.4M12 3.5c2.4 2.5 3.6 5.3 3.6 8.5S14.4 18 12 20.5C9.6 18 8.4 15.2 8.4 12S9.6 6 12 3.5z"/></svg>`,
   networkApp: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M3.5 19a4.5 4.5 0 0 1 9 0M12.5 18.5a4 4 0 0 1 8 0"/></svg>`,
@@ -62,7 +61,6 @@ export function createDesktopShellMarkup(localization) {
         <nav class="ordax-rail-nav">
           ${railButton("files", t("app.files.title"), ICONS.files, t)}
           ${railButton("projects", t("app.projects.title"), ICONS.projects, t)}
-          ${railButton("notes", t("app.notes.title"), ICONS.notes, t)}
           ${railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)}
           ${railButton("internet", t("app.internet.title"), ICONS.internet, t)}
           ${railButton("network", t("app.network.title"), ICONS.networkApp, t)}
@@ -214,7 +212,7 @@ export function syncDesktopShellLocalization(root, localization) {
   };
 
   aria(".ordax-rail", "shell.rail.aria");
-  for (const appId of ["files", "projects", "notes", "assistant", "internet", "network", "settings", "account", "system"]) {
+  for (const appId of ["files", "projects", "assistant", "internet", "network", "settings", "account", "system"]) {
     const button = root.querySelector(`[data-sidebar-app="${appId}"]`);
     const label = t(`app.${appId}.title`);
     const labelNode = button?.querySelector("span:last-child");
