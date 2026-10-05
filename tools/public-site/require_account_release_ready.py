@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Final public-account release gate.
 
-This gate consumes sanitized live proofs before delegating repository/deployment
-checks to auth_activation_preflight.py require-ready. Proofs must never contain
-provider credentials, project refs, table contents, policy expressions, or
-function bodies.
+The public account release requires sanitized live evidence for:
+- hosted Auth provider configuration;
+- PostgreSQL control-plane privilege boundary;
+- current-session revocation through the exact public origin and release commit.
+Only after those proofs pass does this gate delegate to
+`auth_activation_preflight.py require-ready` for the remaining legal,
+deployment, recovery and activation checks.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[2]
 PROBE_SCHEMA = "prototype-ordax.auth-provider-proof/1"
 DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/2"
+SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
 REQUIRED_CHECKS = (
     "confirm_email",
     "password_policy",
@@ -51,6 +55,17 @@ def clean_origin(raw: str) -> str:
         or parsed.path not in ("", "/") or parsed.params or parsed.query or parsed.fragment
     ):
         raise ValueError("expected origin must be a clean HTTPS origin")
+    return value
+
+
+def clean_commit(raw: str) -> str:
+    value = raw.strip().lower()
+    if len(value) != 40:
+        raise ValueError("expected source commit must be a 40-character SHA")
+    try:
+        int(value, 16)
+    except ValueError as exc:
+        raise ValueError("expected source commit must be hexadecimal") from exc
     return value
 
 
@@ -142,6 +157,49 @@ def validate_database_proof(value: object) -> list[str]:
     return sorted(set(blockers))
 
 
+def validate_session_revocation_proof(
+    value: object,
+    expected_origin: str,
+    expected_source_commit: str,
+) -> list[str]:
+    blockers: list[str] = []
+    origin = clean_origin(expected_origin)
+    commit = clean_commit(expected_source_commit)
+    if not isinstance(value, dict):
+        return ["session-revocation-proof-object-required"]
+    if value.get("$schema") != SESSION_REVOCATION_SCHEMA:
+        blockers.append("session-revocation-proof-schema")
+    if value.get("status") != "pass":
+        blockers.append("session-revocation-proof-status")
+    if value.get("scope") != "local":
+        blockers.append("session-revocation-proof-scope")
+    if value.get("gateway_origin") != origin:
+        blockers.append("session-revocation-proof-origin-mismatch")
+    if value.get("source_commit") != commit:
+        blockers.append("session-revocation-proof-source-commit-mismatch")
+    for name in (
+        "two_independent_sessions",
+        "session_a_anonymous_after_logout",
+        "revoked_session_restore_rejected",
+        "session_b_remained_authenticated",
+    ):
+        if value.get(name) is not True:
+            blockers.append(f"session-revocation-proof-{name}")
+    for name in (
+        "credentials_persisted",
+        "account_identifier_recorded",
+        "sensitive_auth_material_recorded",
+    ):
+        if value.get(name) is not False:
+            blockers.append(f"session-revocation-proof-{name}")
+    serialized = json.dumps(value, sort_keys=True).lower()
+    for forbidden in ("access_token", "refresh_token", "password", "cookie"):
+        if forbidden in serialized:
+            blockers.append("session-revocation-proof-sensitive-material")
+            break
+    return sorted(set(blockers))
+
+
 def load_proof(path: Path) -> object:
     if path.stat().st_size > 64 * 1024:
         raise ValueError("proof too large")
@@ -152,15 +210,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider-proof", required=True)
     parser.add_argument("--database-proof", required=True)
+    parser.add_argument("--session-revocation-proof", required=True)
     parser.add_argument("--expected-origin", required=True)
+    parser.add_argument("--expected-source-commit", required=True)
     parser.add_argument("--root", default=str(ROOT))
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
     try:
         provider_proof = load_proof(Path(args.provider_proof).resolve())
         database_proof = load_proof(Path(args.database_proof).resolve())
+        session_proof = load_proof(Path(args.session_revocation_proof).resolve())
         blockers = validate_provider_proof(provider_proof, args.expected_origin)
         blockers.extend(validate_database_proof(database_proof))
+        blockers.extend(
+            validate_session_revocation_proof(
+                session_proof,
+                args.expected_origin,
+                args.expected_source_commit,
+            )
+        )
         blockers = sorted(set(blockers))
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ACCOUNT_RELEASE_GATE=FAIL reason={exc}", file=sys.stderr)
