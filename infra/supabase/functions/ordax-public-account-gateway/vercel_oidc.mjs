@@ -1,19 +1,10 @@
-import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.2.12";
-
 const PUBLIC_SITE_HEADER = "x-ordax-public-site";
 const VERCEL_OIDC_ISSUER = "https://oidc.vercel.com/jogo-brasils-projects";
 const VERCEL_OIDC_AUDIENCE = "https://vercel.com/jogo-brasils-projects";
 const VERCEL_OIDC_SUBJECT = "owner:jogo-brasils-projects:project:ordax-os-public:environment:production";
 const JWT_RE = /^[A-Za-z0-9_-]{16,4096}\.[A-Za-z0-9_-]{2,16384}\.[A-Za-z0-9_-]{16,16384}$/;
 
-const VERCEL_JWKS = createRemoteJWKSet(
-  new URL("/.well-known/jwks", VERCEL_OIDC_ISSUER),
-  {
-    cooldownDuration: 30_000,
-    cacheMaxAge: 10 * 60_000,
-    timeoutDuration: 5_000,
-  },
-);
+let runtimeVerifierPromise;
 
 function bearerToken(request) {
   const authorization = (request.headers.get("authorization") ?? "").trim();
@@ -22,13 +13,31 @@ function bearerToken(request) {
   return JWT_RE.test(token) ? token : null;
 }
 
+async function runtimeVerifier() {
+  if (!runtimeVerifierPromise) {
+    runtimeVerifierPromise = import("npm:jose@6.2.12").then(({ createRemoteJWKSet, jwtVerify }) => {
+      const jwks = createRemoteJWKSet(
+        new URL("/.well-known/jwks", VERCEL_OIDC_ISSUER),
+        {
+          cooldownDuration: 30_000,
+          cacheMaxAge: 10 * 60_000,
+          timeoutDuration: 5_000,
+        },
+      );
+      return (token) => jwtVerify(token, jwks, {
+        issuer: VERCEL_OIDC_ISSUER,
+        audience: VERCEL_OIDC_AUDIENCE,
+        subject: VERCEL_OIDC_SUBJECT,
+        algorithms: ["RS256", "ES256"],
+      });
+    });
+  }
+  return runtimeVerifierPromise;
+}
+
 async function verifyRuntimeToken(token) {
-  return jwtVerify(token, VERCEL_JWKS, {
-    issuer: VERCEL_OIDC_ISSUER,
-    audience: VERCEL_OIDC_AUDIENCE,
-    subject: VERCEL_OIDC_SUBJECT,
-    algorithms: ["RS256", "ES256"],
-  });
+  const verify = await runtimeVerifier();
+  return verify(token);
 }
 
 export async function verifyPublicProxyIdentity(
