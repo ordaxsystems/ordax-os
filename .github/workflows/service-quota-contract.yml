@@ -1,0 +1,38 @@
+name: Service Quota Contract
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/service-quota.mjs'
+      - 'system/services/entitlements/**'
+      - 'docs/contracts/service-quotas.json'
+      - 'tests/test_service_quota.mjs'
+      - '.github/workflows/service-quota-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/service-quota.mjs'
+      - 'system/services/entitlements/**'
+      - 'docs/contracts/service-quotas.json'
+      - 'tests/test_service_quota.mjs'
+      - '.github/workflows/service-quota-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  service-quota-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate quota SSOT and runtime
+        run: |
+          set -euo pipefail
+          node --check system/contracts/service-quota.mjs
+          node --check system/services/entitlements/quota.mjs
+          node --check tests/test_service_quota.mjs
+          node -e 'JSON.parse(require("fs").readFileSync("docs/contracts/service-quotas.json", "utf8"))'
+          node --test tests/test_service_quota.mjs
