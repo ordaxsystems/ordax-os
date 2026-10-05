@@ -15,6 +15,29 @@ function firstFutureSlot(nextMs, intervalMs, nowMs) {
   return nextMs + (Math.floor((nowMs - nextMs) / intervalMs) + 1) * intervalMs;
 }
 
+function assertStoredScheduleInvariant(schedule) {
+  if (schedule.trigger.kind === "once") {
+    if (schedule.runCount === 0 && schedule.nextRunAt !== schedule.trigger.at) {
+      throw new Error("Stored one-shot schedule must point at its trigger timestamp");
+    }
+    if (schedule.runCount === 1 && schedule.nextRunAt !== null) {
+      throw new Error("Completed one-shot schedule must not retain nextRunAt");
+    }
+    return;
+  }
+
+  if (schedule.enabled && schedule.nextRunAt === null) {
+    throw new Error("Enabled interval schedule must have a next run");
+  }
+  if (schedule.nextRunAt === null) return;
+
+  const anchorMs = Date.parse(schedule.trigger.anchorAt);
+  const nextMs = Date.parse(schedule.nextRunAt);
+  if (nextMs < anchorMs || (nextMs - anchorMs) % schedule.trigger.intervalMs !== 0) {
+    throw new Error("Stored interval schedule nextRunAt is outside the trigger lattice");
+  }
+}
+
 export function createSchedulerRuntime({ clockMs = () => Date.now() } = {}) {
   if (typeof clockMs !== "function") throw new TypeError("Scheduler clock must be a function");
   const schedules = new Map();
@@ -105,7 +128,7 @@ export function createSchedulerRuntime({ clockMs = () => Date.now() } = {}) {
           scheduledFor: iso(scheduledForMs),
           claimedAt: iso(nowMs),
           fireOrdinal,
-          deduplicationKey: `${current.deduplicationKey}:${fireOrdinal}`,
+          deduplicationKey: `${current.scheduleId}:${fireOrdinal}`,
         }));
       }
 
@@ -122,10 +145,13 @@ export function createSchedulerRuntime({ clockMs = () => Date.now() } = {}) {
     restore(snapshotInput) {
       if (schedules.size > 0) throw new Error("Scheduler restore requires an empty runtime");
       const snapshot = validateSchedulerSnapshot(snapshotInput);
+      const candidateSchedules = new Map();
       for (const schedule of snapshot.schedules) {
-        if (schedules.has(schedule.scheduleId)) throw new Error(`Duplicate schedule id: ${schedule.scheduleId}`);
-        schedules.set(schedule.scheduleId, schedule);
+        if (candidateSchedules.has(schedule.scheduleId)) throw new Error(`Duplicate schedule id: ${schedule.scheduleId}`);
+        assertStoredScheduleInvariant(schedule);
+        candidateSchedules.set(schedule.scheduleId, schedule);
       }
+      for (const [scheduleId, schedule] of candidateSchedules) schedules.set(scheduleId, schedule);
       return api.list();
     },
   };
