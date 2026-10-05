@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "public-edge-v1-live-oidc-v2-source-ready-routing-pending",
+  "status": "public-edge-oidc-v2-live-vercel-routing-proof-pending",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -15,7 +15,7 @@
     "public_auth_rate_limit_deployed": false
   },
   "vercel_adapter": {
-    "status": "oidc-source-ready-not-deployed",
+    "status": "oidc-project-configured-not-deployed",
     "project": "ordax-os-public",
     "team": "jogo-brasils-projects",
     "project_config_source": "vercel.json",
@@ -46,19 +46,19 @@
     "public_auth_rate_limit_deployed": false
   },
   "public_edge_gateway": {
-    "status": "v1-live-v2-oidc-source-ready-not-deployed",
+    "status": "v2-oidc-live-vercel-runtime-proof-pending",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
     "rate_limit_source": "infra/supabase/functions/ordax-public-account-gateway/public_auth_rate_limit.mjs",
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
-    "deployed_version": 1,
-    "deployment_source_commit": "3327678208868df6c7a5ecc7229ced09f2def33e",
-    "deployed_authentication": "shared-secret-sha256-v1",
+    "deployed_version": 2,
+    "deployment_source_commit": "8acbd289069c08251675c112a06c8398c4e98752",
+    "deployed_authentication": "vercel-production-oidc-v2",
     "source_authentication": "vercel-production-oidc-v2",
     "oidc_source_ready": true,
-    "oidc_deployed": false,
+    "oidc_deployed": true,
     "runtime_provenance_e2e_verified": false,
     "verify_jwt": false,
     "custom_proxy_authentication": true,

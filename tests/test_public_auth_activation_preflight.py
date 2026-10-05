@@ -47,6 +47,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         )
         self.assertTrue(deployment["public_edge_gateway"]["deployed"])
         self.assertTrue(deployment["public_edge_gateway"]["oidc_source_ready"])
+        self.assertTrue(deployment["public_edge_gateway"]["oidc_deployed"])
         self.assertNotIn("leaked-password-protection", blockers)
         self.assertNotIn("account-data-export-implementation", blockers)
         self.assertNotIn("email-confirmation-policy", blockers)
@@ -55,6 +56,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertNotIn("account-close-implementation", blockers)
         self.assertNotIn("public-edge-gateway-deployment", blockers)
         self.assertNotIn("public-edge-oidc-source", blockers)
+        self.assertNotIn("public-edge-oidc-deployment", blockers)
         self.assertTrue(all(value is False for value in controls.values()))
         self.assertNotIn("registration-legal-receipt", blockers)
         for expected in (
@@ -66,7 +68,6 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "email-confirmation-provider-verification",
             "redirect-allowlist-provider-verification",
             "provider-password-policy-verification",
-            "public-edge-oidc-deployment",
             "public-edge-provenance-proof",
             "vercel-same-origin-adapter-deployment",
             "vercel-public-edge-routing",
