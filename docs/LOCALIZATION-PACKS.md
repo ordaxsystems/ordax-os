@@ -2,68 +2,113 @@
 
 ## Product rule
 
-Localization is component-scoped. The operating system owns the user's preferred locale and fallback policy; each app, service, Creator surface or public-site artifact owns the messages it renders.
+Localization is component-scoped. The operating system owns the user's preferred system locale and the fallback policy; each app, service, Creator surface or public-site artifact owns the messages it renders.
 
-PT-BR remains the source/default locale for the current MVP. en-US is a launch locale. Additional locales are not required to appear in every component at the same time.
+PT-BR remains the source/default locale for the current MVP. en-US is a launch locale. Additional locales do not need to appear in every component at the same time, and adding a locale to one app must never imply that the complete Surface supports that locale.
 
-Example: if the system preference is `zh-Hans` and Notes ships a verified `zh-Hans` pack while Files only ships `pt-BR` and `en-US`, Notes renders in Simplified Chinese and Files falls back to its own source/default locale. The absence of a Chinese pack in Files must not block Notes, boot, or the Surface.
+The machine-readable policy is `docs/contracts/localization-packs.json`.
 
-## Why packs are per component
+## Three separate contracts
 
-A language pack belongs to exactly one component version. It is not a global bag of translations and cannot silently override unrelated apps. This keeps failure domains aligned with OrdaX modularity:
+OrdaX deliberately separates localization metadata, translation content and release authority.
+
+### Component localization metadata
+
+`prototype-ordax.component-localization/1` describes what one component supports:
+
+- component/target id;
+- source locale;
+- bundled locales;
+- optional locales that may be installed later;
+- whether a per-app locale override is allowed;
+- pack policy.
+
+Current first-party apps use the component-scoped policy, bundle `pt-BR` + `en-US`, and inherit the system locale unless an explicit compatible app override is selected.
+
+### Translation content pack
+
+`prototype-ordax.localization-pack/1` is the message payload contract. It contains only component-owned translation data:
+
+- `componentId`;
+- `componentVersion`;
+- `packVersion`;
+- `locale`;
+- `sourceLocale`;
+- `kind` (`bundled` or `external`);
+- message-id keyed text.
+
+The content contract validates message-key parity and interpolation-placeholder parity. It does not grant installation authority and it is not an updater.
+
+### Signed release descriptor
+
+`prototype-ordax.localization-pack-release/1` is the distribution envelope for an external pack. It is separate from the message payload and binds a release to:
+
+- target kind and target id;
+- exact component version;
+- locale;
+- independent pack version;
+- SHA-256 of the target message contract;
+- SHA-256 and exact byte size of the pack artifact;
+- publisher;
+- signature.
+
+The descriptor is structurally forbidden from declaring permissions, capabilities, requested capabilities, an entrypoint or an executable payload. Installing a translation therefore cannot mint filesystem, network, microphone, camera or other application authority.
+
+Structural descriptor validation is not cryptographic signature verification. Signature/provenance verification remains the responsibility of the authorized OrdaX release/update path before activation.
+
+## Bundled vs optional locales
+
+A bundled locale ships with the owning component and is available offline immediately. For the current public MVP baseline, first-party apps bundle complete `pt-BR` and `en-US` catalogs.
+
+An optional locale must be declared by the component before an installed external pack can make it available. A downloaded pack for an undeclared locale is not activated merely because its schema is valid.
+
+Example:
+
+```text
+Surface        pt-BR en-US
+Files          pt-BR en-US
+Notes          pt-BR en-US + optional zh-Hans
+3D Print app   pt-BR en-US + optional zh-Hans ja-JP
+Creator        pt-BR en-US
+```
+
+A component with `bundled-only` pack policy cannot declare optional installable locales.
+
+## Locale resolution and per-app overrides
+
+Resolution is deterministic and uses complete catalogs, never a partially mixed translation:
+
+1. if the component allows app override and the requested app locale is available, use it;
+2. otherwise use the compatible system locale when available;
+3. otherwise use the component source locale.
+
+Only bundled locales plus optional locales that are both declared **and installed** participate in availability.
+
+If a user selected an optional app locale and later removes that pack, the app falls back to the current compatible system locale before falling back to its source locale. Missing translation resources are an availability/degraded-localization state, not an app-health or boot-health verdict.
+
+Example:
+
+```text
+System locale  = en-US
+Notes override = zh-Hans
+zh-Hans pack   = installed
+Result         = Notes uses zh-Hans
+
+zh-Hans pack   = removed
+Result         = Notes uses en-US, then pt-BR only if en-US is unavailable
+```
+
+## Component and version isolation
+
+A language pack belongs to one component version. It cannot silently override unrelated apps. This keeps failure domains aligned with OrdaX modularity:
 
 - an app translation defect cannot break boot;
 - a Creator translation update cannot replace Surface strings;
 - the public site remains independent from the product Web/Surface runtime;
 - a new app can support a locale before the rest of the system does;
-- translation corrections can be released without forcing a base OS A/B update.
+- translation corrections can be released without forcing a boot-critical Base A/B update.
 
-## Pack identity
-
-Every pack uses `ordax.localization-pack/1` and declares:
-
-- `componentId` — the component that owns the rendered messages;
-- `componentVersion` — the exact compatible component version;
-- `packVersion` — independent semantic version for translation fixes;
-- `locale` — BCP-47-style locale supported by the OrdaX validator;
-- `sourceLocale` — canonical source locale for parity checks;
-- `kind` — `bundled` or `external`;
-- `messages` — message-id keyed text owned only by that component.
-
-`componentVersion` compatibility is strict by default. A pack built for an older component is never assumed compatible with a newer component merely because message IDs happen to overlap.
-
-## Bundled vs external packs
-
-### Bundled
-
-A bundled pack ships inside the component artifact and is available offline immediately. Stable/MVP first-party components should bundle the launch locales they publicly promise.
-
-For the current MVP, a component advertised as fully bilingual must bundle complete `pt-BR` and `en-US` catalogs.
-
-### External
-
-An external pack is an independently published signed/update-catalog artifact. It may add a locale or correct translations without replacing the app itself.
-
-External packs are never allowed to:
-
-- change executable code;
-- request new capabilities;
-- alter app permissions;
-- mutate another component's catalog;
-- replace the source locale;
-- bypass the component's message-id or placeholder contract.
-
-The update authority must validate provenance, integrity, component compatibility and catalog parity before activation.
-
-## Locale resolution
-
-Resolution is per component:
-
-1. use the user's requested locale when that exact locale is available;
-2. otherwise try a compatible language match supplied by that component;
-3. otherwise fall back to the component's declared source locale.
-
-A component must remain usable even when it does not support the system-selected locale. Missing packs are a localization availability state, not an application failure.
+The message-contract hash provides an additional compatibility boundary for external releases. A pack release is compatible only when its target, locale declaration, component version and expected message-contract hash all match.
 
 ## Independent update model
 
@@ -78,75 +123,75 @@ notes en-US pack       3.1.0 (bundled)
 notes zh-Hans pack     1.0.0 (external)
 ```
 
-A correction such as a mistranslated button can publish `notes zh-Hans 1.0.1` without publishing Notes 20.4.1. If Notes changes its message contract and becomes 20.5.0, compatible packs for 20.5.0 must be published or the component falls back safely until they exist.
+A spelling or terminology correction can publish `notes zh-Hans 1.0.1` without publishing Notes 20.4.1. If Notes changes its message contract or component version, an older incompatible external release is not activated.
 
-## Update transaction requirements
+## Update authority and activation
 
-Language-pack activation must use the same professional update principles as other independent OrdaX components:
+Language-pack distribution uses the authorized OrdaX update path. The Store/catalog may discover or present a pack, but it is not a second updater and cannot mint installation authority.
 
-- immutable versioned artifact;
-- cryptographic integrity/provenance owned by the release pipeline;
-- staged download before activation;
-- validate schema, owner, locale, component version, exact message-key parity and placeholders;
-- atomic activation pointer;
-- retain known-good pack for rollback;
-- failed pack activation leaves the previously active pack untouched;
-- pack rollback never rolls back user data or the owning app;
-- pack failure never makes a boot-critical component unhealthy.
-
-## Locale independence across apps
-
-There is deliberately no invariant saying every installed app must expose every system locale.
-
-A first-party launch promise may define a required baseline such as `pt-BR` + `en-US`, but optional/add-on apps can publish a superset. For example:
+External activation must follow these invariants:
 
 ```text
-Surface        pt-BR en-US
-Files          pt-BR en-US
-Notes          pt-BR en-US zh-Hans
-3D Print app   pt-BR en-US zh-Hans ja-JP
-Creator        pt-BR en-US
+authorized catalog/release path
+ -> download immutable artifact to inactive staging
+ -> verify exact size + content hash + signature/provenance
+ -> validate translation-content schema and message parity
+ -> verify target + locale + component version + message-contract hash
+ -> atomically activate resource-pack pointer
+ -> retain previous known-good pack for rollback
 ```
 
-The locale selector may distinguish between:
+A failed activation preserves the currently working pack. Rolling back translation data never rolls back user data and does not require rolling back the app or boot-critical Base when their contracts remain compatible.
 
-- **System language** — preferred locale used by every component that supports it;
-- **Available for this app** — locales currently installed for the active app;
-- **More language packs** — verified packs available from the component update catalog.
+## Security boundaries
 
-The UI must never imply that choosing a system language guarantees translation coverage in an app that has not published that locale.
+External language packs never gain authority through localization metadata. They cannot:
 
-## Adding Mandarin later
+- change executable code;
+- request permissions or capabilities;
+- add an entrypoint;
+- execute scripts;
+- alter another component's catalog;
+- replace the source locale through an external source-locale install;
+- bypass message-id/placeholder parity;
+- bypass the authorized update/release trust path.
 
-Mandarin support should be represented with an explicit Chinese locale such as `zh-Hans` (Simplified Chinese) and, when needed, `zh-Hant` (Traditional Chinese), instead of an ambiguous `zh` product label.
+The content pack contains text resources. The release descriptor contains integrity/provenance metadata. Neither is an application permission manifest.
 
-Adding it later does not require rebuilding the boot-critical base. The release sequence is:
+## Product boundaries
 
-1. translate one component's canonical message contract;
-2. run key/placeholder and rendered-copy audits;
-3. publish a pack bound to that component version;
-4. add it to the signed component update catalog;
-5. download/stage/validate/activate atomically;
-6. let that component begin rendering Chinese immediately while unsupported components continue their own fallback.
+The shared Surface, Creator and public site are separate localization owners. They may consume the same localization policy/contracts, but the public site must not import the Surface runtime and Creator must not depend on Surface rendering for its safety prompts.
 
-## Security and quality gates
+Translations belong to product owners, never platform forks:
+
+```text
+message identity/catalog
+ -> component localization metadata
+ -> locale resolution
+ -> platform adapter only where platform formatting differs
+```
+
+Locale and keyboard layout remain separate concerns. Choosing English does not silently change a Brazilian physical keyboard, and adding another app locale does not invent an unproven keyboard layout. Keyboard support remains governed by `docs/contracts/keyboard-layout.json`.
+
+## Quality gates
 
 Every publicly supported pack must prove:
 
-- exact message-key parity with its source pack;
-- placeholder parity;
-- no empty strings;
 - valid locale and semantic versions;
 - exact component ownership/version binding;
-- deterministic fallback;
-- no executable payload;
-- no remote code, fonts, scripts or style injection through localization data;
-- rendered accessibility labels and user-facing status/error strings use the same localization owner.
+- exact message-key parity with its source contract;
+- placeholder parity;
+- no empty message strings;
+- deterministic whole-catalog fallback;
+- optional locale is declared by its component;
+- release descriptor is authority-free;
+- content and release hashes are structurally valid;
+- rendered accessibility/status/error copy stays under the owning localization boundary.
 
-Machine translation may assist authoring, but a pack becomes a product-supported locale only after the same automated and product-review gates as any other release artifact.
+Cryptographic signature verification is an update-path gate, not a function of the pure localization contract module.
 
 ## Current migration
 
-The existing Surface catalogs are already separated by functional owner and provide the foundation for component packs. Migration should preserve current message IDs and introduce pack manifests around them rather than rewriting working copy.
+The existing Surface catalogs are already split by functional owner. First-party app definitions now project their localization metadata through the shared component-localization contract rather than maintaining a second validator inside the app contract.
 
-Creator and `public-site` are separate localization owners and must not import the Surface runtime merely to obtain translations.
+Creator and `public-site` remain separate localization owners. They may adopt the same content/release schemas without importing Surface runtime code.
