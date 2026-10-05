@@ -56,6 +56,20 @@ class UserCloudStorageSourceTest(unittest.TestCase):
         self.assertEqual(self.contract["quota"]["key"], "storage.user.bytes")
         self.assertFalse(self.contract["quota"]["numeric_limit_defined"])
 
+    def test_live_schema_is_recorded_without_claiming_rollout(self) -> None:
+        deployment = self.contract["deployment"]
+        self.assertTrue(deployment["transactional_schema_deployed"])
+        self.assertEqual(
+            deployment["deployed_migration"],
+            "infra/supabase/product/migrations/20261005171000_user_cloud_storage_foundation_v2.sql",
+        )
+        self.assertTrue(deployment["authenticated_metadata_select_only"])
+        self.assertFalse(deployment["authenticated_mutation_granted"])
+        self.assertFalse(deployment["service_role_direct_dml_granted"])
+        self.assertFalse(deployment["provider_bucket_deployed"])
+        self.assertFalse(deployment["server_mutation_executor_deployed"])
+        self.assertFalse(deployment["public_rollout_enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,6 +37,20 @@
     "cloudflare_r2_future_adapter_allowed": true,
     "provider_switch_may_change_domain_object_id": false
   },
+  "deployment": {
+    "transactional_schema_deployed": true,
+    "deployed_migration": "infra/supabase/product/migrations/20261005171000_user_cloud_storage_foundation_v2.sql",
+    "deployed_at": "2026-10-05",
+    "public_metadata_table": "public.ordax_user_objects",
+    "private_provider_refs_table": "private.ordax_user_object_provider_refs",
+    "private_reservations_table": "private.ordax_user_upload_reservations",
+    "authenticated_metadata_select_only": true,
+    "authenticated_mutation_granted": false,
+    "service_role_direct_dml_granted": false,
+    "provider_bucket_deployed": false,
+    "server_mutation_executor_deployed": false,
+    "public_rollout_enabled": false
+  },
   "activation_gates": [
     "transactional metadata and reservation schema are deployed",
     "private provider bucket exists with no anonymous or public object access",
