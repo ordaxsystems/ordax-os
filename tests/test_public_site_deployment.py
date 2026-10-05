@@ -17,12 +17,15 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_live_oidc_v2_without_claiming_vercel_rollout(self):
+    def test_contract_records_live_oidc_v2_without_claiming_zero_trust_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-oidc-v2-live-vercel-routing-proof-pending",
+            "public-edge-oidc-v2-live-vercel-zero-trust-source-not-deployed",
         )
-        self.assertEqual(self.contract["vercel_adapter"]["status"], "oidc-project-configured-not-deployed")
+        self.assertEqual(
+            self.contract["vercel_adapter"]["status"],
+            "oidc-zero-trust-source-ready-not-deployed",
+        )
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
         self.assertEqual(edge["deployed_version"], 2)
@@ -32,6 +35,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(edge["oidc_deployed"])
         self.assertFalse(edge["runtime_provenance_e2e_verified"])
         self.assertFalse(edge["oidc_preview_allowed"])
+        self.assertFalse(edge["request_context_validation_connected"])
         self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
 
@@ -60,12 +64,34 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
         self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"];', self.vercel_proxy)
         self.assertIn('process.env.VERCEL_OIDC_TOKEN', self.vercel_proxy)
+        self.assertIn('process.env.ORDAX_PUBLIC_ORIGIN', self.vercel_proxy)
+        self.assertIn('verifyBrowserOriginContext(request, trustedPublicOrigin)', self.vercel_proxy)
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.vercel_proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.vercel_proxy)
+        self.assertIn('headers.set("x-forwarded-host", canonical.host)', self.vercel_proxy)
+        self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.vercel_proxy)
         self.assertIn('/functions/v1/ordax-public-account-gateway', self.vercel_proxy)
+        self.assertNotIn('request.headers.get("host")', self.vercel_proxy)
         self.assertNotIn('ORDAX_PUBLIC_PROXY_SECRET', self.vercel_proxy)
         self.assertNotIn('x-ordax-public-proxy-secret', self.vercel_proxy)
         self.assertNotIn("service_role", self.vercel_proxy.lower())
+
+    def test_public_proxy_response_boundary_is_fail_closed(self):
+        adapter = self.contract["vercel_adapter"]
+        self.assertTrue(adapter["set_cookie_validation_required"])
+        self.assertEqual(
+            adapter["set_cookie_allowed_names"],
+            ["ordax_access", "ordax_refresh", "ordax_recovery"],
+        )
+        self.assertFalse(adapter["set_cookie_domain_attribute_allowed"])
+        self.assertTrue(adapter["set_cookie_secure_required"])
+        self.assertTrue(adapter["set_cookie_http_only_required"])
+        self.assertEqual(adapter["set_cookie_same_site"], "Lax")
+        self.assertFalse(adapter["upstream_absolute_redirect_allowed"])
+        self.assertFalse(adapter["upstream_protocol_relative_redirect_allowed"])
+        self.assertIn("trustedSetCookie", self.vercel_proxy)
+        self.assertIn("normalizeUpstreamLocation", self.vercel_proxy)
+        self.assertIn("unsafe-account-gateway-response", self.vercel_proxy)
 
     def test_oidc_identity_is_short_lived_runtime_authority_not_browser_authority(self):
         adapter = self.contract["vercel_adapter"]
@@ -83,6 +109,21 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             "owner:jogo-brasils-projects:project:ordax-os-public:environment:production",
         )
         self.assertFalse(edge["oidc_authorization_forwarded_to_inner_gateway"])
+
+    def test_canonical_origin_and_browser_mutation_context_are_mandatory(self):
+        adapter = self.contract["vercel_adapter"]
+        requirements = self.contract["production_requirements"]
+        self.assertEqual(adapter["canonical_public_origin_environment_variable"], "ORDAX_PUBLIC_ORIGIN")
+        self.assertTrue(adapter["canonical_public_origin_required"])
+        self.assertTrue(adapter["incoming_request_origin_must_equal_canonical_origin"])
+        self.assertFalse(adapter["browser_host_header_trusted"])
+        self.assertTrue(adapter["trusted_forwarded_host_derived_from_canonical_origin"])
+        self.assertTrue(adapter["state_change_exact_browser_origin_required"])
+        self.assertTrue(adapter["state_change_sec_fetch_site_same_origin_required"])
+        self.assertTrue(adapter["state_change_missing_origin_fails_closed"])
+        self.assertTrue(requirements["public_proxy_must_bind_to_canonical_origin"])
+        self.assertTrue(requirements["public_state_changes_must_require_exact_origin_and_fetch_metadata"])
+        self.assertTrue(requirements["public_proxy_must_reject_untrusted_upstream_redirects_and_cookies"])
 
     def test_vercel_adapter_is_fail_closed_until_real_rollout_gates_are_proven(self):
         adapter = self.contract["vercel_adapter"]
