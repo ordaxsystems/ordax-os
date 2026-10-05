@@ -43,6 +43,8 @@
     "state_change_missing_origin_fails_closed": true,
     "trusted_public_origin_header": "x-ordax-public-origin",
     "oidc_runtime_environment_variable": "VERCEL_OIDC_TOKEN",
+    "oidc_runtime_resolver": "@vercel/oidc.getVercelOidcToken",
+    "proxy_direct_oidc_environment_read_allowed": false,
     "oidc_generation_enabled": true,
     "oidc_issuer_mode": "team",
     "browser_authorization_forwarded": false,
