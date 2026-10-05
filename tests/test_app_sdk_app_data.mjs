@@ -10,9 +10,9 @@ async function json(path) {
   return JSON.parse(await readFile(new URL(path, rootUrl), "utf8"));
 }
 
-test("App SDK 1.5 publishes App Data contract metadata without transport authority", async () => {
+test("App SDK 1.6 publishes App Data contract metadata without transport authority", async () => {
   const bundle = await json("sdk/app-sdk-v1/bundle.json");
-  assert.equal(bundle.bundle_version, "1.5.0");
+  assert.equal(bundle.bundle_version, "1.6.0");
   assert.equal(bundle.authority, "none");
 
   const appData = bundle.contracts.find((contract) => contract.name === "app-data");
