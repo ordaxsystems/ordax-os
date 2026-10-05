@@ -47,15 +47,14 @@ function validateSha256(value, label) {
 }
 
 function validateBoundedText(value, label, maxLength = 8192) {
-  if (
-    typeof value !== "string"
-    || value.length === 0
-    || value.length > maxLength
-    || value.includes("\0")
-  ) {
+  if (typeof value !== "string" || value.includes("\0")) {
     throw new TypeError(`${label} must be bounded non-empty text`);
   }
-  return value;
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maxLength) {
+    throw new TypeError(`${label} must be bounded non-empty text`);
+  }
+  return normalized;
 }
 
 function validateLocaleList(values, label, { allowEmpty = true } = {}) {
@@ -203,9 +202,20 @@ export function localizationPackReleaseMatchesComponent(
   { componentVersion, messageContractSha256 },
 ) {
   const descriptor = defineLocalizationPackRelease(release);
+  if (
+    !componentLocalization
+    || typeof componentLocalization !== "object"
+    || Array.isArray(componentLocalization)
+    || !Object.hasOwn(componentLocalization, "packPolicy")
+  ) {
+    throw new TypeError("Component localization packPolicy is required for release matching");
+  }
   const localization = defineComponentLocalization(componentLocalization);
   const expectedVersion = validateVersion(componentVersion, "Localization componentVersion");
   const expectedMessageContract = validateSha256(messageContractSha256, "Message contract hash");
+  if (localization.packPolicy !== "component-scoped") {
+    return false;
+  }
   return (
     descriptor.targetKind === "app"
     && descriptor.targetId === localization.targetId
