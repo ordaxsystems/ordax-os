@@ -1,0 +1,52 @@
+name: Studio Action Catalog v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/studio-action-catalog-v2.mjs'
+      - 'system/services/device-agent/studio-runtime-source-lock.json'
+      - 'docs/contracts/studio-runtime-integration.json'
+      - 'tests/test_studio_action_catalog_v2.mjs'
+      - '.github/workflows/studio-action-catalog-v2.yml'
+  pull_request:
+    paths:
+      - 'system/contracts/studio-action-catalog-v2.mjs'
+      - 'system/services/device-agent/studio-runtime-source-lock.json'
+      - 'docs/contracts/studio-runtime-integration.json'
+      - 'tests/test_studio_action_catalog_v2.mjs'
+      - '.github/workflows/studio-action-catalog-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capability-catalog-v2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contract syntax and SSOT JSON
+        run: |
+          set -euo pipefail
+          node --check system/contracts/studio-action-catalog-v2.mjs
+          node --check tests/test_studio_action_catalog_v2.mjs
+          python -m json.tool system/services/device-agent/studio-runtime-source-lock.json >/dev/null
+          python -m json.tool docs/contracts/studio-runtime-integration.json >/dev/null
+
+      - name: Prove capability-only catalog and source provenance
+        run: node --test tests/test_studio_action_catalog_v2.mjs
+
+      - name: Validate module and JSON contract boundaries
+        run: |
+          set -euo pipefail
+          python tools/verify/module_boundaries.py
+          python tools/verify/json_contracts.py
+
+      - name: Validate GitHub Actions supply chain
+        run: python tools/verify/github_actions_supply_chain.py
