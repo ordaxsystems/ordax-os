@@ -30,6 +30,11 @@ begin
 end;
 $role$;
 
+-- Hosted Supabase migrations execute as postgres. Explicit membership lets the
+-- migration owner transfer and later maintain executor-owned RPCs without
+-- making the executor login-capable or granting it administrative attributes.
+grant ordax_sync_executor to postgres with admin option;
+
 revoke all on schema private from ordax_sync_executor;
 grant usage on schema private to ordax_sync_executor;
 grant usage on schema auth to ordax_sync_executor;
