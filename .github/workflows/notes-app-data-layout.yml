@@ -1,0 +1,47 @@
+name: Notes App Data Layout
+
+on:
+  pull_request:
+    paths:
+      - 'system/apps/notes/services/app-data-layout.mjs'
+      - 'system/apps/notes/services/app-data-transition-journal.mjs'
+      - 'system/contracts/app-data.mjs'
+      - 'system/contracts/notes-store.mjs'
+      - 'tests/test_notes_app_data_layout.mjs'
+      - 'tests/test_notes_app_data_transition_journal.mjs'
+      - '.github/workflows/notes-app-data-layout.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/apps/notes/services/app-data-layout.mjs'
+      - 'system/apps/notes/services/app-data-transition-journal.mjs'
+      - 'system/contracts/app-data.mjs'
+      - 'system/contracts/notes-store.mjs'
+      - 'tests/test_notes_app_data_layout.mjs'
+      - 'tests/test_notes_app_data_transition_journal.mjs'
+      - '.github/workflows/notes-app-data-layout.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  notes-app-data-layout:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate Notes App Data layout source
+        run: |
+          set -euo pipefail
+          node --check system/apps/notes/services/app-data-layout.mjs
+          node --check system/apps/notes/services/app-data-transition-journal.mjs
+
+      - name: Prove bounded transactional Notes layout and crash recovery
+        run: |
+          set -euo pipefail
+          node --test \
+            tests/test_notes_app_data_layout.mjs \
+            tests/test_notes_app_data_transition_journal.mjs
