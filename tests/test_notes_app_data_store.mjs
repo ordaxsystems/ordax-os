@@ -197,3 +197,60 @@ test("Notes App Data store rejects a port bound to another app", async () => {
     /must be bound to the notes app/,
   );
 });
+
+
+test("legacy Notes snapshot seeds an empty App Data partition exactly once", async () => {
+  const base = port();
+  const legacy = snapshot([note("legacy-1", "conteúdo legado")]);
+
+  const migrated = await createNotesAppDataStore(base, { seedSnapshot: legacy });
+  assert.deepEqual(migrated.load(), legacy);
+
+  const manifest = await base.get("notes.manifest");
+  assert.equal(manifest.found, true);
+
+  const reopened = await createNotesAppDataStore(base);
+  assert.deepEqual(reopened.load(), legacy);
+});
+
+test("existing App Data manifest is authoritative and ignores a different legacy seed", async () => {
+  const base = port();
+  const canonical = snapshot([note("canonical-1", "estado canônico")]);
+  const initial = await createNotesAppDataStore(base);
+  initial.save(canonical);
+  await initial.flush();
+
+  const puts = [];
+  const observed = wrappedPort(base, {
+    onPut(command) {
+      puts.push(command.key);
+    },
+  });
+  const staleLegacy = snapshot([note("legacy-stale", "não deve voltar")]);
+  const reopened = await createNotesAppDataStore(observed, { seedSnapshot: staleLegacy });
+
+  assert.deepEqual(reopened.load(), canonical);
+  assert.deepEqual(puts, []);
+});
+
+test("failed legacy seed does not publish a manifest and can be retried safely", async () => {
+  const base = port();
+  let failManifest = true;
+  const injected = wrappedPort(base, {
+    failPut(command) {
+      return failManifest && command.key === "notes.manifest";
+    },
+  });
+  const legacy = snapshot([note("legacy-1", "migrar depois")]);
+
+  await assert.rejects(
+    () => createNotesAppDataStore(injected, { seedSnapshot: legacy }),
+    /injected App Data put failure/,
+  );
+  assert.equal((await base.get("notes.manifest")).found, false);
+
+  failManifest = false;
+  const retried = await createNotesAppDataStore(injected, { seedSnapshot: legacy });
+  assert.deepEqual(retried.load(), legacy);
+  assert.equal((await base.get("notes.manifest")).found, true);
+});
