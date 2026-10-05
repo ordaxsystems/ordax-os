@@ -2,6 +2,10 @@ import {
   DIAGNOSTIC_SUMMARY_SCHEMA,
   validateDiagnosticSummary,
 } from "../../contracts/diagnostic-copy.mjs";
+import {
+  resolveDiagnosticSummaryLocale,
+  translateDiagnosticSummaryMessage,
+} from "../i18n/catalog/diagnostic-summary.mjs";
 import { DIAGNOSTIC_REPORT_SCHEMA } from "./report.mjs";
 import { DIAGNOSTIC_REVIEW_SCHEMA } from "./review.mjs";
 import { redactDiagnosticText } from "./redaction.mjs";
@@ -9,18 +13,6 @@ import { redactDiagnosticText } from "./redaction.mjs";
 const SOURCE_IDS = Object.freeze(["surface", "update", "metrics", "history", "journal"]);
 const SOURCE_ID_SET = new Set(SOURCE_IDS);
 const SOURCE_STATUS_SET = new Set(["included", "unavailable", "failed"]);
-const SOURCE_LABELS = Object.freeze({
-  surface: "Surface",
-  update: "Atualização",
-  metrics: "Métricas",
-  history: "Histórico",
-  journal: "Registro diagnóstico",
-});
-const SOURCE_STATUS_LABELS = Object.freeze({
-  included: "incluída",
-  unavailable: "indisponível",
-  failed: "falha na leitura",
-});
 const FRESHNESS_STATES = new Set(["fresh", "stale", "unknown"]);
 const MAX_SUMMARY_EVENTS = 10;
 
@@ -143,52 +135,65 @@ function validateReviewDocument(document) {
   return review;
 }
 
-function sourceLines(review) {
+function sourceLines(review, t) {
   const byId = new Map(review.manifest.sources.map((entry) => [entry.id, entry]));
   return SOURCE_IDS.map((sourceId) => {
     const entry = byId.get(sourceId);
     const suffix = entry.failureCode ? ` (${safeCode(entry.failureCode, "failureCode")})` : "";
-    return `- ${SOURCE_LABELS[sourceId]}: ${SOURCE_STATUS_LABELS[entry.status]}${suffix}`;
+    return `- ${t(`diagnostic.summary.source.${sourceId}`)}: ${t(`diagnostic.summary.status.${entry.status}`)}${suffix}`;
   });
 }
 
-function updateLines(review) {
+function updateLines(review, locale, t) {
   const report = review.report;
-  if (report.update === null) {
-    return ["Atualização: indisponível nesta revisão."];
-  }
+  if (report.update === null) return [t("diagnostic.summary.update.unavailable")];
 
   const update = asObject(report.update, "Diagnostic report update");
   const lines = [
-    `Atualização: entrega ${safeText(update.deliveryNumber)} · estado ${safeText(update.status)} · fase ${safeText(update.phase)} · aplicação ${safeText(update.applyMode)}`,
-    `SHA observado: ${safeText(update.sourceSha) || "não informado"}`,
+    t("diagnostic.summary.update.line", {
+      delivery: safeText(update.deliveryNumber),
+      status: safeText(update.status),
+      phase: safeText(update.phase),
+      applyMode: safeText(update.applyMode),
+    }),
+    t("diagnostic.summary.update.sha", {
+      value: safeText(update.sourceSha) || t("diagnostic.summary.notReported"),
+    }),
   ];
-  if (update.runtimeSurfaceSha) lines.push(`Surface em execução: ${safeText(update.runtimeSurfaceSha)}`);
-  if (update.targetSha) lines.push(`SHA alvo: ${safeText(update.targetSha)}`);
-  if (update.checkedAt) lines.push(`Observação do atualizador: ${safeText(update.checkedAt)}`);
-  if (update.lastError) lines.push(`Último diagnóstico do atualizador: ${safeText(update.lastError)}`);
+  if (update.runtimeSurfaceSha) {
+    lines.push(t("diagnostic.summary.update.runtimeSurfaceSha", { value: safeText(update.runtimeSurfaceSha) }));
+  }
+  if (update.targetSha) {
+    lines.push(t("diagnostic.summary.update.targetSha", { value: safeText(update.targetSha) }));
+  }
+  if (update.checkedAt) {
+    lines.push(t("diagnostic.summary.update.checkedAt", { value: safeText(update.checkedAt) }));
+  }
+  if (update.lastError) {
+    lines.push(t("diagnostic.summary.update.lastError", { value: safeText(update.lastError) }));
+  }
 
   const freshness = review.observations.updateFreshness;
   if (freshness === null) {
-    lines.push("Atualidade da observação: indisponível.");
+    lines.push(t("diagnostic.summary.freshness.unavailable"));
+  } else if (freshness.state === "fresh") {
+    lines.push(t("diagnostic.summary.freshness.fresh"));
+  } else if (freshness.state === "stale") {
+    const age = Number.isFinite(freshness.ageSeconds) && freshness.ageSeconds >= 0
+      ? locale === "en-US"
+        ? ` (${Math.round(freshness.ageSeconds)}s old)`
+        : ` (${Math.round(freshness.ageSeconds)}s de idade)`
+      : "";
+    lines.push(t("diagnostic.summary.freshness.stale", { age }));
   } else {
-    const state = freshness.state;
-    if (state === "fresh") {
-      lines.push("Atualidade da observação: recente.");
-    } else if (state === "stale") {
-      const age = Number.isFinite(freshness.ageSeconds) && freshness.ageSeconds >= 0
-        ? ` (${Math.round(freshness.ageSeconds)}s de idade)`
-        : "";
-      lines.push(`Atualidade da observação: antiga${age}. Isso não prova falha do supervisor.`);
-    } else {
-      lines.push(`Atualidade da observação: desconhecida${freshness.reason ? ` (${safeText(freshness.reason)})` : ""}.`);
-    }
+    const reason = freshness.reason ? ` (${safeText(freshness.reason)})` : "";
+    lines.push(t("diagnostic.summary.freshness.unknown", { reason }));
   }
   return lines;
 }
 
-function metricLines(report) {
-  if (report.metrics === null) return ["Métricas: indisponíveis nesta revisão."];
+function metricLines(report, t) {
+  if (report.metrics === null) return [t("diagnostic.summary.metrics.unavailable")];
   const metrics = asObject(report.metrics, "Diagnostic report metrics");
   const memoryTotal = safeNumber(metrics.memoryTotalBytes, "memoryTotalBytes");
   const memoryAvailable = safeNumber(metrics.memoryAvailableBytes, "memoryAvailableBytes");
@@ -199,25 +204,32 @@ function metricLines(report) {
     throw new TypeError("Diagnostic metrics contain impossible available/free values");
   }
   return [
-    `Tempo ligado: ${Math.round(uptime)}s`,
-    `Memória: ${formatBytes(memoryTotal - memoryAvailable)} em uso de ${formatBytes(memoryTotal)}`,
-    `Espaço do usuário: ${formatBytes(storageFree)} livre de ${formatBytes(storageTotal)}`,
+    t("diagnostic.summary.metrics.uptime", { value: Math.round(uptime) }),
+    t("diagnostic.summary.metrics.memory", {
+      used: formatBytes(memoryTotal - memoryAvailable),
+      total: formatBytes(memoryTotal),
+    }),
+    t("diagnostic.summary.metrics.storage", {
+      free: formatBytes(storageFree),
+      total: formatBytes(storageTotal),
+    }),
   ];
 }
 
-function historyLines(report) {
-  if (report.history === null) return ["Histórico: indisponível nesta revisão."];
+function historyLines(report, t) {
+  if (report.history === null) return [t("diagnostic.summary.history.unavailable")];
   const history = asObject(report.history, "Diagnostic report history");
-  return [
-    `Histórico: ${safeCount(history.releaseCount, "releaseCount")} entregas · ${safeCount(history.applicationCount, "applicationCount")} aplicações locais.`,
-  ];
+  return [t("diagnostic.summary.history.line", {
+    deliveries: safeCount(history.releaseCount, "releaseCount"),
+    applications: safeCount(history.applicationCount, "applicationCount"),
+  })];
 }
 
-function journalLines(report) {
+function journalLines(report, t) {
   if (report.journal === null) {
     return [
-      "Registro diagnóstico: indisponível nesta revisão.",
-      "A ausência do registro não comprova ausência de problemas.",
+      t("diagnostic.summary.journal.unavailable"),
+      t("diagnostic.summary.journal.unavailableCaveat"),
     ];
   }
 
@@ -236,31 +248,41 @@ function journalLines(report) {
   }
 
   const lines = [
-    `Registro diagnóstico: ${eventCount} eventos retidos de até ${retentionLimit}.`,
-    `Persistência: ${persistence} · escopo configurado ${scope}${errorCode ? ` · ${errorCode}` : ""}.`,
+    t("diagnostic.summary.journal.line", { count: eventCount, limit: retentionLimit }),
+    t("diagnostic.summary.journal.persistence", {
+      persistence,
+      scope,
+      error: errorCode ? ` · ${errorCode}` : "",
+    }),
   ];
   if (eventCount === 0) {
-    lines.push("Nenhum evento está retido nesta revisão; isso não é um atestado geral de saúde.");
+    lines.push(t("diagnostic.summary.journal.empty"));
     return lines;
   }
 
-  lines.push(`Eventos recentes (até ${MAX_SUMMARY_EVENTS}):`);
+  lines.push(t("diagnostic.summary.journal.recent", { limit: MAX_SUMMARY_EVENTS }));
   for (const eventValue of journal.events.slice(-MAX_SUMMARY_EVENTS)) {
     const event = asObject(eventValue, "Diagnostic journal event");
-    const occurredAt = safeText(event.occurredAt) || "horário desconhecido";
+    const occurredAt = safeText(event.occurredAt) || t("diagnostic.summary.journal.unknownTime");
     const severity = safeText(event.severity) || "unknown";
     const component = safeText(event.component) || "unknown";
     const eventCode = safeText(event.eventCode) || "unknown";
     const message = safeText(event.message);
     const correlation = safeText(event.correlationKey);
     lines.push(
-      `- ${occurredAt} · ${severity} · ${component} · ${eventCode}${message ? ` · ${message}` : ""}${correlation ? ` · correlação ${correlation}` : ""}`,
+      `- ${occurredAt} · ${severity} · ${component} · ${eventCode}${message ? ` · ${message}` : ""}${correlation ? ` · ${t("diagnostic.summary.journal.correlation")} ${correlation}` : ""}`,
     );
   }
   return lines;
 }
 
-export function createDiagnosticReviewSummary(document) {
+export function createDiagnosticReviewSummary(document, { locale = "pt-BR" } = {}) {
+  const resolvedLocale = resolveDiagnosticSummaryLocale(locale);
+  const t = (messageId, values = {}) => translateDiagnosticSummaryMessage(
+    resolvedLocale,
+    messageId,
+    values,
+  );
   const review = validateReviewDocument(document);
   const report = review.report;
   const surface = asObject(report.surface, "Diagnostic report surface");
@@ -269,25 +291,31 @@ export function createDiagnosticReviewSummary(document) {
   }
 
   const lines = [
-    "OrdaX — resumo sanitizado de diagnóstico",
-    `Gerado: ${review.generatedAt}`,
-    "Escopo: revisão local explícita",
+    t("diagnostic.summary.title"),
+    t("diagnostic.summary.generated", { value: review.generatedAt }),
+    t("diagnostic.summary.scope"),
     "",
-    "Fontes da revisão:",
-    ...sourceLines(review),
+    t("diagnostic.summary.sources"),
+    ...sourceLines(review, t),
     "",
-    `Conectividade observada: ${safeText(surface.connectivity) || "desconhecida"}`,
-    `Capacidades declaradas: ${surface.capabilityIds.length === 0 ? "nenhuma" : surface.capabilityIds.map(safeText).join(", ")}`,
+    t("diagnostic.summary.connectivity", {
+      value: safeText(surface.connectivity) || t("diagnostic.summary.unknown"),
+    }),
+    t("diagnostic.summary.capabilities", {
+      value: surface.capabilityIds.length === 0
+        ? t("diagnostic.summary.none")
+        : surface.capabilityIds.map(safeText).join(", "),
+    }),
     "",
-    ...updateLines(review),
+    ...updateLines(review, resolvedLocale, t),
     "",
-    ...metricLines(report),
+    ...metricLines(report, t),
     "",
-    ...historyLines(report),
+    ...historyLines(report, t),
     "",
-    ...journalLines(report),
+    ...journalLines(report, t),
     "",
-    "Resumo gerado somente a partir da revisão estruturada e sanitizada. O JSON bruto do documento não é usado como fonte desta cópia.",
+    t("diagnostic.summary.footer"),
   ];
 
   return validateDiagnosticSummary({
