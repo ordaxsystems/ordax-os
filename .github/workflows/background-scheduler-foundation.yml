@@ -11,6 +11,7 @@ on:
       - 'tests/test_background_scheduler_foundation.mjs'
       - 'tests/test_background_restore_invariants.mjs'
       - 'tests/test_scheduler_contract_invariants.mjs'
+      - 'tests/test_scheduler_restore_invariants.mjs'
       - 'docs/SYSTEM-FOUNDATION.md'
       - 'docs/contracts/system-foundation.json'
       - '.github/workflows/background-scheduler-foundation.yml'
@@ -23,6 +24,7 @@ on:
       - 'tests/test_background_scheduler_foundation.mjs'
       - 'tests/test_background_restore_invariants.mjs'
       - 'tests/test_scheduler_contract_invariants.mjs'
+      - 'tests/test_scheduler_restore_invariants.mjs'
       - 'docs/SYSTEM-FOUNDATION.md'
       - 'docs/contracts/system-foundation.json'
       - '.github/workflows/background-scheduler-foundation.yml'
@@ -49,7 +51,8 @@ jobs:
           node --test \
             tests/test_background_scheduler_foundation.mjs \
             tests/test_background_restore_invariants.mjs \
-            tests/test_scheduler_contract_invariants.mjs
+            tests/test_scheduler_contract_invariants.mjs \
+            tests/test_scheduler_restore_invariants.mjs
 
       - name: Validate machine-readable contracts
         run: python tools/verify/json_contracts.py
