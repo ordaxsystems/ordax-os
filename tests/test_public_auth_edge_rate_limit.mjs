@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  normalizeProxySecretSha256,
   sha256Hex,
   trustedRateLimitAddress,
   validateRateLimitRpcResult,
@@ -16,6 +17,20 @@ function request(headers = {}) {
     headers,
   });
 }
+
+test("proxy digest configuration is strict and fails closed when absent", async () => {
+  assert.equal(normalizeProxySecretSha256(TEST_SECRET_SHA256), TEST_SECRET_SHA256);
+  assert.equal(normalizeProxySecretSha256(TEST_SECRET_SHA256.toUpperCase()), TEST_SECRET_SHA256);
+  assert.equal(normalizeProxySecretSha256("short"), null);
+  assert.equal(normalizeProxySecretSha256("g".repeat(64)), null);
+
+  const missing = await trustedRateLimitAddress(request({
+    "x-ordax-public-site": "1",
+    "x-ordax-public-proxy-secret": TEST_SECRET,
+    "x-ordax-client-address": "203.0.113.20",
+  }), { publicProxySecretSha256: null });
+  assert.deepEqual(missing, { ok: false, code: "public-proxy-authentication-required" });
+});
 
 test("native/direct traffic trusts only the Supabase edge client address", async () => {
   const result = await trustedRateLimitAddress(request({
