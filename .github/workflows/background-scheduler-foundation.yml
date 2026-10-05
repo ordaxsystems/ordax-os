@@ -9,6 +9,7 @@ on:
       - 'system/services/background/**'
       - 'system/services/scheduler/**'
       - 'tests/test_background_scheduler_foundation.mjs'
+      - 'tests/test_background_restore_invariants.mjs'
       - 'tests/test_scheduler_contract_invariants.mjs'
       - 'docs/SYSTEM-FOUNDATION.md'
       - 'docs/contracts/system-foundation.json'
@@ -20,6 +21,7 @@ on:
       - 'system/services/background/**'
       - 'system/services/scheduler/**'
       - 'tests/test_background_scheduler_foundation.mjs'
+      - 'tests/test_background_restore_invariants.mjs'
       - 'tests/test_scheduler_contract_invariants.mjs'
       - 'docs/SYSTEM-FOUNDATION.md'
       - 'docs/contracts/system-foundation.json'
@@ -42,7 +44,12 @@ jobs:
         run: node --version
 
       - name: Run bounded background and scheduler regressions
-        run: node --test tests/test_background_scheduler_foundation.mjs tests/test_scheduler_contract_invariants.mjs
+        run: |
+          set -euo pipefail
+          node --test \
+            tests/test_background_scheduler_foundation.mjs \
+            tests/test_background_restore_invariants.mjs \
+            tests/test_scheduler_contract_invariants.mjs
 
       - name: Validate machine-readable contracts
         run: python tools/verify/json_contracts.py
