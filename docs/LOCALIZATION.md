@@ -108,3 +108,13 @@ Locale and keyboard layout stay separate. Choosing English does not silently
 change a Brazilian physical keyboard, and choosing German/French does not
 invent an unproven XKB layout. Physical keyboard support remains governed by
 `docs/contracts/keyboard-layout.json`.
+
+## Component-scoped app locales
+
+The system locale is the default for first-party apps, but localization availability is component-scoped. A component may declare optional locales and may allow an explicit per-app locale override without advertising that locale as complete for the whole Surface.
+
+Locale selection for an app is deterministic: compatible explicit app override, then compatible system locale, then that component's source locale. Only bundled locales and optional locales that are both declared and installed participate. If an optional override disappears, the app falls back to the system locale before source rather than rendering a partial mixture.
+
+Translation content and release authority are separate contracts. `prototype-ordax.localization-pack/1` contains the component-owned message catalog; `prototype-ordax.localization-pack-release/1` is an authority-free signed release descriptor used by the authorized update path. A language-pack release cannot declare permissions, capabilities, an entrypoint or executable payload.
+
+Detailed architecture and security rules: `docs/LOCALIZATION-PACKS.md`. Machine-readable policy: `docs/contracts/localization-packs.json`.

@@ -26,6 +26,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "component-localization",
+        "path": "system/contracts/localization-pack.mjs",
+        "constant": "COMPONENT_LOCALIZATION_SCHEMA",
+        "schema": "prototype-ordax.component-localization/1",
+        "major": 1,
+    },
+    {
         "name": "component-manifest",
         "path": "system/contracts/component-manifest.mjs",
         "constant": "COMPONENT_MANIFEST_SCHEMA",
@@ -110,6 +117,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "localization-pack-release",
+        "path": "system/contracts/localization-pack.mjs",
+        "constant": "LOCALIZATION_PACK_RELEASE_SCHEMA",
+        "schema": "prototype-ordax.localization-pack-release/1",
+        "major": 1,
+    },
+    {
         "name": "memory",
         "path": "system/contracts/memory.mjs",
         "constant": "MEMORY_PORT_SCHEMA",
@@ -153,7 +167,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.4.0"
+BUNDLE_VERSION = "1.5.0"
 
 
 def git_blob(path: Path) -> str:

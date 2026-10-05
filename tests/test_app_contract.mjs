@@ -5,6 +5,7 @@ import { defineFirstPartyApp } from "../system/apps/app-contract.mjs";
 import { internetApp } from "../system/apps/internet/app.mjs";
 import { notesApp } from "../system/apps/notes/app.mjs";
 import { projectsApp } from "../system/apps/projects/app.mjs";
+import { COMPONENT_LOCALIZATION_SCHEMA } from "../system/contracts/localization-pack.mjs";
 import { validateFileListing } from "../system/contracts/file-space.mjs";
 
 function baseSpec(panel) {
@@ -49,7 +50,7 @@ test("app contract accepts a bounded extension slot", () => {
   assert.equal(Object.isFrozen(app.panels[0]), true);
 });
 
-test("app contract requires explicit component-scoped localization metadata", () => {
+test("app contract requires canonical component-scoped localization metadata", () => {
   const spec = baseSpec({
     kind: "extension",
     extensionId: "example-workspace",
@@ -58,11 +59,16 @@ test("app contract requires explicit component-scoped localization metadata", ()
     body: "Fallback",
   });
   const app = defineFirstPartyApp(spec);
+  assert.equal(app.localization.schema, COMPONENT_LOCALIZATION_SCHEMA);
+  assert.equal(app.localization.targetId, "example");
   assert.equal(app.localization.sourceLocale, "pt-BR");
   assert.deepEqual(app.localization.bundledLocales, ["pt-BR", "en-US"]);
+  assert.deepEqual(app.localization.optionalLocales, []);
+  assert.equal(app.localization.allowAppOverride, true);
   assert.equal(app.localization.packPolicy, "component-scoped");
   assert.equal(Object.isFrozen(app.localization), true);
   assert.equal(Object.isFrozen(app.localization.bundledLocales), true);
+  assert.equal(Object.isFrozen(app.localization.optionalLocales), true);
 
   const missing = { ...spec };
   delete missing.localization;
@@ -86,7 +92,7 @@ test("app localization must bundle the source locale and reject duplicates", () 
         packPolicy: "component-scoped",
       },
     }),
-    /must bundle its source locale/,
+    /Bundled locales must include the source locale/,
   );
   assert.throws(
     () => defineFirstPartyApp({
@@ -97,7 +103,7 @@ test("app localization must bundle the source locale and reject duplicates", () 
         packPolicy: "component-scoped",
       },
     }),
-    /duplicate bundled locales/,
+    /Bundled locales must contain unique locales/,
   );
 });
 
