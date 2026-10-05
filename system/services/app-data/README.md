@@ -26,7 +26,7 @@ Reads and list operations do not materialize missing partitions. Mutations use a
 
 `system/adapters/native/app-data.mjs` is an async adapter for an opaque runtime-injected endpoint. It verifies that the store cannot be retargeted after binding and never serializes publisher/app identity into requests.
 
-The actual `native_host_server.py` route and verified publisher-to-endpoint binding remain a separate next stage. Until they land, this is not a production-enabled app capability.
+The Native route is now wired by `native_app_data_host.py`. Verified current-boot install identities are bound to opaque capabilities by trusted composition, and apps receive only the typed `ordax.app-data/1` port. The opaque endpoint is not exposed in app context.
 
 ## Lifecycle
 
@@ -45,15 +45,17 @@ Implemented and tested:
 - in-memory reference store and bound public port;
 - private atomic Native manifest/blob owner;
 - typed endpoint helper with no request identity self-claims;
-- async Native adapter using an opaque bound endpoint;
+- async Native adapter using an opaque bound endpoint inside trusted composition;
+- verified install/publisher binding and one-shot current-boot port injection;
+- active Native host route for the trusted first-party composition;
+- App SDK 1.6.0 publication of `ordax.app-data/1` without transport authority;
 - crash/orphan, reboot, CAS, quota, corruption, symlink, content-integrity and isolation regressions;
 - single-key updates do not rewrite unrelated values.
 
-Still deliberately disabled:
+Still deliberately incomplete:
 
-- route registration in `native_host_server.py`;
-- binding opaque endpoint identity to verified install/publisher provenance;
-- App SDK publication;
+- independent install/update/rollback/reinstall lifecycle proof for external app packages;
+- third-party realm/origin isolation and enablement;
 - Store integration;
 - Notes migration/cutover.
 
