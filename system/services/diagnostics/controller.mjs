@@ -29,10 +29,14 @@ export function createDiagnosticReviewController({
   diagnosticExport = null,
   diagnosticCopy = null,
   updateMaxAgeSeconds = undefined,
+  localeProvider = () => "pt-BR",
   clock = () => new Date().toISOString(),
 }) {
   if (typeof clock !== "function") {
     throw new TypeError("Diagnostic review controller clock must be a function");
+  }
+  if (typeof localeProvider !== "function") {
+    throw new TypeError("Diagnostic review controller localeProvider must be a function");
   }
   const exportPort = diagnosticExport === null
     ? null
@@ -44,7 +48,6 @@ export function createDiagnosticReviewController({
   let generation = 0;
   let preparedDocument = null;
   let outputInFlight = null;
-  // phase describes this explicit review workflow only; it is not a device/service health verdict.
   let phase = "idle";
   let lastResult = null;
   const listeners = new Set();
@@ -160,7 +163,9 @@ export function createDiagnosticReviewController({
 
       let copyResult;
       try {
-        copyResult = await copyDiagnosticReviewSummary(document, copyPort);
+        copyResult = await copyDiagnosticReviewSummary(document, copyPort, {
+          locale: localeProvider(),
+        });
       } catch {
         copyResult = Object.freeze({ status: "failed", code: "copy-failed" });
       }
