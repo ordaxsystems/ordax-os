@@ -35,7 +35,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(edge["oidc_deployed"])
         self.assertFalse(edge["runtime_provenance_e2e_verified"])
         self.assertFalse(edge["oidc_preview_allowed"])
-        self.assertFalse(edge["request_context_validation_connected"])
+        self.assertTrue(edge["request_context_validation_connected"])
+        self.assertTrue(edge["trusted_public_origin_requires_authenticated_proxy"])
         self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
 
@@ -115,6 +116,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         requirements = self.contract["production_requirements"]
         self.assertEqual(adapter["canonical_public_origin_environment_variable"], "ORDAX_PUBLIC_ORIGIN")
         self.assertTrue(adapter["canonical_public_origin_required"])
+        self.assertTrue(adapter["canonical_public_origin_live_configured"])
+        self.assertEqual(adapter["canonical_public_origin"], "https://ordax-os-public.vercel.app")
+        self.assertEqual(adapter["gateway_upstream_environment_scope"], ["production"])
+        self.assertFalse(adapter["legacy_shared_secret_production_or_preview_exposed"])
         self.assertTrue(adapter["incoming_request_origin_must_equal_canonical_origin"])
         self.assertFalse(adapter["browser_host_header_trusted"])
         self.assertTrue(adapter["trusted_forwarded_host_derived_from_canonical_origin"])
