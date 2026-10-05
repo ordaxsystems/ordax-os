@@ -14,14 +14,6 @@ import { translateSurfaceMessage } from "../system/services/i18n/surface.mjs";
 const PORTUGUESE_MARKER = /(?:[ãõáéíóúâêôç])|\b(?:abrir|ajustes|agora|aguarde|arquivo|arquivos|atualização|atualizando|bateria|cadastro|carregando|conectar|conectado|conta|continuar|criar|degradado|desconectado|disponível|documentos|energia|escrita|excluir|falha|fechar|fuso|idioma|indisponível|início|leitura|nenhum|nenhuma|nota|notas|ontem|pendrive|primeiro|privacidade|pronto|procurar|rede|região|renomear|salvar|salvo|salva|segurança|senha|sessão|sinal|sistema|somente|termos|tudo|vigentes|voltar)\b/iu;
 
 const PROVEN_LOCALIZED_DEFAULTS = Object.freeze({
-  "system/apps/notes/ui/list-model.mjs": new Set([
-    "Agora",
-    "Ontem",
-    "Nota sem conteúdo",
-  ]),
-  "system/apps/notes/ui/rich-editor.mjs": new Set([
-    "Conteúdo da nota",
-  ]),
 });
 
 function literalBodies(source) {
@@ -110,27 +102,6 @@ test("Studio workspace has an exact shared pt-BR/en-US catalog", () => {
     STUDIO_WORKSPACE_ENGLISH_MESSAGES,
     "Studio workspace",
   );
-});
-
-test("Notes source defaults are overridden by localized runtime owners", async () => {
-  const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
-  const workspace = await readFile(
-    path.join(repositoryRoot, "system/apps/notes/ui/workspace-controls.mjs"),
-    "utf8",
-  );
-  assert.match(workspace, /firstNotesBodyLine\(note\.body, t\("notes\.note\.emptyBody"\)\)/);
-  assert.match(workspace, /locale: localization\.getLocale\(\)/);
-  assert.match(workspace, /nowLabel: t\("notes\.time\.now"\)/);
-  assert.match(workspace, /yesterdayLabel: t\("notes\.time\.yesterday"\)/);
-
-  const runtime = await readFile(
-    path.join(repositoryRoot, "system/apps/notes/runtime.mjs"),
-    "utf8",
-  );
-  assert.match(runtime, /syncNotesEditorAccessibility/);
-  assert.match(runtime, /notes\.document\.kicker/);
-  assert.match(runtime, /notes\.format\.text/);
-  assert.match(runtime, /localization\.subscribe\(syncAccessibility\)/);
 });
 
 test("rendering modules outside First Run contain no unowned Portuguese UI literals", async () => {
