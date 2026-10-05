@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { MAX_APP_DATA_PARTITION_KEYS } from "../system/contracts/app-data.mjs";
 import {
+  MAX_NOTES_APP_DATA_KEYS,
   createInitialNotesAppDataLayout,
   notesNoteAppDataKey,
 } from "../system/apps/notes/services/app-data-layout.mjs";
@@ -56,23 +57,41 @@ test("transition journal survives crash and distinguishes rollback from committe
   ]);
 
   const journal = decodeNotesAppDataTransitionJournal(plan.journalWrite.value);
-  assert.deepEqual(journal.stagedKeys, [notesNoteAppDataKey("n:1", 1)]);
+  assert.deepEqual(journal.stagedKeys, [notesNoteAppDataKey("n:1", 1, 0)]);
   assert.deepEqual(journal.cleanupKeys, [
-    notesNoteAppDataKey("n:2", 0),
-    notesNoteAppDataKey("n:2", 1),
+    notesNoteAppDataKey("n:1", 0, 0),
+    notesNoteAppDataKey("n:2", 0, 0),
   ].sort());
 
   const beforeHeadFlip = recoverNotesAppDataTransition(journal, initial.head);
   assert.equal(beforeHeadFlip.status, "rollback-staging");
   assert.deepEqual(beforeHeadFlip.deleteKeys, journal.stagedKeys);
   assert.equal(beforeHeadFlip.journalDeleteKey, NOTES_APP_DATA_TRANSITION_JOURNAL_KEY);
-  assert.ok(!beforeHeadFlip.deleteKeys.includes(notesNoteAppDataKey("n:2", 0)));
+  assert.ok(!beforeHeadFlip.deleteKeys.includes(notesNoteAppDataKey("n:1", 0, 0)));
 
   const afterHeadFlip = recoverNotesAppDataTransition(journal, plan.head);
   assert.equal(afterHeadFlip.status, "commit-cleanup");
   assert.deepEqual(afterHeadFlip.deleteKeys, journal.cleanupKeys);
   assert.equal(afterHeadFlip.journalDeleteKey, NOTES_APP_DATA_TRANSITION_JOURNAL_KEY);
-  assert.ok(!afterHeadFlip.deleteKeys.includes(notesNoteAppDataKey("n:1", 1)));
+  assert.ok(!afterHeadFlip.deleteKeys.includes(notesNoteAppDataKey("n:1", 1, 0)));
+});
+
+test("journal rejects incomplete cleanup of changed source slot", () => {
+  const initial = createInitialNotesAppDataLayout(snapshot());
+  const plan = planCrashSafeNotesAppDataTransition(
+    initial.head,
+    initial.snapshot,
+    snapshot({ firstTitle: "Changed", firstBody: "changed", second: false }),
+  );
+  const journal = decodeNotesAppDataTransitionJournal(plan.journalWrite.value);
+  const incomplete = {
+    ...journal,
+    cleanupKeys: journal.cleanupKeys.filter((key) => key !== notesNoteAppDataKey("n:1", 0, 0)),
+  };
+  assert.throws(
+    () => recoverNotesAppDataTransition(incomplete, initial.head),
+    /exactly cover the head key delta/,
+  );
 });
 
 test("unexpected head fails closed and never authorizes journal deletion", () => {
@@ -99,7 +118,8 @@ test("selection-only transition needs only the atomic head write", () => {
   assert.deepEqual(notesAppDataTransitionWriteOrder(plan), ["head"]);
 });
 
-test("transaction peak remains below the App Data partition ceiling", () => {
-  assert.equal(MAX_NOTES_APP_DATA_TRANSACTION_KEYS, 1730);
+test("transaction operation bound and physical key peak stay below ceilings", () => {
+  assert.equal(MAX_NOTES_APP_DATA_TRANSACTION_KEYS, 2498);
   assert.ok(MAX_NOTES_APP_DATA_TRANSACTION_KEYS < MAX_APP_DATA_PARTITION_KEYS);
+  assert.ok(MAX_NOTES_APP_DATA_KEYS < 2048);
 });
