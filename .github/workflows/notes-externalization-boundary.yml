@@ -6,6 +6,8 @@ on:
       - 'system/apps/notes/**'
       - 'system/contracts/intelligence.mjs'
       - 'tests/test_notes_intelligence_summary.mjs'
+      - 'tests/test_notes_app_data_store_v2.mjs'
+      - 'tests/test_notes_native.py'
       - 'tests/test_intelligence_product_consumers.py'
       - '.github/workflows/notes-externalization-boundary.yml'
   push:
@@ -38,6 +40,8 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_notes_intelligence_summary.mjs
+          node --test tests/test_notes_app_data_store_v2.mjs
+          python tests/test_notes_native.py
           python tests/test_intelligence_product_consumers.py
 
       - name: Guard provider neutrality and private implementation ownership
