@@ -87,6 +87,29 @@ export function normalizeVercelOidcToken(raw) {
   return VERCEL_OIDC_TOKEN_RE.test(value) ? value : null;
 }
 
+async function getRuntimeVercelOidcToken() {
+  try {
+    const runtime = await import("@vercel/oidc");
+    if (typeof runtime.getVercelOidcToken !== "function") return null;
+    return await runtime.getVercelOidcToken();
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveVercelOidcToken(
+  explicitToken,
+  runtimeResolver = getRuntimeVercelOidcToken,
+) {
+  if (explicitToken !== undefined) return normalizeVercelOidcToken(explicitToken);
+  if (typeof runtimeResolver !== "function") return null;
+  try {
+    return normalizeVercelOidcToken(await runtimeResolver());
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeTrustedEdgeAddress(raw) {
   if (typeof raw !== "string") return null;
   const value = raw.trim();
@@ -177,7 +200,8 @@ export async function proxyPublicAccountRequest(
   request,
   {
     gatewayUrl = process.env.ORDAX_ACCOUNT_GATEWAY_URL,
-    oidcToken = process.env.VERCEL_OIDC_TOKEN,
+    oidcToken,
+    oidcTokenResolver,
     publicOrigin = process.env.ORDAX_PUBLIC_ORIGIN,
     timeoutMs = DEFAULT_TIMEOUT_MS,
   } = {},
@@ -204,7 +228,7 @@ export async function proxyPublicAccountRequest(
   const gateway = normalizeGatewayUrl(gatewayUrl);
   if (!gateway) return error(503, "account-gateway-unconfigured");
 
-  const trustedOidcToken = normalizeVercelOidcToken(oidcToken);
+  const trustedOidcToken = await resolveVercelOidcToken(oidcToken, oidcTokenResolver);
   if (!trustedOidcToken) return error(503, "public-proxy-identity-unavailable");
 
   let body;
