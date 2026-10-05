@@ -50,6 +50,10 @@ sites/public/
 Enquanto identidade e catalogo de releases nao estiverem configurados, essas integracoes falham fechado e mostram estado indisponivel sem formularios ou downloads ficticios. Ver `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
 
 
+## Ownership dos repositórios
+
+A divisão canônica entre **sistema, apps, runtime e infraestrutura remota** está em [docs/REPOSITORY-OWNERSHIP.md](docs/REPOSITORY-OWNERSHIP.md). Esse documento e o contrato `docs/contracts/repository-ownership.json` são a fonte única para decidir onde uma responsabilidade deve viver. Antes de mover código entre repositórios, criar novos serviços, connectors ou adapters, valide esse ownership.
+
 ## Principios
 
 - `main` e a source authority.

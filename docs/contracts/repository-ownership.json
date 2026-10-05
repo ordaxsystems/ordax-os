@@ -1,0 +1,106 @@
+{
+  "$schema": "prototype-ordax.repository-ownership/1",
+  "status": "canonical",
+  "repositories": {
+    "platform": {
+      "repo": "washingtonmsdj/prototipo-ordax-os",
+      "owns": [
+        "base",
+        "boot",
+        "surface-shell",
+        "identity",
+        "global-memory",
+        "intelligence",
+        "platform-permissions",
+        "trust",
+        "package-lifecycle",
+        "store-structural",
+        "settings-account-system",
+        "app-sdk",
+        "public-contracts"
+      ],
+      "must_not_own": [
+        "studio-portable-source",
+        "windows-runtime",
+        "product-mcp-remote",
+        "provider-connectors"
+      ]
+    },
+    "apps": {
+      "repo": "washingtonmsdj/ordax-apps",
+      "owns": [
+        "first-party-app-source",
+        "studio-portable-source",
+        "app-ui-core",
+        "app-assets-i18n-tests"
+      ],
+      "must_not_own": [
+        "identity",
+        "global-memory-authority",
+        "platform-grants",
+        "windows-device-host",
+        "computer-control-authority",
+        "oauth-remote",
+        "control-plane"
+      ]
+    },
+    "runtime": {
+      "repo": "washingtonmsdj/ordax-runtime",
+      "owns": [
+        "windows-ordax-runtime",
+        "device-host",
+        "computer-control",
+        "filesystem-process-input-screenshot-app-launch",
+        "windows-host-lifecycle",
+        "local-policy-enforcement",
+        "runtime-owned-adapters"
+      ],
+      "must_not_own": [
+        "studio-portable-source",
+        "product-mcp-remote",
+        "oauth-remote",
+        "platform-structural-services"
+      ]
+    },
+    "control_plane": {
+      "repo": "washingtonmsdj/ordax-control-plane",
+      "owns": [
+        "product-mcp",
+        "cloudflare-control-plane",
+        "remote-oauth",
+        "product-grants",
+        "remote-queue-request-receipt-audit",
+        "ordax-for-chatgpt",
+        "provider-connectors"
+      ],
+      "must_not_own": [
+        "studio-portable-source",
+        "local-computer-control",
+        "windows-device-host",
+        "ordax-os-structural-services"
+      ]
+    }
+  },
+  "legacy": {
+    "repo": "washingtonmsdj/mcp-blender",
+    "role": "incubation-legacy-retirement-only",
+    "new_features_allowed": false,
+    "delete_only_after": [
+      "studio-canonical-in-ordax-apps",
+      "runtime-canonical-in-ordax-runtime",
+      "control-plane-canonical-in-ordax-control-plane",
+      "production-and-windows-packaging-repointed",
+      "chatgpt-control-plane-runtime-e2e-green",
+      "no-functional-build-deploy-launch-reference"
+    ]
+  },
+  "invariants": {
+    "single_canonical_owner_per_responsibility": true,
+    "provider_identity_is_not_authority": true,
+    "context_does_not_expand_authority": true,
+    "raw_generic_shell_is_not_product_api": true,
+    "typed_auditable_capabilities": true,
+    "public_versioned_cross_repo_contracts": true,
+    "migration_residue_may_not_become_second_ssot": true
+  }
+}
