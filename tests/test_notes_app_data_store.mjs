@@ -254,3 +254,40 @@ test("failed legacy seed does not publish a manifest and can be retried safely",
   assert.deepEqual(retried.load(), legacy);
   assert.equal((await base.get("notes.manifest")).found, true);
 });
+
+
+test("legacy seed provider is lazy and is not called once App Data is authoritative", async () => {
+  const base = port();
+  const canonical = snapshot([note("canonical-1", "persistido")]);
+  const initial = await createNotesAppDataStore(base);
+  initial.save(canonical);
+  await initial.flush();
+
+  let calls = 0;
+  const reopened = await createNotesAppDataStore(base, {
+    seedSnapshot() {
+      calls += 1;
+      return snapshot([note("legacy-1", "stale")]);
+    },
+  });
+
+  assert.equal(calls, 0);
+  assert.deepEqual(reopened.load(), canonical);
+});
+
+test("legacy seed provider is called once when App Data has no manifest", async () => {
+  const base = port();
+  const legacy = snapshot([note("legacy-1", "migrado")]);
+  let calls = 0;
+
+  const migrated = await createNotesAppDataStore(base, {
+    seedSnapshot() {
+      calls += 1;
+      return legacy;
+    },
+  });
+
+  assert.equal(calls, 1);
+  assert.deepEqual(migrated.load(), legacy);
+  assert.equal((await base.get("notes.manifest")).found, true);
+});
