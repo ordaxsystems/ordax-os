@@ -26,28 +26,56 @@ function freezeCapabilities(appId, label, values) {
   return Object.freeze(capabilities);
 }
 
+function freezeLocaleList(appId, label, values) {
+  if (!Array.isArray(values)) {
+    throw new TypeError(`First-party app ${appId} must declare ${label}`);
+  }
+  const locales = values.map(validateLocale);
+  if (new Set(locales).size !== locales.length) {
+    throw new TypeError(`First-party app ${appId} has duplicate ${label}`);
+  }
+  return Object.freeze(locales);
+}
+
 function freezeLocalization(appId, localization) {
   if (!localization || typeof localization !== "object" || Array.isArray(localization)) {
     throw new TypeError(`First-party app ${appId} is missing localization metadata`);
   }
   const sourceLocale = validateLocale(localization.sourceLocale);
-  if (!Array.isArray(localization.bundledLocales) || localization.bundledLocales.length === 0) {
+  const bundledLocales = freezeLocaleList(appId, "bundledLocales", localization.bundledLocales);
+  if (bundledLocales.length === 0) {
     throw new TypeError(`First-party app ${appId} must declare bundledLocales`);
-  }
-  const bundledLocales = localization.bundledLocales.map(validateLocale);
-  if (new Set(bundledLocales).size !== bundledLocales.length) {
-    throw new TypeError(`First-party app ${appId} has duplicate bundled locales`);
   }
   if (!bundledLocales.includes(sourceLocale)) {
     throw new TypeError(`First-party app ${appId} must bundle its source locale`);
   }
+
+  const optionalLocales = freezeLocaleList(
+    appId,
+    "optionalLocales",
+    localization.optionalLocales ?? [],
+  );
+  if (optionalLocales.some((locale) => bundledLocales.includes(locale))) {
+    throw new TypeError(`First-party app ${appId} optional locales must not duplicate bundled locales`);
+  }
+
   const packPolicy = localization.packPolicy ?? "component-scoped";
   if (!PACK_POLICIES.has(packPolicy)) {
     throw new TypeError(`First-party app ${appId} has unsupported localization pack policy`);
   }
+  const allowAppOverride = localization.allowAppOverride ?? true;
+  if (typeof allowAppOverride !== "boolean") {
+    throw new TypeError(`First-party app ${appId} allowAppOverride must be boolean`);
+  }
+  if (packPolicy === "bundled-only" && optionalLocales.length > 0) {
+    throw new TypeError(`First-party app ${appId} bundled-only localization cannot declare optional locales`);
+  }
+
   return Object.freeze({
     sourceLocale,
-    bundledLocales: Object.freeze([...bundledLocales]),
+    bundledLocales,
+    optionalLocales,
+    allowAppOverride,
     packPolicy,
   });
 }
