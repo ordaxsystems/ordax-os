@@ -22,7 +22,7 @@
       "major": 1,
       "name": "component-localization",
       "schema": "prototype-ordax.component-localization/1",
-      "source_git_blob": "59f194a5f44b8123d565ab47bd20dff5143b1a28",
+      "source_git_blob": "9e72bcbf8b89a6d3f089331dcbbdc5d3c543a020",
       "source_path": "system/contracts/localization-pack.mjs"
     },
     {
@@ -106,14 +106,14 @@
       "major": 1,
       "name": "localization-pack",
       "schema": "prototype-ordax.localization-pack/1",
-      "source_git_blob": "59f194a5f44b8123d565ab47bd20dff5143b1a28",
+      "source_git_blob": "9e72bcbf8b89a6d3f089331dcbbdc5d3c543a020",
       "source_path": "system/contracts/localization-pack.mjs"
     },
     {
       "major": 1,
       "name": "localization-pack-release",
       "schema": "prototype-ordax.localization-pack-release/1",
-      "source_git_blob": "59f194a5f44b8123d565ab47bd20dff5143b1a28",
+      "source_git_blob": "9e72bcbf8b89a6d3f089331dcbbdc5d3c543a020",
       "source_path": "system/contracts/localization-pack.mjs"
     },
     {
