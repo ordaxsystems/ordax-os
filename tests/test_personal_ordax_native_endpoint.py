@@ -51,7 +51,9 @@ class NativePersonalOrdaxEndpointTests(unittest.TestCase):
                 endpoint.read_personal_ordax_endpoint("account", "user-1", root),
                 {"record": None},
             )
-            created = endpoint.mutate_personal_ordax_endpoint(body(request()), root)
+            created = endpoint.mutate_personal_ordax_endpoint(
+                body(request()), "account", "user-1", root,
+            )
             self.assertEqual(created, {"ok": True, "revision": 1})
             loaded = endpoint.read_personal_ordax_endpoint("account", "user-1", root)
             self.assertEqual(loaded["record"]["revision"], 1)
@@ -60,16 +62,47 @@ class NativePersonalOrdaxEndpointTests(unittest.TestCase):
     def test_stale_revision_is_conflict_and_does_not_replace_state(self):
         with tempfile.TemporaryDirectory() as directory:
             root = str(Path(directory) / "personal")
-            endpoint.mutate_personal_ordax_endpoint(body(request()), root)
-            updated = endpoint.mutate_personal_ordax_endpoint(body(request(revision=1)), root)
+            endpoint.mutate_personal_ordax_endpoint(body(request()), "account", "user-1", root)
+            updated = endpoint.mutate_personal_ordax_endpoint(
+                body(request(revision=1)), "account", "user-1", root,
+            )
             self.assertEqual(updated["revision"], 2)
             with self.assertRaises(endpoint.PersonalOrdaxEndpointRequestError) as error:
-                endpoint.mutate_personal_ordax_endpoint(body(request(revision=1)), root)
+                endpoint.mutate_personal_ordax_endpoint(
+                    body(request(revision=1)), "account", "user-1", root,
+                )
             self.assertEqual(error.exception.status_code, 409)
             self.assertEqual(
                 endpoint.read_personal_ordax_endpoint("account", "user-1", root)["record"]["revision"],
                 2,
             )
+
+    def test_foreign_owner_selection_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = str(Path(directory) / "personal")
+            with self.assertRaises(endpoint.PersonalOrdaxEndpointRequestError) as error:
+                endpoint.mutate_personal_ordax_endpoint(
+                    body(request(owner_id="user-2")),
+                    "account",
+                    "user-1",
+                    root,
+                )
+            self.assertEqual(error.exception.status_code, 403)
+            self.assertIsNone(
+                endpoint.read_personal_ordax_endpoint("account", "user-2", root)["record"]
+            )
+
+    def test_device_and_account_authorities_are_not_interchangeable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = str(Path(directory) / "personal")
+            with self.assertRaises(endpoint.PersonalOrdaxEndpointRequestError) as error:
+                endpoint.mutate_personal_ordax_endpoint(
+                    body(request(owner_kind="device", owner_id=None)),
+                    "account",
+                    "user-1",
+                    root,
+                )
+            self.assertEqual(error.exception.status_code, 403)
 
     def test_unknown_action_raw_shape_and_oversize_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -77,14 +110,16 @@ class NativePersonalOrdaxEndpointTests(unittest.TestCase):
             raw = request()
             raw["action"] = "replace-state"
             with self.assertRaises(endpoint.PersonalOrdaxEndpointRequestError):
-                endpoint.mutate_personal_ordax_endpoint(body(raw), root)
+                endpoint.mutate_personal_ordax_endpoint(body(raw), "account", "user-1", root)
             malformed = request()
             malformed["extra"] = True
             with self.assertRaises(endpoint.PersonalOrdaxEndpointRequestError):
-                endpoint.mutate_personal_ordax_endpoint(body(malformed), root)
+                endpoint.mutate_personal_ordax_endpoint(body(malformed), "account", "user-1", root)
             with self.assertRaises(endpoint.PersonalOrdaxEndpointRequestError) as error:
                 endpoint.mutate_personal_ordax_endpoint(
                     b"x" * (endpoint.MAX_PERSONAL_ORDAX_REQUEST_BODY_BYTES + 1),
+                    "account",
+                    "user-1",
                     root,
                 )
             self.assertEqual(error.exception.status_code, 413)
@@ -95,7 +130,16 @@ class NativePersonalOrdaxEndpointTests(unittest.TestCase):
             invalid = request(owner_kind="device", owner_id=None)
             invalid["ownerId"] = "invented-account"
             with self.assertRaisesRegex(endpoint.PersonalOrdaxEndpointRequestError, "Device"):
-                endpoint.mutate_personal_ordax_endpoint(body(invalid), root)
+                endpoint.mutate_personal_ordax_endpoint(body(invalid), "device", None, root)
+
+    def test_invalid_authoritative_owner_is_forbidden(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = str(Path(directory) / "personal")
+            with self.assertRaises(endpoint.PersonalOrdaxEndpointRequestError) as error:
+                endpoint.mutate_personal_ordax_endpoint(
+                    body(request()), "account", None, root,
+                )
+            self.assertEqual(error.exception.status_code, 403)
 
     def test_endpoint_delegates_durability_to_state_owner(self):
         source = MODULE.read_text(encoding="utf-8")
@@ -103,6 +147,7 @@ class NativePersonalOrdaxEndpointTests(unittest.TestCase):
         self.assertNotIn("fcntl.flock", source)
         self.assertIn("compare_and_swap_personal_ordax_payload", source)
         self.assertNotIn("replace-state", source)
+        self.assertIn("authoritative_owner", source)
 
 
 if __name__ == "__main__":
