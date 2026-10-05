@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  canonicalizePublicClientAddress,
   trustedPublicClientAddress,
   validateRateLimitRpcResult,
 } from "../infra/supabase/functions/ordax-public-account-gateway/public_auth_rate_limit.mjs";
@@ -13,17 +14,43 @@ function request(headers = {}) {
   });
 }
 
-test("trusted public client address accepts only one bounded address assertion", () => {
+test("client address canonicalizer collapses equivalent IP spellings", () => {
+  assert.equal(canonicalizePublicClientAddress("203.0.113.20"), "203.0.113.20");
+  assert.equal(canonicalizePublicClientAddress("203.000.113.020"), "203.0.113.20");
+  assert.equal(canonicalizePublicClientAddress("2001:0DB8:0:0:0:0:0:20"), "2001:db8::20");
+  assert.equal(canonicalizePublicClientAddress("2001:db8::20"), "2001:db8::20");
+  assert.equal(canonicalizePublicClientAddress("::ffff:192.0.2.128"), "::ffff:c000:280");
+  assert.equal(canonicalizePublicClientAddress("0:0:0:0:0:ffff:c000:0280"), "::ffff:c000:280");
+});
+
+test("client address canonicalizer rejects non-address and ambiguous syntax", () => {
+  for (const value of [
+    "",
+    "not-an-ip",
+    "203.0.113.20, 10.0.0.1",
+    "203.0.113.20:443",
+    "203.0.113.999",
+    "2001:db8::20%eth0",
+    "[2001:db8::20]",
+    "2001:db8::20,2001:db8::21",
+    "2001::db8::20",
+    "2001:db8:0:0:0:0:0:0:20",
+  ]) {
+    assert.equal(canonicalizePublicClientAddress(value), null, value);
+  }
+});
+
+test("trusted public client address accepts one canonical address assertion only", () => {
   assert.deepEqual(
-    trustedPublicClientAddress(request({ "x-ordax-client-address": "203.0.113.20" })),
+    trustedPublicClientAddress(request({ "x-ordax-client-address": "203.000.113.020" })),
     { ok: true, address: "203.0.113.20" },
   );
   assert.deepEqual(
-    trustedPublicClientAddress(request({ "x-ordax-client-address": "2001:db8::20" })),
+    trustedPublicClientAddress(request({ "x-ordax-client-address": "2001:0DB8:0:0:0:0:0:20" })),
     { ok: true, address: "2001:db8::20" },
   );
 
-  for (const value of ["", "not-an-ip", "203.0.113.20, 10.0.0.1"]) {
+  for (const value of ["", "not-an-ip", "203.0.113.20, 10.0.0.1", "2001:db8::20%eth0"]) {
     assert.deepEqual(
       trustedPublicClientAddress(request({ "x-ordax-client-address": value })),
       { ok: false, code: "trusted-client-address-required" },
