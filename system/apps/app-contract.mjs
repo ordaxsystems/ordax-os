@@ -32,7 +32,8 @@ function freezeLocaleList(appId, label, values) {
   }
   const locales = values.map(validateLocale);
   if (new Set(locales).size !== locales.length) {
-    throw new TypeError(`First-party app ${appId} has duplicate ${label}`);
+    const displayLabel = label === "bundledLocales" ? "bundled locales" : "optional locales";
+    throw new TypeError(`First-party app ${appId} has duplicate ${displayLabel}`);
   }
   return Object.freeze(locales);
 }
