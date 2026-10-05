@@ -1,6 +1,7 @@
 import {
   MAX_APP_DATA_PARTITION_BYTES,
   MAX_APP_DATA_PARTITION_KEYS,
+  MAX_APP_DATA_VALUE_BYTES,
   validateAppDataDelete,
   validateAppDataIdentity,
   validateAppDataKey,
@@ -10,6 +11,7 @@ import { AppDataConflictError } from "../../services/app-data/runtime.mjs";
 
 const WEB_APP_DATA_SCHEMA = "ordax.web-app-data-partition/1";
 const STORAGE_PREFIX = "ordax.web-app-data.v1";
+const LOCK_PREFIX = "ordax.web-app-data.lock.v1";
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 function boundedInteger(value, label, { min = 1, max } = {}) {
@@ -31,19 +33,33 @@ function storageObject(windowRef) {
       return storage;
     }
   } catch {
-    // Fall through to a hard failure. App Data device scope must not silently
-    // degrade into session-only memory.
+    // Fall through to a hard failure. Device scope must never silently become session memory.
   }
   throw new Error("Web App Data requires durable localStorage");
 }
 
-function partitionStorageKey(identity) {
+function lockObject(windowRef) {
+  const locks = windowRef?.navigator?.locks;
+  if (!locks || typeof locks.request !== "function") {
+    throw new Error("Web App Data requires Web Locks for atomic mutations");
+  }
+  return locks;
+}
+
+function identitySuffix(identity) {
   return [
-    STORAGE_PREFIX,
     encodeURIComponent(identity.publisherId),
     encodeURIComponent(identity.appId),
     encodeURIComponent(identity.ownerScope),
   ].join(":");
+}
+
+function partitionStorageKey(identity) {
+  return `${STORAGE_PREFIX}:${identitySuffix(identity)}`;
+}
+
+function partitionLockName(identity) {
+  return `${LOCK_PREFIX}:${identitySuffix(identity)}`;
 }
 
 function bytesToBase64(bytes) {
@@ -77,13 +93,16 @@ function base64Value(value) {
   for (let index = 0; index < value.length; index += 4) {
     const chars = value.slice(index, index + 4);
     const numbers = [...chars].map((char) => char === "=" ? 0 : BASE64_ALPHABET.indexOf(char));
-    if (numbers.some((item, charIndex) => item < 0 && chars[charIndex] !== "=")) {
+    if (numbers.some((item) => item < 0)) {
       throw new TypeError("Web App Data value encoding is invalid");
     }
     const packed = (numbers[0] << 18) | (numbers[1] << 12) | (numbers[2] << 6) | numbers[3];
     if (offset < bytes.length) bytes[offset++] = (packed >> 16) & 255;
     if (offset < bytes.length) bytes[offset++] = (packed >> 8) & 255;
     if (offset < bytes.length) bytes[offset++] = packed & 255;
+  }
+  if (bytesToBase64(bytes) !== value) {
+    throw new TypeError("Web App Data value encoding is non-canonical");
   }
   return bytes;
 }
@@ -97,7 +116,7 @@ function emptyPartition() {
   };
 }
 
-function readPartition(storage, identity) {
+function readPartition(storage, identity, quotaBytes, maxKeys) {
   const raw = storage.getItem(partitionStorageKey(identity));
   if (raw === null) return emptyPartition();
 
@@ -122,13 +141,24 @@ function readPartition(storage, identity) {
     throw new TypeError("Web App Data partition is incompatible");
   }
 
+  const rawEntries = Object.entries(value.entries);
+  if (rawEntries.length > maxKeys) {
+    throw new RangeError("Web App Data persisted partition exceeds key quota");
+  }
+
   const entries = new Map();
   let bytesUsed = 0;
-  for (const [rawKey, encoded] of Object.entries(value.entries)) {
+  for (const [rawKey, encoded] of rawEntries) {
     const key = validateAppDataKey(rawKey);
     const bytes = base64Value(encoded);
-    entries.set(key, bytes);
+    if (bytes.byteLength > MAX_APP_DATA_VALUE_BYTES) {
+      throw new RangeError("Web App Data persisted value exceeds hard bound");
+    }
     bytesUsed += bytes.byteLength;
+    if (bytesUsed > quotaBytes) {
+      throw new RangeError("Web App Data persisted partition exceeds byte quota");
+    }
+    entries.set(key, bytes);
   }
   return {
     $schema: WEB_APP_DATA_SCHEMA,
@@ -163,6 +193,7 @@ export function createWebAppDataStore({
   maxKeys = 1024,
 } = {}) {
   const storage = storageObject(windowRef);
+  const locks = lockObject(windowRef);
   const quota = boundedInteger(quotaBytes, "Web App Data quotaBytes", {
     max: MAX_APP_DATA_PARTITION_BYTES,
   });
@@ -170,9 +201,18 @@ export function createWebAppDataStore({
     max: MAX_APP_DATA_PARTITION_KEYS,
   });
 
-  const partition = (rawIdentity) => {
+  const snapshot = (rawIdentity) => {
     const identity = validateAppDataIdentity(rawIdentity);
-    return { identity, state: readPartition(storage, identity) };
+    return { identity, state: readPartition(storage, identity, quota, keyLimit) };
+  };
+
+  const mutate = async (rawIdentity, callback) => {
+    const identity = validateAppDataIdentity(rawIdentity);
+    return await locks.request(
+      partitionLockName(identity),
+      { mode: "exclusive" },
+      async () => await callback(identity, readPartition(storage, identity, quota, keyLimit)),
+    );
   };
 
   const assertRevision = (state, expectedRevision) => {
@@ -183,7 +223,7 @@ export function createWebAppDataStore({
 
   return Object.freeze({
     async get(rawIdentity, rawKey) {
-      const { state } = partition(rawIdentity);
+      const { state } = snapshot(rawIdentity);
       const key = validateAppDataKey(rawKey);
       const value = cloneEntry(state.entries.get(key));
       return Object.freeze({
@@ -195,7 +235,7 @@ export function createWebAppDataStore({
     },
 
     async list(rawIdentity) {
-      const { state } = partition(rawIdentity);
+      const { state } = snapshot(rawIdentity);
       return Object.freeze({
         revision: state.revision,
         keys: Object.freeze([...state.entries.keys()].sort()),
@@ -206,54 +246,56 @@ export function createWebAppDataStore({
     },
 
     async put(rawIdentity, rawCommand) {
-      const { identity, state } = partition(rawIdentity);
       const command = validateAppDataPut(rawCommand);
-      assertRevision(state, command.expectedRevision);
+      return await mutate(rawIdentity, async (identity, state) => {
+        assertRevision(state, command.expectedRevision);
 
-      const previous = state.entries.get(command.key);
-      if (previous === undefined && state.entries.size >= keyLimit) {
-        throw new RangeError("Web App Data partition key quota exceeded");
-      }
-      const bytesUsed = state.bytesUsed - (previous?.byteLength ?? 0) + command.value.byteLength;
-      if (bytesUsed > quota) {
-        throw new RangeError("Web App Data partition byte quota exceeded");
-      }
-      if (state.revision >= Number.MAX_SAFE_INTEGER) {
-        throw new RangeError("Web App Data partition revision is exhausted");
-      }
+        const previous = state.entries.get(command.key);
+        if (previous === undefined && state.entries.size >= keyLimit) {
+          throw new RangeError("Web App Data partition key quota exceeded");
+        }
+        const bytesUsed = state.bytesUsed - (previous?.byteLength ?? 0) + command.value.byteLength;
+        if (bytesUsed > quota) {
+          throw new RangeError("Web App Data partition byte quota exceeded");
+        }
+        if (state.revision >= Number.MAX_SAFE_INTEGER) {
+          throw new RangeError("Web App Data partition revision is exhausted");
+        }
 
-      const next = {
-        $schema: WEB_APP_DATA_SCHEMA,
-        revision: state.revision + 1,
-        entries: new Map(state.entries),
-        bytesUsed,
-      };
-      next.entries.set(command.key, new Uint8Array(command.value));
-      writePartition(storage, identity, next);
-      return Object.freeze({ revision: next.revision, stored: true });
+        const next = {
+          $schema: WEB_APP_DATA_SCHEMA,
+          revision: state.revision + 1,
+          entries: new Map(state.entries),
+          bytesUsed,
+        };
+        next.entries.set(command.key, new Uint8Array(command.value));
+        writePartition(storage, identity, next);
+        return Object.freeze({ revision: next.revision, stored: true });
+      });
     },
 
     async delete(rawIdentity, rawCommand) {
-      const { identity, state } = partition(rawIdentity);
       const command = validateAppDataDelete(rawCommand);
-      assertRevision(state, command.expectedRevision);
-      const previous = state.entries.get(command.key);
-      if (previous === undefined) {
-        return Object.freeze({ revision: state.revision, deleted: false });
-      }
-      if (state.revision >= Number.MAX_SAFE_INTEGER) {
-        throw new RangeError("Web App Data partition revision is exhausted");
-      }
+      return await mutate(rawIdentity, async (identity, state) => {
+        assertRevision(state, command.expectedRevision);
+        const previous = state.entries.get(command.key);
+        if (previous === undefined) {
+          return Object.freeze({ revision: state.revision, deleted: false });
+        }
+        if (state.revision >= Number.MAX_SAFE_INTEGER) {
+          throw new RangeError("Web App Data partition revision is exhausted");
+        }
 
-      const next = {
-        $schema: WEB_APP_DATA_SCHEMA,
-        revision: state.revision + 1,
-        entries: new Map(state.entries),
-        bytesUsed: state.bytesUsed - previous.byteLength,
-      };
-      next.entries.delete(command.key);
-      writePartition(storage, identity, next);
-      return Object.freeze({ revision: next.revision, deleted: true });
+        const next = {
+          $schema: WEB_APP_DATA_SCHEMA,
+          revision: state.revision + 1,
+          entries: new Map(state.entries),
+          bytesUsed: state.bytesUsed - previous.byteLength,
+        };
+        next.entries.delete(command.key);
+        writePartition(storage, identity, next);
+        return Object.freeze({ revision: next.revision, deleted: true });
+      });
     },
   });
 }
