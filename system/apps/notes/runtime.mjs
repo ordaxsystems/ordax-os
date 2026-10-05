@@ -91,13 +91,7 @@ export const componentRuntime = Object.freeze({
     try {
       const store = appData === null
         ? (createStore?.() ?? null)
-        : await createNotesAppDataStore(appData, {
-          // Legacy persistence is a one-way seed only. Once App Data has a
-          // canonical head, createNotesAppDataStore never calls this provider.
-          seedSnapshot: createStore === null
-            ? null
-            : () => createStore()?.load() ?? null,
-        });
+        : await createNotesAppDataStore(appData);
       notesRuntime = createNotesRuntime({ store });
       controls = mountNotesWorkspaceControls(
         root,
