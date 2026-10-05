@@ -51,6 +51,30 @@ test("installed optional locale stays component-scoped and may exceed Surface lo
   assert.equal(resolved.degraded, false);
 });
 
+test("compatible app override remains higher priority even when it resolves to the source language", () => {
+  const resolved = resolveComponentLocale({
+    localization,
+    systemLocale: "en-US",
+    appLocale: "pt-PT",
+    installedOptionalLocales: [],
+  });
+  assert.equal(resolved.locale, "pt-BR");
+  assert.equal(resolved.requestedLocale, "pt-PT");
+  assert.equal(resolved.source, "app-override");
+  assert.equal(resolved.degraded, true);
+});
+
+test("compatible system locale is distinguished from source fallback", () => {
+  const resolved = resolveComponentLocale({
+    localization,
+    systemLocale: "pt-PT",
+    installedOptionalLocales: [],
+  });
+  assert.equal(resolved.locale, "pt-BR");
+  assert.equal(resolved.source, "system");
+  assert.equal(resolved.degraded, true);
+});
+
 test("removed optional override falls back to system locale before source", () => {
   const resolved = resolveComponentLocale({
     localization,
