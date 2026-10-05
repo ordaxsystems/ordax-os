@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.5.0",
+  "bundle_version": "1.6.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -97,9 +97,16 @@
     },
     {
       "major": 1,
+      "name": "locale-profile",
+      "schema": "ordax.locale-profile/1",
+      "source_git_blob": "2edd61c44e76d87e7fd1873ff833d48009b9a95c",
+      "source_path": "system/contracts/locale-profile.mjs"
+    },
+    {
+      "major": 2,
       "name": "localization",
-      "schema": "ordax.localization/1",
-      "source_git_blob": "47fe573bf8b506e741c15b5230f9908c74d80920",
+      "schema": "ordax.localization/2",
+      "source_git_blob": "cae60c0041064a036509d1ca6b205d9672326aba",
       "source_path": "system/contracts/localization.mjs"
     },
     {
@@ -152,10 +159,10 @@
       "source_path": "system/contracts/studio-runtime-v2.mjs"
     },
     {
-      "major": 4,
+      "major": 5,
       "name": "surface-render-lifecycle",
-      "schema": "ordax.surface-render-lifecycle/4",
-      "source_git_blob": "c80ac1e005df08e627ada845f3939597a69247c6",
+      "schema": "ordax.surface-render-lifecycle/5",
+      "source_git_blob": "4808fd208be87926bc62fe192a841ad521e13783",
       "source_path": "system/contracts/surface-render-lifecycle.mjs"
     }
   ]
