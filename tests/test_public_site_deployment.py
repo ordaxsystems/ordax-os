@@ -104,7 +104,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
         self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
         self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"];', self.vercel_proxy)
-        self.assertIn('process.env.VERCEL_OIDC_TOKEN', self.vercel_proxy)
+        self.assertIn('import("@vercel/oidc")', self.vercel_proxy)
+        self.assertIn("runtime.getVercelOidcToken", self.vercel_proxy)
+        self.assertIn("resolveVercelOidcToken", self.vercel_proxy)
+        self.assertNotIn("process.env.VERCEL_OIDC_TOKEN", self.vercel_proxy)
         self.assertIn('process.env.ORDAX_PUBLIC_ORIGIN', self.vercel_proxy)
         self.assertIn('verifyBrowserOriginContext(request, trustedPublicOrigin)', self.vercel_proxy)
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.vercel_proxy)
@@ -138,6 +141,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         adapter = self.contract["vercel_adapter"]
         edge = self.contract["public_edge_gateway"]
         self.assertEqual(adapter["oidc_runtime_environment_variable"], "VERCEL_OIDC_TOKEN")
+        self.assertEqual(adapter["oidc_runtime_resolver"], "@vercel/oidc.getVercelOidcToken")
+        self.assertFalse(adapter["proxy_direct_oidc_environment_read_allowed"])
         self.assertTrue(adapter["oidc_generation_enabled"])
         self.assertEqual(adapter["oidc_issuer_mode"], "team")
         self.assertFalse(adapter["browser_authorization_forwarded"])
