@@ -6,9 +6,11 @@ on:
       - 'system/contracts/app-data.mjs'
       - 'system/services/app-data/**'
       - 'system/adapters/web/app-data.mjs'
+      - 'system/composition/web/main.mjs'
       - 'docs/contracts/app-data.json'
       - 'tests/test_app_data.mjs'
       - 'tests/test_web_app_data.mjs'
+      - 'tests/test_web_notes_app_data_composition.py'
       - '.github/workflows/app-data-foundation.yml'
   push:
     branches: [main]
@@ -16,9 +18,11 @@ on:
       - 'system/contracts/app-data.mjs'
       - 'system/services/app-data/**'
       - 'system/adapters/web/app-data.mjs'
+      - 'system/composition/web/main.mjs'
       - 'docs/contracts/app-data.json'
       - 'tests/test_app_data.mjs'
       - 'tests/test_web_app_data.mjs'
+      - 'tests/test_web_notes_app_data_composition.py'
       - '.github/workflows/app-data-foundation.yml'
 
 permissions:
@@ -45,3 +49,4 @@ jobs:
         run: |
           node --test tests/test_app_data.mjs
           node --test tests/test_web_app_data.mjs
+          python tests/test_web_notes_app_data_composition.py
