@@ -52,13 +52,48 @@ def _revision(value: object) -> int:
     return value
 
 
+def _authoritative_owner(owner_kind: object, owner_id: object = None) -> tuple[str, str | None]:
+    try:
+        return normalize_owner(owner_kind, owner_id)
+    except (TypeError, ValueError) as exc:
+        raise PersonalOrdaxEndpointRequestError(
+            "Personal OrdaX authoritative owner is invalid",
+            status_code=403,
+        ) from exc
+
+
+def _require_requested_owner_matches_authority(
+    request: dict,
+    authoritative_owner_kind: str,
+    authoritative_owner_id: str | None,
+) -> None:
+    try:
+        requested_owner_kind, requested_owner_id = normalize_owner(
+            request.get("ownerKind"),
+            request.get("ownerId"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise PersonalOrdaxEndpointRequestError(str(exc)) from exc
+    if (
+        requested_owner_kind != authoritative_owner_kind
+        or requested_owner_id != authoritative_owner_id
+    ):
+        raise PersonalOrdaxEndpointRequestError(
+            "Personal OrdaX requested owner does not match authoritative owner",
+            status_code=403,
+        )
+
+
 def read_personal_ordax_endpoint(
-    owner_kind: object,
-    owner_id: object = None,
+    authoritative_owner_kind: object,
+    authoritative_owner_id: object = None,
     root: str = DEFAULT_PERSONAL_ORDAX_STATE_ROOT,
 ) -> dict:
+    owner_kind, owner_id = _authoritative_owner(
+        authoritative_owner_kind,
+        authoritative_owner_id,
+    )
     try:
-        owner_kind, owner_id = normalize_owner(owner_kind, owner_id)
         record = read_personal_ordax_record(owner_kind, owner_id, root)
     except (TypeError, ValueError) as exc:
         raise PersonalOrdaxEndpointRequestError(str(exc)) from exc
@@ -67,6 +102,8 @@ def read_personal_ordax_endpoint(
 
 def mutate_personal_ordax_endpoint(
     body: bytes,
+    authoritative_owner_kind: object,
+    authoritative_owner_id: object = None,
     root: str = DEFAULT_PERSONAL_ORDAX_STATE_ROOT,
 ) -> dict:
     request = _parse_body(body)
@@ -74,8 +111,14 @@ def mutate_personal_ordax_endpoint(
         raise PersonalOrdaxEndpointRequestError("Personal OrdaX request shape is invalid")
     if request.get("action") != "compare-and-swap":
         raise PersonalOrdaxEndpointRequestError("Personal OrdaX mutation action is invalid")
+
+    owner_kind, owner_id = _authoritative_owner(
+        authoritative_owner_kind,
+        authoritative_owner_id,
+    )
+    _require_requested_owner_matches_authority(request, owner_kind, owner_id)
+
     try:
-        owner_kind, owner_id = normalize_owner(request.get("ownerKind"), request.get("ownerId"))
         record = compare_and_swap_personal_ordax_payload(
             owner_kind,
             owner_id,
