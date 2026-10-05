@@ -82,7 +82,7 @@ export function localizationDeliveryMatchesComponent(
   if (!localization || typeof localization !== "object" || Array.isArray(localization)) {
     throw new TypeError("Component localization metadata must be an object");
   }
-  const packPolicy = localization.packPolicy ?? "component-scoped";
+  const packPolicy = localization.packPolicy;
   if (!PACK_POLICIES.has(packPolicy)) {
     throw new TypeError("Component localization packPolicy is invalid");
   }
