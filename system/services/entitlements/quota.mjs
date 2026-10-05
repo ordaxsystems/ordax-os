@@ -1,6 +1,7 @@
 import {
   SERVICE_QUOTA_DECISION_SCHEMA,
   validateServiceQuotaAdmissionRequest,
+  validateServiceQuotaDecision,
   validateServiceQuotaPolicy,
   validateServiceQuotaUsage,
 } from "../../contracts/service-quota.mjs";
@@ -45,7 +46,7 @@ export function evaluateServiceQuota({ policy: policyValue, usage: usageValue, r
         ? "within-quota"
         : "quota-exceeded";
 
-  return Object.freeze({
+  return validateServiceQuotaDecision({
     schema: SERVICE_QUOTA_DECISION_SCHEMA,
     subjectType: policy.subjectType,
     subjectId: policy.subjectId,
