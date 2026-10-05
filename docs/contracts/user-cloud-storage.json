@@ -27,6 +27,13 @@
     "public_projection_contains_provider_object_key": false,
     "provider_binding_relation": "private.ordax_user_object_bindings"
   },
+  "lifecycle_safety": {
+    "identity_delete_cascades_cloud_metadata": false,
+    "space_delete_cascades_cloud_metadata": false,
+    "identity_delete_blocked_while_cleanup_references_exist": true,
+    "space_delete_blocked_while_cleanup_references_exist": true,
+    "provider_binding_may_cascade_only_after_logical_object_delete": true
+  },
   "upload_protocol": {
     "server_reservation_required": true,
     "canonical_server_quota_decision_required": true,
@@ -67,6 +74,7 @@
     "finalization verifies exact reserved size and SHA-256 before activation",
     "negative cross-account and cross-Space tests pass",
     "large resumable upload path is bounded and tested",
+    "account-close cleanup copies provider bindings before deleting logical objects and releases identity/Space RESTRICT only after cleanup",
     "account-close cleanup and auth-fence gates pass",
     "public rollout switch remains disabled until every gate passes"
   ]
