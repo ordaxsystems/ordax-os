@@ -5,6 +5,7 @@ export const LOCALIZATION_PACK_DELIVERY_SCHEMA = "prototype-ordax.localization-p
 const COMPONENT_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
+const PACK_POLICIES = new Set(["bundled-only", "component-scoped"]);
 const FORBIDDEN_AUTHORITY_FIELDS = Object.freeze([
   "capabilities",
   "requestedCapabilities",
@@ -80,6 +81,13 @@ export function localizationDeliveryMatchesComponent(
   const value = defineLocalizationPackDelivery(delivery);
   if (!localization || typeof localization !== "object" || Array.isArray(localization)) {
     throw new TypeError("Component localization metadata must be an object");
+  }
+  const packPolicy = localization.packPolicy ?? "component-scoped";
+  if (!PACK_POLICIES.has(packPolicy)) {
+    throw new TypeError("Component localization packPolicy is invalid");
+  }
+  if (packPolicy !== "component-scoped") {
+    return false;
   }
   const optionalLocales = Array.isArray(localization.optionalLocales)
     ? localization.optionalLocales.map(validateLocale)
