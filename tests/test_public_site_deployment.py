@@ -17,19 +17,19 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_live_v1_and_unproven_oidc_v2_without_claiming_rollout(self):
+    def test_contract_records_live_oidc_v2_without_claiming_vercel_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-v1-live-oidc-v2-source-ready-routing-pending",
+            "public-edge-oidc-v2-live-vercel-routing-proof-pending",
         )
-        self.assertEqual(self.contract["vercel_adapter"]["status"], "oidc-source-ready-not-deployed")
+        self.assertEqual(self.contract["vercel_adapter"]["status"], "oidc-project-configured-not-deployed")
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 1)
-        self.assertEqual(edge["deployed_authentication"], "shared-secret-sha256-v1")
+        self.assertEqual(edge["deployed_version"], 2)
+        self.assertEqual(edge["deployed_authentication"], "vercel-production-oidc-v2")
         self.assertEqual(edge["source_authentication"], "vercel-production-oidc-v2")
         self.assertTrue(edge["oidc_source_ready"])
-        self.assertFalse(edge["oidc_deployed"])
+        self.assertTrue(edge["oidc_deployed"])
         self.assertFalse(edge["runtime_provenance_e2e_verified"])
         self.assertFalse(edge["oidc_preview_allowed"])
         self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
@@ -92,7 +92,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
         self.assertTrue(edge["deployed"])
         self.assertTrue(edge["oidc_source_ready"])
-        self.assertFalse(edge["oidc_deployed"])
+        self.assertTrue(edge["oidc_deployed"])
         self.assertFalse(edge["runtime_provenance_e2e_verified"])
 
     def test_deployment_proof_is_credential_free_and_checks_real_same_origin_routes(self):
