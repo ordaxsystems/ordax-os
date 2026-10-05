@@ -406,7 +406,13 @@ export async function createNotesAppDataStore(appDataValue, {
   // Once notes.manifest exists, App Data is authoritative and legacy state is
   // ignored completely. A failed seed never creates an authoritative manifest.
   if (activeManifest === null && seedSnapshot !== null) {
-    const seed = validateNotesSnapshot(seedSnapshot);
+    const rawSeed = typeof seedSnapshot === "function"
+      ? await seedSnapshot()
+      : seedSnapshot;
+    if (rawSeed === null || rawSeed === undefined) {
+      return Object.freeze(store);
+    }
+    const seed = validateNotesSnapshot(rawSeed);
     if (!snapshotFitsPerValueBounds(seed)) {
       throw new RangeError("Legacy Notes content exceeds App Data record bounds");
     }
