@@ -3,7 +3,6 @@ import { createSessionProfileComponentInventory } from "../../services/profile-p
 import { createSameOriginIdentityCredentials } from "../../adapters/web/identity-credentials.mjs";
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
-import { createWebNotesStore } from "../../adapters/web/notes.mjs";
 import { createWebBrowserSession } from "../../adapters/web/browser-session.mjs";
 import { createWebPreferenceStore } from "../../adapters/web/preferences.mjs";
 import { createWebSurfaceHost } from "../../adapters/web/runtime.mjs";
@@ -221,20 +220,6 @@ const studioComponent = await loadOptionalComponentRuntime({
     console.warn("ORDAX Studio runtime unavailable", error);
   },
 });
-const notesComponent = await loadOptionalComponentRuntime({
-  componentId: "notes",
-  importer: () => import("../../apps/notes/runtime.mjs"),
-  componentManager,
-  context: {
-    root,
-    createStore: () => createWebNotesStore(window),
-    surfaceLifecycle: surface,
-    appActivation,
-  },
-  onError(error) {
-    console.warn("OrdaX Notes runtime unavailable", error);
-  },
-});
 const assistantComponent = await loadOptionalComponentRuntime({
   componentId: "assistant",
   importer: () => import("../../apps/assistant/runtime.mjs"),
@@ -273,7 +258,6 @@ window.addEventListener(
     systemOverviewControls.destroy();
     assistantComponent?.destroy();
     internetComponent?.destroy();
-    notesComponent?.destroy();
     studioComponent?.destroy();
     projectsComponent?.destroy();
     networkComponent?.destroy();
