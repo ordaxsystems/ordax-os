@@ -32,6 +32,20 @@
     "api_roles_execute_private_helpers": false,
     "service_role_uses_public_wrappers_only": true
   },
+  "cleanup_rpc": {
+    "source_ready": true,
+    "server_only": true,
+    "max_work_items_per_scan": 20,
+    "max_jobs_per_claim": 100,
+    "lease_seconds_min": 30,
+    "lease_seconds_max": 600,
+    "retry_budget": 10,
+    "finish_requires_live_matching_lease_token": true,
+    "expired_lease_may_be_reclaimed": true,
+    "verification_requires_auth_fence": true,
+    "verification_requires_zero_remaining_jobs": true,
+    "identity_delete_side_effect": false
+  },
   "storage_cleanup": {
     "provider_refs_private": true,
     "upload_reservations_private": true,
