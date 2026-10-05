@@ -23,6 +23,22 @@ function state(nextOrdinal = 1) {
   };
 }
 
+function reorderedState(nextOrdinal = 1) {
+  const value = state(nextOrdinal);
+  return {
+    attempts: value.attempts,
+    decisions: value.decisions,
+    approvals: value.approvals,
+    results: value.results,
+    activities: value.activities,
+    workItems: value.workItems,
+    nextOrdinal: value.nextOrdinal,
+    ownerId: value.ownerId,
+    ownerKind: value.ownerKind,
+    schema: value.schema,
+  };
+}
+
 function legacyStore(value) {
   return {
     schema: PERSONAL_ORDAX_STORE_SCHEMA,
@@ -42,14 +58,14 @@ function transport(initial = null, { conflictMode = "none" } = {}) {
     async compareAndSwap(_owner, expectedRevision, nextState) {
       casCalls += 1;
       if (expectedRevision !== 0) throw new Error("test transport only supports create CAS");
-      if (record !== null) return { accepted: false, revision: record.revision };
+      if (record !== null) return { accepted: false, revision: null };
       if (conflictMode === "different-writer") {
         record = { revision: 1, state: state(2) };
-        return { accepted: false, revision: 0 };
+        return { accepted: false, revision: null };
       }
       if (conflictMode === "same-writer") {
         record = { revision: 1, state: structuredClone(nextState) };
-        return { accepted: false, revision: 0 };
+        return { accepted: false, revision: null };
       }
       record = { revision: 1, state: structuredClone(nextState) };
       return { accepted: true, revision: 1 };
@@ -80,11 +96,17 @@ test("legacy-only state migrates with create-CAS and is verified by readback", a
   });
 });
 
-test("existing identical Native state is authoritative and never rewritten", async () => {
-  const native = transport({ revision: 4, state: state() });
+test("existing semantically identical Native state ignores object key order and is never rewritten", async () => {
+  const native = transport({ revision: 4, state: reorderedState() });
   const migration = createPersonalOrdaxNativeStateMigration({
     legacyStore: legacyStore(state()),
     nativeTransport: native,
+  });
+  assert.deepEqual(await migration.inspect(owner()), {
+    status: "mirrored-identical",
+    nativeRevision: 4,
+    legacyPresent: true,
+    nativePresent: true,
   });
   assert.deepEqual(await migration.migrate(owner()), { status: "already-native", revision: 4 });
   assert.equal(native.casCalls, 0);
@@ -106,7 +128,7 @@ test("divergent legacy and Native states fail closed without overwrite", async (
   assert.equal(native.casCalls, 0);
 });
 
-test("concurrent writer with the same state converges safely", async () => {
+test("concurrent writer with the same state converges safely after authoritative readback", async () => {
   const native = transport(null, { conflictMode: "same-writer" });
   const migration = createPersonalOrdaxNativeStateMigration({
     legacyStore: legacyStore(state()),
