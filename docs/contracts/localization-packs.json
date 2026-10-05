@@ -27,6 +27,8 @@
     "schema": "prototype-ordax.localization-pack-delivery/1",
     "owner": "system/contracts/localization-pack-delivery.mjs",
     "resource_only": true,
+    "component_scoped_policy_required": true,
+    "bundled_only_policy_may_accept_external_delivery": false,
     "permissions_allowed": false,
     "capabilities_allowed": false,
     "entrypoint_allowed": false,
