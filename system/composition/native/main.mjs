@@ -66,6 +66,7 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
 import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
 import { createApplicationContextIntelligence } from "../../services/intelligence/application-context.mjs";
+import { createApplicationActionCapabilityRegistry } from "../../services/intelligence/application-action-capabilities.mjs";
 import { createApplicationSemanticRouter } from "../../services/intelligence/application-semantic-router.mjs";
 import {
   EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
@@ -438,6 +439,15 @@ async function start() {
     firstPartyApplications,
     firstPartyIntelligenceManifests,
   });
+  const verifiedActionCapabilities = verifiedAppSemantics.flatMap(
+    (entry) => entry.actionManifest?.capabilities ?? [],
+  );
+  const appActionCapabilities = verifiedActionCapabilities.length === 0
+    ? null
+    : createApplicationActionCapabilityRegistry({
+        awareness: appAwareness,
+        capabilities: verifiedActionCapabilities,
+      });
   const appSemanticRouter = createApplicationSemanticRouter({
     awareness: appAwareness,
     manifests: firstPartyIntelligenceManifests,
@@ -445,6 +455,7 @@ async function start() {
   const appAwareIntelligence = createApplicationContextIntelligence({
     intelligencePort: intelligence,
     awarenessPort: appAwareness,
+    actionCapabilityRegistryPort: appActionCapabilities,
     semanticRouterPort: appSemanticRouter,
   });
   const consumerIntelligence = profileContentContextCapability?.available === true
