@@ -1,0 +1,61 @@
+{
+  "$schema": "prototype-ordax.work-coordination-native-state/1",
+  "status": "contract-and-adapter-foundation-unmounted",
+  "issue": 1154,
+  "owner": "platform-native-state",
+  "authority": "none",
+  "record_schema": "ordax.native-work-coordination-record/1",
+  "store_schema": "ordax.work-coordination-store/1",
+  "store_state_schema": "ordax.work-coordination-store-state/1",
+  "format_version": 1,
+  "partition": {
+    "identity": "owner+optional-project",
+    "filename_contains_raw_owner_or_project": false,
+    "opaque_partition_hash": "sha256-json-tuple"
+  },
+  "client_transport": {
+    "shared_implementation": "system/adapters/native/bounded-json-transport.mjs",
+    "endpoint_path": "/__ordax/native/work-coordination-state",
+    "same_origin_only": true,
+    "cache": "no-store",
+    "credentials": "same-origin",
+    "streaming_response_byte_bound": true,
+    "strict_utf8_json": true
+  },
+  "host_state": {
+    "shared_implementation": "system/surface/runtime/native_partitioned_json_state.py",
+    "root": "/var/lib/ordax/work-coordination",
+    "root_private_mode": "0700",
+    "state_and_lock_private_mode": "0600",
+    "symlink_following_allowed": false,
+    "partition_locking": true,
+    "atomic_replace": true,
+    "directory_fsync": true,
+    "cas_revision_required": true,
+    "last_write_wins_allowed": false,
+    "max_payload_bytes": 4194304
+  },
+  "composition": {
+    "host_route_mounted": false,
+    "native_runtime_mounted": false,
+    "surface_ui_mounted": false,
+    "provider_connector_mutations_enabled": false,
+    "background_execution_enabled": false,
+    "public_enabled": false
+  },
+  "invariants": {
+    "state_partition_binding_required": true,
+    "persisted_authority_must_equal_none": true,
+    "relational_graph_validation_required_at_host": true,
+    "unknown_format_version_fails_closed": true,
+    "stale_cas_overwrite_allowed": false,
+    "memory_or_project_deletion_side_effects": false
+  },
+  "next": [
+    "native-host-endpoint-boundary",
+    "native-composition-store-mount",
+    "activity-read-surface",
+    "settings-policy-surface",
+    "provider-connector-read-operations"
+  ]
+}
