@@ -1,6 +1,6 @@
 {
   "schema": "ordax.work-coordination-foundation/1",
-  "status": "foundation-contracts-only-public-disabled",
+  "status": "foundation-store-contract-public-disabled",
   "issue": 1154,
   "owner": "platform",
   "contracts": [
@@ -9,7 +9,9 @@
     "ordax.work-task/1",
     "ordax.work-claim/1",
     "ordax.work-checkpoint/1",
-    "ordax.work-evidence/1"
+    "ordax.work-evidence/1",
+    "ordax.work-coordination-store/1",
+    "ordax.work-coordination-store-state/1"
   ],
   "authority": "none",
   "policy": {
@@ -38,8 +40,18 @@
   "claims": {
     "finite_lease_required": true,
     "max_lease_ms": 900000,
-    "cas_store_required_by_future_runtime": true,
+    "cas_store_required": true,
     "permanent_lock_allowed": false
+  },
+  "store": {
+    "contract_defined": true,
+    "native_durable_adapter_mounted": false,
+    "partition": "owner+project",
+    "max_serialized_bytes": 4194304,
+    "full_dependency_graph_validation": true,
+    "claim_revision_binding": true,
+    "evidence_backed_completion_validation": true,
+    "last_write_wins_save_allowed": false
   },
   "mvp": {
     "new_usb_mvp_blocker": false,
@@ -49,7 +61,7 @@
     "studio_is_authority_owner": false
   },
   "next": [
-    "atomic-owner-project-store",
+    "native-atomic-store-adapter",
     "coordination-runtime",
     "activity-settings",
     "provider-connectors",
