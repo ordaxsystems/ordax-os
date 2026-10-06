@@ -25,6 +25,10 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn("createApplicationIntelligenceAwareness", text)
         self.assertIn("createApplicationAwareIntelligence", text)
         self.assertIn("firstPartyIntelligenceManifests", text)
+        self.assertIn("listFirstPartyAppDeliveryPolicies", text)
+        self.assertIn("const firstPartyById = new Map(", text)
+        self.assertIn("verified.component.id", text)
+        self.assertIn("verified.component.title", text)
         self.assertIn("intelligencePort: applicationAwareIntelligence", text)
         self.assertIn(": applicationAwareIntelligence;", text)
 
