@@ -13,9 +13,11 @@ on:
       - 'system/services/files/native-project-state-migration.mjs'
       - 'system/surface/runtime/native_partitioned_json_state.py'
       - 'system/surface/runtime/native_project_state.py'
+      - 'system/surface/runtime/native_project_endpoint.py'
       - 'tests/test_native_bounded_json_transport.mjs'
       - 'tests/test_native_partitioned_json_state.py'
       - 'tests/test_native_project_state.py'
+      - 'tests/test_native_project_endpoint.py'
       - 'tests/test_project_native_state_transport.mjs'
       - 'tests/test_project_native_state_migration.mjs'
       - 'tests/test_projects.mjs'
@@ -33,9 +35,11 @@ on:
       - 'system/services/files/native-project-state-migration.mjs'
       - 'system/surface/runtime/native_partitioned_json_state.py'
       - 'system/surface/runtime/native_project_state.py'
+      - 'system/surface/runtime/native_project_endpoint.py'
       - 'tests/test_native_bounded_json_transport.mjs'
       - 'tests/test_native_partitioned_json_state.py'
       - 'tests/test_native_project_state.py'
+      - 'tests/test_native_project_endpoint.py'
       - 'tests/test_project_native_state_transport.mjs'
       - 'tests/test_project_native_state_migration.mjs'
       - 'tests/test_projects.mjs'
@@ -61,17 +65,19 @@ jobs:
           python -m json.tool docs/contracts/project-native-state.json >/dev/null
           python -m py_compile \
             system/surface/runtime/native_partitioned_json_state.py \
-            system/surface/runtime/native_project_state.py
+            system/surface/runtime/native_project_state.py \
+            system/surface/runtime/native_project_endpoint.py
           node --check system/adapters/native/bounded-json-transport.mjs
           node --check system/adapters/native/project-state.mjs
           node --check system/services/files/native-project-state-migration.mjs
 
-      - name: Prove private revisioned host state
+      - name: Prove private revisioned host state and endpoint
         run: |
           set -euo pipefail
           python -m unittest \
             tests.test_native_partitioned_json_state \
-            tests.test_native_project_state
+            tests.test_native_project_state \
+            tests.test_native_project_endpoint
 
       - name: Preserve current Project runtime contract
         run: |
