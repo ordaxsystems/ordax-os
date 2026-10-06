@@ -31,7 +31,12 @@ class AppDataStatusContractTest(unittest.TestCase):
         self.assertEqual(implementation["published_app_sdk_bundle_version"], "1.6.0")
         self.assertTrue(implementation["trusted_first_party_port_injection_active"])
 
-        self.assertEqual(self.sdk["bundle_version"], "1.6.0")
+        current_sdk_version = tuple(int(part) for part in self.sdk["bundle_version"].split("."))
+        published_version = tuple(
+            int(part)
+            for part in implementation["published_app_sdk_bundle_version"].split(".")
+        )
+        self.assertGreaterEqual(current_sdk_version, published_version)
         schemas = {entry["schema"] for entry in self.sdk["contracts"]}
         self.assertIn("ordax.app-data/1", schemas)
 

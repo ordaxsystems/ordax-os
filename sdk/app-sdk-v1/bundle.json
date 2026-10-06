@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.6.0",
+  "bundle_version": "1.7.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -17,6 +17,13 @@
       "schema": "ordax.app-data/1",
       "source_git_blob": "ee770b9445f8700e89a4c59f29ed7172a37f2cbe",
       "source_path": "system/contracts/app-data.mjs"
+    },
+    {
+      "major": 1,
+      "name": "app-intelligence-manifest",
+      "schema": "ordax.app-intelligence-manifest/1",
+      "source_git_blob": "7cb63755687c3066633c3c2140315c7e01d527d8",
+      "source_path": "system/contracts/app-intelligence-manifest.mjs"
     },
     {
       "major": 1,
