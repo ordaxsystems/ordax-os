@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { getFirstPartyApp } from "../system/apps/catalog.mjs";
@@ -62,4 +63,34 @@ test("Store lifecycle port is request-only presentation boundary", () => {
     requestInstall: async () => ({ accepted: false }),
   };
   assert.equal(assertStoreLifecyclePort(port), port);
+});
+
+
+const rootUrl = new URL("../", import.meta.url);
+
+async function source(path) {
+  return readFile(new URL(path, rootUrl), "utf8");
+}
+
+test("Store UI remains presentation-only and is mounted symmetrically", async () => {
+  const ui = await source("system/surface/ui/store-overview-controls.mjs");
+  const web = await source("system/composition/web/main.mjs");
+  const native = await source("system/composition/native/main.mjs");
+  const contract = JSON.parse(await source("docs/contracts/first-party-app-delivery.json"));
+
+  assert.match(ui, /requestInstall/);
+  for (const forbidden of ["componentManager", "runtime-component", "/__ordax/native/", "fetch("]) {
+    assert.equal(ui.includes(forbidden), false, `Store UI must not own ${forbidden}`);
+  }
+
+  for (const composition of [web, native]) {
+    assert.match(composition, /mountStoreOverviewControls\(root, surface, null\)/);
+    assert.match(composition, /storeOverviewControls\.destroy\(\)/);
+  }
+
+  assert.equal(contract.store_boundary.public_store_ui_enabled, true);
+  assert.equal(contract.store_boundary.store_ui_implemented, true);
+  assert.equal(contract.store_boundary.store_service_implemented, false);
+  assert.equal(contract.store_boundary.must_reuse_component_manager, true);
+  assert.equal(contract.store_boundary.may_create_parallel_updater, false);
 });
