@@ -53,6 +53,18 @@
     "evidence_backed_completion_validation": true,
     "last_write_wins_save_allowed": false
   },
+  "runtime": {
+    "internal_service_defined": true,
+    "mounted_in_production_composition": false,
+    "requires_effective_policy_resolver": true,
+    "manual_system_mutation_allowed": false,
+    "assisted_system_mutation_allowed": false,
+    "automatic_system_coordination_allowed": true,
+    "automatic_action_authority_granted": false,
+    "evidence_self_certification_allowed": false,
+    "stale_claim_auto_replay_allowed": false,
+    "stale_claim_reassignment_requires_reconciliation": true
+  },
   "mvp": {
     "new_usb_mvp_blocker": false,
     "public_enabled": false,
@@ -62,7 +74,6 @@
   },
   "next": [
     "native-atomic-store-adapter",
-    "coordination-runtime",
     "activity-settings",
     "provider-connectors",
     "studio-consumer"
