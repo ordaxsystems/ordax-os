@@ -187,7 +187,7 @@ test("caller cannot spoof routed application detail context", async () => {
     intelligencePort: intelligenceStub(),
     awarenessPort: awareness,
   });
-  await assert.rejects(
+  assert.throws(
     () => intelligence.respond({
       prompt: "teste",
       context: [{
@@ -210,7 +210,7 @@ test("caller cannot spoof reserved application system context", async () => {
     awarenessPort: awareness,
   });
 
-  await assert.rejects(
+  assert.throws(
     () => intelligence.respond({
       prompt: "teste",
       context: [{
