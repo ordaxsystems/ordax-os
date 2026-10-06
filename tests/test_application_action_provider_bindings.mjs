@@ -139,19 +139,28 @@ function prepared(registry = capabilityRegistry()) {
     capabilityRegistry: registry,
     createPreparationId: () => "prep-provider-1",
   });
-  return preparations.prepare("work-1", proposal);
+  const preparation = preparations.prepare("work-1", proposal);
+  return { preparation, preparations };
 }
 
-test("provider resolver binds preparation to exact current verified component slot", async () => {
-  const registry = capabilityRegistry();
-  const preparation = prepared(registry);
-  const resolver = createApplicationActionProviderResolver({
+function providerResolver({
+  registry,
+  preparations,
+  resolveVerifiedSemantics = async (appId) => appId === "notes" ? semantics() : null,
+} = {}) {
+  return createApplicationActionProviderResolver({
+    preparationRegistry: preparations,
     capabilityRegistry: registry,
-    resolveVerifiedSemantics: async (appId) => appId === "notes" ? semantics() : null,
-    expectedOwner: OWNER,
+    resolveVerifiedSemantics,
   });
+}
 
-  const binding = await resolver.resolve(preparation);
+test("provider resolver binds retained preparation to exact current verified component slot", async () => {
+  const registry = capabilityRegistry();
+  const { preparation, preparations } = prepared(registry);
+  const resolver = providerResolver({ registry, preparations });
+
+  const binding = await resolver.resolve(preparation.resourceRef);
 
   assert.equal(binding.schema, APPLICATION_ACTION_PROVIDER_BINDING_SCHEMA);
   assert.equal(binding.resourceRef, preparation.resourceRef);
@@ -177,9 +186,21 @@ test("provider resolver binds preparation to exact current verified component sl
   }
 });
 
+test("provider resolver only accepts an opaque reference retained by the preparation registry", async () => {
+  const registry = capabilityRegistry();
+  const { preparation, preparations } = prepared(registry);
+  const resolver = providerResolver({ registry, preparations });
+
+  assert.equal(await resolver.resolve("application-action:unknown"), null);
+  assert.equal(await resolver.resolve(preparation), null);
+
+  preparations.revoke(preparation.resourceRef);
+  assert.equal(await resolver.resolve(preparation.resourceRef), null);
+});
+
 test("provider resolver rejects stale capability after registry changes", async () => {
   const oldRegistry = capabilityRegistry();
-  const preparation = prepared(oldRegistry);
+  const { preparation, preparations } = prepared(oldRegistry);
   const currentCapability = capability({
     provenance: "ordax-apps:notes:revision-2",
     provider: {
@@ -189,21 +210,21 @@ test("provider resolver rejects stale capability after registry changes", async 
     },
   });
   const currentRegistry = capabilityRegistry([currentCapability]);
-  const resolver = createApplicationActionProviderResolver({
-    capabilityRegistry: currentRegistry,
+  const resolver = providerResolver({
+    registry: currentRegistry,
+    preparations,
     resolveVerifiedSemantics: async () => semantics(currentCapability),
-    expectedOwner: OWNER,
   });
 
   await assert.rejects(
-    () => resolver.resolve(preparation),
+    () => resolver.resolve(preparation.resourceRef),
     /proposal is stale|provider revision is stale/,
   );
 });
 
 test("provider resolver rejects package capability drift even when registry is unchanged", async () => {
   const registry = capabilityRegistry();
-  const preparation = prepared(registry);
+  const { preparation, preparations } = prepared(registry);
   const drifted = capability({
     provider: {
       kind: "first-party-native",
@@ -212,42 +233,62 @@ test("provider resolver rejects package capability drift even when registry is u
     },
     provenance: "ordax-apps:notes:package-drift",
   });
-  const resolver = createApplicationActionProviderResolver({
-    capabilityRegistry: registry,
+  const resolver = providerResolver({
+    registry,
+    preparations,
     resolveVerifiedSemantics: async () => semantics(drifted),
-    expectedOwner: OWNER,
   });
 
   await assert.rejects(
-    () => resolver.resolve(preparation),
+    () => resolver.resolve(preparation.resourceRef),
     /Verified package capability no longer matches|provider no longer matches/,
   );
 });
 
-test("provider resolver rejects wrong owner and non-current package identity", async () => {
+test("provider resolver rejects wrong owner, title drift and invalid slot identity", async () => {
   const registry = capabilityRegistry();
-  const preparation = prepared(registry);
-  const wrongOwnerResolver = createApplicationActionProviderResolver({
-    capabilityRegistry: registry,
+  const { preparation, preparations } = prepared(registry);
+
+  const wrongOwnerResolver = providerResolver({
+    registry,
+    preparations,
     resolveVerifiedSemantics: async () => semantics(capability(), {
       component: { owner: "someone/other-apps" },
     }),
-    expectedOwner: OWNER,
   });
   await assert.rejects(
-    () => wrongOwnerResolver.resolve(preparation),
+    () => wrongOwnerResolver.resolve(preparation.resourceRef),
     /application identity drifted/,
   );
 
-  const invalidSourceResolver = createApplicationActionProviderResolver({
-    capabilityRegistry: registry,
+  const titleDriftResolver = providerResolver({
+    registry,
+    preparations,
+    resolveVerifiedSemantics: async () => {
+      const value = semantics();
+      return {
+        ...value,
+        application: {
+          ...value.application,
+          title: "Título forjado",
+        },
+      };
+    },
+  });
+  await assert.rejects(
+    () => titleDriftResolver.resolve(preparation.resourceRef),
+    /application identity drifted/,
+  );
+
+  const invalidSourceResolver = providerResolver({
+    registry,
+    preparations,
     resolveVerifiedSemantics: async () => semantics(capability(), {
       sourceCommit: "not-a-commit",
     }),
-    expectedOwner: OWNER,
   });
   await assert.rejects(
-    () => invalidSourceResolver.resolve(preparation),
+    () => invalidSourceResolver.resolve(preparation.resourceRef),
     /sourceCommit/,
   );
 });
