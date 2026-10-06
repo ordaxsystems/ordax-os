@@ -21,7 +21,7 @@ function observation(overrides = {}) {
 function artifact(overrides = {}) {
   return {
     appId: "notes",
-    version: "0.4.1",
+    version: "0.4.2",
     releaseSchema: "prototype-ordax.runtime-component-release/2",
     releaseMode: "component-slot",
     sourceRepository: "washingtonmsdj/ordax-apps",
