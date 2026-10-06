@@ -9,6 +9,7 @@ import {
   listStoreCatalogEntries,
   STORE_CATALOG_ENTRY_SCHEMA,
 } from "../system/services/apps/store-catalog.mjs";
+import { storeProductCopy } from "../system/surface/ui/store-overview-controls.mjs";
 
 test("Store is a structural bundled app with no independent authority", () => {
   const app = getFirstPartyApp("store");
@@ -50,4 +51,20 @@ test("Store catalog is the read-only projection of on-demand delivery policy", (
   }
   assert.equal(getStoreCatalogEntry("store"), null);
   assert.equal(getStoreCatalogEntry("unknown"), null);
+});
+
+
+test("Store product copy fails soft when delivery policy grows before localized catalog metadata", () => {
+  const translate = (messageId) => {
+    if (messageId === "store.product.unknown.description") return "fallback description";
+    if (messageId.startsWith("store.product.future-app.")) {
+      throw new TypeError("Unknown Surface localization message");
+    }
+    return messageId;
+  };
+  const copy = storeProductCopy(translate, { appId: "future-app" });
+  assert.deepEqual(copy, {
+    title: "future-app",
+    description: "fallback description",
+  });
 });
