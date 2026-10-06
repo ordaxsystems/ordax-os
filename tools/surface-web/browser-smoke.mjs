@@ -605,9 +605,12 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     const storeActions = [...(storeSlot?.querySelectorAll('[data-store-action]') ?? [])];
     result.storeOwnerMounted = storeSlot?.dataset.ordaxStoreOverviewView !== undefined;
     result.storeCatalogReadOnly = storeSlot?.dataset.storeMode === 'catalog-only';
-    result.storeCatalogComplete = storeCards.length === 6
+    const expectedStoreCatalogCount = Number(storeSlot?.dataset.storeCatalogCount ?? 'NaN');
+    result.storeCatalogComplete = Number.isInteger(expectedStoreCatalogCount)
+      && expectedStoreCatalogCount > 0
+      && storeCards.length === expectedStoreCatalogCount
       && storeCards.every((card) => card.dataset.authority === 'none');
-    result.storeInstallActionsDisabled = storeActions.length === 6
+    result.storeInstallActionsDisabled = storeActions.length === expectedStoreCatalogCount
       && storeActions.every((action) => action.disabled === true);
     result.storeNoInstallAuthority = storeSlot?.querySelector('[data-authority]:not([data-authority="none"])') === null;
 
