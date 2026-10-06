@@ -77,6 +77,7 @@ test("Native tool artifact identity hashes exact same-origin source bytes", asyn
   assert.equal(fetched.url, "https://ordax.local/system/adapters/native/tool.mjs");
   assert.equal(fetched.options.cache, "no-store");
   assert.equal(fetched.options.credentials, "same-origin");
+  assert.equal(fetched.options.redirect, "error");
 
   await assert.rejects(
     () => readNativeToolArtifactSha256(windowRef, "https://example.com/tool.mjs"),
