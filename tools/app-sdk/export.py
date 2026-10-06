@@ -26,6 +26,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "app-intelligence-manifest",
+        "path": "system/contracts/app-intelligence-manifest.mjs",
+        "constant": "APP_INTELLIGENCE_MANIFEST_SCHEMA",
+        "schema": "ordax.app-intelligence-manifest/1",
+        "major": 1,
+    },
+    {
         "name": "component-localization",
         "path": "system/contracts/localization-pack.mjs",
         "constant": "COMPONENT_LOCALIZATION_SCHEMA",
@@ -174,7 +181,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.6.0"
+BUNDLE_VERSION = "1.7.0"
 
 
 def git_blob(path: Path) -> str:
