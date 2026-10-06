@@ -6,7 +6,7 @@
 
 Four concepts must stay separate:
 
-1. **Known product/delivery registry** — `delivery-policy.mjs` may describe a first-party product even when its payload is absent locally. This is where pre-Store product identity/discovery intent lives; a future signed Store catalog can enrich it with artifact/version metadata.
+1. **Known product/delivery registry** — `delivery-policy.mjs` may describe a first-party product even when its payload is absent locally. This registry is not a Store catalog and cannot make an app installable; a signed Store catalog may later enrich it with verified artifact/version metadata.
 2. **Local app presentation catalog** — `system/apps/catalog.mjs` contains first-party app descriptors whose product source/presentation is present in the current platform composition. It is not the authoritative list of every product OrdaX may offer.
 3. **Installed component catalog/inventory** — the component/package truth used for verified activation. A product being known or catalogued never proves that its payload is installed.
 4. **Delivery projection** — combines policy with an installation/catalog observation to produce `available`, `installed`, `staged`, `blocked` and launch/install presentation without minting authority.
@@ -17,7 +17,7 @@ The Surface may project an absent, catalogued app as `available`. That never mak
 
 Delivery metadata is always `authority:none`.
 
-The future Store UI is presentation only. It must not become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
+The structural Store UI is presentation/request only. In the current foundation it fails closed when no verified catalog port is supplied and has no install request port. It must never become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
 
 `catalog -> artifact identity -> trust/provenance -> compatibility -> stage -> health/probation -> promote -> inventory/receipt`
 
@@ -29,7 +29,7 @@ The future Store UI is presentation only. It must not become a second updater. A
 
 The first public Stable/MVP surface is deliberately small:
 
-- structural: `account`, `settings`, `system`;
+- structural: `account`, `settings`, `store`, `system`;
 - bootstrap: `files`, `internet`;
 - on-demand/post-launch: `activity`, `assistant`, `network`, `notes`, `projects`, `studio`.
 
