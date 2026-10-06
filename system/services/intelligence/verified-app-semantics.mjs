@@ -1,9 +1,13 @@
 import { validateAppIntelligenceManifest } from "../../contracts/app-intelligence-manifest.mjs";
-import { validateComponentId } from "../../contracts/component-manifest.mjs";
+import {
+  defineComponentManifest,
+  validateComponentId,
+} from "../../contracts/component-manifest.mjs";
 import { validateComponentSlotResolution } from "../../contracts/component-slot-source.mjs";
 import { assertVerifiedComponentPackageSource } from "../../contracts/verified-component-package-source.mjs";
 
 const MAX_APP_MANIFESTS = 32;
+const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
 
 function validateAppIds(value) {
   if (!Array.isArray(value) || value.length > MAX_APP_MANIFESTS) {
@@ -62,7 +66,52 @@ function validateCurrentMetadata(value, expectedAppId) {
   return validateComponentSlotResolution(value);
 }
 
-export async function loadVerifiedFirstPartyIntelligenceManifests({
+async function readVerifiedPackageJson({
+  appId,
+  metadata,
+  path,
+  packageSource,
+  fetchImpl,
+  label,
+}) {
+  const url = packageSource.fileUrl({
+    componentId: appId,
+    state: "current",
+    resolution: metadata,
+    path,
+  });
+  return readJsonResponse(
+    await fetchImpl(url, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "same-origin",
+      redirect: "error",
+    }),
+    label,
+  );
+}
+
+function validateExternalAppComponent(value, appId, metadata) {
+  const component = defineComponentManifest(value);
+  if (
+    component.id !== appId
+    || component.version !== metadata.version
+    || component.kind !== "app"
+    || component.releaseMode !== "component-slot"
+    || component.owner !== EXTERNAL_FIRST_PARTY_OWNER
+  ) {
+    throw new TypeError(`Verified external app identity drifted for ${appId}`);
+  }
+  if (
+    metadata.entrypoint !== `system/apps/${appId}/src/runtime.mjs`
+    && !metadata.entrypoint.startsWith(`system/apps/${appId}/`)
+  ) {
+    throw new TypeError(`Verified external app entrypoint escaped app ownership: ${appId}`);
+  }
+  return component;
+}
+
+export async function loadVerifiedFirstPartyApplicationSemantics({
   appIds = [],
   source,
   fetchImpl,
@@ -73,7 +122,7 @@ export async function loadVerifiedFirstPartyIntelligenceManifests({
     throw new TypeError("Verified app semantics requires fetchImpl()");
   }
 
-  const manifests = [];
+  const entries = [];
   for (const appId of ids) {
     const metadata = validateCurrentMetadata(
       await readJsonResponse(
@@ -92,29 +141,49 @@ export async function loadVerifiedFirstPartyIntelligenceManifests({
       continue;
     }
 
-    const manifestPath = `system/apps/${appId}/ai/manifest.json`;
-    const manifestUrl = packageSource.fileUrl({
-      componentId: appId,
-      state: "current",
-      resolution: metadata,
-      path: manifestPath,
-    });
-    const manifest = validateAppIntelligenceManifest(
-      await readJsonResponse(
-        await fetchImpl(manifestUrl, {
-          method: "GET",
-          cache: "no-store",
-          credentials: "same-origin",
-          redirect: "error",
-        }),
-        `Verified app intelligence manifest for ${appId}`,
-      ),
-      {
+    const component = validateExternalAppComponent(
+      await readVerifiedPackageJson({
         appId,
-        appVersion: metadata.version,
+        metadata,
+        path: `system/apps/${appId}/app.json`,
+        packageSource,
+        fetchImpl,
+        label: `Verified app component manifest for ${appId}`,
+      }),
+      appId,
+      metadata,
+    );
+
+    const intelligenceManifest = validateAppIntelligenceManifest(
+      await readVerifiedPackageJson({
+        appId,
+        metadata,
+        path: `system/apps/${appId}/ai/manifest.json`,
+        packageSource,
+        fetchImpl,
+        label: `Verified app intelligence manifest for ${appId}`,
+      }),
+      {
+        appId: component.id,
+        appVersion: component.version,
       },
     );
-    manifests.push(manifest);
+
+    entries.push(Object.freeze({
+      application: Object.freeze({
+        id: component.id,
+        title: component.title,
+        component,
+      }),
+      intelligenceManifest,
+      sourceCommit: metadata.sourceCommit,
+      revision: metadata.revision,
+    }));
   }
-  return Object.freeze(manifests);
+  return Object.freeze(entries);
+}
+
+export async function loadVerifiedFirstPartyIntelligenceManifests(options = {}) {
+  const entries = await loadVerifiedFirstPartyApplicationSemantics(options);
+  return Object.freeze(entries.map((entry) => entry.intelligenceManifest));
 }
