@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/INTELLIGENCE.md'
+      - 'docs/APP-INTELLIGENCE-MANIFEST.md'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'docs/contracts/intelligence.json'
       - 'docs/contracts/local-ai.json'
@@ -23,6 +24,8 @@ on:
       - 'docs/contracts/intelligence-tools.json'
       - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
+      - 'system/contracts/app-intelligence-manifest.mjs'
+      - 'system/contracts/app-intelligence-catalog.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
@@ -62,6 +65,8 @@ on:
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
+      - 'tests/test_app_intelligence_manifest.mjs'
+      - 'tests/test_app_intelligence_catalog.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
       - 'tests/test_model_router_runtime.mjs'
       - 'tests/test_intelligence_artifact.mjs'
@@ -145,6 +150,7 @@ on:
   pull_request:
     paths:
       - 'docs/INTELLIGENCE.md'
+      - 'docs/APP-INTELLIGENCE-MANIFEST.md'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'docs/contracts/intelligence.json'
       - 'docs/contracts/local-ai.json'
@@ -163,6 +169,8 @@ on:
       - 'docs/contracts/intelligence-tools.json'
       - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
+      - 'system/contracts/app-intelligence-manifest.mjs'
+      - 'system/contracts/app-intelligence-catalog.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
@@ -201,6 +209,8 @@ on:
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
+      - 'tests/test_app_intelligence_manifest.mjs'
+      - 'tests/test_app_intelligence_catalog.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
       - 'tests/test_model_router_runtime.mjs'
       - 'tests/test_intelligence_artifact.mjs'
@@ -302,6 +312,8 @@ jobs:
         run: |
           set -euo pipefail
           node --check system/contracts/intelligence.mjs
+          node --check system/contracts/app-intelligence-manifest.mjs
+          node --check system/contracts/app-intelligence-catalog.mjs
           node --check system/contracts/local-ai.mjs
           node --check system/contracts/memory.mjs
           node --check system/contracts/memory-store.mjs
@@ -377,6 +389,8 @@ jobs:
           set -euo pipefail
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_intelligence_runtime.mjs
+          node --test tests/test_app_intelligence_manifest.mjs
+          node --test tests/test_app_intelligence_catalog.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_assistant_auto_memory_capture.mjs
           node --test tests/test_intelligence_authorized_memory.mjs
