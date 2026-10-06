@@ -6,14 +6,11 @@ on:
       - 'docs/APPLICATION-ACTIONS.md'
       - 'system/contracts/application-action-capability.mjs'
       - 'system/contracts/application-action-preparation.mjs'
-      - 'system/contracts/application-action-preparation.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
-      - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'tests/test_application_action_capability.mjs'
-      - 'tests/test_application_action_preparations.mjs'
       - 'tests/test_application_action_preparations.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
   push:
@@ -21,10 +18,13 @@ on:
     paths:
       - 'docs/APPLICATION-ACTIONS.md'
       - 'system/contracts/application-action-capability.mjs'
+      - 'system/contracts/application-action-preparation.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
+      - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'tests/test_application_action_capability.mjs'
+      - 'tests/test_application_action_preparations.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
 
 permissions:
@@ -52,7 +52,7 @@ jobs:
           node --check tests/test_application_action_capability.mjs
           node --check tests/test_application_action_preparations.mjs
 
-      - name: Run capability and awareness contract tests
+      - name: Run capability, preparation and awareness contract tests
         run: |
           set -euo pipefail
           node --test tests/test_application_action_capability.mjs
