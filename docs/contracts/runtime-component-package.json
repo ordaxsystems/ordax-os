@@ -111,5 +111,11 @@
   "ordax_intelligence_release_mode": "bundled",
   "intelligence_component_activation_enabled": false,
   "intelligence_component_health_promotion_proven": false,
-  "intelligence_component_rollback_proven": false
+  "intelligence_component_rollback_proven": false,
+  "default_source_repository": "washingtonmsdj/prototipo-ordax-os",
+  "canonical_external_source_repository_by_component": {
+    "notes": "washingtonmsdj/ordax-apps",
+    "studio": "washingtonmsdj/ordax-apps"
+  },
+  "source_repository_policy": "component-bound-fail-closed"
 }
