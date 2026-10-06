@@ -92,6 +92,44 @@ test("application context wrapper appends awareness as system context without ch
   assert.equal(intelligence.getSnapshot().toolExecution, false);
 });
 
+test("application system context is resolved once when the wrapper is composed", async () => {
+  let awarenessReads = 0;
+  let capabilityReads = 0;
+  const awarenessBase = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+  });
+  const awareness = Object.freeze({
+    ...awarenessBase,
+    contextItem() {
+      awarenessReads += 1;
+      return awarenessBase.contextItem();
+    },
+  });
+  const capabilitiesBase = createApplicationActionCapabilityRegistry({
+    awareness,
+    capabilities: [],
+  });
+  const capabilities = Object.freeze({
+    ...capabilitiesBase,
+    contextItem() {
+      capabilityReads += 1;
+      return capabilitiesBase.contextItem();
+    },
+  });
+  const intelligence = createApplicationContextIntelligence({
+    intelligencePort: intelligenceStub(),
+    awarenessPort: awareness,
+    actionCapabilityRegistryPort: capabilities,
+  });
+
+  assert.equal(awarenessReads, 1);
+  assert.equal(capabilityReads, 1);
+  await intelligence.respond({ prompt: "primeira" });
+  await intelligence.respond({ prompt: "segunda" });
+  assert.equal(awarenessReads, 1);
+  assert.equal(capabilityReads, 1);
+});
+
 test("caller cannot spoof reserved application system context", async () => {
   const awareness = createApplicationIntelligenceAwareness({
     firstPartyApplications: [firstPartyApp()],

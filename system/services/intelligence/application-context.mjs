@@ -52,6 +52,16 @@ export function createApplicationContextIntelligence({
   const capabilities = actionCapabilityRegistryPort === null
     ? null
     : assertApplicationActionCapabilityRegistryPort(actionCapabilityRegistryPort);
+  const awarenessContext = validatedSystemContextItem(
+    awareness.contextItem(),
+    "ordax-application-catalog",
+  );
+  const capabilityContext = capabilities === null
+    ? null
+    : validatedSystemContextItem(
+        capabilities.contextItem(),
+        "ordax-application-action-capabilities",
+      );
 
   return Object.freeze({
     schema: INTELLIGENCE_PORT_SCHEMA,
@@ -70,18 +80,10 @@ export function createApplicationContextIntelligence({
       }
 
       let context = [...request.context];
-      const awarenessContext = validatedSystemContextItem(
-        awareness.contextItem(),
-        "ordax-application-catalog",
-      );
       context = appendIfFits(context, awarenessContext);
       const awarenessIncluded = context.length === request.context.length + 1;
 
       if (capabilities !== null && awarenessIncluded) {
-        const capabilityContext = validatedSystemContextItem(
-          capabilities.contextItem(),
-          "ordax-application-action-capabilities",
-        );
         context = appendIfFits(context, capabilityContext);
       }
 

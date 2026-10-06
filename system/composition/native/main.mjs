@@ -36,6 +36,7 @@ import { createNativeRecoveryStatus } from "../../adapters/native/recovery-statu
 import { createNativeUpdateHistory } from "../../adapters/native/update-history.mjs";
 import { createNativeUpdateWatcher } from "../../adapters/native/update-runtime.mjs";
 import { createNativeWorkspaceStore } from "../../adapters/native/workspace.mjs";
+import { createNativeVerifiedComponentPackageSource } from "../../adapters/native/verified-component-package-source.mjs";
 import { createNativeSyncStateStore } from "../../adapters/native/sync-state.mjs";
 import { createNativeSyncCheckpointStore } from "../../adapters/native/sync-checkpoint.mjs";
 import { createNativeSurfaceHeartbeat } from "../../adapters/native/surface-heartbeat.mjs";
@@ -47,6 +48,7 @@ import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
+import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
@@ -60,6 +62,13 @@ import { createUpdateNotificationBridge } from "../../services/notifications/upd
 import { createDiagnosticJournalRuntime } from "../../services/diagnostics/runtime.mjs";
 import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
+import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
+import { createApplicationContextIntelligence } from "../../services/intelligence/application-context.mjs";
+import {
+  EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
+  loadVerifiedFirstPartyApplicationSemantics,
+  overlayVerifiedFirstPartyApplications,
+} from "../../services/intelligence/verified-app-semantics.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
@@ -134,6 +143,18 @@ async function start() {
   }
 
   const browserSession = createNativeBrowserSession(window);
+  const verifiedAppSemanticsPromise = optionalNativeProbe(
+    "OrdaX verified App Intelligence semantics unavailable",
+    () => loadVerifiedFirstPartyApplicationSemantics({
+      appIds: EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
+      source: createNativeVerifiedComponentPackageSource(window),
+      fetchImpl: typeof window.fetch === "function"
+        ? window.fetch.bind(window)
+        : async () => {
+            throw new Error("Native loopback fetch is unavailable");
+          },
+    }),
+  );
   const preferenceStorePromise = createNativePreferenceStore(window);
   const firstRunStateStorePromise = createNativeFirstRunStateStore(window);
   const localSessionPromise = optionalNativeProbe(
@@ -391,13 +412,27 @@ async function start() {
     spaces,
     store: createNativeSpaceSelectionStore(window),
   });
+  const verifiedAppSemantics = await verifiedAppSemanticsPromise ?? [];
+  const appAwareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: overlayVerifiedFirstPartyApplications(
+      listFirstPartyApps(),
+      verifiedAppSemantics,
+    ),
+    firstPartyIntelligenceManifests: verifiedAppSemantics.map(
+      (entry) => entry.intelligenceManifest,
+    ),
+  });
+  const appAwareIntelligence = createApplicationContextIntelligence({
+    intelligencePort: intelligence,
+    awarenessPort: appAwareness,
+  });
   const consumerIntelligence = profileContentContextCapability?.available === true
     ? createSelectedSpaceProfileContentIntelligence({
-        intelligencePort: intelligence,
+        intelligencePort: appAwareIntelligence,
         profileContentContextPort: createNativeProfileContentContext(window),
         spaceSelectionPort: spaceSelection,
       })
-    : intelligence;
+    : appAwareIntelligence;
   const selectedSpaceIntelligence = memory === null
     ? consumerIntelligence
     : createIdentityBoundMemoryIntelligence({

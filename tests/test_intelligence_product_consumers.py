@@ -21,6 +21,14 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn('"local-ai-service"', text)
         self.assertIn('"ordax-intelligence"', text)
         self.assertIn("intelligence,", text)
+        self.assertIn("createNativeVerifiedComponentPackageSource", text)
+        self.assertIn("loadVerifiedFirstPartyApplicationSemantics", text)
+        self.assertIn("createApplicationIntelligenceAwareness", text)
+        self.assertIn("createApplicationContextIntelligence", text)
+        self.assertIn("const verifiedAppSemanticsPromise = optionalNativeProbe(", text)
+        self.assertIn("const appAwareIntelligence = createApplicationContextIntelligence({", text)
+        self.assertIn("intelligencePort: appAwareIntelligence", text)
+        self.assertIn(": appAwareIntelligence;", text)
 
 
     def test_system_explanation_is_consultative_and_provider_neutral(self):
