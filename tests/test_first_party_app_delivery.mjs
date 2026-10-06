@@ -36,11 +36,12 @@ test("delivery policy covers every locally present first-party app and may also 
     );
   }
   assert.equal(getFirstPartyAppDeliveryPolicy("notes")?.discovery, "store-only");
-  assert.equal(getFirstPartyAppDeliveryPolicy("store"), null, "future Store UI must not be fabricated before it exists");
+  assert.equal(getFirstPartyAppDeliveryPolicy("store")?.deliveryClass, "structural");
+  assert.equal(getFirstPartyAppDeliveryPolicy("store")?.removable, false);
 });
 
 test("structural surfaces fail closed when their payload is missing", () => {
-  for (const appId of ["settings", "account", "system"]) {
+  for (const appId of ["settings", "account", "system", "store"]) {
     const policy = getFirstPartyAppDeliveryPolicy(appId);
     assert.equal(policy.deliveryClass, "structural");
     assert.equal(policy.removable, false);
