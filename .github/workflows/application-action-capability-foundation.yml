@@ -3,6 +3,12 @@ name: Application Action Capability Foundation
 on:
   pull_request:
     paths:
+      - 'system/services/intelligence/application-context.mjs'
+      - 'system/services/intelligence/application-semantic-router.mjs'
+      - 'system/apps/intelligence-catalog.mjs'
+      - 'system/apps/**/ai/**'
+      - 'tests/test_application_intelligence_context.mjs'
+      - 'tests/test_application_semantic_router.mjs'
       - 'docs/APPLICATION-ACTIONS.md'
       - 'system/contracts/application-action-capability.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
@@ -13,6 +19,12 @@ on:
   push:
     branches: [main]
     paths:
+      - 'system/services/intelligence/application-context.mjs'
+      - 'system/services/intelligence/application-semantic-router.mjs'
+      - 'system/apps/intelligence-catalog.mjs'
+      - 'system/apps/**/ai/**'
+      - 'tests/test_application_intelligence_context.mjs'
+      - 'tests/test_application_semantic_router.mjs'
       - 'docs/APPLICATION-ACTIONS.md'
       - 'system/contracts/application-action-capability.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
@@ -41,6 +53,12 @@ jobs:
           node --check system/contracts/application-intelligence-awareness.mjs
           node --check system/services/intelligence/application-action-capabilities.mjs
           node --check system/services/intelligence/application-awareness.mjs
+          node --check system/services/intelligence/application-context.mjs
+          node --check system/services/intelligence/application-semantic-router.mjs
+          node --check system/apps/intelligence-catalog.mjs
+          find system/apps -path '*/ai/*.mjs' -type f -print0 | sort -z | xargs -0 -n1 node --check
+          node --check tests/test_application_intelligence_context.mjs
+          node --check tests/test_application_semantic_router.mjs
           node --check tests/test_application_action_capability.mjs
 
       - name: Run capability and awareness contract tests
@@ -48,3 +66,5 @@ jobs:
           set -euo pipefail
           node --test tests/test_application_action_capability.mjs
           node --test tests/test_application_intelligence_awareness.mjs
+          node --test tests/test_application_intelligence_context.mjs
+          node --test tests/test_application_semantic_router.mjs
