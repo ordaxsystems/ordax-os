@@ -168,7 +168,7 @@ test("Intelligence context exposes semantic identity without compatibility inter
   assert.equal(context.text.includes("a".repeat(64)), false);
 });
 
-test("verified first-party app semantics are projected into Intelligence context without execution authority", () => {
+test("awareness keeps a compact semantic index instead of full per-app instructions", () => {
   const awareness = createApplicationIntelligenceAwareness({
     firstPartyApplications: [firstPartyApp()],
     installedApplications: [installedApp()],
@@ -178,17 +178,12 @@ test("verified first-party app semantics are projected into Intelligence context
   const notes = payload.applications.find((app) => app.appId === "notes");
   const photoshop = payload.applications.find((app) => app.appId === "photoshop");
 
-  assert.ok(notes?.semantics);
-  assert.deepEqual(notes.semantics.instructions, [
-    "Use o app somente para as capacidades declaradas pelo pacote verificado.",
-  ]);
-  assert.equal(notes.semantics.intents[0].id, "notes.create-note");
-  assert.equal(notes.semantics.intents[0].effect, "write");
-  assert.equal(notes.semantics.intents[0].confirmation, "policy");
+  assert.deepEqual(notes.semanticIntentIds, ["notes.create-note"]);
+  assert.deepEqual(photoshop.semanticIntentIds, []);
   assert.equal(notes.actionExecutionAuthorized, false);
   assert.equal(notes.modelToolExecutionAuthorized, false);
-
-  assert.equal(photoshop?.semantics, null);
+  assert.equal(awareness.contextItem().text.includes("Crie uma nota chamada Ideias."), false);
+  assert.equal(awareness.contextItem().text.includes("Use o app somente"), false);
   assert.equal(payload.authority, "none");
   assert.equal(payload.toolExecution, false);
 });
