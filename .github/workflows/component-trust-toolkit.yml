@@ -9,6 +9,9 @@ on:
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'docs/COMPONENT-TRUST-CEREMONY.md'
       - 'tests/test_runtime_component_production_readiness.py'
+      - 'tests/test_runtime_component_unsigned_candidate.py'
+      - 'docs/contracts/external-unsigned-candidate-interop.json'
+      - '.github/workflows/runtime-component-unsigned-candidate.yml'
       - '.github/workflows/component-trust-toolkit.yml'
   pull_request:
     paths:
@@ -17,6 +20,9 @@ on:
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'docs/COMPONENT-TRUST-CEREMONY.md'
       - 'tests/test_runtime_component_production_readiness.py'
+      - 'tests/test_runtime_component_unsigned_candidate.py'
+      - 'docs/contracts/external-unsigned-candidate-interop.json'
+      - '.github/workflows/runtime-component-unsigned-candidate.yml'
       - '.github/workflows/component-trust-toolkit.yml'
   workflow_dispatch:
 
@@ -51,6 +57,78 @@ jobs:
           set -euo pipefail
           python3 -m unittest tests/test_runtime_component_production_readiness.py
           python3 tools/runtime-component-channel/check_production_readiness.py
+
+      - name: Prove unsigned external candidate verifier
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests/test_runtime_component_unsigned_candidate.py
+
+      - name: Resolve pinned ordax-apps interoperability fixture
+        id: external_candidate
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          value = json.loads(
+              Path("docs/contracts/external-unsigned-candidate-interop.json").read_text(encoding="utf-8")
+          )
+          assert value["authority"] == "none"
+          assert all(value[field] is False for field in (
+              "signing_authorized",
+              "publication_authorized",
+              "installation_authorized",
+              "activation_authorized",
+          ))
+          print(f"repository={value['source_repository']}")
+          print(f"commit={value['source_commit']}")
+          PY
+
+      - name: Checkout pinned ordax-apps interoperability fixture
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ steps.external_candidate.outputs.repository }}
+          ref: ${{ steps.external_candidate.outputs.commit }}
+          path: .ordax-apps-unsigned-fixture
+          persist-credentials: false
+
+      - name: Prove cross-repo unsigned candidate boundary
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ordax-external-unsigned"
+          mkdir -p "$out/release"
+          source_commit="${{ steps.external_candidate.outputs.commit }}"
+
+          python3 .ordax-apps-unsigned-fixture/tools/app-package/build.py build \
+            --app-root .ordax-apps-unsigned-fixture/apps/notes \
+            --source-commit "$source_commit" \
+            --compatibility .ordax-apps-unsigned-fixture/migrations/notes.compatibility.json \
+            --package-out "$out/notes.zip" \
+            --release-dir "$out/release"
+          python3 .ordax-apps-unsigned-fixture/tools/app-package/render_unsigned_handoff.py \
+            --package "$out/notes.zip" \
+            --release "$out/release/notes.release.json" \
+            --compatibility "$out/release/notes.compatibility.json" \
+            --app-id notes \
+            --source-commit "$source_commit" \
+            --out "$out/notes.unsigned-candidate.json"
+          cp "$out/release/notes.release.json" "$out/notes.release.json"
+          cp "$out/release/notes.compatibility.json" "$out/notes.compatibility.json"
+          rm -rf "$out/release"
+          (
+            cd "$out"
+            sha256sum notes.zip notes.release.json notes.compatibility.json notes.unsigned-candidate.json > SHA256SUMS
+          )
+
+          python3 tools/runtime-component-channel/verify_unsigned_candidate.py \
+            --candidate-dir "$out" \
+            --package-policy docs/contracts/runtime-component-package.json
+
+          test -z "$(find "$out" -type f \( -iname '*.pem' -o -iname '*.key' -o -iname '*.p12' -o -iname '*.pfx' \) -print -quit)"
+          echo 'CROSS_REPO_UNSIGNED_CANDIDATE=PASS'
+          echo 'SIGNING_PERFORMED=NO'
+          echo 'PUBLICATION_PERFORMED=NO'
+          echo 'ACTIVATION_PERFORMED=NO'
 
       - name: Build Windows component trust toolkit
         run: |
