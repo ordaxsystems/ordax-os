@@ -21,6 +21,7 @@ const CSS_FILES = [
   'system/surface/ui/files.css',
   'system/surface/ui/system.css',
   'system/surface/ui/account.css',
+  'system/surface/ui/store.css',
   'system/surface/ui/settings.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
