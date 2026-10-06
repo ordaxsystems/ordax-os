@@ -15,6 +15,7 @@ import { createNativePersonalOrdaxComposition } from "../system/composition/nati
 
 const OWNER = "washingtonmsdj/ordax-apps";
 const SOURCE_COMMIT = "a".repeat(40);
+const PROVIDER_SHA = "b".repeat(64);
 
 function memoryStorage() {
   const values = new Map();
@@ -245,6 +246,20 @@ function verifiedSemantics() {
       execution: "proposal-only",
       capabilities: [action],
     },
+    providerManifest: {
+      schema: "ordax.application-action-provider-manifest/1",
+      appId: "notes",
+      appVersion: "0.4.2",
+      authority: "none",
+      execution: "unavailable",
+      providers: [{
+        kind: "first-party-native",
+        adapterId: "notes-native",
+        revision: "1",
+        module: "actions/providers/notes-native.mjs",
+        sha256: PROVIDER_SHA,
+      }],
+    },
     sourceCommit: SOURCE_COMMIT,
     revision: 12,
   };
@@ -254,6 +269,7 @@ function composition({
   identity = mutableIdentitySession(),
   projects = mutableProjectCatalog(),
   onResolve = null,
+  onArtifactResolve = null,
 } = {}) {
   let ordinal = 0;
   const registry = applicationCapabilities();
@@ -269,6 +285,17 @@ function composition({
       assert.equal(appId, "notes");
       if (onResolve !== null) await onResolve(runtime);
       return verifiedSemantics();
+    },
+    resolveApplicationActionProviderArtifactSha256: async (request) => {
+      assert.equal(request.appId, "notes");
+      assert.equal(request.appVersion, "0.4.2");
+      assert.equal(request.sourceCommit, SOURCE_COMMIT);
+      assert.equal(request.componentRevision, 12);
+      assert.equal(request.module, "actions/providers/notes-native.mjs");
+      if (onArtifactResolve !== null) {
+        return onArtifactResolve(runtime, request);
+      }
+      return PROVIDER_SHA;
     },
     expectedApplicationActionProviderOwner: OWNER,
     createApplicationActionPreparationId: () => `prep-${++ordinal}`,
@@ -328,6 +355,30 @@ test("Personal OrdaX composes proposal, preparation and current verified provide
   assert.equal(typeof runtime.requestApplicationActionApproval, "undefined");
   assert.equal(typeof runtime.executeApplicationAction, "undefined");
   assert.equal(typeof runtime.issueApplicationActionGrant, "undefined");
+
+  runtime.dispose();
+});
+
+test("Personal OrdaX resolves provider artifact identity without creating authority", async () => {
+  const { runtime } = composition();
+  const { preparation } = prepare(runtime);
+
+  const artifact = await runtime.resolveApplicationActionProviderArtifactBinding(
+    preparation.resourceRef,
+  );
+
+  assert.equal(
+    artifact.schema,
+    "ordax.application-action-provider-artifact-binding/1",
+  );
+  assert.equal(artifact.providerBinding.resourceRef, preparation.resourceRef);
+  assert.equal(artifact.module, "actions/providers/notes-native.mjs");
+  assert.equal(artifact.artifactSha256, PROVIDER_SHA);
+  assert.equal(artifact.authority, "none");
+  assert.equal(artifact.executionAuthorized, false);
+  assert.equal(artifact.modelDirectExecutionAuthorized, false);
+  assert.equal(typeof artifact.invoke, "undefined");
+  assert.equal(typeof runtime.executeApplicationAction, "undefined");
 
   runtime.dispose();
 });
