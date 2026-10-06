@@ -20,7 +20,7 @@ export const settingsIntelligenceManifest = validateAppIntelligenceManifest({
       parameters: [
         { name: "section", type: "string", required: false, description: "Seção solicitada, como aparência, rede ou notificações." }
       ],
-      examples: ["Abra os ajustes de rede.", "Vá para Aparência.", "Abra as configurações de notificações."]
+      examples: ["Abra os ajustes de rede.", "Configure o Wi-Fi nos Ajustes de rede.", "Vá para Aparência.", "Abra as configurações de notificações."]
     },
     {
       id: "settings.change-preference",
