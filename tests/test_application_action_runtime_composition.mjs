@@ -343,6 +343,16 @@ test("Application Action preparation is revoked when its Work becomes terminal",
   runtime.dispose();
 });
 
+test("Application Action preparation is revoked on any Work revision drift", () => {
+  const { runtime } = composition();
+  const { work, preparation } = prepare(runtime);
+
+  runtime.pause(work.id);
+
+  assert.equal(runtime.resolveApplicationActionPreparation(preparation.resourceRef), null);
+  runtime.dispose();
+});
+
 test("Application Action preparation is revoked across owner changes", () => {
   const identity = mutableIdentitySession();
   const { runtime } = composition({ identity });
