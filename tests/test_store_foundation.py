@@ -59,6 +59,10 @@ class StoreFoundationTests(unittest.TestCase):
         self.assertTrue(delivery["store_boundary"]["store_catalog_service_implemented"])
         self.assertFalse(delivery["store_boundary"]["store_install_request_service_implemented"])
         self.assertFalse(delivery["store_boundary"]["store_install_executor_implemented"])
+        self.assertEqual(delivery["store_boundary"]["catalog_scope"], "non-structural-first-party")
+        self.assertTrue(delivery["store_boundary"]["bootstrap_apps_visible"])
+        self.assertTrue(delivery["store_boundary"]["on_demand_apps_visible"])
+        self.assertFalse(delivery["store_boundary"]["structural_apps_visible"])
         self.assertTrue(delivery["store_boundary"]["must_reuse_component_manager"])
         self.assertFalse(delivery["store_boundary"]["may_create_parallel_updater"])
 
