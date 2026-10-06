@@ -387,6 +387,198 @@ func TestReleaseV2RollbackRestoresPreviousVerifiedSlot(t *testing.T) {
 	}
 }
 
+func TestReleaseV2UninstallMakesComponentAbsentAndKeepsVerifiedSlotCache(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	candidate := addActivationV2Candidate(
+		t,
+		fixture,
+		"1.0.0",
+		"1111111111111111111111111111111111111111",
+	)
+	state := healthyPromoteV2(t, fixture, candidate)
+	if state.Current == nil {
+		t.Fatal("Notes-style release/2 candidate was not current before uninstall")
+	}
+	current := *state.Current
+	uninstallRevision := state.Revision
+
+	state, err := uninstallCurrentStateAtRevision(
+		fixture.root,
+		"internet",
+		current,
+		uninstallRevision,
+		fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Revision != uninstallRevision+1 ||
+		state.Current != nil ||
+		state.Previous != nil ||
+		state.Pending != nil ||
+		state.Rejected != nil ||
+		state.PendingHealth != "unknown" {
+		t.Fatalf("unexpected uninstall state: %+v", state)
+	}
+
+	resolved, slot, bundled, err := resolveCurrentState(
+		fixture.root,
+		"internet",
+		fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bundled || slot != "" || resolved.Current != nil {
+		t.Fatalf("uninstalled component remained active: bundled=%t slot=%q state=%+v", bundled, slot, resolved)
+	}
+
+	trustBytes, err := os.ReadFile(fixture.trustPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifySlotV2WithTrustBytes(candidate.slot, trustBytes); err != nil {
+		t.Fatalf("verified slot cache was damaged by uninstall: %v", err)
+	}
+}
+
+func TestReleaseV2UninstallRejectsPendingStaleAndWrongIdentity(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	current := addActivationV2Candidate(
+		t,
+		fixture,
+		"1.0.0",
+		"1111111111111111111111111111111111111111",
+	)
+	state := healthyPromoteV2(t, fixture, current)
+	currentIdentity := *state.Current
+
+	pending := addActivationV2Candidate(
+		t,
+		fixture,
+		"1.1.0",
+		"2222222222222222222222222222222222222222",
+	)
+	state, err := armPendingState(pending.slot, fixture.trustPath, fixture.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root,
+		"internet",
+		currentIdentity,
+		state.Revision,
+		fixture.trustPath,
+	); err == nil || !strings.Contains(err.Error(), "pending slot") {
+		t.Fatalf("uninstall with pending candidate error = %v", err)
+	}
+	if _, err := rejectPendingStateAtRevision(
+		fixture.root,
+		"internet",
+		*state.Pending,
+		state.Revision,
+	); err != nil {
+		t.Fatal(err)
+	}
+	state, err = readActivationState(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wrong := slotIdentity{
+		Version: currentIdentity.Version,
+		SourceCommit: "3333333333333333333333333333333333333333",
+	}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root,
+		"internet",
+		wrong,
+		state.Revision,
+		fixture.trustPath,
+	); err == nil || !strings.Contains(err.Error(), "identity does not match") {
+		t.Fatalf("wrong uninstall identity error = %v", err)
+	}
+
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root,
+		"internet",
+		currentIdentity,
+		state.Revision-1,
+		fixture.trustPath,
+	); err == nil || !strings.Contains(err.Error(), "revision is stale") {
+		t.Fatalf("stale uninstall revision error = %v", err)
+	}
+}
+
+func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	candidate := addActivationV2Candidate(
+		t,
+		fixture,
+		"1.0.0",
+		"1111111111111111111111111111111111111111",
+	)
+	state := healthyPromoteV2(t, fixture, candidate)
+	installed := *state.Current
+	uninstallRevision := state.Revision
+
+	state, err := uninstallCurrentStateAtRevision(
+		fixture.root,
+		"internet",
+		installed,
+		uninstallRevision,
+		fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := uninstallCurrentStateAtRevision(
+		fixture.root,
+		"internet",
+		installed,
+		uninstallRevision,
+		fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatalf("idempotent uninstall retry failed: %v", err)
+	}
+	if retry.Revision != state.Revision {
+		t.Fatalf("idempotent uninstall changed revision: %d -> %d", state.Revision, retry.Revision)
+	}
+
+	state, err = armPendingState(candidate.slot, fixture.trustPath, fixture.root)
+	if err != nil {
+		t.Fatalf("verified cached release could not be rearmed offline: %v", err)
+	}
+	if state.Pending == nil || !sameSlotIdentity(state.Pending, &installed) {
+		t.Fatalf("offline reinstall armed wrong identity: %+v", state)
+	}
+	probationRevision := state.Revision
+	state, err = recordPendingHealthAtRevision(
+		fixture.root,
+		"internet",
+		installed,
+		"healthy",
+		&probationRevision,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err = promotePendingStateAtRevision(
+		fixture.root,
+		"internet",
+		installed,
+		state.Revision,
+		fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) {
+		t.Fatalf("offline reinstall did not restore current identity: %+v", state)
+	}
+}
+
 func TestReleaseV2CompatibilityTamperBlocksArmWithoutCreatingState(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	candidate := addActivationV2Candidate(
