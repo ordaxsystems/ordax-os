@@ -4,6 +4,9 @@ export const FIRST_PARTY_APP_INSTALL_PLANNER_SCHEMA = "ordax.first-party-app-ins
 const APP_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
+const COMMIT_RE = /^[0-9a-f]{40}$/;
+const REPOSITORY_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const RUNTIME_COMPONENT_RELEASE_SCHEMA = "prototype-ordax.runtime-component-release/2";
 const BLOCKED_REASONS = new Set([
   "already-installed",
   "artifact-unavailable",
@@ -34,26 +37,63 @@ function appId(value) {
   return value;
 }
 
+function requireSha256(value, label) {
+  if (typeof value !== "string" || !SHA256_RE.test(value)) {
+    throw new TypeError(`First-party app install artifact ${label} is invalid`);
+  }
+  return value;
+}
+
 export function defineFirstPartyAppInstallArtifact(value) {
   exactKeys(
     value,
-    ["appId", "version", "sha256", "verified", "compatible"],
+    [
+      "appId",
+      "version",
+      "releaseSchema",
+      "releaseMode",
+      "sourceRepository",
+      "sourceCommit",
+      "releaseEnvelopeSha256",
+      "packageSha256",
+      "compatibilitySha256",
+      "verified",
+      "compatible",
+    ],
     "First-party app install artifact",
   );
   const id = appId(value.appId);
   if (typeof value.version !== "string" || !SEMVER_RE.test(value.version)) {
     throw new TypeError("First-party app install artifact version is invalid");
   }
-  if (typeof value.sha256 !== "string" || !SHA256_RE.test(value.sha256)) {
-    throw new TypeError("First-party app install artifact sha256 is invalid");
+  if (value.releaseSchema !== RUNTIME_COMPONENT_RELEASE_SCHEMA) {
+    throw new TypeError("First-party app install artifact release schema is unsupported");
   }
+  if (value.releaseMode !== "component-slot") {
+    throw new TypeError("First-party app install artifact release mode must be component-slot");
+  }
+  if (typeof value.sourceRepository !== "string" || !REPOSITORY_RE.test(value.sourceRepository)) {
+    throw new TypeError("First-party app install artifact source repository is invalid");
+  }
+  if (typeof value.sourceCommit !== "string" || !COMMIT_RE.test(value.sourceCommit)) {
+    throw new TypeError("First-party app install artifact source commit is invalid");
+  }
+  const releaseEnvelopeSha256 = requireSha256(value.releaseEnvelopeSha256, "release envelope sha256");
+  const packageSha256 = requireSha256(value.packageSha256, "package sha256");
+  const compatibilitySha256 = requireSha256(value.compatibilitySha256, "compatibility sha256");
   if (typeof value.verified !== "boolean" || typeof value.compatible !== "boolean") {
     throw new TypeError("First-party app install artifact verified/compatible flags must be boolean");
   }
   return Object.freeze({
     appId: id,
     version: value.version,
-    sha256: value.sha256,
+    releaseSchema: value.releaseSchema,
+    releaseMode: value.releaseMode,
+    sourceRepository: value.sourceRepository,
+    sourceCommit: value.sourceCommit,
+    releaseEnvelopeSha256,
+    packageSha256,
+    compatibilitySha256,
     verified: value.verified,
     compatible: value.compatible,
   });
