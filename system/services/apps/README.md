@@ -23,6 +23,8 @@ The future Store UI is presentation only. It must not become a second updater. A
 
 `runtime-component-release/2` and the Component Manager remain the canonical trust/activation path when independent component delivery is used.
 
+The Store/launcher request boundary is `ordax.app-install-request/1` over an injected `ordax.app-install-request-port/1`. A request carries only an idempotent request id, the known app id, presentation source and `authority:none`. It cannot select an artifact/version/path, grant permissions, carry signing material, choose a trust anchor or bypass verification. The lifecycle owner resolves the signed catalog entry and remains free to reject the request.
+
 ## MVP launch delivery
 
 `mvp-delivery-policy.mjs` owns the launch intent and `docs/contracts/mvp-app-delivery.json` records it for release tooling.
