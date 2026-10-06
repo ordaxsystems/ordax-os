@@ -11,7 +11,7 @@ const MUTATION_METHODS = [
   "createPlan",
   "updatePlan",
   "claimTask",
-  "heartbeatClaim",
+  "heartbeat",
   "checkpoint",
   "handoff",
   "recordEvidence",
