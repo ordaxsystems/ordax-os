@@ -398,3 +398,41 @@ During preparation, Personal OrdaX retains the exact Work revision privately. Af
 
 This composition does not add an Application Action-specific approval, grant or execute shortcut. The binding remains `authority=none`, `executionAuthorized=false`, and `modelDirectExecutionAuthorized=false`.
 
+## Native preparation lifecycle
+
+The Native Personal OrdaX composition now owns a session-only Application Action preparation lifecycle on top of the verified capability registry.
+
+It exposes only bounded discovery/proposal/preparation operations: list available Application Actions, create a data-only proposal, prepare it for an existing Work item, resolve/list the retained preparation and revoke it. Preparing an Application Action does not create an approval, grant, Action Gateway decision or execution attempt.
+
+A retained preparation is revoked fail-closed when its authority-free coordination context stops being current, including:
+
+- owner partition change;
+- Work removal or terminal state;
+- bound Space or Project becoming invalid;
+- matching approval becoming executed, revoked, denied or cancelled;
+- matching action attempt succeeding or becoming uncertain;
+- disposal of the Personal OrdaX composition.
+
+The lifecycle therefore cannot turn a serialized or stale `application-action:*` reference into durable authority.
+
+## Verified provider artifact resolution
+
+`ordax.application-action-provider-manifest/1` binds each declared first-party provider `adapterId + revision` to one canonical module path under `actions/providers/` and an exact SHA-256. The verified semantics loader reads this manifest from the same current component-slot identity as `app.json`, `ai/manifest.json` and `actions/manifest.json` and requires exact coverage of providers referenced by the Action manifest.
+
+Artifact resolution is intentionally downstream of the existing provider binding; it is not a second path from a raw preparation:
+
+```text
+preparation resourceRef
+  -> ordax.application-action-provider-resolver/1
+  -> ordax.application-action-provider-binding/1
+  -> ordax.application-action-provider-artifact-resolver/1
+  -> ordax.application-action-provider-resolution/1
+```
+
+The artifact resolver accepts only the opaque `resourceRef`, obtains the current provider binding from the existing binding resolver, and then checks the currently verified provider manifest, current slot metadata and provider module SHA-256. It re-resolves the provider binding after the asynchronous metadata/hash work and fails if the binding changed during resolution.
+
+The final provider resolution preserves the binding identity — Work, app/action, version/sourceCommit/component revision, provider identity and capability digest/provenance — and only adds the canonical provider module and verified artifact SHA-256. It never weakens the binding into a smaller identity token.
+
+The binding resolver and artifact resolver deliberately use different port schemas so they cannot be substituted for each other. The canonical first-party package owner remains owned by verified application semantics and is exported as `EXTERNAL_FIRST_PARTY_OWNER` for future composition; the artifact resolver receives that owner by injection and rejects owner drift before package I/O.
+
+This slice remains unmounted. No Personal OrdaX runtime method exposes the artifact resolver, no provider module is imported, and no Action Gateway decision, grant, confirmation or execution authority is created. A future composition slice must connect provider binding and artifact resolution inside the existing Personal OrdaX authority chain rather than creating a parallel executor.

@@ -342,12 +342,14 @@ test("provider binding and resolver contracts reject authority escalation", () =
     }),
     /authority must remain none/,
   );
-  assert.throws(
-    () => assertApplicationActionProviderResolver({
-      schema: APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA,
-      resolve() {},
-      execute() {},
-    }),
-    /must not expose execute/,
-  );
+  for (const method of ["execute", "import", "load", "loadAdapter"]) {
+    assert.throws(
+      () => assertApplicationActionProviderResolver({
+        schema: APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA,
+        resolve() {},
+        [method]() {},
+      }),
+      new RegExp(`must not expose ${method}`),
+    );
+  }
 });
