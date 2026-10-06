@@ -92,7 +92,9 @@ export function createApplicationContextIntelligence({
       context = appendIfFits(context, awarenessContext);
       const awarenessIncluded = context.length === request.context.length + 1;
 
+      let selectedAppIds = null;
       if (semanticRouter !== null && awarenessIncluded) {
+        selectedAppIds = semanticRouter.select(request.prompt).map(({ appId }) => appId);
         for (const item of semanticRouter.contextItemsForPrompt(request.prompt)) {
           const validated = validatedSystemContextItem(item, item.id);
           context = appendIfFits(context, validated);
@@ -100,7 +102,20 @@ export function createApplicationContextIntelligence({
       }
 
       if (capabilities !== null && awarenessIncluded) {
-        context = appendIfFits(context, capabilityContext);
+        if (
+          selectedAppIds !== null
+          && typeof capabilities.contextItemForApps === "function"
+        ) {
+          if (selectedAppIds.length > 0) {
+            const filteredCapabilityContext = validatedSystemContextItem(
+              capabilities.contextItemForApps(selectedAppIds),
+              "ordax-application-action-capabilities",
+            );
+            context = appendIfFits(context, filteredCapabilityContext);
+          }
+        } else {
+          context = appendIfFits(context, capabilityContext);
+        }
       }
 
       return intelligence.respond(validateIntelligenceRequest({
