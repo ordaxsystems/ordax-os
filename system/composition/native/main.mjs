@@ -37,6 +37,8 @@ import { createNativeUpdateHistory } from "../../adapters/native/update-history.
 import { createNativeUpdateWatcher } from "../../adapters/native/update-runtime.mjs";
 import { createNativeWorkspaceStore } from "../../adapters/native/workspace.mjs";
 import { createNativeVerifiedComponentPackageSource } from "../../adapters/native/verified-component-package-source.mjs";
+import { readNativeToolArtifactSha256 } from "../../adapters/native/tool-artifact-identity.mjs";
+import { validateComponentSlotResolution } from "../../contracts/component-slot-source.mjs";
 import { createNativeSyncStateStore } from "../../adapters/native/sync-state.mjs";
 import { createNativeSyncCheckpointStore } from "../../adapters/native/sync-checkpoint.mjs";
 import { createNativeSurfaceHeartbeat } from "../../adapters/native/surface-heartbeat.mjs";
@@ -509,6 +511,50 @@ async function start() {
           fetchImpl: verifiedComponentFetch,
         });
         return entries[0] ?? null;
+      },
+      resolveApplicationActionProviderArtifactSha256: async ({
+        appId,
+        appVersion,
+        sourceCommit,
+        componentRevision,
+        module,
+      }) => {
+        const metadataResponse = await verifiedComponentFetch(
+          verifiedComponentPackageSource.metadataUrl(appId, "current"),
+          {
+            method: "GET",
+            cache: "no-store",
+            credentials: "same-origin",
+            redirect: "error",
+          },
+        );
+        if (!metadataResponse?.ok || typeof metadataResponse.json !== "function") {
+          throw new Error(
+            `Application Action provider current slot metadata unavailable: ${appId}`,
+          );
+        }
+        const metadata = validateComponentSlotResolution(
+          await metadataResponse.json(),
+        );
+        if (
+          metadata.componentId !== appId
+          || metadata.state !== "current"
+          || metadata.source !== "slot"
+          || metadata.version !== appVersion
+          || metadata.sourceCommit !== sourceCommit
+          || metadata.revision !== componentRevision
+        ) {
+          throw new Error(
+            `Application Action provider slot changed before artifact hashing: ${appId}`,
+          );
+        }
+        const moduleUrl = verifiedComponentPackageSource.fileUrl({
+          componentId: appId,
+          state: "current",
+          resolution: metadata,
+          path: `system/apps/${appId}/${module}`,
+        });
+        return readNativeToolArtifactSha256(window, moduleUrl);
       },
       expectedApplicationActionProviderOwner: "washingtonmsdj/ordax-apps",
     }),
