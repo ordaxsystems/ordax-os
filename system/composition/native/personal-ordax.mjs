@@ -9,6 +9,7 @@ import { validatePersonalActionProposal } from "../../contracts/personal-action-
 import { validatePersonalWorkRecoverySuggestion } from "../../contracts/personal-work-recovery-suggestion.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
 import { createApplicationActionPreparationRegistry } from "../../services/personal-ordax/application-action-preparations.mjs";
+import { createApplicationActionProviderResolver } from "../../services/personal-ordax/application-action-provider-bindings.mjs";
 import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
@@ -26,6 +27,8 @@ export function createNativePersonalOrdaxComposition({
   adapterResolver = () => null,
   actionCatalog = null,
   applicationActionCapabilityRegistry = null,
+  resolveVerifiedApplicationSemantics = null,
+  expectedApplicationActionProviderOwner = null,
   createApplicationActionPreparationId = null,
   grantAuthority = null,
 } = {}) {
@@ -58,6 +61,25 @@ export function createNativePersonalOrdaxComposition({
         capabilityRegistry: applicationActionCapabilityRegistry,
         createPreparationId: preparationIdFactory,
       });
+  if (
+    resolveVerifiedApplicationSemantics !== null
+    && typeof resolveVerifiedApplicationSemantics !== "function"
+  ) {
+    throw new TypeError(
+      "Native Personal OrdaX verified Application Action semantics resolver must be a function or null",
+    );
+  }
+  const applicationActionProviderResolver = (
+    applicationActionPreparations !== null
+    && resolveVerifiedApplicationSemantics !== null
+  )
+    ? createApplicationActionProviderResolver({
+        preparationRegistry: applicationActionPreparations,
+        capabilityRegistry: applicationActionCapabilityRegistry,
+        resolveVerifiedSemantics: resolveVerifiedApplicationSemantics,
+        expectedOwner: expectedApplicationActionProviderOwner,
+      })
+    : null;
 
   const ownsGrantAuthority = grantAuthority === null;
   const authority = grantAuthority ?? createIntelligenceToolGrantAuthority();
@@ -283,6 +305,24 @@ export function createNativePersonalOrdaxComposition({
       if (applicationActionPreparations === null) return null;
       reconcileApplicationActionPreparations();
       return applicationActionPreparations.resolve(resourceRef);
+    },
+    async resolveApplicationActionProvider(resourceRef) {
+      if (applicationActionProviderResolver === null) {
+        throw new Error("Personal OrdaX Application Action provider resolution is unavailable");
+      }
+      reconcileApplicationActionPreparations();
+      const preparation = applicationActionPreparations.resolve(resourceRef);
+      if (preparation === null) {
+        throw new Error("Personal OrdaX Application Action preparation is no longer current");
+      }
+      const binding = await applicationActionProviderResolver.resolve(resourceRef);
+      reconcileApplicationActionPreparations();
+      if (applicationActionPreparations.resolve(resourceRef) !== preparation) {
+        throw new Error(
+          "Personal OrdaX Application Action preparation changed during provider resolution",
+        );
+      }
+      return binding;
     },
     revokeApplicationActionPreparation(resourceRef) {
       if (applicationActionPreparations === null) return false;
