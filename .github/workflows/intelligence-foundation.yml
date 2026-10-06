@@ -54,6 +54,16 @@ on:
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
+      - 'system/adapters/native/app-intelligence-manifests.mjs'
+      - 'system/contracts/component-slot-source.mjs'
+      - 'system/surface/runtime/native_app_intelligence_catalog.py'
+      - 'system/surface/runtime/native_component_slots.py'
+      - 'tools/runtime-component-channel/activation.go'
+      - 'tests/test_native_app_intelligence_catalog.py'
+      - 'tests/test_native_app_intelligence_manifests.mjs'
+      - 'tests/test_native_component_slots.py'
+      - 'tests/test_component_slot_source.mjs'
+      - 'tests/test_component_probation_loader.mjs'
       - 'system/composition/native/account-memory.mjs'
       - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
@@ -198,6 +208,16 @@ on:
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
+      - 'system/adapters/native/app-intelligence-manifests.mjs'
+      - 'system/contracts/component-slot-source.mjs'
+      - 'system/surface/runtime/native_app_intelligence_catalog.py'
+      - 'system/surface/runtime/native_component_slots.py'
+      - 'tools/runtime-component-channel/activation.go'
+      - 'tests/test_native_app_intelligence_catalog.py'
+      - 'tests/test_native_app_intelligence_manifests.mjs'
+      - 'tests/test_native_component_slots.py'
+      - 'tests/test_component_slot_source.mjs'
+      - 'tests/test_component_probation_loader.mjs'
       - 'system/composition/native/account-memory.mjs'
       - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
@@ -314,6 +334,8 @@ jobs:
           node --check system/contracts/intelligence.mjs
           node --check system/contracts/app-intelligence-manifest.mjs
           node --check system/contracts/app-intelligence-catalog.mjs
+          node --check system/contracts/component-slot-source.mjs
+          node --check system/adapters/native/app-intelligence-manifests.mjs
           node --check system/contracts/local-ai.mjs
           node --check system/contracts/memory.mjs
           node --check system/contracts/memory-store.mjs
@@ -349,6 +371,8 @@ jobs:
           python -m py_compile system/surface/runtime/native_memory_state.py
           python -m py_compile system/surface/runtime/native_memory_endpoint.py
           python -m py_compile system/surface/runtime/native_host_server.py
+          python -m py_compile system/surface/runtime/native_component_slots.py
+          python -m py_compile system/surface/runtime/native_app_intelligence_catalog.py
           python -m py_compile services/public-identity/supabase_memory.py
           python -m py_compile services/public-identity/supabase_sync.py
           python -m py_compile services/public-identity/supabase_password.py
@@ -391,6 +415,11 @@ jobs:
           node --test tests/test_intelligence_runtime.mjs
           node --test tests/test_app_intelligence_manifest.mjs
           node --test tests/test_app_intelligence_catalog.mjs
+          node --test tests/test_native_app_intelligence_manifests.mjs
+          node --test tests/test_component_slot_source.mjs
+          node --test tests/test_component_probation_loader.mjs
+          python -m unittest tests.test_native_component_slots -v
+          python -m unittest tests.test_native_app_intelligence_catalog -v
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_assistant_auto_memory_capture.mjs
           node --test tests/test_intelligence_authorized_memory.mjs
