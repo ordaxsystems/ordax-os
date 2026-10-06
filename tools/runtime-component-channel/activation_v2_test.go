@@ -486,7 +486,7 @@ func TestReleaseV2UninstallRejectsPendingStaleAndWrongIdentity(t *testing.T) {
 	}
 
 	wrong := slotIdentity{
-		Version: currentIdentity.Version,
+		Version:      currentIdentity.Version,
 		SourceCommit: "3333333333333333333333333333333333333333",
 	}
 	if _, err := uninstallCurrentStateAtRevision(
