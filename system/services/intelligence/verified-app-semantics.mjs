@@ -8,6 +8,7 @@ import { assertVerifiedComponentPackageSource } from "../../contracts/verified-c
 
 const MAX_APP_MANIFESTS = 32;
 const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
+export const EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS = Object.freeze(["notes", "studio"]);
 
 function validateAppIds(value) {
   if (!Array.isArray(value) || value.length > MAX_APP_MANIFESTS) {
