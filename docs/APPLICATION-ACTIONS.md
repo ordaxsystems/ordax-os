@@ -436,3 +436,35 @@ The final provider resolution preserves the binding identity — Work, app/actio
 The binding resolver and artifact resolver deliberately use different port schemas so they cannot be substituted for each other. The canonical first-party package owner remains owned by verified application semantics and is exported as `EXTERNAL_FIRST_PARTY_OWNER` for future composition; the artifact resolver receives that owner by injection and rejects owner drift before package I/O.
 
 This slice remains unmounted. No Personal OrdaX runtime method exposes the artifact resolver, no provider module is imported, and no Action Gateway decision, grant, confirmation or execution authority is created. A future composition slice must connect provider binding and artifact resolution inside the existing Personal OrdaX authority chain rather than creating a parallel executor.
+
+
+## Native provider artifact composition
+
+The Native Personal OrdaX composition mounts verified provider artifact resolution as a read-only continuation of the existing provider binding.
+
+The path is:
+
+```text
+Work-bound preparation
+  -> current verified provider binding
+  -> current verified provider manifest
+  -> same-origin provider module bytes
+  -> exact SHA-256
+  -> immutable provider artifact resolution
+```
+
+The composition uses the canonical `EXTERNAL_FIRST_PARTY_OWNER` exported by verified app semantics and does not maintain a second first-party owner literal.
+
+Provider module hashing is implemented by a dedicated Native adapter. It accepts only URLs inside the canonical loopback `/__ordax/native/component-module/` namespace, rejects query strings, fragments and cross-origin URLs, performs only `GET` with `cache=no-store`, `credentials=same-origin` and `redirect=error`, bounds provider modules to 1 MiB, and computes SHA-256 with Web Crypto.
+
+Personal OrdaX exposes only `resolveApplicationActionProviderArtifact(resourceRef)`. Artifact resolution reuses the same Work/owner TOCTOU-checked provider-binding path. It does not import or evaluate the module, does not expose `load`, `loadAdapter`, `invoke` or `execute`, and does not create an approval, grant, gateway decision or receipt.
+
+A successful resolution therefore remains metadata proof only:
+
+```text
+authority = none
+executionAuthorized = false
+modelDirectExecutionAuthorized = false
+```
+
+Any later execution must still enter the existing Personal OrdaX approval, scoped grant, Action Gateway and Action Executor chain. Verified provider bytes alone are never execution authority.
