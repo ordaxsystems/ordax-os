@@ -1,4 +1,4 @@
-import { assertProjectCatalogPort, validateProjectId } from "../../contracts/project-catalog.mjs";
+import { assertProjectCatalogReader, validateProjectId } from "../../contracts/project-catalog.mjs";
 import {
   MAX_PROJECT_WEB_REFERENCES,
   MAX_PROJECT_WEB_NOTE_LENGTH,
@@ -57,7 +57,7 @@ export function createProjectWebReferenceRuntime({
   if (typeof now !== "function") {
     throw new TypeError("Project web-reference runtime requires a clock");
   }
-  const projectPort = assertProjectCatalogPort(projects);
+  const projectPort = assertProjectCatalogReader(projects);
   const durableStore = store === null ? null : assertProjectWebReferenceStore(store);
   let persistence = durableStore?.scope ?? "session";
   let state = createEmptyProjectWebReferenceStoreState();
