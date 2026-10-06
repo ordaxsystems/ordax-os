@@ -83,3 +83,17 @@ O `app.json` deve validar como:
 O manifesto de Intelligence é então validado contra essa identidade de componente.
 
 Isso permite que um produto externalizado como Notes exista semanticamente sem reintroduzir seu payload no `system/`, e impede que uma representação de desenvolvimento `git-app` seja confundida com um pacote externo instalado.
+
+
+## Overlay sobre o catálogo local
+
+A composição pode possuir uma representação local de desenvolvimento para um app que também foi instalado como componente externo.
+
+A regra é determinística:
+
+1. uma identidade externa verificada com o mesmo `appId` substitui a representação local apenas para o catálogo semântico do Intelligence;
+2. um app externalizado que não exista mais no catálogo local, como Notes, é acrescentado a esse catálogo semântico;
+3. IDs duplicados em qualquer fonte falham fechado;
+4. o overlay não instala, ativa, promove nem altera o app.
+
+Isso impede que o Intelligence misture, por exemplo, a identidade Studio `git-app` de desenvolvimento com o Studio `component-slot` instalado.
