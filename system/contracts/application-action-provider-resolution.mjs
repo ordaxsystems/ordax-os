@@ -12,7 +12,7 @@ import {
 export const APPLICATION_ACTION_PROVIDER_RESOLUTION_SCHEMA =
   "ordax.application-action-provider-resolution/1";
 export const APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA =
-  "ordax.application-action-provider-resolver/1";
+  "ordax.application-action-provider-artifact-resolver/1";
 
 const ADAPTER_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
@@ -171,15 +171,15 @@ export function assertApplicationActionProviderResolver(port) {
     || typeof port !== "object"
     || port.schema !== APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA
   ) {
-    throw new TypeError("Compatible Application action provider resolver is required");
+    throw new TypeError("Compatible Application action provider artifact resolver is required");
   }
   if (typeof port.resolve !== "function") {
-    throw new TypeError("Application action provider resolver must implement resolve()");
+    throw new TypeError("Application action provider artifact resolver must implement resolve()");
   }
   for (const method of FORBIDDEN_METHODS) {
     if (typeof port[method] === "function") {
       throw new TypeError(
-        `Application action provider resolver must not expose ${method}()`,
+        `Application action provider artifact resolver must not expose ${method}()`,
       );
     }
   }
