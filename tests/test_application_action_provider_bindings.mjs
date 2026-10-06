@@ -147,11 +147,13 @@ function providerResolver({
   registry,
   preparations,
   resolveVerifiedSemantics = async (appId) => appId === "notes" ? semantics() : null,
+  expectedOwner = OWNER,
 } = {}) {
   return createApplicationActionProviderResolver({
     preparationRegistry: preparations,
     capabilityRegistry: registry,
     resolveVerifiedSemantics,
+    expectedOwner,
   });
 }
 
@@ -196,6 +198,24 @@ test("provider resolver only accepts an opaque reference retained by the prepara
 
   preparations.revoke(preparation.resourceRef);
   assert.equal(await resolver.resolve(preparation.resourceRef), null);
+});
+
+test("provider resolver requires canonical first-party owner injection", () => {
+  const registry = capabilityRegistry();
+  const { preparations } = prepared(registry);
+
+  assert.throws(
+    () => createApplicationActionProviderResolver({
+      preparationRegistry: preparations,
+      capabilityRegistry: registry,
+      resolveVerifiedSemantics: async () => semantics(),
+    }),
+    /expected owner is invalid/,
+  );
+  assert.throws(
+    () => providerResolver({ registry, preparations, expectedOwner: "" }),
+    /expected owner is invalid/,
+  );
 });
 
 test("provider resolver rejects stale capability after registry changes", async () => {
