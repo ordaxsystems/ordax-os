@@ -75,8 +75,9 @@ export function createApplicationContextIntelligence({
         "ordax-application-catalog",
       );
       context = appendIfFits(context, awarenessContext);
+      const awarenessIncluded = context.length === request.context.length + 1;
 
-      if (capabilities !== null) {
+      if (capabilities !== null && awarenessIncluded) {
         const capabilityContext = validatedSystemContextItem(
           capabilities.contextItem(),
           "ordax-application-action-capabilities",
