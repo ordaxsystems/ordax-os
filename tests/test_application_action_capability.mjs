@@ -264,6 +264,31 @@ test("capability context is bounded semantic data and hides provider/payload int
   assert.equal(item.text.includes("wine"), false);
 });
 
+test("capability context can be projected to a bounded routed app selection", () => {
+  const nativeApp = listFirstPartyApps()[0];
+  const registry = createApplicationActionCapabilityRegistry({
+    awareness: awareness(),
+    capabilities: [uriCapability(nativeApp.id), installedCapability()],
+  });
+
+  const item = registry.contextItemForApps([nativeApp.id]);
+  const value = JSON.parse(item.text);
+  assert.equal(value.actions.length, 1);
+  assert.equal(value.actions[0].appId, nativeApp.id);
+  assert.equal(value.actions.some((action) => action.appId === "photo-editor"), false);
+  assert.equal(value.authority, "none");
+  assert.equal(value.toolExecution, false);
+
+  assert.throws(
+    () => registry.contextItemForApps([nativeApp.id, nativeApp.id]),
+    /selected app ids must be unique/,
+  );
+  assert.throws(
+    () => registry.contextItemForApps(Array.from({ length: 9 }, (_, index) => `app-${index}`)),
+    /bounded array/,
+  );
+});
+
 test("capability context is compiled once and reused by reference", () => {
   const nativeApp = listFirstPartyApps()[0];
   const registry = createApplicationActionCapabilityRegistry({
