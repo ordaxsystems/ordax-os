@@ -17,7 +17,7 @@ The Surface may project an absent, catalogued app as `available`. That never mak
 
 Delivery metadata is always `authority:none`.
 
-The future Store UI is presentation only. It must not become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
+The Store UI is presentation only. Its read-only catalog foundation is bundled as the structural `store` app; it must not become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
 
 `catalog -> artifact identity -> trust/provenance -> compatibility -> stage -> health/probation -> promote -> inventory/receipt`
 
@@ -29,7 +29,7 @@ The future Store UI is presentation only. It must not become a second updater. A
 
 The first public Stable/MVP surface is deliberately small:
 
-- structural: `account`, `settings`, `system`;
+- structural: `account`, `settings`, `store`, `system`;
 - bootstrap: `files`, `internet`;
 - on-demand/post-launch: `activity`, `assistant`, `network`, `notes`, `projects`, `studio`.
 
