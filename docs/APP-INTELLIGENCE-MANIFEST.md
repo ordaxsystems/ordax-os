@@ -193,3 +193,27 @@ Ordax Intelligence
 Rotinas internas de extração de Memory continuam usando o Intelligence base sem o catálogo de apps, evitando contexto irrelevante e dependências circulares.
 
 Apps sem slot verificado continuam conhecidos apenas pela identidade first-party já disponível; eles não recebem semântica inventada. Produtos externalizados como Notes só entram na projeção completa quando o lifecycle/Store fornecer uma identidade first-party instalada canônica.
+
+
+## Identidade instalada de apps externalizados
+
+O manifesto semântico sozinho não prova que um produto externalizado está instalado. Para apps first-party entregues por `component-slot`, a composição Native usa um segundo boundary dedicado:
+
+```text
+GET /__ordax/native/app-intelligence-awareness?component=<app-id>
+```
+
+A resposta usa `ordax.native-app-intelligence-awareness/1` e contém apenas:
+
+- identidade do slot atual: `componentId`, `componentVersion`, `sourceCommit` e `revision`;
+- o `app.json` validado como `ordax.component-manifest/1`;
+- o `ai/manifest.json` validado como `ordax.app-intelligence-manifest/1`;
+- `authority: "none"`.
+
+`app.json` e `ai/manifest.json` são lidos do mesmo `current` slot e presos à mesma identidade `version + sourceCommit`. Cada leitura continua passando pelo helper assinado e pelo package manifest, portanto uma mudança de ativação entre as duas leituras falha fechada em vez de misturar versões.
+
+A composição não enumera diretórios do disco. Ela sonda apenas ids do registro first-party de delivery. Um pacote desconhecido não se torna produto OrdaX por existir localmente.
+
+Quando um app externalizado verificado está instalado, sua identidade pode preencher ou substituir a identidade de apresentação local de mesmo `appId` no Application Awareness. Quando não está instalado, nenhum manifesto semântico é inventado e o produto permanece apenas no estado de delivery apropriado.
+
+O endpoint anterior `/__ordax/native/app-intelligence-manifest` e seu envelope v1 continuam válidos; o bundle de identidade instalada é um contrato separado para preservar compatibilidade.
