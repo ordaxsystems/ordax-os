@@ -1,0 +1,56 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import {
+  DEVICE_AGENT_CAPABILITIES_SCHEMA,
+  DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
+} from "../system/contracts/device-capabilities.mjs";
+import {
+  PROJECT_CLOUD_LINKS_SCHEMA,
+  assertProjectCloudLinksPort,
+} from "../system/contracts/project-cloud-links.mjs";
+
+const rootUrl = new URL("../", import.meta.url);
+
+async function json(path) {
+  return JSON.parse(await readFile(new URL(path, rootUrl), "utf8"));
+}
+
+test("App SDK 1.9 publishes the read-only Projects host boundary without raw Device Agent execution", async () => {
+  const bundle = await json("sdk/app-sdk-v1/bundle.json");
+  assert.equal(bundle.bundle_version, "1.9.0");
+  assert.equal(bundle.authority, "none");
+
+  const byName = new Map(bundle.contracts.map((contract) => [contract.name, contract]));
+  assert.equal(byName.get("project-catalog")?.schema, "ordax.project-catalog/1");
+  assert.equal(byName.get("project-cloud-links")?.schema, PROJECT_CLOUD_LINKS_SCHEMA);
+  assert.equal(byName.get("device-capability-reader")?.schema, DEVICE_AGENT_CAPABILITY_READER_SCHEMA);
+  assert.equal(byName.get("device-capabilities")?.schema, DEVICE_AGENT_CAPABILITIES_SCHEMA);
+
+  assert.equal(bundle.contracts.some((contract) => contract.schema === "ordax.device-agent/1"), false);
+  assert.equal(
+    bundle.contracts.some((contract) => contract.source_path === "system/contracts/device-agent.mjs"),
+    false,
+  );
+});
+
+test("project-cloud-links remains a bounded port contract and does not mint platform authority", () => {
+  const snapshot = {
+    schema: PROJECT_CLOUD_LINKS_SCHEMA,
+    persistence: "session",
+    links: [],
+  };
+  const port = {
+    schema: PROJECT_CLOUD_LINKS_SCHEMA,
+    getSnapshot: () => snapshot,
+    subscribe: () => () => {},
+    link: () => {},
+    unlink: () => {},
+    destroy: () => {},
+  };
+
+  assert.equal(assertProjectCloudLinksPort(port), port);
+  assert.equal("execute" in port, false);
+  assert.equal("install" in port, false);
+});
