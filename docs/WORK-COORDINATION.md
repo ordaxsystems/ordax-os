@@ -1,6 +1,6 @@
 # Work Coordination
 
-Status: **FOUNDATION + STORE CONTRACTS / NOT PUBLICLY ENABLED**
+Status: **FOUNDATION + STORE + INTERNAL RUNTIME / NOT PUBLICLY ENABLED**
 
 Issue: `#1154`
 
@@ -56,10 +56,11 @@ The platform currently defines these internal contracts:
 - `ordax.work-evidence/1`
 - `ordax.work-coordination-store/1`
 - `ordax.work-coordination-store-state/1`
+- `ordax.work-coordination-runtime/1`
 
 They do not create UI, background execution or provider connector mutations by themselves. The store
-contract defines the canonical persistence boundary shape; a durable Native adapter is still a
-separate composition step.
+contract defines the canonical persistence boundary shape and the runtime defines state transitions;
+a durable Native adapter and product composition remain separate steps.
 
 ### Policy
 
@@ -83,7 +84,11 @@ or continuing work, but it does not silently enroll an unrelated project.
 mutation authority.
 
 Policies may be global or project-scoped. A project policy is an override for that exact project;
-the future policy resolver must define precedence deterministically instead of relying on UI state.
+the composed policy resolver must define precedence deterministically instead of relying on UI
+state.
+
+Every runtime mutation traverses the effective policy boundary. A `system` trigger is accepted only
+under explicitly confirmed `automatic` mode. Recovery and maintenance are not privileged bypasses.
 
 ### Notifications
 
@@ -115,6 +120,10 @@ The plan contains ordered task ids but not a duplicate embedded task database. P
 active | paused | completed | archived
 ```
 
+Runtime plan updates increment the plan revision. A plan carrying active claims cannot be revised;
+the worker must checkpoint/handoff first. When runtime completion changes a plan to `completed`,
+that state transition also increments the plan revision.
+
 ### Task
 
 A task is independently revisioned and belongs to one plan. State is:
@@ -126,6 +135,11 @@ planned | ready | blocked | in-progress | review | completed | cancelled
 Dependencies are explicit task ids. The value contract rejects duplicate dependencies and
 self-dependency. The store contract validates the complete retained graph and rejects missing,
 cyclic or cross-plan dependencies.
+
+The runtime derives dependency state canonically. A task becomes `ready` only when all dependencies
+are complete. A dependency blocked for stale-claim reconciliation propagates a bounded
+`dependency-blocked:<taskId>` reason; if that dependency is later released, the dependent returns to
+`planned` until prerequisites are complete. Provider clients do not own this derivation.
 
 A task may declare required evidence kinds. A completed task that declares required evidence is
 invalid in canonical store state unless verified evidence for the exact current task revision is
@@ -148,11 +162,16 @@ The store permits at most one retained active claim per task and requires that c
 current plan/task revisions. A retained claim also requires an `active` plan and an `in-progress`
 task.
 
+The runtime never silently steals a live or expired claim. A live conflict is surfaced. An expired
+claim must be reconciled: the task is blocked with `stale-claim-reconciliation-required`, the stale
+claim is removed through CAS, and explicit release is required before the task becomes claimable
+again.
+
 Losing a claim or observing a newer plan/task revision invalidates the client's right to update
 coordination state. It does **not** revoke or create Action Gateway authority; those are separate
 boundaries.
 
-### Checkpoint
+### Checkpoint and handoff
 
 A Checkpoint is small handoff metadata tied to an exact claim/lease and task revision. It may retain:
 
@@ -164,6 +183,9 @@ A Checkpoint is small handoff metadata tied to an exact claim/lease and task rev
 A checkpoint is not a transcript, prompt archive, Memory replacement, credential store or
 authority snapshot. Store validation rejects future task revisions, regressing task revisions,
 non-increasing checkpoint sequence within a task revision and regressing checkpoint time.
+
+A handoff may append one final checkpoint, releases the exact active claim and returns the task to
+the dependency-derived state. It does not execute or replay external side effects.
 
 ### Evidence
 
@@ -184,6 +206,8 @@ Evidence may be `unverified`, `verified` or `rejected`. A reference may point to
 artifact, a device receipt or another typed integration, but the evidence value itself grants no
 authority.
 
+The runtime cannot self-certify provider/model output. Verified evidence can enter canonical state
+only through an injected verifier, and the result must bind the exact current plan/task revision.
 GitHub remains an integration/evidence source, not the universal Work source of truth.
 
 ## Store, retention and migration
@@ -221,6 +245,29 @@ Retention is independent from Memory and from feature disablement:
 
 The store contract does not itself decide whether a deletion is user-authorized. That belongs to the
 policy/runtime/user-control layer, which must still write through the same revisioned CAS boundary.
+
+## Runtime lifecycle
+
+The internal runtime currently defines provider-neutral transitions over the CAS store:
+
+- create a plan and derive initial dependency state;
+- update plan metadata/state with plan-revision increment;
+- list ready tasks;
+- claim one ready task atomically;
+- heartbeat/renew a bounded claim;
+- persist checkpoints;
+- hand off work without replaying side effects;
+- accept evidence only through an injected verifier;
+- complete work only when required verified evidence is retained;
+- advance dependency-derived task state after completion;
+- reconcile expired claims without auto-replay or silent stealing;
+- release a stale blocked task explicitly.
+
+All mutating transitions use the same policy/trigger gate and all writes terminate in store CAS.
+A stale writer therefore conflicts instead of overwriting newer work.
+
+This runtime is still **unmounted**. It is not yet exposed through Native/Web composition, provider
+connectors, Studio or public background work.
 
 ## Authority and safety
 
@@ -290,13 +337,10 @@ separate explicit retention/delete operation is accepted and committed through C
 
 ## Next implementation order
 
-1. coordination runtime over the CAS store contract;
-2. narrow Native durable store adapter using the existing Native state-owner pattern;
-3. Activity projection and Settings controls;
-4. typed provider connector operations;
-5. Studio as the first large consumer;
-6. specialist workers/background integration only after existing #848 gates.
+1. narrow Native durable store adapter using the existing Native state-owner pattern;
+2. Activity projection and Settings controls;
+3. typed provider connector operations;
+4. Studio as the first large consumer;
+5. specialist workers/background integration only after existing #848 gates.
 
-Recovery/maintenance that mutates canonical coordination state is not an implicit policy exception:
-it must traverse an explicit policy/trigger boundary in the runtime. No step should create a second
-SSOT merely to move faster.
+No step should create a second SSOT merely to move faster.

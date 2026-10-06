@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.work-coordination-foundation/1",
-  "status": "foundation-and-store-contracts-public-disabled",
+  "status": "foundation-store-runtime-contracts-public-disabled",
   "issue": 1154,
   "owner": "platform",
   "contracts": [
@@ -11,7 +11,8 @@
     "ordax.work-checkpoint/1",
     "ordax.work-evidence/1",
     "ordax.work-coordination-store/1",
-    "ordax.work-coordination-store-state/1"
+    "ordax.work-coordination-store-state/1",
+    "ordax.work-coordination-runtime/1"
   ],
   "authority": "none",
   "policy": {
@@ -73,6 +74,22 @@
       "project_cascade": false
     }
   },
+  "runtime": {
+    "contract_defined": true,
+    "mounted_in_native": false,
+    "mounted_in_web": false,
+    "create_plan_enabled_in_contract": true,
+    "versioned_plan_update_enabled_in_contract": true,
+    "dependency_state_derivation": "canonical-runtime",
+    "claim_conflict_behavior": "surface-conflict-never-steal",
+    "stale_claim_behavior": "block-for-reconciliation-never-auto-replay",
+    "recovery_mutation_requires_policy": true,
+    "system_mutation_requires_confirmed_automatic": true,
+    "claim_revision_match_required": true,
+    "evidence_verifier_injected": true,
+    "provider_self_verification_allowed": false,
+    "plan_revision_increments_on_runtime_state_change": true
+  },
   "mvp": {
     "new_usb_mvp_blocker": false,
     "public_enabled": false,
@@ -81,7 +98,6 @@
     "studio_is_authority_owner": false
   },
   "next": [
-    "coordination-runtime",
     "native-atomic-store-adapter",
     "activity-settings",
     "provider-connectors",
