@@ -97,3 +97,50 @@ A regra é determinística:
 4. o overlay não instala, ativa, promove nem altera o app.
 
 Isso impede que o Intelligence misture, por exemplo, a identidade Studio `git-app` de desenvolvimento com o Studio `component-slot` instalado.
+
+
+## Composição Native real
+
+A composição Native consome esta fonte depois de criar o `ordax.intelligence/1` base.
+
+O fluxo real é:
+
+```text
+createNativeVerifiedComponentPackageSource
+        ↓
+loadVerifiedFirstPartyApplicationSemantics
+        ↓
+overlayVerifiedFirstPartyApplications
+        ↓
+createApplicationIntelligenceAwareness
+        ↓
+createApplicationAwareIntelligence
+        ↓
+Profile content autorizado
+        ↓
+Memory autorizada
+        ↓
+Assistant / Personal OrdaX / explicações ao usuário
+```
+
+A leitura de semântica é fail-soft para disponibilidade: se a fonte Native verificada estiver indisponível, a composição continua com o catálogo local e sem inventar Notes ou qualquer semântica externa.
+
+Falha de disponibilidade não concede fallback para arquivo solto, diretório local ou payload não verificado.
+
+O wrapper `application-context.mjs` acrescenta somente o item de contexto produzido por Application Awareness quando houver orçamento de itens e caracteres. Ele não remove contexto do chamador e não expõe métodos de execução.
+
+Rotinas internas de extração automática de Memory continuam usando o Intelligence base, sem o catálogo de apps. Isso evita que semântica de aplicação contamine tarefas internas de classificação/extração e mantém o caminho de consumo do usuário explicitamente separado.
+
+Conhecimento continua sem autoridade:
+
+```text
+Application Awareness
+authority = none
+toolExecution = false
+        ↓
+Intelligence entende intent/parâmetros
+
+≠ execução
+```
+
+Runtime binding, grants, policy, confirmação e receipt continuam sendo um gate separado.
