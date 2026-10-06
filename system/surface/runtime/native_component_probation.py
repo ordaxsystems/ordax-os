@@ -14,7 +14,7 @@ from native_component_slots import (
 
 PROBATION_SCHEMA = "ordax.component-probation-result/1"
 PROBE_MODE = "import-contract"
-SUPPORTED_COMPONENT = "internet"
+SUPPORTED_COMPONENTS = frozenset({"internet", "notes"})
 
 
 class ComponentProbationReceiptError(ValueError):
@@ -48,7 +48,8 @@ def record_system_component_probation(
         raise ComponentProbationReceiptError("invalid component probation receipt")
     if result.get("schema") != PROBATION_SCHEMA:
         raise ComponentProbationReceiptError("invalid component probation receipt schema")
-    if result.get("componentId") != SUPPORTED_COMPONENT:
+    component_id = result.get("componentId")
+    if component_id not in SUPPORTED_COMPONENTS:
         raise ComponentProbationReceiptError("invalid component probation receipt component")
     if result.get("probeMode") != PROBE_MODE:
         raise ComponentProbationReceiptError("invalid component probation probe mode")
@@ -73,7 +74,7 @@ def record_system_component_probation(
     try:
         record = record_component_pending_health(
             helper_path=helper_path,
-            component_id=SUPPORTED_COMPONENT,
+            component_id=component_id,
             version=version,
             source_commit=source_commit,
             expected_revision=revision,
