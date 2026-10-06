@@ -138,3 +138,40 @@ Os manifests são serializados como **metadados de capacidade**, dentro do mesmo
 Instalar, remover ou atualizar um app pode atualizar o registry sem reiniciar o modelo local. O modelo continua independente do lifecycle do app.
 
 O catálogo não prova assinatura ou procedência sozinho. Essa prova pertence à camada que resolve o pacote/slot ativo; somente depois dela a composição pode registrar um manifesto como verificado.
+
+
+## Fonte Native verificada
+
+Na composição Native, manifests first-party externos são carregados somente de componentes ativos cujo slot `current` foi verificado pelo runtime-component channel e cuja origem canônica é `washingtonmsdj/ordax-apps`.
+
+O fluxo é deliberadamente estreito:
+
+```text
+activation-state candidato
+        ↓
+resolve-current pelo helper verificado
+        ↓
+SOURCE=SLOT
+SOURCE_REPOSITORY=washingtonmsdj/ordax-apps
+        ↓
+identidade exata version + source commit
+        ↓
+read-runtime-file do caminho fixo
+system/apps/<app-id>/ai/manifest.json
+        ↓
+validação Native mínima
+        ↓
+validação completa do contrato na Surface
+        ↓
+App Intelligence Catalog Registry
+```
+
+A API de metadata não aceita um caminho arbitrário. O caminho do manifesto é calculado internamente. O loader genérico de módulos continua com sua allowlist própria e não é ampliado para permitir execução de Notes, Studio ou futuros apps apenas por causa do catálogo de IA.
+
+Presença de cache não equivale a instalação. Componentes sem `current` ativo são tratados como ausentes e não entram no catálogo.
+
+### Atualização durante a sessão
+
+A fonte Native oferece `refresh()`, mas a primeira integração carrega o catálogo no boot. Ela **não** usa eventos de UI ou polling como substituto do lifecycle real.
+
+Uma atualização dinâmica do catálogo será ligada somente a um evento canônico de instalação, promoção, rollback ou uninstall do runtime-component lifecycle. Até esse contrato existir, reiniciar/recompor a sessão é o boundary seguro para refletir uma mudança de apps instalados.
