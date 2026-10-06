@@ -1,0 +1,42 @@
+name: Studio Runtime v3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/device-action-result.mjs'
+      - 'system/contracts/studio-runtime-v3.mjs'
+      - 'tests/test_studio_action_result.mjs'
+      - '.github/workflows/studio-runtime-v3.yml'
+  pull_request:
+    paths:
+      - 'system/contracts/device-action-result.mjs'
+      - 'system/contracts/studio-runtime-v3.mjs'
+      - 'tests/test_studio_action_result.mjs'
+      - '.github/workflows/studio-runtime-v3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-v3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Validate result/runtime contract syntax
+        run: |
+          set -euo pipefail
+          node --check system/contracts/device-action-result.mjs
+          node --check system/contracts/studio-runtime-v3.mjs
+          node --check tests/test_studio_action_result.mjs
+
+      - name: Prove bounded action results and host correlation
+        run: |
+          set -euo pipefail
+          node --test tests/test_studio_action_result.mjs
