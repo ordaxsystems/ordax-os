@@ -37,7 +37,6 @@ from native_component_slots import (
     component_slot_reader_available,
     parse_component_module_path,
     read_component_runtime_file,
-    read_verified_app_intelligence_manifest,
     read_verified_first_party_app_awareness_bundle,
     resolve_component_slot,
 )
