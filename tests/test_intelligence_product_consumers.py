@@ -3,9 +3,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "system/composition/native/main.mjs"
-NOTES_RUNTIME = ROOT / "system/apps/notes/runtime.mjs"
-NOTES_UI = ROOT / "system/apps/notes/ui/workspace-controls.mjs"
-NOTES_INTELLIGENCE = ROOT / "system/apps/notes/platform/intelligence-summary.mjs"
+
+
+
 SYSTEM_UI = ROOT / "system/surface/ui/system-overview-controls.mjs"
 CLIENT_ACTIONS = ROOT / "system/services/intelligence/client-actions.mjs"
 
@@ -22,29 +22,6 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn('"ordax-intelligence"', text)
         self.assertIn("intelligence,", text)
 
-    def test_notes_consumes_public_intelligence_contract_without_private_services(self):
-        runtime = NOTES_RUNTIME.read_text(encoding="utf-8")
-        ui = NOTES_UI.read_text(encoding="utf-8")
-        helper = NOTES_INTELLIGENCE.read_text(encoding="utf-8")
-        notes_sources = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in sorted((ROOT / "system/apps/notes").rglob("*.mjs"))
-        )
-
-        self.assertIn("intelligence = null", runtime)
-        self.assertIn("{ fileSpace, appActivation, intelligence }", runtime)
-        self.assertIn("assertIntelligencePort", ui)
-        self.assertIn("summarizeNoteWithIntelligence", ui)
-        self.assertIn('from "../platform/intelligence-summary.mjs"', ui)
-        self.assertIn("localization.getLocale()", ui)
-        self.assertIn("assertIntelligencePort", helper)
-        self.assertIn('intent: "summarize"', helper)
-        self.assertIn('data.notesIntelligence', ui.replace("dataset", "data"))
-        self.assertIn('"intelligence-summary"', ui)
-        self.assertNotIn("services/", notes_sources)
-        self.assertNotIn("contracts/local-ai", notes_sources)
-        self.assertNotIn("llama", notes_sources.lower())
-        self.assertNotIn("qwen", notes_sources.lower())
 
     def test_system_explanation_is_consultative_and_provider_neutral(self):
         ui = SYSTEM_UI.read_text(encoding="utf-8")

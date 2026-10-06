@@ -163,39 +163,14 @@ test("Projects primary journey uses shared localization in PT-BR and English", a
   assert.doesNotMatch(controls, /timeZone:\s*"America\/Bahia"/);
 });
 
-test("Notes and Internet primary journeys use the shared localization owner", async () => {
-  const notes = await readFile(
-    new URL("../system/apps/notes/ui/workspace-controls.mjs", import.meta.url),
-    "utf8",
-  );
+test("Internet primary journey uses the shared localization owner", async () => {
   const internet = await readFile(
     new URL("../system/apps/internet/ui/browser-controls.mjs", import.meta.url),
-    "utf8",
-  );
-  const notesCatalog = await readFile(
-    new URL("../system/services/i18n/catalog/notes.mjs", import.meta.url),
     "utf8",
   );
   const internetCatalog = await readFile(
     new URL("../system/services/i18n/catalog/internet.mjs", import.meta.url),
     "utf8",
-  );
-
-  assert.match(notes, /const localization = lifecycle\.localization/);
-  assert.match(notes, /buildShell\(documentObject, t\)/);
-  assert.match(notes, /t\("notes\.search\.placeholder"\)/);
-  assert.match(notes, /t\("notes\.nav\.trash"\)/);
-  assert.match(notes, /ordaxNotesLocale/);
-  assert.match(notesCatalog, /"notes\.action\.newNote": "New note"/);
-  assert.match(notesCatalog, /"notes\.intelligence\.summary": "Summarize"/);
-  assert.match(notesCatalog, /"notes\.filePicker\.openFailed": "This folder could not be opened\."/);
-  assert.match(notesCatalog, /"notes\.prompt\.newProjectName": "New project name:"/);
-  assert.match(notes, /t\("notes\.filePicker\.loading"\)/);
-  assert.match(notes, /t\("notes\.confirm\.deleteForever"/);
-  assert.match(notes, /formatNotesRelativeTime\(note\.updatedAt, Date\.now\(\), \{ locale: localization\.getLocale\(\)/);
-  assert.doesNotMatch(
-    notes,
-    /Não foi possível salvar esta edição|Carregando imagem|Fechar seletor de arquivos|Nome do novo projeto|Use um endereço da web válido/,
   );
 
   assert.match(internet, /const localization = lifecycle\.localization/);

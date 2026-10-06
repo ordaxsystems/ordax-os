@@ -428,7 +428,7 @@ func TestCrossAppOwnerPackageIsRejected(t *testing.T) {
 	runtimeBytes := []byte("export const componentRuntime = { schema: \"ordax.component-runtime/1\" };\n")
 	_, manifest := packageManifestFor(t, runtimePath, runtimeBytes, testSourceCommit)
 
-	foreignPath := "system/apps/notes/runtime.mjs"
+	foreignPath := "system/apps/assistant/runtime.mjs"
 	foreignBytes := []byte("export const foreign = true;\n")
 	foreignDigest := sha256.Sum256(foreignBytes)
 	manifest.Files = append(manifest.Files, packageFile{

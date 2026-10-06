@@ -25,7 +25,6 @@
     "cloud_provider_required": false,
     "production_native_composition": true,
     "first_party_consultative_consumers": [
-      "notes",
       "system"
     ],
     "direct_provider_access_from_consumers": false,
@@ -84,7 +83,6 @@
   },
   "mvp_policy": {
     "first_party_consumer_source_proof": true,
-    "note_summary_is_read_only": true,
     "system_explanation_is_read_only": true,
     "backend_absence_must_not_block_surface": true,
     "stable_v4_backend_lifecycle_required_pre_usb": true,
@@ -92,7 +90,8 @@
     "signed_stable_v4_materialization_pending": true,
     "authorized_memory_bridge_source_complete": true,
     "automatic_memory_injection_enabled": true,
-    "automatic_memory_injection_authority": "trusted-native-composition-only"
+    "automatic_memory_injection_authority": "trusted-native-composition-only",
+    "external_app_consumers_use_public_port": true
   },
   "memory_capture": {
     "schema": "ordax.memory-capture-result/1",
