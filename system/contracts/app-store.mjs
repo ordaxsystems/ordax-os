@@ -35,11 +35,22 @@ function freezeEntry(value) {
   if (typeof value.appId !== "string" || !APP_ID_RE.test(value.appId)) {
     throw new TypeError("App Store entry has invalid appId");
   }
-  if (typeof value.title !== "string" || !value.title.trim()) {
-    throw new TypeError("App Store entry requires title");
+  if (
+    typeof value.title !== "string"
+    || !value.title.trim()
+    || value.title !== value.title.trim()
+    || value.title.length > 160
+  ) {
+    throw new TypeError("App Store entry requires bounded canonical title");
   }
-  if (value.version !== null && (typeof value.version !== "string" || !value.version.trim())) {
-    throw new TypeError("App Store entry version must be null or non-empty string");
+  if (
+    value.version !== null
+    && (
+      typeof value.version !== "string"
+      || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(value.version)
+    )
+  ) {
+    throw new TypeError("App Store entry version must be null or canonical SemVer");
   }
   if (!ENTRY_STATES.has(value.state)) {
     throw new TypeError("App Store entry has invalid state");
@@ -54,12 +65,26 @@ function freezeEntry(value) {
   }
   if (
     value.blockedReason !== null
-    && (typeof value.blockedReason !== "string" || !value.blockedReason.trim())
+    && (
+      typeof value.blockedReason !== "string"
+      || !value.blockedReason.trim()
+      || value.blockedReason !== value.blockedReason.trim()
+      || value.blockedReason.length > 160
+    )
   ) {
-    throw new TypeError("App Store entry blockedReason must be null or non-empty string");
+    throw new TypeError("App Store entry blockedReason must be null or bounded canonical text");
   }
   if (value.installable && (!value.artifactIdentityVerified || !value.provenanceVerified)) {
     throw new TypeError("Installable App Store entry requires verified artifact identity and provenance");
+  }
+  if (value.installable && value.state !== "available") {
+    throw new TypeError("Installable App Store entry must be in available state");
+  }
+  if (value.installed && ["available", "blocked"].includes(value.state)) {
+    throw new TypeError("Installed App Store entry cannot claim available or blocked state");
+  }
+  if (!value.installed && ["installed", "failed-retained"].includes(value.state)) {
+    throw new TypeError("Installed/failed-retained Store state requires installed payload");
   }
   if (value.installed && value.installable) {
     throw new TypeError("Installed App Store entry cannot also be installable");
@@ -78,8 +103,8 @@ export function validateAppStoreCatalogSnapshot(value) {
   if (!STORE_STATES.has(value.state)) {
     throw new TypeError("App Store catalog snapshot has invalid state");
   }
-  if (!Array.isArray(value.entries)) {
-    throw new TypeError("App Store catalog snapshot entries must be an array");
+  if (!Array.isArray(value.entries) || value.entries.length > 256) {
+    throw new TypeError("App Store catalog snapshot entries must be a bounded array");
   }
   if (value.reason !== null && (typeof value.reason !== "string" || !value.reason.trim())) {
     throw new TypeError("App Store catalog snapshot reason must be null or non-empty string");
