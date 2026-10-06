@@ -37,6 +37,33 @@ user intent
 
 The local model still has `authority=none` and `toolExecution=false`.
 
+## First-party action manifest
+
+`ordax.application-action-manifest/1` is the public package-level envelope for first-party app capabilities.
+
+It binds:
+
+- exact `appId`;
+- exact `appVersion`;
+- `authority: "none"`;
+- `execution: "proposal-only"`;
+- a bounded `capabilities[]` list.
+
+Every capability inside the manifest is revalidated through `ordax.application-action-capability/1` and must:
+
+- use the same app id;
+- use an action id namespaced as `<appId>.*`;
+- be `sourceClass: "first-party"`;
+- be `platform: "ordax"`;
+- use `provider.kind: "first-party-native"`;
+- have no foreign payload SHA binding;
+- keep `executionAuthorized=false`;
+- keep `modelDirectExecutionAuthorized=false`.
+
+Duplicate action ids are rejected. The manifest contains no broker, grants, confirmation receipt, adapter object, callback, executable path or raw device capability. It is suitable for inclusion in a verified app package because package trust proves the bytes and app identity, while this contract proves only declarative semantics.
+
+The manifest does **not** mean an app is executable by Intelligence. A later platform-owned loader may feed validated capabilities into the read-only registry; a separate App Action Broker remains required for policy, grants, confirmation, audit and bounded adapter invocation.
+
 ## Capability contract
 
 `ordax.application-action-capability/1` identifies one semantic action for one exact application identity.
