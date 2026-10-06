@@ -195,6 +195,7 @@ export function createNativePersonalOrdaxComposition({
       const invalid = (
         binding.ownerKey !== ownerKey
         || !applicationActionWorkContextIsCurrent(work)
+        || workRevision(work) !== binding.workRevision
         || ["executed", "revoked", "denied", "cancelled"].includes(approval?.status)
         || ["succeeded", "uncertain"].includes(attempt?.status)
       );
