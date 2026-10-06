@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createNativeVerifiedComponentPackageSource } from "../system/adapters/native/verified-component-package-source.mjs";
-import { loadVerifiedFirstPartyIntelligenceManifests } from "../system/services/intelligence/verified-app-semantics.mjs";
+import {
+  loadVerifiedFirstPartyApplicationSemantics,
+  loadVerifiedFirstPartyIntelligenceManifests,
+} from "../system/services/intelligence/verified-app-semantics.mjs";
 
 const SHA = "7".repeat(40);
 
@@ -33,6 +36,24 @@ function slotMetadata(appId = "notes", version = "0.4.1") {
   };
 }
 
+function appManifest(appId = "notes", version = "0.4.1", overrides = {}) {
+  return {
+    schema: "ordax.component-manifest/1",
+    id: appId,
+    title: appId === "notes" ? "Notas" : "ORDAX Studio",
+    kind: "app",
+    version,
+    releaseMode: "component-slot",
+    criticality: "optional",
+    failureDomain: "app",
+    restartScope: "component",
+    healthMode: "runtime",
+    owner: "washingtonmsdj/ordax-apps",
+    dependencies: [],
+    ...overrides,
+  };
+}
+
 function semantics(appId = "notes", version = "0.4.1") {
   return {
     schema: "ordax.app-intelligence-manifest/1",
@@ -54,35 +75,63 @@ function semantics(appId = "notes", version = "0.4.1") {
   };
 }
 
-test("verified app semantics loads manifest from the exact current slot identity", async () => {
-  const source = createNativeVerifiedComponentPackageSource(windowRef());
+function verifiedFetch({ appId = "notes", version = "0.4.1", app = null, ai = null } = {}) {
   const calls = [];
-  const manifests = await loadVerifiedFirstPartyIntelligenceManifests({
-    appIds: ["notes"],
-    source,
+  return {
+    calls,
     async fetchImpl(url, options) {
       calls.push({ url, options });
       const parsed = new URL(url);
       if (parsed.pathname === "/__ordax/native/component-runtime") {
-        return jsonResponse(slotMetadata());
+        return jsonResponse(slotMetadata(appId, version));
       }
-      assert.equal(
-        parsed.pathname,
-        "/__ordax/native/component-module/notes/current/0.4.1/"
-          + SHA
-          + "/system/apps/notes/ai/manifest.json",
-      );
-      return jsonResponse(semantics());
+      const prefix =
+        `/__ordax/native/component-module/${appId}/current/${version}/`
+        + SHA
+        + `/system/apps/${appId}/`;
+      assert.equal(parsed.pathname.startsWith(prefix), true);
+      if (parsed.pathname.endsWith("/app.json")) {
+        return jsonResponse(app ?? appManifest(appId, version));
+      }
+      if (parsed.pathname.endsWith("/ai/manifest.json")) {
+        return jsonResponse(ai ?? semantics(appId, version));
+      }
+      throw new Error(`unexpected verified package path: ${parsed.pathname}`);
     },
+  };
+}
+
+test("verified app semantics binds app identity and AI manifest to the exact current slot", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  const fixture = verifiedFetch();
+  const entries = await loadVerifiedFirstPartyApplicationSemantics({
+    appIds: ["notes"],
+    source,
+    fetchImpl: fixture.fetchImpl,
   });
 
-  assert.equal(manifests.length, 1);
-  assert.equal(manifests[0].appId, "notes");
-  assert.equal(manifests[0].appVersion, "0.4.1");
-  assert.equal(manifests[0].authority, "none");
-  assert.equal(manifests[0].execution, "declarative-only");
-  assert.equal(calls.length, 2);
-  for (const call of calls) {
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].application.id, "notes");
+  assert.equal(entries[0].application.title, "Notas");
+  assert.equal(entries[0].application.component.version, "0.4.1");
+  assert.equal(entries[0].application.component.releaseMode, "component-slot");
+  assert.equal(entries[0].application.component.owner, "washingtonmsdj/ordax-apps");
+  assert.equal(entries[0].intelligenceManifest.appId, "notes");
+  assert.equal(entries[0].intelligenceManifest.appVersion, "0.4.1");
+  assert.equal(entries[0].intelligenceManifest.authority, "none");
+  assert.equal(entries[0].intelligenceManifest.execution, "declarative-only");
+  assert.equal(entries[0].sourceCommit, SHA);
+  assert.equal(entries[0].revision, 5);
+  assert.equal(fixture.calls.length, 3);
+  assert.equal(
+    new URL(fixture.calls[1].url).pathname.endsWith("/system/apps/notes/app.json"),
+    true,
+  );
+  assert.equal(
+    new URL(fixture.calls[2].url).pathname.endsWith("/system/apps/notes/ai/manifest.json"),
+    true,
+  );
+  for (const call of fixture.calls) {
     assert.equal(call.options.method, "GET");
     assert.equal(call.options.cache, "no-store");
     assert.equal(call.options.credentials, "same-origin");
@@ -90,10 +139,23 @@ test("verified app semantics loads manifest from the exact current slot identity
   }
 });
 
-test("absent external app is skipped without attempting to read a manifest", async () => {
+test("manifest-only compatibility helper is derived from verified application semantics", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  const fixture = verifiedFetch();
+  const manifests = await loadVerifiedFirstPartyIntelligenceManifests({
+    appIds: ["notes"],
+    source,
+    fetchImpl: fixture.fetchImpl,
+  });
+  assert.equal(manifests.length, 1);
+  assert.equal(manifests[0].appId, "notes");
+  assert.equal(manifests[0].appVersion, "0.4.1");
+});
+
+test("absent external app is skipped without reading app identity or AI manifest", async () => {
   const source = createNativeVerifiedComponentPackageSource(windowRef());
   let calls = 0;
-  const manifests = await loadVerifiedFirstPartyIntelligenceManifests({
+  const entries = await loadVerifiedFirstPartyApplicationSemantics({
     appIds: ["notes"],
     source,
     async fetchImpl(url) {
@@ -112,23 +174,40 @@ test("absent external app is skipped without attempting to read a manifest", asy
       });
     },
   });
-  assert.deepEqual(manifests, []);
+  assert.deepEqual(entries, []);
   assert.equal(calls, 1);
 });
 
-test("manifest version must match the exact verified slot version", async () => {
+test("app.json identity must match exact verified slot and external first-party policy", async () => {
   const source = createNativeVerifiedComponentPackageSource(windowRef());
+  for (const [label, app] of [
+    ["version", appManifest("notes", "0.4.2")],
+    ["release mode", appManifest("notes", "0.4.1", { releaseMode: "git-app" })],
+    ["owner", appManifest("notes", "0.4.1", { owner: "system/apps/notes" })],
+  ]) {
+    await assert.rejects(
+      () => {
+        const fixture = verifiedFetch({ app });
+        return loadVerifiedFirstPartyApplicationSemantics({
+          appIds: ["notes"],
+          source,
+          fetchImpl: fixture.fetchImpl,
+        });
+      },
+      /Verified external app identity drifted/,
+      label,
+    );
+  }
+});
+
+test("AI manifest version must match component identity from the same verified slot", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  const fixture = verifiedFetch({ ai: semantics("notes", "0.4.2") });
   await assert.rejects(
-    () => loadVerifiedFirstPartyIntelligenceManifests({
+    () => loadVerifiedFirstPartyApplicationSemantics({
       appIds: ["notes"],
       source,
-      async fetchImpl(url) {
-        const parsed = new URL(url);
-        if (parsed.pathname === "/__ordax/native/component-runtime") {
-          return jsonResponse(slotMetadata("notes", "0.4.1"));
-        }
-        return jsonResponse(semantics("notes", "0.4.2"));
-      },
+      fetchImpl: fixture.fetchImpl,
     }),
     /appVersion mismatch/,
   );
