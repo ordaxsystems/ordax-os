@@ -426,7 +426,9 @@
     ["Navegue, organize referências e conecte pesquisa ao seu trabalho.", "Browse, organize references, and connect research to your work."],
     ["Preferências do OrdaX", "OrdaX preferences"],
     ["Preferências compartilhadas, aparência e rede do OrdaX.", "Shared OrdaX preferences, appearance, and network."],
-    ["Identidade, acesso e continuidade segura entre os modos do OrdaX.", "Identity, access, and secure continuity across OrdaX modes."]
+    ["Identidade, acesso e continuidade segura entre os modos do OrdaX.", "Identity, access, and secure continuity across OrdaX modes."],
+    ["Aplicativos OrdaX", "OrdaX applications"],
+    ["Descubra aplicativos verificados e solicite instalação pelo lifecycle da plataforma.", "Discover verified apps and request installation through the platform lifecycle."]
   ];
 
   const SEMANTIC = Object.freeze({
