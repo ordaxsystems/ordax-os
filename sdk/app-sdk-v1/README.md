@@ -2,20 +2,26 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
-## Bundle 1.8.0
+## Bundle 1.9.0
 
-Version `1.8.0` is an additive public-contract release. It preserves every contract published in 1.7.0, including `ordax.app-intelligence-manifest/1`, and adds bounded Studio action-result retrieval:
+Version `1.9.0` is an additive public-contract release. It preserves every contract published in 1.8.0, including bounded Studio Runtime v3 result retrieval, and publishes the already-established Application Action semantic contracts:
 
-- `ordax.device-action-result/1`
-- `ordax.studio-runtime/3`
+- `ordax.application-action-capability/1`
+- `ordax.application-action-capability-registry/1`
+- `ordax.application-action-proposal/1`
 
-The v1/v2 Studio ports remain published side by side for pinned consumers. Runtime v3 keeps request-v2 semantics and adds `getActionResult(request)`, requiring the original validated request and a result binding that matches actor, Space, project, device, client and action id. Results are data, never authority.
+These contracts let external OrdaX apps describe and propose typed semantic actions without importing private platform source. They do not publish the future App Action Broker, an executor, grants, confirmations or raw device authority. Capability and proposal values remain fixed to `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`; the public registry is read-only/planning-only.
+
+The v1/v2/v3 Studio ports remain published side by side for pinned consumers. Runtime v3 keeps request-v2 semantics and `getActionResult(request)`, requiring the original validated request and a result binding that matches actor, Space, project, device, client and action id. Results are data, never authority.
 
 The complete bundle includes:
 
 - `ordax.app-activation/1`
 - `ordax.app-data/1`
 - `ordax.app-intelligence-manifest/1`
+- `ordax.application-action-capability/1`
+- `ordax.application-action-capability-registry/1`
+- `ordax.application-action-proposal/1`
 - `prototype-ordax.component-localization/1`
 - `ordax.component-manifest/1`
 - `ordax.component-runtime/1`
@@ -41,6 +47,14 @@ The complete bundle includes:
 - `ordax.surface-render-lifecycle/5`
 
 The bundle is generated from canonical source contracts by `tools/app-sdk/export.py`. Each entry records the exact Git blob of the contract source and `bundle.sha256` pins the exported bytes.
+
+### Application Action contracts
+
+The App SDK publishes the semantic capability/proposal boundary only. Apps may describe typed parameters, risk class, minimum confirmation class and provider metadata, but those values never authorize execution.
+
+The registry contract exposes only `list()`, `get()`, `listForApp()`, `propose()` and `contextItem()`. It explicitly rejects authority-bearing methods such as `execute`, `invoke`, `run`, `launch`, `grant`, `authorize` and `confirm`.
+
+A later platform-owned App Action Broker remains a separate gate. Publishing these contracts does not make any Notes, Studio, Commerce or third-party action executable.
 
 ### Studio runtime composition
 
