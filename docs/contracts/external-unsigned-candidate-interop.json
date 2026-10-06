@@ -1,0 +1,19 @@
+{
+  "$schema": "prototype-ordax.external-unsigned-candidate-interop/1",
+  "status": "read-only-contract-proof",
+  "source_repository": "washingtonmsdj/ordax-apps",
+  "source_commit": "8efdfa90ff43eb464b1b25fca385a805be42b643",
+  "component_id": "notes",
+  "component_version": "0.4.2",
+  "handoff_schema": "ordax-apps.unsigned-component-candidate/1",
+  "release_schema": "prototype-ordax.runtime-component-release/2",
+  "package_schema": "prototype-ordax.runtime-component-package/1",
+  "compatibility_schema": "ordax.component-compatibility/1",
+  "trust_domain": "runtime-components",
+  "required_key_id": "ordax-runtime-components-v1",
+  "signing_authorized": false,
+  "publication_authorized": false,
+  "installation_authorized": false,
+  "activation_authorized": false,
+  "authority": "none"
+}
