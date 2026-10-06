@@ -38,7 +38,7 @@
   margin-top: var(--ordax-space-6);
   padding: var(--ordax-space-5);
   border: 1px solid var(--ordax-border);
-  background: var(--ordax-panel-bg);
+  background: var(--ordax-panel);
 }
 
 .ordax-store-empty-title {
@@ -67,7 +67,7 @@
   min-height: 190px;
   padding: var(--ordax-space-4);
   border: 1px solid var(--ordax-border);
-  background: var(--ordax-panel-bg);
+  background: var(--ordax-panel);
 }
 
 .ordax-store-card-title {
@@ -86,9 +86,9 @@
   min-height: 38px;
   margin-top: auto;
   padding: 0 14px;
-  border: 1px solid var(--ordax-border-strong);
-  background: var(--ordax-accent);
-  color: var(--ordax-accent-contrast);
+  border: 1px solid var(--ordax-border);
+  background: var(--ordax-button-bg);
+  color: var(--ordax-button-text);
   cursor: pointer;
 }
 
