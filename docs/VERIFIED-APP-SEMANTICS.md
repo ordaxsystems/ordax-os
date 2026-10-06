@@ -16,9 +16,12 @@ identidade exata do slot
     ↓
 ordax-runtime-component-channel read-runtime-file
     ↓
-system/apps/<app-id>/ai/manifest.json
+system/apps/<app-id>/app.json
+  + system/apps/<app-id>/ai/manifest.json
     ↓
-validateAppIntelligenceManifest(...)
+validação conjunta:
+  component id/version/releaseMode/owner
+  + app intelligence manifest
     ↓
 Application Intelligence Awareness
     ↓
@@ -59,3 +62,24 @@ runtime binding + grants + policy + confirmação
 ```
 
 Essas etapas permanecem separadas por contrato.
+
+
+## Identidade do app externalizado
+
+A semântica não é aceita isoladamente.
+
+Para um app first-party vindo de `ordax-apps`, a mesma identidade de slot precisa fornecer:
+
+- `system/apps/<app-id>/app.json`;
+- `system/apps/<app-id>/ai/manifest.json`.
+
+O `app.json` deve validar como:
+
+- `kind=app`;
+- `releaseMode=component-slot`;
+- `owner=washingtonmsdj/ordax-apps`;
+- mesmo `appId` e versão da resolução verificada.
+
+O manifesto de Intelligence é então validado contra essa identidade de componente.
+
+Isso permite que um produto externalizado como Notes exista semanticamente sem reintroduzir seu payload no `system/`, e impede que uma representação de desenvolvimento `git-app` seja confundida com um pacote externo instalado.
