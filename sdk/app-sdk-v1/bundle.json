@@ -43,7 +43,7 @@
       "major": 1,
       "name": "application-action-manifest",
       "schema": "ordax.application-action-manifest/1",
-      "source_git_blob": "50371fbddfaa5d9015caff3896a17fe659de1677",
+      "source_git_blob": "a67197c4f3d25aa8ddbfe28a62b62b22bfda5ac6",
       "source_path": "system/contracts/application-action-manifest.mjs"
     },
     {
