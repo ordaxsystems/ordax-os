@@ -52,6 +52,8 @@ export function mountStoreOverviewControls(root, surfaceLifecycle) {
     mountedSlot = slot;
     slot.dataset.ordaxStoreOverviewView = "";
     slot.dataset.storeMode = "catalog-only";
+    const catalogEntries = listStoreCatalogEntries();
+    slot.dataset.storeCatalogCount = String(catalogEntries.length);
     slot.replaceChildren();
 
     const header = node(documentObject, "header", "ordax-store-header");
@@ -69,7 +71,7 @@ export function mountStoreOverviewControls(root, surfaceLifecycle) {
     );
 
     const grid = node(documentObject, "div", "ordax-store-grid");
-    for (const entry of listStoreCatalogEntries()) {
+    for (const entry of catalogEntries) {
       const copy = storeProductCopy(t, entry);
       const card = node(documentObject, "article", "ordax-store-card");
       card.dataset.storeAppId = entry.appId;
@@ -125,6 +127,7 @@ export function mountStoreOverviewControls(root, surfaceLifecycle) {
       if (mountedSlot) {
         delete mountedSlot.dataset.ordaxStoreOverviewView;
         delete mountedSlot.dataset.storeMode;
+        delete mountedSlot.dataset.storeCatalogCount;
       }
       mountedSlot = null;
     },
