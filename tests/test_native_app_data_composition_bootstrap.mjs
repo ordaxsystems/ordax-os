@@ -67,7 +67,7 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
       schema: "ordax.native-app-data-composition-bootstrap/1",
       bindings: [
         {
-          appId: "notes",
+          appId: "files",
           endpoint: `/__ordax/native/app-data/${"a".repeat(43)}`,
           ownerScope: "device",
           publisherId: "ordax-official",
@@ -83,19 +83,19 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
     );
 
     const manager = createManager();
-    const notes = manager.getSnapshot().components.find(
-      (component) => component.manifest.id === "notes",
+    const files = manager.getSnapshot().components.find(
+      (component) => component.manifest.id === "files",
     );
     let mountedContext = null;
     const mounted = await loadOptionalComponentRuntime({
-      componentId: "notes",
+      componentId: "files",
       componentManager: manager,
       context: Object.freeze({ marker: "caller-context" }),
       importer: async () => ({
         componentRuntime: {
           schema: COMPONENT_RUNTIME_SCHEMA,
-          componentId: "notes",
-          version: notes.manifest.version,
+          componentId: "files",
+          version: files.manifest.version,
           async mount(context) {
             mountedContext = context;
             return { destroy() {} };
@@ -108,7 +108,7 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
     assert.equal(mountedContext.marker, "caller-context");
     assert.equal(Object.isFrozen(mountedContext), true);
     assert.equal(mountedContext.appData.schema, APP_DATA_SCHEMA);
-    assert.equal(mountedContext.appData.identity.appId, "notes");
+    assert.equal(mountedContext.appData.identity.appId, "files");
     assert.equal(mountedContext.appData.identity.publisherId, "ordax-official");
     assert.equal("endpoint" in mountedContext.appData, false);
     assert.equal("store" in mountedContext.appData, false);
