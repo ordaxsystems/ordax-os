@@ -983,8 +983,8 @@ func resolveCurrentCommand(args []string) error {
 		return nil
 	}
 	fmt.Printf(
-		"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=SLOT\nCURRENT_VERSION=%s\nCURRENT_SOURCE_COMMIT=%s\nSLOT=%s\nENTRYPOINT=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
-		state.ComponentID, state.Revision, state.Current.Version, state.Current.SourceCommit, slot, manifest.Entrypoint,
+		"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=SLOT\nSOURCE_REPOSITORY=%s\nCURRENT_VERSION=%s\nCURRENT_SOURCE_COMMIT=%s\nSLOT=%s\nENTRYPOINT=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
+		state.ComponentID, state.Revision, canonicalSourceRepository(state.ComponentID), state.Current.Version, state.Current.SourceCommit, slot, manifest.Entrypoint,
 	)
 	return nil
 }
@@ -1005,8 +1005,8 @@ func resolvePendingCommand(args []string) error {
 		return err
 	}
 	fmt.Printf(
-		"RUNTIME_COMPONENT_PENDING_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=SLOT\nPENDING_VERSION=%s\nPENDING_SOURCE_COMMIT=%s\nPENDING_HEALTH=%s\nSLOT=%s\nENTRYPOINT=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
-		state.ComponentID, state.Revision, state.Pending.Version, state.Pending.SourceCommit, state.PendingHealth, slot, manifest.Entrypoint,
+		"RUNTIME_COMPONENT_PENDING_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=SLOT\nSOURCE_REPOSITORY=%s\nPENDING_VERSION=%s\nPENDING_SOURCE_COMMIT=%s\nPENDING_HEALTH=%s\nSLOT=%s\nENTRYPOINT=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
+		state.ComponentID, state.Revision, canonicalSourceRepository(state.ComponentID), state.Pending.Version, state.Pending.SourceCommit, state.PendingHealth, slot, manifest.Entrypoint,
 	)
 	return nil
 }
