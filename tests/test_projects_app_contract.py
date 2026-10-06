@@ -42,7 +42,9 @@ class ProjectsAppContractTests(unittest.TestCase):
 
         self.assertIn("assertProjectCatalogPort", controls)
         self.assertIn("assertProjectCloudLinksReaderPort", controls)
+        self.assertIn("project-cloud-links-reader.mjs", controls)
         self.assertNotIn("assertProjectCloudLinksPort", controls)
+        self.assertNotIn("project-cloud-links.mjs", controls)
         self.assertNotIn("createProjectCatalogRuntime", controls)
         self.assertNotIn("createProjectCatalogRuntime", runtime)
         self.assertIn('componentId: "projects"', runtime)
