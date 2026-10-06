@@ -115,7 +115,7 @@ test("Store catalog rejects unbounded and semantically inconsistent entries", ()
   );
   assert.throws(
     () => validateAppStoreCatalogSnapshot(snapshot({ ...baseEntry, version: "latest" })),
-    /canonical SemVer/,
+    /canonical component version/,
   );
   assert.throws(
     () => validateAppStoreCatalogSnapshot(snapshot({ ...baseEntry, state: "installing" })),
