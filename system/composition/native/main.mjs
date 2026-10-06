@@ -37,6 +37,7 @@ import { createNativeUpdateHistory } from "../../adapters/native/update-history.
 import { createNativeUpdateWatcher } from "../../adapters/native/update-runtime.mjs";
 import { createNativeWorkspaceStore } from "../../adapters/native/workspace.mjs";
 import { createNativeVerifiedComponentPackageSource } from "../../adapters/native/verified-component-package-source.mjs";
+import { createNativeVerifiedComponentArtifactIdentity } from "../../adapters/native/verified-component-artifact-identity.mjs";
 import { createNativeSyncStateStore } from "../../adapters/native/sync-state.mjs";
 import { createNativeSyncCheckpointStore } from "../../adapters/native/sync-checkpoint.mjs";
 import { createNativeSurfaceHeartbeat } from "../../adapters/native/surface-heartbeat.mjs";
@@ -154,6 +155,7 @@ async function start() {
     : async () => {
         throw new Error("Native loopback fetch is unavailable");
       };
+  const verifiedComponentArtifactIdentity = createNativeVerifiedComponentArtifactIdentity(window);
   const verifiedAppSemanticsPromise = optionalNativeProbe(
     "OrdaX verified App Intelligence semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
@@ -511,6 +513,10 @@ async function start() {
         });
         return entries[0] ?? null;
       },
+      verifiedApplicationSemantics: verifiedAppSemantics,
+      verifiedComponentPackageSource,
+      verifiedComponentFetch,
+      applicationActionProviderArtifactIdentity: verifiedComponentArtifactIdentity,
       expectedApplicationActionProviderOwner: EXTERNAL_FIRST_PARTY_OWNER,
     }),
   );
