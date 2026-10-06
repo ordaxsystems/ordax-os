@@ -2,12 +2,20 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
-## Bundle 1.9.0
+## Bundle 1.10.0
 
-Version `1.9.0` is an additive public-contract release. It preserves every contract published in 1.8.0 and adds the project cloud-link port required by an independently delivered Projects app:
+Version `1.10.0` is an additive public-contract release. It preserves every contract published in 1.9.0 — including the Projects public boundary — and adds the platform's already-canonical Application Action semantic contracts:
+
+- `ordax.application-action-capability/1`;
+- `ordax.application-action-capability-registry/1`;
+- `ordax.application-action-proposal/1`.
+
+These contracts let external OrdaX apps describe typed semantic actions and produce validated proposals without importing private platform source. They do not publish the App Action Broker, an executor, grants, confirmations, provider credentials or raw device authority. Capability and proposal values remain fixed to `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`.
+
+The Projects boundary from 1.9 remains unchanged:
 
 - `ordax.project-cloud-links/1` — bounded cloud-link data/snapshot validation only;
-- `ordax.project-cloud-links-reader/1` — read-only snapshot/subscription port;
+- `ordax.project-cloud-links-reader/1` — read-only snapshot/subscription port.
 
 The SDK splits Projects cloud-link data from the reader port. The published files expose bounded snapshot validation plus read-only getSnapshot()/subscribe(); the mutable platform owner module is not in the SDK and link()/unlink()/destroy() never cross the app boundary. Projects consumes the already-public `ordax.device-agent-capability-reader/1` for capability discovery instead of importing the broader private Device Agent contract.
 
@@ -44,6 +52,14 @@ The complete bundle includes:
 - `ordax.surface-render-lifecycle/5`
 
 The bundle is generated from canonical source contracts by `tools/app-sdk/export.py`. Each entry records the exact Git blob of the contract source and `bundle.sha256` pins the exported bytes.
+
+### Application Action contracts
+
+The App SDK publishes the semantic capability/proposal boundary only. Apps may describe typed parameters, risk class, minimum confirmation class and provider metadata, but those values never authorize execution.
+
+The registry contract exposes only `list()`, `get()`, `listForApp()`, `propose()` and `contextItem()`. It explicitly rejects authority-bearing methods such as `execute`, `invoke`, `run`, `launch`, `grant`, `authorize` and `confirm`.
+
+A later platform-owned App Action Broker remains a separate gate. Publishing these contracts does not make any Notes, Studio, Commerce or third-party action executable.
 
 ### Studio runtime composition
 
