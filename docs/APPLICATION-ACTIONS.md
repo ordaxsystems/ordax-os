@@ -296,3 +296,46 @@ modelDirectExecutionAuthorized = false
 ```
 
 A futura execução permanece separada no App Action Broker.
+
+
+## Preparation Registry
+
+`ordax.application-action-preparation/1` is the private platform bridge between an authority-free Application Action proposal and the existing Personal OrdaX approval/grant pipeline.
+
+It does **not** execute an app action.
+
+The preparation registry:
+
+- re-resolves the exact current capability through the verified capability registry;
+- re-proposes the exact arguments and rejects stale capability/proposal identity;
+- accepts only verified `first-party-native` capabilities in this first slice;
+- binds the proposal to an explicit Personal OrdaX `workItemId`;
+- maps risk conservatively to the existing Action Gateway effect classes:
+  - `read-only -> read`;
+  - `local-change -> write`;
+  - `external-effect -> external-egress`;
+  - `privileged -> device-control`;
+- replaces raw proposal arguments at the authority boundary with an opaque resource reference:
+  `application-action:<preparationId>`;
+- keeps `authority=none`, `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`;
+- exposes only `prepare`, `resolve`, `revoke` and `listForWork`.
+
+The registry deliberately does not expose `execute`, `invoke`, `run`, `grant`, `authorize` or `confirm`.
+
+The opaque resource reference is intended to become the exact `resourceRef` bound into the existing Personal OrdaX approval and Intelligence Tool Grant. A future typed first-party provider adapter may resolve the preparation only after the existing Action Gateway has produced an exact allow decision.
+
+This keeps the execution chain singular:
+
+```text
+verified app capability
+  -> authority-free proposal
+  -> preparation resourceRef
+  -> Personal OrdaX approval
+  -> scoped grant
+  -> existing Action Gateway
+  -> existing Action Executor
+  -> future typed app provider adapter
+  -> receipt
+```
+
+No second permission store, grant issuer, confirmation system or receipt format is introduced.
