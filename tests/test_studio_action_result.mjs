@@ -140,12 +140,48 @@ test("device action result accepts bounded multiline JSON-safe output", () => {
   assert.match(value.output.content, /line two/);
   assert.equal(Object.isFrozen(value), true);
   assert.equal(Object.isFrozen(value.output), true);
+  assert.equal(Object.getPrototypeOf(value.output), null);
 });
 
-test("device action result rejects credential-like output fields", () => {
+test("device action result rejects credential-like output fields and normalized variants", () => {
+  for (const output of [
+    { token: "must-not-leak" },
+    { access_token: "must-not-leak" },
+    { apiKey: "must-not-leak" },
+    { nested: { refresh_token: "must-not-leak" } },
+  ]) {
+    assert.throws(
+      () => validateDeviceActionResult(result({ output })),
+      /credential-like field/,
+    );
+  }
+});
+
+test("device action result rejects prototype-pollution keys", () => {
+  const polluted = Object.create(null);
+  polluted.__proto__ = { polluted: true };
   assert.throws(
-    () => validateDeviceActionResult(result({ output: { token: "must-not-leak" } })),
-    /credential-like field token/,
+    () => validateDeviceActionResult(result({ output: polluted })),
+    /structural field __proto__/,
+  );
+
+  for (const key of ["constructor", "prototype"]) {
+    assert.throws(
+      () => validateDeviceActionResult(result({ output: { [key]: "blocked" } })),
+      /structural field/,
+    );
+  }
+  assert.equal({}.polluted, undefined);
+});
+
+test("device action result accepts only plain JSON objects", () => {
+  assert.throws(
+    () => validateDeviceActionResult(result({ output: new Date(0) })),
+    /plain JSON objects/,
+  );
+  assert.throws(
+    () => validateDeviceActionResult(result({ output: new Map([["safe", "value"]]) })),
+    /plain JSON objects/,
   );
 });
 
