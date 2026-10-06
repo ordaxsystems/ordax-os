@@ -142,3 +142,54 @@ permission + confirmation gates
 ```
 
 A leitura física de `ai/manifest.json` do slot instalado pertence à composição/runtime confiável e não ao modelo, ao Studio ou ao próprio app.
+
+
+## Leitura do slot verificado no Native
+
+No Native/Stable, a composição não lê o pacote diretamente e o modelo nunca recebe acesso ao diretório de component slots.
+
+O Native Host expõe somente uma projeção dedicada:
+
+```text
+GET /__ordax/native/app-intelligence-manifest?component=<app-id>
+```
+
+A implementação:
+
+- resolve o `current` pelo helper assinado do lifecycle de componentes;
+- exige fonte `SLOT` ativa;
+- prende a leitura a `version + sourceCommit` exatos;
+- lê somente `system/apps/<app-id>/ai/manifest.json`;
+- rejeita schema, identidade, versão, autoridade ou modo de execução divergentes;
+- retorna `404` quando não há slot ativo;
+- nunca oferece caminho de arquivo arbitrário ao consumidor de Intelligence.
+
+A composição Native revalida novamente o manifesto pelo contrato público e só então o fornece ao `application-awareness`.
+
+## Injeção no Intelligence real
+
+O wrapper `application-context.mjs` adiciona o item de Application Awareness às requisições consultivas do usuário quando houver orçamento de contexto.
+
+Ele não substitui contexto existente, não remove limites e não expõe `execute`, `run` ou `invoke`.
+
+A ordem é:
+
+```text
+slot assinado atual
+   ↓
+Native Host (leitura exata do manifesto)
+   ↓
+adapter Native
+   ↓
+application-awareness
+   ↓
+application-context
+   ↓
+Profile/Memory context
+   ↓
+Ordax Intelligence
+```
+
+Rotinas internas de extração de Memory continuam usando o Intelligence base sem o catálogo de apps, evitando contexto irrelevante e dependências circulares.
+
+Apps sem slot verificado continuam conhecidos apenas pela identidade first-party já disponível; eles não recebem semântica inventada. Produtos externalizados como Notes só entram na projeção completa quando o lifecycle/Store fornecer uma identidade first-party instalada canônica.
