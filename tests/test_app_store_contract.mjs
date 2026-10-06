@@ -38,7 +38,7 @@ test("Store never marks an unverified artifact as installable", () => {
       entries: [{
         appId: "notes",
         title: "Notas",
-        version: "0.4.2",
+        version: "0.4.3",
         state: "available",
         installable: true,
         installed: false,
@@ -60,7 +60,7 @@ test("Store accepts verified catalog presentation without granting authority", (
     entries: [{
       appId: "notes",
       title: "Notas",
-      version: "0.4.2",
+      version: "0.4.3",
       state: "available",
       installable: true,
       installed: false,
