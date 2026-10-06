@@ -10,8 +10,9 @@ import {
 
 const SOURCE_COMMIT = "7".repeat(40);
 const PROVIDER_SHA = "a".repeat(64);
+const OWNER = "washingtonmsdj/ordax-apps";
 
-function component() {
+function component({ owner = OWNER } = {}) {
   return {
     schema: "ordax.component-manifest/1",
     id: "notes",
@@ -23,7 +24,7 @@ function component() {
     failureDomain: "app",
     restartScope: "component",
     healthMode: "runtime",
-    owner: "washingtonmsdj/ordax-apps",
+    owner,
     dependencies: [],
   };
 }
@@ -81,8 +82,8 @@ function providerManifest() {
   };
 }
 
-function verifiedEntry({ provider = providerManifest() } = {}) {
-  const app = component();
+function verifiedEntry({ provider = providerManifest(), owner = OWNER } = {}) {
+  const app = component({ owner });
   return {
     application: { id: app.id, title: app.title, component: app },
     intelligenceManifest: null,
@@ -157,6 +158,7 @@ test("provider resolver binds preparation to exact current verified artifact wit
   const artifactUrls = [];
   const resolver = createApplicationActionProviderResolver({
     verifiedEntries: [verifiedEntry()],
+    expectedOwner: OWNER,
     source: packageSource(),
     async fetchImpl(url, options) {
       assert.equal(new URL(url).pathname, "/__ordax/native/component-runtime");
@@ -207,6 +209,7 @@ test("provider resolver rejects slot identity drift before reading artifact byte
   let artifactReads = 0;
   const resolver = createApplicationActionProviderResolver({
     verifiedEntries: [verifiedEntry()],
+    expectedOwner: OWNER,
     source: packageSource(),
     async fetchImpl() {
       return jsonResponse(metadata({ revision: 13 }));
@@ -227,6 +230,7 @@ test("provider resolver rejects slot identity drift before reading artifact byte
 test("provider resolver rejects provider artifact hash drift", async () => {
   const resolver = createApplicationActionProviderResolver({
     verifiedEntries: [verifiedEntry()],
+    expectedOwner: OWNER,
     source: packageSource(),
     async fetchImpl() {
       return jsonResponse(metadata());
@@ -245,6 +249,7 @@ test("provider resolver rejects provider artifact hash drift", async () => {
 test("legacy verified Actions without provider artifact remain non-resolvable", async () => {
   const resolver = createApplicationActionProviderResolver({
     verifiedEntries: [verifiedEntry({ provider: null })],
+    expectedOwner: OWNER,
     source: packageSource(),
     async fetchImpl() {
       throw new Error("metadata must not be read without a provider artifact");
@@ -265,6 +270,7 @@ test("resolver rejects a preparation whose provider revision is no longer declar
   changed.provider.revision = "2";
   const resolver = createApplicationActionProviderResolver({
     verifiedEntries: [verifiedEntry()],
+    expectedOwner: OWNER,
     source: packageSource(),
     async fetchImpl() {
       throw new Error("metadata must not be read after provider mismatch");
@@ -278,4 +284,39 @@ test("resolver rejects a preparation whose provider revision is no longer declar
     () => resolver.resolve(changed),
     /artifact no longer matches preparation/,
   );
+});
+
+test("provider resolver requires an injected canonical owner", () => {
+  assert.throws(
+    () => createApplicationActionProviderResolver({
+      verifiedEntries: [verifiedEntry()],
+      source: packageSource(),
+      fetchImpl: async () => jsonResponse(metadata()),
+      artifactIdentity: async () => PROVIDER_SHA,
+    }),
+    /expected owner is invalid/,
+  );
+});
+
+test("provider resolver rejects owner drift before metadata or artifact reads", () => {
+  let metadataReads = 0;
+  let artifactReads = 0;
+  assert.throws(
+    () => createApplicationActionProviderResolver({
+      verifiedEntries: [verifiedEntry({ owner: "foreign/apps" })],
+      expectedOwner: OWNER,
+      source: packageSource(),
+      async fetchImpl() {
+        metadataReads += 1;
+        return jsonResponse(metadata());
+      },
+      async artifactIdentity() {
+        artifactReads += 1;
+        return PROVIDER_SHA;
+      },
+    }),
+    /app identity is not verified first-party/,
+  );
+  assert.equal(metadataReads, 0);
+  assert.equal(artifactReads, 0);
 });
