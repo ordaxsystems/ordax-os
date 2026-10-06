@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { createNativeVerifiedComponentPackageSource } from "../system/adapters/native/verified-component-package-source.mjs";
 import {
+  EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
   loadVerifiedFirstPartyApplicationSemantics,
   loadVerifiedFirstPartyIntelligenceManifests,
 } from "../system/services/intelligence/verified-app-semantics.mjs";
@@ -100,6 +102,23 @@ function verifiedFetch({ appId = "notes", version = "0.4.1", app = null, ai = nu
     },
   };
 }
+
+test("external semantic app projection matches canonical runtime component source policy", async () => {
+  const policy = JSON.parse(
+    await readFile(
+      new URL("../docs/contracts/runtime-component-package.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const external = policy.canonical_external_source_repository_by_component;
+  assert.deepEqual(
+    [...EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS].sort(),
+    Object.keys(external).sort(),
+  );
+  for (const appId of EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS) {
+    assert.equal(external[appId], "washingtonmsdj/ordax-apps");
+  }
+});
 
 test("verified app semantics binds app identity and AI manifest to the exact current slot", async () => {
   const source = createNativeVerifiedComponentPackageSource(windowRef());
