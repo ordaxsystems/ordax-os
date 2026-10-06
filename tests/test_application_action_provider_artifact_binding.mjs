@@ -155,6 +155,20 @@ function setup({
   return { preparation, preparations, resolver };
 }
 
+test("provider resolver omits artifact capability when no artifact hasher is configured", async () => {
+  const { preparation, resolver } = setup({
+    resolveArtifactSha256: null,
+  });
+
+  assert.equal(typeof resolver.resolveArtifact, "undefined");
+  const binding = await resolver.resolve(preparation.resourceRef);
+  assert.equal(binding.schema, "ordax.application-action-provider-binding/1");
+  assert.equal(binding.resourceRef, preparation.resourceRef);
+  assert.equal(binding.authority, "none");
+  assert.equal(binding.executionAuthorized, false);
+  assert.equal(binding.modelDirectExecutionAuthorized, false);
+});
+
 test("provider resolver binds exact provider module SHA without execution authority", async () => {
   let request = null;
   const { preparation, resolver } = setup({
