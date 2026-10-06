@@ -1,24 +1,14 @@
-import { getFirstPartyAppDeliveryPolicy } from "./delivery-policy.mjs";
+import { listFirstPartyAppDeliveryPolicies } from "./delivery-policy.mjs";
 
 export const STORE_CATALOG_ENTRY_SCHEMA = "ordax.store-catalog-entry/1";
 
-const STORE_APP_IDS = Object.freeze([
-  "assistant",
-  "studio",
-  "projects",
-  "activity",
-  "notes",
-  "network",
-]);
-
-function defineEntry(appId) {
-  const policy = getFirstPartyAppDeliveryPolicy(appId);
+function defineEntry(policy) {
   if (!policy || policy.deliveryClass !== "on-demand") {
-    throw new TypeError(`Store catalog entry ${appId} must reference an on-demand first-party delivery policy`);
+    throw new TypeError("Store catalog entries must come from on-demand first-party delivery policy");
   }
   return Object.freeze({
     schema: STORE_CATALOG_ENTRY_SCHEMA,
-    appId,
+    appId: policy.appId,
     deliveryClass: policy.deliveryClass,
     discovery: policy.discovery,
     removable: policy.removable,
@@ -28,7 +18,11 @@ function defineEntry(appId) {
   });
 }
 
-const ENTRIES = Object.freeze(STORE_APP_IDS.map(defineEntry));
+const ENTRIES = Object.freeze(
+  listFirstPartyAppDeliveryPolicies()
+    .filter((policy) => policy.deliveryClass === "on-demand")
+    .map(defineEntry),
+);
 const ENTRY_BY_ID = new Map(ENTRIES.map((entry) => [entry.appId, entry]));
 if (ENTRY_BY_ID.size !== ENTRIES.length) {
   throw new TypeError("Store catalog app ids must be unique");
