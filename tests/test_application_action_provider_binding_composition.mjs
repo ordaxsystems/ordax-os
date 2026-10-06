@@ -223,8 +223,22 @@ function packageSource() {
   });
 }
 
-function composition({ onResolve = null, onArtifactIdentity = null } = {}) {
+function composition({
+  onResolve = null,
+  onArtifactIdentity = null,
+  withArtifactBoundary = true,
+} = {}) {
   let runtime = null;
+  const artifactInputs = withArtifactBoundary
+    ? {
+        verifiedComponentPackageSource: packageSource(),
+        verifiedComponentFetch: async () => jsonResponse(metadata()),
+        applicationActionProviderArtifactIdentity: async (url) => {
+          if (onArtifactIdentity !== null) await onArtifactIdentity(runtime, url);
+          return PROVIDER_SHA;
+        },
+      }
+    : {};
   runtime = createNativePersonalOrdaxComposition({
     windowRef: { localStorage: memoryStorage() },
     identitySession: identitySession(),
@@ -236,13 +250,8 @@ function composition({ onResolve = null, onArtifactIdentity = null } = {}) {
       if (onResolve !== null) await onResolve(runtime);
       return verifiedSemantics();
     },
-    verifiedComponentPackageSource: packageSource(),
-    verifiedComponentFetch: async () => jsonResponse(metadata()),
-    applicationActionProviderArtifactIdentity: async (url) => {
-      if (onArtifactIdentity !== null) await onArtifactIdentity(runtime, url);
-      return PROVIDER_SHA;
-    },
     expectedApplicationActionProviderOwner: OWNER,
+    ...artifactInputs,
   });
   return runtime;
 }
@@ -332,7 +341,6 @@ test("Personal OrdaX refuses provider binding after preparation revocation", asy
   runtime.dispose();
 });
 
-
 test("Personal OrdaX resolves exact provider artifact identity without loading the provider", async () => {
   const artifactUrls = [];
   const runtime = composition({
@@ -398,6 +406,55 @@ test("Personal OrdaX fails closed when Work changes during provider artifact has
     ),
     /changed during provider binding resolution/,
   );
+  assert.equal(typeof runtime.executeApplicationAction, "undefined");
+
+  runtime.dispose();
+});
+
+test("Personal OrdaX composes broker-only unavailable provider activation without authority", async () => {
+  const runtime = composition();
+  const { work, preparation } = prepare(runtime);
+  const before = runtime.getSnapshot();
+
+  const activation = await runtime.resolveApplicationActionProviderActivation(
+    preparation.resourceRef,
+  );
+
+  assert.equal(activation.schema, "ordax.application-action-provider-activation/1");
+  assert.equal(activation.resolution.resourceRef, preparation.resourceRef);
+  assert.equal(activation.resolution.workItemId, work.id);
+  assert.equal(activation.resolution.appId, "notes");
+  assert.equal(activation.resolution.actionId, "notes.create-note");
+  assert.equal(activation.providerExecution, "unavailable");
+  assert.equal(activation.state, "unavailable");
+  assert.equal(activation.brokerOnly, true);
+  assert.equal(activation.authority, "none");
+  assert.equal(activation.executionAuthorized, false);
+  assert.equal(activation.modelDirectExecutionAuthorized, false);
+
+  const after = runtime.getSnapshot();
+  assert.equal(after.approvals.length, before.approvals.length);
+  assert.equal(after.decisions.length, before.decisions.length);
+  assert.equal(after.attempts.length, before.attempts.length);
+  assert.equal(typeof runtime.activateApplicationActionProvider, "undefined");
+  assert.equal(typeof runtime.deactivateApplicationActionProvider, "undefined");
+  assert.equal(typeof runtime.importApplicationActionProvider, "undefined");
+  assert.equal(typeof runtime.loadApplicationActionProvider, "undefined");
+  assert.equal(typeof runtime.executeApplicationAction, "undefined");
+  assert.equal(typeof runtime.issueApplicationActionGrant, "undefined");
+
+  runtime.dispose();
+});
+
+test("Personal OrdaX fails closed when provider artifact boundary is not configured", async () => {
+  const runtime = composition({ withArtifactBoundary: false });
+  const { preparation } = prepare(runtime);
+
+  await assert.rejects(
+    () => runtime.resolveApplicationActionProviderActivation(preparation.resourceRef),
+    /provider activation is unavailable/,
+  );
+  assert.equal(typeof runtime.activateApplicationActionProvider, "undefined");
   assert.equal(typeof runtime.executeApplicationAction, "undefined");
 
   runtime.dispose();

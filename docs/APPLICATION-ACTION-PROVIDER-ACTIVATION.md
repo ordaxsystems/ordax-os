@@ -47,6 +47,20 @@ For every broker resolution:
 
 The broker never evaluates provider bytes.
 
+## Native Personal OrdaX composition
+
+The Native Personal OrdaX composition now mounts this broker only when the existing verified provider artifact resolver is available.
+
+It reuses the same live `resolveVerifiedApplicationSemantics(appId)` source and the same injected canonical first-party owner used by provider binding and artifact resolution. No second owner constant, provider registry, permission store, grant issuer, executor or receipt system is introduced.
+
+The only new Personal OrdaX surface is:
+
+`resolveApplicationActionProviderActivation(resourceRef)`
+
+That method performs a read-only broker resolution and returns the v1 unavailable activation record. If verified provider artifact resolution is not configured, the method fails closed instead of synthesizing activation state.
+
+The composition does not expose `activate`, `deactivate`, `import`, `load`, `loadAdapter`, `mount`, `registerAdapter`, `invoke`, `execute`, `grant`, `authorize` or `confirm` for Application Actions.
+
 ## Future boundary
 
 A future schema may add a broker-only executable state only after the package/provider manifest contract explicitly supports it.
