@@ -3662,6 +3662,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     "componentId": resolution.component_id,
                     "state": resolution.state,
                     "source": resolution.source,
+                    "sourceRepository": resolution.source_repository,
                     "revision": resolution.revision,
                     "version": resolution.version,
                     "sourceCommit": resolution.source_commit,
