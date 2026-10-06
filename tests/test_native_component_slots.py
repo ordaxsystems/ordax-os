@@ -245,6 +245,91 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIn("system/apps/notes/ai/manifest.json", read_argv)
         self.assertNotIn("system/apps/notes/src/runtime.mjs", read_argv)
 
+    def test_installed_first_party_awareness_binds_app_and_ai_manifests_to_same_slot(self):
+        commit = "d" * 40
+        resolution = (
+            "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            "COMPONENT_ID=notes\n"
+            "REVISION=12\n"
+            "SOURCE=SLOT\n"
+            "CURRENT_VERSION=0.4.1\n"
+            f"CURRENT_SOURCE_COMMIT={commit}\n"
+            f"SLOT=/var/lib/ordax/components/notes/versions/0.4.1/{commit}\n"
+            "ENTRYPOINT=system/apps/notes/src/runtime.mjs\n"
+            "RUNTIME_SERVED_FROM_SLOT=NO\n"
+        ).encode("utf-8")
+        app_manifest = (
+            '{"schema":"ordax.component-manifest/1","id":"notes","title":"Notas",'
+            '"kind":"app","version":"0.4.1","releaseMode":"component-slot",'
+            '"criticality":"optional","failureDomain":"app","restartScope":"component",'
+            '"healthMode":"runtime","owner":"washingtonmsdj/ordax-apps","dependencies":[]}'
+        ).encode("utf-8")
+        intelligence_manifest = (
+            '{"schema":"ordax.app-intelligence-manifest/1",'
+            '"appId":"notes","appVersion":"0.4.1","authority":"none",'
+            '"execution":"declarative-only","instructions":["Somente capacidades declaradas."],'
+            '"intents":[]}'
+        ).encode("utf-8")
+        responses = [
+            subprocess.CompletedProcess([], 0, stdout=resolution, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=app_manifest, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=intelligence_manifest, stderr=b""),
+        ]
+        with mock.patch.object(slots.subprocess, "run", side_effect=responses) as run:
+            resolved, component, semantics = slots.read_verified_first_party_app_awareness_bundle(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="notes",
+            )
+
+        self.assertEqual(resolved.version, "0.4.1")
+        self.assertEqual(component["id"], "notes")
+        self.assertEqual(component["title"], "Notas")
+        self.assertEqual(component["owner"], "washingtonmsdj/ordax-apps")
+        self.assertEqual(semantics["appId"], "notes")
+        self.assertEqual(run.call_count, 3)
+        app_read = run.call_args_list[1].args[0]
+        ai_read = run.call_args_list[2].args[0]
+        self.assertIn("system/apps/notes/app.json", app_read)
+        self.assertIn("system/apps/notes/ai/manifest.json", ai_read)
+        for argv in (app_read, ai_read):
+            self.assertIn("0.4.1", argv)
+            self.assertIn(commit, argv)
+
+    def test_installed_first_party_awareness_rejects_noncanonical_owner(self):
+        commit = "e" * 40
+        resolution = (
+            "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            "COMPONENT_ID=notes\n"
+            "REVISION=13\n"
+            "SOURCE=SLOT\n"
+            "CURRENT_VERSION=0.4.1\n"
+            f"CURRENT_SOURCE_COMMIT={commit}\n"
+            f"SLOT=/var/lib/ordax/components/notes/versions/0.4.1/{commit}\n"
+            "ENTRYPOINT=system/apps/notes/src/runtime.mjs\n"
+            "RUNTIME_SERVED_FROM_SLOT=NO\n"
+        ).encode("utf-8")
+        app_manifest = (
+            '{"schema":"ordax.component-manifest/1","id":"notes","title":"Notas",'
+            '"kind":"app","version":"0.4.1","releaseMode":"component-slot",'
+            '"criticality":"optional","failureDomain":"app","restartScope":"component",'
+            '"healthMode":"runtime","owner":"untrusted/repository","dependencies":[]}'
+        ).encode("utf-8")
+        responses = [
+            subprocess.CompletedProcess([], 0, stdout=resolution, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=app_manifest, stderr=b""),
+        ]
+        with mock.patch.object(slots.subprocess, "run", side_effect=responses):
+            with self.assertRaisesRegex(
+                slots.ComponentSlotVerificationError,
+                "owner is not canonical",
+            ):
+                slots.read_verified_first_party_app_awareness_bundle(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust.json",
+                    component_id="notes",
+                )
+
     def test_app_intelligence_manifest_reader_rejects_absent_or_mismatched_identity(self):
         absent = (
             b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
