@@ -3,9 +3,11 @@ import test from "node:test";
 
 import {
   APP_INSTALL_REQUEST_PORT_SCHEMA,
+  APP_INSTALL_REQUEST_RESULT_SCHEMA,
   APP_INSTALL_REQUEST_SCHEMA,
   assertAppInstallRequestPort,
   validateAppInstallRequest,
+  validateAppInstallRequestResult,
 } from "../system/contracts/app-install-request.mjs";
 
 test("Store install request is presentation-only and authority-free", () => {
@@ -92,5 +94,34 @@ test("install request port exposes request only, not lifecycle authority", () =>
       promote() {},
     }),
     /must not expose lifecycle authority/,
+  );
+});
+
+test("install request receipt preserves request identity and remains authority-free", () => {
+  const accepted = validateAppInstallRequestResult({
+    schema: APP_INSTALL_REQUEST_RESULT_SCHEMA,
+    requestId: "store:notes:7",
+    appId: "notes",
+    state: "accepted",
+    reason: null,
+    authority: "none",
+  });
+  assert.equal(accepted.requestId, "store:notes:7");
+  assert.equal(accepted.authority, "none");
+
+  assert.throws(
+    () => validateAppInstallRequestResult({
+      ...accepted,
+      authority: "install",
+    }),
+    /authority:none/,
+  );
+  assert.throws(
+    () => validateAppInstallRequestResult({
+      ...accepted,
+      state: "rejected",
+      reason: null,
+    }),
+    /requires reason/,
   );
 });
