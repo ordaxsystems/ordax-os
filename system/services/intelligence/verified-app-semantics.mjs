@@ -1,6 +1,9 @@
 import { validateAppIntelligenceManifest } from "../../contracts/app-intelligence-manifest.mjs";
 import { validateApplicationActionManifest } from "../../contracts/application-action-manifest.mjs";
 import {
+  validateApplicationActionProviderManifest,
+} from "../../contracts/application-action-provider-manifest.mjs";
+import {
   COMPONENT_MANIFEST_SCHEMA,
   defineComponentManifest,
   validateComponentId,
@@ -12,7 +15,7 @@ import {
 import { assertVerifiedComponentPackageSource } from "../../contracts/verified-component-package-source.mjs";
 
 const MAX_APP_MANIFESTS = 32;
-const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
+export const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
 export const EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS = Object.freeze(["notes", "studio"]);
 
 function validateAppIds(value) {
@@ -301,6 +304,24 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
           }),
         );
 
+    const rawProviderManifest = actionManifest === null
+      ? null
+      : await readOptionalVerifiedPackageJson({
+          appId,
+          metadata,
+          path: `system/apps/${appId}/actions/providers/manifest.json`,
+          packageSource,
+          fetchImpl,
+          label: `Verified app Application Action provider manifest for ${appId}`,
+        });
+    const providerManifest = rawProviderManifest === null
+      ? null
+      : validateApplicationActionProviderManifest(rawProviderManifest, {
+          appId: component.id,
+          appVersion: component.version,
+          actionManifest,
+        });
+
     entries.push(Object.freeze({
       application: Object.freeze({
         id: component.id,
@@ -309,6 +330,7 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
       }),
       intelligenceManifest,
       actionManifest,
+      providerManifest,
       sourceCommit: metadata.sourceCommit,
       revision: metadata.revision,
     }));
@@ -351,6 +373,18 @@ function validateVerifiedOverlayEntry(entry) {
           appVersion: component.version,
         }),
       );
+  if (entry.providerManifest != null && actionManifest === null) {
+    throw new TypeError(
+      `Verified app provider manifest cannot exist without Application Actions: ${id}`,
+    );
+  }
+  const providerManifest = entry.providerManifest == null
+    ? null
+    : validateApplicationActionProviderManifest(entry.providerManifest, {
+        appId: component.id,
+        appVersion: component.version,
+        actionManifest,
+      });
   const sourceCommit = validateComponentSlotSourceCommit(entry.sourceCommit);
   if (!Number.isSafeInteger(entry.revision) || entry.revision < 0) {
     throw new TypeError(`Verified app semantics overlay revision is invalid for ${id}`);
@@ -363,6 +397,7 @@ function validateVerifiedOverlayEntry(entry) {
     }),
     intelligenceManifest,
     actionManifest,
+    providerManifest,
     sourceCommit,
     revision: entry.revision,
   });
@@ -413,4 +448,11 @@ export async function loadVerifiedFirstPartyIntelligenceManifests(options = {}) 
 export async function loadVerifiedFirstPartyApplicationActionManifests(options = {}) {
   const entries = await loadVerifiedFirstPartyApplicationSemantics(options);
   return Object.freeze(entries.flatMap((entry) => entry.actionManifest === null ? [] : [entry.actionManifest]));
+}
+
+export async function loadVerifiedFirstPartyApplicationActionProviderManifests(options = {}) {
+  const entries = await loadVerifiedFirstPartyApplicationSemantics(options);
+  return Object.freeze(
+    entries.flatMap((entry) => entry.providerManifest === null ? [] : [entry.providerManifest]),
+  );
 }
