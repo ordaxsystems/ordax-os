@@ -57,7 +57,7 @@ On-demand apps are never silently installed merely because they appear in the ca
 
 ## Uninstall and user data
 
-Removing an application payload and removing user data are separate operations.
+Removing an application installation and removing user data are separate operations. For a `component-slot` app, the authoritative installed state is the verified activation reference, not the mere presence of an immutable slot in the local cache. Uninstall clears that activation state through the canonical runtime-component lifecycle; cache garbage collection is separate.
 
 Uninstall must not implicitly delete documents, Projects, Space data, App Data or Memory. Shared dependencies also require a real ownership/reference policy before removal; filename/path heuristics are not sufficient.
 
