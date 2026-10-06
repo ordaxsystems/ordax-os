@@ -7,8 +7,10 @@ on:
       - 'docs/contracts/personal-ordax-native-state.json'
       - 'system/surface/runtime/native_personal_ordax_state.py'
       - 'system/surface/runtime/native_personal_ordax_endpoint.py'
+      - 'system/adapters/native/bounded-json-transport.mjs'
       - 'system/adapters/native/personal-ordax-state.mjs'
       - 'system/services/personal-ordax/native-state-migration.mjs'
+      - 'tests/test_native_bounded_json_transport.mjs'
       - 'tests/test_personal_ordax_native_state.py'
       - 'tests/test_personal_ordax_native_endpoint.py'
       - 'tests/test_personal_ordax_native_transport.mjs'
@@ -21,8 +23,10 @@ on:
       - 'docs/contracts/personal-ordax-native-state.json'
       - 'system/surface/runtime/native_personal_ordax_state.py'
       - 'system/surface/runtime/native_personal_ordax_endpoint.py'
+      - 'system/adapters/native/bounded-json-transport.mjs'
       - 'system/adapters/native/personal-ordax-state.mjs'
       - 'system/services/personal-ordax/native-state-migration.mjs'
+      - 'tests/test_native_bounded_json_transport.mjs'
       - 'tests/test_personal_ordax_native_state.py'
       - 'tests/test_personal_ordax_native_endpoint.py'
       - 'tests/test_personal_ordax_native_transport.mjs'
@@ -50,6 +54,7 @@ jobs:
           python -m py_compile \
             system/surface/runtime/native_personal_ordax_state.py \
             system/surface/runtime/native_personal_ordax_endpoint.py
+          node --check system/adapters/native/bounded-json-transport.mjs
           node --check system/adapters/native/personal-ordax-state.mjs
           node --check system/services/personal-ordax/native-state-migration.mjs
 
@@ -60,9 +65,10 @@ jobs:
             tests.test_personal_ordax_native_state \
             tests.test_personal_ordax_native_endpoint
 
-      - name: Prove async transport without browser state mirror
+      - name: Prove shared bounded transport and async owner bridge
         run: |
           set -euo pipefail
+          node --test tests/test_native_bounded_json_transport.mjs
           node --test tests/test_personal_ordax_native_transport.mjs
 
       - name: Prove one-way legacy migration never overwrites divergence
