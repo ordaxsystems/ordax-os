@@ -33,6 +33,27 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "application-action-capability",
+        "path": "system/contracts/application-action-capability.mjs",
+        "constant": "APPLICATION_ACTION_CAPABILITY_SCHEMA",
+        "schema": "ordax.application-action-capability/1",
+        "major": 1,
+    },
+    {
+        "name": "application-action-capability-registry",
+        "path": "system/contracts/application-action-capability.mjs",
+        "constant": "APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA",
+        "schema": "ordax.application-action-capability-registry/1",
+        "major": 1,
+    },
+    {
+        "name": "application-action-proposal",
+        "path": "system/contracts/application-action-capability.mjs",
+        "constant": "APPLICATION_ACTION_PROPOSAL_SCHEMA",
+        "schema": "ordax.application-action-proposal/1",
+        "major": 1,
+    },
+    {
         "name": "component-localization",
         "path": "system/contracts/localization-pack.mjs",
         "constant": "COMPONENT_LOCALIZATION_SCHEMA",
@@ -195,7 +216,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.8.0"
+BUNDLE_VERSION = "1.9.0"
 
 
 def git_blob(path: Path) -> str:
