@@ -92,7 +92,7 @@ test("application context wrapper appends awareness as system context without ch
   assert.equal(intelligence.getSnapshot().toolExecution, false);
 });
 
-test("caller cannot spoof reserved application system context", async () => {
+test("caller cannot spoof reserved application system context", () => {
   const awareness = createApplicationIntelligenceAwareness({
     firstPartyApplications: [firstPartyApp()],
   });
@@ -101,7 +101,7 @@ test("caller cannot spoof reserved application system context", async () => {
     awarenessPort: awareness,
   });
 
-  await assert.rejects(
+  assert.throws(
     () => intelligence.respond({
       prompt: "teste",
       context: [{
