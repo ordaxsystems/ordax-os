@@ -5,7 +5,7 @@ import {
 import {
   assertProjectCloudLinksReaderPort,
   validateProjectCloudLinksSnapshot,
-} from "../../../contracts/project-cloud-links.mjs";
+} from "../../../contracts/project-cloud-links-reader.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 
