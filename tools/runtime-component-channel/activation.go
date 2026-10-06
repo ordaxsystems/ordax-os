@@ -346,7 +346,8 @@ func resolveRuntimeSlot(root, componentID, trustPath, target string) (activation
 	case "current":
 		identity = state.Current
 		if identity == nil {
-			return state, "", componentPackageManifest{}, true, nil
+			bundledFallback := canonicalSourceRepository(componentID) == sourceRepository
+			return state, "", componentPackageManifest{}, bundledFallback, nil
 		}
 	case "pending":
 		identity = state.Pending
@@ -749,7 +750,8 @@ func resolveCurrentState(root, componentID, trustPath string) (activationState, 
 		return activationState{}, "", false, err
 	}
 	if state.Current == nil {
-		return state, "", true, nil
+		bundledFallback := canonicalSourceRepository(componentID) == sourceRepository
+		return state, "", bundledFallback, nil
 	}
 	trustBytes, err := readRegular(trustPath, maxTrustBytes, false)
 	if err != nil {
@@ -969,10 +971,14 @@ func resolveCurrentCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	if bundled {
+	if state.Current == nil {
+		source := "ABSENT"
+		if bundled {
+			source = "BUNDLED"
+		}
 		fmt.Printf(
-			"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=BUNDLED\nRUNTIME_SERVED_FROM_SLOT=NO\n",
-			state.ComponentID, state.Revision,
+			"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
+			state.ComponentID, state.Revision, source,
 		)
 		return nil
 	}
