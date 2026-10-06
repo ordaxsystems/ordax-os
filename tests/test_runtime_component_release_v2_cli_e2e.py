@@ -23,7 +23,7 @@ def run(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
 
 
 class RuntimeComponentReleaseV2CliE2ETests(unittest.TestCase):
-    def test_build_sign_verify_stage_and_verify_slot_without_activation(self):
+    def test_build_sign_verify_stage_activate_remove_and_keep_verified_cache(self):
         source_commit = run("git", "rev-parse", "HEAD").stdout.strip()
         self.assertRegex(source_commit, r"^[0-9a-f]{40}$")
 
