@@ -36,7 +36,6 @@ export function createNativePersonalOrdaxComposition({
   actionCatalog = null,
   applicationActionCapabilityRegistry = null,
   resolveVerifiedApplicationSemantics = null,
-  verifiedApplicationSemantics = null,
   verifiedComponentPackageSource = null,
   verifiedComponentFetch = null,
   applicationActionProviderArtifactIdentity = null,
@@ -54,7 +53,6 @@ export function createNativePersonalOrdaxComposition({
     throw new TypeError("Native Personal OrdaX composition adapter resolver must be a function");
   }
   const artifactInputs = [
-    verifiedApplicationSemantics,
     verifiedComponentPackageSource,
     verifiedComponentFetch,
     applicationActionProviderArtifactIdentity,
@@ -63,8 +61,7 @@ export function createNativePersonalOrdaxComposition({
   if (
     artifactInputsConfigured
     && (
-      !Array.isArray(verifiedApplicationSemantics)
-      || verifiedComponentPackageSource === null
+      verifiedComponentPackageSource === null
       || typeof verifiedComponentFetch !== "function"
       || typeof applicationActionProviderArtifactIdentity !== "function"
     )
@@ -351,7 +348,7 @@ export function createNativePersonalOrdaxComposition({
   )
     ? createApplicationActionProviderArtifactResolver({
         providerBindingResolver: applicationActionProviderBindingPort,
-        verifiedEntries: verifiedApplicationSemantics,
+        resolveVerifiedSemantics: resolveVerifiedApplicationSemantics,
         source: verifiedComponentPackageSource,
         fetchImpl: verifiedComponentFetch,
         artifactIdentity: applicationActionProviderArtifactIdentity,
