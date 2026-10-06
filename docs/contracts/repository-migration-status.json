@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.repository-migration-status/1",
-  "status": "cutover-complete-legacy-retirement-authorized",
+  "status": "cutover-complete-legacy-retired",
   "canonical_repositories": {
     "platform": "washingtonmsdj/prototipo-ordax-os",
     "apps": "washingtonmsdj/ordax-apps",
@@ -19,7 +19,8 @@
     "windows_packaging_repointed": true,
     "chatgpt_control_plane_runtime_e2e_green": true,
     "no_functional_legacy_build_deploy_launch_reference": true,
-    "safe_to_delete_legacy_repository": true
+    "safe_to_delete_legacy_repository": true,
+    "legacy_repository_contents_removed": true
   },
   "deletion_rule": "safe_to_delete_legacy_repository may become true only when every prerequisite gate is true",
   "authority": "none",
@@ -43,6 +44,10 @@
     "post_cutover_smoke_status": "succeeded",
     "mcp_tool_surface_revision": "2026-10-05.1",
     "mcp_tool_count": 85,
-    "functional_legacy_reference_audit": "PASS"
+    "functional_legacy_reference_audit": "PASS",
+    "mcp_blender_retirement_main": "ab9d6924d66539fcd10bc3b497971d9a44409bd5",
+    "post_retirement_smoke_request_id": "d0008c97-481f-4f50-980c-9d846c185c2e",
+    "post_retirement_smoke_status": "succeeded",
+    "ordax_apps_post_retirement_main": "86ff5889c49602b0260f125950c45f37fb354830"
   }
 }
