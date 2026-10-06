@@ -116,15 +116,16 @@ Local AI
 
 O `Intelligence base` continua sendo o owner de health e de inferência. O Application Context apenas acrescenta o catálogo confiável ao contexto de uma requisição e preserva `authority=none` e `toolExecution=false`.
 
-A composição:
+A composição usa uma única factory, `createNativeVerifiedApplicationContextIntelligence()`, para evitar que o wiring real e os testes mantenham duas implementações do mesmo fluxo. Internamente ela:
 
-1. cria `createNativeVerifiedComponentPackageSource(window)`;
-2. carrega somente `EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS`;
-3. aplica `overlayVerifiedFirstPartyApplications()` sobre o catálogo first-party local;
-4. constrói `createApplicationIntelligenceAwareness()` com os manifests provenientes das mesmas entries verificadas;
-5. envolve o port já enriquecido por Profile Content com `createApplicationContextIntelligence()`;
-6. mantém `actionCapabilityRegistryPort=null` até existir catálogo real e autoritativo de capabilities;
-7. mantém Memory/Identity/Space como wrapper externo final.
+1. cria a fonte verificada de component packages;
+2. carrega somente `EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS`, isolando falhas por app;
+3. aplica o overlay verificado sobre o catálogo first-party local;
+4. constrói o Application Intelligence Awareness a partir das mesmas entries verificadas;
+5. envolve o port que já passou por Profile Content com o Application Context;
+6. mantém explicitamente `actionCapabilityRegistryPort=null` até existir catálogo real e autoritativo de capabilities.
+
+Memory/Identity/Space continuam como wrapper externo final.
 
 Se a fonte verificada estiver indisponível ou falhar, a composição preserva o catálogo local e não inventa semântica externa.
 
