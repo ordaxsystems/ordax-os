@@ -3,6 +3,13 @@ import {
 } from "../../contracts/application-action-capability.mjs";
 import { validateApplicationActionManifest } from "../../contracts/application-action-manifest.mjs";
 import {
+  validateApplicationActionProviderManifest,
+} from "../../contracts/application-action-provider-manifest.mjs";
+import {
+  APPLICATION_ACTION_PROVIDER_ARTIFACT_BINDING_SCHEMA,
+  validateApplicationActionProviderArtifactBinding,
+} from "../../contracts/application-action-provider-artifact-binding.mjs";
+import {
   APPLICATION_ACTION_PROVIDER_BINDING_SCHEMA,
   APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA,
   assertApplicationActionProviderResolver,
@@ -16,6 +23,8 @@ import {
 } from "../../contracts/application-action-preparation.mjs";
 import { defineComponentManifest } from "../../contracts/component-manifest.mjs";
 import { validateComponentSlotSourceCommit } from "../../contracts/component-slot-source.mjs";
+
+const SHA256_RE = /^[0-9a-f]{64}$/;
 
 const RISK_TO_EFFECT = Object.freeze({
   "read-only": "read",
@@ -93,11 +102,19 @@ function validateVerifiedSemanticsEntry(value, preparation, expectedOwner) {
   if (!capability) {
     throw new Error("Prepared Application Action is no longer declared by the verified package");
   }
+  const providerManifest = value.providerManifest == null
+    ? null
+    : validateApplicationActionProviderManifest(value.providerManifest, {
+        appId: component.id,
+        appVersion: component.version,
+        actionManifest,
+      });
   return Object.freeze({
     component,
     sourceCommit,
     componentRevision: value.revision,
     capability,
+    providerManifest,
   });
 }
 
@@ -105,6 +122,7 @@ export function createApplicationActionProviderResolver({
   preparationRegistry: preparationRegistryValue,
   capabilityRegistry: capabilityRegistryValue,
   resolveVerifiedSemantics,
+  resolveProviderArtifactSha256 = null,
   expectedOwner,
 } = {}) {
   const preparationRegistry = assertApplicationActionPreparationRegistry(
@@ -116,69 +134,161 @@ export function createApplicationActionProviderResolver({
   if (typeof resolveVerifiedSemantics !== "function") {
     throw new TypeError("Application action provider resolver requires verified semantics resolver");
   }
+  if (
+    resolveProviderArtifactSha256 !== null
+    && typeof resolveProviderArtifactSha256 !== "function"
+  ) {
+    throw new TypeError(
+      "Application action provider artifact identity resolver must be a function or null",
+    );
+  }
   const owner = boundedOwner(expectedOwner);
+
+  const resolveBinding = async (resourceRef) => {
+    const retained = preparationRegistry.resolve(resourceRef);
+    if (retained === null) return null;
+    const preparation = validateApplicationActionPreparation(retained);
+
+    const currentCapability = capabilityRegistry.get(
+      preparation.proposal.appId,
+      preparation.proposal.actionId,
+    );
+    if (!currentCapability) {
+      throw new Error("Prepared Application Action capability is no longer available");
+    }
+    if (
+      currentCapability.sourceClass !== "first-party"
+      || currentCapability.platform !== "ordax"
+      || currentCapability.provider.kind !== "first-party-native"
+      || currentCapability.binding.payloadSha256 !== null
+    ) {
+      throw new Error("Prepared Application Action no longer resolves to a first-party provider");
+    }
+    const currentProposal = capabilityRegistry.propose(
+      preparation.proposal.appId,
+      preparation.proposal.actionId,
+      preparation.proposal.arguments,
+    );
+    if (!sameApplicationActionProposal(preparation.proposal, currentProposal)) {
+      throw new Error("Prepared Application Action proposal is stale");
+    }
+    if (!sameProvider(currentCapability.provider, preparation.provider)) {
+      throw new Error("Prepared Application Action provider revision is stale");
+    }
+    if (RISK_TO_EFFECT[currentCapability.riskClass] !== preparation.effect) {
+      throw new Error("Prepared Application Action effect is stale");
+    }
+
+    const verified = validateVerifiedSemanticsEntry(
+      await resolveVerifiedSemantics(preparation.proposal.appId),
+      preparation,
+      owner,
+    );
+    if (!sameCapability(currentCapability, verified.capability)) {
+      throw new Error("Verified package capability no longer matches the prepared capability");
+    }
+    if (!sameProvider(verified.capability.provider, preparation.provider)) {
+      throw new Error("Verified package provider no longer matches the prepared provider");
+    }
+
+    return validateApplicationActionProviderBinding({
+      schema: APPLICATION_ACTION_PROVIDER_BINDING_SCHEMA,
+      resourceRef: preparation.resourceRef,
+      workItemId: preparation.workItemId,
+      appId: preparation.proposal.appId,
+      actionId: preparation.proposal.actionId,
+      appVersion: verified.component.version,
+      sourceCommit: verified.sourceCommit,
+      componentRevision: verified.componentRevision,
+      provider: preparation.provider,
+      capabilitySha256: preparation.proposal.capabilitySha256,
+      capabilityProvenance: preparation.proposal.capabilityProvenance,
+      authority: "none",
+      executionAuthorized: false,
+      modelDirectExecutionAuthorized: false,
+    });
+  };
 
   const port = {
     schema: APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA,
-    async resolve(resourceRef) {
+    resolve: resolveBinding,
+    async resolveArtifact(resourceRef) {
+      if (resolveProviderArtifactSha256 === null) {
+        throw new Error(
+          "Application Action provider artifact identity resolution is unavailable",
+        );
+      }
+      const binding = await resolveBinding(resourceRef);
+      if (binding === null) return null;
+
       const retained = preparationRegistry.resolve(resourceRef);
-      if (retained === null) return null;
+      if (retained === null) {
+        throw new Error("Application Action preparation changed before artifact verification");
+      }
       const preparation = validateApplicationActionPreparation(retained);
-
-      const currentCapability = capabilityRegistry.get(
-        preparation.proposal.appId,
-        preparation.proposal.actionId,
-      );
-      if (!currentCapability) {
-        throw new Error("Prepared Application Action capability is no longer available");
-      }
-      if (
-        currentCapability.sourceClass !== "first-party"
-        || currentCapability.platform !== "ordax"
-        || currentCapability.provider.kind !== "first-party-native"
-        || currentCapability.binding.payloadSha256 !== null
-      ) {
-        throw new Error("Prepared Application Action no longer resolves to a first-party provider");
-      }
-      const currentProposal = capabilityRegistry.propose(
-        preparation.proposal.appId,
-        preparation.proposal.actionId,
-        preparation.proposal.arguments,
-      );
-      if (!sameApplicationActionProposal(preparation.proposal, currentProposal)) {
-        throw new Error("Prepared Application Action proposal is stale");
-      }
-      if (!sameProvider(currentCapability.provider, preparation.provider)) {
-        throw new Error("Prepared Application Action provider revision is stale");
-      }
-      if (RISK_TO_EFFECT[currentCapability.riskClass] !== preparation.effect) {
-        throw new Error("Prepared Application Action effect is stale");
-      }
-
       const verified = validateVerifiedSemanticsEntry(
-        await resolveVerifiedSemantics(preparation.proposal.appId),
+        await resolveVerifiedSemantics(binding.appId),
         preparation,
         owner,
       );
-      if (!sameCapability(currentCapability, verified.capability)) {
-        throw new Error("Verified package capability no longer matches the prepared capability");
+      if (
+        verified.component.version !== binding.appVersion
+        || verified.sourceCommit !== binding.sourceCommit
+        || verified.componentRevision !== binding.componentRevision
+      ) {
+        throw new Error(
+          "Application Action provider slot changed before artifact verification",
+        );
       }
-      if (!sameProvider(verified.capability.provider, preparation.provider)) {
-        throw new Error("Verified package provider no longer matches the prepared provider");
+      if (verified.providerManifest === null) {
+        throw new Error(
+          "Verified Application Action provider artifact manifest is unavailable",
+        );
+      }
+      const providerArtifact = verified.providerManifest.providers.find(
+        (candidate) =>
+          candidate.adapterId === binding.provider.adapterId
+          && candidate.revision === binding.provider.revision,
+      );
+      if (!providerArtifact) {
+        throw new Error(
+          "Verified Application Action provider artifact no longer matches binding",
+        );
       }
 
-      return validateApplicationActionProviderBinding({
-        schema: APPLICATION_ACTION_PROVIDER_BINDING_SCHEMA,
-        resourceRef: preparation.resourceRef,
-        workItemId: preparation.workItemId,
-        appId: preparation.proposal.appId,
-        actionId: preparation.proposal.actionId,
-        appVersion: verified.component.version,
-        sourceCommit: verified.sourceCommit,
-        componentRevision: verified.componentRevision,
-        provider: preparation.provider,
-        capabilitySha256: preparation.proposal.capabilitySha256,
-        capabilityProvenance: preparation.proposal.capabilityProvenance,
+      const actualSha256 = await resolveProviderArtifactSha256(Object.freeze({
+        appId: binding.appId,
+        appVersion: binding.appVersion,
+        sourceCommit: binding.sourceCommit,
+        componentRevision: binding.componentRevision,
+        module: providerArtifact.module,
+        declaredSha256: providerArtifact.artifactSha256,
+      }));
+      if (
+        typeof actualSha256 !== "string"
+        || !SHA256_RE.test(actualSha256)
+        || actualSha256 !== providerArtifact.artifactSha256
+      ) {
+        throw new Error(
+          "Verified Application Action provider artifact SHA-256 mismatch",
+        );
+      }
+
+      const currentBinding = await resolveBinding(resourceRef);
+      if (
+        currentBinding === null
+        || canonicalJson(currentBinding) !== canonicalJson(binding)
+      ) {
+        throw new Error(
+          "Application Action provider binding changed during artifact verification",
+        );
+      }
+
+      return validateApplicationActionProviderArtifactBinding({
+        schema: APPLICATION_ACTION_PROVIDER_ARTIFACT_BINDING_SCHEMA,
+        providerBinding: binding,
+        module: providerArtifact.module,
+        artifactSha256: actualSha256,
         authority: "none",
         executionAuthorized: false,
         modelDirectExecutionAuthorized: false,
