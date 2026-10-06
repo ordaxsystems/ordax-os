@@ -428,7 +428,7 @@ async function start() {
     ),
   });
   const verifiedActionCapabilities = verifiedAppSemantics.flatMap(
-    (entry) => entry.actionManifest.capabilities,
+    (entry) => entry.actionManifest?.capabilities ?? [],
   );
   const appActionCapabilities = verifiedActionCapabilities.length === 0
     ? null
