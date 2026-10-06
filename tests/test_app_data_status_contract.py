@@ -25,6 +25,7 @@ class AppDataStatusContractTest(unittest.TestCase):
 
         implementation = self.app_data["implementation"]
         self.assertTrue(implementation["native_host_route_implemented"])
+        self.assertTrue(implementation["web_owner_implemented"])
         self.assertTrue(implementation["verified_publisher_binding_implemented"])
         self.assertTrue(implementation["published_in_app_sdk"])
         self.assertEqual(implementation["published_app_sdk_bundle_version"], "1.6.0")
@@ -33,6 +34,24 @@ class AppDataStatusContractTest(unittest.TestCase):
         self.assertEqual(self.sdk["bundle_version"], "1.6.0")
         schemas = {entry["schema"] for entry in self.sdk["contracts"]}
         self.assertIn("ordax.app-data/1", schemas)
+
+    def test_web_owner_preserves_partition_wide_cas_and_fail_closed_durability(self):
+        web = self.app_data["web_owner"]
+        self.assertTrue(web["implemented"])
+        self.assertEqual(web["durable_backend"], "localStorage")
+        self.assertFalse(web["session_memory_fallback_allowed"])
+        self.assertEqual(
+            web["mutation_lock"],
+            "Web Locks API exclusive lock per verified partition",
+        )
+        self.assertTrue(web["missing_lock_authority_fails_closed"])
+        self.assertTrue(web["persisted_state_revalidates_hard_bounds"])
+        self.assertTrue(web["persisted_state_revalidates_configured_quota"])
+        self.assertTrue(web["cross_context_compare_and_swap_proven"])
+        self.assertEqual(
+            self.app_data["runtime_port"]["mutation_concurrency"],
+            "partition-wide-compare-and-swap",
+        )
 
     def test_active_foundation_does_not_overclaim_product_lifecycle(self):
         implementation = self.app_data["implementation"]

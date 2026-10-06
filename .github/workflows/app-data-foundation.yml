@@ -5,8 +5,10 @@ on:
     paths:
       - 'system/contracts/app-data.mjs'
       - 'system/services/app-data/**'
+      - 'system/adapters/web/app-data.mjs'
       - 'docs/contracts/app-data.json'
       - 'tests/test_app_data.mjs'
+      - 'tests/test_web_app_data.mjs'
       - 'tests/test_app_data_status_contract.py'
       - '.github/workflows/app-data-foundation.yml'
   push:
@@ -14,8 +16,10 @@ on:
     paths:
       - 'system/contracts/app-data.mjs'
       - 'system/services/app-data/**'
+      - 'system/adapters/web/app-data.mjs'
       - 'docs/contracts/app-data.json'
       - 'tests/test_app_data.mjs'
+      - 'tests/test_web_app_data.mjs'
       - 'tests/test_app_data_status_contract.py'
       - '.github/workflows/app-data-foundation.yml'
 
@@ -36,9 +40,11 @@ jobs:
           set -euo pipefail
           node --check system/contracts/app-data.mjs
           node --check system/services/app-data/runtime.mjs
+          node --check system/adapters/web/app-data.mjs
           python3 -m json.tool docs/contracts/app-data.json >/dev/null
 
       - name: Prove bound isolation CAS copies and quotas
         run: |
           node --test tests/test_app_data.mjs
+          node --test tests/test_web_app_data.mjs
           python tests/test_app_data_status_contract.py
