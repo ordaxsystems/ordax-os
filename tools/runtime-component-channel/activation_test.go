@@ -1042,6 +1042,7 @@ func TestStateActionCommandsRequireExactRevisionAndIdentity(t *testing.T) {
 		"promote": promoteStateCommand,
 		"reject": rejectPendingCommand,
 		"rollback": rollbackStateCommand,
+		"uninstall": uninstallStateCommand,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := invoke([]string{"--component", "internet"}); err == nil ||
