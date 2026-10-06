@@ -42,6 +42,20 @@ export const accountComponent = defineComponentManifest({
   dependencies: ["surface-shell"],
 });
 
+export const storeComponent = defineComponentManifest({
+  id: "store",
+  title: "Loja",
+  kind: "app",
+  version: "0.1.0",
+  releaseMode: "bundled",
+  criticality: "optional",
+  failureDomain: "app",
+  restartScope: "surface",
+  healthMode: "surface",
+  owner: "system/apps/store",
+  dependencies: ["surface-shell"],
+});
+
 export const systemComponent = defineComponentManifest({
   id: "system",
   title: "Sistema",
@@ -60,5 +74,6 @@ export const appComponentManifests = Object.freeze([
   filesComponent,
   settingsComponent,
   accountComponent,
+  storeComponent,
   systemComponent,
 ]);
