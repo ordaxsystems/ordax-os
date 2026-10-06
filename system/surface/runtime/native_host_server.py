@@ -3596,7 +3596,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         slot_root=self.server.component_slot_root,
                     )
             except ComponentSlotRequestError:
-                self._empty(400)
+                self._empty(404)
                 return
             except ComponentSlotUnavailableError:
                 self._empty(404)
