@@ -342,3 +342,6 @@ No second permission store, grant issuer, confirmation system or receipt format 
 
 
 A preparation is not provider-artifact proof. It intentionally carries only the capability's declared `adapterId + revision`. Before any future execution, a platform-owned provider resolver must still bind that declaration to the **currently verified first-party package/provider artifact** and fail closed if version, source commit, adapter revision or artifact identity changed after preparation. This prevents a preparation from silently authorizing a newly updated app runtime.
+
+
+Preparation references are session-only coordination state, not durable authority. When the registry is composed into Personal OrdaX, the integration must revoke the reference on Work cancellation/removal, owner switch, invalidated Space/project context, succeeded execution, revoked approval, or an uncertain adapter-entered attempt. A serialized or restored preparation must never recreate a grant or become executable on its own.
