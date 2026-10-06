@@ -2,7 +2,7 @@ export const FIRST_PARTY_APP_INSTALL_PLAN_SCHEMA = "ordax.first-party-app-instal
 export const FIRST_PARTY_APP_INSTALL_PLANNER_SCHEMA = "ordax.first-party-app-install-planner/1";
 
 const APP_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
-const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
 const REPOSITORY_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
