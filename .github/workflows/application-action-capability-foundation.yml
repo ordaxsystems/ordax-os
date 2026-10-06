@@ -27,6 +27,7 @@ on:
       - 'tests/test_application_action_capability.mjs'
       - 'tests/test_application_action_preparations.mjs'
       - 'tests/test_application_action_provider_bindings.mjs'
+      - 'tests/test_application_action_provider_binding_composition.mjs'
       - 'tests/test_application_action_provider_manifest.mjs'
       - 'tests/test_application_action_provider_resolver.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
@@ -59,6 +60,7 @@ on:
       - 'tests/test_application_action_capability.mjs'
       - 'tests/test_application_action_preparations.mjs'
       - 'tests/test_application_action_provider_bindings.mjs'
+      - 'tests/test_application_action_provider_binding_composition.mjs'
       - 'tests/test_application_action_provider_manifest.mjs'
       - 'tests/test_application_action_provider_resolver.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
@@ -104,6 +106,7 @@ jobs:
           node --check tests/test_application_action_capability.mjs
           node --check tests/test_application_action_preparations.mjs
           node --check tests/test_application_action_provider_bindings.mjs
+          node --check tests/test_application_action_provider_binding_composition.mjs
           node --check tests/test_application_action_provider_manifest.mjs
           node --check tests/test_application_action_provider_resolver.mjs
           node --check tests/test_application_action_preparation_composition.mjs
@@ -115,6 +118,7 @@ jobs:
           node --test tests/test_application_action_capability.mjs
           node --test tests/test_application_action_preparations.mjs
           node --test tests/test_application_action_provider_bindings.mjs
+          node --test tests/test_application_action_provider_binding_composition.mjs
           node --test tests/test_application_action_provider_manifest.mjs
           node --test tests/test_application_action_provider_resolver.mjs
           node --test tests/test_application_action_preparation_composition.mjs
