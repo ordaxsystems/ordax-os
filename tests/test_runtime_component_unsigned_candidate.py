@@ -238,7 +238,7 @@ class UnsignedExternalCandidateTests(unittest.TestCase):
             value["canonical_external_source_repository_by_component"]["notes"] = "washingtonmsdj/other"
             policy.write_bytes(canonical(value))
             with self.assertRaisesRegex(verifier.CandidateError, "source is not canonical"):
-                verifier.verify(root, policy)
+                verifier.verify(candidate, policy)
 
     def test_unexpected_file_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -246,7 +246,7 @@ class UnsignedExternalCandidateTests(unittest.TestCase):
             candidate, policy, _ = make_candidate(root)
             (candidate / "private.pem").write_text("forbidden\n", encoding="utf-8")
             with self.assertRaisesRegex(verifier.CandidateError, "unexpected or missing files"):
-                verifier.verify(root, policy)
+                verifier.verify(candidate, policy)
 
 
 if __name__ == "__main__":
