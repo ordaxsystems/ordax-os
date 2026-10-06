@@ -1,0 +1,60 @@
+.ordax-app-extension[data-app-extension="store-overview"] {
+  grid-column: 1 / -1;
+  min-height: 420px;
+}
+
+.ordax-store-header {
+  display: grid;
+  gap: var(--ordax-space-2);
+  margin-bottom: var(--ordax-space-4);
+}
+
+.ordax-store-title,
+.ordax-store-card-title {
+  margin: 0;
+}
+
+.ordax-store-intro,
+.ordax-store-card-description,
+.ordax-store-notice,
+.ordax-store-error {
+  margin: 0;
+  color: var(--ordax-text-muted);
+}
+
+.ordax-store-notice,
+.ordax-store-error {
+  padding: var(--ordax-space-3);
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-2);
+  margin-bottom: var(--ordax-space-4);
+}
+
+.ordax-store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--ordax-space-3);
+}
+
+.ordax-store-card {
+  display: grid;
+  gap: var(--ordax-space-3);
+  padding: var(--ordax-space-4);
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-3);
+  background: var(--ordax-surface-raised);
+}
+
+.ordax-store-card-copy {
+  display: grid;
+  gap: var(--ordax-space-2);
+}
+
+.ordax-store-card-state {
+  font-size: 0.86rem;
+  color: var(--ordax-text-muted);
+}
+
+.ordax-store-action {
+  justify-self: start;
+}
