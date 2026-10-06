@@ -249,3 +249,50 @@ For example:
 - publishing externally still requires the broker/policy/confirmation rules for that external effect.
 
 This separation is required for the future Jarvis-style experience to remain useful without turning learned preferences into silent permissions.
+
+
+## Verified first-party package loading
+
+Apps first-party externalizados não registram capabilities por chamada mutável e o OS não faz scan de diretórios.
+
+A composição Native usa a mesma fonte read-only de package verificado já usada pelo App Intelligence:
+
+```text
+component-runtime current slot
+        ↓
+app.json
+ai/manifest.json
+actions/manifest.json
+        ↓
+mesmo version + sourceCommit
+        ↓
+Application Awareness
+        ↓
+Application Action Capability Registry
+        ↓
+Application Context Intelligence
+```
+
+Para cada app permitido pelo registro first-party de delivery, o loader resolve o slot atual uma vez e lê os três manifests dentro do namespace verificado da mesma resolução. O `actions/manifest.json` é validado por `ordax.application-action-manifest/1`.
+
+Além do contrato público, o loader verifica a coerência com `ai/manifest.json`:
+
+- toda capability deve possuir intent de mesmo `actionId`;
+- os parâmetros devem ter os mesmos ids e required flags;
+- tipos especializados de string podem ser estreitados para `enum`, `uri` ou `resource-grant-id`;
+- risco não pode ser mais fraco que o efeito do intent;
+- confirmação não pode ser mais fraca que a política do intent;
+- intents destrutivos exigem `always`.
+
+Uma falha de identidade, versão, provenance de slot ou coerência semântica falha fechada para aquela sondagem. Não há fallback para um `actions/manifest.json` não verificado.
+
+Quando existem capabilities verificadas, a composição cria `ordax.application-action-capability-registry/1` e injeta somente sua projeção bounded no contexto do Intelligence. Quando não existem capabilities verificadas, nenhum contexto de actions é inventado.
+
+Esse registry continua sem `execute()`, `run()`, `invoke()`, grant ou confirmation authority. O resultado continua sendo somente uma proposal com:
+
+```text
+executionAuthorized = false
+modelDirectExecutionAuthorized = false
+```
+
+A futura execução permanece separada no App Action Broker.
