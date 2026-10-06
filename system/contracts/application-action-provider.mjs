@@ -22,9 +22,23 @@ const FORBIDDEN_PARAMETER_IDS = new Set([
   "environment",
   "env",
   "working-directory",
+]);
+const FORBIDDEN_PARAMETER_KEY_FRAGMENTS = Object.freeze([
+  "authorization",
+  "bearer",
+  "cookie",
+  "password",
+  "secret",
+  "token",
+  "apikey",
+  "accesstoken",
+  "refreshtoken",
+  "clientsecret",
+  "credential",
   "grant",
-  "grant-ref",
-  "approval-id",
+  "approval",
+  "sessionid",
+  "csrf",
 ]);
 const FORBIDDEN_RESULT_KEYS = new Set([
   "proto",
@@ -118,8 +132,13 @@ function validateArguments(value) {
   }
   const normalized = {};
   for (const [key, raw] of entries) {
-    if (!PARAMETER_ID_RE.test(key) || FORBIDDEN_PARAMETER_IDS.has(key)) {
-      throw new TypeError("Application Action provider argument id is invalid or exposes raw authority");
+    const normalizedKey = key.replace(/-/g, "");
+    if (
+      !PARAMETER_ID_RE.test(key)
+      || FORBIDDEN_PARAMETER_IDS.has(key)
+      || FORBIDDEN_PARAMETER_KEY_FRAGMENTS.some((fragment) => normalizedKey.includes(fragment))
+    ) {
+      throw new TypeError("Application Action provider argument id is invalid or exposes raw authority or credentials");
     }
     normalized[key] = validateArgumentValue(
       raw,
