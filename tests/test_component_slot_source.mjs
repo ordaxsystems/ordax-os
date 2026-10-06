@@ -18,6 +18,7 @@ function resolution(overrides = {}) {
     componentId: "internet",
     state: "pending",
     source: "slot",
+    sourceRepository: "washingtonmsdj/prototipo-ordax-os",
     revision: 4,
     version: "0.4.0",
     sourceCommit: SHA,
@@ -30,6 +31,7 @@ function resolution(overrides = {}) {
 test("slot resolution requires exact identity and safe package entrypoint", () => {
   const value = validateComponentSlotResolution(resolution());
   assert.equal(value.componentId, "internet");
+  assert.equal(value.sourceRepository, "washingtonmsdj/prototipo-ordax-os");
   assert.equal(value.version, "0.4.0");
   assert.equal(value.sourceCommit, SHA);
   assert.equal(value.entrypoint, "system/apps/internet/runtime.mjs");
@@ -37,6 +39,10 @@ test("slot resolution requires exact identity and safe package entrypoint", () =
   assert.throws(
     () => validateComponentSlotResolution(resolution({ sourceCommit: "ABC" })),
     /40-hex/,
+  );
+  assert.throws(
+    () => validateComponentSlotResolution(resolution({ sourceRepository: "not-a-repository" })),
+    /owner\/repository/,
   );
   assert.throws(
     () => validateComponentSlotResolution(resolution({ source: "bundled" })),
