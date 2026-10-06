@@ -29,6 +29,11 @@ if _RUNTIME_DIR not in sys.path:
 
 from native_request_boundary import expected_surface_authority, request_is_trusted
 from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
+from native_app_intelligence_catalog import (
+    NativeAppIntelligenceUnavailableError,
+    NativeAppIntelligenceVerificationError,
+    read_native_app_intelligence_manifests,
+)
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -108,6 +113,7 @@ NETWORK_MANAGEMENT_PATH = "/__ordax/native/network-management"
 UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
+APP_INTELLIGENCE_CATALOG_PATH = "/__ordax/native/app-intelligence-catalog"
 DEFAULT_COMPONENT_CHANNEL_BIN = "/srv/ordax-system/bin/ordax-runtime-component-channel"
 DEFAULT_COMPONENT_TRUST_PATH = "/srv/ordax-system/trust/runtime-components-ed25519.json"
 DEFAULT_COMPONENT_SLOT_ROOT = "/var/lib/ordax/components"
@@ -3411,7 +3417,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, APP_INTELLIGENCE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -3566,6 +3572,39 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(payload)
+            return
+
+        if parsed_path == APP_INTELLIGENCE_CATALOG_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            if not self.server.component_slot_read_available:
+                self._empty(404)
+                return
+            try:
+                with self.server.component_slot_lock:
+                    catalog = read_native_app_intelligence_manifests(
+                        helper_path=self.server.component_channel_bin,
+                        trust_path=self.server.component_trust_path,
+                        slot_root=self.server.component_slot_root,
+                    )
+            except NativeAppIntelligenceUnavailableError as exc:
+                print(
+                    f"ordax-native-host: app intelligence verifier unavailable: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
+                return
+            except NativeAppIntelligenceVerificationError as exc:
+                print(
+                    f"ordax-native-host: app intelligence catalog verification failed safely: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(409)
+                return
+            self._write_json(200, catalog)
             return
 
         if parsed_path == COMPONENT_RUNTIME_PATH:
