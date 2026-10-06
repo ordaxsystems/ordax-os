@@ -118,6 +118,7 @@ class NativeComponentSlotTests(unittest.TestCase):
             "COMPONENT_ID=internet\n"
             "REVISION=3\n"
             "SOURCE=SLOT\n"
+            "SOURCE_REPOSITORY=washingtonmsdj/prototipo-ordax-os\n"
             "PENDING_VERSION=0.4.0\n"
             f"PENDING_SOURCE_COMMIT={commit}\n"
             "PENDING_HEALTH=unknown\n"
