@@ -217,6 +217,20 @@ test("provider binding and provider artifact resolver schemas cannot be confused
     () => assertApplicationActionProviderArtifactResolver(bindingPort),
     /provider artifact resolver is required/,
   );
+  assert.throws(
+    () => assertProviderBindingResolver({
+      ...bindingPort,
+      load() {},
+    }),
+    /must not expose load/,
+  );
+  assert.throws(
+    () => assertApplicationActionProviderArtifactResolver({
+      ...artifactPort,
+      load() {},
+    }),
+    /must not expose load/,
+  );
 });
 
 test("artifact resolver extends the exact provider binding without creating authority", async () => {
@@ -266,7 +280,7 @@ test("artifact resolver extends the exact provider binding without creating auth
       + "/system/apps/notes/actions/providers/notes-native.mjs",
   );
   for (const method of [
-    "execute", "invoke", "run", "launch", "import", "loadAdapter",
+    "execute", "invoke", "run", "launch", "import", "load", "loadAdapter",
     "grant", "authorize", "confirm",
   ]) {
     assert.equal(resolver[method], undefined);
