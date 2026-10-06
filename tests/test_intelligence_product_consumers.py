@@ -23,6 +23,39 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn("intelligence,", text)
 
 
+    def test_native_wires_verified_app_semantics_without_parallel_authority(self):
+        text = NATIVE.read_text(encoding="utf-8")
+
+        self.assertIn("createNativeVerifiedComponentPackageSource", text)
+        self.assertIn("loadVerifiedFirstPartyApplicationSemantics", text)
+        self.assertIn("EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS", text)
+        self.assertIn("overlayVerifiedFirstPartyApplications", text)
+        self.assertIn("listFirstPartyApps()", text)
+        self.assertIn("createApplicationIntelligenceAwareness", text)
+        self.assertIn("createApplicationContextIntelligence", text)
+        self.assertIn("actionCapabilityRegistryPort: null", text)
+
+        base_index = text.index("const intelligence = createIntelligenceRuntime")
+        profile_index = text.index("const profileContentIntelligence =")
+        application_index = text.index("const applicationContextIntelligence =")
+        memory_index = text.index("const selectedSpaceIntelligence =")
+        self.assertLess(base_index, profile_index)
+        self.assertLess(profile_index, application_index)
+        self.assertLess(application_index, memory_index)
+
+        health_block = text[
+            text.index("const updateIntelligenceHealth ="):
+            text.index("void localAi.probe();") + len("void localAi.probe();")
+        ]
+        self.assertIn("intelligence.subscribe(updateIntelligenceHealth)", health_block)
+        self.assertNotIn("applicationContextIntelligence.subscribe", health_block)
+        self.assertNotIn("profileContentIntelligence.subscribe", health_block)
+
+        self.assertIn("intelligencePort: profileContentIntelligence", text)
+        self.assertIn("intelligencePort: applicationContextIntelligence", text)
+        self.assertNotIn("/__ordax/native/app-intelligence-manifest", text)
+        self.assertNotIn("/__ordax/native/app-intelligence-awareness", text)
+
     def test_system_explanation_is_consultative_and_provider_neutral(self):
         ui = SYSTEM_UI.read_text(encoding="utf-8")
         actions = CLIENT_ACTIONS.read_text(encoding="utf-8")
