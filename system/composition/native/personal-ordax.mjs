@@ -20,6 +20,9 @@ import {
 import {
   createApplicationActionProviderResolver,
 } from "../../services/personal-ordax/application-action-provider-bindings.mjs";
+import {
+  assertApplicationActionProviderResolver as assertApplicationActionProviderArtifactResolver,
+} from "../../contracts/application-action-provider-resolution.mjs";
 
 export function createNativePersonalOrdaxComposition({
   windowRef = globalThis.window,
@@ -33,6 +36,7 @@ export function createNativePersonalOrdaxComposition({
   applicationActionCapabilityRegistry = null,
   resolveVerifiedApplicationSemantics = null,
   expectedApplicationActionProviderOwner = null,
+  applicationActionProviderArtifactResolver = null,
   createApplicationActionPreparationId = null,
   grantAuthority = null,
 } = {}) {
@@ -88,6 +92,11 @@ export function createNativePersonalOrdaxComposition({
         expectedOwner: expectedApplicationActionProviderOwner,
       })
     : null;
+  const applicationActionProviderArtifacts = applicationActionProviderArtifactResolver === null
+    ? null
+    : assertApplicationActionProviderArtifactResolver(
+        applicationActionProviderArtifactResolver,
+      );
 
   const ownsGrantAuthority = grantAuthority === null;
   const authority = grantAuthority ?? createIntelligenceToolGrantAuthority();
@@ -257,6 +266,71 @@ export function createNativePersonalOrdaxComposition({
     return work;
   };
 
+  const resolveCurrentApplicationActionProviderBinding = async (resourceRef) => {
+    if (
+      applicationActionPreparations === null
+      || applicationActionProviderResolver === null
+    ) {
+      throw new Error("Personal OrdaX Application Action provider binding is unavailable");
+    }
+    reconcileApplicationActionPreparations();
+    const preparation = applicationActionPreparations.resolve(resourceRef);
+    if (preparation === null) {
+      throw new Error("Personal OrdaX Application Action preparation is no longer current");
+    }
+    const preparationBinding = applicationActionPreparationBindings.get(resourceRef);
+    if (!preparationBinding) {
+      throw new Error("Personal OrdaX Application Action preparation binding is unavailable");
+    }
+    const resolved = await applicationActionProviderResolver.resolve(resourceRef);
+    reconcileApplicationActionPreparations();
+    const currentPreparation = applicationActionPreparations.resolve(resourceRef);
+    const currentWork = runtime.getSnapshot().workItems.find(
+      (candidate) => candidate.id === preparation.workItemId,
+    );
+    if (
+      currentPreparation !== preparation
+      || !currentWork
+      || workRevision(currentWork) !== preparationBinding.workRevision
+    ) {
+      throw new Error(
+        "Personal OrdaX Application Action changed during provider binding resolution",
+      );
+    }
+    return resolved;
+  };
+
+  const resolveCurrentApplicationActionProviderArtifact = async (resourceRef) => {
+    if (applicationActionProviderArtifacts === null) {
+      throw new Error("Personal OrdaX Application Action provider artifact resolution is unavailable");
+    }
+    const binding = await resolveCurrentApplicationActionProviderBinding(resourceRef);
+    const preparation = applicationActionPreparations.resolve(resourceRef);
+    if (preparation === null) {
+      throw new Error("Personal OrdaX Application Action preparation is no longer current");
+    }
+    const artifact = await applicationActionProviderArtifacts.resolve(preparation);
+    const currentBinding = await resolveCurrentApplicationActionProviderBinding(resourceRef);
+    if (
+      artifact.resourceRef !== currentBinding.resourceRef
+      || artifact.appId !== currentBinding.appId
+      || artifact.appVersion !== currentBinding.appVersion
+      || artifact.sourceCommit !== currentBinding.sourceCommit
+      || artifact.slotRevision !== currentBinding.componentRevision
+      || artifact.provider.kind !== currentBinding.provider.kind
+      || artifact.provider.adapterId !== currentBinding.provider.adapterId
+      || artifact.provider.revision !== currentBinding.provider.revision
+      || binding.resourceRef !== currentBinding.resourceRef
+      || binding.sourceCommit !== currentBinding.sourceCommit
+      || binding.componentRevision !== currentBinding.componentRevision
+    ) {
+      throw new Error(
+        "Personal OrdaX Application Action provider artifact no longer matches current provider binding",
+      );
+    }
+    return artifact;
+  };
+
   const reconcileApprovedAuthority = () => {
     let changed = false;
     for (const approval of runtime.getSnapshot().approvals) {
@@ -319,37 +393,10 @@ export function createNativePersonalOrdaxComposition({
       return applicationActionPreparations.resolve(resourceRef);
     },
     async resolveApplicationActionProviderBinding(resourceRef) {
-      if (
-        applicationActionPreparations === null
-        || applicationActionProviderResolver === null
-      ) {
-        throw new Error("Personal OrdaX Application Action provider binding is unavailable");
-      }
-      reconcileApplicationActionPreparations();
-      const preparation = applicationActionPreparations.resolve(resourceRef);
-      if (preparation === null) {
-        throw new Error("Personal OrdaX Application Action preparation is no longer current");
-      }
-      const binding = applicationActionPreparationBindings.get(resourceRef);
-      if (!binding) {
-        throw new Error("Personal OrdaX Application Action preparation binding is unavailable");
-      }
-      const resolved = await applicationActionProviderResolver.resolve(resourceRef);
-      reconcileApplicationActionPreparations();
-      const currentPreparation = applicationActionPreparations.resolve(resourceRef);
-      const currentWork = runtime.getSnapshot().workItems.find(
-        (candidate) => candidate.id === preparation.workItemId,
-      );
-      if (
-        currentPreparation !== preparation
-        || !currentWork
-        || workRevision(currentWork) !== binding.workRevision
-      ) {
-        throw new Error(
-          "Personal OrdaX Application Action changed during provider binding resolution",
-        );
-      }
-      return resolved;
+      return resolveCurrentApplicationActionProviderBinding(resourceRef);
+    },
+    async resolveApplicationActionProviderArtifact(resourceRef) {
+      return resolveCurrentApplicationActionProviderArtifact(resourceRef);
     },
     revokeApplicationActionPreparation(resourceRef) {
       if (applicationActionPreparations === null) return false;
