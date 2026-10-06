@@ -3,12 +3,16 @@ import json
 import os
 from pathlib import Path
 import stat
+import sys
 import tempfile
 import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE = ROOT / "system" / "surface" / "runtime" / "native_personal_ordax_state.py"
+RUNTIME = ROOT / "system" / "surface" / "runtime"
+sys.path.insert(0, str(RUNTIME))
+MODULE = RUNTIME / "native_personal_ordax_state.py"
+HELPER_MODULE = RUNTIME / "native_partitioned_json_state.py"
 spec = importlib.util.spec_from_file_location("native_personal_ordax_state", MODULE)
 state_owner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(state_owner)
@@ -182,15 +186,24 @@ class NativePersonalOrdaxStateTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "ownership"):
                     state_owner.read_personal_ordax_record("device", None, str(root))
 
-    def test_source_uses_fd_anchored_private_atomic_primitives(self):
+    def test_source_reuses_fd_anchored_private_atomic_primitive(self):
         source = MODULE.read_text(encoding="utf-8")
+        helper = HELPER_MODULE.read_text(encoding="utf-8")
+
+        self.assertIn("read_partitioned_json_record", source)
+        self.assertIn("compare_and_swap_partitioned_json_record", source)
+        self.assertNotIn("fcntl.flock", source)
+        self.assertNotIn("os.replace", source)
+        self.assertNotIn("src_dir_fd=root_fd", source)
+
         for marker in (
             "O_NOFOLLOW", "O_DIRECTORY", "fcntl.flock", "os.fsync", "os.replace",
             "dir_fd=root_fd", "src_dir_fd=root_fd", "dst_dir_fd=root_fd", "0o600", "0o700",
             "os.geteuid", "os.fstat",
         ):
-            self.assertIn(marker, source)
+            self.assertIn(marker, helper)
         self.assertNotIn("localStorage", source)
+        self.assertNotIn("localStorage", helper)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,26 @@ Domain adapters continue to own their schemas, partition identity, CAS semantics
 
 This helper does not create a host route, storage owner, permission or remote egress capability by itself.
 
+## Shared private partitioned JSON state
+
+`system/surface/runtime/native_partitioned_json_state.py` owns the reusable host-side filesystem mechanics for small private revisioned JSON partitions. It was extracted from the proven Personal OrdaX pattern because Work Coordination also requires owner/project-partitioned CAS state; it is not a generic replacement for every historic OrdaX state file.
+
+The primitive owns only:
+
+- an opaque caller-supplied partition stem restricted to a safe filename alphabet;
+- private `0700` roots and `0600` state/lock files with effective-owner checks;
+- `O_DIRECTORY`/`O_NOFOLLOW`/`O_CLOEXEC` descriptors and fd-anchored operations;
+- per-partition `flock` plus in-process serialization;
+- bounded strict UTF-8 JSON reads;
+- canonical JSON writes through exclusive temporary files, `fsync`, `os.replace` and directory `fsync`;
+- compare-and-swap on the top-level integer `revision`.
+
+The caller still owns partition identity, record schema, authority rules, payload bounds and semantic validation through a validator callback. Personal OrdaX therefore keeps its existing `device.json` and `account-<sha256>.json` layout and domain validation while delegating only filesystem/lock/CAS mechanics.
+
+Automation is intentionally not migrated to this primitive: its single global file and generation/outbox semantics are different. App Data and Memory also retain their domain-specific persistence. Sharing is applied only where the invariants are actually the same.
+
+Future Work Coordination Native persistence must derive its own opaque owner+project partition stem and its own record validator, then reuse this primitive; the helper itself must never learn Work Plan, Project, owner or permission semantics.
+
 ## Diagnostic export
 
 `diagnostic-export.mjs` implements the narrow `ordax.diagnostic-export/1` port on top of the existing bounded Native `file-space` capability. It writes only an already validated diagnostic JSON document into the logical `/Downloads` user directory through `importFile()`.
