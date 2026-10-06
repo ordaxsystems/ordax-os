@@ -17,7 +17,6 @@ import { createNativeProjectWebReferenceStore } from "../../adapters/native/proj
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
-import { createNativeNotesStore } from "../../adapters/native/notes.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
 import { createNativePowerActions } from "../../adapters/native/power-actions.mjs";
 import { createNativePowerStatus } from "../../adapters/native/power-status.mjs";
@@ -185,10 +184,6 @@ async function start() {
       () => readNativeProfileContentContextCapability(window),
     ),
     optionalNativeProbe(
-      "OrdaX native notes persistence unavailable",
-      () => createNativeNotesStore(window),
-    ),
-    optionalNativeProbe(
       "OrdaX native power actions unavailable",
       () => createNativePowerActions(window),
     ),
@@ -247,7 +242,6 @@ async function start() {
     componentStateStore,
     profileActivationState,
     profileContentContextCapability,
-    notesStore,
     powerActions,
     fileSpace,
     networkStatus,
@@ -780,23 +774,6 @@ async function start() {
     },
   });
 
-  const notesComponent = await loadOptionalComponentRuntime({
-    componentId: "notes",
-    importer: () => import("../../apps/notes/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      createStore: () => notesStore,
-      surfaceLifecycle: surface,
-      fileSpace,
-      appActivation,
-      intelligence: selectedSpaceIntelligence,
-    },
-    onError(error) {
-      reportClientDiagnostic("notes-runtime", error);
-    },
-  });
-
   const assistantComponent = await loadOptionalComponentRuntime({
     componentId: "assistant",
     importer: () => import("../../apps/assistant/runtime.mjs"),
@@ -897,7 +874,6 @@ async function start() {
       fileSpaceControls.destroy();
       projectsComponent?.destroy();
       networkComponent?.destroy();
-      notesComponent?.destroy();
       assistantComponent?.destroy();
       activityComponent?.destroy();
       internetComponent?.destroy();

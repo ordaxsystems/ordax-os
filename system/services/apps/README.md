@@ -4,11 +4,12 @@
 
 ## Boundaries
 
-Three concepts must stay separate:
+Four concepts must stay separate:
 
-1. **Product catalog** — `system/apps/catalog.mjs` describes known first-party applications and their stable app/component contracts.
-2. **Delivery policy** — `delivery-policy.mjs` describes whether a known first-party app is structural, bootstrap or on-demand, plus its discovery/removal intent.
-3. **Installed inventory** — the physical truth that an independently delivered payload is actually present, verified and activatable. Catalog and delivery policy never prove installation.
+1. **Known product/delivery registry** — `delivery-policy.mjs` may describe a first-party product even when its payload is absent locally. This is where pre-Store product identity/discovery intent lives; a future signed Store catalog can enrich it with artifact/version metadata.
+2. **Local app presentation catalog** — `system/apps/catalog.mjs` contains first-party app descriptors whose product source/presentation is present in the current platform composition. It is not the authoritative list of every product OrdaX may offer.
+3. **Installed component catalog/inventory** — the component/package truth used for verified activation. A product being known or catalogued never proves that its payload is installed.
+4. **Delivery projection** — combines policy with an installation/catalog observation to produce `available`, `installed`, `staged`, `blocked` and launch/install presentation without minting authority.
 
 The Surface may project an absent, catalogued app as `available`. That never makes it launchable. A recommended absent app can open an install/details experience, but execution requires a verified payload supplied either by the current signed Stable release or by a future verified independent component slot.
 

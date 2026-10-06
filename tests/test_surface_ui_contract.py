@@ -10,7 +10,6 @@ APP_CONTRACT = APPS / "app-contract.mjs"
 APP_OWNERS = {
     "files": APPS / "files" / "app.mjs",
     "projects": APPS / "projects" / "app.mjs",
-    "notes": APPS / "notes" / "app.mjs",
     "internet": APPS / "internet" / "app.mjs",
     "network": APPS / "network" / "app.mjs",
     "settings": APPS / "settings" / "app.mjs",
@@ -56,9 +55,9 @@ DESKTOP_SHELL = SURFACE / "desktop-shell.mjs"
 SURFACE_LOCALIZATION = ROOT / "system" / "services" / "i18n" / "surface.mjs"
 SURFACE_LIFECYCLE = ROOT / "system" / "contracts" / "surface-render-lifecycle.mjs"
 FILE_SPACE_CONTROLS = SURFACE / "file-space-controls.mjs"
-NOTES_WORKSPACE_CONTROLS = APPS / "notes" / "ui" / "workspace-controls.mjs"
-NOTES_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "notes.mjs"
-NOTES_RICH_EDITOR = APPS / "notes" / "ui" / "rich-editor.mjs"
+
+
+
 INTERNET_BROWSER_CONTROLS = APPS / "internet" / "ui" / "browser-controls.mjs"
 INTERNET_BROWSER_SHORTCUTS = APPS / "internet" / "ui" / "browser-shortcuts.mjs"
 SYSTEM_OVERVIEW_CONTROLS = SURFACE / "system-overview-controls.mjs"
@@ -83,8 +82,6 @@ class SurfaceUiContractTests(unittest.TestCase):
             SURFACE_LOCALIZATION,
             SURFACE_LIFECYCLE,
             FILE_SPACE_CONTROLS,
-            NOTES_WORKSPACE_CONTROLS,
-            NOTES_RICH_EDITOR,
             INTERNET_BROWSER_CONTROLS,
             INTERNET_BROWSER_SHORTCUTS,
             SYSTEM_OVERVIEW_CONTROLS,
@@ -95,7 +92,6 @@ class SurfaceUiContractTests(unittest.TestCase):
             SURFACE / "tokens.css",
             SURFACE / "surface.css",
             SURFACE / "files.css",
-            APPS / "notes" / "notes.css",
             APPS / "internet" / "internet.css",
             SURFACE / "system.css",
             SURFACE / "account.css",
@@ -186,7 +182,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("getAppTarget(appId)", surface)
         self.assertIn("setAppTarget(appId, target)", surface)
         self.assertIn('type: "app.target"', surface)
-        for path in (FILE_SPACE_CONTROLS, NOTES_WORKSPACE_CONTROLS, SYSTEM_OVERVIEW_CONTROLS, ACCOUNT_OVERVIEW_CONTROLS, SETTINGS_OVERVIEW_CONTROLS):
+        for path in (FILE_SPACE_CONTROLS, SYSTEM_OVERVIEW_CONTROLS, ACCOUNT_OVERVIEW_CONTROLS, SETTINGS_OVERVIEW_CONTROLS):
             text = path.read_text(encoding="utf-8")
             self.assertIn("contracts/surface-render-lifecycle.mjs", text, path)
             self.assertIn("assertSurfaceRenderLifecycle", text, path)
@@ -214,7 +210,7 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertIn(f'id: "{app_id}"', owner)
             self.assertIn("defineFirstPartyApp", owner)
             self.assertIn("component:", owner)
-            if app_id in {"assistant", "internet", "network", "notes", "projects"}:
+            if app_id in {"assistant", "internet", "network", "projects"}:
                 self.assertIn("./component.mjs", owner)
             else:
                 self.assertIn("../../services/components/manifests/apps.mjs", owner)
@@ -249,82 +245,6 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('.ordax-files-view', css)
         self.assertIn("../../surface/ui/files.css", web_html)
         self.assertIn("../../surface/ui/files.css", native_html)
-
-    def test_notes_uses_shared_local_workspace_extension(self):
-        notes = APP_OWNERS["notes"].read_text(encoding="utf-8")
-        controls = NOTES_WORKSPACE_CONTROLS.read_text(encoding="utf-8")
-        css = (APPS / "notes" / "notes.css").read_text(encoding="utf-8")
-        web_html = (COMPOSITION / "index.html").read_text(encoding="utf-8")
-        native_html = (NATIVE_COMPOSITION / "index.html").read_text(encoding="utf-8")
-        web_main = (COMPOSITION / "main.mjs").read_text(encoding="utf-8")
-        native_main = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
-
-        self.assertIn('kind: "extension"', notes)
-        self.assertIn('extensionId: "notes-workspace"', notes)
-        rich_editor = NOTES_RICH_EDITOR.read_text(encoding="utf-8")
-        statistics = (APPS / "notes" / "domain" / "statistics.mjs").read_text(encoding="utf-8")
-        component_runtime = (APPS / "notes" / "runtime.mjs").read_text(encoding="utf-8")
-        self.assertIn('NOTES_EXTENSION_SELECTOR', controls)
-        self.assertIn("assertNotesRuntime", controls)
-        self.assertIn("./rich-editor.mjs", controls)
-        self.assertIn("renderNotesRichBody", controls)
-        self.assertIn("readNotesRichBody", controls)
-        self.assertIn("toggleNotesRichInlineMark", controls)
-        self.assertIn("setNotesRichBlockType", controls)
-        self.assertIn("scheduleSave", controls)
-        self.assertIn("NOTES_HOME_PROJECT_ID", controls)
-        self.assertIn('"project-actions"', controls)
-        self.assertIn('"rename-project"', controls)
-        self.assertIn('"remove-project"', controls)
-        self.assertIn('"move-note-project"', controls)
-        self.assertIn('"remove-task"', controls)
-        notes_i18n = NOTES_I18N.read_text(encoding="utf-8")
-        self.assertIn('t("notes.references.title")', controls)
-        self.assertIn('t("notes.offline.available")', controls)
-        self.assertIn('"notes.references.title": "References"', notes_i18n)
-        self.assertIn('"notes.offline.available": "Available offline"', notes_i18n)
-        self.assertIn("createNotesStatistics", controls)
-        self.assertIn('dataset.notesStatistics', controls)
-        self.assertIn('t(statistics.words === 1 ? "notes.statistics.word" : "notes.statistics.words"', controls)
-        self.assertIn('t(statistics.characters === 1 ? "notes.statistics.character" : "notes.statistics.characters"', controls)
-        self.assertIn('NOTES_STATISTICS_SCHEMA = "ordax.notes-statistics/1"', statistics)
-        self.assertIn("countNotesWords", statistics)
-        self.assertNotIn("wrapSelection", controls)
-        self.assertNotIn("prefixSelectedLines", controls)
-        self.assertNotIn('"]()"', controls)
-        self.assertNotIn('"**"', controls)
-        self.assertIn('contentEditable = "true"', rich_editor)
-        self.assertIn("validateNotesRichBody", rich_editor)
-        self.assertIn("pastePlainTextIntoNotesEditor", rich_editor)
-        self.assertNotIn("innerHTML", rich_editor)
-        self.assertNotIn("localStorage", rich_editor)
-        self.assertNotIn("/__ordax/native/", rich_editor)
-        self.assertIn(".ordax-notes-view", css)
-        self.assertIn(".ordax-notes-rich-editor", css)
-        self.assertIn(".ordax-notes-project-menu", css)
-        self.assertIn(".ordax-notes-move-section", css)
-        self.assertIn(".ordax-notes-task-remove", css)
-        self.assertIn(".ordax-notes-statistics", css)
-        self.assertIn('[data-notes-block-type="heading"]', css)
-        self.assertIn('[data-notes-block-type="quote"]', css)
-        self.assertIn('[data-notes-block-type="bullet"]', css)
-        self.assertIn("--notes-accent: var(--ordax-accent)", css)
-        self.assertNotIn("../../apps/notes/notes.css", web_html)
-        self.assertNotIn("../../apps/notes/notes.css", native_html)
-        self.assertIn("createWebNotesStore", web_main)
-        self.assertIn("createNativeNotesStore", native_main)
-        self.assertIn("loadOptionalComponentRuntime", web_main)
-        self.assertIn("loadOptionalComponentRuntime", native_main)
-        self.assertIn('import("../../apps/notes/runtime.mjs")', web_main)
-        self.assertIn('import("../../apps/notes/runtime.mjs")', native_main)
-        self.assertNotIn("mountNotesWorkspaceControls", web_main)
-        self.assertNotIn("mountNotesWorkspaceControls", native_main)
-        self.assertIn("mountNotesWorkspaceControls", component_runtime)
-        self.assertIn('new URL("./notes.css", import.meta.url)', component_runtime)
-        self.assertIn("notesComponent?.destroy()", web_main)
-        self.assertIn("notesComponent?.destroy()", native_main)
-        self.assertNotIn("localStorage", controls)
-        self.assertNotIn("/__ordax/native/", controls)
 
     def test_assistant_is_optional_intelligence_client_without_memory_ownership(self):
         assistant = APP_OWNERS["assistant"].read_text(encoding="utf-8")
@@ -751,7 +671,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
         css = (SURFACE / "surface.css").read_text(encoding="utf-8")
         tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
-        for app_id in ("files", "notes", "internet", "settings", "account", "system"):
+        for app_id in ("files", "internet", "settings", "account", "system"):
             self.assertIn(f'railButton("{app_id}"', shell)
         self.assertIn("data-power-slot", shell)
         self.assertIn("data-update-slot", shell)
