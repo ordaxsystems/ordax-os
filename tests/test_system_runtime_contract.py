@@ -293,7 +293,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
         orchestrator = COMPONENT_PROBATION_ORCHESTRATOR.read_text(encoding="utf-8")
         composition = NATIVE_COMPONENT_PROBATION_COMPOSITION.read_text(encoding="utf-8")
 
-        self.assertIn("component_probation_nonce", browser_host)
+        self.assertIn("component_probation_nonces", browser_host)
         self.assertIn("secrets.token_urlsafe(32)", browser_host)
         self.assertIn("component.probation.result", browser_host)
         self.assertIn("record_system_component_probation", browser_host)
@@ -316,6 +316,10 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertNotIn("rollback-state", authority)
 
         self.assertIn('internet: "import-contract"', orchestrator)
+        self.assertIn('notes: "import-contract"', orchestrator)
+        self.assertIn('supported_components = ("internet", "notes")', browser_host)
+        self.assertIn("self.component_probation_nonces.get(component_id)", browser_host)
+        self.assertIn("self.component_probation_nonces.pop(component_id, None)", browser_host)
         self.assertIn("runPendingComponentProbation", orchestrator)
         self.assertNotIn("adapters/native", orchestrator)
         self.assertNotIn("record-health", orchestrator)
