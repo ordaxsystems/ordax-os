@@ -1,6 +1,9 @@
 import {
   validateAppIntelligenceManifest,
 } from "../../contracts/app-intelligence-manifest.mjs";
+import {
+  defineComponentManifest,
+} from "../../contracts/component-manifest.mjs";
 
 const ENDPOINT = "/__ordax/native/app-intelligence-manifest";
 const COMPONENT_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
@@ -17,6 +20,7 @@ function validateEnvelope(value, componentId) {
     "componentVersion",
     "sourceCommit",
     "revision",
+    "component",
     "manifest",
     "authority",
   ].sort();
@@ -39,6 +43,16 @@ function validateEnvelope(value, componentId) {
   ) {
     throw new TypeError("Native app intelligence manifest response identity is invalid");
   }
+  const component = defineComponentManifest(value.component);
+  if (
+    component.id !== value.componentId
+    || component.version !== value.componentVersion
+    || component.kind !== "app"
+    || component.releaseMode !== "component-slot"
+    || component.owner !== "washingtonmsdj/ordax-apps"
+  ) {
+    throw new TypeError("Native app intelligence component identity is invalid");
+  }
   const manifest = validateAppIntelligenceManifest(value.manifest, {
     appId: value.componentId,
     appVersion: value.componentVersion,
@@ -48,6 +62,7 @@ function validateEnvelope(value, componentId) {
     componentVersion: value.componentVersion,
     sourceCommit: value.sourceCommit,
     revision: value.revision,
+    component,
     manifest,
     authority: "none",
   });
