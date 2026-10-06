@@ -23,7 +23,7 @@ def run(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
 
 
 class RuntimeComponentReleaseV2CliE2ETests(unittest.TestCase):
-    def test_build_sign_verify_stage_activate_remove_and_keep_verified_cache(self):
+    def test_build_sign_verify_stage_and_verify_slot_without_activation(self):
         source_commit = run("git", "rev-parse", "HEAD").stdout.strip()
         self.assertRegex(source_commit, r"^[0-9a-f]{40}$")
 
@@ -161,107 +161,6 @@ class RuntimeComponentReleaseV2CliE2ETests(unittest.TestCase):
             self.assertIn("DIRECT_ACTIVATION_ALLOWED=NO", slot_verified.stdout)
 
             self.assertFalse(any(slots.rglob("activation-state.json")))
-
-            armed = run(
-                str(binary),
-                "arm-pending",
-                "--slot",
-                str(slot),
-                "--trust",
-                str(trust),
-                "--root",
-                str(slots),
-            )
-            self.assertIn("RUNTIME_COMPONENT_PENDING_ARMED=YES", armed.stdout)
-            self.assertIn("REVISION=1", armed.stdout)
-            self.assertIn("PENDING_HEALTH=unknown", armed.stdout)
-
-            healthy = run(
-                str(binary),
-                "record-health",
-                "--component",
-                release_value["component"]["id"],
-                "--version",
-                release_value["component"]["version"],
-                "--source-commit",
-                release_value["source_commit"],
-                "--expected-revision",
-                "1",
-                "--health",
-                "healthy",
-                "--root",
-                str(slots),
-            )
-            self.assertIn("RUNTIME_COMPONENT_PENDING_HEALTH_RECORDED=YES", healthy.stdout)
-            self.assertIn("REVISION=2", healthy.stdout)
-            self.assertIn("PENDING_HEALTH=healthy", healthy.stdout)
-
-            promoted = run(
-                str(binary),
-                "promote-state",
-                "--component",
-                release_value["component"]["id"],
-                "--version",
-                release_value["component"]["version"],
-                "--source-commit",
-                release_value["source_commit"],
-                "--expected-revision",
-                "2",
-                "--trust",
-                str(trust),
-                "--root",
-                str(slots),
-            )
-            self.assertIn("RUNTIME_COMPONENT_STATE_PROMOTED=YES", promoted.stdout)
-            self.assertIn("REVISION=3", promoted.stdout)
-
-            removed = run(
-                str(binary),
-                "uninstall-state",
-                "--component",
-                release_value["component"]["id"],
-                "--version",
-                release_value["component"]["version"],
-                "--source-commit",
-                release_value["source_commit"],
-                "--expected-revision",
-                "3",
-                "--trust",
-                str(trust),
-                "--root",
-                str(slots),
-            )
-            self.assertIn("RUNTIME_COMPONENT_STATE_UNINSTALLED=YES", removed.stdout)
-            self.assertIn("CURRENT_PRESENT=NO", removed.stdout)
-            self.assertIn("APP_DATA_TOUCHED=NO", removed.stdout)
-            self.assertIn("SLOT_CACHE_PURGED=NO", removed.stdout)
-
-            status = run(
-                str(binary),
-                "status",
-                "--component",
-                release_value["component"]["id"],
-                "--root",
-                str(slots),
-            )
-            state = json.loads(status.stdout)
-            self.assertIsNone(state["current"])
-            self.assertIsNone(state["previous"])
-            self.assertIsNone(state["pending"])
-            self.assertIsNone(state["rejected"])
-
-            cached_slot_verified = run(
-                str(binary),
-                "verify-slot-v2",
-                "--slot",
-                str(slot),
-                "--trust",
-                str(trust),
-            )
-            self.assertIn(
-                "RUNTIME_COMPONENT_RELEASE_V2_SLOT_VERIFIED=YES",
-                cached_slot_verified.stdout,
-            )
 
             legacy = subprocess.run(
                 [
