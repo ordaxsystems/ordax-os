@@ -111,7 +111,6 @@ test("canonical component catalog has one unique owner identity per app and serv
     "clock-service",
     "files",
     "projects",
-    "notes",
     "internet",
     "settings",
     "account",
@@ -128,10 +127,6 @@ test("canonical component catalog has one unique owner identity per app and serv
   assert.equal(internet.version, "0.3.0");
   assert.equal(internet.releaseMode, "git-app");
   assert.equal(internet.owner, "system/apps/internet");
-  const notes = components.find((component) => component.id === "notes");
-  assert.equal(notes.version, "0.4.1");
-  assert.equal(notes.releaseMode, "git-app");
-  assert.equal(notes.owner, "system/apps/notes");
   const localAi = components.find((component) => component.id === "local-ai-service");
   assert.equal(localAi.criticality, "system");
   assert.equal(localAi.releaseMode, "bundled");
