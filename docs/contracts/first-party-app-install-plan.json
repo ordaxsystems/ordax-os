@@ -8,8 +8,9 @@
   "inputs": {
     "delivery_policy": "ordax.first-party-app-delivery-policy/1",
     "delivery_observation": "ordax.first-party-app-delivery-observation/implicit-current-contract",
-    "artifact_identity": "appId + version + sha256 + verified + compatible",
-    "production_activation_policy": "boolean supplied by platform authority owner"
+    "artifact_identity": "exact verified runtime-component release/2 reference: appId + version + sourceRepository + sourceCommit + releaseEnvelopeSha256 + packageSha256 + compatibilitySha256 + verified/compatible observations",
+    "production_activation_policy": "boolean supplied by platform authority owner",
+    "artifact_source_semantics": "verified/compatible are read-only platform observations; they do not mint authority and the executor must independently reverify the signed envelope, canonical source, compatibility, trust and activation policy"
   },
   "blocked_reasons": [
     "already-installed",
@@ -38,7 +39,18 @@
     "store_may_request_plan": true,
     "store_may_execute_plan": false,
     "ready_plan_is_authorization": false,
-    "ready_plan_is_install_receipt": false
+    "ready_plan_is_install_receipt": false,
+    "ready_plan_may_bypass_executor_reverification": false
   },
-  "next_gate": "separate Native executor consuming an exact plan plus fresh authorization only after canonical component trust/publication/activation policy is ready"
+  "next_gate": "separate Native executor consuming an exact plan plus fresh authorization and independently reverified runtime-component release/2 only after canonical component trust/publication/activation policy is ready",
+  "runtime_component_alignment": {
+    "release_schema": "prototype-ordax.runtime-component-release/2",
+    "release_mode": "component-slot",
+    "exact_source_commit_required": true,
+    "exact_signed_envelope_digest_required": true,
+    "exact_package_digest_required": true,
+    "exact_compatibility_digest_required": true,
+    "planner_reimplements_release_verification": false,
+    "executor_must_reverify_release": true
+  }
 }
