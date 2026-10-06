@@ -1,5 +1,6 @@
 import {
   APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA,
+  assertApplicationActionCapabilityRegistryPort,
   validateApplicationActionProposal,
 } from "./application-action-capability.mjs";
 
@@ -163,16 +164,11 @@ export function assertApplicationActionPreparationRegistry(port) {
 }
 
 export function assertApplicationActionCapabilityRegistryForPreparation(port) {
-  if (
-    !port
-    || typeof port !== "object"
-    || port.schema !== APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA
-    || typeof port.get !== "function"
-    || typeof port.propose !== "function"
-  ) {
+  const registry = assertApplicationActionCapabilityRegistryPort(port);
+  if (registry.schema !== APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA) {
     throw new TypeError(
       "Application action preparation requires a compatible capability registry",
     );
   }
-  return port;
+  return registry;
 }
