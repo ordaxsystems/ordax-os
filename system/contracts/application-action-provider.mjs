@@ -1,11 +1,8 @@
 import { validateComponentId } from "./component-manifest.mjs";
 
-export const APPLICATION_ACTION_PROVIDER_SCHEMA =
-  "ordax.application-action-provider/1";
-export const APPLICATION_ACTION_PROVIDER_INVOCATION_SCHEMA =
-  "ordax.application-action-provider-invocation/1";
-export const APPLICATION_ACTION_PROVIDER_RESULT_SCHEMA =
-  "ordax.application-action-provider-result/1";
+export const APPLICATION_ACTION_PROVIDER_SCHEMA = "ordax.application-action-provider/1";
+export const APPLICATION_ACTION_PROVIDER_INVOCATION_SCHEMA = "ordax.application-action-provider-invocation/1";
+export const APPLICATION_ACTION_PROVIDER_RESULT_SCHEMA = "ordax.application-action-provider-result/1";
 
 const ACTION_ID_RE = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const ADAPTER_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
