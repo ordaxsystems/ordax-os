@@ -10,9 +10,14 @@ async function json(path) {
   return JSON.parse(await readFile(new URL(path, rootUrl), "utf8"));
 }
 
-test("App SDK 1.6 publishes App Data contract metadata without transport authority", async () => {
+test("current App SDK preserves App Data contract metadata without transport authority", async () => {
   const bundle = await json("sdk/app-sdk-v1/bundle.json");
-  assert.equal(bundle.bundle_version, "1.6.0");
+  const version = bundle.bundle_version.split(".").map((part) => Number.parseInt(part, 10));
+  assert.equal(version.length, 3);
+  assert.ok(
+    version[0] > 1 || (version[0] === 1 && (version[1] > 6 || (version[1] === 6 && version[2] >= 0))),
+    "current App SDK must not predate App Data publication in 1.6.0",
+  );
   assert.equal(bundle.authority, "none");
 
   const appData = bundle.contracts.find((contract) => contract.name === "app-data");
