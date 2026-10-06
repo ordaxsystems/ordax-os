@@ -9,7 +9,7 @@
     "delivery_policy": "ordax.first-party-app-delivery-policy/1",
     "delivery_observation": "ordax.first-party-app-delivery-observation/implicit-current-contract",
     "artifact_identity": "exact verified runtime-component release/2 reference: appId + version + sourceRepository + sourceCommit + releaseEnvelopeSha256 + packageSha256 + compatibilitySha256 + verified/compatible observations",
-    "production_activation_policy": "not accepted from the caller in Stable/MVP; planner remains fail-closed until a separate platform-authoritative activation gate contract exists",
+    "production_activation_policy": "platform read-only readiness checker exists, but planner accepts no caller assertion; readiness remains blocked until a trusted runtime observation contract is injected from the platform owner",
     "artifact_source_semantics": "verified/compatible are read-only platform observations; they do not mint authority and a future executor must independently reverify the signed envelope, canonical source, compatibility, trust and activation policy"
   },
   "blocked_reasons": [
@@ -44,7 +44,7 @@
     "ready_plan_may_bypass_executor_reverification": false,
     "stable_mvp_planner_can_return_ready": false
   },
-  "next_gate": "define a separate platform-authoritative production activation gate before any planner path may return ready, then add a separate Native executor consuming an exact plan plus fresh authorization and independently reverified runtime-component release/2",
+  "next_gate": "define a trusted platform runtime readiness observation/port sourced from canonical runtime-component production readiness, then let the authority-free planner consume that observation; a separate Native executor must still reverify the exact release plus fresh authorization before mutation",
   "runtime_component_alignment": {
     "release_schema": "prototype-ordax.runtime-component-release/2",
     "release_mode": "component-slot",
@@ -53,6 +53,8 @@
     "exact_package_digest_required": true,
     "exact_compatibility_digest_required": true,
     "planner_reimplements_release_verification": false,
-    "executor_must_reverify_release": true
+    "executor_must_reverify_release": true,
+    "production_readiness_checker": "tools/runtime-component-channel/check_production_readiness.py",
+    "planner_accepts_caller_readiness": false
   }
 }
