@@ -221,6 +221,24 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
     contextItem() {
       return compiledContextItem;
     },
+    contextItemForApps(appIds) {
+      if (!Array.isArray(appIds) || appIds.length > 8) {
+        throw new TypeError("Application action capability app selection must be a bounded array");
+      }
+      const selected = [];
+      const seen = new Set();
+      for (const appId of appIds) {
+        if (typeof appId !== "string" || appId.length === 0 || appId.length > 64 || appId.includes("\0")) {
+          throw new TypeError("Application action capability selected app id is invalid");
+        }
+        if (seen.has(appId)) {
+          throw new TypeError("Application action capability selected app ids must be unique");
+        }
+        seen.add(appId);
+        selected.push(...(byApp.get(appId) ?? EMPTY_LIST));
+      }
+      return capabilityContextItem(selected);
+    },
   };
 
   assertApplicationActionCapabilityRegistryPort(port);
