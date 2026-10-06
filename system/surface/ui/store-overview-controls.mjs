@@ -43,6 +43,8 @@ export function mountStoreOverviewControls(
   let pendingAppId = null;
   let requestMessageId = null;
   let requestOrdinal = 0;
+  const requestSessionId = globalThis.crypto?.randomUUID?.().replaceAll("-", "")
+    ?? `s${Date.now().toString(36)}`;
   let destroyed = false;
 
   const render = () => {
@@ -152,7 +154,7 @@ export function mountStoreOverviewControls(
     requestOrdinal += 1;
     const request = validateAppInstallRequest({
       schema: APP_INSTALL_REQUEST_SCHEMA,
-      requestId: `store:${appId}:${requestOrdinal}`,
+      requestId: `store:${appId}:${requestSessionId}:${requestOrdinal}`,
       appId,
       source: "store",
       authority: "none",
