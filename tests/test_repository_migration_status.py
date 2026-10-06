@@ -40,9 +40,9 @@ class RepositoryMigrationStatusTests(unittest.TestCase):
         self.assertTrue(gates["control_plane_canonical_in_ordax_control_plane"])
         self.assertTrue(gates["provider_connector_repointed"])
         self.assertTrue(gates["windows_packaging_repointed"])
-        self.assertFalse(gates["production_deploy_repointed"])
+        self.assertTrue(gates["production_deploy_repointed"])
         self.assertTrue(gates["chatgpt_control_plane_runtime_e2e_green"])
-        self.assertFalse(gates["safe_to_delete_legacy_repository"])
+        self.assertTrue(gates["safe_to_delete_legacy_repository"])
 
 if __name__ == "__main__":
     unittest.main()
