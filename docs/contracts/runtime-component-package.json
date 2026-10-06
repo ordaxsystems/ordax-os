@@ -49,7 +49,9 @@
   "native_loopback_broker_requires_component_trust": true,
   "native_loopback_broker_read_only": true,
   "native_loopback_broker_supported_components": [
-    "internet"
+    "internet",
+    "notes",
+    "studio"
   ],
   "failed_pending_runtime_read_allowed": false,
   "runtime_file_read_requires_exact_version_and_source_commit": true,
@@ -117,5 +119,8 @@
     "notes": "washingtonmsdj/ordax-apps",
     "studio": "washingtonmsdj/ordax-apps"
   },
-  "source_repository_policy": "component-bound-fail-closed"
+  "source_repository_policy": "component-bound-fail-closed",
+  "native_loopback_broker_health_mutation_components": [
+    "internet"
+  ]
 }
