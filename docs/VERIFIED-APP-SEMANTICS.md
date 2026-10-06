@@ -127,6 +127,8 @@ A composição usa uma única factory, `createNativeVerifiedApplicationContextIn
 
 Memory/Identity/Space continuam como wrapper externo final.
 
+A factory inteira também é montada por `optionalNativeProbe()` com fallback para `profileContentIntelligence`. Assim, falhas estruturais inesperadas na camada consultiva de apps não derrubam o boot/Surface; elas removem somente o enriquecimento de Application Context. Esse fallback não inventa semântica nem altera o health owner do Intelligence base.
+
 Se a fonte verificada estiver indisponível ou falhar, a composição preserva o catálogo local e não inventa semântica externa.
 
 Não existem rotas dedicadas `/__ordax/native/app-intelligence-manifest` ou `/__ordax/native/app-intelligence-awareness`. A leitura continua reutilizando o namespace verificado de component packages já existente.
