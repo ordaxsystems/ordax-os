@@ -8,6 +8,7 @@ const ACTION_ID_RE = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const ADAPTER_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
 const PARAMETER_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const RESOURCE_REF_RE = /^application-action:[a-z][a-z0-9._-]{0,159}$/;
+const ARTIFACT_REF_RE = /^[a-z][a-z0-9.-]{0,63}:[a-z0-9][a-z0-9._-]{0,174}$/;
 const STATUSES = new Set(["succeeded", "failed"]);
 const FORBIDDEN_PARAMETER_IDS = new Set([
   "path",
@@ -23,7 +24,7 @@ const FORBIDDEN_PARAMETER_IDS = new Set([
   "env",
   "working-directory",
 ]);
-const FORBIDDEN_PARAMETER_KEY_FRAGMENTS = Object.freeze([
+const SENSITIVE_KEY_FRAGMENTS = Object.freeze([
   "authorization",
   "bearer",
   "cookie",
@@ -40,23 +41,10 @@ const FORBIDDEN_PARAMETER_KEY_FRAGMENTS = Object.freeze([
   "sessionid",
   "csrf",
 ]);
-const FORBIDDEN_RESULT_KEYS = new Set([
+const FORBIDDEN_RESULT_EXACT_KEYS = new Set([
   "proto",
   "constructor",
   "prototype",
-  "authorization",
-  "cookie",
-  "setcookie",
-  "password",
-  "secret",
-  "token",
-  "apikey",
-  "accesstoken",
-  "refreshtoken",
-  "clientsecret",
-  "grant",
-  "grantref",
-  "approvalid",
 ]);
 const MAX_ACTIONS = 64;
 const MAX_ARGUMENTS = 32;
@@ -101,6 +89,15 @@ function actionId(value, appId, label) {
   return id;
 }
 
+function normalizedSecurityKey(value) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function hasSensitiveKeyFragment(value) {
+  const normalized = normalizedSecurityKey(value);
+  return SENSITIVE_KEY_FRAGMENTS.some((fragment) => normalized.includes(fragment));
+}
+
 function validateArgumentValue(value, label) {
   if (typeof value === "boolean") return value;
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -132,11 +129,10 @@ function validateArguments(value) {
   }
   const normalized = {};
   for (const [key, raw] of entries) {
-    const normalizedKey = key.replace(/-/g, "");
     if (
       !PARAMETER_ID_RE.test(key)
       || FORBIDDEN_PARAMETER_IDS.has(key)
-      || FORBIDDEN_PARAMETER_KEY_FRAGMENTS.some((fragment) => normalizedKey.includes(fragment))
+      || hasSensitiveKeyFragment(key)
     ) {
       throw new TypeError("Application Action provider argument id is invalid or exposes raw authority or credentials");
     }
@@ -157,8 +153,8 @@ function outputKey(value, label) {
   ) {
     throw new TypeError(`${label} contains an invalid field name`);
   }
-  const normalized = value.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (FORBIDDEN_RESULT_KEYS.has(normalized)) {
+  const normalized = normalizedSecurityKey(value);
+  if (FORBIDDEN_RESULT_EXACT_KEYS.has(normalized) || hasSensitiveKeyFragment(value)) {
     throw new TypeError(`${label} cannot expose authority or credential field ${value}`);
   }
   return value;
@@ -321,8 +317,13 @@ export function validateApplicationActionProviderResult(value) {
   if (!Array.isArray(artifactRefs) || artifactRefs.length > 16) {
     throw new TypeError("Application Action provider result artifact refs are outside bounds");
   }
-  const refs = artifactRefs.map((ref) =>
-    boundedText(ref, "Application Action provider artifact ref", 240));
+  const refs = artifactRefs.map((rawRef) => {
+    const ref = boundedText(rawRef, "Application Action provider artifact ref", 240);
+    if (!ARTIFACT_REF_RE.test(ref)) {
+      throw new TypeError("Application Action provider artifact ref must remain opaque");
+    }
+    return ref;
+  });
   if (new Set(refs).size !== refs.length) {
     throw new TypeError("Application Action provider artifact refs must be unique");
   }
