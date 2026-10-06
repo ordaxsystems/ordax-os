@@ -187,7 +187,10 @@ test("provider resolver binds exact provider module SHA without execution author
     module: "actions/providers/notes-native.mjs",
     declaredSha256: PROVIDER_SHA,
   });
-  for (const method of ["execute", "invoke", "run", "launch", "grant", "authorize"]) {
+  for (const method of [
+    "execute", "invoke", "run", "launch", "import", "load", "loadAdapter",
+    "grant", "authorize", "confirm",
+  ]) {
     assert.equal(typeof resolver[method], "undefined");
   }
 });
