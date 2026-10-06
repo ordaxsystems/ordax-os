@@ -9,6 +9,7 @@ on:
       - "tests/test_app_sdk_app_data.mjs"
       - "tests/test_app_sdk_application_actions.mjs"
       - "tests/test_application_action_manifest.mjs"
+      - "tests/test_application_action_provider.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - ".github/workflows/app-sdk-contract.yml"
   push:
@@ -20,6 +21,7 @@ on:
       - "tests/test_app_sdk_app_data.mjs"
       - "tests/test_app_sdk_application_actions.mjs"
       - "tests/test_application_action_manifest.mjs"
+      - "tests/test_application_action_provider.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - ".github/workflows/app-sdk-contract.yml"
 
@@ -53,6 +55,9 @@ jobs:
 
       - name: Prove Application Action publication remains authority-free
         run: node --test tests/test_app_sdk_application_actions.mjs
+
+      - name: Prove Application Action provider is typed and authority-free
+        run: node --test tests/test_application_action_provider.mjs
 
       - name: Prove Projects public ports and authority boundary
         run: node --test tests/test_app_sdk_projects_ports.mjs

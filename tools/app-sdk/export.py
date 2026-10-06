@@ -54,6 +54,27 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "application-action-provider",
+        "path": "system/contracts/application-action-provider.mjs",
+        "constant": "APPLICATION_ACTION_PROVIDER_SCHEMA",
+        "schema": "ordax.application-action-provider/1",
+        "major": 1,
+    },
+    {
+        "name": "application-action-provider-invocation",
+        "path": "system/contracts/application-action-provider.mjs",
+        "constant": "APPLICATION_ACTION_PROVIDER_INVOCATION_SCHEMA",
+        "schema": "ordax.application-action-provider-invocation/1",
+        "major": 1,
+    },
+    {
+        "name": "application-action-provider-result",
+        "path": "system/contracts/application-action-provider.mjs",
+        "constant": "APPLICATION_ACTION_PROVIDER_RESULT_SCHEMA",
+        "schema": "ordax.application-action-provider-result/1",
+        "major": 1,
+    },
+    {
         "name": "application-action-proposal",
         "path": "system/contracts/application-action-capability.mjs",
         "constant": "APPLICATION_ACTION_PROPOSAL_SCHEMA",
@@ -237,7 +258,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.11.0"
+BUNDLE_VERSION = "1.12.0"
 
 
 def git_blob(path: Path) -> str:
