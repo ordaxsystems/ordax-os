@@ -94,8 +94,16 @@ export function createApplicationContextIntelligence({
 
       let selectedAppIds = null;
       if (semanticRouter !== null && awarenessIncluded) {
-        selectedAppIds = semanticRouter.select(request.prompt).map(({ appId }) => appId);
-        for (const item of semanticRouter.contextItemsForPrompt(request.prompt)) {
+        let routedItems = null;
+        if (typeof semanticRouter.route === "function") {
+          const routed = semanticRouter.route(request.prompt);
+          selectedAppIds = routed.selection.map(({ appId }) => appId);
+          routedItems = routed.contextItems;
+        } else {
+          selectedAppIds = semanticRouter.select(request.prompt).map(({ appId }) => appId);
+          routedItems = semanticRouter.contextItemsForPrompt(request.prompt);
+        }
+        for (const item of routedItems) {
           const validated = validatedSystemContextItem(item, item.id);
           context = appendIfFits(context, validated);
         }
