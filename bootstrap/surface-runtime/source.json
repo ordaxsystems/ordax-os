@@ -398,6 +398,12 @@
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "reproducibility_reproof_required": true
+    "reproducibility_reproof_required": true,
+    "upstream_drift": {
+      "package": "libseccomp",
+      "from": "2.6.0-r0",
+      "to": "2.6.1-r0",
+      "detected_by_qemu_run_id": 37470312340
+    }
   }
 }

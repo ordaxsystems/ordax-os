@@ -65,6 +65,18 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             self.assertFalse(refresh["reproducibility_reproof_required"])
         else:
             self.assertTrue(refresh["reproducibility_reproof_required"])
+            drift = refresh["upstream_drift"]
+            self.assertEqual(drift["package"], "libseccomp")
+            self.assertEqual(drift["from"], "2.6.0-r0")
+            self.assertEqual(drift["to"], "2.6.1-r0")
+            self.assertEqual(
+                contract["apk_package_lock"][drift["package"]],
+                drift["to"],
+            )
+            self.assertEqual(
+                drift["detected_by_qemu_run_id"],
+                refresh["detected_by_qemu_run_id"],
+            )
         proof = contract["reproducibility_proof"]
         self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
         self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
