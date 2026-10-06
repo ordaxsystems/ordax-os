@@ -1,0 +1,43 @@
+name: Component Trusted Context
+
+on:
+  pull_request:
+    paths:
+      - 'system/services/components/runtime-loader.mjs'
+      - 'tests/test_component_trusted_context_composition.mjs'
+      - 'tests/test_native_app_data_composition_bootstrap.mjs'
+      - '.github/workflows/component-trusted-context.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/services/components/runtime-loader.mjs'
+      - 'tests/test_component_trusted_context_composition.mjs'
+      - 'tests/test_native_app_data_composition_bootstrap.mjs'
+      - '.github/workflows/component-trusted-context.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trusted-context:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate trusted context modules
+        run: |
+          set -euo pipefail
+          node --check system/services/components/runtime-loader.mjs
+          node --check tests/test_component_trusted_context_composition.mjs
+          node --check tests/test_native_app_data_composition_bootstrap.mjs
+
+      - name: Prove bounded trusted context composition
+        run: |
+          set -euo pipefail
+          node --test tests/test_component_trusted_context_composition.mjs
+          node --test tests/test_native_app_data_composition_bootstrap.mjs
