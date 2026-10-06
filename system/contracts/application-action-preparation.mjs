@@ -43,6 +43,29 @@ function exactFields(value, expected, label) {
   }
 }
 
+function canonicalJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+    .join(",")}}`;
+}
+
+export function sameApplicationActionProposal(leftValue, rightValue) {
+  const left = validateApplicationActionProposal(leftValue);
+  const right = validateApplicationActionProposal(rightValue);
+  return (
+    left.appId === right.appId
+    && left.actionId === right.actionId
+    && left.riskClass === right.riskClass
+    && left.confirmation === right.confirmation
+    && left.capabilitySha256 === right.capabilitySha256
+    && left.capabilityProvenance === right.capabilityProvenance
+    && canonicalJson(left.arguments) === canonicalJson(right.arguments)
+  );
+}
+
 export function validateApplicationActionPreparation(value) {
   exactFields(
     value,
