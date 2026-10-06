@@ -5,6 +5,7 @@
     "structural_app_ids": [
       "account",
       "settings",
+      "store",
       "system"
     ],
     "bootstrap_app_ids": [
@@ -80,7 +81,8 @@
     "studio_completion_required_before_public_launch": false,
     "projects_completion_required_before_public_launch": false,
     "activity_completion_required_before_public_launch": false,
-    "network_app_completion_required_before_public_launch": false
+    "network_app_completion_required_before_public_launch": false,
+    "store_install_service_required_before_public_launch": false
   },
   "authority": "none"
 }
