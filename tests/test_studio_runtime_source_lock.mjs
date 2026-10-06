@@ -10,6 +10,10 @@ const INTEGRATION_PATH = new URL(
   "../docs/contracts/studio-runtime-integration.json",
   import.meta.url,
 );
+const ENROLLMENT_PATH = new URL(
+  "../infra/supabase/development/functions/ordax-development-github-enroll/index.ts",
+  import.meta.url,
+);
 
 async function readJson(url) {
   return JSON.parse(await readFile(url, "utf8"));
@@ -111,4 +115,17 @@ test("Studio integration keeps ChatGPT normal, Work/Codex and provider API disti
   assert.equal(integration.ai_modes.provider_api.runtime_enabled, false);
   assert.equal(integration.ai_modes.provider_api.separate_billing_notice_required, true);
   assert.equal(integration.ai_modes.provider_api.silent_fallback_forbidden, true);
+});
+
+
+test("development enrollment trusts only canonical ordax-runtime recovery workflow", async () => {
+  const source = await readFile(ENROLLMENT_PATH, "utf8");
+
+  assert.match(source, /const REPOSITORY = "washingtonmsdj\/ordax-runtime";/);
+  assert.match(source, /const REPOSITORY_ID = "1406415790";/);
+  assert.match(
+    source,
+    /washingtonmsdj\/ordax-runtime\/\.github\/workflows\/ordax-agent-recovery\.yml@refs\/heads\/main/,
+  );
+  assert.doesNotMatch(source, /washingtonmsdj\/mcp-blender/);
 });
