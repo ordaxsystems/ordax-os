@@ -3,6 +3,28 @@ import { listStoreCatalogEntries } from "../../services/apps/store-catalog.mjs";
 
 const STORE_EXTENSION_SELECTOR = '[data-app-extension="store-overview"]';
 
+export function storeProductCopy(translate, entry) {
+  if (typeof translate !== "function") {
+    throw new TypeError("Store product copy requires a translate function");
+  }
+  if (!entry || typeof entry.appId !== "string" || !entry.appId) {
+    throw new TypeError("Store product copy requires a catalog entry");
+  }
+  let title;
+  let description;
+  try {
+    title = translate(`store.product.${entry.appId}.title`);
+  } catch {
+    title = entry.appId;
+  }
+  try {
+    description = translate(`store.product.${entry.appId}.description`);
+  } catch {
+    description = translate("store.product.unknown.description");
+  }
+  return Object.freeze({ title, description });
+}
+
 function node(documentObject, tag, className, text) {
   const element = documentObject.createElement(tag);
   if (className) element.className = className;
@@ -48,6 +70,7 @@ export function mountStoreOverviewControls(root, surfaceLifecycle) {
 
     const grid = node(documentObject, "div", "ordax-store-grid");
     for (const entry of listStoreCatalogEntries()) {
+      const copy = storeProductCopy(t, entry);
       const card = node(documentObject, "article", "ordax-store-card");
       card.dataset.storeAppId = entry.appId;
       card.dataset.storeInstallAction = entry.installAction;
@@ -57,13 +80,13 @@ export function mountStoreOverviewControls(root, surfaceLifecycle) {
         documentObject,
         "h3",
         "ordax-store-card-title",
-        t(`store.product.${entry.appId}.title`),
+        copy.title,
       );
       const description = node(
         documentObject,
         "p",
         "ordax-store-card-description",
-        t(`store.product.${entry.appId}.description`),
+        copy.description,
       );
       const meta = node(
         documentObject,
