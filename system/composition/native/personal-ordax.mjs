@@ -14,6 +14,12 @@ import { createPersonalApprovalConsent } from "../../services/personal-ordax/app
 import { createPersonalActionProposalPlanner } from "../../services/personal-ordax/proposal-planner.mjs";
 import { createPersonalWorkRecoveryPlanner } from "../../services/personal-ordax/work-recovery.mjs";
 import { createPersonalOrdaxRuntime } from "../../services/personal-ordax/runtime.mjs";
+import {
+  createApplicationActionPreparationRegistry,
+} from "../../services/personal-ordax/application-action-preparations.mjs";
+import {
+  createApplicationActionProviderResolver,
+} from "../../services/personal-ordax/application-action-provider-bindings.mjs";
 
 export function createNativePersonalOrdaxComposition({
   windowRef = globalThis.window,
@@ -24,6 +30,10 @@ export function createNativePersonalOrdaxComposition({
   toolResolver = () => null,
   adapterResolver = () => null,
   actionCatalog = null,
+  applicationActionCapabilityRegistry = null,
+  resolveVerifiedApplicationSemantics = null,
+  expectedApplicationActionProviderOwner = null,
+  createApplicationActionPreparationId = null,
   grantAuthority = null,
 } = {}) {
   if (!windowRef || typeof windowRef !== "object") {
@@ -36,6 +46,48 @@ export function createNativePersonalOrdaxComposition({
     throw new TypeError("Native Personal OrdaX composition adapter resolver must be a function");
   }
   const catalog = actionCatalog === null ? null : assertPersonalActionCatalog(actionCatalog);
+  if (
+    createApplicationActionPreparationId !== null
+    && typeof createApplicationActionPreparationId !== "function"
+  ) {
+    throw new TypeError(
+      "Native Personal OrdaX Application Action preparation id factory must be a function or null",
+    );
+  }
+  if (
+    resolveVerifiedApplicationSemantics !== null
+    && typeof resolveVerifiedApplicationSemantics !== "function"
+  ) {
+    throw new TypeError(
+      "Native Personal OrdaX verified Application Action semantics resolver must be a function or null",
+    );
+  }
+  const preparationIdFactory = createApplicationActionPreparationId ?? (() => {
+    const randomUUID = windowRef.crypto?.randomUUID;
+    if (typeof randomUUID !== "function") {
+      throw new Error(
+        "Native Personal OrdaX Application Action preparation requires Web Crypto randomUUID()",
+      );
+    }
+    return `prep-${randomUUID.call(windowRef.crypto)}`;
+  });
+  const applicationActionPreparations = applicationActionCapabilityRegistry === null
+    ? null
+    : createApplicationActionPreparationRegistry({
+        capabilityRegistry: applicationActionCapabilityRegistry,
+        createPreparationId: preparationIdFactory,
+      });
+  const applicationActionProviderResolver = (
+    applicationActionPreparations !== null
+    && resolveVerifiedApplicationSemantics !== null
+  )
+    ? createApplicationActionProviderResolver({
+        preparationRegistry: applicationActionPreparations,
+        capabilityRegistry: applicationActionCapabilityRegistry,
+        resolveVerifiedSemantics: resolveVerifiedApplicationSemantics,
+        expectedOwner: expectedApplicationActionProviderOwner,
+      })
+    : null;
 
   const ownsGrantAuthority = grantAuthority === null;
   const authority = grantAuthority ?? createIntelligenceToolGrantAuthority();
@@ -72,6 +124,7 @@ export function createNativePersonalOrdaxComposition({
       });
   const proposalBindings = new WeakMap();
   const recoveryBindings = new WeakMap();
+  const applicationActionPreparationBindings = new Map();
 
   const ownerKeyFromSnapshot = (snapshot) => (
     snapshot.ownerKind === "account"
@@ -91,6 +144,73 @@ export function createNativePersonalOrdaxComposition({
     contextRefs: work.contextRefs,
     updatedAt: work.updatedAt,
   });
+
+  const applicationActionWorkContextIsCurrent = (work) => {
+    if (!work || ["completed", "failed", "cancelled"].includes(work.state)) return false;
+    if (work.spaceId !== null) {
+      const selectionSnapshot = spaceSelection?.getSnapshot?.();
+      if (
+        selectionSnapshot?.state !== "selected"
+        || selectionSnapshot.subjectId !== work.ownerId
+        || selectionSnapshot.selectedSpace?.id !== work.spaceId
+      ) {
+        return false;
+      }
+    }
+    if (work.projectId !== null) {
+      const projectSnapshot = projects?.getSnapshot?.();
+      if (
+        !Array.isArray(projectSnapshot?.projects)
+        || !projectSnapshot.projects.some((project) => project.id === work.projectId)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const reconcileApplicationActionPreparations = (snapshot = runtime.getSnapshot()) => {
+    if (applicationActionPreparations === null) return false;
+    const ownerKey = ownerKeyFromSnapshot(snapshot);
+    let changed = false;
+    for (const [resourceRef, binding] of [...applicationActionPreparationBindings]) {
+      const preparation = applicationActionPreparations.resolve(resourceRef);
+      if (preparation === null) {
+        applicationActionPreparationBindings.delete(resourceRef);
+        continue;
+      }
+      const work = snapshot.workItems.find(
+        (candidate) => candidate.id === preparation.workItemId,
+      );
+      const approval = snapshot.approvals.find(
+        (candidate) =>
+          candidate.workItemId === preparation.workItemId
+          && candidate.resourceRef === resourceRef,
+      );
+      const attempt = snapshot.attempts.find(
+        (candidate) =>
+          candidate.workItemId === preparation.workItemId
+          && candidate.resourceRef === resourceRef,
+      );
+      const invalid = (
+        binding.ownerKey !== ownerKey
+        || !applicationActionWorkContextIsCurrent(work)
+        || ["executed", "revoked", "denied", "cancelled"].includes(approval?.status)
+        || ["succeeded", "uncertain"].includes(attempt?.status)
+      );
+      if (!invalid) continue;
+      applicationActionPreparations.revoke(resourceRef);
+      applicationActionPreparationBindings.delete(resourceRef);
+      changed = true;
+    }
+    return changed;
+  };
+
+  const unsubscribeApplicationActionPreparations = applicationActionPreparations === null
+    ? () => {}
+    : runtime.subscribe((snapshot) => {
+        reconcileApplicationActionPreparations(snapshot);
+      });
 
   const bindProposal = (proposal, work) => {
     if (proposal === null) return null;
@@ -163,6 +283,83 @@ export function createNativePersonalOrdaxComposition({
     approvalConsent,
     listAvailableActions() {
       return catalog === null ? Object.freeze([]) : catalog.list();
+    },
+    listAvailableApplicationActions(appId = null) {
+      if (applicationActionCapabilityRegistry === null) return Object.freeze([]);
+      return appId === null
+        ? applicationActionCapabilityRegistry.list()
+        : applicationActionCapabilityRegistry.listForApp(appId);
+    },
+    proposeApplicationAction(appId, actionId, argumentsValue = {}) {
+      if (applicationActionCapabilityRegistry === null) {
+        throw new Error("Personal OrdaX Application Action capabilities are unavailable");
+      }
+      return applicationActionCapabilityRegistry.propose(appId, actionId, argumentsValue);
+    },
+    prepareApplicationAction(workItemId, proposalValue) {
+      if (applicationActionPreparations === null) {
+        throw new Error("Personal OrdaX Application Action preparation is unavailable");
+      }
+      reconcileApplicationActionPreparations();
+      const work = currentProposalWork(workItemId);
+      const preparation = applicationActionPreparations.prepare(work.id, proposalValue);
+      applicationActionPreparationBindings.set(
+        preparation.resourceRef,
+        Object.freeze({
+          ownerKey: ownerKeyFromSnapshot(runtime.getSnapshot()),
+          workRevision: workRevision(work),
+        }),
+      );
+      return preparation;
+    },
+    resolveApplicationActionPreparation(resourceRef) {
+      if (applicationActionPreparations === null) return null;
+      reconcileApplicationActionPreparations();
+      return applicationActionPreparations.resolve(resourceRef);
+    },
+    async resolveApplicationActionProviderBinding(resourceRef) {
+      if (
+        applicationActionPreparations === null
+        || applicationActionProviderResolver === null
+      ) {
+        throw new Error("Personal OrdaX Application Action provider binding is unavailable");
+      }
+      reconcileApplicationActionPreparations();
+      const preparation = applicationActionPreparations.resolve(resourceRef);
+      if (preparation === null) {
+        throw new Error("Personal OrdaX Application Action preparation is no longer current");
+      }
+      const binding = applicationActionPreparationBindings.get(resourceRef);
+      if (!binding) {
+        throw new Error("Personal OrdaX Application Action preparation binding is unavailable");
+      }
+      const resolved = await applicationActionProviderResolver.resolve(resourceRef);
+      reconcileApplicationActionPreparations();
+      const currentPreparation = applicationActionPreparations.resolve(resourceRef);
+      const currentWork = runtime.getSnapshot().workItems.find(
+        (candidate) => candidate.id === preparation.workItemId,
+      );
+      if (
+        currentPreparation !== preparation
+        || !currentWork
+        || workRevision(currentWork) !== binding.workRevision
+      ) {
+        throw new Error(
+          "Personal OrdaX Application Action changed during provider binding resolution",
+        );
+      }
+      return resolved;
+    },
+    revokeApplicationActionPreparation(resourceRef) {
+      if (applicationActionPreparations === null) return false;
+      const revoked = applicationActionPreparations.revoke(resourceRef);
+      applicationActionPreparationBindings.delete(resourceRef);
+      return revoked;
+    },
+    listApplicationActionPreparations(workItemId) {
+      if (applicationActionPreparations === null) return Object.freeze([]);
+      reconcileApplicationActionPreparations();
+      return applicationActionPreparations.listForWork(workItemId);
     },
     proposeAvailableAction(workItemId, entryId, input) {
       if (catalog === null) {
@@ -355,6 +552,11 @@ export function createNativePersonalOrdaxComposition({
       }
     },
     dispose() {
+      unsubscribeApplicationActionPreparations();
+      for (const resourceRef of [...applicationActionPreparationBindings.keys()]) {
+        applicationActionPreparations?.revoke(resourceRef);
+      }
+      applicationActionPreparationBindings.clear();
       runtime.dispose();
       if (ownsGrantAuthority) authority.dispose();
     },
