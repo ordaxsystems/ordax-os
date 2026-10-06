@@ -88,7 +88,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertTrue(policy["native_loopback_broker_requires_component_trust"])
         self.assertTrue(policy["native_loopback_broker_read_only"])
         self.assertFalse(policy["failed_pending_runtime_read_allowed"])
-        self.assertEqual(policy["native_loopback_broker_supported_components"], ["internet"])
+        self.assertEqual(policy["native_loopback_broker_supported_components"], ["internet", "notes"])
         self.assertFalse(policy["native_slot_serving_available"])
         self.assertFalse(policy["slot_activation_available"])
         self.assertFalse(policy["pending_health_promotion_available"])
@@ -113,7 +113,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             policy["runtime_health_bridge_probe_registry"],
             "system/services/components/probation-orchestrator.mjs",
         )
-        self.assertEqual(policy["runtime_health_bridge_supported_components"], ["internet"])
+        self.assertEqual(policy["runtime_health_bridge_supported_components"], ["internet", "notes"])
         self.assertEqual(policy["runtime_health_bridge_probe_mode"], "import-contract")
         self.assertTrue(policy["runtime_health_bridge_requires_host_nonce"])
         self.assertFalse(policy["runtime_health_bridge_exposed_over_http"])
@@ -143,6 +143,11 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertTrue(policy["rollback_requires_exact_revision"])
         self.assertTrue(policy["rollback_requires_exact_current_identity"])
         self.assertTrue(policy["rollback_idempotent_same_decision"])
+        self.assertTrue(policy["notes_component_slot_read_available"])
+        self.assertTrue(policy["notes_component_probation_available"])
+        self.assertFalse(policy["notes_component_distribution_activation_enabled"])
+        self.assertFalse(policy["notes_component_promotion_proven"])
+        self.assertFalse(policy["notes_component_rollback_proven"])
 
     def test_internet_metadata_comes_from_canonical_component_manifest(self):
         builder = load_builder()
