@@ -377,3 +377,27 @@ modelDirectExecutionAuthorized = false
 ```
 
 This binding is still not an adapter callback, does not contain a tool artifact SHA-256 and is not an Action Gateway allow decision. Its purpose is narrower: prove that the provider declaration belongs to the exact currently verified first-party package before a later slice binds an actual typed provider module artifact and connects it to the existing Personal OrdaX approval/grant/gateway/executor chain. Notes and Studio currently publish declarative provider identities only; until an executable typed provider artifact exists and is verified, the chain remains fail-closed.
+
+## Personal OrdaX runtime composition
+
+The Native Personal OrdaX composition now owns the first-party Application Action Preparation Registry and composes the current verified provider binding resolver already defined by the platform.
+
+The runtime path is:
+
+```text
+verified first-party capability
+  -> authority-free proposal
+  -> owner-bound Work
+  -> session-only Application Action Preparation
+  -> re-read current verified app semantics
+  -> current verified provider binding
+```
+
+The preparation remains session-only and carries no approval, grant or execution authority. It is revoked when its owner partition changes, its Work becomes terminal or disappears, its bound Space/project context is no longer current, or a matching action approval/attempt has already crossed a terminal authority or side-effect boundary.
+
+Provider binding is resolved only from a still-current preparation. The resolver re-reads the external first-party app from the current verified component slot and revalidates capability identity, proposal digest, provider `adapterId + revision`, app version, source commit and component revision.
+
+After that asynchronous revalidation completes, Personal OrdaX checks the preparation and Work revision again. If either changed during the await boundary, the binding is discarded. This closes the owner/context TOCTOU window without adding execution authority.
+
+The composition intentionally does not expose an Application Action-specific approval, grant or execute shortcut. Existing Personal OrdaX approval/grant/gateway/executor remains the only authority path for future provider invocation.
+
