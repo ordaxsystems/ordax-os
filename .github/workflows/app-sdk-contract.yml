@@ -7,6 +7,7 @@ on:
       - "sdk/app-sdk-v1/**"
       - "tools/app-sdk/**"
       - "tests/test_app_sdk_app_data.mjs"
+      - "tests/test_app_sdk_application_actions.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - ".github/workflows/app-sdk-contract.yml"
   push:
@@ -16,6 +17,7 @@ on:
       - "sdk/app-sdk-v1/**"
       - "tools/app-sdk/**"
       - "tests/test_app_sdk_app_data.mjs"
+      - "tests/test_app_sdk_application_actions.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - ".github/workflows/app-sdk-contract.yml"
 
@@ -43,6 +45,9 @@ jobs:
 
       - name: Prove App Data publication is contract-only
         run: node --test tests/test_app_sdk_app_data.mjs
+
+      - name: Prove Application Action publication remains authority-free
+        run: node --test tests/test_app_sdk_application_actions.mjs
 
       - name: Prove Studio public ports and authority boundary
         run: node --test tests/test_app_sdk_studio_ports.mjs
