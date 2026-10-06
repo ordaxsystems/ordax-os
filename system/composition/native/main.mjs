@@ -52,6 +52,7 @@ import { loadOptionalComponentRuntime } from "../../services/components/runtime-
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
 import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
+import { createProjectCloudLinksReader } from "../../contracts/project-cloud-links.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
@@ -297,6 +298,9 @@ async function start() {
     projects,
     store: createNativeProjectCloudLinkStore(window),
   });
+  const projectCloudLinksReader = projectCloudLinks === null
+    ? null
+    : createProjectCloudLinksReader(projectCloudLinks);
   const projectReferences = projects === null ? null : createProjectWebReferenceRuntime({
     store: createNativeProjectWebReferenceStore(window),
     projects,
@@ -751,7 +755,7 @@ async function start() {
       root,
       surfaceLifecycle: surface,
       projects,
-      projectCloudLinks,
+      projectCloudLinks: projectCloudLinksReader,
       appActivation,
     },
     onError(error) {
