@@ -1,9 +1,6 @@
 import {
   validateProjectCloudLinksSnapshot,
 } from "./project-cloud-links-data.mjs";
-import {
-  assertProjectCloudLinksPort,
-} from "./project-cloud-links.mjs";
 
 export {
   validateProjectCloudLinksSnapshot,
@@ -31,17 +28,4 @@ export function assertProjectCloudLinksReaderPort(port) {
   }
   validateProjectCloudLinksSnapshot(port.getSnapshot());
   return port;
-}
-
-export function createProjectCloudLinksReader(portValue) {
-  const port = assertProjectCloudLinksPort(portValue);
-  return Object.freeze({
-    schema: PROJECT_CLOUD_LINKS_READER_SCHEMA,
-    getSnapshot() {
-      return port.getSnapshot();
-    },
-    subscribe(listener) {
-      return port.subscribe(listener);
-    },
-  });
 }
