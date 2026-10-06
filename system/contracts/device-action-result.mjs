@@ -13,12 +13,22 @@ export const DEVICE_ACTION_RESULT_SCHEMA = "ordax.device-action-result/1";
 
 const KEY_CONTROL_RE = /[\u0000-\u001f\u007f]/;
 const TEXT_CONTROL_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
-const FORBIDDEN_RESULT_KEYS = new Set([
+const FORBIDDEN_STRUCTURAL_KEYS = new Set([
+  "__proto__",
+  "constructor",
+  "prototype",
+]);
+const FORBIDDEN_CREDENTIAL_KEYS = new Set([
   "authorization",
   "cookie",
+  "setcookie",
   "password",
   "secret",
   "token",
+  "apikey",
+  "accesstoken",
+  "refreshtoken",
+  "clientsecret",
 ]);
 const MAX_RESULT_BYTES = 1024 * 1024;
 const MAX_RESULT_DEPTH = 6;
@@ -46,7 +56,12 @@ function validateKey(value, label) {
   ) {
     throw new TypeError(`${label} contains an invalid field name`);
   }
-  if (FORBIDDEN_RESULT_KEYS.has(value.toLowerCase())) {
+  const lower = value.toLowerCase();
+  if (FORBIDDEN_STRUCTURAL_KEYS.has(lower)) {
+    throw new TypeError(`${label} cannot contain structural field ${value}`);
+  }
+  const credentialKey = lower.replace(/[^a-z0-9]/g, "");
+  if (FORBIDDEN_CREDENTIAL_KEYS.has(credentialKey)) {
     throw new TypeError(`${label} cannot contain credential-like field ${value}`);
   }
   return value;
@@ -75,11 +90,15 @@ function validateResultValue(value, label, depth = 0) {
   if (!value || typeof value !== "object") {
     throw new TypeError(`${label} must contain JSON-safe values`);
   }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${label} must contain plain JSON objects`);
+  }
   const entries = Object.entries(value);
   if (entries.length > MAX_OBJECT_FIELDS) {
     throw new TypeError(`${label} has too many fields`);
   }
-  const out = {};
+  const out = Object.create(null);
   for (const [rawKey, rawValue] of entries) {
     const key = validateKey(rawKey, label);
     out[key] = validateResultValue(rawValue, `${label}.${key}`, depth + 1);
