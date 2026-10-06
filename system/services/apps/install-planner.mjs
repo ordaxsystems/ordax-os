@@ -28,7 +28,6 @@ export function createFirstPartyAppInstallPlanner() {
       appId,
       observation,
       artifact = null,
-      productionActivationAllowed = false,
     }) {
       const policy = getFirstPartyAppDeliveryPolicy(appId);
       if (!policy) {
@@ -69,18 +68,10 @@ export function createFirstPartyAppInstallPlanner() {
       if (!candidate.compatible) {
         return blocked(appId, "incompatible-artifact");
       }
-      if (productionActivationAllowed !== true) {
-        return blocked(appId, "production-activation-blocked");
-      }
 
-      return validateFirstPartyAppInstallPlan({
-        schema: FIRST_PARTY_APP_INSTALL_PLAN_SCHEMA,
-        appId,
-        ready: true,
-        reason: "install-plan-ready",
-        artifact: candidate,
-        authority: "none",
-      });
+      // Stable/MVP has no platform-authoritative production activation gate yet.
+      // A caller-supplied boolean must never mint readiness by convention.
+      return blocked(appId, "production-activation-blocked");
     },
   });
 }
