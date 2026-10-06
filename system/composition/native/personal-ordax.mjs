@@ -9,6 +9,9 @@ import { validatePersonalActionProposal } from "../../contracts/personal-action-
 import { validatePersonalWorkRecoverySuggestion } from "../../contracts/personal-work-recovery-suggestion.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
 import { createApplicationActionPreparationRegistry } from "../../services/personal-ordax/application-action-preparations.mjs";
+import {
+  assertApplicationActionProviderResolver,
+} from "../../contracts/application-action-provider-resolution.mjs";
 import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
@@ -26,6 +29,7 @@ export function createNativePersonalOrdaxComposition({
   adapterResolver = () => null,
   actionCatalog = null,
   applicationActionCapabilityRegistry = null,
+  applicationActionProviderResolver = null,
   createApplicationActionPreparationId = null,
   grantAuthority = null,
 } = {}) {
@@ -58,6 +62,9 @@ export function createNativePersonalOrdaxComposition({
         capabilityRegistry: applicationActionCapabilityRegistry,
         createPreparationId: preparationIdFactory,
       });
+  const applicationActionProviders = applicationActionProviderResolver === null
+    ? null
+    : assertApplicationActionProviderResolver(applicationActionProviderResolver);
 
   const ownsGrantAuthority = grantAuthority === null;
   const authority = grantAuthority ?? createIntelligenceToolGrantAuthority();
@@ -283,6 +290,24 @@ export function createNativePersonalOrdaxComposition({
       if (applicationActionPreparations === null) return null;
       reconcileApplicationActionPreparations();
       return applicationActionPreparations.resolve(resourceRef);
+    },
+    async resolveApplicationActionProvider(resourceRef) {
+      if (applicationActionPreparations === null || applicationActionProviders === null) {
+        throw new Error("Personal OrdaX Application Action provider resolution is unavailable");
+      }
+      reconcileApplicationActionPreparations();
+      const preparation = applicationActionPreparations.resolve(resourceRef);
+      if (preparation === null) {
+        throw new Error("Personal OrdaX Application Action preparation is no longer current");
+      }
+      const resolution = await applicationActionProviders.resolve(preparation);
+      reconcileApplicationActionPreparations();
+      if (applicationActionPreparations.resolve(resourceRef) !== preparation) {
+        throw new Error(
+          "Personal OrdaX Application Action preparation changed during provider resolution",
+        );
+      }
+      return resolution;
     },
     revokeApplicationActionPreparation(resourceRef) {
       if (applicationActionPreparations === null) return false;
