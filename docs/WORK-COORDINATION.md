@@ -1,6 +1,6 @@
 # Work Coordination
 
-Status: **FOUNDATION CONTRACTS ONLY / NOT PUBLICLY ENABLED**
+Status: **FOUNDATION + STORE CONTRACTS / NOT PUBLICLY ENABLED**
 
 Issue: `#1154`
 
@@ -46,8 +46,7 @@ Provider/client/session metadata is descriptive context only. It does not create
 
 ## Contracts
 
-The first foundation publishes six internal platform contracts in
-`system/contracts/work-coordination.mjs`:
+The platform currently defines these internal contracts:
 
 - `ordax.work-coordination-policy/1`
 - `ordax.work-plan/1`
@@ -55,9 +54,12 @@ The first foundation publishes six internal platform contracts in
 - `ordax.work-claim/1`
 - `ordax.work-checkpoint/1`
 - `ordax.work-evidence/1`
+- `ordax.work-coordination-store/1`
+- `ordax.work-coordination-store-state/1`
 
-These contracts do not create storage, UI, background execution or connector mutations by
-themselves.
+They do not create UI, background execution or provider connector mutations by themselves. The store
+contract defines the canonical persistence boundary shape; a durable Native adapter is still a
+separate composition step.
 
 ### Policy
 
@@ -122,11 +124,12 @@ planned | ready | blocked | in-progress | review | completed | cancelled
 ```
 
 Dependencies are explicit task ids. The value contract rejects duplicate dependencies and
-self-dependency. Full graph validation (missing dependencies/cycles/cross-plan references) belongs
-to the future coordination runtime because it requires access to the whole plan snapshot.
+self-dependency. The store contract validates the complete retained graph and rejects missing,
+cyclic or cross-plan dependencies.
 
-A task may declare required evidence kinds. A future runtime can only call the task complete when
-its declared completion policy is satisfied; model text saying "done" is not evidence.
+A task may declare required evidence kinds. A completed task that declares required evidence is
+invalid in canonical store state unless verified evidence for the exact current task revision is
+retained. Model text saying `done` is not evidence.
 
 ### Claim
 
@@ -141,8 +144,9 @@ A Claim is an expiring lease for one task. It binds:
 A claim has a finite maximum lease window and must be renewed through a later atomic state
 transition. It is not a permanent lock.
 
-The future store/runtime must use compare-and-swap semantics so two clients cannot successfully
-claim the same ready task from the same revision.
+The store permits at most one retained active claim per task and requires that claim to match the
+current plan/task revisions. A retained claim also requires an `active` plan and an `in-progress`
+task.
 
 Losing a claim or observing a newer plan/task revision invalidates the client's right to update
 coordination state. It does **not** revoke or create Action Gateway authority; those are separate
@@ -158,7 +162,8 @@ A Checkpoint is small handoff metadata tied to an exact claim/lease and task rev
 - sequence and timestamp.
 
 A checkpoint is not a transcript, prompt archive, Memory replacement, credential store or
-authority snapshot.
+authority snapshot. Store validation rejects future task revisions, regressing task revisions,
+non-increasing checkpoint sequence within a task revision and regressing checkpoint time.
 
 ### Evidence
 
@@ -180,6 +185,42 @@ artifact, a device receipt or another typed integration, but the evidence value 
 authority.
 
 GitHub remains an integration/evidence source, not the universal Work source of truth.
+
+## Store, retention and migration
+
+Canonical coordination state is partitioned by exact owner plus optional Project. One partition is
+bounded to 4 MiB serialized and has explicit limits for plans, tasks, claims, checkpoints and
+evidence.
+
+The mutation port is intentionally narrow:
+
+```text
+load(partition)
+compareAndSwap(partition, expectedRevision, nextState)
+```
+
+A compatible store must not expose a parallel last-write-wins mutation path such as `save()`,
+`set()`, `put()`, `write()`, `update()`, `replace()`, `delete()` or `remove()`. Even if a store also
+implements `compareAndSwap()`, the presence of one of those mutation aliases makes it incompatible.
+This prevents callers from bypassing the concurrency invariant through the same port.
+
+The persisted state carries `formatVersion = 1`. Unknown store schema or format versions are
+rejected fail-closed. Migration is owned by the future Native storage adapter and must produce a
+fully validated next-format state before it becomes canonical. A migration may not redefine the
+owner+project partition and may not create action authority.
+
+Retention is independent from Memory and from feature disablement:
+
+- no automatic deletion is enabled by the store contract;
+- `archived` is a Plan state, not a hidden deletion flag;
+- completed or archived plans require all retained tasks to be terminal;
+- deleting retained coordination data is a separate explicit operation represented by a later
+  partition CAS that omits the selected plan graph;
+- deletion does not cascade into OrdaX Memory, Project data, files or provider data;
+- disabling Work Coordination must not silently delete retained coordination state.
+
+The store contract does not itself decide whether a deletion is user-authorized. That belongs to the
+policy/runtime/user-control layer, which must still write through the same revisioned CAS boundary.
 
 ## Authority and safety
 
@@ -244,18 +285,18 @@ Coordination must be removable from the user's workflow without breaking:
 - apps;
 - normal assistant/tool use.
 
-Disabling policy stops new coordinated behavior. Existing coordination data should not be deleted
-as a side effect; deletion/retention is a separate explicit operation to be defined with the store.
+Disabling policy stops new coordinated behavior. Existing coordination data is retained until a
+separate explicit retention/delete operation is accepted and committed through CAS.
 
 ## Next implementation order
 
-1. owner/project-scoped atomic store;
-2. plan/task graph validation and ready/blocked derivation;
-3. claim/heartbeat/expiry/recovery runtime;
-4. checkpoint/handoff and evidence evaluation;
-5. Activity projection and Settings controls;
-6. typed provider connector operations;
-7. Studio as the first large consumer;
-8. specialist workers/background integration only after existing #848 gates.
+1. coordination runtime over the CAS store contract;
+2. narrow Native durable store adapter using the existing Native state-owner pattern;
+3. Activity projection and Settings controls;
+4. typed provider connector operations;
+5. Studio as the first large consumer;
+6. specialist workers/background integration only after existing #848 gates.
 
-No step should create a second SSOT merely to move faster.
+Recovery/maintenance that mutates canonical coordination state is not an implicit policy exception:
+it must traverse an explicit policy/trigger boundary in the runtime. No step should create a second
+SSOT merely to move faster.
