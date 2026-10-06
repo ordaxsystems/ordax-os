@@ -49,6 +49,7 @@ import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
+import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
@@ -66,6 +67,7 @@ import { createIntelligenceRuntime } from "../../services/intelligence/runtime.m
 import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
 import { createApplicationContextIntelligence } from "../../services/intelligence/application-context.mjs";
 import { createApplicationActionCapabilityRegistry } from "../../services/intelligence/application-action-capabilities.mjs";
+import { createApplicationSemanticRouter } from "../../services/intelligence/application-semantic-router.mjs";
 import {
   EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
   loadVerifiedFirstPartyApplicationSemantics,
@@ -146,7 +148,7 @@ async function start() {
 
   const browserSession = createNativeBrowserSession(window);
   const verifiedAppSemanticsPromise = optionalNativeProbe(
-    "OrdaX verified first-party app semantics unavailable",
+    "OrdaX verified App Intelligence semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
       appIds: EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
       source: createNativeVerifiedComponentPackageSource(window),
@@ -418,14 +420,24 @@ async function start() {
     store: createNativeSpaceSelectionStore(window),
   });
   const verifiedAppSemantics = await verifiedAppSemanticsPromise ?? [];
+  const firstPartyApplications = overlayVerifiedFirstPartyApplications(
+    listFirstPartyApps(),
+    verifiedAppSemantics,
+  );
+  const semanticManifestsByAppId = new Map(
+    listBundledFirstPartyIntelligenceManifests().map(
+      (manifest) => [manifest.appId, manifest],
+    ),
+  );
+  for (const entry of verifiedAppSemantics) {
+    semanticManifestsByAppId.set(entry.intelligenceManifest.appId, entry.intelligenceManifest);
+  }
+  const firstPartyIntelligenceManifests = Object.freeze(
+    [...semanticManifestsByAppId.values()],
+  );
   const appAwareness = createApplicationIntelligenceAwareness({
-    firstPartyApplications: overlayVerifiedFirstPartyApplications(
-      listFirstPartyApps(),
-      verifiedAppSemantics,
-    ),
-    firstPartyIntelligenceManifests: verifiedAppSemantics.map(
-      (entry) => entry.intelligenceManifest,
-    ),
+    firstPartyApplications,
+    firstPartyIntelligenceManifests,
   });
   const verifiedActionCapabilities = verifiedAppSemantics.flatMap(
     (entry) => entry.actionManifest?.capabilities ?? [],
@@ -436,10 +448,15 @@ async function start() {
         awareness: appAwareness,
         capabilities: verifiedActionCapabilities,
       });
+  const appSemanticRouter = createApplicationSemanticRouter({
+    awareness: appAwareness,
+    manifests: firstPartyIntelligenceManifests,
+  });
   const appAwareIntelligence = createApplicationContextIntelligence({
     intelligencePort: intelligence,
     awarenessPort: appAwareness,
     actionCapabilityRegistryPort: appActionCapabilities,
+    semanticRouterPort: appSemanticRouter,
   });
   const consumerIntelligence = profileContentContextCapability?.available === true
     ? createSelectedSpaceProfileContentIntelligence({

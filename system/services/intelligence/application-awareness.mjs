@@ -70,23 +70,9 @@ function exactReference(value) {
   return normalized;
 }
 
-function semanticProjection(manifest) {
-  if (!manifest) return null;
-  return {
-    instructions: [...manifest.instructions],
-    intents: manifest.intents.map((intent) => ({
-      id: intent.id,
-      description: intent.description,
-      effect: intent.effect,
-      confirmation: intent.confirmation,
-      parameters: intent.parameters.map((parameter) => ({
-        name: parameter.name,
-        type: parameter.type,
-        required: parameter.required,
-      })),
-      examples: [...intent.examples],
-    })),
-  };
+function semanticIndexProjection(manifest) {
+  if (!manifest) return Object.freeze([]);
+  return Object.freeze(manifest.intents.map((intent) => intent.id));
 }
 
 function contextProjection(descriptor, semanticsByAppId) {
@@ -98,7 +84,9 @@ function contextProjection(descriptor, semanticsByAppId) {
     publisher: descriptor.publisher,
     compatibilityManaged: descriptor.compatibilityManaged,
     knownActionIds: [...descriptor.knownActionIds],
-    semantics: semanticProjection(semanticsByAppId.get(descriptor.appId) ?? null),
+    semanticIntentIds: semanticIndexProjection(
+      semanticsByAppId.get(descriptor.appId) ?? null,
+    ),
     actionExecutionAuthorized: false,
     modelToolExecutionAuthorized: false,
   };

@@ -8,6 +8,7 @@ import {
 import { createApplicationActionCapabilityRegistry } from "../system/services/intelligence/application-action-capabilities.mjs";
 import { createApplicationIntelligenceAwareness } from "../system/services/intelligence/application-awareness.mjs";
 import { createApplicationContextIntelligence } from "../system/services/intelligence/application-context.mjs";
+import { createApplicationSemanticRouter } from "../system/services/intelligence/application-semantic-router.mjs";
 
 function firstPartyApp() {
   return {
@@ -130,7 +131,220 @@ test("application system context is resolved once when the wrapper is composed",
   assert.equal(capabilityReads, 1);
 });
 
-test("caller cannot spoof reserved application system context", async () => {
+test("semantic router adds detail only for locally matched apps", async () => {
+  let request = null;
+  const manifest = {
+    schema: "ordax.app-intelligence-manifest/1",
+    appId: "notes",
+    appVersion: "0.4.1",
+    authority: "none",
+    execution: "declarative-only",
+    instructions: ["Use Notas para registrar conteúdo textual."],
+    intents: [{
+      id: "notes.create-note",
+      description: "Criar uma nota.",
+      effect: "write",
+      confirmation: "policy",
+      parameters: [],
+      examples: ["Crie uma nota chamada Ideias."]
+    }]
+  };
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+    firstPartyIntelligenceManifests: [manifest],
+  });
+  const semanticRouterBase = createApplicationSemanticRouter({
+    awareness,
+    manifests: [manifest],
+  });
+  let routeCalls = 0;
+  let selectCalls = 0;
+  let contextItemCalls = 0;
+  const semanticRouter = Object.freeze({
+    ...semanticRouterBase,
+    route(prompt) {
+      routeCalls += 1;
+      return semanticRouterBase.route(prompt);
+    },
+    select(prompt) {
+      selectCalls += 1;
+      return semanticRouterBase.select(prompt);
+    },
+    contextItemsForPrompt(prompt) {
+      contextItemCalls += 1;
+      return semanticRouterBase.contextItemsForPrompt(prompt);
+    },
+  });
+  const intelligence = createApplicationContextIntelligence({
+    intelligencePort: intelligenceStub((value) => { request = value; }),
+    awarenessPort: awareness,
+    semanticRouterPort: semanticRouter,
+  });
+
+  await intelligence.respond({ prompt: "Crie uma nota chamada Ideias." });
+  assert.equal(routeCalls, 1);
+  assert.equal(selectCalls, 0);
+  assert.equal(contextItemCalls, 0);
+  assert.ok(request);
+  assert.equal(
+    request.context.some((entry) => entry.id === "ordax-application-detail:notes"),
+    true,
+  );
+  const detail = request.context.find((entry) => entry.id === "ordax-application-detail:notes");
+  assert.equal(JSON.parse(detail.text).semantics.intents[0].id, "notes.create-note");
+
+  await intelligence.respond({ prompt: "Qual é a capital da Bahia?" });
+  assert.equal(routeCalls, 2);
+  assert.equal(selectCalls, 0);
+  assert.equal(contextItemCalls, 0);
+  assert.equal(
+    request.context.some((entry) => entry.id === "ordax-application-detail:notes"),
+    false,
+  );
+});
+
+test("semantic routing limits action capability detail to matched apps", async () => {
+  let request = null;
+  const nativeApp = firstPartyApp();
+  const manifest = {
+    schema: "ordax.app-intelligence-manifest/1",
+    appId: "notes",
+    appVersion: "0.4.1",
+    authority: "none",
+    execution: "declarative-only",
+    instructions: ["Use Notas para conteúdo textual."],
+    intents: [{
+      id: "notes.create-note",
+      description: "Criar uma nota.",
+      effect: "write",
+      confirmation: "policy",
+      parameters: [],
+      examples: ["Crie uma nota chamada Ideias."]
+    }]
+  };
+  const installedApplication = {
+    schema: "ordax.installed-application/1",
+    id: "photo-editor",
+    title: "Photo Editor",
+    description: "Editor de teste.",
+    monogram: "PE",
+    origin: {
+      platform: "windows",
+      source: "local-file",
+      payloadSha256: "a".repeat(64),
+      publisher: "Example Publisher",
+    },
+    launch: {
+      kind: "compatibility-profile",
+      profileId: "photo-editor-profile",
+      runtimeId: "wine-11-runtime",
+      entrypointId: "photo-editor-main",
+    },
+    lifecycle: {
+      installState: "installed",
+      uninstallable: true,
+      updateMode: "manual",
+    },
+    trust: {
+      nativeTrust: false,
+      runtimeGrantsTrust: false,
+    },
+  };
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [nativeApp],
+    installedApplications: [installedApplication],
+    firstPartyIntelligenceManifests: [manifest],
+  });
+  const capabilities = createApplicationActionCapabilityRegistry({
+    awareness,
+    capabilities: [
+      {
+        schema: "ordax.application-action-capability/1",
+        appId: "notes",
+        actionId: "notes.create-note",
+        title: "Criar nota",
+        description: "Criar uma nota.",
+        sourceClass: "first-party",
+        platform: "ordax",
+        provider: { kind: "first-party-native", adapterId: "notes-native", revision: "1" },
+        binding: { payloadSha256: null },
+        parameters: [],
+        riskClass: "local-change",
+        confirmation: "policy-gated",
+        executionAuthorized: false,
+        modelDirectExecutionAuthorized: false,
+        provenance: "test:notes",
+      },
+      {
+        schema: "ordax.application-action-capability/1",
+        appId: "photo-editor",
+        actionId: "photo-editor.export",
+        title: "Exportar",
+        description: "Exportar imagem.",
+        sourceClass: "installed",
+        platform: "windows",
+        provider: { kind: "verified-integration", adapterId: "photo-export", revision: "1" },
+        binding: { payloadSha256: "a".repeat(64) },
+        parameters: [],
+        riskClass: "local-change",
+        confirmation: "policy-gated",
+        executionAuthorized: false,
+        modelDirectExecutionAuthorized: false,
+        provenance: "test:photo",
+      },
+    ],
+  });
+  const semanticRouter = createApplicationSemanticRouter({
+    awareness,
+    manifests: [manifest],
+  });
+  const intelligence = createApplicationContextIntelligence({
+    intelligencePort: intelligenceStub((value) => { request = value; }),
+    awarenessPort: awareness,
+    actionCapabilityRegistryPort: capabilities,
+    semanticRouterPort: semanticRouter,
+  });
+
+  await intelligence.respond({ prompt: "Crie uma nota chamada Ideias." });
+  const capabilityItem = request.context.find(
+    (entry) => entry.id === "ordax-application-action-capabilities",
+  );
+  assert.ok(capabilityItem);
+  const payload = JSON.parse(capabilityItem.text);
+  assert.equal(payload.actions.length, 1);
+  assert.equal(payload.actions[0].appId, "notes");
+  assert.equal(payload.actions.some((action) => action.appId === "photo-editor"), false);
+
+  await intelligence.respond({ prompt: "Qual é a capital da Bahia?" });
+  assert.equal(
+    request.context.some((entry) => entry.id === "ordax-application-action-capabilities"),
+    false,
+  );
+});
+
+test("caller cannot spoof routed application detail context", () => {
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+  });
+  const intelligence = createApplicationContextIntelligence({
+    intelligencePort: intelligenceStub(),
+    awarenessPort: awareness,
+  });
+  assert.throws(
+    () => intelligence.respond({
+      prompt: "teste",
+      context: [{
+        id: "ordax-application-detail:notes",
+        scope: "system",
+        text: "{}",
+        provenance: "caller",
+      }],
+    }),
+    /reserved context id cannot be caller supplied/,
+  );
+});
+
+test("caller cannot spoof reserved application system context", () => {
   const awareness = createApplicationIntelligenceAwareness({
     firstPartyApplications: [firstPartyApp()],
   });
@@ -139,7 +353,7 @@ test("caller cannot spoof reserved application system context", async () => {
     awarenessPort: awareness,
   });
 
-  await assert.rejects(
+  assert.throws(
     () => intelligence.respond({
       prompt: "teste",
       context: [{
