@@ -1,6 +1,6 @@
 {
   "schema": "ordax.work-coordination-foundation/1",
-  "status": "foundation-store-contract-public-disabled",
+  "status": "foundation-contracts-only-public-disabled",
   "issue": 1154,
   "owner": "platform",
   "contracts": [
