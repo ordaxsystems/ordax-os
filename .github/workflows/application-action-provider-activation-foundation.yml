@@ -7,8 +7,9 @@ on:
       - "system/services/personal-ordax/application-action-provider-activation-broker.mjs"
       - "system/composition/native/personal-ordax.mjs"
       - "tests/test_application_action_provider_activation.mjs"
-      - "tests/test_application_action_provider_activation_composition.mjs"
+      - "tests/test_application_action_provider_binding_composition.mjs"
       - "docs/APPLICATION-ACTION-PROVIDER-ACTIVATION.md"
+      - "docs/APPLICATION-ACTIONS.md"
       - ".github/workflows/application-action-provider-activation-foundation.yml"
   workflow_dispatch:
 
@@ -32,11 +33,11 @@ jobs:
           node --check system/services/personal-ordax/application-action-provider-activation-broker.mjs
           node --check system/composition/native/personal-ordax.mjs
           node --check tests/test_application_action_provider_activation.mjs
-          node --check tests/test_application_action_provider_activation_composition.mjs
+          node --check tests/test_application_action_provider_binding_composition.mjs
 
       - name: Prove broker-only unavailable activation boundary
         run: |
           set -euo pipefail
           node --test \
             tests/test_application_action_provider_activation.mjs \
-            tests/test_application_action_provider_activation_composition.mjs
+            tests/test_application_action_provider_binding_composition.mjs
