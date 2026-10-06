@@ -264,6 +264,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         adapter = NATIVE_COMPONENT_SLOTS.read_text(encoding="utf-8")
         self.assertIn('COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"', server)
         self.assertIn('APP_INTELLIGENCE_MANIFEST_PATH = "/__ordax/native/app-intelligence-manifest"', server)
+        self.assertIn('APP_INTELLIGENCE_AWARENESS_PATH = "/__ordax/native/app-intelligence-awareness"', server)
+        self.assertIn("read_verified_first_party_app_awareness_bundle", server)
+        self.assertIn("read_verified_first_party_app_awareness_bundle", adapter)
+        awareness_route = server.split("if parsed_path == APP_INTELLIGENCE_AWARENESS_PATH:", 1)[1].split("if parsed_path == APP_INTELLIGENCE_MANIFEST_PATH:", 1)[0]
+        self.assertIn('"$schema": "ordax.native-app-intelligence-awareness/1"', awareness_route)
+        self.assertIn('"component": component', awareness_route)
+        self.assertIn('"manifest": manifest', awareness_route)
+        self.assertIn("self._empty(404)", awareness_route)
         app_manifest_route = server.split("if parsed_path == APP_INTELLIGENCE_MANIFEST_PATH:", 1)[1].split("if parsed_path == COMPONENT_RUNTIME_PATH:", 1)[0]
         self.assertIn("except ComponentSlotRequestError:", app_manifest_route)
         self.assertIn("self._empty(404)", app_manifest_route)
