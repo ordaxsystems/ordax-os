@@ -236,7 +236,6 @@ function composition({ onResolve = null, onArtifactIdentity = null } = {}) {
       if (onResolve !== null) await onResolve(runtime);
       return verifiedSemantics();
     },
-    verifiedApplicationSemantics: [verifiedSemantics()],
     verifiedComponentPackageSource: packageSource(),
     verifiedComponentFetch: async () => jsonResponse(metadata()),
     applicationActionProviderArtifactIdentity: async (url) => {
