@@ -693,6 +693,86 @@ func rollbackCurrentStateAtRevision(
 	})
 }
 
+func removeComponentPayloadSlots(root, componentID string) error {
+	componentRoot, err := componentActivationRoot(root, componentID, false)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	versionsRoot := filepath.Join(componentRoot, "versions")
+	info, err := os.Lstat(versionsRoot)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("runtime component versions root must be a real directory")
+	}
+	if err := os.RemoveAll(versionsRoot); err != nil {
+		return err
+	}
+	return syncDirectory(componentRoot)
+}
+
+func uninstallCurrentStateAtRevision(
+	root,
+	componentID string,
+	identity slotIdentity,
+	expectedRevision int64,
+) (activationState, error) {
+	if err := validateSlotIdentity(&identity); err != nil {
+		return activationState{}, err
+	}
+	if err := validateActionRevision(expectedRevision); err != nil {
+		return activationState{}, err
+	}
+
+	state, err := mutateActivationState(root, componentID, func(state activationState) (activationState, error) {
+		if state.Revision == expectedRevision+1 &&
+			state.Current == nil &&
+			state.Previous == nil &&
+			state.Pending == nil &&
+			state.Rejected == nil &&
+			state.PendingHealth == "unknown" {
+			// Safe idempotent retry: activation was already cleared by this
+			// exact revision transition. Payload cleanup may be retried below.
+			return state, nil
+		}
+		if state.Revision != expectedRevision {
+			return activationState{}, errors.New("runtime component uninstall revision is stale")
+		}
+		if state.Pending != nil {
+			return activationState{}, errors.New("runtime component pending slot must be resolved before uninstall")
+		}
+		if state.Current == nil || !sameSlotIdentity(state.Current, &identity) {
+			return activationState{}, errors.New("runtime component uninstall identity does not match current slot")
+		}
+
+		state.Current = nil
+		state.Previous = nil
+		state.Pending = nil
+		state.Rejected = nil
+		state.PendingHealth = "unknown"
+		state.Revision++
+		return state, nil
+	})
+	if err != nil {
+		return activationState{}, err
+	}
+
+	// Activation is cleared before payload deletion. If physical cleanup fails,
+	// the component stays uninstalled and the same exact receipt can retry
+	// cleanup without reactivating anything.
+	if err := removeComponentPayloadSlots(root, componentID); err != nil {
+		return state, fmt.Errorf("runtime component payload cleanup after uninstall: %w", err)
+	}
+	return state, nil
+}
+
 func resolveCurrentState(root, componentID, trustPath string) (activationState, string, bool, error) {
 	state, err := readActivationState(root, componentID)
 	if err != nil {
@@ -869,6 +949,35 @@ func rollbackStateCommand(args []string) error {
 	fmt.Printf(
 		"RUNTIME_COMPONENT_STATE_ROLLED_BACK=YES\nCOMPONENT_ID=%s\nREVISION=%d\nTARGET=%s\nCURRENT_VERSION=%s\nCURRENT_SOURCE_COMMIT=%s\nRUNTIME_ACTIVATED=NO\n",
 		state.ComponentID, state.Revision, target, versionOut, commitOut,
+	)
+	return nil
+}
+
+func uninstallStateCommand(args []string) error {
+	flags := flag.NewFlagSet("uninstall-state", flag.ContinueOnError)
+	component := flags.String("component", "", "runtime component id")
+	version := flags.String("version", "", "current semantic version")
+	sourceCommit := flags.String("source-commit", "", "current source commit")
+	expectedRevision := flags.Int64("expected-revision", 0, "exact uninstall decision revision")
+	root := flags.String("root", defaultSlotRoot, "runtime component slot root")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *component == "" || *version == "" || *sourceCommit == "" || *expectedRevision <= 0 || flags.NArg() != 0 {
+		return errors.New("uninstall-state requires --component, --version, --source-commit and --expected-revision")
+	}
+	state, err := uninstallCurrentStateAtRevision(
+		*root,
+		*component,
+		slotIdentity{Version: *version, SourceCommit: *sourceCommit},
+		*expectedRevision,
+	)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(
+		"RUNTIME_COMPONENT_STATE_UNINSTALLED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nCURRENT_PRESENT=NO\nPAYLOAD_PRESENT=NO\nUSER_DATA_REMOVED=NO\nRUNTIME_ACTIVATED=NO\n",
+		state.ComponentID, state.Revision,
 	)
 	return nil
 }
