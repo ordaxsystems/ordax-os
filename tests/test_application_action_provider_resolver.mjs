@@ -2,6 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA as PROVIDER_BINDING_RESOLVER_SCHEMA,
+  assertApplicationActionProviderResolver as assertProviderBindingResolver,
+} from "../system/contracts/application-action-provider-binding.mjs";
+import {
+  APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA as PROVIDER_ARTIFACT_RESOLVER_SCHEMA,
+  assertApplicationActionProviderResolver as assertProviderArtifactResolver,
+} from "../system/contracts/application-action-provider-resolution.mjs";
+import {
   createNativeVerifiedComponentPackageSource,
 } from "../system/adapters/native/verified-component-package-source.mjs";
 import {
@@ -154,6 +162,30 @@ function packageSource() {
   });
 }
 
+test("provider binding and provider artifact resolver schemas cannot be confused", () => {
+  assert.notEqual(PROVIDER_BINDING_RESOLVER_SCHEMA, PROVIDER_ARTIFACT_RESOLVER_SCHEMA);
+
+  const bindingPort = Object.freeze({
+    schema: PROVIDER_BINDING_RESOLVER_SCHEMA,
+    resolve() { return null; },
+  });
+  const artifactPort = Object.freeze({
+    schema: PROVIDER_ARTIFACT_RESOLVER_SCHEMA,
+    resolve() { return null; },
+  });
+
+  assert.equal(assertProviderBindingResolver(bindingPort), bindingPort);
+  assert.equal(assertProviderArtifactResolver(artifactPort), artifactPort);
+  assert.throws(
+    () => assertProviderBindingResolver(artifactPort),
+    /Compatible Application action provider resolver is required/,
+  );
+  assert.throws(
+    () => assertProviderArtifactResolver(bindingPort),
+    /provider artifact resolver is required/,
+  );
+});
+
 test("provider resolver binds preparation to exact current verified artifact without authority", async () => {
   const artifactUrls = [];
   const resolver = createApplicationActionProviderResolver({
@@ -177,6 +209,7 @@ test("provider resolver binds preparation to exact current verified artifact wit
   const prepared = preparation();
   const resolved = await resolver.resolve(prepared);
 
+  assert.equal(resolver.schema, PROVIDER_ARTIFACT_RESOLVER_SCHEMA);
   assert.equal(resolved.preparationId, "prep-1");
   assert.equal(resolved.resourceRef, "application-action:prep-1");
   assert.equal(resolved.appId, "notes");
