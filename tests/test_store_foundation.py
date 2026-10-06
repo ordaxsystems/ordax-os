@@ -56,7 +56,9 @@ class StoreFoundationTests(unittest.TestCase):
         self.assertIn("store", delivery["current_target_policy"]["structural"])
         self.assertTrue(delivery["store_boundary"]["public_store_ui_enabled"])
         self.assertTrue(delivery["store_boundary"]["store_ui_implemented"])
-        self.assertTrue(delivery["store_boundary"]["store_service_implemented"])
+        self.assertTrue(delivery["store_boundary"]["store_catalog_service_implemented"])
+        self.assertFalse(delivery["store_boundary"]["store_install_request_service_implemented"])
+        self.assertFalse(delivery["store_boundary"]["store_install_executor_implemented"])
         self.assertTrue(delivery["store_boundary"]["must_reuse_component_manager"])
         self.assertFalse(delivery["store_boundary"]["may_create_parallel_updater"])
 
