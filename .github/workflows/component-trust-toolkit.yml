@@ -8,6 +8,7 @@ on:
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'docs/COMPONENT-TRUST-CEREMONY.md'
+      - 'tests/test_runtime_component_production_readiness.py'
       - '.github/workflows/component-trust-toolkit.yml'
   pull_request:
     paths:
@@ -15,6 +16,7 @@ on:
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'docs/COMPONENT-TRUST-CEREMONY.md'
+      - 'tests/test_runtime_component_production_readiness.py'
       - '.github/workflows/component-trust-toolkit.yml'
   workflow_dispatch:
 
@@ -43,6 +45,12 @@ jobs:
         run: |
           set -euo pipefail
           (cd tools/runtime-component-channel && go test -count=1 ./...)
+
+      - name: Prove production readiness state machine
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests/test_runtime_component_production_readiness.py
+          python3 tools/runtime-component-channel/check_production_readiness.py
 
       - name: Build Windows component trust toolkit
         run: |
