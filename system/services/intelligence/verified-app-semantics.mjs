@@ -1,5 +1,6 @@
 import { validateAppIntelligenceManifest } from "../../contracts/app-intelligence-manifest.mjs";
 import {
+  COMPONENT_MANIFEST_SCHEMA,
   defineComponentManifest,
   validateComponentId,
 } from "../../contracts/component-manifest.mjs";
@@ -93,6 +94,9 @@ async function readVerifiedPackageJson({
 }
 
 function validateExternalAppComponent(value, appId, metadata) {
+  if (value?.schema !== COMPONENT_MANIFEST_SCHEMA) {
+    throw new TypeError(`Verified external app schema drifted for ${appId}`);
+  }
   const component = defineComponentManifest(value);
   if (
     component.id !== appId
