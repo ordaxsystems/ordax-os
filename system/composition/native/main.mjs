@@ -513,7 +513,6 @@ async function start() {
         });
         return entries[0] ?? null;
       },
-      verifiedApplicationSemantics: verifiedAppSemantics,
       verifiedComponentPackageSource,
       verifiedComponentFetch,
       applicationActionProviderArtifactIdentity: verifiedComponentArtifactIdentity,
