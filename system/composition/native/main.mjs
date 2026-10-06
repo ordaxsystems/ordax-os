@@ -24,6 +24,7 @@ import { createNativePreferenceStore } from "../../adapters/native/preferences.m
 import { createNativeFirstRunStateStore } from "../../adapters/native/first-run-state.mjs";
 import { createNativeLocalSession } from "../../adapters/native/local-session.mjs";
 import { createNativeMemoryStore } from "../../adapters/native/memory.mjs";
+import { createNativeAppIntelligenceManifestSource } from "../../adapters/native/app-intelligence-manifests.mjs";
 import { createNativeProfileComponentInventory } from "../../adapters/native/profile-component-inventory.mjs";
 import { createNativeProfileActivationState } from "../../adapters/native/profile-activation-state.mjs";
 import { createNativeProfileContentContext } from "../../adapters/native/profile-content-context.mjs";
@@ -60,6 +61,8 @@ import { createUpdateNotificationBridge } from "../../services/notifications/upd
 import { createDiagnosticJournalRuntime } from "../../services/diagnostics/runtime.mjs";
 import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
+import { createAppIntelligenceCatalogRegistry } from "../../services/intelligence/app-catalog.mjs";
+import { createAppAwareIntelligence } from "../../services/intelligence/apps.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
@@ -160,6 +163,10 @@ async function start() {
       () => createNativeMemoryStore(window),
     ),
     optionalNativeProbe(
+      "OrdaX native app intelligence manifests unavailable",
+      () => createNativeAppIntelligenceManifestSource(window),
+    ),
+    optionalNativeProbe(
       "OrdaX native update history unavailable",
       () => createNativeUpdateHistory(window),
     ),
@@ -236,6 +243,7 @@ async function start() {
     clientDiagnostics,
     diagnosticJournalStore,
     memoryStore,
+    appIntelligenceManifestSource,
     updateHistory,
     syncStateStore,
     syncCheckpointStore,
@@ -265,6 +273,13 @@ async function start() {
     fetchImpl: localAiFetch,
   });
   const intelligence = createIntelligenceRuntime({ inferencePort: localAi });
+  const appIntelligenceCatalog = createAppIntelligenceCatalogRegistry({
+    manifests: appIntelligenceManifestSource?.getManifests() ?? [],
+  });
+  const appAwareIntelligence = createAppAwareIntelligence({
+    intelligencePort: intelligence,
+    catalogPort: appIntelligenceCatalog.port,
+  });
   const memory = memoryStore === null
     ? null
     : createMemoryRuntime({ store: memoryStore });
@@ -393,11 +408,11 @@ async function start() {
   });
   const consumerIntelligence = profileContentContextCapability?.available === true
     ? createSelectedSpaceProfileContentIntelligence({
-        intelligencePort: intelligence,
+        intelligencePort: appAwareIntelligence,
         profileContentContextPort: createNativeProfileContentContext(window),
         spaceSelectionPort: spaceSelection,
       })
-    : intelligence;
+    : appAwareIntelligence;
   const selectedSpaceIntelligence = memory === null
     ? consumerIntelligence
     : createIdentityBoundMemoryIntelligence({
@@ -898,6 +913,8 @@ async function start() {
       updateWatcher.dispose();
       unsubscribeIntelligenceHealth();
       unsubscribeLocalAiHealth();
+      appIntelligenceCatalog.dispose();
+      appIntelligenceManifestSource?.dispose();
       intelligence.dispose();
       localAi.dispose();
       localSession?.dispose();
