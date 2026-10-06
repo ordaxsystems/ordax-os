@@ -110,6 +110,7 @@ import { mountFirstRunExperience } from "../../surface/ui/first-run.mjs";
 import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
+import { mountStoreOverviewControls } from "../../surface/ui/store-overview-controls.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
 
@@ -762,6 +763,7 @@ async function start() {
     selectedSpaceIntelligence,
     recoveryStatus,
   );
+  const storeOverviewControls = mountStoreOverviewControls(root, surface);
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface);
 
@@ -902,6 +904,7 @@ async function start() {
       homeContinuation.dispose();
       powerControls.destroy();
       updateControls.destroy();
+      storeOverviewControls.destroy();
       systemOverviewControls.destroy();
       settingsOverviewControls.destroy();
       networkTrayControls?.destroy();
