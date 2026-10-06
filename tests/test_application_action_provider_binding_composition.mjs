@@ -10,9 +10,12 @@ import {
   createApplicationActionCapabilityRegistry,
 } from "../system/services/intelligence/application-action-capabilities.mjs";
 import { createNativePersonalOrdaxComposition } from "../system/composition/native/personal-ordax.mjs";
+import { createNativeVerifiedComponentPackageSource } from "../system/adapters/native/verified-component-package-source.mjs";
+import { EXTERNAL_FIRST_PARTY_OWNER } from "../system/services/intelligence/verified-app-semantics.mjs";
 
-const OWNER = "washingtonmsdj/ordax-apps";
+const OWNER = EXTERNAL_FIRST_PARTY_OWNER;
 const SOURCE_COMMIT = "a".repeat(40);
+const PROVIDER_SHA = "b".repeat(64);
 
 function memoryStorage() {
   const values = new Map();
@@ -172,12 +175,55 @@ function verifiedSemantics() {
       execution: "proposal-only",
       capabilities: [action],
     },
+    providerManifest: {
+      schema: "ordax.application-action-provider-manifest/1",
+      appId: "notes",
+      appVersion: "0.4.2",
+      authority: "none",
+      execution: "unavailable",
+      providers: [{
+        kind: "first-party-native",
+        adapterId: "notes-native",
+        revision: "1",
+        module: "actions/providers/notes-native.mjs",
+        sha256: PROVIDER_SHA,
+      }],
+    },
     sourceCommit: SOURCE_COMMIT,
     revision: 12,
   };
 }
 
-function composition({ onResolve = null } = {}) {
+function metadata() {
+  return {
+    componentId: "notes",
+    state: "current",
+    source: "slot",
+    revision: 12,
+    version: "0.4.2",
+    sourceCommit: SOURCE_COMMIT,
+    entrypoint: "system/apps/notes/src/runtime.mjs",
+    pendingHealth: null,
+  };
+}
+
+function jsonResponse(value) {
+  return {
+    ok: true,
+    status: 200,
+    async json() {
+      return value;
+    },
+  };
+}
+
+function packageSource() {
+  return createNativeVerifiedComponentPackageSource({
+    location: { href: "http://127.0.0.1:43121/" },
+  });
+}
+
+function composition({ onResolve = null, onArtifactIdentity = null } = {}) {
   let runtime = null;
   runtime = createNativePersonalOrdaxComposition({
     windowRef: { localStorage: memoryStorage() },
@@ -189,6 +235,13 @@ function composition({ onResolve = null } = {}) {
       assert.equal(appId, "notes");
       if (onResolve !== null) await onResolve(runtime);
       return verifiedSemantics();
+    },
+    verifiedApplicationSemantics: [verifiedSemantics()],
+    verifiedComponentPackageSource: packageSource(),
+    verifiedComponentFetch: async () => jsonResponse(metadata()),
+    applicationActionProviderArtifactIdentity: async (url) => {
+      if (onArtifactIdentity !== null) await onArtifactIdentity(runtime, url);
+      return PROVIDER_SHA;
     },
     expectedApplicationActionProviderOwner: OWNER,
   });
@@ -276,6 +329,77 @@ test("Personal OrdaX refuses provider binding after preparation revocation", asy
     () => runtime.resolveApplicationActionProviderBinding(preparation.resourceRef),
     /preparation is no longer current/,
   );
+
+  runtime.dispose();
+});
+
+
+test("Personal OrdaX resolves exact provider artifact identity without loading the provider", async () => {
+  const artifactUrls = [];
+  const runtime = composition({
+    onArtifactIdentity: async (_runtime, url) => {
+      artifactUrls.push(url);
+    },
+  });
+  const { work, preparation } = prepare(runtime);
+  const before = runtime.getSnapshot();
+
+  const resolution = await runtime.resolveApplicationActionProviderArtifact(
+    preparation.resourceRef,
+  );
+
+  assert.equal(resolution.schema, "ordax.application-action-provider-resolution/1");
+  assert.equal(resolution.resourceRef, preparation.resourceRef);
+  assert.equal(resolution.workItemId, work.id);
+  assert.equal(resolution.appId, "notes");
+  assert.equal(resolution.actionId, "notes.create-note");
+  assert.equal(resolution.appVersion, "0.4.2");
+  assert.equal(resolution.sourceCommit, SOURCE_COMMIT);
+  assert.equal(resolution.componentRevision, 12);
+  assert.deepEqual(resolution.provider, {
+    kind: "first-party-native",
+    adapterId: "notes-native",
+    revision: "1",
+    module: "actions/providers/notes-native.mjs",
+    artifactSha256: PROVIDER_SHA,
+  });
+  assert.equal(resolution.authority, "none");
+  assert.equal(resolution.executionAuthorized, false);
+  assert.equal(resolution.modelDirectExecutionAuthorized, false);
+  assert.equal(artifactUrls.length, 1);
+  assert.match(
+    new URL(artifactUrls[0]).pathname,
+    /\/actions\/providers\/notes-native\.mjs$/,
+  );
+
+  const after = runtime.getSnapshot();
+  assert.equal(after.approvals.length, before.approvals.length);
+  assert.equal(after.decisions.length, before.decisions.length);
+  assert.equal(after.attempts.length, before.attempts.length);
+  assert.equal(typeof runtime.importApplicationActionProvider, "undefined");
+  assert.equal(typeof runtime.loadApplicationActionProvider, "undefined");
+  assert.equal(typeof runtime.executeApplicationAction, "undefined");
+
+  runtime.dispose();
+});
+
+test("Personal OrdaX fails closed when Work changes during provider artifact hashing", async () => {
+  let workId = null;
+  const runtime = composition({
+    onArtifactIdentity: async (compositionRuntime) => {
+      compositionRuntime.pause(workId);
+    },
+  });
+  const prepared = prepare(runtime);
+  workId = prepared.work.id;
+
+  await assert.rejects(
+    () => runtime.resolveApplicationActionProviderArtifact(
+      prepared.preparation.resourceRef,
+    ),
+    /changed during provider binding resolution/,
+  );
+  assert.equal(typeof runtime.executeApplicationAction, "undefined");
 
   runtime.dispose();
 });
