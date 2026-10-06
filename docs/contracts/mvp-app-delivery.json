@@ -5,7 +5,8 @@
     "structural_app_ids": [
       "account",
       "settings",
-      "system"
+      "system",
+      "store"
     ],
     "bootstrap_app_ids": [
       "files",
