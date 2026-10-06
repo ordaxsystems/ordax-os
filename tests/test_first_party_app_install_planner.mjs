@@ -67,21 +67,7 @@ test("known on-demand app stays blocked without a signed catalog artifact", () =
   });
 });
 
-test("verified compatible artifact still fails closed while production activation is blocked", () => {
-  const planner = createFirstPartyAppInstallPlanner();
-  const plan = planner.planInstall({
-    appId: "notes",
-    observation: observation(),
-    artifact: artifact(),
-    productionActivationAllowed: false,
-  });
-  assert.equal(plan.ready, false);
-  assert.equal(plan.reason, "production-activation-blocked");
-  assert.equal(plan.artifact, null);
-  assert.equal(plan.authority, "none");
-});
-
-test("ready plan binds exact verified compatible artifact identity only after activation policy allows it", () => {
+test("caller-supplied production activation flag cannot mint a ready plan", () => {
   const planner = createFirstPartyAppInstallPlanner();
   const plan = planner.planInstall({
     appId: "notes",
@@ -89,15 +75,9 @@ test("ready plan binds exact verified compatible artifact identity only after ac
     artifact: artifact(),
     productionActivationAllowed: true,
   });
-  assert.equal(plan.ready, true);
-  assert.equal(plan.reason, "install-plan-ready");
-  assert.equal(plan.appId, "notes");
-  assert.equal(plan.artifact.version, "0.4.1");
-  assert.equal(plan.artifact.sourceRepository, "washingtonmsdj/ordax-apps");
-  assert.equal(plan.artifact.sourceCommit, "1".repeat(40));
-  assert.equal(plan.artifact.releaseEnvelopeSha256, "a".repeat(64));
-  assert.equal(plan.artifact.packageSha256, "b".repeat(64));
-  assert.equal(plan.artifact.compatibilitySha256, "c".repeat(64));
+  assert.equal(plan.ready, false);
+  assert.equal(plan.reason, "production-activation-blocked");
+  assert.equal(plan.artifact, null);
   assert.equal(plan.authority, "none");
 });
 
@@ -109,7 +89,6 @@ test("planner blocks installed, busy, blocked, uncatalogued and structural state
       appId: "notes",
       observation: observation({ installed: true, catalogued: false }),
       artifact: artifact(),
-      productionActivationAllowed: true,
     }).reason,
     "already-installed",
   );
@@ -119,7 +98,6 @@ test("planner blocks installed, busy, blocked, uncatalogued and structural state
       appId: "notes",
       observation: observation({ transition: "installing" }),
       artifact: artifact(),
-      productionActivationAllowed: true,
     }).reason,
     "lifecycle-busy",
   );
@@ -129,7 +107,6 @@ test("planner blocks installed, busy, blocked, uncatalogued and structural state
       appId: "notes",
       observation: observation({ blockedReason: "policy" }),
       artifact: artifact(),
-      productionActivationAllowed: true,
     }).reason,
     "platform-blocked",
   );
@@ -139,7 +116,6 @@ test("planner blocks installed, busy, blocked, uncatalogued and structural state
       appId: "notes",
       observation: observation({ catalogued: false }),
       artifact: artifact(),
-      productionActivationAllowed: true,
     }).reason,
     "not-catalogued",
   );
@@ -149,7 +125,6 @@ test("planner blocks installed, busy, blocked, uncatalogued and structural state
       appId: "system",
       observation: observation({ installed: false, catalogued: true }),
       artifact: artifact({ appId: "system" }),
-      productionActivationAllowed: true,
     }).reason,
     "policy-not-installable",
   );
@@ -163,7 +138,6 @@ test("planner rejects mismatched or malformed artifact identity and blocks unver
       appId: "notes",
       observation: observation(),
       artifact: artifact({ appId: "studio" }),
-      productionActivationAllowed: true,
     }),
     /identity does not match/,
   );
@@ -173,7 +147,6 @@ test("planner rejects mismatched or malformed artifact identity and blocks unver
       appId: "notes",
       observation: observation(),
       artifact: artifact({ verified: false }),
-      productionActivationAllowed: true,
     }).reason,
     "artifact-unverified",
   );
@@ -183,7 +156,6 @@ test("planner rejects mismatched or malformed artifact identity and blocks unver
       appId: "notes",
       observation: observation(),
       artifact: artifact({ compatible: false }),
-      productionActivationAllowed: true,
     }).reason,
     "incompatible-artifact",
   );
@@ -193,12 +165,10 @@ test("planner rejects mismatched or malformed artifact identity and blocks unver
       appId: "notes",
       observation: observation(),
       artifact: artifact({ packageSha256: "../bad" }),
-      productionActivationAllowed: true,
     }),
     /package sha256 is invalid/,
   );
 });
-
 
 test("planner artifact reference is bound to runtime-component release v2 identity", () => {
   const planner = createFirstPartyAppInstallPlanner();
@@ -216,7 +186,6 @@ test("planner artifact reference is bound to runtime-component release v2 identi
         appId: "notes",
         observation: observation(),
         artifact: artifact(overrides),
-        productionActivationAllowed: true,
       }),
       /install artifact/,
     );
