@@ -81,7 +81,11 @@
     "store_install_executor_implemented": false,
     "must_reuse_component_manager": true,
     "must_reuse_runtime_component_release_v2_when_component_slot": true,
-    "may_create_parallel_updater": false
+    "may_create_parallel_updater": false,
+    "catalog_scope": "non-structural-first-party",
+    "bootstrap_apps_visible": true,
+    "on_demand_apps_visible": true,
+    "structural_apps_visible": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": true,
