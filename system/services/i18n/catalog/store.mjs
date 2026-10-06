@@ -1,0 +1,41 @@
+export const STORE_SOURCE_MESSAGES = Object.freeze({
+  "store.title": "Loja",
+  "store.subtitle": "Aplicativos verificados para o OrdaX",
+  "store.status.unavailable": "Catálogo verificado indisponível",
+  "store.status.unavailableDetail": "A Loja só oferece instalação quando a plataforma fornece catálogo, identidade do artefato e proveniência verificados.",
+  "store.security.note": "A Loja apenas solicita operações. Verificação, instalação, health, promoção, rollback e inventário pertencem ao lifecycle da plataforma.",
+  "store.state.available": "Disponível",
+  "store.state.installed": "Instalado",
+  "store.state.installing": "Instalando",
+  "store.state.staged": "Em validação",
+  "store.state.blocked": "Bloqueado",
+  "store.state.failed-retained": "Atualização falhou · versão anterior preservada",
+  "store.action.install": "Instalar",
+  "store.action.requesting": "Solicitando…",
+  "store.action.unavailable": "Instalação indisponível",
+  "store.request.accepted": "Solicitação encaminhada ao lifecycle da plataforma.",
+  "store.request.rejected": "A plataforma recusou a solicitação de instalação.",
+  "store.request.failed": "A solicitação não pôde ser encaminhada com segurança.",
+  "store.version": "Versão {version}"
+});
+
+export const STORE_ENGLISH_MESSAGES = Object.freeze({
+  "store.title": "Store",
+  "store.subtitle": "Verified applications for OrdaX",
+  "store.status.unavailable": "Verified catalog unavailable",
+  "store.status.unavailableDetail": "The Store only offers installation when the platform supplies a verified catalog, artifact identity, and provenance.",
+  "store.security.note": "The Store only requests operations. Verification, installation, health, promotion, rollback, and inventory belong to the platform lifecycle.",
+  "store.state.available": "Available",
+  "store.state.installed": "Installed",
+  "store.state.installing": "Installing",
+  "store.state.staged": "Validating",
+  "store.state.blocked": "Blocked",
+  "store.state.failed-retained": "Update failed · previous version retained",
+  "store.action.install": "Install",
+  "store.action.requesting": "Requesting…",
+  "store.action.unavailable": "Installation unavailable",
+  "store.request.accepted": "Request forwarded to the platform lifecycle.",
+  "store.request.rejected": "The platform rejected the installation request.",
+  "store.request.failed": "The request could not be forwarded safely.",
+  "store.version": "Version {version}"
+});
