@@ -399,17 +399,20 @@ async function start() {
         spaceSelectionPort: spaceSelection,
       })
     : intelligence;
-  const applicationContextIntelligence = await createNativeVerifiedApplicationContextIntelligence({
-    windowRef: window,
-    intelligencePort: profileContentIntelligence,
-    fetchImpl: localAiFetch,
-    onSemanticError(error, context) {
-      console.warn(
-        `OrdaX verified app semantics unavailable for ${context.appId}; keeping base catalog`,
-        error,
-      );
-    },
-  });
+  const applicationContextIntelligence = await optionalNativeProbe(
+    "OrdaX verified Application Intelligence unavailable; continuing without app context",
+    () => createNativeVerifiedApplicationContextIntelligence({
+      windowRef: window,
+      intelligencePort: profileContentIntelligence,
+      fetchImpl: localAiFetch,
+      onSemanticError(error, context) {
+        console.warn(
+          `OrdaX verified app semantics unavailable for ${context.appId}; keeping base catalog`,
+          error,
+        );
+      },
+    }),
+  ) ?? profileContentIntelligence;
   const selectedSpaceIntelligence = memory === null
     ? applicationContextIntelligence
     : createIdentityBoundMemoryIntelligence({
