@@ -8,6 +8,7 @@ import {
 import { createApplicationActionCapabilityRegistry } from "../system/services/intelligence/application-action-capabilities.mjs";
 import { createApplicationIntelligenceAwareness } from "../system/services/intelligence/application-awareness.mjs";
 import { createApplicationContextIntelligence } from "../system/services/intelligence/application-context.mjs";
+import { createApplicationSemanticRouter } from "../system/services/intelligence/application-semantic-router.mjs";
 
 function firstPartyApp() {
   return {
@@ -128,6 +129,76 @@ test("application system context is resolved once when the wrapper is composed",
   await intelligence.respond({ prompt: "segunda" });
   assert.equal(awarenessReads, 1);
   assert.equal(capabilityReads, 1);
+});
+
+test("semantic router adds detail only for locally matched apps", async () => {
+  let request = null;
+  const manifest = {
+    schema: "ordax.app-intelligence-manifest/1",
+    appId: "notes",
+    appVersion: "0.4.1",
+    authority: "none",
+    execution: "declarative-only",
+    instructions: ["Use Notas para registrar conteúdo textual."],
+    intents: [{
+      id: "notes.create-note",
+      description: "Criar uma nota.",
+      effect: "write",
+      confirmation: "policy",
+      parameters: [],
+      examples: ["Crie uma nota chamada Ideias."]
+    }]
+  };
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+    firstPartyIntelligenceManifests: [manifest],
+  });
+  const semanticRouter = createApplicationSemanticRouter({
+    awareness,
+    manifests: [manifest],
+  });
+  const intelligence = createApplicationContextIntelligence({
+    intelligencePort: intelligenceStub((value) => { request = value; }),
+    awarenessPort: awareness,
+    semanticRouterPort: semanticRouter,
+  });
+
+  await intelligence.respond({ prompt: "Crie uma nota chamada Ideias." });
+  assert.ok(request);
+  assert.equal(
+    request.context.some((entry) => entry.id === "ordax-application-detail:notes"),
+    true,
+  );
+  const detail = request.context.find((entry) => entry.id === "ordax-application-detail:notes");
+  assert.equal(JSON.parse(detail.text).semantics.intents[0].id, "notes.create-note");
+
+  await intelligence.respond({ prompt: "Qual é a capital da Bahia?" });
+  assert.equal(
+    request.context.some((entry) => entry.id === "ordax-application-detail:notes"),
+    false,
+  );
+});
+
+test("caller cannot spoof routed application detail context", async () => {
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+  });
+  const intelligence = createApplicationContextIntelligence({
+    intelligencePort: intelligenceStub(),
+    awarenessPort: awareness,
+  });
+  await assert.rejects(
+    () => intelligence.respond({
+      prompt: "teste",
+      context: [{
+        id: "ordax-application-detail:notes",
+        scope: "system",
+        text: "{}",
+        provenance: "caller",
+      }],
+    }),
+    /reserved context id cannot be caller supplied/,
+  );
 });
 
 test("caller cannot spoof reserved application system context", async () => {
