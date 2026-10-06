@@ -34,12 +34,35 @@
     }
   },
   "current_target_policy": {
-    "structural": ["settings", "account", "system"],
-    "bootstrap": ["files", "internet"],
-    "on_demand": ["assistant", "studio", "projects", "activity", "notes", "network"]
+    "structural": [
+      "settings",
+      "account",
+      "system",
+      "store"
+    ],
+    "bootstrap": [
+      "files",
+      "internet"
+    ],
+    "on_demand": [
+      "assistant",
+      "studio",
+      "projects",
+      "activity",
+      "notes",
+      "network"
+    ]
   },
   "surface_projection": {
-    "states": ["installed", "available", "installing", "staged", "blocked", "failed-retained", "not-catalogued"],
+    "states": [
+      "installed",
+      "available",
+      "installing",
+      "staged",
+      "blocked",
+      "failed-retained",
+      "not-catalogued"
+    ],
     "missing_recommended_app_action": "show-install",
     "missing_store_only_app_visible_in_launcher": false,
     "installed_payload_required_for_launch": true
@@ -52,11 +75,14 @@
   },
   "store_boundary": {
     "public_store_ui_enabled": false,
-    "store_ui_implemented": false,
+    "store_ui_implemented": true,
     "store_service_implemented": false,
     "must_reuse_component_manager": true,
     "must_reuse_runtime_component_release_v2_when_component_slot": true,
-    "may_create_parallel_updater": false
+    "may_create_parallel_updater": false,
+    "catalog_without_verified_artifact_may_offer_install": false,
+    "install_request_port_authority": "none",
+    "install_request_must_delegate_to_platform_lifecycle": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
