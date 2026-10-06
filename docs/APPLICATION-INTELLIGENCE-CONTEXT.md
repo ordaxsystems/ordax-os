@@ -36,6 +36,8 @@ O wrapper respeita os limites globais de itens e caracteres do contrato de Intel
 
 Contexto estruturado de aplicações não é truncado. Se não houver espaço, a entrada inteira é omitida, preservando JSON válido e o contexto fornecido pelo usuário.
 
+`Application Action Capabilities` nunca é injetado sem o `Application Awareness` correspondente. Se o catálogo confiável não couber no orçamento, o bloco de capabilities também é omitido, evitando contexto de ação órfão.
+
 ## Autoridade
 
 O wrapper não adiciona métodos de execução.
