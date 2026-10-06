@@ -13,7 +13,7 @@ async function readInventory() {
   return JSON.parse(await readFile(inventoryUrl, "utf8"));
 }
 
-test("first-party identity inventory is exact and matches the runtime app catalog", async () => {
+test("first-party identity inventory matches the embedded runtime catalog only", async () => {
   const inventory = await readInventory();
   assert.deepEqual(Object.keys(inventory).sort(), [
     "$schema",
@@ -30,7 +30,7 @@ test("first-party identity inventory is exact and matches the runtime app catalo
   assert.equal(inventory.verificationGeneration, 1);
   assert.ok(Array.isArray(inventory.apps));
 
-  const expected = new Map(
+  const embeddedApps = new Map(
     listFirstPartyApps().map((app) => [app.id, app.component.version]),
   );
   const actual = new Map();
@@ -48,10 +48,26 @@ test("first-party identity inventory is exact and matches the runtime app catalo
     actual.set(entry.appId, entry.version);
   }
 
-  assert.deepEqual([...actual.keys()].sort(), [...expected.keys()].sort());
-  for (const [appId, version] of expected) {
-    assert.equal(actual.get(appId), version, `${appId} identity version drifted from component manifest`);
+  assert.deepEqual(
+    [...actual.keys()].sort(),
+    [...embeddedApps.keys()].sort(),
+    "bundled identity inventory must not include external payloads",
+  );
+
+  for (const [appId, version] of embeddedApps) {
+    assert.equal(
+      actual.get(appId),
+      version,
+      `${appId} identity version drifted from embedded component manifest`,
+    );
   }
+
+  assert.equal(
+    embeddedApps.has("notes"),
+    false,
+    "external Notes must not be reintroduced into the embedded runtime catalog",
+  );
+  assert.equal(actual.has("notes"), false, "external Notes must not receive a system-release-bundled identity");
 });
 
 test("identity inventory never treats signing or display metadata as the durable principal", async () => {

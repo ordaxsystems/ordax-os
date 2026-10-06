@@ -21,6 +21,7 @@ const CSS_FILES = [
   'system/surface/ui/files.css',
   'system/surface/ui/system.css',
   'system/surface/ui/account.css',
+  'system/surface/ui/store.css',
   'system/surface/ui/settings.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
@@ -596,6 +597,23 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.notesAbsentFromLauncher = root.querySelector('[data-launch-app="notes"]') === null;
     result.notesLocalWindowAbsent = root.querySelector('[data-window-id="notes"]') === null;
 
+    await launch('store');
+    const storeSlot = root.querySelector(
+      '[data-window-id="store"] [data-app-extension="store-overview"]',
+    );
+    const storeCards = [...(storeSlot?.querySelectorAll('[data-store-app-id]') ?? [])];
+    const storeActions = [...(storeSlot?.querySelectorAll('[data-store-action]') ?? [])];
+    result.storeOwnerMounted = storeSlot?.dataset.ordaxStoreOverviewView !== undefined;
+    result.storeCatalogReadOnly = storeSlot?.dataset.storeMode === 'catalog-only';
+    const expectedStoreCatalogCount = Number(storeSlot?.dataset.storeCatalogCount ?? 'NaN');
+    result.storeCatalogComplete = Number.isInteger(expectedStoreCatalogCount)
+      && expectedStoreCatalogCount > 0
+      && storeCards.length === expectedStoreCatalogCount
+      && storeCards.every((card) => card.dataset.authority === 'none');
+    result.storeInstallActionsDisabled = storeActions.length === expectedStoreCatalogCount
+      && storeActions.every((action) => action.disabled === true);
+    result.storeNoInstallAuthority = storeSlot?.querySelector('[data-authority]:not([data-authority="none"])') === null;
+
     // Internet coverage must remain independent from Notes. Before the
     // remove-first cutover this target was reached through a Notes reference,
     // which accidentally made the browser smoke depend on the removed app.
@@ -711,6 +729,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent', 'internetComponentStyleMounted',
+      'storeOwnerMounted', 'storeCatalogReadOnly', 'storeCatalogComplete', 'storeInstallActionsDisabled', 'storeNoInstallAuthority',
       'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
       'internetFailsClosedOnWeb', 'internetDoesNotEmbedWebContent',
