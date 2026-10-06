@@ -97,6 +97,49 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIn("--trust", argv)
         self.assertIn("--root", argv)
 
+    def test_external_first_party_current_absence_is_explicit(self):
+        output = (
+            b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            b"COMPONENT_ID=notes\n"
+            b"REVISION=4\n"
+            b"SOURCE=ABSENT\n"
+            b"RUNTIME_SERVED_FROM_SLOT=NO\n"
+        )
+        completed = subprocess.CompletedProcess([], 0, stdout=output, stderr=b"")
+        with mock.patch.object(slots.subprocess, "run", return_value=completed):
+            resolution = slots.resolve_component_slot(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="notes",
+                state="current",
+            )
+        self.assertEqual(resolution.source, "absent")
+        self.assertEqual(resolution.component_id, "notes")
+        self.assertIsNone(resolution.version)
+        self.assertIsNone(resolution.source_commit)
+        self.assertIsNone(resolution.entrypoint)
+        self.assertIsNone(resolution.slot)
+
+    def test_verified_external_app_manifest_path_is_readable_but_untrusted_apps_are_not(self):
+        commit = "7" * 40
+        request = slots.parse_component_module_path(
+            "/__ordax/native/component-module/notes/current/0.4.1/"
+            + commit
+            + "/system/apps/notes/ai/manifest.json"
+        )
+        self.assertEqual(request.component_id, "notes")
+        self.assertEqual(request.state, "current")
+        self.assertEqual(request.version, "0.4.1")
+        self.assertEqual(request.source_commit, commit)
+        self.assertEqual(request.requested_path, "system/apps/notes/ai/manifest.json")
+
+        with self.assertRaises(slots.ComponentSlotRequestError):
+            slots.parse_component_module_path(
+                "/__ordax/native/component-module/assistant/current/0.4.1/"
+                + commit
+                + "/system/apps/assistant/ai/manifest.json"
+            )
+
     def test_pending_resolution_is_exact_and_keeps_probation_health(self):
         commit = "7" * 40
         output = (
@@ -312,6 +355,22 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertNotIn("promote-state", argv)
         self.assertNotIn("reject-pending", argv)
         self.assertNotIn("rollback-state", argv)
+
+    def test_read_only_external_apps_cannot_use_native_health_mutation_path(self):
+        with mock.patch.object(slots.subprocess, "run") as run:
+            with self.assertRaisesRegex(
+                slots.ComponentSlotRequestError,
+                "unsupported runtime component health mutation",
+            ):
+                slots.record_component_pending_health(
+                    helper_path="/signed/bin/helper",
+                    component_id="notes",
+                    version="0.4.1",
+                    source_commit="a" * 40,
+                    expected_revision=7,
+                    health="healthy",
+                )
+        run.assert_not_called()
 
     def test_pending_health_recorder_rejects_invalid_input_before_helper(self):
         with mock.patch.object(slots.subprocess, "run") as run:

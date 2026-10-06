@@ -20,7 +20,8 @@ _COMPONENT_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 _SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 _SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
 
-SUPPORTED_COMPONENTS = frozenset({"internet"})
+SUPPORTED_COMPONENTS = frozenset({"internet", "notes", "studio"})
+HEALTH_MUTATION_COMPONENTS = frozenset({"internet"})
 SUPPORTED_STATES = frozenset({"current", "pending"})
 
 
@@ -240,6 +241,27 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
             slot=None,
         )
 
+    if state == "current" and source == "ABSENT":
+        allowed = {
+            marker,
+            "COMPONENT_ID",
+            "REVISION",
+            "SOURCE",
+            "RUNTIME_SERVED_FROM_SLOT",
+        }
+        if set(values) != allowed:
+            raise ComponentSlotVerificationError("absent resolution contains unexpected fields")
+        return ComponentSlotResolution(
+            component_id=component_id,
+            state=state,
+            source="absent",
+            revision=revision,
+            version=None,
+            source_commit=None,
+            entrypoint=None,
+            slot=None,
+        )
+
     if source != "SLOT":
         raise ComponentSlotVerificationError("runtime component source is invalid")
     version_key = "CURRENT_VERSION" if state == "current" else "PENDING_VERSION"
@@ -432,8 +454,8 @@ def record_component_pending_health(
     slot_root: str = DEFAULT_SLOT_ROOT,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> ComponentHealthRecord:
-    if component_id not in SUPPORTED_COMPONENTS or not _COMPONENT_RE.fullmatch(component_id):
-        raise ComponentSlotRequestError("unsupported runtime component")
+    if component_id not in HEALTH_MUTATION_COMPONENTS or not _COMPONENT_RE.fullmatch(component_id):
+        raise ComponentSlotRequestError("unsupported runtime component health mutation")
     if not _SEMVER_RE.fullmatch(version) or not _SHA40_RE.fullmatch(source_commit):
         raise ComponentSlotRequestError("invalid runtime component health identity")
     if not isinstance(expected_revision, int) or isinstance(expected_revision, bool) or expected_revision <= 0:
