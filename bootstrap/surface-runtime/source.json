@@ -163,7 +163,7 @@
     "librsvg": "2.60.0-r0",
     "librtmp": "2.4_git20190330-r5",
     "libseat": "0.9.1-r0",
-    "libseccomp": "2.6.0-r0",
+    "libseccomp": "2.6.1-r0",
     "libsecret": "0.21.7-r0",
     "libsharpyuv": "1.5.0-r0",
     "libsndfile": "1.2.2-r2",
@@ -364,8 +364,8 @@
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reviewed-candidate-lock-refresh",
-    "detected_by_qemu_run_id": 36857553350,
+    "status": "reproof-required-after-upstream-libseccomp-drift",
+    "detected_by_qemu_run_id": 37470312340,
     "discovery_run_id": 36861995001,
     "discovery_source_commit": "8a78884a3026594eb6dd088e098885c775b13cc1",
     "discovery_artifact_id": 11161819789,
@@ -398,6 +398,6 @@
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "reproducibility_reproof_required": false
+    "reproducibility_reproof_required": true
   }
 }
