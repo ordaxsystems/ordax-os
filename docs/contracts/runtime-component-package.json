@@ -11,7 +11,8 @@
   "supported_components": [
     "internet",
     "local-ai-service",
-    "ordax-intelligence"
+    "ordax-intelligence",
+    "notes"
   ],
   "self_contained_source_graph_required": true,
   "remote_runtime_dependencies_allowed": false,
@@ -49,7 +50,8 @@
   "native_loopback_broker_requires_component_trust": true,
   "native_loopback_broker_read_only": true,
   "native_loopback_broker_supported_components": [
-    "internet"
+    "internet",
+    "notes"
   ],
   "failed_pending_runtime_read_allowed": false,
   "runtime_file_read_requires_exact_version_and_source_commit": true,
@@ -85,7 +87,8 @@
   "runtime_health_bridge_transport": "native-webkit-message-nonce",
   "runtime_health_bridge_probe_registry": "system/services/components/probation-orchestrator.mjs",
   "runtime_health_bridge_supported_components": [
-    "internet"
+    "internet",
+    "notes"
   ],
   "runtime_health_bridge_probe_mode": "import-contract",
   "runtime_health_bridge_requires_host_nonce": true,
@@ -117,5 +120,10 @@
     "notes": "washingtonmsdj/ordax-apps",
     "studio": "washingtonmsdj/ordax-apps"
   },
-  "source_repository_policy": "component-bound-fail-closed"
+  "source_repository_policy": "component-bound-fail-closed",
+  "notes_component_slot_read_available": true,
+  "notes_component_probation_available": true,
+  "notes_component_distribution_activation_enabled": false,
+  "notes_component_promotion_proven": false,
+  "notes_component_rollback_proven": false
 }
