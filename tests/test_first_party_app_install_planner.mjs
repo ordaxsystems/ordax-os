@@ -67,18 +67,31 @@ test("known on-demand app stays blocked without a signed catalog artifact", () =
   });
 });
 
-test("caller-supplied production activation flag cannot mint a ready plan", () => {
+test("caller-supplied production readiness cannot mint a ready plan", () => {
   const planner = createFirstPartyAppInstallPlanner();
-  const plan = planner.planInstall({
-    appId: "notes",
-    observation: observation(),
-    artifact: artifact(),
-    productionActivationAllowed: true,
-  });
-  assert.equal(plan.ready, false);
-  assert.equal(plan.reason, "production-activation-blocked");
-  assert.equal(plan.artifact, null);
-  assert.equal(plan.authority, "none");
+  for (const callerClaims of [
+    { productionActivationAllowed: true },
+    {
+      productionReadiness: {
+        authorized: true,
+        anchor_pinned: true,
+        publication_allowed: true,
+        activation_allowed: true,
+        blockers: [],
+      },
+    },
+  ]) {
+    const plan = planner.planInstall({
+      appId: "notes",
+      observation: observation(),
+      artifact: artifact(),
+      ...callerClaims,
+    });
+    assert.equal(plan.ready, false);
+    assert.equal(plan.reason, "production-activation-blocked");
+    assert.equal(plan.artifact, null);
+    assert.equal(plan.authority, "none");
+  }
 });
 
 test("planner blocks installed, busy, blocked, uncatalogued and structural states", () => {
