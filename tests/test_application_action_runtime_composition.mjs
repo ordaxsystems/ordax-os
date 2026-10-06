@@ -254,6 +254,7 @@ function composition({
   identity = mutableIdentitySession(),
   projects = mutableProjectCatalog(),
   onResolve = null,
+  artifactResolver = null,
 } = {}) {
   let ordinal = 0;
   const registry = applicationCapabilities();
@@ -271,6 +272,7 @@ function composition({
       return verifiedSemantics();
     },
     expectedApplicationActionProviderOwner: OWNER,
+    applicationActionProviderArtifactResolver: artifactResolver,
     createApplicationActionPreparationId: () => `prep-${++ordinal}`,
   });
   return { runtime, identity, projects };
@@ -320,6 +322,84 @@ test("Personal OrdaX composes proposal, preparation and current verified provide
   assert.equal(binding.authority, "none");
   assert.equal(binding.executionAuthorized, false);
   assert.equal(binding.modelDirectExecutionAuthorized, false);
+
+  const after = runtime.getSnapshot();
+  assert.equal(after.approvals.length, before.approvals.length);
+  assert.equal(after.decisions.length, before.decisions.length);
+  assert.equal(after.attempts.length, before.attempts.length);
+  assert.equal(typeof runtime.requestApplicationActionApproval, "undefined");
+  assert.equal(typeof runtime.executeApplicationAction, "undefined");
+  assert.equal(typeof runtime.issueApplicationActionGrant, "undefined");
+
+  runtime.dispose();
+});
+
+test("provider artifact resolution is chained through current provider binding without authority", async () => {
+  let bindingResolutions = 0;
+  let artifactResolutions = 0;
+  const artifactResolver = Object.freeze({
+    schema: "ordax.application-action-provider-artifact-resolver/1",
+    async resolve(preparation) {
+      artifactResolutions += 1;
+      assert.equal(preparation.resourceRef, "application-action:prep-1");
+      assert.equal(preparation.proposal.appId, "notes");
+      assert.deepEqual(preparation.provider, {
+        kind: "first-party-native",
+        adapterId: "notes-native",
+        revision: "1",
+      });
+      return Object.freeze({
+        schema: "ordax.application-action-provider-resolution/1",
+        preparationId: preparation.preparationId,
+        resourceRef: preparation.resourceRef,
+        appId: "notes",
+        appVersion: "0.4.2",
+        sourceCommit: SOURCE_COMMIT,
+        slotRevision: 12,
+        provider: Object.freeze({
+          kind: "first-party-native",
+          adapterId: "notes-native",
+          revision: "1",
+          module: "actions/providers/notes-native.mjs",
+          artifactSha256: "a".repeat(64),
+        }),
+        authority: "none",
+        executionAuthorized: false,
+        modelDirectExecutionAuthorized: false,
+      });
+    },
+  });
+  const { runtime } = composition({
+    artifactResolver,
+    onResolve: async () => {
+      bindingResolutions += 1;
+    },
+  });
+  const before = runtime.getSnapshot();
+  const { preparation } = prepare(runtime);
+
+  const resolution = await runtime.resolveApplicationActionProviderArtifact(
+    preparation.resourceRef,
+  );
+
+  assert.equal(bindingResolutions, 2);
+  assert.equal(artifactResolutions, 1);
+  assert.equal(resolution.schema, "ordax.application-action-provider-resolution/1");
+  assert.equal(resolution.resourceRef, preparation.resourceRef);
+  assert.equal(resolution.appId, "notes");
+  assert.equal(resolution.appVersion, "0.4.2");
+  assert.equal(resolution.sourceCommit, SOURCE_COMMIT);
+  assert.equal(resolution.slotRevision, 12);
+  assert.deepEqual(resolution.provider, {
+    kind: "first-party-native",
+    adapterId: "notes-native",
+    revision: "1",
+    module: "actions/providers/notes-native.mjs",
+    artifactSha256: "a".repeat(64),
+  });
+  assert.equal(resolution.authority, "none");
+  assert.equal(resolution.executionAuthorized, false);
+  assert.equal(resolution.modelDirectExecutionAuthorized, false);
 
   const after = runtime.getSnapshot();
   assert.equal(after.approvals.length, before.approvals.length);
