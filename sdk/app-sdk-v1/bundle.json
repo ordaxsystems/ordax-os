@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.8.0",
+  "bundle_version": "1.9.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -24,6 +24,27 @@
       "schema": "ordax.app-intelligence-manifest/1",
       "source_git_blob": "7cb63755687c3066633c3c2140315c7e01d527d8",
       "source_path": "system/contracts/app-intelligence-manifest.mjs"
+    },
+    {
+      "major": 1,
+      "name": "application-action-capability",
+      "schema": "ordax.application-action-capability/1",
+      "source_git_blob": "c78daf23c859bb09fb2029c9908c10f9c7715f3c",
+      "source_path": "system/contracts/application-action-capability.mjs"
+    },
+    {
+      "major": 1,
+      "name": "application-action-capability-registry",
+      "schema": "ordax.application-action-capability-registry/1",
+      "source_git_blob": "c78daf23c859bb09fb2029c9908c10f9c7715f3c",
+      "source_path": "system/contracts/application-action-capability.mjs"
+    },
+    {
+      "major": 1,
+      "name": "application-action-proposal",
+      "schema": "ordax.application-action-proposal/1",
+      "source_git_blob": "c78daf23c859bb09fb2029c9908c10f9c7715f3c",
+      "source_path": "system/contracts/application-action-capability.mjs"
     },
     {
       "major": 1,
