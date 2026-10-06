@@ -20,7 +20,7 @@ _COMPONENT_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 _SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 _SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
 
-SUPPORTED_COMPONENTS = frozenset({"internet"})
+SUPPORTED_COMPONENTS = frozenset({"internet", "notes"})
 SUPPORTED_STATES = frozenset({"current", "pending"})
 
 
