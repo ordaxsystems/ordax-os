@@ -1,6 +1,6 @@
 import {
-  validateApplicationActionPreparation,
-} from "./application-action-preparation.mjs";
+  validateApplicationActionProviderBinding,
+} from "./application-action-provider-binding.mjs";
 import {
   validateComponentId,
   validateComponentVersion,
@@ -11,12 +11,14 @@ import {
 
 export const APPLICATION_ACTION_PROVIDER_RESOLUTION_SCHEMA =
   "ordax.application-action-provider-resolution/1";
-export const APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA =
+export const APPLICATION_ACTION_PROVIDER_ARTIFACT_RESOLVER_SCHEMA =
   "ordax.application-action-provider-artifact-resolver/1";
 
+const ACTION_ID_RE = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const ADAPTER_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const MODULE_RE = /^actions\/providers\/([a-z][a-z0-9-]{0,127})\.mjs$/;
+const RESOURCE_REF_RE = /^application-action:[a-z][a-z0-9._-]{0,159}$/;
 const FORBIDDEN_METHODS = [
   "execute", "invoke", "run", "launch", "import", "loadAdapter",
   "grant", "authorize", "confirm",
@@ -50,13 +52,16 @@ export function validateApplicationActionProviderResolution(value, expected = {}
     value,
     [
       "schema",
-      "preparationId",
       "resourceRef",
+      "workItemId",
       "appId",
+      "actionId",
       "appVersion",
       "sourceCommit",
-      "slotRevision",
+      "componentRevision",
       "provider",
+      "capabilitySha256",
+      "capabilityProvenance",
       "authority",
       "executionAuthorized",
       "modelDirectExecutionAuthorized",
@@ -66,21 +71,32 @@ export function validateApplicationActionProviderResolution(value, expected = {}
   if (value.schema !== APPLICATION_ACTION_PROVIDER_RESOLUTION_SCHEMA) {
     throw new TypeError("Application action provider resolution schema is incompatible");
   }
-  const preparationId = boundedText(
-    value.preparationId,
-    "Application action provider resolution preparation id",
-    160,
-  );
+
   const resourceRef = boundedText(
     value.resourceRef,
     "Application action provider resolution resource ref",
     192,
   );
+  if (!RESOURCE_REF_RE.test(resourceRef)) {
+    throw new TypeError("Application action provider resolution resource ref is invalid");
+  }
+  const workItemId = boundedText(
+    value.workItemId,
+    "Application action provider resolution work item id",
+    160,
+  );
   const appId = validateComponentId(value.appId);
+  if (
+    typeof value.actionId !== "string"
+    || value.actionId.length > 120
+    || !ACTION_ID_RE.test(value.actionId)
+  ) {
+    throw new TypeError("Application action provider resolution actionId is invalid");
+  }
   const appVersion = validateComponentVersion(value.appVersion);
   const sourceCommit = validateComponentSlotSourceCommit(value.sourceCommit);
-  if (!Number.isSafeInteger(value.slotRevision) || value.slotRevision < 0) {
-    throw new TypeError("Application action provider resolution slot revision is invalid");
+  if (!Number.isSafeInteger(value.componentRevision) || value.componentRevision < 0) {
+    throw new TypeError("Application action provider resolution component revision is invalid");
   }
 
   exactFields(
@@ -121,6 +137,14 @@ export function validateApplicationActionProviderResolution(value, expected = {}
   if (!SHA256_RE.test(artifactSha256)) {
     throw new TypeError("Application action provider resolution artifact SHA-256 is invalid");
   }
+  if (typeof value.capabilitySha256 !== "string" || !SHA256_RE.test(value.capabilitySha256)) {
+    throw new TypeError("Application action provider resolution capability digest is invalid");
+  }
+  const capabilityProvenance = boundedText(
+    value.capabilityProvenance,
+    "Application action provider resolution capability provenance",
+    320,
+  );
   if (
     value.authority !== "none"
     || value.executionAuthorized !== false
@@ -129,29 +153,37 @@ export function validateApplicationActionProviderResolution(value, expected = {}
     throw new TypeError("Application action provider resolution cannot authorize execution");
   }
 
-  if (expected.preparation !== undefined) {
-    const preparation = validateApplicationActionPreparation(expected.preparation);
+  if (expected.binding !== undefined) {
+    const binding = validateApplicationActionProviderBinding(expected.binding);
     if (
-      preparation.preparationId !== preparationId
-      || preparation.resourceRef !== resourceRef
-      || preparation.proposal.appId !== appId
-      || preparation.provider.adapterId !== adapterId
-      || preparation.provider.revision !== revision
+      binding.resourceRef !== resourceRef
+      || binding.workItemId !== workItemId
+      || binding.appId !== appId
+      || binding.actionId !== value.actionId
+      || binding.appVersion !== appVersion
+      || binding.sourceCommit !== sourceCommit
+      || binding.componentRevision !== value.componentRevision
+      || binding.provider.kind !== value.provider.kind
+      || binding.provider.adapterId !== adapterId
+      || binding.provider.revision !== revision
+      || binding.capabilitySha256 !== value.capabilitySha256
+      || binding.capabilityProvenance !== capabilityProvenance
     ) {
       throw new TypeError(
-        "Application action provider resolution no longer matches its preparation",
+        "Application action provider resolution no longer matches its provider binding",
       );
     }
   }
 
   return Object.freeze({
     schema: APPLICATION_ACTION_PROVIDER_RESOLUTION_SCHEMA,
-    preparationId,
     resourceRef,
+    workItemId,
     appId,
+    actionId: value.actionId,
     appVersion,
     sourceCommit,
-    slotRevision: value.slotRevision,
+    componentRevision: value.componentRevision,
     provider: Object.freeze({
       kind: "first-party-native",
       adapterId,
@@ -159,17 +191,19 @@ export function validateApplicationActionProviderResolution(value, expected = {}
       module,
       artifactSha256,
     }),
+    capabilitySha256: value.capabilitySha256,
+    capabilityProvenance,
     authority: "none",
     executionAuthorized: false,
     modelDirectExecutionAuthorized: false,
   });
 }
 
-export function assertApplicationActionProviderResolver(port) {
+export function assertApplicationActionProviderArtifactResolver(port) {
   if (
     !port
     || typeof port !== "object"
-    || port.schema !== APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA
+    || port.schema !== APPLICATION_ACTION_PROVIDER_ARTIFACT_RESOLVER_SCHEMA
   ) {
     throw new TypeError("Compatible Application action provider artifact resolver is required");
   }
