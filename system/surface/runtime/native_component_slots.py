@@ -14,6 +14,7 @@ DEFAULT_SLOT_ROOT = "/var/lib/ordax/components"
 COMPONENT_MODULE_PREFIX = "/__ordax/native/component-module/"
 MAX_RUNTIME_FILE_BYTES = 2 * 1024 * 1024
 MAX_APP_INTELLIGENCE_MANIFEST_BYTES = 128 * 1024
+MAX_APP_COMPONENT_MANIFEST_BYTES = 64 * 1024
 MAX_RESOLVE_OUTPUT_BYTES = 16 * 1024
 MAX_HEALTH_OUTPUT_BYTES = 16 * 1024
 DEFAULT_TIMEOUT_SECONDS = 3.0
@@ -341,6 +342,176 @@ def resolve_component_slot(
         timeout_seconds=timeout_seconds,
     )
     return _parse_resolution_output(output, component_id, state)
+
+
+def _decode_verified_json_object(payload: bytes, label: str) -> dict:
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ComponentSlotVerificationError(f"{label} is not valid UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise ComponentSlotVerificationError(f"{label} must be a JSON object")
+    return value
+
+
+def _read_exact_verified_slot_file(
+    *,
+    helper_path: str,
+    trust_path: str,
+    resolution: ComponentSlotResolution,
+    requested_path: str,
+    max_bytes: int,
+    slot_root: str,
+    timeout_seconds: float,
+) -> bytes:
+    if resolution.version is None or resolution.source_commit is None:
+        raise ComponentSlotUnavailableError("verified slot identity is unavailable")
+    return _run_helper(
+        helper_path,
+        [
+            "read-runtime-file",
+            "--component",
+            resolution.component_id,
+            "--trust",
+            trust_path,
+            "--state",
+            "current",
+            "--version",
+            resolution.version,
+            "--source-commit",
+            resolution.source_commit,
+            "--path",
+            requested_path,
+            "--root",
+            slot_root,
+        ],
+        max_stdout_bytes=max_bytes,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def _validate_verified_app_component_manifest(
+    value: dict,
+    *,
+    component_id: str,
+    version: str,
+) -> dict:
+    expected_fields = {
+        "schema",
+        "id",
+        "title",
+        "kind",
+        "version",
+        "releaseMode",
+        "criticality",
+        "failureDomain",
+        "restartScope",
+        "healthMode",
+        "owner",
+        "dependencies",
+    }
+    if set(value) != expected_fields:
+        raise ComponentSlotVerificationError("app component manifest fields are not canonical")
+    if value.get("schema") != "ordax.component-manifest/1":
+        raise ComponentSlotVerificationError("app component manifest schema is incompatible")
+    if value.get("id") != component_id or value.get("version") != version:
+        raise ComponentSlotVerificationError("app component manifest identity mismatch")
+    if value.get("kind") != "app" or value.get("releaseMode") != "component-slot":
+        raise ComponentSlotVerificationError("installed app component manifest delivery boundary is invalid")
+    if value.get("owner") != "washingtonmsdj/ordax-apps":
+        raise ComponentSlotVerificationError("installed app component manifest owner is not canonical")
+    if not isinstance(value.get("title"), str) or not value["title"].strip():
+        raise ComponentSlotVerificationError("installed app component manifest title is invalid")
+    if not isinstance(value.get("dependencies"), list):
+        raise ComponentSlotVerificationError("installed app component manifest dependencies are invalid")
+    return value
+
+
+def read_verified_first_party_app_awareness_bundle(
+    *,
+    helper_path: str,
+    trust_path: str,
+    component_id: str,
+    slot_root: str = DEFAULT_SLOT_ROOT,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+) -> tuple[ComponentSlotResolution, dict, dict]:
+    if not isinstance(component_id, str) or not _COMPONENT_RE.fullmatch(component_id):
+        raise ComponentSlotRequestError("invalid first-party app component id")
+
+    output = _run_helper(
+        helper_path,
+        [
+            "resolve-current",
+            "--component",
+            component_id,
+            "--trust",
+            trust_path,
+            "--root",
+            slot_root,
+        ],
+        max_stdout_bytes=MAX_RESOLVE_OUTPUT_BYTES,
+        timeout_seconds=timeout_seconds,
+    )
+    resolution = _parse_resolution_output(output, component_id, "current")
+    if (
+        resolution.source != "slot"
+        or resolution.version is None
+        or resolution.source_commit is None
+    ):
+        raise ComponentSlotUnavailableError("first-party app has no active verified slot")
+
+    component_payload = _read_exact_verified_slot_file(
+        helper_path=helper_path,
+        trust_path=trust_path,
+        resolution=resolution,
+        requested_path=f"system/apps/{component_id}/app.json",
+        max_bytes=MAX_APP_COMPONENT_MANIFEST_BYTES,
+        slot_root=slot_root,
+        timeout_seconds=timeout_seconds,
+    )
+    component = _validate_verified_app_component_manifest(
+        _decode_verified_json_object(component_payload, "app component manifest"),
+        component_id=component_id,
+        version=resolution.version,
+    )
+
+    intelligence_payload = _read_exact_verified_slot_file(
+        helper_path=helper_path,
+        trust_path=trust_path,
+        resolution=resolution,
+        requested_path=f"system/apps/{component_id}/ai/manifest.json",
+        max_bytes=MAX_APP_INTELLIGENCE_MANIFEST_BYTES,
+        slot_root=slot_root,
+        timeout_seconds=timeout_seconds,
+    )
+    intelligence = _decode_verified_json_object(
+        intelligence_payload,
+        "app intelligence manifest",
+    )
+    expected_fields = {
+        "schema",
+        "appId",
+        "appVersion",
+        "authority",
+        "execution",
+        "instructions",
+        "intents",
+    }
+    if set(intelligence) != expected_fields:
+        raise ComponentSlotVerificationError("app intelligence manifest fields are not canonical")
+    if intelligence.get("schema") != "ordax.app-intelligence-manifest/1":
+        raise ComponentSlotVerificationError("app intelligence manifest schema is incompatible")
+    if (
+        intelligence.get("appId") != component_id
+        or intelligence.get("appVersion") != resolution.version
+    ):
+        raise ComponentSlotVerificationError("app intelligence manifest identity mismatch")
+    if intelligence.get("authority") != "none" or intelligence.get("execution") != "declarative-only":
+        raise ComponentSlotVerificationError("app intelligence manifest crossed authority boundary")
+    if not isinstance(intelligence.get("instructions"), list) or not isinstance(intelligence.get("intents"), list):
+        raise ComponentSlotVerificationError("app intelligence manifest semantic fields are invalid")
+
+    return resolution, component, intelligence
 
 
 def read_verified_app_intelligence_manifest(
