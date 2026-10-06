@@ -339,3 +339,6 @@ verified app capability
 ```
 
 No second permission store, grant issuer, confirmation system or receipt format is introduced.
+
+
+A preparation is not provider-artifact proof. It intentionally carries only the capability's declared `adapterId + revision`. Before any future execution, a platform-owned provider resolver must still bind that declaration to the **currently verified first-party package/provider artifact** and fail closed if version, source commit, adapter revision or artifact identity changed after preparation. This prevents a preparation from silently authorizing a newly updated app runtime.
