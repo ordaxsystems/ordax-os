@@ -109,3 +109,36 @@ Instruções do app ficam abaixo das políticas do sistema e do usuário. Um man
 - transformar texto do app em autoridade.
 
 A instalação/assinatura do app e a autorização de uma ação continuam sendo decisões separadas.
+
+
+## Consumo pelo Application Awareness
+
+O serviço `system/services/intelligence/application-awareness.mjs` é o consumidor semântico do manifesto.
+
+A composição confiável pode fornecer ao serviço apenas manifests first-party provenientes de um pacote já verificado. O serviço:
+
+- revalida `appId` e `appVersion` contra a identidade first-party conhecida;
+- rejeita manifests órfãos, duplicados ou associados a apps externos;
+- projeta instruções e intents para o contexto consultivo do Intelligence;
+- não expõe método de execução;
+- mantém `actionExecutionAuthorized=false`, `modelToolExecutionAuthorized=false` e `toolExecution=false`.
+
+Isso separa duas responsabilidades:
+
+```text
+pacote verificado
+    ↓
+application-awareness
+    ↓
+contexto semântico consultivo
+    ↓
+Ordax Intelligence
+
+execução
+    ↓
+contrato/binding separado
+    ↓
+permission + confirmation gates
+```
+
+A leitura física de `ai/manifest.json` do slot instalado pertence à composição/runtime confiável e não ao modelo, ao Studio ou ao próprio app.
