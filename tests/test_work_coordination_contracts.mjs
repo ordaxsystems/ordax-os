@@ -273,13 +273,16 @@ test("machine-readable coordination status stays fail-closed and non-MVP-blockin
     "utf8",
   ));
 
-  assert.equal(foundation.status, "foundation-contracts-only-public-disabled");
+  assert.equal(foundation.status, "foundation-store-runtime-contracts-public-disabled");
   assert.equal(foundation.authority, "none");
   assert.equal(foundation.policy.absence_enables_coordination, false);
   assert.equal(foundation.policy.automatic_requires_explicit_confirmation, true);
   assert.equal(foundation.policy.background_execution_enabled, false);
   assert.equal(foundation.claims.finite_lease_required, true);
   assert.equal(foundation.claims.permanent_lock_allowed, false);
+  assert.equal(foundation.runtime.recovery_mutation_requires_policy, true);
+  assert.equal(foundation.runtime.system_mutation_requires_confirmed_automatic, true);
+  assert.equal(foundation.runtime.provider_self_verification_allowed, false);
   assert.equal(foundation.mvp.new_usb_mvp_blocker, false);
   assert.equal(foundation.mvp.public_enabled, false);
   assert.equal(foundation.mvp.background_autonomy_enabled, false);
