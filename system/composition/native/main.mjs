@@ -48,6 +48,7 @@ import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
+import { listFirstPartyAppDeliveryPolicies } from "../../services/apps/delivery-policy.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
@@ -269,23 +270,28 @@ async function start() {
     fetchImpl: localAiFetch,
   });
   const intelligence = createIntelligenceRuntime({ inferencePort: localAi });
-  const firstPartyApplications = listFirstPartyApps();
+  const firstPartyById = new Map(
+    listFirstPartyApps().map((app) => [app.id, app]),
+  );
   const nativeAppIntelligenceManifestSource = createNativeAppIntelligenceManifestSource(window);
   const firstPartyIntelligenceManifests = [];
-  for (const app of firstPartyApplications) {
+  for (const policy of listFirstPartyAppDeliveryPolicies()) {
     const verified = await optionalNativeProbe(
-      `OrdaX app Intelligence manifest unavailable for ${app.id}`,
-      () => nativeAppIntelligenceManifestSource.read(app.id),
+      `OrdaX installed first-party identity unavailable for ${policy.appId}`,
+      () => nativeAppIntelligenceManifestSource.read(policy.appId),
     );
     if (verified === null) continue;
-    if (verified.componentVersion !== app.component.version) {
-      console.warn(
-        `OrdaX app Intelligence manifest version does not match catalog identity for ${app.id}`,
-      );
-      continue;
-    }
+    firstPartyById.set(
+      verified.component.id,
+      Object.freeze({
+        id: verified.component.id,
+        title: verified.component.title,
+        component: verified.component,
+      }),
+    );
     firstPartyIntelligenceManifests.push(verified.manifest);
   }
+  const firstPartyApplications = Object.freeze([...firstPartyById.values()]);
   const applicationAwareness = createApplicationIntelligenceAwareness({
     firstPartyApplications,
     installedApplications: [],
