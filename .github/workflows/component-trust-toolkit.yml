@@ -10,6 +10,7 @@ on:
       - 'docs/COMPONENT-TRUST-CEREMONY.md'
       - 'tests/test_runtime_component_production_readiness.py'
       - 'tests/test_runtime_component_unsigned_candidate.py'
+      - 'tests/test_runtime_component_external_signing_preflight.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
       - '.github/workflows/runtime-component-unsigned-candidate.yml'
       - '.github/workflows/component-trust-toolkit.yml'
@@ -129,6 +130,24 @@ jobs:
           echo 'SIGNING_PERFORMED=NO'
           echo 'PUBLICATION_PERFORMED=NO'
           echo 'ACTIVATION_PERFORMED=NO'
+
+      - name: Prove external signing preflight remains blocked safe
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests/test_runtime_component_external_signing_preflight.py
+          out="$RUNNER_TEMP/ordax-external-unsigned"
+          proof="$RUNNER_TEMP/external-signing-preflight.txt"
+          python3 tools/runtime-component-channel/check_external_signing_preflight.py \
+            --candidate-dir "$out" \
+            --root "$PWD" | tee "$proof"
+          grep -Fx 'RUNTIME_COMPONENT_EXTERNAL_SIGNING_PREFLIGHT=PASS' "$proof"
+          grep -Fx 'SIGNING_ELIGIBLE=NO' "$proof"
+          grep -Fx 'BLOCKER=canonical-runtime-component-trust-anchor-not-pinned' "$proof"
+          grep -Fx 'BLOCKER=component-publication-not-authorized' "$proof"
+          grep -Fx 'PRIVATE_KEY_READ=NO' "$proof"
+          grep -Fx 'SIGNING_PERFORMED=NO' "$proof"
+          grep -Fx 'PUBLICATION_PERFORMED=NO' "$proof"
+          grep -Fx 'ACTIVATION_PERFORMED=NO' "$proof"
 
       - name: Build Windows component trust toolkit
         run: |
