@@ -108,7 +108,7 @@ jobs:
           set -euo pipefail
           go test ./...
 
-      - name: Prove compiled release v2 CLI end to end without activation
+      - name: Prove compiled release v2 CLI lifecycle end to end
         run: |
           set -euo pipefail
           python -m unittest tests/test_runtime_component_release_v2_cli_e2e.py
