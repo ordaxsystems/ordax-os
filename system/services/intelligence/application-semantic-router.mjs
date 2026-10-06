@@ -115,6 +115,9 @@ function assertRouter(port) {
       throw new TypeError(`Application semantic router must implement ${method}()`);
     }
   }
+  if (port.route !== undefined && typeof port.route !== "function") {
+    throw new TypeError("Application semantic router route must be a function when provided");
+  }
   for (const forbidden of ["execute", "invoke", "run", "launch", "grant", "authorize"]) {
     if (typeof port[forbidden] === "function") {
       throw new TypeError(`Application semantic router must not expose ${forbidden}()`);
@@ -155,7 +158,7 @@ export function createApplicationSemanticRouter({
     addManifest(postings, descriptor, manifest);
   }
 
-  const select = (prompt) => {
+  const computeSelection = (prompt) => {
     const normalizedPrompt = normalizedText(prompt);
     if (!normalizedPrompt) return Object.freeze([]);
     const scores = new Map();
@@ -184,15 +187,24 @@ export function createApplicationSemanticRouter({
     return Object.freeze(selected);
   };
 
+  const route = (prompt) => {
+    const selection = computeSelection(prompt);
+    const contextItems = Object.freeze(
+      selection
+        .map(({ appId }) => detailByAppId.get(appId))
+        .filter(Boolean),
+    );
+    return Object.freeze({ selection, contextItems });
+  };
+
   const port = Object.freeze({
     schema: APPLICATION_SEMANTIC_ROUTER_SCHEMA,
-    select,
+    route,
+    select(prompt) {
+      return route(prompt).selection;
+    },
     contextItemsForPrompt(prompt) {
-      return Object.freeze(
-        select(prompt)
-          .map(({ appId }) => detailByAppId.get(appId))
-          .filter(Boolean),
-      );
+      return route(prompt).contextItems;
     },
   });
   return Object.freeze(assertRouter(port));
