@@ -22,6 +22,7 @@ const CSS_FILES = [
   'system/surface/ui/system.css',
   'system/surface/ui/account.css',
   'system/surface/ui/settings.css',
+  'system/surface/ui/store.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
   'system/apps/assistant/assistant.css': 'text/css',
@@ -596,6 +597,15 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.notesAbsentFromLauncher = root.querySelector('[data-launch-app="notes"]') === null;
     result.notesLocalWindowAbsent = root.querySelector('[data-window-id="notes"]') === null;
 
+    await launch('store');
+    const storeSlot = root.querySelector(
+      '[data-window-id="store"] [data-app-extension="store-overview"]',
+    );
+    result.storeOwnerMounted = storeSlot?.dataset.ordaxStoreOverviewView === 'true';
+    result.storeFailsClosedWithoutVerifiedCatalog = storeSlot?.dataset.storeState === 'unavailable'
+      && storeSlot?.querySelector('[data-store-install]') === null
+      && storeSlot?.querySelector('[data-store-authority="none"]') !== null;
+
     // Internet coverage must remain independent from Notes. Before the
     // remove-first cutover this target was reached through a Notes reference,
     // which accidentally made the browser smoke depend on the removed app.
@@ -710,7 +720,8 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'compositionMounted', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
-      'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent', 'internetComponentStyleMounted',
+      'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
+      'storeOwnerMounted', 'storeFailsClosedWithoutVerifiedCatalog', 'internetComponentStyleMounted',
       'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
       'internetFailsClosedOnWeb', 'internetDoesNotEmbedWebContent',

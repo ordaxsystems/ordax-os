@@ -12,6 +12,7 @@ import { createWebSyncCheckpointStore } from "../../adapters/web/sync-checkpoint
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
+import { createUnavailableAppStoreCatalogPort } from "../../contracts/app-store.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
@@ -29,6 +30,7 @@ import { mountNotificationCenterControls } from "../../surface/ui/notification-c
 import { mountSurface } from "../../surface/ui/surface.mjs";
 import { createSurfaceBootScreen } from "../../surface/ui/boot-screen.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
+import { mountStoreOverviewControls } from "../../surface/ui/store-overview-controls.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 
@@ -164,6 +166,13 @@ const settingsOverviewControls = mountSettingsOverviewControls(
   appActivation,
   notifications,
 );
+const storeCatalog = createUnavailableAppStoreCatalogPort();
+const storeOverviewControls = mountStoreOverviewControls(
+  root,
+  storeCatalog,
+  surface,
+  null,
+);
 const systemOverviewControls = mountSystemOverviewControls(
   root,
   host,
@@ -256,6 +265,7 @@ window.addEventListener(
     window.removeEventListener("online", onOnline);
     unsubscribeHostIdentity();
     systemOverviewControls.destroy();
+    storeOverviewControls.destroy();
     assistantComponent?.destroy();
     internetComponent?.destroy();
     studioComponent?.destroy();
