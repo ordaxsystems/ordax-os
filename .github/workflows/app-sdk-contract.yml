@@ -8,6 +8,7 @@ on:
       - "tools/app-sdk/**"
       - "tests/test_app_sdk_app_data.mjs"
       - "tests/test_app_sdk_application_actions.mjs"
+      - "tests/test_application_action_manifest.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - ".github/workflows/app-sdk-contract.yml"
   push:
@@ -18,6 +19,7 @@ on:
       - "tools/app-sdk/**"
       - "tests/test_app_sdk_app_data.mjs"
       - "tests/test_app_sdk_application_actions.mjs"
+      - "tests/test_application_action_manifest.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - ".github/workflows/app-sdk-contract.yml"
 
@@ -45,6 +47,9 @@ jobs:
 
       - name: Prove App Data publication is contract-only
         run: node --test tests/test_app_sdk_app_data.mjs
+
+      - name: Prove Application Action manifest remains proposal-only
+        run: node --test tests/test_application_action_manifest.mjs
 
       - name: Prove Application Action publication remains authority-free
         run: node --test tests/test_app_sdk_application_actions.mjs
