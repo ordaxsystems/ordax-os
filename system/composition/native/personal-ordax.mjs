@@ -9,6 +9,9 @@ import { validatePersonalActionProposal } from "../../contracts/personal-action-
 import { validatePersonalWorkRecoverySuggestion } from "../../contracts/personal-work-recovery-suggestion.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
 import { createApplicationActionPreparationRegistry } from "../../services/personal-ordax/application-action-preparations.mjs";
+import {
+  createApplicationActionProviderResolver,
+} from "../../services/personal-ordax/application-action-provider-bindings.mjs";
 import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
@@ -26,6 +29,8 @@ export function createNativePersonalOrdaxComposition({
   adapterResolver = () => null,
   actionCatalog = null,
   applicationActionCapabilityRegistry = null,
+  resolveVerifiedApplicationSemantics = null,
+  expectedApplicationActionProviderOwner = null,
   createApplicationActionPreparationId = null,
   grantAuthority = null,
 } = {}) {
@@ -58,6 +63,17 @@ export function createNativePersonalOrdaxComposition({
         capabilityRegistry: applicationActionCapabilityRegistry,
         createPreparationId: preparationIdFactory,
       });
+  const applicationActionProviderResolver = (
+    applicationActionPreparations !== null
+    && resolveVerifiedApplicationSemantics !== null
+  )
+    ? createApplicationActionProviderResolver({
+        preparationRegistry: applicationActionPreparations,
+        capabilityRegistry: applicationActionCapabilityRegistry,
+        resolveVerifiedSemantics: resolveVerifiedApplicationSemantics,
+        expectedOwner: expectedApplicationActionProviderOwner,
+      })
+    : null;
 
   const ownsGrantAuthority = grantAuthority === null;
   const authority = grantAuthority ?? createIntelligenceToolGrantAuthority();
@@ -275,7 +291,10 @@ export function createNativePersonalOrdaxComposition({
       const preparation = applicationActionPreparations.prepare(work.id, proposalValue);
       applicationActionPreparationBindings.set(
         preparation.resourceRef,
-        Object.freeze({ ownerKey: ownerKeyFromSnapshot(runtime.getSnapshot()) }),
+        Object.freeze({
+          ownerKey: ownerKeyFromSnapshot(runtime.getSnapshot()),
+          workRevision: workRevision(work),
+        }),
       );
       return preparation;
     },
@@ -283,6 +302,49 @@ export function createNativePersonalOrdaxComposition({
       if (applicationActionPreparations === null) return null;
       reconcileApplicationActionPreparations();
       return applicationActionPreparations.resolve(resourceRef);
+    },
+    async resolveApplicationActionProviderBinding(resourceRef) {
+      if (
+        applicationActionPreparations === null
+        || applicationActionProviderResolver === null
+      ) {
+        throw new Error(
+          "Personal OrdaX Application Action provider binding is unavailable",
+        );
+      }
+      reconcileApplicationActionPreparations();
+      const preparation = applicationActionPreparations.resolve(resourceRef);
+      if (preparation === null) {
+        throw new Error(
+          "Personal OrdaX Application Action preparation is no longer current",
+        );
+      }
+      const preparationBinding = applicationActionPreparationBindings.get(resourceRef);
+      if (!preparationBinding) {
+        throw new Error(
+          "Personal OrdaX Application Action preparation binding is unavailable",
+        );
+      }
+
+      const resolved = await applicationActionProviderResolver.resolve(resourceRef);
+
+      reconcileApplicationActionPreparations();
+      const snapshot = runtime.getSnapshot();
+      const currentPreparation = applicationActionPreparations.resolve(resourceRef);
+      const currentWork = snapshot.workItems.find(
+        (candidate) => candidate.id === preparation.workItemId,
+      );
+      if (
+        currentPreparation !== preparation
+        || ownerKeyFromSnapshot(snapshot) !== preparationBinding.ownerKey
+        || !currentWork
+        || workRevision(currentWork) !== preparationBinding.workRevision
+      ) {
+        throw new Error(
+          "Personal OrdaX Application Action changed during provider binding resolution",
+        );
+      }
+      return resolved;
     },
     revokeApplicationActionPreparation(resourceRef) {
       if (applicationActionPreparations === null) return false;
