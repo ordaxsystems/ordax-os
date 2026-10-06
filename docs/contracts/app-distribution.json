@@ -1,7 +1,7 @@
 {
   "$schema": "prototype-ordax.app-distribution/1",
-  "status": "mvp-minimal-product-scope-signed-release-delivery",
-  "catalog_owner": "future-store-service",
+  "status": "readonly-store-foundation-production-install-blocked",
+  "catalog_owner": "system/services/apps/store-catalog.mjs",
   "runtime_catalog": "system/apps/catalog.mjs",
   "first_party_delivery_policy_owner": "system/services/apps",
   "first_party_delivery_contract": "ordax.first-party-app-delivery-policy/1",
@@ -47,13 +47,14 @@
   },
   "mvp": {
     "third_party_installation_enabled": false,
-    "store_ui_enabled": false,
+    "store_ui_enabled": true,
     "foundation_prepared": true,
     "minimal_initial_product_scope_target": true,
     "structural_app_ids": [
       "account",
       "settings",
-      "system"
+      "system",
+      "store"
     ],
     "bootstrap_app_ids": [
       "files",
@@ -78,6 +79,6 @@
     "first_run_is_not_a_second_updater": true,
     "network_skip_must_not_block_first_run": true,
     "independent_payload_removal_requires_delivery_proofs": true,
-    "stable_payload_changed_by_this_policy_only": false
+    "stable_payload_changed_by_this_policy_only": true
   }
 }
