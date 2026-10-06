@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.project-native-state/1",
-  "status": "durable-foundation-unmounted",
+  "status": "durable-foundation-endpoint-defined-unmounted",
   "owner": "platform-projects",
   "project_catalog_contract": "system/contracts/project-catalog.mjs",
   "project_store_contract": "system/contracts/project-store.mjs",
@@ -9,6 +9,7 @@
   "current_surface_adapter": "system/adapters/native/projects.mjs",
   "current_surface_persistence": "localStorage-with-session-fallback",
   "native_state_owner": "system/surface/runtime/native_project_state.py",
+  "native_endpoint_boundary": "system/surface/runtime/native_project_endpoint.py",
   "native_transport": "system/adapters/native/project-state.mjs",
   "migration": "system/services/files/native-project-state-migration.mjs",
   "native_endpoint_path": "/__ordax/native/project-state",
@@ -25,6 +26,15 @@
     "revision_cas": true,
     "max_record_bytes": 1048576,
     "max_projects": 32
+  },
+  "endpoint": {
+    "defined": true,
+    "route_mounted": false,
+    "mutation": "compare-and-swap-only",
+    "strict_request_shape": true,
+    "strict_utf8_json": true,
+    "bounded_request_bytes": true,
+    "stale_revision_status": 409
   },
   "migration_policy": {
     "direction": "legacy-localStorage-to-native-only",
@@ -47,8 +57,8 @@
     "browser_localStorage_is_final_authority": false
   },
   "next": [
-    "typed-native-project-endpoint-boundary",
     "async-bootstrap-and-cutover-plan",
+    "mount-native-project-route",
     "verified-legacy-migration",
     "remove-localStorage-authority-after-cutover",
     "expose-read-only-project-existence-to-work-coordination-host"
