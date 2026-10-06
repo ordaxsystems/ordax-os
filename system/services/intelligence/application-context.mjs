@@ -11,11 +11,16 @@ import {
 import {
   assertApplicationActionCapabilityRegistryPort,
 } from "../../contracts/application-action-capability.mjs";
+import { assertApplicationSemanticRouter } from "./application-semantic-router.mjs";
 
 const RESERVED_CONTEXT_IDS = new Set([
   "ordax-application-catalog",
   "ordax-application-action-capabilities",
 ]);
+
+function reservedContextId(value) {
+  return RESERVED_CONTEXT_IDS.has(value) || value.startsWith("ordax-application-detail:");
+}
 
 function validatedSystemContextItem(value, expectedId) {
   const validated = validateIntelligenceRequest({
@@ -46,12 +51,16 @@ export function createApplicationContextIntelligence({
   intelligencePort,
   awarenessPort,
   actionCapabilityRegistryPort = null,
+  semanticRouterPort = null,
 } = {}) {
   const intelligence = assertIntelligencePort(intelligencePort);
   const awareness = assertApplicationIntelligenceAwarenessPort(awarenessPort);
   const capabilities = actionCapabilityRegistryPort === null
     ? null
     : assertApplicationActionCapabilityRegistryPort(actionCapabilityRegistryPort);
+  const semanticRouter = semanticRouterPort === null
+    ? null
+    : assertApplicationSemanticRouter(semanticRouterPort);
   const awarenessContext = validatedSystemContextItem(
     awareness.contextItem(),
     "ordax-application-catalog",
@@ -74,7 +83,7 @@ export function createApplicationContextIntelligence({
     respond(value) {
       const request = validateIntelligenceRequest(value);
       for (const entry of request.context) {
-        if (RESERVED_CONTEXT_IDS.has(entry.id)) {
+        if (reservedContextId(entry.id)) {
           throw new TypeError(`Application Intelligence reserved context id cannot be caller supplied: ${entry.id}`);
         }
       }
@@ -82,6 +91,13 @@ export function createApplicationContextIntelligence({
       let context = [...request.context];
       context = appendIfFits(context, awarenessContext);
       const awarenessIncluded = context.length === request.context.length + 1;
+
+      if (semanticRouter !== null && awarenessIncluded) {
+        for (const item of semanticRouter.contextItemsForPrompt(request.prompt)) {
+          const validated = validatedSystemContextItem(item, item.id);
+          context = appendIfFits(context, validated);
+        }
+      }
 
       if (capabilities !== null && awarenessIncluded) {
         context = appendIfFits(context, capabilityContext);
