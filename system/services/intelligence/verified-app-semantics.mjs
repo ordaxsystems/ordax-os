@@ -4,7 +4,10 @@ import {
   defineComponentManifest,
   validateComponentId,
 } from "../../contracts/component-manifest.mjs";
-import { validateComponentSlotResolution } from "../../contracts/component-slot-source.mjs";
+import {
+  validateComponentSlotResolution,
+  validateComponentSlotSourceCommit,
+} from "../../contracts/component-slot-source.mjs";
 import { assertVerifiedComponentPackageSource } from "../../contracts/verified-component-package-source.mjs";
 
 const MAX_APP_MANIFESTS = 32;
@@ -188,21 +191,60 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
   return Object.freeze(entries);
 }
 
+function validateVerifiedOverlayEntry(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    throw new TypeError("Verified app semantics overlay entry is invalid");
+  }
+  const app = entry.application;
+  if (!app || typeof app !== "object" || Array.isArray(app)) {
+    throw new TypeError("Verified app semantics overlay application is invalid");
+  }
+  const id = validateComponentId(app.id);
+  if (!EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS.includes(id)) {
+    throw new TypeError(`Verified app semantics overlay app is not an allowed external first-party app: ${id}`);
+  }
+  const component = defineComponentManifest(app.component);
+  if (
+    component.id !== id
+    || component.title !== app.title
+    || component.kind !== "app"
+    || component.releaseMode !== "component-slot"
+    || component.owner !== EXTERNAL_FIRST_PARTY_OWNER
+  ) {
+    throw new TypeError(`Verified app semantics overlay identity drifted for ${id}`);
+  }
+  const intelligenceManifest = validateAppIntelligenceManifest(entry.intelligenceManifest, {
+    appId: component.id,
+    appVersion: component.version,
+  });
+  const sourceCommit = validateComponentSlotSourceCommit(entry.sourceCommit);
+  if (!Number.isSafeInteger(entry.revision) || entry.revision < 0) {
+    throw new TypeError(`Verified app semantics overlay revision is invalid for ${id}`);
+  }
+  return Object.freeze({
+    application: Object.freeze({
+      id: component.id,
+      title: component.title,
+      component,
+    }),
+    intelligenceManifest,
+    sourceCommit,
+    revision: entry.revision,
+  });
+}
+
 export function overlayVerifiedFirstPartyApplications(baseApplications = [], verifiedEntries = []) {
   if (!Array.isArray(baseApplications) || !Array.isArray(verifiedEntries)) {
     throw new TypeError("Verified app semantics overlay requires arrays");
   }
   const verifiedById = new Map();
   for (const entry of verifiedEntries) {
-    const app = entry?.application;
-    if (!app || typeof app !== "object" || Array.isArray(app)) {
-      throw new TypeError("Verified app semantics overlay entry is invalid");
+    const verified = validateVerifiedOverlayEntry(entry);
+    const app = verified.application;
+    if (verifiedById.has(app.id)) {
+      throw new TypeError(`Verified app semantics overlay duplicates app: ${app.id}`);
     }
-    const id = validateComponentId(app.id);
-    if (verifiedById.has(id)) {
-      throw new TypeError(`Verified app semantics overlay duplicates app: ${id}`);
-    }
-    verifiedById.set(id, app);
+    verifiedById.set(app.id, app);
   }
 
   const result = [];
