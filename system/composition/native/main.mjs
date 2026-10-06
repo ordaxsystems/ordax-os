@@ -69,6 +69,7 @@ import { createApplicationContextIntelligence } from "../../services/intelligenc
 import { createApplicationActionCapabilityRegistry } from "../../services/intelligence/application-action-capabilities.mjs";
 import { createApplicationSemanticRouter } from "../../services/intelligence/application-semantic-router.mjs";
 import {
+  EXTERNAL_FIRST_PARTY_OWNER,
   EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
   loadVerifiedFirstPartyApplicationSemantics,
   overlayVerifiedFirstPartyApplications,
@@ -510,7 +511,7 @@ async function start() {
         });
         return entries[0] ?? null;
       },
-      expectedApplicationActionProviderOwner: "washingtonmsdj/ordax-apps",
+      expectedApplicationActionProviderOwner: EXTERNAL_FIRST_PARTY_OWNER,
     }),
   );
   const profileComponentInventory = await optionalNativeProbe(
