@@ -28,6 +28,7 @@ export async function readNativeToolArtifactSha256(
     method: "GET",
     cache: "no-store",
     credentials: "same-origin",
+    redirect: "error",
   });
   if (!response.ok) {
     throw new Error(`Native tool artifact identity fetch failed: ${response.status}`);
