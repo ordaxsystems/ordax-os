@@ -50,21 +50,21 @@
       "major": 1,
       "name": "application-action-provider",
       "schema": "ordax.application-action-provider/1",
-      "source_git_blob": "00f2573d132a3d6e7e0747c792156f80a7933566",
+      "source_git_blob": "158664c2da836ee0cbc67edb275b87542933480f",
       "source_path": "system/contracts/application-action-provider.mjs"
     },
     {
       "major": 1,
       "name": "application-action-provider-invocation",
       "schema": "ordax.application-action-provider-invocation/1",
-      "source_git_blob": "00f2573d132a3d6e7e0747c792156f80a7933566",
+      "source_git_blob": "158664c2da836ee0cbc67edb275b87542933480f",
       "source_path": "system/contracts/application-action-provider.mjs"
     },
     {
       "major": 1,
       "name": "application-action-provider-result",
       "schema": "ordax.application-action-provider-result/1",
-      "source_git_blob": "00f2573d132a3d6e7e0747c792156f80a7933566",
+      "source_git_blob": "158664c2da836ee0cbc67edb275b87542933480f",
       "source_path": "system/contracts/application-action-provider.mjs"
     },
     {
