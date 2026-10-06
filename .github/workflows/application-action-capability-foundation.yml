@@ -14,11 +14,13 @@ on:
       - 'system/contracts/application-action-preparation.mjs'
       - 'system/contracts/application-action-provider-binding.mjs'
       - 'system/contracts/application-action-provider-manifest.mjs'
+      - 'system/contracts/application-action-provider-resolution.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/intelligence/verified-app-semantics.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
+      - 'system/services/personal-ordax/application-action-provider-resolver.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
@@ -26,6 +28,7 @@ on:
       - 'tests/test_application_action_preparations.mjs'
       - 'tests/test_application_action_provider_bindings.mjs'
       - 'tests/test_application_action_provider_manifest.mjs'
+      - 'tests/test_application_action_provider_resolver.mjs'
       - 'tests/test_application_action_runtime_composition.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
@@ -43,11 +46,13 @@ on:
       - 'system/contracts/application-action-preparation.mjs'
       - 'system/contracts/application-action-provider-binding.mjs'
       - 'system/contracts/application-action-provider-manifest.mjs'
+      - 'system/contracts/application-action-provider-resolution.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/intelligence/verified-app-semantics.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
+      - 'system/services/personal-ordax/application-action-provider-resolver.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
@@ -55,6 +60,7 @@ on:
       - 'tests/test_application_action_preparations.mjs'
       - 'tests/test_application_action_provider_bindings.mjs'
       - 'tests/test_application_action_provider_manifest.mjs'
+      - 'tests/test_application_action_provider_resolver.mjs'
       - 'tests/test_application_action_runtime_composition.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
@@ -79,11 +85,13 @@ jobs:
           node --check system/contracts/application-action-preparation.mjs
           node --check system/contracts/application-action-provider-binding.mjs
           node --check system/contracts/application-action-provider-manifest.mjs
+          node --check system/contracts/application-action-provider-resolution.mjs
           node --check system/contracts/application-intelligence-awareness.mjs
           node --check system/services/intelligence/application-action-capabilities.mjs
           node --check system/services/intelligence/verified-app-semantics.mjs
           node --check system/services/personal-ordax/application-action-preparations.mjs
           node --check system/services/personal-ordax/application-action-provider-bindings.mjs
+          node --check system/services/personal-ordax/application-action-provider-resolver.mjs
           node --check system/composition/native/personal-ordax.mjs
           node --check system/composition/native/main.mjs
           node --check system/services/intelligence/application-awareness.mjs
@@ -97,6 +105,7 @@ jobs:
           node --check tests/test_application_action_preparations.mjs
           node --check tests/test_application_action_provider_bindings.mjs
           node --check tests/test_application_action_provider_manifest.mjs
+          node --check tests/test_application_action_provider_resolver.mjs
           node --check tests/test_application_action_runtime_composition.mjs
           node --check tests/test_verified_app_semantics_source.mjs
 
@@ -107,6 +116,7 @@ jobs:
           node --test tests/test_application_action_preparations.mjs
           node --test tests/test_application_action_provider_bindings.mjs
           node --test tests/test_application_action_provider_manifest.mjs
+          node --test tests/test_application_action_provider_resolver.mjs
           node --test tests/test_application_action_runtime_composition.mjs
           node --test tests/test_verified_app_semantics_source.mjs
           node --test tests/test_application_intelligence_awareness.mjs
