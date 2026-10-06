@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.7.0",
+  "bundle_version": "1.8.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -66,6 +66,13 @@
       "schema": "ordax.device-action-request/2",
       "source_git_blob": "36bca48f441adbe0164aaa17418085797a34d4f4",
       "source_path": "system/contracts/device-action-envelope-v2.mjs"
+    },
+    {
+      "major": 1,
+      "name": "device-action-result",
+      "schema": "ordax.device-action-result/1",
+      "source_git_blob": "f9487a7dadc5d8bef688d86d4a535da19f7b1af5",
+      "source_path": "system/contracts/device-action-result.mjs"
     },
     {
       "major": 1,
@@ -164,6 +171,13 @@
       "schema": "ordax.studio-runtime/2",
       "source_git_blob": "deeb1158e18076d289b532490adf1893a13e0cc2",
       "source_path": "system/contracts/studio-runtime-v2.mjs"
+    },
+    {
+      "major": 3,
+      "name": "studio-runtime-v3",
+      "schema": "ordax.studio-runtime/3",
+      "source_git_blob": "27d8712cf73f8622761abdd2067d63a062bfdd2d",
+      "source_path": "system/contracts/studio-runtime-v3.mjs"
     },
     {
       "major": 5,
