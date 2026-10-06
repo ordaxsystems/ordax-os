@@ -7,6 +7,7 @@ import {
   EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
   loadVerifiedFirstPartyApplicationSemantics,
   loadVerifiedFirstPartyApplicationActionManifests,
+  loadVerifiedFirstPartyApplicationActionProviderManifests,
   loadVerifiedFirstPartyIntelligenceManifests,
   overlayVerifiedFirstPartyApplications,
 } from "../system/services/intelligence/verified-app-semantics.mjs";
@@ -114,6 +115,24 @@ function actions(appId = "notes", version = "0.4.1", overrides = {}) {
   };
 }
 
+function providers(appId = "notes", version = "0.4.1", overrides = {}) {
+  return {
+    schema: "ordax.application-action-provider-manifest/1",
+    appId,
+    appVersion: version,
+    authority: "none",
+    execution: "unavailable",
+    providers: [{
+      kind: "first-party-native",
+      adapterId: `${appId}-native`,
+      revision: "1",
+      module: `actions/providers/${appId}-native.mjs`,
+      sha256: "a".repeat(64),
+    }],
+    ...overrides,
+  };
+}
+
 function verifiedEntry(appId = "notes", version = "0.4.1") {
   const component = appManifest(appId, version);
   return {
@@ -124,6 +143,7 @@ function verifiedEntry(appId = "notes", version = "0.4.1") {
     },
     intelligenceManifest: semantics(appId, version),
     actionManifest: actions(appId, version),
+    providerManifest: providers(appId, version),
     sourceCommit: SHA,
     revision: 5,
   };
@@ -136,6 +156,8 @@ function verifiedFetch({
   ai = null,
   actionManifest = null,
   actionStatus = 200,
+  providerManifest = null,
+  providerStatus = 200,
 } = {}) {
   const calls = [];
   return {
@@ -160,6 +182,10 @@ function verifiedFetch({
       if (parsed.pathname.endsWith("/actions/manifest.json")) {
         if (actionStatus === 404) return jsonResponse({}, 404);
         return jsonResponse(actionManifest ?? actions(appId, version));
+      }
+      if (parsed.pathname.endsWith("/actions/providers/manifest.json")) {
+        if (providerStatus === 404) return jsonResponse({}, 404);
+        return jsonResponse(providerManifest ?? providers(appId, version));
       }
       throw new Error(`unexpected verified package path: ${parsed.pathname}`);
     },
@@ -207,9 +233,13 @@ test("verified app semantics binds identity, AI and Actions to the exact current
   assert.equal(entries[0].actionManifest.authority, "none");
   assert.equal(entries[0].actionManifest.execution, "proposal-only");
   assert.equal(entries[0].actionManifest.capabilities[0].actionId, "notes.create-note");
+  assert.equal(entries[0].providerManifest.appId, "notes");
+  assert.equal(entries[0].providerManifest.execution, "unavailable");
+  assert.equal(entries[0].providerManifest.providers[0].adapterId, "notes-native");
+  assert.equal(entries[0].providerManifest.providers[0].artifactSha256, "a".repeat(64));
   assert.equal(entries[0].sourceCommit, SHA);
   assert.equal(entries[0].revision, 5);
-  assert.equal(fixture.calls.length, 4);
+  assert.equal(fixture.calls.length, 5);
   assert.equal(
     new URL(fixture.calls[1].url).pathname.endsWith("/system/apps/notes/app.json"),
     true,
@@ -220,6 +250,12 @@ test("verified app semantics binds identity, AI and Actions to the exact current
   );
   assert.equal(
     new URL(fixture.calls[3].url).pathname.endsWith("/system/apps/notes/actions/manifest.json"),
+    true,
+  );
+  assert.equal(
+    new URL(fixture.calls[4].url).pathname.endsWith(
+      "/system/apps/notes/actions/providers/manifest.json"
+    ),
     true,
   );
   for (const call of fixture.calls) {
@@ -354,6 +390,7 @@ test("legacy verified package without Action manifest keeps Intelligence semanti
   assert.equal(entries[0].application.id, "notes");
   assert.equal(entries[0].intelligenceManifest.appId, "notes");
   assert.equal(entries[0].actionManifest, null);
+  assert.equal(entries[0].providerManifest, null);
   assert.equal(fixture.calls.length, 4);
 
   const actionFixture = verifiedFetch({ actionStatus: 404 });
@@ -363,6 +400,20 @@ test("legacy verified package without Action manifest keeps Intelligence semanti
     fetchImpl: actionFixture.fetchImpl,
   });
   assert.deepEqual(actionManifests, []);
+});
+
+test("provider-manifest compatibility helper is derived from the same verified application semantics", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  const fixture = verifiedFetch();
+  const manifests = await loadVerifiedFirstPartyApplicationActionProviderManifests({
+    appIds: ["notes"],
+    source,
+    fetchImpl: fixture.fetchImpl,
+  });
+  assert.equal(manifests.length, 1);
+  assert.equal(manifests[0].appId, "notes");
+  assert.equal(manifests[0].providers[0].adapterId, "notes-native");
+  assert.equal(manifests[0].execution, "unavailable");
 });
 
 test("action-manifest compatibility helper is derived from the same verified application semantics", async () => {
@@ -485,6 +536,51 @@ test("Application Action manifest version and semantic binding must match the sa
     },
     /confirmation is weaker/,
   );
+});
+
+test("provider manifest must match the same verified app and capability providers", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+
+  await assert.rejects(
+    () => {
+      const fixture = verifiedFetch({
+        providerManifest: providers("notes", "0.4.2"),
+      });
+      return loadVerifiedFirstPartyApplicationSemantics({
+        appIds: ["notes"],
+        source,
+        fetchImpl: fixture.fetchImpl,
+      });
+    },
+    /appVersion mismatch/,
+  );
+
+  const wrongProvider = providers();
+  wrongProvider.providers[0] = {
+    ...wrongProvider.providers[0],
+    adapterId: "other-native",
+    module: "actions/providers/other-native.mjs",
+  };
+  await assert.rejects(
+    () => {
+      const fixture = verifiedFetch({ providerManifest: wrongProvider });
+      return loadVerifiedFirstPartyApplicationSemantics({
+        appIds: ["notes"],
+        source,
+        fetchImpl: fixture.fetchImpl,
+      });
+    },
+    /exactly cover declared capabilities/,
+  );
+
+  const legacyFixture = verifiedFetch({ providerStatus: 404 });
+  const legacyEntries = await loadVerifiedFirstPartyApplicationSemantics({
+    appIds: ["notes"],
+    source,
+    fetchImpl: legacyFixture.fetchImpl,
+  });
+  assert.equal(legacyEntries[0].actionManifest.appId, "notes");
+  assert.equal(legacyEntries[0].providerManifest, null);
 });
 
 test("verified package source never exposes mutation or execution methods", () => {
