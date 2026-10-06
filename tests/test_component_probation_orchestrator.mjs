@@ -55,6 +55,7 @@ function runtimeModule(version = "0.4.0") {
 test("system probation exposes a fixed probe mode for Internet", () => {
   assert.equal(COMPONENT_PROBATION_ORCHESTRATOR_SCHEMA, "ordax.component-probation-orchestrator/1");
   assert.equal(systemComponentProbationProbeMode("internet"), "import-contract");
+  assert.equal(systemComponentProbationProbeMode("notes"), "import-contract");
   assert.throws(
     () => systemComponentProbationProbeMode("notes"),
     /Unsupported system component probation probe/,
