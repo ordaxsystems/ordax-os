@@ -39,6 +39,37 @@ Compatibility internals are deliberately not prompt context. The model does not 
 
 Exact app identity is resolved by stable id or exact title. Fuzzy natural-language interpretation may be performed by Intelligence, but any future action request must resolve back to one unambiguous stable app id before policy evaluation.
 
+## Low-latency semantic routing
+
+Application knowledge is split into two local layers so adding apps does not make every prompt progressively heavier.
+
+The always-present application catalog contains only compact identity plus declared intent ids. Full instructions, examples and parameters are precompiled per app and injected only when the local semantic router selects that app as relevant to the current request.
+
+Routing is deterministic local infrastructure:
+
+- manifests are validated when the composition is built;
+- lexical postings are compiled once in memory;
+- matching uses bounded normalized tokens and exact app-title boosts;
+- at most three app detail blocks are selected per request;
+- routing performs no model call, embedding generation, filesystem scan, Git operation, Store lookup or network request;
+- detail context remains `authority=none` and `toolExecution=false`;
+- execution authority remains a separate future/broker boundary.
+
+For example:
+
+```text
+"Abra uma nova aba no YouTube"
+        ↓
+local precompiled semantic router
+        ↓
+candidate: internet
+        ↓
+inject only internet semantic detail
+        ↓
+OrdaX Intelligence
+```
+
+This is deliberately different from asking the model to inspect every installed app on each turn.
 ## This is not AI memory
 
 The installed-application catalog is lifecycle state, not learned model memory.
@@ -129,17 +160,19 @@ Implemented now:
 
 - unified awareness descriptors for first-party and installed Windows applications;
 - exact stable-id/title lookup without fuzzy execution targeting;
-- bounded Intelligence context projection;
+- compact, precompiled application catalog for the Intelligence hot path;
+- version-bound semantic manifests for bundled first-party apps;
+- verified package semantics for externalized first-party apps such as Studio/Notes;
+- bounded local semantic routing that selects at most three relevant app-detail blocks per request;
 - installed payload identity remains validated but is not leaked into model context;
 - compatibility profile/runtime/entrypoint internals are not exposed to the model;
-- no semantic actions are invented (`knownActionIds=[]` until proven);
+- semantic manifests remain declarative and do not become proven executable action capabilities;
 - no model/app execution authority.
 
 Not implemented by this foundation:
 
 - App Action Broker;
 - generic application lifecycle executor;
-- first-party semantic action manifests;
 - Windows app integration recipes/adapters;
 - accessibility automation;
 - user confirmation UI for AI-requested actions;
