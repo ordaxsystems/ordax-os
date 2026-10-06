@@ -699,6 +699,49 @@ func TestPromotedCurrentRuntimeRemainsVerifiedAtReadTime(t *testing.T) {
 	}
 }
 
+func TestExternalComponentWithoutCurrentSlotResolvesAsAbsent(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "slots")
+	if _, err := ensureSecureDirectory(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	state, slot, bundled, err := resolveCurrentState(
+		root,
+		"notes",
+		filepath.Join(dir, "missing-trust.json"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundled || slot != "" || state.Current != nil {
+		t.Fatalf("external absent component resolved incorrectly: bundled=%t slot=%q current=%+v", bundled, slot, state.Current)
+	}
+
+	runtimeState, runtimeSlot, _, runtimeBundled, err := resolveRuntimeSlot(
+		root,
+		"notes",
+		filepath.Join(dir, "missing-trust.json"),
+		"current",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtimeBundled || runtimeSlot != "" || runtimeState.Current != nil {
+		t.Fatalf("external absent runtime resolved incorrectly: bundled=%t slot=%q current=%+v", runtimeBundled, runtimeSlot, runtimeState.Current)
+	}
+
+	if _, err := readVerifiedRuntimeFile(
+		root,
+		"notes",
+		filepath.Join(dir, "missing-trust.json"),
+		"current",
+		"system/apps/notes/src/runtime.mjs",
+	); err == nil || !strings.Contains(err.Error(), "identity is unavailable") {
+		t.Fatalf("absent external runtime read error = %v", err)
+	}
+}
+
 func TestCurrentBundledFallbackIsNotExposedAsSlotBytes(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "slots")
