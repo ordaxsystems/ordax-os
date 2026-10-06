@@ -28,6 +28,7 @@ function metadataResponse(overrides = {}) {
         componentId: "internet",
         state: "pending",
         source: "slot",
+        sourceRepository: "washingtonmsdj/prototipo-ordax-os",
         revision: 7,
         version: "0.4.0",
         sourceCommit: COMMIT,
