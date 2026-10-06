@@ -1,0 +1,44 @@
+{
+  "$schema": "prototype-ordax.first-party-app-install-plan/1",
+  "status": "source-planner-only-no-install-authority",
+  "contract_schema": "ordax.first-party-app-install-plan/1",
+  "planner_schema": "ordax.first-party-app-install-planner/1",
+  "owner": "system/services/apps",
+  "purpose": "side-effect-free planning between Store/catalog presentation and the future authorized platform install executor",
+  "inputs": {
+    "delivery_policy": "ordax.first-party-app-delivery-policy/1",
+    "delivery_observation": "ordax.first-party-app-delivery-observation/implicit-current-contract",
+    "artifact_identity": "appId + version + sha256 + verified + compatible",
+    "production_activation_policy": "boolean supplied by platform authority owner"
+  },
+  "blocked_reasons": [
+    "already-installed",
+    "artifact-unavailable",
+    "artifact-unverified",
+    "incompatible-artifact",
+    "lifecycle-busy",
+    "not-catalogued",
+    "platform-blocked",
+    "policy-not-installable",
+    "production-activation-blocked"
+  ],
+  "authority": {
+    "planner": "none",
+    "fetch": false,
+    "install": false,
+    "stage": false,
+    "promote": false,
+    "rollback": false,
+    "uninstall": false,
+    "sign": false,
+    "execute": false,
+    "filesystem_write": false
+  },
+  "store_boundary": {
+    "store_may_request_plan": true,
+    "store_may_execute_plan": false,
+    "ready_plan_is_authorization": false,
+    "ready_plan_is_install_receipt": false
+  },
+  "next_gate": "separate Native executor consuming an exact plan plus fresh authorization only after canonical component trust/publication/activation policy is ready"
+}
