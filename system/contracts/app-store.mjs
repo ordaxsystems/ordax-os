@@ -4,8 +4,6 @@ const ENTRY_STATES = new Set(["available", "installed", "installing", "staged", 
 
 export const APP_STORE_CATALOG_SCHEMA = "ordax.app-store-catalog/1";
 export const APP_STORE_CATALOG_PORT_SCHEMA = "ordax.app-store-catalog-port/1";
-export const APP_STORE_INSTALL_REQUEST_PORT_SCHEMA = "ordax.app-store-install-request-port/1";
-export const APP_STORE_INSTALL_REQUEST_RESULT_SCHEMA = "ordax.app-store-install-request-result/1";
 
 function assertExactKeys(value, expected, label) {
   const actual = Object.keys(value).sort();
@@ -112,51 +110,6 @@ export function validateAppStoreCatalogSnapshot(value) {
   });
 }
 
-export function validateAppStoreInstallRequestResult(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("App Store install request result must be an object");
-  }
-  assertExactKeys(
-    value,
-    ["schema", "appId", "state", "requestId", "reason", "authority"],
-    "App Store install request result",
-  );
-  if (value.schema !== APP_STORE_INSTALL_REQUEST_RESULT_SCHEMA) {
-    throw new TypeError("Unsupported App Store install request result schema");
-  }
-  if (typeof value.appId !== "string" || !APP_ID_RE.test(value.appId)) {
-    throw new TypeError("App Store install request result has invalid appId");
-  }
-  if (!["accepted", "rejected"].includes(value.state)) {
-    throw new TypeError("App Store install request result has invalid state");
-  }
-  if (
-    value.requestId !== null
-    && (typeof value.requestId !== "string" || !value.requestId.trim())
-  ) {
-    throw new TypeError("App Store install request result requestId must be null or non-empty string");
-  }
-  if (
-    value.reason !== null
-    && (typeof value.reason !== "string" || !value.reason.trim())
-  ) {
-    throw new TypeError("App Store install request result reason must be null or non-empty string");
-  }
-  if (value.state === "accepted" && value.requestId === null) {
-    throw new TypeError("Accepted App Store install request requires requestId");
-  }
-  if (value.state === "accepted" && value.reason !== null) {
-    throw new TypeError("Accepted App Store install request cannot carry rejection reason");
-  }
-  if (value.state === "rejected" && value.reason === null) {
-    throw new TypeError("Rejected App Store install request requires reason");
-  }
-  if (value.authority !== "none") {
-    throw new TypeError("App Store install request result must remain authority:none");
-  }
-  return Object.freeze({ ...value });
-}
-
 export function assertAppStoreCatalogPort(port) {
   if (
     !port
@@ -169,19 +122,6 @@ export function assertAppStoreCatalogPort(port) {
     throw new TypeError("Incompatible App Store catalog port");
   }
   validateAppStoreCatalogSnapshot(port.getSnapshot());
-  return port;
-}
-
-export function assertAppStoreInstallRequestPort(port) {
-  if (
-    !port
-    || typeof port !== "object"
-    || port.schema !== APP_STORE_INSTALL_REQUEST_PORT_SCHEMA
-    || port.authority !== "none"
-    || typeof port.requestInstall !== "function"
-  ) {
-    throw new TypeError("Incompatible App Store install request port");
-  }
   return port;
 }
 
