@@ -8,7 +8,7 @@ import {
 const ENDPOINT = "/__ordax/native/app-intelligence-manifest";
 const COMPONENT_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const SHA40_RE = /^[0-9a-f]{40}$/;
-const SCHEMA = "ordax.native-app-intelligence-manifest/1";
+const SCHEMA = "ordax.native-app-intelligence-manifest/2";
 
 function validateEnvelope(value, componentId) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
