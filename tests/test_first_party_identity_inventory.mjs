@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { listFirstPartyApps } from "../system/apps/catalog.mjs";
-import { listFirstPartyAppDeliveryPolicies } from "../system/services/apps/delivery-policy.mjs";
 
 const inventoryUrl = new URL(
   "../system/services/apps/first-party-identities.json",
@@ -14,7 +13,7 @@ async function readInventory() {
   return JSON.parse(await readFile(inventoryUrl, "utf8"));
 }
 
-test("first-party identity inventory covers delivery policy and matches embedded runtime versions", async () => {
+test("first-party identity inventory matches the embedded runtime catalog only", async () => {
   const inventory = await readInventory();
   assert.deepEqual(Object.keys(inventory).sort(), [
     "$schema",
@@ -34,10 +33,6 @@ test("first-party identity inventory covers delivery policy and matches embedded
   const embeddedApps = new Map(
     listFirstPartyApps().map((app) => [app.id, app.component.version]),
   );
-  const policyIds = listFirstPartyAppDeliveryPolicies()
-    .map((policy) => policy.appId)
-    .sort();
-
   const actual = new Map();
   for (const entry of inventory.apps) {
     assert.deepEqual(Object.keys(entry).sort(), [
@@ -55,8 +50,8 @@ test("first-party identity inventory covers delivery policy and matches embedded
 
   assert.deepEqual(
     [...actual.keys()].sort(),
-    policyIds,
-    "every first-party delivery identity must remain verifiable even when its payload is external",
+    [...embeddedApps.keys()].sort(),
+    "bundled identity inventory must not include external payloads",
   );
 
   for (const [appId, version] of embeddedApps) {
@@ -72,7 +67,7 @@ test("first-party identity inventory covers delivery policy and matches embedded
     false,
     "external Notes must not be reintroduced into the embedded runtime catalog",
   );
-  assert.equal(actual.get("notes"), "0.4.2", "external Notes identity must match the canonical external package");
+  assert.equal(actual.has("notes"), false, "external Notes must not receive a system-release-bundled identity");
 });
 
 test("identity inventory never treats signing or display metadata as the durable principal", async () => {
