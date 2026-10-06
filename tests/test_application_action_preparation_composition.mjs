@@ -253,6 +253,9 @@ test("Native composition prepares verified Application Actions without creating 
   assert.equal(after.approvals.length, before.approvals.length);
   assert.equal(after.decisions.length, before.decisions.length);
   assert.equal(after.attempts.length, before.attempts.length);
+  assert.equal(typeof runtime.requestApplicationActionApproval, "undefined");
+  assert.equal(typeof runtime.executeApplicationAction, "undefined");
+  assert.equal(typeof runtime.issueApplicationActionGrant, "undefined");
 
   runtime.dispose();
 });
