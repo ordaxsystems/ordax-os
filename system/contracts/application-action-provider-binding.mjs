@@ -1,4 +1,7 @@
-import { validateComponentVersion } from "./component-manifest.mjs";
+import {
+  validateComponentId,
+  validateComponentVersion,
+} from "./component-manifest.mjs";
 import { validateComponentSlotSourceCommit } from "./component-slot-source.mjs";
 
 export const APPLICATION_ACTION_PROVIDER_BINDING_SCHEMA =
@@ -6,7 +9,6 @@ export const APPLICATION_ACTION_PROVIDER_BINDING_SCHEMA =
 export const APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA =
   "ordax.application-action-provider-resolver/1";
 
-const APP_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
 const ACTION_ID_RE = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const ADAPTER_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
 const RESOURCE_REF_RE = /^application-action:[a-z][a-z0-9._-]{0,159}$/;
@@ -75,9 +77,7 @@ export function validateApplicationActionProviderBinding(value) {
     "Application action provider binding work item id",
     160,
   );
-  if (typeof value.appId !== "string" || !APP_ID_RE.test(value.appId)) {
-    throw new TypeError("Application action provider binding appId is invalid");
-  }
+  const appId = validateComponentId(value.appId);
   if (
     typeof value.actionId !== "string"
     || value.actionId.length > 120
@@ -132,7 +132,7 @@ export function validateApplicationActionProviderBinding(value) {
     schema: APPLICATION_ACTION_PROVIDER_BINDING_SCHEMA,
     resourceRef,
     workItemId,
-    appId: value.appId,
+    appId,
     actionId: value.actionId,
     appVersion,
     sourceCommit,
