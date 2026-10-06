@@ -273,7 +273,7 @@ test("machine-readable coordination status stays fail-closed and non-MVP-blockin
     "utf8",
   ));
 
-  assert.equal(foundation.status, "foundation-contracts-only-public-disabled");
+  assert.equal(foundation.status, "foundation-and-store-contracts-public-disabled");
   assert.equal(foundation.authority, "none");
   assert.equal(foundation.policy.absence_enables_coordination, false);
   assert.equal(foundation.policy.automatic_requires_explicit_confirmation, true);

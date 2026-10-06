@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.work-coordination-foundation/1",
-  "status": "foundation-contracts-only-public-disabled",
+  "status": "foundation-and-store-contracts-public-disabled",
   "issue": 1154,
   "owner": "platform",
   "contracts": [
@@ -9,7 +9,9 @@
     "ordax.work-task/1",
     "ordax.work-claim/1",
     "ordax.work-checkpoint/1",
-    "ordax.work-evidence/1"
+    "ordax.work-evidence/1",
+    "ordax.work-coordination-store/1",
+    "ordax.work-coordination-store-state/1"
   ],
   "authority": "none",
   "policy": {
@@ -38,8 +40,38 @@
   "claims": {
     "finite_lease_required": true,
     "max_lease_ms": 900000,
-    "cas_store_required_by_future_runtime": true,
+    "cas_store_required": true,
     "permanent_lock_allowed": false
+  },
+  "store": {
+    "contract_defined": true,
+    "native_durable_adapter_mounted": false,
+    "partition": "owner+project",
+    "scope_values": [
+      "device",
+      "session"
+    ],
+    "format_version": 1,
+    "unknown_format_behavior": "reject-fail-closed",
+    "migration_owner": "native-storage-adapter",
+    "migration_must_preserve_owner_project_partition": true,
+    "migration_may_create_authority": false,
+    "max_serialized_bytes": 4194304,
+    "full_dependency_graph_validation": true,
+    "claim_revision_binding": true,
+    "active_claim_requires_active_plan": true,
+    "evidence_backed_completion_validation": true,
+    "cas_only_mutation_surface": true,
+    "last_write_wins_alias_allowed": false,
+    "retention": {
+      "automatic_delete": false,
+      "archive_is_plan_state": true,
+      "archive_requires_terminal_tasks": true,
+      "delete_requires_partition_cas": true,
+      "delete_is_separate_from_disable": true,
+      "memory_cascade": false,
+      "project_cascade": false
+    }
   },
   "mvp": {
     "new_usb_mvp_blocker": false,
@@ -49,8 +81,8 @@
     "studio_is_authority_owner": false
   },
   "next": [
-    "atomic-owner-project-store",
     "coordination-runtime",
+    "native-atomic-store-adapter",
     "activity-settings",
     "provider-connectors",
     "studio-consumer"
