@@ -8,6 +8,7 @@ import {
   validateApplicationActionProviderManifest,
 } from "../../contracts/application-action-provider-manifest.mjs";
 import {
+  APPLICATION_ACTION_PROVIDER_RESOLUTION_SCHEMA,
   APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA,
   validateApplicationActionProviderResolution,
 } from "../../contracts/application-action-provider-resolution.mjs";
@@ -187,7 +188,7 @@ export function createApplicationActionProviderResolver({
       }
 
       return validateApplicationActionProviderResolution({
-        schema: "ordax.application-action-provider-resolution/1",
+        schema: APPLICATION_ACTION_PROVIDER_RESOLUTION_SCHEMA,
         preparationId: preparation.preparationId,
         resourceRef: preparation.resourceRef,
         appId,
