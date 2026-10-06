@@ -30,6 +30,7 @@ const (
 	trustSchema         = "prototype-ordax.runtime-component-trust/1"
 	packageSchema       = "prototype-ordax.runtime-component-package/1"
 	sourceRepository    = "washingtonmsdj/prototipo-ordax-os"
+	appsSourceRepository = "washingtonmsdj/ordax-apps"
 	createdFromRecipe   = "runtime-component/package/1"
 	packageManifestName = "component-package.json"
 	slotEnvelopeName    = "runtime-component-envelope.json"
@@ -58,6 +59,18 @@ var forbiddenPackagePrefixes = []string{
 	"system/adapters/",
 	"system/composition/",
 	"system/surface/runtime/",
+}
+
+var canonicalExternalComponentSourceRepositories = map[string]string{
+	"notes":  appsSourceRepository,
+	"studio": appsSourceRepository,
+}
+
+func canonicalSourceRepository(componentID string) string {
+	if repository, ok := canonicalExternalComponentSourceRepositories[componentID]; ok {
+		return repository
+	}
+	return sourceRepository
 }
 
 type trustAnchor struct {
@@ -334,8 +347,8 @@ func validateReleaseDescriptor(value releaseDescriptor) error {
 	if value.Schema != releaseSchema {
 		return errors.New("unsupported runtime component release schema")
 	}
-	if value.SourceRepository != sourceRepository {
-		return errors.New("runtime component source repository is not canonical")
+	if value.SourceRepository != canonicalSourceRepository(value.Component.ID) {
+		return errors.New("runtime component source repository is not canonical for component")
 	}
 	if !commitPattern.MatchString(value.SourceCommit) {
 		return errors.New("runtime component source_commit must be lowercase 40-hex")
