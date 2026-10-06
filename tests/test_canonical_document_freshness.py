@@ -88,7 +88,7 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
     def test_first_party_app_snapshot_matches_real_manifests(self):
         state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))
         apps = expected_apps()
-        self.assertEqual(set(apps), {"files", "settings", "account", "system", "internet", "projects"})
+        self.assertEqual(set(apps), {"files", "settings", "account", "store", "system", "internet", "projects"})
 
         for app_id, app in apps.items():
             prefix = f"APP_{app_id.upper()}"
