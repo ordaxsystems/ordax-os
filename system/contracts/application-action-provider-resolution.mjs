@@ -20,7 +20,7 @@ const SHA256_RE = /^[0-9a-f]{64}$/;
 const MODULE_RE = /^actions\/providers\/([a-z][a-z0-9-]{0,127})\.mjs$/;
 const RESOURCE_REF_RE = /^application-action:[a-z][a-z0-9._-]{0,159}$/;
 const FORBIDDEN_METHODS = [
-  "execute", "invoke", "run", "launch", "import", "loadAdapter",
+  "execute", "invoke", "run", "launch", "import", "load", "loadAdapter",
   "grant", "authorize", "confirm",
 ];
 
