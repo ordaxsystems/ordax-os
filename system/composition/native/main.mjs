@@ -499,6 +499,7 @@ async function start() {
       toolResolver: personalOrdaxFileActions?.toolResolver ?? (() => null),
       adapterResolver: personalOrdaxFileActions?.adapterResolver ?? (() => null),
       actionCatalog: personalOrdaxActionCatalog,
+      applicationActionCapabilityRegistry: appActionCapabilities,
     }),
   );
   const profileComponentInventory = await optionalNativeProbe(
