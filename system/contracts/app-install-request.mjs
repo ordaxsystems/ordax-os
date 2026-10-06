@@ -1,4 +1,5 @@
-const APP_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
+import { validateComponentId } from "./component-manifest.mjs";
+
 const REQUEST_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const REQUEST_SOURCES = new Set(["store", "launcher"]);
 
@@ -29,7 +30,10 @@ export function validateAppInstallRequest(value) {
   if (typeof value.requestId !== "string" || !REQUEST_ID_RE.test(value.requestId)) {
     throw new TypeError("App install request has invalid requestId");
   }
-  if (typeof value.appId !== "string" || !APP_ID_RE.test(value.appId)) {
+  let appId;
+  try {
+    appId = validateComponentId(value.appId);
+  } catch {
     throw new TypeError("App install request has invalid appId");
   }
   if (!REQUEST_SOURCES.has(value.source)) {
@@ -38,7 +42,7 @@ export function validateAppInstallRequest(value) {
   if (value.authority !== "none") {
     throw new TypeError("App install request must remain authority:none");
   }
-  return Object.freeze({ ...value });
+  return Object.freeze({ ...value, appId });
 }
 
 export function validateAppInstallRequestResult(value) {
@@ -56,7 +60,10 @@ export function validateAppInstallRequestResult(value) {
   if (typeof value.requestId !== "string" || !REQUEST_ID_RE.test(value.requestId)) {
     throw new TypeError("App install request result has invalid requestId");
   }
-  if (typeof value.appId !== "string" || !APP_ID_RE.test(value.appId)) {
+  let appId;
+  try {
+    appId = validateComponentId(value.appId);
+  } catch {
     throw new TypeError("App install request result has invalid appId");
   }
   if (!["accepted", "rejected"].includes(value.state)) {
@@ -77,7 +84,7 @@ export function validateAppInstallRequestResult(value) {
   if (value.authority !== "none") {
     throw new TypeError("App install request result must remain authority:none");
   }
-  return Object.freeze({ ...value });
+  return Object.freeze({ ...value, appId });
 }
 
 export function assertAppInstallRequestPort(port) {
