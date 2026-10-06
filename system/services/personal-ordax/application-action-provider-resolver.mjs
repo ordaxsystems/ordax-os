@@ -43,7 +43,20 @@ async function readJsonResponse(response, label) {
   return value;
 }
 
-function validateEntry(value) {
+function boundedOwner(value) {
+  if (
+    typeof value !== "string"
+    || value.length === 0
+    || value.length > 220
+    || value.includes("\0")
+    || /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    throw new TypeError("Application action provider resolver expected owner is invalid");
+  }
+  return value;
+}
+
+function validateEntry(value, expectedOwner) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Application action provider resolver entry is invalid");
   }
@@ -57,7 +70,7 @@ function validateEntry(value) {
     || application.title !== component.title
     || component.kind !== "app"
     || component.releaseMode !== "component-slot"
-    || component.owner !== "washingtonmsdj/ordax-apps"
+    || component.owner !== expectedOwner
   ) {
     throw new TypeError("Application action provider resolver app identity is not verified first-party");
   }
@@ -96,11 +109,11 @@ function validateEntry(value) {
   });
 }
 
-function validateEntries(value) {
+function validateEntries(value, expectedOwner) {
   if (!Array.isArray(value) || value.length > MAX_VERIFIED_APPLICATIONS) {
     throw new TypeError("Application action provider resolver entries must be a bounded array");
   }
-  const entries = value.map(validateEntry);
+  const entries = value.map((entry) => validateEntry(entry, expectedOwner));
   const ids = entries.map((entry) => entry.application.id);
   if (new Set(ids).size !== ids.length) {
     throw new TypeError("Application action provider resolver entries must be unique by app");
@@ -113,8 +126,10 @@ export function createApplicationActionProviderResolver({
   source: sourceValue,
   fetchImpl,
   artifactIdentity,
+  expectedOwner,
 } = {}) {
-  const entries = validateEntries(verifiedEntries);
+  const owner = boundedOwner(expectedOwner);
+  const entries = validateEntries(verifiedEntries, owner);
   const byAppId = new Map(entries.map((entry) => [entry.application.id, entry]));
   const source = assertVerifiedComponentPackageSource(sourceValue);
   if (typeof fetchImpl !== "function") {
