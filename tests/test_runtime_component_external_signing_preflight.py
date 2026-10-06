@@ -39,7 +39,9 @@ class ExternalSigningPreflightTests(unittest.TestCase):
             platform = work / "platform"
             platform.mkdir()
             make_platform(platform)
-            candidate, _, _ = make_candidate(work / "fixture")
+            fixture = work / "fixture"
+            fixture.mkdir()
+            candidate, _, _ = make_candidate(fixture)
 
             result = preflight.evaluate(platform, candidate)
 
@@ -59,7 +61,9 @@ class ExternalSigningPreflightTests(unittest.TestCase):
             platform = work / "platform"
             platform.mkdir()
             make_platform(platform)
-            candidate, _, _ = make_candidate(work / "fixture")
+            fixture = work / "fixture"
+            fixture.mkdir()
+            candidate, _, _ = make_candidate(fixture)
             anchor = platform / "system" / "trust" / "runtime-components-ed25519.json"
             anchor.parent.mkdir(parents=True)
             anchor.write_text("{}\n", encoding="utf-8")
@@ -76,7 +80,9 @@ class ExternalSigningPreflightTests(unittest.TestCase):
             platform = work / "platform"
             platform.mkdir()
             make_platform(platform)
-            candidate, _, _ = make_candidate(work / "fixture")
+            fixture = work / "fixture"
+            fixture.mkdir()
+            candidate, _, _ = make_candidate(fixture)
 
             trust_path = platform / "docs" / "contracts" / "runtime-component-trust-policy.json"
             package_path = platform / "docs" / "contracts" / "runtime-component-package.json"
