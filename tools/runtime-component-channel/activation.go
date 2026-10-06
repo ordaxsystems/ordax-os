@@ -346,7 +346,8 @@ func resolveRuntimeSlot(root, componentID, trustPath, target string) (activation
 	case "current":
 		identity = state.Current
 		if identity == nil {
-			return state, "", componentPackageManifest{}, true, nil
+			bundledFallback := canonicalSourceRepository(componentID) == sourceRepository
+			return state, "", componentPackageManifest{}, bundledFallback, nil
 		}
 	case "pending":
 		identity = state.Pending
@@ -693,13 +694,64 @@ func rollbackCurrentStateAtRevision(
 	})
 }
 
+func uninstallCurrentStateAtRevision(
+	root,
+	componentID string,
+	identity slotIdentity,
+	expectedRevision int64,
+	trustPath string,
+) (activationState, error) {
+	if err := validateSlotIdentity(&identity); err != nil {
+		return activationState{}, err
+	}
+	if err := validateActionRevision(expectedRevision); err != nil {
+		return activationState{}, err
+	}
+	trustBytes, err := readRegular(trustPath, maxTrustBytes, false)
+	if err != nil {
+		return activationState{}, err
+	}
+	return mutateActivationState(root, componentID, func(state activationState) (activationState, error) {
+		if state.Revision == expectedRevision+1 &&
+			state.Current == nil &&
+			state.Previous == nil &&
+			state.Pending == nil &&
+			state.Rejected == nil &&
+			state.PendingHealth == "unknown" {
+			// Safe idempotent retry after the exact uninstall transition.
+			return state, nil
+		}
+		if state.Revision != expectedRevision {
+			return activationState{}, errors.New("runtime component uninstall revision is stale")
+		}
+		if state.Pending != nil {
+			return activationState{}, errors.New("runtime component pending slot must be rejected before uninstall")
+		}
+		if state.Current == nil || !sameSlotIdentity(state.Current, &identity) {
+			return activationState{}, errors.New("runtime component uninstall identity does not match current slot")
+		}
+		if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
+			return activationState{}, err
+		}
+
+		state.Current = nil
+		state.Previous = nil
+		state.Pending = nil
+		state.Rejected = nil
+		state.PendingHealth = "unknown"
+		state.Revision++
+		return state, nil
+	})
+}
+
 func resolveCurrentState(root, componentID, trustPath string) (activationState, string, bool, error) {
 	state, err := readActivationState(root, componentID)
 	if err != nil {
 		return activationState{}, "", false, err
 	}
 	if state.Current == nil {
-		return state, "", true, nil
+		bundledFallback := canonicalSourceRepository(componentID) == sourceRepository
+		return state, "", bundledFallback, nil
 	}
 	trustBytes, err := readRegular(trustPath, maxTrustBytes, false)
 	if err != nil {
@@ -873,6 +925,37 @@ func rollbackStateCommand(args []string) error {
 	return nil
 }
 
+func uninstallStateCommand(args []string) error {
+	flags := flag.NewFlagSet("uninstall-state", flag.ContinueOnError)
+	component := flags.String("component", "", "runtime component id")
+	version := flags.String("version", "", "current semantic version")
+	sourceCommit := flags.String("source-commit", "", "current source commit")
+	expectedRevision := flags.Int64("expected-revision", 0, "exact uninstall decision revision")
+	trust := flags.String("trust", "", "runtime component public trust")
+	root := flags.String("root", defaultSlotRoot, "runtime component slot root")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *component == "" || *version == "" || *sourceCommit == "" || *expectedRevision <= 0 || *trust == "" || flags.NArg() != 0 {
+		return errors.New("uninstall-state requires --component, --version, --source-commit, --expected-revision and --trust")
+	}
+	state, err := uninstallCurrentStateAtRevision(
+		*root,
+		*component,
+		slotIdentity{Version: *version, SourceCommit: *sourceCommit},
+		*expectedRevision,
+		*trust,
+	)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(
+		"RUNTIME_COMPONENT_STATE_UNINSTALLED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nCURRENT_PRESENT=NO\nAPP_DATA_TOUCHED=NO\nSLOT_CACHE_PURGED=NO\n",
+		state.ComponentID, state.Revision,
+	)
+	return nil
+}
+
 func resolveCurrentCommand(args []string) error {
 	flags := flag.NewFlagSet("resolve-current", flag.ContinueOnError)
 	component := flags.String("component", "", "runtime component id")
@@ -888,10 +971,14 @@ func resolveCurrentCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	if bundled {
+	if state.Current == nil {
+		source := "ABSENT"
+		if bundled {
+			source = "BUNDLED"
+		}
 		fmt.Printf(
-			"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=BUNDLED\nRUNTIME_SERVED_FROM_SLOT=NO\n",
-			state.ComponentID, state.Revision,
+			"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
+			state.ComponentID, state.Revision, source,
 		)
 		return nil
 	}
