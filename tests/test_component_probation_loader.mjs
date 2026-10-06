@@ -31,6 +31,7 @@ function source({
       componentId,
       state: "pending",
       source: "slot",
+      sourceRepository: "washingtonmsdj/prototipo-ordax-os",
       revision: 7,
       version,
       sourceCommit: COMMIT,
