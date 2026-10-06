@@ -88,7 +88,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertTrue(policy["native_loopback_broker_requires_component_trust"])
         self.assertTrue(policy["native_loopback_broker_read_only"])
         self.assertFalse(policy["failed_pending_runtime_read_allowed"])
-        self.assertEqual(policy["native_loopback_broker_supported_components"], ["internet"])
+        self.assertEqual(policy["native_loopback_broker_supported_components"], ["internet", "notes", "studio"])\n        self.assertEqual(policy["native_loopback_broker_health_mutation_components"], ["internet"])
         self.assertFalse(policy["native_slot_serving_available"])
         self.assertFalse(policy["slot_activation_available"])
         self.assertFalse(policy["pending_health_promotion_available"])
