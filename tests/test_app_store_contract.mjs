@@ -5,10 +5,8 @@ import { readFile } from "node:fs/promises";
 import { storeApp } from "../system/apps/store/app.mjs";
 import {
   APP_STORE_CATALOG_SCHEMA,
-  APP_STORE_INSTALL_REQUEST_RESULT_SCHEMA,
   createUnavailableAppStoreCatalogPort,
   validateAppStoreCatalogSnapshot,
-  validateAppStoreInstallRequestResult,
 } from "../system/contracts/app-store.mjs";
 
 test("Store is a bundled structural presentation surface", () => {
@@ -75,37 +73,15 @@ test("Store accepts verified catalog presentation without granting authority", (
   assert.equal(snapshot.authority, "none");
 });
 
-test("Store lifecycle response is only a request receipt and remains authority:none", () => {
-  const accepted = validateAppStoreInstallRequestResult({
-    schema: APP_STORE_INSTALL_REQUEST_RESULT_SCHEMA,
-    appId: "notes",
-    state: "accepted",
-    requestId: "request:notes:1",
-    reason: null,
-    authority: "none",
-  });
-  assert.equal(accepted.state, "accepted");
-  assert.equal(accepted.authority, "none");
-
-  assert.throws(
-    () => validateAppStoreInstallRequestResult({
-      schema: APP_STORE_INSTALL_REQUEST_RESULT_SCHEMA,
-      appId: "notes",
-      state: "accepted",
-      requestId: "request:notes:2",
-      reason: null,
-      authority: "install",
-    }),
-    /authority:none/,
-  );
-});
-
 test("Store controls cannot import component lifecycle authority directly", async () => {
   const source = await readFile(
     new URL("../system/surface/ui/store-overview-controls.mjs", import.meta.url),
     "utf8",
   );
+  assert.match(source, /app-install-request\.mjs/);
+  assert.match(source, /APP_INSTALL_REQUEST_SCHEMA/);
   assert.match(source, /requestInstall/);
+  assert.doesNotMatch(source, /app-store-install-request/);
   assert.match(source, /data-store-authority/);
   assert.doesNotMatch(source, /services\/components/);
   assert.doesNotMatch(source, /runtime-component-channel/);
