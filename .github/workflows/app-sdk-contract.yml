@@ -44,5 +44,8 @@ jobs:
       - name: Prove App Data publication is contract-only
         run: node --test tests/test_app_sdk_app_data.mjs
 
+      - name: Prove Projects public ports and authority boundary
+        run: node --test tests/test_app_sdk_projects_ports.mjs
+
       - name: Prove Studio public ports and authority boundary
         run: node --test tests/test_app_sdk_studio_ports.mjs

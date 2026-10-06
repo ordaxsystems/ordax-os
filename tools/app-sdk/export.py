@@ -159,6 +159,20 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "project-cloud-links-data",
+        "path": "system/contracts/project-cloud-links-data.mjs",
+        "constant": "PROJECT_CLOUD_LINKS_SCHEMA",
+        "schema": "ordax.project-cloud-links/1",
+        "major": 1,
+    },
+    {
+        "name": "project-cloud-links-reader",
+        "path": "system/contracts/project-cloud-links-reader.mjs",
+        "constant": "PROJECT_CLOUD_LINKS_READER_SCHEMA",
+        "schema": "ordax.project-cloud-links-reader/1",
+        "major": 1,
+    },
+    {
         "name": "studio-action-context",
         "path": "system/contracts/studio-action-context.mjs",
         "constant": "STUDIO_ACTION_CONTEXT_SCHEMA",
@@ -195,7 +209,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.8.0"
+BUNDLE_VERSION = "1.9.0"
 
 
 def git_blob(path: Path) -> str:

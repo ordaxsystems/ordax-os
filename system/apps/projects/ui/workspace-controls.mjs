@@ -3,9 +3,9 @@ import {
   validateProjectCatalogSnapshot,
 } from "../../../contracts/project-catalog.mjs";
 import {
-  assertProjectCloudLinksPort,
+  assertProjectCloudLinksReaderPort,
   validateProjectCloudLinksSnapshot,
-} from "../../../contracts/project-cloud-links.mjs";
+} from "../../../contracts/project-cloud-links-reader.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 
@@ -158,7 +158,7 @@ export function mountProjectsWorkspaceControls(
   const projectPort = projects === null ? null : assertProjectCatalogPort(projects);
   const cloudPort = projectCloudLinks === null
     ? null
-    : assertProjectCloudLinksPort(projectCloudLinks);
+    : assertProjectCloudLinksReaderPort(projectCloudLinks);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const activation = appActivation === null ? null : assertAppActivationPort(appActivation);
   const localization = lifecycle.localization;
