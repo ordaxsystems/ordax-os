@@ -15,7 +15,7 @@ function response(status, body = null) {
 
 function envelope() {
   return {
-    $schema: "ordax.native-app-intelligence-manifest/1",
+    $schema: "ordax.native-app-intelligence-manifest/2",
     componentId: "notes",
     componentVersion: "0.4.1",
     sourceCommit: "a".repeat(40),
