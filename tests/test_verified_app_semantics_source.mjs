@@ -7,6 +7,7 @@ import {
   EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
   loadVerifiedFirstPartyApplicationSemantics,
   loadVerifiedFirstPartyIntelligenceManifests,
+  overlayVerifiedFirstPartyApplications,
 } from "../system/services/intelligence/verified-app-semantics.mjs";
 
 const SHA = "7".repeat(40);
@@ -156,6 +157,88 @@ test("verified app semantics binds app identity and AI manifest to the exact cur
     assert.equal(call.options.credentials, "same-origin");
     assert.equal(call.options.redirect, "error");
   }
+});
+
+test("verified external app identity replaces same-id development app and appends externalized apps", () => {
+  const base = [
+    {
+      id: "studio",
+      title: "ORDAX Studio",
+      component: {
+        id: "studio",
+        title: "ORDAX Studio",
+        kind: "app",
+        version: "0.4.0",
+        releaseMode: "git-app",
+        criticality: "optional",
+        failureDomain: "app",
+        restartScope: "component",
+        healthMode: "runtime",
+        owner: "system/apps/studio",
+        dependencies: ["surface-shell"],
+      },
+    },
+    {
+      id: "files",
+      title: "Arquivos",
+      component: {
+        id: "files",
+        title: "Arquivos",
+        kind: "app",
+        version: "0.1.0",
+        releaseMode: "bundled",
+        criticality: "optional",
+        failureDomain: "app",
+        restartScope: "surface",
+        healthMode: "surface",
+        owner: "system/apps/files",
+        dependencies: ["surface-shell"],
+      },
+    },
+  ];
+  const verifiedStudio = {
+    application: {
+      id: "studio",
+      title: "ORDAX Studio",
+      component: appManifest("studio", "0.4.3"),
+    },
+  };
+  const verifiedNotes = {
+    application: {
+      id: "notes",
+      title: "Notas",
+      component: appManifest("notes", "0.4.1"),
+    },
+  };
+
+  const overlaid = overlayVerifiedFirstPartyApplications(
+    base,
+    [verifiedStudio, verifiedNotes],
+  );
+  assert.deepEqual(overlaid.map((app) => app.id), ["studio", "files", "notes"]);
+  assert.equal(overlaid[0].component.releaseMode, "component-slot");
+  assert.equal(overlaid[0].component.version, "0.4.3");
+  assert.equal(overlaid[2].component.owner, "washingtonmsdj/ordax-apps");
+});
+
+test("verified application overlay rejects duplicate identities instead of choosing implicitly", () => {
+  assert.throws(
+    () => overlayVerifiedFirstPartyApplications(
+      [{ id: "studio" }, { id: "studio" }],
+      [],
+    ),
+    /base catalog duplicates app/,
+  );
+  assert.throws(
+    () => overlayVerifiedFirstPartyApplications(
+      [],
+      [
+        { application: { id: "notes" } },
+        { application: { id: "notes" } },
+      ],
+    ),
+    /overlay duplicates app/,
+  );
 });
 
 test("manifest-only compatibility helper is derived from verified application semantics", async () => {
