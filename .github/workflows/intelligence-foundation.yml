@@ -149,6 +149,11 @@ on:
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
+      - 'system/apps/intelligence-catalog.mjs'
+      - 'system/apps/**/ai/**'
+      - 'tests/test_application_intelligence_awareness.mjs'
+      - 'tests/test_application_intelligence_context.mjs'
+      - 'tests/test_application_semantic_router.mjs'
       - 'docs/INTELLIGENCE.md'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'docs/contracts/intelligence.json'
