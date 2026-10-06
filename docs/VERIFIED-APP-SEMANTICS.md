@@ -97,3 +97,35 @@ A regra é determinística:
 4. o overlay não instala, ativa, promove nem altera o app.
 
 Isso impede que o Intelligence misture, por exemplo, a identidade Studio `git-app` de desenvolvimento com o Studio `component-slot` instalado.
+
+
+## Composição Native
+
+A fonte verificada é consumida pela composição Native sem criar endpoint semântico paralelo.
+
+A cadeia consultiva é:
+
+```text
+Local AI
+  -> Intelligence base
+  -> Profile Content (quando disponível)
+  -> Application Context
+  -> Memory / Identity / Space
+  -> Personal OrdaX / consumidores
+```
+
+O `Intelligence base` continua sendo o owner de health e de inferência. O Application Context apenas acrescenta o catálogo confiável ao contexto de uma requisição e preserva `authority=none` e `toolExecution=false`.
+
+A composição:
+
+1. cria `createNativeVerifiedComponentPackageSource(window)`;
+2. carrega somente `EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS`;
+3. aplica `overlayVerifiedFirstPartyApplications()` sobre o catálogo first-party local;
+4. constrói `createApplicationIntelligenceAwareness()` com os manifests provenientes das mesmas entries verificadas;
+5. envolve o port já enriquecido por Profile Content com `createApplicationContextIntelligence()`;
+6. mantém `actionCapabilityRegistryPort=null` até existir catálogo real e autoritativo de capabilities;
+7. mantém Memory/Identity/Space como wrapper externo final.
+
+Se a fonte verificada estiver indisponível ou falhar, a composição preserva o catálogo local e não inventa semântica externa.
+
+Não existem rotas dedicadas `/__ordax/native/app-intelligence-manifest` ou `/__ordax/native/app-intelligence-awareness`. A leitura continua reutilizando o namespace verificado de component packages já existente.
