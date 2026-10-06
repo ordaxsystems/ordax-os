@@ -3612,7 +3612,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._write_json(
                 200,
                 {
-                    "$schema": "ordax.native-app-intelligence-manifest/1",
+                    "$schema": "ordax.native-app-intelligence-manifest/2",
                     "componentId": resolution.component_id,
                     "componentVersion": resolution.version,
                     "sourceCommit": resolution.source_commit,
