@@ -129,20 +129,45 @@ function providerBinding(overrides = {}) {
   };
 }
 
-function bindingResolver({ first = providerBinding(), second = first } = {}) {
+function bindingResolver({
+  first = providerBinding(),
+  second = first,
+  third = second,
+  values = null,
+} = {}) {
+  const sequence = values ?? [first, second, third];
   let calls = 0;
   const port = {
     schema: PROVIDER_BINDING_RESOLVER_SCHEMA,
     async resolve(resourceRef) {
       calls += 1;
       if (resourceRef !== RESOURCE_REF) return null;
-      return calls === 1 ? first : second;
+      return sequence[Math.min(calls - 1, sequence.length - 1)] ?? null;
     },
     get calls() {
       return calls;
     },
   };
   return port;
+}
+
+function semanticsResolver({
+  first = verifiedEntry(),
+  second = first,
+  values = null,
+} = {}) {
+  const sequence = values ?? [first, second];
+  let calls = 0;
+  return {
+    async resolve(appId) {
+      calls += 1;
+      if (appId !== "notes") return null;
+      return sequence[Math.min(calls - 1, sequence.length - 1)] ?? null;
+    },
+    get calls() {
+      return calls;
+    },
+  };
 }
 
 function metadata(overrides = {}) {
@@ -177,14 +202,14 @@ function packageSource() {
 
 function artifactResolver({
   bindings = bindingResolver(),
-  entries = [verifiedEntry()],
+  semantics = semanticsResolver(),
   fetchImpl = async () => jsonResponse(metadata()),
   artifactIdentity = async () => PROVIDER_SHA,
   expectedOwner = OWNER,
 } = {}) {
   return createApplicationActionProviderArtifactResolver({
     providerBindingResolver: bindings,
-    verifiedEntries: entries,
+    resolveVerifiedSemantics: (appId) => semantics.resolve(appId),
     expectedOwner,
     source: packageSource(),
     fetchImpl,
@@ -255,7 +280,7 @@ test("artifact resolver extends the exact provider binding without creating auth
   const resolved = await resolver.resolve(RESOURCE_REF);
 
   assert.equal(resolver.schema, APPLICATION_ACTION_PROVIDER_ARTIFACT_RESOLVER_SCHEMA);
-  assert.equal(bindings.calls, 2);
+  assert.equal(bindings.calls, 3);
   assert.equal(resolved.resourceRef, RESOURCE_REF);
   assert.equal(resolved.workItemId, "personal-work-1");
   assert.equal(resolved.appId, "notes");
@@ -290,7 +315,7 @@ test("artifact resolver extends the exact provider binding without creating auth
 test("artifact resolver returns null for a resource without a current provider binding and performs no I/O", async () => {
   let metadataReads = 0;
   let artifactReads = 0;
-  const bindings = bindingResolver({ first: null, second: null });
+  const bindings = bindingResolver({ values: [null] });
   const resolver = artifactResolver({
     bindings,
     async fetchImpl() {
@@ -313,7 +338,7 @@ test("artifact resolver rejects verified semantics drift from provider binding b
   let metadataReads = 0;
   let artifactReads = 0;
   const resolver = artifactResolver({
-    entries: [verifiedEntry({ revision: 13 })],
+    semantics: semanticsResolver({ first: verifiedEntry({ revision: 13 }) }),
     async fetchImpl() {
       metadataReads += 1;
       return jsonResponse(metadata());
@@ -366,7 +391,7 @@ test("legacy verified Actions without provider artifact remain non-resolvable", 
   let metadataReads = 0;
   let artifactReads = 0;
   const resolver = artifactResolver({
-    entries: [verifiedEntry({ provider: null })],
+    semantics: semanticsResolver({ first: verifiedEntry({ provider: null }) }),
     async fetchImpl() {
       metadataReads += 1;
       return jsonResponse(metadata());
@@ -420,7 +445,7 @@ test("artifact resolver rejects a binding whose provider revision is no longer d
 test("artifact resolver requires the existing provider binding resolver", () => {
   assert.throws(
     () => createApplicationActionProviderArtifactResolver({
-      verifiedEntries: [verifiedEntry()],
+      resolveVerifiedSemantics: async () => verifiedEntry(),
       expectedOwner: OWNER,
       source: packageSource(),
       fetchImpl: async () => jsonResponse(metadata()),
@@ -434,7 +459,7 @@ test("artifact resolver requires an injected canonical owner", () => {
   assert.throws(
     () => createApplicationActionProviderArtifactResolver({
       providerBindingResolver: bindingResolver(),
-      verifiedEntries: [verifiedEntry()],
+      resolveVerifiedSemantics: async () => verifiedEntry(),
       source: packageSource(),
       fetchImpl: async () => jsonResponse(metadata()),
       artifactIdentity: async () => PROVIDER_SHA,
@@ -443,21 +468,24 @@ test("artifact resolver requires an injected canonical owner", () => {
   );
 });
 
-test("artifact resolver rejects owner drift before provider binding can lead to package I/O", () => {
+test("artifact resolver rejects owner drift before provider binding can lead to package I/O", async () => {
   let metadataReads = 0;
   let artifactReads = 0;
-  assert.throws(
-    () => artifactResolver({
-      entries: [verifiedEntry({ owner: "foreign/apps" })],
-      async fetchImpl() {
-        metadataReads += 1;
-        return jsonResponse(metadata());
-      },
-      async artifactIdentity() {
-        artifactReads += 1;
-        return PROVIDER_SHA;
-      },
+  const resolver = artifactResolver({
+    semantics: semanticsResolver({
+      first: verifiedEntry({ owner: "foreign/apps" }),
     }),
+    async fetchImpl() {
+      metadataReads += 1;
+      return jsonResponse(metadata());
+    },
+    async artifactIdentity() {
+      artifactReads += 1;
+      return PROVIDER_SHA;
+    },
+  });
+  await assert.rejects(
+    () => resolver.resolve(RESOURCE_REF),
     /app identity is not verified first-party/,
   );
   assert.equal(metadataReads, 0);
@@ -466,8 +494,8 @@ test("artifact resolver rejects owner drift before provider binding can lead to 
 
 test("artifact resolver fails closed if the provider binding changes during artifact I/O", async () => {
   const first = providerBinding();
-  const second = providerBinding({ capabilitySha256: "d".repeat(64) });
-  const bindings = bindingResolver({ first, second });
+  const changed = providerBinding({ capabilitySha256: "d".repeat(64) });
+  const bindings = bindingResolver({ first, second: first, third: changed });
   let artifactReads = 0;
   const resolver = artifactResolver({
     bindings,
@@ -481,6 +509,50 @@ test("artifact resolver fails closed if the provider binding changes during arti
     () => resolver.resolve(RESOURCE_REF),
     /binding changed during artifact resolution/,
   );
-  assert.equal(bindings.calls, 2);
+  assert.equal(bindings.calls, 3);
+  assert.equal(artifactReads, 1);
+});
+
+
+test("artifact resolver requires live verified semantics resolution", () => {
+  assert.throws(
+    () => createApplicationActionProviderArtifactResolver({
+      providerBindingResolver: bindingResolver(),
+      expectedOwner: OWNER,
+      source: packageSource(),
+      fetchImpl: async () => jsonResponse(metadata()),
+      artifactIdentity: async () => PROVIDER_SHA,
+    }),
+    /requires resolveVerifiedSemantics/,
+  );
+});
+
+test("artifact resolver fails closed if verified provider semantics change during artifact I/O", async () => {
+  const changedProvider = providerManifest();
+  changedProvider.providers[0] = {
+    ...changedProvider.providers[0],
+    sha256: "b".repeat(64),
+  };
+  const semantics = semanticsResolver({
+    first: verifiedEntry(),
+    second: verifiedEntry({ provider: changedProvider }),
+  });
+  const bindings = bindingResolver();
+  let artifactReads = 0;
+  const resolver = artifactResolver({
+    bindings,
+    semantics,
+    async artifactIdentity() {
+      artifactReads += 1;
+      return PROVIDER_SHA;
+    },
+  });
+
+  await assert.rejects(
+    () => resolver.resolve(RESOURCE_REF),
+    /verified semantics changed during artifact resolution/,
+  );
+  assert.equal(bindings.calls, 3);
+  assert.equal(semantics.calls, 2);
   assert.equal(artifactReads, 1);
 });
