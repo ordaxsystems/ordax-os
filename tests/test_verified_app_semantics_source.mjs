@@ -78,6 +78,20 @@ function semantics(appId = "notes", version = "0.4.1") {
   };
 }
 
+function verifiedEntry(appId = "notes", version = "0.4.1") {
+  const component = appManifest(appId, version);
+  return {
+    application: {
+      id: component.id,
+      title: component.title,
+      component,
+    },
+    intelligenceManifest: semantics(appId, version),
+    sourceCommit: SHA,
+    revision: 5,
+  };
+}
+
 function verifiedFetch({ appId = "notes", version = "0.4.1", app = null, ai = null } = {}) {
   const calls = [];
   return {
@@ -196,29 +210,48 @@ test("verified external app identity replaces same-id development app and append
       },
     },
   ];
-  const verifiedStudio = {
-    application: {
-      id: "studio",
-      title: "ORDAX Studio",
-      component: appManifest("studio", "0.4.3"),
-    },
-  };
-  const verifiedNotes = {
-    application: {
-      id: "notes",
-      title: "Notas",
-      component: appManifest("notes", "0.4.1"),
-    },
-  };
-
   const overlaid = overlayVerifiedFirstPartyApplications(
     base,
-    [verifiedStudio, verifiedNotes],
+    [verifiedEntry("studio", "0.4.3"), verifiedEntry("notes", "0.4.1")],
   );
   assert.deepEqual(overlaid.map((app) => app.id), ["studio", "files", "notes"]);
   assert.equal(overlaid[0].component.releaseMode, "component-slot");
   assert.equal(overlaid[0].component.version, "0.4.3");
   assert.equal(overlaid[2].component.owner, "washingtonmsdj/ordax-apps");
+});
+
+test("verified application overlay rejects arbitrary or incompletely verified replacements", () => {
+  const foreignId = verifiedEntry("notes");
+  foreignId.application.id = "files";
+  foreignId.application.component = appManifest("files", "0.4.1");
+  foreignId.intelligenceManifest = semantics("files", "0.4.1");
+  assert.throws(
+    () => overlayVerifiedFirstPartyApplications([], [foreignId]),
+    /not an allowed external first-party app/,
+  );
+
+  const ownerDrift = verifiedEntry("notes");
+  ownerDrift.application.component = appManifest("notes", "0.4.1", {
+    owner: "system/apps/notes",
+  });
+  assert.throws(
+    () => overlayVerifiedFirstPartyApplications([], [ownerDrift]),
+    /overlay identity drifted/,
+  );
+
+  const versionDrift = verifiedEntry("notes");
+  versionDrift.intelligenceManifest = semantics("notes", "9.9.9");
+  assert.throws(
+    () => overlayVerifiedFirstPartyApplications([], [versionDrift]),
+    /appVersion mismatch/,
+  );
+
+  const badSource = verifiedEntry("notes");
+  badSource.sourceCommit = "deadbeef";
+  assert.throws(
+    () => overlayVerifiedFirstPartyApplications([], [badSource]),
+    /sourceCommit/,
+  );
 });
 
 test("verified application overlay rejects duplicate identities instead of choosing implicitly", () => {
@@ -232,10 +265,7 @@ test("verified application overlay rejects duplicate identities instead of choos
   assert.throws(
     () => overlayVerifiedFirstPartyApplications(
       [],
-      [
-        { application: { id: "notes" } },
-        { application: { id: "notes" } },
-      ],
+      [verifiedEntry("notes"), verifiedEntry("notes")],
     ),
     /overlay duplicates app/,
   );
