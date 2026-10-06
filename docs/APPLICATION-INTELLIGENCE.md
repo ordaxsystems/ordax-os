@@ -1,6 +1,6 @@
 # Application Intelligence
 
-Status: **FOUNDATION / AWARENESS ONLY**
+Status: **FOUNDATION + SEMANTIC ROUTING**
 
 OrdaX should let Intelligence understand applications without giving the model direct operating-system authority.
 
@@ -99,7 +99,7 @@ Windows applications use the same semantic model, but action availability must b
 
 Expected integration levels are:
 
-1. **Identity only** — the app is installed and Intelligence can name/explain it. This is the level implemented by this foundation.
+1. **Identity only** — the app is installed and Intelligence can name/explain it. This remains the baseline for installed apps that do not provide a verified semantic manifest.
 2. **Generic lifecycle** — future broker-proven open/focus/close/open-target actions that OrdaX itself can provide safely.
 3. **Verified app integration** — version/identity-bound adapters for documented CLI, URI, IPC or file-association behavior.
 4. **Accessibility automation** — a possible bounded fallback only when a compatible accessibility surface is proven. It must be treated as less stable than explicit APIs and must not become an unrestricted desktop-control escape hatch.
