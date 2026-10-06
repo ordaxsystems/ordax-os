@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { PROJECT_STORE_SCHEMA } from "../system/contracts/project-store.mjs";
 import { createNativeProjectAuthorityComposition } from "../system/composition/native/projects-authority.mjs";
+
+const nativeCompositionSource = readFileSync(
+  fileURLToPath(new URL("../system/composition/native/main.mjs", import.meta.url)),
+  "utf8",
+);
 
 function projectState(name = "Finance App") {
   return Object.freeze({
@@ -126,5 +133,28 @@ test("Project authority cutover never falls back to legacy state when Native is 
       nativeTransport: unavailable,
     }),
     /Native Project route unavailable/,
+  );
+});
+
+test("Native production composition uses the typed Project authority instead of the legacy store", () => {
+  assert.match(
+    nativeCompositionSource,
+    /createNativeProjectStateTransport/,
+    "Native composition must construct the typed Project state transport",
+  );
+  assert.match(
+    nativeCompositionSource,
+    /createNativeProjectAuthorityComposition/,
+    "Native composition must execute migration before creating Project authority",
+  );
+  assert.doesNotMatch(
+    nativeCompositionSource,
+    /createNativeProjectStore\(window\)/,
+    "legacy localStorage Project store must not remain normal production authority",
+  );
+  assert.match(
+    nativeCompositionSource,
+    /projectMutations:\s*projectMutations/,
+    "File Space continuity must receive explicit Project mutation authority",
   );
 });
