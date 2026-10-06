@@ -352,6 +352,118 @@ class NativeComponentSlotTests(unittest.TestCase):
                 )
         run.assert_not_called()
 
+    def test_first_party_awareness_bundle_binds_component_and_semantics_to_same_slot(self):
+        commit = "d" * 40
+        resolution = (
+            "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            "COMPONENT_ID=notes\n"
+            "REVISION=12\n"
+            "SOURCE=SLOT\n"
+            "CURRENT_VERSION=0.4.1\n"
+            f"CURRENT_SOURCE_COMMIT={commit}\n"
+            f"SLOT=/var/lib/ordax/components/notes/versions/0.4.1/{commit}\n"
+            "ENTRYPOINT=system/apps/notes/src/runtime.mjs\n"
+            "RUNTIME_SERVED_FROM_SLOT=NO\n"
+        ).encode("utf-8")
+        component = (
+            '{"schema":"ordax.component-manifest/1","id":"notes","title":"Notas",'
+            '"kind":"app","version":"0.4.1","releaseMode":"component-slot",'
+            '"criticality":"optional","failureDomain":"app","restartScope":"component",'
+            '"healthMode":"runtime","owner":"washingtonmsdj/ordax-apps","dependencies":[]}'
+        ).encode("utf-8")
+        semantics = (
+            '{"schema":"ordax.app-intelligence-manifest/1",'
+            '"appId":"notes","appVersion":"0.4.1","authority":"none",'
+            '"execution":"declarative-only","instructions":["Somente capacidades declaradas."],'
+            '"intents":[]}'
+        ).encode("utf-8")
+        responses = [
+            subprocess.CompletedProcess([], 0, stdout=resolution, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=component, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=semantics, stderr=b""),
+        ]
+        with mock.patch.object(slots.subprocess, "run", side_effect=responses) as run:
+            resolved, app, manifest = slots.read_verified_first_party_app_awareness_bundle(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="notes",
+            )
+
+        self.assertEqual(resolved.version, "0.4.1")
+        self.assertEqual(resolved.source_commit, commit)
+        self.assertEqual(app["id"], "notes")
+        self.assertEqual(app["title"], "Notas")
+        self.assertEqual(manifest["appId"], "notes")
+        self.assertEqual(run.call_count, 3)
+        for call in run.call_args_list[1:]:
+            argv = call.args[0]
+            self.assertEqual(argv[1], "read-runtime-file")
+            self.assertIn("0.4.1", argv)
+            self.assertIn(commit, argv)
+        self.assertIn("system/apps/notes/app.json", run.call_args_list[1].args[0])
+        self.assertIn("system/apps/notes/ai/manifest.json", run.call_args_list[2].args[0])
+
+    def test_first_party_awareness_bundle_rejects_component_or_semantic_identity_drift(self):
+        commit = "e" * 40
+        resolution = (
+            "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            "COMPONENT_ID=notes\n"
+            "REVISION=13\n"
+            "SOURCE=SLOT\n"
+            "CURRENT_VERSION=0.4.1\n"
+            f"CURRENT_SOURCE_COMMIT={commit}\n"
+            f"SLOT=/var/lib/ordax/components/notes/versions/0.4.1/{commit}\n"
+            "ENTRYPOINT=system/apps/notes/src/runtime.mjs\n"
+            "RUNTIME_SERVED_FROM_SLOT=NO\n"
+        ).encode("utf-8")
+        bad_component = (
+            '{"schema":"ordax.component-manifest/1","id":"studio","title":"Notas",'
+            '"kind":"app","version":"0.4.1","releaseMode":"component-slot",'
+            '"criticality":"optional","failureDomain":"app","restartScope":"component",'
+            '"healthMode":"runtime","owner":"washingtonmsdj/ordax-apps","dependencies":[]}'
+        ).encode("utf-8")
+        responses = [
+            subprocess.CompletedProcess([], 0, stdout=resolution, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=bad_component, stderr=b""),
+        ]
+        with mock.patch.object(slots.subprocess, "run", side_effect=responses):
+            with self.assertRaisesRegex(
+                slots.ComponentSlotVerificationError,
+                "component manifest identity mismatch",
+            ):
+                slots.read_verified_first_party_app_awareness_bundle(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust.json",
+                    component_id="notes",
+                )
+
+        good_component = (
+            '{"schema":"ordax.component-manifest/1","id":"notes","title":"Notas",'
+            '"kind":"app","version":"0.4.1","releaseMode":"component-slot",'
+            '"criticality":"optional","failureDomain":"app","restartScope":"component",'
+            '"healthMode":"runtime","owner":"washingtonmsdj/ordax-apps","dependencies":[]}'
+        ).encode("utf-8")
+        bad_semantics = (
+            '{"schema":"ordax.app-intelligence-manifest/1",'
+            '"appId":"studio","appVersion":"0.4.1","authority":"none",'
+            '"execution":"declarative-only","instructions":["x"],"intents":[]}'
+        ).encode("utf-8")
+        responses = [
+            subprocess.CompletedProcess([], 0, stdout=resolution, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=good_component, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=bad_semantics, stderr=b""),
+        ]
+        with mock.patch.object(slots.subprocess, "run", side_effect=responses):
+            with self.assertRaisesRegex(
+                slots.ComponentSlotVerificationError,
+                "intelligence manifest identity mismatch",
+            ):
+                slots.read_verified_first_party_app_awareness_bundle(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust.json",
+                    component_id="notes",
+                )
+
     def test_invalid_component_and_paths_fail_before_verifier_execution(self):
         with mock.patch.object(slots.subprocess, "run") as run:
             with self.assertRaises(slots.ComponentSlotRequestError):
