@@ -6,8 +6,7 @@ import {
   validateApplicationActionCapability,
 } from "./application-action-capability.mjs";
 
-export const APPLICATION_ACTION_MANIFEST_SCHEMA =
-  "ordax.application-action-manifest/1";
+export const APPLICATION_ACTION_MANIFEST_SCHEMA = "ordax.application-action-manifest/1";
 export const APPLICATION_ACTION_MANIFEST_EXECUTION_MODE = "proposal-only";
 
 const MAX_CAPABILITIES = 128;
