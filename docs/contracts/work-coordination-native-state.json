@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.work-coordination-native-state/1",
-  "status": "contract-and-adapter-foundation-unmounted",
+  "status": "typed-endpoint-boundary-defined-unmounted",
   "issue": 1154,
   "owner": "platform-native-state",
   "authority": "none",
@@ -35,6 +35,18 @@
     "last_write_wins_allowed": false,
     "max_payload_bytes": 4194304
   },
+  "host_endpoint": {
+    "typed_boundary_defined": true,
+    "implementation": "system/surface/runtime/native_work_coordination_endpoint.py",
+    "requested_partition_is_authority": false,
+    "authoritative_owner_required": true,
+    "authoritative_project_context_required": true,
+    "request_shape_exact": true,
+    "mutation_actions": ["compare-and-swap"],
+    "revision_conflict_status": 409,
+    "partition_mismatch_status": 403,
+    "request_body_bounded": true
+  },
   "composition": {
     "host_route_mounted": false,
     "native_runtime_mounted": false,
@@ -46,13 +58,13 @@
   "invariants": {
     "state_partition_binding_required": true,
     "persisted_authority_must_equal_none": true,
-    "relational_graph_validation_required_at_host": true,
     "unknown_format_version_fails_closed": true,
     "stale_cas_overwrite_allowed": false,
+    "request_owner_or_project_can_create_authority": false,
     "memory_or_project_deletion_side_effects": false
   },
   "next": [
-    "native-host-endpoint-boundary",
+    "native-host-route-composition",
     "native-composition-store-mount",
     "activity-read-surface",
     "settings-policy-surface",
