@@ -29,7 +29,7 @@ test("minimal MVP surface keeps only structural plus Files and Internet as launc
   assert.equal(policy.optionalAppsBlockPublicLaunch, false);
   assert.equal(policy.networkSkipPreservesUsableOfflineSystem, true);
 
-  assert.deepEqual(sorted(policy.structuralAppIds), ["account", "settings", "system"]);
+  assert.deepEqual(sorted(policy.structuralAppIds), ["account", "settings", "store", "system"]);
   assert.deepEqual(sorted(policy.bundledBootstrapAppIds), ["files", "internet"]);
   assert.deepEqual(
     sorted(policy.onDemandAppIds),
