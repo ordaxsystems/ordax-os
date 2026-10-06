@@ -1,0 +1,59 @@
+name: Native Project CAS Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/project-catalog.mjs'
+      - 'system/contracts/project-mutations.mjs'
+      - 'system/contracts/project-store.mjs'
+      - 'system/services/files/project-transitions.mjs'
+      - 'system/services/files/projects.mjs'
+      - 'system/services/files/native-project-catalog-runtime.mjs'
+      - 'tests/test_projects.mjs'
+      - 'tests/test_native_project_catalog_runtime.mjs'
+      - '.github/workflows/native-project-cas-runtime.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/project-catalog.mjs'
+      - 'system/contracts/project-mutations.mjs'
+      - 'system/contracts/project-store.mjs'
+      - 'system/services/files/project-transitions.mjs'
+      - 'system/services/files/projects.mjs'
+      - 'system/services/files/native-project-catalog-runtime.mjs'
+      - 'tests/test_projects.mjs'
+      - 'tests/test_native_project_catalog_runtime.mjs'
+      - '.github/workflows/native-project-cas-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate Project CAS runtime sources
+        run: |
+          set -euo pipefail
+          node --check system/contracts/project-mutations.mjs
+          node --check system/services/files/project-transitions.mjs
+          node --check system/services/files/projects.mjs
+          node --check system/services/files/native-project-catalog-runtime.mjs
+          node --check tests/test_native_project_catalog_runtime.mjs
+
+      - name: Prove shared transitions preserve legacy Project runtime
+        run: |
+          set -euo pipefail
+          node --test tests/test_projects.mjs
+
+      - name: Prove async Native CAS Project runtime
+        run: |
+          set -euo pipefail
+          node --test tests/test_native_project_catalog_runtime.mjs

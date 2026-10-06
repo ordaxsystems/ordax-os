@@ -1,9 +1,12 @@
 {
   "$schema": "prototype-ordax.project-native-state/1",
-  "status": "durable-foundation-endpoint-defined-unmounted",
+  "status": "durable-foundation-endpoint-defined-async-runtime-ready-unmounted",
   "owner": "platform-projects",
   "project_catalog_contract": "system/contracts/project-catalog.mjs",
+  "project_mutation_contract": "system/contracts/project-mutations.mjs",
   "project_store_contract": "system/contracts/project-store.mjs",
+  "shared_transitions": "system/services/files/project-transitions.mjs",
+  "async_catalog_runtime": "system/services/files/native-project-catalog-runtime.mjs",
   "native_record_schema": "ordax.native-project-store-record/1",
   "format_version": 1,
   "current_surface_adapter": "system/adapters/native/projects.mjs",
@@ -36,6 +39,15 @@
     "bounded_request_bytes": true,
     "stale_revision_status": 409
   },
+  "catalog_runtime": {
+    "reader_and_mutations_separated": true,
+    "mutations_async": true,
+    "local_mutations_serialized": true,
+    "cas_conflicts_rebased_from_authoritative_read": true,
+    "cas_retry_bound": 4,
+    "last_write_wins_alias_allowed": false,
+    "production_mounted": false
+  },
   "migration_policy": {
     "direction": "legacy-localStorage-to-native-only",
     "automatic_conflict_winner": null,
@@ -57,9 +69,9 @@
     "browser_localStorage_is_final_authority": false
   },
   "next": [
-    "async-bootstrap-and-cutover-plan",
     "mount-native-project-route",
-    "verified-legacy-migration",
+    "verified-legacy-migration-before-runtime-bootstrap",
+    "cut-over-project-mutations-to-native-cas",
     "remove-localStorage-authority-after-cutover",
     "expose-read-only-project-existence-to-work-coordination-host"
   ]

@@ -1,48 +1,23 @@
-import { validateFileSpacePath } from "../../contracts/file-space.mjs";
 import {
-  MAX_PROJECTS,
   PROJECT_CATALOG_SCHEMA,
   assertProjectCatalogPort,
   validateProjectCatalogSnapshot,
-  validateProjectFilePath,
-  validateProjectId,
-  validateProjectName,
-  validateProjectPath,
 } from "../../contracts/project-catalog.mjs";
 import {
   assertProjectStore,
   createEmptyProjectStoreState,
   validateProjectStoreState,
 } from "../../contracts/project-store.mjs";
-
-function readClock(now) {
-  const value = now();
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new TypeError("Project runtime clock must return a non-negative epoch millisecond");
-  }
-  return value;
-}
-
-function validateRelocationPath(value) {
-  const path = validateFileSpacePath(value);
-  if (path === "/") {
-    throw new TypeError("Project continuity relocation path must identify an entry below the logical root");
-  }
-  return path;
-}
-
-function sameProjects(left, right) {
-  if (left.length !== right.length) return false;
-  return left.every((project, index) => {
-    const candidate = right[index];
-    return project.id === candidate.id
-      && project.name === candidate.name
-      && project.path === candidate.path
-      && project.createdAt === candidate.createdAt
-      && project.lastOpenedAt === candidate.lastOpenedAt
-      && project.lastFilePath === candidate.lastFilePath;
-  });
-}
+import {
+  clearProjectLastFileState,
+  createProjectState,
+  recordProjectFileOpenedState,
+  recordProjectOpenedState,
+  relocateProjectLastFilePathState,
+  removeProjectState,
+  renameProjectState,
+  sameProjectStoreState,
+} from "./project-transitions.mjs";
 
 export function createProjectCatalogRuntime({ store = null, now = Date.now } = {}) {
   if (typeof now !== "function") {
@@ -88,12 +63,7 @@ export function createProjectCatalogRuntime({ store = null, now = Date.now } = {
 
   const replaceState = (nextState) => {
     const validated = validateProjectStoreState(nextState);
-    if (
-      validated.nextOrdinal === state.nextOrdinal
-      && sameProjects(validated.projects, state.projects)
-    ) {
-      return false;
-    }
+    if (sameProjectStoreState(validated, state)) return false;
     persist(validated);
     emit();
     return true;
@@ -109,146 +79,32 @@ export function createProjectCatalogRuntime({ store = null, now = Date.now } = {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    create({ name, path } = {}) {
-      if (state.projects.length >= MAX_PROJECTS) {
-        throw new RangeError(`Project catalog supports at most ${MAX_PROJECTS} projects`);
-      }
-      const validatedName = validateProjectName(name);
-      const validatedPath = validateProjectPath(path);
-      if (state.projects.some((project) => project.path === validatedPath)) {
-        throw new TypeError("This folder is already registered as a project");
-      }
-      const timestamp = readClock(now);
-      const project = Object.freeze({
-        id: `project-${state.nextOrdinal}`,
-        name: validatedName,
-        path: validatedPath,
-        createdAt: timestamp,
-        lastOpenedAt: timestamp,
-        lastFilePath: null,
-      });
-      replaceState({
-        nextOrdinal: state.nextOrdinal + 1,
-        projects: [project, ...state.projects],
-      });
+    create(input = {}) {
+      replaceState(createProjectState(state, input, now));
       return getSnapshot();
     },
     rename(id, name) {
-      const projectId = validateProjectId(id);
-      const validatedName = validateProjectName(name);
-      const existingIndex = state.projects.findIndex((project) => project.id === projectId);
-      if (existingIndex < 0) {
-        throw new TypeError("Project id is not registered");
-      }
-      const existing = state.projects[existingIndex];
-      if (existing.name === validatedName) return getSnapshot();
-      const updatedProjects = [...state.projects];
-      updatedProjects[existingIndex] = Object.freeze({ ...existing, name: validatedName });
-      replaceState({
-        nextOrdinal: state.nextOrdinal,
-        projects: updatedProjects,
-      });
+      replaceState(renameProjectState(state, id, name));
       return getSnapshot();
     },
     recordOpened(id) {
-      const projectId = validateProjectId(id);
-      const existing = state.projects.find((project) => project.id === projectId);
-      if (!existing) {
-        throw new TypeError("Project id is not registered");
-      }
-      const timestamp = Math.max(readClock(now), existing.lastOpenedAt, existing.createdAt);
-      const updated = Object.freeze({ ...existing, lastOpenedAt: timestamp });
-      replaceState({
-        nextOrdinal: state.nextOrdinal,
-        projects: [
-          updated,
-          ...state.projects.filter((project) => project.id !== projectId),
-        ],
-      });
+      replaceState(recordProjectOpenedState(state, id, now));
       return getSnapshot();
     },
     recordFileOpened(id, filePath) {
-      const projectId = validateProjectId(id);
-      const existing = state.projects.find((project) => project.id === projectId);
-      if (!existing) {
-        throw new TypeError("Project id is not registered");
-      }
-      const validatedFilePath = validateProjectFilePath(existing.path, filePath);
-      const timestamp = Math.max(readClock(now), existing.lastOpenedAt, existing.createdAt);
-      const updated = Object.freeze({
-        ...existing,
-        lastOpenedAt: timestamp,
-        lastFilePath: validatedFilePath,
-      });
-      replaceState({
-        nextOrdinal: state.nextOrdinal,
-        projects: [
-          updated,
-          ...state.projects.filter((project) => project.id !== projectId),
-        ],
-      });
+      replaceState(recordProjectFileOpenedState(state, id, filePath, now));
       return getSnapshot();
     },
     clearLastFile(id) {
-      const projectId = validateProjectId(id);
-      const existingIndex = state.projects.findIndex((project) => project.id === projectId);
-      if (existingIndex < 0) {
-        throw new TypeError("Project id is not registered");
-      }
-      const existing = state.projects[existingIndex];
-      if (existing.lastFilePath === null) return getSnapshot();
-      const updatedProjects = [...state.projects];
-      updatedProjects[existingIndex] = Object.freeze({
-        ...existing,
-        lastFilePath: null,
-      });
-      replaceState({
-        nextOrdinal: state.nextOrdinal,
-        projects: updatedProjects,
-      });
+      replaceState(clearProjectLastFileState(state, id));
       return getSnapshot();
     },
     relocateLastFilePath(previousPath, nextPath) {
-      const previous = validateRelocationPath(previousPath);
-      const next = validateRelocationPath(nextPath);
-      if (previous === next) return getSnapshot();
-
-      let changed = false;
-      const updatedProjects = state.projects.map((project) => {
-        const current = project.lastFilePath;
-        if (
-          current === null
-          || (current !== previous && !current.startsWith(`${previous}/`))
-        ) {
-          return project;
-        }
-
-        const suffix = current.slice(previous.length);
-        const relocated = validateFileSpacePath(`${next}${suffix}`);
-        const insideProject =
-          relocated !== project.path
-          && relocated.startsWith(`${project.path}/`);
-        const lastFilePath = insideProject
-          ? validateProjectFilePath(project.path, relocated)
-          : null;
-        if (lastFilePath === current) return project;
-        changed = true;
-        return Object.freeze({ ...project, lastFilePath });
-      });
-
-      if (!changed) return getSnapshot();
-      replaceState({
-        nextOrdinal: state.nextOrdinal,
-        projects: updatedProjects,
-      });
+      replaceState(relocateProjectLastFilePathState(state, previousPath, nextPath));
       return getSnapshot();
     },
     remove(id) {
-      const projectId = validateProjectId(id);
-      replaceState({
-        nextOrdinal: state.nextOrdinal,
-        projects: state.projects.filter((project) => project.id !== projectId),
-      });
+      replaceState(removeProjectState(state, id));
       return getSnapshot();
     },
   };
