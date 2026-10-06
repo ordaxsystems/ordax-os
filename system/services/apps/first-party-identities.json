@@ -36,11 +36,6 @@
       "version": "0.1.0"
     },
     {
-      "appId": "notes",
-      "publisherPrincipalId": "ordax-official",
-      "version": "0.4.2"
-    },
-    {
       "appId": "projects",
       "publisherPrincipalId": "ordax-official",
       "version": "0.1.0"
