@@ -14,6 +14,7 @@ DEFAULT_SLOT_ROOT = "/var/lib/ordax/components"
 COMPONENT_MODULE_PREFIX = "/__ordax/native/component-module/"
 MAX_RUNTIME_FILE_BYTES = 2 * 1024 * 1024
 MAX_APP_INTELLIGENCE_MANIFEST_BYTES = 128 * 1024
+MAX_APP_COMPONENT_MANIFEST_BYTES = 64 * 1024
 MAX_RESOLVE_OUTPUT_BYTES = 16 * 1024
 MAX_HEALTH_OUTPUT_BYTES = 16 * 1024
 DEFAULT_TIMEOUT_SECONDS = 3.0
@@ -450,6 +451,141 @@ def read_component_runtime_file(
         max_stdout_bytes=MAX_RUNTIME_FILE_BYTES,
         timeout_seconds=timeout_seconds,
     )
+
+
+def _decode_verified_json_object(payload: bytes, *, label: str, max_bytes: int) -> dict:
+    if len(payload) > max_bytes:
+        raise ComponentSlotVerificationError(f"{label} exceeded size limit")
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ComponentSlotVerificationError(f"{label} is not valid UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise ComponentSlotVerificationError(f"{label} must be a JSON object")
+    return value
+
+
+def _validate_verified_app_component_manifest(value: dict, *, component_id: str, version: str) -> dict:
+    expected_fields = {
+        "schema",
+        "id",
+        "title",
+        "kind",
+        "version",
+        "releaseMode",
+        "criticality",
+        "failureDomain",
+        "restartScope",
+        "healthMode",
+        "owner",
+        "dependencies",
+    }
+    if set(value) != expected_fields:
+        raise ComponentSlotVerificationError("app component manifest fields are not canonical")
+    if value.get("schema") != "ordax.component-manifest/1":
+        raise ComponentSlotVerificationError("app component manifest schema is incompatible")
+    if value.get("id") != component_id or value.get("version") != version:
+        raise ComponentSlotVerificationError("app component manifest identity mismatch")
+    if value.get("kind") != "app" or value.get("releaseMode") != "component-slot":
+        raise ComponentSlotVerificationError("installed app component delivery boundary is invalid")
+    if not isinstance(value.get("title"), str) or not value["title"].strip():
+        raise ComponentSlotVerificationError("installed app component title is invalid")
+    if not isinstance(value.get("owner"), str) or not value["owner"].strip():
+        raise ComponentSlotVerificationError("installed app component owner is invalid")
+    if not isinstance(value.get("dependencies"), list):
+        raise ComponentSlotVerificationError("installed app component dependencies are invalid")
+    return value
+
+
+def _validate_verified_app_intelligence_manifest(value: dict, *, component_id: str, version: str) -> dict:
+    expected_fields = {
+        "schema",
+        "appId",
+        "appVersion",
+        "authority",
+        "execution",
+        "instructions",
+        "intents",
+    }
+    if set(value) != expected_fields:
+        raise ComponentSlotVerificationError("app intelligence manifest fields are not canonical")
+    if value.get("schema") != "ordax.app-intelligence-manifest/1":
+        raise ComponentSlotVerificationError("app intelligence manifest schema is incompatible")
+    if value.get("appId") != component_id or value.get("appVersion") != version:
+        raise ComponentSlotVerificationError("app intelligence manifest identity mismatch")
+    if value.get("authority") != "none" or value.get("execution") != "declarative-only":
+        raise ComponentSlotVerificationError("app intelligence manifest crossed authority boundary")
+    if not isinstance(value.get("instructions"), list) or not isinstance(value.get("intents"), list):
+        raise ComponentSlotVerificationError("app intelligence manifest semantic fields are invalid")
+    return value
+
+
+def read_verified_first_party_app_awareness_bundle(
+    *,
+    helper_path: str,
+    trust_path: str,
+    component_id: str,
+    slot_root: str = DEFAULT_SLOT_ROOT,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+) -> tuple[ComponentSlotResolution, dict, dict]:
+    resolution = resolve_component_slot(
+        helper_path=helper_path,
+        trust_path=trust_path,
+        component_id=component_id,
+        state="current",
+        slot_root=slot_root,
+        timeout_seconds=timeout_seconds,
+    )
+    if (
+        resolution.source != "slot"
+        or resolution.version is None
+        or resolution.source_commit is None
+    ):
+        raise ComponentSlotUnavailableError("first-party app has no active verified slot")
+
+    component_payload = read_component_runtime_file(
+        helper_path=helper_path,
+        trust_path=trust_path,
+        component_id=component_id,
+        state="current",
+        version=resolution.version,
+        source_commit=resolution.source_commit,
+        requested_path=f"system/apps/{component_id}/app.json",
+        slot_root=slot_root,
+        timeout_seconds=timeout_seconds,
+    )
+    component = _validate_verified_app_component_manifest(
+        _decode_verified_json_object(
+            component_payload,
+            label="app component manifest",
+            max_bytes=MAX_APP_COMPONENT_MANIFEST_BYTES,
+        ),
+        component_id=component_id,
+        version=resolution.version,
+    )
+
+    intelligence_payload = read_component_runtime_file(
+        helper_path=helper_path,
+        trust_path=trust_path,
+        component_id=component_id,
+        state="current",
+        version=resolution.version,
+        source_commit=resolution.source_commit,
+        requested_path=f"system/apps/{component_id}/ai/manifest.json",
+        slot_root=slot_root,
+        timeout_seconds=timeout_seconds,
+    )
+    intelligence = _validate_verified_app_intelligence_manifest(
+        _decode_verified_json_object(
+            intelligence_payload,
+            label="app intelligence manifest",
+            max_bytes=MAX_APP_INTELLIGENCE_MANIFEST_BYTES,
+        ),
+        component_id=component_id,
+        version=resolution.version,
+    )
+
+    return resolution, component, intelligence
 
 
 def _parse_health_record_output(
