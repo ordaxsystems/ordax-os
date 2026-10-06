@@ -212,12 +212,10 @@ export function createApplicationActionProviderResolver({
   const port = {
     schema: APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA,
     resolve: resolveBinding,
-    async resolveArtifact(resourceRef) {
-      if (resolveProviderArtifactSha256 === null) {
-        throw new Error(
-          "Application Action provider artifact identity resolution is unavailable",
-        );
-      }
+  };
+
+  if (resolveProviderArtifactSha256 !== null) {
+    port.resolveArtifact = async (resourceRef) => {
       const binding = await resolveBinding(resourceRef);
       if (binding === null) return null;
 
@@ -293,8 +291,8 @@ export function createApplicationActionProviderResolver({
         executionAuthorized: false,
         modelDirectExecutionAuthorized: false,
       });
-    },
-  };
+    };
+  }
 
   assertApplicationActionProviderResolver(port);
   return Object.freeze(port);
