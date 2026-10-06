@@ -368,3 +368,38 @@ This prevents a stale `application-action:*` resource reference from surviving o
 
 The next gate remains a verified provider resolver. It must bind the preparation's declared `adapterId + revision` to the exact currently verified first-party provider artifact and its tool artifact SHA-256 before the existing Personal OrdaX approval/grant path can be entered.
 
+## Verified provider artifact resolution
+
+The provider declared by a prepared first-party Application Action is not executable merely because its `adapterId + revision` matches a capability.
+
+External first-party app packages may expose an authority-free `actions/providers/manifest.json` using `ordax.application-action-provider-manifest/1`. The manifest binds every declared provider to a canonical package-owned module and SHA-256 while keeping:
+
+```text
+authority = none
+execution = unavailable
+```
+
+The platform loads this manifest only from the exact verified current component slot. Legacy verified packages that do not contain the provider manifest keep their Intelligence and proposal-only Actions, but provider resolution is unavailable.
+
+Provider resolution is a separate read-only gate:
+
+```text
+current preparation
+  -> exact verified app entry
+  -> provider adapterId + revision
+  -> re-read current slot metadata
+  -> require same slot revision/version/sourceCommit
+  -> build exact verified namespace URL
+  -> read/hash provider module
+  -> require declared artifact SHA-256
+  -> authority-free provider resolution
+```
+
+The verified component namespace already rejects a runtime-file read if the requested version/source commit is no longer the current slot, and validates the served file against the signed package manifest before returning bytes. The resolver additionally checks the module SHA-256 against the provider manifest.
+
+The resulting `ordax.application-action-provider-resolution/1` contains identity only. It does not expose a module URL, does not call `import()`, does not construct an Action Adapter, does not request approval, does not issue a grant, and cannot execute the action.
+
+Personal OrdaX may resolve a provider only for a currently valid preparation. After asynchronous artifact verification it rechecks the preparation; if owner, Work or context revocation occurred during resolution, the result is discarded.
+
+The next gate is a typed provider loader/adapter factory that must validate the exact resolved artifact and still enter the existing Personal OrdaX approval/grant/gateway/executor path. Provider resolution itself remains insufficient authority for execution.
+
