@@ -27,6 +27,36 @@ function firstPartyApp(id = "notes", title = "Notas") {
   };
 }
 
+function appSemantics(id = "notes", version = "0.4.0") {
+  return {
+    schema: "ordax.app-intelligence-manifest/1",
+    appId: id,
+    appVersion: version,
+    authority: "none",
+    execution: "declarative-only",
+    instructions: [
+      "Use o app somente para as capacidades declaradas pelo pacote verificado.",
+    ],
+    intents: [
+      {
+        id: `${id}.create-note`,
+        description: "Criar uma nota no app.",
+        effect: "write",
+        confirmation: "policy",
+        parameters: [
+          {
+            name: "title",
+            type: "string",
+            required: false,
+            description: "Título opcional da nota.",
+          },
+        ],
+        examples: ["Crie uma nota chamada Ideias."],
+      },
+    ],
+  };
+}
+
 function installedApp(id = "photoshop", title = "Adobe Photoshop") {
   return {
     schema: "ordax.installed-application/1",
@@ -136,6 +166,53 @@ test("Intelligence context exposes semantic identity without compatibility inter
   assert.equal(context.text.includes("photoshop-profile"), false);
   assert.equal(context.text.includes("photoshop-entrypoint"), false);
   assert.equal(context.text.includes("a".repeat(64)), false);
+});
+
+test("verified first-party app semantics are projected into Intelligence context without execution authority", () => {
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+    installedApplications: [installedApp()],
+    firstPartyIntelligenceManifests: [appSemantics()],
+  });
+  const payload = JSON.parse(awareness.contextItem().text);
+  const notes = payload.applications.find((app) => app.appId === "notes");
+  const photoshop = payload.applications.find((app) => app.appId === "photoshop");
+
+  assert.ok(notes?.semantics);
+  assert.deepEqual(notes.semantics.instructions, [
+    "Use o app somente para as capacidades declaradas pelo pacote verificado.",
+  ]);
+  assert.equal(notes.semantics.intents[0].id, "notes.create-note");
+  assert.equal(notes.semantics.intents[0].effect, "write");
+  assert.equal(notes.semantics.intents[0].confirmation, "policy");
+  assert.equal(notes.actionExecutionAuthorized, false);
+  assert.equal(notes.modelToolExecutionAuthorized, false);
+
+  assert.equal(photoshop?.semantics, null);
+  assert.equal(payload.authority, "none");
+  assert.equal(payload.toolExecution, false);
+});
+
+test("semantic manifest identity is bound to the exact first-party app version", () => {
+  const mismatch = appSemantics("notes", "9.9.9");
+  assert.throws(
+    () => createApplicationIntelligenceAwareness({
+      firstPartyApplications: [firstPartyApp()],
+      firstPartyIntelligenceManifests: [mismatch],
+    }),
+    /appVersion mismatch/,
+  );
+});
+
+test("semantic manifests cannot attach to installed or unknown applications", () => {
+  assert.throws(
+    () => createApplicationIntelligenceAwareness({
+      firstPartyApplications: [firstPartyApp()],
+      installedApplications: [installedApp()],
+      firstPartyIntelligenceManifests: [appSemantics("photoshop")],
+    }),
+    /has no first-party app/,
+  );
 });
 
 test("awareness catalog fails closed on first-party/installed identity collision", () => {
