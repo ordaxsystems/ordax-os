@@ -4,6 +4,7 @@ const REQUEST_SOURCES = new Set(["store", "launcher"]);
 
 export const APP_INSTALL_REQUEST_SCHEMA = "ordax.app-install-request/1";
 export const APP_INSTALL_REQUEST_PORT_SCHEMA = "ordax.app-install-request-port/1";
+export const APP_INSTALL_REQUEST_RESULT_SCHEMA = "ordax.app-install-request-result/1";
 
 function assertExactKeys(value, expected, label) {
   const actual = Object.keys(value).sort();
@@ -36,6 +37,45 @@ export function validateAppInstallRequest(value) {
   }
   if (value.authority !== "none") {
     throw new TypeError("App install request must remain authority:none");
+  }
+  return Object.freeze({ ...value });
+}
+
+export function validateAppInstallRequestResult(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("App install request result must be an object");
+  }
+  assertExactKeys(
+    value,
+    ["schema", "requestId", "appId", "state", "reason", "authority"],
+    "App install request result",
+  );
+  if (value.schema !== APP_INSTALL_REQUEST_RESULT_SCHEMA) {
+    throw new TypeError("Unsupported app install request result schema");
+  }
+  if (typeof value.requestId !== "string" || !REQUEST_ID_RE.test(value.requestId)) {
+    throw new TypeError("App install request result has invalid requestId");
+  }
+  if (typeof value.appId !== "string" || !APP_ID_RE.test(value.appId)) {
+    throw new TypeError("App install request result has invalid appId");
+  }
+  if (!["accepted", "rejected"].includes(value.state)) {
+    throw new TypeError("App install request result has invalid state");
+  }
+  if (
+    value.reason !== null
+    && (typeof value.reason !== "string" || !value.reason.trim() || value.reason.length > 160)
+  ) {
+    throw new TypeError("App install request result reason must be null or bounded text");
+  }
+  if (value.state === "accepted" && value.reason !== null) {
+    throw new TypeError("Accepted app install request cannot carry rejection reason");
+  }
+  if (value.state === "rejected" && value.reason === null) {
+    throw new TypeError("Rejected app install request requires reason");
+  }
+  if (value.authority !== "none") {
+    throw new TypeError("App install request result must remain authority:none");
   }
   return Object.freeze({ ...value });
 }
