@@ -1,0 +1,36 @@
+name: Application Action Provider Activation Foundation
+
+on:
+  pull_request:
+    paths:
+      - "system/contracts/application-action-provider-activation.mjs"
+      - "system/services/personal-ordax/application-action-provider-activation-broker.mjs"
+      - "tests/test_application_action_provider_activation.mjs"
+      - "docs/APPLICATION-ACTION-PROVIDER-ACTIVATION.md"
+      - ".github/workflows/application-action-provider-activation-foundation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-activation-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate activation boundary syntax
+        run: |
+          set -euo pipefail
+          node --check system/contracts/application-action-provider-activation.mjs
+          node --check system/services/personal-ordax/application-action-provider-activation-broker.mjs
+          node --check tests/test_application_action_provider_activation.mjs
+
+      - name: Prove broker-only unavailable activation boundary
+        run: |
+          set -euo pipefail
+          node --test tests/test_application_action_provider_activation.mjs
