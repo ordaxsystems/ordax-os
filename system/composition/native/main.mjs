@@ -65,6 +65,7 @@ import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
 import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
 import { createApplicationContextIntelligence } from "../../services/intelligence/application-context.mjs";
+import { createApplicationActionCapabilityRegistry } from "../../services/intelligence/application-action-capabilities.mjs";
 import {
   EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
   loadVerifiedFirstPartyApplicationSemantics,
@@ -145,7 +146,7 @@ async function start() {
 
   const browserSession = createNativeBrowserSession(window);
   const verifiedAppSemanticsPromise = optionalNativeProbe(
-    "OrdaX verified App Intelligence semantics unavailable",
+    "OrdaX verified first-party app semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
       appIds: EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
       source: createNativeVerifiedComponentPackageSource(window),
@@ -426,9 +427,19 @@ async function start() {
       (entry) => entry.intelligenceManifest,
     ),
   });
+  const verifiedActionCapabilities = verifiedAppSemantics.flatMap(
+    (entry) => entry.actionManifest.capabilities,
+  );
+  const appActionCapabilities = verifiedActionCapabilities.length === 0
+    ? null
+    : createApplicationActionCapabilityRegistry({
+        awareness: appAwareness,
+        capabilities: verifiedActionCapabilities,
+      });
   const appAwareIntelligence = createApplicationContextIntelligence({
     intelligencePort: intelligence,
     awarenessPort: appAwareness,
+    actionCapabilityRegistryPort: appActionCapabilities,
   });
   const consumerIntelligence = profileContentContextCapability?.available === true
     ? createSelectedSpaceProfileContentIntelligence({
