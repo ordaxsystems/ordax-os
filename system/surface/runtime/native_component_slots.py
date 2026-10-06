@@ -55,6 +55,7 @@ class ComponentSlotResolution:
     component_id: str
     state: str
     source: str
+    source_repository: str | None
     revision: int
     version: str | None
     source_commit: str | None
@@ -242,6 +243,7 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
             component_id=component_id,
             state=state,
             source=source.lower(),
+            source_repository=None,
             revision=revision,
             version=None,
             source_commit=None,
@@ -253,6 +255,9 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
         raise ComponentSlotVerificationError("runtime component source is invalid")
     version_key = "CURRENT_VERSION" if state == "current" else "PENDING_VERSION"
     commit_key = "CURRENT_SOURCE_COMMIT" if state == "current" else "PENDING_SOURCE_COMMIT"
+    source_repository = values.get("SOURCE_REPOSITORY", "")
+    if not _REPOSITORY_RE.fullmatch(source_repository):
+        raise ComponentSlotVerificationError("runtime component source repository is invalid")
     version = values.get(version_key, "")
     source_commit = values.get(commit_key, "")
     entrypoint = values.get("ENTRYPOINT", "")
@@ -277,6 +282,7 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
         "COMPONENT_ID",
         "REVISION",
         "SOURCE",
+        "SOURCE_REPOSITORY",
         version_key,
         commit_key,
         "SLOT",
@@ -292,6 +298,7 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
         component_id=component_id,
         state=state,
         source="slot",
+        source_repository=source_repository,
         revision=revision,
         version=version,
         source_commit=source_commit,
