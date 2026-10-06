@@ -348,7 +348,7 @@ Preparation references are session-only coordination state, not durable authorit
 
 `ordax.application-action-provider-binding/1` closes the package-identity gap left intentionally by the Preparation Registry without adding execution authority.
 
-The private resolver receives a preparation and, at resolution time, independently rechecks both sources of truth:
+The private resolver receives only an opaque preparation `resourceRef`, resolves it through the authoritative in-memory Preparation Registry, and only then independently rechecks both sources of truth:
 
 1. the current `ApplicationActionCapabilityRegistry`;
 2. the current verified first-party component-slot semantics supplied by the platform package owner.
@@ -366,7 +366,7 @@ The resolver fails closed unless all of the following still match exactly:
 - current component-slot `sourceCommit`;
 - current component-slot revision.
 
-On success it returns only an immutable, authority-free binding containing the opaque preparation `resourceRef`, Work id, action identity, exact app version/source commit/component revision, exact provider identity and capability identity.
+On success it returns only an immutable, authority-free binding containing the retained preparation `resourceRef`, Work id, action identity, exact app version/source commit/component revision, exact provider identity and capability identity. Unknown, revoked or non-retained preparation references resolve to no binding.
 
 The provider resolver exposes only `resolve()`. It does **not** expose `execute`, `invoke`, `run`, `launch`, `grant`, `authorize` or `confirm`, and the returned binding always carries:
 
@@ -376,4 +376,4 @@ executionAuthorized = false
 modelDirectExecutionAuthorized = false
 ```
 
-This binding is still not an adapter callback and is not an Action Gateway allow decision. Its purpose is narrower: prove that the provider declaration prepared earlier still belongs to the exact currently verified first-party package before a later slice connects that identity to the existing Personal OrdaX approval/grant/gateway/executor chain.
+This binding is still not an adapter callback, does not contain a tool artifact SHA-256 and is not an Action Gateway allow decision. Its purpose is narrower: prove that the provider declaration belongs to the exact currently verified first-party package before a later slice binds an actual typed provider module artifact and connects it to the existing Personal OrdaX approval/grant/gateway/executor chain. Notes and Studio currently publish declarative provider identities only; until an executable typed provider artifact exists and is verified, the chain remains fail-closed.
