@@ -1,3 +1,4 @@
+import { nativeComponentSurfaceOrigin } from "./component-slot-origin.mjs";
 import { validateComponentId } from "../../contracts/component-manifest.mjs";
 import {
   COMPONENT_SLOT_SOURCE_SCHEMA,
@@ -9,29 +10,8 @@ import {
 const COMPONENT_METADATA_PATH = "/__ordax/native/component-runtime";
 const COMPONENT_MODULE_PREFIX = "/__ordax/native/component-module/";
 
-function nativeSurfaceOrigin(windowRef) {
-  const href = windowRef?.location?.href;
-  if (typeof href !== "string" || !href) {
-    throw new TypeError("Native component slot source requires window.location.href");
-  }
-  const location = new URL(href);
-  const port = Number(location.port);
-  if (
-    location.protocol !== "http:"
-    || location.hostname !== "127.0.0.1"
-    || location.username
-    || location.password
-    || !Number.isInteger(port)
-    || port < 1
-    || port > 65535
-  ) {
-    throw new TypeError("Native component slots require the canonical loopback Surface origin");
-  }
-  return location.origin;
-}
-
 export function createNativeComponentSlotSource(windowRef = globalThis.window) {
-  const origin = nativeSurfaceOrigin(windowRef);
+  const origin = nativeComponentSurfaceOrigin(windowRef);
   const source = {
     schema: COMPONENT_SLOT_SOURCE_SCHEMA,
     metadataUrl(componentIdValue, stateValue) {
