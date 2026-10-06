@@ -14,7 +14,8 @@ const ADAPTER_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
 const RESOURCE_REF_RE = /^application-action:[a-z][a-z0-9._-]{0,159}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const FORBIDDEN_METHODS = [
-  "execute", "invoke", "run", "launch", "grant", "authorize", "confirm",
+  "execute", "invoke", "run", "launch", "import", "load", "loadAdapter",
+  "grant", "authorize", "confirm",
 ];
 
 function exactFields(value, expected, label) {
@@ -158,6 +159,14 @@ export function assertApplicationActionProviderResolver(port) {
     || typeof port.resolve !== "function"
   ) {
     throw new TypeError("Compatible Application action provider resolver is required");
+  }
+  if (
+    port.resolveArtifact !== undefined
+    && typeof port.resolveArtifact !== "function"
+  ) {
+    throw new TypeError(
+      "Application action provider resolver resolveArtifact must be a function when provided",
+    );
   }
   for (const method of FORBIDDEN_METHODS) {
     if (typeof port[method] === "function") {
