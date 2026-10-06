@@ -435,4 +435,12 @@ The final provider resolution preserves the binding identity — Work, app/actio
 
 The binding resolver and artifact resolver deliberately use different port schemas so they cannot be substituted for each other. The canonical first-party package owner remains owned by verified application semantics and is exported as `EXTERNAL_FIRST_PARTY_OWNER` for future composition; the artifact resolver receives that owner by injection and rejects owner drift before package I/O.
 
-This slice remains unmounted. No Personal OrdaX runtime method exposes the artifact resolver, no provider module is imported, and no Action Gateway decision, grant, confirmation or execution authority is created. A future composition slice must connect provider binding and artifact resolution inside the existing Personal OrdaX authority chain rather than creating a parallel executor.
+## Personal OrdaX provider-artifact composition
+
+Personal OrdaX now composes artifact resolution only after a current session preparation exists. The composition re-reads the verified semantics for the prepared app, constructs the artifact resolver with the same current provider-binding resolver, the verified component package source and the canonical first-party owner, and then rechecks the retained preparation, owner partition and exact Work revision after each asynchronous boundary.
+
+The Native composition hashes the provider module through the same-origin verified component namespace. It does not import the provider module. Therefore resolving an artifact proves the exact module bytes without running provider top-level code or injecting Notes Runtime, Studio Host or any other app capability.
+
+The new runtime method is still authority-free. It returns only `ordax.application-action-provider-resolution/1` with `authority=none`, `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`. It creates no approval, grant, Action Gateway decision, action attempt or receipt.
+
+Provider code import is intentionally deferred until the existing Action Executor has revalidated an allow decision. A future typed adapter slice may use the verified artifact identity as the existing Intelligence Tool artifact identity, but it must not instantiate a provider or inject its narrow host before that gateway boundary.

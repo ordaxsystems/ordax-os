@@ -12,6 +12,9 @@ import { createApplicationActionPreparationRegistry } from "../../services/perso
 import {
   createApplicationActionProviderResolver,
 } from "../../services/personal-ordax/application-action-provider-bindings.mjs";
+import {
+  createApplicationActionProviderArtifactResolver,
+} from "../../services/personal-ordax/application-action-provider-artifact-resolver.mjs";
 import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
@@ -30,6 +33,9 @@ export function createNativePersonalOrdaxComposition({
   actionCatalog = null,
   applicationActionCapabilityRegistry = null,
   resolveVerifiedApplicationSemantics = null,
+  verifiedComponentPackageSource = null,
+  verifiedComponentFetch = null,
+  applicationActionProviderArtifactIdentity = null,
   expectedApplicationActionProviderOwner = null,
   createApplicationActionPreparationId = null,
   grantAuthority = null,
@@ -42,6 +48,36 @@ export function createNativePersonalOrdaxComposition({
   }
   if (typeof adapterResolver !== "function") {
     throw new TypeError("Native Personal OrdaX composition adapter resolver must be a function");
+  }
+  const artifactInputs = [
+    verifiedComponentPackageSource,
+    verifiedComponentFetch,
+    applicationActionProviderArtifactIdentity,
+  ];
+  const artifactResolutionConfigured = artifactInputs.every((value) => value !== null);
+  if (
+    artifactInputs.some((value) => value !== null)
+    && !artifactResolutionConfigured
+  ) {
+    throw new TypeError(
+      "Native Personal OrdaX provider artifact resolution requires source, fetch and artifact identity together",
+    );
+  }
+  if (
+    verifiedComponentFetch !== null
+    && typeof verifiedComponentFetch !== "function"
+  ) {
+    throw new TypeError(
+      "Native Personal OrdaX verified component fetch must be a function or null",
+    );
+  }
+  if (
+    applicationActionProviderArtifactIdentity !== null
+    && typeof applicationActionProviderArtifactIdentity !== "function"
+  ) {
+    throw new TypeError(
+      "Native Personal OrdaX provider artifact identity must be a function or null",
+    );
   }
   const catalog = actionCatalog === null ? null : assertPersonalActionCatalog(actionCatalog);
   if (
@@ -342,6 +378,89 @@ export function createNativePersonalOrdaxComposition({
       ) {
         throw new Error(
           "Personal OrdaX Application Action changed during provider binding resolution",
+        );
+      }
+      return resolved;
+    },
+    async resolveApplicationActionProviderArtifact(resourceRef) {
+      if (
+        applicationActionPreparations === null
+        || applicationActionProviderResolver === null
+        || !artifactResolutionConfigured
+      ) {
+        throw new Error(
+          "Personal OrdaX Application Action provider artifact resolution is unavailable",
+        );
+      }
+      reconcileApplicationActionPreparations();
+      const preparation = applicationActionPreparations.resolve(resourceRef);
+      if (preparation === null) {
+        throw new Error(
+          "Personal OrdaX Application Action preparation is no longer current",
+        );
+      }
+      const preparationBinding = applicationActionPreparationBindings.get(resourceRef);
+      if (!preparationBinding) {
+        throw new Error(
+          "Personal OrdaX Application Action preparation binding is unavailable",
+        );
+      }
+
+      const verifiedEntry = await resolveVerifiedApplicationSemantics(
+        preparation.proposal.appId,
+      );
+      if (verifiedEntry === null) {
+        throw new Error(
+          "Personal OrdaX Application Action verified provider semantics are unavailable",
+        );
+      }
+
+      reconcileApplicationActionPreparations();
+      let snapshot = runtime.getSnapshot();
+      let currentPreparation = applicationActionPreparations.resolve(resourceRef);
+      let currentWork = snapshot.workItems.find(
+        (candidate) => candidate.id === preparation.workItemId,
+      );
+      if (
+        currentPreparation !== preparation
+        || ownerKeyFromSnapshot(snapshot) !== preparationBinding.ownerKey
+        || !currentWork
+        || workRevision(currentWork) !== preparationBinding.workRevision
+      ) {
+        throw new Error(
+          "Personal OrdaX Application Action changed during provider artifact semantics resolution",
+        );
+      }
+
+      const artifactResolver = createApplicationActionProviderArtifactResolver({
+        providerBindingResolver: applicationActionProviderResolver,
+        verifiedEntries: [verifiedEntry],
+        source: verifiedComponentPackageSource,
+        fetchImpl: verifiedComponentFetch,
+        artifactIdentity: applicationActionProviderArtifactIdentity,
+        expectedOwner: expectedApplicationActionProviderOwner,
+      });
+      const resolved = await artifactResolver.resolve(resourceRef);
+      if (resolved === null) {
+        throw new Error(
+          "Personal OrdaX Application Action provider binding is no longer current",
+        );
+      }
+
+      reconcileApplicationActionPreparations();
+      snapshot = runtime.getSnapshot();
+      currentPreparation = applicationActionPreparations.resolve(resourceRef);
+      currentWork = snapshot.workItems.find(
+        (candidate) => candidate.id === preparation.workItemId,
+      );
+      if (
+        currentPreparation !== preparation
+        || ownerKeyFromSnapshot(snapshot) !== preparationBinding.ownerKey
+        || !currentWork
+        || workRevision(currentWork) !== preparationBinding.workRevision
+      ) {
+        throw new Error(
+          "Personal OrdaX Application Action changed during provider artifact resolution",
         );
       }
       return resolved;

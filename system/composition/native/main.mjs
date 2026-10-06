@@ -9,6 +9,7 @@ import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-h
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
 import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
+import { readNativeToolArtifactSha256 } from "../../adapters/native/tool-artifact-identity.mjs";
 import { createNativePersonalActivityExport } from "../../adapters/native/personal-activity-export.mjs";
 import { createNativeRecentFilesStore } from "../../adapters/native/recent-files.mjs";
 import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
@@ -511,6 +512,10 @@ async function start() {
         });
         return entries[0] ?? null;
       },
+      verifiedComponentPackageSource,
+      verifiedComponentFetch,
+      applicationActionProviderArtifactIdentity: (moduleUrl) =>
+        readNativeToolArtifactSha256(window, moduleUrl),
       expectedApplicationActionProviderOwner: EXTERNAL_FIRST_PARTY_OWNER,
     }),
   );
