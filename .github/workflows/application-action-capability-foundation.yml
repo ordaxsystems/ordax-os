@@ -20,7 +20,7 @@ on:
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
-      - 'system/services/personal-ordax/application-action-provider-resolver.mjs'
+      - 'system/services/personal-ordax/application-action-provider-artifact-resolver.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
@@ -52,7 +52,7 @@ on:
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
-      - 'system/services/personal-ordax/application-action-provider-resolver.mjs'
+      - 'system/services/personal-ordax/application-action-provider-artifact-resolver.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
@@ -91,7 +91,7 @@ jobs:
           node --check system/services/intelligence/verified-app-semantics.mjs
           node --check system/services/personal-ordax/application-action-preparations.mjs
           node --check system/services/personal-ordax/application-action-provider-bindings.mjs
-          node --check system/services/personal-ordax/application-action-provider-resolver.mjs
+          node --check system/services/personal-ordax/application-action-provider-artifact-resolver.mjs
           node --check system/composition/native/personal-ordax.mjs
           node --check system/composition/native/main.mjs
           node --check system/services/intelligence/application-awareness.mjs
