@@ -5,6 +5,7 @@ import {
   APPLICATION_ACTION_PREPARATION_REGISTRY_SCHEMA,
   assertApplicationActionCapabilityRegistryForPreparation,
   assertApplicationActionPreparationRegistry,
+  sameApplicationActionProposal,
   validateApplicationActionPreparation,
 } from "../../contracts/application-action-preparation.mjs";
 
@@ -15,27 +16,6 @@ const RISK_TO_EFFECT = Object.freeze({
   "external-effect": "external-egress",
   privileged: "device-control",
 });
-
-function canonicalJson(value) {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  return `{${Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
-    .join(",")}}`;
-}
-
-function sameProposal(left, right) {
-  return (
-    left.appId === right.appId
-    && left.actionId === right.actionId
-    && left.riskClass === right.riskClass
-    && left.confirmation === right.confirmation
-    && left.capabilitySha256 === right.capabilitySha256
-    && left.capabilityProvenance === right.capabilityProvenance
-    && canonicalJson(left.arguments) === canonicalJson(right.arguments)
-  );
-}
 
 function preparationId(value) {
   if (typeof value !== "string") {
@@ -95,7 +75,7 @@ export function createApplicationActionPreparationRegistry({
         proposal.actionId,
         proposal.arguments,
       );
-      if (!sameProposal(proposal, currentProposal)) {
+      if (!sameApplicationActionProposal(proposal, currentProposal)) {
         throw new Error("Application action proposal is stale or no longer matches capability");
       }
 
