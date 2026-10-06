@@ -1,0 +1,48 @@
+name: Work Coordination Contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/WORK-COORDINATION.md'
+      - 'docs/contracts/work-coordination.json'
+      - 'system/contracts/work-coordination*.mjs'
+      - 'system/services/work-coordination/**'
+      - 'system/adapters/native/work-coordination*.mjs'
+      - 'tests/test_work_coordination_*.mjs'
+      - '.github/workflows/work-coordination.yml'
+  pull_request:
+    paths:
+      - 'docs/WORK-COORDINATION.md'
+      - 'docs/contracts/work-coordination.json'
+      - 'system/contracts/work-coordination*.mjs'
+      - 'system/services/work-coordination/**'
+      - 'system/adapters/native/work-coordination*.mjs'
+      - 'tests/test_work_coordination_*.mjs'
+      - '.github/workflows/work-coordination.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Validate Work Coordination source syntax
+        run: |
+          node --check system/contracts/work-coordination.mjs
+          node --check system/contracts/work-coordination-store.mjs
+          node --check system/services/work-coordination/runtime.mjs
+
+      - name: Run Work Coordination contract/runtime tests
+        run: |
+          node --test tests/test_work_coordination_contracts.mjs
+          node --test tests/test_work_coordination_store.mjs
+          node --test tests/test_work_coordination_runtime.mjs
