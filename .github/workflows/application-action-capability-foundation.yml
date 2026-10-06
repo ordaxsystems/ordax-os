@@ -10,6 +10,7 @@ on:
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/adapters/native/verified-component-package-source.mjs'
       - 'system/composition/native/application-intelligence.mjs'
+      - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'system/services/intelligence/application-context.mjs'
@@ -19,6 +20,7 @@ on:
       - 'tests/test_application_intelligence_context.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - 'tests/test_native_application_intelligence_composition.mjs'
+      - 'tests/test_native_application_intelligence_wiring.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
   push:
     branches: [main]
@@ -30,6 +32,7 @@ on:
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/adapters/native/verified-component-package-source.mjs'
       - 'system/composition/native/application-intelligence.mjs'
+      - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'system/services/intelligence/application-context.mjs'
@@ -39,6 +42,7 @@ on:
       - 'tests/test_application_intelligence_context.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - 'tests/test_native_application_intelligence_composition.mjs'
+      - 'tests/test_native_application_intelligence_wiring.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
 
 permissions:
@@ -70,6 +74,7 @@ jobs:
           node --check tests/test_application_intelligence_context.mjs
           node --check tests/test_verified_app_semantics_source.mjs
           node --check tests/test_native_application_intelligence_composition.mjs
+          node --check tests/test_native_application_intelligence_wiring.mjs
 
       - name: Run Application Intelligence contract and composition tests
         run: |
@@ -79,3 +84,4 @@ jobs:
           node --test tests/test_application_intelligence_context.mjs
           node --test tests/test_verified_app_semantics_source.mjs
           node --test tests/test_native_application_intelligence_composition.mjs
+          node --test tests/test_native_application_intelligence_wiring.mjs
