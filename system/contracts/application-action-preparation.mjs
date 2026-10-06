@@ -11,6 +11,7 @@ export const APPLICATION_ACTION_PREPARATION_REGISTRY_SCHEMA =
 
 const EFFECTS = new Set(["read", "write", "external-egress", "device-control"]);
 const ID_RE = /^[a-z][a-z0-9._-]{0,159}$/;
+const ADAPTER_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
 const RESOURCE_REF_RE = /^application-action:[a-z][a-z0-9._-]{0,159}$/;
 const FORBIDDEN_METHODS = [
   "execute", "invoke", "run", "launch", "grant", "authorize", "confirm",
@@ -102,6 +103,9 @@ export function validateApplicationActionPreparation(value) {
     "Application action preparation adapter id",
     128,
   );
+  if (!ADAPTER_ID_RE.test(adapterId)) {
+    throw new TypeError("Application action preparation adapter id is invalid");
+  }
   const revision = boundedText(
     value.provider.revision,
     "Application action preparation provider revision",
