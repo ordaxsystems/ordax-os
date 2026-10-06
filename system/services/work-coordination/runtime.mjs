@@ -250,7 +250,7 @@ export function createWorkCoordinationRuntime({
       spaceId = null,
       workItemId = null,
       tasks: taskInputs,
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -320,7 +320,7 @@ export function createWorkCoordinationRuntime({
       title = null,
       objective = null,
       state = null,
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -355,7 +355,7 @@ export function createWorkCoordinationRuntime({
       clientRef = null,
       sessionRef = null,
       leaseDurationMs = 60_000,
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -408,7 +408,7 @@ export function createWorkCoordinationRuntime({
 
     async heartbeat(partitionValue, claimIdValue, leaseIdValue, {
       leaseDurationMs = 60_000,
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -432,7 +432,7 @@ export function createWorkCoordinationRuntime({
       summary,
       resumeRef = null,
       artifactRefs = [],
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -468,7 +468,7 @@ export function createWorkCoordinationRuntime({
       summary = null,
       resumeRef = null,
       artifactRefs = [],
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -516,7 +516,7 @@ export function createWorkCoordinationRuntime({
     },
 
     async recordEvidence(partitionValue, taskIdValue, evidenceInput, {
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -556,7 +556,7 @@ export function createWorkCoordinationRuntime({
     },
 
     async completeTask(partitionValue, claimIdValue, leaseIdValue, {
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -602,7 +602,7 @@ export function createWorkCoordinationRuntime({
     },
 
     async recoverExpiredClaims(partitionValue, {
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
@@ -629,7 +629,7 @@ export function createWorkCoordinationRuntime({
     },
 
     async releaseStaleTask(partitionValue, taskIdValue, {
-      trigger: mutationTrigger = "user",
+      trigger: mutationTrigger,
     } = {}) {
       const partition = validateWorkCoordinationPartition(partitionValue);
       await assertMutationAllowed(resolvePolicy, partition, mutationTrigger);
