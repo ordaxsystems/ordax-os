@@ -153,9 +153,27 @@ test("semantic router adds detail only for locally matched apps", async () => {
     firstPartyApplications: [firstPartyApp()],
     firstPartyIntelligenceManifests: [manifest],
   });
-  const semanticRouter = createApplicationSemanticRouter({
+  const semanticRouterBase = createApplicationSemanticRouter({
     awareness,
     manifests: [manifest],
+  });
+  let routeCalls = 0;
+  let selectCalls = 0;
+  let contextItemCalls = 0;
+  const semanticRouter = Object.freeze({
+    ...semanticRouterBase,
+    route(prompt) {
+      routeCalls += 1;
+      return semanticRouterBase.route(prompt);
+    },
+    select(prompt) {
+      selectCalls += 1;
+      return semanticRouterBase.select(prompt);
+    },
+    contextItemsForPrompt(prompt) {
+      contextItemCalls += 1;
+      return semanticRouterBase.contextItemsForPrompt(prompt);
+    },
   });
   const intelligence = createApplicationContextIntelligence({
     intelligencePort: intelligenceStub((value) => { request = value; }),
@@ -164,6 +182,9 @@ test("semantic router adds detail only for locally matched apps", async () => {
   });
 
   await intelligence.respond({ prompt: "Crie uma nota chamada Ideias." });
+  assert.equal(routeCalls, 1);
+  assert.equal(selectCalls, 0);
+  assert.equal(contextItemCalls, 0);
   assert.ok(request);
   assert.equal(
     request.context.some((entry) => entry.id === "ordax-application-detail:notes"),
@@ -173,6 +194,9 @@ test("semantic router adds detail only for locally matched apps", async () => {
   assert.equal(JSON.parse(detail.text).semantics.intents[0].id, "notes.create-note");
 
   await intelligence.respond({ prompt: "Qual é a capital da Bahia?" });
+  assert.equal(routeCalls, 2);
+  assert.equal(selectCalls, 0);
+  assert.equal(contextItemCalls, 0);
   assert.equal(
     request.context.some((entry) => entry.id === "ordax-application-detail:notes"),
     false,
