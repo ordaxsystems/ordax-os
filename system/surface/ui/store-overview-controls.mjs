@@ -1,9 +1,13 @@
 import {
   assertAppStoreCatalogPort,
-  assertAppStoreInstallRequestPort,
   validateAppStoreCatalogSnapshot,
-  validateAppStoreInstallRequestResult,
 } from "../../contracts/app-store.mjs";
+import {
+  APP_INSTALL_REQUEST_SCHEMA,
+  assertAppInstallRequestPort,
+  validateAppInstallRequest,
+  validateAppInstallRequestResult,
+} from "../../contracts/app-install-request.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 
 const STORE_WINDOW_SELECTOR = '[data-window-id="store"]';
@@ -32,12 +36,13 @@ export function mountStoreOverviewControls(
   const t = localization.translate;
   const installRequests = installRequestPort === null
     ? null
-    : assertAppStoreInstallRequestPort(installRequestPort);
+    : assertAppInstallRequestPort(installRequestPort);
 
   let snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
   let mountedSlot = null;
   let pendingAppId = null;
   let requestMessageId = null;
+  let requestOrdinal = 0;
   let destroyed = false;
 
   const render = () => {
@@ -144,10 +149,21 @@ export function mountStoreOverviewControls(
     requestMessageId = null;
     render();
 
-    void Promise.resolve(installRequests.requestInstall({ appId, intent: "install" }))
+    requestOrdinal += 1;
+    const request = validateAppInstallRequest({
+      schema: APP_INSTALL_REQUEST_SCHEMA,
+      requestId: `store:${appId}:${requestOrdinal}`,
+      appId,
+      source: "store",
+      authority: "none",
+    });
+
+    void Promise.resolve(installRequests.requestInstall(request))
       .then((rawResult) => {
-        const result = validateAppStoreInstallRequestResult(rawResult);
-        if (result.appId !== appId) throw new TypeError("App Store lifecycle response appId mismatch");
+        const result = validateAppInstallRequestResult(rawResult);
+        if (result.appId !== appId || result.requestId !== request.requestId) {
+          throw new TypeError("App Store lifecycle response identity mismatch");
+        }
         requestMessageId = result.state === "accepted"
           ? "store.request.accepted"
           : "store.request.rejected";
