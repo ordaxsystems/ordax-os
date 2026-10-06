@@ -7,116 +7,23 @@ import {
   validateSchedule,
   validateScheduleOccurrence,
 } from "../../contracts/scheduler.mjs";
+import {
+  createNativeBoundedJsonTransport,
+  DEFAULT_NATIVE_JSON_REQUEST_TIMEOUT_MS,
+} from "./bounded-json-transport.mjs";
 
 export const AUTOMATION_STATE_ENDPOINT = "/__ordax/native/automation-state";
 export const NATIVE_AUTOMATION_STATE_SCHEMA = "ordax.native-automation-state/1";
 export const MAX_NATIVE_AUTOMATION_STATE_BYTES = (8 * 1024 * 1024) + 1024;
-const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
 const MAX_BACKGROUND_RUNS = 1024;
 const MAX_SCHEDULES = 1024;
 const MAX_PENDING_OCCURRENCES = 2048;
-
-const encoder = new TextEncoder();
 
 function boundedPositiveInteger(value, label, max) {
   if (!Number.isSafeInteger(value) || value < 1 || value > max) {
     throw new TypeError(`${label} is invalid`);
   }
   return value;
-}
-
-function requestTimeoutMs(value) {
-  if (!Number.isSafeInteger(value) || value < 100 || value > 300_000) {
-    throw new TypeError("Native automation request timeout must be between 100 and 300000 milliseconds");
-  }
-  return value;
-}
-
-function declaredContentLength(response) {
-  const raw = response?.headers?.get?.("content-length");
-  if (typeof raw !== "string" || !/^\d+$/.test(raw.trim())) return null;
-  const value = Number(raw);
-  return Number.isSafeInteger(value) ? value : null;
-}
-
-function cancelResponseBody(response) {
-  const body = response?.body;
-  if (!body || typeof body.cancel !== "function") return;
-  try {
-    const cancellation = body.cancel();
-    if (cancellation && typeof cancellation.catch === "function") void cancellation.catch(() => {});
-  } catch {
-    // The HTTP status already decides this mutation. Body cancellation failure
-    // must not replace that decision.
-  }
-}
-
-async function readBoundedJson(response) {
-  const declared = declaredContentLength(response);
-  if (declared !== null && declared > MAX_NATIVE_AUTOMATION_STATE_BYTES) {
-    throw new Error("Native automation response exceeds its byte limit");
-  }
-
-  if (!response?.body || typeof response.body.getReader !== "function") {
-    throw new Error("Native automation response does not expose a bounded stream");
-  }
-
-  const reader = response.body.getReader();
-  const chunks = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!(value instanceof Uint8Array)) {
-      try { await reader.cancel(); } catch {}
-      throw new Error("Native automation response body is invalid");
-    }
-    total += value.byteLength;
-    if (total > MAX_NATIVE_AUTOMATION_STATE_BYTES) {
-      try { await reader.cancel(); } catch {}
-      throw new Error("Native automation response exceeds its byte limit");
-    }
-    chunks.push(value);
-  }
-
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  let text;
-  try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    throw new Error("Native automation response is not valid UTF-8");
-  }
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error("Native automation response is not valid JSON");
-  }
-}
-
-async function fetchWithTimeout(fetchImpl, url, options, milliseconds, label, consume) {
-  const controller = new AbortController();
-  let timer = null;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      reject(new Error(`${label} timed out after ${milliseconds}ms`));
-    }, milliseconds);
-  });
-  const operation = (async () => {
-    const response = await fetchImpl(url, { ...options, signal: controller.signal });
-    return await consume(response);
-  })();
-  try {
-    return await Promise.race([operation, timeout]);
-  } finally {
-    if (timer !== null) clearTimeout(timer);
-  }
 }
 
 function validateMap(value, label, maxEntries, validateEntry, bindingKey) {
@@ -177,62 +84,49 @@ function validateState(value) {
 
 export async function createNativeAutomationStores(
   windowRef = globalThis.window,
-  { requestTimeoutMs: requestedTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {},
+  { requestTimeoutMs = DEFAULT_NATIVE_JSON_REQUEST_TIMEOUT_MS } = {},
 ) {
-  if (!windowRef || typeof windowRef.fetch !== "function") {
-    throw new TypeError("Native automation stores require window.fetch");
-  }
-  const fetchImpl = windowRef.fetch.bind(windowRef);
-  const requestTimeout = requestTimeoutMs(requestedTimeoutMs);
+  const transport = createNativeBoundedJsonTransport(windowRef, {
+    maxResponseBytes: MAX_NATIVE_AUTOMATION_STATE_BYTES,
+    maxRequestBytes: MAX_NATIVE_AUTOMATION_STATE_BYTES,
+    requestTimeoutMs,
+    label: "Native automation",
+  });
 
   const readState = async () => {
-    return await fetchWithTimeout(
-      fetchImpl,
+    return await transport.request(
       AUTOMATION_STATE_ENDPOINT,
-      {
-        method: "GET",
-        cache: "no-store",
-        credentials: "same-origin",
-      },
-      requestTimeout,
-      "Native automation state load",
+      { method: "GET", operation: "state load" },
       async (response) => {
         if (!response.ok) {
-          cancelResponseBody(response);
+          transport.cancel(response);
           throw new Error(`Native automation state unavailable: ${response.status}`);
         }
-        return validateState(await readBoundedJson(response));
+        return validateState(await transport.readJson(response));
       },
     );
   };
 
-  const mutate = async (request) => {
-    const body = JSON.stringify(request);
-    if (encoder.encode(body).byteLength > MAX_NATIVE_AUTOMATION_STATE_BYTES) {
-      throw new Error("Native automation mutation exceeds its byte limit");
-    }
-    return await fetchWithTimeout(
-      fetchImpl,
+  const mutate = async (requestValue) => {
+    const body = JSON.stringify(requestValue);
+    return await transport.request(
       AUTOMATION_STATE_ENDPOINT,
       {
         method: "POST",
-        cache: "no-store",
-        credentials: "same-origin",
+        operation: "state mutation",
         headers: { "Content-Type": "application/json" },
         body,
       },
-      requestTimeout,
-      "Native automation state mutation",
       async (response) => {
         if (response.status === 409) {
-          cancelResponseBody(response);
+          transport.cancel(response);
           return false;
         }
         if (!response.ok) {
-          cancelResponseBody(response);
+          transport.cancel(response);
           throw new Error(`Native automation mutation failed: ${response.status}`);
         }
-        const result = await readBoundedJson(response);
+        const result = await transport.readJson(response);
         if (
           !result
           || typeof result !== "object"

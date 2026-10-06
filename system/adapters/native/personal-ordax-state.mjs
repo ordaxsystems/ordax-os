@@ -3,93 +3,15 @@ import {
   validatePersonalOrdaxOwner,
   validatePersonalOrdaxStoreState,
 } from "../../contracts/personal-ordax-store.mjs";
+import {
+  createNativeBoundedJsonTransport,
+  DEFAULT_NATIVE_JSON_REQUEST_TIMEOUT_MS,
+} from "./bounded-json-transport.mjs";
 
 export const PERSONAL_ORDAX_NATIVE_STATE_ENDPOINT = "/__ordax/native/personal-ordax-state";
 export const PERSONAL_ORDAX_NATIVE_RECORD_SCHEMA = "ordax.native-personal-ordax-record/1";
-const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
 const MAX_RESPONSE_BYTES = 6 * MAX_PERSONAL_ORDAX_STORE_BYTES + 8192;
 const encoder = new TextEncoder();
-
-function timeoutMs(value) {
-  if (!Number.isSafeInteger(value) || value < 100 || value > 300_000) {
-    throw new TypeError("Native Personal OrdaX request timeout is invalid");
-  }
-  return value;
-}
-
-function cancelBody(response) {
-  try {
-    const cancelled = response?.body?.cancel?.();
-    if (cancelled && typeof cancelled.catch === "function") void cancelled.catch(() => {});
-  } catch {}
-}
-
-async function boundedJson(response) {
-  const declaredRaw = response?.headers?.get?.("content-length");
-  if (typeof declaredRaw === "string" && /^\d+$/.test(declaredRaw.trim())) {
-    const declared = Number(declaredRaw);
-    if (Number.isSafeInteger(declared) && declared > MAX_RESPONSE_BYTES) {
-      throw new Error("Native Personal OrdaX response exceeds byte limit");
-    }
-  }
-  if (!response?.body || typeof response.body.getReader !== "function") {
-    throw new Error("Native Personal OrdaX response does not expose a bounded stream");
-  }
-  const reader = response.body.getReader();
-  const chunks = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!(value instanceof Uint8Array)) {
-      try { await reader.cancel(); } catch {}
-      throw new Error("Native Personal OrdaX response chunk is invalid");
-    }
-    total += value.byteLength;
-    if (total > MAX_RESPONSE_BYTES) {
-      try { await reader.cancel(); } catch {}
-      throw new Error("Native Personal OrdaX response exceeds byte limit");
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  let text;
-  try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    throw new Error("Native Personal OrdaX response is not valid UTF-8");
-  }
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error("Native Personal OrdaX response is not valid JSON");
-  }
-}
-
-async function withTimeout(fetchImpl, url, options, milliseconds, label, consume) {
-  const controller = new AbortController();
-  let timer = null;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      reject(new Error(`${label} timed out after ${milliseconds}ms`));
-    }, milliseconds);
-  });
-  const operation = (async () => {
-    const response = await fetchImpl(url, { ...options, signal: controller.signal });
-    return await consume(response);
-  })();
-  try {
-    return await Promise.race([operation, timeout]);
-  } finally {
-    if (timer !== null) clearTimeout(timer);
-  }
-}
 
 function queryFor(owner) {
   const query = new URLSearchParams({ ownerKind: owner.ownerKind });
@@ -128,29 +50,27 @@ function validateRecord(value, expectedOwner) {
 
 export function createNativePersonalOrdaxStateTransport(
   windowRef = globalThis.window,
-  { requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {},
+  { requestTimeoutMs = DEFAULT_NATIVE_JSON_REQUEST_TIMEOUT_MS } = {},
 ) {
-  if (!windowRef || typeof windowRef.fetch !== "function") {
-    throw new TypeError("Native Personal OrdaX transport requires window.fetch");
-  }
-  const fetchImpl = windowRef.fetch.bind(windowRef);
-  const requestTimeout = timeoutMs(requestTimeoutMs);
+  const transport = createNativeBoundedJsonTransport(windowRef, {
+    maxResponseBytes: MAX_RESPONSE_BYTES,
+    maxRequestBytes: MAX_RESPONSE_BYTES,
+    requestTimeoutMs,
+    label: "Native Personal OrdaX",
+  });
 
   return Object.freeze({
     async read(ownerValue) {
       const owner = validatePersonalOrdaxOwner(ownerValue);
-      return await withTimeout(
-        fetchImpl,
+      return await transport.request(
         queryFor(owner),
-        { method: "GET", cache: "no-store", credentials: "same-origin" },
-        requestTimeout,
-        "Native Personal OrdaX state load",
+        { method: "GET", operation: "state load" },
         async (response) => {
           if (!response.ok) {
-            cancelBody(response);
+            transport.cancel(response);
             throw new Error(`Native Personal OrdaX state unavailable: ${response.status}`);
           }
-          const envelope = await boundedJson(response);
+          const envelope = await transport.readJson(response);
           if (
             !envelope
             || typeof envelope !== "object"
@@ -175,39 +95,31 @@ export function createNativePersonalOrdaxStateTransport(
         throw new TypeError("Native Personal OrdaX expected revision is invalid");
       }
       const state = validatePersonalOrdaxStoreState(stateValue, owner);
-      const payload = JSON.stringify(state);
       const request = JSON.stringify({
         action: "compare-and-swap",
         ownerKind: owner.ownerKind,
         ownerId: owner.ownerId,
         expectedRevision,
-        payload,
+        payload: JSON.stringify(state),
       });
-      if (encoder.encode(request).byteLength > MAX_RESPONSE_BYTES) {
-        throw new Error("Native Personal OrdaX mutation exceeds byte limit");
-      }
-      return await withTimeout(
-        fetchImpl,
+      return await transport.request(
         PERSONAL_ORDAX_NATIVE_STATE_ENDPOINT,
         {
           method: "POST",
-          cache: "no-store",
-          credentials: "same-origin",
+          operation: "state mutation",
           headers: { "Content-Type": "application/json" },
           body: request,
         },
-        requestTimeout,
-        "Native Personal OrdaX state mutation",
         async (response) => {
           if (response.status === 409) {
-            cancelBody(response);
+            transport.cancel(response);
             return Object.freeze({ accepted: false, revision: null });
           }
           if (!response.ok) {
-            cancelBody(response);
+            transport.cancel(response);
             throw new Error(`Native Personal OrdaX mutation failed: ${response.status}`);
           }
-          const result = await boundedJson(response);
+          const result = await transport.readJson(response);
           if (
             !result
             || typeof result !== "object"
