@@ -43,6 +43,7 @@ class RepositoryMigrationStatusTests(unittest.TestCase):
         self.assertTrue(gates["production_deploy_repointed"])
         self.assertTrue(gates["chatgpt_control_plane_runtime_e2e_green"])
         self.assertTrue(gates["safe_to_delete_legacy_repository"])
+        self.assertTrue(gates["legacy_repository_contents_removed"])
 
 if __name__ == "__main__":
     unittest.main()
