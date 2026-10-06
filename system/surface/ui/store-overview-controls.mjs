@@ -92,7 +92,7 @@ export function mountStoreOverviewControls(root, surfaceLifecycle) {
         documentObject,
         "span",
         "ordax-store-card-meta",
-        t("store.delivery.on-demand"),
+        t(`store.delivery.${entry.deliveryClass}`),
       );
       const action = node(
         documentObject,
