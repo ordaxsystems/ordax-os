@@ -93,7 +93,7 @@ test("install request port exposes request only, not lifecycle authority", () =>
       requestInstall() {},
       promote() {},
     }),
-    /must not expose lifecycle authority/,
+    /fields are not canonical|must not expose lifecycle authority/,
   );
 });
 
@@ -123,5 +123,17 @@ test("install request receipt preserves request identity and remains authority-f
       reason: null,
     }),
     /requires reason/,
+  );
+});
+
+test("install request port rejects any extra enumerable surface", () => {
+  assert.throws(
+    () => assertAppInstallRequestPort({
+      schema: APP_INSTALL_REQUEST_PORT_SCHEMA,
+      authority: "none",
+      requestInstall() {},
+      metadata: {},
+    }),
+    /fields are not canonical/,
   );
 });
