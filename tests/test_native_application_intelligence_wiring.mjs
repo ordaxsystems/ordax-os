@@ -7,18 +7,38 @@ const mainSource = await readFile(
   "utf8",
 );
 
+function between(source, startMarker, endMarker) {
+  const start = source.indexOf(startMarker);
+  assert.notEqual(start, -1, `missing start marker: ${startMarker}`);
+  const end = source.indexOf(endMarker, start);
+  assert.notEqual(end, -1, `missing end marker: ${endMarker}`);
+  return source.slice(start, end);
+}
+
 test("Native Application Intelligence is a non-critical consultative wrapper", () => {
-  assert.match(
+  const appContextBlock = between(
     mainSource,
-    /const applicationContextIntelligence = await optionalNativeProbe\([\s\S]*createNativeVerifiedApplicationContextIntelligence\([\s\S]*\)\s*\)\s*\?\? profileContentIntelligence;/,
+    "const applicationContextIntelligence = await optionalNativeProbe(",
+    "const selectedSpaceIntelligence = memory === null",
   );
-  assert.match(
+  const profileBlock = between(
     mainSource,
-    /const profileContentIntelligence = [\s\S]*intelligencePort: intelligence/,
+    "const profileContentIntelligence =",
+    "const applicationContextIntelligence = await optionalNativeProbe(",
   );
-  assert.match(
+  const memoryBlock = between(
     mainSource,
-    /createIdentityBoundMemoryIntelligence\(\{\s*intelligencePort: applicationContextIntelligence,/,
+    "const selectedSpaceIntelligence = memory === null",
+    "const personalOrdaxFileActions =",
+  );
+
+  assert.match(appContextBlock, /createNativeVerifiedApplicationContextIntelligence\(\{/);
+  assert.match(appContextBlock, /intelligencePort: profileContentIntelligence/);
+  assert.match(appContextBlock, /\?\? profileContentIntelligence;/);
+  assert.match(profileBlock, /intelligencePort: intelligence/);
+  assert.match(
+    memoryBlock,
+    /createIdentityBoundMemoryIntelligence\(\{[\s\S]*intelligencePort: applicationContextIntelligence/,
   );
 });
 
