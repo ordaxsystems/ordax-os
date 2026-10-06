@@ -693,6 +693,29 @@ func rollbackCurrentStateAtRevision(
 	})
 }
 
+func makeComponentPayloadRemovable(root string) error {
+	return filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return errors.New("runtime component payload cleanup refuses symlinks")
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		switch {
+		case info.IsDir():
+			return os.Chmod(path, 0o700)
+		case info.Mode().IsRegular():
+			return os.Chmod(path, 0o600)
+		default:
+			return errors.New("runtime component payload cleanup refuses special files")
+		}
+	})
+}
+
 func removeComponentPayloadSlots(root, componentID string) error {
 	componentRoot, err := componentActivationRoot(root, componentID, false)
 	if errors.Is(err, os.ErrNotExist) {
@@ -711,6 +734,9 @@ func removeComponentPayloadSlots(root, componentID string) error {
 	}
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("runtime component versions root must be a real directory")
+	}
+	if err := makeComponentPayloadRemovable(versionsRoot); err != nil {
+		return err
 	}
 	if err := os.RemoveAll(versionsRoot); err != nil {
 		return err
