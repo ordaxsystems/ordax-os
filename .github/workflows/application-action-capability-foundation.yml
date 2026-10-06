@@ -8,6 +8,12 @@ on:
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
+      - 'tests/test_application_semantic_router.mjs'
+      - 'tests/test_application_intelligence_context.mjs'
+      - 'system/apps/**/ai/**'
+      - 'system/apps/intelligence-catalog.mjs'
+      - 'system/services/intelligence/application-semantic-router.mjs'
+      - 'system/services/intelligence/application-context.mjs'
       - 'tests/test_application_action_capability.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
   push:
@@ -41,10 +47,18 @@ jobs:
           node --check system/contracts/application-intelligence-awareness.mjs
           node --check system/services/intelligence/application-action-capabilities.mjs
           node --check system/services/intelligence/application-awareness.mjs
+          node --check system/services/intelligence/application-context.mjs
+          node --check system/services/intelligence/application-semantic-router.mjs
+          node --check system/apps/intelligence-catalog.mjs
+          find system/apps -path '*/ai/*.mjs' -type f -print0 | sort -z | xargs -0 -n1 node --check
           node --check tests/test_application_action_capability.mjs
+          node --check tests/test_application_intelligence_context.mjs
+          node --check tests/test_application_semantic_router.mjs
 
       - name: Run capability and awareness contract tests
         run: |
           set -euo pipefail
           node --test tests/test_application_action_capability.mjs
           node --test tests/test_application_intelligence_awareness.mjs
+          node --test tests/test_application_intelligence_context.mjs
+          node --test tests/test_application_semantic_router.mjs
