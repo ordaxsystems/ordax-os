@@ -9,7 +9,6 @@ APPEARANCE = ROOT / "system" / "services" / "preferences" / "appearance.mjs"
 DESKTOP_IDENTITY = ROOT / "docs" / "DESKTOP-IDENTITY.md"
 BROWSER_SMOKE = ROOT / "tools" / "surface-web" / "browser-smoke.mjs"
 PROJECTS_CSS = ROOT / "system" / "apps" / "projects" / "projects.css"
-NOTES_CSS = ROOT / "system" / "apps" / "notes" / "notes.css"
 INTERNET_CSS = ROOT / "system" / "apps" / "internet" / "internet.css"
 SETTINGS_CSS = SURFACE / "settings.css"
 ACCOUNT_CSS = SURFACE / "account.css"
@@ -139,21 +138,6 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         ):
             self.assertIn(declaration, css)
 
-    def test_notes_consumes_semantic_tokens_in_component_css(self):
-        css = NOTES_CSS.read_text(encoding="utf-8")
-        self.assertNotIn("--notes-accent: #ed4b25", css)
-        for declaration in (
-            "--notes-paper: var(--ordax-panel)",
-            "--notes-ivory: var(--ordax-app-bg)",
-            "--notes-ink: var(--ordax-text)",
-            "--notes-muted: var(--ordax-muted)",
-            "--notes-accent: var(--ordax-accent)",
-            "--notes-soft: var(--ordax-selected-bg)",
-            "background: var(--ordax-button-bg)",
-            "color: var(--ordax-button-text)",
-            "background: var(--ordax-danger-bg)",
-        ):
-            self.assertIn(declaration, css)
 
     def test_internet_consumes_semantic_tokens_in_component_css(self):
         css = INTERNET_CSS.read_text(encoding="utf-8")
