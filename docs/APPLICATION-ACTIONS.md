@@ -418,3 +418,25 @@ A provider manifest is metadata only. Loading it does not import the module, cre
 
 Legacy verified packages that already expose proposal-only Application Actions but do not yet contain a provider manifest remain readable for Intelligence/capability discovery. Their `providerManifest` is `null`, so any later provider-artifact gate can fail closed without breaking read-only semantic discovery.
 
+## Verified provider artifact binding
+
+A current verified provider binding still proves only package/provider identity. Before any future provider module can be considered for loading, Personal OrdaX can now resolve a second authority-free identity gate:
+
+```text
+current provider binding
+  -> current verified provider manifest
+  -> exact package-owned module path
+  -> current slot metadata recheck
+  -> same-origin no-redirect module fetch
+  -> bounded SHA-256
+  -> provider artifact binding
+```
+
+The resulting `ordax.application-action-provider-artifact-binding/1` carries the existing provider binding plus the canonical module path and verified SHA-256. It remains `authority=none`, `executionAuthorized=false`, and `modelDirectExecutionAuthorized=false`.
+
+The resolver fails closed when the provider manifest is absent, the provider identity no longer matches, the actual module hash differs from the declared hash, the preparation is revoked during hashing, or the verified app/provider binding changes while hashing is in progress.
+
+The Native hashing primitive rejects cross-origin URLs, follows no redirects, disables caching, keeps same-origin credentials, bounds the source size, and hashes with Web Crypto.
+
+This artifact binding still does not import the provider module and does not create an `ordax.application-action-provider/1` runtime object. A future typed loader must revalidate this exact binding before importing/constructing any provider, and execution must still enter the existing Personal OrdaX approval/grant/gateway/executor path.
+
