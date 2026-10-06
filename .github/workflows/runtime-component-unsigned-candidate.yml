@@ -1,0 +1,122 @@
+name: Runtime Component Unsigned Candidate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'tests/test_runtime_component_unsigned_candidate.py'
+      - 'docs/contracts/external-unsigned-candidate-interop.json'
+      - 'docs/contracts/runtime-component-package.json'
+      - '.github/workflows/runtime-component-unsigned-candidate.yml'
+  pull_request:
+    paths:
+      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'tests/test_runtime_component_unsigned_candidate.py'
+      - 'docs/contracts/external-unsigned-candidate-interop.json'
+      - 'docs/contracts/runtime-component-package.json'
+      - '.github/workflows/runtime-component-unsigned-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact platform source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate interop contract
+        run: |
+          set -euo pipefail
+          python3 -m json.tool docs/contracts/external-unsigned-candidate-interop.json >/dev/null
+          python3 -m unittest tests/test_runtime_component_unsigned_candidate.py
+
+      - name: Read pinned external source
+        id: interop
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          value = json.loads(Path("docs/contracts/external-unsigned-candidate-interop.json").read_text())
+          assert value["authority"] == "none"
+          assert value["signing_authorized"] is False
+          assert value["publication_authorized"] is False
+          assert value["installation_authorized"] is False
+          assert value["activation_authorized"] is False
+          print(f"repository={value['source_repository']}")
+          print(f"commit={value['source_commit']}")
+          print(f"component={value['component_id']}")
+          PY
+
+      - name: Checkout pinned ordax-apps source fixture
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ steps.interop.outputs.repository }}
+          ref: ${{ steps.interop.outputs.commit }}
+          path: .ordax-apps-fixture
+          persist-credentials: false
+
+      - name: Build public-only interoperability fixture
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ordax-unsigned-candidate"
+          mkdir -p "$out/release"
+          source_commit="${{ steps.interop.outputs.commit }}"
+
+          python3 .ordax-apps-fixture/tools/app-package/build.py build \
+            --app-root .ordax-apps-fixture/apps/notes \
+            --source-commit "$source_commit" \
+            --compatibility .ordax-apps-fixture/migrations/notes.compatibility.json \
+            --package-out "$out/notes.zip" \
+            --release-dir "$out/release"
+
+          python3 .ordax-apps-fixture/tools/app-package/build.py verify \
+            --package "$out/notes.zip" \
+            --release "$out/release/notes.release.json" \
+            --compatibility "$out/release/notes.compatibility.json"
+
+          python3 .ordax-apps-fixture/tools/app-package/render_unsigned_handoff.py \
+            --package "$out/notes.zip" \
+            --release "$out/release/notes.release.json" \
+            --compatibility "$out/release/notes.compatibility.json" \
+            --app-id notes \
+            --source-commit "$source_commit" \
+            --out "$out/notes.unsigned-candidate.json"
+
+          cp "$out/release/notes.release.json" "$out/notes.release.json"
+          cp "$out/release/notes.compatibility.json" "$out/notes.compatibility.json"
+          rm -rf "$out/release"
+          (
+            cd "$out"
+            sha256sum \
+              notes.zip \
+              notes.release.json \
+              notes.compatibility.json \
+              notes.unsigned-candidate.json \
+              > SHA256SUMS
+          )
+
+      - name: Verify external unsigned candidate with platform policy
+        run: |
+          set -euo pipefail
+          python3 tools/runtime-component-channel/verify_unsigned_candidate.py \
+            --candidate-dir "$RUNNER_TEMP/ordax-unsigned-candidate" \
+            --package-policy docs/contracts/runtime-component-package.json
+
+      - name: Assert no authority or secret material entered the proof
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ordax-unsigned-candidate"
+          test -z "$(find "$out" -type f \( -iname '*.pem' -o -iname '*.key' -o -iname '*.p12' -o -iname '*.pfx' \) -print -quit)"
+          echo 'EXTERNAL_UNSIGNED_CANDIDATE_INTEROP=PASS'
+          echo 'PRIVATE_KEY_PRESENT=NO'
+          echo 'SIGNING_PERFORMED=NO'
+          echo 'PUBLICATION_PERFORMED=NO'
+          echo 'ACTIVATION_PERFORMED=NO'
