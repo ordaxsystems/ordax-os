@@ -72,7 +72,7 @@ test("first-party identity inventory covers delivery policy and matches embedded
     false,
     "external Notes must not be reintroduced into the embedded runtime catalog",
   );
-  assert.equal(actual.get("notes"), "0.4.1", "external Notes identity must remain verifiable");
+  assert.equal(actual.get("notes"), "0.4.2", "external Notes identity must match the canonical external package");
 });
 
 test("identity inventory never treats signing or display metadata as the durable principal", async () => {
