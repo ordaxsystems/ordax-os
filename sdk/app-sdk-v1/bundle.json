@@ -153,9 +153,9 @@
     },
     {
       "major": 1,
-      "name": "project-cloud-links",
-      "schema": "ordax.project-cloud-links/1",
-      "source_git_blob": "5e32bd6443290c820c1aadcdd61cc42973fa6640",
+      "name": "project-cloud-links-reader",
+      "schema": "ordax.project-cloud-links-reader/1",
+      "source_git_blob": "4936c081695cf0beccc5705a4c5e0b73388c9786",
       "source_path": "system/contracts/project-cloud-links.mjs"
     },
     {
