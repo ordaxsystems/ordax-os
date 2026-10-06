@@ -3,7 +3,6 @@ import {
   renderedSourceSha,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
-import { createNativeVerifiedComponentPackageSource } from "../../adapters/native/verified-component-package-source.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
 import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser-favorites.mjs";
 import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
@@ -47,7 +46,6 @@ import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
-import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
@@ -62,13 +60,6 @@ import { createUpdateNotificationBridge } from "../../services/notifications/upd
 import { createDiagnosticJournalRuntime } from "../../services/diagnostics/runtime.mjs";
 import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
-import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
-import { createApplicationContextIntelligence } from "../../services/intelligence/application-context.mjs";
-import {
-  EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
-  loadVerifiedFirstPartyApplicationSemantics,
-  overlayVerifiedFirstPartyApplications,
-} from "../../services/intelligence/verified-app-semantics.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
@@ -90,6 +81,7 @@ import { createMemoryConflictReviewRuntime } from "../../services/sync/memory-co
 import { seedMissingRegionalPreferencesFromFirstRun } from "../../services/state/first-run.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
+import { createNativeVerifiedApplicationContextIntelligence } from "./application-intelligence.mjs";
 import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
 import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
 import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
@@ -274,25 +266,6 @@ async function start() {
     fetchImpl: localAiFetch,
   });
   const intelligence = createIntelligenceRuntime({ inferencePort: localAi });
-  const verifiedFirstPartySemantics = await optionalNativeProbe(
-    "OrdaX verified first-party app semantics unavailable; using local catalog only",
-    () => loadVerifiedFirstPartyApplicationSemantics({
-      appIds: EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
-      source: createNativeVerifiedComponentPackageSource(window),
-      fetchImpl: localAiFetch,
-    }),
-  ) ?? Object.freeze([]);
-  const firstPartyApplications = overlayVerifiedFirstPartyApplications(
-    listFirstPartyApps(),
-    verifiedFirstPartySemantics,
-  );
-  const applicationAwareness = createApplicationIntelligenceAwareness({
-    firstPartyApplications,
-    installedApplications: [],
-    firstPartyIntelligenceManifests: verifiedFirstPartySemantics.map(
-      (entry) => entry.intelligenceManifest,
-    ),
-  });
   const memory = memoryStore === null
     ? null
     : createMemoryRuntime({ store: memoryStore });
@@ -426,10 +399,16 @@ async function start() {
         spaceSelectionPort: spaceSelection,
       })
     : intelligence;
-  const applicationContextIntelligence = createApplicationContextIntelligence({
+  const applicationContextIntelligence = await createNativeVerifiedApplicationContextIntelligence({
+    windowRef: window,
     intelligencePort: profileContentIntelligence,
-    awarenessPort: applicationAwareness,
-    actionCapabilityRegistryPort: null,
+    fetchImpl: localAiFetch,
+    onSemanticError(error, context) {
+      console.warn(
+        `OrdaX verified app semantics unavailable for ${context.appId}; keeping base catalog`,
+        error,
+      );
+    },
   });
   const selectedSpaceIntelligence = memory === null
     ? applicationContextIntelligence
