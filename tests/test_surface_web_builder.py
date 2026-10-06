@@ -25,6 +25,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             "system/apps/settings/app.mjs",
             "system/apps/account/app.mjs",
             "system/apps/system/app.mjs",
+            "system/apps/store/app.mjs",
             "system/apps/internet/runtime.mjs",
             "system/apps/internet/internet.css",
             "system/services/preferences/appearance.mjs",
@@ -35,6 +36,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             "system/contracts/surface-host.mjs",
             "system/contracts/preference-store.mjs",
             "system/contracts/app-activation.mjs",
+            "system/contracts/app-store.mjs",
             "system/surface/ui/tokens.css",
             "system/surface/ui/surface.css",
             "system/surface/ui/files.css",
@@ -44,6 +46,8 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             "system/surface/ui/account.css",
             "system/surface/ui/settings-overview-controls.mjs",
             "system/surface/ui/settings.css",
+            "system/surface/ui/store.css",
+            "system/surface/ui/store-overview-controls.mjs",
             "system/contracts/preference-runtime.mjs",
             "system/contracts/network-status.mjs",
             "system/contracts/update-history.mjs",
@@ -163,6 +167,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
         self.assertIn("./system/surface/ui/system.css", rendered)
         self.assertIn("./system/surface/ui/account.css", rendered)
         self.assertIn("./system/surface/ui/settings.css", rendered)
+        self.assertIn("./system/surface/ui/store.css", rendered)
         self.assertIn("./system/composition/web/main.mjs", rendered)
         self.assertNotIn("https://", rendered)
 
