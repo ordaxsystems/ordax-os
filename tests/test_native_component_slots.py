@@ -73,6 +73,17 @@ class NativeComponentSlotTests(unittest.TestCase):
                 )
             )
 
+    def test_notes_is_an_explicit_supported_component_without_opening_generic_ids(self):
+        self.assertIn("internet", slots.SUPPORTED_COMPONENTS)
+        self.assertIn("notes", slots.SUPPORTED_COMPONENTS)
+        with self.assertRaises(slots.ComponentSlotRequestError):
+            slots.resolve_component_slot(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="assistant",
+                state="pending",
+            )
+
     def test_current_bundled_resolution_is_parsed_without_slot_claim(self):
         output = (
             b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
