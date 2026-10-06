@@ -97,6 +97,31 @@ async function readVerifiedPackageJson({
   );
 }
 
+
+async function readOptionalVerifiedPackageJson({
+  appId,
+  metadata,
+  path,
+  packageSource,
+  fetchImpl,
+  label,
+}) {
+  const url = packageSource.fileUrl({
+    componentId: appId,
+    state: "current",
+    resolution: metadata,
+    path,
+  });
+  const response = await fetchImpl(url, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+    redirect: "error",
+  });
+  if (response?.status === 404) return null;
+  return readJsonResponse(response, label);
+}
+
 function validateExternalAppComponent(value, appId, metadata) {
   if (value?.schema !== COMPONENT_MANIFEST_SCHEMA) {
     throw new TypeError(`Verified external app schema drifted for ${appId}`);
@@ -258,23 +283,23 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
       },
     );
 
-    const actionManifest = validateActionIntentBindings(
-      intelligenceManifest,
-      validateApplicationActionManifest(
-        await readVerifiedPackageJson({
-          appId,
-          metadata,
-          path: `system/apps/${appId}/actions/manifest.json`,
-          packageSource,
-          fetchImpl,
-          label: `Verified app Application Action manifest for ${appId}`,
-        }),
-        {
-          appId: component.id,
-          appVersion: component.version,
-        },
-      ),
-    );
+    const rawActionManifest = await readOptionalVerifiedPackageJson({
+      appId,
+      metadata,
+      path: `system/apps/${appId}/actions/manifest.json`,
+      packageSource,
+      fetchImpl,
+      label: `Verified app Application Action manifest for ${appId}`,
+    });
+    const actionManifest = rawActionManifest === null
+      ? null
+      : validateActionIntentBindings(
+          intelligenceManifest,
+          validateApplicationActionManifest(rawActionManifest, {
+            appId: component.id,
+            appVersion: component.version,
+          }),
+        );
 
     entries.push(Object.freeze({
       application: Object.freeze({
@@ -317,13 +342,15 @@ function validateVerifiedOverlayEntry(entry) {
     appId: component.id,
     appVersion: component.version,
   });
-  const actionManifest = validateActionIntentBindings(
-    intelligenceManifest,
-    validateApplicationActionManifest(entry.actionManifest, {
-      appId: component.id,
-      appVersion: component.version,
-    }),
-  );
+  const actionManifest = entry.actionManifest === null
+    ? null
+    : validateActionIntentBindings(
+        intelligenceManifest,
+        validateApplicationActionManifest(entry.actionManifest, {
+          appId: component.id,
+          appVersion: component.version,
+        }),
+      );
   const sourceCommit = validateComponentSlotSourceCommit(entry.sourceCommit);
   if (!Number.isSafeInteger(entry.revision) || entry.revision < 0) {
     throw new TypeError(`Verified app semantics overlay revision is invalid for ${id}`);
@@ -385,5 +412,5 @@ export async function loadVerifiedFirstPartyIntelligenceManifests(options = {}) 
 
 export async function loadVerifiedFirstPartyApplicationActionManifests(options = {}) {
   const entries = await loadVerifiedFirstPartyApplicationSemantics(options);
-  return Object.freeze(entries.map((entry) => entry.actionManifest));
+  return Object.freeze(entries.flatMap((entry) => entry.actionManifest === null ? [] : [entry.actionManifest]));
 }
