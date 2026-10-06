@@ -88,3 +88,60 @@ test("Store controls cannot import component lifecycle authority directly", asyn
   assert.doesNotMatch(source, /promote\(/);
   assert.doesNotMatch(source, /stage\(/);
 });
+
+test("Store catalog rejects unbounded and semantically inconsistent entries", () => {
+  const baseEntry = {
+    appId: "notes",
+    title: "Notas",
+    version: "0.4.3",
+    state: "available",
+    installable: true,
+    installed: false,
+    blockedReason: null,
+    artifactIdentityVerified: true,
+    provenanceVerified: true,
+  };
+  const snapshot = (entry) => ({
+    schema: APP_STORE_CATALOG_SCHEMA,
+    state: "ready",
+    entries: [entry],
+    reason: null,
+    authority: "none",
+  });
+
+  assert.throws(
+    () => validateAppStoreCatalogSnapshot(snapshot({ ...baseEntry, title: "x".repeat(161) })),
+    /bounded canonical title/,
+  );
+  assert.throws(
+    () => validateAppStoreCatalogSnapshot(snapshot({ ...baseEntry, version: "latest" })),
+    /canonical SemVer/,
+  );
+  assert.throws(
+    () => validateAppStoreCatalogSnapshot(snapshot({ ...baseEntry, state: "installing" })),
+    /must be in available state/,
+  );
+  assert.throws(
+    () => validateAppStoreCatalogSnapshot(snapshot({
+      ...baseEntry,
+      state: "failed-retained",
+      installable: false,
+      installed: false,
+    })),
+    /requires installed payload/,
+  );
+  assert.throws(
+    () => validateAppStoreCatalogSnapshot({
+      schema: APP_STORE_CATALOG_SCHEMA,
+      state: "ready",
+      entries: Array.from({ length: 257 }, (_, index) => ({
+        ...baseEntry,
+        appId: `app-${index}`,
+        installable: false,
+      })),
+      reason: null,
+      authority: "none",
+    }),
+    /bounded array/,
+  );
+});
