@@ -1,0 +1,56 @@
+{
+  "$schema": "prototype-ordax.project-native-state/1",
+  "status": "durable-foundation-unmounted",
+  "owner": "platform-projects",
+  "project_catalog_contract": "system/contracts/project-catalog.mjs",
+  "project_store_contract": "system/contracts/project-store.mjs",
+  "native_record_schema": "ordax.native-project-store-record/1",
+  "format_version": 1,
+  "current_surface_adapter": "system/adapters/native/projects.mjs",
+  "current_surface_persistence": "localStorage-with-session-fallback",
+  "native_state_owner": "system/surface/runtime/native_project_state.py",
+  "native_transport": "system/adapters/native/project-state.mjs",
+  "migration": "system/services/files/native-project-state-migration.mjs",
+  "native_endpoint_path": "/__ordax/native/project-state",
+  "shared_client_transport": "system/adapters/native/bounded-json-transport.mjs",
+  "shared_host_storage": "system/surface/runtime/native_partitioned_json_state.py",
+  "host_state": {
+    "root": "/var/lib/ordax/projects",
+    "partition": "catalog",
+    "root_private_mode": "0700",
+    "state_and_lock_private_mode": "0600",
+    "symlink_following_allowed": false,
+    "atomic_replace": true,
+    "directory_fsync": true,
+    "revision_cas": true,
+    "max_record_bytes": 1048576,
+    "max_projects": 32
+  },
+  "migration_policy": {
+    "direction": "legacy-localStorage-to-native-only",
+    "automatic_conflict_winner": null,
+    "divergence_fails_closed": true,
+    "cas_race_requires_exact_readback_convergence": true,
+    "legacy_deleted_by_migration": false
+  },
+  "composition": {
+    "host_route_mounted": false,
+    "project_runtime_cutover": false,
+    "legacy_fallback_after_cutover_allowed": false,
+    "work_coordination_project_authority_ready": false
+  },
+  "invariants": {
+    "second_project_catalog_allowed": false,
+    "project_ids_and_paths_unique": true,
+    "unknown_format_version_fails_closed": true,
+    "stale_revision_overwrite_allowed": false,
+    "browser_localStorage_is_final_authority": false
+  },
+  "next": [
+    "typed-native-project-endpoint-boundary",
+    "async-bootstrap-and-cutover-plan",
+    "verified-legacy-migration",
+    "remove-localStorage-authority-after-cutover",
+    "expose-read-only-project-existence-to-work-coordination-host"
+  ]
+}

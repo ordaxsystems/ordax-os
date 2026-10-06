@@ -1,0 +1,90 @@
+name: Native Project State Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/project-native-state.json'
+      - 'system/contracts/project-catalog.mjs'
+      - 'system/contracts/project-store.mjs'
+      - 'system/adapters/native/bounded-json-transport.mjs'
+      - 'system/adapters/native/projects.mjs'
+      - 'system/adapters/native/project-state.mjs'
+      - 'system/services/files/projects.mjs'
+      - 'system/services/files/native-project-state-migration.mjs'
+      - 'system/surface/runtime/native_partitioned_json_state.py'
+      - 'system/surface/runtime/native_project_state.py'
+      - 'tests/test_native_bounded_json_transport.mjs'
+      - 'tests/test_native_partitioned_json_state.py'
+      - 'tests/test_native_project_state.py'
+      - 'tests/test_project_native_state_transport.mjs'
+      - 'tests/test_project_native_state_migration.mjs'
+      - 'tests/test_projects.mjs'
+      - '.github/workflows/native-project-state.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/project-native-state.json'
+      - 'system/contracts/project-catalog.mjs'
+      - 'system/contracts/project-store.mjs'
+      - 'system/adapters/native/bounded-json-transport.mjs'
+      - 'system/adapters/native/projects.mjs'
+      - 'system/adapters/native/project-state.mjs'
+      - 'system/services/files/projects.mjs'
+      - 'system/services/files/native-project-state-migration.mjs'
+      - 'system/surface/runtime/native_partitioned_json_state.py'
+      - 'system/surface/runtime/native_project_state.py'
+      - 'tests/test_native_bounded_json_transport.mjs'
+      - 'tests/test_native_partitioned_json_state.py'
+      - 'tests/test_native_project_state.py'
+      - 'tests/test_project_native_state_transport.mjs'
+      - 'tests/test_project_native_state_migration.mjs'
+      - 'tests/test_projects.mjs'
+      - '.github/workflows/native-project-state.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-project-state:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate contract and modules
+        run: |
+          set -euo pipefail
+          python -m json.tool docs/contracts/project-native-state.json >/dev/null
+          python -m py_compile \
+            system/surface/runtime/native_partitioned_json_state.py \
+            system/surface/runtime/native_project_state.py
+          node --check system/adapters/native/bounded-json-transport.mjs
+          node --check system/adapters/native/project-state.mjs
+          node --check system/services/files/native-project-state-migration.mjs
+
+      - name: Prove private revisioned host state
+        run: |
+          set -euo pipefail
+          python -m unittest \
+            tests.test_native_partitioned_json_state \
+            tests.test_native_project_state
+
+      - name: Preserve current Project runtime contract
+        run: |
+          set -euo pipefail
+          node --test tests/test_projects.mjs
+
+      - name: Prove bounded Native transport
+        run: |
+          set -euo pipefail
+          node --test tests/test_native_bounded_json_transport.mjs
+          node --test tests/test_project_native_state_transport.mjs
+
+      - name: Prove fail-closed one-way migration
+        run: |
+          set -euo pipefail
+          node --test tests/test_project_native_state_migration.mjs
