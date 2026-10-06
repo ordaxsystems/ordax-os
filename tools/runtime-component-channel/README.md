@@ -63,3 +63,20 @@ The canonical component trust anchor is still unresolved until the explicit oper
 The fixed first key id is `ordax-runtime-components-v1`. Only the reviewed public anchor may eventually be pinned at `system/trust/runtime-components-ed25519.json`; the matching private key stays outside Git and outside the device.
 
 Do not reuse or silently alias the whole-OS release key as component trust. Public-anchor pinning alone does not authorize publication or production activation.
+
+
+## Read-only Native slot exposure
+
+The Native Surface host may expose verified slot bytes only through the runtime-component verifier.
+
+The bounded read allowlist is intentionally explicit:
+
+- `internet`
+- `notes`
+- `studio`
+
+For externally sourced first-party apps such as Notes and Studio, `current` with no activation resolves as `ABSENT`; it is not treated as a bundled fallback.
+
+Expanding the read allowlist does not expand mutation authority. The Native pending-health mutation path keeps its own narrower allowlist and must not inherit read permissions automatically.
+
+This boundary is what allows trusted composition code to read package-owned metadata such as `system/apps/<app-id>/ai/manifest.json` from an exact verified slot identity without introducing generic filesystem access.
