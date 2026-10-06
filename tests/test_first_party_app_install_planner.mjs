@@ -22,7 +22,13 @@ function artifact(overrides = {}) {
   return {
     appId: "notes",
     version: "0.4.1",
-    sha256: "a".repeat(64),
+    releaseSchema: "prototype-ordax.runtime-component-release/2",
+    releaseMode: "component-slot",
+    sourceRepository: "washingtonmsdj/ordax-apps",
+    sourceCommit: "1".repeat(40),
+    releaseEnvelopeSha256: "a".repeat(64),
+    packageSha256: "b".repeat(64),
+    compatibilitySha256: "c".repeat(64),
     verified: true,
     compatible: true,
     ...overrides,
@@ -87,7 +93,11 @@ test("ready plan binds exact verified compatible artifact identity only after ac
   assert.equal(plan.reason, "install-plan-ready");
   assert.equal(plan.appId, "notes");
   assert.equal(plan.artifact.version, "0.4.1");
-  assert.equal(plan.artifact.sha256, "a".repeat(64));
+  assert.equal(plan.artifact.sourceRepository, "washingtonmsdj/ordax-apps");
+  assert.equal(plan.artifact.sourceCommit, "1".repeat(40));
+  assert.equal(plan.artifact.releaseEnvelopeSha256, "a".repeat(64));
+  assert.equal(plan.artifact.packageSha256, "b".repeat(64));
+  assert.equal(plan.artifact.compatibilitySha256, "c".repeat(64));
   assert.equal(plan.authority, "none");
 });
 
@@ -182,9 +192,33 @@ test("planner rejects mismatched or malformed artifact identity and blocks unver
     () => planner.planInstall({
       appId: "notes",
       observation: observation(),
-      artifact: artifact({ sha256: "../bad" }),
+      artifact: artifact({ packageSha256: "../bad" }),
       productionActivationAllowed: true,
     }),
-    /sha256 is invalid/,
+    /package sha256 is invalid/,
   );
+});
+
+
+test("planner artifact reference is bound to runtime-component release v2 identity", () => {
+  const planner = createFirstPartyAppInstallPlanner();
+
+  for (const overrides of [
+    { releaseSchema: "prototype-ordax.runtime-component-release/1" },
+    { releaseMode: "git-app" },
+    { sourceRepository: "../private" },
+    { sourceCommit: "not-a-commit" },
+    { releaseEnvelopeSha256: "d".repeat(63) },
+    { compatibilitySha256: "e".repeat(63) },
+  ]) {
+    assert.throws(
+      () => planner.planInstall({
+        appId: "notes",
+        observation: observation(),
+        artifact: artifact(overrides),
+        productionActivationAllowed: true,
+      }),
+      /install artifact/,
+    );
+  }
 });
