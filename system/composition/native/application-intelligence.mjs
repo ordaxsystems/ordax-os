@@ -64,5 +64,6 @@ export async function createNativeVerifiedApplicationContextIntelligence({
   return createApplicationContextIntelligence({
     intelligencePort,
     awarenessPort,
+    actionCapabilityRegistryPort: null,
   });
 }
