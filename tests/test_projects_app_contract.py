@@ -40,7 +40,8 @@ class ProjectsAppContractTests(unittest.TestCase):
         runtime = self.text(PROJECTS / "runtime.mjs")
         native = self.text(NATIVE)
 
-        self.assertIn("assertProjectCatalogPort", controls)
+        self.assertIn("assertProjectCatalogReader", controls)
+        self.assertNotIn("assertProjectCatalogPort", controls)
         self.assertIn("assertProjectCloudLinksReaderPort", controls)
         self.assertIn("project-cloud-links-reader.mjs", controls)
         self.assertNotIn("assertProjectCloudLinksPort", controls)
