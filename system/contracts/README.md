@@ -36,6 +36,7 @@ The product foundation also defines narrow provider-neutral ports for the next a
 - `personal-ordax.mjs` — identity-bound work, visible activity, persisted work-result provenance and action-decision values for Personal OrdaX; persisted model output remains `authority=none` and never creates privilege;
 - `personal-ordax-store.mjs` — bounded owner-partitioned work/activity/result persistence and runtime snapshot contract; persistence is separate from Memory and cannot redefine owner/scope/authority;
 - `personal-action-proposal.mjs` — catalog-bound, ephemeral Personal OrdaX proposal value with fixed `authority=none`; it cannot carry tool/action/grant/approval/resource authority or authorize execution;
+- `work-coordination.mjs` — system-owned, provider-neutral plan/task/claim/checkpoint/evidence values plus explicit user coordination policy; finite claims prevent permanent chat locks, while every value remains `authority=none` and public/background coordination stays disabled;
 - `semantic-index.mjs` — derived/rebuildable vector index identity; embedding changes invalidate the index without migrating or redefining OrdaX Memory.
 - `profile-provisioning.mjs` — lightweight Profile distribution identity and fail-closed provisioning plans; Stable USB bundles catalog metadata, not every professional payload.
 - `profile-component-inventory.mjs` — content-addressed installed Profile component inventory; Native is durable/read-only to Surface and Web is explicitly session-only.
