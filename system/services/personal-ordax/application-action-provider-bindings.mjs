@@ -17,7 +17,6 @@ import {
 import { defineComponentManifest } from "../../contracts/component-manifest.mjs";
 import { validateComponentSlotSourceCommit } from "../../contracts/component-slot-source.mjs";
 
-const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
 const RISK_TO_EFFECT = Object.freeze({
   "read-only": "read",
   "local-change": "write",
@@ -34,6 +33,19 @@ function canonicalJson(value) {
     .join(",")}}`;
 }
 
+function boundedOwner(value) {
+  if (
+    typeof value !== "string"
+    || value.length === 0
+    || value.length > 220
+    || value.includes("\0")
+    || /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    throw new TypeError("Application action provider resolver expected owner is invalid");
+  }
+  return value;
+}
+
 function sameProvider(left, right) {
   return left.kind === right.kind
     && left.adapterId === right.adapterId
@@ -46,7 +58,7 @@ function sameCapability(leftValue, rightValue) {
   return canonicalJson(left) === canonicalJson(right);
 }
 
-function validateVerifiedSemanticsEntry(value, preparation) {
+function validateVerifiedSemanticsEntry(value, preparation, expectedOwner) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Current verified application semantics entry is unavailable");
   }
@@ -60,7 +72,7 @@ function validateVerifiedSemanticsEntry(value, preparation) {
     || component.id !== preparation.proposal.appId
     || component.kind !== "app"
     || component.releaseMode !== "component-slot"
-    || component.owner !== EXTERNAL_FIRST_PARTY_OWNER
+    || component.owner !== expectedOwner
   ) {
     throw new TypeError("Current verified application identity drifted");
   }
@@ -93,6 +105,7 @@ export function createApplicationActionProviderResolver({
   preparationRegistry: preparationRegistryValue,
   capabilityRegistry: capabilityRegistryValue,
   resolveVerifiedSemantics,
+  expectedOwner,
 } = {}) {
   const preparationRegistry = assertApplicationActionPreparationRegistry(
     preparationRegistryValue,
@@ -103,6 +116,7 @@ export function createApplicationActionProviderResolver({
   if (typeof resolveVerifiedSemantics !== "function") {
     throw new TypeError("Application action provider resolver requires verified semantics resolver");
   }
+  const owner = boundedOwner(expectedOwner);
 
   const port = {
     schema: APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA,
@@ -144,6 +158,7 @@ export function createApplicationActionProviderResolver({
       const verified = validateVerifiedSemanticsEntry(
         await resolveVerifiedSemantics(preparation.proposal.appId),
         preparation,
+        owner,
       );
       if (!sameCapability(currentCapability, verified.capability)) {
         throw new Error("Verified package capability no longer matches the prepared capability");
