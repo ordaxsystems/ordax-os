@@ -16,6 +16,7 @@ import { NETWORK_APP_SOURCE_MESSAGES, NETWORK_APP_ENGLISH_MESSAGES } from "./cat
 import { POWER_SOURCE_MESSAGES, POWER_ENGLISH_MESSAGES } from "./catalog/power.mjs";
 import { NOTIFICATIONS_SOURCE_MESSAGES, NOTIFICATIONS_ENGLISH_MESSAGES } from "./catalog/notifications.mjs";
 import { LOCAL_SESSION_SOURCE_MESSAGES, LOCAL_SESSION_ENGLISH_MESSAGES } from "./catalog/local-session.mjs";
+import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.mjs";
 
 export const SURFACE_SOURCE_LOCALE = "pt-BR";
 export const SURFACE_COMPLETE_LOCALES = Object.freeze(["pt-BR", "en-US"]);
@@ -149,6 +150,11 @@ const SOURCE = Object.freeze({
   "app.system.panel.0.label": "Sistema",
   "app.system.panel.0.title": "Visão geral",
   "app.system.panel.0.body": "O estado detalhado do sistema não está disponível neste host.",
+  "app.store.title": "Loja",
+  "app.store.description": "Descubra aplicativos OrdaX e solicite instalações pelo lifecycle seguro da plataforma.",
+  "app.store.panel.0.label": "Loja",
+  "app.store.panel.0.title": "Aplicativos OrdaX",
+  "app.store.panel.0.body": "O catálogo de aplicativos não está disponível nesta composição.",
   ...FILES_SOURCE_MESSAGES,
   ...SETTINGS_SOURCE_MESSAGES,
   ...SYSTEM_SOURCE_MESSAGES,
@@ -162,7 +168,8 @@ const SOURCE = Object.freeze({
   ...NETWORK_APP_SOURCE_MESSAGES,
   ...POWER_SOURCE_MESSAGES,
   ...NOTIFICATIONS_SOURCE_MESSAGES,
-  ...LOCAL_SESSION_SOURCE_MESSAGES
+  ...LOCAL_SESSION_SOURCE_MESSAGES,
+  ...STORE_SOURCE_MESSAGES
 });
 
 const ENGLISH = Object.freeze({
@@ -293,6 +300,11 @@ const ENGLISH = Object.freeze({
   "app.system.panel.0.label": "System",
   "app.system.panel.0.title": "Overview",
   "app.system.panel.0.body": "Detailed system status is unavailable on this host.",
+  "app.store.title": "Store",
+  "app.store.description": "Discover OrdaX apps and request installation through the platform's secure lifecycle.",
+  "app.store.panel.0.label": "Store",
+  "app.store.panel.0.title": "OrdaX apps",
+  "app.store.panel.0.body": "The application catalog is not available in this composition.",
   ...FILES_ENGLISH_MESSAGES,
   ...SETTINGS_ENGLISH_MESSAGES,
   ...SYSTEM_ENGLISH_MESSAGES,
@@ -306,7 +318,8 @@ const ENGLISH = Object.freeze({
   ...NETWORK_APP_ENGLISH_MESSAGES,
   ...POWER_ENGLISH_MESSAGES,
   ...NOTIFICATIONS_ENGLISH_MESSAGES,
-  ...LOCAL_SESSION_ENGLISH_MESSAGES
+  ...LOCAL_SESSION_ENGLISH_MESSAGES,
+  ...STORE_ENGLISH_MESSAGES
 });
 
 const TABLES = Object.freeze({
