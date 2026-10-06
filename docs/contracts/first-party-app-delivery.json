@@ -81,8 +81,16 @@
     "must_reuse_runtime_component_release_v2_when_component_slot": true,
     "may_create_parallel_updater": false,
     "catalog_without_verified_artifact_may_offer_install": false,
-    "install_request_port_authority": "none",
-    "install_request_must_delegate_to_platform_lifecycle": true
+    "install_request_must_delegate_to_platform_lifecycle": true,
+    "request_contract": "ordax.app-install-request/1",
+    "request_result_contract": "ordax.app-install-request-result/1",
+    "request_port": "ordax.app-install-request-port/1",
+    "request_authority": "none",
+    "request_may_select_artifact": false,
+    "request_may_select_version": false,
+    "request_may_select_trust_anchor": false,
+    "request_may_grant_permissions": false,
+    "request_may_bypass_verification": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
