@@ -145,13 +145,22 @@ test("provider result allows bounded JSON output but rejects credential/authorit
         { id: "note-2", title: "B" },
       ],
     },
-    artifactRefs: [],
+    artifactRefs: ["note:note-1"],
   });
 
   assert.equal(result.status, "succeeded");
   assert.equal(result.output.notes.length, 2);
+  assert.deepEqual([...result.artifactRefs], ["note:note-1"]);
 
-  for (const key of ["token", "approvalId", "grantRef", "__proto__"]) {
+  for (const key of [
+    "token",
+    "sessionToken",
+    "client_secret",
+    "authorizationHeader",
+    "approvalId",
+    "grantRef",
+    "__proto__",
+  ]) {
     const output = Object.create(null);
     Object.defineProperty(output, key, {
       value: "secret",
@@ -168,6 +177,26 @@ test("provider result allows bounded JSON output but rejects credential/authorit
         artifactRefs: [],
       }),
       /cannot expose authority or credential field/,
+      `provider output must reject sensitive field ${key}`,
+    );
+  }
+
+  for (const ref of [
+    "https://example.invalid/file",
+    "file:/tmp/raw",
+    "artifact:has/slash",
+    "artifact:has?query=secret",
+  ]) {
+    assert.throws(
+      () => validateApplicationActionProviderResult({
+        schema: APPLICATION_ACTION_PROVIDER_RESULT_SCHEMA,
+        status: "succeeded",
+        summary: "bad ref",
+        output: null,
+        artifactRefs: [ref],
+      }),
+      /must remain opaque/,
+      `provider artifact ref must reject non-opaque value ${ref}`,
     );
   }
 });
