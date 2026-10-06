@@ -69,8 +69,9 @@ export function createFirstPartyAppInstallPlanner() {
         return blocked(appId, "incompatible-artifact");
       }
 
-      // Stable/MVP has no platform-authoritative production activation gate yet.
-      // A caller-supplied boolean must never mint readiness by convention.
+      // The platform has a read-only production readiness checker, but no
+      // trusted runtime readiness port is injected here yet. A caller-supplied
+      // boolean/object must never mint readiness by convention.
       return blocked(appId, "production-activation-blocked");
     },
   });
