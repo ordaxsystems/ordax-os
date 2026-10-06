@@ -11,6 +11,7 @@ import stat
 from native_component_slots import (
     ComponentSlotError,
     ComponentSlotResolution,
+    ComponentSlotUnavailableError,
     read_component_app_intelligence_manifest,
     resolve_component_metadata_slot,
 )
@@ -39,6 +40,10 @@ class NativeAppIntelligenceError(RuntimeError):
 
 
 class NativeAppIntelligenceVerificationError(NativeAppIntelligenceError):
+    pass
+
+
+class NativeAppIntelligenceUnavailableError(NativeAppIntelligenceError):
     pass
 
 
@@ -163,6 +168,10 @@ def read_native_app_intelligence_manifests(
                 component_id=component_id,
                 slot_root=slot_root,
             )
+        except ComponentSlotUnavailableError as exc:
+            raise NativeAppIntelligenceUnavailableError(
+                "runtime component verifier is unavailable"
+            ) from exc
         except ComponentSlotError as exc:
             raise NativeAppIntelligenceVerificationError(
                 f"runtime component metadata verification failed: {component_id}"
@@ -192,6 +201,10 @@ def read_native_app_intelligence_manifests(
                 source_commit=resolution.source_commit,
                 slot_root=slot_root,
             )
+        except ComponentSlotUnavailableError as exc:
+            raise NativeAppIntelligenceUnavailableError(
+                "runtime component verifier is unavailable"
+            ) from exc
         except ComponentSlotError as exc:
             raise NativeAppIntelligenceVerificationError(
                 f"active first-party app has no verified intelligence manifest: {component_id}"
