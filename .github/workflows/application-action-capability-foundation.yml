@@ -15,9 +15,12 @@ on:
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
+      - 'system/composition/native/personal-ordax.mjs'
+      - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'tests/test_application_action_capability.mjs'
       - 'tests/test_application_action_preparations.mjs'
+      - 'tests/test_application_action_preparation_composition.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
   push:
     branches: [main]
@@ -34,9 +37,12 @@ on:
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
+      - 'system/composition/native/personal-ordax.mjs'
+      - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'tests/test_application_action_capability.mjs'
       - 'tests/test_application_action_preparations.mjs'
+      - 'tests/test_application_action_preparation_composition.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
 
 permissions:
@@ -60,6 +66,8 @@ jobs:
           node --check system/contracts/application-intelligence-awareness.mjs
           node --check system/services/intelligence/application-action-capabilities.mjs
           node --check system/services/personal-ordax/application-action-preparations.mjs
+          node --check system/composition/native/personal-ordax.mjs
+          node --check system/composition/native/main.mjs
           node --check system/services/intelligence/application-awareness.mjs
           node --check system/services/intelligence/application-context.mjs
           node --check system/services/intelligence/application-semantic-router.mjs
@@ -69,12 +77,14 @@ jobs:
           node --check tests/test_application_semantic_router.mjs
           node --check tests/test_application_action_capability.mjs
           node --check tests/test_application_action_preparations.mjs
+          node --check tests/test_application_action_preparation_composition.mjs
 
       - name: Run capability, preparation and awareness contract tests
         run: |
           set -euo pipefail
           node --test tests/test_application_action_capability.mjs
           node --test tests/test_application_action_preparations.mjs
+          node --test tests/test_application_action_preparation_composition.mjs
           node --test tests/test_application_intelligence_awareness.mjs
           node --test tests/test_application_intelligence_context.mjs
           node --test tests/test_application_semantic_router.mjs
