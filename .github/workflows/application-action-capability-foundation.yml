@@ -13,20 +13,24 @@ on:
       - 'system/contracts/application-action-capability.mjs'
       - 'system/contracts/application-action-preparation.mjs'
       - 'system/contracts/application-action-provider-binding.mjs'
+      - 'system/contracts/application-action-provider-artifact-binding.mjs'
       - 'system/contracts/application-action-provider-manifest.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/intelligence/verified-app-semantics.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
+      - 'system/adapters/native/tool-artifact-identity.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'tests/test_application_action_capability.mjs'
       - 'tests/test_application_action_preparations.mjs'
       - 'tests/test_application_action_provider_bindings.mjs'
+      - 'tests/test_application_action_provider_artifact_binding.mjs'
       - 'tests/test_application_action_provider_manifest.mjs'
       - 'tests/test_application_action_runtime_composition.mjs'
+      - 'tests/test_personal_ordax_native_file_action.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
   push:
@@ -42,20 +46,24 @@ on:
       - 'system/contracts/application-action-capability.mjs'
       - 'system/contracts/application-action-preparation.mjs'
       - 'system/contracts/application-action-provider-binding.mjs'
+      - 'system/contracts/application-action-provider-artifact-binding.mjs'
       - 'system/contracts/application-action-provider-manifest.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/intelligence/verified-app-semantics.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
+      - 'system/adapters/native/tool-artifact-identity.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'tests/test_application_action_capability.mjs'
       - 'tests/test_application_action_preparations.mjs'
       - 'tests/test_application_action_provider_bindings.mjs'
+      - 'tests/test_application_action_provider_artifact_binding.mjs'
       - 'tests/test_application_action_provider_manifest.mjs'
       - 'tests/test_application_action_runtime_composition.mjs'
+      - 'tests/test_personal_ordax_native_file_action.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
 
@@ -78,12 +86,14 @@ jobs:
           node --check system/contracts/application-action-capability.mjs
           node --check system/contracts/application-action-preparation.mjs
           node --check system/contracts/application-action-provider-binding.mjs
+          node --check system/contracts/application-action-provider-artifact-binding.mjs
           node --check system/contracts/application-action-provider-manifest.mjs
           node --check system/contracts/application-intelligence-awareness.mjs
           node --check system/services/intelligence/application-action-capabilities.mjs
           node --check system/services/intelligence/verified-app-semantics.mjs
           node --check system/services/personal-ordax/application-action-preparations.mjs
           node --check system/services/personal-ordax/application-action-provider-bindings.mjs
+          node --check system/adapters/native/tool-artifact-identity.mjs
           node --check system/composition/native/personal-ordax.mjs
           node --check system/composition/native/main.mjs
           node --check system/services/intelligence/application-awareness.mjs
@@ -96,8 +106,10 @@ jobs:
           node --check tests/test_application_action_capability.mjs
           node --check tests/test_application_action_preparations.mjs
           node --check tests/test_application_action_provider_bindings.mjs
+          node --check tests/test_application_action_provider_artifact_binding.mjs
           node --check tests/test_application_action_provider_manifest.mjs
           node --check tests/test_application_action_runtime_composition.mjs
+          node --check tests/test_personal_ordax_native_file_action.mjs
           node --check tests/test_verified_app_semantics_source.mjs
 
       - name: Run capability, preparation, provider binding and awareness contract tests
@@ -106,8 +118,10 @@ jobs:
           node --test tests/test_application_action_capability.mjs
           node --test tests/test_application_action_preparations.mjs
           node --test tests/test_application_action_provider_bindings.mjs
+          node --test tests/test_application_action_provider_artifact_binding.mjs
           node --test tests/test_application_action_provider_manifest.mjs
           node --test tests/test_application_action_runtime_composition.mjs
+          node --test tests/test_personal_ordax_native_file_action.mjs
           node --test tests/test_verified_app_semantics_source.mjs
           node --test tests/test_application_intelligence_awareness.mjs
           node --test tests/test_application_intelligence_context.mjs
