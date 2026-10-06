@@ -6,6 +6,24 @@ This adapter bridges shared product code to OrdaX services and hardware-facing c
 
 Kernel/driver-specific details stay below the capability boundary and must not leak into shared Surface components.
 
+## Shared bounded JSON transport
+
+`bounded-json-transport.mjs` owns the reusable browser-to-Native HTTP mechanics used by typed Native state adapters. It exists so each capability does not reimplement timeout, abort, byte-bounded streaming, UTF-8/JSON decoding and same-origin request policy.
+
+The transport is intentionally infrastructure-only:
+
+- endpoints must remain under the same-origin `/__ordax/native/` boundary;
+- protocol-relative, external, fragment-bearing and non-Native paths are rejected;
+- requests use `cache: "no-store"` and `credentials: "same-origin"`;
+- only bounded serialized request bodies are accepted;
+- responses are read as bounded streams before fatal UTF-8 decoding and JSON parsing;
+- GET/POST are the only methods exposed by this state-transport primitive;
+- timeout uses `AbortController` and a finite validated duration.
+
+Domain adapters continue to own their schemas, partition identity, CAS semantics and response validation. Personal OrdaX and Automation therefore share transport mechanics without sharing or merging their persisted state. Future Work Coordination Native state must reuse this transport rather than introduce a third copy.
+
+This helper does not create a host route, storage owner, permission or remote egress capability by itself.
+
 ## Diagnostic export
 
 `diagnostic-export.mjs` implements the narrow `ordax.diagnostic-export/1` port on top of the existing bounded Native `file-space` capability. It writes only an already validated diagnostic JSON document into the logical `/Downloads` user directory through `importFile()`.

@@ -58,6 +58,7 @@ test("transport reads one exact owner partition without local mirrored state", a
   assert.match(requests[0].url, /ownerId=user-1/);
   assert.equal(requests[0].options.method, "GET");
   assert.equal(requests[0].options.cache, "no-store");
+  assert.equal(requests[0].options.credentials, "same-origin");
 });
 
 test("device owner request never invents an account owner id", async () => {
@@ -133,12 +134,27 @@ test("transport rejects foreign owner record and malformed response", async () =
   );
 });
 
-test("transport source contains no localStorage mirror or synchronous XHR", async () => {
-  const source = await import("node:fs/promises").then((fs) => fs.readFile(
+test("Personal OrdaX adapter delegates transport mechanics to the shared bounded Native owner", async () => {
+  const fs = await import("node:fs/promises");
+  const source = await fs.readFile(
     new URL("../system/adapters/native/personal-ordax-state.mjs", import.meta.url),
     "utf8",
-  ));
+  );
+  const shared = await fs.readFile(
+    new URL("../system/adapters/native/bounded-json-transport.mjs", import.meta.url),
+    "utf8",
+  );
+
   assert.doesNotMatch(source, /localStorage/);
   assert.doesNotMatch(source, /XMLHttpRequest/);
-  assert.match(source, /windowRef\.fetch/);
+  assert.match(source, /createNativeBoundedJsonTransport/);
+  assert.doesNotMatch(source, /new AbortController/);
+  assert.doesNotMatch(source, /getReader\(\)/);
+
+  assert.doesNotMatch(shared, /localStorage/);
+  assert.doesNotMatch(shared, /XMLHttpRequest/);
+  assert.match(shared, /windowRef\.fetch/);
+  assert.match(shared, /new AbortController/);
+  assert.match(shared, /getReader\(\)/);
+  assert.match(shared, /credentials:\s*"same-origin"/);
 });
