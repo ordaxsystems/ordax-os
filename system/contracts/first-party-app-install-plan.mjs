@@ -37,6 +37,22 @@ function appId(value) {
   return value;
 }
 
+function sourceRepository(value) {
+  if (typeof value !== "string") {
+    throw new TypeError("First-party app install artifact source repository is invalid");
+  }
+  const parts = value.split("/");
+  if (
+    parts.length !== 2
+    || parts.some(
+      (part) => !REPOSITORY_SEGMENT_RE.test(part) || part === "." || part === "..",
+    )
+  ) {
+    throw new TypeError("First-party app install artifact source repository is invalid");
+  }
+  return value;
+}
+
 function requireSha256(value, label) {
   if (typeof value !== "string" || !SHA256_RE.test(value)) {
     throw new TypeError(`First-party app install artifact ${label} is invalid`);
