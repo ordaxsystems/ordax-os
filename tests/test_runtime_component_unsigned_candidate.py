@@ -37,6 +37,8 @@ def zip_info(name):
 
 
 def make_candidate(root: Path):
+    candidate = root / "candidate"
+    candidate.mkdir()
     app_id = "notes"
     version = "0.4.2"
     commit = "a" * 40
@@ -79,7 +81,7 @@ def make_candidate(root: Path):
     }
     manifest_bytes = canonical(manifest)
 
-    package = root / "notes.zip"
+    package = candidate / "notes.zip"
     with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_STORED) as archive:
         archive.writestr(zip_info("component-package.json"), manifest_bytes)
         for name, payload in sorted(bodies.items()):
@@ -100,7 +102,7 @@ def make_candidate(root: Path):
         },
         "authority": "none",
     }
-    compatibility_path = root / "notes.compatibility.json"
+    compatibility_path = candidate / "notes.compatibility.json"
     compatibility_bytes = canonical(compatibility)
     compatibility_path.write_bytes(compatibility_bytes)
 
@@ -132,7 +134,7 @@ def make_candidate(root: Path):
             "size": len(compatibility_bytes),
         },
     }
-    release_path = root / "notes.release.json"
+    release_path = candidate / "notes.release.json"
     release_bytes = canonical(release)
     release_path.write_bytes(release_bytes)
 
@@ -179,7 +181,7 @@ def make_candidate(root: Path):
             "platformLifecycleRequired": True,
         },
     }
-    handoff_path = root / "notes.unsigned-candidate.json"
+    handoff_path = candidate / "notes.unsigned-candidate.json"
     handoff_bytes = canonical(handoff)
     handoff_path.write_bytes(handoff_bytes)
 
@@ -189,7 +191,7 @@ def make_candidate(root: Path):
         "notes.compatibility.json": digest(compatibility_bytes),
         "notes.unsigned-candidate.json": digest(handoff_bytes),
     }
-    (root / "SHA256SUMS").write_text(
+    (candidate / "SHA256SUMS").write_text(
         "".join(f"{value}  {name}\n" for name, value in sums.items()),
         encoding="utf-8",
     )
@@ -204,15 +206,15 @@ def make_candidate(root: Path):
     }
     policy_path = root / "package-policy.json"
     write_json(policy_path, policy)
-    return policy_path, handoff_path
+    return candidate, policy_path, handoff_path
 
 
 class UnsignedExternalCandidateTests(unittest.TestCase):
     def test_valid_notes_candidate_is_verified_without_authority(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            policy, _ = make_candidate(root)
-            result = verifier.verify(root, policy)
+            candidate, policy, _ = make_candidate(root)
+            result = verifier.verify(candidate, policy)
         self.assertEqual(result["component_id"], "notes")
         self.assertEqual(result["version"], "0.4.2")
         self.assertEqual(result["source_repository"], "washingtonmsdj/ordax-apps")
@@ -221,17 +223,17 @@ class UnsignedExternalCandidateTests(unittest.TestCase):
     def test_authority_escalation_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            policy, handoff_path = make_candidate(root)
+            candidate, policy, handoff_path = make_candidate(root)
             handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
             handoff["authority"]["publication"] = True
             handoff_path.write_bytes(canonical(handoff))
             with self.assertRaisesRegex(verifier.CandidateError, "must carry no authority"):
-                verifier.verify(root, policy)
+                verifier.verify(candidate, policy)
 
     def test_noncanonical_source_repository_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            policy, _ = make_candidate(root)
+            candidate, policy, _ = make_candidate(root)
             value = json.loads(policy.read_text(encoding="utf-8"))
             value["canonical_external_source_repository_by_component"]["notes"] = "washingtonmsdj/other"
             policy.write_bytes(canonical(value))
@@ -241,8 +243,8 @@ class UnsignedExternalCandidateTests(unittest.TestCase):
     def test_unexpected_file_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            policy, _ = make_candidate(root)
-            (root / "private.pem").write_text("forbidden\n", encoding="utf-8")
+            candidate, policy, _ = make_candidate(root)
+            (candidate / "private.pem").write_text("forbidden\n", encoding="utf-8")
             with self.assertRaisesRegex(verifier.CandidateError, "unexpected or missing files"):
                 verifier.verify(root, policy)
 
