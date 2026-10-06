@@ -197,7 +197,7 @@
       "major": 1,
       "name": "project-catalog",
       "schema": "ordax.project-catalog/1",
-      "source_git_blob": "2d2cc1359f6af92539c32bab61adf1ca724710d9",
+      "source_git_blob": "a598f300ae53b30283e90ea0834e70799b56c609",
       "source_path": "system/contracts/project-catalog.mjs"
     },
     {

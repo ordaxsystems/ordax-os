@@ -6,6 +6,16 @@ export const MAX_PROJECT_NAME_LENGTH = 80;
 
 const PROJECT_ID_RE = /^project-[1-9][0-9]*$/;
 const PERSISTENCE_SCOPES = new Set(["device", "session"]);
+const PROJECT_READER_METHODS = Object.freeze(["getSnapshot", "subscribe"]);
+const PROJECT_MUTATION_METHODS = Object.freeze([
+  "create",
+  "rename",
+  "recordOpened",
+  "recordFileOpened",
+  "clearLastFile",
+  "relocateLastFilePath",
+  "remove",
+]);
 
 export function validateProjectId(value) {
   if (typeof value !== "string" || !PROJECT_ID_RE.test(value)) {
@@ -114,25 +124,31 @@ export function validateProjectCatalogSnapshot(value) {
   });
 }
 
-export function assertProjectCatalogPort(port) {
+function assertProjectCatalogShape(port, methods, label) {
   if (!port || typeof port !== "object" || port.schema !== PROJECT_CATALOG_SCHEMA) {
-    throw new TypeError("A compatible project-catalog port is required");
+    throw new TypeError(`A compatible ${label} is required`);
   }
-  for (const method of [
-    "getSnapshot",
-    "subscribe",
-    "create",
-    "rename",
-    "recordOpened",
-    "recordFileOpened",
-    "clearLastFile",
-    "relocateLastFilePath",
-    "remove",
-  ]) {
+  for (const method of methods) {
     if (typeof port[method] !== "function") {
-      throw new TypeError(`Project-catalog port must implement ${method}()`);
+      throw new TypeError(`${label} must implement ${method}()`);
     }
   }
   validateProjectCatalogSnapshot(port.getSnapshot());
   return port;
+}
+
+export function assertProjectCatalogReader(port) {
+  return assertProjectCatalogShape(
+    port,
+    PROJECT_READER_METHODS,
+    "project-catalog reader",
+  );
+}
+
+export function assertProjectCatalogPort(port) {
+  return assertProjectCatalogShape(
+    port,
+    [...PROJECT_READER_METHODS, ...PROJECT_MUTATION_METHODS],
+    "project-catalog port",
+  );
 }
