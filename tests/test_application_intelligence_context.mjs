@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  INTELLIGENCE_MAX_CONTEXT_ITEM_CHARS,
   INTELLIGENCE_PORT_SCHEMA,
 } from "../system/contracts/intelligence.mjs";
+import { createApplicationActionCapabilityRegistry } from "../system/services/intelligence/application-action-capabilities.mjs";
 import { createApplicationIntelligenceAwareness } from "../system/services/intelligence/application-awareness.mjs";
 import { createApplicationContextIntelligence } from "../system/services/intelligence/application-context.mjs";
 
@@ -138,6 +140,50 @@ test("application context is omitted rather than truncating structured JSON when
   assert.equal(request.context.length, 16);
   assert.equal(
     request.context.some((entry) => entry.id === "ordax-application-catalog"),
+    false,
+  );
+});
+
+test("action capabilities are omitted when the trusted application catalog does not fit", async () => {
+  let request = null;
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+  });
+  const capabilities = createApplicationActionCapabilityRegistry({
+    awareness,
+    capabilities: [],
+  });
+  const intelligence = createApplicationContextIntelligence({
+    intelligencePort: intelligenceStub((value) => { request = value; }),
+    awarenessPort: awareness,
+    actionCapabilityRegistryPort: capabilities,
+  });
+
+  const context = [
+    ...Array.from({ length: 7 }, (_, index) => ({
+      id: `full-context-${index}`,
+      scope: "document",
+      text: "x".repeat(INTELLIGENCE_MAX_CONTEXT_ITEM_CHARS),
+      provenance: "test",
+    })),
+    {
+      id: "partial-context",
+      scope: "document",
+      text: "x".repeat(INTELLIGENCE_MAX_CONTEXT_ITEM_CHARS - 192),
+      provenance: "test",
+    },
+  ];
+
+  await intelligence.respond({ prompt: "teste", context });
+
+  assert.ok(request);
+  assert.equal(request.context.length, context.length);
+  assert.equal(
+    request.context.some((entry) => entry.id === "ordax-application-catalog"),
+    false,
+  );
+  assert.equal(
+    request.context.some((entry) => entry.id === "ordax-application-action-capabilities"),
     false,
   );
 });
