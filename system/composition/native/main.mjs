@@ -112,6 +112,7 @@ import { createSurfaceBootScreen } from "../../surface/ui/boot-screen.mjs";
 import { mountFirstRunExperience } from "../../surface/ui/first-run.mjs";
 import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
+import { mountStoreOverviewControls } from "../../surface/ui/store-overview-controls.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
@@ -777,6 +778,7 @@ async function start() {
       localSession,
     );
   }
+  const storeOverviewControls = mountStoreOverviewControls(root, surface, null);
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -931,6 +933,7 @@ async function start() {
       powerControls.destroy();
       updateControls.destroy();
       systemOverviewControls.destroy();
+      storeOverviewControls.destroy();
       settingsOverviewControls.destroy();
       networkTrayControls?.destroy();
       networkQuickPanel?.destroy();
