@@ -6,9 +6,9 @@ This directory publishes the machine-readable contract set intended for apps dev
 
 Version `1.9.0` is an additive public-contract release. It preserves every contract published in 1.8.0 and adds the project cloud-link port required by an independently delivered Projects app:
 
-- `ordax.project-cloud-links/1`
+- `ordax.project-cloud-links-reader/1`
 
-The contract exposes bounded project-link state and operations but does not grant Device Agent execution, install authority or cloud identity authority. Projects consumes the already-public `ordax.device-agent-capability-reader/1` for capability discovery instead of importing the broader private Device Agent contract.
+The contract exposes only bounded project-link snapshots/subscriptions. It deliberately omits link/unlink/destroy mutation methods and does not grant Device Agent execution, install authority or cloud identity authority. Projects consumes the already-public `ordax.device-agent-capability-reader/1` for capability discovery instead of importing the broader private Device Agent contract.
 
 Studio runtime v1/v2/v3 ports remain published side by side for pinned consumers. Runtime v3 keeps request-v2 semantics and bounded `getActionResult(request)`; results are data, never authority.
 
@@ -35,7 +35,7 @@ The complete bundle includes:
 - `prototype-ordax.localization-pack-release/1`
 - `ordax.memory/1`
 - `ordax.project-catalog/1`
-- `ordax.project-cloud-links/1`
+- `ordax.project-cloud-links-reader/1`
 - `ordax.studio-action-context/1`
 - `ordax.studio-runtime/1`
 - `ordax.studio-runtime/2`
