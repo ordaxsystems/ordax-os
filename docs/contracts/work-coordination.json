@@ -1,0 +1,58 @@
+{
+  "$schema": "prototype-ordax.work-coordination-foundation/1",
+  "status": "foundation-contracts-only-public-disabled",
+  "issue": 1154,
+  "owner": "platform",
+  "contracts": [
+    "ordax.work-coordination-policy/1",
+    "ordax.work-plan/1",
+    "ordax.work-task/1",
+    "ordax.work-claim/1",
+    "ordax.work-checkpoint/1",
+    "ordax.work-evidence/1"
+  ],
+  "authority": "none",
+  "policy": {
+    "modes": [
+      "off",
+      "manual",
+      "assisted",
+      "automatic"
+    ],
+    "absence_enables_coordination": false,
+    "automatic_requires_explicit_confirmation": true,
+    "background_execution_enabled": false,
+    "project_override_supported_by_contract": true
+  },
+  "notifications": {
+    "owns_notification_service": false,
+    "intent_categories": [
+      "approvalRequired",
+      "taskBlocked",
+      "workCompleted",
+      "staleClaim",
+      "conflictAvoided",
+      "routineProgress"
+    ]
+  },
+  "claims": {
+    "finite_lease_required": true,
+    "max_lease_ms": 900000,
+    "cas_store_required_by_future_runtime": true,
+    "permanent_lock_allowed": false
+  },
+  "mvp": {
+    "new_usb_mvp_blocker": false,
+    "public_enabled": false,
+    "background_autonomy_enabled": false,
+    "provider_connector_mutations_enabled": false,
+    "studio_is_authority_owner": false
+  },
+  "next": [
+    "atomic-owner-project-store",
+    "coordination-runtime",
+    "activity-settings",
+    "provider-connectors",
+    "studio-consumer"
+  ]
+}
