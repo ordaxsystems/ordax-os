@@ -8,6 +8,8 @@ import { assertPersonalActionCatalog } from "../../contracts/personal-action-cat
 import { validatePersonalActionProposal } from "../../contracts/personal-action-proposal.mjs";
 import { validatePersonalWorkRecoverySuggestion } from "../../contracts/personal-work-recovery-suggestion.mjs";
 import { createIntelligenceToolGrantAuthority } from "../../services/intelligence/tool-grants.mjs";
+import { createApplicationActionPreparationRegistry } from "../../services/personal-ordax/application-action-preparations.mjs";
+import { createApplicationActionProviderResolver } from "../../services/personal-ordax/application-action-provider-bindings.mjs";
 import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
@@ -124,6 +126,7 @@ export function createNativePersonalOrdaxComposition({
       });
   const proposalBindings = new WeakMap();
   const recoveryBindings = new WeakMap();
+  const applicationActionPreparationBindings = new Map();
   const applicationActionPreparationBindings = new Map();
 
   const ownerKeyFromSnapshot = (snapshot) => (
