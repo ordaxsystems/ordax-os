@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import {
   WORK_COORDINATION_MAX_CLAIM_LEASE_MS,
@@ -55,11 +56,19 @@ test("coordination policy requires explicit user configuration and never grants 
     ...policy,
     grantRef: "grant-1",
   }), /cannot carry authority field/);
+
   assert.throws(() => validateWorkCoordinationPolicy({
     ...policy,
     mode: "automatic",
   }), /requires explicit confirmation timestamp/);
 
+  const automatic = validateWorkCoordinationPolicy({
+    ...policy,
+    mode: "automatic",
+    automaticConfirmedAt: "2026-10-06T05:03:00Z",
+  });
+  assert.equal(automatic.mode, "automatic");
+  assert.equal(automatic.automaticConfirmedAt, "2026-10-06T05:03:00.000Z");
 });
 
 test("project policy requires a concrete project and global policy cannot smuggle one", () => {
@@ -256,4 +265,24 @@ test("evidence is typed, verifiable and never authority", () => {
     ...evidence,
     toolId: "dangerous-tool",
   }), /cannot carry authority field/);
+});
+
+test("machine-readable coordination status stays fail-closed and non-MVP-blocking", async () => {
+  const foundation = JSON.parse(await readFile(
+    new URL("../docs/contracts/work-coordination.json", import.meta.url),
+    "utf8",
+  ));
+
+  assert.equal(foundation.status, "foundation-contracts-only-public-disabled");
+  assert.equal(foundation.authority, "none");
+  assert.equal(foundation.policy.absence_enables_coordination, false);
+  assert.equal(foundation.policy.automatic_requires_explicit_confirmation, true);
+  assert.equal(foundation.policy.background_execution_enabled, false);
+  assert.equal(foundation.claims.finite_lease_required, true);
+  assert.equal(foundation.claims.permanent_lock_allowed, false);
+  assert.equal(foundation.mvp.new_usb_mvp_blocker, false);
+  assert.equal(foundation.mvp.public_enabled, false);
+  assert.equal(foundation.mvp.background_autonomy_enabled, false);
+  assert.equal(foundation.mvp.provider_connector_mutations_enabled, false);
+  assert.equal(foundation.mvp.studio_is_authority_owner, false);
 });
