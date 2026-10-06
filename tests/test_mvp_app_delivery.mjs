@@ -29,7 +29,7 @@ test("minimal MVP surface keeps only structural plus Files and Internet as launc
   assert.equal(policy.optionalAppsBlockPublicLaunch, false);
   assert.equal(policy.networkSkipPreservesUsableOfflineSystem, true);
 
-  assert.deepEqual(sorted(policy.structuralAppIds), ["account", "settings", "system"]);
+  assert.deepEqual(sorted(policy.structuralAppIds), ["account", "settings", "store", "system"]);
   assert.deepEqual(sorted(policy.bundledBootstrapAppIds), ["files", "internet"]);
   assert.deepEqual(
     sorted(policy.onDemandAppIds),
@@ -44,6 +44,7 @@ test("minimal MVP surface keeps only structural plus Files and Internet as launc
   assert.equal(contract.initial_usb.current_image_may_retain_dormant_on_demand_payloads, true);
   assert.equal(distribution.mvp.optional_apps_block_public_launch, false);
   assert.equal(contract.launch_scope.notes_completion_required_before_public_launch, false);
+  assert.equal(contract.launch_scope.store_functionality_required_before_public_launch, false);
 });
 
 test("offline First Run stays usable and defers successful update discovery", async () => {
