@@ -249,3 +249,131 @@ For example:
 - publishing externally still requires the broker/policy/confirmation rules for that external effect.
 
 This separation is required for the future Jarvis-style experience to remain useful without turning learned preferences into silent permissions.
+
+## Verified first-party package loading
+
+Apps first-party externalizados não registram capabilities por chamada mutável e o OS não faz scan de diretórios.
+
+A composição Native usa a mesma fonte read-only de package verificado já usada pelo App Intelligence:
+
+```text
+component-runtime current slot
+        ↓
+app.json
+ai/manifest.json
+actions/manifest.json
+        ↓
+mesmo version + sourceCommit
+        ↓
+Application Awareness
+        ↓
+Application Action Capability Registry
+        ↓
+Application Context Intelligence
+```
+
+Para cada app permitido pelo registro first-party de delivery, o loader resolve o slot atual uma vez e lê os três manifests dentro do namespace verificado da mesma resolução. O `actions/manifest.json` é validado por `ordax.application-action-manifest/1`.
+
+Além do contrato público, o loader verifica a coerência com `ai/manifest.json`:
+
+- toda capability deve possuir intent de mesmo `actionId`;
+- os parâmetros devem ter os mesmos ids e required flags;
+- tipos especializados de string podem ser estreitados para `enum`, `uri` ou `resource-grant-id`;
+- risco não pode ser mais fraco que o efeito do intent;
+- confirmação não pode ser mais fraca que a política do intent;
+- intents destrutivos exigem `always`.
+
+Uma falha de identidade, versão, provenance de slot ou coerência semântica em um `actions/manifest.json` presente falha fechada. Um pacote legado verificado que simplesmente não contém o arquivo recebe `actionManifest = null` e continua fornecendo apenas sua semântica de IA; nenhuma capability é sintetizada.
+
+Pacotes novos produzidos pelo `ordax-apps` exigem `actions/manifest.json` no builder, portanto a ausência é apenas uma regra de compatibilidade para payloads legados já verificados.
+
+Quando existem capabilities verificadas, a composição cria `ordax.application-action-capability-registry/1` e injeta somente sua projeção bounded no contexto do Intelligence. Quando não existem capabilities verificadas, nenhum contexto de actions é inventado.
+
+Esse registry continua sem `execute()`, `run()`, `invoke()`, grant ou confirmation authority. O resultado continua sendo somente uma proposal com:
+
+```text
+executionAuthorized = false
+modelDirectExecutionAuthorized = false
+```
+
+A futura execução permanece separada no App Action Broker.
+
+## Preparation Registry
+
+`ordax.application-action-preparation/1` is the private platform bridge between an authority-free Application Action proposal and the existing Personal OrdaX approval/grant pipeline.
+
+It does **not** execute an app action.
+
+The preparation registry:
+
+- re-resolves the exact current capability through the verified capability registry;
+- re-proposes the exact arguments and rejects stale capability/proposal identity;
+- accepts only verified `first-party-native` capabilities in this first slice;
+- binds the proposal to an explicit Personal OrdaX `workItemId`;
+- maps risk conservatively to the existing Action Gateway effect classes:
+  - `read-only -> read`;
+  - `local-change -> write`;
+  - `external-effect -> external-egress`;
+  - `privileged -> device-control`;
+- replaces raw proposal arguments at the authority boundary with an opaque resource reference:
+  `application-action:<preparationId>`;
+- keeps `authority=none`, `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`;
+- exposes only `prepare`, `resolve`, `revoke` and `listForWork`.
+
+The registry deliberately does not expose `execute`, `invoke`, `run`, `grant`, `authorize` or `confirm`.
+
+The opaque resource reference is intended to become the exact `resourceRef` bound into the existing Personal OrdaX approval and Intelligence Tool Grant. A future typed first-party provider adapter may resolve the preparation only after the existing Action Gateway has produced an exact allow decision.
+
+This keeps the execution chain singular:
+
+```text
+verified app capability
+  -> authority-free proposal
+  -> preparation resourceRef
+  -> Personal OrdaX approval
+  -> scoped grant
+  -> existing Action Gateway
+  -> existing Action Executor
+  -> future typed app provider adapter
+  -> receipt
+```
+
+No second permission store, grant issuer, confirmation system or receipt format is introduced.
+
+A preparation is not provider-artifact proof. It intentionally carries only the capability's declared `adapterId + revision`. Before any future execution, a platform-owned provider resolver must still bind that declaration to the **currently verified first-party package/provider artifact** and fail closed if version, source commit, adapter revision or artifact identity changed after preparation. This prevents a preparation from silently authorizing a newly updated app runtime.
+
+Preparation references are session-only coordination state, not durable authority. When the registry is composed into Personal OrdaX, the integration must revoke the reference on Work cancellation/removal, owner switch, invalidated Space/project context, succeeded execution, revoked approval, or an uncertain adapter-entered attempt. A serialized or restored preparation must never recreate a grant or become executable on its own.
+
+## Current verified provider binding
+
+`ordax.application-action-provider-binding/1` closes the package-identity gap left intentionally by the Preparation Registry without adding execution authority.
+
+The private resolver receives only an opaque preparation `resourceRef`, resolves it through the authoritative in-memory Preparation Registry, and only then independently rechecks both sources of truth:
+
+1. the current `ApplicationActionCapabilityRegistry`;
+2. the current verified first-party component-slot semantics supplied by the platform package owner.
+
+The resolver fails closed unless all of the following still match exactly:
+
+- `appId` and `actionId`;
+- proposal arguments, risk, confirmation, capability digest and provenance;
+- capability source/platform (`first-party` + `ordax`);
+- provider kind, `adapterId` and provider revision;
+- package action manifest capability;
+- component kind and `component-slot` release mode;
+- expected first-party package owner;
+- current app semantic version;
+- current component-slot `sourceCommit`;
+- current component-slot revision.
+
+On success it returns only an immutable, authority-free binding containing the retained preparation `resourceRef`, Work id, action identity, exact app version/source commit/component revision, exact provider identity and capability identity. Unknown, revoked or non-retained preparation references resolve to no binding.
+
+The provider resolver exposes only `resolve()`. It does **not** expose `execute`, `invoke`, `run`, `launch`, `grant`, `authorize` or `confirm`, and the returned binding always carries:
+
+```text
+authority = none
+executionAuthorized = false
+modelDirectExecutionAuthorized = false
+```
+
+This binding is still not an adapter callback, does not contain a tool artifact SHA-256 and is not an Action Gateway allow decision. Its purpose is narrower: prove that the provider declaration belongs to the exact currently verified first-party package before a later slice binds an actual typed provider module artifact and connects it to the existing Personal OrdaX approval/grant/gateway/executor chain. Notes and Studio currently publish declarative provider identities only; until an executable typed provider artifact exists and is verified, the chain remains fail-closed.

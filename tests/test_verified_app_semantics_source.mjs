@@ -6,6 +6,7 @@ import { createNativeVerifiedComponentPackageSource } from "../system/adapters/n
 import {
   EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
   loadVerifiedFirstPartyApplicationSemantics,
+  loadVerifiedFirstPartyApplicationActionManifests,
   loadVerifiedFirstPartyIntelligenceManifests,
   overlayVerifiedFirstPartyApplications,
 } from "../system/services/intelligence/verified-app-semantics.mjs";
@@ -78,6 +79,41 @@ function semantics(appId = "notes", version = "0.4.1") {
   };
 }
 
+
+function actions(appId = "notes", version = "0.4.1", overrides = {}) {
+  return {
+    schema: "ordax.application-action-manifest/1",
+    appId,
+    appVersion: version,
+    authority: "none",
+    execution: "proposal-only",
+    capabilities: [
+      {
+        schema: "ordax.application-action-capability/1",
+        appId,
+        actionId: `${appId}.create-note`,
+        title: "Criar nota",
+        description: "Criar uma nota.",
+        sourceClass: "first-party",
+        platform: "ordax",
+        provider: {
+          kind: "first-party-native",
+          adapterId: `${appId}-native`,
+          revision: "1",
+        },
+        binding: { payloadSha256: null },
+        parameters: [],
+        riskClass: "local-change",
+        confirmation: "policy-gated",
+        executionAuthorized: false,
+        modelDirectExecutionAuthorized: false,
+        provenance: `ordax-apps:${appId}/actions/manifest.json`,
+      },
+    ],
+    ...overrides,
+  };
+}
+
 function verifiedEntry(appId = "notes", version = "0.4.1") {
   const component = appManifest(appId, version);
   return {
@@ -87,12 +123,20 @@ function verifiedEntry(appId = "notes", version = "0.4.1") {
       component,
     },
     intelligenceManifest: semantics(appId, version),
+    actionManifest: actions(appId, version),
     sourceCommit: SHA,
     revision: 5,
   };
 }
 
-function verifiedFetch({ appId = "notes", version = "0.4.1", app = null, ai = null } = {}) {
+function verifiedFetch({
+  appId = "notes",
+  version = "0.4.1",
+  app = null,
+  ai = null,
+  actionManifest = null,
+  actionStatus = 200,
+} = {}) {
   const calls = [];
   return {
     calls,
@@ -112,6 +156,10 @@ function verifiedFetch({ appId = "notes", version = "0.4.1", app = null, ai = nu
       }
       if (parsed.pathname.endsWith("/ai/manifest.json")) {
         return jsonResponse(ai ?? semantics(appId, version));
+      }
+      if (parsed.pathname.endsWith("/actions/manifest.json")) {
+        if (actionStatus === 404) return jsonResponse({}, 404);
+        return jsonResponse(actionManifest ?? actions(appId, version));
       }
       throw new Error(`unexpected verified package path: ${parsed.pathname}`);
     },
@@ -135,7 +183,7 @@ test("external semantic app projection matches canonical runtime component sourc
   }
 });
 
-test("verified app semantics binds app identity and AI manifest to the exact current slot", async () => {
+test("verified app semantics binds identity, AI and Actions to the exact current slot", async () => {
   const source = createNativeVerifiedComponentPackageSource(windowRef());
   const fixture = verifiedFetch();
   const entries = await loadVerifiedFirstPartyApplicationSemantics({
@@ -154,15 +202,24 @@ test("verified app semantics binds app identity and AI manifest to the exact cur
   assert.equal(entries[0].intelligenceManifest.appVersion, "0.4.1");
   assert.equal(entries[0].intelligenceManifest.authority, "none");
   assert.equal(entries[0].intelligenceManifest.execution, "declarative-only");
+  assert.equal(entries[0].actionManifest.appId, "notes");
+  assert.equal(entries[0].actionManifest.appVersion, "0.4.1");
+  assert.equal(entries[0].actionManifest.authority, "none");
+  assert.equal(entries[0].actionManifest.execution, "proposal-only");
+  assert.equal(entries[0].actionManifest.capabilities[0].actionId, "notes.create-note");
   assert.equal(entries[0].sourceCommit, SHA);
   assert.equal(entries[0].revision, 5);
-  assert.equal(fixture.calls.length, 3);
+  assert.equal(fixture.calls.length, 4);
   assert.equal(
     new URL(fixture.calls[1].url).pathname.endsWith("/system/apps/notes/app.json"),
     true,
   );
   assert.equal(
     new URL(fixture.calls[2].url).pathname.endsWith("/system/apps/notes/ai/manifest.json"),
+    true,
+  );
+  assert.equal(
+    new URL(fixture.calls[3].url).pathname.endsWith("/system/apps/notes/actions/manifest.json"),
     true,
   );
   for (const call of fixture.calls) {
@@ -284,7 +341,45 @@ test("manifest-only compatibility helper is derived from verified application se
   assert.equal(manifests[0].appVersion, "0.4.1");
 });
 
-test("absent external app is skipped without reading app identity or AI manifest", async () => {
+test("legacy verified package without Action manifest keeps Intelligence semantics but exposes no capabilities", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  const fixture = verifiedFetch({ actionStatus: 404 });
+  const entries = await loadVerifiedFirstPartyApplicationSemantics({
+    appIds: ["notes"],
+    source,
+    fetchImpl: fixture.fetchImpl,
+  });
+
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].application.id, "notes");
+  assert.equal(entries[0].intelligenceManifest.appId, "notes");
+  assert.equal(entries[0].actionManifest, null);
+  assert.equal(fixture.calls.length, 4);
+
+  const actionFixture = verifiedFetch({ actionStatus: 404 });
+  const actionManifests = await loadVerifiedFirstPartyApplicationActionManifests({
+    appIds: ["notes"],
+    source,
+    fetchImpl: actionFixture.fetchImpl,
+  });
+  assert.deepEqual(actionManifests, []);
+});
+
+test("action-manifest compatibility helper is derived from the same verified application semantics", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  const fixture = verifiedFetch();
+  const actionManifests = await loadVerifiedFirstPartyApplicationActionManifests({
+    appIds: ["notes"],
+    source,
+    fetchImpl: fixture.fetchImpl,
+  });
+  assert.equal(actionManifests.length, 1);
+  assert.equal(actionManifests[0].appId, "notes");
+  assert.equal(actionManifests[0].appVersion, "0.4.1");
+  assert.equal(actionManifests[0].capabilities[0].actionId, "notes.create-note");
+});
+
+test("absent external app is skipped without reading app identity, AI or Actions", async () => {
   const source = createNativeVerifiedComponentPackageSource(windowRef());
   let calls = 0;
   const entries = await loadVerifiedFirstPartyApplicationSemantics({
@@ -343,6 +438,52 @@ test("AI manifest version must match component identity from the same verified s
       fetchImpl: fixture.fetchImpl,
     }),
     /appVersion mismatch/,
+  );
+});
+
+test("Application Action manifest version and semantic binding must match the same verified slot", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+
+  await assert.rejects(
+    () => {
+      const fixture = verifiedFetch({
+        actionManifest: actions("notes", "0.4.2"),
+      });
+      return loadVerifiedFirstPartyApplicationSemantics({
+        appIds: ["notes"],
+        source,
+        fetchImpl: fixture.fetchImpl,
+      });
+    },
+    /appVersion mismatch/,
+  );
+
+  const missingIntent = actions("notes", "0.4.1");
+  missingIntent.capabilities[0].actionId = "notes.unknown";
+  await assert.rejects(
+    () => {
+      const fixture = verifiedFetch({ actionManifest: missingIntent });
+      return loadVerifiedFirstPartyApplicationSemantics({
+        appIds: ["notes"],
+        source,
+        fetchImpl: fixture.fetchImpl,
+      });
+    },
+    /no matching Intelligence intent/,
+  );
+
+  const weakConfirmation = actions("notes", "0.4.1");
+  weakConfirmation.capabilities[0].confirmation = "none";
+  await assert.rejects(
+    () => {
+      const fixture = verifiedFetch({ actionManifest: weakConfirmation });
+      return loadVerifiedFirstPartyApplicationSemantics({
+        appIds: ["notes"],
+        source,
+        fetchImpl: fixture.fetchImpl,
+      });
+    },
+    /confirmation is weaker/,
   );
 });
 

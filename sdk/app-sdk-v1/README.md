@@ -2,21 +2,26 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
-## Bundle 1.11.0
+## Bundle 1.12.0
 
-Version `1.11.0` is an additive public-contract release. It preserves every contract published in 1.10.0 — including Projects and the Application Action capability/proposal contracts — and adds the canonical first-party Application Action manifest:
+Version `1.12.0` is an additive public-contract release. It preserves every contract published in 1.11.0 and adds the first typed Application Action provider boundary:
 
-- `ordax.application-action-manifest/1`.
+- `ordax.application-action-provider/1`;
+- `ordax.application-action-provider-invocation/1`;
+- `ordax.application-action-provider-result/1`.
 
-The manifest binds a bounded list of first-party semantic capabilities to an exact `appId + appVersion`. It is always `authority:none` and `execution:proposal-only`; each capability remains `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`.
+The provider contract lets an app expose an exact `appId + adapterId + revision + actions[]` implementation surface without importing the private Personal OrdaX Action Gateway or grant machinery. A provider invocation carries only the already-validated semantic action, bounded scalar arguments, Work id and opaque `application-action:*` resource reference. It deliberately carries no approval id, grant ref, tool artifact digest, credentials, raw path, shell command or device authority.
 
-The Application Action contracts from 1.10 remain published:
+Provider results are bounded JSON-safe data. Failed results cannot expose output, and authority-/credential-like output keys are rejected. The platform still owns provider artifact verification, current-slot binding, policy, human approval, scoped grants, Action Gateway revalidation, adapter wrapping and durable receipts.
 
+The Application Action contracts from 1.11 remain published:
+
+- `ordax.application-action-manifest/1`;
 - `ordax.application-action-capability/1`;
 - `ordax.application-action-capability-registry/1`;
 - `ordax.application-action-proposal/1`.
 
-These contracts let external OrdaX apps describe typed semantic actions and produce validated proposals without importing private platform source. They do not publish the App Action Broker, an executor, grants, confirmations, provider credentials or raw device authority. Capability and proposal values remain fixed to `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`.
+Capabilities and proposals remain descriptive and fixed to `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`. Publishing a provider interface does not authorize Intelligence to call it directly.
 
 The Projects boundary from 1.9 remains unchanged:
 
@@ -32,6 +37,13 @@ The complete bundle includes:
 - `ordax.app-activation/1`
 - `ordax.app-data/1`
 - `ordax.app-intelligence-manifest/1`
+- `ordax.application-action-capability/1`
+- `ordax.application-action-capability-registry/1`
+- `ordax.application-action-manifest/1`
+- `ordax.application-action-provider/1`
+- `ordax.application-action-provider-invocation/1`
+- `ordax.application-action-provider-result/1`
+- `ordax.application-action-proposal/1`
 - `prototype-ordax.component-localization/1`
 - `ordax.component-manifest/1`
 - `ordax.component-runtime/1`
@@ -50,6 +62,7 @@ The complete bundle includes:
 - `prototype-ordax.localization-pack-release/1`
 - `ordax.memory/1`
 - `ordax.project-catalog/1`
+- `ordax.project-cloud-links/1`
 - `ordax.project-cloud-links-reader/1`
 - `ordax.studio-action-context/1`
 - `ordax.studio-runtime/1`
@@ -61,11 +74,11 @@ The bundle is generated from canonical source contracts by `tools/app-sdk/export
 
 ### Application Action contracts
 
-The App SDK publishes the semantic manifest/capability/proposal boundary only. `ordax.application-action-manifest/1` binds capabilities to one exact first-party app/version. Apps may describe typed parameters, risk class, minimum confirmation class and provider metadata, but those values never authorize execution.
+The App SDK publishes the semantic manifest/capability/proposal boundary plus the typed provider module contract. `ordax.application-action-manifest/1` binds capabilities to one exact first-party app/version. Apps may describe typed parameters, risk class, minimum confirmation class and provider metadata, but those values never authorize execution.
 
-The registry contract exposes only `list()`, `get()`, `listForApp()`, `propose()` and `contextItem()`. It explicitly rejects authority-bearing methods such as `execute`, `invoke`, `run`, `launch`, `grant`, `authorize` and `confirm`.
+The capability registry exposes only `list()`, `get()`, `listForApp()`, `propose()` and `contextItem()` and explicitly rejects authority-bearing methods. The separate provider contract intentionally exposes only the app-owned typed `invoke()` implementation surface. That method is not an authorization API: the invocation schema contains no grant/approval authority and must only be reached through the platform-owned verified provider wrapper after the existing Personal OrdaX authorization pipeline allows the exact action.
 
-A later platform-owned App Action Broker remains a separate gate. Publishing these contracts does not make any Notes, Studio, Commerce or third-party action executable.
+Publishing these contracts does not make any Notes, Studio, Commerce or third-party action executable by Intelligence. A package still needs a verified provider artifact, and the platform must bind its exact bytes to the current verified slot before creating a private Action Adapter.
 
 ### Studio runtime composition
 
