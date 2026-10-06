@@ -185,6 +185,8 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
   }
   for (const [appId, values] of byApp) byApp.set(appId, Object.freeze([...values]));
 
+  const compiledContextItem = capabilityContextItem(frozen);
+
   const port = {
     schema: APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA,
     list() {
@@ -217,7 +219,7 @@ export function createApplicationActionCapabilityRegistry({ awareness, capabilit
       });
     },
     contextItem() {
-      return capabilityContextItem(frozen);
+      return compiledContextItem;
     },
   };
 
