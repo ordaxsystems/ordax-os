@@ -282,10 +282,11 @@ test("absent external app is skipped without reading app identity or AI manifest
 
 test("app.json identity must match exact verified slot and external first-party policy", async () => {
   const source = createNativeVerifiedComponentPackageSource(windowRef());
-  for (const [label, app] of [
-    ["version", appManifest("notes", "0.4.2")],
-    ["release mode", appManifest("notes", "0.4.1", { releaseMode: "git-app" })],
-    ["owner", appManifest("notes", "0.4.1", { owner: "system/apps/notes" })],
+  for (const [label, app, expected] of [
+    ["schema", appManifest("notes", "0.4.1", { schema: "other/9" }), /schema drifted/],
+    ["version", appManifest("notes", "0.4.2"), /identity drifted/],
+    ["release mode", appManifest("notes", "0.4.1", { releaseMode: "git-app" }), /identity drifted/],
+    ["owner", appManifest("notes", "0.4.1", { owner: "system/apps/notes" }), /identity drifted/],
   ]) {
     await assert.rejects(
       () => {
@@ -296,7 +297,7 @@ test("app.json identity must match exact verified slot and external first-party 
           fetchImpl: fixture.fetchImpl,
         });
       },
-      /Verified external app identity drifted/,
+      expected,
       label,
     );
   }
