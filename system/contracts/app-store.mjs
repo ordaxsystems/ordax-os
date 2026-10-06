@@ -1,4 +1,8 @@
-const APP_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
+import {
+  validateComponentId,
+  validateComponentVersion,
+} from "./component-manifest.mjs";
+
 const STORE_STATES = new Set(["unavailable", "ready"]);
 const ENTRY_STATES = new Set(["available", "installed", "installing", "staged", "blocked", "failed-retained"]);
 
@@ -32,7 +36,10 @@ function freezeEntry(value) {
     ],
     "App Store entry",
   );
-  if (typeof value.appId !== "string" || !APP_ID_RE.test(value.appId)) {
+  let appId;
+  try {
+    appId = validateComponentId(value.appId);
+  } catch {
     throw new TypeError("App Store entry has invalid appId");
   }
   if (
@@ -43,14 +50,13 @@ function freezeEntry(value) {
   ) {
     throw new TypeError("App Store entry requires bounded canonical title");
   }
-  if (
-    value.version !== null
-    && (
-      typeof value.version !== "string"
-      || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(value.version)
-    )
-  ) {
-    throw new TypeError("App Store entry version must be null or canonical SemVer");
+  let version = null;
+  if (value.version !== null) {
+    try {
+      version = validateComponentVersion(value.version);
+    } catch {
+      throw new TypeError("App Store entry version must be null or canonical component version");
+    }
   }
   if (!ENTRY_STATES.has(value.state)) {
     throw new TypeError("App Store entry has invalid state");
@@ -89,7 +95,7 @@ function freezeEntry(value) {
   if (value.installed && value.installable) {
     throw new TypeError("Installed App Store entry cannot also be installable");
   }
-  return Object.freeze({ ...value });
+  return Object.freeze({ ...value, appId, version });
 }
 
 export function validateAppStoreCatalogSnapshot(value) {
