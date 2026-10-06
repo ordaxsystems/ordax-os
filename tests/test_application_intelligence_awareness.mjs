@@ -193,6 +193,18 @@ test("verified first-party app semantics are projected into Intelligence context
   assert.equal(payload.toolExecution, false);
 });
 
+test("awareness context is compiled once and reused by reference", () => {
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+    firstPartyIntelligenceManifests: [appSemantics()],
+  });
+
+  const first = awareness.contextItem();
+  const second = awareness.contextItem();
+  assert.strictEqual(second, first);
+  assert.equal(JSON.parse(first.text).applications[0].appId, "notes");
+});
+
 test("semantic manifest identity is bound to the exact first-party app version", () => {
   const mismatch = appSemantics("notes", "9.9.9");
   assert.throws(
