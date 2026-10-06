@@ -12,6 +12,7 @@ from dataclasses import dataclass
 DEFAULT_SLOT_ROOT = "/var/lib/ordax/components"
 COMPONENT_MODULE_PREFIX = "/__ordax/native/component-module/"
 MAX_RUNTIME_FILE_BYTES = 2 * 1024 * 1024
+MAX_APP_INTELLIGENCE_MANIFEST_BYTES = 128 * 1024
 MAX_RESOLVE_OUTPUT_BYTES = 16 * 1024
 MAX_HEALTH_OUTPUT_BYTES = 16 * 1024
 DEFAULT_TIMEOUT_SECONDS = 3.0
@@ -98,8 +99,14 @@ def component_slot_reader_available(
     )
 
 
+def _validate_component_id(component_id: str) -> None:
+    if not isinstance(component_id, str) or not _COMPONENT_RE.fullmatch(component_id):
+        raise ComponentSlotRequestError("invalid runtime component id")
+
+
 def _validate_request(component_id: str, state: str, requested_path: str | None = None) -> None:
-    if component_id not in SUPPORTED_COMPONENTS or not _COMPONENT_RE.fullmatch(component_id):
+    _validate_component_id(component_id)
+    if component_id not in SUPPORTED_COMPONENTS:
         raise ComponentSlotRequestError("unsupported runtime component")
     if state not in SUPPORTED_STATES:
         raise ComponentSlotRequestError("unsupported runtime component state")
@@ -219,7 +226,7 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
         raise ComponentSlotVerificationError("runtime component revision is invalid")
 
     source = values.get("SOURCE")
-    if state == "current" and source == "BUNDLED":
+    if state == "current" and source in {"BUNDLED", "ABSENT"}:
         allowed = {
             marker,
             "COMPONENT_ID",
@@ -228,11 +235,13 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
             "RUNTIME_SERVED_FROM_SLOT",
         }
         if set(values) != allowed:
-            raise ComponentSlotVerificationError("bundled resolution contains unexpected fields")
+            raise ComponentSlotVerificationError(
+                f"{source.lower()} resolution contains unexpected fields"
+            )
         return ComponentSlotResolution(
             component_id=component_id,
             state=state,
-            source="bundled",
+            source=source.lower(),
             revision=revision,
             version=None,
             source_commit=None,
@@ -320,6 +329,32 @@ def resolve_component_slot(
     return _parse_resolution_output(output, component_id, state)
 
 
+def resolve_component_metadata_slot(
+    *,
+    helper_path: str,
+    trust_path: str,
+    component_id: str,
+    slot_root: str = DEFAULT_SLOT_ROOT,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+) -> ComponentSlotResolution:
+    _validate_component_id(component_id)
+    output = _run_helper(
+        helper_path,
+        [
+            "resolve-current",
+            "--component",
+            component_id,
+            "--trust",
+            trust_path,
+            "--root",
+            slot_root,
+        ],
+        max_stdout_bytes=MAX_RESOLVE_OUTPUT_BYTES,
+        timeout_seconds=timeout_seconds,
+    )
+    return _parse_resolution_output(output, component_id, "current")
+
+
 def read_component_runtime_file(
     *,
     helper_path: str,
@@ -355,6 +390,44 @@ def read_component_runtime_file(
             slot_root,
         ],
         max_stdout_bytes=MAX_RUNTIME_FILE_BYTES,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def read_component_app_intelligence_manifest(
+    *,
+    helper_path: str,
+    trust_path: str,
+    component_id: str,
+    version: str,
+    source_commit: str,
+    slot_root: str = DEFAULT_SLOT_ROOT,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+) -> bytes:
+    _validate_component_id(component_id)
+    if not _SEMVER_RE.fullmatch(version) or not _SHA40_RE.fullmatch(source_commit):
+        raise ComponentSlotRequestError("invalid app intelligence slot identity")
+    requested_path = f"system/apps/{component_id}/ai/manifest.json"
+    return _run_helper(
+        helper_path,
+        [
+            "read-runtime-file",
+            "--component",
+            component_id,
+            "--trust",
+            trust_path,
+            "--state",
+            "current",
+            "--version",
+            version,
+            "--source-commit",
+            source_commit,
+            "--path",
+            requested_path,
+            "--root",
+            slot_root,
+        ],
+        max_stdout_bytes=MAX_APP_INTELLIGENCE_MANIFEST_BYTES,
         timeout_seconds=timeout_seconds,
     )
 
