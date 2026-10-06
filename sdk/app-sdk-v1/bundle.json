@@ -153,10 +153,17 @@
     },
     {
       "major": 1,
+      "name": "project-cloud-links-data",
+      "schema": "ordax.project-cloud-links/1",
+      "source_git_blob": "1fa9a6a93c675db9771c9167dad59abe112c7193",
+      "source_path": "system/contracts/project-cloud-links-data.mjs"
+    },
+    {
+      "major": 1,
       "name": "project-cloud-links-reader",
       "schema": "ordax.project-cloud-links-reader/1",
-      "source_git_blob": "4936c081695cf0beccc5705a4c5e0b73388c9786",
-      "source_path": "system/contracts/project-cloud-links.mjs"
+      "source_git_blob": "f62016f3e2b09cbad6b4ed0f1dceafc453f19948",
+      "source_path": "system/contracts/project-cloud-links-reader.mjs"
     },
     {
       "major": 1,
