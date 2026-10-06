@@ -33,6 +33,7 @@ test("Native probation composition wires adapter and pure service", async () => 
             componentId: "internet",
             state: "pending",
             source: "slot",
+            sourceRepository: "washingtonmsdj/prototipo-ordax-os",
             revision: 11,
             version: "0.4.0",
             sourceCommit: COMMIT,
