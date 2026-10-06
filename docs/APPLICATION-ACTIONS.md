@@ -377,3 +377,24 @@ modelDirectExecutionAuthorized = false
 ```
 
 This binding is still not an adapter callback, does not contain a tool artifact SHA-256 and is not an Action Gateway allow decision. Its purpose is narrower: prove that the provider declaration belongs to the exact currently verified first-party package before a later slice binds an actual typed provider module artifact and connects it to the existing Personal OrdaX approval/grant/gateway/executor chain. Notes and Studio currently publish declarative provider identities only; until an executable typed provider artifact exists and is verified, the chain remains fail-closed.
+
+## Personal OrdaX provider-binding composition
+
+Personal OrdaX now composes the existing current verified provider resolver only after a session-only Application Action preparation exists.
+
+The runtime path remains authority-free:
+
+```text
+verified capability
+  -> proposal
+  -> Work-bound preparation
+  -> re-read current verified app semantics
+  -> current verified provider binding
+```
+
+The Native composition reuses the same verified component package source used by App Intelligence and re-reads the requested app from the current slot for every provider binding resolution. The provider binding therefore cannot rely only on boot-time semantic state.
+
+During preparation, Personal OrdaX retains the exact Work revision privately. After the asynchronous verified-slot revalidation returns, it requires the same preparation object, owner partition and Work revision to still be current. Any drift discards the binding.
+
+This composition does not add an Application Action-specific approval, grant or execute shortcut. The binding remains `authority=none`, `executionAuthorized=false`, and `modelDirectExecutionAuthorized=false`.
+
