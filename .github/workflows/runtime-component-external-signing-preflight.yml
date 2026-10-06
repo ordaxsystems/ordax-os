@@ -1,0 +1,43 @@
+name: Runtime Component External Signing Preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/runtime-component-channel/check_external_signing_preflight.py'
+      - 'tools/runtime-component-channel/check_production_readiness.py'
+      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'docs/contracts/runtime-component-package.json'
+      - 'docs/contracts/runtime-component-trust-policy.json'
+      - 'tests/test_runtime_component_unsigned_candidate.py'
+      - 'tests/test_runtime_component_external_signing_preflight.py'
+      - '.github/workflows/runtime-component-external-signing-preflight.yml'
+  pull_request:
+    paths:
+      - 'tools/runtime-component-channel/check_external_signing_preflight.py'
+      - 'tools/runtime-component-channel/check_production_readiness.py'
+      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'docs/contracts/runtime-component-package.json'
+      - 'docs/contracts/runtime-component-trust-policy.json'
+      - 'tests/test_runtime_component_unsigned_candidate.py'
+      - 'tests/test_runtime_component_external_signing_preflight.py'
+      - '.github/workflows/runtime-component-external-signing-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Prove external signing preflight
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests/test_runtime_component_external_signing_preflight.py
