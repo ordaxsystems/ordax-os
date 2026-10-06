@@ -179,7 +179,7 @@ class NativeAppIntelligenceCatalogTests(unittest.TestCase):
         ), mock.patch.object(
             catalog,
             "read_component_app_intelligence_manifest",
-            side_effect=catalog.ComponentSlotVerificationError("missing"),
+            side_effect=catalog.ComponentSlotError("missing"),
         ):
             with self.assertRaisesRegex(
                 catalog.NativeAppIntelligenceVerificationError,
