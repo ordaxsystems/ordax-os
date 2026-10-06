@@ -32,6 +32,7 @@ export function createNativePersonalOrdaxComposition({
   actionCatalog = null,
   applicationActionCapabilityRegistry = null,
   resolveVerifiedApplicationSemantics = null,
+  resolveApplicationActionProviderArtifactSha256 = null,
   expectedApplicationActionProviderOwner = null,
   createApplicationActionPreparationId = null,
   grantAuthority = null,
@@ -85,6 +86,7 @@ export function createNativePersonalOrdaxComposition({
         preparationRegistry: applicationActionPreparations,
         capabilityRegistry: applicationActionCapabilityRegistry,
         resolveVerifiedSemantics: resolveVerifiedApplicationSemantics,
+        resolveProviderArtifactSha256: resolveApplicationActionProviderArtifactSha256,
         expectedOwner: expectedApplicationActionProviderOwner,
       })
     : null;
@@ -347,6 +349,42 @@ export function createNativePersonalOrdaxComposition({
       ) {
         throw new Error(
           "Personal OrdaX Application Action changed during provider binding resolution",
+        );
+      }
+      return resolved;
+    },
+    async resolveApplicationActionProviderArtifactBinding(resourceRef) {
+      if (
+        applicationActionPreparations === null
+        || applicationActionProviderResolver === null
+        || typeof applicationActionProviderResolver.resolveArtifact !== "function"
+      ) {
+        throw new Error(
+          "Personal OrdaX Application Action provider artifact binding is unavailable",
+        );
+      }
+      reconcileApplicationActionPreparations();
+      const preparation = applicationActionPreparations.resolve(resourceRef);
+      if (preparation === null) {
+        throw new Error("Personal OrdaX Application Action preparation is no longer current");
+      }
+      const binding = applicationActionPreparationBindings.get(resourceRef);
+      if (!binding) {
+        throw new Error("Personal OrdaX Application Action preparation binding is unavailable");
+      }
+      const resolved = await applicationActionProviderResolver.resolveArtifact(resourceRef);
+      reconcileApplicationActionPreparations();
+      const currentPreparation = applicationActionPreparations.resolve(resourceRef);
+      const currentWork = runtime.getSnapshot().workItems.find(
+        (candidate) => candidate.id === preparation.workItemId,
+      );
+      if (
+        currentPreparation !== preparation
+        || !currentWork
+        || workRevision(currentWork) !== binding.workRevision
+      ) {
+        throw new Error(
+          "Personal OrdaX Application Action changed during provider artifact verification",
         );
       }
       return resolved;
