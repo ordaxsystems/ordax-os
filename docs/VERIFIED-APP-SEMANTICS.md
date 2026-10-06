@@ -144,3 +144,41 @@ Intelligence entende intent/parâmetros
 ```
 
 Runtime binding, grants, policy, confirmação e receipt continuam sendo um gate separado.
+
+
+## Composição Native consumidora
+
+A fonte verificada só produz contexto útil quando a composição Native a liga explicitamente ao Intelligence usado pelos consumidores.
+
+O fluxo autoritativo é:
+
+```text
+verified-component-package-source
+        ↓
+loadVerifiedFirstPartyApplicationSemantics()
+        ↓
+overlayVerifiedFirstPartyApplications()
+        ↓
+createApplicationIntelligenceAwareness()
+        ↓
+createApplicationAwareIntelligence()
+        ↓
+Profile / Space / Memory wrappers
+        ↓
+Assistant + consumidores consultivos
+```
+
+A leitura de semântica externalizada é fail-soft: se o component-slot não estiver disponível ou falhar como capacidade opcional, a composição mantém o catálogo local sem inventar Notes/Studio instalados.
+
+O wrapper `createApplicationAwareIntelligence()` acrescenta apenas o item de contexto `ordax-application-catalog` quando houver orçamento de itens e caracteres suficiente. Ele não substitui contexto fornecido pelo chamador e não expõe `execute`, `invoke` ou `run`.
+
+A cadeia preserva:
+
+```text
+authority = none
+toolExecution = false
+```
+
+O Intelligence base continua sendo usado para coordenação interna onde Application Awareness não é necessário, como captura/coordenação de Memory. O caminho voltado ao usuário recebe Application Awareness antes dos wrappers de Profile, Space e Memory.
+
+Esta composição não implementa runtime binding de intents, grants, policy gate, confirmação ou App Action Broker. Conhecer `notes.create-note` continua sendo somente conhecimento operacional declarativo.
