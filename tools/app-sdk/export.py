@@ -47,6 +47,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "application-action-manifest",
+        "path": "system/contracts/application-action-manifest.mjs",
+        "constant": "APPLICATION_ACTION_MANIFEST_SCHEMA",
+        "schema": "ordax.application-action-manifest/1",
+        "major": 1,
+    },
+    {
         "name": "application-action-proposal",
         "path": "system/contracts/application-action-capability.mjs",
         "constant": "APPLICATION_ACTION_PROPOSAL_SCHEMA",
@@ -230,7 +237,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.10.0"
+BUNDLE_VERSION = "1.11.0"
 
 
 def git_blob(path: Path) -> str:
