@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/verified-app-publication-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/store-catalog.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
@@ -13,13 +15,16 @@ on:
       - 'docs/contracts/mvp-app-delivery.json'
       - 'docs/contracts/first-run.json'
       - 'tests/test_first_party_app_delivery.mjs'
+      - 'tests/test_store_verified_publication_catalog.mjs'
       - 'tests/test_app_install_request.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/verified-app-publication-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/store-catalog.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
@@ -27,6 +32,7 @@ on:
       - 'docs/contracts/mvp-app-delivery.json'
       - 'docs/contracts/first-run.json'
       - 'tests/test_first_party_app_delivery.mjs'
+      - 'tests/test_store_verified_publication_catalog.mjs'
       - 'tests/test_app_install_request.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
@@ -49,9 +55,12 @@ jobs:
         run: |
           set -euo pipefail
           node --check system/contracts/first-party-app-delivery.mjs
+          node --check system/contracts/verified-app-publication-catalog.mjs
           node --check system/services/apps/delivery-policy.mjs
+          node --check system/services/apps/store-catalog.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
+          node --check tests/test_store_verified_publication_catalog.mjs
           node --check tests/test_app_install_request.mjs
           node --check tests/test_mvp_app_delivery.mjs
           python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
@@ -63,6 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_first_party_app_delivery.mjs
+          node --test tests/test_store_verified_publication_catalog.mjs
           node --test tests/test_app_install_request.mjs
 
       - name: Prove minimal MVP payload and first-online refresh policy
