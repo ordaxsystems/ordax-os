@@ -34,12 +34,34 @@
     }
   },
   "current_target_policy": {
-    "structural": ["settings", "account", "system"],
-    "bootstrap": ["files", "internet"],
-    "on_demand": ["assistant", "studio", "projects", "activity", "notes", "network"]
+    "structural": [
+      "settings",
+      "account",
+      "system"
+    ],
+    "bootstrap": [
+      "files",
+      "internet"
+    ],
+    "on_demand": [
+      "assistant",
+      "studio",
+      "projects",
+      "activity",
+      "notes",
+      "network"
+    ]
   },
   "surface_projection": {
-    "states": ["installed", "available", "installing", "staged", "blocked", "failed-retained", "not-catalogued"],
+    "states": [
+      "installed",
+      "available",
+      "installing",
+      "staged",
+      "blocked",
+      "failed-retained",
+      "not-catalogued"
+    ],
     "missing_recommended_app_action": "show-install",
     "missing_store_only_app_visible_in_launcher": false,
     "installed_payload_required_for_launch": true
@@ -56,7 +78,14 @@
     "store_service_implemented": false,
     "must_reuse_component_manager": true,
     "must_reuse_runtime_component_release_v2_when_component_slot": true,
-    "may_create_parallel_updater": false
+    "may_create_parallel_updater": false,
+    "request_contract": "ordax.app-install-request/1",
+    "request_port": "ordax.app-install-request-port/1",
+    "request_authority": "none",
+    "request_may_select_artifact": false,
+    "request_may_select_trust_anchor": false,
+    "request_may_grant_permissions": false,
+    "request_may_bypass_verification": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
