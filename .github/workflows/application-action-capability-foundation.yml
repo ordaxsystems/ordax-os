@@ -21,6 +21,7 @@ on:
       - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
       - 'system/services/personal-ordax/application-action-provider-artifact-resolver.mjs'
+      - 'system/adapters/native/verified-component-artifact-identity.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
@@ -30,6 +31,7 @@ on:
       - 'tests/test_application_action_provider_binding_composition.mjs'
       - 'tests/test_application_action_provider_manifest.mjs'
       - 'tests/test_application_action_provider_resolver.mjs'
+      - 'tests/test_native_verified_component_artifact_identity.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - 'tests/test_application_action_preparation_composition.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
@@ -54,6 +56,7 @@ on:
       - 'system/services/personal-ordax/application-action-preparations.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
       - 'system/services/personal-ordax/application-action-provider-artifact-resolver.mjs'
+      - 'system/adapters/native/verified-component-artifact-identity.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
@@ -63,6 +66,7 @@ on:
       - 'tests/test_application_action_provider_binding_composition.mjs'
       - 'tests/test_application_action_provider_manifest.mjs'
       - 'tests/test_application_action_provider_resolver.mjs'
+      - 'tests/test_native_verified_component_artifact_identity.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - 'tests/test_application_action_preparation_composition.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
@@ -94,6 +98,7 @@ jobs:
           node --check system/services/personal-ordax/application-action-preparations.mjs
           node --check system/services/personal-ordax/application-action-provider-bindings.mjs
           node --check system/services/personal-ordax/application-action-provider-artifact-resolver.mjs
+          node --check system/adapters/native/verified-component-artifact-identity.mjs
           node --check system/composition/native/personal-ordax.mjs
           node --check system/composition/native/main.mjs
           node --check system/services/intelligence/application-awareness.mjs
@@ -109,6 +114,7 @@ jobs:
           node --check tests/test_application_action_provider_binding_composition.mjs
           node --check tests/test_application_action_provider_manifest.mjs
           node --check tests/test_application_action_provider_resolver.mjs
+          node --check tests/test_native_verified_component_artifact_identity.mjs
           node --check tests/test_application_action_preparation_composition.mjs
           node --check tests/test_verified_app_semantics_source.mjs
 
@@ -121,6 +127,7 @@ jobs:
           node --test tests/test_application_action_provider_binding_composition.mjs
           node --test tests/test_application_action_provider_manifest.mjs
           node --test tests/test_application_action_provider_resolver.mjs
+          node --test tests/test_native_verified_component_artifact_identity.mjs
           node --test tests/test_application_action_preparation_composition.mjs
           node --test tests/test_verified_app_semantics_source.mjs
           node --test tests/test_application_intelligence_awareness.mjs

@@ -24,7 +24,6 @@ import {
   assertVerifiedComponentPackageSource,
 } from "../../contracts/verified-component-package-source.mjs";
 
-const MAX_VERIFIED_APPLICATIONS = 32;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 
 async function readJsonResponse(response, label) {
@@ -57,7 +56,7 @@ function boundedOwner(value) {
   return value;
 }
 
-function validateEntry(value, expectedOwner) {
+function validateEntry(value, expectedOwner, expectedAppId) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Application action provider artifact resolver entry is invalid");
   }
@@ -69,6 +68,7 @@ function validateEntry(value, expectedOwner) {
   if (
     application.id !== component.id
     || application.title !== component.title
+    || component.id !== expectedAppId
     || component.kind !== "app"
     || component.releaseMode !== "component-slot"
     || component.owner !== expectedOwner
@@ -114,18 +114,6 @@ function validateEntry(value, expectedOwner) {
   });
 }
 
-function validateEntries(value, expectedOwner) {
-  if (!Array.isArray(value) || value.length > MAX_VERIFIED_APPLICATIONS) {
-    throw new TypeError("Application action provider artifact resolver entries must be a bounded array");
-  }
-  const entries = value.map((entry) => validateEntry(entry, expectedOwner));
-  const ids = entries.map((entry) => entry.application.id);
-  if (new Set(ids).size !== ids.length) {
-    throw new TypeError("Application action provider artifact resolver entries must be unique by app");
-  }
-  return Object.freeze(entries);
-}
-
 function sameBinding(leftValue, rightValue) {
   const left = validateApplicationActionProviderBinding(leftValue);
   const right = validateApplicationActionProviderBinding(rightValue);
@@ -145,9 +133,44 @@ function sameBinding(leftValue, rightValue) {
   );
 }
 
+function providerForBinding(entry, binding) {
+  const appId = binding.appId;
+  if (
+    entry.application.component.version !== binding.appVersion
+    || entry.sourceCommit !== binding.sourceCommit
+    || entry.revision !== binding.componentRevision
+  ) {
+    throw new Error(`Application action provider verified semantics drifted from binding: ${appId}`);
+  }
+  if (entry.providerManifest === null) {
+    throw new Error(`Application action provider artifact is unavailable for verified app: ${appId}`);
+  }
+  const provider = entry.providerManifest.providers.find(
+    (candidate) =>
+      candidate.adapterId === binding.provider.adapterId
+      && candidate.revision === binding.provider.revision,
+  );
+  if (!provider) {
+    throw new Error(
+      `Application action provider artifact no longer matches binding: ${appId}`,
+    );
+  }
+  return provider;
+}
+
+function sameProviderArtifact(left, right) {
+  return (
+    left.kind === right.kind
+    && left.adapterId === right.adapterId
+    && left.revision === right.revision
+    && left.module === right.module
+    && left.artifactSha256 === right.artifactSha256
+  );
+}
+
 export function createApplicationActionProviderArtifactResolver({
   providerBindingResolver: providerBindingResolverValue,
-  verifiedEntries = [],
+  resolveVerifiedSemantics,
   source: sourceValue,
   fetchImpl,
   artifactIdentity,
@@ -157,8 +180,11 @@ export function createApplicationActionProviderArtifactResolver({
     providerBindingResolverValue,
   );
   const owner = boundedOwner(expectedOwner);
-  const entries = validateEntries(verifiedEntries, owner);
-  const byAppId = new Map(entries.map((entry) => [entry.application.id, entry]));
+  if (typeof resolveVerifiedSemantics !== "function") {
+    throw new TypeError(
+      "Application action provider artifact resolver requires resolveVerifiedSemantics()",
+    );
+  }
   const source = assertVerifiedComponentPackageSource(sourceValue);
   if (typeof fetchImpl !== "function") {
     throw new TypeError("Application action provider artifact resolver requires fetchImpl()");
@@ -166,6 +192,14 @@ export function createApplicationActionProviderArtifactResolver({
   if (typeof artifactIdentity !== "function") {
     throw new TypeError("Application action provider artifact resolver requires artifactIdentity()");
   }
+
+  const currentEntry = async (appId) => {
+    const value = await resolveVerifiedSemantics(appId);
+    if (value === null) {
+      throw new Error(`Application action provider app is not currently verified: ${appId}`);
+    }
+    return validateEntry(value, owner, appId);
+  };
 
   return Object.freeze({
     schema: APPLICATION_ACTION_PROVIDER_ARTIFACT_RESOLVER_SCHEMA,
@@ -178,28 +212,13 @@ export function createApplicationActionProviderArtifactResolver({
       }
 
       const appId = binding.appId;
-      const entry = byAppId.get(appId);
-      if (entry === undefined) {
-        throw new Error(`Application action provider app is not currently verified: ${appId}`);
-      }
-      if (
-        entry.application.component.version !== binding.appVersion
-        || entry.sourceCommit !== binding.sourceCommit
-        || entry.revision !== binding.componentRevision
-      ) {
-        throw new Error(`Application action provider verified semantics drifted from binding: ${appId}`);
-      }
-      if (entry.providerManifest === null) {
-        throw new Error(`Application action provider artifact is unavailable for verified app: ${appId}`);
-      }
-      const provider = entry.providerManifest.providers.find(
-        (candidate) =>
-          candidate.adapterId === binding.provider.adapterId
-          && candidate.revision === binding.provider.revision,
-      );
-      if (!provider) {
+      const entry = await currentEntry(appId);
+      const provider = providerForBinding(entry, binding);
+
+      const semanticsBindingValue = await providerBindingResolver.resolve(resourceRef);
+      if (semanticsBindingValue === null || !sameBinding(binding, semanticsBindingValue)) {
         throw new Error(
-          `Application action provider artifact no longer matches binding: ${appId}`,
+          "Application action provider binding changed during verified semantics resolution",
         );
       }
 
@@ -246,6 +265,14 @@ export function createApplicationActionProviderArtifactResolver({
       const finalBindingValue = await providerBindingResolver.resolve(resourceRef);
       if (finalBindingValue === null || !sameBinding(binding, finalBindingValue)) {
         throw new Error("Application action provider binding changed during artifact resolution");
+      }
+
+      const finalEntry = await currentEntry(appId);
+      const finalProvider = providerForBinding(finalEntry, binding);
+      if (!sameProviderArtifact(provider, finalProvider)) {
+        throw new Error(
+          `Application action provider verified semantics changed during artifact resolution: ${appId}`,
+        );
       }
 
       return validateApplicationActionProviderResolution({
