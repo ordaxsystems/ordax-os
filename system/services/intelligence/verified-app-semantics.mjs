@@ -15,7 +15,7 @@ import {
 import { assertVerifiedComponentPackageSource } from "../../contracts/verified-component-package-source.mjs";
 
 const MAX_APP_MANIFESTS = 32;
-const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
+export const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
 export const EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS = Object.freeze(["notes", "studio"]);
 
 function validateAppIds(value) {
