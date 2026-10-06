@@ -38,6 +38,7 @@ from native_component_slots import (
     parse_component_module_path,
     read_component_runtime_file,
     read_verified_app_intelligence_manifest,
+    read_verified_first_party_app_awareness_bundle,
     resolve_component_slot,
 )
 from native_memory_endpoint import (
@@ -3589,7 +3590,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             component_id = query["component"][0]
             try:
                 with self.server.component_slot_lock:
-                    resolution, manifest = read_verified_app_intelligence_manifest(
+                    resolution, component, manifest = read_verified_first_party_app_awareness_bundle(
                         helper_path=self.server.component_channel_bin,
                         trust_path=self.server.component_trust_path,
                         component_id=component_id,
@@ -3617,6 +3618,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     "componentVersion": resolution.version,
                     "sourceCommit": resolution.source_commit,
                     "revision": resolution.revision,
+                    "component": component,
                     "manifest": manifest,
                     "authority": "none",
                 },
