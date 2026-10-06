@@ -31,7 +31,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertEqual(policy["status"], "signed-slot-staging")
         self.assertEqual(
             policy["supported_components"],
-            ["internet", "local-ai-service", "ordax-intelligence"],
+            ["internet", "local-ai-service", "ordax-intelligence", "notes"],
         )
         self.assertEqual(
             policy["packaging_only_components"],
