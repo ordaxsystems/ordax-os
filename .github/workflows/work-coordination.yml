@@ -41,6 +41,7 @@ jobs:
           node --check system/contracts/work-coordination.mjs
           node --check system/contracts/work-coordination-store.mjs
           node --check system/services/work-coordination/runtime.mjs
+          node --check tests/test_work_coordination_runtime_authority.mjs
 
       - name: Run Work Coordination contract tests
         run: |
@@ -48,3 +49,4 @@ jobs:
           node --test tests/test_work_coordination_contracts.mjs
           node --test tests/test_work_coordination_store.mjs
           node --test tests/test_work_coordination_runtime.mjs
+          node --test tests/test_work_coordination_runtime_authority.mjs
