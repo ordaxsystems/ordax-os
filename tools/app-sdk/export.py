@@ -159,10 +159,10 @@ CONTRACTS = (
         "major": 1,
     },
     {
-        "name": "project-cloud-links",
+        "name": "project-cloud-links-reader",
         "path": "system/contracts/project-cloud-links.mjs",
-        "constant": "PROJECT_CLOUD_LINKS_SCHEMA",
-        "schema": "ordax.project-cloud-links/1",
+        "constant": "PROJECT_CLOUD_LINKS_READER_SCHEMA",
+        "schema": "ordax.project-cloud-links-reader/1",
         "major": 1,
     },
     {
