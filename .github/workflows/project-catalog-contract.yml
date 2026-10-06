@@ -1,0 +1,35 @@
+name: Project Catalog Contract
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/project-catalog.mjs'
+      - 'tests/test_project_catalog_reader.mjs'
+      - '.github/workflows/project-catalog-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/project-catalog.mjs'
+      - 'tests/test_project_catalog_reader.mjs'
+      - '.github/workflows/project-catalog-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate Project catalog contract
+        run: |
+          set -euo pipefail
+          node --check system/contracts/project-catalog.mjs
+          node --check tests/test_project_catalog_reader.mjs
+          node --test tests/test_project_catalog_reader.mjs
