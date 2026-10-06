@@ -27,7 +27,7 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn("createApplicationContextIntelligence", text)
         self.assertIn("createApplicationActionCapabilityRegistry", text)
         self.assertIn("const verifiedActionCapabilities = verifiedAppSemantics.flatMap(", text)
-        self.assertIn("(entry) => entry.actionManifest.capabilities", text)
+        self.assertIn("(entry) => entry.actionManifest?.capabilities ?? []", text)
         self.assertIn("actionCapabilityRegistryPort: appActionCapabilities", text)
         self.assertIn("const verifiedAppSemanticsPromise = optionalNativeProbe(", text)
         self.assertIn("const appAwareIntelligence = createApplicationContextIntelligence({", text)
