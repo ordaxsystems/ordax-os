@@ -20,6 +20,20 @@ function envelope() {
     componentVersion: "0.4.1",
     sourceCommit: "a".repeat(40),
     revision: 9,
+    component: {
+      schema: "ordax.component-manifest/1",
+      id: "notes",
+      title: "Notas",
+      kind: "app",
+      version: "0.4.1",
+      releaseMode: "component-slot",
+      criticality: "optional",
+      failureDomain: "app",
+      restartScope: "component",
+      healthMode: "runtime",
+      owner: "washingtonmsdj/ordax-apps",
+      dependencies: [],
+    },
     manifest: {
       schema: "ordax.app-intelligence-manifest/1",
       appId: "notes",
@@ -43,6 +57,9 @@ test("native manifest source returns semantics only from canonical envelope", as
   });
 
   const value = await source.read("notes");
+  assert.equal(value.component.id, "notes");
+  assert.equal(value.component.title, "Notas");
+  assert.equal(value.component.releaseMode, "component-slot");
   assert.equal(value.manifest.appId, "notes");
   assert.equal(value.manifest.execution, "declarative-only");
   assert.equal(value.authority, "none");
@@ -65,6 +82,13 @@ test("native manifest source rejects identity or authority drift", async () => {
     async fetch() { return response(200, wrong); },
   });
   await assert.rejects(() => source.read("notes"), /appId mismatch|component mismatch/);
+
+  const wrongComponent = envelope();
+  wrongComponent.component.owner = "system/apps/notes";
+  const sourceComponent = createNativeAppIntelligenceManifestSource({
+    async fetch() { return response(200, wrongComponent); },
+  });
+  await assert.rejects(() => sourceComponent.read("notes"), /component identity is invalid/);
 
   const authority = envelope();
   authority.authority = "native";
