@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
     paths:
+      - 'system/apps/intelligence-catalog.mjs'
+      - 'system/apps/**/ai/**'
+      - 'tests/test_application_intelligence_awareness.mjs'
+      - 'tests/test_application_intelligence_context.mjs'
+      - 'tests/test_application_semantic_router.mjs'
       - 'docs/INTELLIGENCE.md'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'docs/contracts/intelligence.json'
@@ -144,6 +149,11 @@ on:
       - '.github/workflows/intelligence-foundation.yml'
   pull_request:
     paths:
+      - 'system/apps/intelligence-catalog.mjs'
+      - 'system/apps/**/ai/**'
+      - 'tests/test_application_intelligence_awareness.mjs'
+      - 'tests/test_application_intelligence_context.mjs'
+      - 'tests/test_application_semantic_router.mjs'
       - 'docs/INTELLIGENCE.md'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'docs/contracts/intelligence.json'
@@ -350,6 +360,8 @@ jobs:
           python -m py_compile tools/local-ai-benchmark/benchmark.py
           python -m py_compile tools/local-ai-hardware-probe/probe.py
           node --check system/apps/assistant/conversation.mjs
+          node --check system/apps/intelligence-catalog.mjs
+          find system/apps -path '*/ai/*.mjs' -type f -print0 | sort -z | xargs -0 -n1 node --check
           node --check system/services/memory/assistant-auto-capture.mjs
           node --check system/apps/assistant/runtime.mjs
           node --check system/apps/assistant/ui/conversation-controls.mjs
@@ -384,6 +396,9 @@ jobs:
           node --test tests/test_intelligence_artifact.mjs
           node --test tests/test_intelligence_tool.mjs
           node --test tests/test_semantic_index.mjs
+          node --test tests/test_application_intelligence_awareness.mjs
+          node --test tests/test_application_intelligence_context.mjs
+          node --test tests/test_application_semantic_router.mjs
           node --test tests/test_local_ai_runtime.mjs
           node --test tests/test_local_ai_endpoint_policy.mjs
           node --test tests/test_local_ai_probe_races.mjs
