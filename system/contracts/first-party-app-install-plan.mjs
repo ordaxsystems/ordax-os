@@ -5,7 +5,7 @@ const APP_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
-const REPOSITORY_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const REPOSITORY_SEGMENT_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/;
 const RUNTIME_COMPONENT_RELEASE_SCHEMA = "prototype-ordax.runtime-component-release/2";
 const BLOCKED_REASONS = new Set([
   "already-installed",
@@ -44,6 +44,20 @@ function requireSha256(value, label) {
   return value;
 }
 
+function requireSourceRepository(value) {
+  if (typeof value !== "string" || value.length > 201) {
+    throw new TypeError("First-party app install artifact source repository is invalid");
+  }
+  const segments = value.split("/");
+  if (
+    segments.length !== 2
+    || segments.some((segment) => !REPOSITORY_SEGMENT_RE.test(segment))
+  ) {
+    throw new TypeError("First-party app install artifact source repository is invalid");
+  }
+  return value;
+}
+
 export function defineFirstPartyAppInstallArtifact(value) {
   exactKeys(
     value,
@@ -72,9 +86,7 @@ export function defineFirstPartyAppInstallArtifact(value) {
   if (value.releaseMode !== "component-slot") {
     throw new TypeError("First-party app install artifact release mode must be component-slot");
   }
-  if (typeof value.sourceRepository !== "string" || !REPOSITORY_RE.test(value.sourceRepository)) {
-    throw new TypeError("First-party app install artifact source repository is invalid");
-  }
+  const sourceRepository = requireSourceRepository(value.sourceRepository);
   if (typeof value.sourceCommit !== "string" || !COMMIT_RE.test(value.sourceCommit)) {
     throw new TypeError("First-party app install artifact source commit is invalid");
   }
@@ -89,7 +101,7 @@ export function defineFirstPartyAppInstallArtifact(value) {
     version: value.version,
     releaseSchema: value.releaseSchema,
     releaseMode: value.releaseMode,
-    sourceRepository: value.sourceRepository,
+    sourceRepository,
     sourceCommit: value.sourceCommit,
     releaseEnvelopeSha256,
     packageSha256,
