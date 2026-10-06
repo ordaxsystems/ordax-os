@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { listFirstPartyApps } from "../system/apps/catalog.mjs";
+import { listFirstPartyAppDeliveryPolicies } from "../system/services/apps/delivery-policy.mjs";
 
 const inventoryUrl = new URL(
   "../system/services/apps/first-party-identities.json",
@@ -13,7 +14,7 @@ async function readInventory() {
   return JSON.parse(await readFile(inventoryUrl, "utf8"));
 }
 
-test("first-party identity inventory is exact and matches the runtime app catalog", async () => {
+test("first-party identity inventory covers delivery policy and matches embedded runtime versions", async () => {
   const inventory = await readInventory();
   assert.deepEqual(Object.keys(inventory).sort(), [
     "$schema",
@@ -30,9 +31,13 @@ test("first-party identity inventory is exact and matches the runtime app catalo
   assert.equal(inventory.verificationGeneration, 1);
   assert.ok(Array.isArray(inventory.apps));
 
-  const expected = new Map(
+  const embeddedApps = new Map(
     listFirstPartyApps().map((app) => [app.id, app.component.version]),
   );
+  const policyIds = listFirstPartyAppDeliveryPolicies()
+    .map((policy) => policy.appId)
+    .sort();
+
   const actual = new Map();
   for (const entry of inventory.apps) {
     assert.deepEqual(Object.keys(entry).sort(), [
@@ -48,10 +53,26 @@ test("first-party identity inventory is exact and matches the runtime app catalo
     actual.set(entry.appId, entry.version);
   }
 
-  assert.deepEqual([...actual.keys()].sort(), [...expected.keys()].sort());
-  for (const [appId, version] of expected) {
-    assert.equal(actual.get(appId), version, `${appId} identity version drifted from component manifest`);
+  assert.deepEqual(
+    [...actual.keys()].sort(),
+    policyIds,
+    "every first-party delivery identity must remain verifiable even when its payload is external",
+  );
+
+  for (const [appId, version] of embeddedApps) {
+    assert.equal(
+      actual.get(appId),
+      version,
+      `${appId} identity version drifted from embedded component manifest`,
+    );
   }
+
+  assert.equal(
+    embeddedApps.has("notes"),
+    false,
+    "external Notes must not be reintroduced into the embedded runtime catalog",
+  );
+  assert.equal(actual.get("notes"), "0.4.1", "external Notes identity must remain verifiable");
 });
 
 test("identity inventory never treats signing or display metadata as the durable principal", async () => {
