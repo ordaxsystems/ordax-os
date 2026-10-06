@@ -38,6 +38,7 @@ from native_component_slots import (
     parse_component_module_path,
     read_component_runtime_file,
     read_verified_app_intelligence_manifest,
+    read_verified_first_party_app_awareness_bundle,
     resolve_component_slot,
 )
 from native_memory_endpoint import (
@@ -110,6 +111,7 @@ UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
 APP_INTELLIGENCE_MANIFEST_PATH = "/__ordax/native/app-intelligence-manifest"
+APP_INTELLIGENCE_AWARENESS_PATH = "/__ordax/native/app-intelligence-awareness"
 DEFAULT_COMPONENT_CHANNEL_BIN = "/srv/ordax-system/bin/ordax-runtime-component-channel"
 DEFAULT_COMPONENT_TRUST_PATH = "/srv/ordax-system/trust/runtime-components-ed25519.json"
 DEFAULT_COMPONENT_SLOT_ROOT = "/var/lib/ordax/components"
@@ -3413,7 +3415,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, APP_INTELLIGENCE_MANIFEST_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, APP_INTELLIGENCE_MANIFEST_PATH, APP_INTELLIGENCE_AWARENESS_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -3568,6 +3570,57 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(payload)
+            return
+
+        if parsed_path == APP_INTELLIGENCE_AWARENESS_PATH:
+            if not self.server.component_slot_read_available:
+                self._empty(404)
+                return
+            try:
+                query = parse_qs(
+                    urlsplit(self.path).query,
+                    keep_blank_values=True,
+                    strict_parsing=True,
+                )
+            except ValueError:
+                self._empty(400)
+                return
+            if set(query) != {"component"} or len(query["component"]) != 1:
+                self._empty(400)
+                return
+            component_id = query["component"][0]
+            try:
+                with self.server.component_slot_lock:
+                    resolution, component, manifest = read_verified_first_party_app_awareness_bundle(
+                        helper_path=self.server.component_channel_bin,
+                        trust_path=self.server.component_trust_path,
+                        component_id=component_id,
+                        slot_root=self.server.component_slot_root,
+                    )
+            except (ComponentSlotRequestError, ComponentSlotUnavailableError):
+                self._empty(404)
+                return
+            except ComponentSlotVerificationError as exc:
+                print(
+                    f"ordax-native-host: app intelligence awareness verification failed safely: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(409)
+                return
+            self._write_json(
+                200,
+                {
+                    "$schema": "ordax.native-app-intelligence-awareness/1",
+                    "componentId": resolution.component_id,
+                    "componentVersion": resolution.version,
+                    "sourceCommit": resolution.source_commit,
+                    "revision": resolution.revision,
+                    "component": component,
+                    "manifest": manifest,
+                    "authority": "none",
+                },
+            )
             return
 
         if parsed_path == APP_INTELLIGENCE_MANIFEST_PATH:
