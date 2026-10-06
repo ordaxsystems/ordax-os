@@ -14,22 +14,22 @@ function positiveInteger(value, label, max) {
   return value;
 }
 
+function boundedText(value, label, max = 96) {
+  if (typeof value !== "string" || value.includes("\0")) {
+    throw new TypeError(`${label} must be text`);
+  }
+  const normalized = value.trim();
+  if (!normalized || normalized.length > max) {
+    throw new TypeError(`${label} is outside bounds`);
+  }
+  return normalized;
+}
+
 function timeoutMs(value, label) {
   if (!Number.isSafeInteger(value) || value < MIN_TIMEOUT_MS || value > MAX_TIMEOUT_MS) {
     throw new TypeError(`${label} request timeout must be between ${MIN_TIMEOUT_MS} and ${MAX_TIMEOUT_MS} milliseconds`);
   }
   return value;
-}
-
-function boundedLabel(value) {
-  if (typeof value !== "string" || value.includes("\0")) {
-    throw new TypeError("Native JSON transport label must be text");
-  }
-  const normalized = value.trim();
-  if (!normalized || normalized.length > 96) {
-    throw new TypeError("Native JSON transport label is outside bounds");
-  }
-  return normalized;
 }
 
 function nativeEndpoint(value) {
@@ -45,10 +45,13 @@ function nativeEndpoint(value) {
   } catch {
     throw new TypeError("Native JSON transport endpoint is invalid");
   }
+  if (parsed.hash) {
+    throw new TypeError("Native JSON transport endpoint must not contain a fragment");
+  }
   if (parsed.origin !== "https://ordax.invalid" || !parsed.pathname.startsWith(NATIVE_ENDPOINT_PREFIX)) {
     throw new TypeError("Native JSON transport endpoint must stay inside the Native same-origin boundary");
   }
-  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  return `${parsed.pathname}${parsed.search}`;
 }
 
 function requestMethod(value) {
@@ -78,7 +81,7 @@ export function createNativeBoundedJsonTransport(
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native JSON transport requires window.fetch");
   }
-  const normalizedLabel = boundedLabel(label);
+  const normalizedLabel = boundedText(label, "Native JSON transport label");
   const responseLimit = positiveInteger(
     maxResponseBytes,
     `${normalizedLabel} response byte limit`,
@@ -104,23 +107,28 @@ export function createNativeBoundedJsonTransport(
   }
 
   function assertRequestBody(body, operationLabel = "request") {
+    const operation = boundedText(operationLabel, "Native JSON transport operation");
     if (typeof body !== "string") {
-      throw new TypeError(`${normalizedLabel} ${operationLabel} body must be serialized text`);
+      throw new TypeError(`${normalizedLabel} ${operation} body must be serialized text`);
     }
     if (encoder.encode(body).byteLength > requestLimit) {
-      throw new Error(`${normalizedLabel} ${operationLabel} exceeds its byte limit`);
+      throw new Error(`${normalizedLabel} ${operation} exceeds its byte limit`);
     }
     return body;
   }
 
   async function readJson(response, responseLabel = "response") {
+    const normalizedResponseLabel = boundedText(
+      responseLabel,
+      "Native JSON transport response label",
+    );
     const declared = declaredContentLength(response);
     if (declared !== null && declared > responseLimit) {
       cancel(response);
-      throw new Error(`${normalizedLabel} ${responseLabel} exceeds its byte limit`);
+      throw new Error(`${normalizedLabel} ${normalizedResponseLabel} exceeds its byte limit`);
     }
     if (!response?.body || typeof response.body.getReader !== "function") {
-      throw new Error(`${normalizedLabel} ${responseLabel} does not expose a bounded stream`);
+      throw new Error(`${normalizedLabel} ${normalizedResponseLabel} does not expose a bounded stream`);
     }
 
     const reader = response.body.getReader();
@@ -131,12 +139,12 @@ export function createNativeBoundedJsonTransport(
       if (done) break;
       if (!(value instanceof Uint8Array)) {
         try { await reader.cancel(); } catch {}
-        throw new Error(`${normalizedLabel} ${responseLabel} chunk is invalid`);
+        throw new Error(`${normalizedLabel} ${normalizedResponseLabel} chunk is invalid`);
       }
       total += value.byteLength;
       if (total > responseLimit) {
         try { await reader.cancel(); } catch {}
-        throw new Error(`${normalizedLabel} ${responseLabel} exceeds its byte limit`);
+        throw new Error(`${normalizedLabel} ${normalizedResponseLabel} exceeds its byte limit`);
       }
       chunks.push(value);
     }
@@ -152,12 +160,12 @@ export function createNativeBoundedJsonTransport(
     try {
       decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     } catch {
-      throw new Error(`${normalizedLabel} ${responseLabel} is not valid UTF-8`);
+      throw new Error(`${normalizedLabel} ${normalizedResponseLabel} is not valid UTF-8`);
     }
     try {
       return JSON.parse(decoded);
     } catch {
-      throw new Error(`${normalizedLabel} ${responseLabel} is not valid JSON`);
+      throw new Error(`${normalizedLabel} ${normalizedResponseLabel} is not valid JSON`);
     }
   }
 
@@ -176,19 +184,22 @@ export function createNativeBoundedJsonTransport(
     }
     const endpoint = nativeEndpoint(endpointValue);
     const normalizedMethod = requestMethod(method);
+    const normalizedOperation = boundedText(operation, "Native JSON transport operation");
     if (normalizedMethod === "GET" && body !== null) {
       throw new TypeError("Native JSON transport GET request cannot carry a body");
     }
     if (headers !== null && (!headers || typeof headers !== "object" || Array.isArray(headers))) {
       throw new TypeError("Native JSON transport headers must be an object");
     }
-    const serializedBody = body === null ? null : assertRequestBody(body, operation);
+    const serializedBody = body === null
+      ? null
+      : assertRequestBody(body, normalizedOperation);
     const controller = new AbortController();
     let timer = null;
     const timeout = new Promise((_, reject) => {
       timer = setTimeout(() => {
         controller.abort();
-        reject(new Error(`${normalizedLabel} ${operation} timed out after ${requestTimeout}ms`));
+        reject(new Error(`${normalizedLabel} ${normalizedOperation} timed out after ${requestTimeout}ms`));
       }, requestTimeout);
     });
     const fetchOperation = (async () => {
