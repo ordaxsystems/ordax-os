@@ -9,6 +9,7 @@ export const COMPONENT_PROBATION_ORCHESTRATOR_SCHEMA =
 
 const PROBE_MODES = Object.freeze({
   internet: "import-contract",
+  notes: "import-contract",
 });
 
 function probeFor(componentId) {
