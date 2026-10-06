@@ -135,6 +135,7 @@ function verifiedFetch({
   app = null,
   ai = null,
   actionManifest = null,
+  actionStatus = 200,
 } = {}) {
   const calls = [];
   return {
@@ -157,6 +158,7 @@ function verifiedFetch({
         return jsonResponse(ai ?? semantics(appId, version));
       }
       if (parsed.pathname.endsWith("/actions/manifest.json")) {
+        if (actionStatus === 404) return jsonResponse({}, 404);
         return jsonResponse(actionManifest ?? actions(appId, version));
       }
       throw new Error(`unexpected verified package path: ${parsed.pathname}`);
@@ -337,6 +339,30 @@ test("manifest-only compatibility helper is derived from verified application se
   assert.equal(manifests.length, 1);
   assert.equal(manifests[0].appId, "notes");
   assert.equal(manifests[0].appVersion, "0.4.1");
+});
+
+test("legacy verified package without Action manifest keeps Intelligence semantics but exposes no capabilities", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  const fixture = verifiedFetch({ actionStatus: 404 });
+  const entries = await loadVerifiedFirstPartyApplicationSemantics({
+    appIds: ["notes"],
+    source,
+    fetchImpl: fixture.fetchImpl,
+  });
+
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].application.id, "notes");
+  assert.equal(entries[0].intelligenceManifest.appId, "notes");
+  assert.equal(entries[0].actionManifest, null);
+  assert.equal(fixture.calls.length, 4);
+
+  const actionFixture = verifiedFetch({ actionStatus: 404 });
+  const actionManifests = await loadVerifiedFirstPartyApplicationActionManifests({
+    appIds: ["notes"],
+    source,
+    fetchImpl: actionFixture.fetchImpl,
+  });
+  assert.deepEqual(actionManifests, []);
 });
 
 test("action-manifest compatibility helper is derived from the same verified application semantics", async () => {
