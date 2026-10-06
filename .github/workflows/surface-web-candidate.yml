@@ -139,6 +139,7 @@ on:
       - 'tests/test_app_contract.mjs'
       - 'tests/test_component_manager.mjs'
       - 'tests/test_component_runtime.mjs'
+      - 'tests/test_component_trusted_context_composition.mjs'
       - 'tests/test_component_slot_source.mjs'
       - 'tests/test_component_probation_loader.mjs'
       - 'tests/test_component_probation_orchestrator.mjs'
@@ -327,6 +328,7 @@ on:
       - 'tests/test_app_contract.mjs'
       - 'tests/test_component_manager.mjs'
       - 'tests/test_component_runtime.mjs'
+      - 'tests/test_component_trusted_context_composition.mjs'
       - 'tests/test_component_slot_source.mjs'
       - 'tests/test_component_probation_loader.mjs'
       - 'tests/test_component_probation_orchestrator.mjs'
@@ -457,6 +459,7 @@ jobs:
           node --test tests/test_app_contract.mjs
           node --test tests/test_component_manager.mjs
           node --test tests/test_component_runtime.mjs
+          node --test tests/test_component_trusted_context_composition.mjs
           node --test tests/test_component_slot_source.mjs
           node --test tests/test_component_probation_loader.mjs
           node --test tests/test_component_probation_orchestrator.mjs
