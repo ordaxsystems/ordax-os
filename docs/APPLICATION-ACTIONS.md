@@ -416,3 +416,23 @@ The final provider resolution preserves the binding identity — Work, app/actio
 The binding resolver and artifact resolver deliberately use different port schemas so they cannot be substituted for each other. The canonical first-party package owner remains owned by verified application semantics and is exported as `EXTERNAL_FIRST_PARTY_OWNER` for future composition; the artifact resolver receives that owner by injection and rejects owner drift before package I/O.
 
 This slice remains unmounted. No Personal OrdaX runtime method exposes the artifact resolver, no provider module is imported, and no Action Gateway decision, grant, confirmation or execution authority is created. A future composition slice must connect provider binding and artifact resolution inside the existing Personal OrdaX authority chain rather than creating a parallel executor.
+
+## Personal OrdaX provider-binding composition
+
+Personal OrdaX composes the current verified provider resolver only after a session-only Application Action preparation exists.
+
+The runtime path remains authority-free:
+
+```text
+verified capability
+  -> proposal
+  -> Work-bound preparation
+  -> re-read current verified app semantics
+  -> current verified provider binding
+```
+
+The Native composition reuses the same verified component package source used by App Intelligence and re-reads the requested app from the current slot for every provider binding resolution. The expected first-party owner comes from the canonical `EXTERNAL_FIRST_PARTY_OWNER` exported by verified app semantics rather than a composition-local literal.
+
+During preparation, Personal OrdaX retains the exact Work revision privately. After asynchronous verified-slot revalidation returns, it requires the same preparation object, owner partition and Work revision to remain current. Any drift discards the binding.
+
+This composition does not add an Application Action-specific approval, grant or execute shortcut. The binding remains `authority=none`, `executionAuthorized=false`, and `modelDirectExecutionAuthorized=false`.
