@@ -68,7 +68,7 @@ test("Application Action provider declares exact app/adapter/actions without car
   );
 });
 
-test("provider invocation contains semantic arguments but no raw authority", () => {
+test("provider invocation contains semantic arguments but no raw authority or credentials", () => {
   const invocation = validateApplicationActionProviderInvocation({
     schema: APPLICATION_ACTION_PROVIDER_INVOCATION_SCHEMA,
     workItemId: "work-1",
@@ -90,13 +90,31 @@ test("provider invocation contains semantic arguments but no raw authority", () 
   });
   assert.equal(invocation.resourceRef, "application-action:prep-1");
 
-  assert.throws(
-    () => validateApplicationActionProviderInvocation({
-      ...invocation,
-      arguments: { command: "rm -rf /" },
-    }),
-    /raw authority/,
-  );
+  for (const key of [
+    "command",
+    "token",
+    "session-token",
+    "password",
+    "secret",
+    "api-key",
+    "access-token",
+    "refresh-token",
+    "client-secret",
+    "authorization",
+    "cookie",
+    "credential",
+    "grant-ref",
+    "approval-id",
+  ]) {
+    assert.throws(
+      () => validateApplicationActionProviderInvocation({
+        ...invocation,
+        arguments: { [key]: "secret" },
+      }),
+      /raw authority or credentials/,
+      `provider invocation must reject sensitive argument ${key}`,
+    );
+  }
   assert.throws(
     () => validateApplicationActionProviderInvocation({
       ...invocation,
