@@ -109,3 +109,32 @@ Instruções do app ficam abaixo das políticas do sistema e do usuário. Um man
 - transformar texto do app em autoridade.
 
 A instalação/assinatura do app e a autorização de uma ação continuam sendo decisões separadas.
+
+
+## Catálogo semântico em runtime
+
+O Intelligence não lê manifests diretamente de caminhos arbitrários nem aceita publicação feita pelo próprio app.
+
+A arquitetura runtime é:
+
+```text
+pacote/slot ativo já verificado
+        ↓
+composição confiável
+        ↓
+App Intelligence Catalog Registry
+        ↓
+port somente-leitura
+        ↓
+wrapper do OrdaX Intelligence
+        ↓
+contexto com proveniência
+```
+
+O registry revalida a estrutura do manifesto, limita quantidade de apps/intents e mantém revisão monotônica. Apenas a composição confiável recebe a operação de substituição do catálogo; o port entregue ao Intelligence expõe somente `getSnapshot()` e `subscribe()`.
+
+Os manifests são serializados como **metadados de capacidade**, dentro do mesmo sistema de contexto limitado e com proveniência usado pelo Intelligence. Esse texto continua sendo dado para interpretação, não system policy.
+
+Instalar, remover ou atualizar um app pode atualizar o registry sem reiniciar o modelo local. O modelo continua independente do lifecycle do app.
+
+O catálogo não prova assinatura ou procedência sozinho. Essa prova pertence à camada que resolve o pacote/slot ativo; somente depois dela a composição pode registrar um manifesto como verificado.
