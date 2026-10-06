@@ -401,3 +401,20 @@ After that asynchronous revalidation completes, Personal OrdaX checks the prepar
 
 The composition intentionally does not expose an Application Action-specific approval, grant or execute shortcut. Existing Personal OrdaX approval/grant/gateway/executor remains the only authority path for future provider invocation.
 
+## Verified provider artifact manifest
+
+External first-party apps may publish `actions/providers/manifest.json` inside the same signed component package that carries their Application Action manifest.
+
+The OS validates `ordax.application-action-provider-manifest/1` only from the exact verified current slot and requires:
+
+- the same `appId + appVersion` as the verified app component;
+- `authority = none`;
+- `execution = unavailable`;
+- one canonical `actions/providers/<adapterId>.mjs` module per declared provider;
+- a 64-hex SHA-256 for each provider artifact;
+- exact one-to-one coverage of every `adapterId + revision` referenced by the app's verified Application Action capabilities.
+
+A provider manifest is metadata only. Loading it does not import the module, create an adapter, issue a grant, request approval or authorize execution.
+
+Legacy verified packages that already expose proposal-only Application Actions but do not yet contain a provider manifest remain readable for Intelligence/capability discovery. Their `providerManifest` is `null`, so any later provider-artifact gate can fail closed without breaking read-only semantic discovery.
+
