@@ -1,4 +1,5 @@
 import { validateAppIntelligenceManifest } from "../../contracts/app-intelligence-manifest.mjs";
+import { validateApplicationActionManifest } from "../../contracts/application-action-manifest.mjs";
 import {
   COMPONENT_MANIFEST_SCHEMA,
   defineComponentManifest,
@@ -119,6 +120,86 @@ function validateExternalAppComponent(value, appId, metadata) {
   return component;
 }
 
+function validateActionIntentBindings(intelligenceManifest, actionManifest) {
+  const intents = new Map(
+    intelligenceManifest.intents.map((intent) => [intent.id, intent]),
+  );
+  for (const capability of actionManifest.capabilities) {
+    const intent = intents.get(capability.actionId);
+    if (!intent) {
+      throw new TypeError(
+        `Verified Application Action has no matching Intelligence intent: ${capability.actionId}`,
+      );
+    }
+    const intentParameters = new Map(
+      intent.parameters.map((parameter) => [parameter.name, parameter]),
+    );
+    if (
+      intentParameters.size !== capability.parameters.length
+      || capability.parameters.some((parameter) => !intentParameters.has(parameter.id))
+    ) {
+      throw new TypeError(
+        `Verified Application Action parameters drifted from Intelligence intent: ${capability.actionId}`,
+      );
+    }
+    for (const parameter of capability.parameters) {
+      const intentParameter = intentParameters.get(parameter.id);
+      if (intentParameter.required !== parameter.required) {
+        throw new TypeError(
+          `Verified Application Action required flag drifted from Intelligence intent: ${capability.actionId}/${parameter.id}`,
+        );
+      }
+      const compatible = (
+        (intentParameter.type === "string"
+          && ["string", "enum", "uri", "resource-grant-id"].includes(parameter.type))
+        || intentParameter.type === parameter.type
+      );
+      if (!compatible) {
+        throw new TypeError(
+          `Verified Application Action parameter type drifted from Intelligence intent: ${capability.actionId}/${parameter.id}`,
+        );
+      }
+    }
+
+    const riskRank = {
+      "read-only": 0,
+      "local-change": 1,
+      "external-effect": 2,
+      privileged: 3,
+    };
+    const minimumRisk = {
+      none: 0,
+      read: 0,
+      write: 1,
+      "external-write": 2,
+      destructive: 1,
+    }[intent.effect];
+    if (riskRank[capability.riskClass] < minimumRisk) {
+      throw new TypeError(
+        `Verified Application Action risk is weaker than Intelligence intent: ${capability.actionId}`,
+      );
+    }
+
+    const confirmationRank = { none: 0, "policy-gated": 1, always: 2 };
+    const minimumConfirmation = {
+      none: 0,
+      policy: 1,
+      explicit: 2,
+    }[intent.confirmation];
+    if (confirmationRank[capability.confirmation] < minimumConfirmation) {
+      throw new TypeError(
+        `Verified Application Action confirmation is weaker than Intelligence intent: ${capability.actionId}`,
+      );
+    }
+    if (intent.effect === "destructive" && capability.confirmation !== "always") {
+      throw new TypeError(
+        `Verified destructive Application Action must always confirm: ${capability.actionId}`,
+      );
+    }
+  }
+  return actionManifest;
+}
+
 export async function loadVerifiedFirstPartyApplicationSemantics({
   appIds = [],
   source,
@@ -177,6 +258,24 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
       },
     );
 
+    const actionManifest = validateActionIntentBindings(
+      intelligenceManifest,
+      validateApplicationActionManifest(
+        await readVerifiedPackageJson({
+          appId,
+          metadata,
+          path: `system/apps/${appId}/actions/manifest.json`,
+          packageSource,
+          fetchImpl,
+          label: `Verified app Application Action manifest for ${appId}`,
+        }),
+        {
+          appId: component.id,
+          appVersion: component.version,
+        },
+      ),
+    );
+
     entries.push(Object.freeze({
       application: Object.freeze({
         id: component.id,
@@ -184,6 +283,7 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
         component,
       }),
       intelligenceManifest,
+      actionManifest,
       sourceCommit: metadata.sourceCommit,
       revision: metadata.revision,
     }));
@@ -217,6 +317,13 @@ function validateVerifiedOverlayEntry(entry) {
     appId: component.id,
     appVersion: component.version,
   });
+  const actionManifest = validateActionIntentBindings(
+    intelligenceManifest,
+    validateApplicationActionManifest(entry.actionManifest, {
+      appId: component.id,
+      appVersion: component.version,
+    }),
+  );
   const sourceCommit = validateComponentSlotSourceCommit(entry.sourceCommit);
   if (!Number.isSafeInteger(entry.revision) || entry.revision < 0) {
     throw new TypeError(`Verified app semantics overlay revision is invalid for ${id}`);
@@ -228,6 +335,7 @@ function validateVerifiedOverlayEntry(entry) {
       component,
     }),
     intelligenceManifest,
+    actionManifest,
     sourceCommit,
     revision: entry.revision,
   });
@@ -272,4 +380,10 @@ export function overlayVerifiedFirstPartyApplications(baseApplications = [], ver
 export async function loadVerifiedFirstPartyIntelligenceManifests(options = {}) {
   const entries = await loadVerifiedFirstPartyApplicationSemantics(options);
   return Object.freeze(entries.map((entry) => entry.intelligenceManifest));
+}
+
+
+export async function loadVerifiedFirstPartyApplicationActionManifests(options = {}) {
+  const entries = await loadVerifiedFirstPartyApplicationSemantics(options);
+  return Object.freeze(entries.map((entry) => entry.actionManifest));
 }
