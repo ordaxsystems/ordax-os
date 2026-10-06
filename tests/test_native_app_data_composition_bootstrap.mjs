@@ -5,7 +5,10 @@ import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.
 import { APP_DATA_SCHEMA } from "../system/contracts/app-data.mjs";
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
 import { createComponentManager } from "../system/services/components/manager.mjs";
-import { loadOptionalComponentRuntime } from "../system/services/components/runtime-loader.mjs";
+import {
+  installTrustedComponentContextProvider,
+  loadOptionalComponentRuntime,
+} from "../system/services/components/runtime-loader.mjs";
 
 function createManager() {
   return createComponentManager({
@@ -82,6 +85,17 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
       /already consumed/,
     );
 
+    installTrustedComponentContextProvider((componentId) => (
+      componentId === "files"
+        ? Object.freeze({
+            companionPort: Object.freeze({
+              schema: "test.trusted-companion/1",
+              componentId,
+            }),
+          })
+        : null
+    ));
+
     const manager = createManager();
     const files = manager.getSnapshot().components.find(
       (component) => component.manifest.id === "files",
@@ -110,6 +124,10 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
     assert.equal(mountedContext.appData.schema, APP_DATA_SCHEMA);
     assert.equal(mountedContext.appData.identity.appId, "files");
     assert.equal(mountedContext.appData.identity.publisherId, "ordax-official");
+    assert.deepEqual(mountedContext.companionPort, {
+      schema: "test.trusted-companion/1",
+      componentId: "files",
+    });
     assert.equal("endpoint" in mountedContext.appData, false);
     assert.equal("store" in mountedContext.appData, false);
 
