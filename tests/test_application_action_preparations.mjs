@@ -144,6 +144,49 @@ test("preparation maps risk classes conservatively and never executes", () => {
   }
 });
 
+test("canonical argument comparison ignores object key order without weakening identity", () => {
+  const capabilities = registry([{
+    ...capability(),
+    parameters: [
+      {
+        id: "title",
+        type: "string",
+        required: false,
+        maxLength: 240,
+      },
+      {
+        id: "body",
+        type: "string",
+        required: false,
+        maxLength: 8192,
+      },
+    ],
+  }]);
+  const issued = capabilities.propose(
+    "notes",
+    "notes.create-note",
+    { title: "Ideias", body: "Texto" },
+  );
+  const reordered = {
+    ...issued,
+    arguments: {
+      body: issued.arguments.body,
+      title: issued.arguments.title,
+    },
+  };
+  const preparations = createApplicationActionPreparationRegistry({
+    capabilityRegistry: capabilities,
+    createPreparationId: () => "prep-order",
+  });
+
+  const prepared = preparations.prepare("work-1", reordered);
+  assert.deepEqual(prepared.proposal.arguments, {
+    body: "Texto",
+    title: "Ideias",
+  });
+  assert.equal(prepared.resourceRef, "application-action:prep-order");
+});
+
 test("stale proposal is rejected after capability identity changes", () => {
   const oldRegistry = registry();
   const proposal = oldRegistry.propose(
