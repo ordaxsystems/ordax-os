@@ -10,23 +10,28 @@ import {
 } from "../../contracts/application-action-provider-binding.mjs";
 import {
   assertApplicationActionCapabilityRegistryForPreparation,
+  assertApplicationActionPreparationRegistry,
   sameApplicationActionProposal,
   validateApplicationActionPreparation,
 } from "../../contracts/application-action-preparation.mjs";
 import { defineComponentManifest } from "../../contracts/component-manifest.mjs";
 import { validateComponentSlotSourceCommit } from "../../contracts/component-slot-source.mjs";
 
-function boundedOwner(value) {
-  if (
-    typeof value !== "string"
-    || value.length === 0
-    || value.length > 220
-    || value.includes("\0")
-    || /[\u0000-\u001f\u007f]/.test(value)
-  ) {
-    throw new TypeError("Application action provider resolver expected owner is invalid");
-  }
-  return value;
+const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
+const RISK_TO_EFFECT = Object.freeze({
+  "read-only": "read",
+  "local-change": "write",
+  "external-effect": "external-egress",
+  privileged: "device-control",
+});
+
+function canonicalJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+    .join(",")}}`;
 }
 
 function sameProvider(left, right) {
@@ -38,10 +43,10 @@ function sameProvider(left, right) {
 function sameCapability(leftValue, rightValue) {
   const left = validateApplicationActionCapability(leftValue);
   const right = validateApplicationActionCapability(rightValue);
-  return JSON.stringify(left) === JSON.stringify(right);
+  return canonicalJson(left) === canonicalJson(right);
 }
 
-function validateVerifiedSemanticsEntry(value, preparation, expectedOwner) {
+function validateVerifiedSemanticsEntry(value, preparation) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Current verified application semantics entry is unavailable");
   }
@@ -51,10 +56,11 @@ function validateVerifiedSemanticsEntry(value, preparation, expectedOwner) {
   const component = defineComponentManifest(value.application.component);
   if (
     value.application.id !== component.id
+    || value.application.title !== component.title
     || component.id !== preparation.proposal.appId
     || component.kind !== "app"
     || component.releaseMode !== "component-slot"
-    || component.owner !== expectedOwner
+    || component.owner !== EXTERNAL_FIRST_PARTY_OWNER
   ) {
     throw new TypeError("Current verified application identity drifted");
   }
@@ -84,22 +90,27 @@ function validateVerifiedSemanticsEntry(value, preparation, expectedOwner) {
 }
 
 export function createApplicationActionProviderResolver({
+  preparationRegistry: preparationRegistryValue,
   capabilityRegistry: capabilityRegistryValue,
   resolveVerifiedSemantics,
-  expectedOwner,
 } = {}) {
+  const preparationRegistry = assertApplicationActionPreparationRegistry(
+    preparationRegistryValue,
+  );
   const capabilityRegistry = assertApplicationActionCapabilityRegistryForPreparation(
     capabilityRegistryValue,
   );
   if (typeof resolveVerifiedSemantics !== "function") {
     throw new TypeError("Application action provider resolver requires verified semantics resolver");
   }
-  const owner = boundedOwner(expectedOwner);
 
   const port = {
     schema: APPLICATION_ACTION_PROVIDER_RESOLVER_SCHEMA,
-    async resolve(preparationValue) {
-      const preparation = validateApplicationActionPreparation(preparationValue);
+    async resolve(resourceRef) {
+      const retained = preparationRegistry.resolve(resourceRef);
+      if (retained === null) return null;
+      const preparation = validateApplicationActionPreparation(retained);
+
       const currentCapability = capabilityRegistry.get(
         preparation.proposal.appId,
         preparation.proposal.actionId,
@@ -126,11 +137,13 @@ export function createApplicationActionProviderResolver({
       if (!sameProvider(currentCapability.provider, preparation.provider)) {
         throw new Error("Prepared Application Action provider revision is stale");
       }
+      if (RISK_TO_EFFECT[currentCapability.riskClass] !== preparation.effect) {
+        throw new Error("Prepared Application Action effect is stale");
+      }
 
       const verified = validateVerifiedSemanticsEntry(
         await resolveVerifiedSemantics(preparation.proposal.appId),
         preparation,
-        owner,
       );
       if (!sameCapability(currentCapability, verified.capability)) {
         throw new Error("Verified package capability no longer matches the prepared capability");
