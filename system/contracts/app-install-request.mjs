@@ -91,7 +91,25 @@ export function assertAppInstallRequestPort(port) {
   ) {
     throw new TypeError("A compatible authority-free app-install-request port is required");
   }
-  for (const forbidden of ["stage", "promote", "rollback", "installArtifact", "publish"]) {
+  assertExactKeys(
+    port,
+    ["schema", "authority", "requestInstall"],
+    "App install request port",
+  );
+  for (const forbidden of [
+    "install",
+    "uninstall",
+    "stage",
+    "promote",
+    "rollback",
+    "installArtifact",
+    "publish",
+    "activate",
+    "execute",
+    "invoke",
+    "grant",
+    "setTrustAnchor",
+  ]) {
     if (forbidden in port) {
       throw new TypeError(`App-install-request port must not expose lifecycle authority: ${forbidden}`);
     }
