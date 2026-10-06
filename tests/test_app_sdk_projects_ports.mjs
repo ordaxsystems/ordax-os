@@ -7,10 +7,15 @@ import {
   DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
 } from "../system/contracts/device-capabilities.mjs";
 import {
+  PROJECT_CLOUD_LINKS_SCHEMA,
+} from "../system/contracts/project-cloud-links-data.mjs";
+import {
   PROJECT_CLOUD_LINKS_READER_SCHEMA,
   assertProjectCloudLinksReaderPort,
+} from "../system/contracts/project-cloud-links-reader.mjs";
+import {
   createProjectCloudLinksReader,
-} from "../system/contracts/project-cloud-links.mjs";
+} from "../system/services/projects/cloud-links-reader.mjs";
 
 const rootUrl = new URL("../", import.meta.url);
 
@@ -25,8 +30,12 @@ test("App SDK 1.9 publishes the read-only Projects host boundary without raw Dev
 
   const byName = new Map(bundle.contracts.map((contract) => [contract.name, contract]));
   assert.equal(byName.get("project-catalog")?.schema, "ordax.project-catalog/1");
+  assert.equal(byName.get("project-cloud-links-data")?.schema, PROJECT_CLOUD_LINKS_SCHEMA);
   assert.equal(byName.get("project-cloud-links-reader")?.schema, PROJECT_CLOUD_LINKS_READER_SCHEMA);
-  assert.equal(byName.has("project-cloud-links"), false);
+  assert.equal(
+    bundle.contracts.some((contract) => contract.source_path === "system/contracts/project-cloud-links.mjs"),
+    false,
+  );
   assert.equal(byName.get("device-capability-reader")?.schema, DEVICE_AGENT_CAPABILITY_READER_SCHEMA);
   assert.equal(byName.get("device-capabilities")?.schema, DEVICE_AGENT_CAPABILITIES_SCHEMA);
 
