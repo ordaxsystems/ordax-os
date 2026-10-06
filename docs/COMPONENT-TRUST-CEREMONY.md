@@ -227,6 +227,52 @@ PHYSICAL_WRITE_ALLOWED=NO
 A pinned component anchor therefore enables signature verification against the
 canonical identity, not production update activation.
 
+## External app signing preflight
+
+External first-party apps such as Notes are produced in `ordax-apps`, not in
+the OrdaX OS repository. The source repository emits a deterministic,
+authority-free handoff first; the platform verifies that handoff before it can
+be considered eligible for external signing.
+
+The read-only preflight is:
+
+`tools/runtime-component-channel/check_external_signing_preflight.py`
+
+It performs these checks in order:
+
+1. re-validate the unsigned candidate ZIP, release descriptor, compatibility
+   sidecar, source repository/commit and `SHA256SUMS`;
+2. require the component's canonical external source repository from platform
+   policy;
+3. require the canonical `runtime-components` public anchor to be genuinely
+   pinned and byte/hash/key-id consistent;
+4. require component publication to be explicitly authorized;
+5. keep production component-slot activation independent and allowed to remain
+   false.
+
+Example:
+
+```text
+python tools/runtime-component-channel/check_external_signing_preflight.py \
+  --candidate-dir <public-unsigned-candidate-directory>
+```
+
+Before the operator ceremony/publication transition is completed, a valid
+candidate must report a safe blocked state:
+
+```text
+RUNTIME_COMPONENT_EXTERNAL_SIGNING_PREFLIGHT=PASS
+SIGNING_ELIGIBLE=NO
+BLOCKER=canonical-runtime-component-trust-anchor-not-pinned
+BLOCKER=component-publication-not-authorized
+PRIVATE_KEY_READ=NO
+SIGNING_PERFORMED=NO
+```
+
+The preflight never accepts a private-key path. It does not sign or publish.
+When a future reviewed policy transition makes `SIGNING_ELIGIBLE=YES`, the
+actual private-key operation still occurs only on the external signing host.
+
 ## Production readiness check
 
 The platform exposes one read-only checker:
