@@ -1,0 +1,76 @@
+.ordax-app-extension[data-app-extension="store-overview"] {
+  grid-column: 1 / -1;
+  min-height: 420px;
+  overflow: auto;
+}
+
+.ordax-store-header {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.ordax-store-title,
+.ordax-store-subtitle,
+.ordax-store-card-title,
+.ordax-store-card-description,
+.ordax-store-authority,
+.ordax-store-state p {
+  margin: 0;
+}
+
+.ordax-store-subtitle,
+.ordax-store-card-description,
+.ordax-store-authority,
+.ordax-store-state p {
+  color: var(--ordax-text-muted);
+}
+
+.ordax-store-state {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-md);
+  background: color-mix(in srgb, var(--ordax-panel) 78%, transparent);
+}
+
+.ordax-store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.ordax-store-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 190px;
+  padding: 16px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-lg);
+  background: var(--ordax-panel);
+}
+
+.ordax-store-card-meta {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ordax-panel-strong) 78%, transparent);
+  font-size: 0.78rem;
+}
+
+.ordax-store-card-action {
+  margin-top: auto;
+}
+
+.ordax-store-card-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.ordax-store-authority {
+  margin-top: 18px;
+  font-size: 0.86rem;
+}

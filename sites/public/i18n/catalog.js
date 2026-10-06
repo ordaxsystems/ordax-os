@@ -402,6 +402,8 @@
     ["Área 01", "Area 01"],
     ["Seu espaço", "Your space"],
     ["Conta", "Account"],
+    ["Aplicativos OrdaX", "OrdaX Apps"],
+    ["Descubra aplicativos OrdaX sem criar uma segunda autoridade de instalação.", "Discover OrdaX apps without creating a second installation authority."],
     ["Organize documentos, imagens, downloads e conteúdo persistente do usuário.", "Organize documents, images, downloads, and persistent user content."],
     ["Organize projetos locais, conexões e continuidade entre dispositivos.", "Organize local projects, connections, and continuity across devices."],
     ["Crie e opere projetos com o runtime agentic do ORDAX e ferramentas locais tipadas.", "Create and operate projects with the ORDAX agentic runtime and typed local tools."],
