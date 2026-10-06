@@ -104,6 +104,7 @@ class NativeComponentSlotTests(unittest.TestCase):
             "COMPONENT_ID=internet\n"
             "REVISION=3\n"
             "SOURCE=SLOT\n"
+            "SOURCE_REPOSITORY=washingtonmsdj/prototipo-ordax-os\n"
             "PENDING_VERSION=0.4.0\n"
             f"PENDING_SOURCE_COMMIT={commit}\n"
             "PENDING_HEALTH=unknown\n"
@@ -133,11 +134,107 @@ class NativeComponentSlotTests(unittest.TestCase):
                 state="pending",
             )
         self.assertEqual(resolution.source, "slot")
+        self.assertEqual(resolution.source_repository, "washingtonmsdj/prototipo-ordax-os")
         self.assertEqual(resolution.version, "0.4.0")
         self.assertEqual(resolution.source_commit, commit)
         self.assertEqual(resolution.pending_health, "unknown")
         self.assertEqual(resolution.entrypoint, "system/apps/internet/runtime.mjs")
         self.assertEqual(resolution.slot, slot_path)
+
+    def test_external_absent_metadata_resolution_is_distinct_from_bundled(self):
+        output = (
+            b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            b"COMPONENT_ID=notes\n"
+            b"REVISION=4\n"
+            b"SOURCE=ABSENT\n"
+            b"RUNTIME_SERVED_FROM_SLOT=NO\n"
+        )
+        completed = subprocess.CompletedProcess([], 0, stdout=output, stderr=b"")
+        with mock.patch.object(slots.subprocess, "run", return_value=completed):
+            resolution = slots.resolve_component_metadata_slot(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="notes",
+            )
+        self.assertEqual(resolution.source, "absent")
+        self.assertIsNone(resolution.source_repository)
+        self.assertIsNone(resolution.version)
+        self.assertIsNone(resolution.slot)
+
+    def test_external_app_metadata_resolution_does_not_widen_module_loader(self):
+        commit = "8" * 40
+        slot_path = f"/var/lib/ordax/components/notes/versions/0.4.1/{commit}"
+        output = (
+            "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            "COMPONENT_ID=notes\n"
+            "REVISION=5\n"
+            "SOURCE=SLOT\n"
+            "SOURCE_REPOSITORY=washingtonmsdj/ordax-apps\n"
+            "CURRENT_VERSION=0.4.1\n"
+            f"CURRENT_SOURCE_COMMIT={commit}\n"
+            f"SLOT={slot_path}\n"
+            "ENTRYPOINT=system/apps/notes/src/runtime.mjs\n"
+            "RUNTIME_SERVED_FROM_SLOT=NO\n"
+        ).encode("utf-8")
+        completed = subprocess.CompletedProcess([], 0, stdout=output, stderr=b"")
+        with mock.patch.object(slots.subprocess, "run", return_value=completed) as run:
+            resolution = slots.resolve_component_metadata_slot(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="notes",
+            )
+        self.assertEqual(resolution.source, "slot")
+        self.assertEqual(resolution.source_repository, "washingtonmsdj/ordax-apps")
+        self.assertEqual(resolution.version, "0.4.1")
+        self.assertEqual(run.call_args.args[0][1], "resolve-current")
+
+        with mock.patch.object(slots.subprocess, "run") as loader_run:
+            with self.assertRaises(slots.ComponentSlotRequestError):
+                slots.resolve_component_slot(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust.json",
+                    component_id="notes",
+                    state="current",
+                )
+        loader_run.assert_not_called()
+
+    def test_app_intelligence_manifest_read_is_exact_current_metadata_path(self):
+        payload = b'{"schema":"ordax.app-intelligence-manifest/1"}\n'
+        completed = subprocess.CompletedProcess([], 0, stdout=payload, stderr=b"")
+        with mock.patch.object(slots.subprocess, "run", return_value=completed) as run:
+            result = slots.read_component_app_intelligence_manifest(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="notes",
+                version="0.4.1",
+                source_commit="8" * 40,
+            )
+        self.assertEqual(result, payload)
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[1], "read-runtime-file")
+        self.assertIn("current", argv)
+        self.assertIn("system/apps/notes/ai/manifest.json", argv)
+        self.assertNotIn("pending", argv)
+
+    def test_app_intelligence_manifest_read_rejects_invalid_identity_before_helper(self):
+        with mock.patch.object(slots.subprocess, "run") as run:
+            with self.assertRaises(slots.ComponentSlotRequestError):
+                slots.read_component_app_intelligence_manifest(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust.json",
+                    component_id="../notes",
+                    version="0.4.1",
+                    source_commit="8" * 40,
+                )
+            with self.assertRaises(slots.ComponentSlotRequestError):
+                slots.read_component_app_intelligence_manifest(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust.json",
+                    component_id="notes",
+                    version="0.4.1",
+                    source_commit="bad",
+                )
+        run.assert_not_called()
 
     def test_component_module_path_binds_exact_identity_and_package_path(self):
         commit = "7" * 40
