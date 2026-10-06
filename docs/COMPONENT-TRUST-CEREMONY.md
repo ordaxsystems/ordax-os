@@ -227,6 +227,29 @@ PHYSICAL_WRITE_ALLOWED=NO
 A pinned component anchor therefore enables signature verification against the
 canonical identity, not production update activation.
 
+## Production readiness check
+
+The platform exposes one read-only checker:
+
+`tools/runtime-component-channel/check_production_readiness.py`
+
+It does not mutate policy, publish components, activate slots or carry authority.
+It verifies that the runtime-component trust policy and package policy agree on
+the three ordered production gates:
+
+1. canonical component trust anchor pinned;
+2. component publication authorized;
+3. production component-slot activation authorized.
+
+It fails closed if publication is enabled before trust, activation is enabled
+before publication, or the package policy disagrees with the trust policy. When
+activation is authorized it also requires the runtime package capabilities for
+pending-health promotion, rollback and Native slot serving to be available.
+
+This checker is intended to be run before and after each explicit operator
+transition so apps such as Notes can consume one platform-consistent production
+state instead of inferring readiness from isolated flags.
+
 ## Current state
 
 Today:

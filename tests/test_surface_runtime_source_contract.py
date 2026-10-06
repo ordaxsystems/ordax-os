@@ -39,7 +39,10 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
     def test_current_lock_refresh_is_bound_to_ci_drift_evidence(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         refresh = contract["lock_refresh"]
-        self.assertEqual(refresh["status"], "reviewed-candidate-lock-refresh")
+        self.assertIn(
+            refresh["status"],
+            {"reviewed-candidate-lock-refresh", "reproof-required-after-upstream-libseccomp-drift"},
+        )
         self.assertIsInstance(refresh["detected_by_qemu_run_id"], int)
         self.assertGreater(refresh["detected_by_qemu_run_id"], 0)
         self.assertIsInstance(refresh["discovery_run_id"], int)
@@ -58,7 +61,22 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertRegex(refresh["discovery_artifact_sha256"], r"^[0-9a-f]{64}$")
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
-        self.assertFalse(refresh["reproducibility_reproof_required"])
+        if refresh["status"] == "reviewed-candidate-lock-refresh":
+            self.assertFalse(refresh["reproducibility_reproof_required"])
+        else:
+            self.assertTrue(refresh["reproducibility_reproof_required"])
+            drift = refresh["upstream_drift"]
+            self.assertEqual(drift["package"], "libseccomp")
+            self.assertEqual(drift["from"], "2.6.0-r0")
+            self.assertEqual(drift["to"], "2.6.1-r0")
+            self.assertEqual(
+                contract["apk_package_lock"][drift["package"]],
+                drift["to"],
+            )
+            self.assertEqual(
+                drift["detected_by_qemu_run_id"],
+                refresh["detected_by_qemu_run_id"],
+            )
         proof = contract["reproducibility_proof"]
         self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
         self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
