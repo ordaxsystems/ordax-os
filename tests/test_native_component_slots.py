@@ -204,6 +204,101 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs["stdout"], subprocess.PIPE)
         self.assertEqual(run.call_args.kwargs["stderr"], subprocess.PIPE)
 
+
+    def test_verified_app_intelligence_manifest_is_bound_to_current_signed_slot(self):
+        commit = "b" * 40
+        resolution = (
+            "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            "COMPONENT_ID=notes\n"
+            "REVISION=9\n"
+            "SOURCE=SLOT\n"
+            "CURRENT_VERSION=0.4.1\n"
+            f"CURRENT_SOURCE_COMMIT={commit}\n"
+            f"SLOT=/var/lib/ordax/components/notes/versions/0.4.1/{commit}\n"
+            "ENTRYPOINT=system/apps/notes/src/runtime.mjs\n"
+            "RUNTIME_SERVED_FROM_SLOT=NO\n"
+        ).encode("utf-8")
+        manifest = (
+            '{"schema":"ordax.app-intelligence-manifest/1",'
+            '"appId":"notes","appVersion":"0.4.1","authority":"none",'
+            '"execution":"declarative-only","instructions":["Somente capacidades declaradas."],'
+            '"intents":[]}'
+        ).encode("utf-8")
+        responses = [
+            subprocess.CompletedProcess([], 0, stdout=resolution, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=manifest, stderr=b""),
+        ]
+        with mock.patch.object(slots.subprocess, "run", side_effect=responses) as run:
+            resolved, value = slots.read_verified_app_intelligence_manifest(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="notes",
+            )
+
+        self.assertEqual(resolved.source, "slot")
+        self.assertEqual(resolved.version, "0.4.1")
+        self.assertEqual(value["appId"], "notes")
+        self.assertEqual(value["authority"], "none")
+        self.assertEqual(run.call_count, 2)
+        read_argv = run.call_args_list[1].args[0]
+        self.assertEqual(read_argv[1], "read-runtime-file")
+        self.assertIn("system/apps/notes/ai/manifest.json", read_argv)
+        self.assertNotIn("system/apps/notes/src/runtime.mjs", read_argv)
+
+    def test_app_intelligence_manifest_reader_rejects_absent_or_mismatched_identity(self):
+        absent = (
+            b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            b"COMPONENT_ID=notes\n"
+            b"REVISION=10\n"
+            b"SOURCE=ABSENT\n"
+            b"RUNTIME_SERVED_FROM_SLOT=NO\n"
+        )
+        with mock.patch.object(
+            slots.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess([], 0, stdout=absent, stderr=b""),
+        ) as run:
+            with self.assertRaises(slots.ComponentSlotUnavailableError):
+                slots.read_verified_app_intelligence_manifest(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust.json",
+                    component_id="notes",
+                )
+        self.assertEqual(run.call_count, 1)
+
+        commit = "c" * 40
+        resolution = (
+            "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            "COMPONENT_ID=notes\n"
+            "REVISION=11\n"
+            "SOURCE=SLOT\n"
+            "CURRENT_VERSION=0.4.1\n"
+            f"CURRENT_SOURCE_COMMIT={commit}\n"
+            f"SLOT=/var/lib/ordax/components/notes/versions/0.4.1/{commit}\n"
+            "ENTRYPOINT=system/apps/notes/src/runtime.mjs\n"
+            "RUNTIME_SERVED_FROM_SLOT=NO\n"
+        ).encode("utf-8")
+        bad_manifest = (
+            '{"schema":"ordax.app-intelligence-manifest/1",'
+            '"appId":"studio","appVersion":"0.4.1","authority":"none",'
+            '"execution":"declarative-only","instructions":["x"],"intents":[]}'
+        ).encode("utf-8")
+        responses = [
+            subprocess.CompletedProcess([], 0, stdout=resolution, stderr=b""),
+            subprocess.CompletedProcess([], 0, stdout=bad_manifest, stderr=b""),
+        ]
+        with mock.patch.object(slots.subprocess, "run", side_effect=responses):
+            with self.assertRaisesRegex(
+                slots.ComponentSlotVerificationError,
+                "component identity mismatch",
+            ):
+                slots.read_verified_app_intelligence_manifest(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust.json",
+                    component_id="notes",
+                )
+
+
     def test_invalid_component_and_paths_fail_before_verifier_execution(self):
         with mock.patch.object(slots.subprocess, "run") as run:
             with self.assertRaises(slots.ComponentSlotRequestError):
