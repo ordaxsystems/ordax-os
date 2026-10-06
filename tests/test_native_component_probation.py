@@ -20,13 +20,13 @@ slots = importlib.import_module("native_component_slots")
 COMMIT = "a" * 40
 
 
-def message(*, nonce="nonce-1", health="healthy", version="0.4.0", source_commit=COMMIT, revision=7):
+def message(*, component_id="internet", nonce="nonce-1", health="healthy", version="0.4.0", source_commit=COMMIT, revision=7):
     return {
         "type": "component.probation.result",
         "nonce": nonce,
         "result": {
             "schema": "ordax.component-probation-result/1",
-            "componentId": "internet",
+            "componentId": component_id,
             "version": version,
             "sourceCommit": source_commit,
             "revision": revision,
@@ -140,7 +140,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         self.assertIsNone(outcome.recorded)
         self.assertIn("health-recorder-rejected", outcome.reason)
 
-    def test_probe_mode_and_component_are_fixed(self):
+    def test_probe_mode_is_fixed_and_supported_components_are_explicit(self):
         bad_probe = message()
         bad_probe["result"]["probeMode"] = "app-defined"
         with self.assertRaises(probation.ComponentProbationReceiptError):
@@ -151,8 +151,28 @@ class NativeComponentProbationTests(unittest.TestCase):
                 slot_root="/var/lib/ordax/components",
             )
 
-        bad_component = message()
-        bad_component["result"]["componentId"] = "notes"
+        notes_record = slots.ComponentHealthRecord(
+            component_id="notes",
+            revision=8,
+            version="0.4.1",
+            source_commit=COMMIT,
+            health="healthy",
+        )
+        with mock.patch.object(
+            probation,
+            "record_component_pending_health",
+            return_value=notes_record,
+        ) as recorder:
+            outcome = probation.record_system_component_probation(
+                payload=message(component_id="notes", version="0.4.1"),
+                expected_nonce="nonce-1",
+                helper_path="/signed/helper",
+                slot_root="/var/lib/ordax/components",
+            )
+        self.assertEqual(outcome.recorded, notes_record)
+        self.assertEqual(recorder.call_args.kwargs["component_id"], "notes")
+
+        bad_component = message(component_id="assistant")
         with self.assertRaises(probation.ComponentProbationReceiptError):
             probation.record_system_component_probation(
                 payload=bad_component,
