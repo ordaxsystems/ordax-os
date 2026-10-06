@@ -1,0 +1,110 @@
+.ordax-app-extension[data-app-extension="store-overview"] {
+  grid-column: 1 / -1;
+  min-height: 460px;
+}
+
+.ordax-app-extension[data-app-extension="store-overview"] > .ordax-app-panel-label,
+.ordax-app-extension[data-app-extension="store-overview"] > .ordax-app-panel-title,
+.ordax-app-extension[data-app-extension="store-overview"] > .ordax-app-panel-body {
+  display: none;
+}
+
+.ordax-store-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--ordax-space-4);
+  padding-bottom: var(--ordax-space-5);
+  border-bottom: 1px solid var(--ordax-border);
+}
+
+.ordax-store-heading {
+  display: grid;
+  gap: var(--ordax-space-2);
+}
+
+.ordax-store-title {
+  margin: 0;
+  font-family: var(--ordax-font-display);
+  font-size: clamp(1.8rem, 3vw, 2.7rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.ordax-store-empty {
+  display: grid;
+  gap: var(--ordax-space-2);
+  max-width: 720px;
+  margin-top: var(--ordax-space-6);
+  padding: var(--ordax-space-5);
+  border: 1px solid var(--ordax-border);
+  background: var(--ordax-panel-bg);
+}
+
+.ordax-store-empty-title {
+  font-size: 1.05rem;
+}
+
+.ordax-store-empty-copy,
+.ordax-store-security,
+.ordax-store-card-meta {
+  margin: 0;
+  color: var(--ordax-muted);
+  line-height: 1.55;
+}
+
+.ordax-store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--ordax-space-4);
+  margin-top: var(--ordax-space-5);
+}
+
+.ordax-store-card {
+  display: grid;
+  align-content: start;
+  gap: var(--ordax-space-3);
+  min-height: 190px;
+  padding: var(--ordax-space-4);
+  border: 1px solid var(--ordax-border);
+  background: var(--ordax-panel-bg);
+}
+
+.ordax-store-card-title {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.ordax-store-card-status {
+  width: fit-content;
+  padding: 5px 8px;
+  border: 1px solid var(--ordax-border);
+  font-size: 0.75rem;
+}
+
+.ordax-store-install {
+  min-height: 38px;
+  margin-top: auto;
+  padding: 0 14px;
+  border: 1px solid var(--ordax-border-strong);
+  background: var(--ordax-accent);
+  color: var(--ordax-accent-contrast);
+  cursor: pointer;
+}
+
+.ordax-store-install:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.ordax-store-security {
+  max-width: 860px;
+  margin-top: var(--ordax-space-5);
+  padding-top: var(--ordax-space-4);
+  border-top: 1px solid var(--ordax-border);
+  font-size: 0.84rem;
+}
+
+.ordax-store-request-status {
+  margin-top: var(--ordax-space-3);
+}
