@@ -5,11 +5,13 @@ on:
     paths:
       - 'PERSONAL-ORDAX.md'
       - 'docs/contracts/personal-ordax-native-state.json'
+      - 'system/surface/runtime/native_partitioned_json_state.py'
       - 'system/surface/runtime/native_personal_ordax_state.py'
       - 'system/surface/runtime/native_personal_ordax_endpoint.py'
       - 'system/adapters/native/bounded-json-transport.mjs'
       - 'system/adapters/native/personal-ordax-state.mjs'
       - 'system/services/personal-ordax/native-state-migration.mjs'
+      - 'tests/test_native_partitioned_json_state.py'
       - 'tests/test_native_bounded_json_transport.mjs'
       - 'tests/test_personal_ordax_native_state.py'
       - 'tests/test_personal_ordax_native_endpoint.py'
@@ -21,11 +23,13 @@ on:
     paths:
       - 'PERSONAL-ORDAX.md'
       - 'docs/contracts/personal-ordax-native-state.json'
+      - 'system/surface/runtime/native_partitioned_json_state.py'
       - 'system/surface/runtime/native_personal_ordax_state.py'
       - 'system/surface/runtime/native_personal_ordax_endpoint.py'
       - 'system/adapters/native/bounded-json-transport.mjs'
       - 'system/adapters/native/personal-ordax-state.mjs'
       - 'system/services/personal-ordax/native-state-migration.mjs'
+      - 'tests/test_native_partitioned_json_state.py'
       - 'tests/test_native_bounded_json_transport.mjs'
       - 'tests/test_personal_ordax_native_state.py'
       - 'tests/test_personal_ordax_native_endpoint.py'
@@ -52,11 +56,17 @@ jobs:
           set -euo pipefail
           python -m json.tool docs/contracts/personal-ordax-native-state.json >/dev/null
           python -m py_compile \
+            system/surface/runtime/native_partitioned_json_state.py \
             system/surface/runtime/native_personal_ordax_state.py \
             system/surface/runtime/native_personal_ordax_endpoint.py
           node --check system/adapters/native/bounded-json-transport.mjs
           node --check system/adapters/native/personal-ordax-state.mjs
           node --check system/services/personal-ordax/native-state-migration.mjs
+
+      - name: Prove shared private partitioned state owner
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_native_partitioned_json_state
 
       - name: Prove private owner partitions CAS and fail-closed recovery
         run: |
