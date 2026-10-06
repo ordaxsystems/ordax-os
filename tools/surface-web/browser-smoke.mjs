@@ -596,6 +596,30 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.notesAbsentFromLauncher = root.querySelector('[data-launch-app="notes"]') === null;
     result.notesLocalWindowAbsent = root.querySelector('[data-window-id="notes"]') === null;
 
+    // Internet coverage must remain independent from Notes. Before the
+    // remove-first cutover this target was reached through a Notes reference,
+    // which accidentally made the browser smoke depend on the removed app.
+    const internetLaunch = root.querySelector('[data-launch-app="internet"]');
+    if (!internetLaunch) throw new Error('composition smoke could not find launcher app: internet');
+    internetLaunch.dataset.appTarget = 'https://example.com/docs?q=1';
+    internetLaunch.click();
+    await Promise.resolve();
+    delete internetLaunch.dataset.appTarget;
+
+    const internetSlot = root.querySelector(
+      '[data-window-id="internet"] [data-app-extension="internet-browser"]',
+    );
+    const internetWorkspace = parsedStorage('ordax.workspace.v2');
+    const internetArea = internetWorkspace?.areas
+      ?.find((area) => area.id === internetWorkspace.activeAreaId) ?? internetWorkspace?.areas?.[0];
+    const storedInternet = internetArea?.windows?.find((item) => item.appId === 'internet');
+    result.internetTargetPersisted = storedInternet?.target === 'https://example.com/docs?q=1';
+    result.internetFailsClosedOnWeb = internetSlot
+      ?.querySelector('.ordax-internet-unavailable')?.textContent
+      ?.includes('Navegação integrada não disponível neste host') === true;
+    result.internetDoesNotEmbedWebContent = internetSlot?.querySelector('iframe') === null
+      && internetSlot?.querySelector('[data-browser-viewport] iframe') === null;
+
     await launch('account');
     const accountSlot = root.querySelector(
       '[data-window-id="account"] [data-app-extension="account-overview"]',
