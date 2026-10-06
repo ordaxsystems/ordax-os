@@ -377,3 +377,12 @@ modelDirectExecutionAuthorized = false
 ```
 
 This binding is still not an adapter callback, does not contain a tool artifact SHA-256 and is not an Action Gateway allow decision. Its purpose is narrower: prove that the provider declaration belongs to the exact currently verified first-party package before a later slice binds an actual typed provider module artifact and connects it to the existing Personal OrdaX approval/grant/gateway/executor chain. Notes and Studio currently publish declarative provider identities only; until an executable typed provider artifact exists and is verified, the chain remains fail-closed.
+
+## Verified provider artifact manifest
+
+External first-party apps may publish `actions/providers/manifest.json` inside the same signed component package as their Application Action manifest.
+
+The OS loads this metadata only from the exact verified current slot and requires the same `appId + appVersion`, `authority=none`, `execution=unavailable`, canonical `actions/providers/<adapterId>.mjs` paths, valid SHA-256 values and exact one-to-one coverage of every provider `adapterId + revision` referenced by the verified capabilities.
+
+Loading this manifest does not import a provider module, construct an adapter, request approval, issue a grant or authorize execution. Legacy proposal-only packages without this manifest remain readable for Intelligence and capability discovery, but expose `providerManifest=null` so later artifact gates can fail closed.
+
