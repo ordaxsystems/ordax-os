@@ -345,3 +345,26 @@ A preparation is not provider-artifact proof. It intentionally carries only the 
 
 
 Preparation references are session-only coordination state, not durable authority. When the registry is composed into Personal OrdaX, the integration must revoke the reference on Work cancellation/removal, owner switch, invalidated Space/project context, succeeded execution, revoked approval, or an uncertain adapter-entered attempt. A serialized or restored preparation must never recreate a grant or become executable on its own.
+
+## Native preparation composition
+
+The Native composition now injects the verified Application Action Capability Registry into Personal OrdaX as a session-only preparation surface.
+
+The exposed path remains authority-free:
+
+```text
+verified capability
+  -> authority-free proposal
+  -> Personal OrdaX Work
+  -> Application Action Preparation
+  -> application-action:<opaque-id>
+```
+
+The composition does not convert a preparation into an approval, grant or execution request. It exposes only bounded listing/proposal/preparation/resolve/revoke operations around the existing registry.
+
+Preparation lifecycle is reconciled against the current Personal OrdaX partition. A preparation is revoked when its owner partition changes, its Work disappears or becomes terminal, its bound Space/project context becomes invalid, a matching approval becomes executed/revoked/denied/cancelled, or a matching action attempt succeeds or becomes uncertain.
+
+This prevents a stale `application-action:*` resource reference from surviving owner/context transitions or a completed/uncertain side-effect boundary.
+
+The next gate remains a verified provider resolver. It must bind the preparation's declared `adapterId + revision` to the exact currently verified first-party provider artifact and its tool artifact SHA-256 before the existing Personal OrdaX approval/grant path can be entered.
+
