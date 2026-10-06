@@ -69,8 +69,6 @@ on:
       - 'system/contracts/operational-realtime.mjs'
       - 'system/contracts/mobile-companion.mjs'
       - 'system/contracts/notification-store.mjs'
-      - 'system/contracts/notes-store.mjs'
-      - 'system/contracts/notes-file-importer.mjs'
       - 'system/contracts/browser-session.mjs'
       - 'system/surface/**'
       - 'system/apps/**'
@@ -135,20 +133,7 @@ on:
       - 'tests/test_operational_realtime_contracts.mjs'
       - 'tests/test_mobile_companion_contracts.mjs'
       - 'tests/test_notification_center_ui_contract.py'
-      - 'tests/test_notes_runtime.mjs'
-      - 'tests/test_notes_durable_persistence.mjs'
-      - 'tests/test_notes_image_previews.mjs'
-      - 'tests/test_notes_list_model.mjs'
-      - 'tests/test_notes_deep_localization.py'
-      - 'tests/test_notes_file_picker.mjs'
-      - 'tests/test_notes_editor_save.mjs'
-      - 'tests/test_notes_reference_links.mjs'
-      - 'tests/test_files_to_notes_import.mjs'
-      - 'tests/test_files_to_notes_import_contract.py'
-      - 'tests/test_file_notes_action.mjs'
-      - 'tests/test_file_notes_action_contract.py'
       - 'tests/test_files_deep_localization.py'
-      - 'tests/test_notes_native.py'
       - 'tests/test_project_files_ui_contract.py'
       - 'tests/test_app_activation.mjs'
       - 'tests/test_app_contract.mjs'
@@ -274,8 +259,6 @@ on:
       - 'system/contracts/operational-realtime.mjs'
       - 'system/contracts/mobile-companion.mjs'
       - 'system/contracts/notification-store.mjs'
-      - 'system/contracts/notes-store.mjs'
-      - 'system/contracts/notes-file-importer.mjs'
       - 'system/contracts/browser-session.mjs'
       - 'system/surface/**'
       - 'system/apps/**'
@@ -339,19 +322,6 @@ on:
       - 'tests/test_operational_realtime_contracts.mjs'
       - 'tests/test_mobile_companion_contracts.mjs'
       - 'tests/test_notification_center_ui_contract.py'
-      - 'tests/test_notes_runtime.mjs'
-      - 'tests/test_notes_durable_persistence.mjs'
-      - 'tests/test_notes_image_previews.mjs'
-      - 'tests/test_notes_list_model.mjs'
-      - 'tests/test_notes_deep_localization.py'
-      - 'tests/test_notes_file_picker.mjs'
-      - 'tests/test_notes_editor_save.mjs'
-      - 'tests/test_notes_reference_links.mjs'
-      - 'tests/test_files_to_notes_import.mjs'
-      - 'tests/test_files_to_notes_import_contract.py'
-      - 'tests/test_file_notes_action.mjs'
-      - 'tests/test_file_notes_action_contract.py'
-      - 'tests/test_notes_native.py'
       - 'tests/test_project_files_ui_contract.py'
       - 'tests/test_app_activation.mjs'
       - 'tests/test_app_contract.mjs'
@@ -483,16 +453,6 @@ jobs:
           node --test tests/test_operational_realtime_contracts.mjs
           node --test tests/test_mobile_companion_contracts.mjs
           node --test tests/test_assistant_conversation.mjs
-          node --test tests/test_notes_runtime.mjs
-          node --test tests/test_notes_durable_persistence.mjs
-          node --test tests/test_notes_image_previews.mjs
-          node --test tests/test_notes_list_model.mjs
-          python -m unittest tests.test_notes_deep_localization -v
-          node --test tests/test_notes_file_picker.mjs
-          node --test tests/test_notes_editor_save.mjs
-          node --test tests/test_notes_reference_links.mjs
-          node --test tests/test_files_to_notes_import.mjs
-          node --test tests/test_file_notes_action.mjs
           node --test tests/test_app_activation.mjs
           node --test tests/test_app_contract.mjs
           node --test tests/test_component_manager.mjs
@@ -559,10 +519,7 @@ jobs:
           python -m unittest tests.test_network_transport_v2_boundary -v
           python -m unittest tests.test_home_continuation_contract -v
           python -m unittest tests.test_notification_center_ui_contract -v
-          python -m unittest tests.test_files_to_notes_import_contract -v
-          python -m unittest tests.test_file_notes_action_contract -v
           python -m unittest tests.test_files_deep_localization -v
-          python -m unittest tests.test_notes_native -v
           python -m unittest tests.test_native_component_state -v
           python -m unittest tests.test_space_selection_surface_contract -v
           python -m unittest tests.test_native_component_probation -v

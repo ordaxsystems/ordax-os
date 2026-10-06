@@ -19,12 +19,15 @@ function observation(overrides = {}) {
   };
 }
 
-test("delivery policy covers every current first-party app exactly once without service-to-app imports", () => {
+test("delivery policy covers every locally present first-party app and may also describe absent products", () => {
   const apps = listFirstPartyApps();
   const appIds = apps.map((app) => app.id).sort();
   const policyIds = listFirstPartyAppDeliveryPolicies().map((policy) => policy.appId).sort();
-  assert.deepEqual(policyIds, appIds);
-  assert.equal(new Set(policyIds).size, policyIds.length);
+  const policyIdSet = new Set(policyIds);
+  assert.equal(policyIdSet.size, policyIds.length);
+  for (const appId of appIds) {
+    assert.equal(policyIdSet.has(appId), true, `${appId}: locally present app requires delivery policy`);
+  }
   for (const app of apps) {
     assert.equal(
       app.localization.packPolicy,
@@ -32,6 +35,7 @@ test("delivery policy covers every current first-party app exactly once without 
       `${app.id}: independently delivered first-party apps must keep component-scoped localization`,
     );
   }
+  assert.equal(getFirstPartyAppDeliveryPolicy("notes")?.discovery, "store-only");
   assert.equal(getFirstPartyAppDeliveryPolicy("store"), null, "future Store UI must not be fabricated before it exists");
 });
 

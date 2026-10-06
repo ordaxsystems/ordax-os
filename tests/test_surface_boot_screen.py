@@ -80,10 +80,7 @@ class SurfaceBootScreenTests(unittest.TestCase):
             self.assertIn("translateSurfaceMessage", source)
             self.assertIn("bootScreen.ready()", source)
             self.assertIn('"surface.boot.failed"', source)
-            self.assertLess(
-                source.index('componentId: "notes"'),
-                source.index("bootScreen.ready()"),
-            )
+            self.assertNotIn('componentId: "notes"', source)
             self.assertLess(
                 source.index('componentId: "internet"'),
                 source.index("bootScreen.ready()"),

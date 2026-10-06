@@ -26,7 +26,6 @@ const CSS_FILES = [
 const COMPONENT_ASSET_FILES = Object.freeze({
   'system/apps/assistant/assistant.css': 'text/css',
   'system/apps/internet/internet.css': 'text/css',
-  'system/apps/notes/notes.css': 'text/css',
   'system/apps/network/network.css': 'text/css',
   'system/apps/projects/projects.css': 'text/css',
   'system/apps/studio/studio.css': 'text/css',
@@ -500,95 +499,6 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     document.head.append(importMap);
 
     const result = {};
-    const notesRich = await import(
-      namespaceUrls['composition-first']['system/apps/notes/ui/rich-editor.mjs']
-    );
-    const placeCaret = (element, atEnd = true) => {
-      const range = document.createRange();
-      range.selectNodeContents(element);
-      range.collapse(!atEnd);
-      const selection = document.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-    };
-
-    const emptyEditorProbe = notesRich.createNotesRichEditor(document);
-    notesRich.renderNotesRichBody(emptyEditorProbe, {
-      blocks: [{ type: 'paragraph', text: '', marks: [] }],
-    });
-    document.body.append(emptyEditorProbe);
-    result.notesEmptyEditorState = emptyEditorProbe.dataset.notesEmptyState === 'true';
-
-    const blockEditorProbe = notesRich.createNotesRichEditor(document);
-    notesRich.renderNotesRichBody(blockEditorProbe, {
-      blocks: [{ type: 'heading', text: 'Título', marks: [] }],
-    });
-    document.body.append(blockEditorProbe);
-    let probeBlock = blockEditorProbe.querySelector('[data-notes-rich-block]');
-    placeCaret(probeBlock, true);
-    const enterEvent = new KeyboardEvent('keydown', {
-      key: 'Enter',
-      bubbles: true,
-      cancelable: true,
-    });
-    result.notesHeadingEnterHandled = notesRich.handleNotesRichBlockKeyDown(
-      blockEditorProbe,
-      enterEvent,
-    ) === true && enterEvent.defaultPrevented === true
-      && blockEditorProbe.children.length === 2
-      && blockEditorProbe.children[0].dataset.notesBlockType === 'heading'
-      && blockEditorProbe.children[1].dataset.notesBlockType === 'paragraph';
-
-    probeBlock = blockEditorProbe.children[1];
-    probeBlock.dataset.notesBlockType = 'quote';
-    placeCaret(probeBlock, false);
-    const backspaceEvent = new KeyboardEvent('keydown', {
-      key: 'Backspace',
-      bubbles: true,
-      cancelable: true,
-    });
-    result.notesBackspaceExitsBlock = notesRich.handleNotesRichBlockKeyDown(
-      blockEditorProbe,
-      backspaceEvent,
-    ) === true && backspaceEvent.defaultPrevented === true
-      && probeBlock.dataset.notesBlockType === 'paragraph';
-
-    const bulletEditorProbe = notesRich.createNotesRichEditor(document);
-    notesRich.renderNotesRichBody(bulletEditorProbe, {
-      blocks: [{ type: 'bullet', text: 'Item', marks: [] }],
-    });
-    document.body.append(bulletEditorProbe);
-    placeCaret(bulletEditorProbe.children[0], true);
-    const bulletEnterEvent = new KeyboardEvent('keydown', {
-      key: 'Enter',
-      bubbles: true,
-      cancelable: true,
-    });
-    notesRich.handleNotesRichBlockKeyDown(bulletEditorProbe, bulletEnterEvent);
-    result.notesBulletEnterContinuesList = bulletEditorProbe.children.length === 2
-      && bulletEditorProbe.children[1].dataset.notesBlockType === 'bullet';
-
-    const softBreakProbe = notesRich.createNotesRichEditor(document);
-    notesRich.renderNotesRichBody(softBreakProbe, {
-      blocks: [{ type: 'paragraph', text: 'Linha', marks: [] }],
-    });
-    document.body.append(softBreakProbe);
-    placeCaret(softBreakProbe.children[0], true);
-    const softBreakEvent = new KeyboardEvent('keydown', {
-      key: 'Enter',
-      shiftKey: true,
-      bubbles: true,
-      cancelable: true,
-    });
-    notesRich.handleNotesRichBlockKeyDown(softBreakProbe, softBreakEvent);
-    result.notesShiftEnterKeepsBlock = softBreakEvent.defaultPrevented === true
-      && softBreakProbe.children.length === 1
-      && softBreakProbe.textContent === 'Linha\\n';
-
-    emptyEditorProbe.remove();
-    blockEditorProbe.remove();
-    bulletEditorProbe.remove();
-    softBreakProbe.remove();
 
     const parsedStorage = (key) => {
       const raw = storage.getItem(key);
@@ -683,258 +593,19 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     const storedSettings = firstArea?.windows?.find((item) => item.appId === 'settings');
     result.workspaceTargetPersisted = storedSettings?.target === 'accessibility';
 
-    await launch('notes');
-    let notesSlot = root.querySelector(
-      '[data-window-id="notes"] [data-app-extension="notes-workspace"]',
-    );
-    result.notesOwnerMounted = Boolean(notesSlot?.dataset.ordaxNotesMounted === 'true');
-    const originalPrompt = window.prompt;
-    const originalConfirm = window.confirm;
-    window.prompt = () => 'Projeto smoke';
-    const newProjectButton = notesSlot?.querySelector('[data-notes-action="new-project"]');
-    result.notesNewProjectActionPresent = Boolean(newProjectButton);
-    newProjectButton?.click();
-    await Promise.resolve();
-    window.prompt = originalPrompt;
-    let notesBeforeEdit = parsedStorage('ordax.notes.v1');
-    const smokeProject = notesBeforeEdit?.projects?.find((project) => project.name === 'Projeto smoke');
-    result.notesProjectCreated = Boolean(smokeProject);
+    result.notesAbsentFromLauncher = root.querySelector('[data-launch-app="notes"]') === null;
+    result.notesLocalWindowAbsent = root.querySelector('[data-window-id="notes"]') === null;
 
-    const newNoteButton = notesSlot?.querySelector('[data-notes-action="new-note"]');
-    result.notesNewActionPresent = Boolean(newNoteButton);
-    newNoteButton?.click();
+    // Internet coverage must remain independent from Notes. Before the
+    // remove-first cutover this target was reached through a Notes reference,
+    // which accidentally made the browser smoke depend on the removed app.
+    const internetLaunch = root.querySelector('[data-launch-app="internet"]');
+    if (!internetLaunch) throw new Error('composition smoke could not find launcher app: internet');
+    internetLaunch.dataset.appTarget = 'https://example.com/docs?q=1';
+    internetLaunch.click();
     await Promise.resolve();
-    const notesTitle = notesSlot?.querySelector('[data-notes-title]');
-    const notesBody = notesSlot?.querySelector('[data-notes-body]');
-    if (notesTitle && notesBody) {
-      notesTitle.value = 'Nota persistida no smoke';
-      notesTitle.dispatchEvent(new Event('input', { bubbles: true }));
-      notesTitle.focus();
-      const titleEnterEvent = new KeyboardEvent('keydown', {
-        key: 'Enter',
-        bubbles: true,
-        cancelable: true,
-      });
-      result.notesTitleEnterFocusesEditor = notesTitle.dispatchEvent(titleEnterEvent) === false
-        && document.activeElement === notesBody
-        && notesTitle.value === 'Nota persistida no smoke';
+    delete internetLaunch.dataset.appTarget;
 
-      const richBlock = notesBody.querySelector('[data-notes-rich-block]');
-      if (richBlock) richBlock.textContent = 'Conteúdo salvo localmente e disponível offline.';
-      notesBody.dispatchEvent(new Event('input', { bubbles: true }));
-
-      notesBody.focus();
-      const textNode = richBlock?.firstChild;
-      if (textNode?.nodeType === Node.TEXT_NODE) {
-        const range = document.createRange();
-        range.setStart(textNode, 0);
-        range.setEnd(textNode, 'Conteúdo'.length);
-        const selection = document.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-        document.dispatchEvent(new Event('selectionchange'));
-        notesSlot.querySelector('[data-notes-action="bold"]')?.click();
-
-        const italicStart = 'Conteúdo salvo '.length;
-        const italicEnd = italicStart + 'localmente'.length;
-        const walk = document.createTreeWalker(richBlock, NodeFilter.SHOW_TEXT);
-        let offset = 0;
-        let startNode = null;
-        let startOffset = 0;
-        let endNode = null;
-        let endOffset = 0;
-        while (walk.nextNode()) {
-          const candidate = walk.currentNode;
-          const nextOffset = offset + candidate.nodeValue.length;
-          if (!startNode && italicStart >= offset && italicStart <= nextOffset) {
-            startNode = candidate;
-            startOffset = italicStart - offset;
-          }
-          if (!endNode && italicEnd >= offset && italicEnd <= nextOffset) {
-            endNode = candidate;
-            endOffset = italicEnd - offset;
-          }
-          offset = nextOffset;
-        }
-        if (startNode && endNode) {
-          const italicRange = document.createRange();
-          italicRange.setStart(startNode, startOffset);
-          italicRange.setEnd(endNode, endOffset);
-          const selection = document.getSelection();
-          selection.removeAllRanges();
-          selection.addRange(italicRange);
-          document.dispatchEvent(new Event('selectionchange'));
-          notesBody.dispatchEvent(new KeyboardEvent('keydown', {
-            key: 'i',
-            ctrlKey: true,
-            bubbles: true,
-            cancelable: true,
-          }));
-        }
-
-        const saveEvent = new KeyboardEvent('keydown', {
-          key: 's',
-          ctrlKey: true,
-          bubbles: true,
-          cancelable: true,
-        });
-        result.notesSaveShortcutPreventedBrowserDialog = notesBody.dispatchEvent(saveEvent) === false;
-      }
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 380));
-    }
-    const notesStorage = parsedStorage('ordax.notes.v1');
-    const persistedNote = notesStorage?.notes?.find((item) => item.id === notesStorage.selectedNoteId);
-    result.notesAutosavePersisted = persistedNote?.title === 'Nota persistida no smoke'
-      && persistedNote?.body === 'Conteúdo salvo localmente e disponível offline.';
-    result.notesRichTextPersisted = persistedNote?.richBody?.blocks?.[0]?.marks
-      ?.some((mark) => mark.type === 'bold' && mark.start === 0 && mark.end === 'Conteúdo'.length) === true;
-    result.notesItalicShortcutPersisted = persistedNote?.richBody?.blocks?.[0]?.marks
-      ?.some((mark) => mark.type === 'italic'
-        && mark.start === 'Conteúdo salvo '.length
-        && mark.end === 'Conteúdo salvo localmente'.length) === true;
-    result.notesPlainBodyHasNoMarkup = persistedNote?.body?.includes('**') === false;
-    result.notesCreatedInsideProject = persistedNote?.projectId === smokeProject?.id;
-
-    const moreButton = notesSlot?.querySelector('[data-notes-action="toggle-menu"]');
-    moreButton?.click();
-    await Promise.resolve();
-    const transientMenu = notesSlot?.querySelector('.ordax-notes-menu');
-    const menuOpenedForEscape = transientMenu?.hidden === false;
-    notesBody?.focus();
-    const escapeEvent = new KeyboardEvent('keydown', {
-      key: 'Escape',
-      bubbles: true,
-      cancelable: true,
-    });
-    result.notesEscapeClosesTransientMenu = menuOpenedForEscape
-      && notesBody?.dispatchEvent(escapeEvent) === false
-      && transientMenu?.hidden === true;
-
-    const addTaskButton = notesSlot?.querySelector('[data-notes-action="add-task"]');
-    addTaskButton?.click();
-    await Promise.resolve();
-    let notesAfterTask = parsedStorage('ordax.notes.v1');
-    let taskNote = notesAfterTask?.notes?.find((item) => item.id === notesAfterTask.selectedNoteId);
-    result.notesTaskCreated = taskNote?.tasks?.length === 1;
-    notesSlot?.querySelector('[data-notes-action="remove-task"]')?.click();
-    await Promise.resolve();
-    notesAfterTask = parsedStorage('ordax.notes.v1');
-    taskNote = notesAfterTask?.notes?.find((item) => item.id === notesAfterTask.selectedNoteId);
-    result.notesTaskRemoved = taskNote?.tasks?.length === 0;
-
-    notesSlot?.querySelector('[data-notes-action="toggle-menu"]')?.click();
-    await Promise.resolve();
-    const moveHome = notesSlot?.querySelector(
-      '[data-notes-action="move-note-project"][data-project-id="meu-espaco"]',
-    );
-    result.notesMoveActionPresent = Boolean(moveHome);
-    moveHome?.click();
-    await Promise.resolve();
-    const notesAfterMove = parsedStorage('ordax.notes.v1');
-    const movedNote = notesAfterMove?.notes?.find((item) => item.id === notesAfterMove.selectedNoteId);
-    result.notesMovedToHome = movedNote?.projectId === 'meu-espaco'
-      && notesAfterMove?.selectedProjectId === 'meu-espaco';
-
-    const projectRow = [...notesSlot?.querySelectorAll('.ordax-notes-project-row') ?? []]
-      .find((row) => row.querySelector('.ordax-notes-project-name')?.textContent === 'Projeto smoke');
-    const projectActions = projectRow?.querySelector('[data-notes-action="project-actions"]');
-    result.notesProjectActionsPresent = Boolean(projectActions);
-    projectActions?.click();
-    await Promise.resolve();
-    window.prompt = () => 'Projeto smoke renomeado';
-    notesSlot?.querySelector('[data-notes-action="rename-project"]')?.click();
-    await Promise.resolve();
-    window.prompt = originalPrompt;
-    let notesAfterProjectEdit = parsedStorage('ordax.notes.v1');
-    result.notesProjectRenamed = notesAfterProjectEdit?.projects
-      ?.some((project) => project.name === 'Projeto smoke renomeado') === true;
-
-    const renamedProjectRow = [...notesSlot?.querySelectorAll('.ordax-notes-project-row') ?? []]
-      .find((row) => row.querySelector('.ordax-notes-project-name')?.textContent === 'Projeto smoke renomeado');
-    renamedProjectRow?.querySelector('[data-notes-action="project-actions"]')?.click();
-    await Promise.resolve();
-    window.confirm = () => true;
-    notesSlot?.querySelector('[data-notes-action="remove-project"]')?.click();
-    await Promise.resolve();
-    window.confirm = originalConfirm;
-    notesAfterProjectEdit = parsedStorage('ordax.notes.v1');
-    result.notesProjectRemovedSafely = notesAfterProjectEdit?.projects
-      ?.every((project) => project.name !== 'Projeto smoke renomeado') === true
-      && notesAfterProjectEdit?.notes?.some(
-        (item) => item.id === notesAfterProjectEdit.selectedNoteId && item.projectId === 'meu-espaco',
-      ) === true;
-
-    notesSlot?.querySelector('[data-notes-action="toggle-menu"]')?.click();
-    await Promise.resolve();
-    notesSlot?.querySelector('[data-notes-action="trash-note"]')?.click();
-    await Promise.resolve();
-    notesSlot?.querySelector('[data-notes-action="view-trash"]')?.click();
-    await Promise.resolve();
-
-    const trashTitle = notesSlot?.querySelector('[data-notes-title]');
-    const trashBody = notesSlot?.querySelector('[data-notes-body]');
-    const trashDocument = notesSlot?.querySelector('[data-notes-document]');
-    const trashAddTask = notesSlot?.querySelector('[data-notes-action="add-task"]');
-    const trashAddReference = notesSlot?.querySelector('[data-notes-action="add-reference"]');
-    result.notesTrashIsReadOnly = trashTitle?.readOnly === true
-      && trashBody?.contentEditable === 'false'
-      && trashBody?.getAttribute('aria-readonly') === 'true'
-      && trashDocument?.dataset.deleted === 'true'
-      && trashAddTask?.disabled === true
-      && trashAddReference?.disabled === true
-      && notesSlot?.querySelector('.ordax-notes-save-status')?.textContent
-        ?.includes('Na lixeira') === true;
-
-    notesSlot?.querySelector('[data-notes-action="toggle-menu"]')?.click();
-    await Promise.resolve();
-    notesSlot?.querySelector('[data-notes-action="restore-note"]')?.click();
-    await Promise.resolve();
-
-    const restoredTitle = notesSlot?.querySelector('[data-notes-title]');
-    const restoredBody = notesSlot?.querySelector('[data-notes-body]');
-    result.notesRestoreReenablesEditing = restoredTitle?.readOnly === false
-      && restoredBody?.contentEditable === 'true'
-      && restoredBody?.getAttribute('aria-readonly') === 'false'
-      && notesSlot?.querySelector('[data-notes-document]')?.dataset.deleted === 'false'
-      && restoredTitle?.value === 'Nota persistida no smoke';
-
-    const imageToolButton = notesSlot?.querySelector('[data-notes-action="insert-image"]');
-    result.notesImageToolPresent = Boolean(imageToolButton);
-    result.notesImageToolFailsClosedOnWeb = imageToolButton?.disabled === true;
-
-    const addReferenceButton = notesSlot?.querySelector('[data-notes-action="add-reference"]');
-    result.notesReferenceActionPresent = Boolean(addReferenceButton);
-    addReferenceButton?.click();
-    await Promise.resolve();
-    const fileReferenceChoice = notesSlot?.querySelector('[data-notes-action="add-file-reference"]');
-    const linkReferenceChoice = notesSlot?.querySelector('[data-notes-action="add-link-reference"]');
-    result.notesFileReferenceChoicePresent = Boolean(fileReferenceChoice);
-    result.notesFileReferenceFailsClosedOnWeb = fileReferenceChoice?.disabled === true;
-
-    const referencePromptValues = ['  https://Example.COM/docs?q=1  ', 'Documentação'];
-    window.prompt = () => referencePromptValues.shift() ?? null;
-    try {
-      linkReferenceChoice?.click();
-      await Promise.resolve();
-    } finally {
-      window.prompt = originalPrompt;
-    }
-    const storedReference = parsedStorage('ordax.notes.v1')?.notes
-      ?.flatMap((item) => item.references ?? [])
-      ?.find((reference) => reference.title === 'Documentação');
-    const renderedReference = [...(notesSlot?.querySelectorAll('.ordax-notes-ref-card[data-href]') ?? [])]
-      .find((card) => card.dataset.href === 'https://example.com/docs?q=1');
-    result.notesWebReferenceAdded = storedReference?.href === 'https://example.com/docs?q=1'
-      && storedReference?.kind === 'link';
-    result.notesWebReferenceHostRendered = renderedReference
-      ?.querySelector('small')?.textContent === 'example.com';
-
-    renderedReference?.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'Enter',
-      bubbles: true,
-      cancelable: true,
-    }));
-    await Promise.resolve();
     const internetSlot = root.querySelector(
       '[data-window-id="internet"] [data-app-extension="internet-browser"]',
     );
@@ -942,41 +613,12 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     const internetArea = internetWorkspace?.areas
       ?.find((area) => area.id === internetWorkspace.activeAreaId) ?? internetWorkspace?.areas?.[0];
     const storedInternet = internetArea?.windows?.find((item) => item.appId === 'internet');
-    result.notesReferenceOpenedInInternet = Boolean(
-      internetSlot?.dataset.ordaxInternetMounted === 'true',
-    );
     result.internetTargetPersisted = storedInternet?.target === 'https://example.com/docs?q=1';
     result.internetFailsClosedOnWeb = internetSlot
       ?.querySelector('.ordax-internet-unavailable')?.textContent
       ?.includes('Navegação integrada não disponível neste host') === true;
     result.internetDoesNotEmbedWebContent = internetSlot?.querySelector('iframe') === null
       && internetSlot?.querySelector('[data-browser-viewport] iframe') === null;
-
-    const notesSlotAfterInternet = root.querySelector(
-      '[data-window-id="notes"] [data-app-extension="notes-workspace"]',
-    );
-    result.notesSlotPreservedAfterInternet = notesSlotAfterInternet === notesSlot;
-    result.notesOwnerPreservedAfterInternet =
-      notesSlotAfterInternet?.dataset.ordaxNotesMounted === 'true';
-    const closePendingTitle = notesSlotAfterInternet?.querySelector('[data-notes-title]');
-    result.notesTitleAvailableAfterInternet = Boolean(closePendingTitle);
-    if (closePendingTitle) {
-      closePendingTitle.value = 'Nota salva ao fechar';
-      closePendingTitle.dispatchEvent(new Event('input', { bubbles: true }));
-      root.querySelector('[data-window-id="notes"] [data-window-action="close"]')?.click();
-    }
-    result.notesWindowClosedWithPendingEdit = Boolean(closePendingTitle)
-      && root.querySelector('[data-window-id="notes"]') === null
-      && parsedStorage('ordax.notes.v1')?.notes?.some(
-        (item) => item.title === 'Nota salva ao fechar',
-      ) === true;
-
-    await launch('notes');
-    notesSlot = root.querySelector(
-      '[data-window-id="notes"] [data-app-extension="notes-workspace"]',
-    );
-    result.notesPendingEditRestoredAfterClose = notesSlot
-      ?.querySelector('[data-notes-title]')?.value === 'Nota salva ao fechar';
 
     await launch('account');
     const accountSlot = root.querySelector(
@@ -1032,57 +674,6 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.settingsWindowRestored = Boolean(restoredSettingsSlot);
     result.settingsTargetRestored = restoredSettingsSlot?.dataset.settingsActiveSection === 'accessibility';
 
-    const restoredNotesSlot = root?.querySelector(
-      '[data-window-id="notes"] [data-app-extension="notes-workspace"]',
-    );
-    result.notesWindowRestored = Boolean(restoredNotesSlot);
-    result.notesOwnerRestored = Boolean(restoredNotesSlot?.dataset.ordaxNotesMounted === 'true');
-    result.notesContentRestored = restoredNotesSlot?.querySelector('[data-notes-title]')?.value === 'Nota salva ao fechar';
-    const restoredNotesBody = restoredNotesSlot?.querySelector('[data-notes-body]');
-    result.notesRichTextRestored = restoredNotesBody?.textContent === 'Conteúdo salvo localmente e disponível offline.'
-      && restoredNotesBody?.querySelector('strong')?.textContent === 'Conteúdo';
-
-    const restoredNotesTitle = restoredNotesSlot?.querySelector('[data-notes-title]');
-    const notesBeforeNewShortcut = parsedStorage('ordax.notes.v1');
-    const noteCountBeforeNewShortcut = notesBeforeNewShortcut?.notes?.length ?? 0;
-    restoredNotesTitle?.focus();
-    const newNoteShortcutEvent = new KeyboardEvent('keydown', {
-      key: 'n',
-      ctrlKey: true,
-      bubbles: true,
-      cancelable: true,
-    });
-    const newNoteShortcutPrevented = restoredNotesTitle?.dispatchEvent(newNoteShortcutEvent) === false;
-    await Promise.resolve();
-    const notesAfterNewShortcut = parsedStorage('ordax.notes.v1');
-    const shortcutTitle = restoredNotesSlot?.querySelector('[data-notes-title]');
-    result.notesNewShortcutCreatesNote = newNoteShortcutPrevented
-      && notesAfterNewShortcut?.notes?.length === noteCountBeforeNewShortcut + 1
-      && notesAfterNewShortcut?.selectedNoteId !== notesBeforeNewShortcut?.selectedNoteId
-      && document.activeElement === shortcutTitle;
-
-    const shortcutSearch = restoredNotesSlot?.querySelector('[data-notes-search]');
-    if (shortcutSearch) {
-      shortcutSearch.value = 'atalho';
-      shortcutSearch.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    shortcutTitle?.focus();
-    const findShortcutEvent = new KeyboardEvent('keydown', {
-      key: 'f',
-      ctrlKey: true,
-      bubbles: true,
-      cancelable: true,
-    });
-    const findShortcutPrevented = shortcutTitle?.dispatchEvent(findShortcutEvent) === false;
-    result.notesFindShortcutFocusesSearch = findShortcutPrevented
-      && document.activeElement === shortcutSearch
-      && shortcutSearch?.selectionStart === 0
-      && shortcutSearch?.selectionEnd === 'atalho'.length;
-    if (shortcutSearch) {
-      shortcutSearch.value = '';
-      shortcutSearch.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
     const restoredInternetSlot = root?.querySelector(
       '[data-window-id="internet"] [data-app-extension="internet-browser"]',
     );
@@ -1119,32 +710,14 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'compositionMounted', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
-      'workspaceTargetPersisted', 'internetComponentStyleMounted',
+      'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent', 'internetComponentStyleMounted',
       'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
-      'notesEmptyEditorState', 'notesHeadingEnterHandled',
-      'notesBackspaceExitsBlock', 'notesBulletEnterContinuesList', 'notesShiftEnterKeepsBlock',
-      'notesOwnerMounted', 'notesNewProjectActionPresent', 'notesProjectCreated',
-      'notesNewActionPresent', 'notesTitleEnterFocusesEditor', 'notesAutosavePersisted',
-      'notesRichTextPersisted', 'notesItalicShortcutPersisted', 'notesSaveShortcutPreventedBrowserDialog',
-      'notesEscapeClosesTransientMenu', 'notesPlainBodyHasNoMarkup',
-      'notesCreatedInsideProject', 'notesTaskCreated', 'notesTaskRemoved', 'notesMoveActionPresent',
-      'notesMovedToHome', 'notesProjectActionsPresent', 'notesProjectRenamed', 'notesProjectRemovedSafely',
-      'notesTrashIsReadOnly', 'notesRestoreReenablesEditing',
-      'notesImageToolPresent', 'notesImageToolFailsClosedOnWeb',
-      'notesReferenceActionPresent', 'notesFileReferenceChoicePresent', 'notesFileReferenceFailsClosedOnWeb',
-      'notesWebReferenceAdded', 'notesWebReferenceHostRendered',
-      'notesReferenceOpenedInInternet', 'internetTargetPersisted',
       'internetFailsClosedOnWeb', 'internetDoesNotEmbedWebContent',
-      'notesSlotPreservedAfterInternet', 'notesOwnerPreservedAfterInternet',
-      'notesTitleAvailableAfterInternet',
-      'notesWindowClosedWithPendingEdit', 'notesPendingEditRestoredAfterClose',
       'accountOwnerMounted', 'accountUnavailable', 'accountNoFakeIdentityAction',
       'systemOwnerMounted', 'systemOverviewDefault',
       'systemNavigationComplete', 'firstMountDestroyed', 'textScaleClearedOnDestroy',
       'remountCompositionMounted', 'remountBootScreenCompleted', 'themeRestored', 'textScaleRestored', 'settingsWindowRestored',
-      'settingsTargetRestored', 'notesWindowRestored', 'notesOwnerRestored', 'notesContentRestored',
-      'notesRichTextRestored', 'notesNewShortcutCreatesNote', 'notesFindShortcutFocusesSearch',
       'internetWindowRestored', 'internetTargetRestored',
       'internetStillFailsClosedOnWeb',
       'accountWindowRestored', 'accountOwnerRestored', 'accountStillUnavailable', 'accountStillHasNoFakeIdentityAction', 'systemWindowRestored',
