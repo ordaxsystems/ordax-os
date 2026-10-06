@@ -169,9 +169,9 @@ class NativeComponentSlotTests(unittest.TestCase):
             + "/system/apps/internet/runtime.mjs",
             "/__ordax/native/component-module/internet/pending/0.4.0/not-a-sha/"
             "system/apps/internet/runtime.mjs",
-            "/__ordax/native/component-module/notes/pending/0.4.0/"
+            "/__ordax/native/component-module/assistant/pending/0.4.0/"
             + commit
-            + "/system/apps/notes/runtime.mjs",
+            + "/system/apps/assistant/runtime.mjs",
         )
         for path in bad:
             with self.subTest(path=path):
@@ -210,11 +210,11 @@ class NativeComponentSlotTests(unittest.TestCase):
                 slots.read_component_runtime_file(
                     helper_path="/signed/bin/helper",
                     trust_path="/signed/trust.json",
-                    component_id="notes",
+                    component_id="assistant",
                     state="pending",
                     version="0.4.0",
                     source_commit="7777777777777777777777777777777777777777",
-                    requested_path="system/apps/notes/runtime.mjs",
+                    requested_path="system/apps/assistant/runtime.mjs",
                 )
             with self.assertRaises(slots.ComponentSlotRequestError):
                 slots.read_component_runtime_file(
