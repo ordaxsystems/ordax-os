@@ -69,6 +69,7 @@ import { createApplicationContextIntelligence } from "../../services/intelligenc
 import { createApplicationActionCapabilityRegistry } from "../../services/intelligence/application-action-capabilities.mjs";
 import { createApplicationSemanticRouter } from "../../services/intelligence/application-semantic-router.mjs";
 import {
+  EXTERNAL_FIRST_PARTY_OWNER,
   EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
   loadVerifiedFirstPartyApplicationSemantics,
   overlayVerifiedFirstPartyApplications,
@@ -147,16 +148,18 @@ async function start() {
   }
 
   const browserSession = createNativeBrowserSession(window);
+  const verifiedComponentPackageSource = createNativeVerifiedComponentPackageSource(window);
+  const verifiedComponentFetch = typeof window.fetch === "function"
+    ? window.fetch.bind(window)
+    : async () => {
+        throw new Error("Native loopback fetch is unavailable");
+      };
   const verifiedAppSemanticsPromise = optionalNativeProbe(
     "OrdaX verified App Intelligence semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
       appIds: EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
-      source: createNativeVerifiedComponentPackageSource(window),
-      fetchImpl: typeof window.fetch === "function"
-        ? window.fetch.bind(window)
-        : async () => {
-            throw new Error("Native loopback fetch is unavailable");
-          },
+      source: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
     }),
   );
   const preferenceStorePromise = createNativePreferenceStore(window);
@@ -500,6 +503,15 @@ async function start() {
       adapterResolver: personalOrdaxFileActions?.adapterResolver ?? (() => null),
       actionCatalog: personalOrdaxActionCatalog,
       applicationActionCapabilityRegistry: appActionCapabilities,
+      resolveVerifiedApplicationSemantics: async (appId) => {
+        const entries = await loadVerifiedFirstPartyApplicationSemantics({
+          appIds: [appId],
+          source: verifiedComponentPackageSource,
+          fetchImpl: verifiedComponentFetch,
+        });
+        return entries[0] ?? null;
+      },
+      expectedApplicationActionProviderOwner: EXTERNAL_FIRST_PARTY_OWNER,
     }),
   );
   const profileComponentInventory = await optionalNativeProbe(
