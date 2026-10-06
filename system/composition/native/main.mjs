@@ -3,6 +3,7 @@ import {
   renderedSourceSha,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
+import { createNativeVerifiedComponentPackageSource } from "../../adapters/native/verified-component-package-source.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
 import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser-favorites.mjs";
 import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
@@ -46,6 +47,7 @@ import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
+import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
@@ -60,6 +62,13 @@ import { createUpdateNotificationBridge } from "../../services/notifications/upd
 import { createDiagnosticJournalRuntime } from "../../services/diagnostics/runtime.mjs";
 import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
+import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
+import { createApplicationAwareIntelligence } from "../../services/intelligence/application-context.mjs";
+import {
+  EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
+  loadVerifiedFirstPartyApplicationSemantics,
+  overlayVerifiedFirstPartyApplications,
+} from "../../services/intelligence/verified-app-semantics.mjs";
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
@@ -265,6 +274,29 @@ async function start() {
     fetchImpl: localAiFetch,
   });
   const intelligence = createIntelligenceRuntime({ inferencePort: localAi });
+  const verifiedFirstPartySemantics = await optionalNativeProbe(
+    "OrdaX verified first-party app semantics unavailable; using local catalog only",
+    () => loadVerifiedFirstPartyApplicationSemantics({
+      appIds: EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
+      source: createNativeVerifiedComponentPackageSource(window),
+      fetchImpl: localAiFetch,
+    }),
+  ) ?? Object.freeze([]);
+  const firstPartyApplications = overlayVerifiedFirstPartyApplications(
+    listFirstPartyApps(),
+    verifiedFirstPartySemantics,
+  );
+  const applicationAwareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications,
+    installedApplications: [],
+    firstPartyIntelligenceManifests: verifiedFirstPartySemantics.map(
+      (entry) => entry.intelligenceManifest,
+    ),
+  });
+  const applicationAwareIntelligence = createApplicationAwareIntelligence({
+    intelligencePort: intelligence,
+    applicationAwarenessPort: applicationAwareness,
+  });
   const memory = memoryStore === null
     ? null
     : createMemoryRuntime({ store: memoryStore });
@@ -393,11 +425,11 @@ async function start() {
   });
   const consumerIntelligence = profileContentContextCapability?.available === true
     ? createSelectedSpaceProfileContentIntelligence({
-        intelligencePort: intelligence,
+        intelligencePort: applicationAwareIntelligence,
         profileContentContextPort: createNativeProfileContentContext(window),
         spaceSelectionPort: spaceSelection,
       })
-    : intelligence;
+    : applicationAwareIntelligence;
   const selectedSpaceIntelligence = memory === null
     ? consumerIntelligence
     : createIdentityBoundMemoryIntelligence({
