@@ -279,7 +279,10 @@ class PreMvpEcosystemFoundationTests(unittest.TestCase):
         self.assertFalse(security["profile_pack_may_auto_grant_permissions"])
         self.assertTrue(security["failed_update_preserves_working_version"])
         self.assertFalse(distribution["mvp"]["third_party_installation_enabled"])
-        self.assertFalse(distribution["mvp"]["store_ui_enabled"])
+        self.assertTrue(distribution["mvp"]["store_ui_enabled"])
+        self.assertFalse(security["store_ui_may_claim_install_authority"])
+        self.assertFalse(security["catalogued_app_may_be_treated_as_installed"])
+        self.assertFalse(security["first_online_catalog_refresh_may_mint_install_authority"])
 
     def test_product_mcp_uses_ordax_oauth_and_scoped_github_app_access(self):
         bridge = self.load(EXTERNAL_AI)
