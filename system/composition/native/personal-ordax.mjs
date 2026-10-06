@@ -18,6 +18,9 @@ import {
 import {
   createApplicationActionProviderArtifactResolver,
 } from "../../services/personal-ordax/application-action-provider-artifact-resolver.mjs";
+import {
+  createApplicationActionProviderActivationBroker,
+} from "../../services/personal-ordax/application-action-provider-activation-broker.mjs";
 import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from "../../services/personal-ordax/action-executor.mjs";
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
@@ -356,6 +359,17 @@ export function createNativePersonalOrdaxComposition({
       })
     : null;
 
+  const applicationActionProviderActivationBroker = (
+    applicationActionProviderArtifactResolver !== null
+    && resolveVerifiedApplicationSemantics !== null
+  )
+    ? createApplicationActionProviderActivationBroker({
+        providerArtifactResolver: applicationActionProviderArtifactResolver,
+        resolveVerifiedSemantics: resolveVerifiedApplicationSemantics,
+        expectedOwner: expectedApplicationActionProviderOwner,
+      })
+    : null;
+
   return Object.freeze({
     ...runtime,
     approvalConsent,
@@ -406,6 +420,15 @@ export function createNativePersonalOrdaxComposition({
       }
       reconcileApplicationActionPreparations();
       return applicationActionProviderArtifactResolver.resolve(resourceRef);
+    },
+    async resolveApplicationActionProviderActivation(resourceRef) {
+      if (applicationActionProviderActivationBroker === null) {
+        throw new Error(
+          "Personal OrdaX Application Action provider activation is unavailable",
+        );
+      }
+      reconcileApplicationActionPreparations();
+      return applicationActionProviderActivationBroker.resolve(resourceRef);
     },
     revokeApplicationActionPreparation(resourceRef) {
       if (applicationActionPreparations === null) return false;
