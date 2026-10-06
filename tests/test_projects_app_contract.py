@@ -41,12 +41,17 @@ class ProjectsAppContractTests(unittest.TestCase):
         native = self.text(NATIVE)
 
         self.assertIn("assertProjectCatalogPort", controls)
-        self.assertIn("assertProjectCloudLinksPort", controls)
+        self.assertIn("assertProjectCloudLinksReaderPort", controls)
+        self.assertIn("project-cloud-links-reader.mjs", controls)
+        self.assertNotIn("assertProjectCloudLinksPort", controls)
+        self.assertNotIn("project-cloud-links.mjs", controls)
         self.assertNotIn("createProjectCatalogRuntime", controls)
         self.assertNotIn("createProjectCatalogRuntime", runtime)
         self.assertIn('componentId: "projects"', runtime)
         self.assertIn("projects,", native)
-        self.assertIn("projectCloudLinks,", native)
+        self.assertIn("createProjectCloudLinksReader", native)
+        self.assertIn("projectCloudLinks: projectCloudLinksReader", native)
+        self.assertNotIn("projectCloudLinks,\n      appActivation", native)
         self.assertIn('import("../../apps/projects/runtime.mjs")', native)
 
     def test_native_has_real_local_projects_and_web_degrades_honestly(self):
@@ -55,6 +60,7 @@ class ProjectsAppContractTests(unittest.TestCase):
 
         self.assertIn("createProjectCloudLinksRuntime", native)
         self.assertIn("createNativeProjectCloudLinkStore", native)
+        self.assertIn("createProjectCloudLinksReader", native)
         self.assertIn("projectCloudLinks?.destroy()", native)
         self.assertIn('componentId: "projects"', web)
         self.assertIn("projects: null", web)

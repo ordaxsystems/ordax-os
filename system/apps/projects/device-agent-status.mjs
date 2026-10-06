@@ -1,7 +1,7 @@
 import {
   assertDeviceAgentCapabilityReaderPort,
   validateDeviceAgentCapabilitiesSnapshot,
-} from "../../contracts/device-agent.mjs";
+} from "../../contracts/device-capabilities.mjs";
 
 export const PROJECTS_DEVICE_AGENT_STATUS_SCHEMA = "ordax.projects-device-agent-status/1";
 const DEFAULT_TIMEOUT_MS = 1500;

@@ -98,6 +98,42 @@ Os efeitos permitidos são:
 
 `external-write` e `destructive` não podem declarar `confirmation=none`.
 
+## Desempenho e caminho quente
+
+Conhecimento operacional de apps é infraestrutura local de baixa latência. A resposta a um comando do usuário **não pode** depender de varrer repositórios, reler todos os manifests, consultar GitHub/Store ou reconstruir o catálogo semântico.
+
+A composição confiável deve:
+
+- validar manifests quando o app/pacote entra, muda de versão ou troca de revisão;
+- compilar a projeção semântica uma vez por snapshot do catálogo;
+- manter índices locais por `appId` e referências exatas;
+- reutilizar objetos/contextos imutáveis enquanto a identidade do snapshot não mudar;
+- invalidar somente a entrada cujo `appVersion`, revisão, source commit ou payload verificado mudou;
+- atualizar catálogos fora do caminho quente de inferência sempre que possível;
+- falhar de forma explícita e local se uma capability ainda não estiver pronta, sem bloquear a interface por minutos.
+
+Consequentemente, uma interação normal segue:
+
+```text
+fala/texto
+   ↓
+índice local já validado
+   ↓
+contexto semântico pré-compilado
+   ↓
+Intelligence / modelo
+   ↓
+binding + permission gate separado
+```
+
+Não faz parte do caminho normal:
+
+```text
+prompt → scan de disco/repositório → rede → parse de todos os apps → modelo
+```
+
+Esse requisito vale tanto para a IA local/Jarvis quanto para clientes externos autorizados, incluindo o ORDAX Studio/MCP.
+
 ## Segurança
 
 Instruções do app ficam abaixo das políticas do sistema e do usuário. Um manifesto nunca pode:

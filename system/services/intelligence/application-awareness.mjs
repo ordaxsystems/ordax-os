@@ -198,6 +198,8 @@ export function createApplicationIntelligenceAwareness({
     byTitle.set(titleKey, titleMatches);
   }
 
+  const compiledContextItem = applicationContextItem(descriptors, semanticsByAppId);
+
   const port = {
     schema: APPLICATION_INTELLIGENCE_AWARENESS_PORT_SCHEMA,
     list() {
@@ -214,7 +216,7 @@ export function createApplicationIntelligenceAwareness({
       return matches.length === 1 ? matches[0] : null;
     },
     contextItem() {
-      return applicationContextItem(descriptors, semanticsByAppId);
+      return compiledContextItem;
     },
   };
 

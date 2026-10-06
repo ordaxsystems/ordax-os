@@ -264,6 +264,19 @@ test("capability context is bounded semantic data and hides provider/payload int
   assert.equal(item.text.includes("wine"), false);
 });
 
+test("capability context is compiled once and reused by reference", () => {
+  const nativeApp = listFirstPartyApps()[0];
+  const registry = createApplicationActionCapabilityRegistry({
+    awareness: awareness(),
+    capabilities: [uriCapability(nativeApp.id), installedCapability()],
+  });
+
+  const first = registry.contextItem();
+  const second = registry.contextItem();
+  assert.strictEqual(second, first);
+  assert.equal(JSON.parse(first.text).actions.length, 2);
+});
+
 test("registry exposes no execution, mutation, grant or confirmation methods", () => {
   const registry = createApplicationActionCapabilityRegistry({ awareness: awareness(), capabilities: [] });
   for (const method of ["register", "mutate", "execute", "invoke", "run", "launch", "install", "uninstall", "shell", "spawn", "writeFile", "grant", "authorize", "confirm"]) {

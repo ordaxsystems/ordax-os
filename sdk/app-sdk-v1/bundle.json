@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.8.0",
+  "bundle_version": "1.9.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -150,6 +150,20 @@
       "schema": "ordax.project-catalog/1",
       "source_git_blob": "2d2cc1359f6af92539c32bab61adf1ca724710d9",
       "source_path": "system/contracts/project-catalog.mjs"
+    },
+    {
+      "major": 1,
+      "name": "project-cloud-links-data",
+      "schema": "ordax.project-cloud-links/1",
+      "source_git_blob": "1fa9a6a93c675db9771c9167dad59abe112c7193",
+      "source_path": "system/contracts/project-cloud-links-data.mjs"
+    },
+    {
+      "major": 1,
+      "name": "project-cloud-links-reader",
+      "schema": "ordax.project-cloud-links-reader/1",
+      "source_git_blob": "f62016f3e2b09cbad6b4ed0f1dceafc453f19948",
+      "source_path": "system/contracts/project-cloud-links-reader.mjs"
     },
     {
       "major": 1,
