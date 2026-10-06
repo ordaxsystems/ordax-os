@@ -104,7 +104,6 @@ function addManifest(postings, descriptor, manifest) {
     addText(postings, intent.description, descriptor.appId, 4);
     for (const example of intent.examples) addText(postings, example, descriptor.appId, 6);
   }
-  for (const instruction of manifest.instructions) addText(postings, instruction, descriptor.appId, 1);
 }
 
 function assertRouter(port) {
