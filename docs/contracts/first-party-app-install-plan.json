@@ -1,0 +1,58 @@
+{
+  "$schema": "prototype-ordax.first-party-app-install-plan/1",
+  "status": "source-planner-fail-closed-no-install-authority",
+  "contract_schema": "ordax.first-party-app-install-plan/1",
+  "planner_schema": "ordax.first-party-app-install-planner/1",
+  "owner": "system/services/apps",
+  "purpose": "side-effect-free planning between Store/catalog presentation and the future authorized platform install executor",
+  "inputs": {
+    "delivery_policy": "ordax.first-party-app-delivery-policy/1",
+    "delivery_observation": "ordax.first-party-app-delivery-observation/implicit-current-contract",
+    "artifact_identity": "exact verified runtime-component release/2 reference: appId + version + sourceRepository + sourceCommit + releaseEnvelopeSha256 + packageSha256 + compatibilitySha256 + verified/compatible observations",
+    "production_activation_policy": "not accepted from the caller in Stable/MVP; planner remains fail-closed until a separate platform-authoritative activation gate contract exists",
+    "artifact_source_semantics": "verified/compatible are read-only platform observations; they do not mint authority and a future executor must independently reverify the signed envelope, canonical source, compatibility, trust and activation policy"
+  },
+  "blocked_reasons": [
+    "already-installed",
+    "artifact-unavailable",
+    "artifact-unverified",
+    "incompatible-artifact",
+    "lifecycle-busy",
+    "not-catalogued",
+    "platform-blocked",
+    "policy-not-installable",
+    "production-activation-blocked"
+  ],
+  "authority": {
+    "planner": "none",
+    "fetch": false,
+    "install": false,
+    "stage": false,
+    "promote": false,
+    "rollback": false,
+    "uninstall": false,
+    "sign": false,
+    "execute": false,
+    "filesystem_write": false,
+    "caller_may_assert_production_activation": false
+  },
+  "store_boundary": {
+    "store_may_request_plan": true,
+    "store_may_execute_plan": false,
+    "ready_plan_is_authorization": false,
+    "ready_plan_is_install_receipt": false,
+    "ready_plan_may_bypass_executor_reverification": false,
+    "stable_mvp_planner_can_return_ready": false
+  },
+  "next_gate": "define a separate platform-authoritative production activation gate before any planner path may return ready, then add a separate Native executor consuming an exact plan plus fresh authorization and independently reverified runtime-component release/2",
+  "runtime_component_alignment": {
+    "release_schema": "prototype-ordax.runtime-component-release/2",
+    "release_mode": "component-slot",
+    "exact_source_commit_required": true,
+    "exact_signed_envelope_digest_required": true,
+    "exact_package_digest_required": true,
+    "exact_compatibility_digest_required": true,
+    "planner_reimplements_release_verification": false,
+    "executor_must_reverify_release": true
+  }
+}
