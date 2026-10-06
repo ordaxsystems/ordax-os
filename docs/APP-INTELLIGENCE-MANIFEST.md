@@ -193,3 +193,23 @@ Ordax Intelligence
 Rotinas internas de extração de Memory continuam usando o Intelligence base sem o catálogo de apps, evitando contexto irrelevante e dependências circulares.
 
 Apps sem slot verificado continuam conhecidos apenas pela identidade first-party já disponível; eles não recebem semântica inventada. Produtos externalizados como Notes só entram na projeção completa quando o lifecycle/Store fornecer uma identidade first-party instalada canônica.
+
+
+## Identidade first-party instalada
+
+Para apps externalizados, a semântica não pode depender do catálogo local de código-fonte.
+
+Quando existe um `current` component-slot verificado, a composição Native usa dois arquivos do mesmo pacote e da mesma identidade `version + sourceCommit`:
+
+```text
+system/apps/<app-id>/app.json
+system/apps/<app-id>/ai/manifest.json
+```
+
+O primeiro fornece a identidade do componente instalado; o segundo fornece sua semântica consultiva. Ambos são lidos pelo helper do lifecycle, que revalida assinatura, package manifest e SHA-256 antes de devolver bytes.
+
+A lista de ids que podem ser sondados vem do registro de delivery first-party, não de diretórios encontrados no disco. Um slot desconhecido não se torna produto OrdaX apenas por existir.
+
+Na composição, a identidade instalada verificada pode substituir a identidade de apresentação local de mesmo `appId`. Isso permite que produtos externalizados, como Notes e futuramente Commerce, apareçam no Application Awareness somente quando estiverem realmente instalados e verificados.
+
+O Component Manager continua sendo saúde/versão de composição; ele não é promovido artificialmente a fonte criptográfica da instalação.
