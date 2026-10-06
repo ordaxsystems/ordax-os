@@ -144,3 +144,20 @@ test("provider artifacts must exactly cover capability providers", () => {
     /exactly cover declared capabilities/,
   );
 });
+
+test("provider manifest identity must match the same verified app", () => {
+  assert.throws(
+    () => validateApplicationActionProviderManifest(
+      providers({ appVersion: "0.4.3" }),
+      { appId: "notes", appVersion: "0.4.2", actionManifest: actions() },
+    ),
+    /appVersion mismatch/,
+  );
+  assert.throws(
+    () => validateApplicationActionProviderManifest(
+      providers({ appId: "studio" }),
+      { appId: "notes", appVersion: "0.4.2", actionManifest: actions() },
+    ),
+    /appId mismatch/,
+  );
+});
