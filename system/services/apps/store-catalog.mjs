@@ -3,8 +3,8 @@ import { listFirstPartyAppDeliveryPolicies } from "./delivery-policy.mjs";
 export const STORE_CATALOG_ENTRY_SCHEMA = "ordax.store-catalog-entry/1";
 
 function defineEntry(policy) {
-  if (!policy || policy.deliveryClass !== "on-demand") {
-    throw new TypeError("Store catalog entries must come from on-demand first-party delivery policy");
+  if (!policy || policy.deliveryClass === "structural") {
+    throw new TypeError("Store catalog entries must come from non-structural first-party delivery policy");
   }
   return Object.freeze({
     schema: STORE_CATALOG_ENTRY_SCHEMA,
@@ -20,7 +20,7 @@ function defineEntry(policy) {
 
 const ENTRIES = Object.freeze(
   listFirstPartyAppDeliveryPolicies()
-    .filter((policy) => policy.deliveryClass === "on-demand")
+    .filter((policy) => policy.deliveryClass !== "structural")
     .map(defineEntry),
 );
 const ENTRY_BY_ID = new Map(ENTRIES.map((entry) => [entry.appId, entry]));
