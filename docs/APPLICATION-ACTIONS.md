@@ -435,7 +435,7 @@ The final provider resolution preserves the binding identity — Work, app/actio
 
 The binding resolver and artifact resolver deliberately use different port schemas so they cannot be substituted for each other. The canonical first-party package owner remains owned by verified application semantics and is exported as `EXTERNAL_FIRST_PARTY_OWNER` for future composition; the artifact resolver receives that owner by injection and rejects owner drift before package I/O.
 
-This slice remains unmounted. No Personal OrdaX runtime method exposes the artifact resolver, no provider module is imported, and no Action Gateway decision, grant, confirmation or execution authority is created. A future composition slice must connect provider binding and artifact resolution inside the existing Personal OrdaX authority chain rather than creating a parallel executor.
+This historical slice was initially unmounted, but that statement is now superseded by the **Native provider artifact composition** section below. The current product exposes provider artifact resolution only through the read-only Personal OrdaX method `resolveApplicationActionProviderArtifact(resourceRef)`. No provider module is imported, and no Action Gateway decision, grant, confirmation or execution authority is created.
 
 
 ## Native provider artifact composition
@@ -468,3 +468,31 @@ modelDirectExecutionAuthorized = false
 ```
 
 Any later execution must still enter the existing Personal OrdaX approval, scoped grant, Action Gateway and Action Executor chain. Verified provider bytes alone are never execution authority.
+
+
+## Provider activation foundation
+
+The platform now also defines a private, broker-only provider activation boundary:
+
+`ordax.application-action-provider-activation/1`
+and
+`ordax.application-action-provider-activation-broker/1`.
+
+This foundation is downstream of verified provider artifact resolution and currently permits only:
+
+```text
+providerExecution = unavailable
+state = unavailable
+brokerOnly = true
+authority = none
+executionAuthorized = false
+modelDirectExecutionAuthorized = false
+```
+
+For each resolution, the broker revalidates current verified application semantics and requires the exact app/version/sourceCommit/component revision, capability provenance, provider identity, canonical module path and artifact SHA-256 to remain unchanged. It then resolves the provider artifact again and rejects any drift.
+
+The broker exposes only `resolve(resourceRef)`. It does not expose activation, import/load, mount, adapter registration, invoke/execute, grant, authorization or confirmation methods.
+
+**Current composition state:** the activation contract/service foundation is integrated in `main`, but the activation broker is not yet mounted into the Native Personal OrdaX composition. A separate composition slice must connect it as a read-only continuation of `resolveApplicationActionProviderArtifact(resourceRef)` before any later executable-provider work is considered.
+
+Changing a provider from `execution: "unavailable"` is not part of this state. That requires a separately versioned/gated provider contract plus the existing Personal OrdaX approval -> scoped grant -> Action Gateway -> Action Executor -> receipt path. It must not create a second permission store, confirmation system, executor or receipt format.
