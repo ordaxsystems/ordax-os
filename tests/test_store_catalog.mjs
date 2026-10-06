@@ -26,19 +26,19 @@ test("Store is a structural bundled app with no independent authority", () => {
   assert.equal(component.releaseMode, "bundled");
 });
 
-test("Store catalog is the read-only projection of on-demand delivery policy", () => {
+test("Store catalog is the read-only projection of non-structural delivery policy", () => {
   const entries = listStoreCatalogEntries();
-  const onDemandPolicies = listFirstPartyAppDeliveryPolicies()
-    .filter((policy) => policy.deliveryClass === "on-demand");
+  const storePolicies = listFirstPartyAppDeliveryPolicies()
+    .filter((policy) => policy.deliveryClass !== "structural");
 
   assert.deepEqual(
     entries.map((entry) => entry.appId),
-    onDemandPolicies.map((policy) => policy.appId),
+    storePolicies.map((policy) => policy.appId),
   );
   assert.equal(new Set(entries.map((entry) => entry.appId)).size, entries.length);
 
   for (const [index, entry] of entries.entries()) {
-    const policy = onDemandPolicies[index];
+    const policy = storePolicies[index];
     assert.equal(entry.schema, STORE_CATALOG_ENTRY_SCHEMA);
     assert.equal(entry.appId, policy.appId);
     assert.equal(entry.deliveryClass, policy.deliveryClass);
@@ -49,7 +49,12 @@ test("Store catalog is the read-only projection of on-demand delivery policy", (
     assert.equal(entry.authority, "none");
     assert.equal(getStoreCatalogEntry(entry.appId), entry);
   }
+  assert.ok(getStoreCatalogEntry("files"));
+  assert.equal(getStoreCatalogEntry("files").deliveryClass, "bootstrap");
+  assert.ok(getStoreCatalogEntry("internet"));
+  assert.equal(getStoreCatalogEntry("internet").deliveryClass, "bootstrap");
   assert.equal(getStoreCatalogEntry("store"), null);
+  assert.equal(getStoreCatalogEntry("system"), null);
   assert.equal(getStoreCatalogEntry("unknown"), null);
 });
 
