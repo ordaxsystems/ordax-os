@@ -1,5 +1,5 @@
 {
-  "schema": "ordax.work-coordination-foundation/1",
+  "$schema": "prototype-ordax.work-coordination-foundation/1",
   "status": "foundation-contracts-only-public-disabled",
   "issue": 1154,
   "owner": "platform",
