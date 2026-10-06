@@ -284,9 +284,9 @@ Além do contrato público, o loader verifica a coerência com `ai/manifest.json
 - confirmação não pode ser mais fraca que a política do intent;
 - intents destrutivos exigem `always`.
 
-Uma falha de identidade, versão, provenance de slot ou coerência semântica falha fechada para aquela sondagem. Não há fallback para um `actions/manifest.json` não verificado.
+Uma falha de identidade, versão, provenance de slot ou coerência semântica em um `actions/manifest.json` presente falha fechada. Um pacote legado verificado que simplesmente não contém o arquivo recebe `actionManifest = null` e continua fornecendo apenas sua semântica de IA; nenhuma capability é sintetizada.
 
-Quando existem capabilities verificadas, a composição cria `ordax.application-action-capability-registry/1` e injeta somente sua projeção bounded no contexto do Intelligence. Quando não existem capabilities verificadas, nenhum contexto de actions é inventado.
+Pacotes novos produzidos pelo `ordax-apps` exigem `actions/manifest.json` no builder, portanto a ausência é apenas uma regra de compatibilidade para payloads legados já verificados.\n\nQuando existem capabilities verificadas, a composição cria `ordax.application-action-capability-registry/1` e injeta somente sua projeção bounded no contexto do Intelligence. Quando não existem capabilities verificadas, nenhum contexto de actions é inventado.
 
 Esse registry continua sem `execute()`, `run()`, `invoke()`, grant ou confirmation authority. O resultado continua sendo somente uma proposal com:
 
