@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.first-party-app-delivery/1",
-  "status": "foundation-only-stable-payload-unchanged",
+  "status": "store-ui-foundation-install-service-pending",
   "owner": "system/services/apps",
   "policy_schema": "ordax.first-party-app-delivery-policy/1",
   "projection_schema": "ordax.first-party-app-delivery-projection/1",
@@ -34,12 +34,35 @@
     }
   },
   "current_target_policy": {
-    "structural": ["settings", "account", "system"],
-    "bootstrap": ["files", "internet"],
-    "on_demand": ["assistant", "studio", "projects", "activity", "notes", "network"]
+    "structural": [
+      "settings",
+      "account",
+      "system",
+      "store"
+    ],
+    "bootstrap": [
+      "files",
+      "internet"
+    ],
+    "on_demand": [
+      "assistant",
+      "studio",
+      "projects",
+      "activity",
+      "notes",
+      "network"
+    ]
   },
   "surface_projection": {
-    "states": ["installed", "available", "installing", "staged", "blocked", "failed-retained", "not-catalogued"],
+    "states": [
+      "installed",
+      "available",
+      "installing",
+      "staged",
+      "blocked",
+      "failed-retained",
+      "not-catalogued"
+    ],
     "missing_recommended_app_action": "show-install",
     "missing_store_only_app_visible_in_launcher": false,
     "installed_payload_required_for_launch": true
@@ -51,12 +74,14 @@
     "surface_may_claim_installation": false
   },
   "store_boundary": {
-    "public_store_ui_enabled": false,
-    "store_ui_implemented": false,
+    "public_store_ui_enabled": true,
+    "store_ui_implemented": true,
     "store_service_implemented": false,
     "must_reuse_component_manager": true,
     "must_reuse_runtime_component_release_v2_when_component_slot": true,
-    "may_create_parallel_updater": false
+    "may_create_parallel_updater": false,
+    "catalog_projection_available": true,
+    "install_requests_require_injected_platform_lifecycle": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
