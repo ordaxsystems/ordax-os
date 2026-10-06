@@ -210,7 +210,74 @@ function applicationCapabilities() {
   });
 }
 
-function composition({ identity = mutableIdentitySession(), projects = mutableProjectCatalog() } = {}) {
+function verifiedApplicationSemantics({
+  version = "0.4.2",
+  sourceCommit = "a".repeat(40),
+  revision = 12,
+  providerRevision = "1",
+} = {}) {
+  const capability = {
+    schema: "ordax.application-action-capability/1",
+    appId: "notes",
+    actionId: "notes.create-note",
+    title: "Criar nota",
+    description: "Criar uma nova nota.",
+    sourceClass: "first-party",
+    platform: "ordax",
+    provider: {
+      kind: "first-party-native",
+      adapterId: "notes-native",
+      revision: providerRevision,
+    },
+    binding: { payloadSha256: null },
+    parameters: [{
+      id: "title",
+      type: "string",
+      required: false,
+      maxLength: 240,
+    }],
+    riskClass: "local-change",
+    confirmation: "policy-gated",
+    executionAuthorized: false,
+    modelDirectExecutionAuthorized: false,
+    provenance: "test:notes-actions",
+  };
+  return {
+    application: {
+      id: "notes",
+      title: "Notas",
+      component: {
+        id: "notes",
+        title: "Notas",
+        kind: "app",
+        version,
+        releaseMode: "component-slot",
+        criticality: "optional",
+        failureDomain: "app",
+        restartScope: "component",
+        healthMode: "runtime",
+        owner: "washingtonmsdj/ordax-apps",
+        dependencies: [],
+      },
+    },
+    actionManifest: {
+      schema: "ordax.application-action-manifest/1",
+      appId: "notes",
+      appVersion: version,
+      authority: "none",
+      execution: "proposal-only",
+      capabilities: [capability],
+    },
+    sourceCommit,
+    revision,
+  };
+}
+
+function composition({
+  identity = mutableIdentitySession(),
+  projects = mutableProjectCatalog(),
+  resolveVerifiedApplicationSemantics = null,
+} = {}) {
   let ordinal = 0;
   const runtime = createNativePersonalOrdaxComposition({
     windowRef: { localStorage: memoryStorage() },
@@ -219,6 +286,10 @@ function composition({ identity = mutableIdentitySession(), projects = mutablePr
     projects,
     intelligence: intelligence(),
     applicationActionCapabilityRegistry: applicationCapabilities(),
+    resolveVerifiedApplicationSemantics,
+    expectedApplicationActionProviderOwner: resolveVerifiedApplicationSemantics === null
+      ? null
+      : "washingtonmsdj/ordax-apps",
     createApplicationActionPreparationId: () => `prep-${++ordinal}`,
   });
   return { runtime, identity, projects };
@@ -325,6 +396,98 @@ test("Application Action preparation remains explicit and manually revocable", (
   assert.equal(runtime.revokeApplicationActionPreparation(prepared.resourceRef), true);
   assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), null);
   assert.equal(runtime.revokeApplicationActionPreparation(prepared.resourceRef), false);
+
+  runtime.dispose();
+});
+
+test("Native composition resolves current verified provider binding without creating authority", async () => {
+  let resolutions = 0;
+  const { runtime } = composition({
+    async resolveVerifiedApplicationSemantics(appId) {
+      resolutions += 1;
+      assert.equal(appId, "notes");
+      return verifiedApplicationSemantics();
+    },
+  });
+  const work = runtime.create("Criar uma nota");
+  const prepared = runtime.prepareApplicationAction(
+    work.id,
+    runtime.proposeApplicationAction("notes", "notes.create-note", { title: "Ideias" }),
+  );
+  const before = runtime.getSnapshot();
+
+  const binding = await runtime.resolveApplicationActionProvider(prepared.resourceRef);
+  const after = runtime.getSnapshot();
+
+  assert.equal(resolutions, 1);
+  assert.equal(binding.resourceRef, prepared.resourceRef);
+  assert.equal(binding.workItemId, work.id);
+  assert.equal(binding.appId, "notes");
+  assert.equal(binding.actionId, "notes.create-note");
+  assert.equal(binding.appVersion, "0.4.2");
+  assert.equal(binding.sourceCommit, "a".repeat(40));
+  assert.equal(binding.componentRevision, 12);
+  assert.equal(binding.provider.adapterId, "notes-native");
+  assert.equal(binding.provider.revision, "1");
+  assert.equal(binding.authority, "none");
+  assert.equal(binding.executionAuthorized, false);
+  assert.equal(binding.modelDirectExecutionAuthorized, false);
+  assert.equal(after.approvals.length, before.approvals.length);
+  assert.equal(after.decisions.length, before.decisions.length);
+  assert.equal(after.attempts.length, before.attempts.length);
+  assert.equal(typeof runtime.executeApplicationAction, "undefined");
+  assert.equal(typeof runtime.requestApplicationActionApproval, "undefined");
+
+  runtime.dispose();
+});
+
+test("Native composition fails closed when verified provider revision drifted", async () => {
+  const { runtime } = composition({
+    async resolveVerifiedApplicationSemantics() {
+      return verifiedApplicationSemantics({ providerRevision: "2" });
+    },
+  });
+  const work = runtime.create("Criar uma nota");
+  const prepared = runtime.prepareApplicationAction(
+    work.id,
+    runtime.proposeApplicationAction("notes", "notes.create-note", { title: "Ideias" }),
+  );
+
+  await assert.rejects(
+    () => runtime.resolveApplicationActionProvider(prepared.resourceRef),
+    /provider no longer matches|capability no longer matches|provider revision is stale/,
+  );
+  assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), prepared);
+
+  runtime.dispose();
+});
+
+test("Provider binding result is discarded if Work is revoked during async revalidation", async () => {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const { runtime } = composition({
+    async resolveVerifiedApplicationSemantics() {
+      await gate;
+      return verifiedApplicationSemantics();
+    },
+  });
+  const work = runtime.create("Criar uma nota");
+  const prepared = runtime.prepareApplicationAction(
+    work.id,
+    runtime.proposeApplicationAction("notes", "notes.create-note", { title: "Ideias" }),
+  );
+
+  const resolving = runtime.resolveApplicationActionProvider(prepared.resourceRef);
+  runtime.cancel(work.id);
+  release();
+
+  await assert.rejects(
+    () => resolving,
+    /preparation changed during provider resolution|preparation is no longer current/,
+  );
+  assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), null);
 
   runtime.dispose();
 });
