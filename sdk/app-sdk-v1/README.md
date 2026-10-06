@@ -6,9 +6,10 @@ This directory publishes the machine-readable contract set intended for apps dev
 
 Version `1.9.0` is an additive public-contract release. It preserves every contract published in 1.8.0 and adds the project cloud-link port required by an independently delivered Projects app:
 
-- `ordax.project-cloud-links-reader/1`
+- `ordax.project-cloud-links/1` — bounded cloud-link data/snapshot validation only;
+- `ordax.project-cloud-links-reader/1` — read-only snapshot/subscription port;
 
-The contract exposes only bounded project-link snapshots/subscriptions. It deliberately omits link/unlink/destroy mutation methods and does not grant Device Agent execution, install authority or cloud identity authority. Projects consumes the already-public `ordax.device-agent-capability-reader/1` for capability discovery instead of importing the broader private Device Agent contract.
+The SDK splits Projects cloud-link data from the reader port. The published files expose bounded snapshot validation plus read-only getSnapshot()/subscribe(); the mutable platform owner module is not in the SDK and link()/unlink()/destroy() never cross the app boundary. Projects consumes the already-public `ordax.device-agent-capability-reader/1` for capability discovery instead of importing the broader private Device Agent contract.
 
 Studio runtime v1/v2/v3 ports remain published side by side for pinned consumers. Runtime v3 keeps request-v2 semantics and bounded `getActionResult(request)`; results are data, never authority.
 
