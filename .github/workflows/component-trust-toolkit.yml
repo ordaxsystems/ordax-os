@@ -261,6 +261,9 @@ jobs:
               'canonical_public_trust_included': False,
               'key_generation_requires_local_user_action': True,
               'whole_os_release_key_reuse_allowed': False,
+              'external_unsigned_candidate_verifier_available': True,
+              'external_signing_preflight_available': True,
+              'external_signing_preflight_grants_authority': False,
               'policy_sha256': digest('component-trust-policy.json'),
               'ceremony_doc_sha256': digest('COMPONENT-TRUST-CEREMONY.md'),
               'components': {
@@ -297,6 +300,9 @@ jobs:
           assert provenance['canonical_public_trust_included'] is False
           assert provenance['key_generation_requires_local_user_action'] is True
           assert provenance['whole_os_release_key_reuse_allowed'] is False
+          assert provenance['external_unsigned_candidate_verifier_available'] is True
+          assert provenance['external_signing_preflight_available'] is True
+          assert provenance['external_signing_preflight_grants_authority'] is False
           assert provenance['source_repository'] == os.environ['GITHUB_REPOSITORY']
           assert provenance['source_ref'] == os.environ['GITHUB_REF']
           assert provenance['source_event'] == os.environ['GITHUB_EVENT_NAME']
