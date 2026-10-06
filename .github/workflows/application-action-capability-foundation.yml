@@ -19,6 +19,12 @@ on:
   push:
     branches: [main]
     paths:
+      - 'system/services/intelligence/application-context.mjs'
+      - 'system/services/intelligence/application-semantic-router.mjs'
+      - 'system/apps/intelligence-catalog.mjs'
+      - 'system/apps/**/ai/**'
+      - 'tests/test_application_intelligence_context.mjs'
+      - 'tests/test_application_semantic_router.mjs'
       - 'docs/APPLICATION-ACTIONS.md'
       - 'system/contracts/application-action-capability.mjs'
       - 'system/contracts/application-intelligence-awareness.mjs'
