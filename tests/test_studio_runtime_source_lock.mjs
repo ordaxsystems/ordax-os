@@ -10,6 +10,10 @@ const INTEGRATION_PATH = new URL(
   "../docs/contracts/studio-runtime-integration.json",
   import.meta.url,
 );
+const ENROLLMENT_PATH = new URL(
+  "../infra/supabase/development/functions/ordax-development-github-enroll/index.ts",
+  import.meta.url,
+);
 
 async function readJson(url) {
   return JSON.parse(await readFile(url, "utf8"));
@@ -19,14 +23,14 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   const lock = await readJson(SOURCE_LOCK_PATH);
 
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
-  assert.equal(lock.source.repository, "https://github.com/washingtonmsdj/mcp-blender");
+  assert.equal(lock.source.repository, "https://github.com/washingtonmsdj/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "c09128c320c02a2cf82e32a0f9119164e3455eff");
+  assert.equal(lock.source.commit, "218e049cc1364e270c566f41de048725ec692c26");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
-    sha256: "624ee6fc6705f09e6262154ccf78fbea9790f24cd62658831e465e1eace0afc5",
-    product_version: "0.4.1",
+    sha256: "9fe0d913a8f679bb79bb95549aa390373fcba12070d01557334951da9b3e5a1f",
+    product_version: "0.4.2",
   });
 
   assert.equal(lock.runtime.profile, "headless");
@@ -111,4 +115,17 @@ test("Studio integration keeps ChatGPT normal, Work/Codex and provider API disti
   assert.equal(integration.ai_modes.provider_api.runtime_enabled, false);
   assert.equal(integration.ai_modes.provider_api.separate_billing_notice_required, true);
   assert.equal(integration.ai_modes.provider_api.silent_fallback_forbidden, true);
+});
+
+
+test("development enrollment trusts only canonical ordax-runtime recovery workflow", async () => {
+  const source = await readFile(ENROLLMENT_PATH, "utf8");
+
+  assert.match(source, /const REPOSITORY = "washingtonmsdj\/ordax-runtime";/);
+  assert.match(source, /const REPOSITORY_ID = "1406415790";/);
+  assert.match(
+    source,
+    /washingtonmsdj\/ordax-runtime\/\.github\/workflows\/ordax-agent-recovery\.yml@refs\/heads\/main/,
+  );
+  assert.doesNotMatch(source, /washingtonmsdj\/mcp-blender/);
 });
