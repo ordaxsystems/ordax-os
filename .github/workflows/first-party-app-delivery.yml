@@ -5,27 +5,35 @@ on:
     branches: [main]
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/first-party-app-install-plan.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/install-planner.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
+      - 'docs/contracts/first-party-app-install-plan.json'
       - 'docs/contracts/app-distribution.json'
       - 'docs/contracts/mvp-app-delivery.json'
       - 'docs/contracts/first-run.json'
       - 'tests/test_first_party_app_delivery.mjs'
+      - 'tests/test_first_party_app_install_planner.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/first-party-app-install-plan.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/install-planner.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
+      - 'docs/contracts/first-party-app-install-plan.json'
       - 'docs/contracts/app-distribution.json'
       - 'docs/contracts/mvp-app-delivery.json'
       - 'docs/contracts/first-run.json'
       - 'tests/test_first_party_app_delivery.mjs'
+      - 'tests/test_first_party_app_install_planner.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   workflow_dispatch:
@@ -47,11 +55,15 @@ jobs:
         run: |
           set -euo pipefail
           node --check system/contracts/first-party-app-delivery.mjs
+          node --check system/contracts/first-party-app-install-plan.mjs
           node --check system/services/apps/delivery-policy.mjs
+          node --check system/services/apps/install-planner.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
+          node --check tests/test_first_party_app_install_planner.mjs
           node --check tests/test_mvp_app_delivery.mjs
           python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
+          python -m json.tool docs/contracts/first-party-app-install-plan.json >/dev/null
           python -m json.tool docs/contracts/app-distribution.json >/dev/null
           python -m json.tool docs/contracts/mvp-app-delivery.json >/dev/null
           python -m json.tool docs/contracts/first-run.json >/dev/null
@@ -60,6 +72,11 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_first_party_app_delivery.mjs
+
+      - name: Prove authority-free first-party app install planning
+        run: |
+          set -euo pipefail
+          node --test tests/test_first_party_app_install_planner.mjs
 
       - name: Prove minimal MVP payload and first-online refresh policy
         run: |
