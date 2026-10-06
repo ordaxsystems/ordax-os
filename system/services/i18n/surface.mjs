@@ -4,6 +4,7 @@ import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.
 import { REGIONAL_LOCALE_PREFERENCE_ID } from "../preferences/regional.mjs";
 import { FILES_SOURCE_MESSAGES, FILES_ENGLISH_MESSAGES } from "./catalog/files.mjs";
 import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "./catalog/settings.mjs";
+import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.mjs";
 import { SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES } from "./catalog/system.mjs";
 import { SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES, SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES } from "./catalog/system-diagnostics.mjs";
 import { INTERNET_SOURCE_MESSAGES, INTERNET_ENGLISH_MESSAGES } from "./catalog/internet.mjs";
@@ -144,6 +145,11 @@ const SOURCE = Object.freeze({
   "app.account.panel.0.label": "Conta",
   "app.account.panel.0.title": "Identidade e continuidade",
   "app.account.panel.0.body": "Este host não oferece uma integração de identidade para esta Surface.",
+  "app.store.title": "Loja",
+  "app.store.description": "Descubra aplicativos verificados e solicite instalação pelo lifecycle da plataforma.",
+  "app.store.panel.0.label": "Loja",
+  "app.store.panel.0.title": "Aplicativos OrdaX",
+  "app.store.panel.0.body": "O catálogo verificado ainda não está disponível neste host.",
   "app.system.title": "Sistema",
   "app.system.description": "Entrega, atualizações, conectividade e recursos desta execução do OrdaX.",
   "app.system.panel.0.label": "Sistema",
@@ -151,6 +157,7 @@ const SOURCE = Object.freeze({
   "app.system.panel.0.body": "O estado detalhado do sistema não está disponível neste host.",
   ...FILES_SOURCE_MESSAGES,
   ...SETTINGS_SOURCE_MESSAGES,
+  ...STORE_SOURCE_MESSAGES,
   ...SYSTEM_SOURCE_MESSAGES,
   ...SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES,
   ...ACCOUNT_SOURCE_MESSAGES,
@@ -288,6 +295,11 @@ const ENGLISH = Object.freeze({
   "app.account.panel.0.label": "Account",
   "app.account.panel.0.title": "Identity and continuity",
   "app.account.panel.0.body": "This host does not provide identity integration for this Surface.",
+  "app.store.title": "Store",
+  "app.store.description": "Discover verified apps and request installation through the platform lifecycle.",
+  "app.store.panel.0.label": "Store",
+  "app.store.panel.0.title": "OrdaX applications",
+  "app.store.panel.0.body": "The verified catalog is not available on this host yet.",
   "app.system.title": "System",
   "app.system.description": "Delivery, updates, connectivity, and resources for this OrdaX run.",
   "app.system.panel.0.label": "System",
@@ -295,6 +307,7 @@ const ENGLISH = Object.freeze({
   "app.system.panel.0.body": "Detailed system status is unavailable on this host.",
   ...FILES_ENGLISH_MESSAGES,
   ...SETTINGS_ENGLISH_MESSAGES,
+  ...STORE_ENGLISH_MESSAGES,
   ...SYSTEM_ENGLISH_MESSAGES,
   ...SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES,
   ...ACCOUNT_ENGLISH_MESSAGES,
