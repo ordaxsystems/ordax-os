@@ -15,6 +15,9 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "system" / "surface" / "runtime"
 MODULE = RUNTIME / "native_app_intelligence_catalog.py"
+SERVER = RUNTIME / "native_host_server.py"
+COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
+ADAPTER = ROOT / "system" / "adapters" / "native" / "app-intelligence-manifests.mjs"
 
 if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
@@ -215,6 +218,49 @@ class NativeAppIntelligenceCatalogTests(unittest.TestCase):
                     trust_path="/signed/trust.json",
                     slot_root="/var/lib/ordax/components",
                 )
+
+
+    def test_native_host_route_is_loopback_get_only_and_query_free(self):
+        server = SERVER.read_text(encoding="utf-8")
+        get_section = server.split("def do_GET", 1)[1].split("def do_POST", 1)[0]
+        post_section = server.split("def do_POST", 1)[1]
+
+        self.assertIn(
+            'APP_INTELLIGENCE_CATALOG_PATH = "/__ordax/native/app-intelligence-catalog"',
+            server,
+        )
+        self.assertIn("APP_INTELLIGENCE_CATALOG_PATH", get_section)
+        self.assertIn("read_native_app_intelligence_manifests(", get_section)
+        self.assertIn("self.server.component_slot_lock", get_section)
+        self.assertIn("self.server.component_slot_read_available", get_section)
+        self.assertIn("if urlsplit(self.path).query:", get_section)
+        self.assertNotIn("APP_INTELLIGENCE_CATALOG_PATH", post_section)
+
+    def test_native_composition_injects_verified_catalog_before_profile_and_memory_layers(self):
+        composition = COMPOSITION.read_text(encoding="utf-8")
+        adapter = ADAPTER.read_text(encoding="utf-8")
+
+        self.assertIn("createNativeAppIntelligenceManifestSource", composition)
+        self.assertIn("createAppIntelligenceCatalogRegistry", composition)
+        self.assertIn("createAppAwareIntelligence", composition)
+        self.assertIn("manifests: appIntelligenceManifestSource?.getManifests() ?? []", composition)
+        self.assertIn("intelligencePort: appAwareIntelligence", composition)
+        self.assertIn(": appAwareIntelligence;", composition)
+        self.assertIn("appIntelligenceCatalog.dispose()", composition)
+        self.assertIn("appIntelligenceManifestSource?.dispose()", composition)
+
+        app_aware_index = composition.index("const appAwareIntelligence")
+        profile_index = composition.index("const consumerIntelligence")
+        memory_index = composition.index("const selectedSpaceIntelligence")
+        self.assertLess(app_aware_index, profile_index)
+        self.assertLess(profile_index, memory_index)
+
+        self.assertIn('const ENDPOINT = "/__ordax/native/app-intelligence-catalog"', adapter)
+        self.assertIn('method: "GET"', adapter)
+        self.assertIn('cache: "no-store"', adapter)
+        self.assertIn('credentials: "same-origin"', adapter)
+        self.assertNotIn("POST", adapter)
+
 
 
 if __name__ == "__main__":
