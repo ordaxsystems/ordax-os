@@ -264,6 +264,9 @@ class SystemRuntimeContractTests(unittest.TestCase):
         adapter = NATIVE_COMPONENT_SLOTS.read_text(encoding="utf-8")
         self.assertIn('COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"', server)
         self.assertIn('APP_INTELLIGENCE_MANIFEST_PATH = "/__ordax/native/app-intelligence-manifest"', server)
+        app_manifest_route = server.split("if parsed_path == APP_INTELLIGENCE_MANIFEST_PATH:", 1)[1].split("if parsed_path == COMPONENT_RUNTIME_PATH:", 1)[0]
+        self.assertIn("except ComponentSlotRequestError:", app_manifest_route)
+        self.assertIn("self._empty(404)", app_manifest_route)
         self.assertIn("read_verified_app_intelligence_manifest", server)
         self.assertIn("read_verified_app_intelligence_manifest", adapter)
         self.assertIn('requested_path = f"system/apps/{component_id}/ai/manifest.json"', adapter)
