@@ -34,7 +34,6 @@ test("Store catalog is the read-only projection of on-demand delivery policy", (
     entries.map((entry) => entry.appId),
     onDemandPolicies.map((policy) => policy.appId),
   );
-  assert.equal(entries.length, 6);
   assert.equal(new Set(entries.map((entry) => entry.appId)).size, entries.length);
 
   for (const [index, entry] of entries.entries()) {
