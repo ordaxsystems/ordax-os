@@ -34,7 +34,7 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         base_index = text.index("const intelligence = createIntelligenceRuntime")
         profile_index = text.index("const profileContentIntelligence =")
         application_index = text.index(
-            "const applicationContextIntelligence = await createNativeVerifiedApplicationContextIntelligence"
+            "const applicationContextIntelligence = await optionalNativeProbe"
         )
         memory_index = text.index("const selectedSpaceIntelligence =")
         self.assertLess(base_index, profile_index)
@@ -51,6 +51,7 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
 
         self.assertIn("intelligencePort: profileContentIntelligence", text)
         self.assertIn("fetchImpl: localAiFetch", text)
+        self.assertIn(") ?? profileContentIntelligence;", text)
         self.assertIn("intelligencePort: applicationContextIntelligence", text)
         self.assertNotIn("/__ordax/native/app-intelligence-manifest", text)
         self.assertNotIn("/__ordax/native/app-intelligence-awareness", text)
