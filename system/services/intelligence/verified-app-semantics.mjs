@@ -184,6 +184,45 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
   return Object.freeze(entries);
 }
 
+export function overlayVerifiedFirstPartyApplications(baseApplications = [], verifiedEntries = []) {
+  if (!Array.isArray(baseApplications) || !Array.isArray(verifiedEntries)) {
+    throw new TypeError("Verified app semantics overlay requires arrays");
+  }
+  const verifiedById = new Map();
+  for (const entry of verifiedEntries) {
+    const app = entry?.application;
+    if (!app || typeof app !== "object" || Array.isArray(app)) {
+      throw new TypeError("Verified app semantics overlay entry is invalid");
+    }
+    const id = validateComponentId(app.id);
+    if (verifiedById.has(id)) {
+      throw new TypeError(`Verified app semantics overlay duplicates app: ${id}`);
+    }
+    verifiedById.set(id, app);
+  }
+
+  const result = [];
+  const seen = new Set();
+  for (const app of baseApplications) {
+    if (!app || typeof app !== "object" || Array.isArray(app)) {
+      throw new TypeError("Verified app semantics base application is invalid");
+    }
+    const id = validateComponentId(app.id);
+    if (seen.has(id)) {
+      throw new TypeError(`Verified app semantics base catalog duplicates app: ${id}`);
+    }
+    seen.add(id);
+    result.push(verifiedById.get(id) ?? app);
+  }
+  for (const [id, app] of verifiedById) {
+    if (!seen.has(id)) {
+      result.push(app);
+      seen.add(id);
+    }
+  }
+  return Object.freeze(result);
+}
+
 export async function loadVerifiedFirstPartyIntelligenceManifests(options = {}) {
   const entries = await loadVerifiedFirstPartyApplicationSemantics(options);
   return Object.freeze(entries.map((entry) => entry.intelligenceManifest));
