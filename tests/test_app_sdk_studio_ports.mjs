@@ -11,9 +11,8 @@ import {
   DEVICE_ACTION_REQUEST_SCHEMA,
   validateDeviceActionRequest,
 } from "../system/contracts/device-action-envelope.mjs";
-import {
-  DEVICE_ACTION_REQUEST_V2_SCHEMA,
-} from "../system/contracts/device-action-envelope-v2.mjs";
+import { DEVICE_ACTION_REQUEST_V2_SCHEMA } from "../system/contracts/device-action-envelope-v2.mjs";
+import { DEVICE_ACTION_RESULT_SCHEMA } from "../system/contracts/device-action-result.mjs";
 import {
   DEVICE_AGENT_CAPABILITIES_SCHEMA as LEGACY_CAPABILITIES_SCHEMA,
   DEVICE_AGENT_CAPABILITY_READER_SCHEMA as LEGACY_READER_SCHEMA,
@@ -31,6 +30,7 @@ import {
   requestStudioDeviceAction,
 } from "../system/contracts/studio-runtime.mjs";
 import { STUDIO_RUNTIME_V2_PORT_SCHEMA } from "../system/contracts/studio-runtime-v2.mjs";
+import { STUDIO_RUNTIME_V3_PORT_SCHEMA } from "../system/contracts/studio-runtime-v3.mjs";
 
 const rootUrl = new URL("../", import.meta.url);
 
@@ -137,33 +137,39 @@ test("public action envelopes remain data, not grants or credential carriers", (
   );
 });
 
-test("App SDK 1.3 keeps Studio v1 contracts and publishes v2 side by side without raw authority", async () => {
+test("App SDK 1.8 preserves prior contracts and publishes bounded Studio v3 result retrieval without raw authority", async () => {
   const bundle = await json("sdk/app-sdk-v1/bundle.json");
-  assert.equal(bundle.bundle_version, "1.3.0");
+  assert.equal(bundle.bundle_version, "1.8.0");
   assert.equal(bundle.authority, "none");
 
   const byName = new Map(bundle.contracts.map((contract) => [contract.name, contract]));
   for (const name of [
+    "app-intelligence-manifest",
     "device-action-receipt",
     "device-action-request",
     "device-action-request-v2",
+    "device-action-result",
     "device-capabilities",
     "device-capability-reader",
     "project-catalog",
     "studio-action-context",
     "studio-runtime",
     "studio-runtime-v2",
+    "studio-runtime-v3",
   ]) {
     assert.ok(byName.has(name), `missing App SDK contract ${name}`);
   }
 
+  assert.equal(byName.get("app-intelligence-manifest").schema, "ordax.app-intelligence-manifest/1");
   assert.equal(byName.get("studio-runtime").schema, STUDIO_RUNTIME_PORT_SCHEMA);
   assert.equal(byName.get("studio-runtime-v2").schema, STUDIO_RUNTIME_V2_PORT_SCHEMA);
+  assert.equal(byName.get("studio-runtime-v3").schema, STUDIO_RUNTIME_V3_PORT_SCHEMA);
   assert.equal(byName.get("studio-action-context").schema, STUDIO_ACTION_CONTEXT_SCHEMA);
   assert.equal(byName.get("project-catalog").schema, PROJECT_CATALOG_SCHEMA);
   assert.equal(byName.get("device-capability-reader").schema, DEVICE_AGENT_CAPABILITY_READER_SCHEMA);
   assert.equal(byName.get("device-action-request").schema, DEVICE_ACTION_REQUEST_SCHEMA);
   assert.equal(byName.get("device-action-request-v2").schema, DEVICE_ACTION_REQUEST_V2_SCHEMA);
+  assert.equal(byName.get("device-action-result").schema, DEVICE_ACTION_RESULT_SCHEMA);
   assert.equal(byName.get("device-action-receipt").schema, DEVICE_ACTION_RECEIPT_SCHEMA);
 
   assert.equal(bundle.contracts.some((contract) => contract.schema === "ordax.device-agent/1"), false);

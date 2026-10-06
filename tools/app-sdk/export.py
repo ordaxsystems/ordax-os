@@ -75,6 +75,13 @@ CONTRACTS = (
         "major": 2,
     },
     {
+        "name": "device-action-result",
+        "path": "system/contracts/device-action-result.mjs",
+        "constant": "DEVICE_ACTION_RESULT_SCHEMA",
+        "schema": "ordax.device-action-result/1",
+        "major": 1,
+    },
+    {
         "name": "device-capabilities",
         "path": "system/contracts/device-capabilities.mjs",
         "constant": "DEVICE_AGENT_CAPABILITIES_SCHEMA",
@@ -173,6 +180,13 @@ CONTRACTS = (
         "major": 2,
     },
     {
+        "name": "studio-runtime-v3",
+        "path": "system/contracts/studio-runtime-v3.mjs",
+        "constant": "STUDIO_RUNTIME_V3_PORT_SCHEMA",
+        "schema": "ordax.studio-runtime/3",
+        "major": 3,
+    },
+    {
         "name": "surface-render-lifecycle",
         "path": "system/contracts/surface-render-lifecycle.mjs",
         "constant": "SURFACE_RENDER_LIFECYCLE_SCHEMA",
@@ -181,7 +195,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.7.0"
+BUNDLE_VERSION = "1.8.0"
 
 
 def git_blob(path: Path) -> str:
