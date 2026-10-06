@@ -11,11 +11,16 @@ import {
 import {
   assertApplicationActionCapabilityRegistryPort,
 } from "../../contracts/application-action-capability.mjs";
+import { assertApplicationSemanticRouter } from "./application-semantic-router.mjs";
 
 const RESERVED_CONTEXT_IDS = new Set([
   "ordax-application-catalog",
   "ordax-application-action-capabilities",
 ]);
+
+function reservedContextId(value) {
+  return RESERVED_CONTEXT_IDS.has(value) || value.startsWith("ordax-application-detail:");
+}
 
 function validatedSystemContextItem(value, expectedId) {
   const validated = validateIntelligenceRequest({
@@ -46,12 +51,16 @@ export function createApplicationContextIntelligence({
   intelligencePort,
   awarenessPort,
   actionCapabilityRegistryPort = null,
+  semanticRouterPort = null,
 } = {}) {
   const intelligence = assertIntelligencePort(intelligencePort);
   const awareness = assertApplicationIntelligenceAwarenessPort(awarenessPort);
   const capabilities = actionCapabilityRegistryPort === null
     ? null
     : assertApplicationActionCapabilityRegistryPort(actionCapabilityRegistryPort);
+  const semanticRouter = semanticRouterPort === null
+    ? null
+    : assertApplicationSemanticRouter(semanticRouterPort);
   const awarenessContext = validatedSystemContextItem(
     awareness.contextItem(),
     "ordax-application-catalog",
@@ -74,7 +83,7 @@ export function createApplicationContextIntelligence({
     respond(value) {
       const request = validateIntelligenceRequest(value);
       for (const entry of request.context) {
-        if (RESERVED_CONTEXT_IDS.has(entry.id)) {
+        if (reservedContextId(entry.id)) {
           throw new TypeError(`Application Intelligence reserved context id cannot be caller supplied: ${entry.id}`);
         }
       }
@@ -83,8 +92,38 @@ export function createApplicationContextIntelligence({
       context = appendIfFits(context, awarenessContext);
       const awarenessIncluded = context.length === request.context.length + 1;
 
+      let selectedAppIds = null;
+      if (semanticRouter !== null && awarenessIncluded) {
+        let routedItems = null;
+        if (typeof semanticRouter.route === "function") {
+          const routed = semanticRouter.route(request.prompt);
+          selectedAppIds = routed.selection.map(({ appId }) => appId);
+          routedItems = routed.contextItems;
+        } else {
+          selectedAppIds = semanticRouter.select(request.prompt).map(({ appId }) => appId);
+          routedItems = semanticRouter.contextItemsForPrompt(request.prompt);
+        }
+        for (const item of routedItems) {
+          const validated = validatedSystemContextItem(item, item.id);
+          context = appendIfFits(context, validated);
+        }
+      }
+
       if (capabilities !== null && awarenessIncluded) {
-        context = appendIfFits(context, capabilityContext);
+        if (
+          selectedAppIds !== null
+          && typeof capabilities.contextItemForApps === "function"
+        ) {
+          if (selectedAppIds.length > 0) {
+            const filteredCapabilityContext = validatedSystemContextItem(
+              capabilities.contextItemForApps(selectedAppIds),
+              "ordax-application-action-capabilities",
+            );
+            context = appendIfFits(context, filteredCapabilityContext);
+          }
+        } else {
+          context = appendIfFits(context, capabilityContext);
+        }
       }
 
       return intelligence.respond(validateIntelligenceRequest({
