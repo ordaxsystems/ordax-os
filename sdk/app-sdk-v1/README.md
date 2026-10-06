@@ -2,9 +2,15 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
-## Bundle 1.10.0
+## Bundle 1.11.0
 
-Version `1.10.0` is an additive public-contract release. It preserves every contract published in 1.9.0 — including the Projects public boundary — and adds the platform's already-canonical Application Action semantic contracts:
+Version `1.11.0` is an additive public-contract release. It preserves every contract published in 1.10.0 — including Projects and the Application Action capability/proposal contracts — and adds the canonical first-party Application Action manifest:
+
+- `ordax.application-action-manifest/1`.
+
+The manifest binds a bounded list of first-party semantic capabilities to an exact `appId + appVersion`. It is always `authority:none` and `execution:proposal-only`; each capability remains `executionAuthorized=false` and `modelDirectExecutionAuthorized=false`.
+
+The Application Action contracts from 1.10 remain published:
 
 - `ordax.application-action-capability/1`;
 - `ordax.application-action-capability-registry/1`;
@@ -55,7 +61,7 @@ The bundle is generated from canonical source contracts by `tools/app-sdk/export
 
 ### Application Action contracts
 
-The App SDK publishes the semantic capability/proposal boundary only. Apps may describe typed parameters, risk class, minimum confirmation class and provider metadata, but those values never authorize execution.
+The App SDK publishes the semantic manifest/capability/proposal boundary only. `ordax.application-action-manifest/1` binds capabilities to one exact first-party app/version. Apps may describe typed parameters, risk class, minimum confirmation class and provider metadata, but those values never authorize execution.
 
 The registry contract exposes only `list()`, `get()`, `listForApp()`, `propose()` and `contextItem()`. It explicitly rejects authority-bearing methods such as `execute`, `invoke`, `run`, `launch`, `grant`, `authorize` and `confirm`.
 

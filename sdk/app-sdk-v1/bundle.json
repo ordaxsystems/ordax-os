@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.10.0",
+  "bundle_version": "1.11.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -38,6 +38,13 @@
       "schema": "ordax.application-action-capability-registry/1",
       "source_git_blob": "c78daf23c859bb09fb2029c9908c10f9c7715f3c",
       "source_path": "system/contracts/application-action-capability.mjs"
+    },
+    {
+      "major": 1,
+      "name": "application-action-manifest",
+      "schema": "ordax.application-action-manifest/1",
+      "source_git_blob": "a67197c4f3d25aa8ddbfe28a62b62b22bfda5ac6",
+      "source_path": "system/contracts/application-action-manifest.mjs"
     },
     {
       "major": 1,

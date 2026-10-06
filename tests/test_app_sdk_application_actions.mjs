@@ -10,6 +10,9 @@ import {
   validateApplicationActionCapability,
   validateApplicationActionProposal,
 } from "../system/contracts/application-action-capability.mjs";
+import {
+  APPLICATION_ACTION_MANIFEST_SCHEMA,
+} from "../system/contracts/application-action-manifest.mjs";
 
 const rootUrl = new URL("../", import.meta.url);
 
@@ -17,15 +20,16 @@ async function json(path) {
   return JSON.parse(await readFile(new URL(path, rootUrl), "utf8"));
 }
 
-test("App SDK 1.10 publishes Application Action contracts from one canonical authority-free source", async () => {
+test("App SDK 1.11 publishes Application Action contracts from canonical authority-free sources", async () => {
   const bundle = await json("sdk/app-sdk-v1/bundle.json");
-  assert.equal(bundle.bundle_version, "1.10.0");
+  assert.equal(bundle.bundle_version, "1.11.0");
   assert.equal(bundle.authority, "none");
 
   const byName = new Map(bundle.contracts.map((contract) => [contract.name, contract]));
   const expected = new Map([
     ["application-action-capability", APPLICATION_ACTION_CAPABILITY_SCHEMA],
     ["application-action-capability-registry", APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA],
+    ["application-action-manifest", APPLICATION_ACTION_MANIFEST_SCHEMA],
     ["application-action-proposal", APPLICATION_ACTION_PROPOSAL_SCHEMA],
   ]);
   const blobs = new Set();
@@ -34,9 +38,12 @@ test("App SDK 1.10 publishes Application Action contracts from one canonical aut
     assert.ok(published, `missing App SDK contract ${name}`);
     assert.equal(published.schema, schema);
     assert.equal(published.major, 1);
-    assert.equal(published.source_path, "system/contracts/application-action-capability.mjs");
+    const expectedPath = name === "application-action-manifest"
+      ? "system/contracts/application-action-manifest.mjs"
+      : "system/contracts/application-action-capability.mjs";
+    assert.equal(published.source_path, expectedPath);
     assert.match(published.source_git_blob, /^[0-9a-f]{40}$/);
-    blobs.add(published.source_git_blob);
+    if (name !== "application-action-manifest") blobs.add(published.source_git_blob);
   }
   assert.equal(blobs.size, 1);
 
@@ -45,7 +52,7 @@ test("App SDK 1.10 publishes Application Action contracts from one canonical aut
     "project-cloud-links-reader",
     "studio-runtime-v3",
   ]) {
-    assert.ok(byName.has(required), `App SDK 1.10 must preserve 1.9 contract ${required}`);
+    assert.ok(byName.has(required), `App SDK 1.11 must preserve 1.10 contract ${required}`);
   }
 
   assert.equal(
