@@ -129,7 +129,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn("upstream.headers.getSetCookie", self.proxy)
         self.assertNotIn('upstream.headers.get("set-cookie")', self.proxy)
 
-        def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
+    def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
         self.assertIn("function trustedPublicSiteRequest(req: Request)", self.inner)
         self.assertIn('req.headers.get("apikey")', self.inner)
         self.assertIn("expectedKey = adminConfig().key", self.inner)
