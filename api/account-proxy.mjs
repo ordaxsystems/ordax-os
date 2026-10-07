@@ -24,7 +24,13 @@ const TURNSTILE_ACTION = "ordax-account";
 const TURNSTILE_PROTECTED_PATHS = new Set(["/auth/login", "/auth/register", "/auth/recover"]);
 const MAX_TURNSTILE_TOKEN_BYTES = 2048;
 const MAX_TURNSTILE_RESPONSE_BYTES = 64 * 1024;
-const SAFE_COOKIE_NAMES = new Set(["ordax_access", "ordax_refresh", "ordax_recovery"]);
+const SAFE_COOKIE_NAMES = new Set([
+  "ordax_access",
+  "ordax_refresh",
+  "ordax_recovery",
+  "ordax_recovery_access",
+  "ordax_recovery_refresh",
+]);
 const PASSTHROUGH_REQUEST_HEADERS = [
   "accept",
   "content-type",
