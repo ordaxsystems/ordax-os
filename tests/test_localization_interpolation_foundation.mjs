@@ -66,7 +66,7 @@ test("interpolation rejects oversized text without truncating it", () => {
   const value = "x".repeat(LOCALIZATION_INTERPOLATION_MAX_TEXT_LENGTH + 1);
   assert.throws(
     () => interpolateLocalizationMessage("Value {value}", { value }),
-    /exceeds 4096 characters/,
+    /exceeds 4096 UTF-16 code units/,
   );
 });
 
@@ -87,7 +87,7 @@ test("interpolation values container must be an object", () => {
   }
 });
 
-test("message text must already be trusted catalog text", () => {
+test("message text is not coerced from non-string values", () => {
   assert.throws(
     () => interpolateLocalizationMessage({ text: "Hello {name}" }, { name: "Ada" }),
     /message text must be a string/,
