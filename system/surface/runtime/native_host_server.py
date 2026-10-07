@@ -19,6 +19,7 @@ import threading
 import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlsplit
 from urllib.request import Request, urlopen
@@ -57,6 +58,7 @@ from native_profile_content_context import read_active_profile_content_context
 from native_profile_human_consent import ProfileHumanConsentAuthority
 from native_profile_consent_presenter import ProfileHumanConsentCoordinator
 from native_profile_consent_ipc import request_native_decision
+from native_store_catalog import StoreCatalogError, read_native_store_catalog_snapshot
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -84,7 +86,6 @@ ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
 ACCOUNT_REGISTRATION_ENABLED = False
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
-ACCOUNT_CLOSE_PATH = "/account/close"
 ACCOUNT_EXPORT_PATH = "/account/export"
 ACCOUNT_SPACES_PATH = "/account/spaces"
 ACCOUNT_MEMORY_ENTITLEMENT_PATH = "/account/entitlements/memory-cloud"
@@ -109,9 +110,12 @@ NETWORK_MANAGEMENT_PATH = "/__ordax/native/network-management"
 UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
+STORE_CATALOG_PATH = "/__ordax/native/store-catalog"
 DEFAULT_COMPONENT_CHANNEL_BIN = "/srv/ordax-system/bin/ordax-runtime-component-channel"
 DEFAULT_COMPONENT_TRUST_PATH = "/srv/ordax-system/trust/runtime-components-ed25519.json"
 DEFAULT_COMPONENT_SLOT_ROOT = "/var/lib/ordax/components"
+DEFAULT_STORE_CATALOG_ENVELOPE_PATH = "/var/lib/ordax/store/catalog-envelope.json"
+DEFAULT_STORE_CATALOG_WATERMARK_PATH = "/var/lib/ordax/store/catalog-watermark.json"
 UPDATE_STATE_FILE = "/run/ordax-update/state.json"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
@@ -3133,6 +3137,8 @@ class NativeHostServer(ThreadingHTTPServer):
         component_channel_bin: str = DEFAULT_COMPONENT_CHANNEL_BIN,
         component_trust_path: str = DEFAULT_COMPONENT_TRUST_PATH,
         component_slot_root: str = DEFAULT_COMPONENT_SLOT_ROOT,
+        store_catalog_envelope_path: str = DEFAULT_STORE_CATALOG_ENVELOPE_PATH,
+        store_catalog_watermark_path: str = DEFAULT_STORE_CATALOG_WATERMARK_PATH,
         account_gateway_origin: str = "",
     ):
         super().__init__(server_address, handler_class)
@@ -3191,6 +3197,9 @@ class NativeHostServer(ThreadingHTTPServer):
         self.component_trust_path = component_trust_path
         self.component_slot_root = component_slot_root
         self.component_slot_lock = threading.Lock()
+        self.store_catalog_envelope_path = store_catalog_envelope_path
+        self.store_catalog_watermark_path = store_catalog_watermark_path
+        self.store_catalog_lock = threading.Lock()
         self.component_slot_read_available = component_slot_reader_available(
             helper_path=self.component_channel_bin,
             trust_path=self.component_trust_path,
@@ -3367,7 +3376,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         "authenticated": False,
                         "provider": "unconfigured",
                         "status": "anonymous",
-                        "accountCloseEnabled": False,
                     })
                 else:
                     self._empty(503)
@@ -3413,7 +3421,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -3568,6 +3576,42 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(payload)
+            return
+
+        if parsed_path == STORE_CATALOG_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            try:
+                with self.server.store_catalog_lock:
+                    snapshot = read_native_store_catalog_snapshot(
+                        helper_path=Path(self.server.component_channel_bin),
+                        trust_path=Path(self.server.component_trust_path),
+                        envelope_path=Path(self.server.store_catalog_envelope_path),
+                        watermark_path=Path(self.server.store_catalog_watermark_path),
+                    )
+            except StoreCatalogError as exc:
+                print(
+                    f"ordax-native-host: Store catalog read failed closed: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._write_json(
+                    200,
+                    {
+                        "schema": "ordax.verified-app-store-catalog/1",
+                        "state": "unavailable",
+                        "sequence": None,
+                        "catalogSha256": None,
+                        "source": None,
+                        "trust": None,
+                        "entries": [],
+                        "reason": "native-store-catalog-unavailable",
+                        "authority": "none",
+                    },
+                )
+                return
+            self._write_json(200, snapshot)
             return
 
         if parsed_path == COMPONENT_RUNTIME_PATH:
@@ -3924,7 +3968,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
-        if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
+        if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
             if self.server.account_gateway is None:
                 self._empty(503)
                 return
@@ -3974,25 +4018,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(reply.status)
                         return
                     self._empty(204)
-                    return
-                if parsed_path == ACCOUNT_CLOSE_PATH:
-                    payload = self._read_account_credentials()
-                    if payload is None or set(payload) != {"password", "confirmation"}:
-                        self._empty(400)
-                        return
-                    password = payload.get("password")
-                    confirmation = payload.get("confirmation")
-                    if not isinstance(password, str) or confirmation != "close-account":
-                        self._empty(400)
-                        return
-                    reply = self.server.account_gateway.close_account(password, confirmation)
-                    if not reply.body:
-                        self._empty(reply.status)
-                        return
-                    response_payload = json.loads(reply.body.decode("utf-8"))
-                    if not isinstance(response_payload, dict):
-                        raise ValueError("invalid account close payload")
-                    self._write_json(reply.status, response_payload)
                     return
                 if parsed_path == NETWORK_MESSAGE_SEND_PATH:
                     body = self._read_json_body(MAX_NETWORK_MESSAGE_BODY)
@@ -4641,6 +4666,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--component-channel-bin", default=DEFAULT_COMPONENT_CHANNEL_BIN)
     parser.add_argument("--component-trust", default=DEFAULT_COMPONENT_TRUST_PATH)
     parser.add_argument("--component-slot-root", default=DEFAULT_COMPONENT_SLOT_ROOT)
+    parser.add_argument("--store-catalog-envelope", default=DEFAULT_STORE_CATALOG_ENVELOPE_PATH)
+    parser.add_argument("--store-catalog-watermark", default=DEFAULT_STORE_CATALOG_WATERMARK_PATH)
     parser.add_argument("--account-gateway-origin", default="")
     return parser.parse_args()
 
@@ -4681,6 +4708,8 @@ def main() -> int:
         component_channel_bin=args.component_channel_bin,
         component_trust_path=args.component_trust,
         component_slot_root=args.component_slot_root,
+        store_catalog_envelope_path=args.store_catalog_envelope,
+        store_catalog_watermark_path=args.store_catalog_watermark,
         account_gateway_origin=args.account_gateway_origin,
     )
     telemetry_started = start_telemetry_heartbeat(args.telemetry_config)
