@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/file-association-manifest.mjs'
+      - 'system/services/files/file-open-registry.mjs'
+      - 'tests/test_file_association_manifest.mjs'
+      - 'tests/test_file_open_registry.mjs'
       - 'system/contracts/app-lifecycle-request.mjs'
       - 'system/contracts/app-lifecycle-plan.mjs'
       - 'system/contracts/app-store.mjs'
@@ -39,6 +43,10 @@ on:
   pull_request:
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/file-association-manifest.mjs'
+      - 'system/services/files/file-open-registry.mjs'
+      - 'tests/test_file_association_manifest.mjs'
+      - 'tests/test_file_open_registry.mjs'
       - 'system/contracts/app-lifecycle-request.mjs'
       - 'system/contracts/app-store.mjs'
       - 'system/contracts/component-runtime-metadata.mjs'
@@ -86,6 +94,8 @@ jobs:
         run: |
           set -euo pipefail
           node --check system/contracts/first-party-app-delivery.mjs
+          node --check system/contracts/file-association-manifest.mjs
+          node --check system/services/files/file-open-registry.mjs
           node --check system/contracts/app-lifecycle-request.mjs
           node --check system/contracts/app-lifecycle-plan.mjs
           node --check system/contracts/app-store.mjs
@@ -101,6 +111,8 @@ jobs:
           node --check system/composition/native/store-catalog.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
+          node --check tests/test_file_association_manifest.mjs
+          node --check tests/test_file_open_registry.mjs
           node --check tests/test_app_store_contract.mjs
           node --check tests/test_app_lifecycle_request.mjs
           node --check tests/test_app_store_lifecycle_service.mjs
@@ -120,6 +132,8 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_first_party_app_delivery.mjs
+          node --test tests/test_file_association_manifest.mjs
+          node --test tests/test_file_open_registry.mjs
           node --test tests/test_app_store_contract.mjs
           node --test tests/test_app_lifecycle_request.mjs
           node --test tests/test_app_store_lifecycle_service.mjs
