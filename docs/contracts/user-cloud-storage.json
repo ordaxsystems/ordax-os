@@ -49,7 +49,15 @@
     "service_role_direct_dml_granted": false,
     "provider_bucket_deployed": false,
     "server_mutation_executor_deployed": false,
-    "public_rollout_enabled": false
+    "public_rollout_enabled": false,
+    "private_tables_rls_hardening": {
+      "source_migration": "infra/supabase/product/migrations/20261007015500_user_cloud_storage_private_rls_hardening_v1.sql",
+      "source_ready": true,
+      "production_applied": false,
+      "client_policies_created": false,
+      "service_role_policy_created": false,
+      "direct_client_grants_present": false
+    }
   },
   "activation_gates": [
     "transactional metadata and reservation schema are deployed",

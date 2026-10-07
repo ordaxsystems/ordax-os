@@ -1,0 +1,77 @@
+name: Public Auth Provider Live Proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: Canonical public HTTPS origin to verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prove-provider:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: eobcxuyvhkvdmkbaihwh
+      ORDAX_PUBLIC_ORIGIN: ${{ inputs.origin }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Require provider-management credential without printing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || {
+            echo 'SUPABASE_ACCESS_TOKEN repository secret is required.' >&2
+            exit 2
+          }
+          echo 'PUBLIC_AUTH_PROVIDER_PROOF_CREDENTIAL_PRESENT=YES'
+          echo 'PUBLIC_AUTH_PROVIDER_PROOF_CREDENTIAL_PRINTED=NO'
+
+      - name: Probe hosted Supabase Auth configuration
+        shell: bash
+        env:
+          ORDAX_PROVIDER_PROOF_PATH: ${{ runner.temp }}/auth-provider-proof.json
+        run: |
+          set -euo pipefail
+          python tools/public-site/probe_auth_provider.py --live > "${RUNNER_TEMP}/probe.out"
+          head -n 1 "${RUNNER_TEMP}/probe.out" > "${ORDAX_PROVIDER_PROOF_PATH}"
+          grep -qx 'AUTH_PROVIDER_PROBE=PASS' "${RUNNER_TEMP}/probe.out"
+          rm -f "${RUNNER_TEMP}/probe.out"
+
+      - name: Validate sanitized proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "${RUNNER_TEMP}/auth-provider-proof.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert data["$schema"] == "prototype-ordax.auth-provider-proof/1"
+          assert data["provider"] == "supabase"
+          assert data["project_ref"] == "redacted"
+          assert data["ready"] is True
+          assert all(data["checks"].values())
+          serialized = json.dumps(data, sort_keys=True).lower()
+          for forbidden in ("supabase_access_token", "authorization", "service_role_key", "secret_key", "bearer "):
+              assert forbidden not in serialized
+          print("PUBLIC_AUTH_PROVIDER_PROOF=PASS_SANITIZED")
+          PY
+
+      - name: Upload sanitized provider proof only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: auth-provider-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/auth-provider-proof.json
+          if-no-files-found: error
+          retention-days: 14

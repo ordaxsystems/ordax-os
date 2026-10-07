@@ -562,7 +562,7 @@ async function updateRecoveryPassword(req: Request) {
       return error(503, "account-recovery-unavailable", "Não foi possível concluir a recuperação da Conta OrdaX.");
     }
     try {
-      await client(session.access).auth.signOut({ scope: "local" });
+      await client(session.access).auth.signOut({ scope: "global" });
     } catch {
       // Password was already changed; local cookie clearing still wins.
     }

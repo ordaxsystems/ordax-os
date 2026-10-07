@@ -8,6 +8,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "infra/supabase/product/migrations/20261005171000_user_cloud_storage_foundation_v2.sql"
 CONTRACT = ROOT / "docs/contracts/user-cloud-storage.json"
+HARDENING = ROOT / "infra/supabase/product/migrations/20261007015500_user_cloud_storage_private_rls_hardening_v1.sql"
 
 
 class UserCloudStorageSourceTest(unittest.TestCase):
@@ -15,6 +16,7 @@ class UserCloudStorageSourceTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.sql = MIGRATION.read_text(encoding="utf-8")
         cls.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        cls.hardening_sql = HARDENING.read_text(encoding="utf-8")
 
     def test_public_metadata_does_not_expose_provider_location(self) -> None:
         public_section = self.sql.split(
@@ -39,6 +41,22 @@ class UserCloudStorageSourceTest(unittest.TestCase):
         ):
             pattern = rf"revoke all on table {re.escape(table)}\s+from public, anon, authenticated, service_role;"
             self.assertRegex(self.sql, pattern)
+
+    def test_private_provider_state_has_defense_in_depth_rls(self) -> None:
+        for table in (
+            "private.ordax_user_object_provider_refs",
+            "private.ordax_user_upload_reservations",
+        ):
+            self.assertIn(
+                f"alter table {table} enable row level security;",
+                self.hardening_sql,
+            )
+            pattern = rf"revoke all on table {re.escape(table)}\s+from public, anon, authenticated, service_role;"
+            self.assertRegex(self.hardening_sql, pattern)
+        self.assertNotRegex(
+            self.hardening_sql,
+            r"create\s+policy|grant\s+.*\s+to\s+(anon|authenticated|service_role)",
+        )
 
     def test_rls_uses_policy_boundary_not_private_implementation_helper(self) -> None:
         self.assertIn("ordax_policy.can_access_space(space_id)", self.sql)

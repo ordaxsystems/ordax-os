@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 PROBE_SCHEMA = "prototype-ordax.auth-provider-proof/1"
-DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/2"
+DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/3"
 SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
 REQUIRED_CHECKS = (
     "confirm_email",
@@ -36,6 +36,7 @@ REQUIRED_DB_CHECKS = (
     "no_public_function_execute",
     "security_definer_search_path",
     "no_anon_private_schema_usage",
+    "private_cloud_storage_rls_enabled",
     "no_authenticated_sync_table_grants",
     "no_service_role_sync_table_grants",
     "sync_policies_executor_only",
@@ -146,6 +147,8 @@ def validate_database_proof(value: object) -> list[str]:
         ):
             if observed.get(name) != 0:
                 blockers.append(f"database-proof-{name}")
+        if observed.get("private_cloud_storage_rls_enabled_count") != 2:
+            blockers.append("database-proof-private_cloud_storage_rls_enabled_count")
         if observed.get("sync_policy_count") != 5:
             blockers.append("database-proof-sync_policy_count")
         if observed.get("app_role_sync_sequence_privilege") is not False:
