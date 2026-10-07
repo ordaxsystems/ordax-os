@@ -10,7 +10,6 @@ on:
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
-      - 'system/services/apps/verified-store-catalog-replay-guard.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
@@ -21,7 +20,6 @@ on:
       - 'tests/test_app_lifecycle_request.mjs'
       - 'tests/test_app_store_lifecycle_service.mjs'
       - 'tests/test_verified_app_store_catalog.mjs'
-      - 'tests/test_verified_app_store_catalog_replay_guard.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
@@ -32,7 +30,6 @@ on:
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
-      - 'system/services/apps/verified-store-catalog-replay-guard.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
@@ -43,7 +40,6 @@ on:
       - 'tests/test_app_lifecycle_request.mjs'
       - 'tests/test_app_store_lifecycle_service.mjs'
       - 'tests/test_verified_app_store_catalog.mjs'
-      - 'tests/test_verified_app_store_catalog_replay_guard.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   workflow_dispatch:
@@ -70,14 +66,12 @@ jobs:
           node --check system/contracts/verified-app-store-catalog.mjs
           node --check system/services/apps/delivery-policy.mjs
           node --check system/services/apps/store-lifecycle-request-service.mjs
-          node --check system/services/apps/verified-store-catalog-replay-guard.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
           node --check tests/test_app_store_contract.mjs
           node --check tests/test_app_lifecycle_request.mjs
           node --check tests/test_app_store_lifecycle_service.mjs
           node --check tests/test_verified_app_store_catalog.mjs
-          node --check tests/test_verified_app_store_catalog_replay_guard.mjs
           node --check tests/test_mvp_app_delivery.mjs
           python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
           python -m json.tool docs/contracts/app-distribution.json >/dev/null
@@ -92,7 +86,6 @@ jobs:
           node --test tests/test_app_lifecycle_request.mjs
           node --test tests/test_app_store_lifecycle_service.mjs
           node --test tests/test_verified_app_store_catalog.mjs
-          node --test tests/test_verified_app_store_catalog_replay_guard.mjs
 
       - name: Prove minimal MVP payload and first-online refresh policy
         run: |
