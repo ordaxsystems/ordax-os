@@ -10,6 +10,10 @@ const nativeCompositionSource = readFileSync(
   fileURLToPath(new URL("../system/composition/native/main.mjs", import.meta.url)),
   "utf8",
 );
+const personalRuntimeSource = readFileSync(
+  fileURLToPath(new URL("../system/services/personal-ordax/runtime.mjs", import.meta.url)),
+  "utf8",
+);
 
 function projectState(name = "Finance App") {
   return Object.freeze({
@@ -136,7 +140,7 @@ test("Project authority cutover never falls back to legacy state when Native is 
   );
 });
 
-test("Native production composition uses the typed Project authority instead of the legacy store", () => {
+test("Native production composition uses typed Project authority instead of legacy runtime authority", () => {
   assert.match(
     nativeCompositionSource,
     /createNativeProjectStateTransport/,
@@ -149,12 +153,25 @@ test("Native production composition uses the typed Project authority instead of 
   );
   assert.doesNotMatch(
     nativeCompositionSource,
-    /createNativeProjectStore\(window\)/,
-    "legacy localStorage Project store must not remain normal production authority",
+    /createProjectCatalogRuntime\s*\(\s*\{\s*store:\s*createNativeProjectStore\(window\)/s,
+    "legacy localStorage Project runtime must not remain normal production authority",
   );
   assert.match(
     nativeCompositionSource,
     /projectMutations:\s*projectMutations/,
     "File Space continuity must receive explicit Project mutation authority",
+  );
+});
+
+test("Personal OrdaX receives only Project reader authority", () => {
+  assert.match(
+    personalRuntimeSource,
+    /assertProjectCatalogReader/,
+    "Personal OrdaX must validate only the Project reader capability",
+  );
+  assert.doesNotMatch(
+    personalRuntimeSource,
+    /assertProjectCatalogPort\(projectCatalogPort\)/,
+    "Personal OrdaX must not require Project mutation authority",
   );
 });
