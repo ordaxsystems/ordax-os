@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-gateway/1",
-  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v16-deployed-v16-revision-26-recovery-session-isolated-registration-disabled-close-disabled",
+  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v17-deployed-v16-revision-26-native-auth-rate-limit-source-ready-registration-disabled-close-disabled",
   "runtime": {
     "entrypoint": "services/public-identity/gateway.py:application",
     "protocol": "WSGI",
@@ -9,7 +9,7 @@
     "provider_adapter": "supabase-password-and-sync-rest",
     "provider_configuration": "runtime-environment",
     "deployed_edge_adapter": "infra/supabase/functions/ordax-account-gateway/index.ts",
-    "gateway_source_version": 16,
+    "gateway_source_version": 17,
     "edge_deployment_revision_observed": 26,
     "deployed_gateway_source_version": 16,
     "lifecycle_service_source": "infra/supabase/functions/ordax-account-lifecycle/index.ts",
@@ -226,7 +226,19 @@
     "public_site_marker_requires_backend_authentication": true,
     "public_site_marker_backend_authentication": "supabase-secret-apikey",
     "password_recovery_session_isolated": true,
-    "password_recovery_cookie_path": "/auth/recover"
+    "password_recovery_cookie_path": "/auth/recover",
+    "native_direct_auth_rate_limit_source_ready": true,
+    "native_direct_auth_rate_limit_deployed": false,
+    "native_direct_auth_rate_limit_rpc": "ordax_consume_public_auth_rate_limit_v1",
+    "native_direct_auth_rate_limit_client_address_source": "supabase-edge-cf-connecting-ip",
+    "native_direct_auth_rate_limit_shared_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs",
+    "native_direct_auth_rate_limit_fail_closed": true,
+    "native_direct_auth_rate_limit_raw_ip_persisted": false,
+    "native_direct_auth_rate_limit_buckets": [
+      "credentials",
+      "recovery-request",
+      "recovery-completion"
+    ]
   },
   "deployment": {
     "same_origin_required_for_public_site": true,
