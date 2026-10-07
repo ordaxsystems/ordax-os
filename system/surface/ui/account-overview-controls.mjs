@@ -1205,6 +1205,52 @@ export function mountAccountOverviewControls(
     }
   };
 
+  const closeAccount = async () => {
+    if (
+      destroyed
+      || pendingClose
+      || accountLifecyclePort === null
+      || accountLifecycleSnapshot === null
+      || !isAccountLifecycleActionSupported(accountLifecycleSnapshot, "close-account")
+      || closeConfirmationChecked !== true
+      || closePasswordDraft.length < 1
+    ) {
+      return;
+    }
+
+    let operationPassword = closePasswordDraft;
+    closePasswordDraft = "";
+    closeConfirmationChecked = false;
+    pendingClose = true;
+    closeMessage = "";
+    const ordinal = ++closeOrdinal;
+    replaceView();
+
+    try {
+      const result = await accountLifecyclePort.closeAccount({
+        password: operationPassword,
+        confirmation: "close-account",
+      });
+      operationPassword = "";
+      if (destroyed || ordinal !== closeOrdinal) return;
+      if (result?.closed !== true) throw new Error("invalid close result");
+      closeMessage = t("account.lifecycle.close.closed");
+      if (typeof sessionPort.refresh === "function") {
+        await sessionPort.refresh();
+      }
+    } catch {
+      operationPassword = "";
+      if (destroyed || ordinal !== closeOrdinal) return;
+      closeMessage = t("account.lifecycle.close.failed");
+    } finally {
+      operationPassword = "";
+      if (!destroyed && ordinal === closeOrdinal) {
+        pendingClose = false;
+        replaceView();
+      }
+    }
+  };
+
   const onInput = (event) => {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !root.contains(input)) return;
@@ -1214,6 +1260,11 @@ export function mountAccountOverviewControls(
       credentialPasswordDraft = input.value;
     } else if (input.matches("[data-account-registration-legal-acceptance]")) {
       registrationLegalAccepted = input.checked;
+      replaceView();
+    } else if (input.matches("[data-account-close-password]")) {
+      closePasswordDraft = input.value;
+    } else if (input.matches("[data-account-close-confirmation]")) {
+      closeConfirmationChecked = input.checked === true;
       replaceView();
     }
   };
@@ -1342,6 +1393,12 @@ export function mountAccountOverviewControls(
       return;
     }
 
+    const closeButton = event.target.closest("[data-account-close-action]");
+    if (closeButton && root.contains(closeButton)) {
+      void closeAccount();
+      return;
+    }
+
     const button = event.target.closest("[data-account-identity-action]");
     if (button && root.contains(button)) {
       void invoke(button.dataset.accountIdentityAction);
@@ -1379,6 +1436,9 @@ export function mountAccountOverviewControls(
     sessionSnapshot = validateIdentitySessionSnapshot(snapshot);
     if (sessionSnapshot.state !== "signed-in") {
       spacesPort?.reset();
+      closePasswordDraft = "";
+      closeConfirmationChecked = false;
+      closeMessage = "";
     } else {
       registrationPolicy = null;
       registrationLegalAccepted = false;
@@ -1388,6 +1448,17 @@ export function mountAccountOverviewControls(
     if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
       refreshSpaces();
     }
+  });
+  const unsubscribeAccountLifecycle = accountLifecyclePort?.subscribe((snapshot) => {
+    accountLifecycleSnapshot = validateAccountLifecycleSnapshot(snapshot);
+    if (!isAccountLifecycleActionSupported(accountLifecycleSnapshot, "close-account")) {
+      closePasswordDraft = "";
+      closeConfirmationChecked = false;
+      closeMessage = "";
+      pendingClose = false;
+      closeOrdinal += 1;
+    }
+    replaceView();
   });
   const unsubscribeActions = actionsPort.subscribe((snapshot) => {
     actionsSnapshot = validateIdentityActionsSnapshot(snapshot);
@@ -1440,11 +1511,15 @@ export function mountAccountOverviewControls(
       unsubscribeSpaces?.();
       unsubscribeWorkspaceMetadata?.();
       unsubscribeSync?.();
+      unsubscribeAccountLifecycle?.();
       unsubscribeActions?.();
       unsubscribeSession?.();
       unsubscribeActivation?.();
       unsubscribeRender();
       credentialPasswordDraft = "";
+      closePasswordDraft = "";
+      closeConfirmationChecked = false;
+      closeOrdinal += 1;
       registrationPolicy = null;
       registrationLegalAccepted = false;
       root.removeEventListener("input", onInput);
