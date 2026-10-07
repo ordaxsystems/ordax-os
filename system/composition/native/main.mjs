@@ -71,8 +71,10 @@ import { createApplicationContextIntelligence } from "../../services/intelligenc
 import { createApplicationActionCapabilityRegistry } from "../../services/intelligence/application-action-capabilities.mjs";
 import { createApplicationSemanticRouter } from "../../services/intelligence/application-semantic-router.mjs";
 import {
+  EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
   EXTERNAL_FIRST_PARTY_OWNER,
-  EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
+} from "../../services/apps/external-first-party-policy.mjs";
+import {
   loadVerifiedFirstPartyApplicationSemantics,
   overlayVerifiedFirstPartyApplications,
 } from "../../services/intelligence/verified-app-semantics.mjs";
@@ -161,7 +163,7 @@ async function start() {
   const verifiedAppSemanticsPromise = optionalNativeProbe(
     "OrdaX verified App Intelligence semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
-      appIds: EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS,
+      appIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
       source: verifiedComponentPackageSource,
       fetchImpl: verifiedComponentFetch,
     }),
