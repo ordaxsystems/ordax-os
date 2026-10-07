@@ -194,7 +194,9 @@
     "artifact_acquisition_source_receives_content_identity_only": true,
     "artifact_acquisition_source_may_select_version": false,
     "artifact_acquisition_source_may_select_artifact": false,
-    "artifact_acquisition_source_may_install_or_activate": false
+    "artifact_acquisition_source_may_install_or_activate": false,
+    "artifact_identity_max_bytes": 33554432,
+    "artifact_identity_max_bytes_matches_runtime_component_verifier": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
