@@ -77,7 +77,17 @@
       "public_enabled": false,
       "route": "/account/export",
       "rpc": "ordax_account_export_v1",
-      "security": "authenticated-user-jwt-plus-rls-security-invoker",
+      "security": "authenticated-user-jwt-plus-security-definer-least-privilege-executor-rls",
+      "rpc_security_definer": true,
+      "executor_role": "ordax_account_export_executor",
+      "executor_login_allowed": false,
+      "executor_inherit_allowed": false,
+      "executor_bypass_rls_allowed": false,
+      "executor_direct_write_privileges_allowed": false,
+      "executor_policy_scope": "own-subject-only",
+      "request_subject_bridge": "ordax_request_subject_v1",
+      "request_subject_bridge_reads_relations": false,
+      "provider_auth_schema_usage_granted_to_executor": false,
       "opaque_metadata_exported": false,
       "required_before_public_account_lifecycle_is_complete": true
     }
