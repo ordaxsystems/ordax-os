@@ -49,6 +49,8 @@ MAX_REQUEST_BODY = 64 * 1024
 ACCESS_COOKIE = "ordax_access"
 REFRESH_COOKIE = "ordax_refresh"
 RECOVERY_COOKIE = "ordax_recovery"
+RECOVERY_ACCESS_COOKIE = "ordax_recovery_access"
+RECOVERY_REFRESH_COOKIE = "ordax_recovery_refresh"
 RECOVERY_SESSION_MAX_AGE = 10 * 60
 PUBLIC_SITE_ACCOUNT_ENABLED = False
 ACCOUNT_REGISTRATION_ENABLED = False
@@ -164,10 +166,12 @@ def _secure_cookies() -> bool:
     return os.environ.get("ORDAX_IDENTITY_SECURE_COOKIES", "1") != "0"
 
 
-def _cookie(name: str, value: str, *, max_age: int) -> str:
+def _cookie(name: str, value: str, *, max_age: int, path: str = "/") -> str:
+    if path not in ("/", "/auth/recover"):
+        raise ValueError("unsupported-cookie-path")
     parts = [
         f"{name}={value}",
-        "Path=/",
+        f"Path={path}",
         "HttpOnly",
         "SameSite=Lax",
         f"Max-Age={max_age}",
@@ -181,8 +185,25 @@ def _clear_cookie(name: str) -> str:
     return _cookie(name, "", max_age=0)
 
 
-def _recovery_cookie() -> str:
-    return _cookie(RECOVERY_COOKIE, "1", max_age=RECOVERY_SESSION_MAX_AGE)
+def _recovery_cookies(
+    access_token: str,
+    refresh_token: str,
+    expires_in: int,
+) -> tuple[str, str, str]:
+    max_age = max(1, min(int(expires_in), RECOVERY_SESSION_MAX_AGE))
+    return (
+        _cookie(RECOVERY_ACCESS_COOKIE, access_token, max_age=max_age, path="/auth/recover"),
+        _cookie(RECOVERY_REFRESH_COOKIE, refresh_token, max_age=max_age, path="/auth/recover"),
+        _cookie(RECOVERY_COOKIE, "1", max_age=max_age, path="/auth/recover"),
+    )
+
+
+def _clear_recovery_cookies() -> tuple[str, str, str]:
+    return (
+        _cookie(RECOVERY_ACCESS_COOKIE, "", max_age=0, path="/auth/recover"),
+        _cookie(RECOVERY_REFRESH_COOKIE, "", max_age=0, path="/auth/recover"),
+        _cookie(RECOVERY_COOKIE, "", max_age=0, path="/auth/recover"),
+    )
 
 
 def _session_cookies(access_token: str, refresh_token: str, expires_in: int) -> tuple[str, str]:
@@ -255,7 +276,11 @@ def _public_site_disabled_response(method: str, path: str) -> GatewayResponse | 
     if path == "/auth/logout" and method == "POST":
         return _redirect(
             "/",
-            set_cookies=(_clear_cookie(ACCESS_COOKIE), _clear_cookie(REFRESH_COOKIE)),
+            set_cookies=(
+                _clear_cookie(ACCESS_COOKIE),
+                _clear_cookie(REFRESH_COOKIE),
+                *_clear_recovery_cookies(),
+            ),
         )
     if path == "/auth/registration-policy" and method == "GET":
         # Public-site registration remains fail-closed, but policy discovery is
@@ -270,7 +295,11 @@ def _public_site_disabled_response(method: str, path: str) -> GatewayResponse | 
                 "provider": "gated",
                 "status": "anonymous",
             },
-            set_cookies=(_clear_cookie(ACCESS_COOKIE), _clear_cookie(REFRESH_COOKIE)),
+            set_cookies=(
+                _clear_cookie(ACCESS_COOKIE),
+                _clear_cookie(REFRESH_COOKIE),
+                *_clear_recovery_cookies(),
+            ),
         )
     if path.startswith("/auth/") or path.startswith("/sync/") or path.startswith("/account/"):
         return _error(
@@ -391,6 +420,38 @@ class PublicIdentityGateway:
             except SupabaseIdentityError:
                 pass
         return None, (_clear_cookie(ACCESS_COOKIE), _clear_cookie(REFRESH_COOKIE))
+
+    def _authenticated_recovery_access(
+        self, request_headers: Mapping[str, str]
+    ) -> tuple[str | None, tuple[str, ...]]:
+        if not self.provider:
+            return None, ()
+        cookies = _read_cookies(request_headers.get("cookie"))
+        if cookies.get(RECOVERY_COOKIE) != "1":
+            return None, _clear_recovery_cookies()
+        access = cookies.get(RECOVERY_ACCESS_COOKIE)
+        refresh = cookies.get(RECOVERY_REFRESH_COOKIE)
+        if access:
+            try:
+                self.provider.get_user(access)
+                return access, ()
+            except SupabaseIdentityError:
+                pass
+        if refresh:
+            try:
+                session = self.provider.refresh_session(refresh)
+                self.provider.get_user(session.access_token)
+                return (
+                    session.access_token,
+                    _recovery_cookies(
+                        session.access_token,
+                        session.refresh_token,
+                        session.expires_in,
+                    ),
+                )
+            except SupabaseIdentityError:
+                pass
+        return None, _clear_recovery_cookies()
 
     def _session(self, request_headers: Mapping[str, str]) -> GatewayResponse:
         if not self.provider:
@@ -662,12 +723,13 @@ class PublicIdentityGateway:
         return _redirect(
             "/recuperar/nova-senha/",
             set_cookies=(
-                *_session_cookies(
+                _clear_cookie(ACCESS_COOKIE),
+                _clear_cookie(REFRESH_COOKIE),
+                *_recovery_cookies(
                     session.access_token,
                     session.refresh_token,
                     min(session.expires_in, RECOVERY_SESSION_MAX_AGE),
                 ),
-                _recovery_cookie(),
             ),
         )
 
@@ -690,14 +752,7 @@ class PublicIdentityGateway:
                 "cross-site-request-rejected",
                 "A solicitação cross-site foi rejeitada.",
             )
-        cookies = _read_cookies(request_headers.get("cookie"))
-        if cookies.get(RECOVERY_COOKIE) != "1":
-            return _error(
-                401,
-                "recovery-session-required",
-                "Inicie novamente a recuperação da Conta OrdaX.",
-            )
-        access, refreshed_cookies = self._authenticated_access(request_headers)
+        access, refreshed_cookies = self._authenticated_recovery_access(request_headers)
         if not access:
             return _json_response(
                 401,
@@ -708,7 +763,6 @@ class PublicIdentityGateway:
                 },
                 set_cookies=(
                     *refreshed_cookies,
-                    _clear_cookie(RECOVERY_COOKIE),
                 ),
             )
         try:
@@ -748,7 +802,7 @@ class PublicIdentityGateway:
             set_cookies=(
                 _clear_cookie(ACCESS_COOKIE),
                 _clear_cookie(REFRESH_COOKIE),
-                _clear_cookie(RECOVERY_COOKIE),
+                *_clear_recovery_cookies(),
             ),
         )
 
@@ -834,7 +888,7 @@ class PublicIdentityGateway:
             set_cookies=(
                 _clear_cookie(ACCESS_COOKIE),
                 _clear_cookie(REFRESH_COOKIE),
-                _clear_cookie(RECOVERY_COOKIE),
+                *_clear_recovery_cookies(),
             ),
         )
 
@@ -1139,7 +1193,11 @@ class PublicIdentityGateway:
                     pass
             return _redirect(
                 "/",
-                set_cookies=(_clear_cookie(ACCESS_COOKIE), _clear_cookie(REFRESH_COOKIE)),
+                set_cookies=(
+                _clear_cookie(ACCESS_COOKIE),
+                _clear_cookie(REFRESH_COOKIE),
+                *_clear_recovery_cookies(),
+            ),
             )
 
         if path == "/account/export":
