@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "public-edge-oidc-v4-live-vercel-zero-trust-source-not-deployed",
+  "status": "public-edge-oidc-v5-live-bounded-account-routes-vercel-source-not-deployed",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -97,7 +97,7 @@
     "account_routes_source_ready": true
   },
   "public_edge_gateway": {
-    "status": "v4-oidc-live-canonical-client-address-runtime-proof-pending",
+    "status": "v5-oidc-live-bounded-account-routes-runtime-proof-pending",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
@@ -106,8 +106,8 @@
     "request_context_validation_connected": true,
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
-    "deployed_version": 4,
-    "deployment_source_commit": "ecfe1f41b9d2881ee2f8667b50719f26fe650f95",
+    "deployed_version": 5,
+    "deployment_source_commit": "6a16c486f5663ca6c46e4ab17816578e3e5cf023",
     "deployed_authentication": "vercel-production-oidc-v2",
     "source_authentication": "vercel-production-oidc-v2",
     "oidc_source_ready": true,
@@ -163,7 +163,8 @@
       }
     ],
     "account_routes_source_ready": true,
-    "account_routes_deployed": false
+    "account_routes_deployed": true,
+    "inner_gateway_authentication": "backend-secret-apikey"
   },
   "routing": {
     "static_routes": [
