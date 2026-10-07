@@ -36,7 +36,7 @@ test("notification semantic presentation rejects boolean and coercive values ins
         id: "system-updates.applied",
         values: { value: rawValue },
       }),
-      /bounded strings or finite numbers/,
+      /must be text or a finite number/,
     );
   }
 });
