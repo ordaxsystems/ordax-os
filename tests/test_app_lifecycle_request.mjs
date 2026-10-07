@@ -8,6 +8,7 @@ import {
   assertAppLifecycleRequestPort,
   validateAppLifecycleRequest,
   validateAppLifecycleRequestResult,
+  validateAppLifecycleRequestResultForRequest,
 } from "../system/contracts/app-lifecycle-request.mjs";
 
 function request(operation, source = "store") {
@@ -107,4 +108,36 @@ test("lifecycle request result is bound to operation, source and request identit
     () => validateAppLifecycleRequestResult({ ...accepted, state: "rejected", reason: null }),
     /requires reason/,
   );
+});
+
+
+test("lifecycle result correlation fails closed on stale or mismatched responses", () => {
+  const original = request("update");
+  const accepted = {
+    schema: APP_LIFECYCLE_REQUEST_RESULT_SCHEMA,
+    requestId: original.requestId,
+    appId: original.appId,
+    operation: original.operation,
+    source: original.source,
+    state: "accepted",
+    reason: null,
+    authority: "none",
+  };
+
+  assert.equal(
+    validateAppLifecycleRequestResultForRequest(accepted, original).requestId,
+    original.requestId,
+  );
+
+  for (const mismatch of [
+    { requestId: "store:update:notes:stale" },
+    { appId: "studio" },
+    { operation: "remove" },
+    { source: "launcher", operation: "install" },
+  ]) {
+    assert.throws(
+      () => validateAppLifecycleRequestResultForRequest({ ...accepted, ...mismatch }, original),
+      /identity mismatch|install only/,
+    );
+  }
 });
