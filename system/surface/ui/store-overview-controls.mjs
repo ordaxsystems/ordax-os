@@ -6,7 +6,7 @@ import {
   APP_LIFECYCLE_REQUEST_SCHEMA,
   assertAppLifecycleRequestPort,
   validateAppLifecycleRequest,
-  validateAppLifecycleRequestResult,
+  validateAppLifecycleRequestResultForRequest,
 } from "../../contracts/app-lifecycle-request.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 
@@ -204,15 +204,7 @@ export function mountStoreOverviewControls(
 
     void Promise.resolve(lifecycleRequests.requestLifecycle(request))
       .then((rawResult) => {
-        const result = validateAppLifecycleRequestResult(rawResult);
-        if (
-          result.appId !== appId
-          || result.operation !== operation
-          || result.source !== request.source
-          || result.requestId !== request.requestId
-        ) {
-          throw new TypeError("App Store lifecycle response identity mismatch");
-        }
+        const result = validateAppLifecycleRequestResultForRequest(rawResult, request);
         requestMessageId = `store.request.${operation}.${result.state}`;
         if (result.state === "accepted") {
           pendingRequest = Object.freeze({
