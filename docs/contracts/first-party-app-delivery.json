@@ -233,7 +233,15 @@
     "catalog_remote_replay_checked_before_active_replace": true,
     "catalog_remote_failure_retains_last_known_good": true,
     "catalog_active_envelope_persisted_before_watermark_advance": true,
-    "native_host_can_fetch_remote_catalog": true
+    "native_host_can_fetch_remote_catalog": true,
+    "native_pending_decision_adapter_implemented": true,
+    "native_pending_decision_owner": "platform-component-lifecycle",
+    "native_pending_promote_revalidates_trust": true,
+    "native_pending_promote_requires_exact_revision": true,
+    "native_pending_reject_requires_exact_revision": true,
+    "native_pending_decision_receipt_requires_exact_identity": true,
+    "store_may_invoke_pending_decision_directly": false,
+    "production_pending_decision_mounted": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
