@@ -377,3 +377,11 @@ class SupabasePasswordProvider:
             {},
             access_token=access_token,
         )
+
+    def sign_out_local(self, access_token: str) -> None:
+        self._request(
+            "POST",
+            "/auth/v1/logout?scope=local",
+            {},
+            access_token=access_token,
+        )
