@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -162,6 +163,36 @@ class NativeAppArtifactStoreTests(unittest.TestCase):
             self.skipTest("symlink creation unavailable")
 
         with self.assertRaisesRegex(store.AppArtifactStoreError, "non-symlink"):
+            store.read_cached_artifact(item, root=str(self.root))
+
+    def test_broad_existing_cache_subdirectory_permissions_fail_closed(self) -> None:
+        payload = b"expected"
+        item = identity("notes.zip", payload)
+        self.root.mkdir(parents=True, mode=0o700)
+        self.root.chmod(0o700)
+        sha_root = self.root / "sha256"
+        sha_root.mkdir(mode=0o700)
+        sha_root.chmod(0o755)
+
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "permissions are not private"):
+            store.store_verified_artifact(item, payload, root=str(self.root))
+
+    def test_cached_artifact_requires_private_read_only_single_link_metadata(self) -> None:
+        payload = b"expected"
+        item = identity("notes.zip", payload)
+        path = store.store_verified_artifact(item, payload, root=str(self.root))
+
+        path.chmod(0o600)
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "read-only private"):
+            store.read_cached_artifact(item, root=str(self.root))
+
+        path.chmod(0o400)
+        hardlink = self.root / "extra-hardlink"
+        try:
+            os.link(path, hardlink)
+        except OSError:
+            self.skipTest("hardlink creation unavailable")
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "one hardlink"):
             store.read_cached_artifact(item, root=str(self.root))
 
 
