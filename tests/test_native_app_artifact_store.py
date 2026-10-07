@@ -162,7 +162,7 @@ class NativeAppArtifactStoreTests(unittest.TestCase):
         except (OSError, NotImplementedError):
             self.skipTest("symlink creation unavailable")
 
-        with self.assertRaisesRegex(store.AppArtifactStoreError, "non-symlink"):
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "unavailable or unsafe"):
             store.read_cached_artifact(item, root=str(self.root))
 
     def test_broad_existing_cache_subdirectory_permissions_fail_closed(self) -> None:
