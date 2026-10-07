@@ -1,5 +1,8 @@
 import { assertLocalizationPort } from "../../contracts/localization.mjs";
-import { canonicalizeLocale } from "../../contracts/locale-profile.mjs";
+import {
+  assertLocaleProfile,
+  canonicalizeLocale,
+} from "../../contracts/locale-profile.mjs";
 
 const RELATIVE_TIME_UNITS = Object.freeze(new Set([
   "year",
@@ -21,12 +24,23 @@ const DISPLAY_NAME_TYPES = Object.freeze(new Set([
   "dateTimeField",
 ]));
 
+const CURRENCY_OPTION_KEYS = Object.freeze([
+  "currency",
+  "currencyDisplay",
+  "currencySign",
+]);
+
+const UNIT_OPTION_KEYS = Object.freeze([
+  "unit",
+  "unitDisplay",
+]);
+
 function assertOptions(value, label) {
   if (value === undefined) return {};
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError(`${label} options must be an object`);
   }
-  return value;
+  return { ...value };
 }
 
 function assertFiniteNumber(value, label) {
@@ -36,16 +50,36 @@ function assertFiniteNumber(value, label) {
   return value;
 }
 
-function assertText(value, label, maxLength = 64) {
-  const text = String(value ?? "").trim();
+function assertIdentifier(value, label, maxLength = 64) {
+  if (typeof value !== "string") {
+    throw new TypeError(`${label} must be a string`);
+  }
+  const text = value.trim();
   if (!text || text.length > maxLength) {
     throw new TypeError(`${label} must be a non-empty string up to ${maxLength} characters`);
   }
   return text;
 }
 
+function assertDisplayText(value, label, maxLength = 1024) {
+  if (typeof value !== "string") {
+    throw new TypeError(`${label} must be a string`);
+  }
+  if (!value.trim() || value.length > maxLength) {
+    throw new TypeError(`${label} must be non-empty text up to ${maxLength} characters`);
+  }
+  return value;
+}
+
 function assertDateValue(value) {
-  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  let date;
+  if (value instanceof Date) {
+    date = new Date(value.getTime());
+  } else if (typeof value === "number" && Number.isFinite(value)) {
+    date = new Date(value);
+  } else {
+    throw new TypeError("Date value must be a Date or finite epoch-millisecond number");
+  }
   if (Number.isNaN(date.getTime())) {
     throw new TypeError("Date value must be valid");
   }
@@ -56,12 +90,30 @@ function assertListItems(value) {
   if (!Array.isArray(value)) {
     throw new TypeError("List value must be an array");
   }
-  return value.map((item) => assertText(item, "List item", 1024));
+  return value.map((item) => assertDisplayText(item, "List item"));
+}
+
+function assertStyle(options, expected, label) {
+  if (options.style !== undefined && options.style !== expected) {
+    throw new TypeError(`${label} style cannot be overridden`);
+  }
+}
+
+function rejectOptions(options, keys, label) {
+  for (const key of keys) {
+    if (options[key] !== undefined) {
+      throw new TypeError(`${label} option ${key} is not allowed`);
+    }
+  }
 }
 
 function activeLocale(localization) {
-  const port = assertLocalizationPort(localization);
-  return canonicalizeLocale(port.getLocale());
+  const locale = canonicalizeLocale(localization.getLocale());
+  const profile = assertLocaleProfile(localization.getProfile());
+  if (profile.locale !== locale) {
+    throw new TypeError("Localization port locale/profile mismatch");
+  }
+  return locale;
 }
 
 export function createLocaleFormatting(localization) {
@@ -76,17 +128,19 @@ export function createLocaleFormatting(localization) {
     },
 
     formatNumber(value, options) {
-      return new Intl.NumberFormat(
-        activeLocale(port),
-        assertOptions(options, "Number formatting"),
-      ).format(assertFiniteNumber(value, "Number value"));
+      const resolved = assertOptions(options, "Number formatting");
+      assertStyle(resolved, "decimal", "Number formatting");
+      rejectOptions(resolved, [...CURRENCY_OPTION_KEYS, ...UNIT_OPTION_KEYS], "Number formatting");
+      return new Intl.NumberFormat(activeLocale(port), {
+        ...resolved,
+        style: "decimal",
+      }).format(assertFiniteNumber(value, "Number value"));
     },
 
     formatPercent(value, options) {
       const resolved = assertOptions(options, "Percent formatting");
-      if (resolved.style !== undefined && resolved.style !== "percent") {
-        throw new TypeError("Percent formatting style cannot be overridden");
-      }
+      assertStyle(resolved, "percent", "Percent formatting");
+      rejectOptions(resolved, [...CURRENCY_OPTION_KEYS, ...UNIT_OPTION_KEYS], "Percent formatting");
       return new Intl.NumberFormat(activeLocale(port), {
         ...resolved,
         style: "percent",
@@ -94,16 +148,19 @@ export function createLocaleFormatting(localization) {
     },
 
     formatCurrency(value, currency, options) {
-      const code = assertText(currency, "Currency code", 64).toUpperCase();
+      const code = assertIdentifier(currency, "Currency code").toUpperCase();
       if (!/^[A-Z]{3}$/.test(code)) {
         throw new TypeError("Currency code must be a three-letter currency code");
       }
       const resolved = assertOptions(options, "Currency formatting");
-      if (resolved.style !== undefined && resolved.style !== "currency") {
-        throw new TypeError("Currency formatting style cannot be overridden");
-      }
-      if (resolved.currency !== undefined && String(resolved.currency).toUpperCase() !== code) {
-        throw new TypeError("Currency formatting currency must match the explicit currency code");
+      assertStyle(resolved, "currency", "Currency formatting");
+      rejectOptions(resolved, UNIT_OPTION_KEYS, "Currency formatting");
+      if (resolved.currency !== undefined) {
+        const optionCurrency = assertIdentifier(resolved.currency, "Currency formatting currency")
+          .toUpperCase();
+        if (optionCurrency !== code) {
+          throw new TypeError("Currency formatting currency must match the explicit currency code");
+        }
       }
       return new Intl.NumberFormat(activeLocale(port), {
         ...resolved,
@@ -113,13 +170,15 @@ export function createLocaleFormatting(localization) {
     },
 
     formatUnit(value, unit, options) {
-      const unitId = assertText(unit, "Unit id", 64);
+      const unitId = assertIdentifier(unit, "Unit id");
       const resolved = assertOptions(options, "Unit formatting");
-      if (resolved.style !== undefined && resolved.style !== "unit") {
-        throw new TypeError("Unit formatting style cannot be overridden");
-      }
-      if (resolved.unit !== undefined && resolved.unit !== unitId) {
-        throw new TypeError("Unit formatting unit must match the explicit unit id");
+      assertStyle(resolved, "unit", "Unit formatting");
+      rejectOptions(resolved, CURRENCY_OPTION_KEYS, "Unit formatting");
+      if (resolved.unit !== undefined) {
+        const optionUnit = assertIdentifier(resolved.unit, "Unit formatting unit");
+        if (optionUnit !== unitId) {
+          throw new TypeError("Unit formatting unit must match the explicit unit id");
+        }
       }
       return new Intl.NumberFormat(activeLocale(port), {
         ...resolved,
@@ -136,7 +195,7 @@ export function createLocaleFormatting(localization) {
     },
 
     formatRelativeTime(value, unit, options) {
-      const unitId = assertText(unit, "Relative time unit", 16);
+      const unitId = assertIdentifier(unit, "Relative time unit", 16);
       if (!RELATIVE_TIME_UNITS.has(unitId)) {
         throw new TypeError(`Unsupported relative time unit: ${unitId}`);
       }
@@ -154,14 +213,17 @@ export function createLocaleFormatting(localization) {
     },
 
     formatDisplayName(value, type, options) {
-      const code = assertText(value, "Display name code", 64);
-      const displayType = assertText(type, "Display name type", 16);
+      const code = assertIdentifier(value, "Display name code");
+      const displayType = assertIdentifier(type, "Display name type", 16);
       if (!DISPLAY_NAME_TYPES.has(displayType)) {
         throw new TypeError(`Unsupported display name type: ${displayType}`);
       }
       const resolved = assertOptions(options, "Display name formatting");
-      if (resolved.type !== undefined && resolved.type !== displayType) {
-        throw new TypeError("Display name formatting type must match the explicit type");
+      if (resolved.type !== undefined) {
+        const optionType = assertIdentifier(resolved.type, "Display name formatting type", 16);
+        if (optionType !== displayType) {
+          throw new TypeError("Display name formatting type must match the explicit type");
+        }
       }
       return new Intl.DisplayNames(activeLocale(port), {
         ...resolved,
