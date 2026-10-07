@@ -134,7 +134,13 @@
     "catalog_envelope_schema": "ordax.store-catalog-envelope/1",
     "catalog_publication_payload_schema": "ordax-apps.store-catalog-publication/1",
     "catalog_crypto_reuses_runtime_component_trust": true,
-    "catalog_envelope_is_distinct_from_component_release_envelope": true
+    "catalog_envelope_is_distinct_from_component_release_envelope": true,
+    "catalog_sequence_watermark_implemented": true,
+    "catalog_sequence_watermark_mounted": false,
+    "catalog_sequence_watermark_owner": "native-store-catalog",
+    "catalog_sequence_watermark_schema": "ordax.store-catalog-watermark/1",
+    "catalog_sequence_watermark_atomic_replace": true,
+    "catalog_sequence_watermark_kernel_lock": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
