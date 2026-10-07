@@ -165,15 +165,11 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertTrue(close["gateway_route_deployed"])
         self.assertTrue(close["lifecycle_service_deployed"])
         self.assertEqual(close["lifecycle_service_deployment_revision_observed"], 2)
-        self.assertEqual(close["gateway_route_deployment_revision_observed"], 26)
+        self.assertEqual(close["gateway_route_deployment_revision_observed"], 27)
         self.assertEqual(close["gateway_source_version"], 17)
-        self.assertEqual(close["gateway_deployed_source_version"], 16)
-        self.assertFalse(close["deployment_source_match_verified"])
-        self.assertFalse(close["gateway_deployment_source_match_verified"])
-        self.assertEqual(
-            close["gateway_source_change_pending_deployment"],
-            "native-direct-auth-rate-limit-v17",
-        )
+        self.assertEqual(close["gateway_deployed_source_version"], 17)
+        self.assertTrue(close["deployment_source_match_verified"])
+        self.assertTrue(close["gateway_deployment_source_match_verified"])
         self.assertFalse(close["public_enabled"])
         self.assertFalse(close["lifecycle_service_enabled"])
 
