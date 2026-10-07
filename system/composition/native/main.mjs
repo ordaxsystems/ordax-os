@@ -103,6 +103,7 @@ import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
 import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
 import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
 import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
+import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -161,6 +162,14 @@ async function start() {
         throw new Error("Native loopback fetch is unavailable");
       };
   const verifiedComponentArtifactIdentity = createNativeVerifiedComponentArtifactIdentity(window);
+  const storeCatalogCompositionPromise = optionalNativeProbe(
+    "OrdaX Native Store catalog composition unavailable",
+    () => createNativeStoreCatalogComposition({
+      windowRef: window,
+      componentSource: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+    }),
+  );
   const verifiedAppSemanticsPromise = optionalNativeProbe(
     "OrdaX verified App Intelligence semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
@@ -803,7 +812,8 @@ async function start() {
       localSession,
     );
   }
-  const storeCatalog = createUnavailableAppStoreCatalogPort();
+  const storeCatalogComposition = await storeCatalogCompositionPromise;
+  const storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
   const storeOverviewControls = mountStoreOverviewControls(
     root,
     storeCatalog,
@@ -965,6 +975,7 @@ async function start() {
       updateControls.destroy();
       systemOverviewControls.destroy();
       storeOverviewControls.destroy();
+      storeCatalogComposition?.destroy();
       settingsOverviewControls.destroy();
       networkTrayControls?.destroy();
       networkQuickPanel?.destroy();
