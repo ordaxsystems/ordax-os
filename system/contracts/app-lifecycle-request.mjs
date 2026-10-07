@@ -128,3 +128,18 @@ export function assertAppLifecycleRequestPort(port) {
   }
   return port;
 }
+
+
+export function validateAppLifecycleRequestResultForRequest(rawResult, rawRequest) {
+  const request = validateAppLifecycleRequest(rawRequest);
+  const result = validateAppLifecycleRequestResult(rawResult);
+  if (
+    result.requestId !== request.requestId
+    || result.appId !== request.appId
+    || result.operation !== request.operation
+    || result.source !== request.source
+  ) {
+    throw new TypeError("App lifecycle request result identity mismatch");
+  }
+  return result;
+}
