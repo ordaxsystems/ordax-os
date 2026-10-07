@@ -158,9 +158,12 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     need(redirect_policy.get("same_origin_only") is True, "provider-policy-same-origin")
     need(redirect_policy.get("wildcards_allowed") is False, "provider-policy-no-wildcards")
     need(
-        observation.get("provider_leaked_password_protection_enabled") is True
-        or observation.get("product_leaked_password_protection_verified") is True,
-        "leaked-password-protection",
+        observation.get("provider_leaked_password_protection_enabled") is True,
+        "provider-leaked-password-protection",
+    )
+    need(
+        observation.get("product_leaked_password_protection_verified") is True,
+        "product-leaked-password-protection",
     )
     need(observation.get("password_policy_reviewed") is True, "password-policy-review")
     need(
