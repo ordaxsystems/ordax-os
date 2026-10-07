@@ -9,14 +9,18 @@ import {
   validateComponentId,
 } from "../../contracts/component-manifest.mjs";
 import {
-  validateComponentSlotResolution,
   validateComponentSlotSourceCommit,
 } from "../../contracts/component-slot-source.mjs";
+import {
+  validateComponentRuntimeMetadata,
+} from "../../contracts/component-runtime-metadata.mjs";
 import { assertVerifiedComponentPackageSource } from "../../contracts/verified-component-package-source.mjs";
+import {
+  EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
+  EXTERNAL_FIRST_PARTY_OWNER,
+} from "../apps/external-first-party-policy.mjs";
 
 const MAX_APP_MANIFESTS = 32;
-export const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
-export const EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS = Object.freeze(["notes", "studio"]);
 
 function validateAppIds(value) {
   if (!Array.isArray(value) || value.length > MAX_APP_MANIFESTS) {
@@ -44,35 +48,6 @@ async function readJsonResponse(response, label) {
     throw new TypeError(`${label} payload must be an object`);
   }
   return value;
-}
-
-function validateCurrentMetadata(value, expectedAppId) {
-  if (value.componentId !== expectedAppId || value.state !== "current") {
-    throw new TypeError("Verified app semantics metadata identity mismatch");
-  }
-  if (!Number.isSafeInteger(value.revision) || value.revision < 0) {
-    throw new TypeError("Verified app semantics metadata revision is invalid");
-  }
-  if (value.source === "absent" || value.source === "bundled") {
-    if (
-      value.version !== null
-      || value.sourceCommit !== null
-      || value.entrypoint !== null
-    ) {
-      throw new TypeError("Verified app semantics non-slot metadata is inconsistent");
-    }
-    return Object.freeze({
-      componentId: expectedAppId,
-      state: "current",
-      source: value.source,
-      revision: value.revision,
-      version: null,
-      sourceCommit: null,
-      entrypoint: null,
-      pendingHealth: null,
-    });
-  }
-  return validateComponentSlotResolution(value);
 }
 
 async function readVerifiedPackageJson({
@@ -241,7 +216,7 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
 
   const entries = [];
   for (const appId of ids) {
-    const metadata = validateCurrentMetadata(
+    const metadata = validateComponentRuntimeMetadata(
       await readJsonResponse(
         await fetchImpl(packageSource.metadataUrl(appId, "current"), {
           method: "GET",
@@ -251,7 +226,7 @@ export async function loadVerifiedFirstPartyApplicationSemantics({
         }),
         `Verified app semantics metadata for ${appId}`,
       ),
-      appId,
+      { componentId: appId, state: "current" },
     );
 
     if (metadata.source !== "slot") {
@@ -347,7 +322,7 @@ function validateVerifiedOverlayEntry(entry) {
     throw new TypeError("Verified app semantics overlay application is invalid");
   }
   const id = validateComponentId(app.id);
-  if (!EXTERNAL_FIRST_PARTY_SEMANTIC_APP_IDS.includes(id)) {
+  if (!EXTERNAL_FIRST_PARTY_COMPONENT_IDS.includes(id)) {
     throw new TypeError(`Verified app semantics overlay app is not an allowed external first-party app: ${id}`);
   }
   const component = defineComponentManifest(app.component);
