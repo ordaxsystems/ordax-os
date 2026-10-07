@@ -18,7 +18,9 @@
       "oidc_subject",
       "canonical_public_origin"
     ],
-    "runtime_proof_required_before_public_auth": true
+    "runtime_proof_required_before_public_auth": true,
+    "automatic_git_deployments_frozen": true,
+    "reenable_git_deployments_only_after_new_team_runtime_proof": true
   },
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
