@@ -53,11 +53,11 @@ test("interpolation rejects coercive value types", () => {
   }
 });
 
-test("interpolation rejects non-finite numbers", () => {
+test("interpolation rejects non-finite numbers through the canonical semantic value contract", () => {
   for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
     assert.throws(
       () => interpolateLocalizationMessage("Value {value}", { value }),
-      /must be finite/,
+      /must be text or a finite number/,
     );
   }
 });
