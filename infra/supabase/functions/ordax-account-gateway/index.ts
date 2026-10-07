@@ -94,8 +94,8 @@ function parseCookies(req: Request) {
   return result;
 }
 
-function cookie(name: string, value: string, maxAge: number) {
-  return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+function cookie(name: string, value: string, maxAge: number, path = "/") {
+  return `${name}=${value}; Path=${path}; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
 function sessionCookies(access: string, refresh: string, expiresIn: number) {
@@ -112,17 +112,17 @@ function clearCookies() {
 function recoveryCookies(access: string, refresh: string, expiresIn: number) {
   const maxAge = Math.max(1, Math.min(Number(expiresIn) || RECOVERY_SESSION_MAX_AGE, RECOVERY_SESSION_MAX_AGE));
   return [
-    cookie(RECOVERY_ACCESS_COOKIE, access, maxAge),
-    cookie(RECOVERY_REFRESH_COOKIE, refresh, maxAge),
-    cookie(RECOVERY_COOKIE, "1", maxAge),
+    cookie(RECOVERY_ACCESS_COOKIE, access, maxAge, "/auth/recover"),
+    cookie(RECOVERY_REFRESH_COOKIE, refresh, maxAge, "/auth/recover"),
+    cookie(RECOVERY_COOKIE, "1", maxAge, "/auth/recover"),
   ];
 }
 
 function clearRecoveryCookies() {
   return [
-    cookie(RECOVERY_ACCESS_COOKIE, "", 0),
-    cookie(RECOVERY_REFRESH_COOKIE, "", 0),
-    cookie(RECOVERY_COOKIE, "", 0),
+    cookie(RECOVERY_ACCESS_COOKIE, "", 0, "/auth/recover"),
+    cookie(RECOVERY_REFRESH_COOKIE, "", 0, "/auth/recover"),
+    cookie(RECOVERY_COOKIE, "", 0, "/auth/recover"),
   ];
 }
 
