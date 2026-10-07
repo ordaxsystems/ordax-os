@@ -200,6 +200,38 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         )
         self.assertFalse(observation["bot_protection_production_secret_configured"])
         self.assertFalse(observation["public_adapter_rate_limit_deployed"])
+        self.assertTrue(
+            hardening["required_before_public_login"][
+                "registration_provider_bypass_guard_verified"
+            ]
+        )
+        self.assertTrue(observation["provider_signup_api_enabled"])
+        self.assertTrue(observation["registration_provider_bypass_guard_verified"])
+        self.assertEqual(
+            observation["registration_provider_bypass_guard_trigger"],
+            "on_auth_user_created_ordax_product",
+        )
+        self.assertEqual(
+            observation["registration_provider_bypass_guard_function"],
+            "private.handle_ordax_account_created",
+        )
+        self.assertTrue(
+            observation["registration_provider_bypass_guard_search_path_empty"]
+        )
+        self.assertTrue(
+            observation["registration_provider_bypass_guard_requires_active_policy"]
+        )
+        self.assertTrue(
+            observation["registration_provider_bypass_guard_requires_email_hash_match"]
+        )
+        self.assertTrue(
+            observation[
+                "registration_provider_bypass_guard_requires_unconsumed_unexpired_intent"
+            ]
+        )
+        self.assertTrue(
+            observation["registration_provider_bypass_guard_writes_legal_receipt"]
+        )
 
     def test_supabase_preflight_is_read_only(self):
         sql = PREFLIGHT.read_text(encoding="utf-8").lower()
