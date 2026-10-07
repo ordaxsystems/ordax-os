@@ -5,6 +5,21 @@ on:
     branches: [main]
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/app-presentation-manifest.mjs'
+      - 'system/apps/external-app-definition.mjs'
+      - 'system/services/apps/package-source-policy.mjs'
+      - 'system/services/apps/verified-external-app-catalog.mjs'
+      - 'system/services/apps/verified-external-app-host.mjs'
+      - 'tests/test_verified_external_app_host.mjs'
+      - 'tools/app-policy/render_runtime_package_app_policy.py'
+      - 'tests/test_surface_app_package_policy_ssot.py'
+      - 'tests/test_verified_external_app_catalog.mjs'
+      - 'system/apps/runtime-catalog.mjs'
+      - 'system/surface/ui/surface-state.mjs'
+      - 'system/surface/ui/surface.mjs'
+      - 'tests/test_dynamic_app_runtime_catalog.mjs'
+      - 'tests/test_surface_workspace.mjs'
+      - 'tests/test_external_app_definition.mjs'
       - 'system/contracts/file-association-manifest.mjs'
       - 'system/services/files/file-open-registry.mjs'
       - 'tests/test_file_association_manifest.mjs'
@@ -43,6 +58,21 @@ on:
   pull_request:
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/app-presentation-manifest.mjs'
+      - 'system/apps/external-app-definition.mjs'
+      - 'system/services/apps/package-source-policy.mjs'
+      - 'system/services/apps/verified-external-app-catalog.mjs'
+      - 'system/services/apps/verified-external-app-host.mjs'
+      - 'tests/test_verified_external_app_host.mjs'
+      - 'tools/app-policy/render_runtime_package_app_policy.py'
+      - 'tests/test_surface_app_package_policy_ssot.py'
+      - 'tests/test_verified_external_app_catalog.mjs'
+      - 'system/apps/runtime-catalog.mjs'
+      - 'system/surface/ui/surface-state.mjs'
+      - 'system/surface/ui/surface.mjs'
+      - 'tests/test_dynamic_app_runtime_catalog.mjs'
+      - 'tests/test_surface_workspace.mjs'
+      - 'tests/test_external_app_definition.mjs'
       - 'system/contracts/file-association-manifest.mjs'
       - 'system/services/files/file-open-registry.mjs'
       - 'tests/test_file_association_manifest.mjs'
@@ -94,6 +124,16 @@ jobs:
         run: |
           set -euo pipefail
           node --check system/contracts/first-party-app-delivery.mjs
+          node --check system/contracts/app-presentation-manifest.mjs
+          node --check system/apps/external-app-definition.mjs
+          node --check system/services/apps/package-source-policy.mjs
+          node --check system/services/apps/verified-external-app-catalog.mjs
+          node --check system/services/apps/verified-external-app-host.mjs
+          python -m py_compile tools/app-policy/render_runtime_package_app_policy.py
+          python tools/app-policy/render_runtime_package_app_policy.py --check
+          node --check system/apps/runtime-catalog.mjs
+          node --check system/surface/ui/surface-state.mjs
+          node --check system/surface/ui/surface.mjs
           node --check system/contracts/file-association-manifest.mjs
           node --check system/services/files/file-open-registry.mjs
           node --check system/contracts/app-lifecycle-request.mjs
@@ -111,6 +151,10 @@ jobs:
           node --check system/composition/native/store-catalog.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
+          node --check tests/test_external_app_definition.mjs
+          node --check tests/test_verified_external_app_catalog.mjs
+          node --check tests/test_verified_external_app_host.mjs
+          node --check tests/test_dynamic_app_runtime_catalog.mjs
           node --check tests/test_file_association_manifest.mjs
           node --check tests/test_file_open_registry.mjs
           node --check tests/test_app_store_contract.mjs
@@ -132,6 +176,12 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_first_party_app_delivery.mjs
+          node --test tests/test_external_app_definition.mjs
+          node --test tests/test_verified_external_app_catalog.mjs
+          node --test tests/test_verified_external_app_host.mjs
+          python -m unittest tests.test_surface_app_package_policy_ssot -v
+          node --test tests/test_dynamic_app_runtime_catalog.mjs
+          node --test tests/test_surface_workspace.mjs
           node --test tests/test_file_association_manifest.mjs
           node --test tests/test_file_open_registry.mjs
           node --test tests/test_app_store_contract.mjs

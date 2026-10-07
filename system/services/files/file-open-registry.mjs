@@ -73,3 +73,17 @@ export function createFileOpenRegistry({
     },
   });
 }
+
+
+export function assertFileOpenRegistry(value) {
+  if (
+    !value
+    || typeof value !== "object"
+    || value.schema !== FILE_OPEN_REGISTRY_SCHEMA
+    || typeof value.resolve !== "function"
+    || typeof value.list !== "function"
+  ) {
+    throw new TypeError("A compatible file-open registry is required");
+  }
+  return value;
+}

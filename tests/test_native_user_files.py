@@ -507,9 +507,14 @@ class NativeUserFilesTests(unittest.TestCase):
         self.assertIn('selectPath(selected.dataset.fileSelectPath, { focus: true })', controls)
         self.assertIn("ordax-files-preview-content", controls)
         self.assertIn('t("files.preview.boundary")', controls)
+        self.assertIn("assertFileOpenRegistry", controls)
+        self.assertIn('resolution.state === "ready"', controls)
+        self.assertIn('resolution.state === "handler-unavailable"', controls)
+        self.assertIn('"files.open.handlerUnavailable"', controls)
         files_i18n = FILES_I18N.read_text(encoding="utf-8")
         self.assertIn('"files.preview.boundary": "Visualização segura de texto UTF-8', files_i18n)
         self.assertIn('"files.preview.boundary": "Safe UTF-8 text preview', files_i18n)
+        self.assertIn('"files.open.handlerUnavailable"', files_i18n)
         self.assertNotIn("innerHTML", controls)
         self.assertNotIn("📁", controls)
         self.assertNotIn("📄", controls)
@@ -530,8 +535,10 @@ class NativeUserFilesTests(unittest.TestCase):
         self.assertIn("createNativeFileSpace", composition)
         self.assertIn("createNativeRecentFilesStore", composition)
         self.assertIn("createRecentFilesRuntime", composition)
+        self.assertIn("createFileOpenRegistry", composition)
+        self.assertIn("fileOpenRegistry", composition)
         self.assertIn(
-            "{ recentFiles, projects }",
+            "{ recentFiles, projects, fileOpenRegistry }",
             composition,
         )
         self.assertIn("createAppActivationChannel", composition)
