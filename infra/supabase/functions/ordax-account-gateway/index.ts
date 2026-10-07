@@ -1092,6 +1092,7 @@ Deno.serve(async (req: Request) => {
         authenticated: false,
         provider: "gated",
         status: "anonymous",
+        accountCloseEnabled: false,
       }, clearCookies());
     }
     if (path.startsWith("/auth/") || path.startsWith("/sync/") || path.startsWith("/account/")) {
@@ -1119,7 +1120,13 @@ Deno.serve(async (req: Request) => {
     try {
       const session = await authenticated(req);
       if (!session.user) {
-        return json(200, { $schema: SESSION_SCHEMA, authenticated: false, provider: "supabase", status: "anonymous" }, session.cookies);
+        return json(200, {
+          $schema: SESSION_SCHEMA,
+          authenticated: false,
+          provider: "supabase",
+          status: "anonymous",
+          accountCloseEnabled: false,
+        }, session.cookies);
       }
       return json(200, {
         $schema: SESSION_SCHEMA,
@@ -1128,6 +1135,7 @@ Deno.serve(async (req: Request) => {
         status: "authenticated",
         subject: session.user.id,
         email: session.user.email ?? null,
+        accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
       }, session.cookies);
     } catch {
       return error(503, "identity-provider-unavailable", "O serviço de identidade OrdaX está indisponível.");
