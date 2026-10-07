@@ -5,7 +5,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "index.ts"
 RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_auth_rate_limit.mjs"
 REQUEST_CONTEXT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_request_context.mjs"
-OIDC = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "vercel_oidc.mjs"
+OIDC_REEXPORT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "vercel_oidc.mjs"
+OIDC = ROOT / "infra" / "supabase" / "functions" / "_shared" / "vercel_public_proxy_identity.mjs"
 INNER_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "index.ts"
 VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
 
@@ -15,6 +16,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.edge = PUBLIC_EDGE.read_text(encoding="utf-8")
         self.rate_limit = RATE_LIMIT.read_text(encoding="utf-8")
         self.request_context = REQUEST_CONTEXT.read_text(encoding="utf-8")
+        self.oidc_reexport = OIDC_REEXPORT.read_text(encoding="utf-8")
         self.oidc = OIDC.read_text(encoding="utf-8")
         self.inner = INNER_EDGE.read_text(encoding="utf-8")
         self.proxy = VERCEL_PROXY.read_text(encoding="utf-8")
@@ -54,8 +56,9 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('new URL("/.well-known/jwks", VERCEL_OIDC_ISSUER)', self.oidc)
         self.assertIn('algorithms: ["RS256", "ES256"]', self.oidc)
         self.assertNotIn('environment:preview', self.oidc)
+        self.assertIn('../_shared/vercel_public_proxy_identity.mjs', self.oidc_reexport)
 
-    def test_runtime_oidc_and_trusted_proxy_context_are_consumed_not_forwarded(self):
+    def test_runtime_oidc_is_verified_then_forwarded_only_as_inner_boundary_identity(self):
         request_headers_start = self.edge.index("const REQUEST_HEADERS")
         request_headers_end = self.edge.index("];", request_headers_start)
         request_headers = self.edge[request_headers_start:request_headers_end]
@@ -64,6 +67,11 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn("authorization", request_headers.lower())
         self.assertIn('headers.set("x-ordax-public-site", "1")', self.edge)
         self.assertIn('headers.set("apikey", publishableKey)', self.edge)
+        self.assertIn('headers.set("authorization", verifiedAuthorization)', self.edge)
+        self.assertIn('req.headers.get("authorization") ?? ""', self.edge)
+        verify_index = self.edge.index("verifyPublicProxyIdentity(req)")
+        forward_index = self.edge.index('headers.set("authorization", verifiedAuthorization)')
+        self.assertLess(verify_index, forward_index)
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
@@ -83,9 +91,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('const MAX_BODY = 64 * 1024', self.edge)
         self.assertIn('const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024', self.edge)
         self.assertIn('const ALLOWED_METHODS = new Set(["GET", "POST"])', self.edge)
-        self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"]', self.edge)
-        self.assertNotIn('/account/', self.edge)
-        self.assertNotIn('/network/', self.edge)
+        self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/account/", "/sync/", "/network/"]', self.edge)
 
     def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
         self.assertIn(
@@ -104,7 +110,17 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("x-forwarded-host", canonical.host)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
 
-    def test_inner_gateway_remains_fail_closed_during_boundary_rollout(self):
+    def test_inner_gateway_reverifies_trusted_identity_and_remains_fail_closed_during_rollout(self):
+        self.assertIn('verifyPublicProxyIdentity', self.inner)
+        self.assertIn('trustedBoundaryRequired(path)', self.inner)
+        self.assertIn('path.startsWith("/auth/")', self.inner)
+        self.assertIn('path.startsWith("/account/")', self.inner)
+        self.assertIn('path.startsWith("/sync/")', self.inner)
+        self.assertIn('path.startsWith("/network/")', self.inner)
+        self.assertIn('"trusted-account-boundary-required"', self.inner)
+        identity_index = self.inner.index("verifyPublicProxyIdentity(req)")
+        csrf_index = self.inner.index("crossSiteStateChange(req)")
+        self.assertLess(identity_index, csrf_index)
         self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", self.inner)
         self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = false;", self.inner)
         self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", self.inner)
