@@ -1,3 +1,5 @@
+import { assertLocalizationMessageValue } from "../../contracts/localization.mjs";
+
 export const LOCALIZATION_INTERPOLATION_MAX_TEXT_LENGTH = 4096;
 
 const PLACEHOLDER_PATTERN = /\{([A-Za-z][A-Za-z0-9]*)\}/g;
@@ -11,23 +13,19 @@ function assertValues(value) {
 }
 
 function interpolationValue(value, key) {
-  if (typeof value === "string") {
-    if (value.length > LOCALIZATION_INTERPOLATION_MAX_TEXT_LENGTH) {
+  const resolved = assertLocalizationMessageValue(
+    value,
+    `Localization interpolation value ${key}`,
+  );
+  if (typeof resolved === "string") {
+    if (resolved.length > LOCALIZATION_INTERPOLATION_MAX_TEXT_LENGTH) {
       throw new RangeError(
         `Localization interpolation value ${key} exceeds ${LOCALIZATION_INTERPOLATION_MAX_TEXT_LENGTH} UTF-16 code units`,
       );
     }
-    return value;
+    return resolved;
   }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      throw new TypeError(`Localization interpolation value ${key} must be finite`);
-    }
-    return String(value);
-  }
-  throw new TypeError(
-    `Localization interpolation value ${key} must be text or a finite number`,
-  );
+  return String(resolved);
 }
 
 export function interpolateLocalizationMessage(text, values = {}) {
