@@ -52,6 +52,7 @@ TRUSTED_STATE_UID = 0
 TAB_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 MAX_TABS = 16
 MAX_URI_LENGTH = 8192
+SUPPORTED_PROBATION_COMPONENTS = ("internet", "notes")
 MAX_VIEWPORT_DIMENSION = 16384
 TOP_LEVEL_NETWORK_SCHEMES = frozenset({"http", "https"})
 RESOURCE_NETWORK_SCHEMES = frozenset({"http", "https", "ws", "wss"})
@@ -350,23 +351,28 @@ class OrdaXBrowserHost:
         dialog.destroy()
         return response == Gtk.ResponseType.OK
 
-    def on_surface_load_changed(self, _view: object, load_event: object) -> None:
-        if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
-            return
-        self.component_probation_started = True
-        supported_components = ("internet", "notes")
-        self.component_probation_nonces = {
-            component_id: secrets.token_urlsafe(32)
-            for component_id in supported_components
-        }
-        attempts = json.dumps(
-            self.component_probation_nonces,
+    def start_component_probation(self, component_ids: tuple[str, ...]) -> bool:
+        attempts: dict[str, str] = {}
+        for component_id in component_ids:
+            if component_id not in SUPPORTED_PROBATION_COMPONENTS:
+                raise ValueError("unsupported component probation request")
+            if component_id in self.component_probation_nonces:
+                continue
+            nonce = secrets.token_urlsafe(32)
+            self.component_probation_nonces[component_id] = nonce
+            attempts[component_id] = nonce
+
+        if not attempts:
+            return False
+
+        encoded_attempts = json.dumps(
+            attempts,
             ensure_ascii=False,
             separators=(",", ":"),
         )
         script = f"""
 (async () => {{
-  const attempts = {attempts};
+  const attempts = {encoded_attempts};
   let module;
   let moduleError;
   try {{
@@ -406,12 +412,30 @@ class OrdaXBrowserHost:
         try:
             self.surface_view.run_javascript(script, None, None, None)
         except Exception as exc:  # pragma: no cover - native runtime diagnostic
-            self.component_probation_nonces.clear()
+            for component_id, nonce in attempts.items():
+                if self.component_probation_nonces.get(component_id) == nonce:
+                    self.component_probation_nonces.pop(component_id, None)
             print(
                 f"ordax-browser-host: failed to start component probation: {exc}",
                 file=sys.stderr,
                 flush=True,
             )
+            return False
+        return True
+
+    def on_surface_load_changed(self, _view: object, load_event: object) -> None:
+        if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
+            return
+        self.component_probation_started = True
+        self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
+
+    def handle_component_probation_request(self, payload: dict) -> None:
+        if set(payload) != {"type", "componentId"}:
+            raise ValueError("component probation request fields are invalid")
+        component_id = payload.get("componentId")
+        if component_id not in SUPPORTED_PROBATION_COMPONENTS:
+            raise ValueError("unsupported component probation request")
+        self.start_component_probation((component_id,))
 
     def handle_component_probation_result(self, payload: dict) -> None:
         result = payload.get("result") if isinstance(payload, dict) else None
@@ -560,6 +584,8 @@ class OrdaXBrowserHost:
                 self.history_action(payload.get("tabId"), "reload")
             elif command == "viewport.set":
                 self.set_viewport(payload.get("viewport"))
+            elif command == "component.probation.request":
+                self.handle_component_probation_request(payload)
             elif command == "component.probation.result":
                 self.handle_component_probation_result(payload)
         except (TypeError, ValueError) as exc:
