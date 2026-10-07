@@ -87,7 +87,8 @@
   "runtime_health_bridge_transport": "native-webkit-message-nonce",
   "runtime_health_bridge_probe_registry": "system/services/components/probation-orchestrator.mjs",
   "runtime_health_bridge_supported_components": [
-    "internet"
+    "internet",
+    "notes"
   ],
   "runtime_health_bridge_probe_mode": "import-contract",
   "runtime_health_bridge_requires_host_nonce": true,
@@ -121,6 +122,12 @@
   },
   "source_repository_policy": "component-bound-fail-closed",
   "native_loopback_broker_health_mutation_components": [
-    "internet"
-  ]
+    "internet",
+    "notes"
+  ],
+  "notes_component_slot_read_available": true,
+  "notes_component_probation_available": true,
+  "notes_component_distribution_activation_enabled": false,
+  "notes_component_promotion_proven": false,
+  "notes_component_rollback_proven": false
 }
