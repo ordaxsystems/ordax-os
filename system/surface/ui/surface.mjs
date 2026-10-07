@@ -1,4 +1,5 @@
-import { listFirstPartyApps, getFirstPartyApp, isAppAvailable } from "../../apps/catalog.mjs";
+import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
+import { externalAppCopy } from "../../services/apps/external-app-definition.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { PREFERENCE_RUNTIME_SCHEMA } from "../../contracts/preference-runtime.mjs";
 import { assertPreferenceStore, validatePreferenceRecord } from "../../contracts/preference-store.mjs";
@@ -51,14 +52,21 @@ const CONNECTIVITY_MESSAGE_IDS = Object.freeze({
 });
 
 function appTitle(localization, app) {
+  if (app?.presentation) return externalAppCopy(app, localization.getLocale()).title;
   return localization.translate(`app.${app.id}.title`);
 }
 
 function appDescription(localization, app) {
+  if (app?.presentation) return externalAppCopy(app, localization.getLocale()).description;
   return localization.translate(`app.${app.id}.description`);
 }
 
 function panelCopy(localization, app, index, field) {
+  if (app?.presentation && app.panels[index]?.kind === "extension") {
+    const copy = externalAppCopy(app, localization.getLocale());
+    if (field === "label" || field === "title") return copy.title;
+    if (field === "body") return "";
+  }
   return localization.translate(`app.${app.id}.panel.${index}.${field}`);
 }
 
@@ -386,6 +394,7 @@ export function mountSurface(
   preferenceStore = null,
   workspaceStore = null,
   appActivation = null,
+  appCatalog = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Surface root must be a DOM Element");
@@ -394,6 +403,7 @@ export function mountSurface(
   const store = preferenceStore === null ? null : assertPreferenceStore(preferenceStore);
   const workspacePort = workspaceStore === null ? null : assertWorkspaceStore(workspaceStore);
   const activationPort = appActivation === null ? null : assertAppActivationPort(appActivation);
+  const catalog = appCatalog === null ? defaultAppRuntimeCatalog : assertAppRuntimeCatalog(appCatalog);
   const documentElement = root.ownerDocument.documentElement;
   const originalDocumentLanguage = documentElement.getAttribute("lang");
   const originalDocumentDirection = documentElement.getAttribute("dir");
@@ -403,7 +413,7 @@ export function mountSurface(
   const renderListeners = new Set();
   const preferenceListeners = new Set();
 
-  let state = createSurfaceState(host.getSnapshot(), preferenceSeed, workspaceSeed);
+  let state = createSurfaceState(host.getSnapshot(), preferenceSeed, workspaceSeed, catalog);
   const preferences = Object.freeze({
     schema: PREFERENCE_RUNTIME_SCHEMA,
     getSnapshot() {
@@ -473,8 +483,8 @@ export function mountSurface(
     const retained = new Set();
     let visible = 0;
 
-    for (const [index, app] of listFirstPartyApps().entries()) {
-      const available = isAppAvailable(app, state.capabilityIds);
+    for (const [index, app] of catalog.list().entries()) {
+      const available = catalog.isAvailable(app, state.capabilityIds);
       const localizedTitle = appTitle(localization, app);
       const localizedDescription = appDescription(localization, app);
       const searchable = `${localizedTitle} ${localizedDescription} ${app.id}`.toLocaleLowerCase(locale);
@@ -553,7 +563,7 @@ export function mountSurface(
     let visibleIndex = 0;
 
     for (const windowState of area.windows) {
-      const app = getFirstPartyApp(windowState.appId);
+      const app = catalog.get(windowState.appId);
       if (!app) continue;
       const index = visibleIndex;
       if (!windowState.minimized) visibleIndex += 1;
@@ -584,7 +594,7 @@ export function mountSurface(
     const retained = new Set();
     let index = 0;
     for (const windowState of area.windows) {
-      const app = getFirstPartyApp(windowState.appId);
+      const app = catalog.get(windowState.appId);
       if (!app) continue;
       let button = Array.from(runningApps.children).find(
         (child) => child.dataset?.openWindow === windowState.id,
@@ -619,8 +629,8 @@ export function mountSurface(
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
       const appId = button.dataset.sidebarApp;
-      const app = getFirstPartyApp(appId);
-      button.disabled = !isAppAvailable(app, state.capabilityIds);
+      const app = catalog.get(appId);
+      button.disabled = !catalog.isAvailable(app, state.capabilityIds);
       button.dataset.active = String(activeWindow?.appId === appId);
     }
   };
@@ -727,7 +737,7 @@ export function mountSurface(
 
   const dispatch = (action) => {
     const previousPreferences = state.preferences;
-    const next = reduceSurfaceState(state, action);
+    const next = reduceSurfaceState(state, action, catalog);
     if (next === state) return;
     state = next;
     const preferencesChanged = state.preferences !== previousPreferences;
@@ -780,10 +790,10 @@ export function mountSurface(
     if (appButton) {
       const appId = appButton.dataset.launchApp;
       const requiredCapability = appButton.dataset.requiresCapability;
-      const app = getFirstPartyApp(appId);
+      const app = catalog.get(appId);
       if (
         (requiredCapability && !state.capabilityIds.includes(requiredCapability)) ||
-        !isAppAvailable(app, state.capabilityIds)
+        !catalog.isAvailable(app, state.capabilityIds)
       ) {
         return;
       }
@@ -995,8 +1005,8 @@ export function mountSurface(
   root.addEventListener("dblclick", onDoubleClick);
   root.addEventListener("keydown", onKeyDown);
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
-    const app = getFirstPartyApp(activation.appId);
-    if (!isAppAvailable(app, state.capabilityIds)) return;
+    const app = catalog.get(activation.appId);
+    if (!catalog.isAvailable(app, state.capabilityIds)) return;
     dispatch({
       type: "app.launch",
       appId: activation.appId,
