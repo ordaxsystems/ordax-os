@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from contextlib import contextmanager
 import hashlib
 import json
 from pathlib import Path
@@ -53,6 +54,15 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
         self.trust = self.root / "trust.json"
         self.trust.write_text("{}\n", encoding="utf-8")
         self.channel = str(self.root / "ordax-runtime-component-channel")
+        self.watermark = self.root / "catalog-watermark.json"
+        self.watermark.write_text(
+            json.dumps({
+                "schema": "ordax.store-catalog-watermark/1",
+                "sequence": 9,
+                "catalogSha256": "f" * 64,
+            }, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
         self.release_bytes = b'{"release":"notes"}\n'
         self.package_bytes = b"notes-package"
@@ -190,6 +200,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
             channel_bin=self.channel,
             trust_path=str(self.trust),
             slot_root=str(self.slot_root),
+            watermark_path=str(self.watermark),
             runner=runner,
         )
         self.assertEqual(
@@ -217,6 +228,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
             channel_bin=self.channel,
             trust_path=str(self.trust),
             slot_root=str(self.slot_root),
+            watermark_path=str(self.watermark),
             runner=runner,
         )
         self.assertEqual(result["operation"], "update")
@@ -251,6 +263,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 channel_bin=self.channel,
                 trust_path=str(self.trust),
                 slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
                 runner=runner,
             )
         self.assertEqual(calls, [])
@@ -274,6 +287,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 channel_bin=self.channel,
                 trust_path=str(self.trust),
                 slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
                 runner=lambda *args, **kwargs: calls.append((args, kwargs)),
             )
         self.assertEqual(calls, [])
@@ -314,6 +328,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
             channel_bin=self.channel,
             trust_path=str(self.trust),
             slot_root=str(self.slot_root),
+            watermark_path=str(self.watermark),
             runner=runner,
         )
         self.assertEqual([argv[1] for argv in calls], ["status", "uninstall-state"])
@@ -360,9 +375,127 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                     channel_bin=self.channel,
                     trust_path=str(self.trust),
                     slot_root=str(self.slot_root),
+                    watermark_path=str(self.watermark),
                     runner=runner,
                 )
             self.assertEqual([argv[1] for argv in calls], ["status"])
+
+    def test_privileged_runtime_calls_remain_inside_catalog_watermark_guard(self) -> None:
+        self.cache_all()
+        calls, underlying_runner = self.install_runner()
+        guard_active = False
+        observed_guard_states = []
+        original_guard = lifecycle.guard_store_catalog_watermark
+
+        @contextmanager
+        def guarded(path):
+            nonlocal guard_active
+            self.assertEqual(path, self.watermark)
+            self.assertFalse(guard_active)
+            guard_active = True
+            try:
+                yield {
+                    "schema": "ordax.store-catalog-watermark/1",
+                    "sequence": 9,
+                    "catalogSha256": "f" * 64,
+                }
+            finally:
+                guard_active = False
+
+        def runner(argv, **kwargs):
+            observed_guard_states.append((argv[1], guard_active))
+            return underlying_runner(argv, **kwargs)
+
+        lifecycle.guard_store_catalog_watermark = guarded
+        try:
+            result = lifecycle.execute_offline_lifecycle_plan(
+                self.plan(),
+                artifact_root=str(self.cache),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=runner,
+            )
+        finally:
+            lifecycle.guard_store_catalog_watermark = original_guard
+
+        self.assertEqual(result["state"], "pending-health")
+        self.assertEqual(
+            [command for command, _active in observed_guard_states],
+            ["verify-envelope-v2", "stage-v2", "verify-slot-v2", "arm-pending"],
+        )
+        self.assertTrue(all(active for _command, active in observed_guard_states))
+        self.assertFalse(guard_active)
+
+    def test_stale_or_equivocated_plan_is_rejected_before_runtime_or_cache_access(self) -> None:
+        calls = []
+
+        stale = self.plan()
+        stale["catalogSequence"] = 8
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError,
+            "does not match current Store catalog watermark",
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                stale,
+                artifact_root=str(self.cache),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=lambda *args, **kwargs: calls.append((args, kwargs)),
+            )
+
+        equivocated = self.plan()
+        equivocated["catalogSha256"] = "e" * 64
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError,
+            "does not match current Store catalog watermark",
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                equivocated,
+                artifact_root=str(self.cache),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=lambda *args, **kwargs: calls.append((args, kwargs)),
+            )
+
+        self.assertEqual(calls, [])
+
+    def test_missing_or_corrupt_watermark_fails_closed_before_runtime(self) -> None:
+        calls = []
+        self.watermark.unlink()
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError,
+            "watermark is unavailable",
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                self.plan("remove", candidate=False),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=lambda *args, **kwargs: calls.append((args, kwargs)),
+            )
+
+        self.watermark.write_text('{"schema":"broken"}\n', encoding="utf-8")
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError,
+            "watermark is unavailable",
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                self.plan("remove", candidate=False),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=lambda *args, **kwargs: calls.append((args, kwargs)),
+            )
+
+        self.assertEqual(calls, [])
 
     def test_native_plan_validation_rejects_authority_or_ui_artifact_smuggling(self) -> None:
         plan = self.plan()
