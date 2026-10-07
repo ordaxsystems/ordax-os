@@ -1,8 +1,28 @@
+import json
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-lifecycle" / "index.ts"
+EXPORT_EXECUTOR_MIGRATION = (
+    ROOT
+    / "infra"
+    / "supabase"
+    / "product"
+    / "migrations"
+    / "20261007070000_account_export_executor_v1.sql"
+)
+EXPORT_SUBJECT_BRIDGE_MIGRATION = (
+    ROOT
+    / "infra"
+    / "supabase"
+    / "product"
+    / "migrations"
+    / "20261007071500_account_export_subject_bridge_v1.sql"
+)
+ACCOUNT_LIFECYCLE_CONTRACT = ROOT / "docs" / "contracts" / "account-lifecycle.json"
+SECURITY_POSTURE_CONTRACT = ROOT / "docs" / "contracts" / "supabase-security-posture.json"
+ACCOUNT_PROVIDER_SOURCE = ROOT / "services" / "public-identity" / "supabase_account.py"
 
 
 class AccountLifecycleEdgeTests(unittest.TestCase):
@@ -73,6 +93,71 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
     def test_health_reports_disabled_state(self):
         self.assertIn('service: "ordax-account-lifecycle"', self.text)
         self.assertIn("accountCloseEnabled: ACCOUNT_CLOSE_ENABLED", self.text)
+
+    def test_account_export_rpc_uses_dedicated_non_bypass_executor(self):
+        migration = EXPORT_EXECUTOR_MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("create role ordax_account_export_executor", migration)
+        self.assertIn("noinherit nologin noreplication nobypassrls", migration)
+        self.assertIn(
+            "alter function public.ordax_account_export_v1() owner to ordax_account_export_executor",
+            migration,
+        )
+        self.assertIn("grant select on table", migration)
+        self.assertNotIn("grant insert on table", migration)
+        self.assertNotIn("grant update on table", migration)
+        self.assertNotIn("grant delete on table", migration)
+        self.assertIn(
+            "grant execute on function public.ordax_account_export_v1() to authenticated",
+            migration,
+        )
+
+    def test_account_export_subject_bridge_is_minimal_and_executor_stays_out_of_auth_schema(self):
+        migration = EXPORT_SUBJECT_BRIDGE_MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("function public.ordax_request_subject_v1()", migration)
+        self.assertIn("select auth.uid();", migration)
+        self.assertIn("security definer", migration)
+        self.assertIn("set search_path = ''", migration)
+        self.assertIn(
+            "grant execute on function public.ordax_request_subject_v1()\n  to ordax_account_export_executor",
+            migration,
+        )
+        self.assertIn("revoke all on schema auth from ordax_account_export_executor", migration)
+        self.assertIn("select public.ordax_request_subject_v1() as user_id", migration)
+        self.assertIn("ordax_sync_objects_export_own", migration)
+        self.assertNotIn("grant insert on table", migration)
+        self.assertNotIn("grant update on table", migration)
+        self.assertNotIn("grant delete on table", migration)
+
+    def test_account_export_contracts_describe_effective_security_boundary(self):
+        lifecycle = json.loads(ACCOUNT_LIFECYCLE_CONTRACT.read_text(encoding="utf-8"))
+        export = lifecycle["operations"]["account_data_export"]
+        self.assertEqual(export["executor_role"], "ordax_account_export_executor")
+        self.assertTrue(export["rpc_security_definer"])
+        self.assertFalse(export["executor_login_allowed"])
+        self.assertFalse(export["executor_inherit_allowed"])
+        self.assertFalse(export["executor_bypass_rls_allowed"])
+        self.assertFalse(export["executor_direct_write_privileges_allowed"])
+        self.assertEqual(export["executor_policy_scope"], "own-subject-only")
+        self.assertEqual(export["request_subject_bridge"], "ordax_request_subject_v1")
+        self.assertFalse(export["request_subject_bridge_reads_relations"])
+        self.assertFalse(export["provider_auth_schema_usage_granted_to_executor"])
+
+        posture = json.loads(SECURITY_POSTURE_CONTRACT.read_text(encoding="utf-8"))
+        reviewed = posture["reviewed_security_definer_boundaries"]["account_export"]
+        self.assertEqual(reviewed["executor_role"], "ordax_account_export_executor")
+        self.assertFalse(reviewed["executor_bypass_rls_allowed"])
+        self.assertFalse(reviewed["executor_auth_schema_usage"])
+        self.assertFalse(reviewed["request_subject_bridge_relation_reads"])
+        self.assertFalse(reviewed["request_subject_bridge_api_role_execute_allowed"])
+        self.assertFalse(reviewed["cross_subject_reads_allowed"])
+        self.assertTrue(reviewed["synthetic_unknown_subject_export_empty_verified"])
+
+    def test_account_provider_documents_effective_export_boundary(self):
+        provider = ACCOUNT_PROVIDER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("SECURITY DEFINER", provider)
+        self.assertIn("private sync relation", provider)
+        self.assertIn("scopes every exported domain to ``auth.uid()``", provider)
+        self.assertNotIn("RLS-scoped RPC that is SECURITY INVOKER", provider)
 
 
 if __name__ == "__main__":
