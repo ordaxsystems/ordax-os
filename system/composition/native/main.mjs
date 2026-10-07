@@ -43,7 +43,6 @@ import { createNativeSyncCheckpointStore } from "../../adapters/native/sync-chec
 import { createNativeSurfaceHeartbeat } from "../../adapters/native/surface-heartbeat.mjs";
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
 import { createSameOriginIdentityCredentials } from "../../adapters/web/identity-credentials.mjs";
-import { createSameOriginAccountLifecycle } from "../../adapters/web/account-lifecycle.mjs";
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
@@ -103,6 +102,7 @@ import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
 import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
 import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
 import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
+import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -161,6 +161,14 @@ async function start() {
         throw new Error("Native loopback fetch is unavailable");
       };
   const verifiedComponentArtifactIdentity = createNativeVerifiedComponentArtifactIdentity(window);
+  const storeCatalogCompositionPromise = optionalNativeProbe(
+    "OrdaX Native Store catalog composition unavailable",
+    () => createNativeStoreCatalogComposition({
+      windowRef: window,
+      componentSource: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+    }),
+  );
   const verifiedAppSemanticsPromise = optionalNativeProbe(
     "OrdaX verified App Intelligence semantics unavailable",
     () => loadVerifiedFirstPartyApplicationSemantics({
@@ -419,7 +427,6 @@ async function start() {
     ? null
     : createMemoryConflictReviewRuntime(accountMemoryFoundation.memorySync);
   const identityCredentials = createSameOriginIdentityCredentials(window);
-  const accountLifecycle = createSameOriginAccountLifecycle(window, identitySession);
   const identityActions = createWebIdentityActions(window, identitySession, {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
@@ -730,7 +737,6 @@ async function start() {
   const resumeAccountConnectivity = async () => {
     await identitySession.refresh();
     await identityActions.refresh();
-    await accountLifecycle.refresh();
     await accountSync.refresh();
   };
   const onOnline = () => {
@@ -756,7 +762,6 @@ async function start() {
     surface.preferences,
     profileActivationState,
     memoryConflictReview,
-    accountLifecycle,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -803,7 +808,8 @@ async function start() {
       localSession,
     );
   }
-  const storeCatalog = createUnavailableAppStoreCatalogPort();
+  const storeCatalogComposition = await storeCatalogCompositionPromise;
+  const storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
   const storeOverviewControls = mountStoreOverviewControls(
     root,
     storeCatalog,
@@ -965,6 +971,7 @@ async function start() {
       updateControls.destroy();
       systemOverviewControls.destroy();
       storeOverviewControls.destroy();
+      storeCatalogComposition?.destroy();
       settingsOverviewControls.destroy();
       networkTrayControls?.destroy();
       networkQuickPanel?.destroy();
@@ -981,7 +988,6 @@ async function start() {
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
-      accountLifecycle.dispose();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
       unsubscribeAccountMemoryRecovery();
