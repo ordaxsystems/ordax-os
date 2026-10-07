@@ -78,7 +78,7 @@
   "store_boundary": {
     "public_store_ui_enabled": false,
     "store_ui_implemented": true,
-    "store_service_implemented": false,
+    "store_service_implemented": true,
     "native_lifecycle_executor_mounted": false,
     "must_reuse_component_manager": true,
     "must_reuse_runtime_component_release_v2_when_component_slot": true,
@@ -103,7 +103,19 @@
     "request_may_grant_permissions": false,
     "request_may_bypass_verification": false,
     "remove_request_may_delete_user_data": false,
-    "rollback_is_platform_owned": true
+    "rollback_is_platform_owned": true,
+    "verified_catalog_contract": "ordax.verified-app-store-catalog/1",
+    "verified_catalog_port": "ordax.verified-app-store-catalog-port/1",
+    "verified_catalog_source_repository": "washingtonmsdj/ordax-apps",
+    "verified_catalog_trust_domain": "runtime-components",
+    "verified_catalog_key_id": "ordax-runtime-components-v1",
+    "catalog_signature_verifier_mounted": false,
+    "catalog_sequence_watermark_required": true,
+    "catalog_sequence_watermark_persistent": true,
+    "catalog_lower_sequence_rejected": true,
+    "catalog_equal_sequence_different_hash_rejected": true,
+    "catalog_watermark_failure_is_fail_closed": true,
+    "catalog_schema_grants_verification": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
