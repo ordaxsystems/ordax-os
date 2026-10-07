@@ -318,7 +318,12 @@ func readReleaseDescriptorV2(releasePath, compatibilityPath string) ([]byte, []b
 	return releaseBytes, compatibilityBytes, release, nil
 }
 
-func verifyEnvelopeSignaturePayload(envelopeBytes, trustBytes []byte) ([]byte, error) {
+func verifySignedEnvelopePayload(
+	envelopeBytes, trustBytes []byte,
+	expectedEnvelopeSchema string,
+	maxPayloadBytes int,
+	label string,
+) ([]byte, error) {
 	var trust trustAnchor
 	if err := decodeStrict(trustBytes, maxTrustBytes, &trust); err != nil {
 		return nil, fmt.Errorf("trust anchor: %w", err)
@@ -335,22 +340,32 @@ func verifyEnvelopeSignaturePayload(envelopeBytes, trustBytes []byte) ([]byte, e
 	}
 	var signed envelope
 	if err := decodeStrict(envelopeBytes, maxEnvelopeBytes, &signed); err != nil {
-		return nil, fmt.Errorf("runtime component envelope: %w", err)
+		return nil, fmt.Errorf("%s envelope: %w", label, err)
 	}
-	if signed.Schema != envelopeSchema {
-		return nil, errors.New("unsupported runtime component envelope schema")
+	if signed.Schema != expectedEnvelopeSchema {
+		return nil, fmt.Errorf("unsupported %s envelope schema", label)
 	}
 	if signed.KeyID != trust.KeyID {
-		return nil, errors.New("runtime component envelope key_id does not match trust")
+		return nil, fmt.Errorf("%s envelope key_id does not match trust", label)
 	}
-	if len(signed.Payload) == 0 || len(signed.Payload) > maxReleaseBytes {
-		return nil, errors.New("runtime component signed payload size is invalid")
+	if len(signed.Payload) == 0 || len(signed.Payload) > maxPayloadBytes {
+		return nil, fmt.Errorf("%s signed payload size is invalid", label)
 	}
 	if len(signed.Signature) != ed25519.SignatureSize ||
 		!ed25519.Verify(ed25519.PublicKey(publicBytes), signed.Payload, signed.Signature) {
-		return nil, errors.New("runtime component signature verification failed")
+		return nil, fmt.Errorf("%s signature verification failed", label)
 	}
 	return signed.Payload, nil
+}
+
+func verifyEnvelopeSignaturePayload(envelopeBytes, trustBytes []byte) ([]byte, error) {
+	return verifySignedEnvelopePayload(
+		envelopeBytes,
+		trustBytes,
+		envelopeSchema,
+		maxReleaseBytes,
+		"runtime component",
+	)
 }
 
 func signReleaseV2(releasePath, compatibilityPath, privatePath, trustPath, outputPath, keyID string) (releaseDescriptorV2, error) {
