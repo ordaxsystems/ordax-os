@@ -40,6 +40,9 @@ class Client:
         headers = {"Accept": "application/json", "User-Agent": "OrdaX-Account-Sync-Proof/1"}
         if content_type:
             headers["Content-Type"] = content_type
+        if method in {"POST", "PUT", "PATCH", "DELETE"}:
+            headers["Origin"] = self.base_url
+            headers["Sec-Fetch-Site"] = "same-origin"
         req = Request(self.base_url + path, data=body, headers=headers, method=method)
         try:
             with self.opener.open(req, timeout=20) as response:
