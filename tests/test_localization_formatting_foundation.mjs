@@ -7,13 +7,14 @@ import { createLocaleFormatting } from "../system/services/i18n/formatting.mjs";
 
 function createLocalization(initialLocale = "pt-BR") {
   let locale = initialLocale;
+  let profileLocale = initialLocale;
   return {
     schema: LOCALIZATION_SCHEMA,
     getLocale() {
       return locale;
     },
     getProfile() {
-      return createLocaleProfile(locale);
+      return createLocaleProfile(profileLocale);
     },
     translate(id) {
       return id;
@@ -23,6 +24,10 @@ function createLocalization(initialLocale = "pt-BR") {
     },
     setLocale(nextLocale) {
       locale = nextLocale;
+      profileLocale = nextLocale;
+    },
+    setProfileLocale(nextLocale) {
+      profileLocale = nextLocale;
     },
   };
 }
@@ -93,7 +98,7 @@ test("formatting helpers reject ambiguous or invalid inputs instead of guessing"
 
   assert.throws(() => formatting.formatNumber(Number.NaN), /finite number/);
   assert.throws(() => formatting.formatDate("not-a-date"), /Date value must be valid/);
-  assert.throws(() => formatting.formatCurrency(10, "REAL"), /three-letter ISO 4217 code/);
+  assert.throws(() => formatting.formatCurrency(10, "REAL"), /three-letter currency code/);
   assert.throws(() => formatting.formatCurrency(10, "BRL", { currency: "USD" }), /must match/);
   assert.throws(() => formatting.formatPercent(0.5, { style: "decimal" }), /cannot be overridden/);
   assert.throws(() => formatting.formatUnit(1, "meter", { unit: "kilometer" }), /must match/);
@@ -102,10 +107,13 @@ test("formatting helpers reject ambiguous or invalid inputs instead of guessing"
   assert.throws(() => formatting.formatDisplayName("US", "territory"), /Unsupported display name type/);
 });
 
-test("canonical locale validation remains part of the formatting boundary", () => {
+test("canonical locale and locale/profile agreement remain part of every formatting call", () => {
   const localization = createLocalization("en-US");
   const formatting = createLocaleFormatting(localization);
-  localization.setLocale("not_a_locale");
 
+  localization.setProfileLocale("pt-BR");
+  assert.throws(() => formatting.formatNumber(1), /locale\/profile mismatch/);
+
+  localization.setLocale("not_a_locale");
   assert.throws(() => formatting.formatNumber(1), /Invalid locale id/);
 });
