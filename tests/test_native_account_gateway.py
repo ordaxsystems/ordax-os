@@ -126,6 +126,55 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertNotIn("privacy_version", body)
             self.assertNotIn("terms_version", body)
 
+    def test_account_close_requires_exact_confirmation_before_network(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(
+                    status=200,
+                    headers={},
+                    body=b'{"closed":true}',
+                )
+
+            client._request = fake_request
+            with self.assertRaises(gateway.NativeAccountGatewayError):
+                client.close_account("current-secret", "yes")
+            self.assertEqual(calls, [])
+
+    def test_account_close_forwards_only_transient_password_and_confirmation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(
+                    status=200,
+                    headers={},
+                    body=b'{"closed":true}',
+                )
+
+            client._request = fake_request
+            reply = client.close_account("current-secret", "close-account")
+
+            self.assertEqual(reply.status, 200)
+            self.assertEqual(len(calls), 1)
+            method, route, kwargs = calls[0]
+            self.assertEqual((method, route), ("POST", "/account/close"))
+            self.assertEqual(
+                kwargs["content_type"],
+                "application/x-www-form-urlencoded",
+            )
+            body = kwargs["body"].decode("utf-8")
+            self.assertIn("password=current-secret", body)
+            self.assertIn("confirmation=close-account", body)
+            self.assertNotIn("service_role", body.lower())
+
     def test_account_export_is_read_only_and_uses_existing_session_boundary(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
