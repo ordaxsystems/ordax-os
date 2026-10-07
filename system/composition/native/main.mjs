@@ -424,7 +424,6 @@ async function start() {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
   await identityActions.refresh();
-  await accountLifecycle.refresh();
   const spaces = createWebSpacesCatalog(window);
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
