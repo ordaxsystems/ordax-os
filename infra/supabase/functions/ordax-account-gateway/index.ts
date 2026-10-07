@@ -1,5 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  authRateLimitBucket,
+  canonicalizeClientAddress,
+  validateRateLimitRpcResult,
+} from "../_shared/auth_rate_limit.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -365,6 +370,62 @@ function trustedPublicSiteRequest(req: Request) {
     return false;
   }
   return Boolean(presentedKey) && constantTimeEqual(presentedKey, expectedKey);
+}
+
+function directNativeClientAddress(req: Request) {
+  if (publicSiteRequest(req)) return null;
+  return canonicalizeClientAddress(req.headers.get("cf-connecting-ip"));
+}
+
+async function enforceDirectAuthRateLimit(req: Request, path: string) {
+  if (publicSiteRequest(req)) return null;
+  const bucket = authRateLimitBucket(req.method, path);
+  if (!bucket) return null;
+
+  const address = directNativeClientAddress(req);
+  if (!address) {
+    return error(
+      400,
+      "native-client-address-required",
+      "Endereço de origem confiável ausente.",
+    );
+  }
+
+  let data: unknown;
+  let rpcError: unknown;
+  try {
+    const result = await adminClient().rpc("ordax_consume_public_auth_rate_limit_v1", {
+      p_bucket: bucket,
+      p_client_address: address,
+    });
+    data = result.data;
+    rpcError = result.error;
+  } catch {
+    return error(
+      503,
+      "auth-rate-limit-unavailable",
+      "A proteção de acesso está temporariamente indisponível.",
+    );
+  }
+
+  const decision = rpcError ? null : validateRateLimitRpcResult(data, bucket);
+  if (!decision) {
+    return error(
+      503,
+      "auth-rate-limit-unavailable",
+      "A proteção de acesso está temporariamente indisponível.",
+    );
+  }
+  if (decision.decision === "rate_limited") {
+    const response = error(
+      429,
+      "auth-rate-limited",
+      "Muitas tentativas. Tente novamente mais tarde.",
+    );
+    response.headers.set("retry-after", String(decision.retry_after_seconds));
+    return response;
+  }
+  return null;
 }
 
 function routePath(url: URL) {
@@ -952,6 +1013,9 @@ Deno.serve(async (req: Request) => {
       "Boundary público não autenticado.",
     );
   }
+
+  const directRateLimitResponse = await enforceDirectAuthRateLimit(req, path);
+  if (directRateLimitResponse) return directRateLimitResponse;
 
   if (publicSiteRequest(req) && path.startsWith("/network/") && !PUBLIC_SITE_NETWORK_ENABLED) {
     return error(503, "public-network-access-disabled", "A Rede OrdaX pública ainda não foi ativada.");
