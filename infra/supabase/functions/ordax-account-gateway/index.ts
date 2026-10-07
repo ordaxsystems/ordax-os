@@ -45,6 +45,7 @@ const ACCOUNT_REGISTRATION_ENABLED = false;
 const LEGAL_ACCEPTANCE_FIELD = "legal_acceptance";
 const LEGAL_ACCEPTANCE_VALUE = "accepted";
 const REGISTRATION_INTENT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ACCOUNT_SUBJECT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ACCOUNT_CLOSE_ENABLED = false;
 const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;
 const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;
@@ -328,6 +329,28 @@ async function beginRegistrationLegalIntent(email: string, legalAcceptance: stri
     throw new Error("registration-legal-intent-unavailable");
   }
   return data[0].intent_id;
+}
+
+async function hasRegistrationLegalReceipt(userId: unknown) {
+  if (typeof userId !== "string" || !ACCOUNT_SUBJECT_UUID.test(userId)) {
+    throw new Error("account-subject-invalid");
+  }
+  const { data, error: rpcError } = await adminClient().rpc(
+    "ordax_account_has_registration_legal_receipt_v1",
+    { p_user_id: userId },
+  );
+  if (rpcError || typeof data !== "boolean") {
+    throw new Error("account-legal-receipt-check-unavailable");
+  }
+  return data;
+}
+
+async function revokeCurrentSession(accessToken: string) {
+  try {
+    await client(accessToken).auth.signOut({ scope: "local" });
+  } catch {
+    // The session is never returned to the caller; cookie clearing still wins.
+  }
 }
 
 function crossSiteStateChange(req: Request) {
@@ -878,6 +901,33 @@ async function credentials(req: Request, register: boolean) {
       ? json(202, { authenticated: false, confirmationRequired: true })
       : redirectResponse("/login/?cadastro=verifique-email");
   }
+
+  if (!register && publicSiteRequest(req)) {
+    let legalReceiptPresent = false;
+    try {
+      legalReceiptPresent = await hasRegistrationLegalReceipt(result.data.user?.id);
+    } catch {
+      await revokeCurrentSession(result.data.session.access_token);
+      return wantsJson(req)
+        ? error(
+            503,
+            "account-legal-receipt-check-unavailable",
+            "A validação da Conta OrdaX está temporariamente indisponível.",
+          )
+        : redirectResponse("/login/?erro=validacao-conta-indisponivel");
+    }
+    if (!legalReceiptPresent) {
+      await revokeCurrentSession(result.data.session.access_token);
+      return wantsJson(req)
+        ? error(
+            403,
+            "account-legal-receipt-required",
+            "Esta conta precisa ser reconciliada antes do acesso público.",
+          )
+        : redirectResponse("/login/?erro=conta-requer-reconciliacao");
+    }
+  }
+
   const cookies = sessionCookies(
     result.data.session.access_token,
     result.data.session.refresh_token,
