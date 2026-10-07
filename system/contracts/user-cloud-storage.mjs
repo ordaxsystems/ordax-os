@@ -2,8 +2,9 @@ export const USER_CLOUD_STORAGE_OBJECT_SCHEMA = "ordax.user-cloud-object/1";
 export const USER_CLOUD_STORAGE_RESERVATION_SCHEMA = "ordax.user-cloud-upload-reservation/1";
 
 const STATES = new Set(["active", "deleted"]);
+const PROVIDERS = new Set(["supabase-storage", "cloudflare-r2", "other"]);
 const SHA256_RE = /^[0-9a-f]{64}$/;
-const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,159}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function boundedText(value, label, max) {
   if (typeof value !== "string" || value.includes("\0")) {
@@ -16,13 +17,26 @@ function boundedText(value, label, max) {
   return normalized;
 }
 
-function optionalBoundedText(value, label, max) {
-  return value == null ? null : boundedText(value, label, max);
+function uuid(value, label) {
+  const normalized = boundedText(value, label, 36);
+  if (!UUID_RE.test(normalized)) throw new TypeError(`${label} must be a UUID`);
+  return normalized.toLowerCase();
+}
+
+function optionalUuid(value, label) {
+  return value == null ? null : uuid(value, label);
 }
 
 function nonNegativeSafeInteger(value, label) {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new TypeError(`${label} must be a non-negative safe integer`);
+  }
+  return value;
+}
+
+function positiveSafeInteger(value, label) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new TypeError(`${label} must be a positive safe integer`);
   }
   return value;
 }
@@ -41,15 +55,15 @@ function storageSubject(accountId, spaceId) {
   });
 }
 
-function objectId(value, label) {
-  const normalized = boundedText(value, label, 160);
-  if (!ID_RE.test(normalized)) throw new TypeError(`${label} is invalid`);
-  return normalized;
-}
-
 function digest(value, label) {
   const normalized = boundedText(value, label, 64).toLowerCase();
   if (!SHA256_RE.test(normalized)) throw new TypeError(`${label} is invalid`);
+  return normalized;
+}
+
+function provider(value) {
+  const normalized = boundedText(value, "User cloud object provider", 80);
+  if (!PROVIDERS.has(normalized)) throw new TypeError("User cloud object provider is invalid");
   return normalized;
 }
 
@@ -70,11 +84,11 @@ export function validateUserCloudObject(value) {
     throw new TypeError("User cloud object must be an object");
   }
   if (!STATES.has(value.state)) throw new TypeError("User cloud object state is invalid");
-  const accountId = boundedText(value.accountId, "User cloud object account id", 160);
-  const spaceId = optionalBoundedText(value.spaceId, "User cloud object Space id", 160);
+  const accountId = uuid(value.accountId, "User cloud object account id");
+  const spaceId = optionalUuid(value.spaceId, "User cloud object Space id");
   return Object.freeze({
     schema: USER_CLOUD_STORAGE_OBJECT_SCHEMA,
-    objectId: objectId(value.objectId, "User cloud object id"),
+    objectId: uuid(value.objectId, "User cloud object id"),
     accountId,
     spaceId,
     ...storageSubject(accountId, spaceId),
@@ -82,10 +96,10 @@ export function validateUserCloudObject(value) {
     mediaType: boundedText(value.mediaType, "User cloud object media type", 160),
     sizeBytes: nonNegativeSafeInteger(value.sizeBytes, "User cloud object size"),
     sha256: digest(value.sha256, "User cloud object SHA-256"),
-    provider: boundedText(value.provider, "User cloud object provider", 80),
+    provider: provider(value.provider),
     providerObjectKey: providerObjectKey(value.providerObjectKey),
     state: value.state,
-    serverRevision: nonNegativeSafeInteger(value.serverRevision, "User cloud object server revision"),
+    serverRevision: positiveSafeInteger(value.serverRevision, "User cloud object server revision"),
     createdAt: timestamp(value.createdAt, "User cloud object createdAt"),
     updatedAt: timestamp(value.updatedAt, "User cloud object updatedAt"),
   });
@@ -95,12 +109,12 @@ export function validateUploadReservation(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Upload reservation must be an object");
   }
-  const accountId = boundedText(value.accountId, "Upload reservation account id", 160);
-  const spaceId = optionalBoundedText(value.spaceId, "Upload reservation Space id", 160);
+  const accountId = uuid(value.accountId, "Upload reservation account id");
+  const spaceId = optionalUuid(value.spaceId, "Upload reservation Space id");
   return Object.freeze({
     schema: USER_CLOUD_STORAGE_RESERVATION_SCHEMA,
-    reservationId: objectId(value.reservationId, "Upload reservation id"),
-    objectId: objectId(value.objectId, "Upload reservation object id"),
+    reservationId: uuid(value.reservationId, "Upload reservation id"),
+    objectId: uuid(value.objectId, "Upload reservation object id"),
     accountId,
     spaceId,
     ...storageSubject(accountId, spaceId),

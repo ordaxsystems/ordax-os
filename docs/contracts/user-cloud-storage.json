@@ -4,13 +4,26 @@
   "owner": "system/services/user-cloud-storage",
   "object_schema": "ordax.user-cloud-object/1",
   "reservation_schema": "ordax.user-cloud-upload-reservation/1",
+  "identity_contract": {
+    "account_id": "uuid",
+    "space_id": "uuid-or-null",
+    "object_id": "uuid",
+    "reservation_id": "uuid",
+    "server_revision_min": 1,
+    "provider_values": [
+      "supabase-storage",
+      "cloudflare-r2",
+      "other"
+    ]
+  },
   "quota": {
     "decision_schema": "ordax.service-quota-decision/1",
     "key": "storage.user.bytes",
     "unit": "bytes",
     "server_authoritative": true,
     "numeric_limit_defined": false,
-    "numeric_limit_requires_measured_unit_cost": true
+    "numeric_limit_requires_measured_unit_cost": true,
+    "upload_reservation_must_reference_exact_quota_reservation": true
   },
   "invariants": {
     "explicit_user_selection_required": true,
@@ -21,6 +34,8 @@
     "client_claimed_quota_or_usage_is_authority": false,
     "upload_reservation_required": true,
     "reservation_bound_to_subject_object_size_digest_and_expiry": true,
+    "reservation_bound_to_exact_quota_reservation": true,
+    "quota_reservation_identity_may_be_inferred_from_size_or_subject": false,
     "finalization_verifies_exact_size_and_sha256": true,
     "public_bucket_allowed": false,
     "action_gateway_authority_created": false,
@@ -63,6 +78,21 @@
       "service_role_policy_created": false,
       "direct_client_grants_present": false,
       "live_api_role_dml_denied": true
+    },
+    "quota_reservation_link": {
+      "source_migration": "infra/supabase/product/migrations/20261007083746_user_cloud_storage_quota_reservation_link_v1.sql",
+      "source_ready": true,
+      "production_applied": true,
+      "production_migration_version": "20261007083746",
+      "production_migration_name": "user_cloud_storage_quota_reservation_link_v1",
+      "production_applied_at": "2026-10-07",
+      "production_postgres_major": 17,
+      "column": "private.ordax_user_upload_reservations.quota_reservation_id",
+      "not_null": true,
+      "unique": true,
+      "foreign_key": "private.ordax_service_quota_reservations.reservation_id",
+      "on_delete": "restrict",
+      "rows_at_deploy": 0
     }
   },
   "activation_gates": [
