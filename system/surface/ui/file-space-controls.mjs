@@ -15,9 +15,10 @@ import {
 } from "../../contracts/recent-files.mjs";
 import {
   MAX_PROJECT_NAME_LENGTH,
-  assertProjectCatalogPort,
+  assertProjectCatalogReader,
   validateProjectCatalogSnapshot,
 } from "../../contracts/project-catalog.mjs";
+import { assertProjectMutations } from "../../contracts/project-mutations.mjs";
 import {
   createFileNotesActionPresentation,
   importSelectedFileToNotes,
@@ -94,9 +95,14 @@ export function mountFileSpaceControls(
   }
   const recentFiles = resources?.recentFiles ?? null;
   const projects = resources?.projects ?? null;
+  const projectMutations = resources?.projectMutations ?? null;
   const notesFileImporter = resources?.notesFileImporter ?? null;
   const recentPort = recentFiles === null ? null : assertRecentFilesPort(recentFiles);
-  const projectPort = projects === null ? null : assertProjectCatalogPort(projects);
+  if ((projects === null) !== (projectMutations === null)) {
+    throw new TypeError("File-space Project controls require reader and mutation authority together");
+  }
+  const projectReader = projects === null ? null : assertProjectCatalogReader(projects);
+  const projectMutationPort = projectMutations === null ? null : assertProjectMutations(projectMutations);
   const notesImporterPort = notesFileImporter === null ? null : assertNotesFileImporter(notesFileImporter);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
@@ -136,7 +142,7 @@ export function mountFileSpaceControls(
   let trashMode = false;
   let selectedTrashId = null;
   let recentSearchQuery = "";
-  let projectSnapshot = projectPort?.getSnapshot() ?? null;
+  let projectSnapshot = projectReader?.getSnapshot() ?? null;
   let creatingProject = false;
   let projectDraft = "";
   let renamingProjectId = null;
@@ -352,7 +358,7 @@ export function mountFileSpaceControls(
       }
     });
 
-    if (projectPort) {
+    if (projectReader) {
       container.append(
         node(documentObject, "p", "ordax-files-section-label", t("files.location.projects")),
       );
@@ -377,7 +383,7 @@ export function mountFileSpaceControls(
   };
 
   const projectForFilePath = (path) => {
-    if (!projectPort || typeof path !== "string") return null;
+    if (!projectReader || typeof path !== "string") return null;
     let match = null;
     for (const project of projectSnapshot?.projects ?? []) {
       if (!path.startsWith(`${project.path}/`)) continue;
@@ -446,7 +452,7 @@ export function mountFileSpaceControls(
   };
 
   const renderCreateProject = (container) => {
-    if (!creatingProject || !projectPort || !listing || recentMode) return;
+    if (!creatingProject || !projectReader || !projectMutationPort || !listing || recentMode) return;
     const form = node(documentObject, "div", "ordax-files-create");
     const input = node(documentObject, "input", "ordax-files-create-input");
     input.type = "text";
@@ -467,7 +473,7 @@ export function mountFileSpaceControls(
   };
 
   const renderRenameProject = (container) => {
-    if (!renamingProjectId || !projectPort || !listing || recentMode) return;
+    if (!renamingProjectId || !projectReader || !projectMutationPort || !listing || recentMode) return;
     const project = projectSnapshot?.projects.find((candidate) => candidate.id === renamingProjectId);
     if (!project || project.path !== listing.path) return;
 
@@ -1365,21 +1371,23 @@ export function mountFileSpaceControls(
     );
   };
 
-  const createProject = () => {
-    if (!projectPort || !listing || listing.path === "/" || pending) return;
+  const createProject = async () => {
+    if (!projectMutationPort || !listing || listing.path === "/" || pending) return;
     try {
-      projectSnapshot = projectPort.create({ name: projectDraft, path: listing.path });
+      projectSnapshot = await projectMutationPort.create({ name: projectDraft, path: listing.path });
+      if (destroyed) return;
       creatingProject = false;
       projectDraft = "";
       setMessage("files.project.added");
     } catch {
+      if (destroyed) return;
       setMessage("files.project.addFailed");
     }
     replaceView();
   };
 
-  const renameProject = () => {
-    if (!projectPort || !renamingProjectId || !listing) return;
+  const renameProject = async () => {
+    if (!projectMutationPort || !renamingProjectId || !listing) return;
     const project = projectSnapshot?.projects.find((candidate) => candidate.id === renamingProjectId);
     if (!project || project.path !== listing.path) {
       renamingProjectId = null;
@@ -1389,19 +1397,21 @@ export function mountFileSpaceControls(
       return;
     }
     try {
-      projectSnapshot = projectPort.rename(renamingProjectId, projectRenameDraft);
+      projectSnapshot = await projectMutationPort.rename(renamingProjectId, projectRenameDraft);
+      if (destroyed) return;
       const renamed = projectSnapshot.projects.find((candidate) => candidate.id === project.id);
       renamingProjectId = null;
       projectRenameDraft = "";
       setMessage("files.project.renamed", { name: renamed?.name ?? project.name, path: project.path });
     } catch {
+      if (destroyed) return;
       setMessage("files.project.renameFailed");
     }
     replaceView();
   };
 
   const openProject = async (projectId) => {
-    if (!projectPort) return;
+    if (!projectReader || !projectMutationPort) return;
     const project = projectSnapshot?.projects.find((candidate) => candidate.id === projectId);
     if (!project) return;
     const loaded = await load(project.path);
@@ -1412,17 +1422,20 @@ export function mountFileSpaceControls(
       return;
     }
     try {
-      projectSnapshot = projectPort.recordOpened(projectId);
+      projectSnapshot = await projectMutationPort.recordOpened(projectId);
+      if (destroyed) return;
     } catch {
+      if (destroyed) return;
       setMessage("files.project.activityUpdateFailed");
       replaceView();
     }
   };
 
-  const removeProject = (projectId) => {
-    if (!projectPort) return;
+  const removeProject = async (projectId) => {
+    if (!projectMutationPort) return;
     try {
-      projectSnapshot = projectPort.remove(projectId);
+      projectSnapshot = await projectMutationPort.remove(projectId);
+      if (destroyed) return;
       if (renamingProjectId === projectId) {
         renamingProjectId = null;
         projectRenameDraft = "";
@@ -1432,13 +1445,14 @@ export function mountFileSpaceControls(
       }
       setMessage("files.project.removed");
     } catch {
+      if (destroyed) return;
       setMessage("files.project.removeFailed");
     }
     replaceView();
   };
 
-  const clearFailedProjectResume = (projectId) => {
-    if (!projectPort || !failedProjectResume || failedProjectResume.projectId !== projectId) return;
+  const clearFailedProjectResume = async (projectId) => {
+    if (!projectMutationPort || !failedProjectResume || failedProjectResume.projectId !== projectId) return;
     const project = projectSnapshot?.projects.find((candidate) => candidate.id === projectId);
     if (!project || project.lastFilePath !== failedProjectResume.path) {
       failedProjectResume = null;
@@ -1447,10 +1461,12 @@ export function mountFileSpaceControls(
       return;
     }
     try {
-      projectSnapshot = projectPort.clearLastFile(projectId);
+      projectSnapshot = await projectMutationPort.clearLastFile(projectId);
+      if (destroyed) return;
       failedProjectResume = null;
       setMessage("files.project.lastFileForgotten");
     } catch {
+      if (destroyed) return;
       setMessage("files.project.lastFileForgetFailed");
     }
     replaceView();
@@ -1648,7 +1664,8 @@ export function mountFileSpaceControls(
     addProject.dataset.fileProjectCreateStart = "";
     addProject.disabled = Boolean(
       pending
-      || !projectPort
+      || !projectReader
+      || !projectMutationPort
       || !listing
       || listing.path === "/"
       || projectSnapshot?.projects.some((project) => project.path === listing.path)
@@ -1872,10 +1889,12 @@ export function mountFileSpaceControls(
       textPreview = next;
       if (recentPort) recentPort.recordOpened(next.path);
       const project = projectForFilePath(next.path);
-      if (projectPort && project) {
+      if (projectMutationPort && project) {
         try {
-          projectSnapshot = projectPort.recordFileOpened(project.id, next.path);
+          projectSnapshot = await projectMutationPort.recordFileOpened(project.id, next.path);
+          if (destroyed || ordinal !== previewRequestOrdinal) return;
         } catch {
+          if (destroyed || ordinal !== previewRequestOrdinal) return;
           setMessage("files.preview.projectActivityFailed");
         }
       }
@@ -2403,12 +2422,12 @@ export function mountFileSpaceControls(
 
   const onClick = (event) => {
     const projectLocation = event.target.closest("[data-file-open-project]");
-    if (projectLocation && root.contains(projectLocation) && projectPort) {
+    if (projectLocation && root.contains(projectLocation) && projectReader) {
       void openProject(projectLocation.dataset.fileOpenProject);
       return;
     }
     const projectStart = event.target.closest("[data-file-project-create-start]");
-    if (projectStart && root.contains(projectStart) && projectPort && listing && listing.path !== "/") {
+    if (projectStart && root.contains(projectStart) && projectReader && projectMutationPort && listing && listing.path !== "/") {
       creatingProject = true;
       projectDraft = breadcrumbParts(listing.path).at(-1) ?? t("files.project.defaultName");
       renamingProjectId = null;
@@ -2420,7 +2439,7 @@ export function mountFileSpaceControls(
     }
     const projectCreate = event.target.closest("[data-file-project-create]");
     if (projectCreate && root.contains(projectCreate)) {
-      createProject();
+      void createProject();
       return;
     }
     const projectCancel = event.target.closest("[data-file-project-create-cancel]");
@@ -2432,7 +2451,7 @@ export function mountFileSpaceControls(
       return;
     }
     const projectResume = event.target.closest("[data-file-project-resume]");
-    if (projectResume && root.contains(projectResume) && projectPort && listing && !previewPending) {
+    if (projectResume && root.contains(projectResume) && projectReader && listing && !previewPending) {
       const projectId = projectResume.dataset.fileProjectResume;
       const project = projectSnapshot?.projects.find((candidate) => candidate.id === projectId);
       if (project?.lastFilePath && project.path === listing.path) {
@@ -2441,12 +2460,12 @@ export function mountFileSpaceControls(
       return;
     }
     const projectForgetStale = event.target.closest("[data-file-project-forget-stale]");
-    if (projectForgetStale && root.contains(projectForgetStale) && projectPort && !previewPending) {
-      clearFailedProjectResume(projectForgetStale.dataset.fileProjectForgetStale);
+    if (projectForgetStale && root.contains(projectForgetStale) && projectMutationPort && !previewPending) {
+      void clearFailedProjectResume(projectForgetStale.dataset.fileProjectForgetStale);
       return;
     }
     const projectRenameStart = event.target.closest("[data-file-project-rename-start]");
-    if (projectRenameStart && root.contains(projectRenameStart) && projectPort && listing) {
+    if (projectRenameStart && root.contains(projectRenameStart) && projectReader && projectMutationPort && listing) {
       const projectId = projectRenameStart.dataset.fileProjectRenameStart;
       const project = projectSnapshot?.projects.find((candidate) => candidate.id === projectId);
       if (project && project.path === listing.path) {
@@ -2462,7 +2481,7 @@ export function mountFileSpaceControls(
     }
     const projectRenameConfirm = event.target.closest("[data-file-project-rename-confirm]");
     if (projectRenameConfirm && root.contains(projectRenameConfirm)) {
-      renameProject();
+      void renameProject();
       return;
     }
     const projectRenameCancel = event.target.closest("[data-file-project-rename-cancel]");
@@ -2474,8 +2493,8 @@ export function mountFileSpaceControls(
       return;
     }
     const projectRemove = event.target.closest("[data-file-project-remove]");
-    if (projectRemove && root.contains(projectRemove) && projectPort) {
-      removeProject(projectRemove.dataset.fileProjectRemove);
+    if (projectRemove && root.contains(projectRemove) && projectMutationPort) {
+      void removeProject(projectRemove.dataset.fileProjectRemove);
       return;
     }
     const recentLocation = event.target.closest("[data-file-open-recent]");
@@ -2924,7 +2943,7 @@ export function mountFileSpaceControls(
     if (event.target.matches?.("[data-file-project-rename-name]")) {
       if (event.key === "Enter") {
         event.preventDefault();
-        renameProject();
+        void renameProject();
       } else if (event.key === "Escape") {
         event.preventDefault();
         renamingProjectId = null;
@@ -2938,7 +2957,7 @@ export function mountFileSpaceControls(
     if (event.target.matches?.("[data-file-project-name]")) {
       if (event.key === "Enter") {
         event.preventDefault();
-        createProject();
+        void createProject();
       } else if (event.key === "Escape") {
         event.preventDefault();
         creatingProject = false;
@@ -3031,7 +3050,7 @@ export function mountFileSpaceControls(
     }
     if (recentMode) replaceView();
   });
-  const unsubscribeProjects = projectPort?.subscribe((snapshot) => {
+  const unsubscribeProjects = projectReader?.subscribe((snapshot) => {
     if (destroyed) return;
     projectSnapshot = validateProjectCatalogSnapshot(snapshot);
     if (
