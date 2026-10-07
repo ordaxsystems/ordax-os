@@ -26,6 +26,10 @@ from native_app_artifact_store import (
     read_cached_artifact,
     validate_artifact_identity,
 )
+from native_store_catalog import (
+    StoreCatalogError,
+    read_store_catalog_watermark,
+)
 
 PLAN_SCHEMA = "ordax.app-lifecycle-plan/1"
 REQUEST_SCHEMA = "ordax.app-lifecycle-request/1"
@@ -33,6 +37,7 @@ RESULT_SCHEMA = "ordax.native-app-lifecycle-execution/1"
 DEFAULT_CHANNEL_BIN = "/srv/ordax-system/bin/ordax-runtime-component-channel"
 DEFAULT_TRUST_PATH = "/srv/ordax-system/trust/runtime-components-ed25519.json"
 DEFAULT_SLOT_ROOT = "/var/lib/ordax/components"
+DEFAULT_CATALOG_WATERMARK_PATH = "/var/lib/ordax/store/catalog-watermark.json"
 
 APP_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -475,6 +480,18 @@ def _remove(
     }
 
 
+def _assert_plan_matches_current_catalog(plan: dict, watermark_path: str) -> None:
+    try:
+        watermark = read_store_catalog_watermark(Path(watermark_path))
+    except StoreCatalogError as exc:
+        raise NativeAppLifecycleError("current Store catalog watermark is unavailable") from exc
+    if (
+        watermark["sequence"] != plan["catalogSequence"]
+        or watermark["catalogSha256"] != plan["catalogSha256"]
+    ):
+        raise NativeAppLifecycleError("app lifecycle plan does not match current Store catalog watermark")
+
+
 def execute_offline_lifecycle_plan(
     raw_plan: object,
     *,
@@ -482,9 +499,11 @@ def execute_offline_lifecycle_plan(
     channel_bin: str = DEFAULT_CHANNEL_BIN,
     trust_path: str = DEFAULT_TRUST_PATH,
     slot_root: str = DEFAULT_SLOT_ROOT,
+    watermark_path: str = DEFAULT_CATALOG_WATERMARK_PATH,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> dict:
     plan = validate_lifecycle_plan(raw_plan)
+    _assert_plan_matches_current_catalog(plan, watermark_path)
     operation = plan["request"]["operation"]
     if operation in {"install", "update"}:
         return _stage_and_arm(
