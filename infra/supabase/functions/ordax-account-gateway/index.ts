@@ -329,8 +329,31 @@ function crossSiteStateChange(req: Request) {
   }
 }
 
+function constantTimeEqual(left: string, right: string) {
+  const a = new TextEncoder().encode(left);
+  const b = new TextEncoder().encode(right);
+  if (a.byteLength !== b.byteLength) return false;
+  let diff = 0;
+  for (let index = 0; index < a.byteLength; index += 1) {
+    diff |= a[index] ^ b[index];
+  }
+  return diff === 0;
+}
+
 function publicSiteRequest(req: Request) {
   return (req.headers.get("x-ordax-public-site") ?? "") === "1";
+}
+
+function trustedPublicSiteRequest(req: Request) {
+  if (!publicSiteRequest(req)) return false;
+  const presentedKey = (req.headers.get("apikey") ?? "").trim();
+  let expectedKey = "";
+  try {
+    expectedKey = adminConfig().key;
+  } catch {
+    return false;
+  }
+  return Boolean(presentedKey) && constantTimeEqual(presentedKey, expectedKey);
 }
 
 function routePath(url: URL) {
@@ -882,6 +905,14 @@ Deno.serve(async (req: Request) => {
 
   if (crossSiteStateChange(req)) {
     return error(403, "cross-site-request-rejected", "Solicitação de outra origem rejeitada.");
+  }
+
+  if (publicSiteRequest(req) && !trustedPublicSiteRequest(req)) {
+    return error(
+      403,
+      "public-account-boundary-authentication-required",
+      "Boundary público não autenticado.",
+    );
   }
 
   if (publicSiteRequest(req) && path.startsWith("/network/") && !PUBLIC_SITE_NETWORK_ENABLED) {
