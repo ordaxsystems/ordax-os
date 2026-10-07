@@ -18,10 +18,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_live_oidc_v4_without_claiming_zero_trust_rollout(self):
+    def test_contract_records_live_oidc_v5_without_claiming_vercel_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-oidc-v4-live-vercel-zero-trust-source-not-deployed",
+            "public-edge-oidc-v5-live-bounded-account-routes-vercel-source-not-deployed",
         )
         self.assertEqual(
             self.contract["vercel_adapter"]["status"],
@@ -29,10 +29,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         )
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 4)
+        self.assertEqual(edge["deployed_version"], 5)
         self.assertEqual(
             edge["deployment_source_commit"],
-            "ecfe1f41b9d2881ee2f8667b50719f26fe650f95",
+            "6a16c486f5663ca6c46e4ab17816578e3e5cf023",
         )
         self.assertEqual(edge["deployed_authentication"], "vercel-production-oidc-v2")
         self.assertEqual(edge["source_authentication"], "vercel-production-oidc-v2")
