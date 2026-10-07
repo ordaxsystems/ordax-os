@@ -17,6 +17,7 @@ on:
       - 'infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql'
       - 'infra/supabase/product/migrations/20260929214500_cloud_memory_local_first_identity_v1.sql'
       - 'infra/supabase/product/migrations/20261005033000_private_domain_executors_v1.sql'
+      - 'infra/supabase/product/migrations/20261007152010_space_subject_access_ssot_v1.sql'
       - 'services/public-identity/memory_entitlements.py'
       - 'services/public-identity/supabase_memory.py'
       - 'services/public-identity/supabase_sync.py'
@@ -38,11 +39,13 @@ on:
       - 'system/composition/native/main.mjs'
       - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
       - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
+      - 'tests/sql/test_space_subject_access_ssot_v1.sql'
       - 'tests/test_cloud_memory_atomic_mutation.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
       - 'tests/test_cloud_memory_executor_ssot.py'
       - 'tests/test_cloud_memory_privacy_hardening.py'
       - 'tests/test_memory_entitlements.py'
+      - 'tests/test_space_subject_access_ssot.py'
       - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_continuity.mjs'
@@ -80,6 +83,7 @@ on:
       - 'infra/supabase/product/migrations/20260929212500_cloud_memory_sync_payload_contract_v1.sql'
       - 'infra/supabase/product/migrations/20260929214500_cloud_memory_local_first_identity_v1.sql'
       - 'infra/supabase/product/migrations/20261005033000_private_domain_executors_v1.sql'
+      - 'infra/supabase/product/migrations/20261007152010_space_subject_access_ssot_v1.sql'
       - 'services/public-identity/memory_entitlements.py'
       - 'services/public-identity/supabase_memory.py'
       - 'services/public-identity/supabase_sync.py'
@@ -101,11 +105,13 @@ on:
       - 'system/composition/native/main.mjs'
       - 'tools/cloud-memory/prove_authenticated_atomic_sync.py'
       - 'tests/sql/test_cloud_memory_privacy_hardening.sql'
+      - 'tests/sql/test_space_subject_access_ssot_v1.sql'
       - 'tests/test_cloud_memory_atomic_mutation.py'
       - 'tests/test_cloud_memory_authenticated_proof.py'
       - 'tests/test_cloud_memory_executor_ssot.py'
       - 'tests/test_cloud_memory_privacy_hardening.py'
       - 'tests/test_memory_entitlements.py'
+      - 'tests/test_space_subject_access_ssot.py'
       - 'tests/test_account_memory_authorization.mjs'
       - 'tests/test_account_memory_conflict_reconciliation.mjs'
       - 'tests/test_account_memory_continuity.mjs'
@@ -212,16 +218,18 @@ jobs:
           python -m py_compile tests/test_cloud_memory_executor_ssot.py
           python -m py_compile tests/test_cloud_memory_privacy_hardening.py
           python -m py_compile tests/test_memory_entitlements.py
+          python -m py_compile tests/test_space_subject_access_ssot.py
           python -m py_compile tests/test_account_canonical_navigation.py
           python -m json.tool docs/contracts/cloud-memory-sync-boundary.json >/dev/null
           python -m json.tool docs/contracts/foundation.json >/dev/null
           python -m json.tool docs/contracts/memory.json >/dev/null
           python -m json.tool docs/contracts/sync-model.json >/dev/null
 
-      - name: Execute canonical cloud Memory privacy proof on PostgreSQL
+      - name: Execute canonical cloud Memory and Space access proofs on PostgreSQL
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_cloud_memory_privacy_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_space_subject_access_ssot_v1.sql
 
       - name: Run Memory sync foundation tests
         run: |
@@ -249,5 +257,6 @@ jobs:
           python -m unittest tests.test_cloud_memory_executor_ssot -v
           python -m unittest tests.test_cloud_memory_privacy_hardening -v
           python -m unittest tests.test_memory_entitlements -v
+          python -m unittest tests.test_space_subject_access_ssot -v
           python -m unittest tests.test_account_canonical_navigation -v
           python -m unittest tests.test_sync_model_contract -v
