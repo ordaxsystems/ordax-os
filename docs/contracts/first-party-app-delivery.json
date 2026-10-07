@@ -201,7 +201,19 @@
     "artifact_content_path_template": "sha256/{prefix2}/{sha256}",
     "artifact_content_path_derivation_owner": "system/contracts/app-artifact-identity.mjs",
     "artifact_content_path_uses_app_or_version": false,
-    "artifact_content_path_includes_origin": false
+    "artifact_content_path_includes_origin": false,
+    "native_artifact_https_source_implemented": true,
+    "native_artifact_https_source_owner": "artifact-acquisition",
+    "native_artifact_https_source_authority": "content-fetch-only",
+    "native_artifact_https_source_requires_configured_base_origin": true,
+    "native_artifact_https_source_embeds_artifact_urls": false,
+    "native_artifact_https_source_path_from_sha256_only": true,
+    "native_artifact_https_source_redirects_allowed": false,
+    "native_artifact_https_source_content_encoding": "identity-only",
+    "native_artifact_https_source_bounded_by_verified_size": true,
+    "native_artifact_https_source_holds_catalog_watermark_during_acquisition": true,
+    "native_artifact_https_source_stale_plan_network_access": false,
+    "production_artifact_base_origin_configured": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
