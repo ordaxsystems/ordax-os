@@ -5,10 +5,10 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const ISSUER = "https://token.actions.githubusercontent.com";
 const AUDIENCE = "ordax-development-enrollment";
-const REPOSITORY = "washingtonmsdj/ordax-runtime";
+const REPOSITORY = "ordaxsystems/ordax-runtime";
 const REPOSITORY_ID = "1406415790";
 const WORKFLOW_REF =
-  "washingtonmsdj/ordax-runtime/.github/workflows/ordax-agent-recovery.yml@refs/heads/main";
+  "ordaxsystems/ordax-runtime/.github/workflows/ordax-agent-recovery.yml@refs/heads/main";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
