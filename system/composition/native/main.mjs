@@ -37,7 +37,6 @@ import { createNativeUpdateHistory } from "../../adapters/native/update-history.
 import { createNativeUpdateWatcher } from "../../adapters/native/update-runtime.mjs";
 import { createNativeWorkspaceStore } from "../../adapters/native/workspace.mjs";
 import { createNativeVerifiedComponentPackageSource } from "../../adapters/native/verified-component-package-source.mjs";
-import { createNativeVerifiedAppStoreCatalog } from "../../adapters/native/verified-app-store-catalog.mjs";
 import { createNativeVerifiedComponentArtifactIdentity } from "../../adapters/native/verified-component-artifact-identity.mjs";
 import { createNativeSyncStateStore } from "../../adapters/native/sync-state.mjs";
 import { createNativeSyncCheckpointStore } from "../../adapters/native/sync-checkpoint.mjs";
@@ -50,7 +49,6 @@ import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { createUnavailableAppStoreCatalogPort } from "../../contracts/app-store.mjs";
-import { createVerifiedAppStoreProjection } from "../../services/apps/verified-store-projection.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
@@ -104,6 +102,7 @@ import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
 import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
 import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
 import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
+import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
@@ -162,9 +161,13 @@ async function start() {
         throw new Error("Native loopback fetch is unavailable");
       };
   const verifiedComponentArtifactIdentity = createNativeVerifiedComponentArtifactIdentity(window);
-  const verifiedStoreCatalogRuntimePromise = optionalNativeProbe(
-    "OrdaX Native verified Store catalog unavailable",
-    () => createNativeVerifiedAppStoreCatalog(window),
+  const storeCatalogCompositionPromise = optionalNativeProbe(
+    "OrdaX Native Store catalog composition unavailable",
+    () => createNativeStoreCatalogComposition({
+      windowRef: window,
+      componentSource: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+    }),
   );
   const verifiedAppSemanticsPromise = optionalNativeProbe(
     "OrdaX verified App Intelligence semantics unavailable",
@@ -805,18 +808,8 @@ async function start() {
       localSession,
     );
   }
-  const verifiedStoreCatalogRuntime = await verifiedStoreCatalogRuntimePromise;
-  let storeCatalogRuntime = null;
-  let storeCatalog = createUnavailableAppStoreCatalogPort();
-  if (verifiedStoreCatalogRuntime !== null) {
-    storeCatalogRuntime = createVerifiedAppStoreProjection({
-      verifiedCatalogPort: verifiedStoreCatalogRuntime.port,
-      componentSource: verifiedComponentPackageSource,
-      fetchImpl: verifiedComponentFetch,
-    });
-    await storeCatalogRuntime.refresh();
-    storeCatalog = storeCatalogRuntime.port;
-  }
+  const storeCatalogComposition = await storeCatalogCompositionPromise;
+  const storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
   const storeOverviewControls = mountStoreOverviewControls(
     root,
     storeCatalog,
@@ -978,8 +971,7 @@ async function start() {
       updateControls.destroy();
       systemOverviewControls.destroy();
       storeOverviewControls.destroy();
-      storeCatalogRuntime?.destroy();
-      verifiedStoreCatalogRuntime?.destroy();
+      storeCatalogComposition?.destroy();
       settingsOverviewControls.destroy();
       networkTrayControls?.destroy();
       networkQuickPanel?.destroy();
