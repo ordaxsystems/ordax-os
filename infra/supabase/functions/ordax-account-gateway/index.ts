@@ -547,6 +547,7 @@ async function verifyRecoveryLink(req: Request, url: URL) {
     return redirectResponse(
       "/recuperar/nova-senha/",
       [
+        ...clearCookies(),
         ...recoveryCookies(
           data.session.access_token,
           data.session.refresh_token,
@@ -720,8 +721,8 @@ async function closeAccount(req: Request) {
   }
 
   return wantsJson(req)
-    ? json(200, { closed: true }, clearCookies())
-    : redirectResponse("/", clearCookies());
+    ? json(200, { closed: true }, [...clearCookies(), ...clearRecoveryCookies()])
+    : redirectResponse("/", [...clearCookies(), ...clearRecoveryCookies()]);
 }
 
 async function credentials(req: Request, register: boolean) {
@@ -1035,8 +1036,8 @@ Deno.serve(async (req: Request) => {
       // Idempotent logout: cookie removal still wins.
     }
     return wantsJson(req)
-      ? json(200, { signedOut: true }, clearCookies())
-      : redirectResponse("/", clearCookies());
+      ? json(200, { signedOut: true }, [...clearCookies(), ...clearRecoveryCookies()])
+      : redirectResponse("/", [...clearCookies(), ...clearRecoveryCookies()]);
   }
 
 
