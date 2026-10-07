@@ -43,6 +43,7 @@ import { createNativeSyncCheckpointStore } from "../../adapters/native/sync-chec
 import { createNativeSurfaceHeartbeat } from "../../adapters/native/surface-heartbeat.mjs";
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
 import { createSameOriginIdentityCredentials } from "../../adapters/web/identity-credentials.mjs";
+import { createSameOriginAccountLifecycle } from "../../adapters/web/account-lifecycle.mjs";
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
@@ -427,6 +428,7 @@ async function start() {
     ? null
     : createMemoryConflictReviewRuntime(accountMemoryFoundation.memorySync);
   const identityCredentials = createSameOriginIdentityCredentials(window);
+  const accountLifecycle = createSameOriginAccountLifecycle(window, identitySession);
   const identityActions = createWebIdentityActions(window, identitySession, {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
@@ -737,6 +739,7 @@ async function start() {
   const resumeAccountConnectivity = async () => {
     await identitySession.refresh();
     await identityActions.refresh();
+    await accountLifecycle.refresh();
     await accountSync.refresh();
   };
   const onOnline = () => {
@@ -762,6 +765,7 @@ async function start() {
     surface.preferences,
     profileActivationState,
     memoryConflictReview,
+    accountLifecycle,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -988,6 +992,7 @@ async function start() {
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
+      accountLifecycle.dispose();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
       unsubscribeAccountMemoryRecovery();
