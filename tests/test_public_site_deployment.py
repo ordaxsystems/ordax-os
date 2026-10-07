@@ -214,7 +214,9 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertIn('"/auth/session"', text)
         self.assertIn('"/sync/snapshot?limit=1"', text)
         self.assertIn("authentication-required", text)
-        self.assertIn("public-account-access-disabled", text)
+        self.assertIn("bot-verification-required", text)
+        self.assertIn("turnstile-server-boundary-not-enforced", text)
+        self.assertIn("turnstile-csp", text)
         for forbidden in (
             "ORDAX_PROOF_ACCOUNT_PASSWORD",
             "service_role",
