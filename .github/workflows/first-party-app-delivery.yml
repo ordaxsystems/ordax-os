@@ -7,8 +7,6 @@ on:
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/app-lifecycle-request.mjs'
       - 'system/contracts/app-store.mjs'
-      - 'system/contracts/app-lifecycle-request.mjs'
-      - 'system/contracts/app-store.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
@@ -23,6 +21,8 @@ on:
   pull_request:
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
+      - 'system/contracts/app-lifecycle-request.mjs'
+      - 'system/contracts/app-store.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
