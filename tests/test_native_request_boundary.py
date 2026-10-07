@@ -200,10 +200,10 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
         self.thread.join(timeout=2)
         self.temporary.cleanup()
 
-    def request(self, path, *, headers=None):
+    def request(self, path, *, headers=None, method="GET"):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
         try:
-            connection.request("GET", path, headers=headers or {})
+            connection.request(method, path, headers=headers or {})
             response = connection.getresponse()
             body = response.read()
             return response.status, body
@@ -219,6 +219,46 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
             headers={"Host": f"attacker.example:{self.port}"},
         )
         self.assertEqual(status, 403)
+
+    def test_inherited_head_requires_exact_authority_before_static_dispatch(self):
+        status, body = self.request("/index.html", method="HEAD")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"")
+        status, body = self.request(
+            "/index.html", method="HEAD",
+            headers={"Host": f"attacker.example:{self.port}"},
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(body, b"")
+
+    def test_head_cannot_bypass_native_browser_provenance(self):
+        status, _ = self.request(
+            native_host.SESSION_PATH, method="HEAD",
+            headers={"Origin": "https://attacker.example", "Sec-Fetch-Site": "cross-site"},
+        )
+        self.assertEqual(status, 403)
+
+    def test_duplicate_host_headers_are_rejected_for_inherited_head(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
+        try:
+            connection.putrequest("HEAD", "/index.html", skip_host=True)
+            connection.putheader("Host", f"127.0.0.1:{self.port}")
+            connection.putheader("Host", f"127.0.0.1:{self.port}")
+            connection.endheaders()
+            response = connection.getresponse()
+            response.read()
+            self.assertEqual(response.status, 403)
+        finally:
+            connection.close()
+
+    def test_unknown_method_still_obeys_authority_before_dispatch(self):
+        status, _ = self.request(
+            "/index.html", method="PATCH",
+            headers={"Host": f"attacker.example:{self.port}"},
+        )
+        self.assertEqual(status, 403)
+        status, _ = self.request("/index.html", method="PATCH")
+        self.assertEqual(status, 501)
 
     def test_native_api_rejects_foreign_browser_provenance(self):
         origin = f"http://127.0.0.1:{self.port}"

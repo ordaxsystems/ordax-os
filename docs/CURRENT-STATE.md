@@ -828,6 +828,11 @@ The byte-complete media workflow remains proven with ephemeral CI trust and disp
 
 ## Recovery
 
+The Native HTTP trust boundary is enforced by the canonical handler's request
+parser before method dispatch. Inherited `HEAD`, unsupported methods and thin
+App Data handlers therefore receive the same exact Host/browser-provenance policy
+as GET/POST; endpoint handlers no longer own duplicate ingress checks.
+
 Portable PID1 now distinguishes structural slot resolution from exact signed
 verification: if an intact-looking `current` fails its signature/hash check, boot
 tries an independently resolved and exactly verified `known-good` without retargeting

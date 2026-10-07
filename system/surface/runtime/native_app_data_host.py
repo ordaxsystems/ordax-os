@@ -120,8 +120,6 @@ class NativeAppDataHostHandler(NativeHostHandler):
         if not self._is_app_data_path():
             super().do_GET()
             return
-        if not self._request_is_trusted():
-            return
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
@@ -131,8 +129,6 @@ class NativeAppDataHostHandler(NativeHostHandler):
         if not self._is_app_data_path():
             super().do_HEAD()
             return
-        if not self._request_is_trusted():
-            return
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
@@ -141,8 +137,6 @@ class NativeAppDataHostHandler(NativeHostHandler):
     def do_POST(self) -> None:  # noqa: N802
         if not self._is_app_data_path():
             super().do_POST()
-            return
-        if not self._request_is_trusted():
             return
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)

@@ -3306,6 +3306,13 @@ class NativeHostServer(ThreadingHTTPServer):
 class NativeHostHandler(SimpleHTTPRequestHandler):
     server_version = "OrdaXNativeHost/1"
 
+    def parse_request(self) -> bool:
+        if not super().parse_request():
+            return False
+        # Enforce the canonical boundary before *any* method dispatch, including
+        # inherited HEAD and methods added by thin capability handlers.
+        return self._request_is_trusted()
+
     def _request_is_trusted(self) -> bool:
         if request_is_trusted(self.headers, self.server.server_address, self.path):
             return True
@@ -3395,8 +3402,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         return None
 
     def do_OPTIONS(self) -> None:  # noqa: N802
-        if not self._request_is_trusted():
-            return
         if self.path.startswith("/__ordax/native/"):
             self._empty(403)
             return
@@ -3405,8 +3410,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         self._empty(405)
 
     def do_GET(self) -> None:  # noqa: N802
-        if not self._request_is_trusted():
-            return
         parsed_path = urlsplit(self.path).path
         if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_REGISTRATION_POLICY_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
             if self.client_address[0] != "127.0.0.1":
@@ -4006,8 +4009,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
-        if not self._request_is_trusted():
-            return
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
