@@ -19,6 +19,32 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
+    def test_vercel_migration_target_is_dedicated_and_fail_closed(self):
+        migration = self.contract["vercel_migration"]
+        self.assertEqual(migration["status"], "target-team-provisioning-pending")
+        self.assertEqual(migration["target_account_email"], "ordaxos@gmail.com")
+        self.assertEqual(migration["target_team_slug"], "ordaxsystems")
+        self.assertEqual(migration["target_project"], "ordax-os-public")
+        self.assertEqual(migration["target_github_organization"], "ordaxsystems")
+        self.assertFalse(migration["personal_scope_allowed"])
+        self.assertFalse(migration["legacy_team_allowed_after_cutover"])
+        self.assertFalse(migration["shared_secret_fallback_allowed"])
+        self.assertFalse(migration["preview_identity_allowed"])
+        self.assertEqual(
+            migration["cutover_atomic_fields"],
+            [
+                "oidc_issuer",
+                "oidc_audience",
+                "oidc_subject",
+                "canonical_public_origin",
+            ],
+        )
+        self.assertTrue(migration["runtime_proof_required_before_public_auth"])
+        self.assertNotEqual(
+            migration["target_team_slug"],
+            self.contract["vercel_adapter"]["team"],
+        )
+
     def test_contract_records_live_oidc_v7_without_claiming_vercel_rollout(self):
         self.assertEqual(
             self.contract["status"],
