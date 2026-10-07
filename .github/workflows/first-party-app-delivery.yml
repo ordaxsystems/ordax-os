@@ -39,13 +39,13 @@ on:
       - 'system/adapters/native/verified-app-store-catalog.mjs'
       - 'system/adapters/native/app-lifecycle-delegate.mjs'
       - 'tests/test_native_app_lifecycle_delegate.mjs'
-      - 'system/adapters/native/app-lifecycle-delegate.mjs'
-      - 'tests/test_native_app_lifecycle_delegate.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/app-lifecycle-request.mjs'
+      - 'system/contracts/app-lifecycle-plan.mjs'
+      - 'system/contracts/app-artifact-acquisition-source.mjs'
       - 'system/contracts/app-store.mjs'
       - 'system/contracts/component-runtime-metadata.mjs'
       - 'system/contracts/verified-app-store-catalog.mjs'
@@ -72,6 +72,9 @@ on:
       - 'system/composition/native/main.mjs'
       - 'system/composition/native/store-catalog.mjs'
       - 'system/adapters/native/verified-app-store-catalog.mjs'
+      - 'system/adapters/native/app-lifecycle-delegate.mjs'
+      - 'tests/test_native_app_lifecycle_delegate.mjs'
+      - 'tests/test_app_artifact_acquisition_source.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   workflow_dispatch:
 
