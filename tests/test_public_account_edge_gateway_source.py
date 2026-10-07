@@ -70,8 +70,11 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("authorization", verifiedAuthorization)', self.edge)
         self.assertIn('req.headers.get("authorization") ?? ""', self.edge)
         verify_index = self.edge.index("verifyPublicProxyIdentity(req)")
-        forward_index = self.edge.index('headers.set("authorization", verifiedAuthorization)')
-        self.assertLess(verify_index, forward_index)
+        forward_call_index = self.edge.index(
+            "upstreamHeaders(req, config.publishableKey",
+            verify_index,
+        )
+        self.assertLess(verify_index, forward_call_index)
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
