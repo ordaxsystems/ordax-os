@@ -134,6 +134,10 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
         "registration-provider-bypass-guard",
     )
     need(
+        observation.get("legacy_account_legal_receipt_reconciliation_verified") is True,
+        "legacy-account-legal-receipt-reconciliation",
+    )
+    need(
         registration_binding.get("client_supplied_document_versions_trusted") is False,
         "registration-legal-client-version-trust",
     )
