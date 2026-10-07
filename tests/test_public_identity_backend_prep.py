@@ -17,7 +17,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         contract = json.loads(IDENTITY_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "provider-adapter-source-v17-deployed-v16-revision-26-native-auth-rate-limit-source-ready-legal-policy-pending-registration-disabled-close-disabled",
+            "provider-adapter-source-v17-deployed-v17-revision-27-native-auth-rate-limit-live-legal-policy-pending-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["backend"]["provider_configured"])
         self.assertTrue(contract["backend"]["password_auth_flow_implemented"])
@@ -27,9 +27,9 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["dedicated_or_isolated_target_required"])
         self.assertFalse(contract["backend"]["conflicting_auth_user_trigger_allowed"])
         self.assertEqual(contract["backend"]["gateway_source_version"], 17)
-        self.assertEqual(contract["backend"]["deployed_gateway_source_version"], 16)
+        self.assertEqual(contract["backend"]["deployed_gateway_source_version"], 17)
         self.assertTrue(contract["backend"]["native_direct_auth_rate_limit_source_ready"])
-        self.assertFalse(contract["backend"]["native_direct_auth_rate_limit_deployed"])
+        self.assertTrue(contract["backend"]["native_direct_auth_rate_limit_deployed"])
         self.assertEqual(
             contract["backend"]["native_direct_auth_rate_limit_rpc"],
             "ordax_consume_public_auth_rate_limit_v1",
@@ -39,7 +39,16 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
             "supabase-edge-cf-connecting-ip",
         )
         self.assertTrue(contract["backend"]["native_direct_auth_rate_limit_fail_closed"])
-        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 26)
+        self.assertEqual(
+            contract["backend"]["native_direct_auth_rate_limit_deployment_revision_observed"],
+            27,
+        )
+        self.assertEqual(
+            contract["backend"]["native_direct_auth_rate_limit_shared_policy_source"],
+            "infra/supabase/functions/_shared/auth_rate_limit.mjs",
+        )
+        self.assertFalse(contract["backend"]["native_direct_auth_rate_limit_raw_ip_persisted"])
+        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 27)
         self.assertTrue(contract["backend"]["account_close_source_implemented"])
         self.assertEqual(contract["backend"]["account_close_gateway_route"], "/account/close")
         self.assertTrue(contract["backend"]["account_close_gateway_route_deployed"])
@@ -66,7 +75,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["backend"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            26,
+            27,
         )
         self.assertTrue(
             contract["backend"]["account_memory_entitlement_requires_authenticated_user"]
