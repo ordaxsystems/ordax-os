@@ -12,6 +12,15 @@ const RELATIVE_TIME_UNITS = Object.freeze(new Set([
   "second",
 ]));
 
+const DISPLAY_NAME_TYPES = Object.freeze(new Set([
+  "language",
+  "region",
+  "script",
+  "currency",
+  "calendar",
+  "dateTimeField",
+]));
+
 function assertOptions(value, label) {
   if (value === undefined) return {};
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -84,7 +93,7 @@ export function createLocaleFormatting(localization) {
     },
 
     formatCurrency(value, currency, options) {
-      const code = assertText(currency, "Currency code", 3).toUpperCase();
+      const code = assertText(currency, "Currency code", 64).toUpperCase();
       if (!/^[A-Z]{3}$/.test(code)) {
         throw new TypeError("Currency code must be a three-letter ISO 4217 code");
       }
@@ -146,8 +155,7 @@ export function createLocaleFormatting(localization) {
     formatDisplayName(value, type, options) {
       const code = assertText(value, "Display name code", 64);
       const displayType = assertText(type, "Display name type", 16);
-      const allowedTypes = new Set(["language", "region", "script", "currency", "calendar", "dateTimeField"]);
-      if (!allowedTypes.has(displayType)) {
+      if (!DISPLAY_NAME_TYPES.has(displayType)) {
         throw new TypeError(`Unsupported display name type: ${displayType}`);
       }
       const resolved = assertOptions(options, "Display name formatting");
