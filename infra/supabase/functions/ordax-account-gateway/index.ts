@@ -26,6 +26,8 @@ const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const ACCESS_COOKIE = "ordax_access";
 const REFRESH_COOKIE = "ordax_refresh";
 const RECOVERY_COOKIE = "ordax_recovery";
+const RECOVERY_ACCESS_COOKIE = "ordax_recovery_access";
+const RECOVERY_REFRESH_COOKIE = "ordax_recovery_refresh";
 const RECOVERY_SESSION_MAX_AGE = 10 * 60;
 const MAX_BODY = 64 * 1024;
 const MIN_REGISTRATION_PASSWORD_CHARS = 12;
@@ -107,12 +109,21 @@ function clearCookies() {
   return [cookie(ACCESS_COOKIE, "", 0), cookie(REFRESH_COOKIE, "", 0)];
 }
 
-function recoveryCookie() {
-  return cookie(RECOVERY_COOKIE, "1", RECOVERY_SESSION_MAX_AGE);
+function recoveryCookies(access: string, refresh: string, expiresIn: number) {
+  const maxAge = Math.max(1, Math.min(Number(expiresIn) || RECOVERY_SESSION_MAX_AGE, RECOVERY_SESSION_MAX_AGE));
+  return [
+    cookie(RECOVERY_ACCESS_COOKIE, access, maxAge),
+    cookie(RECOVERY_REFRESH_COOKIE, refresh, maxAge),
+    cookie(RECOVERY_COOKIE, "1", maxAge),
+  ];
 }
 
-function clearRecoveryCookie() {
-  return cookie(RECOVERY_COOKIE, "", 0);
+function clearRecoveryCookies() {
+  return [
+    cookie(RECOVERY_ACCESS_COOKIE, "", 0),
+    cookie(RECOVERY_REFRESH_COOKIE, "", 0),
+    cookie(RECOVERY_COOKIE, "", 0),
+  ];
 }
 
 function firstNamedKey(raw: string, name: string) {
@@ -410,6 +421,38 @@ async function authenticated(req: Request) {
   return { access: "", user: null, cookies: clearCookies() };
 }
 
+async function authenticatedRecovery(req: Request) {
+  const cookies = parseCookies(req);
+  if (cookies.get(RECOVERY_COOKIE) !== "1") {
+    return { access: "", user: null, cookies: clearRecoveryCookies() };
+  }
+  const access = cookies.get(RECOVERY_ACCESS_COOKIE);
+  const refresh = cookies.get(RECOVERY_REFRESH_COOKIE);
+  if (access) {
+    const supabase = client(access);
+    const { data, error } = await supabase.auth.getUser(access);
+    if (!error && data.user) {
+      return { access, user: data.user, cookies: [] as string[] };
+    }
+  }
+  if (refresh) {
+    const supabase = client();
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: refresh });
+    if (!error && data.session && data.user) {
+      return {
+        access: data.session.access_token,
+        user: data.user,
+        cookies: recoveryCookies(
+          data.session.access_token,
+          data.session.refresh_token,
+          data.session.expires_in,
+        ),
+      };
+    }
+  }
+  return { access: "", user: null, cookies: clearRecoveryCookies() };
+}
+
 async function recovery(req: Request) {
   if (!ACCOUNT_RECOVERY_REQUEST_ENABLED) {
     return error(503, "account-recovery-disabled", "A recuperação da Conta OrdaX ainda não foi ativada.");
@@ -504,12 +547,11 @@ async function verifyRecoveryLink(req: Request, url: URL) {
     return redirectResponse(
       "/recuperar/nova-senha/",
       [
-        ...sessionCookies(
+        ...recoveryCookies(
           data.session.access_token,
           data.session.refresh_token,
           expiresIn,
         ),
-        recoveryCookie(),
       ],
     );
   } catch {
@@ -521,12 +563,7 @@ async function updateRecoveryPassword(req: Request) {
   if (!ACCOUNT_RECOVERY_COMPLETION_ENABLED) {
     return error(503, "account-recovery-completion-disabled", "A conclusão da recuperação da Conta OrdaX ainda não foi ativada.");
   }
-  const cookies = parseCookies(req);
-  if (cookies.get(RECOVERY_COOKIE) !== "1") {
-    return error(401, "recovery-session-required", "Inicie novamente a recuperação da Conta OrdaX.");
-  }
-
-  const session = await authenticated(req);
+  const session = await authenticatedRecovery(req);
   if (!session.user || !session.access) {
     return json(
       401,
@@ -535,7 +572,7 @@ async function updateRecoveryPassword(req: Request) {
         error: "recovery-session-required",
         message: "Inicie novamente a recuperação da Conta OrdaX.",
       },
-      [...session.cookies, clearRecoveryCookie()],
+      session.cookies,
     );
   }
 
@@ -597,11 +634,11 @@ async function updateRecoveryPassword(req: Request) {
     ? json(
         200,
         { recoveryCompleted: true },
-        [...clearCookies(), clearRecoveryCookie()],
+        [...clearCookies(), ...clearRecoveryCookies()],
       )
     : redirectResponse(
         "/login/?recuperacao=concluida",
-        [...clearCookies(), clearRecoveryCookie()],
+        [...clearCookies(), ...clearRecoveryCookies()],
       );
 }
 
