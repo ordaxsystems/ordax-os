@@ -59,6 +59,11 @@ from native_profile_human_consent import ProfileHumanConsentAuthority
 from native_profile_consent_presenter import ProfileHumanConsentCoordinator
 from native_profile_consent_ipc import request_native_decision
 from native_store_catalog import StoreCatalogError, read_native_store_catalog_snapshot
+from native_store_catalog_acquisition import (
+    StoreCatalogAcquisitionError,
+    acquire_and_promote_store_catalog,
+    normalize_catalog_base_origin,
+)
 from native_app_artifact_store import DEFAULT_ARTIFACT_ROOT
 from native_app_artifact_acquisition import (
     AppArtifactAcquisitionError,
@@ -3154,6 +3159,7 @@ class NativeHostServer(ThreadingHTTPServer):
         component_slot_root: str = DEFAULT_COMPONENT_SLOT_ROOT,
         store_catalog_envelope_path: str = DEFAULT_STORE_CATALOG_ENVELOPE_PATH,
         store_catalog_watermark_path: str = DEFAULT_STORE_CATALOG_WATERMARK_PATH,
+        store_catalog_base_origin: str = "",
         store_artifact_root: str = DEFAULT_STORE_ARTIFACT_ROOT,
         store_artifact_base_origin: str = "",
         account_gateway_origin: str = "",
@@ -3216,6 +3222,11 @@ class NativeHostServer(ThreadingHTTPServer):
         self.component_slot_lock = threading.Lock()
         self.store_catalog_envelope_path = store_catalog_envelope_path
         self.store_catalog_watermark_path = store_catalog_watermark_path
+        self.store_catalog_base_origin = (
+            normalize_catalog_base_origin(store_catalog_base_origin)
+            if store_catalog_base_origin
+            else ""
+        )
         self.store_catalog_lock = threading.Lock()
         self.store_lifecycle_lock = threading.Lock()
         self.store_artifact_root = store_artifact_root
@@ -3609,6 +3620,21 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             try:
                 with self.server.store_catalog_lock:
+                    if self.server.store_catalog_base_origin:
+                        try:
+                            acquire_and_promote_store_catalog(
+                                base_origin=self.server.store_catalog_base_origin,
+                                helper_path=Path(self.server.component_channel_bin),
+                                trust_path=Path(self.server.component_trust_path),
+                                envelope_path=Path(self.server.store_catalog_envelope_path),
+                                watermark_path=Path(self.server.store_catalog_watermark_path),
+                            )
+                        except StoreCatalogAcquisitionError as exc:
+                            print(
+                                f"ordax-native-host: remote Store catalog refresh failed closed; retaining local catalog: {exc}",
+                                file=sys.stderr,
+                                flush=True,
+                            )
                     snapshot = read_native_store_catalog_snapshot(
                         helper_path=Path(self.server.component_channel_bin),
                         trust_path=Path(self.server.component_trust_path),
@@ -4769,6 +4795,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--component-slot-root", default=DEFAULT_COMPONENT_SLOT_ROOT)
     parser.add_argument("--store-catalog-envelope", default=DEFAULT_STORE_CATALOG_ENVELOPE_PATH)
     parser.add_argument("--store-catalog-watermark", default=DEFAULT_STORE_CATALOG_WATERMARK_PATH)
+    parser.add_argument("--store-catalog-base-origin", default="")
     parser.add_argument("--store-artifact-root", default=DEFAULT_STORE_ARTIFACT_ROOT)
     parser.add_argument("--store-artifact-base-origin", default="")
     parser.add_argument("--account-gateway-origin", default="")
@@ -4813,6 +4840,7 @@ def main() -> int:
         component_slot_root=args.component_slot_root,
         store_catalog_envelope_path=args.store_catalog_envelope,
         store_catalog_watermark_path=args.store_catalog_watermark,
+        store_catalog_base_origin=args.store_catalog_base_origin,
         store_artifact_root=args.store_artifact_root,
         store_artifact_base_origin=args.store_artifact_base_origin,
         account_gateway_origin=args.account_gateway_origin,
