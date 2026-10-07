@@ -115,7 +115,11 @@
     "catalog_lower_sequence_rejected": true,
     "catalog_equal_sequence_different_hash_rejected": true,
     "catalog_watermark_failure_is_fail_closed": true,
-    "catalog_schema_grants_verification": false
+    "catalog_schema_grants_verification": false,
+    "catalog_replay_owner": "native-catalog-verifier",
+    "catalog_signature_verification_owner": "native-catalog-verifier",
+    "surface_may_write_catalog_watermark": false,
+    "surface_receives_verified_catalog_read_only": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
