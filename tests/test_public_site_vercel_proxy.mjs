@@ -9,7 +9,9 @@ import {
   normalizeUpstreamLocation,
   normalizeVercelOidcToken,
   proxyPublicAccountRequest,
+  stripTurnstileToken,
   trustedSetCookie,
+  verifyTurnstileToken,
 } from "../api/account-proxy.mjs";
 
 const GATEWAY = "https://example.supabase.co/functions/v1/ordax-public-account-gateway";
@@ -294,6 +296,136 @@ test("proxy fails closed when deployment identity, origin, or trusted edge conte
     options(),
   );
   assert.equal(missingEdgeIp.status, 400);
+});
+
+test("Turnstile form token is bounded, unique and stripped before upstream use", () => {
+  const encoded = new TextEncoder().encode(
+    "email=a%40b.test&password=example-password&cf-turnstile-response=token-12345678901234567890",
+  );
+  const parsed = stripTurnstileToken(encoded, "application/x-www-form-urlencoded");
+  assert.equal(parsed.token, "token-12345678901234567890");
+  const clean = new TextDecoder().decode(parsed.body);
+  assert.match(clean, /email=a%40b.test/);
+  assert.doesNotMatch(clean, /cf-turnstile-response/);
+
+  assert.throws(
+    () => stripTurnstileToken(
+      new TextEncoder().encode("email=a%40b.test"),
+      "application/x-www-form-urlencoded",
+    ),
+    /turnstile-token-required/,
+  );
+  assert.throws(
+    () => stripTurnstileToken(
+      new TextEncoder().encode("cf-turnstile-response=a&cf-turnstile-response=b"),
+      "application/x-www-form-urlencoded",
+    ),
+    /turnstile-token-required/,
+  );
+});
+
+test("Turnstile verifier requires success, exact hostname and exact action", async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url: String(url), init });
+    return new Response(JSON.stringify({
+      success: true,
+      hostname: "ordax-os-public.vercel.app",
+      action: "ordax-account",
+    }), { status: 200 });
+  };
+  const ok = await verifyTurnstileToken("token-12345678901234567890", {
+    secret: "server-secret",
+    remoteIp: "203.0.113.15",
+    expectedHostname: "ordax-os-public.vercel.app",
+    fetchImpl,
+  });
+  assert.equal(ok, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://challenges.cloudflare.com/turnstile/v0/siteverify");
+  const submitted = new URLSearchParams(calls[0].init.body);
+  assert.equal(submitted.get("response"), "token-12345678901234567890");
+  assert.equal(submitted.get("remoteip"), "203.0.113.15");
+  assert.equal(submitted.get("secret"), "server-secret");
+
+  const wrongHost = await verifyTurnstileToken("token-12345678901234567890", {
+    secret: "server-secret",
+    remoteIp: "203.0.113.15",
+    expectedHostname: "evil.example",
+    fetchImpl,
+  });
+  assert.equal(wrongHost, false);
+});
+
+test("public login fails closed without Turnstile and never forwards challenge token", async () => {
+  const originalFetch = globalThis.fetch;
+  let observed;
+  globalThis.fetch = async (url, init) => {
+    observed = { url: String(url), init };
+    return new Response(JSON.stringify({ error: "public-account-access-disabled" }) + "\n", {
+      status: 503,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
+  };
+  try {
+    let response = await proxyPublicAccountRequest(
+      request("/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: "email=a%40b.test&password=example-password",
+      }),
+      options({ turnstileSecret: "server-secret" }),
+    );
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).error, "bot-verification-required");
+
+    response = await proxyPublicAccountRequest(
+      request("/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: "email=a%40b.test&password=example-password&cf-turnstile-response=token-12345678901234567890",
+      }),
+      options({
+        turnstileSecret: "server-secret",
+        turnstileVerifier: async () => true,
+      }),
+    );
+    assert.equal(response.status, 503);
+    assert.equal(observed.url, `${GATEWAY}/auth/login`);
+    const forwarded = new TextDecoder().decode(observed.init.body);
+    assert.match(forwarded, /email=a%40b.test/);
+    assert.doesNotMatch(forwarded, /cf-turnstile-response/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("public auth fails closed when Turnstile server secret is absent or verification service errors", async () => {
+  const body = "email=a%40b.test&password=example-password&cf-turnstile-response=token-12345678901234567890";
+  let response = await proxyPublicAccountRequest(
+    request("/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
+    }),
+    options({ turnstileSecret: "" }),
+  );
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "bot-protection-unconfigured");
+
+  response = await proxyPublicAccountRequest(
+    request("/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
+    }),
+    options({
+      turnstileSecret: "server-secret",
+      turnstileVerifier: async () => { throw new Error("unavailable"); },
+    }),
+  );
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "bot-verification-unavailable");
 });
 
 test("proxy rejects oversized bodies before upstream access", async () => {

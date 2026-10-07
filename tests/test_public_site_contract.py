@@ -107,6 +107,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIsNone(config["identity"]["register_url"])
         self.assertIsNone(config["identity"]["recovery_url"])
         self.assertIsNone(config["identity"]["recovery_complete_url"])
+        self.assertEqual(config["identity"]["turnstile_sitekey"], "0x4AAAAAAFP2xxwpJ9Bl_5Ka")
         self.assertEqual(config["downloads"]["catalog_url"], "/releases/catalog.json")
         self.assertFalse(config["legal"]["account_activation_ready"])
         self.assertEqual(config["legal"]["privacy_url"], "/privacidade/")
@@ -137,15 +138,25 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertEqual(publications["$schema"], "prototype-ordax.public-release-publications/1")
         self.assertEqual(publications["releases"], [])
 
-    def test_site_baseline_has_no_remote_runtime_dependencies(self):
+    def test_only_turnstile_is_an_allowed_remote_runtime_dependency(self):
+        allowed = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+        observed = []
         for path in SITE.rglob("*"):
             if not path.is_file() or path.suffix.lower() not in {".html", ".css", ".js"}:
                 continue
             text = path.read_text(encoding="utf-8")
-            self.assertNotIn("http://", text, path)
-            self.assertNotIn("https://", text, path)
-            self.assertNotIn('src="//', text, path)
-            self.assertNotIn('href="//', text, path)
+            relative = path.relative_to(SITE).as_posix()
+            sanitized = text
+            if relative == "assets/site.js":
+                count = sanitized.count(allowed)
+                self.assertEqual(count, 1)
+                observed.extend([allowed] * count)
+                sanitized = sanitized.replace(allowed, "")
+            self.assertNotIn("http://", sanitized, path)
+            self.assertNotIn("https://", sanitized, path)
+            self.assertNotIn('src="//', sanitized, path)
+            self.assertNotIn('href="//', sanitized, path)
+        self.assertEqual(observed, [allowed])
 
     def test_gated_identity_forms_use_native_post_without_javascript_credential_access(self):
         login = (SITE / "login" / "index.html").read_text(encoding="utf-8")
@@ -166,6 +177,8 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn('name="legal_acceptance"', register)
         self.assertIn('value="accepted"', register)
         self.assertIn('data-identity-form="recover"', recovery)
+        for protected_page in (login, register, recovery):
+            self.assertIn("data-turnstile", protected_page)
         self.assertIn('data-identity-form="recover-complete"', recovery_complete)
         self.assertIn('name="password_confirmation"', recovery_complete)
         self.assertIn('minlength="12"', recovery_complete)
@@ -178,6 +191,9 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn('loadJson("/auth/registration-policy")', script)
         self.assertIn('value.registrationEnabled === true', script)
         self.assertIn("validRegistrationPolicy", script)
+        self.assertIn("loadTurnstileRuntime", script)
+        self.assertIn("armTurnstile", script)
+        self.assertIn("TURNSTILE_ACTION", script)
         self.assertNotIn("FormData", script)
         self.assertNotIn("password", script.lower())
 

@@ -1057,3 +1057,13 @@ a {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
+
+
+/* Public account abuse protection: layout only; authority remains server-side. */
+.identity-turnstile {
+  min-height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+}

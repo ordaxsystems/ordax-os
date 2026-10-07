@@ -30,6 +30,11 @@ PUBLIC_CATALOG_RELATIVE = Path("releases/catalog.json")
 MANIFEST_NAME = "public-site-manifest.json"
 SCHEMA = "prototype-ordax.public-site-bundle/1"
 CONFIG_SCHEMA = "prototype-ordax.public-site-runtime/1"
+TURNSTILE_RUNTIME_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+TURNSTILE_SITEKEY_RE = re.compile(r"^0x[A-Za-z0-9_-]{20,80}$")
+REMOTE_RUNTIME_ALLOWLIST = {
+    "assets/site.js": (TURNSTILE_RUNTIME_URL,),
+}
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 REMOTE_HTML_REF_RE = re.compile(r"\\b(?:src|href)\\s*=\\s*['\"]//", re.IGNORECASE)
 PROTOCOL_RELATIVE_CSS_TOKENS = (
@@ -109,9 +114,13 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             )
         if suffix in {".html", ".css", ".js"}:
             text = path.read_text(encoding="utf-8")
-            if "http://" in text or "https://" in text:
+            relative_path = path.relative_to(root).as_posix()
+            sanitized = text
+            for allowed_url in REMOTE_RUNTIME_ALLOWLIST.get(relative_path, ()):
+                sanitized = sanitized.replace(allowed_url, "")
+            if "http://" in sanitized or "https://" in sanitized:
                 raise PublicSiteError(
-                    f"remote runtime reference is not allowed: {path.relative_to(root).as_posix()}"
+                    f"undeclared remote runtime reference is not allowed: {relative_path}"
                 )
             if suffix == ".html" and REMOTE_HTML_REF_RE.search(text):
                 raise PublicSiteError(
@@ -135,6 +144,8 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
     for key in ("login_url", "register_url", "recovery_url", "recovery_complete_url"):
         if not same_origin_path(identity.get(key)):
             raise PublicSiteError(f"identity.{key} must be null or a same-origin path")
+    if not TURNSTILE_SITEKEY_RE.fullmatch(str(identity.get("turnstile_sitekey", ""))):
+        raise PublicSiteError("identity.turnstile_sitekey must be a valid public Turnstile sitekey")
     if not same_origin_path(downloads.get("catalog_url")):
         raise PublicSiteError("downloads.catalog_url must be null or a same-origin path")
 
@@ -227,7 +238,15 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
             "source_commit": source_commit,
             "source_root": "sites/public",
             "build_recipe": "tools/public-site/build.py",
-            "remote_runtime_dependencies": False,
+            "remote_runtime_dependencies": True,
+            "remote_runtime_allowlist": [
+                {
+                    "url": TURNSTILE_RUNTIME_URL,
+                    "owner": "public-account-abuse-protection",
+                    "scope": ["login", "register", "recovery"],
+                    "lazy": True,
+                }
+            ],
             "framework_runtime_dependency": False,
             "routes": ["/", "/download/", "/login/", "/cadastro/", "/recuperar/", "/recuperar/nova-senha/", "/conta/", "/licencas/", "/privacidade/", "/termos/"],
             "public_release_catalog": {
@@ -266,8 +285,18 @@ def verify_bundle(out_dir: Path) -> dict:
         raise PublicSiteError("unexpected artifact class")
     if not SHA40_RE.fullmatch(str(manifest.get("source_commit", ""))):
         raise PublicSiteError("manifest source_commit is invalid")
-    if manifest.get("remote_runtime_dependencies") is not False:
-        raise PublicSiteError("public site may not gain undeclared remote runtime dependencies")
+    if manifest.get("remote_runtime_dependencies") is not True:
+        raise PublicSiteError("public site must declare the Turnstile runtime dependency")
+    expected_remote = [
+        {
+            "url": TURNSTILE_RUNTIME_URL,
+            "owner": "public-account-abuse-protection",
+            "scope": ["login", "register", "recovery"],
+            "lazy": True,
+        }
+    ]
+    if manifest.get("remote_runtime_allowlist") != expected_remote:
+        raise PublicSiteError("public site remote runtime allowlist mismatch")
 
     expected = {record["path"]: record for record in manifest.get("files", [])}
     actual = {
@@ -308,7 +337,7 @@ def command_check() -> int:
     publications = load_publications(PUBLICATIONS)
     print("PUBLIC_SITE_SOURCE=PASS")
     print(f"PUBLIC_SITE_SOURCE_FILE_COUNT={len(files)}")
-    print("PUBLIC_SITE_REMOTE_RUNTIME_DEPENDENCIES=NO")
+    print("PUBLIC_SITE_REMOTE_RUNTIME_DEPENDENCIES=TURNSTILE_ONLY")
     print("PUBLIC_PLAYGROUND_FIXTURE=PASS")
     print(f"PUBLIC_RELEASE_PUBLICATION_COUNT={len(publications['releases'])}")
     return 0

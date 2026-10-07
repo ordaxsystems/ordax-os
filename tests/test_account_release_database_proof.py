@@ -13,7 +13,7 @@ SPEC.loader.exec_module(MODULE)
 class AccountReleaseDatabaseProofTests(unittest.TestCase):
     def valid_proof(self):
         return {
-            "$schema": "prototype-ordax.control-plane-privilege-proof/2",
+            "$schema": "prototype-ordax.control-plane-privilege-proof/3",
             "provider": "supabase-postgres",
             "project_ref": "redacted",
             "checks": {
@@ -22,6 +22,7 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
                 "no_public_function_execute": True,
                 "security_definer_search_path": True,
                 "no_anon_private_schema_usage": True,
+                "private_cloud_storage_rls_enabled": True,
                 "no_authenticated_sync_table_grants": True,
                 "no_service_role_sync_table_grants": True,
                 "sync_policies_executor_only": True,
@@ -39,6 +40,7 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
                 "anon_private_schema_usage": False,
                 "authenticated_private_schema_usage": False,
                 "authenticated_private_function_execute_count": 0,
+                "private_cloud_storage_rls_enabled_count": 2,
                 "authenticated_sync_table_grant_count": 0,
                 "service_role_sync_table_grant_count": 0,
                 "sync_policy_count": 5,
@@ -119,6 +121,15 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         self.assertIn("database-proof-no_authenticated_private_function_execute", blockers)
         self.assertIn("database-proof-authenticated-private-schema-usage", blockers)
         self.assertIn("database-proof-authenticated_private_function_execute_count", blockers)
+
+    def test_private_cloud_storage_rls_gap_blocks_release(self):
+        proof = self.valid_proof()
+        proof["checks"]["private_cloud_storage_rls_enabled"] = False
+        proof["observed"]["private_cloud_storage_rls_enabled_count"] = 1
+        proof["ready"] = False
+        blockers = MODULE.validate_database_proof(proof)
+        self.assertIn("database-proof-private_cloud_storage_rls_enabled", blockers)
+        self.assertIn("database-proof-private_cloud_storage_rls_enabled_count", blockers)
 
     def test_database_proof_must_be_sanitized_and_exact(self):
         proof = self.valid_proof()

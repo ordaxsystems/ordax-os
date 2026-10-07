@@ -12,6 +12,12 @@ const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
 const PUBLIC_GATEWAY_PATH = "/functions/v1/ordax-public-account-gateway";
 const VERCEL_OIDC_TOKEN_RE = /^[A-Za-z0-9_-]{16,4096}\.[A-Za-z0-9_-]{2,16384}\.[A-Za-z0-9_-]{16,16384}$/;
 const EDGE_ADDRESS_RE = /^[0-9A-Fa-f:.]{3,64}$/;
+const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+const TURNSTILE_FIELD = "cf-turnstile-response";
+const TURNSTILE_ACTION = "ordax-account";
+const TURNSTILE_PROTECTED_PATHS = new Set(["/auth/login", "/auth/register", "/auth/recover"]);
+const MAX_TURNSTILE_TOKEN_BYTES = 2048;
+const MAX_TURNSTILE_RESPONSE_BYTES = 64 * 1024;
 const SAFE_COOKIE_NAMES = new Set(["ordax_access", "ordax_refresh", "ordax_recovery"]);
 const PASSTHROUGH_REQUEST_HEADERS = [
   "accept",
@@ -196,6 +202,90 @@ async function boundedBody(request) {
   return value;
 }
 
+
+function protectedTurnstileRoute(method, productPath) {
+  if (method !== "POST") return false;
+  const parsed = new URL(productPath, "https://ordax.invalid");
+  return TURNSTILE_PROTECTED_PATHS.has(parsed.pathname);
+}
+
+export function stripTurnstileToken(body, contentType) {
+  if (!(body instanceof Uint8Array)) throw new TypeError("turnstile-form-required");
+  if (typeof contentType !== "string" || !contentType.toLowerCase().startsWith("application/x-www-form-urlencoded")) {
+    throw new TypeError("turnstile-form-required");
+  }
+  const raw = new TextDecoder().decode(body);
+  const form = new URLSearchParams(raw);
+  const tokens = form.getAll(TURNSTILE_FIELD);
+  if (tokens.length !== 1) throw new TypeError("turnstile-token-required");
+  const token = tokens[0].trim();
+  const bytes = new TextEncoder().encode(token);
+  if (
+    bytes.byteLength < 1
+    || bytes.byteLength > MAX_TURNSTILE_TOKEN_BYTES
+    || /[\u0000-\u0020\u007f]/.test(token)
+  ) {
+    throw new TypeError("turnstile-token-invalid");
+  }
+  form.delete(TURNSTILE_FIELD);
+  return {
+    token,
+    body: new TextEncoder().encode(form.toString()),
+  };
+}
+
+export async function verifyTurnstileToken(
+  token,
+  {
+    secret,
+    remoteIp,
+    expectedHostname,
+    timeoutMs = 5000,
+    fetchImpl = fetch,
+  } = {},
+) {
+  if (typeof secret !== "string" || !secret.trim()) throw new TypeError("turnstile-secret-unconfigured");
+  if (typeof remoteIp !== "string" || !normalizeTrustedEdgeAddress(remoteIp)) {
+    throw new TypeError("turnstile-remote-ip-invalid");
+  }
+  if (typeof expectedHostname !== "string" || !expectedHostname.trim() || expectedHostname.includes("/")) {
+    throw new TypeError("turnstile-hostname-invalid");
+  }
+  if (typeof fetchImpl !== "function") throw new TypeError("turnstile-fetch-invalid");
+
+  const payload = new URLSearchParams({
+    secret: secret.trim(),
+    response: token,
+    remoteip: remoteIp,
+    idempotency_key: crypto.randomUUID(),
+  });
+
+  const response = await fetchImpl(TURNSTILE_VERIFY_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: payload.toString(),
+    redirect: "error",
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response.ok) throw new Error("turnstile-siteverify-unavailable");
+  const raw = await response.text();
+  if (new TextEncoder().encode(raw).byteLength > MAX_TURNSTILE_RESPONSE_BYTES) {
+    throw new Error("turnstile-siteverify-response-too-large");
+  }
+  let result;
+  try {
+    result = JSON.parse(raw);
+  } catch {
+    throw new Error("turnstile-siteverify-invalid-json");
+  }
+  return Boolean(
+    result
+    && result.success === true
+    && result.hostname === expectedHostname
+    && result.action === TURNSTILE_ACTION
+  );
+}
+
 export async function proxyPublicAccountRequest(
   request,
   {
@@ -203,6 +293,8 @@ export async function proxyPublicAccountRequest(
     oidcToken,
     oidcTokenResolver,
     publicOrigin = process.env.ORDAX_PUBLIC_ORIGIN,
+    turnstileSecret = process.env.ORDAX_TURNSTILE_SECRET_KEY,
+    turnstileVerifier = verifyTurnstileToken,
     timeoutMs = DEFAULT_TIMEOUT_MS,
   } = {},
 ) {
@@ -239,14 +331,39 @@ export async function proxyPublicAccountRequest(
     return error(400, "invalid-request-body");
   }
 
+  const realIp = normalizeTrustedEdgeAddress(request.headers.get("x-forwarded-for"));
+  if (!realIp) return error(400, "trusted-edge-context-required");
+
+  if (protectedTurnstileRoute(request.method, productPath)) {
+    if (typeof turnstileSecret !== "string" || !turnstileSecret.trim()) {
+      return error(503, "bot-protection-unconfigured");
+    }
+    let challenge;
+    try {
+      challenge = stripTurnstileToken(body, request.headers.get("content-type") ?? "");
+    } catch {
+      return error(403, "bot-verification-required");
+    }
+    let verified = false;
+    try {
+      verified = await turnstileVerifier(challenge.token, {
+        secret: turnstileSecret,
+        remoteIp: realIp,
+        expectedHostname: new URL(trustedPublicOrigin).hostname,
+        timeoutMs: Math.min(timeoutMs, 5000),
+      });
+    } catch {
+      return error(503, "bot-verification-unavailable");
+    }
+    if (!verified) return error(403, "bot-verification-failed");
+    body = challenge.body;
+  }
+
   const headers = new Headers();
   for (const name of PASSTHROUGH_REQUEST_HEADERS) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-
-  const realIp = normalizeTrustedEdgeAddress(request.headers.get("x-forwarded-for"));
-  if (!realIp) return error(400, "trusted-edge-context-required");
 
   const canonical = new URL(trustedPublicOrigin);
   // Vercel overwrites x-forwarded-for at its edge. The short-lived OIDC token
