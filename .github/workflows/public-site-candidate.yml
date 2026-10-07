@@ -27,6 +27,7 @@ on:
       - 'infra/supabase/functions/ordax-account-gateway/**'
       - 'infra/supabase/functions/ordax-public-account-gateway/**'
       - 'infra/supabase/functions/ordax-account-lifecycle/**'
+      - 'infra/supabase/product/migrations/20261007041500_account_legal_policy_activation_v1.sql'
       - 'platform/releases/publications.json'
       - 'docs/contracts/build-autonomy.json'
       - 'docs/BUILD-AUTONOMY.md'
@@ -48,6 +49,8 @@ on:
       - 'tests/test_account_release_database_proof.py'
       - 'tests/test_account_release_session_revocation_proof.py'
       - 'tests/test_public_legal_readiness.py'
+      - 'tests/test_account_legal_policy_activation.py'
+      - '.github/workflows/public-legal-policy-activation.yml'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
       - 'tests/test_supabase_account_provider.py'
@@ -79,6 +82,7 @@ on:
       - 'infra/supabase/functions/ordax-account-gateway/**'
       - 'infra/supabase/functions/ordax-public-account-gateway/**'
       - 'infra/supabase/functions/ordax-account-lifecycle/**'
+      - 'infra/supabase/product/migrations/20261007041500_account_legal_policy_activation_v1.sql'
       - 'platform/releases/publications.json'
       - 'docs/contracts/build-autonomy.json'
       - 'docs/BUILD-AUTONOMY.md'
@@ -100,6 +104,8 @@ on:
       - 'tests/test_account_release_database_proof.py'
       - 'tests/test_account_release_session_revocation_proof.py'
       - 'tests/test_public_legal_readiness.py'
+      - 'tests/test_account_legal_policy_activation.py'
+      - '.github/workflows/public-legal-policy-activation.yml'
       - 'tests/test_public_auth_activation_preflight.py'
       - 'tests/test_pwned_passwords.py'
       - 'tests/test_supabase_account_provider.py'
@@ -154,6 +160,7 @@ jobs:
           python -m unittest tests.test_public_site_runtime_smoke -v
           python -m unittest tests.test_public_site_deployment -v
           python -m unittest tests.test_public_legal_readiness -v
+          python -m unittest tests.test_account_legal_policy_activation -v
           python -m unittest tests.test_public_auth_activation_preflight -v
 
       - name: Build and verify deterministic public site
