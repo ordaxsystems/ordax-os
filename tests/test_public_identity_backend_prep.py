@@ -167,17 +167,17 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(observation["rate_limit_real_client_ip_forwarding_verified"])
         self.assertEqual(
             observation["password_recovery_request"],
-            "pass-source-and-edge-disabled",
+            "pass-source-and-edge-v27-disabled-isolated-session",
         )
         self.assertFalse(observation["password_recovery_redirect_config_verified"])
         self.assertFalse(observation["password_recovery_account_enumeration_allowed"])
         self.assertEqual(
             observation["password_recovery_completion_flow"],
-            "pass-source-and-edge-disabled",
+            "pass-source-and-edge-v27-disabled-isolated-session",
         )
         self.assertEqual(
             observation["password_recovery_server_side_token_hash"],
-            "pass-source-and-edge-disabled",
+            "pass-source-and-edge-v27-disabled",
         )
         self.assertFalse(observation["password_recovery_completion_enabled"])
         self.assertFalse(observation["password_recovery_email_template_applied"])
