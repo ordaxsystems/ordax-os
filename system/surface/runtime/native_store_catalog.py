@@ -165,11 +165,14 @@ def validate_verified_catalog(value: object) -> dict:
         ):
             raise StoreCatalogError("verified Store catalog entry identity is invalid")
         artifacts = entry.get("artifacts")
-        if not isinstance(artifacts, dict) or set(artifacts) != {"package", "release", "compatibility"}:
+        if not isinstance(artifacts, dict) or set(artifacts) != {"package", "release", "compatibility", "componentEnvelope"}:
             raise StoreCatalogError("verified Store catalog artifacts are not canonical")
         _validate_artifact(artifacts["package"], f"{app_id} package")
         _validate_artifact(artifacts["release"], f"{app_id} release")
         _validate_artifact(artifacts["compatibility"], f"{app_id} compatibility")
+        _validate_artifact(artifacts["componentEnvelope"], f"{app_id} component envelope")
+        if artifacts["componentEnvelope"]["name"] != f"{app_id}.runtime-component-envelope.json":
+            raise StoreCatalogError("verified Store catalog component envelope name is not canonical")
         ids.append(app_id)
     if ids != sorted(ids) or len(ids) != len(set(ids)):
         raise StoreCatalogError("verified Store catalog app ids must be sorted and unique")
