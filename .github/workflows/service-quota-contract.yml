@@ -6,7 +6,9 @@ on:
       - 'system/contracts/service-quota.mjs'
       - 'system/services/entitlements/**'
       - 'docs/contracts/service-quotas.json'
+      - 'infra/supabase/product/migrations/*service_quota*'
       - 'tests/test_service_quota.mjs'
+      - 'tests/test_service_quota_ledger.py'
       - '.github/workflows/service-quota-contract.yml'
   push:
     branches: [main]
@@ -14,7 +16,9 @@ on:
       - 'system/contracts/service-quota.mjs'
       - 'system/services/entitlements/**'
       - 'docs/contracts/service-quotas.json'
+      - 'infra/supabase/product/migrations/*service_quota*'
       - 'tests/test_service_quota.mjs'
+      - 'tests/test_service_quota_ledger.py'
       - '.github/workflows/service-quota-contract.yml'
 
 permissions:
@@ -34,6 +38,7 @@ jobs:
           node --check system/contracts/service-quota.mjs
           node --check system/services/entitlements/quota.mjs
           node --check tests/test_service_quota.mjs
+          python3 -m py_compile tests/test_service_quota_ledger.py
           node - <<'NODE'
           const fs = require('fs');
           const contract = JSON.parse(fs.readFileSync('docs/contracts/service-quotas.json', 'utf8'));
@@ -43,3 +48,4 @@ jobs:
           }
           NODE
           node --test tests/test_service_quota.mjs
+          python3 -m unittest tests.test_service_quota_ledger
