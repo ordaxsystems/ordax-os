@@ -53,6 +53,16 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
         self.trust = self.root / "trust.json"
         self.trust.write_text("{}\n", encoding="utf-8")
         self.channel = str(self.root / "ordax-runtime-component-channel")
+        self.watermark = self.root / "store" / "catalog-watermark.json"
+        self.watermark.parent.mkdir(mode=0o700)
+        self.watermark.write_text(
+            json.dumps({
+                "schema": "ordax.store-catalog-watermark/1",
+                "sequence": 9,
+                "catalogSha256": "f" * 64,
+            }, sort_keys=True, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+        )
 
         self.release_bytes = b'{"release":"notes"}\n'
         self.package_bytes = b"notes-package"
@@ -190,6 +200,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
             channel_bin=self.channel,
             trust_path=str(self.trust),
             slot_root=str(self.slot_root),
+            watermark_path=str(self.watermark),
             runner=runner,
         )
         self.assertEqual(
@@ -217,6 +228,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
             channel_bin=self.channel,
             trust_path=str(self.trust),
             slot_root=str(self.slot_root),
+            watermark_path=str(self.watermark),
             runner=runner,
         )
         self.assertEqual(result["operation"], "update")
@@ -251,6 +263,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 channel_bin=self.channel,
                 trust_path=str(self.trust),
                 slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
                 runner=runner,
             )
         self.assertEqual(calls, [])
@@ -274,6 +287,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 channel_bin=self.channel,
                 trust_path=str(self.trust),
                 slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
                 runner=lambda *args, **kwargs: calls.append((args, kwargs)),
             )
         self.assertEqual(calls, [])
@@ -314,6 +328,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
             channel_bin=self.channel,
             trust_path=str(self.trust),
             slot_root=str(self.slot_root),
+            watermark_path=str(self.watermark),
             runner=runner,
         )
         self.assertEqual([argv[1] for argv in calls], ["status", "uninstall-state"])
@@ -360,6 +375,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                     channel_bin=self.channel,
                     trust_path=str(self.trust),
                     slot_root=str(self.slot_root),
+                    watermark_path=str(self.watermark),
                     runner=runner,
                 )
             self.assertEqual([argv[1] for argv in calls], ["status"])
