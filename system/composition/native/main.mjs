@@ -55,6 +55,7 @@ import { createUnavailableAppStoreCatalogPort } from "../../contracts/app-store.
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { createAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
+import { defineExternalFirstPartyApp } from "../../apps/external-app-definition.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
@@ -458,7 +459,14 @@ async function start() {
   const bundledApplications = listFirstPartyApps();
   const bundledApplicationIds = new Set(bundledApplications.map((app) => app.id));
   const surfaceExternalApplications = Object.freeze(
-    verifiedExternalApplications.filter((entry) => !bundledApplicationIds.has(entry.app.id)),
+    verifiedExternalApplications
+      .filter((entry) => !bundledApplicationIds.has(entry.component.id))
+      .map((entry) => Object.freeze({
+        ...entry,
+        app: defineExternalFirstPartyApp(entry.component, entry.presentation, {
+          requiredCapabilities: entry.association === null ? [] : ["filesystem.user-space"],
+        }),
+      })),
   );
   const surfaceAppCatalog = createAppRuntimeCatalog([
     ...bundledApplications,
