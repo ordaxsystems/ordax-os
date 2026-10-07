@@ -1,0 +1,100 @@
+name: Public Legal Policy Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: Canonical public HTTPS origin
+        required: true
+        type: string
+      confirmation:
+        description: Type activate-reviewed-legal-policy
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  activate-legal-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      ORDAX_SUPABASE_URL: https://eobcxuyvhkvdmkbaihwh.supabase.co
+      ORDAX_SUPABASE_SECRET_KEY: ${{ secrets.ORDAX_SUPABASE_SECRET_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Require explicit reviewed-policy confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ inputs.confirmation }}" = "activate-reviewed-legal-policy" || {
+            echo 'Exact legal-policy activation confirmation is required.' >&2
+            exit 2
+          }
+
+      - name: Require server-only provider credential without printing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ORDAX_SUPABASE_SECRET_KEY:-}" || {
+            echo 'ORDAX_SUPABASE_SECRET_KEY repository secret is required.' >&2
+            exit 2
+          }
+          echo 'ACCOUNT_LEGAL_POLICY_OPERATOR_CREDENTIAL_PRESENT=YES'
+          echo 'ACCOUNT_LEGAL_POLICY_OPERATOR_CREDENTIAL_PRINTED=NO'
+
+      - name: Build reviewed activation candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public-site/activate_account_legal_policy.py candidate             --origin "${{ inputs.origin }}"             --output "${RUNNER_TEMP}/account-legal-policy-candidate.json"
+
+      - name: Apply exact candidate through service-role-only RPC
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public-site/activate_account_legal_policy.py apply             --origin "${{ inputs.origin }}"             --output "${RUNNER_TEMP}/account-legal-policy-activation-receipt.json"
+
+      - name: Validate sanitized activation receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "${RUNNER_TEMP}/account-legal-policy-activation-receipt.json" "${{ inputs.origin }}" "${GITHUB_SHA}" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          expected_origin = sys.argv[2].rstrip("/")
+          expected_commit = sys.argv[3].lower()
+          data = json.loads(path.read_text(encoding="utf-8"))
+          assert data["$schema"] == "prototype-ordax.account-legal-policy-activation-receipt/1"
+          assert data["status"] == "pass"
+          assert data["origin"] == expected_origin
+          assert data["source_commit"] == expected_commit
+          assert data["credentials_persisted"] is False
+          assert data["account_identifier_recorded"] is False
+          assert data["provider_secret_recorded"] is False
+          for name in ("privacy", "terms"):
+              item = data[name]
+              assert len(item["sha256"]) == 64
+              int(item["sha256"], 16)
+              assert item["url"].startswith(expected_origin + "/")
+          serialized = json.dumps(data, sort_keys=True).lower()
+          for forbidden in ("service_role", "secret_key", "authorization", "bearer "):
+              assert forbidden not in serialized
+          print("ACCOUNT_LEGAL_POLICY_ACTIVATION_RECEIPT=PASS_SANITIZED")
+          PY
+
+      - name: Upload sanitized activation receipt only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: account-legal-policy-activation-${{ github.sha }}
+          path: ${{ runner.temp }}/account-legal-policy-activation-receipt.json
+          if-no-files-found: error
+          retention-days: 30
