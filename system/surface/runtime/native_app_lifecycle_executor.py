@@ -28,7 +28,7 @@ from native_app_artifact_store import (
 )
 from native_store_catalog import (
     StoreCatalogError,
-    read_store_catalog_watermark,
+    guard_store_catalog_watermark,
 )
 
 PLAN_SCHEMA = "ordax.app-lifecycle-plan/1"
@@ -480,11 +480,7 @@ def _remove(
     }
 
 
-def _assert_plan_matches_current_catalog(plan: dict, watermark_path: str) -> None:
-    try:
-        watermark = read_store_catalog_watermark(Path(watermark_path))
-    except StoreCatalogError as exc:
-        raise NativeAppLifecycleError("current Store catalog watermark is unavailable") from exc
+def _assert_plan_matches_watermark(plan: dict, watermark: dict) -> None:
     if (
         watermark["sequence"] != plan["catalogSequence"]
         or watermark["catalogSha256"] != plan["catalogSha256"]
@@ -503,21 +499,25 @@ def execute_offline_lifecycle_plan(
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> dict:
     plan = validate_lifecycle_plan(raw_plan)
-    _assert_plan_matches_current_catalog(plan, watermark_path)
-    operation = plan["request"]["operation"]
-    if operation in {"install", "update"}:
-        return _stage_and_arm(
-            plan,
-            artifact_root=artifact_root,
-            channel_bin=channel_bin,
-            trust_path=trust_path,
-            slot_root=slot_root,
-            runner=runner,
-        )
-    return _remove(
-        plan,
-        channel_bin=channel_bin,
-        trust_path=trust_path,
-        slot_root=slot_root,
-        runner=runner,
-    )
+    try:
+        with guard_store_catalog_watermark(Path(watermark_path)) as watermark:
+            _assert_plan_matches_watermark(plan, watermark)
+            operation = plan["request"]["operation"]
+            if operation in {"install", "update"}:
+                return _stage_and_arm(
+                    plan,
+                    artifact_root=artifact_root,
+                    channel_bin=channel_bin,
+                    trust_path=trust_path,
+                    slot_root=slot_root,
+                    runner=runner,
+                )
+            return _remove(
+                plan,
+                channel_bin=channel_bin,
+                trust_path=trust_path,
+                slot_root=slot_root,
+                runner=runner,
+            )
+    except StoreCatalogError as exc:
+        raise NativeAppLifecycleError("current Store catalog watermark is unavailable") from exc
