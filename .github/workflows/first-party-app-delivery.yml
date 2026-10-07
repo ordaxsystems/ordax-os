@@ -12,7 +12,6 @@ on:
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/external-first-party-policy.mjs'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
-      - 'system/services/apps/verified-store-catalog-replay-guard.mjs'
       - 'system/services/apps/verified-store-projection.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
@@ -26,7 +25,6 @@ on:
       - 'tests/test_component_runtime_metadata.mjs'
       - 'tests/test_external_first_party_policy.mjs'
       - 'tests/test_verified_app_store_catalog.mjs'
-      - 'tests/test_verified_app_store_catalog_replay_guard.mjs'
       - 'tests/test_verified_store_projection.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
@@ -40,7 +38,6 @@ on:
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/external-first-party-policy.mjs'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
-      - 'system/services/apps/verified-store-catalog-replay-guard.mjs'
       - 'system/services/apps/verified-store-projection.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
@@ -54,7 +51,6 @@ on:
       - 'tests/test_component_runtime_metadata.mjs'
       - 'tests/test_external_first_party_policy.mjs'
       - 'tests/test_verified_app_store_catalog.mjs'
-      - 'tests/test_verified_app_store_catalog_replay_guard.mjs'
       - 'tests/test_verified_store_projection.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
@@ -84,7 +80,6 @@ jobs:
           node --check system/services/apps/delivery-policy.mjs
           node --check system/services/apps/external-first-party-policy.mjs
           node --check system/services/apps/store-lifecycle-request-service.mjs
-          node --check system/services/apps/verified-store-catalog-replay-guard.mjs
           node --check system/services/apps/verified-store-projection.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
@@ -94,7 +89,6 @@ jobs:
           node --check tests/test_component_runtime_metadata.mjs
           node --check tests/test_external_first_party_policy.mjs
           node --check tests/test_verified_app_store_catalog.mjs
-          node --check tests/test_verified_app_store_catalog_replay_guard.mjs
           node --check tests/test_verified_store_projection.mjs
           node --check tests/test_mvp_app_delivery.mjs
           python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
@@ -112,7 +106,6 @@ jobs:
           node --test tests/test_component_runtime_metadata.mjs
           node --test tests/test_external_first_party_policy.mjs
           node --test tests/test_verified_app_store_catalog.mjs
-          node --test tests/test_verified_app_store_catalog_replay_guard.mjs
           node --test tests/test_verified_store_projection.mjs
 
       - name: Prove minimal MVP payload and first-online refresh policy
