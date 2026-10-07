@@ -17,6 +17,28 @@ const REQUEST_OPTIONS = Object.freeze({
   redirect: "error",
 });
 
+const PROBATION_COMPONENT_IDS = new Set(["internet", "notes"]);
+const BROWSER_BRIDGE_HANDLER = "ordaxBrowser";
+
+function requestPostLifecycleProbation(windowRef, plan, result) {
+  if (
+    result.state !== "accepted"
+    || !["install", "update"].includes(plan.request.operation)
+    || !PROBATION_COMPONENT_IDS.has(plan.request.appId)
+  ) {
+    return false;
+  }
+  const bridge = windowRef?.webkit?.messageHandlers?.[BROWSER_BRIDGE_HANDLER] ?? null;
+  if (!bridge || typeof bridge.postMessage !== "function") {
+    return false;
+  }
+  bridge.postMessage(JSON.stringify({
+    type: "component.probation.request",
+    componentId: plan.request.appId,
+  }));
+  return true;
+}
+
 export function createNativeAppLifecycleDelegate(windowRef = globalThis.window) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native app lifecycle delegate requires window.fetch");
@@ -43,10 +65,19 @@ export function createNativeAppLifecycleDelegate(windowRef = globalThis.window) 
       if (typeof response.json !== "function") {
         throw new TypeError("Native app lifecycle response must implement json()");
       }
-      return validateAppLifecycleRequestResultForRequest(
+      const result = validateAppLifecycleRequestResultForRequest(
         await response.json(),
         plan.request,
       );
+      try {
+        requestPostLifecycleProbation(windowRef, plan, result);
+      } catch (error) {
+        console.warn(
+          "OrdaX post-lifecycle component probation trigger unavailable; candidate remains pending-health",
+          error,
+        );
+      }
+      return result;
     },
   });
 
