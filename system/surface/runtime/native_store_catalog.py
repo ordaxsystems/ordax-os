@@ -322,3 +322,55 @@ def verify_and_accept_store_catalog(
             raise StoreCatalogError("Store catalog cryptographic verification failed")
         verified = _read_json(verified_path, "verified Store catalog", MAX_VERIFIED_BYTES)
         return accept_verified_catalog(verified, watermark_path)
+
+
+
+def unavailable_verified_catalog(reason: str) -> dict:
+    if (
+        not isinstance(reason, str)
+        or not reason
+        or reason != reason.strip()
+        or len(reason) > 256
+    ):
+        raise StoreCatalogError("verified Store catalog unavailable reason is invalid")
+    return {
+        "schema": VERIFIED_SCHEMA,
+        "state": "unavailable",
+        "sequence": None,
+        "catalogSha256": None,
+        "source": None,
+        "trust": None,
+        "entries": [],
+        "reason": reason,
+        "authority": "none",
+    }
+
+
+def read_native_store_catalog_snapshot(
+    *,
+    helper_path: Path,
+    trust_path: Path,
+    envelope_path: Path,
+    watermark_path: Path,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> dict:
+    try:
+        envelope_path.lstat()
+    except FileNotFoundError:
+        return unavailable_verified_catalog("catalog-envelope-unavailable")
+    except OSError:
+        return unavailable_verified_catalog("catalog-envelope-unavailable")
+
+    try:
+        accepted, _changed = verify_and_accept_store_catalog(
+            helper_path=helper_path,
+            trust_path=trust_path,
+            envelope_path=envelope_path,
+            watermark_path=watermark_path,
+            runner=runner,
+        )
+        return accepted
+    except StoreCatalogReplayError:
+        return unavailable_verified_catalog("catalog-replay-rejected")
+    except StoreCatalogError:
+        return unavailable_verified_catalog("catalog-verification-unavailable")
