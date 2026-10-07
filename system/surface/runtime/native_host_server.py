@@ -59,6 +59,17 @@ from native_profile_human_consent import ProfileHumanConsentAuthority
 from native_profile_consent_presenter import ProfileHumanConsentCoordinator
 from native_profile_consent_ipc import request_native_decision
 from native_store_catalog import StoreCatalogError, read_native_store_catalog_snapshot
+from native_app_artifact_store import DEFAULT_ARTIFACT_ROOT
+from native_app_artifact_acquisition import (
+    AppArtifactAcquisitionError,
+    acquire_lifecycle_plan_artifacts,
+    normalize_https_base_origin,
+)
+from native_app_lifecycle_executor import (
+    NativeAppLifecycleError,
+    execute_offline_lifecycle_plan,
+    validate_lifecycle_plan,
+)
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -101,8 +112,6 @@ TRASH_PATH = "/__ordax/native/trash"
 FILE_CONTENT_PATH = "/__ordax/native/file-content"
 FILE_EXPORT_PATH = "/__ordax/native/file-export"
 IMAGE_PREVIEW_PATH = "/__ordax/native/image-preview"
-MEDIA_PREVIEW_PATH = "/__ordax/native/media-preview"
-DOCUMENT_PREVIEW_PATH = "/__ordax/native/document-preview"
 FILE_IMPORT_PATH = "/__ordax/native/file-import"
 METRICS_PATH = "/__ordax/native/metrics"
 RECOVERY_STATUS_PATH = "/__ordax/native/recovery-status"
@@ -114,11 +123,13 @@ UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
 STORE_CATALOG_PATH = "/__ordax/native/store-catalog"
+STORE_LIFECYCLE_PATH = "/__ordax/native/store-lifecycle"
 DEFAULT_COMPONENT_CHANNEL_BIN = "/srv/ordax-system/bin/ordax-runtime-component-channel"
 DEFAULT_COMPONENT_TRUST_PATH = "/srv/ordax-system/trust/runtime-components-ed25519.json"
 DEFAULT_COMPONENT_SLOT_ROOT = "/var/lib/ordax/components"
 DEFAULT_STORE_CATALOG_ENVELOPE_PATH = "/var/lib/ordax/store/catalog-envelope.json"
 DEFAULT_STORE_CATALOG_WATERMARK_PATH = "/var/lib/ordax/store/catalog-watermark.json"
+DEFAULT_STORE_ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 UPDATE_STATE_FILE = "/run/ordax-update/state.json"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
@@ -145,6 +156,7 @@ PROFILE_ACTIVATION_TOKEN_HEADER = "X-OrdaX-Profile-Activation-Token"
 DIAGNOSTIC_TOKEN_HEADER = "X-OrdaX-Diagnostic-Token"
 HEALTH_TOKEN_HEADER = "X-OrdaX-Health-Token"
 MAX_CONTROL_BODY = 512
+MAX_STORE_LIFECYCLE_BODY = 16 * 1024
 MAX_NETWORK_ACTION_BODY = 1024
 MAX_NETWORK_SCAN_BYTES = 512 * 1024
 MAX_NETWORKS = 32
@@ -186,8 +198,6 @@ MAX_TEXT_FILE_BYTES = 256 * 1024
 MAX_FILE_COPY_BYTES = 64 * 1024 * 1024
 MAX_FILE_EXPORT_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PREVIEW_BYTES = 8 * 1024 * 1024
-MAX_MEDIA_PREVIEW_BYTES = 64 * 1024 * 1024
-MAX_DOCUMENT_PREVIEW_BYTES = 32 * 1024 * 1024
 MAX_FILE_IMPORT_BYTES = 64 * 1024 * 1024
 IMAGE_PREVIEW_TYPES = {
     ".avif": "image/avif",
@@ -197,20 +207,6 @@ IMAGE_PREVIEW_TYPES = {
     ".jpg": "image/jpeg",
     ".png": "image/png",
     ".webp": "image/webp",
-}
-DOCUMENT_PREVIEW_TYPES = {".pdf": "application/pdf"}
-MEDIA_PREVIEW_TYPES = {
-    ".aac": "audio/aac",
-    ".flac": "audio/flac",
-    ".m4a": "audio/mp4",
-    ".mp3": "audio/mpeg",
-    ".oga": "audio/ogg",
-    ".ogg": "audio/ogg",
-    ".wav": "audio/wav",
-    ".m4v": "video/mp4",
-    ".mp4": "video/mp4",
-    ".ogv": "video/ogg",
-    ".webm": "video/webm",
 }
 MAX_UPDATE_HISTORY_BYTES = 256 * 1024
 MAX_RELEASE_HISTORY_ENTRIES = 80
@@ -2177,14 +2173,6 @@ class FileSpaceImagePreviewTypeError(Exception):
     pass
 
 
-class FileSpaceMediaPreviewTypeError(Exception):
-    pass
-
-
-class FileSpaceDocumentPreviewTypeError(Exception):
-    pass
-
-
 class FileSpaceImportTooLargeError(Exception):
     pass
 
@@ -2629,48 +2617,6 @@ def read_user_image_preview(
     mime = IMAGE_PREVIEW_TYPES.get(extension)
     if mime is None:
         raise FileSpaceImagePreviewTypeError("unsupported image preview type")
-
-    name, payload = read_user_export_file(
-        user_root,
-        logical_path,
-        max_bytes=max_bytes,
-    )
-    return name, mime, payload
-
-
-def read_user_media_preview(
-    user_root: str,
-    logical_path: str,
-    max_bytes: int = MAX_MEDIA_PREVIEW_BYTES,
-) -> tuple[str, str, bytes]:
-    if not valid_logical_file_path(logical_path) or logical_path == "/":
-        raise ValueError("invalid media preview path")
-    requested_name = logical_path.rsplit("/", 1)[-1]
-    extension = os.path.splitext(requested_name)[1].lower()
-    mime = MEDIA_PREVIEW_TYPES.get(extension)
-    if mime is None:
-        raise FileSpaceMediaPreviewTypeError("unsupported media preview type")
-
-    name, payload = read_user_export_file(
-        user_root,
-        logical_path,
-        max_bytes=max_bytes,
-    )
-    return name, mime, payload
-
-
-def read_user_document_preview(
-    user_root: str,
-    logical_path: str,
-    max_bytes: int = MAX_DOCUMENT_PREVIEW_BYTES,
-) -> tuple[str, str, bytes]:
-    if not valid_logical_file_path(logical_path) or logical_path == "/":
-        raise ValueError("invalid document preview path")
-    requested_name = logical_path.rsplit("/", 1)[-1]
-    extension = os.path.splitext(requested_name)[1].lower()
-    mime = DOCUMENT_PREVIEW_TYPES.get(extension)
-    if mime is None:
-        raise FileSpaceDocumentPreviewTypeError("unsupported document preview type")
 
     name, payload = read_user_export_file(
         user_root,
@@ -3208,6 +3154,8 @@ class NativeHostServer(ThreadingHTTPServer):
         component_slot_root: str = DEFAULT_COMPONENT_SLOT_ROOT,
         store_catalog_envelope_path: str = DEFAULT_STORE_CATALOG_ENVELOPE_PATH,
         store_catalog_watermark_path: str = DEFAULT_STORE_CATALOG_WATERMARK_PATH,
+        store_artifact_root: str = DEFAULT_STORE_ARTIFACT_ROOT,
+        store_artifact_base_origin: str = "",
         account_gateway_origin: str = "",
     ):
         super().__init__(server_address, handler_class)
@@ -3269,6 +3217,13 @@ class NativeHostServer(ThreadingHTTPServer):
         self.store_catalog_envelope_path = store_catalog_envelope_path
         self.store_catalog_watermark_path = store_catalog_watermark_path
         self.store_catalog_lock = threading.Lock()
+        self.store_lifecycle_lock = threading.Lock()
+        self.store_artifact_root = store_artifact_root
+        self.store_artifact_base_origin = (
+            normalize_https_base_origin(store_artifact_base_origin)
+            if store_artifact_base_origin
+            else ""
+        )
         self.component_slot_read_available = component_slot_reader_available(
             helper_path=self.component_channel_bin,
             trust_path=self.component_trust_path,
@@ -3363,24 +3318,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         self.wfile.write(payload)
 
     def _write_image_preview(self, mime: str, payload: bytes) -> None:
-        self.send_response(200)
-        self.send_header("Content-Type", mime)
-        self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def _write_media_preview(self, mime: str, payload: bytes) -> None:
-        self.send_response(200)
-        self.send_header("Content-Type", mime)
-        self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def _write_document_preview(self, mime: str, payload: bytes) -> None:
         self.send_response(200)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(payload)))
@@ -3509,7 +3446,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -3815,70 +3752,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._write_image_preview(mime, payload)
             return
 
-        if parsed_path == MEDIA_PREVIEW_PATH:
-            try:
-                logical_path = requested_file_path(self.path, MEDIA_PREVIEW_PATH)
-                _name, mime, payload = read_user_media_preview(
-                    self.server.user_root,
-                    logical_path,
-                )
-            except FileSpaceExportTooLargeError:
-                self._empty(413)
-                return
-            except FileSpaceExportChangedError:
-                self._empty(412)
-                return
-            except FileSpaceMediaPreviewTypeError:
-                self._empty(415)
-                return
-            except ValueError:
-                self._empty(400)
-                return
-            except (FileNotFoundError, NotADirectoryError):
-                self._empty(404)
-                return
-            except PermissionError:
-                self._empty(403)
-                return
-            except OSError as exc:
-                print(f"ordax-native-host: could not preview user media: {exc}", file=sys.stderr, flush=True)
-                self._empty(500)
-                return
-            self._write_media_preview(mime, payload)
-            return
-
-        if parsed_path == DOCUMENT_PREVIEW_PATH:
-            try:
-                logical_path = requested_file_path(self.path, DOCUMENT_PREVIEW_PATH)
-                _name, mime, payload = read_user_document_preview(
-                    self.server.user_root,
-                    logical_path,
-                )
-            except FileSpaceExportTooLargeError:
-                self._empty(413)
-                return
-            except FileSpaceExportChangedError:
-                self._empty(412)
-                return
-            except FileSpaceDocumentPreviewTypeError:
-                self._empty(415)
-                return
-            except ValueError:
-                self._empty(400)
-                return
-            except (FileNotFoundError, NotADirectoryError):
-                self._empty(404)
-                return
-            except PermissionError:
-                self._empty(403)
-                return
-            except OSError as exc:
-                print(f"ordax-native-host: could not preview user document: {exc}", file=sys.stderr, flush=True)
-                self._empty(500)
-                return
-            self._write_document_preview(mime, payload)
-            return
-
         if parsed_path == FILE_EXPORT_PATH:
             try:
                 logical_path = requested_file_path(self.path, FILE_EXPORT_PATH)
@@ -4120,6 +3993,63 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path == STORE_LIFECYCLE_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            payload = self._read_json_body(MAX_STORE_LIFECYCLE_BODY)
+            if payload is None:
+                self._empty(400)
+                return
+            try:
+                plan = validate_lifecycle_plan(payload)
+            except NativeAppLifecycleError:
+                self._empty(400)
+                return
+            request_value = plan["request"]
+            try:
+                with self.server.store_lifecycle_lock:
+                    if request_value["operation"] in {"install", "update"}:
+                        if not self.server.store_artifact_base_origin:
+                            self._empty(503)
+                            return
+                        acquire_lifecycle_plan_artifacts(
+                            plan,
+                            base_origin=self.server.store_artifact_base_origin,
+                            artifact_root=self.server.store_artifact_root,
+                            watermark_path=self.server.store_catalog_watermark_path,
+                        )
+                    execute_offline_lifecycle_plan(
+                        plan,
+                        artifact_root=self.server.store_artifact_root,
+                        channel_bin=self.server.component_channel_bin,
+                        trust_path=self.server.component_trust_path,
+                        slot_root=self.server.component_slot_root,
+                        watermark_path=self.server.store_catalog_watermark_path,
+                    )
+            except (AppArtifactAcquisitionError, NativeAppLifecycleError) as exc:
+                print(
+                    f"ordax-native-host: Store lifecycle failed closed: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
+                return
+            self._write_json(
+                200,
+                {
+                    "schema": "ordax.app-lifecycle-request-result/1",
+                    "requestId": request_value["requestId"],
+                    "appId": request_value["appId"],
+                    "operation": request_value["operation"],
+                    "source": request_value["source"],
+                    "state": "accepted",
+                    "reason": None,
+                    "authority": "none",
+                },
+            )
+            return
+
         if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
             if self.server.account_gateway is None:
                 self._empty(503)
@@ -4839,6 +4769,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--component-slot-root", default=DEFAULT_COMPONENT_SLOT_ROOT)
     parser.add_argument("--store-catalog-envelope", default=DEFAULT_STORE_CATALOG_ENVELOPE_PATH)
     parser.add_argument("--store-catalog-watermark", default=DEFAULT_STORE_CATALOG_WATERMARK_PATH)
+    parser.add_argument("--store-artifact-root", default=DEFAULT_STORE_ARTIFACT_ROOT)
+    parser.add_argument("--store-artifact-base-origin", default="")
     parser.add_argument("--account-gateway-origin", default="")
     return parser.parse_args()
 
@@ -4881,6 +4813,8 @@ def main() -> int:
         component_slot_root=args.component_slot_root,
         store_catalog_envelope_path=args.store_catalog_envelope,
         store_catalog_watermark_path=args.store_catalog_watermark,
+        store_artifact_root=args.store_artifact_root,
+        store_artifact_base_origin=args.store_artifact_base_origin,
         account_gateway_origin=args.account_gateway_origin,
     )
     telemetry_started = start_telemetry_heartbeat(args.telemetry_config)
