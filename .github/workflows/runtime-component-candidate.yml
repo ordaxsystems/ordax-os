@@ -7,6 +7,7 @@ on:
       - 'system/surface/runtime/native_store_catalog.py'
       - 'system/surface/runtime/native_host_server.py'
       - 'tests/test_native_store_catalog.py'
+      - 'tests/test_native_store_catalog_host.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'system/trust/**'
@@ -41,6 +42,7 @@ on:
       - 'system/surface/runtime/native_store_catalog.py'
       - 'system/surface/runtime/native_host_server.py'
       - 'tests/test_native_store_catalog.py'
+      - 'tests/test_native_store_catalog_host.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'system/trust/**'
@@ -111,6 +113,7 @@ jobs:
           python -m unittest tests.test_native_component_probation -v
           python -m py_compile system/surface/runtime/native_store_catalog.py system/surface/runtime/native_host_server.py
           python -m unittest tests.test_native_store_catalog -v
+          python -m unittest tests.test_native_store_catalog_host -v
           python tools/component-package/build.py check --component internet
           python tools/component-package/build.py check --component local-ai-service
           python tools/component-package/build.py check --component ordax-intelligence
