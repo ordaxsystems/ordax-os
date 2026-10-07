@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-entry/1",
-  "status": "provider-adapter-source-v16-deployed-v16-revision-22-legal-policy-projection-ready-registration-disabled-close-disabled",
+  "status": "provider-adapter-source-v17-deployed-v16-revision-22-trusted-boundary-cutover-source-ready-registration-disabled-close-disabled",
   "purpose": "public-site-account-entry-boundary",
   "routes": {
     "login_page": "/login/",
@@ -63,9 +63,9 @@
     "public_site_server_activation_gate_deployed": true,
     "public_site_account_enabled": false,
     "public_site_marker_header": "X-OrdaX-Public-Site",
-    "native_direct_account_gateway_remains_available": true,
+    "native_direct_account_gateway_remains_available": false,
     "edge_deployment_revision_observed": 22,
-    "gateway_source_version": 16,
+    "gateway_source_version": 17,
     "password_recovery_request_implemented": true,
     "password_recovery_redirect_config_verified": false,
     "password_recovery_completion_flow_implemented": true,
@@ -116,7 +116,10 @@
     "account_registration_policy_projection_applied": true,
     "account_registration_policy_route": "/auth/registration-policy",
     "account_registration_policy_active": false,
-    "account_registration_ui_source_ready": true
+    "account_registration_ui_source_ready": true,
+    "native_account_gateway_transport": "canonical-public-origin",
+    "native_direct_inner_gateway_allowed": false,
+    "sensitive_routes_require_verified_production_oidc_at_inner_gateway": true
   },
   "supabase_candidate": {
     "status": "dedicated-target-schema-and-edge-gateway-deployed",
