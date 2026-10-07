@@ -78,7 +78,6 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "registration-legal-native-binding",
             "registration-legal-activation",
             "account-registration-switch",
-            "legacy-account-legal-receipt-reconciliation",
 
             "redirect-allowlist-provider-verification",
             "provider-password-policy-verification",
@@ -94,6 +93,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "bot-protection-e2e-proof",
         ):
             self.assertIn(expected, blockers)
+        self.assertNotIn("legacy-account-legal-receipt-reconciliation", blockers)
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
         self.assertEqual(preflight.main(["require-ready", "--root", str(ROOT)]), 1)
 
