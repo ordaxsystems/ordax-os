@@ -244,8 +244,8 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertIn("/sync/snapshot", source)
         self.assertIn("/sync/changes", source)
         self.assertIn("/network/v2/messages/send", source)
-        self.assertIn('headers["Origin"] = self.base_url', source)
-        self.assertIn('headers["Sec-Fetch-Site"] = "same-origin"', source)
+        self.assertIn('headers["origin"] = self.base_url', source)
+        self.assertIn('headers["sec-fetch-site"] = "same-origin"', source)
 
 
 if __name__ == "__main__":
