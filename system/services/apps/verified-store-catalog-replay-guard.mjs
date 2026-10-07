@@ -11,6 +11,7 @@ export const VERIFIED_APP_STORE_CATALOG_WATERMARK_SCHEMA =
   "ordax.verified-app-store-catalog-watermark/1";
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
+const MAX_CAS_ATTEMPTS = 3;
 
 function validateWatermark(value) {
   if (value === null) return null;
@@ -47,7 +48,7 @@ export function assertVerifiedAppStoreCatalogWatermarkStore(store) {
     || typeof store.load !== "function"
     || typeof store.compareAndSwap !== "function"
   ) {
-    throw new TypeError("A persistent verified Store catalog watermark store is required");
+    throw new TypeError("A persistent async verified Store catalog watermark store is required");
   }
   return store;
 }
@@ -66,6 +67,47 @@ function unavailable(reason) {
   });
 }
 
+function compareSnapshotToWatermark(snapshot, watermark) {
+  if (watermark === null) return "advance";
+  if (snapshot.sequence < watermark.sequence) return "rollback";
+  if (snapshot.sequence > watermark.sequence) return "advance";
+  return snapshot.catalogSha256 === watermark.catalogSha256
+    ? "same"
+    : "equivocation";
+}
+
+async function persistAcceptedWatermark(snapshot, store) {
+  const next = Object.freeze({
+    schema: VERIFIED_APP_STORE_CATALOG_WATERMARK_SCHEMA,
+    sequence: snapshot.sequence,
+    catalogSha256: snapshot.catalogSha256,
+  });
+
+  for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt += 1) {
+    let watermark;
+    try {
+      watermark = validateWatermark(await store.load());
+    } catch {
+      return unavailable("catalog-watermark-unavailable");
+    }
+
+    const relation = compareSnapshotToWatermark(snapshot, watermark);
+    if (relation === "rollback") return unavailable("catalog-sequence-rollback");
+    if (relation === "equivocation") return unavailable("catalog-sequence-equivocation");
+    if (relation === "same") return snapshot;
+
+    try {
+      if (await store.compareAndSwap(watermark, next) === true) {
+        return snapshot;
+      }
+    } catch {
+      return unavailable("catalog-watermark-persistence-failed");
+    }
+  }
+
+  return unavailable("catalog-watermark-race");
+}
+
 export function createVerifiedAppStoreCatalogReplayGuard({
   sourcePort,
   watermarkStore,
@@ -74,8 +116,10 @@ export function createVerifiedAppStoreCatalogReplayGuard({
   const store = assertVerifiedAppStoreCatalogWatermarkStore(watermarkStore);
   const listeners = new Set();
   let destroyed = false;
+  let generation = 0;
+  let current = unavailable("catalog-watermark-uninitialized");
 
-  const evaluate = () => {
+  const evaluate = async () => {
     let snapshot;
     try {
       snapshot = validateVerifiedAppStoreCatalogSnapshot(source.getSnapshot());
@@ -83,59 +127,26 @@ export function createVerifiedAppStoreCatalogReplayGuard({
       return unavailable("verified-catalog-source-invalid");
     }
     if (snapshot.state !== "ready") return snapshot;
-
-    let watermark;
-    try {
-      watermark = validateWatermark(store.load());
-    } catch {
-      return unavailable("catalog-watermark-unavailable");
-    }
-
-    if (watermark !== null) {
-      if (snapshot.sequence < watermark.sequence) {
-        return unavailable("catalog-sequence-rollback");
-      }
-      if (
-        snapshot.sequence === watermark.sequence
-        && snapshot.catalogSha256 !== watermark.catalogSha256
-      ) {
-        return unavailable("catalog-sequence-equivocation");
-      }
-      if (
-        snapshot.sequence === watermark.sequence
-        && snapshot.catalogSha256 === watermark.catalogSha256
-      ) {
-        return snapshot;
-      }
-    }
-
-    const expected = watermark;
-    const next = Object.freeze({
-      schema: VERIFIED_APP_STORE_CATALOG_WATERMARK_SCHEMA,
-      sequence: snapshot.sequence,
-      catalogSha256: snapshot.catalogSha256,
-    });
-    try {
-      if (store.compareAndSwap(expected, next) !== true) {
-        return unavailable("catalog-watermark-race");
-      }
-    } catch {
-      return unavailable("catalog-watermark-persistence-failed");
-    }
-    return snapshot;
+    return persistAcceptedWatermark(snapshot, store);
   };
 
-  let current = evaluate();
-  const unsubscribe = source.subscribe(() => {
-    if (destroyed) return;
-    const next = evaluate();
+  const refresh = async () => {
+    const requestedGeneration = ++generation;
+    const next = await evaluate();
+    if (destroyed || requestedGeneration !== generation) return current;
     const changed = JSON.stringify(next) !== JSON.stringify(current);
     current = next;
-    if (!changed) return;
-    for (const listener of [...listeners]) listener(current);
+    if (changed) {
+      for (const listener of [...listeners]) listener(current);
+    }
+    return current;
+  };
+
+  const unsubscribe = source.subscribe(() => {
+    if (!destroyed) void refresh();
   });
 
-  const port = {
+  const port = Object.freeze({
     schema: VERIFIED_APP_STORE_CATALOG_PORT_SCHEMA,
     authority: "none",
     getSnapshot() {
@@ -149,13 +160,17 @@ export function createVerifiedAppStoreCatalogReplayGuard({
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+  });
+
+  return Object.freeze({
+    port,
+    refresh,
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      generation += 1;
       unsubscribe?.();
       listeners.clear();
     },
-  };
-
-  return Object.freeze(port);
+  });
 }
