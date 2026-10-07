@@ -163,25 +163,80 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         observation = hardening["current_observation"]
         self.assertEqual(observation["password_policy_product_minimum_chars"], 12)
         self.assertFalse(observation["provider_password_policy_verified"])
+        self.assertTrue(observation["email_confirmation_provider_verified"])
+        self.assertEqual(
+            observation["email_confirmation_provider_evidence"],
+            "supabase-auth-v1-settings-mailer-autoconfirm-false",
+        )
         self.assertTrue(observation["rate_limit_provider_defaults_reviewed"])
         self.assertFalse(observation["rate_limit_real_client_ip_forwarding_verified"])
         self.assertEqual(
             observation["password_recovery_request"],
-            "pass-source-and-edge-disabled",
+            "pass-source-and-edge-v27-disabled-isolated-session",
         )
         self.assertFalse(observation["password_recovery_redirect_config_verified"])
         self.assertFalse(observation["password_recovery_account_enumeration_allowed"])
         self.assertEqual(
             observation["password_recovery_completion_flow"],
-            "pass-source-and-edge-disabled",
+            "pass-source-and-edge-v27-disabled-isolated-session",
         )
         self.assertEqual(
             observation["password_recovery_server_side_token_hash"],
-            "pass-source-and-edge-disabled",
+            "pass-source-and-edge-v27-disabled",
         )
         self.assertFalse(observation["password_recovery_completion_enabled"])
         self.assertFalse(observation["password_recovery_email_template_applied"])
         self.assertFalse(observation["account_recovery_flow_tested"])
+        self.assertEqual(observation["observed_date"], "2026-10-07")
+        self.assertEqual(observation["public_edge_gateway_version"], 6)
+        self.assertIn("v27-deployed", observation["edge_gateway"])
+        self.assertIn("active-v6", observation["public_edge_gateway"])
+        self.assertTrue(observation["password_recovery_session_isolated"])
+        self.assertEqual(observation["password_recovery_cookie_path"], "/auth/recover")
+        self.assertTrue(observation["bot_protection_widget_live_verified"])
+        self.assertEqual(
+            observation["bot_protection_widget_domains"],
+            ["ordax-os-public.vercel.app"],
+        )
+        self.assertFalse(observation["bot_protection_production_secret_configured"])
+        self.assertFalse(observation["public_adapter_rate_limit_deployed"])
+        self.assertTrue(
+            hardening["required_before_public_login"][
+                "registration_provider_bypass_guard_verified"
+            ]
+        )
+        self.assertTrue(observation["provider_signup_api_enabled"])
+        self.assertTrue(observation["registration_provider_bypass_guard_verified"])
+        self.assertEqual(
+            observation["registration_provider_bypass_guard_trigger"],
+            "on_auth_user_created_ordax_product",
+        )
+        self.assertEqual(
+            observation["registration_provider_bypass_guard_function"],
+            "private.handle_ordax_account_created",
+        )
+        self.assertTrue(
+            observation["registration_provider_bypass_guard_search_path_empty"]
+        )
+        self.assertTrue(
+            observation["registration_provider_bypass_guard_requires_active_policy"]
+        )
+        self.assertTrue(
+            observation["registration_provider_bypass_guard_requires_email_hash_match"]
+        )
+        self.assertTrue(
+            observation[
+                "registration_provider_bypass_guard_requires_unconsumed_unexpired_intent"
+            ]
+        )
+        self.assertTrue(
+            observation["registration_provider_bypass_guard_writes_legal_receipt"]
+        )
+        self.assertEqual(observation["legacy_accounts_without_legal_receipt_count"], 2)
+        self.assertFalse(
+            observation["legacy_account_legal_receipt_reconciliation_verified"]
+        )
+        self.assertFalse(observation["legacy_accounts_public_login_allowed"])
 
     def test_supabase_preflight_is_read_only(self):
         sql = PREFLIGHT.read_text(encoding="utf-8").lower()

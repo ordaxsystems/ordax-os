@@ -42,15 +42,27 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertTrue(blockers)
         hardening = preflight.load_json(ROOT, preflight.HARDENING)
         deployment = preflight.load_json(ROOT, preflight.DEPLOYMENT)
+        provider_policy = preflight.load_json(ROOT, preflight.PROVIDER_POLICY)
         self.assertTrue(
             hardening["current_observation"]["product_leaked_password_protection_verified"]
         )
+        self.assertEqual(
+            provider_policy["redirect_policy"]["origin"],
+            "https://ordax-os-public.vercel.app",
+        )
+        self.assertEqual(
+            provider_policy["redirect_policy"]["recovery_verify_url"],
+            "https://ordax-os-public.vercel.app/auth/recover/verify",
+        )
+        self.assertFalse(provider_policy["provider_verification"]["production_origin"])
         self.assertTrue(deployment["public_edge_gateway"]["deployed"])
         self.assertTrue(deployment["public_edge_gateway"]["oidc_source_ready"])
         self.assertTrue(deployment["public_edge_gateway"]["oidc_deployed"])
-        self.assertNotIn("leaked-password-protection", blockers)
+        self.assertIn("provider-leaked-password-protection", blockers)
+        self.assertNotIn("product-leaked-password-protection", blockers)
         self.assertNotIn("account-data-export-implementation", blockers)
         self.assertNotIn("email-confirmation-policy", blockers)
+        self.assertNotIn("email-confirmation-provider-verification", blockers)
         self.assertNotIn("redirect-allowlist", blockers)
         self.assertNotIn("password-policy-review", blockers)
         self.assertNotIn("account-close-implementation", blockers)
@@ -59,13 +71,14 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertNotIn("public-edge-oidc-deployment", blockers)
         self.assertTrue(all(value is False for value in controls.values()))
         self.assertNotIn("registration-legal-receipt", blockers)
+        self.assertNotIn("registration-provider-bypass-guard", blockers)
         for expected in (
             "registration-legal-policy-review",
             "registration-legal-web-binding",
             "registration-legal-native-binding",
             "registration-legal-activation",
             "account-registration-switch",
-            "email-confirmation-provider-verification",
+            "legacy-account-legal-receipt-reconciliation",
             "redirect-allowlist-provider-verification",
             "provider-password-policy-verification",
             "public-edge-provenance-proof",
@@ -82,6 +95,38 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             self.assertIn(expected, blockers)
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
         self.assertEqual(preflight.main(["require-ready", "--root", str(ROOT)]), 1)
+
+    def test_legacy_account_legal_reconciliation_is_mandatory(self):
+        temporary, root = self.fixture_root()
+        try:
+            hardening_path = root / preflight.HARDENING
+            hardening = preflight.load_json(root, preflight.HARDENING)
+            hardening["current_observation"][
+                "legacy_account_legal_receipt_reconciliation_verified"
+            ] = False
+            hardening_path.write_text(
+                __import__("json").dumps(hardening, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            blockers, _ = preflight.readiness(root)
+            self.assertIn("legacy-account-legal-receipt-reconciliation", blockers)
+        finally:
+            temporary.cleanup()
+
+    def test_registration_provider_bypass_guard_is_mandatory(self):
+        temporary, root = self.fixture_root()
+        try:
+            hardening_path = root / preflight.HARDENING
+            hardening = preflight.load_json(root, preflight.HARDENING)
+            hardening["current_observation"]["registration_provider_bypass_guard_verified"] = False
+            hardening_path.write_text(
+                __import__("json").dumps(hardening, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            blockers, _ = preflight.readiness(root)
+            self.assertIn("registration-provider-bypass-guard", blockers)
+        finally:
+            temporary.cleanup()
 
     def test_edge_presence_and_oidc_source_alone_cannot_satisfy_public_rollout(self):
         temporary, root = self.fixture_root()
