@@ -196,7 +196,12 @@
     "artifact_acquisition_source_may_select_artifact": false,
     "artifact_acquisition_source_may_install_or_activate": false,
     "artifact_identity_max_bytes": 33554432,
-    "artifact_identity_max_bytes_matches_runtime_component_verifier": true
+    "artifact_identity_max_bytes_matches_runtime_component_verifier": true,
+    "artifact_content_addressing_algorithm": "sha256",
+    "artifact_content_path_template": "sha256/{prefix2}/{sha256}",
+    "artifact_content_path_derivation_owner": "system/contracts/app-artifact-identity.mjs",
+    "artifact_content_path_uses_app_or_version": false,
+    "artifact_content_path_includes_origin": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
