@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-entry/1",
-  "status": "provider-adapter-source-v16-deployed-v16-revision-25-public-boundary-authenticated-legal-policy-pending-registration-disabled-close-disabled",
+  "status": "provider-adapter-source-v16-deployed-v16-revision-26-recovery-session-isolated-legal-policy-pending-registration-disabled-close-disabled",
   "purpose": "public-site-account-entry-boundary",
   "routes": {
     "login_page": "/login/",
@@ -64,7 +64,7 @@
     "public_site_account_enabled": false,
     "public_site_marker_header": "X-OrdaX-Public-Site",
     "native_direct_account_gateway_remains_available": true,
-    "edge_deployment_revision_observed": 25,
+    "edge_deployment_revision_observed": 26,
     "gateway_source_version": 16,
     "password_recovery_request_implemented": true,
     "password_recovery_redirect_config_verified": false,
@@ -95,7 +95,7 @@
     "account_memory_entitlement_route": "/account/entitlements/memory-cloud",
     "account_memory_entitlement_key": "memory.cloud.enabled",
     "account_memory_entitlement_edge_deployed": true,
-    "account_memory_entitlement_edge_deployment_revision_observed": 25,
+    "account_memory_entitlement_edge_deployment_revision_observed": 26,
     "account_memory_entitlement_requires_authenticated_user": true,
     "account_memory_entitlement_subject_from_session": true,
     "account_memory_entitlement_uses_user_bearer_rls": true,
@@ -118,7 +118,9 @@
     "account_registration_policy_active": false,
     "account_registration_ui_source_ready": true,
     "public_site_boundary_authentication_deployed": true,
-    "public_site_boundary_authentication": "backend-secret-apikey"
+    "public_site_boundary_authentication": "backend-secret-apikey",
+    "password_recovery_session_isolated": true,
+    "password_recovery_cookie_path": "/auth/recover"
   },
   "supabase_candidate": {
     "status": "dedicated-target-schema-and-edge-gateway-deployed",

@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-gateway/1",
-  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v16-deployed-v16-revision-25-public-boundary-authenticated-registration-disabled-close-disabled",
+  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v16-deployed-v16-revision-26-recovery-session-isolated-registration-disabled-close-disabled",
   "runtime": {
     "entrypoint": "services/public-identity/gateway.py:application",
     "protocol": "WSGI",
@@ -10,7 +10,7 @@
     "provider_configuration": "runtime-environment",
     "deployed_edge_adapter": "infra/supabase/functions/ordax-account-gateway/index.ts",
     "gateway_source_version": 16,
-    "edge_deployment_revision_observed": 25,
+    "edge_deployment_revision_observed": 26,
     "deployed_gateway_source_version": 16,
     "lifecycle_service_source": "infra/supabase/functions/ordax-account-lifecycle/index.ts",
     "lifecycle_service_deployed": true,
@@ -205,7 +205,7 @@
     "account_memory_entitlement_mutation_exposed": false,
     "account_memory_entitlement_service_role_used": false,
     "account_memory_entitlement_edge_deployed": true,
-    "account_memory_entitlement_edge_deployment_revision_observed": 25,
+    "account_memory_entitlement_edge_deployment_revision_observed": 26,
     "public_cloud_memory_enabled": false,
     "account_registration_enabled": false,
     "account_registration_legal_binding_required": true,
@@ -224,7 +224,9 @@
     "account_registration_policy_active": false,
     "account_registration_ui_binding_source_ready": true,
     "public_site_marker_requires_backend_authentication": true,
-    "public_site_marker_backend_authentication": "supabase-secret-apikey"
+    "public_site_marker_backend_authentication": "supabase-secret-apikey",
+    "password_recovery_session_isolated": true,
+    "password_recovery_cookie_path": "/auth/recover"
   },
   "deployment": {
     "same_origin_required_for_public_site": true,
