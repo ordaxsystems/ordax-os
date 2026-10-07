@@ -67,7 +67,7 @@ class UserCloudStorageSourceTest(unittest.TestCase):
         self.assertGreaterEqual(self.sql.lower().count("on delete restrict"), 4)
 
     def test_rollout_remains_disabled_and_provider_is_not_authority(self) -> None:
-        self.assertEqual(self.contract["status"], "live-foundation-private-rls-rollout-disabled")
+        self.assertEqual(self.contract["status"], "source-foundation-rollout-disabled")
         self.assertFalse(self.contract["invariants"]["provider_storage_is_authorization_source"])
         self.assertFalse(self.contract["invariants"]["public_bucket_allowed"])
         self.assertFalse(self.contract["provider"]["bucket_deployed_by_this_foundation"])
