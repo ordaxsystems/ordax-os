@@ -15,6 +15,7 @@ export function createSameOriginAccountLifecycle(
   const session = identitySession === null ? null : assertIdentitySessionPort(identitySession);
   let snapshot = validateAccountLifecycleSnapshot({ supportedActions: [] });
   let disposed = false;
+  let refreshPromise = null;
   const listeners = new Set();
 
   const emit = () => {
@@ -32,32 +33,38 @@ export function createSameOriginAccountLifecycle(
     if (before !== after) emit();
   };
 
-  const refresh = async () => {
-    if (disposed) return snapshot;
+  const refresh = () => {
+    if (disposed) return Promise.resolve(snapshot);
     if (session && session.getSnapshot().state !== "signed-in") {
       setSupported(false);
-      return snapshot;
+      return Promise.resolve(snapshot);
     }
-    try {
-      const response = await windowRef.fetch("/auth/session", {
-        method: "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) {
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = (async () => {
+      try {
+        const response = await windowRef.fetch("/auth/session", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) {
+          setSupported(false);
+          return snapshot;
+        }
+        const payload = await response.json();
+        setSupported(
+          payload?.authenticated === true
+          && payload?.accountCloseEnabled === true,
+        );
+      } catch {
         setSupported(false);
-        return snapshot;
       }
-      const payload = await response.json();
-      setSupported(
-        payload?.authenticated === true
-        && payload?.accountCloseEnabled === true,
-      );
-    } catch {
-      setSupported(false);
-    }
-    return snapshot;
+      return snapshot;
+    })().finally(() => {
+      refreshPromise = null;
+    });
+    return refreshPromise;
   };
 
   let initialSessionEmission = true;
