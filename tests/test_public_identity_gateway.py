@@ -561,9 +561,11 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         response = self.gateway.handle("POST", "/auth/logout")
         self.assertEqual(response.status, 303)
         cookies = [value for key, value in response.headers if key == "Set-Cookie"]
-        self.assertEqual(len(cookies), 2)
+        self.assertEqual(len(cookies), 5)
         self.assertTrue(all("HttpOnly" in value for value in cookies))
         self.assertTrue(all("Max-Age=0" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery_access=;") for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery_refresh=;") for value in cookies))
 
     def test_recovery_request_is_disabled_even_if_redirect_were_configured(self):
         class FakeProvider:
@@ -726,14 +728,13 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(verify.status, 303)
         self.assertEqual(dict(verify.headers)["Location"], "/recuperar/nova-senha/")
         cookies = [value for key, value in verify.headers if key == "Set-Cookie"]
-        self.assertEqual(len(cookies), 3)
-        self.assertTrue(any(value.startswith("ordax_recovery=1;") for value in cookies))
-        self.assertTrue(any(value.startswith("ordax_recovery_access=recovery-access;") for value in cookies))
-        self.assertTrue(any(value.startswith("ordax_recovery_refresh=recovery-refresh;") for value in cookies))
-        self.assertFalse(any(value.startswith("ordax_access=") for value in cookies))
-        self.assertFalse(any(value.startswith("ordax_refresh=") for value in cookies))
+        self.assertEqual(len(cookies), 5)
+        self.assertTrue(any(value.startswith("ordax_access=;") and "Max-Age=0" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_refresh=;") and "Max-Age=0" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery=1;") and "Max-Age=600" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery_access=recovery-access;") and "Max-Age=600" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery_refresh=recovery-refresh;") and "Max-Age=600" in value for value in cookies))
         self.assertTrue(all("HttpOnly" in value for value in cookies))
-        self.assertTrue(all("Max-Age=600" in value for value in cookies))
 
         headers = {
             "content-type": "application/x-www-form-urlencoded",
@@ -890,7 +891,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(identity.login_calls, [("person@example.com", "secret")])
         self.assertEqual(lifecycle.calls, [("fresh-access", "close-account")])
         cleared = [value for key, value in ok.headers if key == "Set-Cookie"]
-        self.assertEqual(len(cleared), 3)
+        self.assertEqual(len(cleared), 5)
         self.assertTrue(all("Max-Age=0" in value for value in cleared))
 
     def test_account_export_uses_authenticated_user_and_neutral_provider(self):
