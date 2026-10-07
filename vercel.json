@@ -10,6 +10,10 @@
     {
       "source": "/sync/:path*",
       "destination": "/api/account-proxy?ordax_path=/sync/:path*"
+    },
+    {
+      "source": "/account/:path*",
+      "destination": "/api/account-proxy?ordax_path=/account/:path*"
     }
   ],
   "headers": [
@@ -73,6 +77,15 @@
     },
     {
       "source": "/sync/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/account/:path*",
       "headers": [
         {
           "key": "Cache-Control",
