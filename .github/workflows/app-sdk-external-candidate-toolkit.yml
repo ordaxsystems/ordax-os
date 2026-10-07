@@ -1,0 +1,83 @@
+name: App SDK External Candidate Toolkit
+
+on:
+  pull_request:
+    paths:
+      - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
+      - 'sdk/app-sdk-v1/runtime-component-package-policy.json'
+      - 'sdk/app-sdk-v1/EXTERNAL-CANDIDATE-TOOLKIT.md'
+      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'docs/contracts/runtime-component-package.json'
+      - 'tests/test_runtime_component_unsigned_candidate.py'
+      - '.github/workflows/app-sdk-external-candidate-toolkit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sdk/app-sdk-v1/verify_unsigned_candidate.py'
+      - 'sdk/app-sdk-v1/runtime-component-package-policy.json'
+      - 'sdk/app-sdk-v1/EXTERNAL-CANDIDATE-TOOLKIT.md'
+      - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'docs/contracts/runtime-component-package.json'
+      - 'tests/test_runtime_component_unsigned_candidate.py'
+      - '.github/workflows/app-sdk-external-candidate-toolkit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  external-candidate-toolkit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Prove SDK verifier is the canonical implementation
+        run: |
+          set -euo pipefail
+          test -L tools/runtime-component-channel/verify_unsigned_candidate.py
+          test "$(readlink tools/runtime-component-channel/verify_unsigned_candidate.py)" = '../../sdk/app-sdk-v1/verify_unsigned_candidate.py'
+          cmp -s \
+            tools/runtime-component-channel/verify_unsigned_candidate.py \
+            sdk/app-sdk-v1/verify_unsigned_candidate.py
+
+      - name: Prove public policy snapshot has no drift
+        run: |
+          set -euo pipefail
+          cmp -s \
+            docs/contracts/runtime-component-package.json \
+            sdk/app-sdk-v1/runtime-component-package-policy.json
+          python3 -m json.tool sdk/app-sdk-v1/runtime-component-package-policy.json >/dev/null
+
+      - name: Prove unsigned candidate verification behavior
+        run: python3 -m unittest tests/test_runtime_component_unsigned_candidate.py
+
+      - name: Prove SDK verifier CLI is public and read-only
+        run: |
+          set -euo pipefail
+          python3 sdk/app-sdk-v1/verify_unsigned_candidate.py --help >/dev/null
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path('sdk/app-sdk-v1/verify_unsigned_candidate.py')
+          tree = ast.parse(path.read_text(encoding='utf-8'))
+          allowed_imports = {
+              '__future__', 'argparse', 'hashlib', 'json', 're', 'stat', 'pathlib', 'zipfile'
+          }
+          forbidden_calls = {'sign', 'publish', 'install', 'activate', 'promote', 'rollback'}
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  for alias in node.names:
+                      assert alias.name.split('.')[0] in allowed_imports, alias.name
+              elif isinstance(node, ast.ImportFrom):
+                  assert (node.module or '').split('.')[0] in allowed_imports, node.module
+              elif isinstance(node, ast.Call):
+                  target = node.func.attr if isinstance(node.func, ast.Attribute) else (
+                      node.func.id if isinstance(node.func, ast.Name) else None
+                  )
+                  assert target not in forbidden_calls, target
+          print('APP_SDK_EXTERNAL_CANDIDATE_AUTHORITY=none')
+          PY
