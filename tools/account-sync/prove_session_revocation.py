@@ -52,6 +52,9 @@ class Client:
         }
         if content_type:
             headers["Content-Type"] = content_type
+        if method in {"POST", "PUT", "PATCH", "DELETE"}:
+            headers["Origin"] = self.base_url
+            headers["Sec-Fetch-Site"] = "same-origin"
         if cookie_header:
             headers["Cookie"] = cookie_header
         req = Request(self.base_url + path, data=body, headers=headers, method=method)
