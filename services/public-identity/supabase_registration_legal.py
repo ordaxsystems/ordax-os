@@ -225,3 +225,36 @@ class SupabaseRegistrationLegalAuthority:
         if str(parsed) != intent_id.lower():
             raise RegistrationLegalError("registration-legal-authority-invalid-response")
         return RegistrationLegalIntent(intent_id=intent_id.lower())
+
+    def has_registration_receipt(self, user_id: str) -> bool:
+        try:
+            parsed = UUID(user_id)
+        except (TypeError, ValueError) as exc:
+            raise RegistrationLegalError("registration-legal-subject-invalid") from exc
+        canonical = str(parsed)
+        if canonical != user_id.lower():
+            raise RegistrationLegalError("registration-legal-subject-invalid")
+
+        payload = json.dumps(
+            {"p_user_id": canonical},
+            separators=(",", ":"),
+        ).encode("utf-8")
+        status, raw = self.transport.request(
+            "POST",
+            self.project_url + "/rest/v1/rpc/ordax_account_has_registration_legal_receipt_v1",
+            {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "apikey": self.secret_key,
+            },
+            payload,
+        )
+        if status < 200 or status >= 300:
+            raise RegistrationLegalError("registration-legal-receipt-check-unavailable")
+        try:
+            value = json.loads(raw.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise RegistrationLegalError("registration-legal-authority-invalid-response") from exc
+        if not isinstance(value, bool):
+            raise RegistrationLegalError("registration-legal-authority-invalid-response")
+        return value
