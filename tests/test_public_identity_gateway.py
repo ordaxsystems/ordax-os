@@ -302,6 +302,137 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(response.status, 503)
         self.assertEqual(self.payload(response)["error"], "password-screening-unavailable")
 
+    def test_public_login_requires_server_verified_legal_receipt(self):
+        class FakeProvider:
+            def __init__(self):
+                self.local_signouts = []
+
+            def sign_in_with_password(self, email, password):
+                session = type(
+                    "Session",
+                    (),
+                    {
+                        "access_token": "access",
+                        "refresh_token": "refresh",
+                        "expires_in": 3600,
+                    },
+                )()
+                return type(
+                    "Result",
+                    (),
+                    {
+                        "subject_id": "11111111-1111-4111-8111-111111111111",
+                        "email": "person@example.com",
+                        "session": session,
+                    },
+                )()
+
+            def sign_out_local(self, access_token):
+                self.local_signouts.append(access_token)
+
+        class ReceiptAuthority:
+            def __init__(self, value):
+                self.value = value
+                self.calls = []
+
+            def has_registration_receipt(self, user_id):
+                self.calls.append(user_id)
+                return self.value
+
+        headers = {
+            "X-OrDaX-Public-Site": "1",
+            "content-type": "application/x-www-form-urlencoded",
+        }
+        body = b"email=person%40example.com&password=old-pass"
+
+        denied_provider = FakeProvider()
+        denied_authority = ReceiptAuthority(False)
+        denied_gateway = gateway_module.PublicIdentityGateway(
+            provider=denied_provider,
+            sync_provider=None,
+            registration_legal_authority=denied_authority,
+        )
+        with patch.object(gateway_module, "PUBLIC_SITE_ACCOUNT_ENABLED", True):
+            denied = denied_gateway.handle("POST", "/auth/login", headers, body)
+        self.assertEqual(denied.status, 403)
+        self.assertEqual(self.payload(denied)["error"], "account-legal-receipt-required")
+        self.assertEqual(denied_provider.local_signouts, ["access"])
+        self.assertEqual(
+            denied_authority.calls,
+            ["11111111-1111-4111-8111-111111111111"],
+        )
+        self.assertFalse(any(key == "Set-Cookie" for key, _ in denied.headers))
+
+        allowed_provider = FakeProvider()
+        allowed_authority = ReceiptAuthority(True)
+        allowed_gateway = gateway_module.PublicIdentityGateway(
+            provider=allowed_provider,
+            sync_provider=None,
+            registration_legal_authority=allowed_authority,
+        )
+        with patch.object(gateway_module, "PUBLIC_SITE_ACCOUNT_ENABLED", True):
+            allowed = allowed_gateway.handle("POST", "/auth/login", headers, body)
+        self.assertEqual(allowed.status, 303)
+        self.assertEqual(dict(allowed.headers)["Location"], "/conta/")
+        self.assertEqual(allowed_provider.local_signouts, [])
+        self.assertTrue(any(key == "Set-Cookie" for key, _ in allowed.headers))
+
+    def test_public_login_fails_closed_when_legal_receipt_check_is_unavailable(self):
+        class FakeProvider:
+            def __init__(self):
+                self.local_signouts = []
+
+            def sign_in_with_password(self, email, password):
+                session = type(
+                    "Session",
+                    (),
+                    {
+                        "access_token": "access",
+                        "refresh_token": "refresh",
+                        "expires_in": 3600,
+                    },
+                )()
+                return type(
+                    "Result",
+                    (),
+                    {
+                        "subject_id": "11111111-1111-4111-8111-111111111111",
+                        "email": "person@example.com",
+                        "session": session,
+                    },
+                )()
+
+            def sign_out_local(self, access_token):
+                self.local_signouts.append(access_token)
+
+        class BrokenAuthority:
+            def has_registration_receipt(self, user_id):
+                raise gateway_module.RegistrationLegalError("unavailable")
+
+        provider = FakeProvider()
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=provider,
+            sync_provider=None,
+            registration_legal_authority=BrokenAuthority(),
+        )
+        with patch.object(gateway_module, "PUBLIC_SITE_ACCOUNT_ENABLED", True):
+            response = gateway.handle(
+                "POST",
+                "/auth/login",
+                {
+                    "X-OrDaX-Public-Site": "1",
+                    "content-type": "application/x-www-form-urlencoded",
+                },
+                b"email=person%40example.com&password=old-pass",
+            )
+        self.assertEqual(response.status, 503)
+        self.assertEqual(
+            self.payload(response)["error"],
+            "account-legal-receipt-check-unavailable",
+        )
+        self.assertEqual(provider.local_signouts, ["access"])
+        self.assertFalse(any(key == "Set-Cookie" for key, _ in response.headers))
+
     def test_existing_password_login_does_not_call_compromised_password_screening(self):
         class FakeProvider:
             def sign_in_with_password(self, email, password):
