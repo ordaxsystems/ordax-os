@@ -84,5 +84,19 @@
     "network_app_completion_required_before_public_launch": false,
     "store_functionality_required_before_public_launch": false
   },
-  "authority": "none"
+  "authority": "none",
+  "store_lifecycle_request_boundary": {
+    "status": "request-contract-only-executor-gated",
+    "operations": [
+      "install",
+      "update",
+      "remove"
+    ],
+    "authority": "none",
+    "store_selects_artifact": false,
+    "store_selects_version": false,
+    "remove_deletes_user_data": false,
+    "rollback_owned_by_platform": true,
+    "production_component_slot_activation_required_for_executor": true
+  }
 }
