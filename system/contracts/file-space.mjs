@@ -4,6 +4,8 @@ export const MAX_FILE_COPY_BYTES = 64 * 1024 * 1024;
 export const MAX_FILE_EXPORT_BYTES = 64 * 1024 * 1024;
 export const MAX_FILE_IMPORT_BYTES = 64 * 1024 * 1024;
 export const MAX_IMAGE_PREVIEW_BYTES = 8 * 1024 * 1024;
+export const MAX_MEDIA_PREVIEW_BYTES = 64 * 1024 * 1024;
+export const MAX_DOCUMENT_PREVIEW_BYTES = 32 * 1024 * 1024;
 
 const IMAGE_PREVIEW_MIME_TYPES = new Set([
   "image/avif",
@@ -12,6 +14,22 @@ const IMAGE_PREVIEW_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
+]);
+
+const MEDIA_PREVIEW_MIME_TYPES = new Set([
+  "audio/aac",
+  "audio/flac",
+  "audio/mp4",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "video/mp4",
+  "video/ogg",
+  "video/webm",
+]);
+
+const DOCUMENT_PREVIEW_MIME_TYPES = new Set([
+  "application/pdf",
 ]);
 
 const ENTRY_KINDS = new Set(["file", "directory"]);
@@ -159,6 +177,45 @@ export function validateImagePreview(value) {
   });
 }
 
+export function validateMediaPreview(value) {
+  if (!value || typeof value !== "object") {
+    throw new TypeError("Media-preview payload must be an object");
+  }
+  const path = validateFileSpacePath(value.path);
+  if (!Number.isInteger(value.size) || value.size < 0 || value.size > MAX_MEDIA_PREVIEW_BYTES) {
+    throw new TypeError("Media-preview size is outside the preview boundary");
+  }
+  if (!MEDIA_PREVIEW_MIME_TYPES.has(value.mime)) {
+    throw new TypeError("Media-preview MIME type is unsupported");
+  }
+  if (!(value.bytes instanceof Uint8Array) || value.bytes.byteLength !== value.size) {
+    throw new TypeError("Media-preview bytes must match the declared size");
+  }
+  return Object.freeze({
+    path,
+    size: value.size,
+    mime: value.mime,
+    bytes: value.bytes,
+  });
+}
+
+export function validateDocumentPreview(value) {
+  if (!value || typeof value !== "object") {
+    throw new TypeError("Document-preview payload must be an object");
+  }
+  const path = validateFileSpacePath(value.path);
+  if (!Number.isInteger(value.size) || value.size < 0 || value.size > MAX_DOCUMENT_PREVIEW_BYTES) {
+    throw new TypeError("Document-preview size is outside the preview boundary");
+  }
+  if (!DOCUMENT_PREVIEW_MIME_TYPES.has(value.mime)) {
+    throw new TypeError("Document-preview MIME type is unsupported");
+  }
+  if (!(value.bytes instanceof Uint8Array) || value.bytes.byteLength !== value.size) {
+    throw new TypeError("Document-preview bytes must match the declared size");
+  }
+  return Object.freeze({ path, size: value.size, mime: value.mime, bytes: value.bytes });
+}
+
 export function assertFileSpacePort(port) {
   if (!port || typeof port !== "object" || port.schema !== FILE_SPACE_SCHEMA) {
     throw new TypeError("A compatible file-space port is required");
@@ -179,6 +236,24 @@ export function assertFileSpacePort(port) {
     throw new TypeError(
       "File-space port must implement list(), createDirectory(), readTextFile(), renameEntry(), copyFile(), moveEntry(), trashEntry(), listTrash(), restoreTrashEntry(), exportFile(), and importFile()",
     );
+  }
+  return port;
+}
+
+
+export function assertMediaPreviewFileSpacePort(port) {
+  assertFileSpacePort(port);
+  if (typeof port.readMediaPreview !== "function") {
+    throw new TypeError("File-space port does not provide bounded media preview");
+  }
+  return port;
+}
+
+
+export function assertDocumentPreviewFileSpacePort(port) {
+  assertFileSpacePort(port);
+  if (typeof port.readDocumentPreview !== "function") {
+    throw new TypeError("File-space port does not provide bounded document preview");
   }
   return port;
 }

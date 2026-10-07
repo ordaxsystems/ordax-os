@@ -1,9 +1,13 @@
 import {
   FILE_SPACE_SCHEMA,
   MAX_IMAGE_PREVIEW_BYTES,
+  MAX_MEDIA_PREVIEW_BYTES,
+  MAX_DOCUMENT_PREVIEW_BYTES,
   assertFileSpacePort,
   validateFileListing,
   validateImagePreview,
+  validateMediaPreview,
+  validateDocumentPreview,
   validateTextFile,
   validateTrashListing,
 } from "../../contracts/file-space.mjs";
@@ -13,6 +17,8 @@ const TRASH_ENDPOINT = "/__ordax/native/trash";
 const FILE_CONTENT_ENDPOINT = "/__ordax/native/file-content";
 const FILE_EXPORT_ENDPOINT = "/__ordax/native/file-export";
 const IMAGE_PREVIEW_ENDPOINT = "/__ordax/native/image-preview";
+const MEDIA_PREVIEW_ENDPOINT = "/__ordax/native/media-preview";
+const DOCUMENT_PREVIEW_ENDPOINT = "/__ordax/native/document-preview";
 const FILE_IMPORT_ENDPOINT = "/__ordax/native/file-import";
 
 export class FileSpaceOperationError extends Error {
@@ -45,6 +51,14 @@ function exportEndpointFor(path) {
 
 function imagePreviewEndpointFor(path) {
   return `${IMAGE_PREVIEW_ENDPOINT}?path=${encodeURIComponent(path)}`;
+}
+
+function mediaPreviewEndpointFor(path) {
+  return `${MEDIA_PREVIEW_ENDPOINT}?path=${encodeURIComponent(path)}`;
+}
+
+function documentPreviewEndpointFor(path) {
+  return `${DOCUMENT_PREVIEW_ENDPOINT}?path=${encodeURIComponent(path)}`;
 }
 
 function fileNameFromPath(path) {
@@ -101,6 +115,44 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
         throw new FileSpaceOperationError("image-preview", 413);
       }
       return validateImagePreview({
+        path,
+        size: buffer.byteLength,
+        mime,
+        bytes: new Uint8Array(buffer),
+      });
+    },
+    async readMediaPreview(path) {
+      const response = await windowRef.fetch(mediaPreviewEndpointFor(path), {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      requireSuccess(response, "media-preview");
+      const mime = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim()?.toLowerCase() ?? "";
+      const buffer = await response.arrayBuffer();
+      if (buffer.byteLength > MAX_MEDIA_PREVIEW_BYTES) {
+        throw new FileSpaceOperationError("media-preview", 413);
+      }
+      return validateMediaPreview({
+        path,
+        size: buffer.byteLength,
+        mime,
+        bytes: new Uint8Array(buffer),
+      });
+    },
+    async readDocumentPreview(path) {
+      const response = await windowRef.fetch(documentPreviewEndpointFor(path), {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      requireSuccess(response, "document-preview");
+      const mime = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim()?.toLowerCase() ?? "";
+      const buffer = await response.arrayBuffer();
+      if (buffer.byteLength > MAX_DOCUMENT_PREVIEW_BYTES) {
+        throw new FileSpaceOperationError("document-preview", 413);
+      }
+      return validateDocumentPreview({
         path,
         size: buffer.byteLength,
         mime,
