@@ -32,12 +32,12 @@ class ComponentProbationOutcome:
 def record_system_component_probation(
     *,
     payload: object,
-    expected_component_id: str,
     expected_nonce: str,
     helper_path: str,
     slot_root: str,
+    expected_component_id: str | None = None,
 ) -> ComponentProbationOutcome:
-    if expected_component_id not in SUPPORTED_COMPONENTS:
+    if expected_component_id is not None and expected_component_id not in SUPPORTED_COMPONENTS:
         raise ComponentProbationReceiptError("component probation component is unavailable")
     if not isinstance(expected_nonce, str) or not expected_nonce:
         raise ComponentProbationReceiptError("component probation nonce is unavailable")
@@ -55,8 +55,10 @@ def record_system_component_probation(
     if result.get("schema") != PROBATION_SCHEMA:
         raise ComponentProbationReceiptError("invalid component probation receipt schema")
     component_id = result.get("componentId")
-    if component_id != expected_component_id or component_id not in SUPPORTED_COMPONENTS:
+    if component_id not in SUPPORTED_COMPONENTS:
         raise ComponentProbationReceiptError("invalid component probation receipt component")
+    if expected_component_id is not None and component_id != expected_component_id:
+        raise ComponentProbationReceiptError("component probation receipt attempt mismatch")
     if result.get("probeMode") != PROBE_MODE:
         raise ComponentProbationReceiptError("invalid component probation probe mode")
 
