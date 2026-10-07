@@ -18,6 +18,7 @@
     "owner": "system/services/i18n/formatting.mjs",
     "locale_source": "ordax.localization/2",
     "follows_active_locale_without_cached_parallel_state": true,
+    "revalidates_locale_profile_agreement_per_call": true,
     "capabilities": [
       "date-time",
       "number",
@@ -29,7 +30,7 @@
       "plural-selection",
       "display-name"
     ],
-    "currency_requires_explicit_iso_4217_code": true,
+    "currency_requires_explicit_three_letter_code": true,
     "unit_requires_explicit_unit_id": true,
     "relative_time_requires_explicit_unit": true,
     "formatting_never_changes_message_identity": true,
