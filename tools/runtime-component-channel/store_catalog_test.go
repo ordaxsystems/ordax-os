@@ -38,6 +38,9 @@ func testStorePublication() storeCatalogPublication {
 					Compatibility: storeCatalogArtifact{
 						Name: "notes.compatibility.json", SHA256: strings.Repeat("c", 64), Size: 125,
 					},
+					ComponentEnvelope: storeCatalogArtifact{
+						Name: "notes.runtime-component-envelope.json", SHA256: strings.Repeat("e", 64), Size: 126,
+					},
 				},
 				Trust: entryTrust,
 			},
@@ -49,10 +52,13 @@ func testStorePublication() storeCatalogPublication {
 		},
 		Authority: storeCatalogAuthority{},
 		Safety: storeCatalogSafety{
-			RequiresExternalSignature:     true,
-			CanonicalPublicAnchorRequired: true,
-			PlatformLifecycleRequired:     true,
-			PayloadGrantsAuthority:        false,
+			RequiresExternalSignature:                    true,
+			CanonicalPublicAnchorRequired:                true,
+			ComponentEnvelopesRequired:                   true,
+			ComponentEnvelopesVerifiedBeforeCatalogAssembly: true,
+			ComponentEnvelopesReverifiedByPlatformLifecycle: true,
+			PlatformLifecycleRequired:                    true,
+			PayloadGrantsAuthority:                       false,
 		},
 	}
 }
@@ -117,12 +123,38 @@ func TestStoreCatalogVerifierAuthenticatesExactPublicationWithoutLifecycleAuthor
 	if len(verified.Entries) != 1 || verified.Entries[0].AppID != "notes" {
 		t.Fatalf("unexpected verified entries: %+v", verified.Entries)
 	}
+	if verified.Entries[0].Artifacts.ComponentEnvelope.Name != "notes.runtime-component-envelope.json" {
+		t.Fatalf("verified catalog lost component envelope identity: %+v", verified.Entries[0].Artifacts)
+	}
 	var publication storeCatalogPublication
 	if err := json.Unmarshal(signedPayload, &publication); err != nil {
 		t.Fatal(err)
 	}
 	if publication.Authority.Installation || publication.Authority.Activation || publication.Authority.Rollback {
 		t.Fatal("signed Store catalog unexpectedly carries lifecycle authority")
+	}
+}
+
+func TestStoreCatalogVerifierRejectsPrepublicationV1AndMissingComponentEnvelope(t *testing.T) {
+	value := testStorePublication()
+	value.Schema = "ordax-apps.store-catalog-publication/1"
+	if err := validateStoreCatalogPublication(value); err == nil ||
+		!strings.Contains(err.Error(), "publication schema") {
+		t.Fatalf("prepublication v1 unexpectedly accepted: %v", err)
+	}
+
+	value = testStorePublication()
+	value.Entries[0].Artifacts.ComponentEnvelope = storeCatalogArtifact{}
+	if err := validateStoreCatalogPublication(value); err == nil ||
+		!strings.Contains(err.Error(), "component envelope") {
+		t.Fatalf("missing component envelope unexpectedly accepted: %v", err)
+	}
+
+	value = testStorePublication()
+	value.Entries[0].Artifacts.ComponentEnvelope.Name = "other-envelope.json"
+	if err := validateStoreCatalogPublication(value); err == nil ||
+		!strings.Contains(err.Error(), "name is not canonical") {
+		t.Fatalf("non-canonical component envelope name unexpectedly accepted: %v", err)
 	}
 }
 
