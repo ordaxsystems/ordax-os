@@ -166,10 +166,12 @@ def _secure_cookies() -> bool:
     return os.environ.get("ORDAX_IDENTITY_SECURE_COOKIES", "1") != "0"
 
 
-def _cookie(name: str, value: str, *, max_age: int) -> str:
+def _cookie(name: str, value: str, *, max_age: int, path: str = "/") -> str:
+    if path not in ("/", "/auth/recover"):
+        raise ValueError("unsupported-cookie-path")
     parts = [
         f"{name}={value}",
-        "Path=/",
+        f"Path={path}",
         "HttpOnly",
         "SameSite=Lax",
         f"Max-Age={max_age}",
@@ -190,17 +192,17 @@ def _recovery_cookies(
 ) -> tuple[str, str, str]:
     max_age = max(1, min(int(expires_in), RECOVERY_SESSION_MAX_AGE))
     return (
-        _cookie(RECOVERY_ACCESS_COOKIE, access_token, max_age=max_age),
-        _cookie(RECOVERY_REFRESH_COOKIE, refresh_token, max_age=max_age),
-        _cookie(RECOVERY_COOKIE, "1", max_age=max_age),
+        _cookie(RECOVERY_ACCESS_COOKIE, access_token, max_age=max_age, path="/auth/recover"),
+        _cookie(RECOVERY_REFRESH_COOKIE, refresh_token, max_age=max_age, path="/auth/recover"),
+        _cookie(RECOVERY_COOKIE, "1", max_age=max_age, path="/auth/recover"),
     )
 
 
 def _clear_recovery_cookies() -> tuple[str, str, str]:
     return (
-        _clear_cookie(RECOVERY_ACCESS_COOKIE),
-        _clear_cookie(RECOVERY_REFRESH_COOKIE),
-        _clear_cookie(RECOVERY_COOKIE),
+        _cookie(RECOVERY_ACCESS_COOKIE, "", max_age=0, path="/auth/recover"),
+        _cookie(RECOVERY_REFRESH_COOKIE, "", max_age=0, path="/auth/recover"),
+        _cookie(RECOVERY_COOKIE, "", max_age=0, path="/auth/recover"),
     )
 
 
