@@ -54,6 +54,7 @@ class NativeAppArtifactStoreTests(unittest.TestCase):
         path = store.store_verified_artifact(item, payload, root=str(self.root))
         path.chmod(0o600)
         path.write_bytes(b"tampered")
+        path.chmod(0o400)
 
         calls = 0
 
