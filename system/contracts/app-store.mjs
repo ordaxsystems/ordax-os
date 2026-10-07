@@ -154,6 +154,10 @@ function freezeEntry(value) {
     throw new TypeError("Staged App Store entry requires a verified candidate");
   }
 
+  if (IN_FLIGHT_STATES.has(value.state) && (value.installable || value.updatable || value.removable)) {
+    throw new TypeError("In-flight App Store entry cannot expose a new lifecycle request");
+  }
+
 
   if (value.installable) {
     if (
@@ -192,9 +196,6 @@ function freezeEntry(value) {
     }
   }
 
-  if (IN_FLIGHT_STATES.has(value.state) && (value.installable || value.updatable || value.removable)) {
-    throw new TypeError("In-flight App Store entry cannot expose a new lifecycle request");
-  }
   if (value.state === "available" && (installedVersion !== null || availableVersion === null)) {
     throw new TypeError("Available App Store entry requires candidate only");
   }
