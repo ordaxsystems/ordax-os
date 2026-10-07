@@ -19,6 +19,7 @@
     "locale_source": "ordax.localization/2",
     "follows_active_locale_without_cached_parallel_state": true,
     "revalidates_locale_profile_agreement_per_call": true,
+    "options_are_snapshotted_per_call": true,
     "capabilities": [
       "date-time",
       "number",
@@ -30,6 +31,11 @@
       "plural-selection",
       "display-name"
     ],
+    "date_input_types": ["Date", "finite-epoch-milliseconds"],
+    "generic_number_style": "decimal-only",
+    "semantic_style_overrides_rejected": true,
+    "identifier_inputs_require_strings": true,
+    "list_item_text_is_preserved": true,
     "currency_requires_explicit_three_letter_code": true,
     "unit_requires_explicit_unit_id": true,
     "relative_time_requires_explicit_unit": true,
