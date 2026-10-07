@@ -125,6 +125,44 @@ test("unknown Surface message ids fail closed", () => {
   localization.dispose();
 });
 
+test("Surface translation uses the canonical interpolation boundary without a legacy coercive path", async () => {
+  const localization = createSurfaceLocalization(preferenceRuntime("en-US"));
+
+  assert.equal(
+    localization.translate("home.pending.notifications.title.many", { count: 2 }),
+    "2 unread notifications",
+  );
+  assert.equal(
+    localization.translate("surface.window.close", { app: " Files " }),
+    "Close  Files ",
+  );
+  assert.equal(
+    localization.translate("surface.window.close"),
+    "Close {app}",
+  );
+  assert.throws(
+    () => localization.translate("surface.window.close", { app: true }),
+    /must be text or a finite number/,
+  );
+  assert.throws(
+    () => localization.translate("surface.window.close", { app: { name: "Files" } }),
+    /must be text or a finite number/,
+  );
+  localization.dispose();
+
+  const owner = await readFile(
+    new URL("../system/services/i18n/surface.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    owner,
+    /import \{ interpolateLocalizationMessage \} from "\.\/interpolation\.mjs";/,
+  );
+  assert.match(owner, /return interpolateLocalizationMessage\(translated, values\);/);
+  assert.doesNotMatch(owner, /function interpolate\s*\(/);
+  assert.doesNotMatch(owner, /String\(value\)/);
+});
+
 test("shared Surface is wired to localization instead of hardcoded locale rendering", async () => {
   const surface = await readFile(
     new URL("../system/surface/ui/surface.mjs", import.meta.url),
