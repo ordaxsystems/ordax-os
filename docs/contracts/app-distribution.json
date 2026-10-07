@@ -1,7 +1,7 @@
 {
   "$schema": "prototype-ordax.app-distribution/1",
   "status": "mvp-minimal-product-scope-signed-release-delivery",
-  "catalog_owner": "future-store-service",
+  "catalog_owner": "system/services/apps",
   "runtime_catalog": "system/apps/catalog.mjs",
   "first_party_delivery_policy_owner": "system/services/apps",
   "first_party_delivery_contract": "ordax.first-party-app-delivery-policy/1",
@@ -108,5 +108,16 @@
     "request_bypasses_verification": false,
     "remove_request_deletes_user_data": false,
     "rollback_requested_by_store": false
+  },
+  "store_projection": {
+    "contract": "ordax.app-store-catalog/2",
+    "port": "ordax.app-store-catalog-port/2",
+    "service": "system/services/apps/verified-store-projection.mjs",
+    "verified_catalog_contract": "ordax.verified-app-store-catalog/1",
+    "installed_state_owner": "ordax-runtime-component-channel",
+    "installed_state_source": "verified-current-activation",
+    "slot_cache_counts_as_installed": false,
+    "persists_parallel_inventory": false,
+    "authority": "none"
   }
 }
