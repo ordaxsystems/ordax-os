@@ -188,7 +188,13 @@
     "lifecycle_plan_equal_sequence_different_hash_rejected_before_execution": true,
     "lifecycle_plan_watermark_failure_is_fail_closed": true,
     "lifecycle_plan_watermark_guard_held_through_privileged_mutation": true,
-    "catalog_acceptance_blocks_during_lifecycle_mutation": true
+    "catalog_acceptance_blocks_during_lifecycle_mutation": true,
+    "artifact_acquisition_source_contract": "ordax.app-artifact-acquisition-source/1",
+    "artifact_acquisition_source_authority": "content-fetch-only",
+    "artifact_acquisition_source_receives_content_identity_only": true,
+    "artifact_acquisition_source_may_select_version": false,
+    "artifact_acquisition_source_may_select_artifact": false,
+    "artifact_acquisition_source_may_install_or_activate": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
