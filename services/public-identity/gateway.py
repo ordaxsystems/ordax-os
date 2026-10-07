@@ -624,6 +624,42 @@ class PublicIdentityGateway:
         if result.session is None:
             return _redirect("/login/?cadastro=verifique-email")
 
+        if not registration and _public_site_request(request_headers):
+            if self.registration_legal_authority is None:
+                try:
+                    self.provider.sign_out_local(result.session.access_token)
+                except SupabaseIdentityError:
+                    pass
+                return _error(
+                    503,
+                    "account-legal-receipt-check-unavailable",
+                    "A validação da Conta OrdaX está temporariamente indisponível.",
+                )
+            try:
+                has_receipt = self.registration_legal_authority.has_registration_receipt(
+                    result.subject_id
+                )
+            except RegistrationLegalError:
+                try:
+                    self.provider.sign_out_local(result.session.access_token)
+                except SupabaseIdentityError:
+                    pass
+                return _error(
+                    503,
+                    "account-legal-receipt-check-unavailable",
+                    "A validação da Conta OrdaX está temporariamente indisponível.",
+                )
+            if not has_receipt:
+                try:
+                    self.provider.sign_out_local(result.session.access_token)
+                except SupabaseIdentityError:
+                    pass
+                return _error(
+                    403,
+                    "account-legal-receipt-required",
+                    "Esta conta precisa ser reconciliada antes do acesso público.",
+                )
+
         return _redirect(
             "/conta/",
             set_cookies=_session_cookies(
