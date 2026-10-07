@@ -140,14 +140,24 @@ readable rules live in `docs/contracts/localization.json`.
 
 `system/services/i18n/formatting.mjs` is the shared formatting owner for new and
 migrated surfaces. It consumes `ordax.localization/2` directly and resolves the
-active locale at call time, so locale changes do not create a second cached locale
-state.
+active locale/profile at call time, so locale changes do not create a second cached
+locale state. Each options bag is snapshotted for the call instead of becoming
+shared mutable formatter state.
 
 The foundation covers date/time, numbers, percentages, currencies, units, lists,
 relative time, plural selection and localized display names through the platform
-`Intl` primitives. Currency, unit and relative-time semantics stay explicit at the
-call site; the formatter must not guess a currency, unit or time meaning from the
-locale. Formatting is presentation only and never changes message IDs, action IDs,
+`Intl` primitives. Generic number formatting is decimal-only: percent, currency and
+unit semantics must use their explicit helpers, and conflicting semantic options are
+rejected rather than silently ignored. Currency, unit and relative-time meaning is
+never inferred from the locale.
+
+Identifiers such as currency/unit/display-name type must be strings; the formatter
+does not stringify arbitrary objects. List item text is validated but preserved
+verbatim rather than trimmed or rewritten. Date formatting accepts an explicit
+`Date` object or finite epoch-millisecond number, avoiding coercions such as
+`null -> epoch` or implementation-dependent free-form date parsing.
+
+Formatting is presentation only and never changes message IDs, action IDs,
 permissions, capabilities or authority.
 
 Existing surfaces may still contain local `Intl` calls while they are migrated.
