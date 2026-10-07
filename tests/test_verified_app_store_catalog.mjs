@@ -26,6 +26,7 @@ function entry(overrides = {}) {
       package: artifact("notes.zip", "c"),
       release: artifact("notes.release.json", "d"),
       compatibility: artifact("notes.compatibility.json", "e"),
+      componentEnvelope: artifact("notes.runtime-component-envelope.json", "6"),
     },
     ...overrides,
   };
@@ -76,6 +77,10 @@ test("verified Store catalog accepts exact canonical source, trust and artifact 
   assert.equal(snapshot.trust.keyId, "ordax-runtime-components-v1");
   assert.equal(snapshot.entries[0].appId, "notes");
   assert.equal(snapshot.entries[0].artifacts.package.sha256, "c".repeat(64));
+  assert.equal(
+    snapshot.entries[0].artifacts.componentEnvelope.sha256,
+    "6".repeat(64),
+  );
   assert.equal(snapshot.authority, "none");
 });
 
@@ -110,6 +115,27 @@ test("verified Store catalog requires monotonic publication identity fields", ()
   assert.throws(
     () => validateVerifiedAppStoreCatalogSnapshot(ready({ catalogSha256: "F".repeat(64) })),
     /must be lowercase SHA-256/,
+  );
+});
+
+test("verified Store catalog rejects missing or non-canonical component envelope identity", () => {
+  const missing = entry();
+  delete missing.artifacts.componentEnvelope;
+  assert.throws(
+    () => validateVerifiedAppStoreCatalogSnapshot(ready({ entries: [missing] })),
+    /artifacts fields are not canonical/,
+  );
+
+  assert.throws(
+    () => validateVerifiedAppStoreCatalogSnapshot(ready({
+      entries: [entry({
+        artifacts: {
+          ...entry().artifacts,
+          componentEnvelope: artifact("other-envelope.json", "6"),
+        },
+      })],
+    })),
+    /component envelope name is not canonical/,
   );
 });
 
