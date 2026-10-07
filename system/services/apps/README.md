@@ -33,7 +33,7 @@ The `ordax-apps.store-catalog-candidate/1` artifact produced by `ordax-apps` is 
 
 After a future Native verifier authenticates the published catalog against the pinned `runtime-components` trust domain, it may expose only the read-only `ordax.verified-app-store-catalog/1` projection. The projection is pinned to the canonical `washingtonmsdj/ordax-apps` source, the `ordax-runtime-components-v1` key identity, an exact source commit, a signed-catalog SHA-256 and a positive monotonic publication sequence. The schema itself does not grant verification or installation authority.
 
-`verified-store-catalog-replay-guard.mjs` persists the highest accepted sequence plus its catalog SHA-256 before exposing a newer catalog. A lower sequence is rejected as rollback/replay; the same sequence with a different digest is rejected as equivocation; failure to persist the watermark fails closed. This guard does not perform cryptography and cannot replace the Native signature verifier.
+`verified-store-catalog-replay-guard.mjs` asynchronously persists the highest accepted sequence plus its catalog SHA-256 before exposing a newer catalog. Its durable store is an injected async boundary so Native persistence never needs a synchronous Surface workaround. A lower sequence is rejected as rollback/replay; the same sequence with a different digest is rejected as equivocation; bounded CAS races are retried and persistence failure fails closed. This guard does not perform cryptography and cannot replace the Native signature verifier.
 
 ## MVP launch delivery
 
