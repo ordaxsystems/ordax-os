@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "public-edge-oidc-v6-live-shared-auth-rate-limit-vercel-source-not-deployed",
+  "status": "public-edge-oidc-v7-live-cookie-envelope-shared-auth-rate-limit-vercel-source-not-deployed",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -97,10 +97,14 @@
       }
     ],
     "account_routes_source_ready": true,
-    "recovery_cookie_path": "/auth/recover"
+    "recovery_cookie_path": "/auth/recover",
+    "transport_set_cookie_forwarded": false,
+    "product_cookie_envelope_header": "x-ordax-cookie-envelope",
+    "product_cookie_envelope_source_ready": true,
+    "product_cookie_envelope_deployed": false
   },
   "public_edge_gateway": {
-    "status": "v6-oidc-live-shared-auth-rate-limit-runtime-proof-pending",
+    "status": "v7-oidc-live-cookie-envelope-shared-auth-rate-limit-runtime-proof-pending",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
@@ -109,8 +113,8 @@
     "request_context_validation_connected": true,
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
-    "deployed_version": 6,
-    "deployment_source_commit": "149d33146fb7948fac97e3a2fe153f582c31b4c4",
+    "deployed_version": 7,
+    "deployment_source_commit": "735ef1da0a00f92fc28e9c14bbe0765d304e733e",
     "deployed_authentication": "vercel-production-oidc-v2",
     "source_authentication": "vercel-production-oidc-v2",
     "oidc_source_ready": true,
@@ -169,7 +173,10 @@
     "account_routes_deployed": true,
     "inner_gateway_authentication": "backend-secret-apikey",
     "shared_rate_limit_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs",
-    "shared_rate_limit_policy_deployed": true
+    "shared_rate_limit_policy_deployed": true,
+    "product_cookie_envelope_emission_deployed": true,
+    "product_cookie_envelope_header": "x-ordax-cookie-envelope",
+    "transport_set_cookie_forwarding": false
   },
   "routing": {
     "static_routes": [
@@ -313,7 +320,7 @@
     "public_edge": {
       "source_ready": true,
       "deployed": true,
-      "deployment_revision_observed": 6,
+      "deployment_revision_observed": 7,
       "rpc": "ordax_consume_public_auth_rate_limit_v1",
       "shared_policy_deployed": true,
       "shared_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs"
