@@ -7,6 +7,8 @@ ordax-runtime-component-channel; Store UI/lifecycle authority remain elsewhere.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -191,6 +193,34 @@ def validate_watermark(value: object) -> dict:
     return value
 
 
+@contextmanager
+def _watermark_lock(path: Path):
+    parent = _real_directory(path.parent, "Store catalog watermark parent")
+    lock_path = parent / f".{path.name}.lock"
+    flags = os.O_RDWR | os.O_CREAT
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(lock_path, flags, 0o600)
+    except OSError as exc:
+        raise StoreCatalogError("Store catalog watermark lock is unavailable") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise StoreCatalogError("Store catalog watermark lock must be a regular file")
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    except OSError as exc:
+        raise StoreCatalogError("Store catalog watermark lock failed") from exc
+    finally:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
+
+
 def _load_watermark(path: Path) -> dict | None:
     try:
         path.lstat()
@@ -230,25 +260,26 @@ def _persist_watermark(path: Path, value: dict) -> None:
 
 def accept_verified_catalog(value: object, watermark_path: Path) -> tuple[dict, bool]:
     catalog = validate_verified_catalog(value)
-    current = _load_watermark(watermark_path)
-    if current is not None:
-        if catalog["sequence"] < current["sequence"]:
-            raise StoreCatalogReplayError("Store catalog sequence rollback detected")
-        if catalog["sequence"] == current["sequence"]:
-            if catalog["catalogSha256"] != current["catalogSha256"]:
-                raise StoreCatalogReplayError("Store catalog sequence equivocation detected")
-            return catalog, False
+    with _watermark_lock(watermark_path):
+        current = _load_watermark(watermark_path)
+        if current is not None:
+            if catalog["sequence"] < current["sequence"]:
+                raise StoreCatalogReplayError("Store catalog sequence rollback detected")
+            if catalog["sequence"] == current["sequence"]:
+                if catalog["catalogSha256"] != current["catalogSha256"]:
+                    raise StoreCatalogReplayError("Store catalog sequence equivocation detected")
+                return catalog, False
 
-    next_watermark = {
-        "schema": WATERMARK_SCHEMA,
-        "sequence": catalog["sequence"],
-        "catalogSha256": catalog["catalogSha256"],
-    }
-    _persist_watermark(watermark_path, next_watermark)
-    persisted = _load_watermark(watermark_path)
-    if persisted != next_watermark:
-        raise StoreCatalogError("Store catalog watermark persistence verification failed")
-    return catalog, True
+        next_watermark = {
+            "schema": WATERMARK_SCHEMA,
+            "sequence": catalog["sequence"],
+            "catalogSha256": catalog["catalogSha256"],
+        }
+        _persist_watermark(watermark_path, next_watermark)
+        persisted = _load_watermark(watermark_path)
+        if persisted != next_watermark:
+            raise StoreCatalogError("Store catalog watermark persistence verification failed")
+        return catalog, True
 
 
 def verify_and_accept_store_catalog(
