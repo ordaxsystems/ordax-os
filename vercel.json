@@ -8,8 +8,16 @@
       "destination": "/api/account-proxy?ordax_path=/auth/:path*"
     },
     {
+      "source": "/account/:path*",
+      "destination": "/api/account-proxy?ordax_path=/account/:path*"
+    },
+    {
       "source": "/sync/:path*",
       "destination": "/api/account-proxy?ordax_path=/sync/:path*"
+    },
+    {
+      "source": "/network/:path*",
+      "destination": "/api/account-proxy?ordax_path=/network/:path*"
     }
   ],
   "headers": [
@@ -72,7 +80,25 @@
       ]
     },
     {
+      "source": "/account/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
       "source": "/sync/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/network/:path*",
       "headers": [
         {
           "key": "Cache-Control",
