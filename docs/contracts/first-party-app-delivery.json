@@ -149,7 +149,14 @@
     "catalog_remote_acquisition_configured": false,
     "catalog_remote_acquisition_owner": "unconfigured",
     "native_host_fetches_remote_catalog": false,
-    "missing_catalog_envelope_is_unavailable": true
+    "missing_catalog_envelope_is_unavailable": true,
+    "lifecycle_private_plan_contract": "ordax.app-lifecycle-plan/1",
+    "lifecycle_private_plan_authority": "none",
+    "lifecycle_private_plan_source": "verified-catalog-only",
+    "lifecycle_delegate_receives_raw_ui_request": false,
+    "lifecycle_delegate_receives_verified_private_plan": true,
+    "install_update_require_projection_candidate_identity_match": true,
+    "remove_may_proceed_without_remote_candidate_when_current_activation_is_verified": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
