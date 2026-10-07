@@ -60,7 +60,8 @@ function assertListItems(value) {
 }
 
 function activeLocale(localization) {
-  return canonicalizeLocale(localization.getLocale());
+  const port = assertLocalizationPort(localization);
+  return canonicalizeLocale(port.getLocale());
 }
 
 export function createLocaleFormatting(localization) {
@@ -95,7 +96,7 @@ export function createLocaleFormatting(localization) {
     formatCurrency(value, currency, options) {
       const code = assertText(currency, "Currency code", 64).toUpperCase();
       if (!/^[A-Z]{3}$/.test(code)) {
-        throw new TypeError("Currency code must be a three-letter ISO 4217 code");
+        throw new TypeError("Currency code must be a three-letter currency code");
       }
       const resolved = assertOptions(options, "Currency formatting");
       if (resolved.style !== undefined && resolved.style !== "currency") {
