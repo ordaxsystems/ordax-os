@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.service-quotas/1",
-  "status": "source-foundation-commercial-values-unassigned",
+  "status": "source-ledger-ready-commercial-values-unassigned-rollout-disabled",
   "owner": "system/services/entitlements",
   "runtime": {
     "policy_schema": "ordax.service-quota-policy/1",
@@ -24,16 +24,56 @@
     "logical_usage_units_are_provider_neutral": true
   },
   "prepared_resources": [
-    { "key": "memory.cloud.bytes", "unit": "bytes", "commercial_value_assigned": false },
-    { "key": "memory.history.days", "unit": "days", "commercial_value_assigned": false },
-    { "key": "ai.external.compute", "unit": "compute-units", "commercial_value_assigned": false },
-    { "key": "sync.bytes", "unit": "bytes", "commercial_value_assigned": false },
-    { "key": "backup.bytes", "unit": "bytes", "commercial_value_assigned": false },
-    { "key": "storage.user.bytes", "unit": "bytes", "commercial_value_assigned": false },
-    { "key": "connectors.max", "unit": "items", "commercial_value_assigned": true },
-    { "key": "automations.max", "unit": "items", "commercial_value_assigned": true },
-    { "key": "spaces.active.max", "unit": "items", "commercial_value_assigned": true },
-    { "key": "spaces.members.max", "unit": "items", "commercial_value_assigned": true }
+    {
+      "key": "memory.cloud.bytes",
+      "unit": "bytes",
+      "commercial_value_assigned": false
+    },
+    {
+      "key": "memory.history.days",
+      "unit": "days",
+      "commercial_value_assigned": false
+    },
+    {
+      "key": "ai.external.compute",
+      "unit": "compute-units",
+      "commercial_value_assigned": false
+    },
+    {
+      "key": "sync.bytes",
+      "unit": "bytes",
+      "commercial_value_assigned": false
+    },
+    {
+      "key": "backup.bytes",
+      "unit": "bytes",
+      "commercial_value_assigned": false
+    },
+    {
+      "key": "storage.user.bytes",
+      "unit": "bytes",
+      "commercial_value_assigned": false
+    },
+    {
+      "key": "connectors.max",
+      "unit": "items",
+      "commercial_value_assigned": true
+    },
+    {
+      "key": "automations.max",
+      "unit": "items",
+      "commercial_value_assigned": true
+    },
+    {
+      "key": "spaces.active.max",
+      "unit": "items",
+      "commercial_value_assigned": true
+    },
+    {
+      "key": "spaces.members.max",
+      "unit": "items",
+      "commercial_value_assigned": true
+    }
   ],
   "provider_boundary": {
     "domain_semantics_provider_neutral": true,
@@ -51,5 +91,44 @@
     "delete and export remain available while over quota",
     "cost-sensitive numeric limits are backed by measured unit economics",
     "real authenticated multi-session proof passes before public cloud rollout"
-  ]
+  ],
+  "quota_grant_encoding": {
+    "source_table": "public.ordax_entitlement_grants",
+    "type": "quota",
+    "decision_values": [
+      "allowed",
+      "denied"
+    ],
+    "required_fields": [
+      "decision",
+      "type",
+      "unit",
+      "limit"
+    ],
+    "extra_fields_allowed": false,
+    "numeric_limit_may_be_null_only_when_explicitly_unmetered": true,
+    "denied_policy_requires_zero_limit": true,
+    "active_grant_must_be_unique_per_subject_and_key": true
+  },
+  "server_ledger": {
+    "source_ready": true,
+    "production_applied": false,
+    "migration": "infra/supabase/product/migrations/20261007050000_service_quota_ledger_v1.sql",
+    "usage_table": "private.ordax_service_quota_usage",
+    "reservation_table": "private.ordax_service_quota_reservations",
+    "direct_api_table_grants": false,
+    "internal_reservation_helper": "private.ordax_reserve_service_quota_v1",
+    "internal_commit_helper": "private.ordax_commit_service_quota_reservation_v1",
+    "internal_release_helper": "private.ordax_release_service_quota_reservation_v1",
+    "operational_status_rpc": "public.ordax_service_quota_usage_status_v1",
+    "operational_status_rpc_service_role_only": true,
+    "public_allocation_enabled": false,
+    "reservation_ttl_seconds": {
+      "min": 60,
+      "max": 3600
+    },
+    "idempotency_bound_to_subject_key_and_usage_row": true,
+    "expired_reservations_do_not_consume_used_units": true,
+    "quota_capacity_does_not_grant_action_authority": true
+  }
 }
