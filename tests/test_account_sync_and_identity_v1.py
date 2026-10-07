@@ -106,6 +106,8 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("screenNewPassword", text)
         self.assertIn('"compromised-password"', text)
         self.assertIn('"password-screening-unavailable"', text)
+        self.assertIn('signOut({ scope: "global" })', text)
+        self.assertNotIn('signOut({ scope: "local" })', text)
         self.assertIn("PUBLIC_SITE_ACCOUNT_ENABLED = false", text)
         self.assertIn('ordax_account_export_v1', text)
         self.assertIn('path === "/account/export" && req.method === "GET"', text)
