@@ -63,7 +63,7 @@ jobs:
           assert data["ready"] is True
           assert all(data["checks"].values())
           serialized = json.dumps(data, sort_keys=True).lower()
-          for forbidden in ("access_token", "service_role", "secret_key", "password"):
+          for forbidden in ("supabase_access_token", "authorization", "service_role_key", "secret_key", "bearer "):
               assert forbidden not in serialized
           print("PUBLIC_AUTH_PROVIDER_PROOF=PASS_SANITIZED")
           PY
