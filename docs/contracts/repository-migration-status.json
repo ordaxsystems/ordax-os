@@ -4,7 +4,7 @@
   "canonical_repositories": {
     "platform": "washingtonmsdj/prototipo-ordax-os",
     "apps": "washingtonmsdj/ordax-apps",
-    "runtime": "washingtonmsdj/ordax-runtime",
+    "runtime": "ordaxsystems/ordax-runtime",
     "control_plane": "washingtonmsdj/ordax-control-plane"
   },
   "legacy_repository": "washingtonmsdj/mcp-blender",
@@ -48,6 +48,13 @@
     "mcp_blender_retirement_main": "ab9d6924d66539fcd10bc3b497971d9a44409bd5",
     "post_retirement_smoke_request_id": "d0008c97-481f-4f50-980c-9d846c185c2e",
     "post_retirement_smoke_status": "succeeded",
-    "ordax_apps_post_retirement_main": "86ff5889c49602b0260f125950c45f37fb354830"
+    "ordax_apps_post_retirement_main": "86ff5889c49602b0260f125950c45f37fb354830",
+    "ordax_runtime_namespace_transfer": {
+      "previous_repository": "washingtonmsdj/ordax-runtime",
+      "canonical_repository": "ordaxsystems/ordax-runtime",
+      "repository_id": "1406415790",
+      "transfer_preserved_history": true,
+      "redirect_is_compatibility_only": true
+    }
   }
 }
