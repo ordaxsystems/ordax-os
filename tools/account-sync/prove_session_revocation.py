@@ -112,15 +112,36 @@ class Client:
         )
 
 
+def canonical_public_origin(value: str) -> str:
+    parsed = urlsplit(value.strip())
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in ("", "/")
+        or parsed.query
+        or parsed.fragment
+    ):
+        fail("invalid-gateway-origin")
+    return f"https://{parsed.netloc}"
+
+
 def gateway_url() -> str:
     override = os.environ.get("ORDAX_ACCOUNT_GATEWAY_BASE_URL", "").strip()
     if override:
-        return override
+        return canonical_public_origin(override)
     try:
         with open(DEFAULT_GATEWAY_FILE, "r", encoding="utf-8") as handle:
-            return handle.read().strip()
+            value = handle.read().strip()
     except OSError:
         fail("gateway-config-missing")
+    # The default Native gateway is intentionally not acceptable for a public
+    # release proof. A release proof must name the public same-origin boundary.
+    parsed = urlsplit(value)
+    if parsed.path not in ("", "/"):
+        fail("public-gateway-origin-required")
+    return canonical_public_origin(value)
 
 
 def write_receipt(path: str, base_url: str) -> None:
@@ -170,8 +191,6 @@ def main() -> int:
         return 2
 
     base_url = gateway_url()
-    if not base_url.startswith("https://") or "?" in base_url or "#" in base_url:
-        fail("invalid-gateway-url")
 
     client_a = Client(base_url)
     client_b = Client(base_url)
