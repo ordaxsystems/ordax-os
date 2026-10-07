@@ -5,9 +5,17 @@ import {
   validateAppLifecycleRequestResultForRequest,
 } from "../../contracts/app-lifecycle-request.mjs";
 import {
+  createAppLifecyclePlan,
+  validateAppLifecyclePlan,
+} from "../../contracts/app-lifecycle-plan.mjs";
+import {
   assertAppStoreCatalogPort,
   validateAppStoreCatalogSnapshot,
 } from "../../contracts/app-store.mjs";
+import {
+  assertVerifiedAppStoreCatalogPort,
+  validateVerifiedAppStoreCatalogSnapshot,
+} from "../../contracts/verified-app-store-catalog.mjs";
 
 export const APP_LIFECYCLE_DELEGATE_SCHEMA = "ordax.app-lifecycle-delegate/1";
 
@@ -71,11 +79,22 @@ function requestFingerprint(request) {
   ].join("\u0000");
 }
 
+function candidateMatchesProjection(candidate, entry) {
+  return (
+    candidate !== null
+    && entry.availableVersion === candidate.version
+    && entry.artifactIdentityVerified === true
+    && entry.provenanceVerified === true
+  );
+}
+
 export function createAppLifecycleRequestService({
   catalogPort,
+  verifiedCatalogPort,
   lifecycleDelegate,
 } = {}) {
   const catalog = assertAppStoreCatalogPort(catalogPort);
+  const verifiedCatalog = assertVerifiedAppStoreCatalogPort(verifiedCatalogPort);
   const delegate = assertAppLifecycleDelegate(lifecycleDelegate);
   const inFlightByApp = new Map();
   const requests = new Map();
@@ -118,9 +137,33 @@ export function createAppLifecycleRequestService({
       return Promise.resolve(rejection(request, "lifecycle-operation-not-available"));
     }
 
+    const verified = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
+    if (verified.state !== "ready") {
+      return Promise.resolve(rejection(request, "verified-catalog-unavailable"));
+    }
+    const candidate = verified.entries.find((value) => value.appId === request.appId) ?? null;
+    if (
+      ["install", "update"].includes(request.operation)
+      && !candidateMatchesProjection(candidate, entry)
+    ) {
+      return Promise.resolve(rejection(request, "verified-candidate-projection-mismatch"));
+    }
+
+    let plan;
+    try {
+      plan = createAppLifecyclePlan({
+        request,
+        verifiedCatalog: verified,
+        candidate,
+      });
+      validateAppLifecyclePlan(plan);
+    } catch {
+      return Promise.resolve(rejection(request, "verified-lifecycle-plan-unavailable"));
+    }
+
     inFlightByApp.set(request.appId, request.requestId);
     const promise = Promise.resolve()
-      .then(() => delegate.executeLifecycle(request))
+      .then(() => delegate.executeLifecycle(plan))
       .then((rawResult) => validateAppLifecycleRequestResultForRequest(rawResult, request))
       .catch(() => rejection(request, "platform-lifecycle-unavailable"))
       .finally(() => {
