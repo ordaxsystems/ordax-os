@@ -13,6 +13,8 @@ MIGRATION = (
     / "20261007050000_service_quota_ledger_v1.sql"
 )
 CONTRACT = ROOT / "docs" / "contracts" / "service-quotas.json"
+WORKFLOW = ROOT / ".github" / "workflows" / "service-quota-contract.yml"
+POSTGRES_PROOF = ROOT / "tests" / "sql" / "test_service_quota_ledger_v1.sql"
 
 
 class ServiceQuotaLedgerTests(unittest.TestCase):
@@ -20,6 +22,8 @@ class ServiceQuotaLedgerTests(unittest.TestCase):
     def setUpClass(cls):
         cls.sql = MIGRATION.read_text(encoding="utf-8").lower()
         cls.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        cls.workflow = WORKFLOW.read_text(encoding="utf-8").lower()
+        cls.postgres_proof = POSTGRES_PROOF.read_text(encoding="utf-8").lower()
 
     def test_private_usage_and_reservations_have_no_direct_api_mutation_authority(self):
         for table in (
@@ -136,6 +140,20 @@ class ServiceQuotaLedgerTests(unittest.TestCase):
         self.assertEqual(encoding["type"], "quota")
         self.assertEqual(encoding["decision_values"], ["allowed", "denied"])
         self.assertTrue(encoding["numeric_limit_may_be_null_only_when_explicitly_unmetered"])
+
+    def test_ci_executes_behavioral_proof_on_disposable_postgres(self):
+        self.assertIn("image: postgres:16", self.workflow)
+        self.assertIn("psql -v on_error_stop=1 -f tests/sql/test_service_quota_ledger_v1.sql", self.workflow)
+        self.assertIn("persist-credentials: false", self.workflow)
+        self.assertNotIn("supabase.co", self.workflow)
+        self.assertIn(
+            "\\ir ../../infra/supabase/product/migrations/20261007050000_service_quota_ledger_v1.sql",
+            self.postgres_proof,
+        )
+        self.assertIn("set role service_role;", self.postgres_proof)
+        self.assertIn("quota-service-role-direct-dml-accepted", self.postgres_proof)
+        self.assertIn("quota-ambiguous-policy-accepted", self.postgres_proof)
+        self.assertIn("quota-expired-reservation-consumed-usage", self.postgres_proof)
 
 
 if __name__ == "__main__":
