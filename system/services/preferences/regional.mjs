@@ -73,6 +73,16 @@ export const regionalTimeZonePreference = choicePreference({
   values: TIME_ZONES,
 });
 
+export function resolveRegionalTimeZone(snapshot = {}) {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    throw new TypeError("Regional preference snapshot must be an object");
+  }
+  const candidate = Object.prototype.hasOwnProperty.call(snapshot, REGIONAL_TIME_ZONE_PREFERENCE_ID)
+    ? snapshot[REGIONAL_TIME_ZONE_PREFERENCE_ID]
+    : regionalTimeZonePreference.defaultValue;
+  return regionalTimeZonePreference.validate(candidate);
+}
+
 export function isSupportedRegionalTimeZone(value) {
   return TIME_ZONES.has(value);
 }
