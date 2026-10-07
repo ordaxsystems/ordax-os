@@ -84,6 +84,9 @@
     "uninstall_deletes_data": false,
     "data_delete_is_separate_action": true,
     "rollback_rewinds_data": false,
-    "legacy_notes_migrated": false
+    "notes_source_cutover_complete": true,
+    "notes_uses_app_data": true,
+    "legacy_notes_seed_required": false,
+    "legacy_notes_payload_migrated": false
   }
 }
