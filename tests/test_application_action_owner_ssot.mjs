@@ -4,7 +4,7 @@ import test from "node:test";
 
 import {
   EXTERNAL_FIRST_PARTY_OWNER,
-} from "../system/services/intelligence/verified-app-semantics.mjs";
+} from "../system/services/apps/external-first-party-policy.mjs";
 
 test("Native Application Action provider composition consumes verified owner SSOT", async () => {
   const source = await readFile(

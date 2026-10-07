@@ -11,7 +11,7 @@ import {
 } from "../system/services/intelligence/application-action-capabilities.mjs";
 import { createNativePersonalOrdaxComposition } from "../system/composition/native/personal-ordax.mjs";
 import { createNativeVerifiedComponentPackageSource } from "../system/adapters/native/verified-component-package-source.mjs";
-import { EXTERNAL_FIRST_PARTY_OWNER } from "../system/services/intelligence/verified-app-semantics.mjs";
+import { EXTERNAL_FIRST_PARTY_OWNER } from "../system/services/apps/external-first-party-policy.mjs";
 
 const OWNER = EXTERNAL_FIRST_PARTY_OWNER;
 const SOURCE_COMMIT = "a".repeat(40);

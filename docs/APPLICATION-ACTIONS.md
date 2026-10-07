@@ -433,7 +433,7 @@ The artifact resolver accepts only the opaque `resourceRef`, obtains the current
 
 The final provider resolution preserves the binding identity — Work, app/action, version/sourceCommit/component revision, provider identity and capability digest/provenance — and only adds the canonical provider module and verified artifact SHA-256. It never weakens the binding into a smaller identity token.
 
-The binding resolver and artifact resolver deliberately use different port schemas so they cannot be substituted for each other. The canonical first-party package owner remains owned by verified application semantics and is exported as `EXTERNAL_FIRST_PARTY_OWNER` for future composition; the artifact resolver receives that owner by injection and rejects owner drift before package I/O.
+The binding resolver and artifact resolver deliberately use different port schemas so they cannot be substituted for each other. The canonical first-party package owner is owned by `system/services/apps/external-first-party-policy.mjs` and exported as `EXTERNAL_FIRST_PARTY_OWNER`; verified application semantics and the artifact resolver consume that same SSOT and reject owner drift before package I/O.
 
 This historical slice was initially unmounted, but that statement is now superseded by the **Native provider artifact composition** section below. The current product exposes provider artifact resolution only through the read-only Personal OrdaX method `resolveApplicationActionProviderArtifact(resourceRef)`. No provider module is imported, and no Action Gateway decision, grant, confirmation or execution authority is created.
 
@@ -453,7 +453,7 @@ Work-bound preparation
   -> immutable provider artifact resolution
 ```
 
-The composition uses the canonical `EXTERNAL_FIRST_PARTY_OWNER` exported by verified app semantics and does not maintain a second first-party owner literal.
+The composition uses the canonical `EXTERNAL_FIRST_PARTY_OWNER` exported by the neutral Apps distribution policy and does not maintain a second first-party owner literal.
 
 Provider module hashing is implemented by a dedicated Native adapter. It accepts only URLs inside the canonical loopback `/__ordax/native/component-module/` namespace, rejects query strings, fragments and cross-origin URLs, performs only `GET` with `cache=no-store`, `credentials=same-origin` and `redirect=error`, bounds provider modules to 1 MiB, and computes SHA-256 with Web Crypto.
 
