@@ -71,6 +71,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertNotIn("public-edge-oidc-deployment", blockers)
         self.assertTrue(all(value is False for value in controls.values()))
         self.assertNotIn("registration-legal-receipt", blockers)
+        self.assertNotIn("registration-provider-bypass-guard", blockers)
         for expected in (
             "registration-legal-policy-review",
             "registration-legal-web-binding",
@@ -93,6 +94,21 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             self.assertIn(expected, blockers)
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
         self.assertEqual(preflight.main(["require-ready", "--root", str(ROOT)]), 1)
+
+    def test_registration_provider_bypass_guard_is_mandatory(self):
+        temporary, root = self.fixture_root()
+        try:
+            hardening_path = root / preflight.HARDENING
+            hardening = preflight.load_json(root, preflight.HARDENING)
+            hardening["current_observation"]["registration_provider_bypass_guard_verified"] = False
+            hardening_path.write_text(
+                __import__("json").dumps(hardening, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            blockers, _ = preflight.readiness(root)
+            self.assertIn("registration-provider-bypass-guard", blockers)
+        finally:
+            temporary.cleanup()
 
     def test_edge_presence_and_oidc_source_alone_cannot_satisfy_public_rollout(self):
         temporary, root = self.fixture_root()
