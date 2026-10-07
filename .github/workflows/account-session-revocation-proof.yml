@@ -2,6 +2,11 @@ name: Account Session Revocation Proof
 
 on:
   workflow_dispatch:
+    inputs:
+      origin:
+        description: Canonical public HTTPS origin to prove
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -13,6 +18,7 @@ jobs:
     env:
       ORDAX_PROOF_ACCOUNT_EMAIL: ${{ secrets.ORDAX_PROOF_ACCOUNT_EMAIL }}
       ORDAX_PROOF_ACCOUNT_PASSWORD: ${{ secrets.ORDAX_PROOF_ACCOUNT_PASSWORD }}
+      ORDAX_ACCOUNT_GATEWAY_BASE_URL: ${{ inputs.origin }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -53,6 +59,7 @@ jobs:
           assert data["$schema"] == "prototype-ordax.account-session-revocation-proof/1"
           assert data["status"] == "pass"
           assert data["scope"] == "local"
+          assert data["gateway_origin"] == "${{ inputs.origin }}".rstrip("/")
           assert data["two_independent_sessions"] is True
           assert data["session_a_anonymous_after_logout"] is True
           assert data["revoked_session_restore_rejected"] is True
