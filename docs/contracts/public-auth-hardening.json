@@ -21,7 +21,8 @@
     "server_side_public_activation_gate": true,
     "bot_protection_reviewed": true,
     "bot_protection_server_verification_deployed": true,
-    "bot_protection_e2e_tested": true
+    "bot_protection_e2e_tested": true,
+    "registration_provider_bypass_guard_verified": true
   },
   "current_observation": {
     "source": "supabase-security-advisor-and-live-deployment-reconciliation",
@@ -130,7 +131,18 @@
     ],
     "bot_protection_widget_verified_date": "2026-10-07",
     "email_confirmation_provider_evidence": "supabase-auth-v1-settings-mailer-autoconfirm-false",
-    "email_confirmation_provider_verified_date": "2026-10-07"
+    "email_confirmation_provider_verified_date": "2026-10-07",
+    "provider_signup_api_enabled": true,
+    "registration_provider_bypass_guard_verified": true,
+    "registration_provider_bypass_guard_evidence": "live-auth-users-trigger-requires-server-issued-legal-intent",
+    "registration_provider_bypass_guard_trigger": "on_auth_user_created_ordax_product",
+    "registration_provider_bypass_guard_function": "private.handle_ordax_account_created",
+    "registration_provider_bypass_guard_search_path_empty": true,
+    "registration_provider_bypass_guard_requires_active_policy": true,
+    "registration_provider_bypass_guard_requires_email_hash_match": true,
+    "registration_provider_bypass_guard_requires_unconsumed_unexpired_intent": true,
+    "registration_provider_bypass_guard_writes_legal_receipt": true,
+    "registration_provider_bypass_guard_verified_date": "2026-10-07"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
