@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-SCHEMA = "prototype-ordax.control-plane-privilege-proof/2"
+SCHEMA = "prototype-ordax.control-plane-privilege-proof/3"
 
 SYNC_USER_RPCS = (
     "ordax_apply_sync_mutation_v1",
@@ -96,6 +96,15 @@ select json_build_object(
   ),
   'anon_private_schema_usage', has_schema_privilege('anon','private','USAGE'),
   'authenticated_private_schema_usage', has_schema_privilege('authenticated','private','USAGE'),
+  'private_cloud_storage_rls_enabled_count', (
+    select count(*)
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'private'
+      and c.relname in ('ordax_user_object_provider_refs','ordax_user_upload_reservations')
+      and c.relkind = 'r'
+      and c.relrowsecurity
+  ),
   'authenticated_private_function_execute', (
     select count(*) from ordax_functions f
     where f.nspname='private'
@@ -165,6 +174,10 @@ def evaluate(observed: object) -> dict:
         observed.get("unsafe_security_definer_search_path"),
         "unsafe_security_definer_search_path",
     )
+    private_cloud_storage_rls = _as_nonnegative_int(
+        observed.get("private_cloud_storage_rls_enabled_count"),
+        "private_cloud_storage_rls_enabled_count",
+    )
     private_exec = _as_nonnegative_int(
         observed.get("authenticated_private_function_execute"),
         "authenticated_private_function_execute",
@@ -208,6 +221,7 @@ def evaluate(observed: object) -> dict:
         "no_public_function_execute": public_function_execute == 0,
         "security_definer_search_path": unsafe_search_path == 0,
         "no_anon_private_schema_usage": anon_private_usage is False,
+        "private_cloud_storage_rls_enabled": private_cloud_storage_rls == 2,
         "no_authenticated_sync_table_grants": authenticated_sync_grants == 0,
         "no_service_role_sync_table_grants": service_sync_grants == 0,
         "sync_policies_executor_only": sync_policy_count == 5 and non_executor_policy_count == 0,
@@ -232,6 +246,7 @@ def evaluate(observed: object) -> dict:
             "unsafe_security_definer_search_path_count": unsafe_search_path,
             "anon_private_schema_usage": anon_private_usage,
             "authenticated_private_schema_usage": auth_private_usage,
+            "private_cloud_storage_rls_enabled_count": private_cloud_storage_rls,
             "authenticated_private_function_execute_count": private_exec,
             "authenticated_sync_table_grant_count": authenticated_sync_grants,
             "service_role_sync_table_grant_count": service_sync_grants,
