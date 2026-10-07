@@ -4,6 +4,7 @@ import {
   trustedPublicClientAddress,
   validateRateLimitRpcResult,
 } from "./public_auth_rate_limit.mjs";
+import { authRateLimitBucket } from "../_shared/auth_rate_limit.mjs";
 import { verifyTrustedPublicRequestContext } from "./public_request_context.mjs";
 import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 
@@ -102,14 +103,6 @@ function routePath(url: URL, method: string) {
   return `${pathname}${url.search}`;
 }
 
-function rateLimitBucket(method: string, path: string) {
-  if (method !== "POST") return null;
-  if (path === "/auth/login" || path === "/auth/register") return "credentials";
-  if (path === "/auth/recover") return "recovery-request";
-  if (path === "/auth/recover/complete") return "recovery-completion";
-  return null;
-}
-
 async function boundedRequestBody(req: Request) {
   if (req.method === "GET") return undefined;
   const declared = Number(req.headers.get("content-length") ?? "0");
@@ -202,7 +195,7 @@ Deno.serve(async (req: Request) => {
     return error(400, "invalid-request-body", "Solicitação inválida.");
   }
 
-  const bucket = rateLimitBucket(req.method, productUrl.pathname);
+  const bucket = authRateLimitBucket(req.method, productUrl.pathname);
   if (bucket) {
     let data: unknown;
     let rpcError: unknown;

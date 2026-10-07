@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "public-edge-oidc-v5-live-bounded-account-routes-vercel-source-not-deployed",
+  "status": "public-edge-oidc-v6-live-shared-auth-rate-limit-vercel-source-not-deployed",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -66,7 +66,9 @@
     "set_cookie_allowed_names": [
       "ordax_access",
       "ordax_refresh",
-      "ordax_recovery"
+      "ordax_recovery",
+      "ordax_recovery_access",
+      "ordax_recovery_refresh"
     ],
     "set_cookie_domain_attribute_allowed": false,
     "set_cookie_secure_required": true,
@@ -94,10 +96,11 @@
         "path": "/account/close"
       }
     ],
-    "account_routes_source_ready": true
+    "account_routes_source_ready": true,
+    "recovery_cookie_path": "/auth/recover"
   },
   "public_edge_gateway": {
-    "status": "v5-oidc-live-bounded-account-routes-runtime-proof-pending",
+    "status": "v6-oidc-live-shared-auth-rate-limit-runtime-proof-pending",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
@@ -106,8 +109,8 @@
     "request_context_validation_connected": true,
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
-    "deployed_version": 5,
-    "deployment_source_commit": "6a16c486f5663ca6c46e4ab17816578e3e5cf023",
+    "deployed_version": 6,
+    "deployment_source_commit": "149d33146fb7948fac97e3a2fe153f582c31b4c4",
     "deployed_authentication": "vercel-production-oidc-v2",
     "source_authentication": "vercel-production-oidc-v2",
     "oidc_source_ready": true,
@@ -164,7 +167,9 @@
     ],
     "account_routes_source_ready": true,
     "account_routes_deployed": true,
-    "inner_gateway_authentication": "backend-secret-apikey"
+    "inner_gateway_authentication": "backend-secret-apikey",
+    "shared_rate_limit_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs",
+    "shared_rate_limit_policy_deployed": true
   },
   "routing": {
     "static_routes": [
@@ -292,6 +297,26 @@
       "rate": "10r/m",
       "burst": 5,
       "key": "restored-real-client-ip"
+    },
+    "shared_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs",
+    "native_direct": {
+      "source_ready": true,
+      "deployed": true,
+      "client_address_source": "supabase-edge-cf-connecting-ip",
+      "rpc": "ordax_consume_public_auth_rate_limit_v1",
+      "shares_public_ip_window": true,
+      "fail_closed": true,
+      "raw_client_ip_persisted": false,
+      "deployment_revision_observed": 27,
+      "shared_policy_deployed": true
+    },
+    "public_edge": {
+      "source_ready": true,
+      "deployed": true,
+      "deployment_revision_observed": 6,
+      "rpc": "ordax_consume_public_auth_rate_limit_v1",
+      "shared_policy_deployed": true,
+      "shared_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs"
     }
   },
   "bot_protection": {

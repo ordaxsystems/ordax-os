@@ -55,7 +55,7 @@
       "lifecycle_service": "ordax-account-lifecycle",
       "lifecycle_service_source_implemented": true,
       "lifecycle_service_deployed": true,
-      "lifecycle_service_deployment_revision_observed": 1,
+      "lifecycle_service_deployment_revision_observed": 2,
       "lifecycle_service_enabled": false,
       "lifecycle_service_verify_jwt": true,
       "requires_recent_reauthentication": true,
@@ -64,11 +64,12 @@
       "browser_direct_delete_allowed": false,
       "service_role_isolated_to_lifecycle_service": true,
       "required_before_public_account_lifecycle_is_complete": true,
-      "gateway_route_deployment_revision_observed": 22,
-      "gateway_source_version": 16,
+      "gateway_route_deployment_revision_observed": 27,
+      "gateway_source_version": 17,
       "deployment_source_match_verified": true,
-      "deployment_source_match_observed_date": "2026-10-02",
-      "gateway_deployment_source_match_verified": true
+      "deployment_source_match_observed_date": "2026-10-07",
+      "gateway_deployment_source_match_verified": true,
+      "gateway_deployed_source_version": 17
     },
     "account_data_export": {
       "owner": "ordax-account-gateway",
