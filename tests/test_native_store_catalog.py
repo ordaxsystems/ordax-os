@@ -46,6 +46,10 @@ def verified(sequence: int = 7, digest: str | None = None) -> dict:
                     "package": artifact("notes.zip", "b"),
                     "release": artifact("notes.release.json", "c"),
                     "compatibility": artifact("notes.compatibility.json", "d"),
+                    "componentEnvelope": artifact(
+                        "notes.runtime-component-envelope.json",
+                        "e",
+                    ),
                 },
             }
         ],
@@ -127,6 +131,17 @@ class NativeStoreCatalogTests(unittest.TestCase):
             self.skipTest("symlink creation unavailable")
         with self.assertRaisesRegex(store.StoreCatalogError, "non-symlink"):
             store.accept_verified_catalog(verified(9, "9" * 64), self.watermark)
+
+    def test_verified_projection_requires_canonical_component_envelope_identity(self) -> None:
+        catalog = verified()
+        del catalog["entries"][0]["artifacts"]["componentEnvelope"]
+        with self.assertRaisesRegex(store.StoreCatalogError, "artifacts are not canonical"):
+            store.validate_verified_catalog(catalog)
+
+        catalog = verified()
+        catalog["entries"][0]["artifacts"]["componentEnvelope"]["name"] = "other-envelope.json"
+        with self.assertRaisesRegex(store.StoreCatalogError, "component envelope name"):
+            store.validate_verified_catalog(catalog)
 
     def test_verified_projection_rejects_entry_trust_or_unknown_fields(self) -> None:
         catalog = verified()
