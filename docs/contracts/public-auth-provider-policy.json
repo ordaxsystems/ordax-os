@@ -14,12 +14,14 @@
     "recovery_verify_url": "https://ordax-os-public.vercel.app/auth/recover/verify"
   },
   "provider_verification": {
-    "confirm_email": false,
+    "confirm_email": true,
     "redirect_allowlist": false,
     "production_origin": false,
     "password_policy": false,
     "observed_date": null,
-    "evidence": "pending-live-management-api-proof"
+    "evidence": "pending-live-management-api-proof",
+    "confirm_email_evidence": "supabase-auth-v1-settings-mailer-autoconfirm-false",
+    "confirm_email_observed_date": "2026-10-07"
   },
   "password_policy": {
     "product_minimum_chars": 12,
