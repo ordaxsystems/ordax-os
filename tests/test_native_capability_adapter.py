@@ -112,6 +112,7 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             "const resumeAccountConnectivity = async () => {\n"
             "    await identitySession.refresh();\n"
             "    await identityActions.refresh();\n"
+            "    await accountLifecycle.refresh();\n"
             "    await accountSync.refresh();\n"
             "  };",
             text,
