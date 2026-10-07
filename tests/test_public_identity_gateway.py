@@ -564,8 +564,8 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(len(cookies), 5)
         self.assertTrue(all("HttpOnly" in value for value in cookies))
         self.assertTrue(all("Max-Age=0" in value for value in cookies))
-        self.assertTrue(any(value.startswith("ordax_recovery_access=;") for value in cookies))
-        self.assertTrue(any(value.startswith("ordax_recovery_refresh=;") for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery_access=;") and "Path=/auth/recover" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery_refresh=;") and "Path=/auth/recover" in value for value in cookies))
 
     def test_recovery_request_is_disabled_even_if_redirect_were_configured(self):
         class FakeProvider:
@@ -731,9 +731,9 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(len(cookies), 5)
         self.assertTrue(any(value.startswith("ordax_access=;") and "Max-Age=0" in value for value in cookies))
         self.assertTrue(any(value.startswith("ordax_refresh=;") and "Max-Age=0" in value for value in cookies))
-        self.assertTrue(any(value.startswith("ordax_recovery=1;") and "Max-Age=600" in value for value in cookies))
-        self.assertTrue(any(value.startswith("ordax_recovery_access=recovery-access;") and "Max-Age=600" in value for value in cookies))
-        self.assertTrue(any(value.startswith("ordax_recovery_refresh=recovery-refresh;") and "Max-Age=600" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery=1;") and "Path=/auth/recover" in value and "Max-Age=600" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery_access=recovery-access;") and "Path=/auth/recover" in value and "Max-Age=600" in value for value in cookies))
+        self.assertTrue(any(value.startswith("ordax_recovery_refresh=recovery-refresh;") and "Path=/auth/recover" in value and "Max-Age=600" in value for value in cookies))
         self.assertTrue(all("HttpOnly" in value for value in cookies))
 
         headers = {
