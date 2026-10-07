@@ -1,7 +1,17 @@
+// GENERATED FILE. DO NOT EDIT BY HAND.
+// Source of truth: docs/contracts/runtime-component-package.json
+// Generator: tools/app-policy/render_external_first_party_policy.py
+
 import { validateComponentId } from "../../contracts/component-manifest.mjs";
 
 export const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
-export const EXTERNAL_FIRST_PARTY_COMPONENT_IDS = Object.freeze(["notes", "studio"]);
+export const EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT = Object.freeze({
+  "notes": "washingtonmsdj/ordax-apps",
+  "studio": "washingtonmsdj/ordax-apps",
+});
+export const EXTERNAL_FIRST_PARTY_COMPONENT_IDS = Object.freeze(
+  Object.keys(EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT),
+);
 
 const IDS = new Set(EXTERNAL_FIRST_PARTY_COMPONENT_IDS);
 if (IDS.size !== EXTERNAL_FIRST_PARTY_COMPONENT_IDS.length) {
@@ -9,6 +19,9 @@ if (IDS.size !== EXTERNAL_FIRST_PARTY_COMPONENT_IDS.length) {
 }
 for (const appId of EXTERNAL_FIRST_PARTY_COMPONENT_IDS) {
   validateComponentId(appId);
+  if (EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT[appId] !== EXTERNAL_FIRST_PARTY_OWNER) {
+    throw new TypeError(`External first-party source repository drifted: ${appId}`);
+  }
 }
 
 export function listExternalFirstPartyComponentIds() {
