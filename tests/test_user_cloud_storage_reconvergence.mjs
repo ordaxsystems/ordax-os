@@ -16,12 +16,17 @@ import {
 const digest = "a".repeat(64);
 const future = "2030-01-01T00:00:00.000Z";
 const now = Date.parse("2029-01-01T00:00:00.000Z");
+const accountId = "11111111-1111-4111-8111-111111111111";
+const otherAccountId = "22222222-2222-4222-8222-222222222222";
+const spaceId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
+const objectId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1";
+const reservationId = "cccccccc-cccc-4ccc-8ccc-ccccccccccc1";
 
 function reservation(overrides = {}) {
   return {
-    reservationId: "reservation:12345678",
-    objectId: "object:12345678",
-    accountId: "account-a",
+    reservationId,
+    objectId,
+    accountId,
     spaceId: null,
     expectedSizeBytes: 42,
     expectedSha256: digest,
@@ -34,7 +39,7 @@ function quota(overrides = {}) {
   return {
     schema: "ordax.service-quota-decision/1",
     subjectType: "account",
-    subjectId: "account-a",
+    subjectId: accountId,
     key: "storage.user.bytes",
     unit: "bytes",
     state: "within-quota",
@@ -51,11 +56,11 @@ function quota(overrides = {}) {
   };
 }
 
-test("cloud object is owner-scoped and provider key is opaque relative data", () => {
+test("cloud object is UUID owner-scoped and provider key is opaque relative data", () => {
   const value = validateUserCloudObject({
-    objectId: "object:12345678",
-    accountId: "account-a",
-    spaceId: "space-a",
+    objectId,
+    accountId,
+    spaceId,
     displayName: "model.glb",
     mediaType: "model/gltf-binary",
     sizeBytes: 42,
@@ -69,24 +74,57 @@ test("cloud object is owner-scoped and provider key is opaque relative data", ()
   });
   assert.equal(value.schema, USER_CLOUD_STORAGE_OBJECT_SCHEMA);
   assert.equal(value.subjectType, "space");
-  assert.equal(value.subjectId, "space-a");
-  assert.equal(value.accountId, "account-a");
+  assert.equal(value.subjectId, spaceId);
+  assert.equal(value.accountId, accountId);
   for (const unsafe of ["../escape", "acct/../escape", "/absolute", "\\absolute", "acct//empty"]) {
     assert.throws(() => validateUserCloudObject({ ...value, providerObjectKey: unsafe }));
   }
+});
+
+test("storage identities, provider and revision match the PostgreSQL schema", () => {
+  const base = {
+    objectId,
+    accountId,
+    spaceId: null,
+    displayName: "model.glb",
+    mediaType: "model/gltf-binary",
+    sizeBytes: 42,
+    sha256: digest,
+    provider: "supabase-storage",
+    providerObjectKey: "acct/opaque-object-key",
+    state: "active",
+    serverRevision: 1,
+    createdAt: "2029-01-01T00:00:00Z",
+    updatedAt: "2029-01-01T00:00:00Z",
+  };
+
+  for (const invalid of [
+    { objectId: "object:12345678" },
+    { accountId: "account-a" },
+    { spaceId: "space-a" },
+    { provider: "unknown-provider" },
+    { serverRevision: 0 },
+  ]) {
+    assert.throws(() => validateUserCloudObject({ ...base, ...invalid }));
+  }
+
+  assert.throws(() => validateUploadReservation(reservation({ reservationId: "reservation:12345678" })));
+  assert.throws(() => validateUploadReservation(reservation({ objectId: "object:12345678" })));
+  assert.throws(() => validateUploadReservation(reservation({ accountId: "account-a" })));
+  assert.throws(() => validateUploadReservation(reservation({ spaceId: "space-a" })));
 });
 
 test("reservation derives account or Space quota subject and never carries action authority", () => {
   const account = validateUploadReservation(reservation());
   assert.equal(account.schema, USER_CLOUD_STORAGE_RESERVATION_SCHEMA);
   assert.equal(account.subjectType, "account");
-  assert.equal(account.subjectId, "account-a");
+  assert.equal(account.subjectId, accountId);
   assert.equal(account.actionAuthority, "none");
 
-  const space = validateUploadReservation(reservation({ spaceId: "space-a" }));
-  assert.equal(space.accountId, "account-a");
+  const space = validateUploadReservation(reservation({ spaceId }));
+  assert.equal(space.accountId, accountId);
   assert.equal(space.subjectType, "space");
-  assert.equal(space.subjectId, "space-a");
+  assert.equal(space.subjectId, spaceId);
 });
 
 test("upload admission consumes the canonical service-quota decision fail-closed", () => {
@@ -129,7 +167,7 @@ test("quota downgrade retains existing data but blocks new growth", () => {
 test("quota decision cannot be replayed across subjects or byte reservations", () => {
   const crossAccount = evaluateUserCloudUpload({
     reservation: reservation(),
-    quotaDecision: quota({ subjectId: "account-b" }),
+    quotaDecision: quota({ subjectId: otherAccountId }),
     now,
   });
   assert.equal(crossAccount.reason, "quota-subject-mismatch");
