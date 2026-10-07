@@ -232,6 +232,11 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(
             observation["registration_provider_bypass_guard_writes_legal_receipt"]
         )
+        self.assertEqual(observation["legacy_accounts_without_legal_receipt_count"], 2)
+        self.assertFalse(
+            observation["legacy_account_legal_receipt_reconciliation_verified"]
+        )
+        self.assertFalse(observation["legacy_accounts_public_login_allowed"])
 
     def test_supabase_preflight_is_read_only(self):
         sql = PREFLIGHT.read_text(encoding="utf-8").lower()
