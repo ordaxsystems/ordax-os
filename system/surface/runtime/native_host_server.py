@@ -19,6 +19,7 @@ import threading
 import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlsplit
 from urllib.request import Request, urlopen
@@ -57,7 +58,7 @@ from native_profile_content_context import read_active_profile_content_context
 from native_profile_human_consent import ProfileHumanConsentAuthority
 from native_profile_consent_presenter import ProfileHumanConsentCoordinator
 from native_profile_consent_ipc import request_native_decision
-from native_store_catalog import read_native_store_catalog_snapshot
+from native_store_catalog import StoreCatalogError, read_native_store_catalog_snapshot
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -3589,7 +3590,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         envelope_path=Path(self.server.store_catalog_envelope_path),
                         watermark_path=Path(self.server.store_catalog_watermark_path),
                     )
-            except Exception as exc:
+            except StoreCatalogError as exc:
                 print(
                     f"ordax-native-host: Store catalog read failed closed: {exc}",
                     file=sys.stderr,
