@@ -96,10 +96,13 @@ def _candidate(value: object, *, app_id: str, catalog_commit: str) -> dict | Non
         {"package", "release", "compatibility", "componentEnvelope"},
         "app lifecycle artifacts",
     )
-    normalized = {
-        role: validate_artifact_identity(artifacts[role])
-        for role in ("package", "release", "compatibility", "componentEnvelope")
-    }
+    try:
+        normalized = {
+            role: validate_artifact_identity(artifacts[role])
+            for role in ("package", "release", "compatibility", "componentEnvelope")
+        }
+    except AppArtifactStoreError as exc:
+        raise NativeAppLifecycleError("app lifecycle artifact identity is invalid") from exc
     if normalized["componentEnvelope"]["name"] != f"{app_id}.runtime-component-envelope.json":
         raise NativeAppLifecycleError("component envelope filename is not canonical")
     return {

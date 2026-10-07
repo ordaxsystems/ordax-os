@@ -1,0 +1,142 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  APP_LIFECYCLE_DELEGATE_SCHEMA,
+} from "../system/services/apps/store-lifecycle-request-service.mjs";
+import {
+  createNativeAppLifecycleDelegate,
+} from "../system/adapters/native/app-lifecycle-delegate.mjs";
+
+const COMMIT = "a".repeat(40);
+
+function artifact(name, char) {
+  return { name, sha256: char.repeat(64), size: 123 };
+}
+
+function plan(operation = "install") {
+  return {
+    schema: "ordax.app-lifecycle-plan/1",
+    request: {
+      schema: "ordax.app-lifecycle-request/1",
+      requestId: `store:${operation}:notes:native-test`,
+      appId: "notes",
+      operation,
+      source: "store",
+      authority: "none",
+    },
+    catalogSequence: 9,
+    catalogSha256: "f".repeat(64),
+    catalogSourceCommit: COMMIT,
+    candidate: operation === "remove" ? null : {
+      appId: "notes",
+      version: "0.4.3",
+      sourceCommit: COMMIT,
+      artifacts: {
+        package: artifact("notes.zip", "b"),
+        release: artifact("notes.release.json", "c"),
+        compatibility: artifact("notes.compatibility.json", "d"),
+        componentEnvelope: artifact("notes.runtime-component-envelope.json", "e"),
+      },
+    },
+    authority: "none",
+  };
+}
+
+function acceptedFor(value) {
+  return {
+    schema: "ordax.app-lifecycle-request-result/1",
+    requestId: value.request.requestId,
+    appId: value.request.appId,
+    operation: value.request.operation,
+    source: value.request.source,
+    state: "accepted",
+    reason: null,
+    authority: "none",
+  };
+}
+
+function response(payload, { ok = true, status = 200 } = {}) {
+  return {
+    ok,
+    status,
+    async json() {
+      return payload;
+    },
+  };
+}
+
+test("Native lifecycle delegate exposes only platform lifecycle authority", async () => {
+  const calls = [];
+  const value = plan();
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch(url, options) {
+      calls.push({ url, options });
+      return response(acceptedFor(value));
+    },
+  });
+
+  assert.equal(delegate.schema, APP_LIFECYCLE_DELEGATE_SCHEMA);
+  assert.equal(delegate.authority, "platform-component-lifecycle");
+  assert.equal(typeof delegate.executeLifecycle, "function");
+  for (const forbidden of [
+    "install", "update", "remove", "stage", "promote", "rollback",
+    "setTrustAnchor", "selectVersion", "selectArtifact",
+  ]) {
+    assert.equal(delegate[forbidden], undefined);
+  }
+
+  const result = await delegate.executeLifecycle(value);
+  assert.equal(result.state, "accepted");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/__ordax/native/store-lifecycle");
+  assert.equal(calls[0].options.method, "POST");
+  assert.equal(calls[0].options.cache, "no-store");
+  assert.equal(calls[0].options.credentials, "same-origin");
+  assert.equal(calls[0].options.redirect, "error");
+  assert.deepEqual(JSON.parse(calls[0].options.body), value);
+});
+
+test("Native lifecycle delegate validates plan before transport", async () => {
+  let calls = 0;
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch() {
+      calls += 1;
+      return response({});
+    },
+  });
+  const value = plan();
+  value.authority = "platform-component-lifecycle";
+  await assert.rejects(
+    () => delegate.executeLifecycle(value),
+    /must remain authority:none/,
+  );
+  assert.equal(calls, 0);
+});
+
+test("Native lifecycle delegate fails closed on HTTP or identity drift", async () => {
+  const value = plan();
+  for (const fetchImpl of [
+    async () => response({}, { ok: false, status: 503 }),
+    async () => response({
+      ...acceptedFor(value),
+      appId: "studio",
+    }),
+  ]) {
+    const delegate = createNativeAppLifecycleDelegate({ fetch: fetchImpl });
+    await assert.rejects(() => delegate.executeLifecycle(value));
+  }
+});
+
+test("remove plan carries no remote candidate or artifact identity", async () => {
+  const calls = [];
+  const value = plan("remove");
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch(_url, options) {
+      calls.push(JSON.parse(options.body));
+      return response(acceptedFor(value));
+    },
+  });
+  await delegate.executeLifecycle(value);
+  assert.equal(calls[0].candidate, null);
+});

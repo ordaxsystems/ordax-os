@@ -106,6 +106,9 @@ test("Native Store composition derives installability only from verified catalog
   const snapshot = composition.port.getSnapshot();
   const notes = snapshot.entries.find((entry) => entry.appId === "notes");
 
+  assert.notEqual(composition.verifiedCatalogPort, null);
+  assert.equal(composition.verifiedCatalogPort.getSnapshot().state, "ready");
+  assert.equal(composition.verifiedCatalogPort.getSnapshot().sequence, 3);
   assert.equal(snapshot.state, "ready");
   assert.equal(notes.state, "available");
   assert.equal(notes.installable, true);
@@ -161,5 +164,6 @@ test("Native Store composition has an authority-free fallback when browser trans
   assert.equal(snapshot.state, "unavailable");
   assert.deepEqual(snapshot.entries, []);
   assert.equal(composition.port.authority, "none");
+  assert.equal(composition.verifiedCatalogPort, null);
   composition.destroy();
 });
