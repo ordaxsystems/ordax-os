@@ -27,6 +27,14 @@ The Store must never become a second updater. A first-party `component-slot` app
 
 `runtime-component-release/2` and the Component Manager remain the canonical trust/activation path when independent component delivery is used. Rollback is platform-owned recovery, not Store authority. The Store lifecycle executor stays unmounted while canonical component trust/publication/activation gates remain closed.
 
+### Verified Store catalog boundary
+
+The `ordax-apps.store-catalog-candidate/1` artifact produced by `ordax-apps` is publication input, not trusted runtime state. The Surface must never consume that unsigned candidate directly.
+
+After a future Native verifier authenticates the published catalog against the pinned `runtime-components` trust domain, it may expose only the read-only `ordax.verified-app-store-catalog/1` projection. The projection is pinned to the canonical `washingtonmsdj/ordax-apps` source, the `ordax-runtime-components-v1` key identity, an exact source commit, a signed-catalog SHA-256 and a positive monotonic publication sequence. The schema itself does not grant verification or installation authority.
+
+`verified-store-catalog-replay-guard.mjs` persists the highest accepted sequence plus its catalog SHA-256 before exposing a newer catalog. A lower sequence is rejected as rollback/replay; the same sequence with a different digest is rejected as equivocation; failure to persist the watermark fails closed. This guard does not perform cryptography and cannot replace the Native signature verifier.
+
 ## MVP launch delivery
 
 `mvp-delivery-policy.mjs` owns the launch intent and `docs/contracts/mvp-app-delivery.json` records it for release tooling.
