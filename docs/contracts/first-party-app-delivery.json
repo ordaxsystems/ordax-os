@@ -128,7 +128,13 @@
     "catalog_replay_owner": "native-catalog-verifier",
     "catalog_signature_verification_owner": "native-catalog-verifier",
     "surface_may_write_catalog_watermark": false,
-    "surface_receives_verified_catalog_read_only": true
+    "surface_receives_verified_catalog_read_only": true,
+    "catalog_signature_verifier_implemented": true,
+    "catalog_signature_verifier_owner": "ordax-runtime-component-channel",
+    "catalog_envelope_schema": "ordax.store-catalog-envelope/1",
+    "catalog_publication_payload_schema": "ordax-apps.store-catalog-publication/1",
+    "catalog_crypto_reuses_runtime_component_trust": true,
+    "catalog_envelope_is_distinct_from_component_release_envelope": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
