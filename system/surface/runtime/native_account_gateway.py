@@ -57,10 +57,10 @@ def _validated_base_url(value: str) -> str:
         or split.password is not None
         or split.query
         or split.fragment
-        or split.path.endswith("/")
+        or split.path not in ("", "/")
     ):
-        raise ValueError("account gateway must be an HTTPS base URL without query, fragment or trailing slash")
-    return f"https://{split.netloc}{split.path}"
+        raise ValueError("account gateway must be a clean HTTPS public origin")
+    return f"https://{split.netloc}"
 
 
 def _response_headers(message) -> dict[str, tuple[str, ...]]:
@@ -177,6 +177,9 @@ class NativeAccountGateway:
             headers["Cookie"] = _cookie_header(self._cookies)
         if body is not None:
             headers["Content-Type"] = content_type or "application/octet-stream"
+        if method in {"POST", "PUT", "PATCH", "DELETE"}:
+            headers["Origin"] = self.base_url
+            headers["Sec-Fetch-Site"] = "same-origin"
         request = Request(self.base_url + path, data=body, headers=headers, method=method)
         try:
             response = self._opener.open(request, timeout=self.timeout_seconds)
