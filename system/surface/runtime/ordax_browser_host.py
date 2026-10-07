@@ -177,6 +177,7 @@ class OrdaXBrowserHost:
         self.app_data_bootstrap_served = False
         self.component_probation_started = False
         self.component_probation_nonces: dict[str, str] = {}
+        self.component_probation_rerun_requested: set[str] = set()
         self.session_path = os.path.join(self.profile_root, "session.json")
         self.tabs: dict[str, BrowserTab] = {}
         self.active_tab_id: str | None = None
@@ -357,6 +358,7 @@ class OrdaXBrowserHost:
             if component_id not in SUPPORTED_PROBATION_COMPONENTS:
                 raise ValueError("unsupported component probation request")
             if component_id in self.component_probation_nonces:
+                self.component_probation_rerun_requested.add(component_id)
                 continue
             nonce = secrets.token_urlsafe(32)
             self.component_probation_nonces[component_id] = nonce
@@ -462,6 +464,9 @@ class OrdaXBrowserHost:
 
         # Consume only the nonce bound to the validated component receipt.
         self.component_probation_nonces.pop(component_id, None)
+        rerun_requested = component_id in self.component_probation_rerun_requested
+        if rerun_requested:
+            self.component_probation_rerun_requested.discard(component_id)
 
         if not outcome.actionable:
             print(
@@ -470,6 +475,8 @@ class OrdaXBrowserHost:
                 file=sys.stderr,
                 flush=True,
             )
+            if rerun_requested:
+                self.start_component_probation((component_id,))
             return
         if outcome.recorded is None:
             print(
@@ -477,6 +484,8 @@ class OrdaXBrowserHost:
                 file=sys.stderr,
                 flush=True,
             )
+            if rerun_requested:
+                self.start_component_probation((component_id,))
             return
 
         print(
@@ -487,6 +496,8 @@ class OrdaXBrowserHost:
             file=sys.stderr,
             flush=True,
         )
+        if rerun_requested:
+            self.start_component_probation((component_id,))
 
     def emit_app_data_bootstrap(self) -> None:
         if self.app_data_bootstrap_served:
