@@ -73,6 +73,16 @@ def main(argv=None) -> int:
     if landing.status != 200:
         fail(f"landing-status:{landing.status}")
     expect_headers(landing)
+    csp = landing.headers.get("Content-Security-Policy", "")
+    for required_csp in (
+        "script-src 'self' https://challenges.cloudflare.com",
+        "frame-src https://challenges.cloudflare.com",
+        "connect-src 'self' https://challenges.cloudflare.com",
+    ):
+        if required_csp not in csp:
+            fail("turnstile-csp")
+    if "'unsafe-inline'" in csp or "'unsafe-eval'" in csp:
+        fail("turnstile-csp-unsafe")
     if "no-cache" not in landing.headers.get("Cache-Control", ""):
         fail("landing-cache")
 
@@ -114,19 +124,18 @@ def main(argv=None) -> int:
     if sync_payload.get("error") != expected_error:
         fail("anonymous-sync-error")
 
-    if not activation_ready:
-        recovery = request(
-            origin,
-            "/auth/recover",
-            "POST",
-            body=b"email=deployment-proof%40invalid.example",
-            content_type="application/x-www-form-urlencoded",
-        )
-        if recovery.status != 503:
-            fail(f"public-recovery-gate-status:{recovery.status}")
-        recovery_payload = read_json(recovery)
-        if recovery_payload.get("error") != "public-account-access-disabled":
-            fail("public-recovery-gate-not-enforced")
+    recovery = request(
+        origin,
+        "/auth/recover",
+        "POST",
+        body=b"email=deployment-proof%40invalid.example",
+        content_type="application/x-www-form-urlencoded",
+    )
+    if recovery.status != 403:
+        fail(f"turnstile-missing-token-status:{recovery.status}")
+    recovery_payload = read_json(recovery)
+    if recovery_payload.get("error") != "bot-verification-required":
+        fail("turnstile-server-boundary-not-enforced")
 
     missing = request(origin, "/__ordax-deployment-proof-missing")
     if missing.status != 404:
