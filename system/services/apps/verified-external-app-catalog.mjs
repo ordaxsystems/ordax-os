@@ -2,6 +2,7 @@ import { defineComponentManifest } from "../../contracts/component-manifest.mjs"
 import { validateComponentRuntimeMetadata } from "../../contracts/component-runtime-metadata.mjs";
 import { assertVerifiedComponentPackageSource } from "../../contracts/verified-component-package-source.mjs";
 import { validateFileAssociationManifest } from "../../contracts/file-association-manifest.mjs";
+import { validateAppPresentationManifest } from "../../contracts/app-presentation-manifest.mjs";
 import { defineExternalFirstPartyApp } from "./external-app-definition.mjs";
 import {
   CANONICAL_APP_PACKAGE_COMPONENT_IDS,
@@ -91,13 +92,16 @@ export async function discoverVerifiedExternalApplications({
         throw new TypeError(`Verified external app identity drifted for ${appId}`);
       }
 
-      const presentation = await readPackageJson({
-        source: packageSource,
-        fetchImpl,
-        appId,
-        metadata,
-        relativePath: "presentation/manifest.json",
-      });
+      const presentation = validateAppPresentationManifest(
+        await readPackageJson({
+          source: packageSource,
+          fetchImpl,
+          appId,
+          metadata,
+          relativePath: "presentation/manifest.json",
+        }),
+        { appId, appVersion: component.version },
+      );
 
       const rawAssociation = await readPackageJson({
         source: packageSource,
@@ -113,14 +117,10 @@ export async function discoverVerifiedExternalApplications({
             appId,
             appVersion: component.version,
           });
-      const app = defineExternalFirstPartyApp(component, presentation, {
-        requiredCapabilities: association === null ? [] : ["filesystem.user-space"],
-      });
-
       entries.push(Object.freeze({
-        app,
         component,
         metadata,
+        presentation,
         association,
       }));
     } catch (error) {
