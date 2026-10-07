@@ -15,7 +15,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(set(repos), {"platform", "apps", "runtime", "control_plane"})
         self.assertEqual(repos["platform"]["repo"], "washingtonmsdj/prototipo-ordax-os")
         self.assertEqual(repos["apps"]["repo"], "washingtonmsdj/ordax-apps")
-        self.assertEqual(repos["runtime"]["repo"], "washingtonmsdj/ordax-runtime")
+        self.assertEqual(repos["runtime"]["repo"], "ordaxsystems/ordax-runtime")
         self.assertEqual(repos["control_plane"]["repo"], "washingtonmsdj/ordax-control-plane")
 
     def test_studio_runtime_and_control_plane_have_distinct_owners(self):
