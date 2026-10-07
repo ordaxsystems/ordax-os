@@ -274,7 +274,11 @@ def _public_site_disabled_response(method: str, path: str) -> GatewayResponse | 
     if path == "/auth/logout" and method == "POST":
         return _redirect(
             "/",
-            set_cookies=(_clear_cookie(ACCESS_COOKIE), _clear_cookie(REFRESH_COOKIE)),
+            set_cookies=(
+                _clear_cookie(ACCESS_COOKIE),
+                _clear_cookie(REFRESH_COOKIE),
+                *_clear_recovery_cookies(),
+            ),
         )
     if path == "/auth/registration-policy" and method == "GET":
         # Public-site registration remains fail-closed, but policy discovery is
@@ -289,7 +293,11 @@ def _public_site_disabled_response(method: str, path: str) -> GatewayResponse | 
                 "provider": "gated",
                 "status": "anonymous",
             },
-            set_cookies=(_clear_cookie(ACCESS_COOKIE), _clear_cookie(REFRESH_COOKIE)),
+            set_cookies=(
+                _clear_cookie(ACCESS_COOKIE),
+                _clear_cookie(REFRESH_COOKIE),
+                *_clear_recovery_cookies(),
+            ),
         )
     if path.startswith("/auth/") or path.startswith("/sync/") or path.startswith("/account/"):
         return _error(
@@ -713,6 +721,8 @@ class PublicIdentityGateway:
         return _redirect(
             "/recuperar/nova-senha/",
             set_cookies=(
+                _clear_cookie(ACCESS_COOKIE),
+                _clear_cookie(REFRESH_COOKIE),
                 *_recovery_cookies(
                     session.access_token,
                     session.refresh_token,
@@ -876,7 +886,7 @@ class PublicIdentityGateway:
             set_cookies=(
                 _clear_cookie(ACCESS_COOKIE),
                 _clear_cookie(REFRESH_COOKIE),
-                _clear_cookie(RECOVERY_COOKIE),
+                *_clear_recovery_cookies(),
             ),
         )
 
@@ -1181,7 +1191,11 @@ class PublicIdentityGateway:
                     pass
             return _redirect(
                 "/",
-                set_cookies=(_clear_cookie(ACCESS_COOKIE), _clear_cookie(REFRESH_COOKIE)),
+                set_cookies=(
+                _clear_cookie(ACCESS_COOKIE),
+                _clear_cookie(REFRESH_COOKIE),
+                *_clear_recovery_cookies(),
+            ),
             )
 
         if path == "/account/export":
