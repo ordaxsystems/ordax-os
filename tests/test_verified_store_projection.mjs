@@ -29,6 +29,7 @@ function candidate(appId = "notes", version = "0.4.3", title = "Notas") {
       package: artifact(`${appId}.zip`, "c"),
       release: artifact(`${appId}.release.json`, "d"),
       compatibility: artifact(`${appId}.compatibility.json`, "e"),
+      componentEnvelope: artifact(`${appId}.runtime-component-envelope.json`, "6"),
     },
   };
 }
