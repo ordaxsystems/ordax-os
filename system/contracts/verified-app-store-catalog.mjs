@@ -36,7 +36,7 @@ const ENTRY_FIELDS = new Set([
   "sourceCommit",
   "artifacts",
 ]);
-const ARTIFACT_GROUP_FIELDS = new Set(["package", "release", "compatibility"]);
+const ARTIFACT_GROUP_FIELDS = new Set(["package", "release", "compatibility", "componentEnvelope"]);
 const ARTIFACT_FIELDS = new Set(["name", "sha256", "size"]);
 const SOURCE_FIELDS = new Set(["repository", "commit"]);
 const TRUST_FIELDS = new Set(["domain", "keyId"]);
@@ -137,6 +137,13 @@ function entry(value, expectedSourceCommit) {
     ARTIFACT_GROUP_FIELDS,
     "Verified Store catalog artifacts",
   );
+  const componentEnvelope = artifact(
+    artifacts.componentEnvelope,
+    "Verified Store component envelope artifact",
+  );
+  if (componentEnvelope.name !== `${appId}.runtime-component-envelope.json`) {
+    throw new TypeError("Verified Store component envelope name is not canonical");
+  }
   return Object.freeze({
     appId,
     title: boundedText(value.title, "Verified Store catalog title", MAX_TITLE_LENGTH),
@@ -150,6 +157,7 @@ function entry(value, expectedSourceCommit) {
         artifacts.compatibility,
         "Verified Store compatibility artifact",
       ),
+      componentEnvelope,
     }),
   });
 }
