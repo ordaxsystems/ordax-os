@@ -27,14 +27,13 @@ class NativeAccountGatewayTests(unittest.TestCase):
                 gateway.NativeAccountGateway("https://user@example.com", path)
             with self.assertRaises(ValueError):
                 gateway.NativeAccountGateway("https://accounts.example/path/", path)
-            client = gateway.NativeAccountGateway(
-                "https://accounts.example/functions/v1/ordax-account-gateway",
-                path,
-            )
-            self.assertEqual(
-                client.base_url,
-                "https://accounts.example/functions/v1/ordax-account-gateway",
-            )
+            with self.assertRaises(ValueError):
+                gateway.NativeAccountGateway(
+                    "https://accounts.example/functions/v1/ordax-account-gateway",
+                    path,
+                )
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            self.assertEqual(client.base_url, "https://accounts.example")
 
     def test_device_session_is_private_and_contains_only_account_cookies(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -245,6 +244,8 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertIn("/sync/snapshot", source)
         self.assertIn("/sync/changes", source)
         self.assertIn("/network/v2/messages/send", source)
+        self.assertIn('headers["Origin"] = self.base_url', source)
+        self.assertIn('headers["Sec-Fetch-Site"] = "same-origin"', source)
 
 
 if __name__ == "__main__":
