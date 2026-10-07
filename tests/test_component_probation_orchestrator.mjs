@@ -22,7 +22,9 @@ function windowRef() {
 function metadataResponse({
   componentId = "internet",
   version = componentId === "notes" ? "0.4.1" : "0.4.0",
-  entrypoint = `system/apps/${componentId}/runtime.mjs`,
+  entrypoint = componentId === "notes"
+    ? "system/apps/notes/src/runtime.mjs"
+    : `system/apps/${componentId}/runtime.mjs`,
   ...overrides
 } = {}) {
   return {
@@ -147,7 +149,7 @@ test("Notes probation imports the external component contract without mounting t
     new RegExp(
       "/__ordax/native/component-module/notes/pending/0\\.4\\.1/"
       + COMMIT
-      + "/system/apps/notes/runtime\\.mjs$",
+      + "/system/apps/notes/src/runtime\\.mjs$",
     ),
   );
 });
