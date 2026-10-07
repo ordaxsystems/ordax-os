@@ -90,7 +90,7 @@
     "product_leaked_password_plaintext_sent": false,
     "product_leaked_password_full_hash_sent": false,
     "product_leaked_password_screening_fail_closed": true,
-    "email_confirmation_provider_verified": false,
+    "email_confirmation_provider_verified": true,
     "redirect_allowlist_provider_verified": false,
     "provider_policy_contract": "docs/contracts/public-auth-provider-policy.json",
     "account_close": "gateway-route-v27-deployed-disabled-lifecycle-rev2-global-revocation-disabled",
@@ -128,7 +128,9 @@
     "bot_protection_widget_domains": [
       "ordax-os-public.vercel.app"
     ],
-    "bot_protection_widget_verified_date": "2026-10-07"
+    "bot_protection_widget_verified_date": "2026-10-07",
+    "email_confirmation_provider_evidence": "supabase-auth-v1-settings-mailer-autoconfirm-false",
+    "email_confirmation_provider_verified_date": "2026-10-07"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
