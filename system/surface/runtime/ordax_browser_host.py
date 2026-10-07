@@ -367,10 +367,19 @@ class OrdaXBrowserHost:
         script = f"""
 (async () => {{
   const attempts = {attempts};
-  const module = await import('/composition/native/component-probation.mjs');
+  let module;
+  let moduleError;
+  try {{
+    module = await import('/composition/native/component-probation.mjs');
+  }} catch (error) {{
+    moduleError = error;
+  }}
   for (const [componentId, nonce] of Object.entries(attempts)) {{
     let result;
     try {{
+      if (moduleError) {{
+        throw moduleError;
+      }}
       result = await module.runNativePendingComponentProbation({{
         componentId,
       }});
