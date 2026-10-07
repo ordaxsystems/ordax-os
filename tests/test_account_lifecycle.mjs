@@ -162,6 +162,35 @@ test("same-origin lifecycle posts transient close request only after capability 
   port.dispose();
 });
 
+test("concurrent lifecycle refreshes coalesce to one same-origin session read", async () => {
+  const session = sessionPort();
+  let calls = 0;
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  const port = createSameOriginAccountLifecycle({
+    fetch: async () => {
+      calls += 1;
+      await pending;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          authenticated: true,
+          accountCloseEnabled: false,
+        }),
+      };
+    },
+  }, session);
+
+  const first = port.refresh();
+  const second = port.refresh();
+  assert.equal(calls, 1);
+  release();
+  await Promise.all([first, second]);
+  assert.equal(calls, 1);
+  port.dispose();
+});
+
 test("session loss immediately removes destructive account lifecycle authority", async () => {
   const session = sessionPort();
   const port = createSameOriginAccountLifecycle({
