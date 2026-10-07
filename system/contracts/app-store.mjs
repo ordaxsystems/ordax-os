@@ -121,6 +121,10 @@ function freezeEntry(value) {
     throw new TypeError("App Store availableVersion must be newer than installedVersion");
   }
 
+  if (IN_FLIGHT_STATES.has(value.state) && (value.installable || value.updatable || value.removable)) {
+    throw new TypeError("In-flight App Store entry cannot expose a new lifecycle request");
+  }
+
   if (value.installable) {
     if (
       installedVersion !== null
