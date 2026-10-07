@@ -15,6 +15,7 @@ MIGRATION = (
 CONTRACT = ROOT / "docs" / "contracts" / "service-quotas.json"
 WORKFLOW = ROOT / ".github" / "workflows" / "service-quota-contract.yml"
 POSTGRES_PROOF = ROOT / "tests" / "sql" / "test_service_quota_ledger_v1.sql"
+CONCURRENCY_PROOF = ROOT / "tests" / "test_service_quota_ledger_concurrency.sh"
 
 
 class ServiceQuotaLedgerTests(unittest.TestCase):
@@ -24,6 +25,7 @@ class ServiceQuotaLedgerTests(unittest.TestCase):
         cls.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         cls.workflow = WORKFLOW.read_text(encoding="utf-8").lower()
         cls.postgres_proof = POSTGRES_PROOF.read_text(encoding="utf-8").lower()
+        cls.concurrency_proof = CONCURRENCY_PROOF.read_text(encoding="utf-8").lower()
 
     def test_private_usage_and_reservations_have_no_direct_api_mutation_authority(self):
         for table in (
@@ -69,6 +71,10 @@ class ServiceQuotaLedgerTests(unittest.TestCase):
         self.assertIn("v_policy_value->>'type' <> 'quota'", self.sql)
         self.assertIn("v_policy_value->>'unit' <> p_unit", self.sql)
         self.assertIn("v_policy_value->>'decision' not in ('allowed','denied')", self.sql)
+        self.assertIn(
+            "v_policy_value - array['decision','type','unit','limit']::text[]",
+            self.sql,
+        )
 
     def test_reservation_serializes_subject_and_blocks_growth_over_quota(self):
         self.assertIn("pg_catalog.pg_advisory_xact_lock", self.sql)
@@ -144,6 +150,7 @@ class ServiceQuotaLedgerTests(unittest.TestCase):
     def test_ci_executes_behavioral_proof_on_disposable_postgres(self):
         self.assertIn("image: postgres:16", self.workflow)
         self.assertIn("psql -v on_error_stop=1 -f tests/sql/test_service_quota_ledger_v1.sql", self.workflow)
+        self.assertIn("bash tests/test_service_quota_ledger_concurrency.sh", self.workflow)
         self.assertIn("persist-credentials: false", self.workflow)
         self.assertNotIn("supabase.co", self.workflow)
         self.assertIn(
@@ -154,6 +161,15 @@ class ServiceQuotaLedgerTests(unittest.TestCase):
         self.assertIn("quota-service-role-direct-dml-accepted", self.postgres_proof)
         self.assertIn("quota-ambiguous-policy-accepted", self.postgres_proof)
         self.assertIn("quota-expired-reservation-consumed-usage", self.postgres_proof)
+
+    def test_concurrency_proof_uses_two_real_connections_and_asserts_one_winner(self):
+        self.assertGreaterEqual(self.concurrency_proof.count("reserve 'concurrent-request-"), 2)
+        self.assertGreaterEqual(self.concurrency_proof.count(" &\n"), 2)
+        self.assertIn("wait \"$pid_a\"", self.concurrency_proof)
+        self.assertIn("wait \"$pid_b\"", self.concurrency_proof)
+        self.assertIn("false|quota-exceeded|60", self.concurrency_proof)
+        self.assertIn("true|within-quota|60", self.concurrency_proof)
+        self.assertIn("0|60|1", self.concurrency_proof)
 
 
 if __name__ == "__main__":
