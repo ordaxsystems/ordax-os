@@ -40,7 +40,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v16-deployed-v16-revision-22-legal-policy-projection-ready-registration-disabled-close-disabled",
+            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v17-deployed-v16-revision-22-trusted-boundary-source-ready-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["baseline"]["provider_configured"])
         self.assertTrue(contract["baseline"]["http_only_session_cookies"])
@@ -70,7 +70,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(contract["baseline"]["registration_password_minimum_chars"], 12)
         self.assertTrue(contract["baseline"]["registration_password_policy_enforced_at_edge"])
         self.assertFalse(contract["baseline"]["existing_login_passwords_retroactively_rejected"])
-        self.assertEqual(contract["runtime"]["gateway_source_version"], 16)
+        self.assertEqual(contract["runtime"]["gateway_source_version"], 17)
         self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 16)
         self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 22)
         self.assertTrue(contract["runtime"]["lifecycle_service_deployed"])
@@ -141,6 +141,13 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(contract["baseline"]["public_site_marker_header"], "X-OrdaX-Public-Site")
         self.assertEqual(contract["baseline"]["public_site_disabled_error"], "public-account-access-disabled")
         self.assertTrue(contract["baseline"]["native_json_account_flow_remains_enabled"])
+        self.assertEqual(contract["baseline"]["native_account_transport"], "canonical-public-origin")
+        self.assertFalse(contract["baseline"]["native_direct_inner_gateway_allowed"])
+        self.assertTrue(contract["baseline"]["sensitive_routes_require_verified_production_oidc_at_inner_gateway"])
+        self.assertEqual(contract["baseline"]["sensitive_route_prefixes"], ["/auth/", "/account/", "/sync/", "/network/"])
+        self.assertTrue(contract["deployment"]["source_trusted_inner_boundary_ready"])
+        self.assertFalse(contract["deployment"]["source_native_direct_inner_gateway_allowed"])
+        self.assertFalse(contract["deployment"]["deployed_trusted_inner_boundary"])
         self.assertTrue(contract["deployment"]["public_site_proxy_marker_required"])
         self.assertTrue(contract["baseline"]["password_recovery_request_implemented"])
         self.assertFalse(contract["baseline"]["password_recovery_request_enabled"])
