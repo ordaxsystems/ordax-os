@@ -263,6 +263,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 channel_bin=self.channel,
                 trust_path=str(self.trust),
                 slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
                 runner=runner,
             )
         self.assertEqual(calls, [])
@@ -286,6 +287,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 channel_bin=self.channel,
                 trust_path=str(self.trust),
                 slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
                 runner=lambda *args, **kwargs: calls.append((args, kwargs)),
             )
         self.assertEqual(calls, [])
