@@ -12,6 +12,12 @@ const MAX_BODY = 64 * 1024;
 const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024;
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
 const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
+const PUBLIC_ACCOUNT_ROUTES = new Map([
+  ["/account/export", "GET"],
+  ["/account/spaces", "GET"],
+  ["/account/entitlements/memory-cloud", "GET"],
+  ["/account/close", "POST"],
+]);
 const REQUEST_HEADERS = [
   "accept",
   "content-type",
@@ -78,7 +84,7 @@ function adminClient() {
   });
 }
 
-function routePath(url: URL) {
+function routePath(url: URL, method: string) {
   const marker = "/ordax-public-account-gateway";
   const index = url.pathname.indexOf(marker);
   if (index < 0) return null;
@@ -88,8 +94,11 @@ function routePath(url: URL) {
     || !pathname.startsWith("/")
     || pathname.includes("\\")
     || pathname.includes("\0")
-    || !ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
   ) return null;
+  const prefixAllowed = ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const accountMethod = PUBLIC_ACCOUNT_ROUTES.get(pathname);
+  if (!prefixAllowed && accountMethod !== method) return null;
+  if (accountMethod && accountMethod !== method) return null;
   return `${pathname}${url.search}`;
 }
 
@@ -162,7 +171,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const url = new URL(req.url);
-  const productPath = routePath(url);
+  const productPath = routePath(url, req.method);
   if (!productPath) {
     return error(404, "gateway-route-not-found", "Rota inexistente.");
   }
