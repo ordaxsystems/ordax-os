@@ -6,6 +6,7 @@ import { internetComponent } from "../system/apps/internet/component.mjs";
 import {
   COMPONENT_PENDING_DECISION_PLAN_SCHEMA,
   createComponentPendingDecisionPlan,
+  validateComponentPendingDecisionPlan,
 } from "../system/services/components/pending-decision-plan.mjs";
 
 const COMMIT = "a".repeat(40);
@@ -125,5 +126,28 @@ test("planner exposes no lifecycle or mutation methods", () => {
     "install", "update", "remove", "setTrustAnchor",
   ]) {
     assert.equal(plan[forbidden], undefined);
+  }
+});
+
+
+test("raw pending decision plans are revalidated fail closed", () => {
+  const canonical = createComponentPendingDecisionPlan({
+    manifest: slotInternet(),
+    probationResult: receipt(),
+    canonicalTrustPinned: false,
+    activationAllowed: false,
+  });
+
+  assert.deepEqual(validateComponentPendingDecisionPlan({ ...canonical }), canonical);
+
+  for (const invalid of [
+    { ...canonical, authority: "platform-component-lifecycle" },
+    { ...canonical, revision: 0 },
+    { ...canonical, unexpected: true },
+    { ...canonical, action: "promote", reason: "eligible-for-promotion", health: "failed" },
+    { ...canonical, action: "reject", reason: "pending-health-failed", health: "healthy" },
+    { ...canonical, action: "hold", reason: "eligible-for-promotion" },
+  ]) {
+    assert.throws(() => validateComponentPendingDecisionPlan(invalid));
   }
 });

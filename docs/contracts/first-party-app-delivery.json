@@ -259,6 +259,9 @@
     "pending_decision_plan_implemented": true,
     "pending_decision_plan_owner": "platform-component-lifecycle",
     "pending_decision_plan_requires_exact_probation_identity": true,
+    "pending_decision_plan_raw_input_revalidated": true,
+    "pending_decision_plan_rejects_noncanonical_fields": true,
+    "pending_decision_plan_action_reason_pair_revalidated": true,
     "pending_decision_plan_authority": "none",
     "pending_decision_plan_actions": [
       "hold",
