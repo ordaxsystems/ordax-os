@@ -96,10 +96,13 @@ def _candidate(value: object, *, app_id: str, catalog_commit: str) -> dict | Non
         {"package", "release", "compatibility", "componentEnvelope"},
         "app lifecycle artifacts",
     )
-    normalized = {
-        role: validate_artifact_identity(artifacts[role])
-        for role in ("package", "release", "compatibility", "componentEnvelope")
-    }
+    try:
+        normalized = {
+            role: validate_artifact_identity(artifacts[role])
+            for role in ("package", "release", "compatibility", "componentEnvelope")
+        }
+    except AppArtifactStoreError as exc:
+        raise NativeAppLifecycleError("app lifecycle artifact identity is invalid") from exc
     if normalized["componentEnvelope"]["name"] != f"{app_id}.runtime-component-envelope.json":
         raise NativeAppLifecycleError("component envelope filename is not canonical")
     return {
@@ -485,9 +488,7 @@ def _assert_plan_matches_watermark(plan: dict, watermark: dict) -> None:
         watermark["sequence"] != plan["catalogSequence"]
         or watermark["catalogSha256"] != plan["catalogSha256"]
     ):
-        raise NativeAppLifecycleError(
-            "app lifecycle plan does not match current Store catalog watermark"
-        )
+        raise NativeAppLifecycleError("app lifecycle plan does not match current Store catalog watermark")
 
 
 def execute_offline_lifecycle_plan(
@@ -522,6 +523,4 @@ def execute_offline_lifecycle_plan(
                 runner=runner,
             )
     except StoreCatalogError as exc:
-        raise NativeAppLifecycleError(
-            "current Store catalog watermark is unavailable"
-        ) from exc
+        raise NativeAppLifecycleError("current Store catalog watermark is unavailable") from exc
