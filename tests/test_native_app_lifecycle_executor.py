@@ -374,6 +374,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                     channel_bin=self.channel,
                     trust_path=str(self.trust),
                     slot_root=str(self.slot_root),
+                    watermark_path=str(self.watermark),
                     runner=runner,
                 )
             self.assertEqual([argv[1] for argv in calls], ["status"])
