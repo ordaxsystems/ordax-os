@@ -112,8 +112,12 @@ test("redirect and cookie passthrough are fail-closed", () => {
   const valid = "ordax_access=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600";
   assert.equal(trustedSetCookie(valid), valid);
   for (const name of ["ordax_recovery_access", "ordax_recovery_refresh", "ordax_recovery"]) {
-    const recovery = `${name}=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+    const recovery = `${name}=value; Path=/auth/recover; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
     assert.equal(trustedSetCookie(recovery), recovery);
+    assert.equal(
+      trustedSetCookie(`${name}=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`),
+      null,
+    );
   }
   assert.equal(
     trustedSetCookie("evil=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600"),
