@@ -15,12 +15,12 @@
   "advisor": {
     "rls_enabled_no_policy": {
       "level": "INFO",
-      "count": 72,
+      "count": 73,
       "classification": "reviewed-client-deny-by-default-no-api-role-grants",
       "review_complete": true,
       "auto_fix_allowed": false,
       "schema_counts": {
-        "private": 12,
+        "private": 13,
         "public": 60
       },
       "direct_data_privilege_table_counts": {
@@ -29,7 +29,7 @@
         "authenticated": 0,
         "service_role": 59
       },
-      "tables_without_service_role_data_privilege": 13,
+      "tables_without_service_role_data_privilege": 14,
       "client_policy_required_for_current_access_model": false,
       "service_role_bypasses_rls": true,
       "permissive_policy_would_not_harden_service_role": true
