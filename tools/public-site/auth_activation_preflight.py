@@ -138,6 +138,10 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
         "legacy-account-legal-receipt-reconciliation",
     )
     need(
+        observation.get("public_login_legal_receipt_guard_deployed") is True,
+        "public-login-legal-receipt-guard-deployment",
+    )
+    need(
         registration_binding.get("client_supplied_document_versions_trusted") is False,
         "registration-legal-client-version-trust",
     )
