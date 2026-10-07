@@ -66,16 +66,27 @@ function source(initial) {
   };
 }
 
-function watermarkStore(initial = null, { failSave = false, race = false } = {}) {
+function watermarkStore(initial = null, {
+  failSave = false,
+  failLoad = false,
+  races = 0,
+} = {}) {
   let current = initial;
+  let raceCount = 0;
   return {
     store: Object.freeze({
       schema: VERIFIED_APP_STORE_CATALOG_WATERMARK_STORE_SCHEMA,
-      load() { return current; },
-      compareAndSwap(expected, next) {
+      async load() {
+        if (failLoad) throw new Error("disk unavailable");
+        return current;
+      },
+      async compareAndSwap(expected, next) {
         if (failSave) throw new Error("disk unavailable");
-        if (race) return false;
         assert.deepEqual(current, expected);
+        if (raceCount < races) {
+          raceCount += 1;
+          return false;
+        }
         current = next;
         return true;
       },
@@ -92,19 +103,22 @@ function watermark(sequence, digest) {
   };
 }
 
-test("replay guard persists first accepted catalog before exposing it", () => {
+test("replay guard starts unavailable and persists first accepted catalog before exposing it", async () => {
   const upstream = source(snapshot(7, "f".repeat(64)));
   const persistence = watermarkStore();
   const guard = createVerifiedAppStoreCatalogReplayGuard({
     sourcePort: upstream.port,
     watermarkStore: persistence.store,
   });
-  assert.equal(guard.getSnapshot().state, "ready");
+  assert.equal(guard.port.getSnapshot().state, "unavailable");
+
+  await guard.refresh();
+  assert.equal(guard.port.getSnapshot().state, "ready");
   assert.deepEqual(persistence.read(), watermark(7, "f".repeat(64)));
   guard.destroy();
 });
 
-test("same sequence and digest is an idempotent retry", () => {
+test("same sequence and digest is an idempotent retry", async () => {
   const digest = "f".repeat(64);
   const upstream = source(snapshot(7, digest));
   const persistence = watermarkStore(watermark(7, digest));
@@ -112,71 +126,92 @@ test("same sequence and digest is an idempotent retry", () => {
     sourcePort: upstream.port,
     watermarkStore: persistence.store,
   });
-  assert.equal(guard.getSnapshot().sequence, 7);
-  assert.equal(guard.getSnapshot().catalogSha256, digest);
+  await guard.refresh();
+  assert.equal(guard.port.getSnapshot().sequence, 7);
+  assert.equal(guard.port.getSnapshot().catalogSha256, digest);
   guard.destroy();
 });
 
-test("lower sequence is rejected as rollback and equal sequence with another digest as equivocation", () => {
+test("lower sequence is rejected as rollback and equal sequence with another digest as equivocation", async () => {
   const persistence = watermarkStore(watermark(8, "8".repeat(64)));
 
   const rollback = createVerifiedAppStoreCatalogReplayGuard({
     sourcePort: source(snapshot(7, "7".repeat(64))).port,
     watermarkStore: persistence.store,
   });
-  assert.equal(rollback.getSnapshot().state, "unavailable");
-  assert.equal(rollback.getSnapshot().reason, "catalog-sequence-rollback");
+  await rollback.refresh();
+  assert.equal(rollback.port.getSnapshot().state, "unavailable");
+  assert.equal(rollback.port.getSnapshot().reason, "catalog-sequence-rollback");
   rollback.destroy();
 
   const equivocation = createVerifiedAppStoreCatalogReplayGuard({
     sourcePort: source(snapshot(8, "9".repeat(64))).port,
     watermarkStore: persistence.store,
   });
-  assert.equal(equivocation.getSnapshot().state, "unavailable");
-  assert.equal(equivocation.getSnapshot().reason, "catalog-sequence-equivocation");
+  await equivocation.refresh();
+  assert.equal(equivocation.port.getSnapshot().state, "unavailable");
+  assert.equal(equivocation.port.getSnapshot().reason, "catalog-sequence-equivocation");
   equivocation.destroy();
 });
 
-test("higher sequence advances watermark and live subscription keeps replay protection", () => {
+test("higher sequence advances watermark and live subscription keeps replay protection", async () => {
   const upstream = source(snapshot(7, "7".repeat(64)));
   const persistence = watermarkStore(watermark(7, "7".repeat(64)));
   const guard = createVerifiedAppStoreCatalogReplayGuard({
     sourcePort: upstream.port,
     watermarkStore: persistence.store,
   });
+  await guard.refresh();
   const seen = [];
-  const unsubscribe = guard.subscribe((value) => seen.push(value));
+  const unsubscribe = guard.port.subscribe((value) => seen.push(value));
 
   upstream.publish(snapshot(8, "8".repeat(64)));
-  assert.equal(guard.getSnapshot().sequence, 8);
+  await guard.refresh();
+  assert.equal(guard.port.getSnapshot().sequence, 8);
   assert.deepEqual(persistence.read(), watermark(8, "8".repeat(64)));
 
   upstream.publish(snapshot(7, "7".repeat(64)));
-  assert.equal(guard.getSnapshot().state, "unavailable");
-  assert.equal(guard.getSnapshot().reason, "catalog-sequence-rollback");
-  assert.equal(seen.length, 2);
+  await guard.refresh();
+  assert.equal(guard.port.getSnapshot().state, "unavailable");
+  assert.equal(guard.port.getSnapshot().reason, "catalog-sequence-rollback");
+  assert.equal(seen.some((value) => value.sequence === 8), true);
+  assert.equal(seen.at(-1).reason, "catalog-sequence-rollback");
 
   unsubscribe();
   guard.destroy();
 });
 
-test("new catalog fails closed if persistent anti-replay watermark cannot commit", () => {
-  for (const options of [{ failSave: true }, { race: true }]) {
+test("async CAS retries bounded races without exposing an unpersisted catalog", async () => {
+  const persistence = watermarkStore(watermark(7, "7".repeat(64)), { races: 2 });
+  const guard = createVerifiedAppStoreCatalogReplayGuard({
+    sourcePort: source(snapshot(8, "8".repeat(64))).port,
+    watermarkStore: persistence.store,
+  });
+  await guard.refresh();
+  assert.equal(guard.port.getSnapshot().state, "ready");
+  assert.deepEqual(persistence.read(), watermark(8, "8".repeat(64)));
+  guard.destroy();
+});
+
+test("new catalog fails closed if persistent anti-replay watermark cannot load or commit", async () => {
+  for (const [options, reason] of [
+    [{ failLoad: true }, "catalog-watermark-unavailable"],
+    [{ failSave: true }, "catalog-watermark-persistence-failed"],
+    [{ races: 3 }, "catalog-watermark-race"],
+  ]) {
     const persistence = watermarkStore(watermark(7, "7".repeat(64)), options);
     const guard = createVerifiedAppStoreCatalogReplayGuard({
       sourcePort: source(snapshot(8, "8".repeat(64))).port,
       watermarkStore: persistence.store,
     });
-    assert.equal(guard.getSnapshot().state, "unavailable");
-    assert.match(
-      guard.getSnapshot().reason,
-      /catalog-watermark-(persistence-failed|race)/,
-    );
+    await guard.refresh();
+    assert.equal(guard.port.getSnapshot().state, "unavailable");
+    assert.equal(guard.port.getSnapshot().reason, reason);
     guard.destroy();
   }
 });
 
-test("invalid persisted watermark fails closed rather than resetting replay history", () => {
+test("invalid persisted watermark fails closed rather than resetting replay history", async () => {
   const persistence = watermarkStore({
     schema: VERIFIED_APP_STORE_CATALOG_WATERMARK_SCHEMA,
     sequence: 9,
@@ -186,7 +221,8 @@ test("invalid persisted watermark fails closed rather than resetting replay hist
     sourcePort: source(snapshot(10, "a".repeat(64))).port,
     watermarkStore: persistence.store,
   });
-  assert.equal(guard.getSnapshot().state, "unavailable");
-  assert.equal(guard.getSnapshot().reason, "catalog-watermark-unavailable");
+  await guard.refresh();
+  assert.equal(guard.port.getSnapshot().state, "unavailable");
+  assert.equal(guard.port.getSnapshot().reason, "catalog-watermark-unavailable");
   guard.destroy();
 });
