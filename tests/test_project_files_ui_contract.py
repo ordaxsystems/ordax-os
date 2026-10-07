@@ -9,10 +9,13 @@ FILES_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "files.mjs"
 
 
 class ProjectFilesUiContractTests(unittest.TestCase):
-    def test_shared_files_owner_consumes_neutral_project_catalog(self):
+    def test_shared_files_owner_consumes_separate_project_reader_and_mutations(self):
         controls = CONTROLS.read_text(encoding="utf-8")
         self.assertIn('from "../../contracts/project-catalog.mjs"', controls)
-        self.assertIn("assertProjectCatalogPort", controls)
+        self.assertIn('from "../../contracts/project-mutations.mjs"', controls)
+        self.assertIn("assertProjectCatalogReader", controls)
+        self.assertIn("assertProjectMutations", controls)
+        self.assertNotIn("assertProjectCatalogPort", controls)
         self.assertIn("dataset.fileOpenProject", controls)
         self.assertIn("dataset.fileProjectCreateStart", controls)
         self.assertIn("dataset.fileProjectName", controls)
@@ -24,20 +27,22 @@ class ProjectFilesUiContractTests(unittest.TestCase):
         self.assertIn("dataset.fileProjectRenameConfirm", controls)
         self.assertIn("dataset.fileProjectRenameCancel", controls)
         self.assertIn("dataset.fileProjectRemove", controls)
-        self.assertIn("projectPort.rename(renamingProjectId, projectRenameDraft)", controls)
-        self.assertIn("projectPort.recordOpened(projectId)", controls)
-        self.assertIn("projectPort.recordFileOpened(project.id, next.path)", controls)
-        self.assertIn("projectPort.clearLastFile(projectId)", controls)
-        self.assertIn("projectPort.remove(projectId)", controls)
+        self.assertIn("await projectMutationPort.create({ name: projectDraft, path: listing.path })", controls)
+        self.assertIn("await projectMutationPort.rename(renamingProjectId, projectRenameDraft)", controls)
+        self.assertIn("await projectMutationPort.recordOpened(projectId)", controls)
+        self.assertIn("await projectMutationPort.recordFileOpened(project.id, next.path)", controls)
+        self.assertIn("await projectMutationPort.clearLastFile(projectId)", controls)
+        self.assertIn("await projectMutationPort.remove(projectId)", controls)
+        self.assertIn("projectReader?.subscribe", controls)
         self.assertNotIn("localStorage", controls)
         self.assertNotIn("/__ordax/native/", controls)
 
     def test_project_rename_changes_catalog_label_without_renaming_folder(self):
         controls = CONTROLS.read_text(encoding="utf-8")
-        rename_block = controls.split("  const renameProject = () => {", 1)[1].split(
+        rename_block = controls.split("  const renameProject = async () => {", 1)[1].split(
             "  const openProject =", 1
         )[0]
-        self.assertIn("projectPort.rename(renamingProjectId, projectRenameDraft)", rename_block)
+        self.assertIn("await projectMutationPort.rename(renamingProjectId, projectRenameDraft)", rename_block)
         self.assertNotIn("port.renameEntry(", rename_block)
         self.assertIn("project.path !== listing.path", rename_block)
         self.assertIn('setMessage("files.project.renamed"', rename_block)
@@ -71,7 +76,7 @@ class ProjectFilesUiContractTests(unittest.TestCase):
             "  const activateSelectedPath =", 1
         )[0]
         validated = "const next = validateTextFile(await port.readTextFile(path));"
-        recorded = "projectPort.recordFileOpened(project.id, next.path)"
+        recorded = "await projectMutationPort.recordFileOpened(project.id, next.path)"
         self.assertIn(validated, open_block)
         self.assertIn(recorded, open_block)
         self.assertLess(open_block.index(validated), open_block.index(recorded))
@@ -105,7 +110,7 @@ class ProjectFilesUiContractTests(unittest.TestCase):
             click_block,
         )
         self.assertNotIn("recordFileOpened", click_block)
-        self.assertNotIn("projectPort.remove", click_block)
+        self.assertNotIn("projectMutationPort.remove", click_block)
         self.assertNotIn("renameEntry(", click_block)
         self.assertIn('"files.preview.projectResumeMissing"', controls)
         self.assertIn('"files.preview.projectResumeFailed"', controls)
@@ -122,12 +127,12 @@ class ProjectFilesUiContractTests(unittest.TestCase):
             controls,
         )
         recovery_block = controls.split(
-            "  const clearFailedProjectResume = (projectId) => {", 1
+            "  const clearFailedProjectResume = async (projectId) => {", 1
         )[1].split(
             "  const enterRecentMode =", 1
         )[0]
         guard = "project.lastFilePath !== failedProjectResume.path"
-        clear = "projectPort.clearLastFile(projectId)"
+        clear = "await projectMutationPort.clearLastFile(projectId)"
         self.assertIn(guard, recovery_block)
         self.assertIn(clear, recovery_block)
         self.assertLess(recovery_block.index(guard), recovery_block.index(clear))
@@ -136,12 +141,12 @@ class ProjectFilesUiContractTests(unittest.TestCase):
         self.assertNotIn("port.renameEntry(", recovery_block)
         self.assertNotIn("port.moveEntry(", recovery_block)
         self.assertNotIn("port.copyFile(", recovery_block)
-        self.assertNotIn("projectPort.remove(", recovery_block)
+        self.assertNotIn("projectMutationPort.remove(", recovery_block)
 
     def test_stale_project_resume_recovery_expires_when_project_snapshot_changes(self):
         controls = CONTROLS.read_text(encoding="utf-8")
         subscription_block = controls.split(
-            "  const unsubscribeProjects = projectPort?.subscribe((snapshot) => {", 1
+            "  const unsubscribeProjects = projectReader?.subscribe((snapshot) => {", 1
         )[1].split(
             "  const unsubscribeRender =", 1
         )[0]
@@ -155,13 +160,18 @@ class ProjectFilesUiContractTests(unittest.TestCase):
         self.assertIn('if (source === "project-resume")', open_block)
         self.assertIn("project?.lastFilePath === path && project.path === listing?.path", open_block)
 
-    def test_native_composition_injects_project_runtime_only_into_files_owner(self):
+    def test_native_composition_injects_reader_and_mutations_into_files_owner(self):
         composition = COMPOSITION.read_text(encoding="utf-8")
         self.assertIn("createNativeProjectStore", composition)
-        self.assertIn("createProjectCatalogRuntime", composition)
-        self.assertIn("const projects = fileSpace === null ? null", composition)
-        self.assertIn("{ recentFiles, projects }", composition)
-        self.assertNotIn("createNativeProjectStore", (ROOT / "system" / "composition" / "web" / "main.mjs").read_text(encoding="utf-8"))
+        self.assertIn("createNativeProjectStateTransport", composition)
+        self.assertIn("createNativeProjectAuthorityComposition", composition)
+        self.assertIn("const projects = projectAuthority?.reader ?? null", composition)
+        self.assertIn("const projectMutations = projectAuthority?.mutations ?? null", composition)
+        self.assertNotIn("createProjectCatalogRuntime", composition)
+        self.assertIn("{ recentFiles, projects, projectMutations }", composition)
+        web = (ROOT / "system" / "composition" / "web" / "main.mjs").read_text(encoding="utf-8")
+        self.assertNotIn("createNativeProjectStore", web)
+        self.assertNotIn("createNativeProjectAuthorityComposition", web)
 
     def test_surface_candidate_owns_project_catalog_regressions(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
