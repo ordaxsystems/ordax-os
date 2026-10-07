@@ -1,8 +1,18 @@
 \set ON_ERROR_STOP on
 
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin;
+do $roles$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role nologin;
+  end if;
+end;
+$roles$;
 
 create schema auth;
 create schema private;
@@ -32,6 +42,8 @@ create table public.ordax_space_members (
   primary key (space_id, user_id)
 );
 
+-- Reproduce the exact pre-migration duplicated owner/member semantics that the
+-- forward migration is expected to consolidate.
 create function private.ordax_can_access_space(target_space_id uuid)
 returns boolean
 language sql
@@ -96,6 +108,8 @@ insert into public.ordax_space_members(space_id, user_id, state) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '22222222-2222-4222-8222-222222222222', 'active'),
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '33333333-3333-4333-8333-333333333333', 'suspended');
 
+-- Subject-aware SSOT: owner and active member are allowed; suspended member,
+-- outsider and null subjects fail closed.
 select 1 / (private.ordax_subject_can_access_space_v1(
   '11111111-1111-4111-8111-111111111111',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -126,6 +140,8 @@ select 1 / ((not private.ordax_subject_can_access_space_v1(
   null
 ))::integer);
 
+-- No API role may call the subject-aware helper or the private compatibility
+-- wrapper directly. authenticated retains exactly the public policy wrapper.
 do $acl$
 begin
   if has_function_privilege('anon', 'private.ordax_subject_can_access_space_v1(uuid,uuid)', 'EXECUTE')
@@ -148,6 +164,7 @@ begin
 end;
 $acl$;
 
+-- Prove the authenticated compatibility surface still binds to auth.uid().
 select set_config('ordax.test_uid', '11111111-1111-4111-8111-111111111111', false);
 set role authenticated;
 select 1 / (ordax_policy.can_access_space('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')::integer);
@@ -168,6 +185,8 @@ set role authenticated;
 select 1 / ((not ordax_policy.can_access_space('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'))::integer);
 reset role;
 
+-- Both legacy/auth-bound wrappers must now be delegation only; the owner/member
+-- table reads live solely in the subject-aware helper.
 do $delegation$
 declare
   v_def text;
