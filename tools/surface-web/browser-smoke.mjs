@@ -603,7 +603,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     );
     result.storeOwnerMounted = storeSlot?.dataset.ordaxStoreOverviewView === 'true';
     result.storeFailsClosedWithoutVerifiedCatalog = storeSlot?.dataset.storeState === 'unavailable'
-      && storeSlot?.querySelector('[data-store-install]') === null
+      && storeSlot?.querySelector('[data-store-operation]') === null
       && storeSlot?.querySelector('[data-store-authority="none"]') !== null;
 
     // Internet coverage must remain independent from Notes. Before the

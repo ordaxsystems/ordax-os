@@ -82,9 +82,15 @@
   font-size: 0.75rem;
 }
 
-.ordax-store-install {
-  min-height: 38px;
+.ordax-store-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ordax-space-2);
   margin-top: auto;
+}
+
+.ordax-store-action {
+  min-height: 38px;
   padding: 0 14px;
   border: 1px solid var(--ordax-border);
   background: var(--ordax-button-bg);
@@ -92,7 +98,7 @@
   cursor: pointer;
 }
 
-.ordax-store-install:disabled {
+.ordax-store-action:disabled {
   opacity: 0.48;
   cursor: not-allowed;
 }

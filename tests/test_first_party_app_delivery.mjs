@@ -113,7 +113,30 @@ test("staging never means activation and may retain an existing launchable versi
   );
   assert.equal(update.state, "staged");
   assert.equal(update.launchable, true, "last-known-good installed version stays launchable during staged update");
+  assert.equal(update.removable, false, "staged update cannot race with removal");
   assert.equal(update.openAction, "launch");
+});
+
+test("update and removal transitions are explicit and suppress conflicting actions", () => {
+  const updating = projectFirstPartyAppDelivery(
+    "assistant",
+    observation({ installed: true, transition: "updating" }),
+  );
+  assert.equal(updating.state, "updating");
+  assert.equal(updating.launchable, true, "current version remains launchable until promotion");
+  assert.equal(updating.installable, false);
+  assert.equal(updating.removable, false);
+  assert.equal(updating.openAction, "launch");
+
+  const removing = projectFirstPartyAppDelivery(
+    "assistant",
+    observation({ installed: true, transition: "removing" }),
+  );
+  assert.equal(removing.state, "removing");
+  assert.equal(removing.launchable, false, "new launches stop while removal is in flight");
+  assert.equal(removing.installable, false);
+  assert.equal(removing.removable, false);
+  assert.equal(removing.openAction, "none");
 });
 
 test("failed update can retain the previous installed app without coupling user-data deletion", () => {
@@ -140,6 +163,19 @@ test("invalid delivery observations fail closed", () => {
     ),
     /cannot coexist/,
   );
+  assert.throws(
+    () => projectFirstPartyAppDelivery(
+      "assistant",
+      observation({ installed: true, transition: "installing" }),
+    ),
+    /requires the app to be absent/,
+  );
+  for (const transition of ["updating", "removing"]) {
+    assert.throws(
+      () => projectFirstPartyAppDelivery("assistant", observation({ transition })),
+      /requires a known installed version/,
+    );
+  }
   assert.throws(
     () => projectFirstPartyAppDelivery("unknown", observation()),
     /Unknown first-party app delivery id/,

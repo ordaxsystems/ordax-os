@@ -1,7 +1,7 @@
 const APP_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const DELIVERY_CLASSES = new Set(["structural", "bootstrap", "on-demand"]);
 const DISCOVERY_POLICIES = new Set(["installed-only", "launcher-recommended", "store-only"]);
-const TRANSITION_STATES = new Set(["idle", "installing", "staged"]);
+const TRANSITION_STATES = new Set(["idle", "installing", "updating", "removing", "staged"]);
 
 export const FIRST_PARTY_APP_DELIVERY_POLICY_SCHEMA = "ordax.first-party-app-delivery-policy/1";
 export const FIRST_PARTY_APP_DELIVERY_PROJECTION_SCHEMA = "ordax.first-party-app-delivery-projection/1";
@@ -81,10 +81,16 @@ export function validateFirstPartyAppDeliveryObservation(value) {
     throw new TypeError("failed-retained requires a known installed version to retain");
   }
   if (value.failedRetained && value.transition !== "idle") {
-    throw new TypeError("failed-retained cannot coexist with an active install transition");
+    throw new TypeError("failed-retained cannot coexist with an active lifecycle transition");
   }
   if (value.blockedReason !== null && value.transition !== "idle") {
-    throw new TypeError("blocked state cannot coexist with an active install transition");
+    throw new TypeError("blocked state cannot coexist with an active lifecycle transition");
+  }
+  if (value.transition === "installing" && value.installed) {
+    throw new TypeError("installing transition requires the app to be absent");
+  }
+  if (["updating", "removing"].includes(value.transition) && !value.installed) {
+    throw new TypeError(value.transition + " transition requires a known installed version");
   }
   return Object.freeze({ ...value });
 }

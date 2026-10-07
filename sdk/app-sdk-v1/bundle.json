@@ -148,7 +148,7 @@
       "major": 1,
       "name": "first-party-app-delivery",
       "schema": "ordax.first-party-app-delivery-policy/1",
-      "source_git_blob": "12951c15983ec5237561c9c1b07e8eec9bb58515",
+      "source_git_blob": "48cf6edb09b245083f3f6baef0462cd070e0dff6",
       "source_path": "system/contracts/first-party-app-delivery.mjs"
     },
     {
