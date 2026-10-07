@@ -58,6 +58,8 @@
       "installed",
       "available",
       "installing",
+      "updating",
+      "removing",
       "staged",
       "blocked",
       "failed-retained",
@@ -77,20 +79,31 @@
     "public_store_ui_enabled": false,
     "store_ui_implemented": true,
     "store_service_implemented": false,
+    "native_lifecycle_executor_mounted": false,
     "must_reuse_component_manager": true,
     "must_reuse_runtime_component_release_v2_when_component_slot": true,
     "may_create_parallel_updater": false,
     "catalog_without_verified_artifact_may_offer_install": false,
-    "install_request_must_delegate_to_platform_lifecycle": true,
-    "request_contract": "ordax.app-install-request/1",
-    "request_result_contract": "ordax.app-install-request-result/1",
-    "request_port": "ordax.app-install-request-port/1",
+    "lifecycle_request_must_delegate_to_platform_lifecycle": true,
+    "request_contract": "ordax.app-lifecycle-request/1",
+    "request_result_contract": "ordax.app-lifecycle-request-result/1",
+    "request_port": "ordax.app-lifecycle-request-port/1",
     "request_authority": "none",
+    "request_operations": [
+      "install",
+      "update",
+      "remove"
+    ],
+    "launcher_request_operations": [
+      "install"
+    ],
     "request_may_select_artifact": false,
     "request_may_select_version": false,
     "request_may_select_trust_anchor": false,
     "request_may_grant_permissions": false,
-    "request_may_bypass_verification": false
+    "request_may_bypass_verification": false,
+    "remove_request_may_delete_user_data": false,
+    "rollback_is_platform_owned": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
