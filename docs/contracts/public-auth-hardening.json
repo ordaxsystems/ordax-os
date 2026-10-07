@@ -22,7 +22,8 @@
     "bot_protection_reviewed": true,
     "bot_protection_server_verification_deployed": true,
     "bot_protection_e2e_tested": true,
-    "registration_provider_bypass_guard_verified": true
+    "registration_provider_bypass_guard_verified": true,
+    "legacy_account_legal_receipt_reconciliation": true
   },
   "current_observation": {
     "source": "supabase-security-advisor-and-live-deployment-reconciliation",
@@ -142,7 +143,11 @@
     "registration_provider_bypass_guard_requires_email_hash_match": true,
     "registration_provider_bypass_guard_requires_unconsumed_unexpired_intent": true,
     "registration_provider_bypass_guard_writes_legal_receipt": true,
-    "registration_provider_bypass_guard_verified_date": "2026-10-07"
+    "registration_provider_bypass_guard_verified_date": "2026-10-07",
+    "legacy_accounts_without_legal_receipt_count": 2,
+    "legacy_account_legal_receipt_reconciliation_verified": false,
+    "legacy_account_legal_receipt_reconciliation_evidence": "live-db-count-2026-10-07",
+    "legacy_accounts_public_login_allowed": false
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
