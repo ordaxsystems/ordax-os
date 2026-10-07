@@ -41,8 +41,14 @@ class NativeUserFilesTests(unittest.TestCase):
         self.assertIn("MAX_TEXT_FILE_BYTES = 256 * 1024", contract)
         self.assertIn("MAX_FILE_COPY_BYTES = 64 * 1024 * 1024", contract)
         self.assertIn("MAX_IMAGE_PREVIEW_BYTES = 8 * 1024 * 1024", contract)
+        self.assertIn("MAX_MEDIA_PREVIEW_BYTES = 64 * 1024 * 1024", contract)
+        self.assertIn("MAX_DOCUMENT_PREVIEW_BYTES = 32 * 1024 * 1024", contract)
         self.assertIn("validateTextFile", contract)
         self.assertIn("validateImagePreview", contract)
+        self.assertIn("validateMediaPreview", contract)
+        self.assertIn("validateDocumentPreview", contract)
+        self.assertIn("assertDocumentPreviewFileSpacePort", contract)
+        self.assertIn("assertMediaPreviewFileSpacePort", contract)
         self.assertIn('/__ordax/native/files', adapter)
         self.assertIn('/__ordax/native/file-content', adapter)
         self.assertIn("validateFileListing", adapter)
@@ -62,6 +68,14 @@ class NativeUserFilesTests(unittest.TestCase):
         self.assertIn("readImagePreview", adapter)
         self.assertIn("validateImagePreview", adapter)
         self.assertIn("MAX_IMAGE_PREVIEW_BYTES", adapter)
+        self.assertIn('MEDIA_PREVIEW_ENDPOINT = "/__ordax/native/media-preview"', adapter)
+        self.assertIn("readMediaPreview", adapter)
+        self.assertIn("validateMediaPreview", adapter)
+        self.assertIn("MAX_MEDIA_PREVIEW_BYTES", adapter)
+        self.assertIn('DOCUMENT_PREVIEW_ENDPOINT = "/__ordax/native/document-preview"', adapter)
+        self.assertIn("readDocumentPreview", adapter)
+        self.assertIn("validateDocumentPreview", adapter)
+        self.assertIn("MAX_DOCUMENT_PREVIEW_BYTES", adapter)
         self.assertIn("importFile", adapter)
         self.assertIn('/__ordax/native/file-import', adapter)
         self.assertIn("FileSpaceOperationError", adapter)
@@ -151,6 +165,86 @@ class NativeUserFilesTests(unittest.TestCase):
             os.symlink(outside / "secret.png", user_root / "escape.png")
             with self.assertRaises(OSError):
                 native_host.read_user_image_preview(str(user_root), "/escape.png")
+
+    def test_media_preview_reads_only_bounded_supported_audio_video_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            user_root = base / "home"
+            outside = base / "outside"
+            user_root.mkdir()
+            outside.mkdir()
+
+            mp4_bytes = b"\x00\x00\x00\x18ftypmp42preview"
+            (user_root / "clip.mp4").write_bytes(mp4_bytes)
+            name, mime, payload = native_host.read_user_media_preview(
+                str(user_root),
+                "/clip.mp4",
+            )
+            self.assertEqual(name, "clip.mp4")
+            self.assertEqual(mime, "video/mp4")
+            self.assertEqual(payload, mp4_bytes)
+
+            mp3_bytes = b"ID3preview"
+            (user_root / "track.mp3").write_bytes(mp3_bytes)
+            name, mime, payload = native_host.read_user_media_preview(
+                str(user_root),
+                "/track.mp3",
+            )
+            self.assertEqual(name, "track.mp3")
+            self.assertEqual(mime, "audio/mpeg")
+            self.assertEqual(payload, mp3_bytes)
+
+            (user_root / "program.exe").write_bytes(b"MZ")
+            with self.assertRaises(native_host.FileSpaceMediaPreviewTypeError):
+                native_host.read_user_media_preview(str(user_root), "/program.exe")
+
+            (user_root / "large.webm").write_bytes(b"x" * 9)
+            with self.assertRaises(native_host.FileSpaceExportTooLargeError):
+                native_host.read_user_media_preview(
+                    str(user_root),
+                    "/large.webm",
+                    max_bytes=8,
+                )
+
+            (outside / "secret.mp4").write_bytes(mp4_bytes)
+            os.symlink(outside / "secret.mp4", user_root / "escape.mp4")
+            with self.assertRaises(OSError):
+                native_host.read_user_media_preview(str(user_root), "/escape.mp4")
+
+    def test_document_preview_reads_only_bounded_pdf_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            user_root = base / "home"
+            outside = base / "outside"
+            user_root.mkdir()
+            outside.mkdir()
+
+            pdf_bytes = b"%PDF-1.7\npreview"
+            (user_root / "document.pdf").write_bytes(pdf_bytes)
+            name, mime, payload = native_host.read_user_document_preview(
+                str(user_root),
+                "/document.pdf",
+            )
+            self.assertEqual(name, "document.pdf")
+            self.assertEqual(mime, "application/pdf")
+            self.assertEqual(payload, pdf_bytes)
+
+            (user_root / "page.html").write_text("<script>alert(1)</script>", encoding="utf-8")
+            with self.assertRaises(native_host.FileSpaceDocumentPreviewTypeError):
+                native_host.read_user_document_preview(str(user_root), "/page.html")
+
+            (user_root / "large.pdf").write_bytes(b"x" * 9)
+            with self.assertRaises(native_host.FileSpaceExportTooLargeError):
+                native_host.read_user_document_preview(
+                    str(user_root),
+                    "/large.pdf",
+                    max_bytes=8,
+                )
+
+            (outside / "secret.pdf").write_bytes(pdf_bytes)
+            os.symlink(outside / "secret.pdf", user_root / "escape.pdf")
+            with self.assertRaises(OSError):
+                native_host.read_user_document_preview(str(user_root), "/escape.pdf")
 
     def test_rename_is_atomic_no_clobber_and_symlink_safe(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -448,6 +542,8 @@ class NativeUserFilesTests(unittest.TestCase):
         self.assertIn('FILE_CONTENT_PATH = "/__ordax/native/file-content"', server)
         self.assertIn('FILE_EXPORT_PATH = "/__ordax/native/file-export"', server)
         self.assertIn('IMAGE_PREVIEW_PATH = "/__ordax/native/image-preview"', server)
+        self.assertIn('MEDIA_PREVIEW_PATH = "/__ordax/native/media-preview"', server)
+        self.assertIn('DOCUMENT_PREVIEW_PATH = "/__ordax/native/document-preview"', server)
         self.assertIn('FILE_IMPORT_PATH = "/__ordax/native/file-import"', server)
         self.assertIn("MAX_TEXT_FILE_BYTES = 256 * 1024", server)
         self.assertIn("read_user_text_file", server)
@@ -463,6 +559,14 @@ class NativeUserFilesTests(unittest.TestCase):
         self.assertIn("read_user_image_preview", server)
         self.assertIn("FileSpaceImagePreviewTypeError", server)
         self.assertIn("_write_image_preview", server)
+        self.assertIn("MAX_MEDIA_PREVIEW_BYTES = 64 * 1024 * 1024", server)
+        self.assertIn("read_user_media_preview", server)
+        self.assertIn("FileSpaceMediaPreviewTypeError", server)
+        self.assertIn("_write_media_preview", server)
+        self.assertIn("MAX_DOCUMENT_PREVIEW_BYTES = 32 * 1024 * 1024", server)
+        self.assertIn("read_user_document_preview", server)
+        self.assertIn("FileSpaceDocumentPreviewTypeError", server)
+        self.assertIn("_write_document_preview", server)
         self.assertIn("MAX_FILE_IMPORT_BYTES = 64 * 1024 * 1024", server)
         self.assertIn("import_user_file", server)
         self.assertIn("FileSpaceImportTooLargeError", server)

@@ -101,6 +101,8 @@ TRASH_PATH = "/__ordax/native/trash"
 FILE_CONTENT_PATH = "/__ordax/native/file-content"
 FILE_EXPORT_PATH = "/__ordax/native/file-export"
 IMAGE_PREVIEW_PATH = "/__ordax/native/image-preview"
+MEDIA_PREVIEW_PATH = "/__ordax/native/media-preview"
+DOCUMENT_PREVIEW_PATH = "/__ordax/native/document-preview"
 FILE_IMPORT_PATH = "/__ordax/native/file-import"
 METRICS_PATH = "/__ordax/native/metrics"
 RECOVERY_STATUS_PATH = "/__ordax/native/recovery-status"
@@ -184,6 +186,8 @@ MAX_TEXT_FILE_BYTES = 256 * 1024
 MAX_FILE_COPY_BYTES = 64 * 1024 * 1024
 MAX_FILE_EXPORT_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PREVIEW_BYTES = 8 * 1024 * 1024
+MAX_MEDIA_PREVIEW_BYTES = 64 * 1024 * 1024
+MAX_DOCUMENT_PREVIEW_BYTES = 32 * 1024 * 1024
 MAX_FILE_IMPORT_BYTES = 64 * 1024 * 1024
 IMAGE_PREVIEW_TYPES = {
     ".avif": "image/avif",
@@ -193,6 +197,20 @@ IMAGE_PREVIEW_TYPES = {
     ".jpg": "image/jpeg",
     ".png": "image/png",
     ".webp": "image/webp",
+}
+DOCUMENT_PREVIEW_TYPES = {".pdf": "application/pdf"}
+MEDIA_PREVIEW_TYPES = {
+    ".aac": "audio/aac",
+    ".flac": "audio/flac",
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".oga": "audio/ogg",
+    ".ogg": "audio/ogg",
+    ".wav": "audio/wav",
+    ".m4v": "video/mp4",
+    ".mp4": "video/mp4",
+    ".ogv": "video/ogg",
+    ".webm": "video/webm",
 }
 MAX_UPDATE_HISTORY_BYTES = 256 * 1024
 MAX_RELEASE_HISTORY_ENTRIES = 80
@@ -2159,6 +2177,14 @@ class FileSpaceImagePreviewTypeError(Exception):
     pass
 
 
+class FileSpaceMediaPreviewTypeError(Exception):
+    pass
+
+
+class FileSpaceDocumentPreviewTypeError(Exception):
+    pass
+
+
 class FileSpaceImportTooLargeError(Exception):
     pass
 
@@ -2603,6 +2629,48 @@ def read_user_image_preview(
     mime = IMAGE_PREVIEW_TYPES.get(extension)
     if mime is None:
         raise FileSpaceImagePreviewTypeError("unsupported image preview type")
+
+    name, payload = read_user_export_file(
+        user_root,
+        logical_path,
+        max_bytes=max_bytes,
+    )
+    return name, mime, payload
+
+
+def read_user_media_preview(
+    user_root: str,
+    logical_path: str,
+    max_bytes: int = MAX_MEDIA_PREVIEW_BYTES,
+) -> tuple[str, str, bytes]:
+    if not valid_logical_file_path(logical_path) or logical_path == "/":
+        raise ValueError("invalid media preview path")
+    requested_name = logical_path.rsplit("/", 1)[-1]
+    extension = os.path.splitext(requested_name)[1].lower()
+    mime = MEDIA_PREVIEW_TYPES.get(extension)
+    if mime is None:
+        raise FileSpaceMediaPreviewTypeError("unsupported media preview type")
+
+    name, payload = read_user_export_file(
+        user_root,
+        logical_path,
+        max_bytes=max_bytes,
+    )
+    return name, mime, payload
+
+
+def read_user_document_preview(
+    user_root: str,
+    logical_path: str,
+    max_bytes: int = MAX_DOCUMENT_PREVIEW_BYTES,
+) -> tuple[str, str, bytes]:
+    if not valid_logical_file_path(logical_path) or logical_path == "/":
+        raise ValueError("invalid document preview path")
+    requested_name = logical_path.rsplit("/", 1)[-1]
+    extension = os.path.splitext(requested_name)[1].lower()
+    mime = DOCUMENT_PREVIEW_TYPES.get(extension)
+    if mime is None:
+        raise FileSpaceDocumentPreviewTypeError("unsupported document preview type")
 
     name, payload = read_user_export_file(
         user_root,
@@ -3303,6 +3371,24 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _write_media_preview(self, mime: str, payload: bytes) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _write_document_preview(self, mime: str, payload: bytes) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(payload)
+
     def _empty(self, status: int) -> None:
         self.send_response(status)
         self.send_header("Content-Length", "0")
@@ -3423,7 +3509,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -3727,6 +3813,70 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(500)
                 return
             self._write_image_preview(mime, payload)
+            return
+
+        if parsed_path == MEDIA_PREVIEW_PATH:
+            try:
+                logical_path = requested_file_path(self.path, MEDIA_PREVIEW_PATH)
+                _name, mime, payload = read_user_media_preview(
+                    self.server.user_root,
+                    logical_path,
+                )
+            except FileSpaceExportTooLargeError:
+                self._empty(413)
+                return
+            except FileSpaceExportChangedError:
+                self._empty(412)
+                return
+            except FileSpaceMediaPreviewTypeError:
+                self._empty(415)
+                return
+            except ValueError:
+                self._empty(400)
+                return
+            except (FileNotFoundError, NotADirectoryError):
+                self._empty(404)
+                return
+            except PermissionError:
+                self._empty(403)
+                return
+            except OSError as exc:
+                print(f"ordax-native-host: could not preview user media: {exc}", file=sys.stderr, flush=True)
+                self._empty(500)
+                return
+            self._write_media_preview(mime, payload)
+            return
+
+        if parsed_path == DOCUMENT_PREVIEW_PATH:
+            try:
+                logical_path = requested_file_path(self.path, DOCUMENT_PREVIEW_PATH)
+                _name, mime, payload = read_user_document_preview(
+                    self.server.user_root,
+                    logical_path,
+                )
+            except FileSpaceExportTooLargeError:
+                self._empty(413)
+                return
+            except FileSpaceExportChangedError:
+                self._empty(412)
+                return
+            except FileSpaceDocumentPreviewTypeError:
+                self._empty(415)
+                return
+            except ValueError:
+                self._empty(400)
+                return
+            except (FileNotFoundError, NotADirectoryError):
+                self._empty(404)
+                return
+            except PermissionError:
+                self._empty(403)
+                return
+            except OSError as exc:
+                print(f"ordax-native-host: could not preview user document: {exc}", file=sys.stderr, flush=True)
+                self._empty(500)
+                return
+            self._write_document_preview(mime, payload)
             return
 
         if parsed_path == FILE_EXPORT_PATH:
