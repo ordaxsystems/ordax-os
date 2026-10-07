@@ -84,19 +84,29 @@
     "store_verified_catalog_service_enabled": false
   },
   "store_request_boundary": {
-    "contract": "ordax.app-install-request/1",
-    "result_contract": "ordax.app-install-request-result/1",
-    "port": "ordax.app-install-request-port/1",
+    "contract": "ordax.app-lifecycle-request/1",
+    "result_contract": "ordax.app-lifecycle-request-result/1",
+    "port": "ordax.app-lifecycle-request-port/1",
     "authority": "none",
     "allowed_sources": [
       "store",
       "launcher"
+    ],
+    "allowed_operations": [
+      "install",
+      "update",
+      "remove"
+    ],
+    "launcher_operations": [
+      "install"
     ],
     "lifecycle_owner": "platform-component-lifecycle",
     "request_selects_artifact": false,
     "request_selects_version": false,
     "request_grants_permissions": false,
     "request_selects_trust_anchor": false,
-    "request_bypasses_verification": false
+    "request_bypasses_verification": false,
+    "remove_request_deletes_user_data": false,
+    "rollback_requested_by_store": false
   }
 }
