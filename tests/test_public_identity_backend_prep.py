@@ -163,6 +163,11 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         observation = hardening["current_observation"]
         self.assertEqual(observation["password_policy_product_minimum_chars"], 12)
         self.assertFalse(observation["provider_password_policy_verified"])
+        self.assertTrue(observation["email_confirmation_provider_verified"])
+        self.assertEqual(
+            observation["email_confirmation_provider_evidence"],
+            "supabase-auth-v1-settings-mailer-autoconfirm-false",
+        )
         self.assertTrue(observation["rate_limit_provider_defaults_reviewed"])
         self.assertFalse(observation["rate_limit_real_client_ip_forwarding_verified"])
         self.assertEqual(
