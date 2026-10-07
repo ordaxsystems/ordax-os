@@ -60,6 +60,14 @@
     "policy_projection_service_role_only": true,
     "policy_projection_active_policy_present": false,
     "web_registration_binding_source_ready": true,
-    "native_registration_binding_source_ready": true
+    "native_registration_binding_source_ready": true,
+    "policy_activation_rpc": "ordax_activate_account_legal_policy_v1",
+    "policy_activation_source_ready": true,
+    "policy_activation_applied": false,
+    "policy_activation_service_role_only": true,
+    "policy_activation_manual_workflow": ".github/workflows/public-legal-policy-activation.yml",
+    "policy_activation_receipt_schema": "prototype-ordax.account-legal-policy-activation-receipt/1",
+    "policy_activation_requires_final_documents": true,
+    "policy_activation_currently_allowed": false
   }
 }
