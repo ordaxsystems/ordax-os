@@ -117,6 +117,20 @@
   "intelligence_component_rollback_proven": false,
   "default_source_repository": "washingtonmsdj/prototipo-ordax-os",
   "canonical_external_source_repository_by_component": {
+    "notes": "washingtonmsdj/ordax-apps",
+    "studio": "washingtonmsdj/ordax-apps"
+  },
+  "source_repository_policy": "component-bound-fail-closed",
+  "native_loopback_broker_health_mutation_components": [
+    "internet",
+    "notes"
+  ],
+  "notes_component_slot_read_available": true,
+  "notes_component_probation_available": true,
+  "notes_component_distribution_activation_enabled": false,
+  "notes_component_promotion_proven": false,
+  "notes_component_rollback_proven": false,
+  "canonical_package_source_repository_by_component": {
     "calculator": "washingtonmsdj/ordax-apps",
     "calendar": "washingtonmsdj/ordax-apps",
     "character-map": "washingtonmsdj/ordax-apps",
@@ -131,19 +145,5 @@
     "studio": "washingtonmsdj/ordax-apps",
     "text-viewer": "washingtonmsdj/ordax-apps",
     "toolbox": "washingtonmsdj/ordax-apps"
-  },
-  "source_repository_policy": "component-bound-fail-closed",
-  "native_loopback_broker_health_mutation_components": [
-    "internet",
-    "notes"
-  ],
-  "notes_component_slot_read_available": true,
-  "notes_component_probation_available": true,
-  "notes_component_distribution_activation_enabled": false,
-  "notes_component_promotion_proven": false,
-  "notes_component_rollback_proven": false,
-  "verified_app_semantics_component_ids": [
-    "notes",
-    "studio"
-  ]
+  }
 }
