@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verifyPublicProxyIdentity } from "../_shared/vercel_public_proxy_identity.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -331,6 +332,13 @@ function crossSiteStateChange(req: Request) {
 
 function publicSiteRequest(req: Request) {
   return (req.headers.get("x-ordax-public-site") ?? "") === "1";
+}
+
+function trustedBoundaryRequired(path: string) {
+  return path.startsWith("/auth/")
+    || path.startsWith("/account/")
+    || path.startsWith("/sync/")
+    || path.startsWith("/network/");
 }
 
 function routePath(url: URL) {
@@ -880,6 +888,13 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const path = routePath(url);
 
+  if (trustedBoundaryRequired(path)) {
+    const identity = await verifyPublicProxyIdentity(req);
+    if (!identity.ok || identity.source !== "vercel-production-oidc") {
+      return error(403, "trusted-account-boundary-required", "Boundary de Conta não autenticado.");
+    }
+  }
+
   if (crossSiteStateChange(req)) {
     return error(403, "cross-site-request-rejected", "Solicitação de outra origem rejeitada.");
   }
@@ -917,7 +932,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 16 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 17 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
