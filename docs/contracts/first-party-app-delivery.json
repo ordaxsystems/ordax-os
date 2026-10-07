@@ -182,7 +182,13 @@
     "offline_executor_may_promote": false,
     "offline_remove_uses_exact_activation_revision": true,
     "offline_remove_touches_app_data": false,
-    "offline_remove_purges_artifact_cache": false
+    "offline_remove_purges_artifact_cache": false,
+    "lifecycle_plan_must_match_current_catalog_watermark": true,
+    "lifecycle_plan_stale_sequence_rejected_before_execution": true,
+    "lifecycle_plan_equal_sequence_different_hash_rejected_before_execution": true,
+    "lifecycle_plan_watermark_failure_is_fail_closed": true,
+    "lifecycle_plan_watermark_guard_held_through_privileged_mutation": true,
+    "catalog_acceptance_blocks_during_lifecycle_mutation": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
