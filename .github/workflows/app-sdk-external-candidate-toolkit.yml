@@ -58,4 +58,26 @@ jobs:
         run: |
           set -euo pipefail
           python3 sdk/app-sdk-v1/verify_unsigned_candidate.py --help >/dev/null
-          ! grep -Eq 'private[_ -]?key|signing[_ -]?key|activate\(|promote\(|rollback\(' sdk/app-sdk-v1/verify_unsigned_candidate.py
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path('sdk/app-sdk-v1/verify_unsigned_candidate.py')
+          tree = ast.parse(path.read_text(encoding='utf-8'))
+          allowed_imports = {
+              '__future__', 'argparse', 'hashlib', 'json', 're', 'stat', 'pathlib', 'zipfile'
+          }
+          forbidden_calls = {'sign', 'publish', 'install', 'activate', 'promote', 'rollback'}
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  for alias in node.names:
+                      assert alias.name.split('.')[0] in allowed_imports, alias.name
+              elif isinstance(node, ast.ImportFrom):
+                  assert (node.module or '').split('.')[0] in allowed_imports, node.module
+              elif isinstance(node, ast.Call):
+                  target = node.func.attr if isinstance(node.func, ast.Attribute) else (
+                      node.func.id if isinstance(node.func, ast.Name) else None
+                  )
+                  assert target not in forbidden_calls, target
+          print('APP_SDK_EXTERNAL_CANDIDATE_AUTHORITY=none')
+          PY
