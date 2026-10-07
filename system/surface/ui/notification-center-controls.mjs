@@ -1,23 +1,11 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { assertNotificationsPort } from "../../contracts/notifications.mjs";
+import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { createLocaleFormatting } from "../../services/i18n/formatting.mjs";
 import { notificationSourceLabel } from "../../services/notifications/catalog.mjs";
 import { notificationPresentationCopy } from "../../services/notifications/presentation.mjs";
-
-const NOTIFICATION_TIME_ZONE = "America/Bahia";
-
-function formatTimestamp(value, locale, translate) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return translate("notifications.time.unavailable");
-  return new Intl.DateTimeFormat(locale, {
-    timeZone: NOTIFICATION_TIME_ZONE,
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
-}
+import { resolveRegionalTimeZone } from "../../services/preferences/regional.mjs";
 
 function requireHost(root, selector, label) {
   const element = root.querySelector(selector);
@@ -183,7 +171,25 @@ function buildEntryNode(documentRef, entry) {
   return article;
 }
 
-function updateEntryNode(node, entry, localization) {
+function syncTimestamp(time, value, formatting, timeZone, translate) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    time.removeAttribute("datetime");
+    time.textContent = translate("notifications.time.unavailable");
+    return;
+  }
+  time.dateTime = date.toISOString();
+  time.textContent = formatting.formatDate(date, {
+    timeZone,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function updateEntryNode(node, entry, localization, formatting, timeZone) {
   const t = localization.translate;
   node.dataset.level = entry.level;
   node.dataset.read = String(entry.read);
@@ -195,8 +201,7 @@ function updateEntryNode(node, entry, localization) {
   const dismiss = node.querySelector("[data-notification-dismiss]");
   const copy = notificationPresentationCopy(entry, localization);
   source.textContent = notificationSourceLabel(entry.sourceId, t);
-  time.dateTime = new Date(entry.createdAt).toISOString();
-  time.textContent = formatTimestamp(entry.createdAt, localization.getLocale(), t);
+  syncTimestamp(time, entry.createdAt, formatting, timeZone, t);
   title.textContent = copy.title;
   message.textContent = copy.message;
   open.textContent = t("notifications.action.open");
@@ -230,15 +235,17 @@ export function mountNotificationCenterControls(
   root,
   notifications,
   appActivation,
-  surfaceLifecycle,
+  surfaceRuntime,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Notification center requires a Surface root Element");
   }
   const center = assertNotificationsPort(notifications);
   const activation = assertAppActivationPort(appActivation);
-  const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
+  const lifecycle = assertSurfaceRenderLifecycle(surfaceRuntime);
+  const preferences = assertPreferenceRuntimePort(surfaceRuntime.preferences);
   const localization = lifecycle.localization;
+  const formatting = createLocaleFormatting(localization);
   const t = localization.translate;
   const markup = ensureNotificationMarkup(root, t);
   const {
@@ -255,6 +262,7 @@ export function mountNotificationCenterControls(
   const entryNodes = new Map();
   let snapshot = center.getSnapshot();
   let destroyed = false;
+  let observedTimeZone = resolveRegionalTimeZone(preferences.getSnapshot());
 
   const render = (nextSnapshot) => {
     if (destroyed) return;
@@ -274,7 +282,7 @@ export function mountNotificationCenterControls(
         node = buildEntryNode(root.ownerDocument, entry);
         entryNodes.set(entry.id, node);
       }
-      updateEntryNode(node, entry, localization);
+      updateEntryNode(node, entry, localization, formatting, observedTimeZone);
       const expectedBefore = previousNode === null ? list.firstElementChild : previousNode.nextElementSibling;
       if (node !== expectedBefore) list.insertBefore(node, expectedBefore);
       previousNode = node;
@@ -342,6 +350,12 @@ export function mountNotificationCenterControls(
   const unsubscribeLocalization = localization.subscribe(() => {
     render(center.getSnapshot());
   });
+  const unsubscribePreferences = preferences.subscribe((preferenceSnapshot) => {
+    const nextTimeZone = resolveRegionalTimeZone(preferenceSnapshot);
+    if (nextTimeZone === observedTimeZone) return;
+    observedTimeZone = nextTimeZone;
+    render(center.getSnapshot());
+  });
   panel.addEventListener("click", onClick);
   panel.addEventListener("ordax:quick-panel-open", onPanelOpen);
   render(snapshot);
@@ -351,6 +365,7 @@ export function mountNotificationCenterControls(
       destroyed = true;
       unsubscribeNotifications();
       unsubscribeLocalization();
+      unsubscribePreferences();
       panel.removeEventListener("click", onClick);
       panel.removeEventListener("ordax:quick-panel-open", onPanelOpen);
       entryNodes.clear();
