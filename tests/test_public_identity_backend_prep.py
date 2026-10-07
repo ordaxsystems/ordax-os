@@ -188,9 +188,16 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(observation["password_recovery_email_template_applied"])
         self.assertFalse(observation["account_recovery_flow_tested"])
         self.assertEqual(observation["observed_date"], "2026-10-07")
-        self.assertEqual(observation["public_edge_gateway_version"], 6)
+        self.assertEqual(observation["public_edge_gateway_version"], 7)
         self.assertIn("v28-deployed", observation["edge_gateway"])
-        self.assertIn("active-v6", observation["public_edge_gateway"])
+        self.assertIn("active-v7", observation["public_edge_gateway"])
+        self.assertTrue(observation["public_edge_product_cookie_envelope_deployed"])
+        self.assertEqual(
+            observation["public_edge_product_cookie_envelope_header"],
+            "x-ordax-cookie-envelope",
+        )
+        self.assertTrue(observation["vercel_product_cookie_envelope_source_merged"])
+        self.assertFalse(observation["vercel_product_cookie_envelope_deployed"])
         self.assertTrue(observation["password_recovery_session_isolated"])
         self.assertEqual(observation["password_recovery_cookie_path"], "/auth/recover")
         self.assertTrue(observation["bot_protection_widget_live_verified"])
@@ -233,8 +240,15 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
             observation["registration_provider_bypass_guard_writes_legal_receipt"]
         )
         self.assertEqual(observation["legacy_accounts_without_legal_receipt_count"], 2)
-        self.assertFalse(
+        self.assertTrue(
             observation["legacy_account_legal_receipt_reconciliation_verified"]
+        )
+        self.assertEqual(observation["legacy_account_legal_quarantine_active_count"], 2)
+        self.assertEqual(observation["legacy_account_legal_quarantine_unreconciled_count"], 0)
+        self.assertTrue(observation["legacy_account_legal_quarantine_deployed"])
+        self.assertEqual(
+            observation["legacy_account_legal_quarantine_status_rpc"],
+            "ordax_account_legal_reconciliation_status_v1",
         )
         self.assertFalse(observation["legacy_accounts_public_login_allowed"])
         self.assertTrue(observation["public_login_legal_receipt_guard_source_ready"])
