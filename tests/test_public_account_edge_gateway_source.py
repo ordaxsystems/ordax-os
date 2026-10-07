@@ -86,7 +86,17 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024', self.edge)
         self.assertIn('const ALLOWED_METHODS = new Set(["GET", "POST"])', self.edge)
         self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"]', self.edge)
-        self.assertNotIn('/account/', self.edge)
+        self.assertIn('const PUBLIC_ACCOUNT_ROUTES = new Map([', self.edge)
+        for route, method in (
+            ("/account/export", "GET"),
+            ("/account/spaces", "GET"),
+            ("/account/entitlements/memory-cloud", "GET"),
+            ("/account/close", "POST"),
+        ):
+            self.assertIn(f'["{route}", "{method}"]', self.edge)
+            self.assertIn(f'["{route}", "{method}"]', self.proxy)
+        self.assertIn("accountMethod !== method", self.edge)
+        self.assertIn("accountMethod !== method", self.proxy)
         self.assertNotIn('/network/', self.edge)
 
     def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
