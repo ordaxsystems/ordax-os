@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.work-coordination-foundation/1",
-  "status": "foundation-store-runtime-contracts-public-disabled",
+  "status": "foundation-store-runtime-native-state-boundary-public-disabled",
   "issue": 1154,
   "owner": "platform",
   "contracts": [
@@ -46,6 +46,8 @@
   },
   "store": {
     "contract_defined": true,
+    "native_durable_adapter_defined": true,
+    "native_typed_endpoint_defined": true,
     "native_durable_adapter_mounted": false,
     "partition": "owner+project",
     "scope_values": [
@@ -74,6 +76,17 @@
       "project_cascade": false
     }
   },
+  "native_state": {
+    "contract": "docs/contracts/work-coordination-native-state.json",
+    "client_adapter": "system/adapters/native/work-coordination-state.mjs",
+    "host_state_owner": "system/surface/runtime/native_work_coordination_state.py",
+    "typed_endpoint": "system/surface/runtime/native_work_coordination_endpoint.py",
+    "shared_transport": "system/adapters/native/bounded-json-transport.mjs",
+    "shared_private_state_primitive": "system/surface/runtime/native_partitioned_json_state.py",
+    "host_route_mounted": false,
+    "authoritative_project_context_required": true,
+    "project_browser_assertion_is_authority": false
+  },
   "runtime": {
     "contract_defined": true,
     "mounted_in_native": false,
@@ -97,8 +110,16 @@
     "provider_connector_mutations_enabled": false,
     "studio_is_authority_owner": false
   },
+  "dependencies": {
+    "project_authority_cutover_required_before_project_scoped_host_mount": true,
+    "project_authority_owner": "ordax.project-catalog-reader/1",
+    "project_cutover_tracking_pr": 1237,
+    "no_parallel_project_registry_allowed": true
+  },
   "next": [
-    "native-atomic-store-adapter",
+    "project-authority-cutover",
+    "native-host-route-composition",
+    "native-composition-store-mount",
     "activity-settings",
     "provider-connectors",
     "studio-consumer"

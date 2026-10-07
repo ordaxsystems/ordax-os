@@ -267,22 +267,43 @@ test("evidence is typed, verifiable and never authority", () => {
   }), /cannot carry authority field/);
 });
 
-test("machine-readable coordination status stays fail-closed and non-MVP-blocking", async () => {
+test("machine-readable coordination status reflects the Native boundary without enabling it", async () => {
   const foundation = JSON.parse(await readFile(
     new URL("../docs/contracts/work-coordination.json", import.meta.url),
     "utf8",
   ));
 
-  assert.equal(foundation.status, "foundation-store-runtime-contracts-public-disabled");
+  assert.equal(
+    foundation.status,
+    "foundation-store-runtime-native-state-boundary-public-disabled",
+  );
   assert.equal(foundation.authority, "none");
   assert.equal(foundation.policy.absence_enables_coordination, false);
   assert.equal(foundation.policy.automatic_requires_explicit_confirmation, true);
   assert.equal(foundation.policy.background_execution_enabled, false);
   assert.equal(foundation.claims.finite_lease_required, true);
   assert.equal(foundation.claims.permanent_lock_allowed, false);
+  assert.equal(foundation.store.native_durable_adapter_defined, true);
+  assert.equal(foundation.store.native_typed_endpoint_defined, true);
+  assert.equal(foundation.store.native_durable_adapter_mounted, false);
+  assert.equal(
+    foundation.native_state.contract,
+    "docs/contracts/work-coordination-native-state.json",
+  );
+  assert.equal(foundation.native_state.host_route_mounted, false);
+  assert.equal(foundation.native_state.authoritative_project_context_required, true);
+  assert.equal(foundation.native_state.project_browser_assertion_is_authority, false);
   assert.equal(foundation.runtime.recovery_mutation_requires_policy, true);
   assert.equal(foundation.runtime.system_mutation_requires_confirmed_automatic, true);
   assert.equal(foundation.runtime.provider_self_verification_allowed, false);
+  assert.equal(
+    foundation.dependencies.project_authority_cutover_required_before_project_scoped_host_mount,
+    true,
+  );
+  assert.equal(foundation.dependencies.project_authority_owner, "ordax.project-catalog-reader/1");
+  assert.equal(foundation.dependencies.project_cutover_tracking_pr, 1237);
+  assert.equal(foundation.dependencies.no_parallel_project_registry_allowed, true);
+  assert.equal(foundation.next[0], "project-authority-cutover");
   assert.equal(foundation.mvp.new_usb_mvp_blocker, false);
   assert.equal(foundation.mvp.public_enabled, false);
   assert.equal(foundation.mvp.background_autonomy_enabled, false);
