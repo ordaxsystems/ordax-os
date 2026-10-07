@@ -248,6 +248,28 @@ class NativeAccountGateway:
         with self._lock:
             return self._request("GET", "/account/export")
 
+    def close_account(self, password: str, confirmation: str) -> GatewayReply:
+        if (
+            not isinstance(password, str)
+            or not password
+            or len(password) > 1024
+            or "\x00" in password
+        ):
+            raise NativeAccountGatewayError("invalid-account-close-password")
+        if confirmation != "close-account":
+            raise NativeAccountGatewayError("account-close-confirmation-required")
+        with self._lock:
+            payload = urlencode({
+                "password": password,
+                "confirmation": confirmation,
+            }).encode("utf-8")
+            return self._request(
+                "POST",
+                "/account/close",
+                body=payload,
+                content_type="application/x-www-form-urlencoded",
+            )
+
     def spaces(self) -> GatewayReply:
         with self._lock:
             return self._request("GET", "/account/spaces")
