@@ -92,14 +92,17 @@ export async function discoverVerifiedExternalApplications({
         throw new TypeError(`Verified external app identity drifted for ${appId}`);
       }
 
+      const rawPresentation = await readPackageJson({
+        source: packageSource,
+        fetchImpl,
+        appId,
+        metadata,
+        relativePath: "presentation/manifest.json",
+        optional: true,
+      });
+      if (rawPresentation === null) continue;
       const presentation = validateAppPresentationManifest(
-        await readPackageJson({
-          source: packageSource,
-          fetchImpl,
-          appId,
-          metadata,
-          relativePath: "presentation/manifest.json",
-        }),
+        rawPresentation,
         { appId, appVersion: component.version },
       );
 
