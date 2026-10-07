@@ -7,6 +7,7 @@ import {
   createUnavailableAppArtifactAcquisitionSource,
 } from "../system/contracts/app-artifact-acquisition-source.mjs";
 import {
+  appArtifactContentPath,
   validateAppArtifactIdentity,
 } from "../system/contracts/app-artifact-identity.mjs";
 
@@ -67,5 +68,18 @@ test("artifact identity rejects payloads larger than the runtime verifier ceilin
       size: (32 * 1024 * 1024) + 1,
     }),
     /identity is invalid/,
+  );
+});
+
+
+test("artifact content path is derived only from verified SHA-256 identity", () => {
+  assert.equal(
+    appArtifactContentPath(IDENTITY),
+    `sha256/${IDENTITY.sha256.slice(0, 2)}/${IDENTITY.sha256}`,
+  );
+  assert.doesNotMatch(appArtifactContentPath(IDENTITY), /notes|version|https?:/i);
+  assert.throws(
+    () => appArtifactContentPath({ ...IDENTITY, sha256: "not-a-digest" }),
+    TypeError,
   );
 });
