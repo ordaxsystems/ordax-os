@@ -62,6 +62,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertNotIn("product-leaked-password-protection", blockers)
         self.assertNotIn("account-data-export-implementation", blockers)
         self.assertNotIn("email-confirmation-policy", blockers)
+        self.assertNotIn("email-confirmation-provider-verification", blockers)
         self.assertNotIn("redirect-allowlist", blockers)
         self.assertNotIn("password-policy-review", blockers)
         self.assertNotIn("account-close-implementation", blockers)
@@ -76,7 +77,6 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "registration-legal-native-binding",
             "registration-legal-activation",
             "account-registration-switch",
-            "email-confirmation-provider-verification",
             "redirect-allowlist-provider-verification",
             "provider-password-policy-verification",
             "public-edge-provenance-proof",
