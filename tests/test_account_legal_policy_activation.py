@@ -1,0 +1,171 @@
+import importlib.util
+import json
+import os
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+MIGRATION = (
+    ROOT
+    / "infra"
+    / "supabase"
+    / "product"
+    / "migrations"
+    / "20261007041500_account_legal_policy_activation_v1.sql"
+)
+TOOL = ROOT / "tools" / "public-site" / "activate_account_legal_policy.py"
+WORKFLOW = ROOT / ".github" / "workflows" / "public-legal-policy-activation.yml"
+
+
+def load_tool():
+    spec = importlib.util.spec_from_file_location("ordax_legal_policy_activation", TOOL)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+activation = load_tool()
+
+
+class AccountLegalPolicyActivationTests(unittest.TestCase):
+    def test_rpc_is_service_role_only_atomic_and_idempotent(self):
+        sql = MIGRATION.read_text(encoding="utf-8")
+        lower = sql.lower()
+        self.assertIn("ordax_activate_account_legal_policy_v1", lower)
+        self.assertIn("security definer", lower)
+        self.assertIn("set search_path = ''", lower)
+        self.assertIn(
+            "lock table private.ordax_account_legal_policies\n    in share row exclusive mode",
+            lower,
+        )
+        self.assertIn("ordax-account-privacy-version-content-mismatch", lower)
+        self.assertIn("ordax-account-terms-version-content-mismatch", lower)
+        self.assertIn("return v_current.policy_id", lower)
+        self.assertIn("state = 'retired'", lower)
+        self.assertIn("'active'", lower)
+        self.assertIn(
+            "revoke all on function public.ordax_activate_account_legal_policy_v1",
+            lower,
+        )
+        self.assertIn("from public, anon, authenticated, service_role", lower)
+        self.assertIn(
+            "grant execute on function public.ordax_activate_account_legal_policy_v1",
+            lower,
+        )
+        self.assertIn("to service_role", lower)
+
+    def test_current_repository_cannot_build_activation_candidate(self):
+        with self.assertRaises(ValueError):
+            activation.build_candidate("https://ordax-os-public.vercel.app")
+
+    def test_candidate_binds_exact_final_page_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            legal = root / "legal.json"
+            site = root / "public"
+            (site / "privacidade").mkdir(parents=True)
+            (site / "termos").mkdir(parents=True)
+            (site / "privacidade" / "index.html").write_bytes(b"privacy-final-v1\n")
+            (site / "termos" / "index.html").write_bytes(b"terms-final-v1\n")
+            legal.write_text(
+                json.dumps(
+                    {
+                        "$schema": "prototype-ordax.public-legal-readiness/1",
+                        "status": "ready",
+                        "account_activation_ready": True,
+                        "documents": {
+                            "privacy": {
+                                "route": "/privacidade/",
+                                "final": True,
+                                "version": "privacy-2026-10-07",
+                                "effective_date": "2026-10-07",
+                            },
+                            "terms": {
+                                "route": "/termos/",
+                                "final": True,
+                                "version": "terms-2026-10-07",
+                                "effective_date": "2026-10-07",
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            original_legal = activation.LEGAL
+            original_site = activation.SITE
+            try:
+                activation.LEGAL = legal
+                activation.SITE = site
+                candidate = activation.build_candidate(
+                    "https://ordax-os-public.vercel.app/"
+                )
+            finally:
+                activation.LEGAL = original_legal
+                activation.SITE = original_site
+
+        self.assertEqual(
+            candidate["origin"],
+            "https://ordax-os-public.vercel.app",
+        )
+        self.assertEqual(
+            candidate["privacy"]["url"],
+            "https://ordax-os-public.vercel.app/privacidade/",
+        )
+        self.assertEqual(
+            candidate["terms"]["url"],
+            "https://ordax-os-public.vercel.app/termos/",
+        )
+        self.assertRegex(candidate["privacy"]["sha256"], r"^[0-9a-f]{64}$")
+        self.assertRegex(candidate["terms"]["sha256"], r"^[0-9a-f]{64}$")
+        self.assertNotEqual(candidate["privacy"]["sha256"], candidate["terms"]["sha256"])
+
+    def test_origin_must_be_clean_https_origin(self):
+        self.assertEqual(
+            activation.clean_origin("https://example.invalid/"),
+            "https://example.invalid",
+        )
+        for value in (
+            "http://example.invalid",
+            "https://user:pass@example.invalid",
+            "https://example.invalid/path",
+            "https://example.invalid/?q=1",
+            "https://example.invalid/#x",
+        ):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                activation.clean_origin(value)
+
+    def test_apply_requires_exact_source_commit_before_provider_call(self):
+        old_sha = os.environ.pop("GITHUB_SHA", None)
+        old_override = os.environ.pop("ORDAX_SOURCE_COMMIT", None)
+        try:
+            with self.assertRaises(ValueError):
+                activation.source_commit()
+            os.environ["ORDAX_SOURCE_COMMIT"] = "a" * 40
+            self.assertEqual(activation.source_commit(), "a" * 40)
+        finally:
+            if old_sha is not None:
+                os.environ["GITHUB_SHA"] = old_sha
+            if old_override is not None:
+                os.environ["ORDAX_SOURCE_COMMIT"] = old_override
+            else:
+                os.environ.pop("ORDAX_SOURCE_COMMIT", None)
+
+    def test_workflow_is_manual_confirmed_secret_backed_and_receipt_only(self):
+        text = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch:", text)
+        self.assertNotIn("pull_request:", text)
+        self.assertNotIn("push:", text)
+        self.assertIn("activate-reviewed-legal-policy", text)
+        self.assertIn("secrets.ORDAX_SUPABASE_SECRET_KEY", text)
+        self.assertIn("ACCOUNT_LEGAL_POLICY_OPERATOR_CREDENTIAL_PRINTED=NO", text)
+        self.assertIn("activate_account_legal_policy.py candidate", text)
+        self.assertIn("activate_account_legal_policy.py apply", text)
+        self.assertIn("ACCOUNT_LEGAL_POLICY_ACTIVATION_RECEIPT=PASS_SANITIZED", text)
+        self.assertIn("retention-days: 30", text)
+        self.assertNotIn('echo "$ORDAX_SUPABASE_SECRET_KEY"', text)
+
+
+if __name__ == "__main__":
+    unittest.main()

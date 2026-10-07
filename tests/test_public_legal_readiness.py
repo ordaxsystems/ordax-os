@@ -36,6 +36,24 @@ class PublicLegalReadinessTests(unittest.TestCase):
         self.assertFalse(contract["documents"]["terms"]["final"])
         self.assertIsNone(contract["documents"]["privacy"]["version"])
         self.assertIsNone(contract["documents"]["terms"]["version"])
+        binding = contract["registration_binding"]
+        self.assertTrue(binding["policy_activation_source_ready"])
+        self.assertFalse(binding["policy_activation_applied"])
+        self.assertTrue(binding["policy_activation_service_role_only"])
+        self.assertFalse(binding["policy_activation_currently_allowed"])
+        self.assertTrue(binding["policy_activation_requires_final_documents"])
+        self.assertEqual(
+            binding["policy_activation_rpc"],
+            "ordax_activate_account_legal_policy_v1",
+        )
+        self.assertEqual(
+            binding["policy_activation_manual_workflow"],
+            ".github/workflows/public-legal-policy-activation.yml",
+        )
+        self.assertEqual(
+            binding["policy_activation_receipt_schema"],
+            "prototype-ordax.account-legal-policy-activation-receipt/1",
+        )
 
     def test_auth_hardening_gate_is_not_ready(self):
         contract = json.loads(AUTH_HARDENING.read_text(encoding="utf-8"))

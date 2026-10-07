@@ -86,6 +86,15 @@ creates the receipt in the same database transaction as the user bootstrap.
 
 No active Privacy/Terms policy is seeded by the migration. Browser/authenticated roles have
 no direct table or RPC authority, client-supplied document versions are never trusted, and
+
+Final reviewed policy activation has one canonical path: the service-role-only
+`ordax_activate_account_legal_policy_v1` RPC plus the manual
+`Public Legal Policy Activation` workflow. The workflow derives SHA-256 from the exact
+served Privacy/Terms HTML, requires the legal readiness contract to be fully ready,
+requires explicit operator confirmation, and emits only a sanitized receipt. Direct
+manual edits to mark a policy active are not the release procedure.
+
+
 registration remains disabled until reviewed final documents are deliberately activated.
 
 Migration `20261002225800_account_registration_policy_projection_v1.sql` is also applied.
