@@ -158,7 +158,7 @@ test("Native production composition uses typed Project authority instead of lega
   );
   assert.match(
     nativeCompositionSource,
-    /projectMutations:\s*projectMutations/,
+    /createProjectContinuityFileSpace\s*\(\s*fileSpace\s*,\s*projects\s*,\s*\{\s*projectMutations(?:\s*:\s*projectMutations)?\s*,/s,
     "File Space continuity must receive explicit Project mutation authority",
   );
 });
