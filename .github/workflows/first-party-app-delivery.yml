@@ -37,6 +37,10 @@ on:
       - 'system/composition/native/main.mjs'
       - 'system/composition/native/store-catalog.mjs'
       - 'system/adapters/native/verified-app-store-catalog.mjs'
+      - 'system/adapters/native/app-lifecycle-delegate.mjs'
+      - 'tests/test_native_app_lifecycle_delegate.mjs'
+      - 'system/adapters/native/app-lifecycle-delegate.mjs'
+      - 'tests/test_native_app_lifecycle_delegate.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
@@ -101,6 +105,8 @@ jobs:
           node --check system/services/apps/store-lifecycle-request-service.mjs
           node --check system/services/apps/verified-store-projection.mjs
           node --check system/adapters/native/verified-app-store-catalog.mjs
+          node --check system/adapters/native/app-lifecycle-delegate.mjs
+          node --check system/composition/native/main.mjs
           node --check system/composition/native/store-catalog.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
@@ -113,6 +119,7 @@ jobs:
           node --check tests/test_verified_app_store_catalog.mjs
           node --check tests/test_verified_store_projection.mjs
           node --check tests/test_native_verified_app_store_catalog.mjs
+          node --check tests/test_native_app_lifecycle_delegate.mjs
           node --check tests/test_native_store_catalog_composition.mjs
           node --check tests/test_mvp_app_delivery.mjs
           python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
@@ -133,6 +140,7 @@ jobs:
           node --test tests/test_verified_app_store_catalog.mjs
           node --test tests/test_verified_store_projection.mjs
           node --test tests/test_native_verified_app_store_catalog.mjs
+          node --test tests/test_native_app_lifecycle_delegate.mjs
           node --test tests/test_native_store_catalog_composition.mjs
 
       - name: Prove minimal MVP payload and first-online refresh policy
