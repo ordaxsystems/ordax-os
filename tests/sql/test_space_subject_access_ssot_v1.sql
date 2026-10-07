@@ -14,6 +14,13 @@ begin
 end;
 $roles$;
 
+-- The Account/Memory proof runs first in this disposable CI database. Reset only
+-- implementation/auth schemas before building this independent Space fixture;
+-- shared cluster roles remain idempotent and public Memory tables do not overlap.
+drop schema if exists ordax_policy cascade;
+drop schema if exists private cascade;
+drop schema if exists auth cascade;
+
 create schema auth;
 create schema private;
 create schema ordax_policy;
