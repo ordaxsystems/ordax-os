@@ -139,7 +139,6 @@ def validate_database_proof(value: object) -> list[str]:
             "public_function_execute_count",
             "unsafe_security_definer_search_path_count",
             "authenticated_private_function_execute_count",
-            "private_cloud_storage_rls_enabled_count",
             "authenticated_sync_table_grant_count",
             "service_role_sync_table_grant_count",
             "non_executor_sync_policy_count",
