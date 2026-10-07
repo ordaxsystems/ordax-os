@@ -90,17 +90,18 @@ function unavailable() {
 }
 
 function verifiedEntry(overrides = {}) {
+  const appId = overrides.appId ?? "notes";
   return {
-    appId: "notes",
-    title: "Notas",
+    appId,
+    title: appId === "notes" ? "Notas" : appId,
     version: "0.4.3",
     releaseMode: "component-slot",
     sourceCommit: COMMIT,
     artifacts: {
-      package: artifact("notes.zip", "b"),
-      release: artifact("notes.release.json", "c"),
-      compatibility: artifact("notes.compatibility.json", "d"),
-      componentEnvelope: artifact("notes.runtime-component-envelope.json", "e"),
+      package: artifact(`${appId}.zip`, "b"),
+      release: artifact(`${appId}.release.json`, "c"),
+      compatibility: artifact(`${appId}.compatibility.json`, "d"),
+      componentEnvelope: artifact(`${appId}.runtime-component-envelope.json`, "e"),
     },
     ...overrides,
   };
@@ -228,7 +229,7 @@ test("Store lifecycle service rejects unavailable or divergent verified candidat
     [ready(entry({ appId: "studio" })), verifiedReady(), "app-not-catalogued"],
     [ready(entry({ installable: false })), verifiedReady(), "lifecycle-operation-not-available"],
     [ready(), verifiedUnavailable(), "verified-catalog-unavailable"],
-    [ready(), verifiedReady([]), "verified-candidate-projection-mismatch"],
+    [ready(), verifiedReady([verifiedEntry({ appId: "studio", title: "ORDAX Studio" })]), "verified-candidate-projection-mismatch"],
     [
       ready(entry({ availableVersion: "0.4.4" })),
       verifiedReady(),
