@@ -22,6 +22,7 @@ Adapters implement environment-specific capabilities. Shared Surface/apps/servic
 
 Rules are machine-readable in `docs/contracts/module-boundaries.json`.
 Component update contracts follow the same boundary: `component-manifest.mjs` declares identity, version, failure domain and release mode; `component-state-store.mjs` owns persisted slot state; `component-manager.mjs` exposes the neutral runtime port. A semantic version does not by itself grant independent update authority — only `releaseMode: "component-slot"` does.
+`component-runtime-metadata.mjs` is the single shared validator for the read-only Native `current|pending` runtime-component resolution. Services must consume it instead of reimplementing `slot|absent|bundled` identity rules.
 
 ## Pre-MVP ecosystem contracts
 
