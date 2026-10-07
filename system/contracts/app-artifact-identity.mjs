@@ -28,3 +28,9 @@ export function validateAppArtifactIdentity(value, label = "App artifact") {
     size: value.size,
   });
 }
+
+
+export function appArtifactContentPath(value) {
+  const identity = validateAppArtifactIdentity(value);
+  return `sha256/${identity.sha256.slice(0, 2)}/${identity.sha256}`;
+}
