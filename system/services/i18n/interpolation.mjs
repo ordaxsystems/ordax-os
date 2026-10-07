@@ -14,7 +14,7 @@ function interpolationValue(value, key) {
   if (typeof value === "string") {
     if (value.length > LOCALIZATION_INTERPOLATION_MAX_TEXT_LENGTH) {
       throw new RangeError(
-        `Localization interpolation value ${key} exceeds ${LOCALIZATION_INTERPOLATION_MAX_TEXT_LENGTH} characters`,
+        `Localization interpolation value ${key} exceeds ${LOCALIZATION_INTERPOLATION_MAX_TEXT_LENGTH} UTF-16 code units`,
       );
     }
     return value;
