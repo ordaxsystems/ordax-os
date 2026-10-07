@@ -6,6 +6,10 @@ import {
   trustedPublicClientAddress,
   validateRateLimitRpcResult,
 } from "../infra/supabase/functions/ordax-public-account-gateway/public_auth_rate_limit.mjs";
+import {
+  authRateLimitBucket,
+  canonicalizeClientAddress,
+} from "../infra/supabase/functions/_shared/auth_rate_limit.mjs";
 
 function request(headers = {}) {
   return new Request("https://edge.example/functions/v1/ordax-public-account-gateway/auth/login", {
@@ -84,4 +88,15 @@ test("rate-limit RPC result is shape-checked and bucket-bound", () => {
   assert.deepEqual(validateRateLimitRpcResult(limited, "credentials"), limited[0]);
   assert.equal(validateRateLimitRpcResult([{ ...limited[0], retry_after_seconds: 0 }], "credentials"), null);
   assert.equal(validateRateLimitRpcResult([{ ...allowed[0], remaining: 11 }], "credentials"), null);
+});
+
+
+test("shared rate-limit policy binds public and direct Native credential routes identically", () => {
+  assert.equal(authRateLimitBucket("POST", "/auth/login"), "credentials");
+  assert.equal(authRateLimitBucket("POST", "/auth/register"), "credentials");
+  assert.equal(authRateLimitBucket("POST", "/auth/recover"), "recovery-request");
+  assert.equal(authRateLimitBucket("POST", "/auth/recover/complete"), "recovery-completion");
+  assert.equal(authRateLimitBucket("GET", "/auth/login"), null);
+  assert.equal(authRateLimitBucket("POST", "/sync/mutate"), null);
+  assert.equal(canonicalizeClientAddress("203.000.113.020"), "203.0.113.20");
 });
