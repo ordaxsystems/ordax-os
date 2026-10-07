@@ -70,10 +70,16 @@
     "installed_payload_required_for_launch": true
   },
   "inventory_boundary": {
-    "production_inventory_owner": "future-native-app-inventory",
+    "production_inventory_owner": "verified-runtime-component-current-activation",
     "policy_is_inventory": false,
     "catalog_is_inventory": false,
-    "surface_may_claim_installation": false
+    "surface_may_claim_installation": false,
+    "record_schema": "ordax.first-party-app-activation-record/1",
+    "snapshot_schema": "ordax.first-party-app-activation-inventory/1",
+    "installed_requires_verified_current_slot": true,
+    "absent_activation_means_not_installed": true,
+    "cache_presence_means_installed": false,
+    "external_app_bundled_fallback_allowed": false
   },
   "store_boundary": {
     "public_store_ui_enabled": false,
