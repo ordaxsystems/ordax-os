@@ -182,6 +182,19 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(observation["password_recovery_completion_enabled"])
         self.assertFalse(observation["password_recovery_email_template_applied"])
         self.assertFalse(observation["account_recovery_flow_tested"])
+        self.assertEqual(observation["observed_date"], "2026-10-07")
+        self.assertEqual(observation["public_edge_gateway_version"], 6)
+        self.assertIn("v27-deployed", observation["edge_gateway"])
+        self.assertIn("active-v6", observation["public_edge_gateway"])
+        self.assertTrue(observation["password_recovery_session_isolated"])
+        self.assertEqual(observation["password_recovery_cookie_path"], "/auth/recover")
+        self.assertTrue(observation["bot_protection_widget_live_verified"])
+        self.assertEqual(
+            observation["bot_protection_widget_domains"],
+            ["ordax-os-public.vercel.app"],
+        )
+        self.assertFalse(observation["bot_protection_production_secret_configured"])
+        self.assertFalse(observation["public_adapter_rate_limit_deployed"])
 
     def test_supabase_preflight_is_read_only(self):
         sql = PREFLIGHT.read_text(encoding="utf-8").lower()
