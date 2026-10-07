@@ -417,6 +417,7 @@ class OrdaXBrowserHost:
             for component_id, nonce in attempts.items():
                 if self.component_probation_nonces.get(component_id) == nonce:
                     self.component_probation_nonces.pop(component_id, None)
+                self.component_probation_rerun_requested.discard(component_id)
             print(
                 f"ordax-browser-host: failed to start component probation: {exc}",
                 file=sys.stderr,
