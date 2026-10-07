@@ -5,8 +5,10 @@ import {
   APP_ARTIFACT_ACQUISITION_SOURCE_SCHEMA,
   assertAppArtifactAcquisitionSource,
   createUnavailableAppArtifactAcquisitionSource,
-  validateAppArtifactIdentity,
 } from "../system/contracts/app-artifact-acquisition-source.mjs";
+import {
+  validateAppArtifactIdentity,
+} from "../system/contracts/app-artifact-identity.mjs";
 
 const IDENTITY = Object.freeze({
   name: "notes.zip",
