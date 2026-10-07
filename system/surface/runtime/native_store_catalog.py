@@ -261,6 +261,16 @@ def _persist_watermark(path: Path, value: dict) -> None:
         raise StoreCatalogError("Store catalog watermark persistence failed") from exc
 
 
+@contextmanager
+def guard_store_catalog_watermark(path: Path):
+    """Hold the catalog watermark lock while privileged work uses its identity."""
+    with _watermark_lock(path):
+        current = _load_watermark(path)
+        if current is None:
+            raise StoreCatalogError("Store catalog watermark is unavailable")
+        yield dict(current)
+
+
 def read_store_catalog_watermark(path: Path) -> dict:
     with _watermark_lock(path):
         current = _load_watermark(path)
