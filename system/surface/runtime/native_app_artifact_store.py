@@ -108,25 +108,35 @@ def _artifact_lock(root: Path, digest: str):
 
 
 def _read_verified_path(path: Path, identity: dict) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        metadata = path.lstat()
+        descriptor = os.open(path, flags)
     except OSError as exc:
-        raise AppArtifactStoreError("cached app artifact is unavailable") from exc
-    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-        raise AppArtifactStoreError("cached app artifact must be a regular non-symlink file")
-    if metadata.st_nlink != 1:
-        raise AppArtifactStoreError("cached app artifact must have one hardlink")
-    if os.name != "nt" and stat.S_IMODE(metadata.st_mode) != 0o400:
-        raise AppArtifactStoreError("cached app artifact permissions are not read-only private")
-    if metadata.st_size != identity["size"]:
-        raise AppArtifactStoreError("cached app artifact size mismatch")
+        raise AppArtifactStoreError("cached app artifact is unavailable or unsafe") from exc
     try:
-        payload = path.read_bytes()
-    except OSError as exc:
-        raise AppArtifactStoreError("cached app artifact cannot be read") from exc
-    if len(payload) != identity["size"] or hashlib.sha256(payload).hexdigest() != identity["sha256"]:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise AppArtifactStoreError("cached app artifact must be a regular file")
+        if metadata.st_nlink != 1:
+            raise AppArtifactStoreError("cached app artifact must have one hardlink")
+        if os.name != "nt" and stat.S_IMODE(metadata.st_mode) != 0o400:
+            raise AppArtifactStoreError("cached app artifact permissions are not read-only private")
+        if metadata.st_size != identity["size"]:
+            raise AppArtifactStoreError("cached app artifact size mismatch")
+        payload = bytearray()
+        while len(payload) < identity["size"]:
+            chunk = os.read(descriptor, min(1024 * 1024, identity["size"] - len(payload)))
+            if not chunk:
+                break
+            payload.extend(chunk)
+        if len(payload) != identity["size"] or os.read(descriptor, 1):
+            raise AppArtifactStoreError("cached app artifact changed while reading")
+        result = bytes(payload)
+    finally:
+        os.close(descriptor)
+    if hashlib.sha256(result).hexdigest() != identity["sha256"]:
         raise AppArtifactStoreError("cached app artifact digest mismatch")
-    return payload
+    return result
 
 
 def read_cached_artifact(identity: object, *, root: str = DEFAULT_ARTIFACT_ROOT) -> bytes:
