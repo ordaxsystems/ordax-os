@@ -60,7 +60,13 @@ export function createSameOriginAccountLifecycle(
     return snapshot;
   };
 
+  let initialSessionEmission = true;
   const unsubscribe = session?.subscribe((sessionSnapshot) => {
+    if (initialSessionEmission) {
+      initialSessionEmission = false;
+      if (sessionSnapshot.state !== "signed-in") setSupported(false);
+      return;
+    }
     if (sessionSnapshot.state !== "signed-in") {
       setSupported(false);
       return;
