@@ -1,6 +1,7 @@
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
 import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createSameOriginIdentityCredentials } from "../../adapters/web/identity-credentials.mjs";
+import { createSameOriginAccountLifecycle } from "../../adapters/web/account-lifecycle.mjs";
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebBrowserSession } from "../../adapters/web/browser-session.mjs";
@@ -47,10 +48,12 @@ if (!root) {
 const identitySession = createWebIdentitySession(window);
 await identitySession.refresh();
 const identityCredentials = createSameOriginIdentityCredentials(window);
+const accountLifecycle = createSameOriginAccountLifecycle(window, identitySession);
 const identityActions = createWebIdentityActions(window, identitySession, {
   registrationPolicy: () => identityCredentials.registrationPolicy(),
 });
 await identityActions.refresh();
+await accountLifecycle.refresh();
 const spaces = createWebSpacesCatalog(window);
 const profileComponentInventory = createSessionProfileComponentInventory();
 let profileDistributions = [];
@@ -137,6 +140,7 @@ const accountSync = createAccountSyncRuntime({
 const resumeAccountConnectivity = async () => {
   await identitySession.refresh();
   await identityActions.refresh();
+  await accountLifecycle.refresh();
   await accountSync.refresh();
 };
 const onOnline = () => void resumeAccountConnectivity();
@@ -155,6 +159,9 @@ const accountOverviewControls = mountAccountOverviewControls(
   null,
   null,
   surface.preferences,
+  null,
+  null,
+  accountLifecycle,
 );
 const settingsOverviewControls = mountSettingsOverviewControls(
   root,
@@ -276,6 +283,7 @@ window.addEventListener(
     notificationCenter.destroy();
     settingsOverviewControls.destroy();
     accountOverviewControls.destroy();
+    accountLifecycle.dispose();
     profileProvisioning.dispose();
     profileComponentInventory.dispose();
     spaces.dispose();

@@ -471,6 +471,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         payload = self.payload(response)
         self.assertFalse(payload["authenticated"])
         self.assertEqual(payload["provider"], "unconfigured")
+        self.assertFalse(payload["accountCloseEnabled"])
         body = response.body.decode("utf-8").lower()
         for forbidden in ("access_token", "refresh_token", "bearer", "password"):
             self.assertNotIn(forbidden, body)
@@ -1019,6 +1020,29 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         )
         self.assertEqual(response.status, 503)
         self.assertEqual(self.payload(response)["error"], "account-close-disabled")
+
+    def test_session_projects_account_close_capability_from_server_gate_only(self):
+        class FakeIdentity:
+            def get_user(self, access_token):
+                self.last_token = access_token
+                return ("user-1", "person@example.com")
+
+        identity = FakeIdentity()
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=identity,
+            sync_provider=None,
+        )
+        headers = {"cookie": "ordax_access=existing-access"}
+
+        disabled = gateway.handle("GET", "/auth/session", headers)
+        self.assertEqual(disabled.status, 200)
+        self.assertFalse(self.payload(disabled)["accountCloseEnabled"])
+
+        with patch.object(gateway_module, "ACCOUNT_CLOSE_ENABLED", True):
+            enabled = gateway.handle("GET", "/auth/session", headers)
+        self.assertEqual(enabled.status, 200)
+        self.assertTrue(self.payload(enabled)["accountCloseEnabled"])
+        self.assertEqual(identity.last_token, "existing-access")
 
     def test_enabled_account_close_requires_confirmation_and_uses_fresh_session(self):
         class FakeIdentity:

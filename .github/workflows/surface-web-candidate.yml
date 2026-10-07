@@ -28,6 +28,8 @@ on:
       - 'system/contracts/identity-session.mjs'
       - 'system/contracts/identity-actions.mjs'
       - 'system/contracts/identity-credentials.mjs'
+      - 'system/contracts/account-lifecycle.mjs'
+      - 'system/adapters/web/account-lifecycle.mjs'
       - 'system/contracts/entitlements.mjs'
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
@@ -161,6 +163,7 @@ on:
       - 'tests/test_identity_session.mjs'
       - 'tests/test_identity_actions.mjs'
       - 'tests/test_identity_credentials.mjs'
+      - 'tests/test_account_lifecycle.mjs'
       - 'tests/test_power_actions.mjs'
       - 'tests/test_power_status.mjs'
       - 'tests/test_update_*.mjs'
@@ -218,6 +221,8 @@ on:
       - 'system/contracts/identity-session.mjs'
       - 'system/contracts/identity-actions.mjs'
       - 'system/contracts/identity-credentials.mjs'
+      - 'system/contracts/account-lifecycle.mjs'
+      - 'system/adapters/web/account-lifecycle.mjs'
       - 'system/contracts/entitlements.mjs'
       - 'system/contracts/spaces.mjs'
       - 'system/contracts/space-selection.mjs'
@@ -348,6 +353,7 @@ on:
       - 'tests/test_identity_session.mjs'
       - 'tests/test_identity_actions.mjs'
       - 'tests/test_identity_credentials.mjs'
+      - 'tests/test_account_lifecycle.mjs'
       - 'tests/test_power_actions.mjs'
       - 'tests/test_power_status.mjs'
       - 'tests/test_update_*.mjs'
@@ -465,6 +471,7 @@ jobs:
           node --test tests/test_identity_session.mjs
           node --test tests/test_identity_actions.mjs
           node --test tests/test_identity_credentials.mjs
+          node --test tests/test_account_lifecycle.mjs
           node --test tests/test_power_actions.mjs
           node --test tests/test_power_status.mjs
           node --test tests/test_update_*.mjs

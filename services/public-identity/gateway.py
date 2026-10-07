@@ -294,6 +294,7 @@ def _public_site_disabled_response(method: str, path: str) -> GatewayResponse | 
                 "authenticated": False,
                 "provider": "gated",
                 "status": "anonymous",
+                "accountCloseEnabled": False,
             },
             set_cookies=(
                 _clear_cookie(ACCESS_COOKIE),
@@ -462,6 +463,7 @@ class PublicIdentityGateway:
                     "authenticated": False,
                     "provider": "unconfigured",
                     "status": "anonymous",
+                    "accountCloseEnabled": False,
                 },
             )
 
@@ -478,6 +480,7 @@ class PublicIdentityGateway:
                         "status": "authenticated",
                         "subject": subject,
                         "email": email,
+                        "accountCloseEnabled": ACCOUNT_CLOSE_ENABLED,
                     },
                     set_cookies=set_cookies,
                 )
@@ -491,6 +494,7 @@ class PublicIdentityGateway:
                 "authenticated": False,
                 "provider": "supabase",
                 "status": "anonymous",
+                "accountCloseEnabled": False,
             },
             set_cookies=set_cookies,
         )

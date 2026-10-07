@@ -28,6 +28,7 @@ Component update contracts follow the same boundary: `component-manifest.mjs` de
 
 The product foundation also defines narrow provider-neutral ports for the next account/ecosystem layer:
 
+- `account-lifecycle.mjs` — provider-neutral, capability-gated account lifecycle actions; destructive close authority remains server-owned and requires current-password reauthentication plus explicit confirmation;
 - `entitlements.mjs` — server/local-default entitlement decisions; client-claimed paid state is never authoritative;
 - `spaces.mjs` — Spaces, membership and Profile Pack descriptors;
 - `memory.mjs` — scoped, provenance-bearing OrdaX Memory independent of model provider;

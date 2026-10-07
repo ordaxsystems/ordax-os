@@ -225,6 +225,31 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('"Exportar meus dados"', catalog)
         self.assertIn('"Export my data"', catalog)
 
+    def test_account_close_surface_is_server_capability_gated_and_transient(self):
+        controls = ACCOUNT.read_text(encoding="utf-8")
+        catalog = ACCOUNT_CATALOG.read_text(encoding="utf-8")
+        native = NATIVE.read_text(encoding="utf-8")
+        web = WEB.read_text(encoding="utf-8")
+
+        self.assertIn("assertAccountLifecyclePort", controls)
+        self.assertIn(
+            'isAccountLifecycleActionSupported(accountLifecycleSnapshot, "close-account")',
+            controls,
+        )
+        self.assertIn('dataset.accountClosePassword = ""', controls)
+        self.assertIn('dataset.accountCloseConfirmation = ""', controls)
+        self.assertIn('dataset.accountCloseAction = ""', controls)
+        self.assertIn('confirmation: "close-account"', controls)
+        self.assertIn('closePasswordDraft = ""', controls)
+        self.assertNotIn("localStorage", controls)
+        self.assertNotIn("sessionStorage", controls)
+        self.assertIn('"account.lifecycle.close.title": "Fechar Conta OrdaX"', catalog)
+        self.assertIn('"account.lifecycle.close.title": "Close OrdaX Account"', catalog)
+        for composition in (native, web):
+            self.assertIn("createSameOriginAccountLifecycle", composition)
+            self.assertIn("accountLifecycle,", composition)
+            self.assertIn("accountLifecycle.dispose()", composition)
+
     def test_navigation_is_responsive_and_privacy_debug_list_was_removed(self):
         css = CSS.read_text(encoding="utf-8")
         controls = ACCOUNT.read_text(encoding="utf-8")
