@@ -44,15 +44,17 @@ function metadataResponse({
   };
 }
 
-function runtimeModule({ componentId = "internet", version = componentId === "notes" ? "0.4.1" : "0.4.0" } = {}) {
+function runtimeModule({
+  componentId = "internet",
+  version = componentId === "notes" ? "0.4.1" : "0.4.0",
+  mount = async () => ({ destroy() {} }),
+} = {}) {
   return {
     componentRuntime: Object.freeze({
       schema: COMPONENT_RUNTIME_SCHEMA,
       componentId,
       version,
-      async mount() {
-        return { destroy() {} };
-      },
+      mount,
     }),
   };
 }
@@ -109,11 +111,14 @@ test("Notes probation imports the external component contract without mounting t
   const fetched = [];
   const imported = [];
   let mountCalls = 0;
-  const module = runtimeModule({ componentId: "notes", version: "0.4.1" });
-  module.componentRuntime.mount = async () => {
-    mountCalls += 1;
-    return { destroy() {} };
-  };
+  const module = runtimeModule({
+    componentId: "notes",
+    version: "0.4.1",
+    mount: async () => {
+      mountCalls += 1;
+      return { destroy() {} };
+    },
+  });
 
   const result = await runSystemPendingComponentProbation({
     componentId: "notes",
