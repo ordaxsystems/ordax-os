@@ -73,12 +73,23 @@ test("public origin normalizer accepts only syntactically safe https origins", (
   }
 });
 
-test("only auth and sync product paths are accepted", () => {
-  assert.equal(normalizeProductPath("/auth/session"), "/auth/session");
-  assert.equal(normalizeProductPath("/sync/snapshot?limit=1"), "/sync/snapshot?limit=1");
-  assert.equal(normalizeProductPath("/network/v2/messages/send"), null);
-  assert.equal(normalizeProductPath("/auth/../network"), null);
-  assert.equal(normalizeProductPath("/auth/%2e%2e/network"), null);
+test("only auth, sync and exact account routes with exact methods are accepted", () => {
+  assert.equal(normalizeProductPath("/auth/session", "GET"), "/auth/session");
+  assert.equal(normalizeProductPath("/sync/snapshot?limit=1", "GET"), "/sync/snapshot?limit=1");
+  assert.equal(normalizeProductPath("/account/export", "GET"), "/account/export");
+  assert.equal(normalizeProductPath("/account/spaces", "GET"), "/account/spaces");
+  assert.equal(
+    normalizeProductPath("/account/entitlements/memory-cloud", "GET"),
+    "/account/entitlements/memory-cloud",
+  );
+  assert.equal(normalizeProductPath("/account/close", "POST"), "/account/close");
+
+  assert.equal(normalizeProductPath("/account/close", "GET"), null);
+  assert.equal(normalizeProductPath("/account/export", "POST"), null);
+  assert.equal(normalizeProductPath("/account/admin", "GET"), null);
+  assert.equal(normalizeProductPath("/network/v2/messages/send", "POST"), null);
+  assert.equal(normalizeProductPath("/auth/../network", "GET"), null);
+  assert.equal(normalizeProductPath("/auth/%2e%2e/network", "GET"), null);
 });
 
 test("Vercel OIDC token and edge address are bounded before upstream use", () => {

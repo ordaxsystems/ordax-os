@@ -12,6 +12,12 @@ const MAX_BODY = 64 * 1024;
 const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024;
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
 const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
+const PUBLIC_ACCOUNT_ROUTES = new Map([
+  ["/account/export", "GET"],
+  ["/account/spaces", "GET"],
+  ["/account/entitlements/memory-cloud", "GET"],
+  ["/account/close", "POST"],
+]);
 const REQUEST_HEADERS = [
   "accept",
   "content-type",
@@ -63,17 +69,22 @@ function providerConfig() {
   return { url, publishableKey };
 }
 
-function adminClient() {
-  const { url } = providerConfig();
+function serverSecretKey() {
   const secretKey = firstNamedKey(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "", "default")
     ?? (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
   if (!secretKey) throw new Error("provider-admin-unconfigured");
+  return secretKey;
+}
+
+function adminClient() {
+  const { url } = providerConfig();
+  const secretKey = serverSecretKey();
   return createClient(url, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }
 
-function routePath(url: URL) {
+function routePath(url: URL, method: string) {
   const marker = "/ordax-public-account-gateway";
   const index = url.pathname.indexOf(marker);
   if (index < 0) return null;
@@ -83,8 +94,11 @@ function routePath(url: URL) {
     || !pathname.startsWith("/")
     || pathname.includes("\\")
     || pathname.includes("\0")
-    || !ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
   ) return null;
+  const prefixAllowed = ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const accountMethod = PUBLIC_ACCOUNT_ROUTES.get(pathname);
+  if (!prefixAllowed && accountMethod !== method) return null;
+  if (accountMethod && accountMethod !== method) return null;
   return `${pathname}${url.search}`;
 }
 
@@ -105,13 +119,15 @@ async function boundedRequestBody(req: Request) {
   return body;
 }
 
-function upstreamHeaders(req: Request, publishableKey: string) {
+function upstreamHeaders(req: Request, serverSecret: string) {
   const headers = new Headers();
   for (const name of REQUEST_HEADERS) {
     const value = req.headers.get(name);
     if (value) headers.set(name, value);
   }
-  headers.set("apikey", publishableKey);
+  // The public marker is privileged provenance. The inner gateway accepts it
+  // only when the request is authenticated with a backend-only Supabase secret.
+  headers.set("apikey", serverSecret);
   headers.set("x-ordax-public-site", "1");
   return headers;
 }
@@ -155,7 +171,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const url = new URL(req.url);
-  const productPath = routePath(url);
+  const productPath = routePath(url, req.method);
   if (!productPath) {
     return error(404, "gateway-route-not-found", "Rota inexistente.");
   }
@@ -230,7 +246,7 @@ Deno.serve(async (req: Request) => {
   try {
     upstream = await fetch(innerTarget, {
       method: req.method,
-      headers: upstreamHeaders(req, config.publishableKey),
+      headers: upstreamHeaders(req, serverSecretKey()),
       body,
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),

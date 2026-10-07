@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "public-edge-oidc-v4-live-vercel-zero-trust-source-not-deployed",
+  "status": "public-edge-oidc-v5-live-bounded-account-routes-vercel-source-not-deployed",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -75,10 +75,29 @@
     "upstream_absolute_redirect_allowed": false,
     "upstream_protocol_relative_redirect_allowed": false,
     "provider_cors_forwarded": false,
-    "public_auth_rate_limit_deployed": false
+    "public_auth_rate_limit_deployed": false,
+    "account_routes": [
+      {
+        "method": "GET",
+        "path": "/account/export"
+      },
+      {
+        "method": "GET",
+        "path": "/account/spaces"
+      },
+      {
+        "method": "GET",
+        "path": "/account/entitlements/memory-cloud"
+      },
+      {
+        "method": "POST",
+        "path": "/account/close"
+      }
+    ],
+    "account_routes_source_ready": true
   },
   "public_edge_gateway": {
-    "status": "v4-oidc-live-canonical-client-address-runtime-proof-pending",
+    "status": "v5-oidc-live-bounded-account-routes-runtime-proof-pending",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
@@ -87,8 +106,8 @@
     "request_context_validation_connected": true,
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
-    "deployed_version": 4,
-    "deployment_source_commit": "ecfe1f41b9d2881ee2f8667b50719f26fe650f95",
+    "deployed_version": 5,
+    "deployment_source_commit": "6a16c486f5663ca6c46e4ab17816578e3e5cf023",
     "deployed_authentication": "vercel-production-oidc-v2",
     "source_authentication": "vercel-production-oidc-v2",
     "oidc_source_ready": true,
@@ -124,7 +143,28 @@
     "rate_limit_fail_closed": true,
     "maximum_request_body_bytes": 65536,
     "maximum_upstream_response_bytes": 2097152,
-    "native_direct_path_covered_by_this_boundary": false
+    "native_direct_path_covered_by_this_boundary": false,
+    "allowed_account_routes": [
+      {
+        "method": "GET",
+        "path": "/account/export"
+      },
+      {
+        "method": "GET",
+        "path": "/account/spaces"
+      },
+      {
+        "method": "GET",
+        "path": "/account/entitlements/memory-cloud"
+      },
+      {
+        "method": "POST",
+        "path": "/account/close"
+      }
+    ],
+    "account_routes_source_ready": true,
+    "account_routes_deployed": true,
+    "inner_gateway_authentication": "backend-secret-apikey"
   },
   "routing": {
     "static_routes": [
@@ -154,7 +194,26 @@
     "gateway_public_activation_currently_enabled": false,
     "recovery_request_path": "/auth/recover",
     "recovery_verify_path": "/auth/recover/verify",
-    "recovery_complete_path": "/auth/recover/complete"
+    "recovery_complete_path": "/auth/recover/complete",
+    "account_routes": [
+      {
+        "method": "GET",
+        "path": "/account/export"
+      },
+      {
+        "method": "GET",
+        "path": "/account/spaces"
+      },
+      {
+        "method": "GET",
+        "path": "/account/entitlements/memory-cloud"
+      },
+      {
+        "method": "POST",
+        "path": "/account/close"
+      }
+    ],
+    "same_origin_account_required": true
   },
   "security_headers": {
     "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; upgrade-insecure-requests",
@@ -175,7 +234,8 @@
     "release_catalog": "no-store",
     "assets": "public, max-age=300",
     "identity": "no-store",
-    "sync": "no-store"
+    "sync": "no-store",
+    "account": "no-store"
   },
   "production_requirements": {
     "https": true,

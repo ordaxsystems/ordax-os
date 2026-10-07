@@ -18,10 +18,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_live_oidc_v4_without_claiming_zero_trust_rollout(self):
+    def test_contract_records_live_oidc_v5_without_claiming_vercel_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-oidc-v4-live-vercel-zero-trust-source-not-deployed",
+            "public-edge-oidc-v5-live-bounded-account-routes-vercel-source-not-deployed",
         )
         self.assertEqual(
             self.contract["vercel_adapter"]["status"],
@@ -29,10 +29,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         )
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 4)
+        self.assertEqual(edge["deployed_version"], 5)
         self.assertEqual(
             edge["deployment_source_commit"],
-            "ecfe1f41b9d2881ee2f8667b50719f26fe650f95",
+            "6a16c486f5663ca6c46e4ab17816578e3e5cf023",
         )
         self.assertEqual(edge["deployed_authentication"], "vercel-production-oidc-v2")
         self.assertEqual(edge["source_authentication"], "vercel-production-oidc-v2")
@@ -119,13 +119,15 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(self.contract["adapter"]["public_auth_rate_limit_deployed"])
         self.assertTrue(self.contract["security_rate_limits"]["authoritative_backend"]["deployed"])
 
-    def test_vercel_routes_only_auth_and_sync_through_bounded_server_function(self):
+    def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
         self.assertEqual(self.vercel["outputDirectory"], "sites/public")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
+        self.assertEqual(rewrites["/account/:path*"], "/api/account-proxy?ordax_path=/account/:path*")
         self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
         self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"];', self.vercel_proxy)
+        self.assertIn('const PUBLIC_ACCOUNT_ROUTES = new Map([', self.vercel_proxy)
         self.assertIn('import("@vercel/oidc")', self.vercel_proxy)
         self.assertIn("runtime.getVercelOidcToken", self.vercel_proxy)
         self.assertIn("resolveVercelOidcToken", self.vercel_proxy)

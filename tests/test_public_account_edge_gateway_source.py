@@ -63,7 +63,9 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn("x-ordax-public-origin", request_headers)
         self.assertNotIn("authorization", request_headers.lower())
         self.assertIn('headers.set("x-ordax-public-site", "1")', self.edge)
-        self.assertIn('headers.set("apikey", publishableKey)', self.edge)
+        self.assertIn('headers.set("apikey", serverSecret)', self.edge)
+        self.assertIn("function serverSecretKey()", self.edge)
+        self.assertNotIn('headers.set("apikey", publishableKey)', self.edge)
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
@@ -84,7 +86,17 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024', self.edge)
         self.assertIn('const ALLOWED_METHODS = new Set(["GET", "POST"])', self.edge)
         self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"]', self.edge)
-        self.assertNotIn('/account/', self.edge)
+        self.assertIn('const PUBLIC_ACCOUNT_ROUTES = new Map([', self.edge)
+        for route, method in (
+            ("/account/export", "GET"),
+            ("/account/spaces", "GET"),
+            ("/account/entitlements/memory-cloud", "GET"),
+            ("/account/close", "POST"),
+        ):
+            self.assertIn(f'["{route}", "{method}"]', self.edge)
+            self.assertIn(f'["{route}", "{method}"]', self.proxy)
+        self.assertIn("accountMethod !== method", self.edge)
+        self.assertIn("accountMethod !== method", self.proxy)
         self.assertNotIn('/network/', self.edge)
 
     def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
@@ -103,6 +115,13 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-forwarded-host", canonical.host)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
+
+    def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
+        self.assertIn("function trustedPublicSiteRequest(req: Request)", self.inner)
+        self.assertIn('req.headers.get("apikey")', self.inner)
+        self.assertIn("expectedKey = adminConfig().key", self.inner)
+        self.assertIn("constantTimeEqual(presentedKey, expectedKey)", self.inner)
+        self.assertIn('"public-account-boundary-authentication-required"', self.inner)
 
     def test_inner_gateway_remains_fail_closed_during_boundary_rollout(self):
         self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", self.inner)
