@@ -11,6 +11,8 @@ on:
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
       - 'system/services/apps/external-first-party-policy.mjs'
+      - 'tools/app-policy/render_external_first_party_policy.py'
+      - 'docs/contracts/runtime-component-package.json'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
       - 'system/services/apps/verified-store-projection.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
@@ -79,6 +81,8 @@ jobs:
           node --check system/contracts/verified-app-store-catalog.mjs
           node --check system/services/apps/delivery-policy.mjs
           node --check system/services/apps/external-first-party-policy.mjs
+          python -m py_compile tools/app-policy/render_external_first_party_policy.py
+          python tools/app-policy/render_external_first_party_policy.py --check
           node --check system/services/apps/store-lifecycle-request-service.mjs
           node --check system/services/apps/verified-store-projection.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
