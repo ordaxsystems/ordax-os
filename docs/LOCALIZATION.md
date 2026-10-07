@@ -136,6 +136,24 @@ Pseudo-localization is deterministic, expands visible copy, preserves interpolat
 placeholder identity exactly and isolates RTL test output. The canonical machine-
 readable rules live in `docs/contracts/localization.json`.
 
+## Locale-aware formatting
+
+`system/services/i18n/formatting.mjs` is the shared formatting owner for new and
+migrated surfaces. It consumes `ordax.localization/2` directly and resolves the
+active locale at call time, so locale changes do not create a second cached locale
+state.
+
+The foundation covers date/time, numbers, percentages, currencies, units, lists,
+relative time, plural selection and localized display names through the platform
+`Intl` primitives. Currency, unit and relative-time semantics stay explicit at the
+call site; the formatter must not guess a currency, unit or time meaning from the
+locale. Formatting is presentation only and never changes message IDs, action IDs,
+permissions, capabilities or authority.
+
+Existing surfaces may still contain local `Intl` calls while they are migrated.
+Migration should happen opportunistically when those surfaces are changed, rather
+than creating a broad risky rewrite solely for formatting consolidation.
+
 ## Component-scoped app locales
 
 The system locale is the default for first-party apps, but localization availability is component-scoped. A component may declare optional locales and may allow an explicit per-app locale override without advertising that locale as complete for the whole Surface.
