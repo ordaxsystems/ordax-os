@@ -86,6 +86,7 @@ ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
 ACCOUNT_REGISTRATION_ENABLED = False
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
+ACCOUNT_CLOSE_PATH = "/account/close"
 ACCOUNT_EXPORT_PATH = "/account/export"
 ACCOUNT_SPACES_PATH = "/account/spaces"
 ACCOUNT_MEMORY_ENTITLEMENT_PATH = "/account/entitlements/memory-cloud"
@@ -3376,6 +3377,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         "authenticated": False,
                         "provider": "unconfigured",
                         "status": "anonymous",
+                        "accountCloseEnabled": False,
                     })
                 else:
                     self._empty(503)
@@ -3968,7 +3970,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
-        if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
+        if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
             if self.server.account_gateway is None:
                 self._empty(503)
                 return
@@ -4018,6 +4020,25 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(reply.status)
                         return
                     self._empty(204)
+                    return
+                if parsed_path == ACCOUNT_CLOSE_PATH:
+                    payload = self._read_account_credentials()
+                    if payload is None or set(payload) != {"password", "confirmation"}:
+                        self._empty(400)
+                        return
+                    password = payload.get("password")
+                    confirmation = payload.get("confirmation")
+                    if not isinstance(password, str) or confirmation != "close-account":
+                        self._empty(400)
+                        return
+                    reply = self.server.account_gateway.close_account(password, confirmation)
+                    if not reply.body:
+                        self._empty(reply.status)
+                        return
+                    response_payload = json.loads(reply.body.decode("utf-8"))
+                    if not isinstance(response_payload, dict):
+                        raise ValueError("invalid account close payload")
+                    self._write_json(reply.status, response_payload)
                     return
                 if parsed_path == NETWORK_MESSAGE_SEND_PATH:
                     body = self._read_json_body(MAX_NETWORK_MESSAGE_BODY)
