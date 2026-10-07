@@ -78,6 +78,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "registration-legal-native-binding",
             "registration-legal-activation",
             "account-registration-switch",
+            "legacy-account-legal-receipt-reconciliation",
             "redirect-allowlist-provider-verification",
             "provider-password-policy-verification",
             "public-edge-provenance-proof",
@@ -94,6 +95,23 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             self.assertIn(expected, blockers)
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
         self.assertEqual(preflight.main(["require-ready", "--root", str(ROOT)]), 1)
+
+    def test_legacy_account_legal_reconciliation_is_mandatory(self):
+        temporary, root = self.fixture_root()
+        try:
+            hardening_path = root / preflight.HARDENING
+            hardening = preflight.load_json(root, preflight.HARDENING)
+            hardening["current_observation"][
+                "legacy_account_legal_receipt_reconciliation_verified"
+            ] = False
+            hardening_path.write_text(
+                __import__("json").dumps(hardening, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            blockers, _ = preflight.readiness(root)
+            self.assertIn("legacy-account-legal-receipt-reconciliation", blockers)
+        finally:
+            temporary.cleanup()
 
     def test_registration_provider_bypass_guard_is_mandatory(self):
         temporary, root = self.fixture_root()
