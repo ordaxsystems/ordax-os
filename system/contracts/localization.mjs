@@ -2,6 +2,12 @@ import { assertLocaleProfile } from "./locale-profile.mjs";
 
 export const LOCALIZATION_SCHEMA = "ordax.localization/2";
 
+export function assertLocalizationMessageValue(value, label = "Localization message value") {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  throw new TypeError(`${label} must be text or a finite number`);
+}
+
 export function assertLocalizationPort(port) {
   if (!port || typeof port !== "object" || port.schema !== LOCALIZATION_SCHEMA) {
     throw new TypeError("A compatible localization port is required");
