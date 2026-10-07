@@ -83,9 +83,10 @@ export function createAppLifecycleRequestService({
   const remember = (requestId, fingerprint, promise) => {
     requests.set(requestId, { fingerprint, promise });
     while (requests.size > MAX_COMPLETED_REQUESTS) {
-      const oldest = requests.keys().next().value;
-      if (inFlightByApp.has(oldest)) break;
-      requests.delete(oldest);
+      const activeRequestIds = new Set(inFlightByApp.values());
+      const evictable = [...requests.keys()].find((requestId) => !activeRequestIds.has(requestId));
+      if (evictable === undefined) break;
+      requests.delete(evictable);
     }
   };
 
