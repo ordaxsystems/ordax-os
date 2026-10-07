@@ -139,9 +139,13 @@ export function mountStoreOverviewControls(
         );
         card.append(title, meta, status);
 
-        appendAction(documentObject, card, entry, "install", lifecycleRequests, pendingRequest, t);
-        appendAction(documentObject, card, entry, "update", lifecycleRequests, pendingRequest, t);
-        appendAction(documentObject, card, entry, "remove", lifecycleRequests, pendingRequest, t);
+        if (entry.installable || entry.updatable || entry.removable) {
+          const actions = node(documentObject, "div", "ordax-store-actions");
+          appendAction(documentObject, actions, entry, "install", lifecycleRequests, pendingRequest, t);
+          appendAction(documentObject, actions, entry, "update", lifecycleRequests, pendingRequest, t);
+          appendAction(documentObject, actions, entry, "remove", lifecycleRequests, pendingRequest, t);
+          card.append(actions);
+        }
 
         grid.append(card);
       }
