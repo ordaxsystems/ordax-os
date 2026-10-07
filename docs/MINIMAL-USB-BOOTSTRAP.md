@@ -266,6 +266,13 @@ Everything needed to reproduce the bootstrap is represented in this repository t
 
 Private/runtime data is not committed to public Git. The USB is never source authority.
 
+The transitional canonical bootstrap also revalidates its stored signed envelope,
+artifact bytes and materialized system tree before executing an offline `current`.
+It reuses the release agent's existing `activate-exact` verification boundary with
+the already selected current SHA (an idempotent operation), then confirms that the
+current identity still matches. A missing verifier or verification failure enters
+recovery; a local executable alone is never evidence of a verified release.
+
 ## Trust boundary
 
 The owner/development Creator may use explicitly marked ephemeral prototype trust for development provenance. This does not satisfy canonical release trust and must never be promoted as such.
