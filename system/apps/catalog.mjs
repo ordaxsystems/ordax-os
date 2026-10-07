@@ -8,6 +8,7 @@ import { projectsApp } from "./projects/app.mjs";
 import { networkApp } from "./network/app.mjs";
 import { settingsApp } from "./settings/app.mjs";
 import { studioApp } from "./studio/app.mjs";
+import { storeApp } from "./store/app.mjs";
 import { systemApp } from "./system/app.mjs";
 const APPS = Object.freeze([
   filesApp,
@@ -19,6 +20,7 @@ const APPS = Object.freeze([
   internetApp,
   settingsApp,
   accountApp,
+  storeApp,
   systemApp,
 ]);
 const APP_BY_ID = new Map(APPS.map((app) => [app.id, app]));
