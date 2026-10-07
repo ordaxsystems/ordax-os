@@ -121,8 +121,7 @@ begin
   end if;
   if p_idempotency_key is null
      or char_length(p_idempotency_key) < 8
-     or char_length(p_idempotency_key) > 200
-     or position(chr(0) in p_idempotency_key) > 0 then
+     or char_length(p_idempotency_key) > 200 then
     raise exception 'quota-idempotency-key-invalid' using errcode = '22023';
   end if;
   if p_ttl_seconds is null or p_ttl_seconds < 60 or p_ttl_seconds > 3600 then
