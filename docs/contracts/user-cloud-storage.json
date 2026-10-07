@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.user-cloud-storage/1",
-  "status": "live-foundation-private-rls-rollout-disabled",
+  "status": "source-foundation-rollout-disabled",
   "owner": "system/services/user-cloud-storage",
   "object_schema": "ordax.user-cloud-object/1",
   "reservation_schema": "ordax.user-cloud-upload-reservation/1",
