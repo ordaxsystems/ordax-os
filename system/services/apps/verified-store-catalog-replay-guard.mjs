@@ -39,6 +39,25 @@ function validateWatermark(value) {
   });
 }
 
+function validateWatermarkRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Verified Store catalog watermark record must be an object");
+  }
+  const keys = Object.keys(value).sort();
+  const expected = ["revision", "watermark"].sort();
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) {
+    throw new TypeError("Verified Store catalog watermark record fields are not canonical");
+  }
+  if (!Number.isSafeInteger(value.revision) || value.revision < 0) {
+    throw new TypeError("Verified Store catalog watermark record revision is invalid");
+  }
+  const watermark = validateWatermark(value.watermark);
+  if ((value.revision === 0) !== (watermark === null)) {
+    throw new TypeError("Verified Store catalog watermark record revision/value mismatch");
+  }
+  return Object.freeze({ revision: value.revision, watermark });
+}
+
 export function assertVerifiedAppStoreCatalogWatermarkStore(store) {
   if (
     !store
@@ -84,20 +103,20 @@ async function persistAcceptedWatermark(snapshot, store) {
   });
 
   for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt += 1) {
-    let watermark;
+    let record;
     try {
-      watermark = validateWatermark(await store.load());
+      record = validateWatermarkRecord(await store.load());
     } catch {
       return unavailable("catalog-watermark-unavailable");
     }
 
-    const relation = compareSnapshotToWatermark(snapshot, watermark);
+    const relation = compareSnapshotToWatermark(snapshot, record.watermark);
     if (relation === "rollback") return unavailable("catalog-sequence-rollback");
     if (relation === "equivocation") return unavailable("catalog-sequence-equivocation");
     if (relation === "same") return snapshot;
 
     try {
-      if (await store.compareAndSwap(watermark, next) === true) {
+      if (await store.compareAndSwap(record.revision, next) === true) {
         return snapshot;
       }
     } catch {
