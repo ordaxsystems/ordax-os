@@ -5,12 +5,14 @@ import {
 import {
   validateAppLifecycleRequest,
 } from "./app-lifecycle-request.mjs";
+import {
+  validateAppArtifactIdentity,
+} from "./app-artifact-identity.mjs";
 
 export const APP_LIFECYCLE_PLAN_SCHEMA = "ordax.app-lifecycle-plan/1";
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
-const ARTIFACT_NAME_RE = /^[A-Za-z0-9._-]{1,128}$/;
 
 function assertExactKeys(value, expected, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -21,25 +23,6 @@ function assertExactKeys(value, expected, label) {
   if (actual.length !== required.length || actual.some((key, index) => key !== required[index])) {
     throw new TypeError(`${label} fields are not canonical`);
   }
-}
-
-function validateArtifact(value, label) {
-  assertExactKeys(value, ["name", "sha256", "size"], label);
-  if (
-    typeof value.name !== "string"
-    || !ARTIFACT_NAME_RE.test(value.name)
-    || typeof value.sha256 !== "string"
-    || !SHA256_RE.test(value.sha256)
-    || !Number.isSafeInteger(value.size)
-    || value.size <= 0
-  ) {
-    throw new TypeError(`${label} identity is invalid`);
-  }
-  return Object.freeze({
-    name: value.name,
-    sha256: value.sha256,
-    size: value.size,
-  });
 }
 
 function validateCandidate(value, appId) {
@@ -61,7 +44,7 @@ function validateCandidate(value, appId) {
     ["package", "release", "compatibility", "componentEnvelope"],
     "App lifecycle candidate artifacts",
   );
-  const componentEnvelope = validateArtifact(
+  const componentEnvelope = validateAppArtifactIdentity(
     value.artifacts.componentEnvelope,
     "App lifecycle component envelope",
   );
@@ -73,9 +56,9 @@ function validateCandidate(value, appId) {
     version: validateComponentVersion(value.version),
     sourceCommit: value.sourceCommit,
     artifacts: Object.freeze({
-      package: validateArtifact(value.artifacts.package, "App lifecycle package"),
-      release: validateArtifact(value.artifacts.release, "App lifecycle release"),
-      compatibility: validateArtifact(
+      package: validateAppArtifactIdentity(value.artifacts.package, "App lifecycle package"),
+      release: validateAppArtifactIdentity(value.artifacts.release, "App lifecycle release"),
+      compatibility: validateAppArtifactIdentity(
         value.artifacts.compatibility,
         "App lifecycle compatibility",
       ),
