@@ -19,10 +19,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_live_oidc_v6_without_claiming_vercel_rollout(self):
+    def test_contract_records_live_oidc_v7_without_claiming_vercel_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-oidc-v6-live-shared-auth-rate-limit-vercel-source-not-deployed",
+            "public-edge-oidc-v7-live-cookie-envelope-shared-auth-rate-limit-vercel-source-not-deployed",
         )
         self.assertEqual(
             self.contract["vercel_adapter"]["status"],
@@ -30,10 +30,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         )
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 6)
+        self.assertEqual(edge["deployed_version"], 7)
         self.assertEqual(
             edge["deployment_source_commit"],
-            "149d33146fb7948fac97e3a2fe153f582c31b4c4",
+            "735ef1da0a00f92fc28e9c14bbe0765d304e733e",
         )
         self.assertEqual(edge["deployed_authentication"], "vercel-production-oidc-v2")
         self.assertEqual(edge["source_authentication"], "vercel-production-oidc-v2")
@@ -55,6 +55,14 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertNotIn("const ADDRESS_RE", shared_rate_limit)
         self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
+
+        self.assertTrue(edge["product_cookie_envelope_emission_deployed"])
+        self.assertEqual(edge["product_cookie_envelope_header"], "x-ordax-cookie-envelope")
+        self.assertFalse(edge["transport_set_cookie_forwarding"])
+        vercel = self.contract["vercel_adapter"]
+        self.assertTrue(vercel["product_cookie_envelope_source_ready"])
+        self.assertFalse(vercel["product_cookie_envelope_deployed"])
+        self.assertFalse(vercel["transport_set_cookie_forwarded"])
 
     def test_adapter_is_loopback_only_and_routes_only_account_prefixes_to_gateway(self):
         self.assertIn("listen 127.0.0.1:8080;", self.nginx)
@@ -134,7 +142,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(native["shared_policy_deployed"])
         public_edge_rate_limit = self.contract["security_rate_limits"]["public_edge"]
         self.assertTrue(public_edge_rate_limit["deployed"])
-        self.assertEqual(public_edge_rate_limit["deployment_revision_observed"], 6)
+        self.assertEqual(public_edge_rate_limit["deployment_revision_observed"], 7)
         self.assertTrue(public_edge_rate_limit["shared_policy_deployed"])
 
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
