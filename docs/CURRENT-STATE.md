@@ -820,6 +820,14 @@ The byte-complete media workflow remains proven with ephemeral CI trust and disp
 
 ## Recovery
 
+Portable PID1 now distinguishes structural slot resolution from exact signed
+verification: if an intact-looking `current` fails its signature/hash check, boot
+tries an independently resolved and exactly verified `known-good` without retargeting
+either slot. A safely bound activation transaction whose candidate image is lost or
+structurally damaged durably rejects that candidate and preserves the previous boot.
+Malformed transaction/slot identities still block selection. These are source
+regressions, not physical recovery or cold-health evidence.
+
 ```text
 RECOVERY_ENTRY=YES
 RECOVERY_ORDAX_MOUNT=READ_ONLY

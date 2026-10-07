@@ -311,12 +311,21 @@ The fixed initramfs now carries an isolated candidate orchestrator at `/sbin/ord
 The candidate path is intended only for disposable boot proof through `rdinit=/sbin/ordax-portable-init`. It mounts the ESP read-only, verifies the bootstrap capsule against the initramfs-owned hash, mounts `ORDAX-DATA`, verifies the pinned Stable Base, attaches the ext4 state image, and then evaluates boot slots in this order:
 
 ```text
+armed candidate (one attempt only)
+ -> exact signed offline verification
+ -> if invalid: durably reject and return to current
 current
  -> exact signed offline verification
- -> if invalid: known-good
- -> exact signed offline verification
- -> candidate is never boot authority
+ -> if invalid: resolve known-good without retargeting slots
+ -> exact signed offline verification of known-good
+ -> recovery if no release verifies or activation metadata is invalid
 ```
+
+A structurally incomplete candidate is rejected by the activation-state owner while
+preserving the previous release. Structural selection alone never authorizes boot:
+signature/hash failure of `current` must still try the independently verified
+`known-good`. Invalid transaction identities remain fail-closed. The fallback does
+not promote a release, erase a transaction with invalid metadata or require network.
 
 Only after a release passes exact signature/hash verification does the candidate compose the Stable Base overlay, bind the verified `system/` subtree read-only, move all required mounts under the new root and invoke `switch_root` into `ordax-stable-init`.
 

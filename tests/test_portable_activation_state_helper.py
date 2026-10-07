@@ -136,6 +136,30 @@ class PortableActivationStateHelperTests(unittest.TestCase):
         self.assertFalse((activation / "rejected").exists())
         self.assertEqual((activation / "candidate").read_text().strip(), NEXT)
 
+    def test_damaged_candidate_is_rejected_without_losing_previous_boot(self):
+        for attempted in (False, True):
+            for damage in ("missing", "bad-magic", "symlink"):
+                with self.subTest(attempted=attempted, damage=damage):
+                    state, portable, activation = self.fixture()
+                    self.run_helper("prepare", state, portable, NEW)
+                    if attempted:
+                        self.run_helper("select-boot", state, portable)
+                    image = portable / "releases" / NEW / "system.erofs"
+                    if damage == "bad-magic":
+                        image.write_bytes(bytes(4096))
+                    else:
+                        image.unlink()
+                        if damage == "symlink":
+                            image.symlink_to(portable / "releases" / OLD / "system.erofs")
+
+                    selected = self.run_helper("select-boot", state, portable)
+                    self.assertEqual(selected.stdout.strip(), f"current {OLD}")
+                    self.assertEqual((activation / "current").read_text().strip(), OLD)
+                    self.assertEqual((activation / "known-good").read_text().strip(), OLDER)
+                    self.assertEqual((activation / "rejected").read_text().strip(), NEW)
+                    self.assertFalse((activation / "candidate").exists())
+                    self.assertFalse((activation / "activation-transaction.json").exists())
+
     def test_orphan_candidate_without_transaction_has_no_boot_authority(self):
         state, portable, activation = self.fixture()
 
