@@ -55,7 +55,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["backend"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            22,
+            25,
         )
         self.assertTrue(
             contract["backend"]["account_memory_entitlement_requires_authenticated_user"]
