@@ -82,7 +82,7 @@
   font-size: 0.75rem;
 }
 
-.ordax-store-install {
+.ordax-store-action {
   min-height: 38px;
   margin-top: auto;
   padding: 0 14px;
@@ -92,7 +92,7 @@
   cursor: pointer;
 }
 
-.ordax-store-install:disabled {
+.ordax-store-action:disabled {
   opacity: 0.48;
   cursor: not-allowed;
 }
