@@ -214,6 +214,7 @@ begin
     into v_usage_id, v_used
   from private.ordax_service_quota_usage u
   where (
+    (
       p_user_id is not null
       and u.user_id = p_user_id
       and u.space_id is null
@@ -223,6 +224,7 @@ begin
       and u.space_id = p_space_id
       and u.user_id is null
     )
+  )
     and u.quota_key = p_quota_key
   for update;
 
