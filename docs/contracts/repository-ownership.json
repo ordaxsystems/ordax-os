@@ -63,7 +63,7 @@
       ]
     },
     "control_plane": {
-      "repo": "washingtonmsdj/ordax-control-plane",
+      "repo": "ordaxsystems/ordax-control-plane",
       "owns": [
         "product-mcp",
         "cloudflare-control-plane",
@@ -126,7 +126,8 @@
     ],
     "completed_transfers": [
       "runtime",
-      "apps"
+      "apps",
+      "control_plane"
     ],
     "transfer_policy": "transfer-one-repository-then-repoint-and-verify-before-next"
   }
