@@ -156,7 +156,18 @@
     "lifecycle_delegate_receives_raw_ui_request": false,
     "lifecycle_delegate_receives_verified_private_plan": true,
     "install_update_require_projection_candidate_identity_match": true,
-    "remove_may_proceed_without_remote_candidate_when_current_activation_is_verified": true
+    "remove_may_proceed_without_remote_candidate_when_current_activation_is_verified": true,
+    "artifact_store_implemented": true,
+    "artifact_store_owner": "app-install-owner",
+    "artifact_store_root": "/var/lib/ordax/app-install/artifacts/v1",
+    "artifact_store_content_addressed_by_sha256": true,
+    "artifact_store_transport_neutral": true,
+    "artifact_store_accepts_url": false,
+    "artifact_store_accepts_version_selection": false,
+    "artifact_store_verifies_size_and_sha256_before_persist": true,
+    "artifact_store_atomic_replace_and_fsync": true,
+    "artifact_store_preserved_on_uninstall": true,
+    "remote_artifact_transport_configured": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
