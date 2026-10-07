@@ -159,7 +159,7 @@ test("Store controls request lifecycle operations but cannot import component li
   assert.match(source, /APP_LIFECYCLE_REQUEST_SCHEMA/);
   assert.match(source, /requestLifecycle/);
   assert.match(source, /data-store-operation/);
-  assert.match(source, /data-store-authority/);
+  assert.match(source, /dataset\.storeAuthority/);
   assert.doesNotMatch(source, /services\/components/);
   assert.doesNotMatch(source, /runtime-component-channel/);
   assert.doesNotMatch(source, /promote\(/);
