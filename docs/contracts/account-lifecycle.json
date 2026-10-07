@@ -64,13 +64,12 @@
       "browser_direct_delete_allowed": false,
       "service_role_isolated_to_lifecycle_service": true,
       "required_before_public_account_lifecycle_is_complete": true,
-      "gateway_route_deployment_revision_observed": 26,
+      "gateway_route_deployment_revision_observed": 27,
       "gateway_source_version": 17,
-      "deployment_source_match_verified": false,
-      "deployment_source_match_observed_date": null,
-      "gateway_deployment_source_match_verified": false,
-      "gateway_deployed_source_version": 16,
-      "gateway_source_change_pending_deployment": "native-direct-auth-rate-limit-v17"
+      "deployment_source_match_verified": true,
+      "deployment_source_match_observed_date": "2026-10-07",
+      "gateway_deployment_source_match_verified": true,
+      "gateway_deployed_source_version": 17
     },
     "account_data_export": {
       "owner": "ordax-account-gateway",
