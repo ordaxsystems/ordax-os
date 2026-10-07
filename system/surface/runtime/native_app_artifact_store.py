@@ -48,7 +48,7 @@ def validate_artifact_identity(value: object) -> dict:
     return {"name": name, "sha256": digest, "size": size}
 
 
-def _real_directory(path: Path, label: str) -> Path:
+def _real_directory(path: Path, label: str, *, private: bool = False) -> Path:
     try:
         metadata = path.lstat()
     except OSError as exc:
@@ -58,17 +58,14 @@ def _real_directory(path: Path, label: str) -> Path:
     resolved = path.resolve(strict=True)
     if resolved != path.absolute():
         raise AppArtifactStoreError(f"{label} may not traverse symlinks")
+    if private and os.name != "nt" and stat.S_IMODE(metadata.st_mode) != 0o700:
+        raise AppArtifactStoreError(f"{label} permissions are not private")
     return resolved
 
 
 def _ensure_store_root(root: Path) -> Path:
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    resolved = _real_directory(root, "app artifact store root")
-    if os.name != "nt":
-        mode = stat.S_IMODE(resolved.stat().st_mode)
-        if mode & 0o077:
-            raise AppArtifactStoreError("app artifact store root permissions are too broad")
-    return resolved
+    return _real_directory(root, "app artifact store root", private=True)
 
 
 def _artifact_path(root: Path, digest: str) -> Path:
@@ -78,17 +75,17 @@ def _artifact_path(root: Path, digest: str) -> Path:
 def _ensure_digest_parent(root: Path, digest: str) -> Path:
     sha_root = root / "sha256"
     sha_root.mkdir(mode=0o700, exist_ok=True)
-    _real_directory(sha_root, "app artifact sha256 root")
+    _real_directory(sha_root, "app artifact sha256 root", private=True)
     prefix = sha_root / digest[:2]
     prefix.mkdir(mode=0o700, exist_ok=True)
-    return _real_directory(prefix, "app artifact digest parent")
+    return _real_directory(prefix, "app artifact digest parent", private=True)
 
 
 @contextmanager
 def _artifact_lock(root: Path, digest: str):
     locks = root / ".locks"
     locks.mkdir(mode=0o700, exist_ok=True)
-    locks = _real_directory(locks, "app artifact lock root")
+    locks = _real_directory(locks, "app artifact lock root", private=True)
     flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     lock_path = locks / f"{digest}.lock"
     try:
@@ -117,6 +114,10 @@ def _read_verified_path(path: Path, identity: dict) -> bytes:
         raise AppArtifactStoreError("cached app artifact is unavailable") from exc
     if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
         raise AppArtifactStoreError("cached app artifact must be a regular non-symlink file")
+    if metadata.st_nlink != 1:
+        raise AppArtifactStoreError("cached app artifact must have one hardlink")
+    if os.name != "nt" and stat.S_IMODE(metadata.st_mode) != 0o400:
+        raise AppArtifactStoreError("cached app artifact permissions are not read-only private")
     if metadata.st_size != identity["size"]:
         raise AppArtifactStoreError("cached app artifact size mismatch")
     try:
@@ -158,7 +159,7 @@ def store_verified_artifact(
             _read_verified_path(target, normalized)
             return target
 
-        parent = _real_directory(target.parent, "app artifact digest parent")
+        parent = _real_directory(target.parent, "app artifact digest parent", private=True)
         fd, temporary_name = tempfile.mkstemp(prefix=".artifact-", dir=parent)
         temporary = Path(temporary_name)
         try:
