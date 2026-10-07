@@ -1,5 +1,3 @@
-export const APP_ARTIFACT_IDENTITY_SCHEMA = "ordax.app-artifact-identity/1";
-
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const NAME_RE = /^[A-Za-z0-9._-]{1,128}$/;
 export const MAX_APP_ARTIFACT_BYTES = 64 * 1024 * 1024;
