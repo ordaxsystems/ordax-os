@@ -139,9 +139,18 @@ class ServiceQuotaLedgerTests(unittest.TestCase):
     def test_contract_keeps_commercial_values_unassigned_and_rollout_closed(self):
         ledger = self.contract["server_ledger"]
         self.assertTrue(ledger["source_ready"])
-        self.assertFalse(ledger["production_applied"])
+        self.assertTrue(ledger["production_applied"])
+        self.assertEqual(ledger["production_migration_version"], "20261007081854")
+        self.assertEqual(ledger["production_migration_name"], "service_quota_ledger_v1")
+        self.assertEqual(ledger["production_postgres_major"], 17)
+        self.assertTrue(ledger["live_private_tables_rls_enabled"])
+        self.assertTrue(ledger["live_api_role_dml_denied"])
+        self.assertTrue(ledger["live_private_helpers_api_execute_denied"])
+        self.assertTrue(ledger["live_operational_status_service_role_only"])
         self.assertFalse(ledger["public_allocation_enabled"])
-        self.assertFalse(self.contract["prepared_resources"][0]["commercial_value_assigned"])
+        for resource in self.contract["prepared_resources"]:
+            if resource["unit"] == "bytes":
+                self.assertFalse(resource["commercial_value_assigned"])
         encoding = self.contract["quota_grant_encoding"]
         self.assertEqual(encoding["type"], "quota")
         self.assertEqual(encoding["decision_values"], ["allowed", "denied"])

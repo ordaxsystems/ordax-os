@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.service-quotas/1",
-  "status": "source-ledger-ready-commercial-values-unassigned-rollout-disabled",
+  "status": "production-ledger-applied-commercial-values-unassigned-rollout-disabled",
   "owner": "system/services/entitlements",
   "runtime": {
     "policy_schema": "ordax.service-quota-policy/1",
@@ -112,8 +112,12 @@
   },
   "server_ledger": {
     "source_ready": true,
-    "production_applied": false,
+    "production_applied": true,
     "migration": "infra/supabase/product/migrations/20261007050000_service_quota_ledger_v1.sql",
+    "production_migration_version": "20261007081854",
+    "production_migration_name": "service_quota_ledger_v1",
+    "production_applied_at": "2026-10-07",
+    "production_postgres_major": 17,
     "usage_table": "private.ordax_service_quota_usage",
     "reservation_table": "private.ordax_service_quota_reservations",
     "direct_api_table_grants": false,
@@ -129,6 +133,12 @@
     },
     "idempotency_bound_to_subject_key_and_usage_row": true,
     "expired_reservations_do_not_consume_used_units": true,
-    "quota_capacity_does_not_grant_action_authority": true
+    "quota_capacity_does_not_grant_action_authority": true,
+    "live_private_tables_rls_enabled": true,
+    "live_api_role_dml_denied": true,
+    "live_private_helpers_api_execute_denied": true,
+    "live_operational_status_service_role_only": true,
+    "live_usage_rows_at_deploy": 0,
+    "live_reservation_rows_at_deploy": 0
   }
 }
