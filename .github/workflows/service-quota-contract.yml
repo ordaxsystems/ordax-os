@@ -11,6 +11,7 @@ on:
       - 'tests/test_service_quota_ledger.py'
       - 'tests/test_service_quota_ledger_concurrency.sh'
       - 'tests/sql/test_service_quota_ledger_v1.sql'
+      - 'tests/sql/test_service_quota_usage_reduction_v1.sql'
       - '.github/workflows/service-quota-contract.yml'
   push:
     branches: [main]
@@ -23,6 +24,7 @@ on:
       - 'tests/test_service_quota_ledger.py'
       - 'tests/test_service_quota_ledger_concurrency.sh'
       - 'tests/sql/test_service_quota_ledger_v1.sql'
+      - 'tests/sql/test_service_quota_usage_reduction_v1.sql'
       - '.github/workflows/service-quota-contract.yml'
 
 permissions:
@@ -78,4 +80,5 @@ jobs:
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_service_quota_ledger_v1.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_service_quota_usage_reduction_v1.sql
           bash tests/test_service_quota_ledger_concurrency.sh

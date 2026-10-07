@@ -16,6 +16,8 @@
     "remote_usage_is_server_authoritative": true,
     "client_preflight_is_authorization_authority": false,
     "remote_allocation_must_be_checked_in_same_server_transaction_as_mutation": true,
+    "committed_usage_reduction_must_share_resource_delete_transaction": true,
+    "committed_usage_reduction_requires_active_entitlement": false,
     "quota_decision_grants_action_authority": false,
     "downgrade_silently_deletes_user_data": false,
     "over_quota_downgrade_behavior": "retain-existing-block-new-growth",
@@ -139,6 +141,20 @@
     "live_private_helpers_api_execute_denied": true,
     "live_operational_status_service_role_only": true,
     "live_usage_rows_at_deploy": 0,
-    "live_reservation_rows_at_deploy": 0
+    "live_reservation_rows_at_deploy": 0,
+    "usage_reduction": {
+      "source_migration": "infra/supabase/product/migrations/20261007083105_service_quota_usage_reduction_v1.sql",
+      "source_ready": true,
+      "production_applied": true,
+      "production_migration_version": "20261007083105",
+      "production_migration_name": "service_quota_usage_reduction_v1",
+      "production_applied_at": "2026-10-07",
+      "production_postgres_major": 17,
+      "internal_helper": "private.ordax_reduce_service_quota_usage_v1",
+      "api_roles_execute_denied": true,
+      "active_entitlement_required": false,
+      "underflow_fails_closed": true,
+      "zero_unit_reduction_is_noop": true
+    }
   }
 }
