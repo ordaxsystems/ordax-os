@@ -30,6 +30,7 @@ on:
       - 'tests/test_diagnostic_summary_localization.mjs'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
+      - 'tests/test_localization_formatting_foundation.mjs'
       - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_component_localization.mjs'
@@ -67,6 +68,7 @@ on:
       - 'tests/test_diagnostic_summary_localization.mjs'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
+      - 'tests/test_localization_formatting_foundation.mjs'
       - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_component_localization.mjs'
@@ -109,6 +111,8 @@ jobs:
           node --test tests/test_component_localization.mjs
           node --check tests/test_localization_pseudo_rtl_reconvergence.mjs
           node --test tests/test_localization_pseudo_rtl_reconvergence.mjs
+          node --check tests/test_localization_formatting_foundation.mjs
+          node --test tests/test_localization_formatting_foundation.mjs
           node --check tests/test_surface_localization.mjs
           node --test tests/test_surface_localization.mjs
           node --check tests/test_english_mvp_localization_audit.mjs
