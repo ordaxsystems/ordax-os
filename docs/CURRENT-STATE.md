@@ -233,7 +233,7 @@ A separate product-domain foundation is now defined before public accounts carry
 
 Persistent Intelligence memory is now implemented as OrdaX-owned through `ordax.memory/1`, with explicit `device|account` ownership, device/account/space/project/session scopes, provenance, bounded search/review/edit/delete semantics and durable `flush()` confirmation. Native/USB owns a bounded private atomic memory state through a loopback-only endpoint and mounts the memory runtime fail-soft; Web fallback is explicitly ephemeral and cannot pretend durable device/account/Space/project state. Account → Memory now mounts a user-visible Native review surface over the same owner-scoped runtime, with device/account owner switching, bounded search/pagination, editing, deletion and durable flush feedback; the Web composition deliberately shows durable memory as unavailable instead of simulating persistence. `ordax.memory-context-auth/1` and the authorized-memory bridge require composition-layer authorization before any memory reaches Intelligence, and ordinary Intelligence requests still inject no memory automatically unless Native composition has an explicit identity-bound `Space em uso`; Native composition now explicitly authorizes a shared bounded Memory set: device scope always remains available locally, authenticated account scope is added only for the real signed-in `subjectId`, and selected-Space scope is added only for that same subject plus exact `spaceId`; project/session/restricted memory is not inferred. in that case only account-owned, non-restricted `scope=space` memory for that exact `subjectId + spaceId` is eligible as selected Space Memory context. `ordax.model-router/1` is now active in the Intelligence runtime, binds local routes to `engineId + modelId` and keeps future OpenAI/xAI routes fail-closed without explicit egress plus an enabled adapter. Local AI remains the offline baseline and no inference provider owns persistent memory.
 
-The dedicated Supabase project `ordax-control-plane` is the selected pre-MVP backend target for the product schema. The source-controlled migrations under `infra/supabase/product/` have been applied: `ordax_accounts`, Spaces/membership, server-authoritative entitlement grants, versioned Profile Packs, memory metadata + pgvector embeddings and project-connection metadata all use RLS. The older duplicate `ordax_profiles` migration was removed so Auth has one OrdaX product bootstrap owner. The Supabase password provider is implemented and the OrdaX account gateway is deployed to the dedicated control-plane backend. Sign-in, sign-up implementation, refresh, validated session state and logout use HttpOnly cookies and never expose provider tokens to Surface JavaScript. Account registration itself is now explicitly fail-closed across Surface capability, Native host and gateway until a reviewed legal policy plus server-authoritative document-version receipt binding exists; login remains independent. Account sync now uses an atomic initial snapshot plus a subject-bound persisted incremental cursor for appearance, portable preferences and workspace metadata on Web and Native/USB. **Public browser login remains fail-closed** pending the same-origin production hosting boundary, leaked-password protection, remaining Auth hardening and legal readiness. The Account Surface now also has a minimal read-only Spaces view on Web and Native/USB: it consumes only `/account/spaces`, validates a bounded provider-neutral projection, clears cached Space data on sign-out and never invents a local Space. The v16 gateway is deployed as Edge Function revision 22 and is byte-identical to the current source; registration remains explicitly disabled in that deployed revision. A service-role-only read projection now exposes only the active/effective canonical Privacy/Terms metadata through `/auth/registration-policy`; Web and Native source consume that same projection, intersect it with their local registration gate, and require affirmative acceptance without trusting client-supplied version/hash authority. The server-authoritative registration legal receipt migration `20261002221427_account_registration_legal_receipt_v1` is applied: the existing single `auth.users` trigger now requires a short-lived service-issued legal intent, binds it to the normalized-email SHA-256 and active canonical legal policy, snapshots Privacy/Terms version + effective date + SHA-256 into a private receipt in the same user-creation transaction, and rejects direct signup bypasses. No active legal policy exists yet, so the source-ready Web/Native acceptance UI remains unavailable and public registration stays fail-closed; the dedicated account lifecycle service is deployed as revision 2 with global session revocation before account deletion while account-close remains disabled. Public browser account access and account-close execution remain disabled.
+The dedicated Supabase project `ordax-control-plane` is the selected pre-MVP backend target for the product schema. The source-controlled migrations under `infra/supabase/product/` have been applied: `ordax_accounts`, Spaces/membership, server-authoritative entitlement grants, versioned Profile Packs, memory metadata + pgvector embeddings and project-connection metadata all use RLS. The older duplicate `ordax_profiles` migration was removed so Auth has one OrdaX product bootstrap owner. The Supabase password provider is implemented and the OrdaX account gateway is deployed to the dedicated control-plane backend. Sign-in, sign-up implementation, refresh, validated session state and logout use HttpOnly cookies and never expose provider tokens to Surface JavaScript. Account registration itself is now explicitly fail-closed across Surface capability, Native host and gateway until a reviewed legal policy plus server-authoritative document-version receipt binding exists; login remains independent. Account sync now uses an atomic initial snapshot plus a subject-bound persisted incremental cursor for appearance, portable preferences and workspace metadata on Web and Native/USB. **Public browser login remains fail-closed** pending the same-origin production hosting boundary, leaked-password protection, remaining Auth hardening and legal readiness. The Account Surface now also has a minimal read-only Spaces view on Web and Native/USB: it consumes only `/account/spaces`, validates a bounded provider-neutral projection, clears cached Space data on sign-out and never invents a local Space. The account gateway source v17 is deployed as Edge Function revision 27; registration remains explicitly disabled. The live gateway also enforces the shared server-authoritative auth rate limit on direct Native credential/recovery paths and keeps password-recovery credentials isolated from normal account sessions. A service-role-only read projection now exposes only the active/effective canonical Privacy/Terms metadata through `/auth/registration-policy`; Web and Native source consume that same projection, intersect it with their local registration gate, and require affirmative acceptance without trusting client-supplied version/hash authority. The server-authoritative registration legal receipt migration `20261002221427_account_registration_legal_receipt_v1` is applied: the existing single `auth.users` trigger now requires a short-lived service-issued legal intent, binds it to the normalized-email SHA-256 and active canonical legal policy, snapshots Privacy/Terms version + effective date + SHA-256 into a private receipt in the same user-creation transaction, and rejects direct signup bypasses. No active legal policy exists yet, so the source-ready Web/Native acceptance UI remains unavailable and public registration stays fail-closed; the dedicated account lifecycle service is deployed as revision 2 with global session revocation before account deletion while account-close remains disabled. Public browser account access and account-close execution remain disabled.
 
 OrdaX Network now has a live server-authoritative MVP backend in the same
 `ordax-control-plane`. The six v1 Network migrations plus all six canonical v2
@@ -305,8 +305,8 @@ This foundation does not change the current physical release gate:
 ```text
 ECOSYSTEM_FOUNDATION=PASS_SOURCE_BACKEND_SCHEMA_PREPARED
 PUBLIC_IDENTITY_PASSWORD_FLOW=PASS_SOURCE_ACTIVATION_GATED
-PUBLIC_IDENTITY_EDGE_GATEWAY=DEPLOYED_ORDAX_CONTROL_PLANE_SOURCE_V16_REV22_REGISTRATION_CLOSE_DISABLED
-PUBLIC_IDENTITY_EDGE_DEPLOYMENT_REVISION=22_SOURCE_V16_EXACT_MATCH
+PUBLIC_IDENTITY_EDGE_GATEWAY=DEPLOYED_ORDAX_CONTROL_PLANE_SOURCE_V17_REV27_NATIVE_AUTH_RATE_LIMIT_LIVE_REGISTRATION_CLOSE_DISABLED
+PUBLIC_IDENTITY_EDGE_DEPLOYMENT_REVISION=27_SOURCE_V17_LIVE
 PUBLIC_SITE_SAME_ORIGIN_ADAPTER=PASS_SOURCE_NGINX_NOT_DEPLOYED
 PUBLIC_IDENTITY_GATED_FORMS=PASS_SOURCE_NATIVE_POST_JS_NO_CREDENTIAL_READ
 PUBLIC_SITE_DEPLOYMENT_PROOF_HARNESS=PASS_SOURCE_CREDENTIAL_FREE
@@ -320,25 +320,25 @@ PUBLIC_AUTH_REGISTRATION_NATIVE_BYPASS_ALLOWED=NO
 PUBLIC_AUTH_REGISTRATION_POLICY_PROJECTION=PASS_SOURCE_APPLIED_SERVICE_ROLE_ONLY
 PUBLIC_AUTH_REGISTRATION_POLICY_ACTIVE=NO
 PUBLIC_AUTH_REGISTRATION_UI_BINDING=PASS_SOURCE_DISABLED_UNTIL_ACTIVE_POLICY_AND_SWITCH
-PUBLIC_AUTH_RATE_LIMIT_REVIEW=PASS_SOURCE_NGINX_REAL_IP_RATE_LIMITS_DEPLOYMENT_PROOF_PENDING
-PUBLIC_AUTH_RATE_LIMIT_DEPLOYED=NO
+PUBLIC_AUTH_RATE_LIMIT_REVIEW=PASS_SHARED_POLICY_DB_AUTHORITY_NATIVE_DIRECT_LIVE_PUBLIC_EDGE_V6_LIVE_VERCEL_REAL_IP_PROOF_PENDING
+PUBLIC_AUTH_RATE_LIMIT_DEPLOYED=NATIVE_DIRECT_AND_PUBLIC_EDGE_V6_YES_VERCEL_ADAPTER_PROOF_PENDING
 PUBLIC_AUTH_SESSION_REVOCATION_PROOF=PENDING_REAL_CREDENTIALLED_EXECUTION_LOCAL_SCOPE
 PUBLIC_AUTH_SESSION_REVOCATION_HARNESS=PASS_SOURCE_CREDENTIAL_SAFE_SANITIZED_RECEIPT
 PUBLIC_AUTH_SESSION_REVOCATION_WORKFLOW=PASS_SOURCE_MANUAL_SECRETS_REQUIRED
 PUBLIC_AUTH_SESSION_REVOCATION_RECEIPT_SCHEMA=prototype-ordax.account-session-revocation-proof/1
-PUBLIC_AUTH_RECOVERY_REQUEST=PASS_SOURCE_AND_EDGE_DISABLED_UNTIL_PKCE
-PUBLIC_AUTH_RECOVERY_REDIRECT_CONFIG=PENDING_REAL_HTTPS_ORIGIN
+PUBLIC_AUTH_RECOVERY_REQUEST=PASS_SOURCE_EDGE_V27_DISABLED_SESSION_ISOLATED
+PUBLIC_AUTH_RECOVERY_REDIRECT_CONFIG=CANONICAL_ORIGIN_SELECTED_PROVIDER_ALLOWLIST_PROOF_PENDING
 PUBLIC_AUTH_RECOVERY_EMAIL_TEMPLATE=PASS_SOURCE_NOT_APPLIED_TO_PROVIDER
 PUBLIC_AUTH_RECOVERY_COMPLETION_ENABLED=NO
-PUBLIC_AUTH_RECOVERY_COMPLETION_FLOW=PASS_SOURCE_AND_EDGE_DISABLED_TOKEN_HASH_SERVER_SIDE
-PUBLIC_AUTH_LEAKED_PASSWORD_PROTECTION=PASS_PRODUCT_GATEWAY_HIBP_K_ANONYMITY_LIVE_E2E_PENDING
+PUBLIC_AUTH_RECOVERY_COMPLETION_FLOW=PASS_SOURCE_EDGE_V27_DISABLED_TOKEN_HASH_SERVER_SIDE_RECOVERY_ONLY_COOKIES
+PUBLIC_AUTH_LEAKED_PASSWORD_PROTECTION=PASS_PRODUCT_GATEWAY_HIBP_K_ANONYMITY_PROVIDER_NATIVE_PROTECTION_STILL_REQUIRED
 PUBLIC_AUTH_PROVIDER_LEAKED_PASSWORD_ADVISOR=WARN_DISABLED_SUPABASE_FREE_PLAN
 SUPABASE_CONTROL_PLANE_STATUS=ACTIVE_HEALTHY_VERIFIED_2026_10_02
 SUPABASE_PRODUCT_RLS_POLICY_REVIEW=PASS_VERIFIED_OWNER_SPACE_PROJECT_SCOPES
 SUPABASE_PRODUCT_DATA_API_ANON_GRANTS=NONE_VERIFIED
 SUPABASE_PRODUCT_DATA_API_AUTHENTICATED_DIRECT_GRANTS=SELECT_ONLY_VERIFIED
 SUPABASE_PRODUCT_MUTATIONS_DIRECT_DATA_API=DENIED_SERVER_AUTHORITATIVE
-SUPABASE_SECURITY_ADVISOR_RLS_NO_POLICY=INFO_71_INTERNAL_DENY_BY_DEFAULT_REVIEWED
+SUPABASE_SECURITY_ADVISOR_RLS_NO_POLICY=INFO_72_DENY_BY_DEFAULT_REVIEWED
 PUBLIC_AUTH_ACTIVATION_PREFLIGHT=PASS_CI_SAFE_DISABLED
 PUBLIC_AUTH_ACTIVATION_PREFLIGHT_WORKFLOW_RUN_ID=36166653490
 PUBLIC_IDENTITY_NATIVE_SIGNED_GATEWAY_CONFIG=PASS_SOURCE
@@ -360,7 +360,7 @@ ACCOUNT_GATEWAY_STABLE_BOOTSTRAP_BINDING=PASS_SOURCE_OPTIONAL_HTTPS_ORIGIN
 ACCOUNT_SYNC_NATIVE_USB_INTEGRATION=PASS_SOURCE_GATEWAY_DEPLOYED_PHYSICAL_PROOF_PENDING
 ACCOUNT_SYNC_ACCOUNT_UI_CONTINUITY_STATUS=PASS_SOURCE_REAL_RUNTIME_SNAPSHOT
 ACCOUNT_SPACES_UI=PASS_SOURCE_READ_ONLY_WEB_NATIVE
-ACCOUNT_SPACES_GATEWAY_SOURCE=V16_DEPLOYED_REV22
+ACCOUNT_SPACES_GATEWAY_SOURCE=V17_DEPLOYED_REV27
 ACCOUNT_SPACES_RLS=OWNER_OR_ACTIVE_MEMBER
 ACCOUNT_SPACES_MUTATION_UI=NONE
 ACCOUNT_SYNC_PUBLIC_AVAILABILITY=NO
