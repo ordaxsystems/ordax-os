@@ -355,11 +355,13 @@ $proof$;
 insert into public.ordax_entitlement_grants(
   user_id,
   entitlement_key,
-  entitlement_value
+  entitlement_value,
+  source
 ) values (
   '11111111-1111-4111-8111-111111111111',
   'storage.user.bytes',
-  '{"decision":"allowed","type":"quota","unit":"bytes","limit":200}'::jsonb
+  '{"decision":"allowed","type":"quota","unit":"bytes","limit":200}'::jsonb,
+  'promotion'
 );
 
 do $proof$
@@ -384,12 +386,7 @@ $proof$;
 delete from public.ordax_entitlement_grants
 where user_id = '11111111-1111-4111-8111-111111111111'
   and entitlement_key = 'storage.user.bytes'
-  and grant_id <> (
-    select min(grant_id)
-    from public.ordax_entitlement_grants
-    where user_id = '11111111-1111-4111-8111-111111111111'
-      and entitlement_key = 'storage.user.bytes'
-  );
+  and source = 'promotion';
 
 -- Extra policy fields are rejected so the grant JSON remains a strict contract.
 update public.ordax_entitlement_grants
