@@ -21,7 +21,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_contract_records_live_oidc_v4_without_claiming_zero_trust_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-oidc-v4-live-vercel-zero-trust-source-not-deployed",
+            "public-edge-oidc-v4-live-trusted-inner-boundary-source-not-deployed",
         )
         self.assertEqual(
             self.contract["vercel_adapter"]["status"],
@@ -52,13 +52,17 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
 
-    def test_adapter_is_loopback_only_and_routes_only_account_prefixes_to_gateway(self):
+    def test_generic_adapter_is_loopback_only_and_sensitive_account_routes_fail_closed(self):
         self.assertIn("listen 127.0.0.1:8080;", self.nginx)
-        self.assertIn("location ~ ^/(auth|sync)/", self.nginx)
-        self.assertIn("/functions/v1/ordax-account-gateway$1", self.nginx)
+        self.assertIn("location ~ ^/(auth|account|sync|network)/", self.nginx)
+        self.assertIn('"error":"trusted-account-boundary-required"', self.nginx)
+        self.assertNotIn("/functions/v1/ordax-account-gateway", self.nginx)
+        self.assertNotIn("proxy_pass https://eobcxuyvhkvdmkbaihwh.supabase.co", self.nginx)
         self.assertNotIn("listen 0.0.0.0", self.nginx)
         self.assertNotIn("service_role", self.nginx.lower())
-        self.assertIn("proxy_set_header X-OrdaX-Public-Site 1;", self.nginx)
+        self.assertFalse(self.contract["adapter"]["sensitive_account_proxy_enabled"])
+        self.assertTrue(self.contract["adapter"]["sensitive_account_routes_fail_closed"])
+        self.assertFalse(self.contract["adapter"]["authenticated_upstream_identity_available"])
         self.assertFalse(self.contract["routing"]["gateway_public_activation_currently_enabled"])
 
     def test_public_surface_enforces_transport_and_cross_origin_isolation(self):
@@ -97,13 +101,15 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(self.contract["adapter"]["public_auth_rate_limit_deployed"])
         self.assertTrue(self.contract["security_rate_limits"]["authoritative_backend"]["deployed"])
 
-    def test_vercel_routes_only_auth_and_sync_through_bounded_server_function(self):
+    def test_vercel_routes_all_sensitive_account_domains_through_bounded_server_function(self):
         self.assertEqual(self.vercel["outputDirectory"], "sites/public")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
+        self.assertEqual(rewrites["/account/:path*"], "/api/account-proxy?ordax_path=/account/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
+        self.assertEqual(rewrites["/network/:path*"], "/api/account-proxy?ordax_path=/network/:path*")
         self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
-        self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"];', self.vercel_proxy)
+        self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/account/", "/sync/", "/network/"];', self.vercel_proxy)
         self.assertIn('import("@vercel/oidc")', self.vercel_proxy)
         self.assertIn("runtime.getVercelOidcToken", self.vercel_proxy)
         self.assertIn("resolveVercelOidcToken", self.vercel_proxy)
@@ -155,6 +161,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             "owner:jogo-brasils-projects:project:ordax-os-public:environment:production",
         )
         self.assertFalse(edge["oidc_authorization_forwarded_to_inner_gateway"])
+        self.assertTrue(edge["source_oidc_authorization_forwarded_to_inner_gateway"])
+        self.assertTrue(edge["source_inner_gateway_reverification_required"])
+        self.assertFalse(edge["source_native_direct_inner_gateway_allowed"])
+        self.assertEqual(edge["source_allowed_prefixes"], ["/auth/", "/account/", "/sync/", "/network/"])
 
     def test_canonical_origin_and_browser_mutation_context_are_mandatory(self):
         adapter = self.contract["vercel_adapter"]
@@ -209,6 +219,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(requirements["public_proxy_vercel_production_oidc_required"])
         self.assertTrue(requirements["preview_oidc_must_not_access_production_account_boundary"])
         self.assertTrue(requirements["public_auth_rate_limits_required"])
+        self.assertTrue(requirements["inner_sensitive_routes_must_reverify_deployment_identity"])
+        self.assertFalse(requirements["direct_inner_sensitive_routes_allowed"])
 
 
 if __name__ == "__main__":
