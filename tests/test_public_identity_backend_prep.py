@@ -237,6 +237,17 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
             observation["legacy_account_legal_receipt_reconciliation_verified"]
         )
         self.assertFalse(observation["legacy_accounts_public_login_allowed"])
+        self.assertTrue(observation["public_login_legal_receipt_guard_source_ready"])
+        self.assertFalse(observation["public_login_legal_receipt_guard_deployed"])
+        self.assertEqual(
+            observation["public_login_legal_receipt_guard_rpc"],
+            "ordax_account_has_registration_legal_receipt_v1",
+        )
+        self.assertTrue(observation["public_login_legal_receipt_guard_public_only"])
+        self.assertEqual(
+            observation["public_login_legal_receipt_guard_rejected_session_scope"],
+            "local",
+        )
 
     def test_supabase_preflight_is_read_only(self):
         sql = PREFLIGHT.read_text(encoding="utf-8").lower()

@@ -233,6 +233,15 @@ class SupabasePasswordProviderTests(unittest.TestCase):
             "Bearer new-access",
         )
 
+    def test_local_signout_revokes_only_current_provider_session(self):
+        provider, transport = self.provider([(200, {})])
+        provider.sign_out_local("access")
+        method, url, headers, body = transport.calls[0]
+        self.assertEqual(method, "POST")
+        self.assertTrue(url.endswith("/auth/v1/logout?scope=local"))
+        self.assertEqual(headers["Authorization"], "Bearer access")
+        self.assertEqual(json.loads(body), {})
+
     def test_provider_errors_are_bounded_and_do_not_echo_passwords(self):
         provider, _ = self.provider([
             (400, {"error_code": "invalid_credentials", "msg": "bad login"})

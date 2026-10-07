@@ -23,7 +23,8 @@
     "bot_protection_server_verification_deployed": true,
     "bot_protection_e2e_tested": true,
     "registration_provider_bypass_guard_verified": true,
-    "legacy_account_legal_receipt_reconciliation": true
+    "legacy_account_legal_receipt_reconciliation": true,
+    "public_login_legal_receipt_guard_deployed": true
   },
   "current_observation": {
     "source": "supabase-security-advisor-and-live-deployment-reconciliation",
@@ -147,7 +148,12 @@
     "legacy_accounts_without_legal_receipt_count": 2,
     "legacy_account_legal_receipt_reconciliation_verified": false,
     "legacy_account_legal_receipt_reconciliation_evidence": "live-db-count-2026-10-07",
-    "legacy_accounts_public_login_allowed": false
+    "legacy_accounts_public_login_allowed": false,
+    "public_login_legal_receipt_guard_source_ready": true,
+    "public_login_legal_receipt_guard_deployed": false,
+    "public_login_legal_receipt_guard_rpc": "ordax_account_has_registration_legal_receipt_v1",
+    "public_login_legal_receipt_guard_public_only": true,
+    "public_login_legal_receipt_guard_rejected_session_scope": "local"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
