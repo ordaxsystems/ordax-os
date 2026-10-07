@@ -174,7 +174,8 @@ export function trustedSetCookie(raw) {
   }
   if (attributes.has("domain")) return null;
   if (!attributes.has("secure") || !attributes.has("httponly")) return null;
-  if (attributes.get("path") !== "/") return null;
+  const expectedPath = name.startsWith("ordax_recovery") ? "/auth/recover" : "/";
+  if (attributes.get("path") !== expectedPath) return null;
   if ((attributes.get("samesite") ?? "").toLowerCase() !== "lax") return null;
   const maxAge = attributes.get("max-age");
   if (maxAge === undefined || !/^-?\d{1,10}$/.test(maxAge)) return null;
