@@ -6,7 +6,8 @@ on:
     paths:
       - 'system/surface/runtime/native_store_catalog.py'
       - 'system/surface/runtime/native_app_artifact_store.py'
-      - 'tests/test_native_app_artifact_store.py'`n      - 'system/surface/runtime/native_app_artifact_acquisition.py'
+      - 'tests/test_native_app_artifact_store.py'
+      - 'system/surface/runtime/native_app_artifact_acquisition.py'
       - 'tests/test_native_app_artifact_acquisition.py'
       - 'system/surface/runtime/native_app_lifecycle_executor.py'
       - 'tests/test_native_app_lifecycle_executor.py'
