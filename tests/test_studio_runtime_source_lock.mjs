@@ -23,7 +23,7 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   const lock = await readJson(SOURCE_LOCK_PATH);
 
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
-  assert.equal(lock.source.repository, "https://github.com/washingtonmsdj/ordax-runtime");
+  assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
   assert.equal(lock.source.commit, "218e049cc1364e270c566f41de048725ec692c26");
   assert.deepEqual(lock.source.compatibility_contract, {

@@ -45,7 +45,7 @@
       ]
     },
     "runtime": {
-      "repo": "washingtonmsdj/ordax-runtime",
+      "repo": "ordaxsystems/ordax-runtime",
       "owns": [
         "windows-ordax-runtime",
         "device-host",
@@ -104,7 +104,7 @@
     "migration_residue_may_not_become_second_ssot": true
   },
   "namespace_migration": {
-    "status": "precutover",
+    "status": "in-progress",
     "current_namespace": "washingtonmsdj",
     "target_namespace": "ordaxsystems",
     "repository_name_changes_during_transfer": false,
@@ -124,7 +124,9 @@
       "control_plane",
       "platform"
     ],
-    "completed_transfers": [],
+    "completed_transfers": [
+      "runtime"
+    ],
     "transfer_policy": "transfer-one-repository-then-repoint-and-verify-before-next"
   }
 }
