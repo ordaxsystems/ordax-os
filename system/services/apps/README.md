@@ -8,8 +8,8 @@ Four concepts must stay separate:
 
 1. **Known product/delivery registry** — `delivery-policy.mjs` may describe a first-party product even when its payload is absent locally. This registry is not a Store catalog and cannot make an app installable; a signed Store catalog may later enrich it with verified artifact/version metadata.
 2. **Local app presentation catalog** — `system/apps/catalog.mjs` contains first-party app descriptors whose product source/presentation is present in the current platform composition. It is not the authoritative list of every product OrdaX may offer.
-3. **Installed component catalog/inventory** — the component/package truth used for verified activation. A product being known or catalogued never proves that its payload is installed.
-4. **Delivery projection** — combines policy with an installation/catalog observation to produce `available`, `installed`, `staged`, `blocked` and launch/install presentation without minting authority.
+3. **Installed-state SSOT** — for independently delivered `component-slot` apps, the canonical truth is the verified `current` activation owned by `ordax-runtime-component-channel`. A staged or cached slot is not an installation, and Store never keeps a second installed-app database.
+4. **Delivery projection** — `verified-store-projection.mjs` combines verified catalog metadata, the read-only current activation projection and first-party delivery policy into `ordax.app-store-catalog/2`. It persists no inventory and mints no authority.
 
 The Surface may project an absent, catalogued app as `available`. That never makes it launchable. A recommended absent app can open an install/details experience, but execution requires a verified payload supplied either by the current signed Stable release or by a future verified independent component slot.
 
@@ -34,6 +34,8 @@ The `ordax-apps.store-catalog-candidate/1` artifact produced by `ordax-apps` is 
 After a future Native verifier authenticates the published catalog against the pinned `runtime-components` trust domain, it may expose only the read-only `ordax.verified-app-store-catalog/1` projection. The projection is pinned to the canonical `washingtonmsdj/ordax-apps` source, the `ordax-runtime-components-v1` key identity, an exact source commit, a signed-catalog SHA-256 and a positive monotonic publication sequence. The schema itself does not grant verification or installation authority.
 
 `verified-store-catalog-replay-guard.mjs` persists the highest accepted sequence plus its catalog SHA-256 before exposing a newer catalog. A lower sequence is rejected as rollback/replay; the same sequence with a different digest is rejected as equivocation; failure to persist the watermark fails closed. This guard does not perform cryptography and cannot replace the Native signature verifier.
+
+`verified-store-projection.mjs` is deliberately derived state. It reads only the verified catalog plus the Native `current` activation metadata exposed by the canonical runtime-component activation owner. It never scans slot directories, never treats cache presence as installation, and never writes a parallel inventory. An installed external app remains removable even if a later verified catalog no longer advertises it; catalog drift, unavailable activation metadata, unknown delivery policy and bundled/component-slot conflicts fail closed as blocked presentation.
 
 ## MVP launch delivery
 
