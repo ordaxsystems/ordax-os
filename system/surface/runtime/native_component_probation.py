@@ -13,8 +13,9 @@ from native_component_slots import (
 )
 
 PROBATION_SCHEMA = "ordax.component-probation-result/1"
+PROBATION_MESSAGE_TYPE = "component.probation.result"
 PROBE_MODE = "import-contract"
-SUPPORTED_COMPONENT = "internet"
+SUPPORTED_COMPONENTS = frozenset({"internet", "notes"})
 
 
 class ComponentProbationReceiptError(ValueError):
@@ -31,14 +32,19 @@ class ComponentProbationOutcome:
 def record_system_component_probation(
     *,
     payload: object,
+    expected_component_id: str,
     expected_nonce: str,
     helper_path: str,
     slot_root: str,
 ) -> ComponentProbationOutcome:
+    if expected_component_id not in SUPPORTED_COMPONENTS:
+        raise ComponentProbationReceiptError("component probation component is unavailable")
     if not isinstance(expected_nonce, str) or not expected_nonce:
         raise ComponentProbationReceiptError("component probation nonce is unavailable")
     if not isinstance(payload, dict) or set(payload) != {"type", "nonce", "result"}:
         raise ComponentProbationReceiptError("invalid component probation message")
+    if payload.get("type") != PROBATION_MESSAGE_TYPE:
+        raise ComponentProbationReceiptError("invalid component probation message type")
     nonce = payload.get("nonce")
     if not isinstance(nonce, str) or not secrets.compare_digest(nonce, expected_nonce):
         raise ComponentProbationReceiptError("invalid component probation receipt nonce")
@@ -48,7 +54,8 @@ def record_system_component_probation(
         raise ComponentProbationReceiptError("invalid component probation receipt")
     if result.get("schema") != PROBATION_SCHEMA:
         raise ComponentProbationReceiptError("invalid component probation receipt schema")
-    if result.get("componentId") != SUPPORTED_COMPONENT:
+    component_id = result.get("componentId")
+    if component_id != expected_component_id or component_id not in SUPPORTED_COMPONENTS:
         raise ComponentProbationReceiptError("invalid component probation receipt component")
     if result.get("probeMode") != PROBE_MODE:
         raise ComponentProbationReceiptError("invalid component probation probe mode")
@@ -60,20 +67,28 @@ def record_system_component_probation(
 
     # No complete pending identity means the system had nothing actionable to
     # persist (for example no pending slot, trust unavailable, or metadata
-    # rejected before identity resolution).
-    if version is None or source_commit is None or revision is None:
+    # rejected before identity resolution). Partial identities are rejected so
+    # a receipt cannot ambiguously bind only part of a pending candidate.
+    identity = (version, source_commit, revision)
+    if all(value is None for value in identity):
+        if health != "failed":
+            raise ComponentProbationReceiptError(
+                "non-actionable component probation receipt must be failed"
+            )
         return ComponentProbationOutcome(
             actionable=False,
             recorded=None,
             reason="no-actionable-pending-identity",
         )
+    if any(value is None for value in identity):
+        raise ComponentProbationReceiptError("incomplete component probation identity")
     if health not in {"healthy", "failed"}:
         raise ComponentProbationReceiptError("invalid component probation health")
 
     try:
         record = record_component_pending_health(
             helper_path=helper_path,
-            component_id=SUPPORTED_COMPONENT,
+            component_id=component_id,
             version=version,
             source_commit=source_commit,
             expected_revision=revision,
