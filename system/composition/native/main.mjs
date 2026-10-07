@@ -731,6 +731,7 @@ async function start() {
   const resumeAccountConnectivity = async () => {
     await identitySession.refresh();
     await identityActions.refresh();
+    await accountLifecycle.refresh();
     await accountSync.refresh();
   };
   const onOnline = () => {
@@ -981,7 +982,7 @@ async function start() {
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
-    accountLifecycle.dispose();
+      accountLifecycle.dispose();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
       unsubscribeAccountMemoryRecovery();
