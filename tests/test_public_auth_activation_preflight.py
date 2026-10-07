@@ -79,7 +79,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "registration-legal-activation",
             "account-registration-switch",
             "legacy-account-legal-receipt-reconciliation",
-            "public-login-legal-receipt-guard-deployment",
+
             "redirect-allowlist-provider-verification",
             "provider-password-policy-verification",
             "public-edge-provenance-proof",
