@@ -8,7 +8,7 @@ export { normalizePublicOrigin };
 const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
-const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
+const ALLOWED_PREFIXES = ["/auth/", "/account/", "/sync/", "/network/"];
 const PUBLIC_GATEWAY_PATH = "/functions/v1/ordax-public-account-gateway";
 const VERCEL_OIDC_TOKEN_RE = /^[A-Za-z0-9_-]{16,4096}\.[A-Za-z0-9_-]{2,16384}\.[A-Za-z0-9_-]{16,16384}$/;
 const EDGE_ADDRESS_RE = /^[0-9A-Fa-f:.]{3,64}$/;
