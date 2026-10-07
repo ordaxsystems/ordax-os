@@ -106,6 +106,39 @@ class SupabaseRegistrationLegalAuthorityTests(unittest.TestCase):
             },
         )
 
+    def test_registration_receipt_check_is_service_only_boolean_projection(self):
+        user_id = "11111111-1111-4111-8111-111111111111"
+        for expected in (True, False):
+            with self.subTest(expected=expected):
+                authority, transport = self.authority([
+                    (200, json.dumps(expected).encode())
+                ])
+                self.assertIs(authority.has_registration_receipt(user_id), expected)
+                method, url, headers, body = transport.calls[0]
+                self.assertEqual(method, "POST")
+                self.assertTrue(
+                    url.endswith(
+                        "/rest/v1/rpc/ordax_account_has_registration_legal_receipt_v1"
+                    )
+                )
+                self.assertEqual(headers["apikey"], "sb_secret_backend-only")
+                self.assertNotIn("Authorization", headers)
+                self.assertEqual(json.loads(body), {"p_user_id": user_id})
+
+    def test_registration_receipt_check_fails_closed_on_invalid_subject_or_shape(self):
+        authority, transport = self.authority([])
+        with self.assertRaises(legal_module.RegistrationLegalError):
+            authority.has_registration_receipt("not-a-uuid")
+        self.assertEqual(transport.calls, [])
+
+        for response in ((503, b"{}"), (200, b"null"), (200, b"[]")):
+            with self.subTest(response=response[0:1]):
+                authority, _ = self.authority([response])
+                with self.assertRaises(legal_module.RegistrationLegalError):
+                    authority.has_registration_receipt(
+                        "11111111-1111-4111-8111-111111111111"
+                    )
+
     def test_authority_rejects_non_https_or_invalid_secret_config(self):
         with self.assertRaises(ValueError):
             legal_module.SupabaseRegistrationLegalAuthority(
