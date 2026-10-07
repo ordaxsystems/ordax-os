@@ -42,9 +42,19 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertTrue(blockers)
         hardening = preflight.load_json(ROOT, preflight.HARDENING)
         deployment = preflight.load_json(ROOT, preflight.DEPLOYMENT)
+        provider_policy = preflight.load_json(ROOT, preflight.PROVIDER_POLICY)
         self.assertTrue(
             hardening["current_observation"]["product_leaked_password_protection_verified"]
         )
+        self.assertEqual(
+            provider_policy["redirect_policy"]["origin"],
+            "https://ordax-os-public.vercel.app",
+        )
+        self.assertEqual(
+            provider_policy["redirect_policy"]["recovery_verify_url"],
+            "https://ordax-os-public.vercel.app/auth/recover/verify",
+        )
+        self.assertFalse(provider_policy["provider_verification"]["production_origin"])
         self.assertTrue(deployment["public_edge_gateway"]["deployed"])
         self.assertTrue(deployment["public_edge_gateway"]["oidc_source_ready"])
         self.assertTrue(deployment["public_edge_gateway"]["oidc_deployed"])
