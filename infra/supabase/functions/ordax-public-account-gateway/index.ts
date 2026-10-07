@@ -63,11 +63,16 @@ function providerConfig() {
   return { url, publishableKey };
 }
 
-function adminClient() {
-  const { url } = providerConfig();
+function serverSecretKey() {
   const secretKey = firstNamedKey(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "", "default")
     ?? (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
   if (!secretKey) throw new Error("provider-admin-unconfigured");
+  return secretKey;
+}
+
+function adminClient() {
+  const { url } = providerConfig();
+  const secretKey = serverSecretKey();
   return createClient(url, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
@@ -105,13 +110,15 @@ async function boundedRequestBody(req: Request) {
   return body;
 }
 
-function upstreamHeaders(req: Request, publishableKey: string) {
+function upstreamHeaders(req: Request, serverSecret: string) {
   const headers = new Headers();
   for (const name of REQUEST_HEADERS) {
     const value = req.headers.get(name);
     if (value) headers.set(name, value);
   }
-  headers.set("apikey", publishableKey);
+  // The public marker is privileged provenance. The inner gateway accepts it
+  // only when the request is authenticated with a backend-only Supabase secret.
+  headers.set("apikey", serverSecret);
   headers.set("x-ordax-public-site", "1");
   return headers;
 }
@@ -230,7 +237,7 @@ Deno.serve(async (req: Request) => {
   try {
     upstream = await fetch(innerTarget, {
       method: req.method,
-      headers: upstreamHeaders(req, config.publishableKey),
+      headers: upstreamHeaders(req, serverSecretKey()),
       body,
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),
