@@ -76,6 +76,8 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "recovery-email-template",
             "recovery-e2e-proof",
             "session-revocation-proof",
+            "bot-protection-production-secret",
+            "bot-protection-e2e-proof",
         ):
             self.assertIn(expected, blockers)
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
