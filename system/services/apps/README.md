@@ -17,7 +17,11 @@ The Surface may project an absent, catalogued app as `available`. That never mak
 
 Delivery metadata is always `authority:none`.
 
-The structural Store UI is presentation/request only. It fails closed when no verified catalog port is supplied and has no mutation authority. One authority-free lifecycle request contract covers `install`, `update` and `remove`; the launcher may request `install` only. The request cannot select an artifact/version, grant permissions, replace the trust anchor, bypass verification or delete user data. The Store must never become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
+The structural Store UI is presentation/request only. It fails closed when no verified catalog port is supplied and has no mutation authority. One authority-free lifecycle request contract covers `install`, `update` and `remove`; the launcher may request `install` only. The request cannot select an artifact/version, grant permissions, replace the trust anchor, bypass verification or delete user data.
+
+`store-lifecycle-request-service.mjs` is the guarded backend facade for that request boundary. It revalidates the current verified catalog projection at request time, serializes lifecycle mutations per app, preserves bounded request-id idempotency, rejects stale/unavailable operations before privileged delegation and validates the returned receipt against the exact request identity. Its public port remains `authority:none`; the injected lifecycle delegate is platform-private and must carry `platform-component-lifecycle` authority.
+
+The Store must never become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
 
 `catalog -> artifact identity -> trust/provenance -> compatibility -> stage -> health/probation -> promote -> inventory/receipt`
 
