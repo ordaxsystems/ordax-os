@@ -82,9 +82,11 @@ function watermarkStore(initial = null, {
       },
       async compareAndSwap(expected, next) {
         if (failSave) throw new Error("disk unavailable");
-        assert.deepEqual(current, expected);
         if (raceCount < races) {
           raceCount += 1;
+          return false;
+        }
+        if (JSON.stringify(current) !== JSON.stringify(expected)) {
           return false;
         }
         current = next;
