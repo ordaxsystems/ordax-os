@@ -145,6 +145,18 @@ def read_cached_artifact(identity: object, *, root: str = DEFAULT_ARTIFACT_ROOT)
     return _read_verified_path(_artifact_path(store, normalized["sha256"]), normalized)
 
 
+def resolve_cached_artifact_path(
+    identity: object,
+    *,
+    root: str = DEFAULT_ARTIFACT_ROOT,
+) -> Path:
+    normalized = validate_artifact_identity(identity)
+    store = _ensure_store_root(Path(root))
+    target = _artifact_path(store, normalized["sha256"])
+    _read_verified_path(target, normalized)
+    return target
+
+
 def store_verified_artifact(
     identity: object,
     payload: bytes,
