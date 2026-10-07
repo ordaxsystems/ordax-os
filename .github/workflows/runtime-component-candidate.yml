@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - 'system/surface/runtime/native_app_artifact_store.py'
+      - 'tests/test_native_app_artifact_store.py'
       - 'system/surface/runtime/native_store_catalog.py'
       - 'system/surface/runtime/native_host_server.py'
       - 'tests/test_native_store_catalog.py'
@@ -113,6 +115,7 @@ jobs:
           python -m unittest tests.test_native_component_probation -v
           python -m py_compile system/surface/runtime/native_store_catalog.py system/surface/runtime/native_host_server.py
           python -m unittest tests.test_native_store_catalog -v
+          python -m unittest tests.test_native_app_artifact_store -v
           python -m unittest tests.test_native_store_catalog_host -v
           python tools/component-package/build.py check --component internet
           python tools/component-package/build.py check --component local-ai-service
