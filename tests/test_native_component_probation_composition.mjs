@@ -115,3 +115,19 @@ test("Native probation composition defers platform dependencies into the guarded
     /import\("\.\.\/\.\.\/services\/components\/probation-orchestrator\.mjs"\)/,
   );
 });
+
+test("Native host converts wrapper import failure into component-bound failed receipts", async () => {
+  const source = await readFile(
+    new URL("../system/surface/runtime/ordax_browser_host.py", import.meta.url),
+    "utf8",
+  );
+
+  const importNeedle = "module = await import('/composition/native/component-probation.mjs');";
+  const importIndex = source.indexOf(importNeedle);
+  const loopIndex = source.indexOf("for (const [componentId, nonce] of Object.entries(attempts))", importIndex);
+  assert.ok(importIndex > 0, "probation wrapper import must exist");
+  assert.ok(loopIndex > importIndex, "wrapper import must resolve before component attempts");
+  assert.match(source.slice(importIndex - 80, importIndex + importNeedle.length + 120), /try \{\{[\s\S]*module = await import[\s\S]*moduleError = error/);
+  assert.match(source.slice(loopIndex, loopIndex + 500), /if \(moduleError\) \{\{\s*throw moduleError;/);
+  assert.match(source.slice(loopIndex, loopIndex + 1200), /componentId,[\s\S]*health: 'failed',[\s\S]*nonce,[\s\S]*result/);
+});
