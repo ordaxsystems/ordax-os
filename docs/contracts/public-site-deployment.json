@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "public-edge-oidc-v4-live-vercel-zero-trust-source-not-deployed",
+  "status": "public-edge-oidc-v4-live-trusted-inner-boundary-source-not-deployed",
   "site_artifact": "public-site",
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -10,9 +10,15 @@
     "account_request_marker_header": "X-OrdaX-Public-Site",
     "account_request_marker_value": "1",
     "real_ip_source": "trusted-loopback-tls-terminator-x-forwarded-for",
-    "real_ip_trusted_sources": ["127.0.0.1", "::1"],
+    "real_ip_trusted_sources": [
+      "127.0.0.1",
+      "::1"
+    ],
     "public_auth_rate_limit_source_ready": true,
-    "public_auth_rate_limit_deployed": false
+    "public_auth_rate_limit_deployed": false,
+    "sensitive_account_proxy_enabled": false,
+    "sensitive_account_routes_fail_closed": true,
+    "authenticated_upstream_identity_available": false
   },
   "vercel_adapter": {
     "status": "oidc-zero-trust-source-ready-not-deployed",
@@ -33,7 +39,9 @@
     "canonical_public_origin_required": true,
     "canonical_public_origin_live_configured": true,
     "canonical_public_origin": "https://ordax-os-public.vercel.app",
-    "gateway_upstream_environment_scope": ["production"],
+    "gateway_upstream_environment_scope": [
+      "production"
+    ],
     "legacy_shared_secret_production_or_preview_exposed": false,
     "incoming_request_origin_must_equal_canonical_origin": true,
     "browser_host_header_trusted": false,
@@ -58,7 +66,11 @@
     "upstream_timeout_milliseconds": 15000,
     "set_cookie_preserved": true,
     "set_cookie_validation_required": true,
-    "set_cookie_allowed_names": ["ordax_access", "ordax_refresh", "ordax_recovery"],
+    "set_cookie_allowed_names": [
+      "ordax_access",
+      "ordax_refresh",
+      "ordax_recovery"
+    ],
     "set_cookie_domain_attribute_allowed": false,
     "set_cookie_secure_required": true,
     "set_cookie_http_only_required": true,
@@ -66,7 +78,9 @@
     "upstream_absolute_redirect_allowed": false,
     "upstream_protocol_relative_redirect_allowed": false,
     "provider_cors_forwarded": false,
-    "public_auth_rate_limit_deployed": false
+    "public_auth_rate_limit_deployed": false,
+    "account_prefix": "/account/",
+    "network_prefix": "/network/"
   },
   "public_edge_gateway": {
     "status": "v4-oidc-live-canonical-client-address-runtime-proof-pending",
@@ -87,8 +101,14 @@
     "runtime_provenance_e2e_verified": false,
     "verify_jwt": false,
     "custom_proxy_authentication": true,
-    "allowed_methods": ["GET", "POST"],
-    "allowed_prefixes": ["/auth/", "/sync/"],
+    "allowed_methods": [
+      "GET",
+      "POST"
+    ],
+    "allowed_prefixes": [
+      "/auth/",
+      "/sync/"
+    ],
     "proxy_authentication_required": true,
     "oidc_jose_version": "6.2.12",
     "oidc_issuer": "https://oidc.vercel.com/jogo-brasils-projects",
@@ -109,10 +129,31 @@
     "rate_limit_fail_closed": true,
     "maximum_request_body_bytes": 65536,
     "maximum_upstream_response_bytes": 2097152,
-    "native_direct_path_covered_by_this_boundary": false
+    "native_direct_path_covered_by_this_boundary": false,
+    "source_allowed_prefixes": [
+      "/auth/",
+      "/account/",
+      "/sync/",
+      "/network/"
+    ],
+    "source_oidc_authorization_forwarded_to_inner_gateway": true,
+    "source_inner_gateway_reverification_required": true,
+    "source_native_direct_inner_gateway_allowed": false
   },
   "routing": {
-    "static_routes": ["/", "/download/", "/login/", "/cadastro/", "/recuperar/", "/recuperar/nova-senha/", "/conta/", "/releases/catalog.json", "/licencas/", "/privacidade/", "/termos/"],
+    "static_routes": [
+      "/",
+      "/download/",
+      "/login/",
+      "/cadastro/",
+      "/recuperar/",
+      "/recuperar/nova-senha/",
+      "/conta/",
+      "/releases/catalog.json",
+      "/licencas/",
+      "/privacidade/",
+      "/termos/"
+    ],
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
     "identity_gateway_entrypoint": "services/public-identity/gateway.py:application",
@@ -127,7 +168,15 @@
     "gateway_public_activation_currently_enabled": false,
     "recovery_request_path": "/auth/recover",
     "recovery_verify_path": "/auth/recover/verify",
-    "recovery_complete_path": "/auth/recover/complete"
+    "recovery_complete_path": "/auth/recover/complete",
+    "account_prefix": "/account/",
+    "network_prefix": "/network/",
+    "source_vercel_sensitive_routes": [
+      "/auth/",
+      "/account/",
+      "/sync/",
+      "/network/"
+    ]
   },
   "security_headers": {
     "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; upgrade-insecure-requests",
@@ -176,7 +225,9 @@
     "public_proxy_must_reject_untrusted_upstream_redirects_and_cookies": true,
     "preview_oidc_must_not_access_production_account_boundary": true,
     "public_auth_rate_limits_required": true,
-    "native_auth_rate_limit_required_before_public_account_activation": true
+    "native_auth_rate_limit_required_before_public_account_activation": true,
+    "inner_sensitive_routes_must_reverify_deployment_identity": true,
+    "direct_inner_sensitive_routes_allowed": false
   },
   "security_rate_limits": {
     "status_code": 429,
@@ -188,8 +239,20 @@
       "direct_table_access_allowed": false,
       "deployed": true
     },
-    "login_and_register": {"rate": "10r/m", "burst": 5, "key": "restored-real-client-ip"},
-    "recovery_request": {"rate": "3r/m", "burst": 2, "key": "restored-real-client-ip"},
-    "recovery_completion": {"rate": "10r/m", "burst": 5, "key": "restored-real-client-ip"}
+    "login_and_register": {
+      "rate": "10r/m",
+      "burst": 5,
+      "key": "restored-real-client-ip"
+    },
+    "recovery_request": {
+      "rate": "3r/m",
+      "burst": 2,
+      "key": "restored-real-client-ip"
+    },
+    "recovery_completion": {
+      "rate": "10r/m",
+      "burst": 5,
+      "key": "restored-real-client-ip"
+    }
   }
 }
