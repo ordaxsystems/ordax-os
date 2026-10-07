@@ -11,6 +11,7 @@ on:
       - 'tests/test_file_open_registry.mjs'
       - 'system/contracts/app-lifecycle-request.mjs'
       - 'system/contracts/app-lifecycle-plan.mjs'
+      - 'system/contracts/app-artifact-acquisition-source.mjs'
       - 'system/contracts/app-store.mjs'
       - 'system/contracts/component-runtime-metadata.mjs'
       - 'system/contracts/verified-app-store-catalog.mjs'
@@ -29,6 +30,7 @@ on:
       - 'tests/test_first_party_app_delivery.mjs'
       - 'tests/test_app_lifecycle_request.mjs'
       - 'tests/test_app_store_lifecycle_service.mjs'
+      - 'tests/test_app_artifact_acquisition_source.mjs'
       - 'tests/test_component_runtime_metadata.mjs'
       - 'tests/test_external_first_party_policy.mjs'
       - 'tests/test_verified_app_store_catalog.mjs'
@@ -98,6 +100,7 @@ jobs:
           node --check system/services/files/file-open-registry.mjs
           node --check system/contracts/app-lifecycle-request.mjs
           node --check system/contracts/app-lifecycle-plan.mjs
+          node --check system/contracts/app-artifact-acquisition-source.mjs
           node --check system/contracts/app-store.mjs
           node --check system/contracts/component-runtime-metadata.mjs
           node --check system/contracts/verified-app-store-catalog.mjs
@@ -116,6 +119,7 @@ jobs:
           node --check tests/test_app_store_contract.mjs
           node --check tests/test_app_lifecycle_request.mjs
           node --check tests/test_app_store_lifecycle_service.mjs
+          node --check tests/test_app_artifact_acquisition_source.mjs
           node --check tests/test_component_runtime_metadata.mjs
           node --check tests/test_external_first_party_policy.mjs
           node --check tests/test_verified_app_store_catalog.mjs
@@ -137,6 +141,7 @@ jobs:
           node --test tests/test_app_store_contract.mjs
           node --test tests/test_app_lifecycle_request.mjs
           node --test tests/test_app_store_lifecycle_service.mjs
+          node --test tests/test_app_artifact_acquisition_source.mjs
           node --test tests/test_component_runtime_metadata.mjs
           node --test tests/test_external_first_party_policy.mjs
           node --test tests/test_verified_app_store_catalog.mjs
