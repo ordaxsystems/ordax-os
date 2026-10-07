@@ -11,6 +11,9 @@ import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
 const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024;
+const MAX_COOKIE_ENVELOPE_BYTES = 32 * 1024;
+const MAX_COOKIE_COUNT = 5;
+const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope";
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
 const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
 const PUBLIC_ACCOUNT_ROUTES = new Map([
@@ -125,6 +128,27 @@ function upstreamHeaders(req: Request, serverSecret: string) {
   return headers;
 }
 
+function upstreamCookies(upstream: Response) {
+  const getSetCookie = upstream.headers.getSetCookie;
+  const values = typeof getSetCookie === "function"
+    ? getSetCookie.call(upstream.headers)
+    : upstream.headers.get("set-cookie")
+      ? [upstream.headers.get("set-cookie") as string]
+      : [];
+  if (values.length > MAX_COOKIE_COUNT) throw new RangeError("too-many-account-cookies");
+  let totalBytes = 0;
+  for (const value of values) {
+    if (typeof value !== "string" || !value || /[\r\n]/.test(value)) {
+      throw new TypeError("invalid-account-cookie");
+    }
+    totalBytes += new TextEncoder().encode(value).byteLength;
+  }
+  if (totalBytes > MAX_COOKIE_ENVELOPE_BYTES) {
+    throw new RangeError("account-cookie-envelope-too-large");
+  }
+  return values;
+}
+
 function responseHeaders(upstream: Response) {
   const headers = new Headers({
     "cache-control": "no-store, max-age=0",
@@ -133,12 +157,9 @@ function responseHeaders(upstream: Response) {
     const value = upstream.headers.get(name);
     if (value) headers.set(name, value);
   }
-  const getSetCookie = upstream.headers.getSetCookie;
-  if (typeof getSetCookie === "function") {
-    for (const value of getSetCookie.call(upstream.headers)) headers.append("set-cookie", value);
-  } else {
-    const value = upstream.headers.get("set-cookie");
-    if (value) headers.append("set-cookie", value);
+  const cookies = upstreamCookies(upstream);
+  if (cookies.length) {
+    headers.set(COOKIE_ENVELOPE_HEADER, JSON.stringify(cookies));
   }
   return headers;
 }

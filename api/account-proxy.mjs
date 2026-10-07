@@ -24,6 +24,9 @@ const TURNSTILE_ACTION = "ordax-account";
 const TURNSTILE_PROTECTED_PATHS = new Set(["/auth/login", "/auth/register", "/auth/recover"]);
 const MAX_TURNSTILE_TOKEN_BYTES = 2048;
 const MAX_TURNSTILE_RESPONSE_BYTES = 64 * 1024;
+const MAX_COOKIE_ENVELOPE_BYTES = 32 * 1024;
+const MAX_COOKIE_COUNT = 5;
+const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope";
 const SAFE_COOKIE_NAMES = new Set([
   "ordax_access",
   "ordax_refresh",
@@ -182,6 +185,34 @@ export function trustedSetCookie(raw) {
   return raw;
 }
 
+export function trustedCookieEnvelope(raw) {
+  if (raw === null || raw === undefined || raw === "") return [];
+  if (typeof raw !== "string") throw new TypeError("invalid-cookie-envelope");
+  if (new TextEncoder().encode(raw).byteLength > MAX_COOKIE_ENVELOPE_BYTES) {
+    throw new RangeError("cookie-envelope-too-large");
+  }
+  let values;
+  try {
+    values = JSON.parse(raw);
+  } catch {
+    throw new TypeError("invalid-cookie-envelope");
+  }
+  if (!Array.isArray(values) || values.length > MAX_COOKIE_COUNT) {
+    throw new TypeError("invalid-cookie-envelope");
+  }
+  const names = new Set();
+  const cookies = [];
+  for (const rawCookie of values) {
+    const cookie = trustedSetCookie(rawCookie);
+    if (!cookie) throw new TypeError("unsafe-upstream-cookie");
+    const name = cookie.slice(0, cookie.indexOf("="));
+    if (names.has(name)) throw new TypeError("duplicate-upstream-cookie");
+    names.add(name);
+    cookies.push(cookie);
+  }
+  return cookies;
+}
+
 function copyResponseHeaders(upstream) {
   const headers = new Headers();
   headers.set("cache-control", "no-store, max-age=0");
@@ -197,16 +228,11 @@ function copyResponseHeaders(upstream) {
     headers.set("location", trustedLocation);
   }
 
-  const cookies = typeof upstream.headers.getSetCookie === "function"
-    ? upstream.headers.getSetCookie()
-    : upstream.headers.get("set-cookie")
-      ? [upstream.headers.get("set-cookie")]
-      : [];
-  for (const raw of cookies) {
-    const cookie = trustedSetCookie(raw);
-    if (!cookie) throw new TypeError("unsafe-upstream-cookie");
-    headers.append("set-cookie", cookie);
-  }
+  // Infrastructure cookies (for example Cloudflare bot-management cookies on
+  // the Supabase transport) never cross the OrdaX same-origin boundary.
+  // Product cookies are carried only inside the authenticated gateway envelope.
+  const cookies = trustedCookieEnvelope(upstream.headers.get(COOKIE_ENVELOPE_HEADER));
+  for (const cookie of cookies) headers.append("set-cookie", cookie);
   return headers;
 }
 

@@ -10,6 +10,7 @@ import {
   normalizeVercelOidcToken,
   proxyPublicAccountRequest,
   stripTurnstileToken,
+  trustedCookieEnvelope,
   trustedSetCookie,
   verifyTurnstileToken,
 } from "../api/account-proxy.mjs";
@@ -133,6 +134,27 @@ test("redirect and cookie passthrough are fail-closed", () => {
   );
 });
 
+test("cookie envelope accepts only unique validated OrdaX cookies", () => {
+  const access = "ordax_access=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600";
+  const refresh = "ordax_refresh=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600";
+  assert.deepEqual(
+    trustedCookieEnvelope(JSON.stringify([access, refresh])),
+    [access, refresh],
+  );
+  assert.deepEqual(trustedCookieEnvelope(null), []);
+  assert.throws(
+    () => trustedCookieEnvelope(JSON.stringify([access, access])),
+    /duplicate-upstream-cookie/,
+  );
+  assert.throws(
+    () => trustedCookieEnvelope(JSON.stringify([
+      "attacker=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600",
+    ])),
+    /unsafe-upstream-cookie/,
+  );
+  assert.throws(() => trustedCookieEnvelope("{not-json"), /invalid-cookie-envelope/);
+});
+
 test("public proxy accepts only GET and POST", async () => {
   for (const method of ["PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]) {
     const response = await proxyPublicAccountRequest(
@@ -226,7 +248,10 @@ test("proxy derives forwarded authority from canonical config, never browser Hos
           "content-type": "application/json; charset=utf-8",
           "cache-control": "public, max-age=999",
           "access-control-allow-origin": "*",
-          "set-cookie": "ordax_access=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0",
+          "set-cookie": "__cf_bm=transport-only; Path=/; HttpOnly; Secure; SameSite=None",
+          "x-ordax-cookie-envelope": JSON.stringify([
+            "ordax_access=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0",
+          ]),
         },
       },
     );
@@ -258,13 +283,14 @@ test("proxy derives forwarded authority from canonical config, never browser Hos
     assert.equal(observed.init.headers.has("x-ordax-public-proxy-secret"), false);
     assert.equal(response.headers.get("cache-control"), "no-store, max-age=0");
     assert.equal(response.headers.has("access-control-allow-origin"), false);
-    assert.match(response.headers.get("set-cookie") ?? "", /HttpOnly/);
+    assert.match(response.headers.get("set-cookie") ?? "", /^ordax_access=/);
+    assert.doesNotMatch(response.headers.get("set-cookie") ?? "", /__cf_bm/);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("proxy rejects unsafe upstream redirects and cookies", async () => {
+test("proxy rejects unsafe redirects and cookie envelopes while discarding transport cookies", async () => {
   const originalFetch = globalThis.fetch;
   try {
     globalThis.fetch = async () => new Response(null, {
@@ -275,10 +301,22 @@ test("proxy rejects unsafe upstream redirects and cookies", async () => {
     assert.equal(response.status, 502);
     assert.equal((await response.json()).error, "unsafe-account-gateway-response");
 
+    globalThis.fetch = async () => new Response("ok", {
+      status: 200,
+      headers: {
+        "set-cookie": "__cf_bm=transport-only; Path=/; HttpOnly; Secure; SameSite=None",
+      },
+    });
+    response = await proxyPublicAccountRequest(request("/auth/session"), options());
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.has("set-cookie"), false);
+
     globalThis.fetch = async () => new Response("bad", {
       status: 200,
       headers: {
-        "set-cookie": "attacker=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600",
+        "x-ordax-cookie-envelope": JSON.stringify([
+          "attacker=value; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600",
+        ]),
       },
     });
     response = await proxyPublicAccountRequest(request("/auth/session"), options());
