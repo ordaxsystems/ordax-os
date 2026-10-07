@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -94,4 +95,23 @@ test("Native probation composition preserves non-actionable missing pending", as
   assert.equal(result.sourceCommit, null);
   assert.equal(result.revision, null);
   assert.equal(result.health, "failed");
+});
+
+test("Native probation composition defers platform dependencies into the guarded attempt", async () => {
+  const source = await readFile(
+    new URL("../system/composition/native/component-probation.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(source, /^import .*component-slot-source\.mjs/m);
+  assert.doesNotMatch(source, /^import .*probation-orchestrator\.mjs/m);
+  assert.match(source, /async function loadProbationDependencies\(\)/);
+  assert.match(
+    source,
+    /import\("\.\.\/\.\.\/adapters\/native\/component-slot-source\.mjs"\)/,
+  );
+  assert.match(
+    source,
+    /import\("\.\.\/\.\.\/services\/components\/probation-orchestrator\.mjs"\)/,
+  );
 });
