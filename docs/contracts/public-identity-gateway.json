@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-gateway/1",
-  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v16-deployed-v16-revision-22-legal-policy-projection-ready-registration-disabled-close-disabled",
+  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v17-deployed-v16-revision-22-trusted-boundary-source-ready-registration-disabled-close-disabled",
   "runtime": {
     "entrypoint": "services/public-identity/gateway.py:application",
     "protocol": "WSGI",
@@ -9,7 +9,7 @@
     "provider_adapter": "supabase-password-and-sync-rest",
     "provider_configuration": "runtime-environment",
     "deployed_edge_adapter": "infra/supabase/functions/ordax-account-gateway/index.ts",
-    "gateway_source_version": 16,
+    "gateway_source_version": 17,
     "edge_deployment_revision_observed": 22,
     "deployed_gateway_source_version": 16,
     "lifecycle_service_source": "infra/supabase/functions/ordax-account-lifecycle/index.ts",
@@ -222,7 +222,16 @@
     "account_registration_policy_route_read_only": true,
     "account_registration_policy_service_role_only": true,
     "account_registration_policy_active": false,
-    "account_registration_ui_binding_source_ready": true
+    "account_registration_ui_binding_source_ready": true,
+    "native_account_transport": "canonical-public-origin",
+    "native_direct_inner_gateway_allowed": false,
+    "sensitive_routes_require_verified_production_oidc_at_inner_gateway": true,
+    "sensitive_route_prefixes": [
+      "/auth/",
+      "/account/",
+      "/sync/",
+      "/network/"
+    ]
   },
   "deployment": {
     "same_origin_required_for_public_site": true,
@@ -234,6 +243,9 @@
     "same_origin_adapter_source_ready": true,
     "same_origin_adapter_deployed": false,
     "public_site_proxy_marker_required": true,
-    "public_site_proxy_marker_header": "X-OrdaX-Public-Site"
+    "public_site_proxy_marker_header": "X-OrdaX-Public-Site",
+    "source_trusted_inner_boundary_ready": true,
+    "source_native_direct_inner_gateway_allowed": false,
+    "deployed_trusted_inner_boundary": false
   }
 }
