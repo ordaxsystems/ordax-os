@@ -178,12 +178,15 @@ begin
   for share;
 
   if v_grant_id is null
-     or jsonb_typeof(v_policy_value) <> 'object'
-     or pg_catalog.jsonb_object_length(v_policy_value) <> 4
-     or not (v_policy_value ? 'decision')
+     or jsonb_typeof(v_policy_value) <> 'object' then
+    raise exception 'quota-policy-invalid' using errcode = '22023';
+  end if;
+
+  if not (v_policy_value ? 'decision')
      or not (v_policy_value ? 'type')
      or not (v_policy_value ? 'unit')
      or not (v_policy_value ? 'limit')
+     or (v_policy_value - array['decision','type','unit','limit']::text[]) <> '{}'::jsonb
      or v_policy_value->>'type' <> 'quota'
      or v_policy_value->>'unit' <> p_unit
      or v_policy_value->>'decision' not in ('allowed','denied') then
@@ -275,7 +278,7 @@ begin
     and r.state = 'reserved'
     and r.expires_at > statement_timestamp();
 
-  if found and v_existing.reservation_id is not null then
+  if v_existing.reservation_id is not null then
     if v_existing.requested_units <> p_requested_units then
       raise exception 'quota-idempotency-conflict' using errcode = '23505';
     end if;
