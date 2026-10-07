@@ -109,10 +109,13 @@ def build_candidate(origin: str) -> dict:
 
 
 def source_commit() -> str:
-    value = os.environ.get("GITHUB_SHA", "").strip().lower()
-    if value and not SOURCE_COMMIT_RE.fullmatch(value):
-        raise ValueError("invalid source commit")
-    return value or "unbound-local-source"
+    value = (
+        os.environ.get("GITHUB_SHA", "").strip().lower()
+        or os.environ.get("ORDAX_SOURCE_COMMIT", "").strip().lower()
+    )
+    if not SOURCE_COMMIT_RE.fullmatch(value):
+        raise ValueError("exact source commit required")
+    return value
 
 
 def apply_candidate(candidate: dict) -> str:
@@ -198,12 +201,17 @@ def main(argv: list[str] | None = None) -> int:
         print("ACCOUNT_LEGAL_POLICY_CANDIDATE=PASS")
         return 0
 
+    try:
+        commit = source_commit()
+    except ValueError as exc:
+        fail(str(exc))
+
     policy_id = apply_candidate(candidate)
     receipt = {
         "$schema": RECEIPT_SCHEMA,
         "status": "pass",
         "policy_id": policy_id,
-        "source_commit": source_commit(),
+        "source_commit": commit,
         "workflow_run_id": os.environ.get("GITHUB_RUN_ID") or None,
         "origin": candidate["origin"],
         "privacy": candidate["privacy"],
