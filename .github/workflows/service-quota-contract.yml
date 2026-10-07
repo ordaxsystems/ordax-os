@@ -9,6 +9,7 @@ on:
       - 'infra/supabase/product/migrations/*service_quota*'
       - 'tests/test_service_quota.mjs'
       - 'tests/test_service_quota_ledger.py'
+      - 'tests/test_service_quota_ledger_concurrency.sh'
       - 'tests/sql/test_service_quota_ledger_v1.sql'
       - '.github/workflows/service-quota-contract.yml'
   push:
@@ -20,6 +21,7 @@ on:
       - 'infra/supabase/product/migrations/*service_quota*'
       - 'tests/test_service_quota.mjs'
       - 'tests/test_service_quota_ledger.py'
+      - 'tests/test_service_quota_ledger_concurrency.sh'
       - 'tests/sql/test_service_quota_ledger_v1.sql'
       - '.github/workflows/service-quota-contract.yml'
 
@@ -76,3 +78,4 @@ jobs:
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_service_quota_ledger_v1.sql
+          bash tests/test_service_quota_ledger_concurrency.sh
