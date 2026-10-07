@@ -20,6 +20,7 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
             "anon_private_schema_usage": False,
             "authenticated_private_schema_usage": False,
             "authenticated_private_function_execute": 0,
+            "private_cloud_storage_rls_enabled_count": 2,
             "authenticated_sync_table_grants": 0,
             "service_role_sync_table_grants": 0,
             "sync_policy_count": 5,
@@ -31,7 +32,7 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
 
     def test_target_boundary_is_ready(self):
         proof = MODULE.evaluate(self.valid_observation())
-        self.assertEqual(proof["$schema"], "prototype-ordax.control-plane-privilege-proof/2")
+        self.assertEqual(proof["$schema"], "prototype-ordax.control-plane-privilege-proof/3")
         self.assertTrue(proof["ready"])
         self.assertEqual(proof["project_ref"], "redacted")
         self.assertTrue(all(proof["checks"].values()))
@@ -92,6 +93,12 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
         proof = MODULE.evaluate(observed)
         self.assertFalse(proof["checks"]["no_authenticated_private_schema_usage"])
         self.assertFalse(proof["checks"]["no_authenticated_private_function_execute"])
+
+    def test_private_cloud_storage_requires_rls_on_both_tables(self):
+        observed = self.valid_observation()
+        observed["private_cloud_storage_rls_enabled_count"] = 1
+        proof = MODULE.evaluate(observed)
+        self.assertFalse(proof["checks"]["private_cloud_storage_rls_enabled"])
 
     def test_anon_private_schema_usage_blocks(self):
         observed = self.valid_observation()
