@@ -25,6 +25,11 @@ class DynamicComponentProbationContractTests(unittest.TestCase):
         self.assertIn("self.handle_component_probation_request(payload)", host)
         self.assertIn("if component_id in self.component_probation_nonces:", host)
         self.assertIn("self.component_probation_nonces.pop(component_id, None)", host)
+        self.assertIn("self.component_probation_rerun_requested: set[str] = set()", host)
+        self.assertIn("self.component_probation_rerun_requested.add(component_id)", host)
+        self.assertIn("rerun_requested = component_id in self.component_probation_rerun_requested", host)
+        self.assertIn("self.component_probation_rerun_requested.discard(component_id)", host)
+        self.assertIn("if rerun_requested:", host)
 
     def test_dynamic_probation_does_not_bypass_production_promotion_policy(self):
         delegate = DELEGATE.read_text(encoding="utf-8")
