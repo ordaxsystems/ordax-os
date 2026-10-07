@@ -92,6 +92,14 @@ export function mountStoreOverviewControls(
     ?? `s${Date.now().toString(36)}`;
   let destroyed = false;
 
+  const reconcileAcceptedRequest = () => {
+    if (pendingRequest?.phase !== "accepted") return;
+    const entry = snapshot.entries.find((candidate) => candidate.appId === pendingRequest.appId);
+    if (!entry || !operationAllowed(entry, pendingRequest.operation)) {
+      pendingRequest = null;
+    }
+  };
+
   const render = () => {
     if (destroyed) return;
     const windowNode = root.querySelector(STORE_WINDOW_SELECTOR);
@@ -176,10 +184,7 @@ export function mountStoreOverviewControls(
     const entry = snapshot.entries.find((candidate) => candidate.appId === appId);
     if (!entry || !operationAllowed(entry, operation)) return;
 
-    pendingRequest = Object.freeze({ appId, operation });
     requestMessageId = null;
-    render();
-
     requestOrdinal += 1;
     const request = validateAppLifecycleRequest({
       schema: APP_LIFECYCLE_REQUEST_SCHEMA,
@@ -189,6 +194,13 @@ export function mountStoreOverviewControls(
       source: "store",
       authority: "none",
     });
+    pendingRequest = Object.freeze({
+      appId,
+      operation,
+      requestId: request.requestId,
+      phase: "requesting",
+    });
+    render();
 
     void Promise.resolve(lifecycleRequests.requestLifecycle(request))
       .then((rawResult) => {
@@ -202,12 +214,22 @@ export function mountStoreOverviewControls(
           throw new TypeError("App Store lifecycle response identity mismatch");
         }
         requestMessageId = `store.request.${operation}.${result.state}`;
+        if (result.state === "accepted") {
+          pendingRequest = Object.freeze({
+            appId,
+            operation,
+            requestId: request.requestId,
+            phase: "accepted",
+          });
+          reconcileAcceptedRequest();
+        } else {
+          pendingRequest = null;
+        }
+        render();
       })
       .catch(() => {
-        requestMessageId = `store.request.${operation}.failed`;
-      })
-      .finally(() => {
         pendingRequest = null;
+        requestMessageId = `store.request.${operation}.failed`;
         render();
       });
   };
@@ -215,6 +237,7 @@ export function mountStoreOverviewControls(
   root.addEventListener("click", onClick);
   const unsubscribeCatalog = catalog.subscribe((next) => {
     snapshot = validateAppStoreCatalogSnapshot(next);
+    reconcileAcceptedRequest();
     render();
   });
   const unsubscribeRender = lifecycle.subscribeRender(render);

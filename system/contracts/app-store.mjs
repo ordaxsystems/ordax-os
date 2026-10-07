@@ -121,9 +121,39 @@ function freezeEntry(value) {
     throw new TypeError("App Store availableVersion must be newer than installedVersion");
   }
 
-  if (IN_FLIGHT_STATES.has(value.state) && (value.installable || value.updatable || value.removable)) {
-    throw new TypeError("In-flight App Store entry cannot expose a new lifecycle request");
+  if (
+    value.state === "installing"
+    && (
+      installedVersion !== null
+      || availableVersion === null
+      || !value.artifactIdentityVerified
+      || !value.provenanceVerified
+    )
+  ) {
+    throw new TypeError("Installing App Store entry requires a verified candidate and no installed version");
   }
+  if (
+    value.state === "updating"
+    && (
+      installedVersion === null
+      || availableVersion === null
+      || !value.artifactIdentityVerified
+      || !value.provenanceVerified
+    )
+  ) {
+    throw new TypeError("Updating App Store entry requires installed and verified candidate versions");
+  }
+  if (
+    value.state === "staged"
+    && (
+      availableVersion === null
+      || !value.artifactIdentityVerified
+      || !value.provenanceVerified
+    )
+  ) {
+    throw new TypeError("Staged App Store entry requires a verified candidate");
+  }
+
 
   if (value.installable) {
     if (

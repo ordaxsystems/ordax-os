@@ -59,6 +59,10 @@ export function projectFirstPartyAppDelivery(appId, rawObservation) {
     state = "failed-retained";
   } else if (observation.transition === "installing") {
     state = "installing";
+  } else if (observation.transition === "updating") {
+    state = "updating";
+  } else if (observation.transition === "removing") {
+    state = "removing";
   } else if (observation.transition === "staged") {
     state = "staged";
   } else if (observation.installed) {
@@ -74,11 +78,15 @@ export function projectFirstPartyAppDelivery(appId, rawObservation) {
     state = "not-catalogued";
   }
 
-  const launchable = observation.installed;
+  const launchable = observation.installed && state !== "removing";
   const installable =
     !observation.installed &&
     policy.deliveryClass !== "structural" &&
     state === "available";
+  const removable =
+    policy.removable &&
+    observation.installed &&
+    ["installed", "failed-retained"].includes(state);
   const showInLauncher =
     launchable ||
     (state === "available" && policy.discovery === "launcher-recommended");
@@ -91,7 +99,7 @@ export function projectFirstPartyAppDelivery(appId, rawObservation) {
     reason,
     launchable,
     installable,
-    removable: policy.removable && observation.installed,
+    removable,
     showInLauncher,
     openAction: launchable ? "launch" : installable && showInLauncher ? "show-install" : "none",
     dataRemovalRequiresSeparateAction: true,

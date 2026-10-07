@@ -133,6 +133,37 @@ test("Store rejects downgrade/equal candidates and lifecycle contradictions", ()
     }))),
     /requires blockedReason/,
   );
+  assert.throws(
+    () => validateAppStoreCatalogSnapshot(snapshot(entry({
+      state: "installing",
+      availableVersion: null,
+      installable: false,
+      artifactIdentityVerified: false,
+      provenanceVerified: false,
+    }))),
+    /requires a verified candidate/,
+  );
+  assert.throws(
+    () => validateAppStoreCatalogSnapshot(snapshot(entry({
+      state: "updating",
+      installedVersion: "0.4.2",
+      installable: false,
+      updatable: false,
+      removable: false,
+      provenanceVerified: false,
+    }))),
+    /requires installed and verified candidate versions/,
+  );
+  assert.throws(
+    () => validateAppStoreCatalogSnapshot(snapshot(entry({
+      state: "staged",
+      availableVersion: null,
+      installable: false,
+      artifactIdentityVerified: false,
+      provenanceVerified: false,
+    }))),
+    /requires a verified candidate/,
+  );
 });
 
 test("failed update retains installed version and may still be removable", () => {
@@ -160,6 +191,8 @@ test("Store controls request lifecycle operations but cannot import component li
   assert.match(source, /requestLifecycle/);
   assert.match(source, /data-store-operation/);
   assert.match(source, /dataset\.storeAuthority/);
+  assert.match(source, /reconcileAcceptedRequest/);
+  assert.match(source, /phase: "accepted"/);
   assert.doesNotMatch(source, /services\/components/);
   assert.doesNotMatch(source, /runtime-component-channel/);
   assert.doesNotMatch(source, /promote\(/);
