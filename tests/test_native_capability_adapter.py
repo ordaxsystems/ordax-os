@@ -108,6 +108,9 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             "  await identitySession.refresh();"
         )
         self.assertNotIn(eager_refresh, text)
+        surface_mount = text.index("const surface = mountSurface(")
+        pre_surface = text[:surface_mount]
+        self.assertNotIn("await accountLifecycle.refresh();", pre_surface)
         self.assertIn(
             "const resumeAccountConnectivity = async () => {\n"
             "    await identitySession.refresh();\n"
