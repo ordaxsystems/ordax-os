@@ -19,10 +19,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_contract_records_live_oidc_v5_without_claiming_vercel_rollout(self):
+    def test_contract_records_live_oidc_v6_without_claiming_vercel_rollout(self):
         self.assertEqual(
             self.contract["status"],
-            "public-edge-oidc-v5-live-bounded-account-routes-vercel-source-not-deployed",
+            "public-edge-oidc-v6-live-shared-auth-rate-limit-vercel-source-not-deployed",
         )
         self.assertEqual(
             self.contract["vercel_adapter"]["status"],
@@ -30,10 +30,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         )
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 5)
+        self.assertEqual(edge["deployed_version"], 6)
         self.assertEqual(
             edge["deployment_source_commit"],
-            "6a16c486f5663ca6c46e4ab17816578e3e5cf023",
+            "149d33146fb7948fac97e3a2fe153f582c31b4c4",
         )
         self.assertEqual(edge["deployed_authentication"], "vercel-production-oidc-v2")
         self.assertEqual(edge["source_authentication"], "vercel-production-oidc-v2")
@@ -124,12 +124,18 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(self.contract["security_rate_limits"]["authoritative_backend"]["deployed"])
         native = self.contract["security_rate_limits"]["native_direct"]
         self.assertTrue(native["source_ready"])
-        self.assertFalse(native["deployed"])
+        self.assertTrue(native["deployed"])
         self.assertEqual(native["client_address_source"], "supabase-edge-cf-connecting-ip")
         self.assertEqual(native["rpc"], "ordax_consume_public_auth_rate_limit_v1")
         self.assertTrue(native["shares_public_ip_window"])
         self.assertTrue(native["fail_closed"])
         self.assertFalse(native["raw_client_ip_persisted"])
+        self.assertEqual(native["deployment_revision_observed"], 27)
+        self.assertTrue(native["shared_policy_deployed"])
+        public_edge_rate_limit = self.contract["security_rate_limits"]["public_edge"]
+        self.assertTrue(public_edge_rate_limit["deployed"])
+        self.assertEqual(public_edge_rate_limit["deployment_revision_observed"], 6)
+        self.assertTrue(public_edge_rate_limit["shared_policy_deployed"])
 
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
         self.assertEqual(self.vercel["outputDirectory"], "sites/public")
