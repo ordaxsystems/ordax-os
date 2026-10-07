@@ -21,6 +21,21 @@ proof = load_module()
 
 
 class AccountSessionRevocationReceiptTests(unittest.TestCase):
+    def test_public_origin_parser_rejects_internal_or_ambiguous_urls(self):
+        self.assertEqual(
+            proof.canonical_public_origin("https://accounts.example.invalid/"),
+            "https://accounts.example.invalid",
+        )
+        for value in (
+            "http://accounts.example.invalid",
+            "https://user:pass@accounts.example.invalid",
+            "https://accounts.example.invalid/functions/v1/ordax-account-gateway",
+            "https://accounts.example.invalid/?next=x",
+            "https://accounts.example.invalid/#fragment",
+        ):
+            with self.subTest(value=value), self.assertRaises(SystemExit):
+                proof.canonical_public_origin(value)
+
     def test_receipt_is_local_scope_and_sanitized(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "receipt.json"
@@ -31,7 +46,7 @@ class AccountSessionRevocationReceiptTests(unittest.TestCase):
                 os.environ["GITHUB_RUN_ID"] = "98765"
                 proof.write_receipt(
                     str(path),
-                    "https://example.invalid/functions/v1/ordax-account-gateway",
+                    "https://example.invalid",
                 )
             finally:
                 if old_sha is None:
