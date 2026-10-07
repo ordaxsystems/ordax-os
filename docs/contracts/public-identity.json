@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-entry/1",
-  "status": "provider-adapter-source-v16-deployed-v16-revision-26-recovery-session-isolated-legal-policy-pending-registration-disabled-close-disabled",
+  "status": "provider-adapter-source-v17-deployed-v16-revision-26-native-auth-rate-limit-source-ready-legal-policy-pending-registration-disabled-close-disabled",
   "purpose": "public-site-account-entry-boundary",
   "routes": {
     "login_page": "/login/",
@@ -65,7 +65,7 @@
     "public_site_marker_header": "X-OrdaX-Public-Site",
     "native_direct_account_gateway_remains_available": true,
     "edge_deployment_revision_observed": 26,
-    "gateway_source_version": 16,
+    "gateway_source_version": 17,
     "password_recovery_request_implemented": true,
     "password_recovery_redirect_config_verified": false,
     "password_recovery_completion_flow_implemented": true,
@@ -120,7 +120,12 @@
     "public_site_boundary_authentication_deployed": true,
     "public_site_boundary_authentication": "backend-secret-apikey",
     "password_recovery_session_isolated": true,
-    "password_recovery_cookie_path": "/auth/recover"
+    "password_recovery_cookie_path": "/auth/recover",
+    "native_direct_auth_rate_limit_source_ready": true,
+    "native_direct_auth_rate_limit_deployed": false,
+    "native_direct_auth_rate_limit_rpc": "ordax_consume_public_auth_rate_limit_v1",
+    "native_direct_auth_rate_limit_client_address_source": "supabase-edge-cf-connecting-ip",
+    "native_direct_auth_rate_limit_fail_closed": true
   },
   "supabase_candidate": {
     "status": "dedicated-target-schema-and-edge-gateway-deployed",

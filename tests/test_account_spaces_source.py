@@ -17,7 +17,7 @@ class AccountSpacesSourceTests(unittest.TestCase):
         self.assertIn('.from("ordax_spaces")', source)
         self.assertIn('.from("ordax_space_profile_packs")', source)
         self.assertIn('.limit(MAX_VISIBLE_SPACES + 1)', source)
-        self.assertIn('version: 16', source)
+        self.assertIn('version: 17', source)
 
         start = source.index('if (path === "/account/spaces" && req.method === "GET")')
         end = source.index('if (path === "/sync/snapshot"', start)

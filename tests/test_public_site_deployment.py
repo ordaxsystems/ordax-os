@@ -9,6 +9,7 @@ VERCEL = ROOT / "vercel.json"
 VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
 DEPLOYMENT_PROOF = ROOT / "tools" / "public-site" / "prove_deployment.py"
 PUBLIC_EDGE_RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_auth_rate_limit.mjs"
+SHARED_AUTH_RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "_shared" / "auth_rate_limit.mjs"
 
 
 class PublicSiteDeploymentTests(unittest.TestCase):
@@ -45,10 +46,13 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(edge["trusted_client_address_canonicalization"], "strict-ipv4-ipv6")
         self.assertTrue(edge["ambiguous_client_address_rejected"])
         rate_limit_source = PUBLIC_EDGE_RATE_LIMIT.read_text(encoding="utf-8")
+        shared_rate_limit = SHARED_AUTH_RATE_LIMIT.read_text(encoding="utf-8")
         self.assertIn("canonicalizePublicClientAddress", rate_limit_source)
-        self.assertIn("canonicalIpv4", rate_limit_source)
-        self.assertIn("canonicalIpv6", rate_limit_source)
-        self.assertNotIn("const ADDRESS_RE", rate_limit_source)
+        self.assertIn("canonicalizeClientAddress", rate_limit_source)
+        self.assertIn("canonicalIpv4", shared_rate_limit)
+        self.assertIn("canonicalIpv6", shared_rate_limit)
+        self.assertIn("authRateLimitBucket", shared_rate_limit)
+        self.assertNotIn("const ADDRESS_RE", shared_rate_limit)
         self.assertTrue(self.contract["routing"]["public_edge_gateway_deployed"])
         self.assertFalse(self.contract["routing"]["vercel_adapter_routed_to_public_edge_gateway"])
 
@@ -118,6 +122,14 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertIn("limit_req_status 429;", self.nginx)
         self.assertFalse(self.contract["adapter"]["public_auth_rate_limit_deployed"])
         self.assertTrue(self.contract["security_rate_limits"]["authoritative_backend"]["deployed"])
+        native = self.contract["security_rate_limits"]["native_direct"]
+        self.assertTrue(native["source_ready"])
+        self.assertFalse(native["deployed"])
+        self.assertEqual(native["client_address_source"], "supabase-edge-cf-connecting-ip")
+        self.assertEqual(native["rpc"], "ordax_consume_public_auth_rate_limit_v1")
+        self.assertTrue(native["shares_public_ip_window"])
+        self.assertTrue(native["fail_closed"])
+        self.assertFalse(native["raw_client_ip_persisted"])
 
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
         self.assertEqual(self.vercel["outputDirectory"], "sites/public")
@@ -149,7 +161,13 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(adapter["set_cookie_validation_required"])
         self.assertEqual(
             adapter["set_cookie_allowed_names"],
-            ["ordax_access", "ordax_refresh", "ordax_recovery"],
+            [
+                "ordax_access",
+                "ordax_refresh",
+                "ordax_recovery",
+                "ordax_recovery_access",
+                "ordax_recovery_refresh",
+            ],
         )
         self.assertFalse(adapter["set_cookie_domain_attribute_allowed"])
         self.assertTrue(adapter["set_cookie_secure_required"])

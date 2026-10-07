@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "index.ts"
 RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_auth_rate_limit.mjs"
+RATE_LIMIT_POLICY = ROOT / "infra" / "supabase" / "functions" / "_shared" / "auth_rate_limit.mjs"
 REQUEST_CONTEXT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_request_context.mjs"
 OIDC = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "vercel_oidc.mjs"
 INNER_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "index.ts"
@@ -14,6 +15,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
     def setUp(self):
         self.edge = PUBLIC_EDGE.read_text(encoding="utf-8")
         self.rate_limit = RATE_LIMIT.read_text(encoding="utf-8")
+        self.rate_limit_policy = RATE_LIMIT_POLICY.read_text(encoding="utf-8")
         self.request_context = REQUEST_CONTEXT.read_text(encoding="utf-8")
         self.oidc = OIDC.read_text(encoding="utf-8")
         self.inner = INNER_EDGE.read_text(encoding="utf-8")
@@ -73,9 +75,10 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
 
     def test_auth_rate_limit_runs_before_inner_account_gateway(self):
         self.assertIn('ordax_consume_public_auth_rate_limit_v1', self.edge)
-        self.assertIn('return "credentials"', self.edge)
-        self.assertIn('return "recovery-request"', self.edge)
-        self.assertIn('return "recovery-completion"', self.edge)
+        self.assertIn('return "credentials"', self.rate_limit_policy)
+        self.assertIn('return "recovery-request"', self.rate_limit_policy)
+        self.assertIn('return "recovery-completion"', self.rate_limit_policy)
+        self.assertIn("authRateLimitBucket", self.edge)
         self.assertIn('"auth-rate-limit-unavailable"', self.edge)
         self.assertIn('"auth-rate-limited"', self.edge)
         self.assertIn('"retry-after"', self.edge)
@@ -122,6 +125,22 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn("expectedKey = adminConfig().key", self.inner)
         self.assertIn("constantTimeEqual(presentedKey, expectedKey)", self.inner)
         self.assertIn('"public-account-boundary-authentication-required"', self.inner)
+
+    def test_direct_native_auth_uses_same_server_authoritative_rate_limit(self):
+        self.assertIn("enforceDirectAuthRateLimit(req, path)", self.inner)
+        self.assertIn('req.headers.get("cf-connecting-ip")', self.inner)
+        self.assertIn("canonicalizeClientAddress", self.inner)
+        self.assertIn("authRateLimitBucket(req.method, path)", self.inner)
+        self.assertIn('rpc("ordax_consume_public_auth_rate_limit_v1"', self.inner)
+        self.assertIn("validateRateLimitRpcResult(data, bucket)", self.inner)
+        self.assertIn('"native-client-address-required"', self.inner)
+        self.assertIn('"auth-rate-limit-unavailable"', self.inner)
+        self.assertIn('"auth-rate-limited"', self.inner)
+        self.assertIn('response.headers.set("retry-after"', self.inner)
+        self.assertNotIn("user-agent", self.inner[self.inner.index("function directNativeClientAddress"):self.inner.index("function routePath")].lower())
+        limiter_index = self.inner.index("enforceDirectAuthRateLimit(req, path)")
+        login_index = self.inner.index('path === "/auth/login" && req.method === "POST"')
+        self.assertLess(limiter_index, login_index)
 
     def test_inner_gateway_remains_fail_closed_during_boundary_rollout(self):
         self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", self.inner)

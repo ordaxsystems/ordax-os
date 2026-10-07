@@ -40,7 +40,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v16-deployed-v16-revision-26-recovery-session-isolated-registration-disabled-close-disabled",
+            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v17-deployed-v16-revision-26-native-auth-rate-limit-source-ready-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["baseline"]["provider_configured"])
         self.assertTrue(contract["baseline"]["http_only_session_cookies"])
@@ -70,8 +70,20 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(contract["baseline"]["registration_password_minimum_chars"], 12)
         self.assertTrue(contract["baseline"]["registration_password_policy_enforced_at_edge"])
         self.assertFalse(contract["baseline"]["existing_login_passwords_retroactively_rejected"])
-        self.assertEqual(contract["runtime"]["gateway_source_version"], 16)
+        self.assertEqual(contract["runtime"]["gateway_source_version"], 17)
         self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 16)
+        self.assertTrue(contract["baseline"]["native_direct_auth_rate_limit_source_ready"])
+        self.assertFalse(contract["baseline"]["native_direct_auth_rate_limit_deployed"])
+        self.assertEqual(
+            contract["baseline"]["native_direct_auth_rate_limit_rpc"],
+            "ordax_consume_public_auth_rate_limit_v1",
+        )
+        self.assertEqual(
+            contract["baseline"]["native_direct_auth_rate_limit_client_address_source"],
+            "supabase-edge-cf-connecting-ip",
+        )
+        self.assertTrue(contract["baseline"]["native_direct_auth_rate_limit_fail_closed"])
+        self.assertFalse(contract["baseline"]["native_direct_auth_rate_limit_raw_ip_persisted"])
         self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 26)
         self.assertTrue(contract["runtime"]["lifecycle_service_deployed"])
         self.assertEqual(contract["runtime"]["lifecycle_service_deployment_revision_observed"], 2)
