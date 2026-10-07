@@ -169,18 +169,24 @@ test("accepted install requests platform-owned probation for supported component
 });
 
 test("remove and unsupported apps never request probation", async () => {
-  for (const value of [plan("remove"), {
-    ...plan("install"),
-    request: {
-      ...plan("install").request,
-      requestId: "store:install:studio:native-test",
-      appId: "studio",
+  const unsupported = plan("install");
+  unsupported.request = {
+    ...unsupported.request,
+    requestId: "store:install:studio:native-test",
+    appId: "studio",
+  };
+  unsupported.candidate = {
+    ...unsupported.candidate,
+    appId: "studio",
+    artifacts: {
+      package: artifact("studio.zip", "b"),
+      release: artifact("studio.release.json", "c"),
+      compatibility: artifact("studio.compatibility.json", "d"),
+      componentEnvelope: artifact("studio.runtime-component-envelope.json", "e"),
     },
-    candidate: {
-      ...plan("install").candidate,
-      appId: "studio",
-    },
-  }]) {
+  };
+
+  for (const value of [plan("remove"), unsupported]) {
     const messages = [];
     const delegate = createNativeAppLifecycleDelegate({
       async fetch() {
