@@ -40,7 +40,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v17-deployed-v17-revision-27-native-auth-rate-limit-live-registration-disabled-close-disabled",
+            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v17-deployed-v17-revision-28-public-login-legal-receipt-guard-live-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["baseline"]["provider_configured"])
         self.assertTrue(contract["baseline"]["http_only_session_cookies"])
@@ -86,9 +86,9 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertFalse(contract["baseline"]["native_direct_auth_rate_limit_raw_ip_persisted"])
         self.assertEqual(
             contract["baseline"]["native_direct_auth_rate_limit_deployment_revision_observed"],
-            27,
+            28,
         )
-        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 27)
+        self.assertEqual(contract["runtime"]["edge_deployment_revision_observed"], 28)
         self.assertTrue(contract["runtime"]["lifecycle_service_deployed"])
         self.assertEqual(contract["runtime"]["lifecycle_service_deployment_revision_observed"], 2)
         self.assertFalse(contract["runtime"]["lifecycle_service_enabled"])
@@ -123,7 +123,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertTrue(contract["baseline"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["baseline"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            27,
+            28,
         )
         self.assertFalse(contract["baseline"]["public_cloud_memory_enabled"])
         self.assertTrue(contract["baseline"]["account_close_source_implemented"])

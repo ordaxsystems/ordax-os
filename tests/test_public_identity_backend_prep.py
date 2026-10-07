@@ -17,7 +17,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         contract = json.loads(IDENTITY_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "provider-adapter-source-v17-deployed-v17-revision-27-native-auth-rate-limit-live-legal-policy-pending-registration-disabled-close-disabled",
+            "provider-adapter-source-v17-deployed-v17-revision-28-public-login-legal-receipt-guard-live-legal-policy-pending-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["backend"]["provider_configured"])
         self.assertTrue(contract["backend"]["password_auth_flow_implemented"])
@@ -41,14 +41,14 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["native_direct_auth_rate_limit_fail_closed"])
         self.assertEqual(
             contract["backend"]["native_direct_auth_rate_limit_deployment_revision_observed"],
-            27,
+            28,
         )
         self.assertEqual(
             contract["backend"]["native_direct_auth_rate_limit_shared_policy_source"],
             "infra/supabase/functions/_shared/auth_rate_limit.mjs",
         )
         self.assertFalse(contract["backend"]["native_direct_auth_rate_limit_raw_ip_persisted"])
-        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 27)
+        self.assertEqual(contract["backend"]["edge_deployment_revision_observed"], 28)
         self.assertTrue(contract["backend"]["account_close_source_implemented"])
         self.assertEqual(contract["backend"]["account_close_gateway_route"], "/account/close")
         self.assertTrue(contract["backend"]["account_close_gateway_route_deployed"])
@@ -75,7 +75,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["account_memory_entitlement_edge_deployed"])
         self.assertEqual(
             contract["backend"]["account_memory_entitlement_edge_deployment_revision_observed"],
-            27,
+            28,
         )
         self.assertTrue(
             contract["backend"]["account_memory_entitlement_requires_authenticated_user"]
@@ -172,24 +172,24 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(observation["rate_limit_real_client_ip_forwarding_verified"])
         self.assertEqual(
             observation["password_recovery_request"],
-            "pass-source-and-edge-v27-disabled-isolated-session",
+            "pass-source-and-edge-v28-disabled-isolated-session",
         )
         self.assertFalse(observation["password_recovery_redirect_config_verified"])
         self.assertFalse(observation["password_recovery_account_enumeration_allowed"])
         self.assertEqual(
             observation["password_recovery_completion_flow"],
-            "pass-source-and-edge-v27-disabled-isolated-session",
+            "pass-source-and-edge-v28-disabled-isolated-session",
         )
         self.assertEqual(
             observation["password_recovery_server_side_token_hash"],
-            "pass-source-and-edge-v27-disabled",
+            "pass-source-and-edge-v28-disabled",
         )
         self.assertFalse(observation["password_recovery_completion_enabled"])
         self.assertFalse(observation["password_recovery_email_template_applied"])
         self.assertFalse(observation["account_recovery_flow_tested"])
         self.assertEqual(observation["observed_date"], "2026-10-07")
         self.assertEqual(observation["public_edge_gateway_version"], 6)
-        self.assertIn("v27-deployed", observation["edge_gateway"])
+        self.assertIn("v28-deployed", observation["edge_gateway"])
         self.assertIn("active-v6", observation["public_edge_gateway"])
         self.assertTrue(observation["password_recovery_session_isolated"])
         self.assertEqual(observation["password_recovery_cookie_path"], "/auth/recover")
@@ -238,10 +238,17 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         )
         self.assertFalse(observation["legacy_accounts_public_login_allowed"])
         self.assertTrue(observation["public_login_legal_receipt_guard_source_ready"])
-        self.assertFalse(observation["public_login_legal_receipt_guard_deployed"])
+        self.assertTrue(observation["public_login_legal_receipt_guard_deployed"])
         self.assertEqual(
             observation["public_login_legal_receipt_guard_rpc"],
             "ordax_account_has_registration_legal_receipt_v1",
+        )
+        self.assertEqual(
+            observation["public_login_legal_receipt_guard_deployment_revision_observed"],
+            28,
+        )
+        self.assertTrue(
+            observation["public_login_legal_receipt_guard_live_nonexistent_subject_denied"]
         )
         self.assertTrue(observation["public_login_legal_receipt_guard_public_only"])
         self.assertEqual(

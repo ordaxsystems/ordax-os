@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-entry/1",
-  "status": "provider-adapter-source-v17-deployed-v17-revision-27-native-auth-rate-limit-live-legal-policy-pending-registration-disabled-close-disabled",
+  "status": "provider-adapter-source-v17-deployed-v17-revision-28-public-login-legal-receipt-guard-live-legal-policy-pending-registration-disabled-close-disabled",
   "purpose": "public-site-account-entry-boundary",
   "routes": {
     "login_page": "/login/",
@@ -64,7 +64,7 @@
     "public_site_account_enabled": false,
     "public_site_marker_header": "X-OrdaX-Public-Site",
     "native_direct_account_gateway_remains_available": true,
-    "edge_deployment_revision_observed": 27,
+    "edge_deployment_revision_observed": 28,
     "gateway_source_version": 17,
     "password_recovery_request_implemented": true,
     "password_recovery_redirect_config_verified": false,
@@ -95,7 +95,7 @@
     "account_memory_entitlement_route": "/account/entitlements/memory-cloud",
     "account_memory_entitlement_key": "memory.cloud.enabled",
     "account_memory_entitlement_edge_deployed": true,
-    "account_memory_entitlement_edge_deployment_revision_observed": 27,
+    "account_memory_entitlement_edge_deployment_revision_observed": 28,
     "account_memory_entitlement_requires_authenticated_user": true,
     "account_memory_entitlement_subject_from_session": true,
     "account_memory_entitlement_uses_user_bearer_rls": true,
@@ -126,9 +126,11 @@
     "native_direct_auth_rate_limit_rpc": "ordax_consume_public_auth_rate_limit_v1",
     "native_direct_auth_rate_limit_client_address_source": "supabase-edge-cf-connecting-ip",
     "native_direct_auth_rate_limit_fail_closed": true,
-    "native_direct_auth_rate_limit_deployment_revision_observed": 27,
+    "native_direct_auth_rate_limit_deployment_revision_observed": 28,
     "native_direct_auth_rate_limit_shared_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs",
-    "native_direct_auth_rate_limit_raw_ip_persisted": false
+    "native_direct_auth_rate_limit_raw_ip_persisted": false,
+    "public_login_legal_receipt_guard_deployed": true,
+    "public_login_legal_receipt_guard_deployment_revision_observed": 28
   },
   "supabase_candidate": {
     "status": "dedicated-target-schema-and-edge-gateway-deployed",
