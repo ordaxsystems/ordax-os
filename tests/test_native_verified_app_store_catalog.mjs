@@ -39,6 +39,7 @@ function ready(sequence = 4) {
           package: artifact("notes.zip", "b"),
           release: artifact("notes.release.json", "c"),
           compatibility: artifact("notes.compatibility.json", "d"),
+          componentEnvelope: artifact("notes.runtime-component-envelope.json", "6"),
         },
       },
     ],
