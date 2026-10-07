@@ -24,7 +24,13 @@ const TURNSTILE_ACTION = "ordax-account";
 const TURNSTILE_PROTECTED_PATHS = new Set(["/auth/login", "/auth/register", "/auth/recover"]);
 const MAX_TURNSTILE_TOKEN_BYTES = 2048;
 const MAX_TURNSTILE_RESPONSE_BYTES = 64 * 1024;
-const SAFE_COOKIE_NAMES = new Set(["ordax_access", "ordax_refresh", "ordax_recovery"]);
+const SAFE_COOKIE_NAMES = new Set([
+  "ordax_access",
+  "ordax_refresh",
+  "ordax_recovery",
+  "ordax_recovery_access",
+  "ordax_recovery_refresh",
+]);
 const PASSTHROUGH_REQUEST_HEADERS = [
   "accept",
   "content-type",
@@ -168,7 +174,8 @@ export function trustedSetCookie(raw) {
   }
   if (attributes.has("domain")) return null;
   if (!attributes.has("secure") || !attributes.has("httponly")) return null;
-  if (attributes.get("path") !== "/") return null;
+  const expectedPath = name.startsWith("ordax_recovery") ? "/auth/recover" : "/";
+  if (attributes.get("path") !== expectedPath) return null;
   if ((attributes.get("samesite") ?? "").toLowerCase() !== "lax") return null;
   const maxAge = attributes.get("max-age");
   if (maxAge === undefined || !/^-?\d{1,10}$/.test(maxAge)) return null;
