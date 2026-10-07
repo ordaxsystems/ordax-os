@@ -63,7 +63,9 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn("x-ordax-public-origin", request_headers)
         self.assertNotIn("authorization", request_headers.lower())
         self.assertIn('headers.set("x-ordax-public-site", "1")', self.edge)
-        self.assertIn('headers.set("apikey", publishableKey)', self.edge)
+        self.assertIn('headers.set("apikey", serverSecret)', self.edge)
+        self.assertIn("function serverSecretKey()", self.edge)
+        self.assertNotIn('headers.set("apikey", publishableKey)', self.edge)
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
@@ -103,6 +105,13 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-forwarded-host", canonical.host)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
+
+    def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
+        self.assertIn("function trustedPublicSiteRequest(req: Request)", self.inner)
+        self.assertIn('req.headers.get("apikey")', self.inner)
+        self.assertIn("expectedKey = adminConfig().key", self.inner)
+        self.assertIn("constantTimeEqual(presentedKey, expectedKey)", self.inner)
+        self.assertIn('"public-account-boundary-authentication-required"', self.inner)
 
     def test_inner_gateway_remains_fail_closed_during_boundary_rollout(self):
         self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", self.inner)
