@@ -7,9 +7,12 @@ on:
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/app-lifecycle-request.mjs'
       - 'system/contracts/app-store.mjs'
+      - 'system/contracts/component-runtime-metadata.mjs'
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/external-first-party-policy.mjs'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
+      - 'system/services/apps/verified-store-projection.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
@@ -19,7 +22,10 @@ on:
       - 'tests/test_first_party_app_delivery.mjs'
       - 'tests/test_app_lifecycle_request.mjs'
       - 'tests/test_app_store_lifecycle_service.mjs'
+      - 'tests/test_component_runtime_metadata.mjs'
+      - 'tests/test_external_first_party_policy.mjs'
       - 'tests/test_verified_app_store_catalog.mjs'
+      - 'tests/test_verified_store_projection.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
@@ -27,9 +33,12 @@ on:
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/app-lifecycle-request.mjs'
       - 'system/contracts/app-store.mjs'
+      - 'system/contracts/component-runtime-metadata.mjs'
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/external-first-party-policy.mjs'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
+      - 'system/services/apps/verified-store-projection.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
@@ -39,7 +48,10 @@ on:
       - 'tests/test_first_party_app_delivery.mjs'
       - 'tests/test_app_lifecycle_request.mjs'
       - 'tests/test_app_store_lifecycle_service.mjs'
+      - 'tests/test_component_runtime_metadata.mjs'
+      - 'tests/test_external_first_party_policy.mjs'
       - 'tests/test_verified_app_store_catalog.mjs'
+      - 'tests/test_verified_store_projection.mjs'
       - 'tests/test_mvp_app_delivery.mjs'
       - '.github/workflows/first-party-app-delivery.yml'
   workflow_dispatch:
@@ -63,15 +75,21 @@ jobs:
           node --check system/contracts/first-party-app-delivery.mjs
           node --check system/contracts/app-lifecycle-request.mjs
           node --check system/contracts/app-store.mjs
+          node --check system/contracts/component-runtime-metadata.mjs
           node --check system/contracts/verified-app-store-catalog.mjs
           node --check system/services/apps/delivery-policy.mjs
+          node --check system/services/apps/external-first-party-policy.mjs
           node --check system/services/apps/store-lifecycle-request-service.mjs
+          node --check system/services/apps/verified-store-projection.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
           node --check tests/test_app_store_contract.mjs
           node --check tests/test_app_lifecycle_request.mjs
           node --check tests/test_app_store_lifecycle_service.mjs
+          node --check tests/test_component_runtime_metadata.mjs
+          node --check tests/test_external_first_party_policy.mjs
           node --check tests/test_verified_app_store_catalog.mjs
+          node --check tests/test_verified_store_projection.mjs
           node --check tests/test_mvp_app_delivery.mjs
           python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
           python -m json.tool docs/contracts/app-distribution.json >/dev/null
@@ -85,7 +103,10 @@ jobs:
           node --test tests/test_app_store_contract.mjs
           node --test tests/test_app_lifecycle_request.mjs
           node --test tests/test_app_store_lifecycle_service.mjs
+          node --test tests/test_component_runtime_metadata.mjs
+          node --test tests/test_external_first_party_policy.mjs
           node --test tests/test_verified_app_store_catalog.mjs
+          node --test tests/test_verified_store_projection.mjs
 
       - name: Prove minimal MVP payload and first-online refresh policy
         run: |

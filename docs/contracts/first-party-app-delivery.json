@@ -70,9 +70,13 @@
     "installed_payload_required_for_launch": true
   },
   "inventory_boundary": {
-    "production_inventory_owner": "future-native-app-inventory",
+    "production_inventory_owner": "ordax-runtime-component-channel",
+    "installed_truth": "verified-current-activation",
+    "activation_state_owner_role": "runtime-component-verifier-and-activation-state-owner",
+    "slot_cache_is_inventory": false,
     "policy_is_inventory": false,
     "catalog_is_inventory": false,
+    "store_projection_is_inventory": false,
     "surface_may_claim_installation": false
   },
   "store_boundary": {
@@ -116,6 +120,11 @@
     "catalog_equal_sequence_different_hash_rejected": true,
     "catalog_watermark_failure_is_fail_closed": true,
     "catalog_schema_grants_verification": false,
+    "store_projection_service": "system/services/apps/verified-store-projection.mjs",
+    "store_projection_contract": "ordax.app-store-catalog/2",
+    "store_projection_port": "ordax.app-store-catalog-port/2",
+    "store_projection_persists_inventory": false,
+    "store_projection_reads_verified_current_activation": true,
     "catalog_replay_owner": "native-catalog-verifier",
     "catalog_signature_verification_owner": "native-catalog-verifier",
     "surface_may_write_catalog_watermark": false,
