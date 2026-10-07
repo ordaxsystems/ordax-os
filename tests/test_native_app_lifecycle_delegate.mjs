@@ -140,3 +140,77 @@ test("remove plan carries no remote candidate or artifact identity", async () =>
   await delegate.executeLifecycle(value);
   assert.equal(calls[0].candidate, null);
 });
+
+
+test("accepted install requests platform-owned probation for supported components", async () => {
+  const value = plan("install");
+  const messages = [];
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch() {
+      return response(acceptedFor(value));
+    },
+    webkit: {
+      messageHandlers: {
+        ordaxBrowser: {
+          postMessage(message) {
+            messages.push(JSON.parse(message));
+          },
+        },
+      },
+    },
+  });
+
+  const result = await delegate.executeLifecycle(value);
+  assert.equal(result.state, "accepted");
+  assert.deepEqual(messages, [{
+    type: "component.probation.request",
+    componentId: "notes",
+  }]);
+});
+
+test("remove and unsupported apps never request probation", async () => {
+  for (const value of [plan("remove"), {
+    ...plan("install"),
+    request: {
+      ...plan("install").request,
+      requestId: "store:install:studio:native-test",
+      appId: "studio",
+    },
+    candidate: {
+      ...plan("install").candidate,
+      appId: "studio",
+    },
+  }]) {
+    const messages = [];
+    const delegate = createNativeAppLifecycleDelegate({
+      async fetch() {
+        return response(acceptedFor(value));
+      },
+      webkit: {
+        messageHandlers: {
+          ordaxBrowser: {
+            postMessage(message) {
+              messages.push(JSON.parse(message));
+            },
+          },
+        },
+      },
+    });
+    const result = await delegate.executeLifecycle(value);
+    assert.equal(result.state, "accepted");
+    assert.deepEqual(messages, []);
+  }
+});
+
+test("missing probation bridge never rewrites an accepted staged result", async () => {
+  const value = plan("update");
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch() {
+      return response(acceptedFor(value));
+    },
+  });
+
+  const result = await delegate.executeLifecycle(value);
+  assert.equal(result.state, "accepted");
+  assert.equal(result.operation, "update");
+});
