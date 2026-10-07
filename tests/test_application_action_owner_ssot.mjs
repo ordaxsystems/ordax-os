@@ -12,13 +12,13 @@ test("Native Application Action provider composition consumes verified owner SSO
     "utf8",
   );
 
-  assert.equal(EXTERNAL_FIRST_PARTY_OWNER, "washingtonmsdj/ordax-apps");
+  assert.equal(EXTERNAL_FIRST_PARTY_OWNER, "ordaxsystems/ordax-apps");
   assert.match(
     source,
     /expectedApplicationActionProviderOwner:\s*EXTERNAL_FIRST_PARTY_OWNER/,
   );
   assert.equal(
-    source.includes('expectedApplicationActionProviderOwner: "washingtonmsdj/ordax-apps"'),
+    source.includes('expectedApplicationActionProviderOwner: "ordaxsystems/ordax-apps"'),
     false,
   );
 });

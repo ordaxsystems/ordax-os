@@ -3,7 +3,7 @@
   "status": "cutover-complete-legacy-retired",
   "canonical_repositories": {
     "platform": "washingtonmsdj/prototipo-ordax-os",
-    "apps": "washingtonmsdj/ordax-apps",
+    "apps": "ordaxsystems/ordax-apps",
     "runtime": "ordaxsystems/ordax-runtime",
     "control_plane": "washingtonmsdj/ordax-control-plane"
   },
@@ -53,6 +53,13 @@
       "previous_repository": "washingtonmsdj/ordax-runtime",
       "canonical_repository": "ordaxsystems/ordax-runtime",
       "repository_id": "1406415790",
+      "transfer_preserved_history": true,
+      "redirect_is_compatibility_only": true
+    },
+    "ordax_apps_namespace_transfer": {
+      "previous_repository": "washingtonmsdj/ordax-apps",
+      "canonical_repository": "ordaxsystems/ordax-apps",
+      "repository_id": "1403708348",
       "transfer_preserved_history": true,
       "redirect_is_compatibility_only": true
     }

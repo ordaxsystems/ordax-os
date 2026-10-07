@@ -15,7 +15,7 @@ const (
 	storeCatalogEnvelopeSchema    = "ordax.store-catalog-envelope/1"
 	storeCatalogPublicationSchema = "ordax-apps.store-catalog-publication/2"
 	storeCatalogCandidateSchema   = "ordax-apps.store-catalog-candidate/1"
-	storeCatalogSourceRepository  = "washingtonmsdj/ordax-apps"
+	storeCatalogSourceRepository  = "ordaxsystems/ordax-apps"
 	storeCatalogTrustDomain       = "runtime-components"
 	storeCatalogKeyID             = "ordax-runtime-components-v1"
 	maxStoreCatalogPayloadBytes   = 2 << 20

@@ -10,7 +10,7 @@ import {
 } from "../system/services/apps/external-first-party-policy.mjs";
 
 test("generated external first-party runtime policy exposes one canonical owner mapping", () => {
-  assert.equal(EXTERNAL_FIRST_PARTY_OWNER, "washingtonmsdj/ordax-apps");
+  assert.equal(EXTERNAL_FIRST_PARTY_OWNER, "ordaxsystems/ordax-apps");
   assert.deepEqual(
     EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT,
     {

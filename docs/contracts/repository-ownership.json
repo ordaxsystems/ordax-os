@@ -27,7 +27,7 @@
       ]
     },
     "apps": {
-      "repo": "washingtonmsdj/ordax-apps",
+      "repo": "ordaxsystems/ordax-apps",
       "owns": [
         "first-party-app-source",
         "studio-portable-source",
@@ -125,7 +125,8 @@
       "platform"
     ],
     "completed_transfers": [
-      "runtime"
+      "runtime",
+      "apps"
     ],
     "transfer_policy": "transfer-one-repository-then-repoint-and-verify-before-next"
   }
