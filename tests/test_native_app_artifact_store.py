@@ -143,8 +143,17 @@ class NativeAppArtifactStoreTests(unittest.TestCase):
     def test_symlink_cache_entry_is_rejected(self) -> None:
         payload = b"expected"
         item = identity("notes.zip", payload)
-        target = self.root / "sha256" / item["sha256"][:2] / item["sha256"]
-        target.parent.mkdir(parents=True, mode=0o700)
+
+        self.root.mkdir(parents=True, mode=0o700)
+        self.root.chmod(0o700)
+        sha_root = self.root / "sha256"
+        sha_root.mkdir(mode=0o700)
+        sha_root.chmod(0o700)
+        digest_parent = sha_root / item["sha256"][:2]
+        digest_parent.mkdir(mode=0o700)
+        digest_parent.chmod(0o700)
+
+        target = digest_parent / item["sha256"]
         other = self.root / "other"
         other.write_bytes(payload)
         try:
