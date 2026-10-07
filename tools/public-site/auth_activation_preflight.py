@@ -130,6 +130,10 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
 
     need(registration_binding.get("policy_reviewed") is True, "registration-legal-policy-review")
     need(
+        observation.get("registration_provider_bypass_guard_verified") is True,
+        "registration-provider-bypass-guard",
+    )
+    need(
         registration_binding.get("client_supplied_document_versions_trusted") is False,
         "registration-legal-client-version-trust",
     )
