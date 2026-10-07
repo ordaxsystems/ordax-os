@@ -71,10 +71,11 @@ test("public origin normalizer accepts only syntactically safe https origins", (
   }
 });
 
-test("only auth and sync product paths are accepted", () => {
+test("only canonical sensitive product paths are accepted", () => {
   assert.equal(normalizeProductPath("/auth/session"), "/auth/session");
+  assert.equal(normalizeProductPath("/account/spaces"), "/account/spaces");
   assert.equal(normalizeProductPath("/sync/snapshot?limit=1"), "/sync/snapshot?limit=1");
-  assert.equal(normalizeProductPath("/network/v2/messages/send"), null);
+  assert.equal(normalizeProductPath("/network/v2/messages/send"), "/network/v2/messages/send");
   assert.equal(normalizeProductPath("/auth/../network"), null);
   assert.equal(normalizeProductPath("/auth/%2e%2e/network"), null);
 });
