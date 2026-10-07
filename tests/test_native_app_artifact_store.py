@@ -25,6 +25,16 @@ class NativeAppArtifactStoreTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
+
+    def test_artifact_identity_rejects_payload_larger_than_runtime_verifier_ceiling(self) -> None:
+        oversized = {
+            "name": "notes.zip",
+            "sha256": "a" * 64,
+            "size": (32 * 1024 * 1024) + 1,
+        }
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "artifact identity is invalid"):
+            store.validate_artifact_identity(oversized)
+
     def test_verified_artifact_is_content_addressed_and_reused(self) -> None:
         payload = b"verified-package"
         item = identity("notes.zip", payload)
