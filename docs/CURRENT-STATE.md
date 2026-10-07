@@ -227,6 +227,14 @@ FIRST_STABLE_MVP_USB_WRITE=HOLD_CANONICAL_V4_RELEASE_PROOF_PENDING
 PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING
 ```
 
+The Native local-session credential reader pins a bounded private regular file
+owned by the host UID and rejects symbolic links, hard links and special files.
+Any existing or unreadable credential entry starts the host locked, including a
+dangling symlink or directory. Unexpected loss of credential bytes during a live
+locked session cannot unlock it; only the existing authenticated unlock/removal
+transitions may clear that lock. This remains a Surface-session gate, not storage
+encryption, and has no new physical proof.
+
 ### Pre-MVP ecosystem foundation
 
 A separate product-domain foundation is now defined before public accounts carry real data. The account model distinguishes one OrdaX identity from **Spaces** and versioned **Profile Packs**; the initial Developer and Legal-BR packs are draft descriptors only and do not activate professional-domain behavior. Billing, prices and commercial tier names remain undefined. A provisional two-private-Space default exists only as an internal capacity foundation and is not a public commercial claim.

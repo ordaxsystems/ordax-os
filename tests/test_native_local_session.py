@@ -1,10 +1,13 @@
 import importlib.util
+import http.client
 import json
 import os
 from pathlib import Path
+import threading
 from types import SimpleNamespace
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "system/surface/runtime/native_host_server.py"
@@ -84,6 +87,150 @@ class NativeLocalSessionTests(unittest.TestCase):
         self.assertFalse(snapshot["credentialConfigured"])
         self.assertFalse(snapshot["canLock"])
 
+    @unittest.skipUnless(os.name == "posix", "Native credential filesystem policy requires POSIX")
+    def test_unsafe_credential_entries_are_present_but_never_authenticate(self):
+        path = Path(host.LOCAL_SESSION_CREDENTIAL_FILE)
+        for kind in ("symlink", "dangling-symlink", "directory", "fifo", "hard-link", "public-mode", "oversized", "invalid-utf8"):
+            with self.subTest(kind=kind):
+                host.write_local_session_credential("local-passphrase-42")
+                original = path.read_bytes()
+                if kind in {"symlink", "dangling-symlink", "hard-link"}:
+                    target = path.with_name("target-" + kind)
+                    if kind != "dangling-symlink":
+                        target.write_bytes(original)
+                        target.chmod(0o600)
+                    path.unlink()
+                    if kind == "hard-link":
+                        os.link(target, path)
+                    else:
+                        path.symlink_to(target)
+                elif kind == "directory":
+                    path.unlink()
+                    path.mkdir()
+                elif kind == "fifo":
+                    path.unlink()
+                    os.mkfifo(path, 0o600)
+                elif kind == "public-mode":
+                    path.chmod(0o644)
+                elif kind == "oversized":
+                    path.write_bytes(original + b" " * host.MAX_LOCAL_SESSION_CREDENTIAL_BYTES)
+                elif kind == "invalid-utf8":
+                    path.write_bytes(b"\xff\xfe")
+
+                self.assertTrue(host.local_session_credential_present())
+                snapshot = host.local_session_snapshot(SimpleNamespace(local_session_locked=True))
+                self.assertEqual(snapshot["state"], "locked")
+                with self.assertRaises(ValueError):
+                    host.verify_local_session_secret("local-passphrase-42")
+                if path.is_dir():
+                    path.rmdir()
+                else:
+                    path.unlink()
+
+    def test_unreadable_credential_path_cannot_establish_absence(self):
+        with patch.object(host.os, "lstat", side_effect=PermissionError("unreadable")):
+            self.assertTrue(host.local_session_credential_present())
+            with self.assertRaises(ValueError):
+                host.read_local_session_credential()
+
+    @unittest.skipUnless(os.name == "posix", "Native credential descriptor policy requires POSIX")
+    def test_replacement_between_presence_check_and_open_fails_closed(self):
+        path = Path(host.LOCAL_SESSION_CREDENTIAL_FILE)
+        host.write_local_session_credential("local-passphrase-42")
+        target = path.with_name("replacement")
+        target.write_bytes(path.read_bytes())
+        target.chmod(0o600)
+        original_open = os.open
+
+        def replace_on_open(filename, flags, *args, **kwargs):
+            if filename == str(path):
+                path.unlink()
+                path.symlink_to(target)
+            return original_open(filename, flags, *args, **kwargs)
+
+        with patch.object(host.os, "open", side_effect=replace_on_open):
+            with self.assertRaises(ValueError):
+                host.verify_local_session_secret("local-passphrase-42")
+
+    def start_server(self):
+        server = host.NativeHostServer(
+            ("127.0.0.1", 0),
+            host.NativeHostHandler,
+            user_root=self.tempdir.name,
+            power_request_path=str(Path(self.tempdir.name) / "power-request"),
+            network_session_dir=self.tempdir.name,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        def stop():
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.addCleanup(stop)
+        return server
+
+    def request(self, server, payload=None):
+        connection = http.client.HTTPConnection(*server.server_address, timeout=2)
+        self.addCleanup(connection.close)
+        headers = {"Origin": f"http://127.0.0.1:{server.server_address[1]}"}
+        if payload is None:
+            connection.request("GET", host.LOCAL_SESSION_PATH, headers=headers)
+        else:
+            headers["Content-Type"] = "application/json"
+            connection.request("POST", host.LOCAL_SESSION_PATH, body=json.dumps(payload), headers=headers)
+        response = connection.getresponse()
+        body = response.read()
+        return response.status, json.loads(body) if body else None
+
+    @unittest.skipUnless(os.name == "posix", "Native special entries require POSIX")
+    def test_host_start_with_dangling_or_directory_credential_stays_locked(self):
+        path = Path(host.LOCAL_SESSION_CREDENTIAL_FILE)
+        path.symlink_to(path.with_name("absent-target"))
+        server = self.start_server()
+        self.assertTrue(server.local_session_locked)
+        status, snapshot = self.request(server)
+        self.assertEqual(status, 200)
+        self.assertEqual(snapshot["state"], "locked")
+        status, _ = self.request(server, {"action": "configure-credential", "secret": "replacement-secret"})
+        self.assertEqual(status, 503)
+        self.assertTrue(path.is_symlink())
+        path.unlink()
+        path.mkdir()
+        directory_server = self.start_server()
+        self.assertTrue(directory_server.local_session_locked)
+        status, snapshot = self.request(server)
+        self.assertEqual(status, 200)
+        self.assertEqual(snapshot["state"], "locked")
+
+    @unittest.skipUnless(os.name == "posix", "Native private credential requires POSIX")
+    def test_live_credential_loss_does_not_unlock_or_allow_reconfiguration(self):
+        host.write_local_session_credential("local-passphrase-42")
+        server = self.start_server()
+        Path(host.LOCAL_SESSION_CREDENTIAL_FILE).unlink()
+        status, snapshot = self.request(server)
+        self.assertEqual(status, 200)
+        self.assertEqual(snapshot["state"], "locked")
+        self.assertTrue(snapshot["credentialConfigured"])
+        self.assertTrue(server.local_session_locked)
+        for action in ("unlock", "configure-credential"):
+            status, _ = self.request(server, {"action": action, "secret": "replacement-secret"})
+            self.assertEqual(status, 409)
+
+    @unittest.skipUnless(os.name == "posix", "Native private credential requires POSIX")
+    def test_verified_unlock_and_removal_are_still_available(self):
+        secret = "local-passphrase-42"
+        host.write_local_session_credential(secret)
+        server = self.start_server()
+        status, snapshot = self.request(server, {"action": "unlock", "secret": secret})
+        self.assertEqual(status, 200)
+        self.assertEqual(snapshot["state"], "unlocked")
+        status, snapshot = self.request(server, {"action": "remove-credential", "secret": secret})
+        self.assertEqual(status, 200)
+        self.assertFalse(snapshot["credentialConfigured"])
+        self.assertEqual(snapshot["state"], "unlocked")
+
     def test_native_http_boundary_is_loopback_and_rate_limited(self):
         text = HOST.read_text(encoding="utf-8")
         self.assertIn('LOCAL_SESSION_PATH = "/__ordax/native/local-session"', text)
@@ -97,6 +244,14 @@ class NativeLocalSessionTests(unittest.TestCase):
         post_section = text.split("def do_POST", 1)[1]
         self.assertIn("parsed_path == LOCAL_SESSION_PATH", post_section)
         self.assertNotIn("LOCAL_SESSION_CREDENTIAL_FILE", FIRST_RUN.read_text(encoding="utf-8"))
+
+    def test_machine_readable_credential_policy_matches_native_bounds(self):
+        policy = json.loads((ROOT / "docs/contracts/local-session.json").read_text(encoding="utf-8"))
+        self.assertEqual(policy["credential"]["maximum_file_bytes"], host.MAX_LOCAL_SESSION_CREDENTIAL_BYTES)
+        self.assertEqual(policy["credential"]["file_mode"], "0600")
+        self.assertFalse(policy["credential"]["symbolic_links_allowed"])
+        self.assertFalse(policy["credential"]["hard_links_allowed"])
+        self.assertFalse(policy["credential"]["non_regular_entries_allowed"])
 
     def test_product_wiring_keeps_local_session_separate_from_online_identity(self):
         adapter = ADAPTER.read_text(encoding="utf-8")
