@@ -17,11 +17,11 @@ The Surface may project an absent, catalogued app as `available`. That never mak
 
 Delivery metadata is always `authority:none`.
 
-The structural Store UI is presentation/request only. In the current foundation it fails closed when no verified catalog port is supplied and has no install request port. It must never become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
+The structural Store UI is presentation/request only. It fails closed when no verified catalog port is supplied and has no mutation authority. One authority-free lifecycle request contract covers `install`, `update` and `remove`; the launcher may request `install` only. The request cannot select an artifact/version, grant permissions, replace the trust anchor, bypass verification or delete user data. The Store must never become a second updater. A first-party `component-slot` app reuses the canonical component pipeline:
 
 `catalog -> artifact identity -> trust/provenance -> compatibility -> stage -> health/probation -> promote -> inventory/receipt`
 
-`runtime-component-release/2` and the Component Manager remain the canonical trust/activation path when independent component delivery is used.
+`runtime-component-release/2` and the Component Manager remain the canonical trust/activation path when independent component delivery is used. Rollback is platform-owned recovery, not Store authority. The Store lifecycle executor stays unmounted while canonical component trust/publication/activation gates remain closed.
 
 ## MVP launch delivery
 
