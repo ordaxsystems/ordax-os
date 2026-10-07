@@ -88,6 +88,22 @@ class UserCloudStorageSourceTest(unittest.TestCase):
         self.assertFalse(deployment["server_mutation_executor_deployed"])
         self.assertFalse(deployment["public_rollout_enabled"])
 
+    def test_private_rls_hardening_live_evidence_is_pinned(self) -> None:
+        hardening = self.contract["deployment"]["private_tables_rls_hardening"]
+        self.assertTrue(hardening["source_ready"])
+        self.assertTrue(hardening["production_applied"])
+        self.assertEqual(hardening["production_migration_version"], "20261007082254")
+        self.assertEqual(
+            hardening["production_migration_name"],
+            "user_cloud_storage_private_rls_hardening_v1",
+        )
+        self.assertEqual(hardening["production_postgres_major"], 17)
+        self.assertTrue(hardening["private_tables_rls_enabled"])
+        self.assertFalse(hardening["client_policies_created"])
+        self.assertFalse(hardening["service_role_policy_created"])
+        self.assertFalse(hardening["direct_client_grants_present"])
+        self.assertTrue(hardening["live_api_role_dml_denied"])
+
 
 if __name__ == "__main__":
     unittest.main()
