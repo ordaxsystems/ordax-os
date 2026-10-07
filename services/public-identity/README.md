@@ -46,19 +46,23 @@ The public site configuration therefore keeps login/register disabled until thes
 
 ## Password recovery boundary
 
-`POST /auth/recover` is source-implemented but deliberately disabled in the
-gateway until a complete server-owned PKCE recovery flow exists. Merely
-configuring a redirect URL must not activate recovery.
+`POST /auth/recover`, `GET /auth/recover/verify` and
+`POST /auth/recover/complete` are implemented but deliberately disabled for
+public use until provider configuration and real HTTPS E2E proof are complete.
+
+Recovery email links carry only a server-verifiable `token_hash`. Verification
+is performed server-side with the provider and creates dedicated
+`ordax_recovery_*` HttpOnly/Secure/SameSite=Lax cookies scoped to
+`/auth/recover`, with a maximum lifetime of 10 minutes. These credentials are
+not normal account-session cookies and cannot authenticate account export,
+Spaces or sync routes. Entering recovery clears normal session cookies, and
+successful password replacement globally revokes the recovery session and
+clears both credential sets.
 
 The request path requires a clean HTTPS redirect and normalizes provider-level
 account lookup responses so the public API does not reveal whether an email is
-registered. The completion path is still pending: the recovery Auth Code and
-PKCE verifier must be exchanged server-side and any resulting provider tokens
-must stay in HttpOnly cookies rather than browser JavaScript.
-
-Until that completion path, redirect allowlist and real HTTPS origin are
-verified, `ACCOUNT_RECOVERY_REQUEST_ENABLED` remains false and the public
-server gate remains disabled.
+registered. Public recovery remains fail-closed until the redirect allowlist,
+email template and real end-to-end flow are verified.
 
 ## Session policy
 
@@ -115,7 +119,7 @@ The product domain remains provider-neutral, so the Supabase project can later b
 ## Deployed account gateway adapter
 
 The dedicated `ordax-control-plane` project now has the
-`ordax-account-gateway` Edge Function deployed from gateway source v16 as revision 22. Its source-controlled owner is
+`ordax-account-gateway` Edge Function deployed from gateway source v17 as revision 27. Its source-controlled owner is
 `infra/supabase/functions/ordax-account-gateway/index.ts`.
 
 The function deliberately has platform JWT pre-verification disabled because
@@ -129,9 +133,12 @@ ships that key to browser/Surface code, and the RPC itself is executable only by
 the backend service role. The public `/auth/registration-policy` route exposes only the validated active/effective document metadata and the server registration switch; it never exposes provider secrets or grants registration authority.
 
 Native/USB consumes the provider-neutral gateway base URL from the signed
-system configuration `system/services/account/gateway-base-url`. Browser
-public rollout still requires a same-origin hosting/rewrite boundary; direct
-cross-origin browser use is not the public contract.
+system configuration `system/services/account/gateway-base-url`. Direct Native
+credential and recovery attempts are protected by the same server-authoritative
+rate-limit RPC used by the public edge, keyed from the Supabase edge
+`cf-connecting-ip` and persisted only as a SHA-256 digest of the canonical IP.
+Browser public rollout still requires the authenticated same-origin public edge
+and Turnstile; Network traffic is not routed through that browser boundary.
 
 
 ## Incremental sync transport
