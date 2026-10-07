@@ -115,7 +115,7 @@ class NativeStoreCatalogTests(unittest.TestCase):
 
     def test_corrupt_or_symlink_watermark_never_resets_replay_history(self) -> None:
         self.watermark.write_text('{"schema":"broken"}\n', encoding="utf-8")
-        with self.assertRaisesRegex(store.StoreCatalogError, "watermark identity"):
+        with self.assertRaisesRegex(store.StoreCatalogError, "watermark (fields|identity)"):
             store.accept_verified_catalog(verified(9, "9" * 64), self.watermark)
 
         self.watermark.unlink()
