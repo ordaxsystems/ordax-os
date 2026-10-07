@@ -9,19 +9,21 @@ App Data deletion, or cache purge is owned here.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import base64
 import binascii
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 from typing import Callable
 
 from native_app_artifact_store import (
     AppArtifactStoreError,
     DEFAULT_ARTIFACT_ROOT,
     read_cached_artifact,
-    resolve_cached_artifact_path,
     validate_artifact_identity,
 )
 
@@ -205,18 +207,48 @@ def _assert_envelope_release_bytes(envelope_bytes: bytes, release_bytes: bytes, 
         )
 
 
-def _cached_paths(candidate: dict, artifact_root: str) -> dict[str, Path]:
+@contextmanager
+def _materialized_cached_artifacts(candidate: dict, artifact_root: str):
     artifacts = candidate["artifacts"]
-    paths: dict[str, Path] = {}
-    for role in ("package", "release", "compatibility", "componentEnvelope"):
-        paths[role] = resolve_cached_artifact_path(
-            artifacts[role],
-            root=artifact_root,
-        )
-    release_bytes = read_cached_artifact(artifacts["release"], root=artifact_root)
-    envelope_bytes = read_cached_artifact(artifacts["componentEnvelope"], root=artifact_root)
-    _assert_envelope_release_bytes(envelope_bytes, release_bytes, candidate["appId"])
-    return paths
+    try:
+        payloads = {
+            role: read_cached_artifact(artifacts[role], root=artifact_root)
+            for role in ("package", "release", "compatibility", "componentEnvelope")
+        }
+    except AppArtifactStoreError as exc:
+        raise NativeAppLifecycleError("verified app artifacts are not available offline") from exc
+
+    _assert_envelope_release_bytes(
+        payloads["componentEnvelope"],
+        payloads["release"],
+        candidate["appId"],
+    )
+
+    with tempfile.TemporaryDirectory(prefix="ordax-app-stage-") as directory:
+        root = Path(directory)
+        if os.name != "nt":
+            root.chmod(0o700)
+        paths: dict[str, Path] = {}
+        for role in ("package", "release", "compatibility", "componentEnvelope"):
+            name = artifacts[role]["name"]
+            path = root / name
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0)
+            descriptor = os.open(path, flags, 0o400)
+            try:
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(payloads[role])
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                if os.name != "nt":
+                    path.chmod(0o400)
+            except Exception:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+                raise
+            paths[role] = path
+        yield paths
 
 
 def _stage_and_arm(
@@ -231,133 +263,129 @@ def _stage_and_arm(
     request = plan["request"]
     candidate = plan["candidate"]
     assert candidate is not None
-    try:
-        paths = _cached_paths(candidate, artifact_root)
-    except AppArtifactStoreError as exc:
-        raise NativeAppLifecycleError("verified app artifacts are not available offline") from exc
-
-    verified = _key_values(
-        _run([
-            channel_bin,
+    with _materialized_cached_artifacts(candidate, artifact_root) as paths:
+        verified = _key_values(
+                _run([
+                    channel_bin,
+                    "verify-envelope-v2",
+                    "--envelope", str(paths["componentEnvelope"]),
+                    "--trust", trust_path,
+                    "--compatibility", str(paths["compatibility"]),
+                ], runner=runner).stdout,
+            {
+                "RUNTIME_COMPONENT_RELEASE_V2_VERIFIED",
+                "COMPONENT_ID", "COMPONENT_VERSION", "SOURCE_COMMIT",
+                "PENDING_HEALTH_REQUIRED", "DIRECT_ACTIVATION_ALLOWED",
+            },
             "verify-envelope-v2",
-            "--envelope", str(paths["componentEnvelope"]),
-            "--trust", trust_path,
-            "--compatibility", str(paths["compatibility"]),
-        ], runner=runner).stdout,
-        {
-            "RUNTIME_COMPONENT_RELEASE_V2_VERIFIED",
-            "COMPONENT_ID", "COMPONENT_VERSION", "SOURCE_COMMIT",
-            "PENDING_HEALTH_REQUIRED", "DIRECT_ACTIVATION_ALLOWED",
-        },
-        "verify-envelope-v2",
-    )
-    if (
-        verified["RUNTIME_COMPONENT_RELEASE_V2_VERIFIED"] != "YES"
-        or verified["COMPONENT_ID"] != request["appId"]
-        or verified["COMPONENT_VERSION"] != candidate["version"]
-        or verified["SOURCE_COMMIT"] != candidate["sourceCommit"]
-        or verified["PENDING_HEALTH_REQUIRED"] != "YES"
-        or verified["DIRECT_ACTIVATION_ALLOWED"] != "NO"
-    ):
-        raise NativeAppLifecycleError("verified component envelope identity drifted")
+        )
+        if (
+            verified["RUNTIME_COMPONENT_RELEASE_V2_VERIFIED"] != "YES"
+            or verified["COMPONENT_ID"] != request["appId"]
+            or verified["COMPONENT_VERSION"] != candidate["version"]
+            or verified["SOURCE_COMMIT"] != candidate["sourceCommit"]
+            or verified["PENDING_HEALTH_REQUIRED"] != "YES"
+            or verified["DIRECT_ACTIVATION_ALLOWED"] != "NO"
+        ):
+            raise NativeAppLifecycleError("verified component envelope identity drifted")
 
-    staged = _key_values(
-        _run([
-            channel_bin,
+        staged = _key_values(
+            _run([
+                channel_bin,
+                "stage-v2",
+                "--envelope", str(paths["componentEnvelope"]),
+                "--trust", trust_path,
+                "--package", str(paths["package"]),
+                "--compatibility", str(paths["compatibility"]),
+                "--root", slot_root,
+            ], runner=runner).stdout,
+            {
+                "RUNTIME_COMPONENT_RELEASE_V2_STAGED",
+                "COMPONENT_ID", "COMPONENT_VERSION", "SOURCE_COMMIT",
+                "SLOT", "SLOT_CHANGED", "PENDING_HEALTH_REQUIRED", "ACTIVATED",
+            },
             "stage-v2",
-            "--envelope", str(paths["componentEnvelope"]),
-            "--trust", trust_path,
-            "--package", str(paths["package"]),
-            "--compatibility", str(paths["compatibility"]),
-            "--root", slot_root,
-        ], runner=runner).stdout,
-        {
-            "RUNTIME_COMPONENT_RELEASE_V2_STAGED",
-            "COMPONENT_ID", "COMPONENT_VERSION", "SOURCE_COMMIT",
-            "SLOT", "SLOT_CHANGED", "PENDING_HEALTH_REQUIRED", "ACTIVATED",
-        },
-        "stage-v2",
-    )
-    if (
-        staged["RUNTIME_COMPONENT_RELEASE_V2_STAGED"] != "YES"
-        or staged["COMPONENT_ID"] != request["appId"]
-        or staged["COMPONENT_VERSION"] != candidate["version"]
-        or staged["SOURCE_COMMIT"] != candidate["sourceCommit"]
-        or staged["PENDING_HEALTH_REQUIRED"] != "YES"
-        or staged["ACTIVATED"] != "NO"
-    ):
-        raise NativeAppLifecycleError("staged component identity drifted")
-    slot = staged["SLOT"]
-    if not slot:
-        raise NativeAppLifecycleError("stage-v2 did not return canonical slot")
+        )
+        if (
+            staged["RUNTIME_COMPONENT_RELEASE_V2_STAGED"] != "YES"
+            or staged["COMPONENT_ID"] != request["appId"]
+            or staged["COMPONENT_VERSION"] != candidate["version"]
+            or staged["SOURCE_COMMIT"] != candidate["sourceCommit"]
+            or staged["PENDING_HEALTH_REQUIRED"] != "YES"
+            or staged["ACTIVATED"] != "NO"
+        ):
+            raise NativeAppLifecycleError("staged component identity drifted")
+        slot = staged["SLOT"]
+        if not slot:
+            raise NativeAppLifecycleError("stage-v2 did not return canonical slot")
 
-    slot_verified = _key_values(
-        _run([
-            channel_bin,
+        slot_verified = _key_values(
+            _run([
+                channel_bin,
+                "verify-slot-v2",
+                "--slot", slot,
+                "--trust", trust_path,
+            ], runner=runner).stdout,
+            {
+                "RUNTIME_COMPONENT_RELEASE_V2_SLOT_VERIFIED",
+                "COMPONENT_ID", "COMPONENT_VERSION", "SOURCE_COMMIT",
+                "DIRECT_ACTIVATION_ALLOWED",
+            },
             "verify-slot-v2",
-            "--slot", slot,
-            "--trust", trust_path,
-        ], runner=runner).stdout,
-        {
-            "RUNTIME_COMPONENT_RELEASE_V2_SLOT_VERIFIED",
-            "COMPONENT_ID", "COMPONENT_VERSION", "SOURCE_COMMIT",
-            "DIRECT_ACTIVATION_ALLOWED",
-        },
-        "verify-slot-v2",
-    )
-    if (
-        slot_verified["RUNTIME_COMPONENT_RELEASE_V2_SLOT_VERIFIED"] != "YES"
-        or slot_verified["COMPONENT_ID"] != request["appId"]
-        or slot_verified["COMPONENT_VERSION"] != candidate["version"]
-        or slot_verified["SOURCE_COMMIT"] != candidate["sourceCommit"]
-        or slot_verified["DIRECT_ACTIVATION_ALLOWED"] != "NO"
-    ):
-        raise NativeAppLifecycleError("verified staged slot identity drifted")
+        )
+        if (
+            slot_verified["RUNTIME_COMPONENT_RELEASE_V2_SLOT_VERIFIED"] != "YES"
+            or slot_verified["COMPONENT_ID"] != request["appId"]
+            or slot_verified["COMPONENT_VERSION"] != candidate["version"]
+            or slot_verified["SOURCE_COMMIT"] != candidate["sourceCommit"]
+            or slot_verified["DIRECT_ACTIVATION_ALLOWED"] != "NO"
+        ):
+            raise NativeAppLifecycleError("verified staged slot identity drifted")
 
-    pending = _key_values(
-        _run([
-            channel_bin,
+        pending = _key_values(
+            _run([
+                channel_bin,
+                "arm-pending",
+                "--slot", slot,
+                "--trust", trust_path,
+                "--root", slot_root,
+            ], runner=runner).stdout,
+            {
+                "RUNTIME_COMPONENT_PENDING_ARMED",
+                "COMPONENT_ID", "REVISION", "PENDING_VERSION",
+                "PENDING_SOURCE_COMMIT", "PENDING_HEALTH", "RUNTIME_ACTIVATED",
+            },
             "arm-pending",
-            "--slot", slot,
-            "--trust", trust_path,
-            "--root", slot_root,
-        ], runner=runner).stdout,
-        {
-            "RUNTIME_COMPONENT_PENDING_ARMED",
-            "COMPONENT_ID", "REVISION", "PENDING_VERSION",
-            "PENDING_SOURCE_COMMIT", "PENDING_HEALTH", "RUNTIME_ACTIVATED",
-        },
-        "arm-pending",
-    )
-    if (
-        pending["RUNTIME_COMPONENT_PENDING_ARMED"] != "YES"
-        or pending["COMPONENT_ID"] != request["appId"]
-        or pending["PENDING_VERSION"] != candidate["version"]
-        or pending["PENDING_SOURCE_COMMIT"] != candidate["sourceCommit"]
-        or pending["PENDING_HEALTH"] != "unknown"
-        or pending["RUNTIME_ACTIVATED"] != "NO"
-    ):
-        raise NativeAppLifecycleError("pending component identity drifted")
-    try:
-        revision = int(pending["REVISION"])
-    except ValueError as exc:
-        raise NativeAppLifecycleError("pending component revision is invalid") from exc
-    if revision <= 0:
-        raise NativeAppLifecycleError("pending component revision is invalid")
+        )
+        if (
+            pending["RUNTIME_COMPONENT_PENDING_ARMED"] != "YES"
+            or pending["COMPONENT_ID"] != request["appId"]
+            or pending["PENDING_VERSION"] != candidate["version"]
+            or pending["PENDING_SOURCE_COMMIT"] != candidate["sourceCommit"]
+            or pending["PENDING_HEALTH"] != "unknown"
+            or pending["RUNTIME_ACTIVATED"] != "NO"
+        ):
+            raise NativeAppLifecycleError("pending component identity drifted")
+        try:
+            revision = int(pending["REVISION"])
+        except ValueError as exc:
+            raise NativeAppLifecycleError("pending component revision is invalid") from exc
+        if revision <= 0:
+            raise NativeAppLifecycleError("pending component revision is invalid")
 
-    return {
-        "schema": RESULT_SCHEMA,
-        "requestId": request["requestId"],
-        "appId": request["appId"],
-        "operation": request["operation"],
-        "state": "pending-health",
-        "version": candidate["version"],
-        "sourceCommit": candidate["sourceCommit"],
-        "revision": revision,
-        "activated": False,
-        "appDataTouched": False,
-        "artifactCachePurged": False,
-    }
+        return {
+            "schema": RESULT_SCHEMA,
+            "requestId": request["requestId"],
+            "appId": request["appId"],
+            "operation": request["operation"],
+            "state": "pending-health",
+            "version": candidate["version"],
+            "sourceCommit": candidate["sourceCommit"],
+            "revision": revision,
+            "activated": False,
+            "appDataTouched": False,
+            "artifactCachePurged": False,
+        }
 
 
 def _remove(
