@@ -39,6 +39,8 @@ on:
       - 'tests/test_public_identity_gateway.py'
       - 'tests/test_public_site_runtime_smoke.py'
       - 'tests/test_public_site_deployment.py'
+      - 'tests/test_vercel_identity_preflight.py'
+      - 'tests/test_vercel_identity_preflight.py'
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_proxy_request_context.mjs'
       - 'tests/test_public_proxy_vercel_oidc.mjs'
@@ -163,6 +165,7 @@ jobs:
           python -m unittest tests.test_account_lifecycle_edge -v
           python -m unittest tests.test_public_site_runtime_smoke -v
           python -m unittest tests.test_public_site_deployment -v
+          python -m unittest tests.test_vercel_identity_preflight -v
           python -m unittest tests.test_public_legal_readiness -v
           python -m unittest tests.test_account_legal_policy_activation -v
           python -m unittest tests.test_account_legacy_legal_quarantine -v
