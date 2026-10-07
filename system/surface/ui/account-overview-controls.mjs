@@ -1263,9 +1263,24 @@ export function mountAccountOverviewControls(
       replaceView();
     } else if (input.matches("[data-account-close-password]")) {
       closePasswordDraft = input.value;
+      const closeButton = root.querySelector("[data-account-close-action]");
+      if (closeButton instanceof HTMLButtonElement) {
+        closeButton.disabled = (
+          pendingClose
+          || !closeConfirmationChecked
+          || closePasswordDraft.length < 1
+        );
+      }
     } else if (input.matches("[data-account-close-confirmation]")) {
       closeConfirmationChecked = input.checked === true;
-      replaceView();
+      const closeButton = root.querySelector("[data-account-close-action]");
+      if (closeButton instanceof HTMLButtonElement) {
+        closeButton.disabled = (
+          pendingClose
+          || !closeConfirmationChecked
+          || closePasswordDraft.length < 1
+        );
+      }
     }
   };
 
