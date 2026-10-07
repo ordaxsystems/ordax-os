@@ -11,7 +11,7 @@ const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
 const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024;
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
-const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
+const ALLOWED_PREFIXES = ["/auth/", "/account/", "/sync/", "/network/"];
 const REQUEST_HEADERS = [
   "accept",
   "content-type",
@@ -105,13 +105,14 @@ async function boundedRequestBody(req: Request) {
   return body;
 }
 
-function upstreamHeaders(req: Request, publishableKey: string) {
+function upstreamHeaders(req: Request, publishableKey: string, verifiedAuthorization: string) {
   const headers = new Headers();
   for (const name of REQUEST_HEADERS) {
     const value = req.headers.get(name);
     if (value) headers.set(name, value);
   }
   headers.set("apikey", publishableKey);
+  headers.set("authorization", verifiedAuthorization);
   headers.set("x-ordax-public-site", "1");
   return headers;
 }
@@ -230,7 +231,7 @@ Deno.serve(async (req: Request) => {
   try {
     upstream = await fetch(innerTarget, {
       method: req.method,
-      headers: upstreamHeaders(req, config.publishableKey),
+      headers: upstreamHeaders(req, config.publishableKey, req.headers.get("authorization") ?? ""),
       body,
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),
