@@ -12,6 +12,7 @@ import { createNativePersonalOrdaxFileActions } from "../../adapters/native/pers
 import { createNativePersonalActivityExport } from "../../adapters/native/personal-activity-export.mjs";
 import { createNativeRecentFilesStore } from "../../adapters/native/recent-files.mjs";
 import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
+import { createNativeProjectStateTransport } from "../../adapters/native/project-state.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
@@ -54,7 +55,6 @@ import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intellige
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
-import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
 import { createProjectCloudLinksReader } from "../../services/projects/cloud-links-reader.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
@@ -98,6 +98,7 @@ import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { createNativeDiagnosticReviewComposition } from "./diagnostics.mjs";
 import { createNativeAccountMemoryFoundation } from "./account-memory-foundation.mjs";
 import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
+import { createNativeProjectAuthorityComposition } from "./projects-authority.mjs";
 import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
@@ -320,9 +321,17 @@ async function start() {
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
     store: createNativeRecentFilesStore(window),
   });
-  const projects = fileSpace === null ? null : createProjectCatalogRuntime({
-    store: createNativeProjectStore(window),
-  });
+  const projectAuthority = fileSpace === null
+    ? null
+    : await optionalNativeProbe(
+        "OrdaX Native Project authority unavailable",
+        () => createNativeProjectAuthorityComposition({
+          legacyStore: createNativeProjectStore(window),
+          nativeTransport: createNativeProjectStateTransport(window),
+        }),
+      );
+  const projects = projectAuthority?.reader ?? null;
+  const projectMutations = projectAuthority?.mutations ?? null;
   const projectCloudLinks = projects === null ? null : createProjectCloudLinksRuntime({
     projects,
     store: createNativeProjectCloudLinkStore(window),
@@ -755,6 +764,7 @@ async function start() {
   const filesOwnerSpace = fileSpace === null
     ? null
     : createProjectContinuityFileSpace(fileSpace, projects, {
+        projectMutations: projectMutations,
         onContinuityError(error) {
           reportClientDiagnostic("files-project-continuity", error);
         },
