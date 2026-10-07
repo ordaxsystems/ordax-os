@@ -2,6 +2,9 @@ import {
   validateComponentId,
   validateComponentVersion,
 } from "./component-manifest.mjs";
+import {
+  validateAppArtifactIdentity,
+} from "./app-artifact-identity.mjs";
 
 export const VERIFIED_APP_STORE_CATALOG_SCHEMA = "ordax.verified-app-store-catalog/1";
 export const VERIFIED_APP_STORE_CATALOG_PORT_SCHEMA = "ordax.verified-app-store-catalog-port/1";
@@ -12,7 +15,6 @@ export const APP_STORE_CATALOG_KEY_ID = "ordax-runtime-components-v1";
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const SOURCE_COMMIT_RE = /^[0-9a-f]{40}$/;
-const ARTIFACT_NAME_RE = /^[A-Za-z0-9._-]{1,128}$/;
 const MAX_ENTRIES = 128;
 const MAX_TITLE_LENGTH = 160;
 const MAX_REASON_LENGTH = 256;
@@ -37,7 +39,6 @@ const ENTRY_FIELDS = new Set([
   "artifacts",
 ]);
 const ARTIFACT_GROUP_FIELDS = new Set(["package", "release", "compatibility", "componentEnvelope"]);
-const ARTIFACT_FIELDS = new Set(["name", "sha256", "size"]);
 const SOURCE_FIELDS = new Set(["repository", "commit"]);
 const TRUST_FIELDS = new Set(["domain", "keyId"]);
 const FORBIDDEN_AUTHORITY_METHODS = [
@@ -104,22 +105,6 @@ function sourceCommit(value) {
   return value;
 }
 
-function artifact(value, label) {
-  plainObject(value, label);
-  assertExactFields(value, ARTIFACT_FIELDS, label);
-  if (typeof value.name !== "string" || !ARTIFACT_NAME_RE.test(value.name)) {
-    throw new TypeError(`${label} name is invalid`);
-  }
-  if (!Number.isSafeInteger(value.size) || value.size <= 0) {
-    throw new TypeError(`${label} size is invalid`);
-  }
-  return Object.freeze({
-    name: value.name,
-    sha256: sha256(value.sha256, `${label} sha256`),
-    size: value.size,
-  });
-}
-
 function entry(value, expectedSourceCommit) {
   plainObject(value, "Verified Store catalog entry");
   assertExactFields(value, ENTRY_FIELDS, "Verified Store catalog entry");
@@ -137,7 +122,7 @@ function entry(value, expectedSourceCommit) {
     ARTIFACT_GROUP_FIELDS,
     "Verified Store catalog artifacts",
   );
-  const componentEnvelope = artifact(
+  const componentEnvelope = validateAppArtifactIdentity(
     artifacts.componentEnvelope,
     "Verified Store component envelope artifact",
   );
@@ -151,9 +136,9 @@ function entry(value, expectedSourceCommit) {
     releaseMode: "component-slot",
     sourceCommit: commit,
     artifacts: Object.freeze({
-      package: artifact(artifacts.package, "Verified Store package artifact"),
-      release: artifact(artifacts.release, "Verified Store release artifact"),
-      compatibility: artifact(
+      package: validateAppArtifactIdentity(artifacts.package, "Verified Store package artifact"),
+      release: validateAppArtifactIdentity(artifacts.release, "Verified Store release artifact"),
+      compatibility: validateAppArtifactIdentity(
         artifacts.compatibility,
         "Verified Store compatibility artifact",
       ),
