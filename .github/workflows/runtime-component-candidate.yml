@@ -6,8 +6,8 @@ on:
     paths:
       - 'system/surface/runtime/native_store_catalog.py'
       - 'system/surface/runtime/native_host_server.py'
-      - 'tests/test_native_store_catalog.py'
       - 'tests/test_native_store_catalog_host.py'
+      - 'tests/test_native_store_catalog.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'system/trust/**'
@@ -41,8 +41,8 @@ on:
     paths:
       - 'system/surface/runtime/native_store_catalog.py'
       - 'system/surface/runtime/native_host_server.py'
-      - 'tests/test_native_store_catalog.py'
       - 'tests/test_native_store_catalog_host.py'
+      - 'tests/test_native_store_catalog.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'system/trust/**'
