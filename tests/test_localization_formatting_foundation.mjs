@@ -50,13 +50,17 @@ test("locale formatting follows the active localization owner instead of caching
   assert.equal(formatting.formatNumber(1234.5, options), nativeNumber("en-US", 1234.5, options));
 });
 
-test("date, percent, currency and unit formatting delegate to Intl with explicit semantics", () => {
+test("date, decimal, percent, currency and unit formatting delegate to Intl with explicit semantics", () => {
   const localization = createLocalization("en-US");
   const formatting = createLocaleFormatting(localization);
   const instant = Date.UTC(2026, 9, 7, 12, 30, 0);
   const dateOptions = { timeZone: "UTC", dateStyle: "medium", timeStyle: "short" };
 
   assert.equal(formatting.formatDate(instant, dateOptions), nativeDate("en-US", instant, dateOptions));
+  assert.equal(
+    formatting.formatNumber(1234.5, { maximumFractionDigits: 1 }),
+    nativeNumber("en-US", 1234.5, { style: "decimal", maximumFractionDigits: 1 }),
+  );
   assert.equal(
     formatting.formatPercent(0.125, { maximumFractionDigits: 1 }),
     nativeNumber("en-US", 0.125, { style: "percent", maximumFractionDigits: 1 }),
@@ -71,13 +75,14 @@ test("date, percent, currency and unit formatting delegate to Intl with explicit
   );
 });
 
-test("list, relative-time, plural and display-name helpers preserve locale semantics", () => {
+test("list, relative-time, plural and display-name helpers preserve locale semantics and list text", () => {
   const localization = createLocalization("pt-BR");
   const formatting = createLocaleFormatting(localization);
+  const list = [" Arquivos ", "Notas", "Internet"];
 
   assert.equal(
-    formatting.formatList(["Arquivos", "Notas", "Internet"], { style: "long", type: "conjunction" }),
-    new Intl.ListFormat("pt-BR", { style: "long", type: "conjunction" }).format(["Arquivos", "Notas", "Internet"]),
+    formatting.formatList(list, { style: "long", type: "conjunction" }),
+    new Intl.ListFormat("pt-BR", { style: "long", type: "conjunction" }).format(list),
   );
   assert.equal(
     formatting.formatRelativeTime(-1, "day", { numeric: "auto" }),
@@ -93,18 +98,69 @@ test("list, relative-time, plural and display-name helpers preserve locale seman
   );
 });
 
-test("formatting helpers reject ambiguous or invalid inputs instead of guessing", () => {
+test("generic number formatting cannot bypass explicit percent, currency or unit helpers", () => {
+  const formatting = createLocaleFormatting(createLocalization("en-US"));
+
+  assert.throws(
+    () => formatting.formatNumber(10, { style: "currency", currency: "USD" }),
+    /Number formatting style cannot be overridden/,
+  );
+  assert.throws(
+    () => formatting.formatNumber(10, { currency: "USD" }),
+    /Number formatting option currency is not allowed/,
+  );
+  assert.throws(
+    () => formatting.formatNumber(10, { unit: "meter" }),
+    /Number formatting option unit is not allowed/,
+  );
+});
+
+test("specialized number helpers reject conflicting semantic options", () => {
+  const formatting = createLocaleFormatting(createLocalization("en-US"));
+
+  assert.throws(
+    () => formatting.formatPercent(0.5, { currency: "USD" }),
+    /Percent formatting option currency is not allowed/,
+  );
+  assert.throws(
+    () => formatting.formatCurrency(10, "USD", { unit: "meter" }),
+    /Currency formatting option unit is not allowed/,
+  );
+  assert.throws(
+    () => formatting.formatUnit(10, "meter", { currency: "USD" }),
+    /Unit formatting option currency is not allowed/,
+  );
+});
+
+test("formatting helpers reject coercive or invalid inputs instead of guessing", () => {
   const formatting = createLocaleFormatting(createLocalization("en-US"));
 
   assert.throws(() => formatting.formatNumber(Number.NaN), /finite number/);
-  assert.throws(() => formatting.formatDate("not-a-date"), /Date value must be valid/);
+  assert.throws(() => formatting.formatDate(null), /Date or finite epoch-millisecond number/);
+  assert.throws(() => formatting.formatDate("2026-10-07"), /Date or finite epoch-millisecond number/);
+  assert.throws(() => formatting.formatDate(new Date(Number.NaN)), /Date value must be valid/);
+  assert.throws(() => formatting.formatCurrency(10, 840), /Currency code must be a string/);
   assert.throws(() => formatting.formatCurrency(10, "REAL"), /three-letter currency code/);
   assert.throws(() => formatting.formatCurrency(10, "BRL", { currency: "USD" }), /must match/);
+  assert.throws(() => formatting.formatCurrency(10, "BRL", { currency: 986 }), /must be a string/);
   assert.throws(() => formatting.formatPercent(0.5, { style: "decimal" }), /cannot be overridden/);
   assert.throws(() => formatting.formatUnit(1, "meter", { unit: "kilometer" }), /must match/);
+  assert.throws(() => formatting.formatUnit(1, { unit: "meter" }), /Unit id must be a string/);
   assert.throws(() => formatting.formatList("a,b"), /must be an array/);
+  assert.throws(() => formatting.formatList(["a", 2]), /List item must be a string/);
   assert.throws(() => formatting.formatRelativeTime(-1, "fortnight"), /Unsupported relative time unit/);
+  assert.throws(() => formatting.formatRelativeTime(-1, 1), /Relative time unit must be a string/);
   assert.throws(() => formatting.formatDisplayName("US", "territory"), /Unsupported display name type/);
+  assert.throws(() => formatting.formatDisplayName({ code: "US" }, "region"), /Display name code must be a string/);
+});
+
+test("formatting snapshots option bags instead of depending on later mutation", () => {
+  const formatting = createLocaleFormatting(createLocalization("en-US"));
+  const options = { maximumFractionDigits: 1 };
+  const expected = nativeNumber("en-US", 1234.5, { style: "decimal", maximumFractionDigits: 1 });
+
+  assert.equal(formatting.formatNumber(1234.5, options), expected);
+  assert.deepEqual(options, { maximumFractionDigits: 1 });
 });
 
 test("canonical locale and locale/profile agreement remain part of every formatting call", () => {
