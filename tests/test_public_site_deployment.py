@@ -83,11 +83,33 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.assertIn(f'add_header {name} "{value}" always;', self.nginx)
         self.assertIn("upgrade-insecure-requests", contract_headers["Content-Security-Policy"])
         self.assertIn("upgrade-insecure-requests", vercel_headers["Content-Security-Policy"])
+        csp = contract_headers["Content-Security-Policy"]
+        self.assertIn("script-src 'self' https://challenges.cloudflare.com", csp)
+        self.assertIn("frame-src https://challenges.cloudflare.com", csp)
+        self.assertIn("connect-src 'self' https://challenges.cloudflare.com", csp)
+        self.assertNotIn("'unsafe-inline'", csp)
+        self.assertNotIn("'unsafe-eval'", csp)
         requirements = self.contract["production_requirements"]
         self.assertTrue(requirements["hsts_required"])
         self.assertTrue(requirements["cross_origin_process_isolation_required"])
         self.assertTrue(requirements["origin_agent_cluster_required"])
         self.assertTrue(requirements["legacy_cross_domain_policy_disabled"])
+
+    def test_turnstile_is_server_verified_and_secret_never_belongs_to_site_source(self):
+        bot = self.contract["bot_protection"]
+        self.assertEqual(bot["provider"], "cloudflare-turnstile")
+        self.assertEqual(bot["sitekey"], "0x4AAAAAAFP2xxwpJ9Bl_5Ka")
+        self.assertEqual(bot["hostname_allowlist"], ["ordax-os-public.vercel.app"])
+        self.assertEqual(bot["action"], "ordax-account")
+        self.assertEqual(bot["protected_paths"], ["/auth/login", "/auth/register", "/auth/recover"])
+        self.assertTrue(bot["server_side_verification_required"])
+        self.assertEqual(bot["secret_environment_variable"], "ORDAX_TURNSTILE_SECRET_KEY")
+        self.assertFalse(bot["secret_may_exist_in_repository"])
+        self.assertFalse(bot["token_forwarded_to_inner_gateway"])
+        self.assertFalse(bot["production_secret_configured"])
+        self.assertFalse(bot["production_e2e_verified"])
+        self.assertTrue(self.contract["production_requirements"]["public_auth_turnstile_required"])
+        self.assertTrue(self.contract["production_requirements"]["turnstile_server_side_siteverify_required"])
 
     def test_host_neutral_adapter_keeps_rate_limits_as_defense_in_depth(self):
         self.assertIn("ordax_auth_credentials:10m rate=10r/m", self.nginx)

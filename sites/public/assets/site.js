@@ -5,6 +5,9 @@
   const CONFIG_SCHEMA = "prototype-ordax.public-site-runtime/1";
   const CATALOG_SCHEMA = "prototype-ordax.public-release-catalog/1";
   const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
+  const TURNSTILE_RUNTIME_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+  const TURNSTILE_ACTION = "ordax-account";
+  const TURNSTILE_PROTECTED_KINDS = new Set(["login", "register", "recover"]);
   const i18n = window.OrdaXPublicI18n;
   if (!i18n || i18n.schema !== "prototype-ordax.public-site-localization-runtime/1") {
     throw new Error("public-site-localization-runtime-missing");
@@ -113,6 +116,66 @@
     return true;
   }
 
+  function validTurnstileSitekey(value) {
+    return typeof value === "string" && /^0x[A-Za-z0-9_-]{20,80}$/.test(value);
+  }
+
+  let turnstileLoader = null;
+  function loadTurnstileRuntime() {
+    if (
+      window.turnstile
+      && typeof window.turnstile.render === "function"
+    ) {
+      return Promise.resolve(window.turnstile);
+    }
+    if (turnstileLoader) return turnstileLoader;
+    turnstileLoader = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = TURNSTILE_RUNTIME_URL;
+      script.async = true;
+      script.defer = true;
+      script.referrerPolicy = "no-referrer";
+      script.onload = () => {
+        if (window.turnstile && typeof window.turnstile.render === "function") {
+          resolve(window.turnstile);
+        } else {
+          reject(new Error("turnstile-runtime-invalid"));
+        }
+      };
+      script.onerror = () => reject(new Error("turnstile-runtime-unavailable"));
+      document.head.append(script);
+    });
+    return turnstileLoader;
+  }
+
+  async function armTurnstile(form, sitekey) {
+    const host = form.querySelector("[data-turnstile]");
+    const submit = form.querySelector('button[type="submit"]');
+    if (!host || !submit || !validTurnstileSitekey(sitekey)) return false;
+    submit.disabled = true;
+    try {
+      const runtime = await loadTurnstileRuntime();
+      runtime.render(host, {
+        sitekey,
+        action: TURNSTILE_ACTION,
+        theme: "auto",
+        callback(token) {
+          submit.disabled = typeof token !== "string" || token.length < 1;
+        },
+        "expired-callback"() {
+          submit.disabled = true;
+        },
+        "error-callback"() {
+          submit.disabled = true;
+        },
+      });
+      return true;
+    } catch {
+      submit.disabled = true;
+      return false;
+    }
+  }
+
   function identityCopy(kind, available) {
     const copy = {
       login: {
@@ -164,23 +227,34 @@
         renderRegistrationPolicy(form, null);
       }
     }
-    const [title, detail] = identityCopy(kind, available);
-
-    const strong = state.querySelector("strong");
-    const paragraph = state.querySelector("p");
-    if (strong) strong.textContent = title;
-    if (paragraph) paragraph.textContent = detail;
+    if (
+      available
+      && TURNSTILE_PROTECTED_KINDS.has(kind)
+      && !validTurnstileSitekey(config?.identity?.turnstile_sitekey)
+    ) {
+      available = false;
+    }
 
     const controls = form.querySelectorAll("input, button");
     if (available) {
       form.action = target;
       form.hidden = false;
       for (const control of controls) control.disabled = false;
-    } else {
+      if (TURNSTILE_PROTECTED_KINDS.has(kind)) {
+        available = await armTurnstile(form, config.identity.turnstile_sitekey);
+      }
+    }
+    if (!available) {
       form.removeAttribute("action");
       form.hidden = true;
       for (const control of controls) control.disabled = true;
     }
+
+    const [title, detail] = identityCopy(kind, available);
+    const strong = state.querySelector("strong");
+    const paragraph = state.querySelector("p");
+    if (strong) strong.textContent = title;
+    if (paragraph) paragraph.textContent = detail;
   }
 
   function validSha256(value) {

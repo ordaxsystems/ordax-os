@@ -169,6 +169,7 @@
     ["Senha", "Password"],
     ["Esqueci minha senha", "Forgot my password"],
     ["Entrar com segurança", "Sign in securely"],
+    ["Verificação anti-automação", "Anti-automation verification"],
     ["Esta página não coleta credenciais enquanto o serviço real de identidade não estiver conectado.", "This page does not collect credentials until the real identity service is connected."],
     ["NOVO NA ORDA X?", "NEW TO ORDA X?"],
     ["Prepare sua futura conta.", "Prepare your future account."],

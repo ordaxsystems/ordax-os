@@ -19,10 +19,15 @@
     "recovery_new_password": "/recuperar/nova-senha/"
   },
   "runtime_dependencies": {
-    "remote_javascript": false,
+    "remote_javascript": true,
     "remote_css": false,
     "remote_fonts": false,
-    "framework": false
+    "framework": false,
+    "remote_javascript_allowlist": [
+      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+    ],
+    "remote_javascript_scope": "public-account-abuse-protection-only",
+    "remote_javascript_lazy": true
   },
   "identity": {
     "provider_implemented_here": false,
@@ -47,7 +52,21 @@
     "recovery_complete_route": "/auth/recover/complete",
     "recovery_verify_route": "/auth/recover/verify",
     "recovery_server_side_token_hash": true,
-    "recovery_forms_enabled": false
+    "recovery_forms_enabled": false,
+    "turnstile": {
+      "provider": "cloudflare-turnstile",
+      "sitekey": "0x4AAAAAAFP2xxwpJ9Bl_5Ka",
+      "hostname": "ordax-os-public.vercel.app",
+      "action": "ordax-account",
+      "protected_forms": [
+        "login",
+        "register",
+        "recovery"
+      ],
+      "server_side_verification_required": true,
+      "browser_verification_alone_sufficient": false,
+      "secret_in_site_source_allowed": false
+    }
   },
   "downloads": {
     "hard_coded_latest_allowed": false,
