@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     paths:
+      - 'system/surface/runtime/native_store_catalog.py'
       - 'system/surface/runtime/native_app_artifact_store.py'
       - 'tests/test_native_app_artifact_store.py'
-      - 'system/surface/runtime/native_store_catalog.py'
       - 'system/surface/runtime/native_host_server.py'
       - 'tests/test_native_store_catalog.py'
       - 'tests/test_native_store_catalog_host.py'
@@ -42,6 +42,8 @@ on:
   pull_request:
     paths:
       - 'system/surface/runtime/native_store_catalog.py'
+      - 'system/surface/runtime/native_app_artifact_store.py'
+      - 'tests/test_native_app_artifact_store.py'
       - 'system/surface/runtime/native_host_server.py'
       - 'tests/test_native_store_catalog.py'
       - 'tests/test_native_store_catalog_host.py'
