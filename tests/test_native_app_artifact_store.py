@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+import tempfile
+import unittest
+
+from system.surface.runtime import native_app_artifact_store as store
+
+
+def identity(name: str, payload: bytes) -> dict:
+    return {
+        "name": name,
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "size": len(payload),
+    }
+
+
+class NativeAppArtifactStoreTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name) / "artifacts"
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def test_verified_artifact_is_content_addressed_and_reused(self) -> None:
+        payload = b"verified-package"
+        item = identity("notes.zip", payload)
+
+        path = store.store_verified_artifact(item, payload, root=str(self.root))
+        self.assertEqual(path.name, item["sha256"])
+        self.assertEqual(path.parent.name, item["sha256"][:2])
+        self.assertEqual(
+            store.read_cached_artifact(item, root=str(self.root)),
+            payload,
+        )
+
+        path_again = store.store_verified_artifact(item, payload, root=str(self.root))
+        self.assertEqual(path_again, path)
+
+    def test_tampered_payload_is_rejected_before_persistence(self) -> None:
+        payload = b"expected"
+        item = identity("notes.zip", payload)
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "does not match verified identity"):
+            store.store_verified_artifact(item, b"tampered", root=str(self.root))
+        target = self.root / "sha256" / item["sha256"][:2] / item["sha256"]
+        self.assertFalse(target.exists())
+
+    def test_cached_tampering_fails_closed_instead_of_refetching_silently(self) -> None:
+        payload = b"expected"
+        item = identity("notes.zip", payload)
+        path = store.store_verified_artifact(item, payload, root=str(self.root))
+        path.chmod(0o600)
+        path.write_bytes(b"tampered")
+
+        calls = 0
+
+        def loader(_identity):
+            nonlocal calls
+            calls += 1
+            return payload
+
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "size mismatch|digest mismatch"):
+            store.acquire_verified_artifact(item, loader=loader, root=str(self.root))
+        self.assertEqual(calls, 0)
+
+    def test_acquisition_provider_receives_only_verified_identity_not_url_or_version(self) -> None:
+        payload = b"component-envelope"
+        item = identity("notes.runtime-component-envelope.json", payload)
+        seen = []
+
+        def loader(value):
+            seen.append(value)
+            return payload
+
+        path, changed = store.acquire_verified_artifact(
+            item,
+            loader=loader,
+            root=str(self.root),
+        )
+        self.assertTrue(changed)
+        self.assertTrue(path.is_file())
+        self.assertEqual(seen, [item])
+        self.assertNotIn("url", seen[0])
+        self.assertNotIn("version", seen[0])
+
+        path_again, changed_again = store.acquire_verified_artifact(
+            item,
+            loader=lambda _value: (_ for _ in ()).throw(RuntimeError("must not refetch")),
+            root=str(self.root),
+        )
+        self.assertEqual(path_again, path)
+        self.assertFalse(changed_again)
+
+    def test_canonical_artifact_set_is_materialized_by_fixed_roles(self) -> None:
+        payloads = {
+            "package": b"package",
+            "release": b"release",
+            "compatibility": b"compatibility",
+            "componentEnvelope": b"envelope",
+        }
+        artifacts = {
+            "package": identity("notes.zip", payloads["package"]),
+            "release": identity("notes.release.json", payloads["release"]),
+            "compatibility": identity("notes.compatibility.json", payloads["compatibility"]),
+            "componentEnvelope": identity(
+                "notes.runtime-component-envelope.json",
+                payloads["componentEnvelope"],
+            ),
+        }
+        by_digest = {
+            value["sha256"]: payloads[role]
+            for role, value in artifacts.items()
+        }
+        seen = []
+
+        def loader(value):
+            seen.append(value["name"])
+            return by_digest[value["sha256"]]
+
+        resolved = store.acquire_verified_artifact_set(
+            artifacts,
+            loader=loader,
+            root=str(self.root),
+        )
+        self.assertEqual(
+            list(resolved),
+            ["package", "release", "compatibility", "componentEnvelope"],
+        )
+        self.assertEqual(
+            seen,
+            [
+                "notes.zip",
+                "notes.release.json",
+                "notes.compatibility.json",
+                "notes.runtime-component-envelope.json",
+            ],
+        )
+        for path in resolved.values():
+            self.assertTrue(Path(path).is_file())
+
+    def test_symlink_cache_entry_is_rejected(self) -> None:
+        payload = b"expected"
+        item = identity("notes.zip", payload)
+        target = self.root / "sha256" / item["sha256"][:2] / item["sha256"]
+        target.parent.mkdir(parents=True, mode=0o700)
+        other = self.root / "other"
+        other.write_bytes(payload)
+        try:
+            target.symlink_to(other)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlink creation unavailable")
+
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "non-symlink"):
+            store.read_cached_artifact(item, root=str(self.root))
+
+
+if __name__ == "__main__":
+    unittest.main()
