@@ -19,7 +19,7 @@ import tempfile
 from typing import Callable
 
 DEFAULT_ARTIFACT_ROOT = "/var/lib/ordax/app-install/artifacts/v1"
-MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
+MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 NAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
