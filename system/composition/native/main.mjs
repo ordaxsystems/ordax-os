@@ -38,6 +38,7 @@ import { createNativeUpdateWatcher } from "../../adapters/native/update-runtime.
 import { createNativeWorkspaceStore } from "../../adapters/native/workspace.mjs";
 import { createNativeVerifiedComponentPackageSource } from "../../adapters/native/verified-component-package-source.mjs";
 import { createNativeVerifiedComponentArtifactIdentity } from "../../adapters/native/verified-component-artifact-identity.mjs";
+import { createNativeAppLifecycleDelegate } from "../../adapters/native/app-lifecycle-delegate.mjs";
 import { createNativeSyncStateStore } from "../../adapters/native/sync-state.mjs";
 import { createNativeSyncCheckpointStore } from "../../adapters/native/sync-checkpoint.mjs";
 import { createNativeSurfaceHeartbeat } from "../../adapters/native/surface-heartbeat.mjs";
@@ -49,6 +50,7 @@ import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
+import { createAppLifecycleRequestService } from "../../services/apps/store-lifecycle-request-service.mjs";
 import { createUnavailableAppStoreCatalogPort } from "../../contracts/app-store.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
@@ -814,11 +816,23 @@ async function start() {
   }
   const storeCatalogComposition = await storeCatalogCompositionPromise;
   const storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
+  let storeLifecycleRequests = null;
+  if (storeCatalogComposition?.verifiedCatalogPort) {
+    try {
+      storeLifecycleRequests = createAppLifecycleRequestService({
+        catalogPort: storeCatalog,
+        verifiedCatalogPort: storeCatalogComposition.verifiedCatalogPort,
+        lifecycleDelegate: createNativeAppLifecycleDelegate(window),
+      });
+    } catch (error) {
+      reportClientDiagnostic("store-lifecycle-composition", error);
+    }
+  }
   const storeOverviewControls = mountStoreOverviewControls(
     root,
     storeCatalog,
     surface,
-    null,
+    storeLifecycleRequests,
   );
   const systemOverviewControls = mountSystemOverviewControls(
     root,
