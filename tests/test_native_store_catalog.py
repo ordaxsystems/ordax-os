@@ -212,5 +212,91 @@ class NativeStoreCatalogTests(unittest.TestCase):
         self.assertFalse(self.watermark.exists())
 
 
+    def test_snapshot_reader_reports_missing_envelope_without_invoking_verifier(self) -> None:
+        helper = self.root / "ordax-runtime-component-channel"
+        helper.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+        helper.chmod(helper.stat().st_mode | stat.S_IXUSR)
+        trust = self.root / "trust.json"
+        trust.write_text("{}\n", encoding="utf-8")
+        calls = []
+
+        snapshot = store.read_native_store_catalog_snapshot(
+            helper_path=helper,
+            trust_path=trust,
+            envelope_path=self.root / "missing-envelope.json",
+            watermark_path=self.watermark,
+            runner=lambda *args, **kwargs: calls.append((args, kwargs)),
+        )
+
+        self.assertEqual(snapshot["state"], "unavailable")
+        self.assertEqual(snapshot["reason"], "catalog-envelope-unavailable")
+        self.assertEqual(snapshot["authority"], "none")
+        self.assertEqual(snapshot["entries"], [])
+        self.assertEqual(calls, [])
+        self.assertFalse(self.watermark.exists())
+
+    def test_snapshot_reader_hides_verifier_failure_and_never_mutates_watermark(self) -> None:
+        helper = self.root / "ordax-runtime-component-channel"
+        helper.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        helper.chmod(helper.stat().st_mode | stat.S_IXUSR)
+        trust = self.root / "trust.json"
+        trust.write_text("{}\n", encoding="utf-8")
+        envelope = self.root / "catalog-envelope.json"
+        envelope.write_text("{}\n", encoding="utf-8")
+
+        class Result:
+            returncode = 1
+            stdout = ""
+            stderr = "signature invalid"
+
+        snapshot = store.read_native_store_catalog_snapshot(
+            helper_path=helper,
+            trust_path=trust,
+            envelope_path=envelope,
+            watermark_path=self.watermark,
+            runner=lambda *args, **kwargs: Result(),
+        )
+
+        self.assertEqual(snapshot["state"], "unavailable")
+        self.assertEqual(snapshot["reason"], "catalog-verification-unavailable")
+        self.assertFalse(self.watermark.exists())
+
+    def test_snapshot_reader_returns_ready_only_after_verified_watermark_commit(self) -> None:
+        helper = self.root / "ordax-runtime-component-channel"
+        helper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        helper.chmod(helper.stat().st_mode | stat.S_IXUSR)
+        trust = self.root / "trust.json"
+        trust.write_text("{}\n", encoding="utf-8")
+        envelope = self.root / "catalog-envelope.json"
+        envelope.write_text("{}\n", encoding="utf-8")
+
+        class Result:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        def runner(argv, **kwargs):
+            out = Path(argv[argv.index("--out") + 1])
+            out.write_text(
+                json.dumps(verified(12, "c" * 64), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            return Result()
+
+        snapshot = store.read_native_store_catalog_snapshot(
+            helper_path=helper,
+            trust_path=trust,
+            envelope_path=envelope,
+            watermark_path=self.watermark,
+            runner=runner,
+        )
+
+        self.assertEqual(snapshot["state"], "ready")
+        self.assertEqual(snapshot["sequence"], 12)
+        persisted = json.loads(self.watermark.read_text(encoding="utf-8"))
+        self.assertEqual(persisted["sequence"], 12)
+        self.assertEqual(persisted["catalogSha256"], "c" * 64)
+
+
 if __name__ == "__main__":
     unittest.main()
