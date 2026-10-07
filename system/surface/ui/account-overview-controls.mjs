@@ -10,6 +10,11 @@ import {
 } from "../../contracts/identity-session.mjs";
 import { assertIdentityCredentialsPort } from "../../contracts/identity-credentials.mjs";
 import {
+  assertAccountLifecyclePort,
+  isAccountLifecycleActionSupported,
+  validateAccountLifecycleSnapshot,
+} from "../../contracts/account-lifecycle.mjs";
+import {
   assertSyncRuntimePort,
   validateSyncRuntimeSnapshot,
 } from "../../contracts/sync-runtime.mjs";
@@ -112,6 +117,7 @@ export function mountAccountOverviewControls(
   preferenceRuntime = null,
   profileActivationState = null,
   memoryConflictReview = null,
+  accountLifecycle = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -140,6 +146,9 @@ export function mountAccountOverviewControls(
   const profileActivationPort = profileActivationState === null
     ? null
     : assertMutableProfileActivationStatePort(profileActivationState);
+  const accountLifecyclePort = accountLifecycle === null
+    ? null
+    : assertAccountLifecyclePort(accountLifecycle);
   const memoryConflictPort = memoryConflictReview === null
     ? null
     : (() => {
@@ -175,6 +184,9 @@ export function mountAccountOverviewControls(
     ? validateProfileActivationState(profileActivationPort.getSnapshot())
     : null;
   let preferenceSnapshot = preferencePort?.getSnapshot() ?? null;
+  let accountLifecycleSnapshot = accountLifecyclePort
+    ? validateAccountLifecycleSnapshot(accountLifecyclePort.getSnapshot())
+    : null;
   let pendingAction = null;
   let pendingProfileAction = null;
   let actionMessage = "";
@@ -187,7 +199,12 @@ export function mountAccountOverviewControls(
   let registrationPolicy = null;
   let registrationLegalAccepted = false;
   let registrationPolicyPending = false;
+  let closePasswordDraft = "";
+  let closeConfirmationChecked = false;
+  let pendingClose = false;
+  let closeMessage = "";
   let actionOrdinal = 0;
+  let closeOrdinal = 0;
   let activeSection = validAccountSection(lifecycle.getAppTarget("account"))
     ? lifecycle.getAppTarget("account")
     : "overview";
@@ -480,6 +497,64 @@ export function mountAccountOverviewControls(
     }
 
     section.append(actions);
+
+    if (
+      sessionSnapshot.state === "signed-in"
+      && accountLifecycleSnapshot
+      && isAccountLifecycleActionSupported(accountLifecycleSnapshot, "close-account")
+    ) {
+      const lifecycleSection = node(documentObject, "section", "ordax-account-lifecycle");
+      lifecycleSection.append(
+        node(documentObject, "strong", "ordax-account-section-title", t("account.lifecycle.close.title")),
+        node(documentObject, "p", "ordax-account-subtitle", t("account.lifecycle.close.detail")),
+      );
+
+      const passwordLabel = node(documentObject, "label", "ordax-account-field");
+      passwordLabel.append(node(documentObject, "span", "", t("account.lifecycle.close.password")));
+      const passwordInput = documentObject.createElement("input");
+      passwordInput.type = "password";
+      passwordInput.autocomplete = "current-password";
+      passwordInput.maxLength = 1024;
+      passwordInput.value = closePasswordDraft;
+      passwordInput.dataset.accountClosePassword = "";
+      passwordInput.disabled = pendingClose;
+      passwordLabel.append(passwordInput);
+
+      const confirmation = node(documentObject, "label", "ordax-account-registration-legal-acceptance");
+      const confirmationInput = documentObject.createElement("input");
+      confirmationInput.type = "checkbox";
+      confirmationInput.checked = closeConfirmationChecked;
+      confirmationInput.dataset.accountCloseConfirmation = "";
+      confirmationInput.disabled = pendingClose;
+      confirmation.append(
+        confirmationInput,
+        node(documentObject, "span", "", t("account.lifecycle.close.confirm")),
+      );
+
+      const closeButton = node(
+        documentObject,
+        "button",
+        "ordax-account-action",
+        pendingClose
+          ? t("account.lifecycle.close.closing")
+          : t("account.lifecycle.close.action"),
+      );
+      closeButton.type = "button";
+      closeButton.dataset.accountCloseAction = "";
+      closeButton.disabled = (
+        pendingClose
+        || !closeConfirmationChecked
+        || closePasswordDraft.length < 1
+      );
+
+      lifecycleSection.append(passwordLabel, confirmation, closeButton);
+      if (closeMessage) {
+        lifecycleSection.append(
+          node(documentObject, "p", "ordax-account-message", closeMessage),
+        );
+      }
+      section.append(lifecycleSection);
+    }
 
     if (actionMessage) {
       section.append(node(documentObject, "p", "ordax-account-message", actionMessage));
