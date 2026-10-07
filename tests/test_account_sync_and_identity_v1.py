@@ -112,6 +112,8 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("x-ordax-public-site", text)
         self.assertIn("publicSiteRequest", text)
         self.assertIn("public-account-access-disabled", text)
+        self.assertIn("verifyPublicProxyIdentity", text)
+        self.assertIn("trusted-account-boundary-required", text)
         self.assertIn('Accept', (ROOT / "system" / "surface" / "runtime" / "native_account_gateway.py").read_text(encoding="utf-8"))
         self.assertIn("SUPABASE_SECRET_KEYS", text)
         self.assertEqual(text.count("SUPABASE_SERVICE_ROLE_KEY"), 1)
@@ -185,10 +187,10 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("lifecycle_provider.close_account", gateway)
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", gateway)
 
-    def test_native_signed_gateway_config_targets_https_edge_gateway(self):
+    def test_native_signed_gateway_config_targets_canonical_public_origin(self):
         value = NATIVE_GATEWAY_CONFIG.read_text(encoding="utf-8").strip()
-        self.assertTrue(value.startswith("https://"))
-        self.assertIn("/functions/v1/ordax-account-gateway", value)
+        self.assertEqual(value, "https://ordax-os-public.vercel.app")
+        self.assertNotIn("/functions/v1/", value)
         self.assertNotIn("?", value)
         self.assertNotIn("#", value)
 
