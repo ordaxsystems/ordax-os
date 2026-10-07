@@ -129,5 +129,21 @@
   "notes_component_probation_available": true,
   "notes_component_distribution_activation_enabled": false,
   "notes_component_promotion_proven": false,
-  "notes_component_rollback_proven": false
+  "notes_component_rollback_proven": false,
+  "canonical_package_source_repository_by_component": {
+    "calculator": "washingtonmsdj/ordax-apps",
+    "calendar": "washingtonmsdj/ordax-apps",
+    "character-map": "washingtonmsdj/ordax-apps",
+    "clock": "washingtonmsdj/ordax-apps",
+    "colors": "washingtonmsdj/ordax-apps",
+    "converter": "washingtonmsdj/ordax-apps",
+    "image-viewer": "washingtonmsdj/ordax-apps",
+    "media-player": "washingtonmsdj/ordax-apps",
+    "notes": "washingtonmsdj/ordax-apps",
+    "paint": "washingtonmsdj/ordax-apps",
+    "pdf-viewer": "washingtonmsdj/ordax-apps",
+    "studio": "washingtonmsdj/ordax-apps",
+    "text-viewer": "washingtonmsdj/ordax-apps",
+    "toolbox": "washingtonmsdj/ordax-apps"
+  }
 }

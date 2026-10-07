@@ -61,11 +61,6 @@ var forbiddenPackagePrefixes = []string{
 	"system/surface/runtime/",
 }
 
-var canonicalExternalComponentSourceRepositories = map[string]string{
-	"notes":  appsSourceRepository,
-	"studio": appsSourceRepository,
-}
-
 func canonicalSourceRepository(componentID string) string {
 	if repository, ok := canonicalExternalComponentSourceRepositories[componentID]; ok {
 		return repository
