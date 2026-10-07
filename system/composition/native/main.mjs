@@ -764,7 +764,7 @@ async function start() {
   const filesOwnerSpace = fileSpace === null
     ? null
     : createProjectContinuityFileSpace(fileSpace, projects, {
-        projectMutations: projectMutations,
+        projectMutations,
         onContinuityError(error) {
           reportClientDiagnostic("files-project-continuity", error);
         },
@@ -774,7 +774,7 @@ async function start() {
     filesOwnerSpace,
     appActivation,
     surface,
-    { recentFiles, projects },
+    { recentFiles, projects, projectMutations },
   );
   let settingsOverviewControls;
   try {
@@ -908,6 +908,7 @@ async function start() {
       browserSession,
       surfaceLifecycle: surface,
       projects,
+      projectMutations,
       projectReferences,
       createFavoritesStore: () => createNativeBrowserFavoritesStore(window),
       createHistoryStore: () => createNativeBrowserHistoryStore(window),
