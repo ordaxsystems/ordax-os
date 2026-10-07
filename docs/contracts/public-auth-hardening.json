@@ -18,14 +18,17 @@
     "account_recovery_flow_tested": true,
     "session_revocation_tested": true,
     "privacy_terms_ready": true,
-    "server_side_public_activation_gate": true
+    "server_side_public_activation_gate": true,
+    "bot_protection_reviewed": true,
+    "bot_protection_server_verification_deployed": true,
+    "bot_protection_e2e_tested": true
   },
   "current_observation": {
     "source": "supabase-security-advisor-and-live-deployment-reconciliation",
     "observed_date": "2026-10-04",
     "leaked_password_protection": "enabled-product-gateway",
     "public_login_enabled": false,
-    "edge_gateway": "v23-deployed-registration-disabled-close-disabled",
+    "edge_gateway": "v24-deployed-registration-disabled-close-disabled-recovery-global-revocation",
     "public_edge_gateway": "active-v2-production-oidc-vercel-routing-proof-pending",
     "public_edge_gateway_deployed": true,
     "public_edge_gateway_version": 2,
@@ -50,7 +53,7 @@
     "public_site_account_enabled": false,
     "public_site_marker_header": "X-OrdaX-Public-Site",
     "session_revocation": "proof-harness-ready-real-account-proof-pending",
-    "session_revocation_scope": "local-current-session",
+    "session_revocation_scope": "recovery-password-change-global-normal-logout-local",
     "session_revocation_proof_requires_credentials": true,
     "password_recovery_request": "pass-source-and-edge-disabled",
     "password_recovery_redirect_config_verified": false,
@@ -103,12 +106,28 @@
     "account_registration_native_acceptance_bound": false,
     "account_registration_policy_projection_applied": true,
     "account_registration_policy_active": false,
-    "account_registration_ui_source_ready": true
+    "account_registration_ui_source_ready": true,
+    "bot_protection": "cloudflare-turnstile-widget-provisioned-source-integration-ready-production-secret-and-e2e-pending",
+    "bot_protection_provider": "cloudflare-turnstile",
+    "bot_protection_sitekey": "0x4AAAAAAFP2xxwpJ9Bl_5Ka",
+    "bot_protection_hostname": "ordax-os-public.vercel.app",
+    "bot_protection_action": "ordax-account",
+    "bot_protection_widget_provisioned": true,
+    "bot_protection_source_server_verification": true,
+    "bot_protection_protected_forms": [
+      "login",
+      "register",
+      "recovery"
+    ],
+    "bot_protection_production_secret_configured": false,
+    "bot_protection_e2e_tested": false
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
     "service_role_key_in_browser_allowed": false,
     "provider_tokens_in_ordax_memory_allowed": false,
-    "provider_secrets_in_public_product_tables_allowed": false
+    "provider_secrets_in_public_product_tables_allowed": false,
+    "public_auth_bot_protection_must_fail_closed": true,
+    "bot_protection_secret_in_browser_allowed": false
   }
 }
