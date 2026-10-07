@@ -167,7 +167,17 @@
     "artifact_store_verifies_size_and_sha256_before_persist": true,
     "artifact_store_atomic_replace_and_fsync": true,
     "artifact_store_preserved_on_uninstall": true,
-    "remote_artifact_transport_configured": false
+    "remote_artifact_transport_configured": false,
+    "offline_lifecycle_executor_implemented": true,
+    "offline_lifecycle_executor_owner": "app-install-owner",
+    "offline_lifecycle_executor_mounted": false,
+    "offline_install_update_requires_cached_verified_artifacts": true,
+    "offline_install_update_stops_at_pending_health": true,
+    "offline_executor_may_record_health": false,
+    "offline_executor_may_promote": false,
+    "offline_remove_uses_exact_activation_revision": true,
+    "offline_remove_touches_app_data": false,
+    "offline_remove_purges_artifact_cache": false
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
