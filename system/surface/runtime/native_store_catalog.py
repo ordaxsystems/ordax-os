@@ -261,6 +261,14 @@ def _persist_watermark(path: Path, value: dict) -> None:
         raise StoreCatalogError("Store catalog watermark persistence failed") from exc
 
 
+def read_store_catalog_watermark(path: Path) -> dict:
+    with _watermark_lock(path):
+        current = _load_watermark(path)
+        if current is None:
+            raise StoreCatalogError("Store catalog watermark is unavailable")
+        return dict(current)
+
+
 def accept_verified_catalog(value: object, watermark_path: Path) -> tuple[dict, bool]:
     catalog = validate_verified_catalog(value)
     with _watermark_lock(watermark_path):
