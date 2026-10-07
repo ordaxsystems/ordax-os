@@ -28,7 +28,7 @@ test("discovery exposes only verified current component-slot apps",async()=>{
  };
  const entries=await discoverVerifiedExternalApplications({source,fetchImpl,appIds:["calculator","pdf-viewer"]});
  assert.equal(entries.length,1);
- assert.equal(entries[0].app.id,"pdf-viewer");
+ assert.equal(entries[0].component.id,"pdf-viewer");\n assert.equal(entries[0].presentation.appId,"pdf-viewer");
  assert.equal(entries[0].association.extensions[0],"pdf");
  assert.equal(entries[0].metadata.revision,7);
 });
