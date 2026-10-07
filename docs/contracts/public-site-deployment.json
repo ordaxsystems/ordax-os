@@ -10,7 +10,10 @@
     "account_request_marker_header": "X-OrdaX-Public-Site",
     "account_request_marker_value": "1",
     "real_ip_source": "trusted-loopback-tls-terminator-x-forwarded-for",
-    "real_ip_trusted_sources": ["127.0.0.1", "::1"],
+    "real_ip_trusted_sources": [
+      "127.0.0.1",
+      "::1"
+    ],
     "public_auth_rate_limit_source_ready": true,
     "public_auth_rate_limit_deployed": false
   },
@@ -33,7 +36,9 @@
     "canonical_public_origin_required": true,
     "canonical_public_origin_live_configured": true,
     "canonical_public_origin": "https://ordax-os-public.vercel.app",
-    "gateway_upstream_environment_scope": ["production"],
+    "gateway_upstream_environment_scope": [
+      "production"
+    ],
     "legacy_shared_secret_production_or_preview_exposed": false,
     "incoming_request_origin_must_equal_canonical_origin": true,
     "browser_host_header_trusted": false,
@@ -58,7 +63,11 @@
     "upstream_timeout_milliseconds": 15000,
     "set_cookie_preserved": true,
     "set_cookie_validation_required": true,
-    "set_cookie_allowed_names": ["ordax_access", "ordax_refresh", "ordax_recovery"],
+    "set_cookie_allowed_names": [
+      "ordax_access",
+      "ordax_refresh",
+      "ordax_recovery"
+    ],
     "set_cookie_domain_attribute_allowed": false,
     "set_cookie_secure_required": true,
     "set_cookie_http_only_required": true,
@@ -87,8 +96,14 @@
     "runtime_provenance_e2e_verified": false,
     "verify_jwt": false,
     "custom_proxy_authentication": true,
-    "allowed_methods": ["GET", "POST"],
-    "allowed_prefixes": ["/auth/", "/sync/"],
+    "allowed_methods": [
+      "GET",
+      "POST"
+    ],
+    "allowed_prefixes": [
+      "/auth/",
+      "/sync/"
+    ],
     "proxy_authentication_required": true,
     "oidc_jose_version": "6.2.12",
     "oidc_issuer": "https://oidc.vercel.com/jogo-brasils-projects",
@@ -112,7 +127,19 @@
     "native_direct_path_covered_by_this_boundary": false
   },
   "routing": {
-    "static_routes": ["/", "/download/", "/login/", "/cadastro/", "/recuperar/", "/recuperar/nova-senha/", "/conta/", "/releases/catalog.json", "/licencas/", "/privacidade/", "/termos/"],
+    "static_routes": [
+      "/",
+      "/download/",
+      "/login/",
+      "/cadastro/",
+      "/recuperar/",
+      "/recuperar/nova-senha/",
+      "/conta/",
+      "/releases/catalog.json",
+      "/licencas/",
+      "/privacidade/",
+      "/termos/"
+    ],
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
     "identity_gateway_entrypoint": "services/public-identity/gateway.py:application",
@@ -130,7 +157,7 @@
     "recovery_complete_path": "/auth/recover/complete"
   },
   "security_headers": {
-    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; upgrade-insecure-requests",
+    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; upgrade-insecure-requests",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Embedder-Policy": "require-corp",
@@ -176,7 +203,10 @@
     "public_proxy_must_reject_untrusted_upstream_redirects_and_cookies": true,
     "preview_oidc_must_not_access_production_account_boundary": true,
     "public_auth_rate_limits_required": true,
-    "native_auth_rate_limit_required_before_public_account_activation": true
+    "native_auth_rate_limit_required_before_public_account_activation": true,
+    "public_auth_turnstile_required": true,
+    "turnstile_server_side_siteverify_required": true,
+    "turnstile_exact_hostname_and_action_required": true
   },
   "security_rate_limits": {
     "status_code": 429,
@@ -188,8 +218,43 @@
       "direct_table_access_allowed": false,
       "deployed": true
     },
-    "login_and_register": {"rate": "10r/m", "burst": 5, "key": "restored-real-client-ip"},
-    "recovery_request": {"rate": "3r/m", "burst": 2, "key": "restored-real-client-ip"},
-    "recovery_completion": {"rate": "10r/m", "burst": 5, "key": "restored-real-client-ip"}
+    "login_and_register": {
+      "rate": "10r/m",
+      "burst": 5,
+      "key": "restored-real-client-ip"
+    },
+    "recovery_request": {
+      "rate": "3r/m",
+      "burst": 2,
+      "key": "restored-real-client-ip"
+    },
+    "recovery_completion": {
+      "rate": "10r/m",
+      "burst": 5,
+      "key": "restored-real-client-ip"
+    }
+  },
+  "bot_protection": {
+    "provider": "cloudflare-turnstile",
+    "widget_name": "OrdaX Account Production",
+    "sitekey": "0x4AAAAAAFP2xxwpJ9Bl_5Ka",
+    "hostname_allowlist": [
+      "ordax-os-public.vercel.app"
+    ],
+    "widget_mode": "managed",
+    "action": "ordax-account",
+    "protected_paths": [
+      "/auth/login",
+      "/auth/register",
+      "/auth/recover"
+    ],
+    "siteverify": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+    "server_side_verification_required": true,
+    "secret_environment_variable": "ORDAX_TURNSTILE_SECRET_KEY",
+    "secret_may_exist_in_repository": false,
+    "token_max_bytes": 2048,
+    "token_forwarded_to_inner_gateway": false,
+    "production_secret_configured": false,
+    "production_e2e_verified": false
   }
 }
