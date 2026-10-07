@@ -132,9 +132,14 @@
     "catalog_signature_verifier_implemented": true,
     "catalog_signature_verifier_owner": "ordax-runtime-component-channel",
     "catalog_envelope_schema": "ordax.store-catalog-envelope/1",
-    "catalog_publication_payload_schema": "ordax-apps.store-catalog-publication/1",
+    "catalog_publication_payload_schema": "ordax-apps.store-catalog-publication/2",
     "catalog_crypto_reuses_runtime_component_trust": true,
-    "catalog_envelope_is_distinct_from_component_release_envelope": true
+    "catalog_envelope_is_distinct_from_component_release_envelope": true,
+    "catalog_prepublication_payload_schema": "ordax-apps.store-catalog-publication/1",
+    "catalog_prepublication_is_installable": false,
+    "catalog_component_envelope_required": true,
+    "catalog_component_envelope_identity_verified": true,
+    "platform_lifecycle_reverifies_component_envelope": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
