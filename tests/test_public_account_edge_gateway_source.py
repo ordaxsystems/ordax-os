@@ -119,7 +119,17 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("x-forwarded-host", canonical.host)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
 
-    def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
+    def test_product_cookies_use_private_envelope_not_transport_set_cookie(self):
+        self.assertIn('const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope"', self.edge)
+        self.assertIn('headers.set(COOKIE_ENVELOPE_HEADER, JSON.stringify(cookies))', self.edge)
+        self.assertNotIn('headers.append("set-cookie"', self.edge)
+        self.assertIn('const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope"', self.proxy)
+        self.assertIn("trustedCookieEnvelope", self.proxy)
+        self.assertIn("upstream.headers.get(COOKIE_ENVELOPE_HEADER)", self.proxy)
+        self.assertNotIn("upstream.headers.getSetCookie", self.proxy)
+        self.assertNotIn('upstream.headers.get("set-cookie")', self.proxy)
+
+        def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
         self.assertIn("function trustedPublicSiteRequest(req: Request)", self.inner)
         self.assertIn('req.headers.get("apikey")', self.inner)
         self.assertIn("expectedKey = adminConfig().key", self.inner)
