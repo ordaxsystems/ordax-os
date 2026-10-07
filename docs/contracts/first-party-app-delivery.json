@@ -124,7 +124,11 @@
     "store_projection_contract": "ordax.app-store-catalog/2",
     "store_projection_port": "ordax.app-store-catalog-port/2",
     "store_projection_persists_inventory": false,
-    "store_projection_reads_verified_current_activation": true
+    "store_projection_reads_verified_current_activation": true,
+    "catalog_replay_owner": "native-catalog-verifier",
+    "catalog_signature_verification_owner": "native-catalog-verifier",
+    "surface_may_write_catalog_watermark": false,
+    "surface_receives_verified_catalog_read_only": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
