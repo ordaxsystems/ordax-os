@@ -77,7 +77,7 @@ O `app.json` deve validar como:
 
 - `kind=app`;
 - `releaseMode=component-slot`;
-- `owner=washingtonmsdj/ordax-apps`;
+- `owner=ordaxsystems/ordax-apps`;
 - mesmo `appId` e versão da resolução verificada.
 
 O manifesto de Intelligence é então validado contra essa identidade de componente.

@@ -41,7 +41,7 @@ function ready(entries = [candidate()]) {
     sequence: 11,
     catalogSha256: "f".repeat(64),
     source: {
-      repository: "washingtonmsdj/ordax-apps",
+      repository: "ordaxsystems/ordax-apps",
       commit: SOURCE_COMMIT,
     },
     trust: {

@@ -114,7 +114,7 @@ function verifiedReady(entries = [verifiedEntry()]) {
     sequence: 9,
     catalogSha256: "f".repeat(64),
     source: {
-      repository: "washingtonmsdj/ordax-apps",
+      repository: "ordaxsystems/ordax-apps",
       commit: COMMIT,
     },
     trust: {

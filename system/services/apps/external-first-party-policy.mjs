@@ -4,10 +4,10 @@
 
 import { validateComponentId } from "../../contracts/component-manifest.mjs";
 
-export const EXTERNAL_FIRST_PARTY_OWNER = "washingtonmsdj/ordax-apps";
+export const EXTERNAL_FIRST_PARTY_OWNER = "ordaxsystems/ordax-apps";
 export const EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT = Object.freeze({
-  "notes": "washingtonmsdj/ordax-apps",
-  "studio": "washingtonmsdj/ordax-apps",
+  "notes": "ordaxsystems/ordax-apps",
+  "studio": "ordaxsystems/ordax-apps",
 });
 export const EXTERNAL_FIRST_PARTY_COMPONENT_IDS = Object.freeze(
   Object.keys(EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT),

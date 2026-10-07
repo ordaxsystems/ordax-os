@@ -20,7 +20,7 @@ import {
   createApplicationActionProviderResolver,
 } from "../system/services/personal-ordax/application-action-provider-bindings.mjs";
 
-const OWNER = "washingtonmsdj/ordax-apps";
+const OWNER = "ordaxsystems/ordax-apps";
 
 function awareness() {
   const descriptor = Object.freeze({

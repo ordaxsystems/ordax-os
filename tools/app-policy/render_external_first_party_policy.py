@@ -10,7 +10,7 @@ import re
 import sys
 
 POLICY_SCHEMA = "prototype-ordax.runtime-component-package-policy/1"
-CANONICAL_OWNER = "washingtonmsdj/ordax-apps"
+CANONICAL_OWNER = "ordaxsystems/ordax-apps"
 APP_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 

@@ -16,7 +16,7 @@ import {
   createApplicationActionProviderActivationBroker,
 } from "../system/services/personal-ordax/application-action-provider-activation-broker.mjs";
 
-const OWNER = "washingtonmsdj/ordax-apps";
+const OWNER = "ordaxsystems/ordax-apps";
 const SOURCE_COMMIT = "7".repeat(40);
 const PROVIDER_SHA = "a".repeat(64);
 const CAPABILITY_SHA = "c".repeat(64);

@@ -20,7 +20,7 @@ from typing import Callable
 
 VERIFIED_SCHEMA = "ordax.verified-app-store-catalog/1"
 WATERMARK_SCHEMA = "ordax.store-catalog-watermark/1"
-SOURCE_REPOSITORY = "washingtonmsdj/ordax-apps"
+SOURCE_REPOSITORY = "ordaxsystems/ordax-apps"
 TRUST_DOMAIN = "runtime-components"
 KEY_ID = "ordax-runtime-components-v1"
 MAX_VERIFIED_BYTES = 2 * 1024 * 1024

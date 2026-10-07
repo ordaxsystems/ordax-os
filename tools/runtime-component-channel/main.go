@@ -30,7 +30,7 @@ const (
 	trustSchema         = "prototype-ordax.runtime-component-trust/1"
 	packageSchema       = "prototype-ordax.runtime-component-package/1"
 	sourceRepository    = "washingtonmsdj/prototipo-ordax-os"
-	appsSourceRepository = "washingtonmsdj/ordax-apps"
+	appsSourceRepository = "ordaxsystems/ordax-apps"
 	createdFromRecipe   = "runtime-component/package/1"
 	packageManifestName = "component-package.json"
 	slotEnvelopeName    = "runtime-component-envelope.json"

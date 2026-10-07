@@ -19,7 +19,7 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
             self.migration["cutover_order"],
             ["runtime", "apps", "control_plane", "platform"],
         )
-        self.assertEqual(self.migration["completed_transfers"], ["runtime"])
+        self.assertEqual(self.migration["completed_transfers"], ["runtime", "apps"])
 
     def test_cutover_is_single_authority(self):
         self.assertFalse(self.migration["redirect_dependency_allowed"])
