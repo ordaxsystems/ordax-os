@@ -15,6 +15,11 @@ on:
       - 'docs/contracts/runtime-component-package.json'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
       - 'system/services/apps/verified-store-projection.mjs'
+      - 'tests/test_native_store_catalog_composition.mjs'
+      - 'tests/test_native_verified_app_store_catalog.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'system/composition/native/store-catalog.mjs'
+      - 'system/adapters/native/verified-app-store-catalog.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
@@ -41,6 +46,11 @@ on:
       - 'system/services/apps/external-first-party-policy.mjs'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
       - 'system/services/apps/verified-store-projection.mjs'
+      - 'tests/test_native_store_catalog_composition.mjs'
+      - 'tests/test_native_verified_app_store_catalog.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'system/composition/native/store-catalog.mjs'
+      - 'system/adapters/native/verified-app-store-catalog.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
       - 'docs/contracts/first-party-app-delivery.json'
@@ -85,6 +95,8 @@ jobs:
           python tools/app-policy/render_external_first_party_policy.py --check
           node --check system/services/apps/store-lifecycle-request-service.mjs
           node --check system/services/apps/verified-store-projection.mjs
+          node --check system/adapters/native/verified-app-store-catalog.mjs
+          node --check system/composition/native/store-catalog.mjs
           node --check system/services/apps/mvp-delivery-policy.mjs
           node --check tests/test_first_party_app_delivery.mjs
           node --check tests/test_app_store_contract.mjs
@@ -94,6 +106,8 @@ jobs:
           node --check tests/test_external_first_party_policy.mjs
           node --check tests/test_verified_app_store_catalog.mjs
           node --check tests/test_verified_store_projection.mjs
+          node --check tests/test_native_verified_app_store_catalog.mjs
+          node --check tests/test_native_store_catalog_composition.mjs
           node --check tests/test_mvp_app_delivery.mjs
           python -m json.tool docs/contracts/first-party-app-delivery.json >/dev/null
           python -m json.tool docs/contracts/app-distribution.json >/dev/null
@@ -111,6 +125,8 @@ jobs:
           node --test tests/test_external_first_party_policy.mjs
           node --test tests/test_verified_app_store_catalog.mjs
           node --test tests/test_verified_store_projection.mjs
+          node --test tests/test_native_verified_app_store_catalog.mjs
+          node --test tests/test_native_store_catalog_composition.mjs
 
       - name: Prove minimal MVP payload and first-online refresh policy
         run: |
