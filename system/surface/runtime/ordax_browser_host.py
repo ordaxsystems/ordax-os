@@ -175,7 +175,7 @@ class OrdaXBrowserHost:
             self.app_data_bootstrap_bindings = ()
         self.app_data_bootstrap_served = False
         self.component_probation_started = False
-        self.component_probation_nonce: str | None = None
+        self.component_probation_nonces: dict[str, str] = {}
         self.session_path = os.path.join(self.profile_root, "session.json")
         self.tabs: dict[str, BrowserTab] = {}
         self.active_tab_id: str | None = None
@@ -354,40 +354,59 @@ class OrdaXBrowserHost:
         if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
             return
         self.component_probation_started = True
-        self.component_probation_nonce = secrets.token_urlsafe(32)
-        nonce = json.dumps(self.component_probation_nonce)
+        supported_components = ("internet", "notes")
+        self.component_probation_nonces = {
+            component_id: secrets.token_urlsafe(32)
+            for component_id in supported_components
+        }
+        attempts = json.dumps(
+            self.component_probation_nonces,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
         script = f"""
 (async () => {{
-  const nonce = {nonce};
-  let result;
+  const attempts = {attempts};
+  let module;
+  let moduleError;
   try {{
-    const module = await import('/composition/native/component-probation.mjs');
-    result = await module.runNativePendingComponentProbation({{
-      componentId: 'internet',
-    }});
+    module = await import('/composition/native/component-probation.mjs');
   }} catch (error) {{
-    result = {{
-      schema: 'ordax.component-probation-result/1',
-      componentId: 'internet',
-      version: null,
-      sourceCommit: null,
-      revision: null,
-      health: 'failed',
-      probeMode: 'import-contract',
-      error: error instanceof Error ? error.message : 'System component probation failed',
-    }};
+    moduleError = error;
   }}
-  window.webkit.messageHandlers.ordaxBrowser.postMessage(JSON.stringify({{
-    type: 'component.probation.result',
-    nonce,
-    result,
-  }}));
+  for (const [componentId, nonce] of Object.entries(attempts)) {{
+    let result;
+    try {{
+      if (moduleError) {{
+        throw moduleError;
+      }}
+      result = await module.runNativePendingComponentProbation({{
+        componentId,
+      }});
+    }} catch (error) {{
+      result = {{
+        schema: 'ordax.component-probation-result/1',
+        componentId,
+        version: null,
+        sourceCommit: null,
+        revision: null,
+        health: 'failed',
+        probeMode: 'import-contract',
+        error: error instanceof Error ? error.message : 'System component probation failed',
+      }};
+    }}
+    window.webkit.messageHandlers.ordaxBrowser.postMessage(JSON.stringify({{
+      type: 'component.probation.result',
+      nonce,
+      result,
+    }}));
+  }}
 }})();
 """
         try:
             self.surface_view.run_javascript(script, None, None, None)
         except Exception as exc:  # pragma: no cover - native runtime diagnostic
-            self.component_probation_nonce = None
+            self.component_probation_nonces.clear()
             print(
                 f"ordax-browser-host: failed to start component probation: {exc}",
                 file=sys.stderr,
@@ -395,9 +414,17 @@ class OrdaXBrowserHost:
             )
 
     def handle_component_probation_result(self, payload: dict) -> None:
-        expected_nonce = self.component_probation_nonce
+        result = payload.get("result") if isinstance(payload, dict) else None
+        component_id = result.get("componentId") if isinstance(result, dict) else None
+        expected_nonce = (
+            self.component_probation_nonces.get(component_id)
+            if isinstance(component_id, str)
+            else None
+        )
         if expected_nonce is None:
-            raise ValueError("component probation receipt arrived without active nonce")
+            raise ValueError(
+                "component probation receipt arrived without active component nonce"
+            )
 
         try:
             outcome = record_system_component_probation(
@@ -409,13 +436,13 @@ class OrdaXBrowserHost:
         except ComponentProbationReceiptError as exc:
             raise ValueError(str(exc)) from exc
 
-        # Consume the nonce only after the receipt proves it belongs to the
-        # probation attempt initiated by this host.
-        self.component_probation_nonce = None
+        # Consume only the nonce bound to the validated component receipt.
+        self.component_probation_nonces.pop(component_id, None)
 
         if not outcome.actionable:
             print(
-                "ordax-browser-host: component probation produced no actionable pending receipt",
+                f"ordax-browser-host: component probation produced no actionable pending receipt "
+                f"(component={component_id})",
                 file=sys.stderr,
                 flush=True,
             )

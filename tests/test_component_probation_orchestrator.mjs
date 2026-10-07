@@ -19,19 +19,26 @@ function windowRef() {
   };
 }
 
-function metadataResponse(overrides = {}) {
+function metadataResponse({
+  componentId = "internet",
+  version = componentId === "notes" ? "0.4.1" : "0.4.0",
+  entrypoint = componentId === "notes"
+    ? "system/apps/notes/src/runtime.mjs"
+    : `system/apps/${componentId}/runtime.mjs`,
+  ...overrides
+} = {}) {
   return {
     ok: true,
     status: 200,
     async json() {
       return {
-        componentId: "internet",
+        componentId,
         state: "pending",
         source: "slot",
         revision: 7,
-        version: "0.4.0",
+        version,
         sourceCommit: COMMIT,
-        entrypoint: "system/apps/internet/runtime.mjs",
+        entrypoint,
         pendingHealth: "unknown",
         ...overrides,
       };
@@ -39,29 +46,32 @@ function metadataResponse(overrides = {}) {
   };
 }
 
-function runtimeModule(version = "0.4.0") {
+function runtimeModule({
+  componentId = "internet",
+  version = componentId === "notes" ? "0.4.1" : "0.4.0",
+  mount = async () => ({ destroy() {} }),
+} = {}) {
   return {
     componentRuntime: Object.freeze({
       schema: COMPONENT_RUNTIME_SCHEMA,
-      componentId: "internet",
+      componentId,
       version,
-      async mount() {
-        return { destroy() {} };
-      },
+      mount,
     }),
   };
 }
 
-test("system probation exposes a fixed probe mode for Internet", () => {
+test("system probation exposes fixed probes only for explicit supported components", () => {
   assert.equal(COMPONENT_PROBATION_ORCHESTRATOR_SCHEMA, "ordax.component-probation-orchestrator/1");
   assert.equal(systemComponentProbationProbeMode("internet"), "import-contract");
+  assert.equal(systemComponentProbationProbeMode("notes"), "import-contract");
   assert.throws(
-    () => systemComponentProbationProbeMode("notes"),
+    () => systemComponentProbationProbeMode("assistant"),
     /Unsupported system component probation probe/,
   );
 });
 
-test("system probation owns source, namespace and health probe", async () => {
+test("system probation owns Internet source, namespace and health probe", async () => {
   const fetched = [];
   const imported = [];
   const result = await runSystemPendingComponentProbation({
@@ -95,6 +105,51 @@ test("system probation owns source, namespace and health probe", async () => {
       "/__ordax/native/component-module/internet/pending/0\\.4\\.0/"
       + COMMIT
       + "/system/apps/internet/runtime\\.mjs$",
+    ),
+  );
+});
+
+test("Notes probation imports the external component contract without mounting the app", async () => {
+  const fetched = [];
+  const imported = [];
+  let mountCalls = 0;
+  const module = runtimeModule({
+    componentId: "notes",
+    version: "0.4.1",
+    mount: async () => {
+      mountCalls += 1;
+      return { destroy() {} };
+    },
+  });
+
+  const result = await runSystemPendingComponentProbation({
+    componentId: "notes",
+    source: createNativeComponentSlotSource(windowRef()),
+    fetchImpl: async (url, options) => {
+      fetched.push({ url, options });
+      return metadataResponse({ componentId: "notes", version: "0.4.1" });
+    },
+    importModule: async (url) => {
+      imported.push(url);
+      return module;
+    },
+    timeoutMs: 500,
+  });
+
+  assert.equal(result.componentId, "notes");
+  assert.equal(result.version, "0.4.1");
+  assert.equal(result.sourceCommit, COMMIT);
+  assert.equal(result.revision, 7);
+  assert.equal(result.health, "healthy");
+  assert.equal(result.probeMode, "import-contract");
+  assert.equal(mountCalls, 0);
+  assert.match(fetched[0].url, /component=notes&state=pending$/);
+  assert.match(
+    imported[0],
+    new RegExp(
+      "/__ordax/native/component-module/notes/pending/0\\.4\\.1/"
+      + COMMIT
+      + "/system/apps/notes/src/runtime\\.mjs$",
     ),
   );
 });
@@ -141,7 +196,7 @@ test("runtime identity mismatch is recorded as failed before probe success", asy
     componentId: "internet",
     source: createNativeComponentSlotSource(windowRef()),
     fetchImpl: async () => metadataResponse(),
-    importModule: async () => runtimeModule("0.3.0"),
+    importModule: async () => runtimeModule({ version: "0.3.0" }),
     timeoutMs: 500,
   });
 

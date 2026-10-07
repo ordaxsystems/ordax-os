@@ -293,14 +293,13 @@ class SystemRuntimeContractTests(unittest.TestCase):
         orchestrator = COMPONENT_PROBATION_ORCHESTRATOR.read_text(encoding="utf-8")
         composition = NATIVE_COMPONENT_PROBATION_COMPOSITION.read_text(encoding="utf-8")
 
-        self.assertIn("component_probation_nonce", browser_host)
+        self.assertIn("component_probation_nonces", browser_host)
+        self.assertIn('supported_components = ("internet", "notes")', browser_host)
         self.assertIn("secrets.token_urlsafe(32)", browser_host)
+        self.assertIn("self.component_probation_nonces.get(component_id)", browser_host)
+        self.assertIn("self.component_probation_nonces.pop(component_id, None)", browser_host)
         self.assertIn("component.probation.result", browser_host)
         self.assertIn("record_system_component_probation", browser_host)
-        self.assertLess(
-            browser_host.index("outcome = record_system_component_probation("),
-            browser_host.index("self.component_probation_nonce = None", browser_host.index("def handle_component_probation_result")),
-        )
         self.assertIn("runNativePendingComponentProbation", browser_host)
         self.assertIn("component-probation.mjs", browser_host)
         self.assertNotIn("adapters/native", browser_host)
@@ -311,11 +310,13 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("secrets.compare_digest", authority)
         self.assertIn("record_component_pending_health", authority)
         self.assertIn('PROBE_MODE = "import-contract"', authority)
+        self.assertIn('SUPPORTED_COMPONENTS = frozenset({"internet", "notes"})', authority)
         self.assertNotIn("promote-state", authority)
         self.assertNotIn("reject-pending", authority)
         self.assertNotIn("rollback-state", authority)
 
         self.assertIn('internet: "import-contract"', orchestrator)
+        self.assertIn('notes: "import-contract"', orchestrator)
         self.assertIn("runPendingComponentProbation", orchestrator)
         self.assertNotIn("adapters/native", orchestrator)
         self.assertNotIn("record-health", orchestrator)

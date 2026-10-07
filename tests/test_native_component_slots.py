@@ -73,6 +73,12 @@ class NativeComponentSlotTests(unittest.TestCase):
                 )
             )
 
+    def test_read_and_health_mutation_allowlists_are_explicit_and_separate(self):
+        self.assertEqual(slots.SUPPORTED_COMPONENTS, frozenset({"internet", "notes", "studio"}))
+        self.assertEqual(slots.HEALTH_MUTATION_COMPONENTS, frozenset({"internet", "notes"}))
+        self.assertIn("studio", slots.SUPPORTED_COMPONENTS)
+        self.assertNotIn("studio", slots.HEALTH_MUTATION_COMPONENTS)
+
     def test_current_bundled_resolution_is_parsed_without_slot_claim(self):
         output = (
             b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
@@ -319,7 +325,6 @@ class NativeComponentSlotTests(unittest.TestCase):
                     state="pending",
                 )
 
-
     def test_pending_health_recorder_uses_exact_revision_and_fixed_argv(self):
         commit = "a" * 40
         output = (
@@ -356,7 +361,31 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertNotIn("reject-pending", argv)
         self.assertNotIn("rollback-state", argv)
 
-    def test_read_only_external_apps_cannot_use_native_health_mutation_path(self):
+    def test_notes_health_mutation_is_explicit_but_studio_read_does_not_imply_it(self):
+        commit = "a" * 40
+        output = (
+            "RUNTIME_COMPONENT_PENDING_HEALTH_RECORDED=YES\n"
+            "COMPONENT_ID=notes\n"
+            "REVISION=8\n"
+            "PENDING_VERSION=0.4.1\n"
+            f"PENDING_SOURCE_COMMIT={commit}\n"
+            "PENDING_HEALTH=healthy\n"
+            "RUNTIME_ACTIVATED=NO\n"
+        ).encode("utf-8")
+        completed = subprocess.CompletedProcess([], 0, stdout=output, stderr=b"")
+        with mock.patch.object(slots.subprocess, "run", return_value=completed) as run:
+            record = slots.record_component_pending_health(
+                helper_path="/signed/bin/helper",
+                component_id="notes",
+                version="0.4.1",
+                source_commit=commit,
+                expected_revision=7,
+                health="healthy",
+            )
+        self.assertEqual(record.component_id, "notes")
+        self.assertIn("notes", run.call_args.args[0])
+        self.assertNotIn("promote-state", run.call_args.args[0])
+
         with mock.patch.object(slots.subprocess, "run") as run:
             with self.assertRaisesRegex(
                 slots.ComponentSlotRequestError,
@@ -364,9 +393,9 @@ class NativeComponentSlotTests(unittest.TestCase):
             ):
                 slots.record_component_pending_health(
                     helper_path="/signed/bin/helper",
-                    component_id="notes",
-                    version="0.4.1",
-                    source_commit="a" * 40,
+                    component_id="studio",
+                    version="0.5.0",
+                    source_commit=commit,
                     expected_revision=7,
                     health="healthy",
                 )
