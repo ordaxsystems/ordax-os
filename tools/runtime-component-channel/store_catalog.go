@@ -86,19 +86,28 @@ type storeCatalogPublication struct {
 	Safety     storeCatalogSafety     `json:"safety"`
 }
 
+type verifiedStoreCatalogEntry struct {
+	AppID        string                `json:"appId"`
+	Title        string                `json:"title"`
+	Version      string                `json:"version"`
+	ReleaseMode  string                `json:"releaseMode"`
+	SourceCommit string                `json:"sourceCommit"`
+	Artifacts    storeCatalogArtifacts `json:"artifacts"`
+}
+
 type verifiedStoreCatalog struct {
-	Schema        string              `json:"schema"`
-	State         string              `json:"state"`
-	Sequence      int64               `json:"sequence"`
-	CatalogSHA256 string              `json:"catalogSha256"`
-	Source        storeCatalogSource  `json:"source"`
+	Schema        string             `json:"schema"`
+	State         string             `json:"state"`
+	Sequence      int64              `json:"sequence"`
+	CatalogSHA256 string             `json:"catalogSha256"`
+	Source        storeCatalogSource `json:"source"`
 	Trust         struct {
 		Domain string `json:"domain"`
 		KeyID  string `json:"keyId"`
 	} `json:"trust"`
-	Entries   []storeCatalogEntry `json:"entries"`
-	Reason    *string             `json:"reason"`
-	Authority string              `json:"authority"`
+	Entries   []verifiedStoreCatalogEntry `json:"entries"`
+	Reason    *string                     `json:"reason"`
+	Authority string                      `json:"authority"`
 }
 
 func validateStoreCatalogArtifact(value storeCatalogArtifact, label string) error {
@@ -202,13 +211,24 @@ func verifyStoreCatalogEnvelopeBytes(envelopeBytes, trustBytes []byte) (verified
 		return verifiedStoreCatalog{}, nil, err
 	}
 	digest := sha256.Sum256(payload)
+	entries := make([]verifiedStoreCatalogEntry, 0, len(publication.Entries))
+	for _, entry := range publication.Entries {
+		entries = append(entries, verifiedStoreCatalogEntry{
+			AppID:        entry.AppID,
+			Title:        entry.Title,
+			Version:      entry.Version,
+			ReleaseMode:  entry.ReleaseMode,
+			SourceCommit: entry.SourceCommit,
+			Artifacts:    entry.Artifacts,
+		})
+	}
 	verified := verifiedStoreCatalog{
 		Schema:        "ordax.verified-app-store-catalog/1",
 		State:         "ready",
 		Sequence:      publication.Sequence,
 		CatalogSHA256: hex.EncodeToString(digest[:]),
 		Source:        publication.Source,
-		Entries:       publication.Entries,
+		Entries:       entries,
 		Reason:        nil,
 		Authority:     "none",
 	}
