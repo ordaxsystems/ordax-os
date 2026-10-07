@@ -234,6 +234,14 @@ def _load_watermark(path: Path) -> dict | None:
     return validate_watermark(_read_json(path, "Store catalog watermark", MAX_WATERMARK_BYTES))
 
 
+def read_store_catalog_watermark(path: Path) -> dict:
+    with _watermark_lock(path):
+        current = _load_watermark(path)
+        if current is None:
+            raise StoreCatalogError("Store catalog watermark is unavailable")
+        return dict(current)
+
+
 def _persist_watermark(path: Path, value: dict) -> None:
     parent = _real_directory(path.parent, "Store catalog watermark parent")
     if path.exists() or path.is_symlink():
