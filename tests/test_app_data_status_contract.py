@@ -58,9 +58,12 @@ class AppDataStatusContractTest(unittest.TestCase):
             "partition-wide-compare-and-swap",
         )
 
-    def test_active_foundation_does_not_overclaim_product_lifecycle(self):
+    def test_notes_cutover_is_complete_without_claiming_legacy_seed_or_broad_public_enablement(self):
         implementation = self.app_data["implementation"]
-        self.assertFalse(implementation["notes_migrated"])
+        self.assertTrue(implementation["notes_source_cutover_complete"])
+        self.assertTrue(implementation["notes_uses_app_data"])
+        self.assertFalse(implementation["legacy_notes_seed_required"])
+        self.assertTrue(implementation["notes_independent_app_lifecycle_proven"])
         self.assertFalse(implementation["independent_app_install_lifecycle_proven"])
         self.assertFalse(implementation["third_party_enabled"])
         self.assertFalse(implementation["production_enabled"])
@@ -75,7 +78,12 @@ class AppDataStatusContractTest(unittest.TestCase):
         self.assertTrue(transport["trusted_composition_receives_opaque_bound_endpoint"])
         self.assertTrue(transport["port_injection_to_first_party_component_context"])
         self.assertFalse(transport["app_receives_opaque_bound_endpoint"])
-        self.assertFalse(self.native["lifecycle"]["legacy_notes_migrated"])
+
+        lifecycle = self.native["lifecycle"]
+        self.assertTrue(lifecycle["notes_source_cutover_complete"])
+        self.assertTrue(lifecycle["notes_uses_app_data"])
+        self.assertFalse(lifecycle["legacy_notes_seed_required"])
+        self.assertFalse(lifecycle["legacy_notes_payload_migrated"])
 
 
 if __name__ == "__main__":
