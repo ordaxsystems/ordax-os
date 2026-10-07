@@ -13,7 +13,7 @@ import (
 
 const (
 	storeCatalogEnvelopeSchema    = "ordax.store-catalog-envelope/1"
-	storeCatalogPublicationSchema = "ordax-apps.store-catalog-publication/1"
+	storeCatalogPublicationSchema = "ordax-apps.store-catalog-publication/2"
 	storeCatalogCandidateSchema   = "ordax-apps.store-catalog-candidate/1"
 	storeCatalogSourceRepository  = "washingtonmsdj/ordax-apps"
 	storeCatalogTrustDomain       = "runtime-components"
@@ -39,9 +39,10 @@ type storeCatalogArtifact struct {
 }
 
 type storeCatalogArtifacts struct {
-	Package       storeCatalogArtifact `json:"package"`
-	Release       storeCatalogArtifact `json:"release"`
-	Compatibility storeCatalogArtifact `json:"compatibility"`
+	Package           storeCatalogArtifact `json:"package"`
+	Release           storeCatalogArtifact `json:"release"`
+	Compatibility     storeCatalogArtifact `json:"compatibility"`
+	ComponentEnvelope storeCatalogArtifact `json:"componentEnvelope"`
 }
 
 type storeCatalogEntry struct {
@@ -68,10 +69,13 @@ type storeCatalogAuthority struct {
 }
 
 type storeCatalogSafety struct {
-	RequiresExternalSignature      bool `json:"requiresExternalSignature"`
-	CanonicalPublicAnchorRequired  bool `json:"canonicalPublicAnchorRequired"`
-	PlatformLifecycleRequired      bool `json:"platformLifecycleRequired"`
-	PayloadGrantsAuthority         bool `json:"payloadGrantsAuthority"`
+	RequiresExternalSignature                    bool `json:"requiresExternalSignature"`
+	CanonicalPublicAnchorRequired                bool `json:"canonicalPublicAnchorRequired"`
+	ComponentEnvelopesRequired                   bool `json:"componentEnvelopesRequired"`
+	ComponentEnvelopesVerifiedBeforeCatalogAssembly bool `json:"componentEnvelopesVerifiedBeforeCatalogAssembly"`
+	ComponentEnvelopesReverifiedByPlatformLifecycle bool `json:"componentEnvelopesReverifiedByPlatformLifecycle"`
+	PlatformLifecycleRequired                    bool `json:"platformLifecycleRequired"`
+	PayloadGrantsAuthority                       bool `json:"payloadGrantsAuthority"`
 }
 
 type storeCatalogPublication struct {
@@ -146,6 +150,9 @@ func validateStoreCatalogPublication(value storeCatalogPublication) error {
 	}
 	if !value.Safety.RequiresExternalSignature ||
 		!value.Safety.CanonicalPublicAnchorRequired ||
+		!value.Safety.ComponentEnvelopesRequired ||
+		!value.Safety.ComponentEnvelopesVerifiedBeforeCatalogAssembly ||
+		!value.Safety.ComponentEnvelopesReverifiedByPlatformLifecycle ||
 		!value.Safety.PlatformLifecycleRequired ||
 		value.Safety.PayloadGrantsAuthority {
 		return errors.New("Store catalog safety boundary drifted")
@@ -184,6 +191,12 @@ func validateStoreCatalogPublication(value storeCatalogPublication) error {
 		}
 		if err := validateStoreCatalogArtifact(entry.Artifacts.Compatibility, entry.AppID+" compatibility"); err != nil {
 			return err
+		}
+		if err := validateStoreCatalogArtifact(entry.Artifacts.ComponentEnvelope, entry.AppID+" component envelope"); err != nil {
+			return err
+		}
+		if entry.Artifacts.ComponentEnvelope.Name != entry.AppID+".runtime-component-envelope.json" {
+			return fmt.Errorf("Store catalog component envelope name is not canonical: %s", entry.AppID)
 		}
 	}
 	if !sort.StringsAreSorted(ids) {
