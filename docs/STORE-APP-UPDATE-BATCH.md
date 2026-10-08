@@ -26,7 +26,8 @@ pelo lifecycle do OS e por um novo snapshot de estado Native verificável.
 - Antes de cada solicitação, o mesmo catálogo é lido e validado de novo:
   se o candidato ou a versão mudou, aquele pedido é descartado. Se
   o catálogo se tornou indisponível/inválido, a fila interrompe os
-  demais pedidos sem bypass.
+  demais pedidos sem bypass. O snapshot inicial inválido também retorna
+  `catalog-unavailable` sem lançar exceção na Surface nem delegar pedido.
 - `requestIdFactory(appId)` deve ser injetada pela Surface a partir da
   fonte de entropia segura existente (`createStoreRequestSessionId`)
   e de um ordinal por sessão. Se não houver entropia ou identidade
