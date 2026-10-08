@@ -25,9 +25,18 @@ ACTIVE_PREFIXES = (".github/workflows/", "bootstrap/", "system/", "tools/", "tes
 ACTIVE_CONTRACT_PREFIX = "docs/contracts/"
 ACTIVE_DOC = "docs/REPOSITORY-OWNERSHIP.md"
 IGNORED_SUFFIXES = (".pack", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".exe")
+# Previously issued, pinned artifacts are provenance; rewriting their source
+# owner would falsify old signing/physical authorization evidence.
+IMMUTABLE_HISTORICAL_PATHS = frozenset({
+    "docs/contracts/canonical-v4-signing-request.json",
+    "docs/contracts/physical-write-authorization.json",
+    "system/profile-content-sources/developer-core/v0.1.0/manifest.json",
+})
 
 
 def is_operational(path: str) -> bool:
+    if path in IMMUTABLE_HISTORICAL_PATHS:
+        return False
     if path == ACTIVE_DOC or path.startswith(ACTIVE_CONTRACT_PREFIX):
         return True
     return path.startswith(ACTIVE_PREFIXES) and not path.endswith(IGNORED_SUFFIXES)
