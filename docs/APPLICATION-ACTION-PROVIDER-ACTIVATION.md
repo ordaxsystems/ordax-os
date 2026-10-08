@@ -68,3 +68,25 @@ A future schema may add a broker-only executable state only after the package/pr
 That future work must not bypass the existing Personal OrdaX authority path. Executable Application Actions must eventually adapt into the existing ordax.action-adapter/1 boundary and continue through approval, scoped grant, Action Gateway, Action Executor, and receipt verification.
 
 Changing execution from unavailable is therefore a separate gated design change, not an extension hidden inside this foundation.
+
+
+## Resolução assíncrona limitada ao contexto vigente
+
+A composição Native agora reconcilia e verifica a **mesma preparação e o
+mesmo binding de Work** tanto antes quanto depois dos `await` de
+`resolveApplicationActionProviderArtifact()` e
+`resolveApplicationActionProviderActivation()`.
+
+O fence captura a geração transitória do contexto da composição, owner,
+revisão do Work e identidade da preparação. Se ocorrer troca A → B → A de
+identidade/Space/Project, revogação da preparação, conclusão do Work ou
+`dispose()` durante a verificação de SHA/metadados, a resolução falha
+fechada sem devolver o resultado antigo. O fence não persiste autoridade,
+não cria grants nem outra fonte de verdade para identidade.
+
+A proteção amplia a verificação já existente no binding canônico, sem
+carregar nem invocar o provedor. Os testes de regressão
+`tests/test_application_action_provider_binding_composition.mjs` exercitam
+troca de identidade durante a resolução, ativação com contexto antigo e
+revogação durante o hash. O estado de ativação **continua unavailable**:
+o contrato de execução e a autorização de ações reais não são alterados.

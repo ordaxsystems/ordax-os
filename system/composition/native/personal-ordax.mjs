@@ -420,6 +420,43 @@ export function createNativePersonalOrdaxComposition({
       })
     : null;
 
+  // A provider lookup can cross artifact I/O and multiple source metadata reads.
+  // The binding resolver already validates each read, but its callers must also
+  // fence the completed result: A -> B -> A or explicit revocation cannot
+  // restore a result obtained for an earlier context generation.
+  const resolveCurrentProviderState = async (resourceRef, resolver, label) => {
+    if (disposed) {
+      throw new Error("Personal OrdaX provider resolution requires an active runtime");
+    }
+    reconcileApplicationActionPreparations();
+    const preparation = applicationActionPreparations.resolve(resourceRef);
+    if (preparation === null) return null;
+    const binding = applicationActionPreparationBindings.get(resourceRef);
+    if (!binding || binding.contextGeneration !== contextGeneration) {
+      throw new Error("Personal OrdaX provider preparation has no current context binding");
+    }
+    const generation = contextGeneration;
+    const resolved = await resolver.resolve(resourceRef);
+
+    reconcileApplicationActionPreparations();
+    const snapshot = runtime.getSnapshot();
+    const work = snapshot.workItems.find(
+      (candidate) => candidate.id === preparation.workItemId,
+    );
+    if (
+      disposed
+      || contextGeneration !== generation
+      || applicationActionPreparations.resolve(resourceRef) !== preparation
+      || applicationActionPreparationBindings.get(resourceRef) !== binding
+      || ownerKeyFromSnapshot(snapshot) !== binding.ownerKey
+      || !applicationActionWorkContextIsCurrent(work)
+      || workRevision(work) !== binding.workRevision
+    ) {
+      throw new Error(`Personal OrdaX Application Action context changed during ${label}`);
+    }
+    return resolved;
+  };
+
   return Object.freeze({
     ...runtime,
     approvalConsent,
@@ -506,8 +543,9 @@ export function createNativePersonalOrdaxComposition({
           "Personal OrdaX Application Action provider artifact resolution is unavailable",
         );
       }
-      reconcileApplicationActionPreparations();
-      return applicationActionProviderArtifactResolver.resolve(resourceRef);
+      return resolveCurrentProviderState(
+        resourceRef, applicationActionProviderArtifactResolver, "provider artifact resolution",
+      );
     },
     async resolveApplicationActionProviderActivation(resourceRef) {
       if (applicationActionProviderActivationBroker === null) {
@@ -515,8 +553,9 @@ export function createNativePersonalOrdaxComposition({
           "Personal OrdaX Application Action provider activation is unavailable",
         );
       }
-      reconcileApplicationActionPreparations();
-      return applicationActionProviderActivationBroker.resolve(resourceRef);
+      return resolveCurrentProviderState(
+        resourceRef, applicationActionProviderActivationBroker, "provider activation resolution",
+      );
     },
     revokeApplicationActionPreparation(resourceRef) {
       if (applicationActionPreparations === null) return false;
