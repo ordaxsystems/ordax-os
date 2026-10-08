@@ -10,6 +10,7 @@ import {
 } from "../../contracts/app-lifecycle-request.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { assertSystemMetricsPort } from "../../contracts/system-metrics.mjs";
+import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { appendStoreLocalAiModels } from "./store-model-catalog.mjs";
 
 const STORE_WINDOW_SELECTOR = '[data-window-id="store"]';
@@ -234,6 +235,7 @@ export function mountStoreOverviewControls(
   lifecycleRequestPort = null,
   modelHardwareReader = null,
   modelMetricsPort = null,
+  appActivationPort = null,
 ) {
   const catalog = assertAppStoreCatalogPort(catalogPort);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
@@ -246,6 +248,7 @@ export function mountStoreOverviewControls(
     throw new TypeError("Store Local AI hardware reader must be a function");
   }
   const modelMetrics = modelMetricsPort === null ? null : assertSystemMetricsPort(modelMetricsPort);
+  const activation = appActivationPort === null ? null : assertAppActivationPort(appActivationPort);
 
   let snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
   let mountedSlot = null;
@@ -370,6 +373,7 @@ export function mountStoreOverviewControls(
         hardware: modelHardware,
         metrics: modelMetricsSnapshot,
         readState: modelReadState,
+        systemUpdatesAvailable: activation !== null,
         t,
         locale: localization.getLocale(),
       });
@@ -470,6 +474,12 @@ export function mountStoreOverviewControls(
       removalConfirmationAppId = null;
       render();
       mountedSlot?.querySelector('[data-store-operation="remove"]')?.focus?.();
+      return;
+    }
+    const systemUpdates = event.target.closest?.("[data-store-model-system-updates]");
+    if (systemUpdates && mountedSlot.contains(systemUpdates) && activeView === "models"
+      && activation !== null) {
+      activation.publish({ appId: "system", target: "updates" });
       return;
     }
     const modelRefresh = event.target.closest?.("[data-store-models-refresh]");
