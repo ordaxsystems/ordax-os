@@ -56,12 +56,13 @@ def metadata():
 
 class NamespaceStableReleaseGateTests(TestCase):
     def test_current_legacy_owner_rejected_without_network(self):
-        owner = json.loads(
-            (ROOT / "docs/contracts/repository-ownership.json").read_text(encoding="utf-8")
+        owner, channel = post_transfer_contracts()
+        owner["repositories"]["platform"]["repo"] = gate.REPOSITORY.replace(
+            "ordaxsystems/", "washingtonmsdj/"
         )
-        channel = json.loads(
-            (ROOT / "docs/contracts/release-channel.json").read_text(encoding="utf-8")
-        )
+        owner["namespace_migration"]["current_namespace"] = "washingtonmsdj"
+        owner["namespace_migration"]["status"] = "in-progress"
+        owner["namespace_migration"]["completed_transfers"].pop()
         with self.assertRaisesRegex(gate.StableReleaseError, "not physically cut over"):
             gate.validate_current_identity(owner, channel, {
                 "GITHUB_REPOSITORY": gate.REPOSITORY,
@@ -73,7 +74,7 @@ class NamespaceStableReleaseGateTests(TestCase):
         good = {"GITHUB_REPOSITORY": gate.REPOSITORY, "GITHUB_REPOSITORY_ID": gate.REPOSITORY_ID}
         self.assertEqual(gate.validate_current_identity(owner, channel, good), gate.REPOSITORY)
         for drift in [
-            {"GITHUB_REPOSITORY": "washingtonmsdj/prototipo-ordax-os"},
+            {"GITHUB_REPOSITORY": gate.REPOSITORY.replace("ordaxsystems/", "washingtonmsdj/")},
             {"GITHUB_REPOSITORY_ID": "0"},
         ]:
             with self.subTest(drift=drift), self.assertRaises(gate.StableReleaseError):
@@ -122,12 +123,27 @@ class NamespaceStableReleaseGateTests(TestCase):
                 gate.verify_stable_release_metadata({**baseline, "assets": artifacts}, gate.REPOSITORY)
 
     def test_current_owner_blocks_cli_before_http_request(self):
-        with mock.patch.object(gate, "fetch_github_latest", side_effect=AssertionError("HTTP must not occur")):
-            with mock.patch.dict(os.environ, {
-                "GITHUB_REPOSITORY": gate.REPOSITORY,
-                "GITHUB_REPOSITORY_ID": gate.REPOSITORY_ID,
-            }):
-                self.assertEqual(gate.main(), 1)
+        from tempfile import TemporaryDirectory
+        owner, channel = post_transfer_contracts()
+        owner["repositories"]["platform"]["repo"] = gate.REPOSITORY.replace(
+            "ordaxsystems/", "washingtonmsdj/"
+        )
+        owner["namespace_migration"]["current_namespace"] = "washingtonmsdj"
+        owner["namespace_migration"]["status"] = "in-progress"
+        owner["namespace_migration"]["completed_transfers"].pop()
+        with TemporaryDirectory() as temporary:
+            fake_root = Path(temporary)
+            contracts = fake_root / "docs/contracts"
+            contracts.mkdir(parents=True)
+            (contracts / "repository-ownership.json").write_text(json.dumps(owner))
+            (contracts / "release-channel.json").write_text(json.dumps(channel))
+            with mock.patch.object(gate, "ROOT", fake_root):
+                with mock.patch.object(gate, "fetch_github_latest", side_effect=AssertionError("HTTP must not occur")):
+                    with mock.patch.dict(os.environ, {
+                        "GITHUB_REPOSITORY": gate.REPOSITORY,
+                        "GITHUB_REPOSITORY_ID": gate.REPOSITORY_ID,
+                    }):
+                        self.assertEqual(gate.main(), 1)
 
     def test_metadata_is_not_misrepresented_as_crypto_verification(self):
         workflow = (ROOT / ".github/workflows/repository-namespace-transfer-preflight.yml").read_text()
@@ -136,6 +152,17 @@ class NamespaceStableReleaseGateTests(TestCase):
         self.assertIn("--repository \"$GITHUB_REPOSITORY\"", workflow)
         self.assertIn("release-ed25519.json", workflow)
         self.assertIn("github.repository == 'ordaxsystems/prototipo-ordax-os'", workflow)
+        self.assertIn(
+            "github.ref == 'refs/heads/main' && github.event_name != 'pull_request'",
+            workflow,
+        )
+        signed_gate = workflow.split(
+            "- name: Require published stable Ed25519-signed release after transfer", 1
+        )[1]
+        self.assertIn("github.ref == 'refs/heads/main'", signed_gate)
+        self.assertIn("github.event_name != 'pull_request'", signed_gate)
+        self.assertIn("go run . inspect", signed_gate)
+        self.assertIn("--trust ../../bootstrap/trust/release-ed25519.json", signed_gate)
 
 
 if __name__ == "__main__":

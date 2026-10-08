@@ -12,8 +12,8 @@ BASE = ROOT / "docs/contracts/base-update.json"
 WORKFLOW = ROOT / ".github/workflows/release-agent-refresh.yml"
 OWNER = ROOT / "system/services/base-update/orchestrator.py"
 
-CURRENT_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
-PREVIOUS_REFRESH_TARGET = "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78"
+CURRENT_REFRESH_TARGET = "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af"
+PREVIOUS_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
 CURRENT_SEED = "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66"
 
 
@@ -43,7 +43,7 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertEqual(
             descriptor["download_url"],
             (
-                "https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/"
+                "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/"
                 f"ordax-release-agent-{target}/ordax-release-agent"
             ),
         )
@@ -129,7 +129,16 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertIn("contents: read", workflow)
         self.assertIn('tag="ordax-release-agent-$digest"', workflow)
         self.assertIn("gh release download", workflow)
-        self.assertIn("test \"$published\" = \"$digest\"", workflow)
+        self.assertIn("RELEASE_AGENT_PUBLISHED_ASSET_READBACK=VERIFIED", workflow)
+        publisher = workflow.split("  publish:", 1)[1]
+        self.assertIn("github.repository == 'ordaxsystems/prototipo-ordax-os'", publisher)
+        self.assertIn('test "$GITHUB_REPOSITORY" = \'ordaxsystems/prototipo-ordax-os\'', publisher)
+        self.assertIn('test "$GITHUB_REPOSITORY_ID" = \'1371063347\'', publisher)
+        self.assertIn('gh release download "$tag" --repo "$repo"', publisher)
+        self.assertIn('test ! -L "$published"', publisher)
+        self.assertIn('sha256sum "$published"', publisher)
+        self.assertIn('stat -c \'%s\' "$published"', publisher)
+        self.assertLess(publisher.index('gh release upload "$tag"'), publisher.index('RELEASE_AGENT_PUBLISHED_ASSET_READBACK=VERIFIED'))
         self.assertNotIn("--clobber", workflow)
         self.assertIn("RELEASE_AGENT_REFRESH_MUTABLE_OVERWRITE=NO", workflow)
 

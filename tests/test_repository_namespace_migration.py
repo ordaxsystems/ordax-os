@@ -12,14 +12,14 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
         cls.migration = json.loads(CONTRACT.read_text(encoding="utf-8"))["namespace_migration"]
 
     def test_target_namespace_and_order(self):
-        self.assertEqual(self.migration["current_namespace"], "washingtonmsdj")
-        self.assertEqual(self.migration["status"], "in-progress")
+        self.assertEqual(self.migration["current_namespace"], "ordaxsystems")
+        self.assertEqual(self.migration["status"], "complete")
         self.assertEqual(self.migration["target_namespace"], "ordaxsystems")
         self.assertEqual(
             self.migration["cutover_order"],
             ["runtime", "apps", "control_plane", "platform"],
         )
-        self.assertEqual(self.migration["completed_transfers"], ["runtime", "apps", "control_plane"])
+        self.assertEqual(self.migration["completed_transfers"], ["runtime", "apps", "control_plane", "platform"])
 
     def test_cutover_is_single_authority(self):
         self.assertFalse(self.migration["redirect_dependency_allowed"])

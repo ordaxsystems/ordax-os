@@ -63,8 +63,11 @@ jobs:
           go-version: '1.27.1'
           check-latest: false
           cache: false
+      # Production-channel acceptance belongs to main, not a transfer PR.
+      # The pre-merge source and repository-ID checks above stay mandatory.
+      # A missing signed stable release must still fail closed after cutover.
       - name: Require published stable Ed25519-signed release after transfer
-        if: ${{ github.repository == 'ordaxsystems/prototipo-ordax-os' }}
+        if: ${{ github.repository == 'ordaxsystems/prototipo-ordax-os' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           # GitHub metadata proves stable publication, not signature.
