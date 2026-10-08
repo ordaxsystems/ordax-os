@@ -34,11 +34,7 @@ jobs:
       - name: Validate namespace transfer source contracts
         run: |
           set -euo pipefail
-          python3 -m unittest -v \
-            tests/test_repository_namespace_migration.py \
-            tests/test_repository_ownership_contract.py \
-            tests/test_repository_migration_status.py \
-            tests/test_repository_namespace_transfer_preflight.py
+          python3 -m unittest discover -v -s tests -p 'test_repository*.py'
           python3 tools/verify/repository_namespace_transfer_preflight.py --max-paths 8
       - name: Require exact GitHub identity after canonical transfer
         if: ${{ github.repository == 'ordaxsystems/prototipo-ordax-os' }}
