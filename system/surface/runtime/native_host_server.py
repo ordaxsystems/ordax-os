@@ -33,6 +33,7 @@ from native_local_ai_bridge import (
     MAX_REQUEST_BYTES as MAX_LOCAL_AI_REQUEST_BYTES,
     NATIVE_LOCAL_AI_PREFIX,
     NativeLocalAiError,
+    NativeLocalAiUpstreamError,
     PATHS as LOCAL_AI_BRIDGE_PATHS,
     forward_local_ai,
 )
@@ -3433,9 +3434,12 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
         try:
             status, response_body = forward_local_ai(method, suffix, body)
-        except NativeLocalAiError:
+        except NativeLocalAiUpstreamError:
             # Neither prompts nor completion contents belong in host logs.
             self._empty(503)
+            return
+        except NativeLocalAiError:
+            self._empty(400)
             return
         self._write_local_ai_result(status, response_body)
 
