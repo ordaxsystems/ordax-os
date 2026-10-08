@@ -88,6 +88,14 @@ For MVP, a completed optional first-party app may be added or upgraded by the ex
 
 The First Run network screen is not a second updater. Stable already performs periodic signed-channel discovery; when network becomes available, that existing owner becomes able to discover the official release. Network remains skippable and discovery failure must never block First Run completion.
 
+## Optional platform runtime evolution without postponing the MVP
+
+The public Stable/MVP USB launch scope is owned by `docs/contracts/mvp-app-delivery.json`. In its `optional_platform_runtimes` section, it references the **existing** `docs/contracts/application-compatibility.json` SSOT rather than copying runtime availability flags.
+
+Windows/Wine remains a development-only optional capability; completion of a Wine source build, its APK closure, an isolated runtime package, or later optional Windows applications **does not block** the first Stable/MVP public USB release. The initial signed USB image must not include an unverified Wine payload or silently fetch one on boot/First Run. A signed future update can evolve this independently **only after** the existing runtime/component trust, sandbox, compatibility, staging, health and rollback gates are proven. A runtime failure must not become a boot failure.
+
+This is a **scope decision, not a readiness declaration**: canonical signed-release trust, target-specific physical Stable/MVP proof, user consent for destructive operations and other actual product-launch gates in `docs/PROMOTION-GATES.md` remain binding. Missing mandatory boot/Files/Internet functionality cannot be relabeled optional. A successful Wine CI does not authorize installation/execution; the compatibility contract controls those authorities and currently denies them.
+
 ## Independent app delivery after launch
 
 Per-app `component-slot` delivery is an optimization and modularity milestone, not a blocker for the first public release. Before dormant payloads are removed from the Base specifically in favor of independent app installation, production-equivalent proofs must exist for:

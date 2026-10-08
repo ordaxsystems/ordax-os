@@ -158,3 +158,56 @@ test("first-online planner rejects ambiguous connectivity instead of guessing", 
   assert.throws(() => planMvpFirstOnlineRefresh({ online: "yes" }), /boolean online state/);
   assert.throws(() => planMvpFirstOnlineRefresh({}), /boolean online state/);
 });
+
+test("optional Windows runtime development cannot become a public MVP launch dependency", async () => {
+  const policy = await json("docs/contracts/mvp-app-delivery.json");
+  const compatibility = await json("docs/contracts/application-compatibility.json");
+  const wine = await json("bootstrap/windows-compat-runtime/source.json");
+  const delivery = policy.optional_platform_runtimes;
+
+  assert.deepEqual(delivery.non_blocking_capability_contracts, [
+    "docs/contracts/application-compatibility.json",
+  ]);
+  assert.equal(delivery.candidate_runtime_build_completion_blocks_public_launch, false);
+  assert.equal(delivery.unverified_runtime_included_in_minimal_usb, false);
+  assert.equal(delivery.unverified_runtime_may_be_advertised_as_executable, false);
+  assert.equal(delivery.future_runtime_activation_requires_independent_artifact_trust_and_sandbox_proof, true);
+  assert.equal(delivery.future_runtime_activation_must_not_modify_boot_or_first_run_requirements, true);
+  assert.equal(delivery.cannot_override_canonical_public_release_or_physical_promotion_gates, true);
+
+  // The compatibility contract is the SSOT for actual runtime availability.
+  // MVP launch scope never translates Wine source/build CI into an execution grant.
+  assert.equal(compatibility.boot_critical, false);
+  assert.equal(compatibility.security.runtime_failure_blocks_boot, false);
+  for (const key of [
+    "execution_available",
+    "installation_available",
+    "profile_creation_available",
+    "public_availability",
+  ]) {
+    assert.equal(typeof compatibility[key], "boolean", `invalid compatibility availability: ${key}`);
+  }
+  assert.equal(compatibility.security.runtime_source_proof_grants_activation, false);
+  assert.equal(compatibility.security.runtime_source_proof_grants_execution, false);
+
+  // When independent Wine proofs eventually pass, updating those SSOT flags
+  // must NOT require altering launch scope, first boot or core app identities.
+  assert.equal(wine.security.boot_critical, false);
+  assert.equal(wine.distribution.network_download_at_runtime_allowed, false);
+  assert.equal(wine.distribution.signed_component_required_before_activation, true);
+  assert.equal(wine.distribution.content_addressed_artifact_required_before_activation, true);
+  if (!wine.build_intent.binary_artifact_pinned) {
+    assert.equal(wine.distribution.stable_mvp_activation_allowed, false);
+  }
+  if (wine.product_scope === "owner-development-only") {
+    assert.equal(compatibility.public_availability, false);
+    assert.equal(compatibility.execution_available, false);
+    assert.equal(wine.distribution.stable_base_inclusion_allowed, false);
+  }
+
+  // Essential signed-release and First Run paths remain required and independent.
+  assert.deepEqual(sorted(policy.initial_usb.bootstrap_app_ids), ["files", "internet"]);
+  assert.equal(policy.launch_delivery.transport, "official-signed-release-channel");
+  assert.equal(policy.first_online_refresh.failure_must_not_block_first_run_completion, true);
+  assert.equal(policy.launch_delivery.independent_component_slot_delivery_required_before_public_launch, false);
+});

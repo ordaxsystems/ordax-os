@@ -98,5 +98,16 @@
     "remove_deletes_user_data": false,
     "rollback_owned_by_platform": true,
     "production_component_slot_activation_required_for_executor": true
+  },
+  "optional_platform_runtimes": {
+    "non_blocking_capability_contracts": [
+      "docs/contracts/application-compatibility.json"
+    ],
+    "candidate_runtime_build_completion_blocks_public_launch": false,
+    "unverified_runtime_included_in_minimal_usb": false,
+    "unverified_runtime_may_be_advertised_as_executable": false,
+    "future_runtime_activation_requires_independent_artifact_trust_and_sandbox_proof": true,
+    "future_runtime_activation_must_not_modify_boot_or_first_run_requirements": true,
+    "cannot_override_canonical_public_release_or_physical_promotion_gates": true
   }
 }
