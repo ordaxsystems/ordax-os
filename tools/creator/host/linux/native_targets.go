@@ -175,8 +175,16 @@ func EnumerateNativeInstallTargets(sysClassBlock, devRoot, sourceBootBlockDevice
 		if stableID == "" {
 			continue
 		}
-		readOnly, _ := readUint(filepath.Join(root, "ro"))
-		removable, _ := readUint(filepath.Join(root, "removable"))
+		// Missing or malformed safety metadata must never be interpreted as
+		// writable/non-removable (Go's zero-value would make it eligible).
+		readOnly, err := readUint(filepath.Join(root, "ro"))
+		if err != nil || readOnly > 1 {
+			continue
+		}
+		removable, err := readUint(filepath.Join(root, "removable"))
+		if err != nil || removable > 1 {
+			continue
+		}
 		target, err := creatorcore.FinalizeNativeInstallTarget(creatorcore.NativeInstallTargetIdentity{
 			StableID:           stableID,
 			DevicePath:         path.Join(strings.ReplaceAll(devRoot, "\\", "/"), name),
