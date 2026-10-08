@@ -167,9 +167,10 @@ test("known optional utility is represented from verified catalog only; raw unkn
   const snapshot = projection.port.getSnapshot();
   assert.equal(snapshot.state, "ready");
   const calculator = snapshot.entries.find(item => item.appId === "calculator");
-  assert.equal(calculator.state, "available");
-  assert.equal(calculator.installable, true);
+  assert.equal(calculator.state, "blocked");
+  assert.equal(calculator.installable, false);
   assert.equal(calculator.updatable, false);
+  assert.equal(calculator.blockedReason, "runtime-module-read-unavailable");
   assert.equal(calculator.artifactIdentityVerified, true);
   assert.equal(calculator.provenanceVerified, true);
   assert.ok(requests.some(row => row.url.includes("component=calculator")));
@@ -317,5 +318,58 @@ test("verified catalog unavailability propagates fail closed and live refresh ca
   await projection.refresh();
   assert.equal(projection.port.getSnapshot().state, "unavailable");
   assert.deepEqual(projection.port.getSnapshot().entries, []);
+  projection.destroy();
+});
+
+
+test("candidate with no Native module-read support cannot appear updatable but installed slot stays removable", async () => {
+  const catalog = catalogPort(ready([
+    candidate("calculator", "0.4.3", "Calculadora"),
+  ]));
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({
+      calculator: metadata("calculator", {
+        source: "slot",
+        version: "0.4.2",
+        sourceCommit: "a".repeat(40),
+      }),
+    }),
+  });
+  await projection.refresh();
+  const entry = projection.port.getSnapshot().entries.find((item) => item.appId === "calculator");
+  assert.equal(entry.state, "blocked");
+  assert.equal(entry.blockedReason, "runtime-module-read-unavailable");
+  assert.equal(entry.installedVersion, "0.4.2");
+  assert.equal(entry.availableVersion, "0.4.3");
+  assert.equal(entry.artifactIdentityVerified, true);
+  assert.equal(entry.provenanceVerified, true);
+  assert.equal(entry.updatable, false);
+  assert.equal(entry.installable, false);
+  assert.equal(entry.removable, true);
+  projection.destroy();
+});
+
+test("Native module-read capability remains a necessary condition, not trust or install authority", async () => {
+  const catalog = catalogPort(ready([
+    candidate("notes", "0.4.3", "Notas"),
+    candidate("calculator", "0.2.0", "Calculadora"),
+  ]));
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({
+      notes: metadata("notes"),
+      calculator: metadata("calculator"),
+      studio: metadata("studio"),
+    }),
+  });
+  await projection.refresh();
+  const entries = projection.port.getSnapshot().entries;
+  assert.equal(entries.find((item) => item.appId === "notes").installable, true);
+  assert.equal(entries.find((item) => item.appId === "calculator").installable, false);
+  assert.equal(projection.port.authority, "none");
+  assert.equal(typeof projection.port.requestLifecycle, "undefined");
   projection.destroy();
 });
