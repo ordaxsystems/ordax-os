@@ -1,6 +1,7 @@
 package linuxadapter
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -36,8 +37,11 @@ func readUint(path string) (uint64, error) {
 }
 
 func isPartition(path string) bool {
-	info, err := os.Stat(filepath.Join(path, "partition"))
-	return err == nil && !info.IsDir()
+	// Partition markers are not guaranteed to be readable or well formed.
+	// Any existing marker (including an unexpected directory or symlink)
+	// identifies a non-whole-disk entry. Ambiguous I/O errors exclude it.
+	_, err := os.Lstat(filepath.Join(path, "partition"))
+	return err == nil || !errors.Is(err, os.ErrNotExist)
 }
 
 func allDigits(value string) bool {
