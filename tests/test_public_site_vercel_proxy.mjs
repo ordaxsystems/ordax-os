@@ -16,7 +16,7 @@ import {
 } from "../api/account-proxy.mjs";
 
 const GATEWAY = "https://example.supabase.co/functions/v1/ordax-public-account-gateway";
-const PUBLIC_ORIGIN = "https://ordax-os-public.vercel.app";
+const PUBLIC_ORIGIN = "https://ordax.com.br";
 const OIDC_TOKEN = `${"a".repeat(24)}.${"b".repeat(32)}.${"c".repeat(32)}`;
 
 function options(extra = {}) {
@@ -65,8 +65,8 @@ test("public origin normalizer accepts only syntactically safe https origins", (
   assert.equal(normalizePublicOrigin(`${PUBLIC_ORIGIN}/`), PUBLIC_ORIGIN);
   assert.equal(normalizePublicOrigin("https://evil.example"), "https://evil.example");
   for (const invalid of [
-    "http://ordax-os-public.vercel.app",
-    "https://user@ordax-os-public.vercel.app",
+    "http://ordax.com.br",
+    "https://user@ordax.com.br",
     `${PUBLIC_ORIGIN}/auth/`,
     `${PUBLIC_ORIGIN}?x=1`,
   ]) {
@@ -277,7 +277,7 @@ test("proxy derives forwarded authority from canonical config, never browser Hos
     assert.equal(observed.init.headers.get("x-forwarded-for"), "203.0.113.15");
     assert.equal(observed.init.headers.get("x-real-ip"), "203.0.113.15");
     assert.equal(observed.init.headers.get("x-ordax-client-address"), "203.0.113.15");
-    assert.equal(observed.init.headers.get("x-forwarded-host"), "ordax-os-public.vercel.app");
+    assert.equal(observed.init.headers.get("x-forwarded-host"), "ordax.com.br");
     assert.equal(observed.init.headers.get("x-forwarded-proto"), "https");
     assert.equal(observed.init.headers.get("x-ordax-public-origin"), PUBLIC_ORIGIN);
     assert.equal(observed.init.headers.has("x-ordax-public-proxy-secret"), false);
@@ -387,14 +387,14 @@ test("Turnstile verifier requires success, exact hostname and exact action", asy
     calls.push({ url: String(url), init });
     return new Response(JSON.stringify({
       success: true,
-      hostname: "ordax-os-public.vercel.app",
+      hostname: "ordax.com.br",
       action: "ordax-account",
     }), { status: 200 });
   };
   const ok = await verifyTurnstileToken("token-12345678901234567890", {
     secret: "server-secret",
     remoteIp: "203.0.113.15",
-    expectedHostname: "ordax-os-public.vercel.app",
+    expectedHostname: "ordax.com.br",
     fetchImpl,
   });
   assert.equal(ok, true);
@@ -426,7 +426,7 @@ test("Turnstile response rejects oversized content-length without pulling remote
     verifyTurnstileToken("token-12345678901234567890", {
       secret: "server-secret",
       remoteIp: "203.0.113.15",
-      expectedHostname: "ordax-os-public.vercel.app",
+      expectedHostname: "ordax.com.br",
       fetchImpl: async () => response,
     }),
     { name: "RangeError", message: "body-too-large" },
@@ -448,7 +448,7 @@ test("Turnstile rejects oversized streamed response even with a false small head
     verifyTurnstileToken("token-12345678901234567890", {
       secret: "server-secret",
       remoteIp: "203.0.113.15",
-      expectedHostname: "ordax-os-public.vercel.app",
+      expectedHostname: "ordax.com.br",
       fetchImpl: async () => new Response(stream, {
         headers: { "content-length": "3" },
       }),
@@ -463,7 +463,7 @@ test("Turnstile fails closed on malformed UTF-8 response without forwarding anyt
     verifyTurnstileToken("token-12345678901234567890", {
       secret: "server-secret",
       remoteIp: "203.0.113.15",
-      expectedHostname: "ordax-os-public.vercel.app",
+      expectedHostname: "ordax.com.br",
       fetchImpl: async () => new Response(new Uint8Array([0xff, 0xfe]), { status: 200 }),
     }),
     TypeError,
