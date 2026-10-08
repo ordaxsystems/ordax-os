@@ -133,6 +133,26 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertNotIn("--clobber", workflow)
         self.assertIn("RELEASE_AGENT_REFRESH_MUTABLE_OVERWRITE=NO", workflow)
 
+    def test_published_target_audit_is_manual_read_only_and_repo_id_pinned(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("  audit-published-target:", workflow)
+        audit = workflow.split("  audit-published-target:", 1)[1].split("  publish:", 1)[0]
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", audit)
+        self.assertIn("test \"$GITHUB_REPOSITORY_ID\" = '1371063347'", audit)
+        self.assertIn('gh release download "ordax-release-agent-$PINNED_SHA256"', audit)
+        self.assertIn('--repo "$GITHUB_REPOSITORY"', audit)
+        self.assertIn("sha256sum --check --status", audit)
+        self.assertIn('stat -c \'%s\'', audit)
+        self.assertIn("RELEASE_AGENT_NEW_BUILD_AUTHORIZED=NO", audit)
+        self.assertIn("RELEASE_AGENT_SIGNING_PERFORMED=NO", audit)
+        self.assertIn("PHYSICAL_WRITE_AUTHORIZED=NO", audit)
+        self.assertIn("contents: read", audit)
+        self.assertNotIn("contents: write", audit)
+        self.assertNotIn("gh release create", audit)
+        self.assertNotIn("gh release upload", audit)
+        self.assertNotIn("--clobber", audit)
+        self.assertIn("needs: verify", workflow.split("  publish:", 1)[1])
+
     def test_owner_refreshes_before_trust_and_has_no_raw_or_reboot_path(self):
         owner = OWNER.read_text(encoding="utf-8")
         self.assertLess(
