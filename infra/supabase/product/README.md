@@ -235,3 +235,44 @@ Nenhuma conta, política jurídica ou alteração sintética persistiu.
 A verificação não autoriza cadastro/login públicos. A implantação
 de gateway, integração OIDC, provedor e recuperação de sessão seguem
 exigindo provas específicas para o mesmo destino.
+
+## Gateway interno no Supabase novo: implantação restrita (2026-10-08)
+
+O projeto canônico `ordax-platform` (`jhfphsjptrpmtnzkpwud`)
+recebeu a versão **1** de `ordax-account-gateway`, com entrada
+`verify_jwt=true`, sem implantar `ordax-public-account-gateway`
+e sem publicar o frontend no domínio definitivo. O deploy utilizou o
+source da `main` e seus dois módulos `_shared` canônicos.
+O artefato compilado reportado pela plataforma tem SHA-256
+`c5597140211faa49f08031d222b3718c59da657e5a2e04bb88619d27f93b91ca`.
+A lista e a leitura da Edge Function no destino confirmaram
+`ACTIVE`, versão 1 e `verify_jwt=true`; não comprovam resposta
+HTTP, autenticação ou sessão ponta-a-ponta.
+
+**A presença desse gateway interno NÃO significa que a Conta
+pública foi implantada ou promovida.** As flags de cadastro,
+recuperação e fechamento continuam desativadas; não existem usuários,
+política jurídica ativa nem testes de credenciais HTTP no destino.
+A configuração JWT obrigatória é uma contenção para esta fase; a
+cadeia Vercel `OIDC -> public gateway -> internal gateway` exige
+validação de compatibilidade dos tokens/chaves antes de ser conectada.
+Não reduzir `verify_jwt` só para tornar o deploy acessível.
+
+Também foi consultada a equipe Vercel **OrdaX Systems** (slug
+`ordaxsystems`, `team_E3bdE137ZG3fhCGMmYuGKJ8o`). O projeto
+`ordax-os-public` não foi encontrado nesta equipe. O módulo OIDC
+ainda fixa `jogo-brasils-projects` como issuer/audience/subject,
+que pertence ao ambiente anterior. Isso é **um bloqueio de identidade
+de implantação**, não uma justificativa para reutilizar o token antigo.
+O proprietário do Vercel deve comprovar existência do projeto novo,
+origem HTTPS, emissor, audiência, sujeito e verificação criptográfica
+do OIDC no ambiente correto. Toda configuração/prova deve ser
+versionada no owner, sem criar um segundo projeto ou usar
+credenciais de produção manualmente.
+
+Os fatos observados estão no único SSOT
+`docs/contracts/public-auth-hardening.json`. O pré-check de
+ativação exige agora evidência independente do gateway interno e do
+OIDC do **mesmo destino**, além de todas as provas já exigidas de
+cadastro, consentimento, bot protection, rate limit, recuperação,
+sessões e exportação/sincronização HTTP.
