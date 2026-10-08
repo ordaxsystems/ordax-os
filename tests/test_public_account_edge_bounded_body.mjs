@@ -33,9 +33,10 @@ test("stream without content-length still enforces byte limit", async () => {
 
 test("declared oversize is rejected before touching stream", async () => {
   let pulled = false;
+  // Prevent the runtime from prefilling the queue before the tested call.
   const stream = new ReadableStream({
     pull() { pulled = true; },
-  });
+  }, { highWaterMark: 0 });
   await assert.rejects(readBoundedBody(stream, "65", 64), RangeError);
   assert.equal(pulled, false);
   await stream.cancel();
