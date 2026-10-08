@@ -32,7 +32,7 @@ def ready_snapshot() -> dict:
         "sequence": 5,
         "catalogSha256": "f" * 64,
         "source": {
-            "repository": "washingtonmsdj/ordax-apps",
+            "repository": "ordaxsystems/ordax-apps",
             "commit": COMMIT,
         },
         "trust": {

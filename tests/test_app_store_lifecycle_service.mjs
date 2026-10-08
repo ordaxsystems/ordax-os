@@ -114,7 +114,7 @@ function verifiedReady(entries = [verifiedEntry()]) {
     sequence: 9,
     catalogSha256: "f".repeat(64),
     source: {
-      repository: "washingtonmsdj/ordax-apps",
+      repository: "ordaxsystems/ordax-apps",
       commit: COMMIT,
     },
     trust: {
@@ -362,4 +362,92 @@ test("Store lifecycle delegate remains private platform authority while plan and
     }),
     /must remain authority:none/,
   );
+});
+
+
+test("early rejection stays tied to its requestId when the verified catalog later becomes available", async () => {
+  let currentProjection = unavailable();
+  let calls = 0;
+  const runtime = createAppLifecycleRequestService({
+    catalogPort: Object.freeze({
+      schema: APP_STORE_CATALOG_PORT_SCHEMA,
+      authority: "none",
+      getSnapshot() { return currentProjection; },
+      subscribe() { return () => {}; },
+    }),
+    verifiedCatalogPort: verifiedPort(verifiedReady()),
+    lifecycleDelegate: delegate(async (plan) => {
+      calls += 1;
+      return resultFor(plan);
+    }),
+  });
+
+  const original = request("install", { requestId: "store:install:notes:denied-once" });
+  const denied = runtime.requestLifecycle(original);
+  assert.equal((await denied).reason, "verified-catalog-unavailable");
+
+  currentProjection = ready();
+  assert.strictEqual(runtime.requestLifecycle(original), denied);
+  assert.equal((await runtime.requestLifecycle(original)).state, "rejected");
+  assert.equal(calls, 0);
+  assert.throws(
+    () => runtime.requestLifecycle(request("remove", { requestId: original.requestId })),
+    /requestId replay identity mismatch/,
+  );
+
+  const newRequest = request("install", { requestId: "store:install:notes:new-verified-catalog" });
+  assert.equal((await runtime.requestLifecycle(newRequest)).state, "accepted");
+  assert.equal(calls, 1);
+});
+
+test("concurrent rejection stays idempotent even after the first request resolves", async () => {
+  let release;
+  const settled = new Promise((resolve) => { release = resolve; });
+  let calls = 0;
+  const runtime = service({
+    executeLifecycle: async (plan) => {
+      calls += 1;
+      await settled;
+      return resultFor(plan);
+    },
+  });
+  const firstRequest = request("install", { requestId: "store:install:notes:held-request" });
+  const competingRequest = request("install", { requestId: "store:install:notes:denied-busy" });
+  const running = runtime.requestLifecycle(firstRequest);
+  const denied = runtime.requestLifecycle(competingRequest);
+  assert.equal((await denied).reason, "lifecycle-request-in-flight");
+
+  release();
+  assert.equal((await running).state, "accepted");
+  assert.strictEqual(runtime.requestLifecycle(competingRequest), denied);
+  assert.equal((await runtime.requestLifecycle(competingRequest)).reason, "lifecycle-request-in-flight");
+  assert.equal(calls, 1);
+});
+
+test("signed candidate mismatch denial cannot be replayed after catalog reconciliation", async () => {
+  let currentVerified = verifiedUnavailable();
+  let calls = 0;
+  const runtime = createAppLifecycleRequestService({
+    catalogPort: catalogPort(ready()),
+    verifiedCatalogPort: Object.freeze({
+      schema: VERIFIED_APP_STORE_CATALOG_PORT_SCHEMA,
+      authority: "none",
+      getSnapshot() { return currentVerified; },
+      subscribe() { return () => {}; },
+    }),
+    lifecycleDelegate: delegate(async (plan) => {
+      calls += 1;
+      return resultFor(plan);
+    }),
+  });
+  const original = request("install", { requestId: "store:install:notes:verified-denied" });
+  assert.equal((await runtime.requestLifecycle(original)).reason, "verified-catalog-unavailable");
+  currentVerified = verifiedReady();
+  assert.equal((await runtime.requestLifecycle(original)).reason, "verified-catalog-unavailable");
+  assert.equal(calls, 0);
+
+  assert.equal((await runtime.requestLifecycle(
+    request("install", { requestId: "store:install:notes:verified-new" }),
+  )).state, "accepted");
+  assert.equal(calls, 1);
 });

@@ -109,6 +109,15 @@ export function createAppLifecycleRequestService({
     }
   };
 
+  // Every valid requestId identifies one decision, including decisions rejected
+  // before privileged delegation. Otherwise a rejected request may be replayed
+  // after the signed catalog changes and unexpectedly become executable.
+  const rejectAndRemember = (request, fingerprint, reason) => {
+    const response = Promise.resolve(rejection(request, reason));
+    remember(request.requestId, fingerprint, response);
+    return response;
+  };
+
   const requestLifecycle = (rawRequest) => {
     const request = validateAppLifecycleRequest(rawRequest);
     const fingerprint = requestFingerprint(request);
@@ -122,31 +131,31 @@ export function createAppLifecycleRequestService({
 
     const currentRequestId = inFlightByApp.get(request.appId);
     if (currentRequestId) {
-      return Promise.resolve(rejection(request, "lifecycle-request-in-flight"));
+      return rejectAndRemember(request, fingerprint, "lifecycle-request-in-flight");
     }
 
     const snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
     if (snapshot.state !== "ready") {
-      return Promise.resolve(rejection(request, "verified-catalog-unavailable"));
+      return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
     }
     const entry = snapshot.entries.find((candidate) => candidate.appId === request.appId);
     if (!entry) {
-      return Promise.resolve(rejection(request, "app-not-catalogued"));
+      return rejectAndRemember(request, fingerprint, "app-not-catalogued");
     }
     if (!operationAllowed(entry, request.operation)) {
-      return Promise.resolve(rejection(request, "lifecycle-operation-not-available"));
+      return rejectAndRemember(request, fingerprint, "lifecycle-operation-not-available");
     }
 
     const verified = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
     if (verified.state !== "ready") {
-      return Promise.resolve(rejection(request, "verified-catalog-unavailable"));
+      return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
     }
     const candidate = verified.entries.find((value) => value.appId === request.appId) ?? null;
     if (
       ["install", "update"].includes(request.operation)
       && !candidateMatchesProjection(candidate, entry)
     ) {
-      return Promise.resolve(rejection(request, "verified-candidate-projection-mismatch"));
+      return rejectAndRemember(request, fingerprint, "verified-candidate-projection-mismatch");
     }
 
     let plan;
@@ -158,7 +167,7 @@ export function createAppLifecycleRequestService({
       });
       validateAppLifecyclePlan(plan);
     } catch {
-      return Promise.resolve(rejection(request, "verified-lifecycle-plan-unavailable"));
+      return rejectAndRemember(request, fingerprint, "verified-lifecycle-plan-unavailable");
     }
 
     inFlightByApp.set(request.appId, request.requestId);

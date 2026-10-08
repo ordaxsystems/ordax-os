@@ -2,6 +2,26 @@
   "$schema": "prototype-ordax.public-site-deployment/1",
   "status": "public-edge-oidc-v7-live-cookie-envelope-shared-auth-rate-limit-vercel-source-not-deployed",
   "site_artifact": "public-site",
+  "vercel_migration": {
+    "status": "target-team-provisioning-pending",
+    "target_account_email": "ordaxos@gmail.com",
+    "target_team_slug": "ordaxsystems",
+    "target_project": "ordax-os-public",
+    "target_github_organization": "ordaxsystems",
+    "personal_scope_allowed": false,
+    "legacy_team_allowed_after_cutover": false,
+    "shared_secret_fallback_allowed": false,
+    "preview_identity_allowed": false,
+    "cutover_atomic_fields": [
+      "oidc_issuer",
+      "oidc_audience",
+      "oidc_subject",
+      "canonical_public_origin"
+    ],
+    "runtime_proof_required_before_public_auth": true,
+    "automatic_git_deployments_frozen": true,
+    "reenable_git_deployments_only_after_new_team_runtime_proof": true
+  },
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
     "source": "deploy/public-site/nginx.conf",

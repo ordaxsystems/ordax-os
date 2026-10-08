@@ -14,7 +14,7 @@ import (
 	"strings"
 	"syscall"
 
-	creatorcore "github.com/washingtonmsdj/prototipo-ordax-os/tools/creator/core"
+	creatorcore "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/core"
 )
 
 type portableSourceHandle struct {

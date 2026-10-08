@@ -72,7 +72,7 @@ test("verified Store catalog accepts exact canonical source, trust and artifact 
   const snapshot = validateVerifiedAppStoreCatalogSnapshot(ready());
   assert.equal(snapshot.sequence, 7);
   assert.equal(snapshot.catalogSha256, "f".repeat(64));
-  assert.equal(snapshot.source.repository, "washingtonmsdj/ordax-apps");
+  assert.equal(snapshot.source.repository, "ordaxsystems/ordax-apps");
   assert.equal(snapshot.trust.domain, "runtime-components");
   assert.equal(snapshot.trust.keyId, "ordax-runtime-components-v1");
   assert.equal(snapshot.entries[0].appId, "notes");

@@ -1,3 +1,3 @@
-module github.com/washingtonmsdj/prototipo-ordax-os/tools/release-bundle
+module github.com/ordaxsystems/prototipo-ordax-os/tools/release-bundle
 
 go 1.27.0
