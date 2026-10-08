@@ -50,8 +50,20 @@
   "native_loopback_broker_read_only": true,
   "native_loopback_broker_supported_components": [
     "internet",
+    "calculator",
+    "calendar",
+    "character-map",
+    "clock",
+    "colors",
+    "converter",
+    "image-viewer",
+    "media-player",
     "notes",
-    "studio"
+    "paint",
+    "pdf-viewer",
+    "studio",
+    "text-viewer",
+    "toolbox"
   ],
   "failed_pending_runtime_read_allowed": false,
   "runtime_file_read_requires_exact_version_and_source_commit": true,

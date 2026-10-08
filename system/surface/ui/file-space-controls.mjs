@@ -9,6 +9,7 @@ import {
   validateTrashListing,
 } from "../../contracts/file-space.mjs";
 import { assertNotesFileImporter } from "../../contracts/notes-file-importer.mjs";
+import { assertFileOpenRegistry } from "../../services/files/file-open-registry.mjs";
 import {
   assertRecentFilesPort,
   validateRecentFilesSnapshot,
@@ -95,9 +96,11 @@ export function mountFileSpaceControls(
   const recentFiles = resources?.recentFiles ?? null;
   const projects = resources?.projects ?? null;
   const notesFileImporter = resources?.notesFileImporter ?? null;
+  const fileOpenRegistry = resources?.fileOpenRegistry ?? null;
   const recentPort = recentFiles === null ? null : assertRecentFilesPort(recentFiles);
   const projectPort = projects === null ? null : assertProjectCatalogPort(projects);
   const notesImporterPort = notesFileImporter === null ? null : assertNotesFileImporter(notesFileImporter);
+  const fileOpenPort = fileOpenRegistry === null ? null : assertFileOpenRegistry(fileOpenRegistry);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -1859,6 +1862,18 @@ export function mountFileSpaceControls(
     replaceView();
   };
 
+  const recordFileOpened = (path) => {
+    if (recentPort) recentPort.recordOpened(path);
+    const project = projectForFilePath(path);
+    if (projectPort && project) {
+      try {
+        projectSnapshot = projectPort.recordFileOpened(project.id, path);
+      } catch {
+        setMessage("files.preview.projectActivityFailed");
+      }
+    }
+  };
+
   const openTextFile = async (path, { source = "direct", projectId = null } = {}) => {
     const ordinal = ++previewRequestOrdinal;
     failedProjectResume = null;
@@ -1870,15 +1885,7 @@ export function mountFileSpaceControls(
       const next = validateTextFile(await port.readTextFile(path));
       if (destroyed || ordinal !== previewRequestOrdinal) return;
       textPreview = next;
-      if (recentPort) recentPort.recordOpened(next.path);
-      const project = projectForFilePath(next.path);
-      if (projectPort && project) {
-        try {
-          projectSnapshot = projectPort.recordFileOpened(project.id, next.path);
-        } catch {
-          setMessage("files.preview.projectActivityFailed");
-        }
-      }
+      recordFileOpened(next.path);
     } catch (error) {
       if (destroyed || ordinal !== previewRequestOrdinal) return;
       const status = operationStatus(error);
@@ -1916,9 +1923,26 @@ export function mountFileSpaceControls(
     if (!selected) return;
     if (selected.kind === "directory") {
       void load(selected.path);
-    } else {
-      void openTextFile(selected.path);
+      return;
     }
+    if (!fileOpenPort || !activationPort) {
+      void openTextFile(selected.path);
+      return;
+    }
+    const resolution = fileOpenPort.resolve(selected.path);
+    if (resolution.state === "ready") {
+      clearMessage();
+      recordFileOpened(selected.path);
+      activationPort.publish({ appId: resolution.appId, target: selected.path });
+      replaceView();
+      return;
+    }
+    if (resolution.state === "handler-unavailable") {
+      setMessage("files.open.handlerUnavailable", { app: resolution.appId });
+      replaceView();
+      return;
+    }
+    void openTextFile(selected.path);
   };
 
   const createNoteFromSelected = async () => {

@@ -152,7 +152,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn("contracts/identity-session.mjs", surface)
         self.assertNotIn("contracts/identity-actions.mjs", surface)
         self.assertIn("contracts/app-activation.mjs", surface)
-        self.assertIn("../../apps/catalog.mjs", surface)
+        self.assertIn("../../apps/runtime-catalog.mjs", surface)\n        self.assertIn("assertAppRuntimeCatalog", surface)
         self.assertIn("../../services/preferences/appearance.mjs", surface)
         self.assertIn("../../services/preferences/accessibility.mjs", surface)
         self.assertIn("./desktop-shell.mjs", surface)
@@ -222,7 +222,7 @@ class SurfaceUiContractTests(unittest.TestCase):
     def test_app_contract_is_capability_preference_and_extension_driven(self):
         text = APP_CONTRACT.read_text(encoding="utf-8")
         self.assertIn("requiredCapabilities", text)
-        self.assertIn("isAppAvailable", text)
+        self.assertIn("assertAppRuntimeCatalog", text)\n        self.assertIn("catalog.isAvailable", text)
         self.assertIn("every((capabilityId)", text)
         self.assertIn('"preference-choice"', text)
         self.assertIn('"extension"', text)

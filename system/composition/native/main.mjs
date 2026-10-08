@@ -49,14 +49,19 @@ import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
+import { discoverVerifiedExternalApplications } from "../../services/apps/verified-external-app-catalog.mjs";
+import { createVerifiedExternalAppHost } from "../../services/apps/verified-external-app-host.mjs";
 import { createUnavailableAppStoreCatalogPort } from "../../contracts/app-store.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
+import { createAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
+import { defineExternalFirstPartyApp } from "../../apps/external-app-definition.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
 import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
+import { createFileOpenRegistry } from "../../services/files/file-open-registry.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
 import { createProjectCloudLinksReader } from "../../services/projects/cloud-links-reader.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
@@ -176,6 +181,16 @@ async function start() {
       appIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
       source: verifiedComponentPackageSource,
       fetchImpl: verifiedComponentFetch,
+    }),
+  );
+  const verifiedExternalApplicationsPromise = optionalNativeProbe(
+    "OrdaX verified external application catalog unavailable",
+    () => discoverVerifiedExternalApplications({
+      source: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+      onError(error, appId) {
+        console.warn(`OrdaX verified external app ignored safely: ${appId}`, error);
+      },
     }),
   );
   const preferenceStorePromise = createNativePreferenceStore(window);
@@ -440,8 +455,25 @@ async function start() {
     store: createNativeSpaceSelectionStore(window),
   });
   const verifiedAppSemantics = await verifiedAppSemanticsPromise ?? [];
+  const verifiedExternalApplications = await verifiedExternalApplicationsPromise ?? [];
+  const bundledApplications = listFirstPartyApps();
+  const bundledApplicationIds = new Set(bundledApplications.map((app) => app.id));
+  const surfaceExternalApplications = Object.freeze(
+    verifiedExternalApplications
+      .filter((entry) => !bundledApplicationIds.has(entry.component.id))
+      .map((entry) => Object.freeze({
+        ...entry,
+        app: defineExternalFirstPartyApp(entry.component, entry.presentation, {
+          requiredCapabilities: entry.association === null ? [] : ["filesystem.user-space"],
+        }),
+      })),
+  );
+  const surfaceAppCatalog = createAppRuntimeCatalog([
+    ...bundledApplications,
+    ...surfaceExternalApplications.map((entry) => entry.app),
+  ]);
   const firstPartyApplications = overlayVerifiedFirstPartyApplications(
-    listFirstPartyApps(),
+    bundledApplications,
     verifiedAppSemantics,
   );
   const semanticManifestsByAppId = new Map(
@@ -652,13 +684,34 @@ async function start() {
     diagnosticJournal,
     fileSpace,
   });
+  const fileOpenRegistry = createFileOpenRegistry({
+    manifests: surfaceExternalApplications.flatMap(
+      (entry) => entry.association === null ? [] : [entry.association],
+    ),
+    isAppAvailable(appId) {
+      const app = surfaceAppCatalog.get(appId);
+      return surfaceAppCatalog.isAvailable(app, host.getSnapshot().capabilityIds);
+    },
+  });
   const surface = mountSurface(
     root,
     host,
     preferenceStore,
     workspaceStore,
     appActivation,
+    surfaceAppCatalog,
   );
+  const externalAppHost = createVerifiedExternalAppHost({
+    root,
+    surfaceLifecycle: surface,
+    entries: surfaceExternalApplications,
+    packageSource: verifiedComponentPackageSource,
+    fileSpace,
+    appActivation,
+    onError(error, appId) {
+      reportClientDiagnostic(`external-app-runtime.${appId}`, error);
+    },
+  });
   const assistantMemoryCapture = memory === null
     ? null
     : createAssistantAutoCaptureRuntime({
@@ -781,7 +834,7 @@ async function start() {
     filesOwnerSpace,
     appActivation,
     surface,
-    { recentFiles, projects },
+    { recentFiles, projects, fileOpenRegistry },
   );
   let settingsOverviewControls;
   try {
@@ -984,6 +1037,7 @@ async function start() {
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
       fileSpaceControls.destroy();
+      void externalAppHost.destroy();
       projectsComponent?.destroy();
       networkComponent?.destroy();
       assistantComponent?.destroy();
