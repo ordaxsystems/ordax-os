@@ -308,10 +308,15 @@ export async function verifyTurnstileToken(
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok) throw new Error("turnstile-siteverify-unavailable");
-  const raw = await response.text();
-  if (new TextEncoder().encode(raw).byteLength > MAX_TURNSTILE_RESPONSE_BYTES) {
-    throw new Error("turnstile-siteverify-response-too-large");
-  }
+  // Enforce the limit while reading, not after response.text() buffers
+  // an arbitrarily large untrusted Cloudflare response into memory.
+  const raw = new TextDecoder("utf-8", { fatal: true }).decode(
+    await readBoundedBody(
+      response.body,
+      response.headers.get("content-length"),
+      MAX_TURNSTILE_RESPONSE_BYTES,
+    ),
+  );
   let result;
   try {
     result = JSON.parse(raw);
