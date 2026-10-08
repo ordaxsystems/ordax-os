@@ -60,7 +60,7 @@
     "team": "jogo-brasils-projects",
     "project_config_source": "vercel.json",
     "function_source": "api/account-proxy.mjs",
-    "static_output_directory": "sites/public",
+    "static_output_directory": "out/public-site",
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
     "provider_specific_browser_api": false,
