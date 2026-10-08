@@ -110,8 +110,13 @@ export function mountSpaceSwitcherControls(
     const chevron = element("span", "ordax-space-switcher-chevron", "⌄");
     chevron.setAttribute("aria-hidden", "true");
     trigger.append(mark, label, chevron);
+    trigger.dataset.profileConfigured = String(Boolean(activeProfile));
     trigger.setAttribute("aria-label", active
-      ? t("account.spaces.switcher.current", { space: active.name })
+      ? (activeProfile
+        ? t("account.spaces.switcher.profileConfigured", {
+          space: active.name, profile: profileLabel(activeProfile),
+        })
+        : t("account.spaces.switcher.current", { space: active.name }))
       : t("account.spaces.switcher.title"));
     trigger.setAttribute("aria-expanded", String(open));
     menu.setAttribute("aria-label", t("account.spaces.switcher.title"));
