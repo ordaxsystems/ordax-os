@@ -101,14 +101,25 @@ class PublicSiteDeploymentTests(unittest.TestCase):
 
     def test_vercel_migration_target_is_dedicated_and_fail_closed(self):
         migration = self.contract["vercel_migration"]
-        self.assertEqual(migration["status"], "target-project-git-linked-runtime-pending")
+        self.assertEqual(
+            migration["status"],
+            "target-project-provisioned-domain-and-identity-cutover-blocked",
+        )
+        self.assertTrue(migration["target_project_provisioned"])
+        self.assertEqual(migration["target_project_id"], "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC")
+        self.assertEqual(migration["target_git_repository"], "ordaxsystems/ordax-os")
+        self.assertTrue(migration["target_project_assigned_domain_verified"])
+        self.assertEqual(migration["target_project_assigned_domain"], "ordax-os-public-tau.vercel.app")
+        self.assertFalse(migration["expected_production_domain_bound"])
+        self.assertIn("owned-on-other-team", migration["expected_production_domain_block_reason"])
+        self.assertTrue(migration["target_project_preview_deployment_ready"])
+        self.assertFalse(migration["target_project_preview_deployment_is_production"])
+        self.assertFalse(migration["target_project_production_deployment_ready"])
+        self.assertFalse(migration["target_project_environment_variables_present"])
         self.assertEqual(migration["target_account_email"], "ordaxos@gmail.com")
         self.assertEqual(migration["target_team_slug"], "ordaxsystems")
         self.assertEqual(migration["target_project"], "ordax-os-public")
         self.assertEqual(migration["target_github_organization"], "ordaxsystems")
-        self.assertEqual(migration["target_github_repository"], "ordaxsystems/ordax-os")
-        self.assertEqual(migration["target_team_id"], "team_E3bdE137ZG3fhCGMmYuGKJ8o")
-        self.assertEqual(migration["target_project_id"], "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC")
         self.assertFalse(migration["personal_scope_allowed"])
         self.assertFalse(migration["legacy_team_allowed_after_cutover"])
         self.assertFalse(migration["shared_secret_fallback_allowed"])
@@ -331,7 +342,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         requirements = self.contract["production_requirements"]
         self.assertEqual(adapter["canonical_public_origin_environment_variable"], "ORDAX_PUBLIC_ORIGIN")
         self.assertTrue(adapter["canonical_public_origin_required"])
-        self.assertTrue(adapter["canonical_public_origin_live_configured"])
+        self.assertFalse(adapter["canonical_public_origin_live_configured"])
+        self.assertFalse(adapter["canonical_public_origin_deployment_verified"])
         self.assertEqual(adapter["canonical_public_origin"], "https://ordax-os-public.vercel.app")
         self.assertEqual(adapter["gateway_upstream_environment_scope"], ["production"])
         self.assertFalse(adapter["legacy_shared_secret_production_or_preview_exposed"])
