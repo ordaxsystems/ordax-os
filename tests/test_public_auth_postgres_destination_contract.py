@@ -47,7 +47,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]
         self.assertEqual(len(names), len(set(names)), "duplicate SQL source")
-        self.assertGreaterEqual(len(names), 5)
+        self.assertGreaterEqual(len(names), 6)
         sources = {}
         for name in names:
             self.assertEqual(Path(name).name, name)
@@ -67,6 +67,16 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("private.ordax_account_legal_receipts", registration)
         self.assertIn("enable row level security", registration)
         self.assertIn("to service_role", registration)
+
+        validation_v2 = next(
+            body for name, body in sources.items()
+            if "account_registration_intent_email_validation_v2.sql" in name
+        )
+        validation_body = validation_v2.split("create or replace function", 1)[1]
+        self.assertNotIn("chr(0)", validation_body)
+        self.assertIn("char_length(v_email) > 320 then", validation_body)
+        self.assertIn("registration-legal-policy-unavailable", validation_body)
+        self.assertIn("to service_role", validation_body)
 
         login_guard = next(
             body for name, body in sources.items()
