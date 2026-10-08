@@ -39,6 +39,47 @@ test("delivery policy covers every locally present first-party app and may also 
   assert.equal(getFirstPartyAppDeliveryPolicy("store")?.deliveryClass, "structural");
 });
 
+test("optional utility products inherit only Store-only delivery policy, not installed state", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = new URL("../docs/contracts/first-party-app-delivery.json", import.meta.url);
+  const contract = JSON.parse(await readFile(source, "utf8"));
+  const declared = contract.current_target_policy;
+  const policies = listFirstPartyAppDeliveryPolicies();
+  const sorted = values => [...values].sort();
+  for (const [group, expected] of [
+    ["structural", declared.structural],
+    ["bootstrap", declared.bootstrap],
+    ["on-demand", declared.on_demand],
+  ]) {
+    assert.deepEqual(
+      sorted(policies.filter(policy => policy.deliveryClass === group).map(policy => policy.appId)),
+      sorted(expected),
+      group + " contract and runtime delivery policy must agree",
+    );
+  }
+
+  const utilities = [
+    "calculator", "clock", "converter", "text-viewer", "image-viewer",
+    "calendar", "colors", "character-map", "paint", "media-player",
+    "pdf-viewer", "toolbox",
+  ];
+  for (const appId of utilities) {
+    const policy = getFirstPartyAppDeliveryPolicy(appId);
+    assert.equal(policy?.deliveryClass, "on-demand", appId);
+    assert.equal(policy?.discovery, "store-only", appId);
+    assert.equal(policy?.removable, true, appId);
+    const missing = projectFirstPartyAppDelivery(appId, observation({catalogued:false}));
+    assert.equal(missing.state, "not-catalogued", appId);
+    assert.equal(missing.launchable, false, appId);
+    assert.equal(missing.installable, false, appId);
+    const catalogued = projectFirstPartyAppDelivery(appId, observation());
+    assert.equal(catalogued.state, "available", appId);
+    assert.equal(catalogued.showInLauncher, false, appId);
+    assert.equal(catalogued.launchable, false, appId);
+    assert.equal(catalogued.dataRemovalRequiresSeparateAction, true, appId);
+  }
+});
+
 test("structural surfaces fail closed when their payload is missing", () => {
   for (const appId of ["settings", "account", "system", "store"]) {
     const policy = getFirstPartyAppDeliveryPolicy(appId);

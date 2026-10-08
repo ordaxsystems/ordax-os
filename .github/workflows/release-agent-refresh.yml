@@ -56,7 +56,7 @@ jobs:
           digest = hashlib.sha256(data).hexdigest()
           size = len(data)
           expected_url = (
-              'https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/'
+              'https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/'
               f'ordax-release-agent-{digest}/ordax-release-agent'
           )
           print('RELEASE_AGENT_REFRESH_SHA256=' + digest)
@@ -72,8 +72,73 @@ jobs:
           assert descriptor['unknown_installed_hash_policy'] == 'block'
           PY
 
+  # Manual read-only attestation of the already published migration target.
+  # This is intentionally independent from the source rebuild check: a newly
+  # compiled agent may differ after a repository owner/module-path change.
+  # A passing audit NEVER licenses publishing the new compiler output.
+  audit-published-target:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout descriptor without repository credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Confirm immutable repository and pinned descriptor
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = '1371063347'
+          [[ "$GITHUB_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/prototipo-ordax-os$ ]]
+          python3 - "$GITHUB_OUTPUT" <<'PY'
+          import json, os, pathlib, re, sys
+          descriptor = json.loads(pathlib.Path(
+              "system/services/base-update/release-agent-refresh.json"
+          ).read_text(encoding="utf-8"))
+          digest = descriptor["target_sha256"]
+          size = descriptor["target_size"]
+          if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
+              raise SystemExit("release-agent target digest is invalid")
+          if type(size) is not int or not 0 < size < 100 * 1024 * 1024:
+              raise SystemExit("release-agent target size is invalid")
+          if (descriptor["raw_device_write_allowed"] is not False or
+              descriptor["physical_media_rewrite_required"] is not False or
+              descriptor["unknown_installed_hash_policy"] != "block"):
+              raise SystemExit("release-agent refresh authorization is not fail-closed")
+          with open(sys.argv[1], "a", encoding="utf-8") as output:
+              output.write(f"sha256={digest}\nsize={size}\n")
+          PY
+      - name: Verify previously published asset bytes without modifying releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PINNED_SHA256: ${{ steps.target.outputs.sha256 }}
+          PINNED_SIZE: ${{ steps.target.outputs.size }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          destination="$RUNNER_TEMP/verified-release-agent-target"
+          mkdir -p "$destination"
+          gh release download "ordax-release-agent-$PINNED_SHA256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'ordax-release-agent' \
+            --dir "$destination"
+          test -f "$destination/ordax-release-agent"
+          test ! -L "$destination/ordax-release-agent"
+          echo "$PINNED_SHA256  $destination/ordax-release-agent" | sha256sum --check --status
+          test "$(stat -c '%s' "$destination/ordax-release-agent")" = "$PINNED_SIZE"
+          echo 'RELEASE_AGENT_PUBLISHED_TARGET_SHA256=VERIFIED'
+          echo 'RELEASE_AGENT_PUBLISHED_TARGET_SIZE=VERIFIED'
+          echo 'RELEASE_AGENT_PUBLISHED_TARGET_REPOSITORY_ID=1371063347'
+          echo 'RELEASE_AGENT_NEW_BUILD_AUTHORIZED=NO'
+          echo 'RELEASE_AGENT_SIGNING_PERFORMED=NO'
+          echo 'PHYSICAL_WRITE_AUTHORIZED=NO'
+
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/prototipo-ordax-os'
     needs: verify
     runs-on: ubuntu-24.04
     permissions:
@@ -90,6 +155,13 @@ jobs:
           go-version: '1.27.1'
           check-latest: false
           cache: false
+
+      - name: Enforce immutable repository identity before release publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'ordaxsystems/prototipo-ordax-os'
+          test "$GITHUB_REPOSITORY_ID" = '1371063347'
 
       - name: Rebuild exact immutable asset
         run: |
@@ -119,7 +191,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          repo='washingtonmsdj/prototipo-ordax-os'
+          repo='ordaxsystems/prototipo-ordax-os'
           descriptor='system/services/base-update/release-agent-refresh.json'
           digest="$(python3 -c "import json; print(json.load(open('$descriptor'))['target_sha256'])")"
           tag="ordax-release-agent-$digest"
@@ -133,17 +205,23 @@ jobs:
               --notes 'Hash-addressed bootstrap component migration asset. Authenticity for the live development owner is the source-controlled SHA-256 binding.'
           fi
 
-          if gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' \
+          if ! gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' \
               | grep -Fxq 'ordax-release-agent'; then
-            tmp="$(mktemp -d)"
-            gh release download "$tag" --repo "$repo" \
-              --pattern 'ordax-release-agent' --dir "$tmp"
-            published="$(sha256sum "$tmp/ordax-release-agent" | awk '{print $1}')"
-            test "$published" = "$digest"
-            rm -rf "$tmp"
-          else
             gh release upload "$tag" "$artifact#ordax-release-agent" --repo "$repo"
           fi
+
+          # Read back the immutable asset from GitHub even on the first upload.
+          # A successful upload response alone is not evidence of published bytes.
+          verification_dir="$(mktemp -d)"
+          trap 'rm -rf "$verification_dir"' EXIT
+          gh release download "$tag" --repo "$repo" \
+            --pattern 'ordax-release-agent' --dir "$verification_dir"
+          published="$verification_dir/ordax-release-agent"
+          test -f "$published"
+          test ! -L "$published"
+          test "$(sha256sum "$published" | awk '{print $1}')" = "$digest"
+          test "$(stat -c '%s' "$published")" = "$(stat -c '%s' "$artifact")"
+          echo 'RELEASE_AGENT_PUBLISHED_ASSET_READBACK=VERIFIED'
 
           echo "RELEASE_AGENT_REFRESH_TAG=$tag"
           echo "RELEASE_AGENT_REFRESH_MUTABLE_OVERWRITE=NO"

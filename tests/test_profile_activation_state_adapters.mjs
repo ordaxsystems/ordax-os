@@ -207,3 +207,64 @@ test("Native Profile adapter previews permission diff before accepted activation
   });
   assert.equal(requests.at(-1).options.method, "POST");
 });
+
+test("Native Profile adapter refreshes a stale revision on conflict without replaying the action", async () => {
+  let state = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 1,
+    persistence: "device",
+    spaces: [],
+  };
+  let reads = 0;
+  const attemptedRevisions = [];
+  const windowRef = {
+    async fetch(path, options) {
+      if (path === "/__ordax/native/profile-activation-state") {
+        reads += 1;
+        return response(state);
+      }
+      if (path === "/__ordax/native/session") {
+        return response({
+          profileActivationAvailable: true,
+          profileActivationToken: "t".repeat(32),
+        });
+      }
+      if (path === "/__ordax/native/profile-activation-command") {
+        const body = JSON.parse(options.body);
+        attemptedRevisions.push(body.expectedRevision);
+        if (attemptedRevisions.length === 1) {
+          state = { ...state, revision: 2 };
+          return response({}, false, 409);
+        }
+        return response({
+          state,
+          permissionDiff: {
+            schema: "ordax.profile-permission-diff/1",
+            componentAdds: [],
+            componentRemovals: [],
+            authorityChanges: [],
+            requiresExplicitReview: false,
+          },
+          permissionDiffSha256: "c".repeat(64),
+        });
+      }
+      throw new Error("unexpected request");
+    },
+  };
+
+  const port = await createNativeProfileActivationState(windowRef);
+  const intent = {
+    spaceId: "space-1",
+    spaceKind: "professional",
+    profile: { slug: "pizzaria-br", version: 1 },
+    components: [],
+  };
+  await assert.rejects(() => port.previewActivation(intent), (error) => error.status === 409);
+  assert.equal(port.getSnapshot().revision, 2);
+  assert.equal(reads, 2);
+  assert.deepEqual(attemptedRevisions, [1]);
+
+  const preview = await port.previewActivation(intent);
+  assert.equal(preview.expectedRevision, 2);
+  assert.deepEqual(attemptedRevisions, [1, 2]);
+});

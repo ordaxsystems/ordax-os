@@ -5,8 +5,8 @@ package main
 import (
 	"fmt"
 
-	componentchannel "github.com/washingtonmsdj/prototipo-ordax-os/tools/creator/componentchannel"
-	creatorupdate "github.com/washingtonmsdj/prototipo-ordax-os/tools/creator/update"
+	componentchannel "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/componentchannel"
+	creatorupdate "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/update"
 )
 
 func finishRefreshState(result appRefreshState, backendDirectory string) appRefreshState {

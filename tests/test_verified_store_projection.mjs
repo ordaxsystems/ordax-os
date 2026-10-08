@@ -41,7 +41,7 @@ function ready(entries = [candidate()]) {
     sequence: 11,
     catalogSha256: "f".repeat(64),
     source: {
-      repository: "washingtonmsdj/ordax-apps",
+      repository: "ordaxsystems/ordax-apps",
       commit: SOURCE_COMMIT,
     },
     trust: {
@@ -147,6 +147,36 @@ test("verified Store projection offers install only from verified catalog plus e
     assert.equal(call.options.credentials, "same-origin");
     assert.equal(call.options.redirect, "error");
   }
+  projection.destroy();
+});
+
+test("known optional utility is represented from verified catalog only; raw unknown stays blocked", async () => {
+  const catalog = catalogPort(ready([
+    candidate("calculator", "0.2.0", "Calculadora"),
+    candidate("unapproved-product", "0.1.0", "Unapproved"),
+  ]));
+  const requests = [];
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({
+      calculator: metadata("calculator"),
+    }, requests),
+  });
+  await projection.refresh();
+  const snapshot = projection.port.getSnapshot();
+  assert.equal(snapshot.state, "ready");
+  const calculator = snapshot.entries.find(item => item.appId === "calculator");
+  assert.equal(calculator.state, "available");
+  assert.equal(calculator.installable, true);
+  assert.equal(calculator.updatable, false);
+  assert.equal(calculator.artifactIdentityVerified, true);
+  assert.equal(calculator.provenanceVerified, true);
+  assert.ok(requests.some(row => row.url.includes("component=calculator")));
+  const unknown = snapshot.entries.find(item => item.appId === "unapproved-product");
+  assert.equal(unknown.state, "blocked");
+  assert.equal(unknown.blockedReason, "first-party-delivery-policy-unavailable");
+  assert.equal(unknown.installable, false);
   projection.destroy();
 });
 

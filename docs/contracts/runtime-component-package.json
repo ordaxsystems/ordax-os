@@ -6,7 +6,7 @@
   "envelope_schema": "prototype-ordax.runtime-component-envelope/1",
   "trust_schema": "prototype-ordax.runtime-component-trust/1",
   "trust_domain": "runtime-components",
-  "source_repository": "washingtonmsdj/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/prototipo-ordax-os",
   "component_manifest_source": "system/services/components/manifests/",
   "supported_components": [
     "internet",
@@ -115,10 +115,10 @@
   "intelligence_component_activation_enabled": false,
   "intelligence_component_health_promotion_proven": false,
   "intelligence_component_rollback_proven": false,
-  "default_source_repository": "washingtonmsdj/prototipo-ordax-os",
+  "default_source_repository": "ordaxsystems/prototipo-ordax-os",
   "canonical_external_source_repository_by_component": {
-    "notes": "washingtonmsdj/ordax-apps",
-    "studio": "washingtonmsdj/ordax-apps"
+    "notes": "ordaxsystems/ordax-apps",
+    "studio": "ordaxsystems/ordax-apps"
   },
   "source_repository_policy": "component-bound-fail-closed",
   "native_loopback_broker_health_mutation_components": [
@@ -131,19 +131,19 @@
   "notes_component_promotion_proven": false,
   "notes_component_rollback_proven": false,
   "canonical_package_source_repository_by_component": {
-    "calculator": "washingtonmsdj/ordax-apps",
-    "calendar": "washingtonmsdj/ordax-apps",
-    "character-map": "washingtonmsdj/ordax-apps",
-    "clock": "washingtonmsdj/ordax-apps",
-    "colors": "washingtonmsdj/ordax-apps",
-    "converter": "washingtonmsdj/ordax-apps",
-    "image-viewer": "washingtonmsdj/ordax-apps",
-    "media-player": "washingtonmsdj/ordax-apps",
-    "notes": "washingtonmsdj/ordax-apps",
-    "paint": "washingtonmsdj/ordax-apps",
-    "pdf-viewer": "washingtonmsdj/ordax-apps",
-    "studio": "washingtonmsdj/ordax-apps",
-    "text-viewer": "washingtonmsdj/ordax-apps",
-    "toolbox": "washingtonmsdj/ordax-apps"
+    "calculator": "ordaxsystems/ordax-apps",
+    "calendar": "ordaxsystems/ordax-apps",
+    "character-map": "ordaxsystems/ordax-apps",
+    "clock": "ordaxsystems/ordax-apps",
+    "colors": "ordaxsystems/ordax-apps",
+    "converter": "ordaxsystems/ordax-apps",
+    "image-viewer": "ordaxsystems/ordax-apps",
+    "media-player": "ordaxsystems/ordax-apps",
+    "notes": "ordaxsystems/ordax-apps",
+    "paint": "ordaxsystems/ordax-apps",
+    "pdf-viewer": "ordaxsystems/ordax-apps",
+    "studio": "ordaxsystems/ordax-apps",
+    "text-viewer": "ordaxsystems/ordax-apps",
+    "toolbox": "ordaxsystems/ordax-apps"
   }
 }

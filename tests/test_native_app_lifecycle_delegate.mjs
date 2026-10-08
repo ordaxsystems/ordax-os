@@ -220,3 +220,67 @@ test("missing probation bridge never rewrites an accepted staged result", async 
   assert.equal(result.state, "accepted");
   assert.equal(result.operation, "update");
 });
+
+
+test("rejected or identity-drifted lifecycle replies never dispatch probation", async () => {
+  const value = plan("install");
+  const messages = [];
+  const windowRef = {
+    webkit: {
+      messageHandlers: {
+        ordaxBrowser: {
+          postMessage(message) { messages.push(message); },
+        },
+      },
+    },
+  };
+
+  const denied = createNativeAppLifecycleDelegate({
+    ...windowRef,
+    async fetch() {
+      return response({
+        ...acceptedFor(value),
+        state: "rejected",
+        reason: "platform-policy-blocked",
+      });
+    },
+  });
+  const deniedResult = await denied.executeLifecycle(value);
+  assert.equal(deniedResult.state, "rejected");
+  assert.deepEqual(messages, []);
+
+  const mismatched = createNativeAppLifecycleDelegate({
+    ...windowRef,
+    async fetch() {
+      return response({ ...acceptedFor(value), appId: "studio" });
+    },
+  });
+  await assert.rejects(() => mismatched.executeLifecycle(value), /identity mismatch/);
+  assert.deepEqual(messages, []);
+});
+
+test("probation bridge exception cannot change a platform-accepted staging receipt", async () => {
+  const value = plan("install");
+  let warnings = 0;
+  const originalWarn = console.warn;
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch() {
+      return response(acceptedFor(value));
+    },
+    webkit: {
+      messageHandlers: {
+        ordaxBrowser: {
+          postMessage() { throw new Error("bridge is temporarily unavailable"); },
+        },
+      },
+    },
+  });
+  try {
+    console.warn = () => { warnings += 1; };
+    const result = await delegate.executeLifecycle(value);
+    assert.deepEqual(result, acceptedFor(value));
+    assert.equal(warnings, 1);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
