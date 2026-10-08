@@ -32,6 +32,7 @@ import { createNativeSpaceSelectionStore } from "../../adapters/native/space-sel
 import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
 import { createNativeSystemMetrics } from "../../adapters/native/system-metrics.mjs";
+import { readNativeHardwareInventory } from "../../adapters/native/hardware-inventory.mjs";
 import { createNativeRecoveryStatus } from "../../adapters/native/recovery-status.mjs";
 import { createNativeUpdateHistory } from "../../adapters/native/update-history.mjs";
 import { createNativeUpdateWatcher } from "../../adapters/native/update-runtime.mjs";
@@ -845,6 +846,8 @@ async function start() {
     storeCatalog,
     surface,
     storeLifecycleRequests,
+    () => readNativeHardwareInventory(window),
+    systemMetrics,
   );
   const systemOverviewControls = mountSystemOverviewControls(
     root,
