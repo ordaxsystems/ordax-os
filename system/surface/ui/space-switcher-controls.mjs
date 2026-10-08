@@ -254,8 +254,13 @@ export function mountSpaceSwitcherControls(
     }
   };
 
+  const originatedInside = (event) => (
+    event.composedPath?.().includes(control) || control.contains(event.target)
+  );
   const onOutside = (event) => {
-    if (open && !control.contains(event.target)) close();
+    // A click can replace its own button before bubbling to document.
+    // Inspect the original event path, not only today's DOM ancestry.
+    if (open && !originatedInside(event)) close();
   };
   const focusOption = (key) => {
     const enabled = [...menu.querySelectorAll("button:not(:disabled)")];
@@ -286,7 +291,7 @@ export function mountSpaceSwitcherControls(
     focusOption(event.key);
   };
   const onFocusIn = (event) => {
-    if (open && !control.contains(event.target)) close();
+    if (open && !originatedInside(event)) close();
   };
   control.addEventListener("click", onClick);
   doc.addEventListener("click", onOutside);
