@@ -238,9 +238,10 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
         original_read = module.read_profile_activation_state
         try:
             module._canonical_manifest = lambda slug, version: manifest
+            persisted_revision = [7]
             module.read_profile_activation_state = lambda path: {
                 "schema": "ordax.profile-activation-state/1",
-                "revision": 7,
+                "revision": persisted_revision[0],
                 "persistence": "device",
                 "spaces": [],
             }
@@ -321,6 +322,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                     human_consent_resolver=consent_resolver,
                 )
 
+            persisted_revision[0] = 8
             changed_revision = {**preview, "expectedRevision": 8}
             changed = module.execute_profile_activation_command(
                 changed_revision,
