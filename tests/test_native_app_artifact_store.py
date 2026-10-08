@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from system.surface.runtime import native_app_artifact_store as store
 
@@ -42,6 +43,7 @@ class NativeAppArtifactStoreTests(unittest.TestCase):
         path = store.store_verified_artifact(item, payload, root=str(self.root))
         self.assertEqual(path.name, item["sha256"])
         self.assertEqual(path.parent.name, item["sha256"][:2])
+        self.assertEqual(path.stat().st_nlink, 1, "published artifact has no staging hardlink")
         self.assertEqual(
             store.read_cached_artifact(item, root=str(self.root)),
             payload,
@@ -57,6 +59,49 @@ class NativeAppArtifactStoreTests(unittest.TestCase):
             store.store_verified_artifact(item, b"tampered", root=str(self.root))
         target = self.root / "sha256" / item["sha256"][:2] / item["sha256"]
         self.assertFalse(target.exists())
+
+    def test_racing_writer_cannot_be_overwritten_during_publication(self) -> None:
+        payload = b"verified"
+        item = identity("notes.zip", payload)
+        target = self.root / "sha256" / item["sha256"][:2] / item["sha256"]
+        competitor = b"another-process"
+
+        original_link = os.link
+
+        def race_with_uncooperative_writer(source, destination):
+            Path(destination).write_bytes(competitor)
+            return original_link(source, destination)
+
+        with patch.object(store.os, "link", side_effect=race_with_uncooperative_writer):
+            with self.assertRaisesRegex(store.AppArtifactStoreError, "persistence failed"):
+                store.store_verified_artifact(item, payload, root=str(self.root))
+
+        self.assertEqual(target.read_bytes(), competitor)
+        self.assertEqual(list(target.parent.glob(".artifact-*")), [])
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "size mismatch|digest mismatch"):
+            store.read_cached_artifact(item, root=str(self.root))
+
+    def test_symlink_created_during_publication_is_not_replaced(self) -> None:
+        payload = b"verified"
+        item = identity("notes.zip", payload)
+        target = self.root / "sha256" / item["sha256"][:2] / item["sha256"]
+        protected = Path(self.temp.name) / "unrelated"
+        protected.write_bytes(b"untouched")
+        original_link = os.link
+
+        def race_with_symlink(source, destination):
+            Path(destination).symlink_to(protected)
+            return original_link(source, destination)
+
+        with patch.object(store.os, "link", side_effect=race_with_symlink):
+            with self.assertRaisesRegex(store.AppArtifactStoreError, "persistence failed"):
+                store.store_verified_artifact(item, payload, root=str(self.root))
+
+        self.assertTrue(target.is_symlink())
+        self.assertEqual(protected.read_bytes(), b"untouched")
+        self.assertEqual(list(target.parent.glob(".artifact-*")), [])
+        with self.assertRaisesRegex(store.AppArtifactStoreError, "unavailable or unsafe"):
+            store.read_cached_artifact(item, root=str(self.root))
 
     def test_cached_tampering_fails_closed_instead_of_refetching_silently(self) -> None:
         payload = b"expected"
