@@ -621,3 +621,36 @@
     transition: none;
   }
 }
+
+/* The AI model browser reuses Store semantic tokens and keeps model operations
+   read-only until a separately verified signed component lifecycle exists. */
+.ordax-store-models {
+  display: grid;
+  align-content: start;
+  gap: var(--ordax-space-3);
+  min-width: 0;
+}
+
+.ordax-store-model-card {
+  max-width: 820px;
+  min-height: 0;
+}
+
+.ordax-store-model-card .ordax-store-detail-facts {
+  margin: 0;
+}
+
+.ordax-store-model-card .ordax-store-detail-note {
+  margin: 0;
+}
+
+.ordax-store-model-card .ordax-store-card-status[data-store-model-status="blocked-architecture"] {
+  border-color: color-mix(in srgb, var(--ordax-warning) 45%, var(--ordax-border));
+  color: var(--ordax-warning);
+  background: var(--ordax-warning-bg);
+}
+
+.ordax-store-model-card .ordax-store-card-status[data-store-model-status="architecture-compatible-performance-unverified"] {
+  color: var(--ordax-muted);
+  background: var(--ordax-subtle-bg);
+}
