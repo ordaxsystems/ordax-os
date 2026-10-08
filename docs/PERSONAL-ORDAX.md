@@ -201,8 +201,10 @@ user file-space into `/Downloads`, strips retained `grantRef` values and omits r
 There is no automatic export, account sync, upload or Web fake-file fallback.
 
 Phase 1 does **not** enable background autonomy, generic egress, generic device control, shell, raw
-disk, release-key access, physical writes, non-idempotent file mutations or model-generated action
-proposals.
+disk, release-key access, physical writes, non-idempotent file mutations or **automatic execution
+of model-generated proposals**. The consultative planner can suggest one catalog action for
+explicit human review. The proposal itself grants no authority and can only become a pending
+approval through an intentional user action in Activity.
 
 ### Phase 2 — resumable bounded background work
 
