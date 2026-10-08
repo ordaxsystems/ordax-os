@@ -1,4 +1,6 @@
+from contextlib import redirect_stderr
 from functools import partial
+from io import StringIO
 import http.client
 import importlib.util
 import json
@@ -263,12 +265,16 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
             }
         )
         try:
-            status, body = self.request(
-                server,
-                "GET",
-                f"{native_host.PROFILE_CONTENT_CONTEXT_PATH}?spaceId=space-professional-1&query=extrusao",
-                headers=self.trusted_headers(server),
-            )
+            log_capture = StringIO()
+            with redirect_stderr(log_capture):
+                status, body = self.request(
+                    server,
+                    "GET",
+                    f"{native_host.PROFILE_CONTENT_CONTEXT_PATH}?spaceId=space-professional-1&query=extrusao",
+                    headers=self.trusted_headers(server),
+                )
+            self.assertNotIn("extrusao", log_capture.getvalue())
+            self.assertIn("[query redacted]", log_capture.getvalue())
             self.assertEqual(status, 200)
             self.assertEqual(seen, [("space-professional-1", "extrusao")])
             payload = json.loads(body.decode("utf-8"))
