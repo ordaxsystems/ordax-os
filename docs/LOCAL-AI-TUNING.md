@@ -67,7 +67,8 @@ engineering captures evidence used to evaluate later tuning.
 
 ## 2. Steady-state benchmark
 
-With the pinned Local AI backend already running on loopback:
+With the pinned Local AI backend and its Native Host already running on
+loopback (the benchmark defaults to the authenticated product-facing gateway):
 
 ```bash
 python tools/local-ai-benchmark/benchmark.py \
@@ -77,11 +78,23 @@ python tools/local-ai-benchmark/benchmark.py \
   --output local-ai-benchmark.json
 ```
 
-The benchmark accepts only literal IPv4 loopback HTTP with an explicit port. It
-discovers exactly one active model through `/v1/models`, fails closed on model
-identity drift, performs one unreported warmup, and then measures bounded samples
-through `/v1/chat/completions` — the same OpenAI-compatible inference path used by
-`ordax.local-ai/1`. Each request binds the discovered canonical model ID.
+The benchmark accepts only literal IPv4 loopback HTTP with an explicit port.
+Its canonical default is
+`http://127.0.0.1:8765/__ordax/native/local-ai` (the Native Host gateway).
+The gateway attaches the ephemeral backend bearer credential; the benchmark
+does not read, print or persist the secret. The raw `127.0.0.1:17865` engine
+port is reserved for explicit **unprotected engineering runs**; a Stable/MVP
+backend secured with `LLAMA_ARG_API_KEY_FILE` must reject unauthenticated
+requests on that port. No automatic retry or fallback from Native Host to
+the raw listener is permitted.
+
+The tool discovers exactly one active model through `/v1/models`, fails
+closed on model identity drift, performs one unreported warmup, and measures
+bounded samples through `/v1/chat/completions` using precisely the schema
+accepted by the Native bridge (model, user messages, token cap, stream=false;
+no tools, stream or arbitrary sampling fields). Each request binds the
+discovered canonical model ID. `tools/local-ai-baseline/report.py` inherits
+the benchmark's default endpoint instead of maintaining a second URL.
 
 The result records engine/model identity, API path, measured run count, token
 budget, per-run wall latency, `usage.completion_tokens`, wall-clock tokens/second,
