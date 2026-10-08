@@ -167,7 +167,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('headers?.get?.("apikey")', helper)
         self.assertIn(
-            'import { authorizeAccountTransport } from "../_shared/account_transport_admission.mjs"',
+            'import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs"',
             self.inner,
         )
         self.assertIn("verifyNativeSession: async () => {", self.inner)
