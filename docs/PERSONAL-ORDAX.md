@@ -340,3 +340,32 @@ O teste é requisito de regressão de
 `.github/workflows/application-action-capability-foundation.yml`. O
 passe na CI não altera o estado `PUBLIC RUNTIME DISABLED` nem substitui o
 gate físico Stable/MVP ou a revisão de segurança de distribuição.
+
+
+### Revogação monotônica de sugestões transientes (A → B → A)
+
+A composição Native usa `contextGeneration` **somente como fence efêmero**
+das sugestões que saem do modelo. Eventos do owner canônico de identidade,
+Space ou catálogo de Projects incrementam a geração. Não há novo SSOT de
+identidade, sessão, autorização, Project ou Memory.
+
+Todas as sugestões de ações Native, Application Actions e recuperação de Work
+capturam essa geração antes da inferência e conferem novamente após o retorno.
+Também conferem ao aceitar uma sugestão emitida anteriormente. Uma transição
+rápida A → B → A **não** permite que uma sugestão antiga ressuscite, mesmo
+que o owner e a revisão textual do Work sejam idênticos no estado final.
+
+Preparações de Application Actions continuam limitadas ao Work original e são
+revogadas quando a geração muda; sua consulta resolve a situação atual antes
+de retornar dados. O contrato é deliberadamente conservador: até eventos de
+Project não relacionados podem exigir solicitar novamente a sugestão. Isso
+não gera aprovações, grants, nem efeitos; não persiste o fence e a instância
+descarta suas subscriptions no `dispose()`.
+
+Evidência automatizada:
+`tests/test_application_action_preparation_composition.mjs`,
+`tests/test_personal_ordax_native_composition.mjs` e
+`tests/test_personal_work_semantic_recovery.mjs`. A CI canônica de
+Application Action executa os três para evitar regressão. O provedor real de
+Application Actions **permanece unavailable** até alteração controlada do
+contrato e auditoria do adapter pelo owner do aplicativo.
