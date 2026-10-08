@@ -11,8 +11,14 @@ import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lif
 // One presentation for the existing Account-owned Spaces catalog and selection.
 // Selecting a Space is navigation context, never a permission grant.
 export function deriveSpaceSwitcherView(identity, catalog, selection, activation = null) {
-  const visibleSpaces = identity.state === "signed-in" && catalog.state === "ready"
-    ? catalog.spaces : [];
+  // Native selection carries the authenticated subject binding. If identity
+  // changes before a catalog reset arrives, never reveal the old subject's list.
+  const selectionAuthorized = selection === null || (
+    selection.state !== "unavailable" && selection.subjectId === identity.subjectId
+  );
+  const visibleSpaces = (
+    identity.state === "signed-in" && catalog.state === "ready" && selectionAuthorized
+  ) ? catalog.spaces : [];
   const active = (
     identity.state === "signed-in"
     && selection?.state === "selected"
@@ -144,7 +150,11 @@ export function mountSpaceSwitcherControls(
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.loading")));
     } else if (error || catalog.state === "error") {
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.error")));
-    } else if (catalog.state !== "ready") {
+    } else if (
+      catalog.state !== "ready"
+      || selected?.state === "unavailable"
+      || (selected !== null && selected.subjectId !== identity.subjectId)
+    ) {
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.unavailable.detail")));
     } else if (spacesVisible.length === 0) {
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.empty")));

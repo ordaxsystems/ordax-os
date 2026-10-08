@@ -616,6 +616,15 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     pickerHost.querySelector('[data-space-switcher-select="picker-space"]').click();
     result.spaceSwitcherRetrySucceeds = pickerSelection.state === 'selected'
       && pickerHost.querySelector('[data-space-switcher-toggle]')?.getAttribute('aria-expanded') === 'false';
+    // Simulate a new authenticated subject arriving before the old Space
+    // catalog has been invalidated; no foreign names or actions may appear.
+    pickerSession.subjectId = 'second-picker-subject';
+    pickerHost.querySelector('[data-space-switcher-toggle]').click();
+    result.spaceSwitcherSubjectMismatchFailsClosed =
+      pickerHost.querySelectorAll('[data-space-switcher-select]').length === 0
+      && !pickerHost.querySelector('.ordax-space-switcher-trigger-label')
+        ?.textContent?.includes('Pizzaria teste')
+      && pickerHost.querySelector('#ordax-space-switcher-menu')?.hidden === false;
     pickerControls.destroy();
     result.spaceSwitcherFixtureCleaned = pickerHost.querySelector('[data-space-switcher-toggle]') === null;
     pickerHost.remove();
@@ -955,7 +964,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.systemOverviewRestored = restoredSystemSlot?.dataset.systemActiveSection === 'overview';
 
     const required = [
-      'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'spaceSwitcherFailureKeepsOptions', 'spaceSwitcherRetrySucceeds', 'spaceSwitcherFixtureCleaned', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
+      'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'spaceSwitcherFailureKeepsOptions', 'spaceSwitcherRetrySucceeds', 'spaceSwitcherSubjectMismatchFailsClosed', 'spaceSwitcherFixtureCleaned', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
