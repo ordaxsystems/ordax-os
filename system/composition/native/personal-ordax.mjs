@@ -457,7 +457,7 @@ export function createNativePersonalOrdaxComposition({
       const after = runtime.getSnapshot();
       if (disposed || contextGeneration !== generation
         || ownerKeyFromSnapshot(after) !== ownerKey) {
-        throw new Error("Personal OrdaX Application Action owner or context changed during planning");
+        throw new Error("Personal OrdaX Application Action owner changed or context changed during planning");
       }
       const currentWork = currentProposalWork(workItemId);
       if (workRevision(currentWork) !== revision
@@ -549,7 +549,7 @@ export function createNativePersonalOrdaxComposition({
       const after = runtime.getSnapshot();
       if (disposed || contextGeneration !== generation
         || ownerKeyFromSnapshot(after) !== ownerKey) {
-        throw new Error("Personal OrdaX proposal owner or context changed while planning");
+        throw new Error("Personal OrdaX proposal owner changed or context changed while planning");
       }
       const currentWork = currentProposalWork(workItemId);
       if (workRevision(currentWork) !== revision) {
@@ -599,7 +599,7 @@ export function createNativePersonalOrdaxComposition({
       const after = runtime.getSnapshot();
       if (disposed || contextGeneration !== generation
         || ownerKeyFromSnapshot(after) !== ownerKey) {
-        throw new Error("Personal OrdaX Work recovery owner or context changed while matching");
+        throw new Error("Personal OrdaX Work recovery owner changed or context changed while matching");
       }
       if (suggestion === null) return null;
       const work = recoverableWorks(after).find(
