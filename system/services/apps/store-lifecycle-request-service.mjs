@@ -194,6 +194,11 @@ export function createAppLifecycleRequestService({
           ? latestProjection.entries.find((value) => value.appId === request.appId)
           : null;
         if (!currentEntry || !operationAllowed(currentEntry, request.operation)) return false;
+        // The signed plan identifies a candidate, not the previously installed
+        // slot. A different slot/version must never inherit this request even
+        // when the same candidate remains available. Compare the exact fields
+        // provided by the canonical, already validated projection schema.
+        if (!Object.keys(entry).every((key) => currentEntry[key] === entry[key])) return false;
 
         const latestCatalog = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
         if (latestCatalog.state !== "ready") return false;
