@@ -30,6 +30,23 @@ The assembly workflow is:
 .github/workflows/canonical-v4-signing-request.yml
 ```
 
+## Proteção contra identidade anterior após renomeação
+
+O workflow de montagem compara a identidade real `GITHUB_REPOSITORY`,
+fornecida pelo GitHub Actions, com o proprietário canônico já usado pelo
+validador `tools/release-operator/validate_canonical_v4_signing_request.py`.
+Se forem diferentes, o seletor retorna
+`blocked-execution-repository-identity-mismatch` e `active=false`.
+Se a identidade de execução estiver ausente, ele falha fechado.
+**Nenhum artefato deve ser montado** a partir do request antigo por
+redirecionamento de URL ou pelo fato de o ID físico do repositório ser o mesmo.
+
+A correção de identidade e o arquivamento da solicitação v4 pré-rename são
+feitos em suas PRs canônicas de migração. Esta barreira é deliberadamente
+independente da configuração de novas releases: não muda contratos de
+propriedade, não gera request substituto, não reescreve provas históricas
+e não concede autoridade de assinatura, publicação ou gravação física.
+
 ## Emitir um novo pedido com verificações do GitHub
 
 Após congelar um SHA na main canônica, executar manualmente os workflows

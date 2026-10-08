@@ -11,6 +11,7 @@ on:
       - 'tools/release-operator/select_active_signing_request.py'
       - 'tests/test_canonical_v4_signing_request_selection.py'
       - 'tests/test_build_canonical_v4_request.py'
+      - 'tests/test_canonical_v4_execution_owner_guard.py'
       - 'tools/release-operator/**'
       - 'tests/test_canonical_v4_signing_request.py'
   pull_request:
@@ -22,6 +23,7 @@ on:
       - 'tools/release-operator/**'
       - 'tests/test_canonical_v4_signing_request*.py'
       - 'tests/test_build_canonical_v4_request.py'
+      - 'tests/test_canonical_v4_execution_owner_guard.py'
   workflow_dispatch:
 
 permissions:
@@ -46,6 +48,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -v -s tests -p 'test_canonical_v4_signing_request_selection.py'
           python3 -m unittest discover -v -s tests -p 'test_build_canonical_v4_request.py'
+          python3 -m unittest discover -v -s tests -p 'test_canonical_v4_execution_owner_guard.py'
       - name: Select current request without confusing historical provenance
         id: select
         run: |
