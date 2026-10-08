@@ -85,6 +85,7 @@ export const ACCOUNT_SOURCE_MESSAGES = Object.freeze({
   "account.spaces.switcher.current": "Espaço em uso: {space}",
   "account.spaces.switcher.noSelection": "Nenhum Space selecionado",
   "account.spaces.switcher.manage": "Gerenciar espaços…",
+  "account.spaces.switcher.nativeOnly": "A troca rápida de Space está disponível no OrdaX Native. Abra Conta para consultar seus Spaces.",
 
   "account.profiles.eyebrow": "Ambiente profissional",
   "account.profiles.title": "Perfis disponíveis",
@@ -299,6 +300,7 @@ export const ACCOUNT_ENGLISH_MESSAGES = Object.freeze({
   "account.spaces.switcher.current": "Current Space: {space}",
   "account.spaces.switcher.noSelection": "No Space selected",
   "account.spaces.switcher.manage": "Manage Spaces…",
+  "account.spaces.switcher.nativeOnly": "Quick Space switching is available in OrdaX Native. Open Account to review your Spaces.",
 
   "account.profiles.eyebrow": "Professional environment",
   "account.profiles.title": "Available Profiles",
