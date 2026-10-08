@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	creatorcore "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/core"
+	creatorcore "github.com/ordaxsystems/ordax-os/tools/creator/core"
 )
 
 type PortablePhysicalArtifactSource struct {

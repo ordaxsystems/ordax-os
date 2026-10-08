@@ -28,10 +28,10 @@ const (
 	ManifestSchemaPortable = "prototype-ordax.creator-physical-manifest/3"
 	TrustSchema         = "prototype-ordax.release-trust/1"
 	Purpose             = "creator-portable-physical-windows-amd64"
-	SourceRepository    = "ordaxsystems/prototipo-ordax-os"
+	SourceRepository    = "ordaxsystems/ordax-os"
 	Recipe              = "creator/physical/portable-windows/2"
-	DefaultEnvelopeURL  = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-physical/creator-physical-envelope.json"
-	bundleReleasePrefix = "/ordaxsystems/prototipo-ordax-os/releases/download/creator-physical/"
+	DefaultEnvelopeURL  = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-physical/creator-physical-envelope.json"
+	bundleReleasePrefix = "/ordaxsystems/ordax-os/releases/download/creator-physical/"
 
 	maxTrustBytes       = 16 << 10
 	maxEnvelopeBytes    = 1 << 20

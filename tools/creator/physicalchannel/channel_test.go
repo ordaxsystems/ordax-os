@@ -53,7 +53,7 @@ func validManifest() Manifest {
 		SourceCommit:      "0123456789abcdef0123456789abcdef01234567",
 		CreatedFromRecipe: Recipe,
 		Bundle: Bundle{
-			URL:    "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-physical/ordax-creator-physical-windows-amd64.zip",
+			URL:    "https://github.com/ordaxsystems/ordax-os/releases/download/creator-physical/ordax-creator-physical-windows-amd64.zip",
 			SHA256: strings.Repeat("a", 64),
 			Size:   1234,
 		},
@@ -75,7 +75,7 @@ func validPortablePayload() PortablePayloadManifest {
 	for i, id := range ids {
 		artifacts = append(artifacts, PortablePayloadArtifactBinding{
 			ID: id,
-			URL: "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/ordax-stable-v4-0123456789abcdef0123456789abcdef01234567/" + id,
+			URL: "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-0123456789abcdef0123456789abcdef01234567/" + id,
 			SHA256: strings.Repeat(fmt.Sprintf("%x", (i%15)+1), 64),
 			SizeBytes: int64(i + 1),
 		})

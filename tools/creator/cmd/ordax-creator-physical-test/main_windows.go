@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	creatorcore "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/core"
-	windowsadapter "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/host/windows"
+	creatorcore "github.com/ordaxsystems/ordax-os/tools/creator/core"
+	windowsadapter "github.com/ordaxsystems/ordax-os/tools/creator/host/windows"
 )
 
 var (

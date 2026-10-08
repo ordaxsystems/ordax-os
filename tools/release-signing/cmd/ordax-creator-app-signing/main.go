@@ -23,10 +23,10 @@ const (
 	manifestSchema = "prototype-ordax.creator-app-manifest/1"
 	trustSchema    = "prototype-ordax.release-trust/1"
 	purpose        = "creator-app-windows-amd64"
-	repository     = "ordaxsystems/prototipo-ordax-os"
+	repository     = "ordaxsystems/ordax-os"
 	recipe         = "creator/app/windows/1"
 	artifactName   = "OrdaX-Creator-App.exe"
-	artifactURL    = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-app/OrdaX-Creator-App.exe"
+	artifactURL    = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-app/OrdaX-Creator-App.exe"
 	maxDocument    = 256 << 10
 	maxPrivateKey  = 16 << 10
 	maxTrust       = 16 << 10

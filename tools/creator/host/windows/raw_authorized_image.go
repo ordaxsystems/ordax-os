@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	creatorcore "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/core"
+	creatorcore "github.com/ordaxsystems/ordax-os/tools/creator/core"
 )
 
 // openAuthorizedRawImageForApply preserves the legacy whole-image verifier for
