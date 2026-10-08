@@ -25,6 +25,7 @@ import { createPersonalOrdaxActionExecutor, PersonalActionExecutionError } from 
 import { createPersonalOrdaxActionGateway } from "../../services/personal-ordax/action-gateway.mjs";
 import { createPersonalApprovalConsent } from "../../services/personal-ordax/approval-consent.mjs";
 import { createPersonalActionProposalPlanner } from "../../services/personal-ordax/proposal-planner.mjs";
+import { createApplicationActionProposalPlanner } from "../../services/personal-ordax/application-action-proposal-planner.mjs";
 import { createPersonalWorkRecoveryPlanner } from "../../services/personal-ordax/work-recovery.mjs";
 import { createPersonalOrdaxRuntime } from "../../services/personal-ordax/runtime.mjs";
 
@@ -38,6 +39,7 @@ export function createNativePersonalOrdaxComposition({
   adapterResolver = () => null,
   actionCatalog = null,
   applicationActionCapabilityRegistry = null,
+  applicationSemanticRouter = null,
   resolveVerifiedApplicationSemantics = null,
   verifiedComponentPackageSource = null,
   verifiedComponentFetch = null,
@@ -133,12 +135,22 @@ export function createNativePersonalOrdaxComposition({
         intelligencePort: intelligence,
         actionCatalog: catalog,
       });
+  const applicationActionProposalPlanner = (
+    applicationActionCapabilityRegistry === null
+    || applicationSemanticRouter === null
+    || intelligence === null
+  ) ? null : createApplicationActionProposalPlanner({
+    intelligencePort: intelligence,
+    capabilityRegistryPort: applicationActionCapabilityRegistry,
+    semanticRouterPort: applicationSemanticRouter,
+  });
   const workRecoveryPlanner = intelligence === null
     ? null
     : createPersonalWorkRecoveryPlanner({
         intelligencePort: intelligence,
       });
   const proposalBindings = new WeakMap();
+  const applicationActionProposalBindings = new WeakMap();
   const recoveryBindings = new WeakMap();
   const applicationActionPreparationBindings = new Map();
 
@@ -272,6 +284,26 @@ export function createNativePersonalOrdaxComposition({
     return work;
   };
 
+  const prepareApplicationActionForWork = (workItemId, proposalValue) => {
+    if (applicationActionPreparations === null) {
+      throw new Error("Personal OrdaX Application Action preparation is unavailable");
+    }
+    reconcileApplicationActionPreparations();
+    const work = currentProposalWork(workItemId);
+    if (!applicationActionWorkContextIsCurrent(work)) {
+      throw new Error("Personal OrdaX Application Action Work scope is no longer current");
+    }
+    const preparation = applicationActionPreparations.prepare(work.id, proposalValue);
+    applicationActionPreparationBindings.set(
+      preparation.resourceRef,
+      Object.freeze({
+        ownerKey: ownerKeyFromSnapshot(runtime.getSnapshot()),
+        workRevision: workRevision(work),
+      }),
+    );
+    return preparation;
+  };
+
   const reconcileApprovedAuthority = () => {
     let changed = false;
     for (const approval of runtime.getSnapshot().approvals) {
@@ -389,20 +421,54 @@ export function createNativePersonalOrdaxComposition({
       return applicationActionCapabilityRegistry.propose(appId, actionId, argumentsValue);
     },
     prepareApplicationAction(workItemId, proposalValue) {
-      if (applicationActionPreparations === null) {
-        throw new Error("Personal OrdaX Application Action preparation is unavailable");
+      return prepareApplicationActionForWork(workItemId, proposalValue);
+    },
+    async suggestApplicationActionForWork(workItemId) {
+      if (applicationActionProposalPlanner === null) {
+        throw new Error("Personal OrdaX Application Action model planner is unavailable");
       }
-      reconcileApplicationActionPreparations();
+      const before = runtime.getSnapshot();
+      const ownerKey = ownerKeyFromSnapshot(before);
       const work = currentProposalWork(workItemId);
-      const preparation = applicationActionPreparations.prepare(work.id, proposalValue);
-      applicationActionPreparationBindings.set(
-        preparation.resourceRef,
-        Object.freeze({
-          ownerKey: ownerKeyFromSnapshot(runtime.getSnapshot()),
-          workRevision: workRevision(work),
-        }),
-      );
-      return preparation;
+      if (!applicationActionWorkContextIsCurrent(work)) {
+        throw new Error("Personal OrdaX Application Action Work scope is no longer current");
+      }
+      const revision = workRevision(work);
+      const proposal = await applicationActionProposalPlanner.propose(work);
+      const after = runtime.getSnapshot();
+      if (ownerKeyFromSnapshot(after) !== ownerKey) {
+        throw new Error("Personal OrdaX Application Action owner changed during planning");
+      }
+      const currentWork = currentProposalWork(workItemId);
+      if (workRevision(currentWork) !== revision
+        || !applicationActionWorkContextIsCurrent(currentWork)) {
+        throw new Error("Personal OrdaX Application Action Work scope changed during planning");
+      }
+      if (proposal !== null) {
+        applicationActionProposalBindings.set(proposal, Object.freeze({
+          ownerKey,
+          workRevision: revision,
+        }));
+      }
+      return proposal;
+    },
+    prepareSuggestedApplicationAction(workItemId, proposalValue) {
+      if (!proposalValue || typeof proposalValue !== "object") {
+        throw new TypeError("Personal OrdaX Application Action suggestion must be an issued proposal");
+      }
+      const binding = applicationActionProposalBindings.get(proposalValue);
+      if (!binding) {
+        throw new Error("Personal OrdaX Application Action suggestion is not current or issued");
+      }
+      const work = currentProposalWork(workItemId);
+      if (ownerKeyFromSnapshot(runtime.getSnapshot()) !== binding.ownerKey
+        || workRevision(work) !== binding.workRevision
+        || !applicationActionWorkContextIsCurrent(work)) {
+        throw new Error("Personal OrdaX Application Action suggestion scope has changed");
+      }
+      const prepared = prepareApplicationActionForWork(work.id, proposalValue);
+      applicationActionProposalBindings.delete(proposalValue);
+      return prepared;
     },
     resolveApplicationActionPreparation(resourceRef) {
       if (applicationActionPreparations === null) return null;

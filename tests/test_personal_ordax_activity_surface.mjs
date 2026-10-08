@@ -115,6 +115,14 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.match(source, /dataset\.personalProposalAction/);
   assert.match(source, /personalOrdax\.requestProposedAction\(proposalState\.value\)/);
   assert.match(source, /proposal\.authority/);
+  assert.match(source, /dataset\.personalApplicationProposalSuggest/);
+  assert.match(source, /personalOrdax\.suggestApplicationActionForWork\(workItemId\)/);
+  assert.match(source, /personalOrdax\.prepareSuggestedApplicationAction\(proposalWorkId, proposed\.value\)/);
+  assert.match(source, /personalOrdax\.listApplicationActionPreparations\(item\.id\)/);
+  assert.match(source, /personalOrdax\.revokeApplicationActionPreparation\(revokePreparation\)/);
+  assert.match(source, /activity\.applicationProposal\.notAuthorized/);
+  assert.doesNotMatch(source, /personalOrdax\.executeApplicationAction\(/);
+
   assert.equal(source.includes("file-space:"), false);
   assert.match(source, /projectPersonalActivitySnapshot\(personalOrdax\.getSnapshot\(\)\)/);
   assert.doesNotMatch(
