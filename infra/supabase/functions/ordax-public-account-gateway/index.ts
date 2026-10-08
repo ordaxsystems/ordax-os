@@ -7,7 +7,7 @@ import {
 import { authRateLimitBucket } from "../_shared/auth_rate_limit.mjs";
 import { verifyTrustedPublicRequestContext } from "./public_request_context.mjs";
 import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
-import { readBoundedBody } from "./bounded_body.mjs";
+import { readBoundedBody } from "../_shared/bounded_body.mjs";
 
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
