@@ -528,6 +528,17 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.spaceSwitcherWebFailsClosed = root.querySelectorAll('[data-space-switcher-select]').length === 0;
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     result.spaceSwitcherEscapeCloses = spaceTrigger?.getAttribute('aria-expanded') === 'false';
+    spaceTrigger?.focus();
+    spaceTrigger?.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowDown', bubbles: true, cancelable: true,
+    }));
+    const manageSpaces = root.querySelector('[data-space-switcher-manage]');
+    result.spaceSwitcherKeyboardOpens = spaceTrigger?.getAttribute('aria-expanded') === 'true';
+    result.spaceSwitcherKeyboardFocusesAction = Boolean(manageSpaces)
+      && document.activeElement === manageSpaces;
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    result.spaceSwitcherKeyboardRestoresFocus = spaceTrigger?.getAttribute('aria-expanded') === 'false'
+      && document.activeElement === spaceTrigger;
     const bootScreen = document.querySelector('#ordax-boot-screen');
     result.bootScreenCompleted = bootScreen?.hidden === true
       && bootScreen?.dataset.state === 'ready';
@@ -863,7 +874,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.systemOverviewRestored = restoredSystemSlot?.dataset.systemActiveSection === 'overview';
 
     const required = [
-      'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
+      'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
