@@ -6,8 +6,8 @@ import {
   verifyTrustedPublicRequestContext,
 } from "../infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs";
 
-const ORIGIN = "https://ordax-os-public.vercel.app";
-const HOST = "ordax-os-public.vercel.app";
+const ORIGIN = "https://ordax.com.br";
+const HOST = "ordax.com.br";
 
 function request(method = "GET", headers = {}) {
   return new Request(`${ORIGIN}/auth/session`, {
@@ -57,7 +57,7 @@ test("state-changing request without same-origin Fetch Metadata fails closed", (
 test("foreign and sibling origins are rejected", () => {
   for (const origin of [
     "https://evil.example",
-    "https://preview.ordax-os-public.vercel.app",
+    "https://preview.ordax.com.br",
     "https://ordax-os-public-git-branch-jogo-brasils-projects.vercel.app",
   ]) {
     const result = verifyTrustedPublicRequestContext(request("POST", {
