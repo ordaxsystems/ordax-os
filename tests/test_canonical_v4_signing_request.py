@@ -25,7 +25,7 @@ def digest(payload: bytes) -> str:
 
 class CanonicalV4SigningRequestTests(unittest.TestCase):
     def _request(self):
-        prefix = f"https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/{TAG}/"
+        prefix = f"https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/{TAG}/"
         return {
             "$schema": module.REQUEST_SCHEMA,
             "status": "pending-public-assembly",
@@ -282,9 +282,14 @@ class CanonicalV4SigningRequestTests(unittest.TestCase):
             with self.assertRaises(module.ValidationError):
                 module._load_json(path, "duplicate fixture")
 
-    def test_committed_request_binds_exact_non_authorizing_rc(self):
+    def test_committed_request_is_historical_and_cannot_authorize_new_owner(self):
         request = json.loads(REQUEST_PATH.read_text(encoding="utf-8"))
-        module.validate_request_document(request)
+        self.assertEqual(request["source_repository"], "washingtonmsdj/prototipo-ordax-os")
+        # Preserve the exact historical document but never let the current
+        # operator sign/publish a prior owner's request as if it were new.
+        self.assertNotEqual(request["source_repository"], module.REPOSITORY)
+        with self.assertRaisesRegex(module.ValidationError, "signing request source repository is invalid"):
+            module.validate_request_document(request)
         self.assertEqual(request["source_commit"], SOURCE)
         self.assertEqual(request["operator_artifacts"]["system"]["artifact_id"], 11265035859)
         self.assertEqual(request["operator_artifacts"]["surface"]["artifact_id"], 11264791507)

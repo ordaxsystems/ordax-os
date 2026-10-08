@@ -28,7 +28,7 @@ def verified(sequence: int = 7, digest: str | None = None) -> dict:
         "sequence": sequence,
         "catalogSha256": digest or (f"{sequence:x}"[-1] * 64),
         "source": {
-            "repository": "washingtonmsdj/ordax-apps",
+            "repository": "ordaxsystems/ordax-apps",
             "commit": COMMIT,
         },
         "trust": {

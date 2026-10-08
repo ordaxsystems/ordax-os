@@ -27,9 +27,9 @@ const (
 	portablePayloadSchema = "prototype-ordax.creator-portable-payload/1"
 	trustSchema      = "prototype-ordax.release-trust/1"
 	purpose          = "creator-portable-physical-windows-amd64"
-	repository       = "washingtonmsdj/prototipo-ordax-os"
+	repository       = "ordaxsystems/prototipo-ordax-os"
 	recipe           = "creator/physical/portable-windows/2"
-	bundlePathPrefix = "/washingtonmsdj/prototipo-ordax-os/releases/download/creator-physical/"
+	bundlePathPrefix = "/ordaxsystems/prototipo-ordax-os/releases/download/creator-physical/"
 	maxDocument      = 512 << 10
 	maxPrivateKey    = 16 << 10
 	maxTrust         = 16 << 10
@@ -154,7 +154,7 @@ func validatePortablePayload(payload portablePayloadManifest) error {
 			parsed.User != nil ||
 			parsed.Fragment != "" ||
 			parsed.RawQuery != "" ||
-			!strings.HasPrefix(parsed.Path, "/washingtonmsdj/prototipo-ordax-os/releases/download/") {
+			!strings.HasPrefix(parsed.Path, "/ordaxsystems/prototipo-ordax-os/releases/download/") {
 			return fmt.Errorf("Portable payload artifact %q URL is outside canonical release namespace", artifact.ID)
 		}
 	}

@@ -383,7 +383,7 @@ class BaseUpdateContractTests(unittest.TestCase):
         self.assertEqual(channel["authority"], "minimal-bootstrap-sha256")
         self.assertEqual(
             channel["expected_sha256"],
-            "ea1f3bae328a1c1e7aca1474d4930f84b2dd6da1702dcc11b08c01ed63a6ee5b",
+            "3c3e78d65aee0b120071e6bcee776c83de9e5ea1d8bd1a936d61d09499141741",
         )
         self.assertEqual(channel["mode"], "0644")
         self.assertTrue(channel["absent_channel_enrollment"])

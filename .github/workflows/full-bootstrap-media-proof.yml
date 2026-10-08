@@ -116,22 +116,7 @@ jobs:
           test -s out/release-acquisition/ordax-release-agent
 
       - name: Restore canonical release-agent seed for bootstrap assembly
-        run: |
-          set -euo pipefail
-          seed='550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66'
-          url='https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/ordax-release-agent-550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66/ordax-release-agent'
-          tmp="$(mktemp)"
-          curl --fail --location --silent --show-error "$url" --output "$tmp"
-          actual="$(sha256sum "$tmp" | awk '{print $1}')"
-          if [ "$actual" != "$seed" ]; then
-            echo "canonical release-agent seed hash mismatch: expected=$seed actual=$actual" >&2
-            exit 1
-          fi
-          install -m 0755 "$tmp" bootstrap/release-acquisition/ordax-release-agent
-          rm -f "$tmp"
-          test "$(sha256sum bootstrap/release-acquisition/ordax-release-agent | awk '{print $1}')" = "$seed"
-          echo "RELEASE_AGENT_BOOTSTRAP_SEED_SHA256=$seed"
-          echo "RELEASE_AGENT_REFRESH_TARGET_REMAINS_SEPARATE=YES"
+        run: bash bootstrap/release-acquisition/restore_pinned_seed.sh
 
       - name: Prove initramfs ext4 online growth on disposable twin media
         run: |

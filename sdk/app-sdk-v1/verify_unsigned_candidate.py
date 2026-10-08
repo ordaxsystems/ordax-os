@@ -23,7 +23,7 @@ COMPATIBILITY_SCHEMA = "ordax.component-compatibility/1"
 POLICY_SCHEMA = "prototype-ordax.runtime-component-package-policy/1"
 TRUST_DOMAIN = "runtime-components"
 KEY_ID = "ordax-runtime-components-v1"
-EXPECTED_SOURCE_REPOSITORY = "washingtonmsdj/ordax-apps"
+EXPECTED_SOURCE_REPOSITORY = "ordaxsystems/ordax-apps"
 PACKAGE_POLICY = Path("docs/contracts/runtime-component-package.json")
 
 SHA40 = re.compile(r"^[0-9a-f]{40}$")

@@ -1,3 +1,3 @@
-module github.com/washingtonmsdj/prototipo-ordax-os/tools/creator
+module github.com/ordaxsystems/prototipo-ordax-os/tools/creator
 
 go 1.27.0

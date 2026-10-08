@@ -24,7 +24,7 @@ function firstPartyApp() {
       failureDomain: "app",
       restartScope: "component",
       healthMode: "runtime",
-      owner: "washingtonmsdj/ordax-apps",
+      owner: "ordaxsystems/ordax-apps",
       dependencies: [],
     },
   };

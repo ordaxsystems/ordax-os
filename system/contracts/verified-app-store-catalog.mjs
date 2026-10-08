@@ -9,7 +9,7 @@ import {
 export const VERIFIED_APP_STORE_CATALOG_SCHEMA = "ordax.verified-app-store-catalog/1";
 export const VERIFIED_APP_STORE_CATALOG_PORT_SCHEMA = "ordax.verified-app-store-catalog-port/1";
 
-export const APP_STORE_CATALOG_SOURCE_REPOSITORY = "washingtonmsdj/ordax-apps";
+export const APP_STORE_CATALOG_SOURCE_REPOSITORY = "ordaxsystems/ordax-apps";
 export const APP_STORE_CATALOG_TRUST_DOMAIN = "runtime-components";
 export const APP_STORE_CATALOG_KEY_ID = "ordax-runtime-components-v1";
 

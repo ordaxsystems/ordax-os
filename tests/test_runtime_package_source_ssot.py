@@ -14,7 +14,7 @@ class RuntimePackageSourceSsotTests(unittest.TestCase):
         expected = policy["canonical_package_source_repository_by_component"]
         source = GENERATED.read_text(encoding="utf-8")
         found = {
-            component_id: "washingtonmsdj/ordax-apps"
+            component_id: "ordaxsystems/ordax-apps"
             for component_id in re.findall(
                 r'^\t"([a-z][a-z0-9-]*)": appsSourceRepository,$',
                 source,

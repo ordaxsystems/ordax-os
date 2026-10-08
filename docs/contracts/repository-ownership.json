@@ -3,7 +3,7 @@
   "status": "canonical",
   "repositories": {
     "platform": {
-      "repo": "washingtonmsdj/prototipo-ordax-os",
+      "repo": "ordaxsystems/prototipo-ordax-os",
       "owns": [
         "base",
         "boot",
@@ -27,7 +27,7 @@
       ]
     },
     "apps": {
-      "repo": "washingtonmsdj/ordax-apps",
+      "repo": "ordaxsystems/ordax-apps",
       "owns": [
         "first-party-app-source",
         "studio-portable-source",
@@ -45,7 +45,7 @@
       ]
     },
     "runtime": {
-      "repo": "washingtonmsdj/ordax-runtime",
+      "repo": "ordaxsystems/ordax-runtime",
       "owns": [
         "windows-ordax-runtime",
         "device-host",
@@ -63,7 +63,7 @@
       ]
     },
     "control_plane": {
-      "repo": "washingtonmsdj/ordax-control-plane",
+      "repo": "ordaxsystems/ordax-control-plane",
       "owns": [
         "product-mcp",
         "cloudflare-control-plane",
@@ -102,5 +102,34 @@
     "typed_auditable_capabilities": true,
     "public_versioned_cross_repo_contracts": true,
     "migration_residue_may_not_become_second_ssot": true
+  },
+  "namespace_migration": {
+    "status": "complete",
+    "current_namespace": "ordaxsystems",
+    "target_namespace": "ordaxsystems",
+    "repository_name_changes_during_transfer": false,
+    "redirect_dependency_allowed": false,
+    "mirror_repository_allowed": false,
+    "dual_authority_allowed": false,
+    "provenance_rewrite_allowed": false,
+    "canonical_targets": {
+      "platform": "ordaxsystems/prototipo-ordax-os",
+      "apps": "ordaxsystems/ordax-apps",
+      "runtime": "ordaxsystems/ordax-runtime",
+      "control_plane": "ordaxsystems/ordax-control-plane"
+    },
+    "cutover_order": [
+      "runtime",
+      "apps",
+      "control_plane",
+      "platform"
+    ],
+    "completed_transfers": [
+      "runtime",
+      "apps",
+      "control_plane",
+      "platform"
+    ],
+    "transfer_policy": "transfer-one-repository-then-repoint-and-verify-before-next"
   }
 }
