@@ -103,7 +103,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         migration = self.contract["vercel_migration"]
         self.assertEqual(
             migration["status"],
-            "target-project-provisioned-domain-and-identity-cutover-blocked",
+            "target-static-production-canonical-domain-live-identity-runtime-pending",
         )
         self.assertTrue(migration["target_project_provisioned"])
         self.assertEqual(migration["target_project_id"], "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC")
@@ -122,14 +122,26 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(migration["target_project_production_public_account_routes_available"])
         self.assertEqual(migration["target_canonical_domain"], "ordax.com.br")
         self.assertTrue(migration["target_canonical_domain_attached_to_project"])
-        self.assertFalse(migration["target_canonical_domain_verified"])
+        self.assertTrue(migration["target_canonical_domain_verified"])
         self.assertEqual(migration["target_www_domain"], "www.ordax.com.br")
         self.assertTrue(migration["target_www_domain_attached_to_project"])
-        self.assertFalse(migration["target_www_domain_verified"])
+        self.assertTrue(migration["target_www_domain_verified"])
         self.assertEqual(migration["target_www_domain_redirect_status"], 308)
         self.assertTrue(migration["target_domain_claim_txt_published"])
         self.assertTrue(migration["target_domain_claim_txt_dns_publicly_resolved"])
-        self.assertFalse(migration["target_dns_apex_routing_cutover_verified"])
+        self.assertTrue(migration["target_dns_apex_routing_cutover_verified"])
+        self.assertIsNone(migration["target_domain_claim_pending_reason"])
+        self.assertTrue(migration["target_legacy_verification_txt_removed"])
+        self.assertTrue(migration["target_canonical_domain_https_verified"])
+        self.assertTrue(migration["target_dns_apex_content_matches_new_project"])
+        self.assertTrue(migration["target_www_redirect_https_verified"])
+        self.assertEqual(migration["target_canonical_domain_http_status"], 200)
+        self.assertEqual(migration["target_www_redirect_http_status"], 308)
+        self.assertEqual(migration["target_canonical_domain_account_session_http_status"], 503)
+        self.assertEqual(migration["target_canonical_domain_sync_http_status"], 503)
+        self.assertEqual(migration["target_canonical_domain_unknown_route_http_status"], 404)
+        self.assertFalse(migration["target_legacy_project_dashboard_detachment_verified"])
+        self.assertFalse(migration["target_runtime_oidc_e2e_verified"])
         self.assertFalse(migration["target_runtime_oidc_e2e_verified"])
         self.assertFalse(migration["target_project_environment_variables_present"])
         self.assertEqual(migration["target_account_email"], "ordaxos@gmail.com")
