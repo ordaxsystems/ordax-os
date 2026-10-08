@@ -126,6 +126,40 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertNotIn("LOCAL_PROFILE_DISTRIBUTIONS", web)
         self.assertNotIn("adapters/native/profile-component-inventory.mjs", web)
 
+    def test_bundled_profile_taxonomy_filters_only_real_published_profiles(self):
+        controls = ACCOUNT.read_text(encoding="utf-8")
+        catalog = ACCOUNT_CATALOG.read_text(encoding="utf-8")
+        native = NATIVE.read_text(encoding="utf-8")
+        web = WEB.read_text(encoding="utf-8")
+        profile_catalog = (
+            ROOT / "system/services/profile-packs/catalog.mjs"
+        ).read_text(encoding="utf-8")
+
+        for composition in (native, web):
+            self.assertIn("createProfilePackCatalogFromPacks", composition)
+            self.assertIn("loadBundledProfileTaxonomy", composition)
+            self.assertIn("createProfileTaxonomyView", composition)
+            self.assertIn("profileTaxonomy = null;", composition)
+            self.assertIn("profileTaxonomy,", composition)
+            self.assertIn("preserving ungrouped catalog", composition)
+
+        self.assertIn("assertValidatedProfilePackCatalog(packs)", profile_catalog)
+        self.assertIn('pack.state === "active"', profile_catalog)
+        self.assertIn("category: pack.category", profile_catalog)
+        self.assertIn("apps: pack.apps", profile_catalog)
+        self.assertIn("profileTaxonomy = null", controls)
+        self.assertIn("createProfileTaxonomyView({", controls)
+        self.assertIn("profileCategoryCatalog.get(plan.profile.slug, plan.profile.version)", controls)
+        self.assertIn("if (published === null) return false", controls)
+        self.assertIn("category.ancestorIds.includes(selectedProfileCategory)", controls)
+        self.assertIn("chooser.dataset.accountProfileCategory", controls)
+        self.assertIn('chooser.setAttribute("aria-label"', controls)
+        self.assertIn('chooser.value = selectedProfileCategory ?? ""', controls)
+        self.assertIn('root.addEventListener("change", onChange)', controls)
+        self.assertIn('root.removeEventListener("change", onChange)', controls)
+        self.assertIn('"account.profiles.categories.label": "Filtrar perfis por categoria ou nicho"', catalog)
+        self.assertIn('"account.profiles.categories.label": "Filter Profiles by category or niche"', catalog)
+
     def test_native_profiles_bind_selected_space_to_persistent_activation_state(self):
         ui = (ROOT / "system/surface/ui/account-overview-controls.mjs").read_text(encoding="utf-8")
         native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
