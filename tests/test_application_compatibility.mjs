@@ -254,3 +254,45 @@ test("profile planning requires exact SHA-256 of the manager-inspected bytes", a
     /payload digest is not verified/,
   );
 });
+
+test("runtime descriptors reject mismatched engine families and unknown architectures", () => {
+  const invalid = [
+    { family: "windows", engine: "native-linux" },
+    { family: "linux", engine: "wine" },
+    { family: "linux", engine: "proton" },
+    { architectures: ["unknown"] },
+    { architectures: ["x86_64", "unknown"] },
+  ];
+  for (const override of invalid) {
+    assert.throws(
+      () => defineApplicationCompatibilityRuntime(runtime(override)),
+      /engine and family are incompatible|runtime architectures contains an unsupported value/,
+    );
+    assert.throws(() => createApplicationCompatibilityManager({ runtimes: [runtime(override)] }));
+  }
+
+  for (const descriptor of [
+    runtime({ family: "windows", engine: "wine" }),
+    runtime({ family: "windows", engine: "proton" }),
+    runtime({ family: "windows", engine: "other" }),
+    runtime({ family: "linux", engine: "native-linux" }),
+    runtime({ family: "linux", engine: "other" }),
+  ]) {
+    assert.equal(defineApplicationCompatibilityRuntime(descriptor).family, descriptor.family);
+  }
+});
+
+test("a Linux-native runtime cannot be misrepresented as Windows to satisfy launch planning", () => {
+  assert.throws(
+    () => createApplicationCompatibilityManager({
+      runtimes: [runtime({ family: "windows", engine: "native-linux" })],
+    }),
+    /engine and family are incompatible/,
+  );
+  const manager = createApplicationCompatibilityManager({
+    runtimes: [runtime({ id: "linux-test", family: "linux", engine: "native-linux" })],
+  });
+  const inspection = manager.inspect({ name: "windows.exe", bytes: peFixture() });
+  assert.equal(manager.planLaunch({ inspection }).ready, false);
+  assert.equal(manager.planLaunch({ inspection }).reason, "runtime-unavailable");
+});
