@@ -102,7 +102,12 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertIn("account-provider-cutover-target-mismatch", blockers)
         self.assertIn("account-provider-cutover-incomplete", blockers)
         self.assertIn("destination-account-gateway-deployment", blockers)
-        self.assertIn("destination-sync-export-db-proof", blockers)
+        self.assertEqual(
+            "destination-sync-export-db-proof" in blockers,
+            not preflight.load_json(ROOT, preflight.HARDENING)["postgresql_destination"][
+                "sync_export_db_boundary_proven"
+            ],
+        )
         self.assertIn("destination-account-export-e2e-proof", blockers)
         self.assertIn("destination-sync-runtime-e2e-proof", blockers)
         self.assertTrue(all(not enabled for enabled in controls.values()))
@@ -116,6 +121,10 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             path.write_text(__import__("json").dumps(hardening, indent=2) + "\n", encoding="utf-8")
             blockers, _ = preflight.readiness(root)
             self.assertNotIn("account-provider-cutover-target-mismatch", blockers)
+            self.assertEqual(
+                "destination-sync-export-db-proof" in blockers,
+                not hardening["postgresql_destination"]["sync_export_db_boundary_proven"],
+            )
             for flag in (
                 "account-provider-cutover-incomplete",
                 "destination-account-gateway-deployment",
@@ -124,7 +133,6 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
                 "destination-auth-rate-limit-e2e-proof",
                 "destination-session-revocation-proof",
                 "destination-recovery-e2e-proof",
-                "destination-sync-export-db-proof",
                 "destination-account-export-e2e-proof",
                 "destination-sync-runtime-e2e-proof",
             ):
