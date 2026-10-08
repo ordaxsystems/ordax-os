@@ -535,6 +535,7 @@ async function start() {
       adapterResolver: personalOrdaxFileActions?.adapterResolver ?? (() => null),
       actionCatalog: personalOrdaxActionCatalog,
       applicationActionCapabilityRegistry: appActionCapabilities,
+      applicationSemanticRouter: appSemanticRouter,
       resolveVerifiedApplicationSemantics: async (appId) => {
         const entries = await loadVerifiedFirstPartyApplicationSemantics({
           appIds: [appId],
