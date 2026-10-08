@@ -25,6 +25,7 @@ import { createProfileProvisioningRuntime } from "../../services/profile-packs/p
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
 import { loadBundledProfileTaxonomy } from "../../services/profile-packs/taxonomy-source.mjs";
 import { createProfilePackCatalogFromPacks } from "../../services/profile-packs/catalog.mjs";
+import { createProfileTaxonomyView } from "../../services/profile-packs/taxonomy.mjs";
 import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
@@ -69,6 +70,11 @@ try {
     profileTaxonomy = Object.freeze({
       catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
       taxonomy: await loadBundledProfileTaxonomy({ fetchImpl }),
+    });
+    // Fail closed on unknown categories before the UI can open.
+    createProfileTaxonomyView({
+      catalogPort: profileTaxonomy.catalogPort,
+      taxonomy: profileTaxonomy.taxonomy,
     });
   } catch (error) {
     console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
