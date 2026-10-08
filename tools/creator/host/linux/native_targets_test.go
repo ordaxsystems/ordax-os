@@ -3,6 +3,7 @@ package linuxadapter
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -170,4 +171,55 @@ func TestEnumerateNativeInstallTargetsKeepsKnownReadOnlyDiskIneligible(t *testin
 		}
 	}
 	t.Fatal("known read-only disk was unexpectedly omitted")
+}
+
+func TestEnumerateNativeInstallTargetsNeverOffersMalformedPartitionMarker(t *testing.T) {
+	for _, testCase := range []struct {
+		name string
+		create func(*testing.T, string)
+	}{
+		{
+			name: "unexpected-marker-directory",
+			create: func(t *testing.T, partitionPath string) {
+				t.Helper()
+				if err := os.MkdirAll(partitionPath, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "dangling-marker-symlink",
+			create: func(t *testing.T, partitionPath string) {
+				t.Helper()
+				if runtime.GOOS == "windows" {
+					t.Skip("symlink permissions are not portable on Windows")
+				}
+				if err := os.Symlink("missing-partition-metadata", partitionPath); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := t.TempDir()
+			addDiskFixture(t, root, "sda", "internal-target", "134217728", "512", "0", "0")
+			addDiskFixture(t, root, "sdb", "usb-source", "67108864", "512", "0", "1")
+			writeFixture(t, filepath.Join(root, "sdb1", "partition"), "1")
+			// A partition can have size/WWID fields. It is still not a whole disk.
+			addDiskFixture(t, root, "sda1", "fake-partition", "134217728", "512", "0", "0")
+			testCase.create(t, filepath.Join(root, "sda1", "partition"))
+			targets, err := EnumerateNativeInstallTargets(root, "/dev", "/dev/sdb1")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(targets) != 2 {
+				t.Fatalf("partition marker should exclude sda1; targets=%#v", targets)
+			}
+			for _, target := range targets {
+				if target.DevicePath == "/dev/sda1" {
+					t.Fatalf("non-whole-disk partition was advertised as install target: %#v", target)
+				}
+			}
+		})
+	}
 }
