@@ -88,7 +88,7 @@ test("anonymous native bootstrap is exact method/path allowlisted, never a prefi
 });
 
 test("marker and bridge secret never fall back to native bootstrap or a bearer JWT", async () => {
-  for (const marker of ["0", "true", "", " 1 "]) {
+  for (const marker of ["0", "true", "", "1, 1"]) {
     const req = make("/auth/login", "POST", {
       "x-ordax-public-site": marker, apikey: bridgeKey,
       authorization: "Bearer user-token",
