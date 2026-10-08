@@ -13,11 +13,12 @@ export async function createNativeSystemMetrics(windowRef = globalThis.window) {
 
   const port = {
     schema: SYSTEM_METRICS_SCHEMA,
-    async read() {
+    async read(options = {}) {
       const response = await windowRef.fetch(METRICS_ENDPOINT, {
         method: "GET",
         cache: "no-store",
         credentials: "same-origin",
+        signal: options.signal,
       });
       if (!response.ok) {
         throw new Error(`Native system metrics request failed: ${response.status}`);
