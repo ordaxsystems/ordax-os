@@ -19,12 +19,16 @@ function requireScope(scope) {
     throw new TypeError("Semantic retrieval authorization scope is required");
   }
   for (const property of ["ownerKind", "ownerId"]) {
-    if (typeof scope[property] !== "string" || !scope[property].trim()) {
+    if (typeof scope[property] !== "string" || !scope[property].trim()
+        || scope[property].length > (property === "ownerKind" ? 32 : 160)
+        || scope[property].includes("\0")) {
       throw new TypeError("Semantic retrieval authorization scope is invalid");
     }
   }
   for (const property of ["spaceId", "projectId"]) {
-    if (scope[property] != null && (typeof scope[property] !== "string" || !scope[property].trim())) {
+    if (scope[property] != null && (typeof scope[property] !== "string"
+        || !scope[property].trim() || scope[property].length > 160
+        || scope[property].includes("\0"))) {
       throw new TypeError("Semantic retrieval authorization scope is invalid");
     }
   }
