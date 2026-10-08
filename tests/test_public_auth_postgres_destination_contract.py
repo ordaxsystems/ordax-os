@@ -95,7 +95,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         stage = self.destination
         self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(stage["internal_gateway_staging_deployed"])
-        self.assertGreaterEqual(stage["internal_gateway_staging_version"], 2)
+        self.assertEqual(stage["internal_gateway_staging_version"], 3)
         self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
@@ -170,6 +170,29 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             "owner:ordaxsystems:project:ordax-os-public:environment:production", source
         )
         self.assertNotIn('jogo-brasils-projects', source)
+
+    def test_gateway_v3_is_deployed_but_runtime_promotion_is_still_blocked(self):
+        stage = self.destination
+        self.assertTrue(stage["destination_transport_admission_source_prepared"])
+        self.assertTrue(stage["destination_transport_admission_deployed"])
+        self.assertFalse(stage["destination_transport_admission_negative_http_verified"])
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertEqual(stage["internal_gateway_staging_version"], 3)
+        self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
+        self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
+        self.assertFalse(stage["destination_named_bridge_key_provisioned"])
+        self.assertFalse(stage["destination_named_bridge_runtime_e2e_verified"])
+        self.assertFalse(stage["destination_service_transport_runtime_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["public_registration_enabled"])
+        self.assertFalse(stage["functional_provider_cutover_complete"])
+        gateway = (
+            ROOT / "infra" / "supabase" / "functions"
+            / "ordax-account-gateway" / "index.ts"
+        ).read_text(encoding="utf-8")
+        self.assertIn("authorizeAccountTransport(req, path", gateway)
+        self.assertIn("supabase.auth.getUser(access)", gateway)
 
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]
