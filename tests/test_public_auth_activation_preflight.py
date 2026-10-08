@@ -97,6 +97,103 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
         self.assertEqual(preflight.main(["require-ready", "--root", str(ROOT)]), 1)
 
+    def test_domain_identity_and_provider_redirects_use_deployment_ssot(self):
+        blockers, _ = preflight.readiness(ROOT)
+        for code in (
+            "vercel-canonical-domain-ownership",
+            "vercel-apex-dns-cutover",
+            "vercel-www-domain-ownership",
+            "vercel-production-environment",
+            "vercel-production-account-routes",
+            "vercel-production-oidc-proof",
+            "vercel-canonical-origin-binding",
+            "provider-redirect-canonical-origin",
+            "provider-recovery-canonical-origin",
+        ):
+            self.assertIn(code, blockers)
+
+    def test_canonical_domain_cutover_requires_independent_vercel_proofs(self):
+        temporary, root = self.fixture_root()
+        try:
+            deployment_file = root / preflight.DEPLOYMENT
+            policy_file = root / preflight.PROVIDER_POLICY
+            deployment = preflight.load_json(root, preflight.DEPLOYMENT)
+            policy = preflight.load_json(root, preflight.PROVIDER_POLICY)
+            migration = deployment["vercel_migration"]
+            adapter = deployment["vercel_adapter"]
+            origin = "https://" + migration["target_canonical_domain"]
+
+            for name in (
+                "target_canonical_domain_verified",
+                "target_dns_apex_routing_cutover_verified",
+                "target_www_domain_verified",
+                "target_project_production_deployment_ready",
+                "target_project_production_http_smoke_verified",
+                "target_project_environment_variables_present",
+                "target_project_production_public_account_routes_available",
+                "target_runtime_oidc_e2e_verified",
+            ):
+                migration[name] = True
+            adapter["canonical_public_origin"] = origin
+            adapter["canonical_public_origin_live_configured"] = True
+            adapter["canonical_public_origin_deployment_verified"] = True
+            policy["redirect_policy"]["origin"] = origin
+            policy["redirect_policy"]["recovery_verify_url"] = origin + "/auth/recover/verify"
+
+            def check():
+                deployment_file.write_text(
+                    __import__("json").dumps(deployment) + "\n", encoding="utf-8"
+                )
+                policy_file.write_text(
+                    __import__("json").dumps(policy) + "\n", encoding="utf-8"
+                )
+                return set(preflight.readiness(root)[0])
+
+            guarded = {
+                "vercel-canonical-project-identity",
+                "vercel-canonical-domain-ownership",
+                "vercel-apex-dns-cutover",
+                "vercel-www-domain-ownership",
+                "vercel-www-canonical-redirect",
+                "vercel-production-ready",
+                "vercel-production-http-proof",
+                "vercel-production-environment",
+                "vercel-production-account-routes",
+                "vercel-production-oidc-proof",
+                "vercel-canonical-origin-binding",
+                "provider-redirect-canonical-origin",
+                "provider-recovery-canonical-origin",
+            }
+            self.assertFalse(guarded.intersection(check()))
+            # Even when all independent Vercel proofs are marked true,
+            # unrelated Account and legal security gates stay closed.
+            self.assertIn("destination-service-auth-transport-proof", check())
+            self.assertIn("destination-active-legal-policy", check())
+
+            for name, expected in (
+                ("target_canonical_domain_verified", "vercel-canonical-domain-ownership"),
+                ("target_dns_apex_routing_cutover_verified", "vercel-apex-dns-cutover"),
+                ("target_project_environment_variables_present", "vercel-production-environment"),
+                ("target_project_production_public_account_routes_available", "vercel-production-account-routes"),
+                ("target_runtime_oidc_e2e_verified", "vercel-production-oidc-proof"),
+            ):
+                migration[name] = False
+                self.assertIn(expected, check())
+                migration[name] = True
+
+            adapter["canonical_public_origin"] = "https://old-team.vercel.app"
+            self.assertIn("vercel-canonical-origin-binding", check())
+            adapter["canonical_public_origin"] = origin
+            policy["redirect_policy"]["origin"] = "https://old-team.vercel.app"
+            self.assertIn("provider-redirect-canonical-origin", check())
+            policy["redirect_policy"]["origin"] = origin
+            policy["redirect_policy"]["recovery_verify_url"] = (
+                "https://old-team.vercel.app/auth/recover/verify"
+            )
+            self.assertIn("provider-recovery-canonical-origin", check())
+        finally:
+            temporary.cleanup()
+
     def test_old_provider_proofs_do_not_authorize_destination_cutover(self):
         blockers, controls = preflight.readiness(ROOT)
         self.assertIn("account-provider-cutover-target-mismatch", blockers)
