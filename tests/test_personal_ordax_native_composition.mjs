@@ -667,3 +667,79 @@ test("issued proposal becomes stale when its Work revision changes", () => {
 
   runtime.dispose();
 });
+
+
+test("Native model proposal cannot survive an A -> B -> A owner round trip", async () => {
+  let current = { state: "signed-in", subjectId: "user-a", displayName: "A" };
+  const listeners = new Set();
+  const identity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot: () => current,
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    switchTo(subjectId) {
+      current = { state: "signed-in", subjectId, displayName: subjectId };
+      for (const listener of [...listeners]) listener(current);
+    },
+  };
+  const catalog = createPersonalActionCatalog({
+    registrations: [{
+      entry: {
+        id: "native-file.ensure-directory",
+        toolId: "ordax-native-file-space",
+        toolArtifactSha256: "a".repeat(64),
+        actionId: "files.directory.ensure",
+        effect: "write",
+        inputKind: "resource-value",
+        resourceScheme: "file-space",
+      },
+      toResourceRef(value) { return "file-space:" + String(value).trim(); },
+      reason: "Trusted catalog approval reason.",
+    }],
+  });
+  let complete;
+  const intelligence = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot: () => ({
+      schema: INTELLIGENCE_PORT_SCHEMA,
+      state: "ready", inferenceAvailable: true,
+      engineId: "llama.cpp", modelId: "qwen-test",
+      authority: "none", toolExecution: false,
+    }),
+    subscribe() { return () => {}; },
+    respond() {
+      return new Promise((resolve) => {
+        complete = () => resolve({
+          schema: INTELLIGENCE_RESPONSE_SCHEMA,
+          text: JSON.stringify({
+            kind: "proposal",
+            entryId: "native-file.ensure-directory",
+            resourceValue: "/Relatorios",
+            rationale: "Criar diretório para arquivos.",
+          }),
+          engineId: "llama.cpp", modelId: "qwen-test", authority: "none",
+        });
+      });
+    },
+  };
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identity,
+    intelligence,
+    actionCatalog: catalog,
+  });
+  try {
+    const work = runtime.create("Crie uma pasta para relatórios");
+    const issued = runtime.proposeAvailableAction(work.id, "native-file.ensure-directory", {
+      resourceValue: "/Relatorios", rationale: "Preparar pasta",
+    });
+    const pending = runtime.proposeActionForWork(work.id);
+    identity.switchTo("user-b");
+    identity.switchTo("user-a");
+    complete();
+    await assert.rejects(pending, /owner or context changed/);
+    assert.throws(() => runtime.requestProposedAction(issued), /owner or context/);
+    assert.equal(runtime.getSnapshot().approvals.length, 0);
+  } finally {
+    runtime.dispose();
+  }
+});
