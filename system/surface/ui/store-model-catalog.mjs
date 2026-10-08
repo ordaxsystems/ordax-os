@@ -28,6 +28,7 @@ export function appendStoreLocalAiModels(documentObject, target, {
   hardware = null,
   metrics = null,
   readState = "idle",
+  systemUpdatesAvailable = false,
   t,
   locale = "pt-BR",
 } = {}) {
@@ -79,6 +80,13 @@ export function appendStoreLocalAiModels(documentObject, target, {
   refresh.dataset.storeModelsRefresh = "true";
   refresh.disabled = readState === "loading";
   card.append(refresh);
+  if (systemUpdatesAvailable) {
+    const updates = node(documentObject, "button", "ordax-store-action ordax-store-action-secondary",
+      t("store.models.openSystemUpdates"));
+    updates.type = "button";
+    updates.dataset.storeModelSystemUpdates = "true";
+    card.append(updates);
+  }
   if (readState === "error") {
     const note = node(documentObject, "p", "ordax-store-detail-warning", t("store.models.readFailed"));
     note.setAttribute("role", "status");
