@@ -150,7 +150,11 @@ export function mountSpaceSwitcherControls(
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.loading")));
     } else if (error || catalog.state === "error") {
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.error")));
-    } else if (catalog.state !== "ready" || selected?.state === "unavailable") {
+    } else if (
+      catalog.state !== "ready"
+      || selected?.state === "unavailable"
+      || (selected !== null && selected.subjectId !== identity.subjectId)
+    ) {
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.unavailable.detail")));
     } else if (spacesVisible.length === 0) {
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.empty")));
