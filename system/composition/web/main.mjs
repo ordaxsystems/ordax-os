@@ -23,6 +23,9 @@ import { createAccountSyncRuntime } from "../../services/sync/account-runtime.mj
 import { createWorkspaceMetadataBridge } from "../../services/sync/workspace-metadata.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
+import { loadBundledProfileTaxonomy } from "../../services/profile-packs/taxonomy-source.mjs";
+import { createProfilePackCatalogFromPacks } from "../../services/profile-packs/catalog.mjs";
+import { createProfileTaxonomyView } from "../../services/profile-packs/taxonomy.mjs";
 import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
@@ -58,11 +61,25 @@ await accountLifecycle.refresh();
 const spaces = createWebSpacesCatalog(window);
 const profileComponentInventory = createSessionProfileComponentInventory();
 let profileDistributions = [];
+let profileTaxonomy = null;
 try {
-  const bundledProfilePacks = await loadBundledProfilePacks({
-    fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
-  });
+  const fetchImpl = typeof window.fetch === "function" ? window.fetch.bind(window) : null;
+  const bundledProfilePacks = await loadBundledProfilePacks({ fetchImpl });
   profileDistributions = createLocalProfileDistributions(bundledProfilePacks.packs);
+  try {
+    profileTaxonomy = Object.freeze({
+      catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
+      taxonomy: await loadBundledProfileTaxonomy({ fetchImpl }),
+    });
+    // Fail closed on unknown categories before the UI can open.
+    createProfileTaxonomyView({
+      catalogPort: profileTaxonomy.catalogPort,
+      taxonomy: profileTaxonomy.taxonomy,
+    });
+  } catch (error) {
+    profileTaxonomy = null;
+    console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
+  }
 } catch (error) {
   console.warn("OrdaX Profile catalog unavailable; continuing without Profiles", error);
 }
@@ -172,6 +189,7 @@ const accountOverviewControls = mountAccountOverviewControls(
   null,
   null,
   accountLifecycle,
+  profileTaxonomy,
 );
 const settingsOverviewControls = mountSettingsOverviewControls(
   root,
