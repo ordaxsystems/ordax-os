@@ -39,19 +39,19 @@ The Native catalog verifier owns signature verification **and** anti-replay pers
 
 ## Surface da Loja: experiência e contrato
 
-A Loja estrutural permanece sob \`system/apps/store\` e \`system/surface/ui/store-overview-controls.mjs\`, usando estilos em \`store.css\` e mensagens component-scoped em \`system/services/i18n/catalog/store.mjs\`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado \`ordax.app-store-catalog/2\`.
+A Loja estrutural permanece sob `system/apps/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.
 
 - **Descobrir**: apresenta apenas entradas fornecidas pelo catálogo verificado. A busca local funciona por título/ID com normalização de acentos e não altera o snapshot.
 - **Instalados**: deriva da versão instalada confirmada pelo owner canônico, nunca de arquivos em cache.
-- **Atualizações**: mostra candidatos novos e estados relevantes de atualização/retensão; somente a flag \`updatable\` permite solicitar uma atualização.
+- **Atualizações**: mostra candidatos novos e estados relevantes de atualização/retensão; somente a flag `updatable` permite solicitar uma atualização.
 - **Detalhes**: exibe IDs, versões e estados sem inventar publisher, ícones oficiais, capturas, preço, avaliação, categoria ou permissões que o contrato ainda não fornece. Identidade/procedência verificadas referem-se à **versão candidata**, não à instalação anterior.
-- **Remoção**: exige confirmação explícita no frontend, mas ainda passa pelo mesmo pedido \`authority:none\` e pelo gate do lifecycle. Cancelar não emite pedido. Remover instalação não remove dados.
+- **Remoção**: exige confirmação explícita no frontend, mas ainda passa pelo mesmo pedido `authority:none` e pelo gate do lifecycle. Cancelar não emite pedido. Remover instalação não remove dados.
 - **Falhas**: erro síncrono ou assíncrono do port deve liberar o estado visual pendente e mostrar falha; aceitação não equivale a instalação concluída. Catálogo indisponível mantém operações desabilitadas.
 - **Composição**: o layout reage à largura efetiva da janela, usa somente tokens de Surface, restaura o foco em buscas e navegação e não cria persistência paralela por aplicativo.
 
-**Provas**: \`tests/test_app_store_contract.mjs\` valida filtros, catálogo e boundaries sem autoridade. O \`Surface Web Candidate\` executa Chromium real com catálogo indisponível na composição e uma fixture isolada, validada apenas para interação da interface, incluindo pesquisa, redimensionamento, confirmação de remoção, cancelamento e erro síncrono. A fixture nunca publica artefatos, não altera a fonte canônica e não autoriza instalação.
+**Provas**: `tests/test_app_store_contract.mjs` valida filtros, catálogo e boundaries sem autoridade. O `Surface Web Candidate` executa Chromium real com catálogo indisponível na composição e uma fixture isolada, validada apenas para interação da interface, incluindo pesquisa, redimensionamento, confirmação de remoção, cancelamento e erro síncrono. A fixture nunca publica artefatos, não altera a fonte canônica e não autoriza instalação.
 
-Categorias, badges de Intelligence, avaliações e capturas exigem evolução **versionada** do contrato de metadados/projeção verificada e respectiva proveniência. Não inferir categorias por ID nem usar fixtures como catálogo real. Habilitação produtiva de instalação independente continua sujeita aos gates Native atuais, sem antecipar \`component-slot\` ou terceiros.
+Categorias, badges de Intelligence, avaliações e capturas exigem evolução **versionada** do contrato de metadados/projeção verificada e respectiva proveniência. Não inferir categorias por ID nem usar fixtures como catálogo real. Habilitação produtiva de instalação independente continua sujeita aos gates Native atuais, sem antecipar `component-slot` ou terceiros.
 
 ## MVP launch delivery
 
