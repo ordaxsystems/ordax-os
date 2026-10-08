@@ -30,7 +30,15 @@ antigo owner do OS. Em particular, valores operacionais persistem em:
 Existem também referências históricas que **não devem ser reescritas**
 (signed manifests já publicados, evidence, hashes, commits, documentação
 histórica). Modificar proveniência de artefatos históricos cria uma
-identidade falsa e pode invalidar assinaturas.
+identidade falsa e pode invalidar assinaturas. O auditor trata como
+proveniência imutável especificamente
+`docs/contracts/canonical-v4-signing-request.json`,
+`docs/contracts/physical-write-authorization.json` e
+`system/profile-content-sources/developer-core/v0.1.0/manifest.json`,
+pois registram commits/artifacts anteriores e hashes já fixados.
+A regra não exclui contratos **ativos**, como
+`docs/contracts/release-channel.json` e
+`docs/contracts/runtime-component-package.json`.
 
 ## Gatilho do cutover
 
