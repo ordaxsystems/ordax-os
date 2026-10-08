@@ -8,6 +8,7 @@ import {
   APPLICATION_COMPATIBILITY_PROFILE_PLANNER_SCHEMA,
   assertApplicationCompatibilityProfilePlanner,
   defineApplicationCompatibilityProfile,
+  validateApplicationCompatibilityProfilePlan,
 } from "../system/contracts/application-compatibility-profile.mjs";
 import { createApplicationCompatibilityManager } from "../system/services/compatibility/manager.mjs";
 import { createApplicationCompatibilityProfilePlanner } from "../system/services/compatibility/profile-planner.mjs";
@@ -138,4 +139,64 @@ test("profile planner exposes planning only and no mutation or execution authori
   for (const method of ["create", "delete", "execute", "install", "spawn", "writeFile"]) {
     assert.equal(method in planner, false);
   }
+});
+
+test("ready profile-plan contract rejects forged, cloned, and unissued profile objects", () => {
+  const profile = defineApplicationCompatibilityProfile({
+    id: "editor",
+    family: "windows",
+    runtimeId: "windows-wine-dev",
+    architecture: "x86_64",
+    payload: { name: "editor.exe", digest: payloadDigest },
+    storageKey: "application-compatibility/windows/editor",
+    persistence: "durable-user",
+    hostAuthority: "none",
+  });
+  assert.equal(Object.isFrozen(profile), true);
+  const legitimate = validateApplicationCompatibilityProfilePlan({
+    ready: true,
+    reason: "profile-plan-ready",
+    profile,
+  });
+  assert.equal(legitimate.ready, true);
+  assert.equal(legitimate.profile, profile);
+
+  for (const forged of [
+    { schema: profile.schema, hostAuthority: "system" },
+    { ...profile },
+    Object.freeze({ ...profile }),
+    { ...profile, payload: { ...profile.payload, digest: `sha256:${"ff".repeat(32)}` },
+    { ...profile, storageKey: "../../etc", execute: "wine" },
+  ]) {
+    assert.throws(
+      () => validateApplicationCompatibilityProfilePlan({
+        ready: true,
+        reason: "profile-plan-ready",
+        profile: forged,
+      }),
+      /canonically issued profile/,
+    );
+  }
+
+  assert.throws(
+    () => validateApplicationCompatibilityProfilePlan({
+      ready: false,
+      reason: "runtime-unavailable",
+      profile,
+    }),
+    /must not contain a profile/,
+  );
+  assert.deepEqual(
+    validateApplicationCompatibilityProfilePlan({
+      ready: false,
+      reason: "runtime-unavailable",
+      profile: null,
+    }),
+    {
+      schema: "ordax.application-compatibility-profile-plan/1",
+      ready: false,
+      reason: "runtime-unavailable",
+      profile: null,
+    },
+  );
 });
