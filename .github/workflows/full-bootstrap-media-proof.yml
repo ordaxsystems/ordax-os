@@ -77,6 +77,9 @@ jobs:
           check-latest: false
           cache: false
 
+      - name: Restore canonical release-agent seed for bootstrap assembly
+        run: bash bootstrap/release-acquisition/restore_pinned_seed.sh
+
       - name: Install bounded build and media-proof dependencies
         run: |
           sudo apt-get update
@@ -114,9 +117,6 @@ jobs:
               -o ../../out/release-acquisition/ordax-release-agent .
           )
           test -s out/release-acquisition/ordax-release-agent
-
-      - name: Restore canonical release-agent seed for bootstrap assembly
-        run: bash bootstrap/release-acquisition/restore_pinned_seed.sh
 
       - name: Prove initramfs ext4 online growth on disposable twin media
         run: |
