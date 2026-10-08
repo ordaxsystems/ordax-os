@@ -98,6 +98,18 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('"account-gateway-response-invalid"', self.edge)
         self.assertIn('"account-gateway-response-too-large"', self.edge)
 
+    def test_external_security_checks_are_bounded_during_stream_read(self):
+        self.assertIn('readBoundedBody(', self.proxy)
+        self.assertIn('response.body,', self.proxy)
+        self.assertIn('MAX_TURNSTILE_RESPONSE_BYTES,', self.proxy)
+        self.assertNotIn("await response.text()", self.proxy)
+        self.assertIn('new TextDecoder("utf-8", { fatal: true })', self.proxy)
+        self.assertIn('PWNED_PASSWORDS_MAX_RESPONSE,', self.inner)
+        self.assertIn('response.body,', self.inner)
+        self.assertIn('signal: AbortSignal.timeout(5_000)', self.inner)
+        self.assertIn('new TextDecoder("utf-8", { fatal: true })', self.inner)
+        self.assertNotIn("await response.text()", self.inner)
+
     def test_public_boundary_is_narrow_and_bounded(self):
         self.assertIn('const MAX_BODY = 64 * 1024', self.edge)
         self.assertIn('const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024', self.edge)
