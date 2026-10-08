@@ -188,15 +188,72 @@ async function readJson(response, label) {
   return response.json();
 }
 
+// Independent Native reads must not serialize the whole Store or create an
+// unbounded request fan-out as the first-party inventory grows.
+const MAX_CONCURRENT_METADATA_READS = 4;
+const DEFAULT_METADATA_TIMEOUT_MS = 5_000;
+
+async function mapInSourceOrder(values, readOne, signal) {
+  const results = new Array(values.length);
+  let cursor = 0;
+  await Promise.all(Array.from(
+    { length: Math.min(MAX_CONCURRENT_METADATA_READS, values.length) },
+    async () => {
+      while (cursor < values.length && !signal.aborted) {
+        const index = cursor++;
+        results[index] = await readOne(values[index]);
+      }
+    },
+  ));
+  return results;
+}
+
+async function readCurrentWithinDeadline({
+  fetchImpl, metadataUrl, appId, signal, timeoutMs,
+}) {
+  if (signal.aborted) throw new Error("Store refresh superseded");
+  const controller = new AbortController();
+  let rejectCancelled;
+  let cancelled = false;
+  const cancelledPromise = new Promise((_, reject) => {
+    rejectCancelled = reject;
+  });
+  const cancel = () => {
+    if (cancelled) return;
+    cancelled = true;
+    controller.abort();
+    rejectCancelled(new Error("Native current activation metadata unavailable"));
+  };
+  signal.addEventListener("abort", cancel, { once: true });
+  const timeout = setTimeout(cancel, timeoutMs);
+  try {
+    const pending = (async () => readJson(
+      await fetchImpl(metadataUrl, {
+        ...REQUEST_OPTIONS,
+        signal: controller.signal,
+      }),
+      "Current activation metadata for " + appId,
+    ))();
+    return await Promise.race([pending, cancelledPromise]);
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener("abort", cancel);
+  }
+}
+
 export function createVerifiedAppStoreProjection({
   verifiedCatalogPort,
   componentSource,
   fetchImpl = globalThis.fetch,
+  metadataTimeoutMs = DEFAULT_METADATA_TIMEOUT_MS,
 } = {}) {
   const catalog = assertVerifiedAppStoreCatalogPort(verifiedCatalogPort);
   const source = assertVerifiedComponentPackageSource(componentSource);
   if (typeof fetchImpl !== "function") {
     throw new TypeError("Verified Store projection requires fetchImpl()");
+  }
+  if (!Number.isInteger(metadataTimeoutMs) || metadataTimeoutMs < 1 || metadataTimeoutMs > 30_000) {
+    throw new TypeError("Native current metadata timeout must be a bounded positive integer");
   }
 
   const listeners = new Set();
@@ -209,7 +266,9 @@ export function createVerifiedAppStoreProjection({
     for (const listener of [...listeners]) listener(snapshot);
   };
 
-  const build = async () => {
+  let activeRefresh = null;
+
+  const build = async (signal) => {
     const verified = validateVerifiedAppStoreCatalogSnapshot(catalog.getSnapshot());
     if (verified.state !== "ready") {
       return unavailable(verified.reason ?? "verified-catalog-unavailable");
@@ -221,67 +280,68 @@ export function createVerifiedAppStoreProjection({
       ...verified.entries.map((entry) => entry.appId),
     ])].sort();
 
-    const entries = [];
-    for (const appId of appIds) {
+    const resolved = await mapInSourceOrder(appIds, async (appId) => {
+      if (signal.aborted) return null;
       const candidate = candidates.get(appId) ?? null;
       const policy = getFirstPartyAppDeliveryPolicy(appId);
       if (policy === null) {
-        if (candidate !== null) {
-          entries.push(blockedEntry({
-            appId,
-            title: candidate.title,
-            candidate,
-            reason: "first-party-delivery-policy-unavailable",
-          }));
-        }
-        continue;
+        return candidate === null ? null : blockedEntry({
+          appId,
+          title: candidate.title,
+          candidate,
+          reason: "first-party-delivery-policy-unavailable",
+        });
       }
 
       let current;
       try {
         const metadataUrl = source.metadataUrl(appId, "current");
-        const raw = await readJson(
-          await fetchImpl(metadataUrl, REQUEST_OPTIONS),
-          `Current activation metadata for ${appId}`,
-        );
+        const raw = await readCurrentWithinDeadline({
+          fetchImpl, metadataUrl, appId, signal,
+          timeoutMs: metadataTimeoutMs,
+        });
         current = validateComponentRuntimeMetadata(raw, {
           componentId: appId,
           state: "current",
         });
       } catch {
-        if (candidate !== null) {
-          entries.push(blockedEntry({
-            appId,
-            title: candidate.title,
-            candidate,
-            reason: "activation-state-unavailable",
-          }));
-        }
-        continue;
+        if (signal.aborted || candidate === null) return null;
+        return blockedEntry({
+          appId,
+          title: candidate.title,
+          candidate,
+          reason: "activation-state-unavailable",
+        });
       }
+      if (signal.aborted) return null;
+      return projectEntry({ appId, candidate, current, policy });
+    }, signal);
 
-      const entry = projectEntry({ appId, candidate, current, policy });
-      if (entry !== null) entries.push(entry);
+    if (signal.aborted) {
+      return unavailable("verified-store-projection-superseded");
     }
-
     return validateAppStoreCatalogSnapshot({
       schema: APP_STORE_CATALOG_SCHEMA,
       state: "ready",
-      entries,
+      entries: resolved.filter((entry) => entry !== null && entry !== undefined),
       reason: null,
       authority: "none",
     });
   };
 
   const refresh = async () => {
+    activeRefresh?.abort();
+    const controller = new AbortController();
+    activeRefresh = controller;
     const requestGeneration = ++generation;
     let next;
     try {
-      next = await build();
+      next = await build(controller.signal);
     } catch {
       next = unavailable("verified-store-projection-unavailable");
     }
     if (destroyed || requestGeneration !== generation) return snapshot;
+    if (activeRefresh === controller) activeRefresh = null;
     emit(next);
     return snapshot;
   };
@@ -315,6 +375,8 @@ export function createVerifiedAppStoreProjection({
       if (destroyed) return;
       destroyed = true;
       generation += 1;
+      activeRefresh?.abort();
+      activeRefresh = null;
       unsubscribeCatalog?.();
       listeners.clear();
     },
