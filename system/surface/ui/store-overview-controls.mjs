@@ -85,7 +85,7 @@ export function createStoreRequestSessionId(cryptoProvider = globalThis.crypto) 
   try {
     if (typeof cryptoProvider?.randomUUID === "function") {
       const uuid = cryptoProvider.randomUUID();
-      if (typeof uuid === "string" && /^[0-9a-fA-F-]{36}$/.test(uuid)) {
+      if (typeof uuid === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(uuid)) {
         return uuid.replaceAll("-", "").toLowerCase();
       }
     }
