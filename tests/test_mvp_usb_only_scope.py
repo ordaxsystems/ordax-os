@@ -48,6 +48,14 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         self.assertFalse(native["mvp_availability"]["available"])
         self.assertFalse(native["mvp_availability"]["destructive_operations_allowed"])
 
+    def test_continuous_readiness_uses_integrated_mvp_scope_without_native_activation(self):
+        readiness = (ROOT / "docs/MVP-PRONTIDAO-CONTINUA.md").read_text(encoding="utf-8")
+        self.assertIn("Escopo integrado do ciclo MVP (USB + Native)", readiness)
+        self.assertIn("A candidata Stable atualmente habilitada continua **USB-only**", readiness)
+        self.assertIn("instalação Native e escrita destrutiva em disco interno seguem desativadas", readiness)
+        self.assertIn("Gates independentes do modo Native", readiness)
+        self.assertNotIn("Escopo USB-only e experiência mínima", readiness)
+
     def test_public_site_never_presents_native_installation_as_mvp_feature(self):
         landing = (ROOT / "sites/public/index.html").read_text(encoding="utf-8")
         download = (ROOT / "sites/public/download/index.html").read_text(encoding="utf-8")
