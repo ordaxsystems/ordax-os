@@ -79,6 +79,66 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIn("studio", slots.SUPPORTED_COMPONENTS)
         self.assertNotIn("studio", slots.HEALTH_MUTATION_COMPONENTS)
 
+    def test_store_metadata_queries_support_canonical_utility_without_runtime_read(self):
+        from native_store_metadata_policy import STORE_METADATA_COMPONENT_IDS
+        self.assertIn("calculator", STORE_METADATA_COMPONENT_IDS)
+        self.assertNotIn("calculator", slots.SUPPORTED_COMPONENTS)
+        self.assertIn("studio", STORE_METADATA_COMPONENT_IDS)
+        self.assertNotIn("calculator", slots.HEALTH_MUTATION_COMPONENTS)
+
+        output = (
+            b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+            b"COMPONENT_ID=calculator\n"
+            b"REVISION=0\n"
+            b"SOURCE=ABSENT\n"
+            b"RUNTIME_SERVED_FROM_SLOT=NO\n"
+        )
+        completed = subprocess.CompletedProcess([], 0, stdout=output, stderr=b"")
+        with mock.patch.object(slots.subprocess, "run", return_value=completed) as run:
+            result = slots.resolve_component_slot(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="calculator",
+                state="current",
+            )
+        self.assertEqual(result.source, "absent")
+        self.assertEqual(result.component_id, "calculator")
+        self.assertEqual(result.state, "current")
+        self.assertIsNone(result.entrypoint)
+        self.assertIsNone(result.version)
+        self.assertIn("resolve-current", run.call_args.args[0])
+
+        with mock.patch.object(slots.subprocess, "run") as runner:
+            with self.assertRaises(slots.ComponentSlotRequestError):
+                slots.resolve_component_slot(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust/public.json",
+                    component_id="calculator",
+                    state="pending",
+                )
+            with self.assertRaises(slots.ComponentSlotRequestError):
+                slots.read_component_runtime_file(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust/public.json",
+                    component_id="calculator",
+                    state="current",
+                    version="0.2.0",
+                    source_commit="a" * 40,
+                    requested_path="src/runtime.mjs",
+                )
+            with self.assertRaises(slots.ComponentSlotRequestError):
+                slots.parse_component_module_path(
+                    slots.COMPONENT_MODULE_PREFIX + "calculator/current/0.2.0/" + ("a" * 40) + "/src/runtime.mjs"
+                )
+            with self.assertRaises(slots.ComponentSlotRequestError):
+                slots.resolve_component_slot(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust/public.json",
+                    component_id="unknown-component",
+                    state="current",
+                )
+            runner.assert_not_called()
+
     def test_current_bundled_resolution_is_parsed_without_slot_claim(self):
         output = (
             b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
