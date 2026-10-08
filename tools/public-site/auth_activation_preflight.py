@@ -167,28 +167,27 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     # contains the legal-receipt/rate-limit functions.
     if not isinstance(destination, dict):
         raise ValueError("postgresql_destination must be an object")
-    if destination:
-        destination_ref = destination.get("project_ref")
-        target_ref = target.get("project_ref") if isinstance(target, dict) else None
-        need(
-            isinstance(destination_ref, str)
-            and bool(destination_ref)
-            and target_ref == destination_ref,
-            "account-provider-cutover-target-mismatch",
-        )
-        for flag, blocker in (
-            ("functional_provider_cutover_complete", "account-provider-cutover-incomplete"),
-            ("public_account_gateway_deployed", "destination-account-gateway-deployment"),
-            ("active_legal_policy_present", "destination-active-legal-policy"),
-            ("provider_settings_e2e_verified", "destination-provider-settings-proof"),
-            ("public_auth_rate_limit_runtime_e2e_verified", "destination-auth-rate-limit-e2e-proof"),
-            ("session_revocation_e2e_verified", "destination-session-revocation-proof"),
-            ("recovery_e2e_verified", "destination-recovery-e2e-proof"),
-            ("sync_export_db_boundary_proven", "destination-sync-export-db-proof"),
-            ("account_export_runtime_e2e_verified", "destination-account-export-e2e-proof"),
-            ("sync_runtime_e2e_verified", "destination-sync-runtime-e2e-proof"),
-        ):
-            need(destination.get(flag) is True, blocker)
+    destination_ref = destination.get("project_ref")
+    target_ref = target.get("project_ref") if isinstance(target, dict) else None
+    need(
+        isinstance(destination_ref, str)
+        and bool(destination_ref)
+        and target_ref == destination_ref,
+        "account-provider-cutover-target-mismatch",
+    )
+    for flag, blocker in (
+        ("functional_provider_cutover_complete", "account-provider-cutover-incomplete"),
+        ("public_account_gateway_deployed", "destination-account-gateway-deployment"),
+        ("active_legal_policy_present", "destination-active-legal-policy"),
+        ("provider_settings_e2e_verified", "destination-provider-settings-proof"),
+        ("public_auth_rate_limit_runtime_e2e_verified", "destination-auth-rate-limit-e2e-proof"),
+        ("session_revocation_e2e_verified", "destination-session-revocation-proof"),
+        ("recovery_e2e_verified", "destination-recovery-e2e-proof"),
+        ("sync_export_db_boundary_proven", "destination-sync-export-db-proof"),
+        ("account_export_runtime_e2e_verified", "destination-account-export-e2e-proof"),
+        ("sync_runtime_e2e_verified", "destination-sync-runtime-e2e-proof"),
+    ):
+        need(destination.get(flag) is True, blocker)
 
     need(provider_policy.get("confirm_email_required") is True, "provider-policy-confirm-email")
     password_policy = provider_policy.get("password_policy", {})
