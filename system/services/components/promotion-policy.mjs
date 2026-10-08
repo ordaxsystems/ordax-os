@@ -38,9 +38,7 @@ function boolean(value, label) {
 }
 
 function decision(manifest, health, action, reason) {
-  if (!ACTIONS.has(action)) {
-    throw new TypeError("Unsupported component promotion action");
-  }
+  validateComponentPromotionActionReason(action, reason);
   return Object.freeze({
     schema: COMPONENT_PROMOTION_DECISION_SCHEMA,
     componentId: manifest.id,
