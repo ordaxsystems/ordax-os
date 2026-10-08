@@ -135,7 +135,17 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("profileActivationState = null", ui)
         self.assertIn("profileActivationPort.activate({", ui)
         self.assertIn("profileActivationPort.deactivate(selectedSpace.id)", ui)
-        self.assertIn('spaceSelectionSnapshot?.state === "selected"', ui)
+        # Identity matching now belongs to the shared read-only Space projection,
+        # not a duplicated condition inside the Account UI.
+        projection = (
+            ROOT / "system/services/spaces/authorized-view.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn("deriveAuthorizedSpaces", ui)
+        self.assertIn("authorizedSpaces().activeSpace", ui)
+        self.assertIn("selection?.subjectId === identity?.subjectId", projection)
+        self.assertIn("space.kind === selection.selectedSpace?.kind", projection)
+        self.assertIn("priorSubject !== currentSubject", ui)
+        self.assertIn("spacesPort?.reset()", ui)
         self.assertIn('data-account-profile-action', ui)
         self.assertIn("profileActivationState,", native)
         self.assertIn('"account.profiles.name.pizzaria-br": "Pizzaria"', catalog)
