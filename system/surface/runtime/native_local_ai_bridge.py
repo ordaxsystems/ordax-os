@@ -58,7 +58,7 @@ def validate_completion_request(body: bytes) -> None:
             body.decode("utf-8", errors="strict"),
             object_pairs_hook=_unique_object,
         )
-    except (ValueError, UnicodeDecodeError) as exc:
+    except (ValueError, UnicodeDecodeError, RecursionError) as exc:
         raise NativeLocalAiError("invalid UTF-8 JSON request") from exc
     if not isinstance(parsed, dict) or set(parsed) != {"model", "messages", "max_tokens", "stream"}:
         raise NativeLocalAiError("unsupported local AI request schema")
@@ -124,7 +124,7 @@ def forward_local_ai(method: str, suffix: str, body: bytes = b"") -> tuple[int, 
             raise NativeLocalAiUpstreamError("local AI response exceeded byte budget")
         try:
             json.loads(payload.decode("utf-8", errors="strict"))
-        except (ValueError, UnicodeDecodeError) as exc:
+        except (ValueError, UnicodeDecodeError, RecursionError) as exc:
             raise NativeLocalAiUpstreamError("invalid upstream JSON") from exc
         return 200, payload
     except (OSError, socket.timeout, TimeoutError, http.client.HTTPException) as exc:
