@@ -34,10 +34,11 @@ fetch-source
 
 - size drift;
 - SHA-256 drift;
-- archive path traversal;
-- members outside the expected `wine-11.0` root;
-- device/FIFO archive objects;
-- unexpected or missing Wine `VERSION` identity.
+- archive member path traversal and links (symlinks/hardlinks) resolving outside the single expected `wine-11.0` root;
+- members outside the expected source root, unsupported special objects, oversized member count or unpacked payload;
+- missing, duplicated, redirected or oversized Wine `VERSION` identity (must be a bounded regular file).
+
+Source-archive validation is a preparatory input-integrity boundary, **not** permission to extract, compile, install, activate or run Wine. Synthetic negative fixtures cover absolute and traversal links, unsafe hardlinks, duplicated VERSION, and resource limits.
 
 The proof output explicitly states:
 
