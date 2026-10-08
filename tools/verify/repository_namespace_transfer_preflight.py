@@ -22,7 +22,7 @@ PREVIOUS_OWNER = "washingtonmsdj"
 REPOSITORY_NAME = "prototipo-ordax-os"
 PLATFORM_REPOSITORY_ID = "1371063347"
 
-ACTIVE_PREFIXES = (".github/workflows/", "bootstrap/", "boot/", "system/", "sdk/", "tools/", "tests/")
+ACTIVE_PREFIXES = (".github/workflows/", "boot/", "bootstrap/", "sdk/", "system/", "tools/", "tests/")
 ACTIVE_CONTRACT_PREFIX = "docs/contracts/"
 ACTIVE_DOCS = frozenset({"docs/REPOSITORY-OWNERSHIP.md", "docs/RELEASE-CHANNEL.md"})
 IGNORED_SUFFIXES = (".pack", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".exe")
@@ -63,6 +63,29 @@ def count_old_references(files: list[tuple[str, str]], old_full_name: str) -> di
     }
 
 
+# These are historical *negative* assertions, not an executable authority.
+# Each exemption is valid only while the whole old-owner reference matches
+# exactly the documented assertion. Any extra old-owner use fails closed.
+NEGATIVE_HISTORICAL_ASSERTIONS = {
+    "tests/test_canonical_v4_signing_request.py":
+        'self.assertEqual(request["source_repository"], "washingtonmsdj/prototipo-ordax-os")',
+    "tests/test_release_agent_seed_restore_identity.py":
+        'self.assertNotIn("washingtonmsdj/prototipo-ordax-os", script)',
+}
+
+
+def verified_negative_historical_assertion(root: Path, name: str, old: str) -> bool:
+    expected = NEGATIVE_HISTORICAL_ASSERTIONS.get(name)
+    if expected is None:
+        return False
+    try:
+        lines = (root / name).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return False
+    actual = [line.strip() for line in lines if old in line]
+    return actual == [expected]
+
+
 def tracked_references(root: Path, old_full_name: str) -> dict:
     # Git's binary-safe index is faster and more faithful than reading
     # every checked-out file, including large assets and Git LFS pointers.
@@ -76,8 +99,17 @@ def tracked_references(root: Path, old_full_name: str) -> dict:
     if result.returncode not in (0, 1):
         raise RuntimeError("Unable to inspect tracked repository owner references")
     paths = [name.decode("utf-8") for name in result.stdout.split(b"\x00") if name]
-    operational = sorted(name for name in paths if is_operational(name))
-    historical = sorted(name for name in paths if not is_operational(name))
+    operational = []
+    historical = []
+    for name in paths:
+        if is_operational(name) and not verified_negative_historical_assertion(
+            root, name, old_full_name
+        ):
+            operational.append(name)
+        else:
+            historical.append(name)
+    operational.sort()
+    historical.sort()
     return {
         "operational_count": len(operational),
         "historical_count": len(historical),
@@ -178,13 +210,27 @@ def release_pointer_integrity(root: Path, owner: str) -> dict:
     }
 
 
+def sdk_package_projection_integrity(root: Path) -> dict:
+    """The SDK public view must be identical to the canonical package policy."""
+    source = (root / "docs/contracts/runtime-component-package.json").read_bytes()
+    snapshot = (root / "sdk/app-sdk-v1/runtime-component-package-policy.json").read_bytes()
+    if not source or not snapshot:
+        raise ValueError("runtime component source policy and SDK snapshot must not be empty")
+    return {
+        "sdk_package_projection_verified": source == snapshot,
+        "sdk_package_source_sha256": hashlib.sha256(source).hexdigest(),
+        "sdk_package_snapshot_sha256": hashlib.sha256(snapshot).hexdigest(),
+    }
+
+
 def inspect(root: Path) -> dict:
     ownership = json.loads((root / OWNERSHIP_PATH).read_text(encoding="utf-8"))
     status = json.loads((root / STATUS_PATH).read_text(encoding="utf-8"))
     contract = validate_contracts(ownership, status)
     matches = tracked_references(root, f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}")
     pointer = release_pointer_integrity(root, contract["canonical"])
-    return {**contract, **matches, **pointer}
+    snapshot = sdk_package_projection_integrity(root)
+    return {**contract, **matches, **pointer, **snapshot}
 
 
 def cutover_ready(report: dict, environ: dict[str, str]) -> tuple[bool, str]:
@@ -194,6 +240,8 @@ def cutover_ready(report: dict, environ: dict[str, str]) -> tuple[bool, str]:
         return False, "old_operational_owner_references_remaining"
     if report.get("release_pointer_integrity_verified") is not True:
         return False, "release_pointer_identity_or_bootstrap_digest_mismatch"
+    if report.get("sdk_package_projection_verified") is not True:
+        return False, "sdk_package_policy_projection_drift"
     if environ.get("GITHUB_REPOSITORY") != report["destination"]:
         return False, "github_workflow_repository_identity_not_verified"
     if environ.get("GITHUB_REPOSITORY_ID") != PLATFORM_REPOSITORY_ID:
@@ -224,6 +272,9 @@ def main() -> int:
             "release_pointer_integrity_verified": report["release_pointer_integrity_verified"],
             "release_pointer_sha256": report["release_pointer_sha256"],
             "bootstrap_pinned_sha256": report["bootstrap_pinned_sha256"],
+            "sdk_package_projection_verified": report["sdk_package_projection_verified"],
+            "sdk_package_source_sha256": report["sdk_package_source_sha256"],
+            "sdk_package_snapshot_sha256": report["sdk_package_snapshot_sha256"],
             "cutover_ready": ready,
             "reason": reason,
         }, indent=2, ensure_ascii=False))
