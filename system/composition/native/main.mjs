@@ -486,6 +486,8 @@ async function start() {
         intelligencePort: appAwareIntelligence,
         profileContentContextPort: createNativeProfileContentContext(window),
         spaceSelectionPort: spaceSelection,
+        identitySessionPort: identitySession,
+        spacesPort: spaces,
       })
     : appAwareIntelligence;
   const selectedSpaceIntelligence = memory === null
