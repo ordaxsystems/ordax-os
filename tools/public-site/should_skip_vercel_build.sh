@@ -25,7 +25,13 @@ if git diff --quiet "$previous" "$current" -- \
   package.json \
   package-lock.json \
   vercel.json \
-  tools/public-site/should_skip_vercel_build.sh; then
+  tools/public-site \
+  platform/releases/publications.json \
+  docs/contracts/public-site.json \
+  docs/contracts/public-site-deployment.json \
+  docs/contracts/public-release-catalog.json \
+  docs/contracts/release-compliance.json \
+  docs/contracts/public-legal-readiness.json; then
   exit 0
 fi
 exit 1
