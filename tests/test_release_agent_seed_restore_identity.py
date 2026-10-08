@@ -39,6 +39,15 @@ class ReleaseSeedRestoreIdentityTests(unittest.TestCase):
             )
             self.assertNotIn(SEED_SHA256, text)
             self.assertNotIn("curl --fail --location", text)
+            self.assertEqual(
+                text.count("run: bash bootstrap/release-acquisition/restore_pinned_seed.sh"),
+                1,
+            )
+            self.assertLess(
+                text.index("run: bash bootstrap/release-acquisition/restore_pinned_seed.sh"),
+                text.index("      - name: Install bounded build"),
+                "immutable seed must be restored and checked before costly compilation",
+            )
 
     @unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "POSIX bash is required for shell policy test")
     def test_rejects_wrong_repository_id_before_any_download(self):
