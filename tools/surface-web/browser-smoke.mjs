@@ -21,6 +21,7 @@ const CSS_FILES = [
   'system/surface/ui/files.css',
   'system/surface/ui/system.css',
   'system/surface/ui/account.css',
+  'system/surface/ui/space-switcher.css',
   'system/surface/ui/settings.css',
   'system/surface/ui/store.css',
 ];
@@ -519,6 +520,14 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     await Promise.resolve();
     let root = document.querySelector('#ordax-root');
     result.compositionMounted = Boolean(root?.querySelector('[data-workspace]'));
+    const spaceTrigger = root.querySelector('[data-space-switcher-toggle]');
+    result.spaceSwitcherMounted = Boolean(spaceTrigger);
+    spaceTrigger?.click();
+    result.spaceSwitcherOpens = spaceTrigger?.getAttribute('aria-expanded') === 'true'
+      && root.querySelector('#ordax-space-switcher-menu')?.hidden === false;
+    result.spaceSwitcherWebFailsClosed = root.querySelectorAll('[data-space-switcher-select]').length === 0;
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    result.spaceSwitcherEscapeCloses = spaceTrigger?.getAttribute('aria-expanded') === 'false';
     const bootScreen = document.querySelector('#ordax-boot-screen');
     result.bootScreenCompleted = bootScreen?.hidden === true
       && bootScreen?.dataset.state === 'ready';
@@ -854,7 +863,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.systemOverviewRestored = restoredSystemSlot?.dataset.systemActiveSection === 'overview';
 
     const required = [
-      'compositionMounted', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
+      'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
