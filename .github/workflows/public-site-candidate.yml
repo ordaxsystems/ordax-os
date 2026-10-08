@@ -44,6 +44,7 @@ on:
       - 'tests/test_public_proxy_request_context.mjs'
       - 'tests/test_public_proxy_vercel_oidc.mjs'
       - 'tests/test_public_auth_edge_rate_limit.mjs'
+      - 'tests/test_public_account_edge_bounded_body.mjs'
       - 'tests/test_public_account_edge_gateway_source.py'
       - 'tests/test_auth_provider_probe.py'
       - 'tests/test_account_release_provider_proof.py'
@@ -102,6 +103,7 @@ on:
       - 'tests/test_public_proxy_request_context.mjs'
       - 'tests/test_public_proxy_vercel_oidc.mjs'
       - 'tests/test_public_auth_edge_rate_limit.mjs'
+      - 'tests/test_public_account_edge_bounded_body.mjs'
       - 'tests/test_public_account_edge_gateway_source.py'
       - 'tests/test_auth_provider_probe.py'
       - 'tests/test_account_release_provider_proof.py'
@@ -149,6 +151,7 @@ jobs:
           node --test tests/test_public_proxy_request_context.mjs
           node --test tests/test_public_proxy_vercel_oidc.mjs
           node --test tests/test_public_auth_edge_rate_limit.mjs
+          node --test tests/test_public_account_edge_bounded_body.mjs
           python -m unittest tests.test_public_account_edge_gateway_source -v
           python -m unittest tests.test_auth_provider_probe -v
           python -m unittest tests.test_account_release_provider_proof -v
