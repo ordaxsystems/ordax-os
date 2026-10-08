@@ -45,9 +45,34 @@ class WindowsCompatibilityBuildVersionLockTests(unittest.TestCase):
         self.assertEqual(value["resolved_closure"]["package_count"], 342)
         self.assertEqual(
             value["resolved_closure"]["canonical_json_sha256"],
-            "99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e",
+            "e393674aac035f51e0e7b42c85e25850cfb026d9ab79499e0ca444bb0803ecdd",
         )
         self.assertEqual(value["provenance"]["configure_proof_head_sha"], "3c29aa03a7b26cdcfb95b74694e5ba4954ae9cb0")
+
+    def test_reviewed_refresh_is_non_promoting_and_provenance_bound(self):
+        value = self.validate(copy.deepcopy(self.lock))
+        refresh = value["lock_refresh"]
+        self.assertEqual(len(refresh["changed_packages"]), 2)
+        self.assertEqual([item["name"] for item in refresh["changed_packages"]], ["zlib", "zlib-dev"])
+        self.assertTrue(refresh["offline_apk_content_reproof_required"])
+        self.assertTrue(refresh["full_build_reproof_required"])
+        self.assertFalse(refresh["activation_authorized"])
+        self.assertFalse(refresh["execution_authorized"])
+
+        tampered = copy.deepcopy(self.lock)
+        tampered["lock_refresh"]["changed_packages"][0]["to"] = "1.3.2-r2"
+        with self.assertRaisesRegex(validator.BuildVersionLockError, "reviewed package drift"):
+            self.validate(tampered)
+
+        tampered = copy.deepcopy(self.lock)
+        tampered["lock_refresh"]["offline_apk_content_reproof_required"] = False
+        with self.assertRaisesRegex(validator.BuildVersionLockError, "cannot promote"):
+            self.validate(tampered)
+
+        tampered = copy.deepcopy(self.lock)
+        tampered["lock_refresh"]["historical_artifact"]["archive_sha256"] = "0" * 64
+        with self.assertRaisesRegex(validator.BuildVersionLockError, "historical source artifact digest drifted"):
+            self.validate(tampered)
 
     def test_configure_artifact_provenance_drift_is_rejected(self):
         value = copy.deepcopy(self.lock)
