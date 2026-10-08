@@ -121,11 +121,15 @@ test("Studio integration keeps ChatGPT normal, Work/Codex and provider API disti
 test("development enrollment trusts only canonical ordax-runtime recovery workflow", async () => {
   const source = await readFile(ENROLLMENT_PATH, "utf8");
 
-  assert.match(source, /const REPOSITORY = "washingtonmsdj\/ordax-runtime";/);
+  assert.match(source, /const REPOSITORY = "ordaxsystems\/ordax-runtime";/);
   assert.match(source, /const REPOSITORY_ID = "1406415790";/);
   assert.match(
     source,
-    /washingtonmsdj\/ordax-runtime\/\.github\/workflows\/ordax-agent-recovery\.yml@refs\/heads\/main/,
+    /ordaxsystems\/ordax-runtime\/\.github\/workflows\/ordax-agent-recovery\.yml@refs\/heads\/main/,
   );
+  // GitHub repository id remains stable across owner transfers; repository
+  // and workflow_ref must move together with the signer.
+  assert.doesNotMatch(source, /const REPOSITORY = "washingtonmsdj\/ordax-runtime";/);
+  assert.doesNotMatch(source, /"washingtonmsdj\/ordax-runtime\/\.github\/workflows/);
   assert.doesNotMatch(source, /washingtonmsdj\/mcp-blender/);
 });
