@@ -85,7 +85,7 @@ jobs:
           assert contract['$schema'] == 'prototype-ordax.creator-component-channel/1'
           assert contract['status'] == 'candidate-enabled'
           assert contract['purpose'] == 'creator-inspection-windows-amd64'
-          assert contract['source_repository'] == 'ordaxsystems/prototipo-ordax-os'
+          assert contract['source_repository'] == 'ordaxsystems/ordax-os'
           assert contract['release_tag'] == 'creator-components'
           assert contract['bundle_name'] == 'ordax-creator-components-windows-amd64.zip'
           assert contract['envelope_name'] == 'creator-component-envelope.json'

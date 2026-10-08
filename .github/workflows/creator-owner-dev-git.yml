@@ -154,7 +154,7 @@ jobs:
           manifest['boot_policy'] = {
               'development_mode': True,
               'network_before_git': True,
-              'git_repository': 'https://github.com/ordaxsystems/prototipo-ordax-os.git',
+              'git_repository': 'https://github.com/ordaxsystems/ordax-os.git',
               'branch': 'main',
               'source_checkout_path': '/workspace/ordax',
               'ordinary_change_requires_usb_reflash': False
@@ -342,7 +342,7 @@ jobs:
               'version': version,
               'source_commit': source,
               'artifact': 'OrdaX-Creator-Owner-Prototype.zip',
-              'download_url': 'https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-owner-prototype/OrdaX-Creator-Owner-Prototype.zip',
+              'download_url': 'https://github.com/ordaxsystems/ordax-os/releases/download/creator-owner-prototype/OrdaX-Creator-Owner-Prototype.zip',
               'sha256': digest,
               'size': int(size),
               'automatic_in_app_update': False
@@ -369,7 +369,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          repo='ordaxsystems/prototipo-ordax-os'
+          repo='ordaxsystems/ordax-os'
           release="$GITHUB_WORKSPACE/out/owner-prototype/release"
           if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then
             gh release create creator-owner-prototype --repo "$repo" --target "$GITHUB_SHA" \

@@ -14,13 +14,13 @@ import zipfile
 
 MANIFEST_SCHEMA = "prototype-ordax.creator-component-manifest/1"
 PURPOSE = "creator-inspection-windows-amd64"
-SOURCE_REPOSITORY = "ordaxsystems/prototipo-ordax-os"
+SOURCE_REPOSITORY = "ordaxsystems/ordax-os"
 RECIPE = "creator/component/windows/1"
 BUNDLE_NAME = "ordax-creator-components-windows-amd64.zip"
 COMPONENT_NAME = "ordax-creator-physical-test.exe"
 MANIFEST_NAME = "creator-component-manifest.json"
 BUNDLE_URL = (
-    "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/"
+    "https://github.com/ordaxsystems/ordax-os/releases/download/"
     "creator-components/ordax-creator-components-windows-amd64.zip"
 )
 MAX_COMPONENT_BYTES = 32 << 20

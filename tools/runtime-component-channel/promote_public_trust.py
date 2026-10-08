@@ -35,7 +35,7 @@ PACKAGE_POLICY_SCHEMA = "prototype-ordax.runtime-component-package-policy/1"
 RESULT_SCHEMA = "prototype-ordax.runtime-component-trust-public-promotion/1"
 
 KEY_ID = "ordax-runtime-components-v1"
-SOURCE_REPOSITORY = "ordaxsystems/prototipo-ordax-os"
+SOURCE_REPOSITORY = "ordaxsystems/ordax-os"
 PROOF_COMPONENT_ID = "internet"
 PROOF_COMPONENT_VERSION = "0.0.0-trust-proof"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")

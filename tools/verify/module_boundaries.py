@@ -22,7 +22,7 @@ JS_CALL_RE = re.compile(r"\b(?:require|import)\(\s*[\"']([^\"']+)[\"']\s*\)")
 PY_FROM_RE = re.compile(r"^\s*from\s+([A-Za-z_][A-Za-z0-9_.]*)\s+import\s+", re.MULTILINE)
 PY_IMPORT_RE = re.compile(r"^\s*import\s+([A-Za-z_][A-Za-z0-9_.]*)", re.MULTILINE)
 QUOTED_REPO_PATH_RE = re.compile(
-    r"[\"']((?:github\.com/ordaxsystems/prototipo-ordax-os/)?(?:system|bootstrap|tools/creator)/[^\"']+)[\"']"
+    r"[\"']((?:github\.com/ordaxsystems/ordax-os/)?(?:system|bootstrap|tools/creator)/[^\"']+)[\"']"
 )
 
 
@@ -50,8 +50,8 @@ def normalize_specifier(source_rel: PurePosixPath, specifier: str) -> str | None
     if not spec:
         return None
 
-    if spec.startswith("github.com/ordaxsystems/prototipo-ordax-os/"):
-        spec = spec.removeprefix("github.com/ordaxsystems/prototipo-ordax-os/")
+    if spec.startswith("github.com/ordaxsystems/ordax-os/"):
+        spec = spec.removeprefix("github.com/ordaxsystems/ordax-os/")
 
     if spec.startswith("@ordax/"):
         spec = "system/" + spec.removeprefix("@ordax/")

@@ -15,7 +15,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Repository = 'ordaxsystems/prototipo-ordax-os'
+$Repository = 'ordaxsystems/ordax-os'
 $ReleaseTag = 'creator-physical'
 $RotationConfirmation = 'ROTATE_CREATOR_PHYSICAL_RELEASE'
 $BundleName = 'ordax-creator-physical-windows-amd64.zip'

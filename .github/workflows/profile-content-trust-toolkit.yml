@@ -86,7 +86,7 @@ jobs:
             'first_public_profile_proof_still_pending': provisioning.get('next_gates') == ['first-public-profile-proof'],
             'public_install_still_blocked': provisioning.get('mvp',{}).get('public_profile_install_enabled') is False,
           }
-          canonical=(os.environ['GITHUB_REPOSITORY']=='ordaxsystems/prototipo-ordax-os' and os.environ['GITHUB_EVENT_NAME']=='push' and os.environ['GITHUB_REF']=='refs/heads/main')
+          canonical=(os.environ['GITHUB_REPOSITORY']=='ordaxsystems/ordax-os' and os.environ['GITHUB_EVENT_NAME']=='push' and os.environ['GITHUB_REF']=='refs/heads/main')
           data={
             '$schema':'prototype-ordax.profile-content-trust-toolkit/1',
             'status':'candidate',
@@ -125,7 +125,7 @@ jobs:
           assert p['canonical_public_trust_included'] is False
           assert p['key_generation_requires_local_user_action'] is True
           assert all(isinstance(v,bool) for v in p['canonical_profile_content_trust_prerequisites'].values())
-          canonical=(os.environ['GITHUB_REPOSITORY']=='ordaxsystems/prototipo-ordax-os' and os.environ['GITHUB_EVENT_NAME']=='push' and os.environ['GITHUB_REF']=='refs/heads/main')
+          canonical=(os.environ['GITHUB_REPOSITORY']=='ordaxsystems/ordax-os' and os.environ['GITHUB_EVENT_NAME']=='push' and os.environ['GITHUB_REF']=='refs/heads/main')
           assert p['canonical_profile_content_trust_ceremony_eligible'] is (canonical and all(p['canonical_profile_content_trust_prerequisites'].values()))
           print('PROFILE_CONTENT_TRUST_TOOLKIT_SECRET_MATERIAL=NONE')
           print('PROFILE_CONTENT_TRUST_TOOLKIT_CANONICAL_KEY_INCLUDED=NO')

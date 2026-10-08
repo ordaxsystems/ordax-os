@@ -64,7 +64,7 @@ if (
     throw 'Component trust toolkit provenance schema or status is invalid.'
 }
 if (
-    $Provenance.source_repository -ne 'ordaxsystems/prototipo-ordax-os' -or
+    $Provenance.source_repository -ne 'ordaxsystems/ordax-os' -or
     $Provenance.source_event -ne 'push' -or
     $Provenance.source_ref -ne 'refs/heads/main' -or
     $Provenance.canonical_component_trust_ceremony_eligible -ne $true
@@ -223,7 +223,7 @@ finally {
 
 $Proof = [ordered]@{
     '$schema' = 'prototype-ordax.runtime-component-release/1'
-    source_repository = 'ordaxsystems/prototipo-ordax-os'
+    source_repository = 'ordaxsystems/ordax-os'
     source_commit = $SourceCommit
     created_from_ci_recipe = 'runtime-component/package/1'
     component = [ordered]@{

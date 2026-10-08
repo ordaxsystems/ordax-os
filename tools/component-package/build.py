@@ -28,7 +28,7 @@ from source_graph import (  # noqa: E402
 
 SCHEMA = "prototype-ordax.runtime-component-package/1"
 RELEASE_SCHEMA = "prototype-ordax.runtime-component-release/1"
-SOURCE_REPOSITORY = "ordaxsystems/prototipo-ordax-os"
+SOURCE_REPOSITORY = "ordaxsystems/ordax-os"
 CREATED_FROM_CI_RECIPE = "runtime-component/package/1"
 MANIFEST_NAME = "component-package.json"
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
