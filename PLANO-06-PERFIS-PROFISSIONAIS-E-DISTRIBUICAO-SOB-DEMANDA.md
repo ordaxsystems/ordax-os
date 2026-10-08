@@ -315,3 +315,19 @@ Os invariantes reaproveitados são:
 O runtime legado não é copiado. Os conceitos são reimplementados sobre os contratos atuais do
 `prototipo-ordax-os`, com USB-only MVP, component slots, assinatura, Spaces,
 Memory e Intelligence provider-neutral.
+
+
+## Interface de Spaces e Profiles — contrato visual MVP
+
+A Surface possui **um seletor de Space na barra de sistema** (`system/surface/ui/space-switcher-controls.mjs`) e apresenta cartões de Spaces e Profile Packs no aplicativo Conta. O seletor de Space consome exclusivamente os contratos canônicos `ordax.spaces/1`, `ordax.space-selection/1` e a sessão de identidade existente. Ele não cria uma identidade, organização, Space ou plano de instalação paralelo.
+
+- **Native:** seleciona somente um Space ativo, visível no catálogo autenticado para o `subjectId` atual; a seleção é persistida exclusivamente pela implementação canônica.
+- **Web:** exibe contexto e catálogo quando disponíveis, mas não finge capacidade de seleção Native ausente.
+- **Troca de conta/catálogo:** o seletor não exibe dados antigos quando o sujeito muda, a resposta do catálogo está pendente ou o Space deixa de estar visível.
+- **Gerenciar espaços:** abre o aplicativo Conta na seção Spaces pelo canal de ativação já existente.
+- **Perfis profissionais:** o grid usa somente planos retornados pelo provisionamento e o estado de ativação Native, sem pedidos, faturamento, estoque ou permissões fictícios.
+- **Criar/renomear/remover Spaces:** não são expostos porque o port da Surface permanece read-only e as mutações têm de ser autorizadas pelo backend canônico antes de existir UI de criação.
+- **Estética:** a própria Surface mantém tokens, contraste, localização, foco visível, navegação por teclado, modo responsivo e movimento reduzido. Um Profile é composição do Space, não tema independente nem fork do OS.
+
+A integração visual não promove um Profile bloqueado à distribuição pública. Permanecem gates independentes de ativação de componentes, prova física e pacote assinado. A priorização futura é: autorização server-side para criação de Space → assistente nativo de criação → personalização de preferências no escopo correto → bibliotecas de aplicativos profissionais sem duplicar a Store.
+
