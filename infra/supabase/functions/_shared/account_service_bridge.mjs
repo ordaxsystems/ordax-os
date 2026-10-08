@@ -31,8 +31,15 @@ function constantTimeEqual(left, right) {
 // Caller provenance is NOT provided by the marker alone. A named secret key
 // and the marker are both mandatory. No JWT/user identity is inferred here.
 export function authenticatedAccountBridge(headers, rawSecretKeys) {
-  if (headers?.get?.("x-ordax-public-site") !== "1") return false;
-  const actual = headers.get("apikey");
+  let marker;
+  let actual;
+  try {
+    marker = headers?.get?.("x-ordax-public-site");
+    actual = headers?.get?.("apikey");
+  } catch {
+    return false;
+  }
+  if (marker !== "1") return false;
   if (typeof actual !== "string" || !SECRET_KEY_PATTERN.test(actual)) return false;
   const expected = accountBridgeSecret(rawSecretKeys);
   return expected !== null && constantTimeEqual(actual, expected);
