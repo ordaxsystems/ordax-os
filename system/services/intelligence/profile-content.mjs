@@ -13,6 +13,12 @@ import { assertIdentitySessionPort, validateIdentitySessionSnapshot } from "../.
 import { assertSpacesPort, validateSpacesSnapshot } from "../../contracts/spaces.mjs";
 import { deriveAuthorizedSpaces } from "../spaces/authorized-view.mjs";
 import {
+  assertProfileActivationStatePort,
+  currentProfileForSpace,
+  validateProfileActivationState,
+} from "../../contracts/profile-activation-state.mjs";
+import { PROFILE_CONTENT_CONTEXT_PORT_SCHEMA } from "../../contracts/profile-content-context.mjs";
+import {
   assertSpaceSelectionPort,
   validateSpaceSelectionSnapshot,
 } from "../../contracts/space-selection.mjs";
@@ -119,11 +125,13 @@ export function createSelectedSpaceProfileContentIntelligence({
   spaceSelectionPort,
   identitySessionPort,
   spacesPort,
+  profileActivationStatePort,
 } = {}) {
   const intelligence = assertIntelligencePort(intelligencePort);
   const selection = assertSpaceSelectionPort(spaceSelectionPort);
   const identity = assertIdentitySessionPort(identitySessionPort);
   const spaces = assertSpacesPort(spacesPort);
+  const activation = assertProfileActivationStatePort(profileActivationStatePort);
   return Object.freeze({
     schema: INTELLIGENCE_PORT_SCHEMA,
     getSnapshot() {
@@ -153,6 +161,33 @@ export function createSelectedSpaceProfileContentIntelligence({
       // authenticated subject and Space, not whichever user opens the UI later.
       const spaceId = authorized.id;
       const subjectId = selected.subjectId;
+      const currentActivation = validateProfileActivationState(activation.getSnapshot());
+      const activeProfile = currentProfileForSpace(currentActivation, authorized);
+      const assertStableActivation = () => {
+        const next = validateProfileActivationState(activation.getSnapshot());
+        const profile = currentProfileForSpace(next, authorized);
+        if (
+          next.revision !== currentActivation.revision
+          || profile?.slug !== activeProfile?.slug
+          || profile?.version !== activeProfile?.version
+        ) {
+          throw new Error("Profile-content Intelligence activation changed while reading context");
+        }
+      };
+      const verifiedProfileContext = {
+        schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+        async read(id) {
+          const context = validateProfileContentContext(await profileContentContextPort.read(id));
+          assertStableActivation();
+          if (
+            context.profile?.slug !== activeProfile?.slug
+            || context.profile?.version !== activeProfile?.version
+          ) {
+            throw new Error("Profile-content Intelligence reader returned an inactive Profile");
+          }
+          return context;
+        },
+      };
       const securedContextPort = {
         schema: INTELLIGENCE_PORT_SCHEMA,
         getSnapshot: () => intelligence.getSnapshot(),
@@ -160,6 +195,7 @@ export function createSelectedSpaceProfileContentIntelligence({
         respond: (merged) => {
           const now = validateSpaceSelectionSnapshot(selection.getSnapshot());
           const space = currentSpace();
+          assertStableActivation();
           if (
             now.state !== "selected"
             || now.subjectId !== subjectId
@@ -175,7 +211,7 @@ export function createSelectedSpaceProfileContentIntelligence({
       // post-read authorization guard before reaching the inference port.
       return createProfileContentIntelligence({
         intelligencePort: securedContextPort,
-        profileContentContextPort,
+        profileContentContextPort: verifiedProfileContext,
       }).forSpace(spaceId).respond(request);
     },
   });

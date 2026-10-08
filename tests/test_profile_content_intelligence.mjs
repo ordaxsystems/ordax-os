@@ -21,16 +21,18 @@ import {
   SPACE_SELECTION_SCHEMA,
   validateSpaceSelectionSnapshot,
 } from "../system/contracts/space-selection.mjs";
+import { PROFILE_ACTIVATION_STATE_PORT_SCHEMA } from "../system/contracts/profile-activation-state.mjs";
 
 function response(body, ok = true, status = 200) {
   return { ok, status, async json() { return body; } };
 }
 
-function context(spaceId = "space-dev", entries = []) {
+function context(spaceId = "space-dev", entries = [], activeProfile = entries.length
+  ? { slug: "developer", version: 1 } : null) {
   return {
     schema: "ordax.profile-content-context/1",
     spaceId,
-    profile: entries.length ? { slug: "developer", version: 1 } : null,
+    profile: activeProfile,
     entries,
   };
 }
@@ -65,6 +67,25 @@ function authorizedContext(selection, extraSpaces = []) {
     }; },
     subscribe() { return () => {}; },
   };
+  let activation = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 1,
+    persistence: "device",
+    spaces: catalog.spaces.map((space) => ({
+      spaceId: space.id, spaceKind: space.kind,
+      current: {
+        profile: { slug: "developer", version: 1 },
+        components: [], activatedAt: 100,
+      },
+      previous: null,
+    })),
+  };
+  const profileActivationStatePort = {
+    schema: PROFILE_ACTIVATION_STATE_PORT_SCHEMA,
+    getSnapshot() { return activation; },
+    async refresh() { return activation; },
+    dispose() {},
+  };
   const spacesPort = {
     schema: "ordax.spaces/1",
     getSnapshot() { return catalog; },
@@ -75,6 +96,8 @@ function authorizedContext(selection, extraSpaces = []) {
   return {
     identitySessionPort,
     spacesPort,
+    profileActivationStatePort,
+    setActivation(next) { activation = next; },
     setSubject(next) { subject = next; },
     setCatalog(next) { catalog = next; },
   };
@@ -273,6 +296,7 @@ test("Selected-Space Profile Intelligence injects only the explicitly selected S
     spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort,
     spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
   });
 
   assert.equal(assertIntelligencePort(port), port);
@@ -304,6 +328,7 @@ test("Selected-Space Profile Intelligence never invents context while selection 
     spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort,
     spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
   });
 
   await port.respond({
@@ -327,7 +352,7 @@ test("Selected-Space Profile Intelligence follows current selection without stal
     schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
     async read(spaceId) {
       reads.push(spaceId);
-      return validateProfileContentContext(context(spaceId, []));
+      return validateProfileContentContext(context(spaceId, [], { slug: "developer", version: 1 }));
     },
   };
   const selection = spaceSelectionPort({
@@ -353,6 +378,7 @@ test("Selected-Space Profile Intelligence follows current selection without stal
     spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort,
     spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
   });
 
   await port.respond({ prompt: "one" });
@@ -392,6 +418,7 @@ test("Professional knowledge never reads another identity's selected Space", asy
     intelligencePort: ai, spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort,
     spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
     profileContentContextPort: {
       schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
       async read() { reads++; return context("pizza-space", []); },
@@ -419,6 +446,7 @@ test("Professional knowledge never reads a revoked or archived catalog Space", a
   const port = createSelectedSpaceProfileContentIntelligence({
     intelligencePort: ai, spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort, spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
     profileContentContextPort: {
       schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
       async read() { reads++; return context("space-a", []); },
@@ -446,6 +474,7 @@ test("Changing account while verified professional Knowledge is loading rejects 
   const port = createSelectedSpaceProfileContentIntelligence({
     intelligencePort: ai, spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort, spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
     profileContentContextPort: {
       schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
       async read(spaceId) {
@@ -487,12 +516,13 @@ test("Switching to another Space during Knowledge retrieval never feeds stale co
   const port = createSelectedSpaceProfileContentIntelligence({
     intelligencePort: ai, spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort, spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
     profileContentContextPort: {
       schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
       async read(spaceId) {
         begin();
         await waiting;
-        return context(spaceId, []);
+        return context(spaceId, [], { slug: "developer", version: 1 });
       },
     },
   });
@@ -520,6 +550,94 @@ test("Profile-content wrapper rejects a cross-Space response from its reader", a
     () => port.forSpace("expected-space").respond({ prompt: "teste" }),
     /Space identity changed/,
   );
+  assert.equal(ai.requests.length, 0);
+});
+
+
+test("Updating the Profile Pack in the same Space during a Knowledge read rejects stale instructions", async () => {
+  const ai = intelligencePort();
+  const activeSpace = {
+    id: "space-one", ownerId: "user-1", name: "One",
+    kind: "professional", state: "active", profilePack: "developer",
+  };
+  const selection = spaceSelectionPort({
+    schema: SPACE_SELECTION_SCHEMA, state: "selected",
+    subjectId: "user-1", selectedSpace: activeSpace,
+  });
+  const auth = authorizedContext(selection);
+  let start; let finish;
+  const entered = new Promise((resolve) => { start = resolve; });
+  const waiting = new Promise((resolve) => { finish = resolve; });
+  const port = createSelectedSpaceProfileContentIntelligence({
+    intelligencePort: ai,
+    spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
+    profileContentContextPort: {
+      schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+      async read(spaceId) {
+        start();
+        await waiting;
+        return context(spaceId, [{
+          id: "dev-old", scope: "workspace",
+          text: "Old professional instructions",
+          provenance: "profile-content:knowledge-pack:verified",
+        }]);
+      },
+    },
+  });
+  const pending = port.respond({ prompt: "Como proceder?" });
+  await entered;
+  auth.setActivation({
+    schema: "ordax.profile-activation-state/1",
+    revision: 2,
+    persistence: "device",
+    spaces: [{
+      spaceId: activeSpace.id, spaceKind: activeSpace.kind,
+      current: {
+        profile: { slug: "impressao-3d-br", version: 1 },
+        components: [], activatedAt: 200,
+      },
+      previous: {
+        profile: { slug: "developer", version: 1 },
+        components: [], activatedAt: 100,
+      },
+    }],
+  });
+  finish();
+  await assert.rejects(pending, /activation changed while reading context/);
+  assert.equal(ai.requests.length, 0);
+});
+
+test("Professional Knowledge from an inactive Profile is rejected on the same authorized Space", async () => {
+  const ai = intelligencePort();
+  const selection = spaceSelectionPort({
+    schema: SPACE_SELECTION_SCHEMA, state: "selected", subjectId: "user-1",
+    selectedSpace: {
+      id: "space-1", ownerId: "user-1", name: "A",
+      kind: "professional", state: "active", profilePack: "developer",
+    },
+  });
+  const auth = authorizedContext(selection);
+  const port = createSelectedSpaceProfileContentIntelligence({
+    intelligencePort: ai,
+    spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
+    profileContentContextPort: {
+      schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+      async read(spaceId) {
+        return context(spaceId, [{
+          id: "wrong-pack", scope: "workspace",
+          text: "Instructions for another profile",
+          provenance: "profile-content:knowledge-pack:verified",
+        }], { slug: "pizzaria-br", version: 1 });
+      },
+    },
+  });
+  await assert.rejects(() => port.respond({ prompt: "teste" }), /inactive Profile/);
   assert.equal(ai.requests.length, 0);
 });
 
