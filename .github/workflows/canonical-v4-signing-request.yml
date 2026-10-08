@@ -5,9 +5,19 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/canonical-v4-signing-request.yml'
-      - 'docs/contracts/canonical-v4-signing-request.json'
+      - pathlib.Path(os.environ['CANONICAL_V4_REQUEST_PATH'])
+      - 'docs/contracts/canonical-v4-signing-request-active.json'
+      - 'tools/release-operator/select_active_signing_request.py'
+      - 'tests/test_canonical_v4_signing_request_selection.py'
       - 'tools/release-operator/**'
       - 'tests/test_canonical_v4_signing_request.py'
+  pull_request:
+    paths:
+      - '.github/workflows/canonical-v4-signing-request.yml'
+      - pathlib.Path(os.environ['CANONICAL_V4_REQUEST_PATH'])
+      - 'docs/contracts/canonical-v4-signing-request-active.json'
+      - 'tools/release-operator/**'
+      - 'tests/test_canonical_v4_signing_request*.py'
   workflow_dispatch:
 
 permissions:
@@ -15,8 +25,45 @@ permissions:
   actions: read
 
 jobs:
-  assemble-public-signing-request:
+  classify_request:
+    name: Validate signing request selection (no signing)
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      active: ${{ steps.select.outputs.active }}
+    steps:
+      - name: Checkout immutable request provenance
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Test canonical request selection and fail-closed contract
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -v -s tests -p 'test_canonical_v4_signing_request_selection.py'
+      - name: Select current request without confusing historical provenance
+        id: select
+        env:
+          SELECTION_OUTPUT: ${{ github.output }}
+        run: |
+          set -euo pipefail
+          python3 tools/release-operator/select_active_signing_request.py \
+            --github-output "$GITHUB_OUTPUT"
+      - name: State unsigned assembly availability
+        run: |
+          if [ "${{ steps.select.outputs.active }}" = 'true' ]; then
+            echo 'CANONICAL_V4_UNSIGNED_ASSEMBLY=ELIGIBLE_FOR_FULL_VERIFICATION'
+          else
+            echo 'CANONICAL_V4_UNSIGNED_ASSEMBLY=BLOCKED_NO_CANONICAL_REQUEST'
+            echo 'SIGNED_STABLE_RELEASE=NOT_PROVEN'
+          fi
+
+  assemble-public-signing-request:
+    needs: classify_request
+    if: ${{ github.event_name != 'pull_request' && needs.classify_request.outputs.active == 'true' }}
+    runs-on: ubuntu-24.04
+    env:
+      CANONICAL_V4_REQUEST_PATH: docs/contracts/canonical-v4-signing-request-active.json
     timeout-minutes: 35
     steps:
       - name: Checkout assembly source
@@ -42,7 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           python tools/release-operator/validate_canonical_v4_signing_request.py \
-            --request docs/contracts/canonical-v4-signing-request.json \
+            --request "$CANONICAL_V4_REQUEST_PATH" \
             --request-only
 
       - name: Resolve validated request identities
@@ -51,8 +98,8 @@ jobs:
         run: |
           set -euo pipefail
           python - "$GITHUB_OUTPUT" <<'PY'
-          import json, pathlib, sys
-          request = json.loads(pathlib.Path('docs/contracts/canonical-v4-signing-request.json').read_text(encoding='utf-8'))
+          import json, os, pathlib, sys
+          request = json.loads(pathlib.Path(pathlib.Path(os.environ['CANONICAL_V4_REQUEST_PATH'])).read_text(encoding='utf-8'))
           out = pathlib.Path(sys.argv[1])
           values = {
               'source_commit': request['source_commit'],
@@ -166,7 +213,7 @@ jobs:
           artifacts="$RUNNER_TEMP/canonical-v4-operator-artifacts"
           work="$RUNNER_TEMP/canonical-v4-public-assembly"
           package="$RUNNER_TEMP/canonical-v4-signing-request-package"
-          request="docs/contracts/canonical-v4-signing-request.json"
+          request="$CANONICAL_V4_REQUEST_PATH"
 
           find_one() {
             local root="$1"
@@ -209,7 +256,7 @@ jobs:
           package="$RUNNER_TEMP/canonical-v4-signing-request-package"
 
           python tools/release-operator/validate_canonical_v4_signing_request.py \
-            --request docs/contracts/canonical-v4-signing-request.json \
+            --request "$CANONICAL_V4_REQUEST_PATH" \
             --metadata-dir "$metadata" \
             --system-dir "$artifacts/system" \
             --surface-dir "$artifacts/surface" \
@@ -236,7 +283,7 @@ jobs:
             printf '%s\n' "${matches[0]}"
           }
 
-          cp docs/contracts/canonical-v4-signing-request.json "$package/canonical-v4-signing-request.json"
+          cp "$CANONICAL_V4_REQUEST_PATH" "$package/canonical-v4-signing-request.json"
           cp "$(find_one "$artifacts/system" operator-receipt.json)" "$package/system-operator-receipt.json"
           cp "$(find_one "$artifacts/surface" operator-receipt.json)" "$package/surface-operator-receipt.json"
           cp "$(find_one "$artifacts/local-ai" operator-receipt.json)" "$package/local-ai-operator-receipt.json"
