@@ -197,8 +197,32 @@
 }
 
 @media (max-width: 760px) {
+  .ordax-brandbar {
+    top: 14px;
+    inset-inline: 16px;
+    gap: 8px;
+  }
+
+  .ordax-brand {
+    gap: 5px;
+  }
+
+  .ordax-brand-word {
+    font-size: 1.32rem;
+  }
+
+  .ordax-brand-symbol {
+    width: 38px;
+    transform: scale(0.68);
+    transform-origin: left center;
+  }
+
+  .ordax-brand-rule {
+    display: none;
+  }
+
   .ordax-space-switcher {
-    width: min(216px, 52vw);
+    width: min(166px, 45vw);
   }
   .ordax-space-switcher-trigger {
     min-height: 40px;
