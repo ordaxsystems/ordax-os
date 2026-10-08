@@ -224,10 +224,10 @@
     "destination_vercel_team_slug": "ordaxsystems",
     "destination_vercel_team_id": "team_E3bdE137ZG3fhCGMmYuGKJ8o",
     "destination_vercel_public_project_name": "ordax-os-public",
-    "destination_vercel_public_project_found": false,
+    "destination_vercel_public_project_found": true,
     "destination_vercel_oidc_binding_verified": false,
     "destination_vercel_oidc_runtime_e2e_verified": false,
-    "destination_vercel_oidc_observation": "Connected team OrdaX Systems had no matching ordax-os-public project (list/get_project 404) on 2026-10-08. Source now rejects prior jogo-brasils-projects OIDC claims and expects ordaxsystems/ordax-os-public/production; existence, signed production OIDC and HTTP runtime remain unverified.",
+    "destination_vercel_oidc_observation": "2026-10-08: OrdaX Systems Vercel team has linked project ordax-os-public (PRJ ID and preview evidence in public-site-deployment SSOT). Preview READY, but production deployment absent, production environment variables absent, and desired canonical domain ordax-os-public.vercel.app is owned by another team (409). Source expects ordaxsystems/ordax-os-public/production; signed runtime OIDC not verified.",
     "destination_service_transport_runtime_verified": false,
     "destination_gateway_transport_observed": "Inner ordax-account-gateway v2 has platform verify_jwt=true, but outer ordax-public-account-gateway upstreamHeaders supplies only apikey and no Authorization bearer. A new sb_secret API key is not a JWT. The chain is not interoperable; no public gateway deployed or live HTTP test proved.",
     "destination_gateway_transport_source_reference": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
@@ -251,7 +251,8 @@
     "destination_transport_admission_deployed": true,
     "destination_transport_admission_negative_http_verified": false,
     "internal_gateway_route_prefix_hardening_deployed": true,
-    "internal_gateway_sync_mutation_object_guard_deployed": true
+    "internal_gateway_sync_mutation_object_guard_deployed": true,
+    "destination_vercel_public_project_evidence_source": "docs/contracts/public-site-deployment.json"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
