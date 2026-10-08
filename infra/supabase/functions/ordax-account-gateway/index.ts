@@ -1071,13 +1071,14 @@ Deno.serve(async (req: Request) => {
     },
   });
   if (!transport.ok) {
-    if (transport.code === "public-account-boundary-authentication-required") {
-      return error(403, transport.code, "Boundary público não autenticado.");
+    const transportCode = transport.code ?? "account-transport-untrusted";
+    if (transportCode === "public-account-boundary-authentication-required") {
+      return error(403, transportCode, "Boundary público não autenticado.");
     }
-    if (transport.code === "native-identity-unavailable") {
-      return error(503, transport.code, "O serviço de identidade OrdaX está indisponível.");
+    if (transportCode === "native-identity-unavailable") {
+      return error(503, transportCode, "O serviço de identidade OrdaX está indisponível.");
     }
-    return error(401, transport.code, "Autenticação da Conta OrdaX obrigatória.");
+    return error(401, transportCode, "Autenticação da Conta OrdaX obrigatória.");
   }
 
   const directRateLimitResponse = await enforceDirectAuthRateLimit(req, path);
