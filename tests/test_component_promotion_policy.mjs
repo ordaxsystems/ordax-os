@@ -6,6 +6,7 @@ import { internetComponent } from "../system/apps/internet/component.mjs";
 import {
   COMPONENT_PROMOTION_DECISION_SCHEMA,
   decidePendingComponentAction,
+  validateComponentPromotionActionReason,
 } from "../system/services/components/promotion-policy.mjs";
 
 function slotInternet(overrides = {}) {
@@ -119,4 +120,32 @@ test("policy rejects malformed booleans and health values", () => {
     }),
     /canonicalTrustPinned/,
   );
+});
+
+
+test("promotion policy exclusively validates action/reason vocabulary", () => {
+  assert.equal(
+    validateComponentPromotionActionReason("hold", "component-slot-activation-disabled"),
+    "component-slot-activation-disabled",
+  );
+  assert.equal(
+    validateComponentPromotionActionReason("reject", "pending-health-failed"),
+    "pending-health-failed",
+  );
+  assert.equal(
+    validateComponentPromotionActionReason("promote", "eligible-for-promotion"),
+    "eligible-for-promotion",
+  );
+  for (const [action, reason] of [
+    ["promote", "pending-health-failed"],
+    ["reject", "eligible-for-promotion"],
+    ["hold", "eligible-for-promotion"],
+    ["activate", "eligible-for-promotion"],
+    ["promote", "unknown"],
+  ]) {
+    assert.throws(
+      () => validateComponentPromotionActionReason(action, reason),
+      /Invalid component promotion action/,
+    );
+  }
 });

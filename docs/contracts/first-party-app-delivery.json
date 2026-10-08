@@ -268,6 +268,15 @@
     "post_lifecycle_dynamic_probation_failure_keeps_pending_health": true,
     "post_lifecycle_dynamic_probation_can_promote": false,
     "post_lifecycle_dynamic_probation_can_activate": false,
+    "pending_decision_plan_implemented": true,
+    "pending_decision_plan_owner": "platform-component-lifecycle",
+    "pending_decision_plan_authority": "none",
+    "pending_decision_plan_requires_exact_probation_identity": true,
+    "pending_decision_plan_rejects_noncanonical_fields": true,
+    "pending_decision_plan_action_reasons_owner": "system/services/components/promotion-policy.mjs",
+    "pending_decision_plan_uses_canonical_promotion_policy": true,
+    "pending_decision_plan_executes_mutation": false,
+    "pending_decision_plan_can_activate": false,
     "production_pending_decision_mounted": false
   },
   "mvp": {
