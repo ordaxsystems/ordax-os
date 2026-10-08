@@ -178,10 +178,10 @@
       "20261002232500_account_registration_legal_fk_indexes_v1.sql",
       "20261007034500_public_login_legal_receipt_guard_v1.sql",
       "20261007041500_account_legal_policy_activation_v1.sql",
-    "20261008041000_account_registration_intent_email_validation_v2.sql"
+      "20261008041000_account_registration_intent_email_validation_v2.sql"
     ],
     "email_validation_nul_bug_fixed_in_both_projects": true,
-  "account_create_trigger_count": 1,
+    "account_create_trigger_count": 1,
     "legal_acceptance_negative_transactional_proof_passed": true,
     "backend_only_rpc_grants_verified": true,
     "active_legal_policy_present": false,
