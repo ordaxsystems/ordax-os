@@ -155,7 +155,7 @@ test("reject invalid input vectors, duplicates and derived-index authority chang
 
 test("distance metrics are correct and score ties have stable source ordering", () => {
   const pairs = [
-    ["dot", [1, 0, 0], [2, 0, 0], [0, 1, 0], ["b", "a"]],
+    ["dot", [1, 0, 0], [2, 0, 0], [0, 1, 0], ["a", "b"]],
     ["l2", [1, 0, 0], [1, 0, 0], [4, 0, 0], ["a", "b"]],
   ];
   for (const [distance, query, first, second, expected] of pairs) {
