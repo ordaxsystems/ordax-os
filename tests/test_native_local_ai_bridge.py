@@ -157,7 +157,7 @@ class NativeLocalAiBridgeTests(unittest.TestCase):
                 body=self.completion(extra=extra),
                 headers={"Content-Type": "application/json"},
             )
-            self.assertEqual(status, 503)
+            self.assertEqual(status, 400)
         self.assertEqual(self.backend.received, [])
 
     def test_byte_cap_and_unsupported_content_type(self):
