@@ -304,6 +304,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             "phase": "post-transfer",
             "destination": "ordaxsystems/ordax-os",
             "operational_count": 0,
+            "retired_slug_operational_count": 0,
             "release_pointer_integrity_verified": True,
             "sdk_package_projection_verified": True,
         }
