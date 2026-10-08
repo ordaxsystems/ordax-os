@@ -49,6 +49,9 @@ export const componentRuntime = Object.freeze({
     surfaceLifecycle,
     intelligence = null,
     memoryCapture = null,
+    identitySessionPort,
+    spaceSelectionPort,
+    profileActivationStatePort = null,
   } = {}) {
     const releaseStyles = await mountAssistantStyles(root);
     let conversation = null;
@@ -59,7 +62,13 @@ export const componentRuntime = Object.freeze({
       releaseStyles();
     };
     try {
-      conversation = createAssistantConversationRuntime({ intelligencePort: intelligence, memoryCapture });
+      conversation = createAssistantConversationRuntime({
+        intelligencePort: intelligence,
+        memoryCapture,
+        identitySessionPort,
+        spaceSelectionPort,
+        profileActivationStatePort,
+      });
       controls = mountAssistantConversationControls(root, conversation, surfaceLifecycle);
       let destroyed = false;
       return Object.freeze({
