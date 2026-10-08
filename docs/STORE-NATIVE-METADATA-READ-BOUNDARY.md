@@ -9,7 +9,7 @@ O serviço consultava o estado Native dos componentes em sequência, de modo que
 ## Contrato de comportamento
 
 - O conjunto de IDs ainda é derivado de \`listExternalFirstPartyComponentIds()\` unido às entradas **já verificadas** do catálogo; não há inventário paralelo.
-- Leituras de \`current\` usam no máximo **quatro consultas simultâneas por refresh**, com tempo máximo configurável e limitado (padrão: 3 segundos por consulta); a lista é sempre montada na ordem determinística dos IDs.
+- Leituras de \`current\` usam no máximo **quatro consultas simultâneas por refresh**, com tempo máximo configurável e limitado (padrão: 5 segundos por consulta); a lista é sempre montada na ordem determinística dos IDs.
 - Uma consulta indisponível/expirada gera entrada \`blocked\` com motivo \`activation-state-unavailable\` **se** o app estiver presente no catálogo verificado. O serviço **nunca interpreta timeout, HTTP 404 ou resposta inválida como ausência ou permissão de instalação**.
 - Ao chegar um catálogo novo ou destruir o serviço, a geração anterior é abortada e seus resultados não podem atualizar a projeção.
 - \`AbortSignal\` cancela chamadas Native cooperativas, mas também há limite local de tempo para impedir bloqueio quando a implementação de fetch não respeita o sinal.
