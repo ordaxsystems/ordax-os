@@ -191,3 +191,39 @@ threading policy is faster or sufficiently portable.
 
 No cloud provider, tool execution, agent authority or prompt telemetry is enabled
 by this performance workflow.
+
+
+## Store de modelos e compatibilidade do dispositivo
+
+A Loja possui uma seção **Modelos de IA** distinta de Apps. No MVP,
+ela apresenta a identidade do modelo local previsto na distribuição,
+o motor, a licença e o formato **sem** afirmar instalação ou atualização
+independente. `tools/local-ai-model-catalog/render.py` produz uma projeção
+`model-candidate.generated.mjs` verificável, exclusivamente a partir do
+`system/services/local-ai/source-lock.json` canônico. O CI reprova divergência.
+Essa projeção não é um novo catálogo de publicação, não transporta URLs,
+não concede permissões e não aciona downloads.
+
+A verificação de dispositivo reutiliza as portas existentes:
+
+- `ordax.hardware-inventory/1`: arquitetura real coletada pelo Host;
+- `ordax.system-metrics/1`: RAM total/disponível e espaço livre de usuário.
+
+A avaliação é **conservadora**: x86_64 satisfaz apenas a exigência da arquitetura
+do artefato ELF atual; ARM é incompatível; leitura ausente é desconhecida.
+Sem medições qualificadas, **não** se atribuem RAM mínima/recomendada, desempenho
+garantido nem aptidão para instalação. Os bytes fixados do modelo e do executável
+são um **limite inferior**, não o tamanho final do pacote assinado.
+O volume de armazenamento do usuário não precisa coincidir com o volume de
+componentes, portanto não é usado como permissão de instalação. GPU é opcional
+para a configuração CPU genérica inicial, não uma promessa de aceleração.
+
+A Loja pode consultar novamente as informações sob pedido do usuário,
+sem pesquisar rede, sem coletar arquivos pessoais e sem atrasar o boot.
+Quando o canal de modelos independente estiver implementado com artefatos
+assinados, compatibilidade por modelo e rollback, o estado exibido poderá
+ser promovido por **prova de runtime e de lifecycle**, não por um botão visual.
+
+Mínimos de RAM, espaço no volume real, requisitos de instruções e metas de
+latência devem nascer de provas físicas versionadas em diferentes faixas
+de hardware. Não publicar "compatível" só porque a arquitetura coincide.
