@@ -166,6 +166,33 @@
     "vercel_product_cookie_envelope_source_merged": true,
     "vercel_product_cookie_envelope_deployed": false
   },
+  "postgresql_destination": {
+    "project_name": "ordax-platform",
+    "project_ref": "jhfphsjptrpmtnzkpwud",
+    "status": "registration-schema-hardened-runtime-cutover-not-authorized",
+    "observed_date": "2026-10-08",
+    "source_owner": "infra/supabase/product/migrations",
+    "canonical_migrations_applied": [
+      "20261002221427_account_registration_legal_receipt_v1.sql",
+      "20261002225800_account_registration_policy_projection_v1.sql",
+      "20261002232500_account_registration_legal_fk_indexes_v1.sql",
+      "20261007034500_public_login_legal_receipt_guard_v1.sql",
+      "20261007041500_account_legal_policy_activation_v1.sql"
+    ],
+    "account_create_trigger_count": 1,
+    "legal_acceptance_negative_transactional_proof_passed": true,
+    "backend_only_rpc_grants_verified": true,
+    "active_legal_policy_present": false,
+    "public_account_gateway_deployed": false,
+    "public_login_enabled": false,
+    "public_registration_enabled": false,
+    "functional_provider_cutover_complete": false,
+    "parallel_identity_write_enabled": false,
+    "provider_settings_e2e_verified": false,
+    "session_revocation_e2e_verified": false,
+    "recovery_e2e_verified": false,
+    "warning": "Migration schema only. Existing runtime target and historical proofs refer to ordax-control-plane, not this destination."
+  },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
     "service_role_key_in_browser_allowed": false,
