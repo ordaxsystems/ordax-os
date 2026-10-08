@@ -243,6 +243,19 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unexpected destination"):
             audit.validate_contracts(altered, status2)
 
+    def test_rename_workflow_gates_stay_live_only_for_exact_repo_and_ssot(self):
+        workflow = (ROOT / ".github/workflows/repository-namespace-transfer-preflight.yml").read_text(encoding="utf-8")
+        allowed = (
+            "(github.repository == 'ordaxsystems/prototipo-ordax-os' || "
+            "github.repository == 'ordaxsystems/ordax-os')"
+        )
+        self.assertEqual(workflow.count(allowed), 3)
+        self.assertIn("python3 tools/verify/repository_namespace_transfer_preflight.py --require-cutover", workflow)
+        self.assertIn("github.ref == 'refs/heads/main'", workflow)
+        self.assertIn("github.event_name != 'pull_request'", workflow)
+        self.assertIn("GOTOOLCHAIN=local CGO_ENABLED=0 go run . inspect", workflow)
+        self.assertNotIn("|| github.repository == 'washingtonmsdj/prototipo-ordax-os'", workflow)
+
     def test_cutover_proof_needs_no_live_legacy_refs_and_exact_github_identity(self):
         report = {
             "phase": "post-transfer",
