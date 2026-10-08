@@ -70,10 +70,15 @@ ponteiro com LF e o SHA-256 registrado no manifesto de bootstrap.
 `.gitattributes` obriga LF em Windows e Linux.
 
 A mudança de owner exige uma nova cadeia de bootstrap/release/assinatura
-verificada; **não** editar provas físicas, signing requests ou manifests
+verificada, **mas a publicação assinada no namespace novo é uma prova
+pós-transferência**, não uma condição circular para executar a transferência
+física. Releases históricas e seus bytes acompanham o mesmo repositório
+durante a transferência; sua proveniência e hashes devem permanecer
+imutáveis. **Não** editar provas físicas, signing requests ou manifests
 assinados do owner anterior para mudar o hash silenciosamente. Se o canal,
-o ponteiro e o manifesto não coincidirem, `--require-cutover` recusa a
-transferência como concluída, ainda que o GitHub aponte ao novo owner.
+o ponteiro e o manifesto não coincidirem, `--require-cutover` recusa
+a declaração do cutover como concluído, ainda que o GitHub aponte ao
+novo owner.
 
 ## Comprovação obrigatória de release estável assinada
 
@@ -137,9 +142,19 @@ dos binários e autorização física separada.
 
 ## Regras de interrupção
 
-Interromper sem transferir se faltarem assinaturas, trust, permissões
-org/repo, configurações OIDC, PRs/CI verificáveis ou se alguma ação de
-physical-write/release estiver ativa. Não ativar operador, bypass de
-verificação, mirror permanente nem aceite simultâneo de dois owners.
+Interromper **antes da transferência física** se não houver permissão
+org/repo, integridade dos artefatos históricos, estado verificável da
+main/PRs/CI, preparação dos consumidores ou se houver operações ativas
+de release/physical-write. Manter publicação e operações físicas bloqueadas
+durante a janela de transferência.
+
+**Depois da transferência física**, não declarar o cutover concluído,
+não liberar merges/deploys/ativação e não assinar ou publicar às cegas:
+exigir identidade `ordaxsystems/*` com repo ID preservado, CI, publicação
+e verificação de release estável Ed25519, trust/OIDC e contratos reconciliados.
+A falta de release assinada **bloqueia promoção pós-transferência**, mas
+não justifica inventar uma assinatura no proprietário antigo nem reutilizar
+provas incompatíveis. Não ativar operador, bypass, mirror permanente nem
+aceite simultâneo de dois owners.
 Reverter um corte parcial somente mediante plano explícito de migração,
 nunca com aliases silenciosos ou alteração de históricos.
