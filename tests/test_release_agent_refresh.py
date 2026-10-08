@@ -129,7 +129,16 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertIn("contents: read", workflow)
         self.assertIn('tag="ordax-release-agent-$digest"', workflow)
         self.assertIn("gh release download", workflow)
-        self.assertIn("test \"$published\" = \"$digest\"", workflow)
+        self.assertIn("RELEASE_AGENT_PUBLISHED_ASSET_READBACK=VERIFIED", workflow)
+        publisher = workflow.split("  publish:", 1)[1]
+        self.assertIn("github.repository == 'ordaxsystems/prototipo-ordax-os'", publisher)
+        self.assertIn('test "$GITHUB_REPOSITORY" = \'ordaxsystems/prototipo-ordax-os\'', publisher)
+        self.assertIn('test "$GITHUB_REPOSITORY_ID" = \'1371063347\'', publisher)
+        self.assertIn('gh release download "$tag" --repo "$repo"', publisher)
+        self.assertIn('test ! -L "$published"', publisher)
+        self.assertIn('sha256sum "$published"', publisher)
+        self.assertIn('stat -c \'%s\' "$published"', publisher)
+        self.assertLess(publisher.index('gh release upload "$tag"'), publisher.index('RELEASE_AGENT_PUBLISHED_ASSET_READBACK=VERIFIED'))
         self.assertNotIn("--clobber", workflow)
         self.assertIn("RELEASE_AGENT_REFRESH_MUTABLE_OVERWRITE=NO", workflow)
 
