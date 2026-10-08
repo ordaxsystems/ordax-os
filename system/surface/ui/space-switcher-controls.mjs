@@ -1,4 +1,5 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
+import { assertProfileActivationStatePort } from "../../contracts/profile-activation-state.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertSpaceSelectionPort } from "../../contracts/space-selection.mjs";
 import { assertSpacesPort } from "../../contracts/spaces.mjs";
@@ -6,7 +7,7 @@ import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lif
 
 // One presentation for the existing Account-owned Spaces catalog and selection.
 // Selecting a Space is navigation context, never a permission grant.
-export function deriveSpaceSwitcherView(identity, catalog, selection) {
+export function deriveSpaceSwitcherView(identity, catalog, selection, activation = null) {
   const visibleSpaces = identity.state === "signed-in" && catalog.state === "ready"
     ? catalog.spaces : [];
   const active = (
@@ -14,7 +15,24 @@ export function deriveSpaceSwitcherView(identity, catalog, selection) {
     && selection?.state === "selected"
     && selection.subjectId === identity.subjectId
   ) ? visibleSpaces.find((space) => space.id === selection.selectedSpace.id && space.state === "active") ?? null : null;
-  return Object.freeze({ visibleSpaces, active });
+  // Device-scoped activation is only displayable inside the authenticated
+  // user's current catalog. Never render a profile from a stale/foreign Space.
+  const profileFor = (space) => {
+    if (!space || !activation || activation.schema !== "ordax.profile-activation-state/1") return null;
+    const row = activation.spaces.find((item) =>
+      item.spaceId === space.id && item.spaceKind === space.kind
+    );
+    return row?.current?.profile ?? null;
+  };
+  return Object.freeze({
+    visibleSpaces,
+    active,
+    activeProfile: profileFor(active),
+    profilesBySpace: Object.freeze(visibleSpaces.map((space) => Object.freeze({
+      spaceId: space.id,
+      profile: space.state === "active" ? profileFor(space) : null,
+    }))),
+  });
 }
 
 export function mountSpaceSwitcherControls(
@@ -24,12 +42,15 @@ export function mountSpaceSwitcherControls(
   spaceSelection,
   appActivation,
   surfaceLifecycle,
+  profileActivationState = null,
 ) {
   const identityPort = assertIdentitySessionPort(identitySession);
   const spacesPort = assertSpacesPort(spaces);
   const selectionPort = spaceSelection === null ? null : assertSpaceSelectionPort(spaceSelection);
   const activationPort = assertAppActivationPort(appActivation);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
+  const profilePort = profileActivationState === null
+    ? null : assertProfileActivationStatePort(profileActivationState);
   const slot = root.querySelector("[data-space-switcher-slot]");
   if (!slot) throw new Error("Space switcher requires its canonical shell slot");
   const doc = root.ownerDocument;
@@ -71,7 +92,10 @@ export function mountSpaceSwitcherControls(
     const identity = identityPort.getSnapshot();
     const catalog = spacesPort.getSnapshot();
     const selected = selectionPort?.getSnapshot() ?? null;
-    const { active, visibleSpaces: spacesVisible } = deriveSpaceSwitcherView(identity, catalog, selected);
+    const { active, visibleSpaces: spacesVisible, activeProfile, profilesBySpace } =
+      deriveSpaceSwitcherView(identity, catalog, selected, profilePort?.getSnapshot() ?? null);
+    const profileLabel = (profile) => profile
+      ? t(`account.profiles.name.${profile.slug}`) : null;
 
     trigger.replaceChildren();
     const mark = element("span", "ordax-space-switcher-mark", active ? active.name.trim().slice(0, 1).toLocaleUpperCase() : "◇");
@@ -80,14 +104,19 @@ export function mountSpaceSwitcherControls(
     label.append(
       element("strong", "", active ? active.name : t("account.spaces.switcher.title")),
       element("small", "", active
-        ? t(`account.spaces.kind.${active.kind}`)
+        ? (activeProfile ? profileLabel(activeProfile) : t(`account.spaces.kind.${active.kind}`))
         : t("account.spaces.switcher.noSelection")),
     );
     const chevron = element("span", "ordax-space-switcher-chevron", "⌄");
     chevron.setAttribute("aria-hidden", "true");
     trigger.append(mark, label, chevron);
+    trigger.dataset.profileConfigured = String(Boolean(activeProfile));
     trigger.setAttribute("aria-label", active
-      ? t("account.spaces.switcher.current", { space: active.name })
+      ? (activeProfile
+        ? t("account.spaces.switcher.profileConfigured", {
+          space: active.name, profile: profileLabel(activeProfile),
+        })
+        : t("account.spaces.switcher.current", { space: active.name }))
       : t("account.spaces.switcher.title"));
     trigger.setAttribute("aria-expanded", String(open));
     menu.setAttribute("aria-label", t("account.spaces.switcher.title"));
@@ -126,9 +155,12 @@ export function mountSpaceSwitcherControls(
         const avatar = element("span", "ordax-space-switcher-avatar", space.name.trim().slice(0, 1).toLocaleUpperCase());
         avatar.setAttribute("aria-hidden", "true");
         const copy = element("span", "ordax-space-switcher-option-copy");
+        const assignedProfile = profilesBySpace.find((item) => item.spaceId === space.id)?.profile ?? null;
         copy.append(
           element("strong", "", space.name),
-          element("small", "", t(`account.spaces.kind.${space.kind}`) + " · " + t(`account.spaces.state.${space.state}`)),
+          element("small", "",
+            t(`account.spaces.kind.${space.kind}`) + " · "
+            + (assignedProfile ? profileLabel(assignedProfile) : t(`account.spaces.state.${space.state}`))),
         );
         item.append(avatar, copy);
         if (isCurrent) {
@@ -225,6 +257,7 @@ export function mountSpaceSwitcherControls(
     }),
     spacesPort.subscribe(render),
     selectionPort?.subscribe(render),
+    lifecycle.subscribeRender(render),
     lifecycle.localization.subscribe?.(render),
   ];
   render();

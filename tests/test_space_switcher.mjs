@@ -81,3 +81,54 @@ test("Native and Web compose the same visible shell UI using real ports", () => 
     assert.match(read(`system/composition/${composition}/index.html`), /space-switcher\.css/);
   }
 });
+
+test("Professional Profile derives only from current activation on authorized Spaces", () => {
+  const activation = {
+    schema: "ordax.profile-activation-state/1",
+    spaces: [
+      {
+        spaceId: "pizza", spaceKind: "professional",
+        current: { profile: { slug: "pizzaria-br", version: 1 } },
+        previous: { profile: { slug: "developer", version: 1 } },
+      },
+      {
+        spaceId: "legal", spaceKind: "professional",
+        current: { profile: { slug: "legal-br", version: 1 } }, previous: null,
+      },
+      {
+        spaceId: "hidden", spaceKind: "professional",
+        current: { profile: { slug: "developer", version: 1 } }, previous: null,
+      },
+    ],
+  };
+  const view = deriveSpaceSwitcherView(signedIn, ready, selected, activation);
+  assert.deepEqual(view.activeProfile, { slug: "pizzaria-br", version: 1 });
+  assert.deepEqual(view.profilesBySpace, [
+    { spaceId: "pizza", profile: { slug: "pizzaria-br", version: 1 } },
+    { spaceId: "legal", profile: null },
+  ]);
+  assert.equal(deriveSpaceSwitcherView(signedIn, ready,
+    { ...selected, subjectId: "other-user" }, activation).activeProfile, null);
+  assert.deepEqual(deriveSpaceSwitcherView(
+    { state: "signed-out" }, ready, selected, activation).profilesBySpace, []);
+  assert.equal(deriveSpaceSwitcherView(signedIn, ready, selected, {
+    schema: "ordax.profile-activation-state/1",
+    spaces: [{ spaceId: "pizza", spaceKind: "personal",
+      current: { profile: { slug: "pizzaria-br", version: 1 } } }],
+  }).activeProfile, null);
+  assert.equal(deriveSpaceSwitcherView(signedIn, ready, selected, {
+    schema: "ordax.profile-activation-state/1",
+    spaces: [{ spaceId: "pizza", spaceKind: "professional",
+      current: null, previous: { profile: { slug: "pizzaria-br", version: 1 } } }],
+  }).activeProfile, null);
+});
+
+test("Native wires canonical Profile state to shell while Web remains without it", () => {
+  const native = read("system/composition/native/main.mjs");
+  const web = read("system/composition/web/main.mjs");
+  const selector = read("system/surface/ui/space-switcher-controls.mjs");
+  assert.match(native, /spaceSelection,\s*appActivation,\s*surface,\s*profileActivationState/);
+  assert.match(web, /spaces,\s*null,\s*appActivation,\s*surface,\s*null/);
+  assert.match(selector, /assertProfileActivationStatePort/);
+  assert.match(selector, /lifecycle\.subscribeRender\(render\)/);
+});

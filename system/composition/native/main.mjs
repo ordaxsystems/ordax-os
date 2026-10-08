@@ -759,6 +759,7 @@ async function start() {
     spaceSelection,
     appActivation,
     surface,
+    profileActivationState,
   );
   const accountOverviewControls = mountAccountOverviewControls(
     root,
