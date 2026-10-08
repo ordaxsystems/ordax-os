@@ -295,3 +295,37 @@ The exact reuse decision is recorded in `docs/SOURCE-MIGRATION.md`.
 ### Automatic Memory preference
 
 Native/USB exposes `memory.auto-capture` as an OrdaX preference. It defaults to `on`, is persisted through the canonical preference store, and is read dynamically by the Memory capture runtime before every write. Turning it `off` prevents future automatic Memory capture without deleting existing items. Exact automatic duplicates are coalesced only when owner, scope, Space, kind, sensitivity and normalized stored content are identical; provenance/timestamp differences do not mint another id, and the existing item still must pass `flush()` before success is reported. This is intentionally not semantic supersession: different wording remains distinct until a structured Assistant contract can identify continuity safely. Account → Memory remains the user control surface for review, editing, deletion and manual entry. Automatic capture does **not** require per-item confirmation: the preference is the user's coarse control, while review remains available afterward. The first-party Assistant now invokes an OrdaX-owned automatic extraction boundary only after a successful conversation turn. Memory ownership/Space authorization is bound synchronously at the start of the Assistant turn, before inference, so an account or `Space em uso` change during inference cannot retarget that turn's Memory. The extractor receives only the user's turn; Assistant-generated response text is deliberately excluded as a persistence source. The extraction model can return a small strict JSON candidate set, but every candidate must also carry a bounded verbatim evidence quote copied from the exact user-turn text supplied to the extractor. Composition verifies that quote against the extractor input before capture. For automatic Memory, the candidate `content` must also be exactly identical to that evidence; any model-authored paraphrase, normalization or added fact fails closed. The persisted content is therefore the user's verbatim evidence, while the evidence field itself is discarded as transport metadata rather than stored separately. The candidate output remains data rather than authority: composition chooses device/account/selected-Space ownership, sensitivity is forced to `private`, extra authority-shaped fields are rejected, credential-like candidates are discarded, and `memory.auto-capture=off` skips extraction entirely. Capture failure never turns a valid Assistant answer into a failed answer. Manual deletion is intentionally different because it is destructive: the Surface requires an explicit per-item confirmation before calling the existing owner-scoped remove path. In the MVP this preference is intentionally device-local and is not included in account preference sync; changing that requires a separate privacy/synchronization policy rather than silently making a local Memory decision portable.
+
+
+## Isolamento das conversas do Assistente Native
+
+O Assistente é um consumidor de `ordax.intelligence/1`; seu transcript é somente de
+sessão, não é Memory nem uma fonte de autorização. O componente recebe da
+composição Native os ports canônicos de Identity, Space Selection e, quando
+disponível, Profile Activation State. A chave privada de contexto delimita
+`device/signed-out` ou `account/subjectId/Space/profile-revision`.
+Nenhuma dessas identidades é enviada à UI ou transformada em grant.
+
+Na troca de conta, Space ou revisão do Profile ativo, o transcript é descartado,
+mesmo que a pessoa retorne imediatamente ao Space anterior. A geração em voo
+continua sujeita aos limites do Local AI, mas sua resposta tardia não aparece
+nem é reciclada como contexto de outra sessão. Enquanto o trabalho anterior
+estiver pendente, uma nova geração é recusada. Snapshot da identidade
+indisponível, Space inconsistente ou leitura inválida suspendem o envio (fail-closed).
+
+A captura automática de Memory recebe um verificador da geração da conversa,
+além da autorização de proprietário já atribuída no `bindTurn()`. Ela
+revalida Identity/Space após a extração assíncrona e antes de cada gravação:
+um turno revogado não pode iniciar novas mutações no proprietário anterior.
+Uma mutação durável que já tenha começado não é reversível por esse verificador;
+cancelamento transacional/revogação dentro do mutation owner continua assunto
+independente de segurança. Nenhum segundo Memory ou cadastro de conversas é criado.
+
+**Limites do corte:** o Assistente global não recebe contexto de projeto ativo;
+por isso esta composição não afirma isolamento de transcript *por projeto*.
+Um consumidor futuro que injete material de projeto deverá vincular também o
+identificador de projeto autorizado e a revisão de acesso antes de liberar
+histórico/geração. O runtime atual também não oferece cancelamento de inferência
+Native por mudança de escopo: ele descarta a resposta, mas o pedido em execução
+pode consumir recursos até encerrar. Testes Source/CI não são homologação de
+hardware, Native/USB ou do empacotamento Stable v4.
