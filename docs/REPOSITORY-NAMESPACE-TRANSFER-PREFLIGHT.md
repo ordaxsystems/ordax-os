@@ -47,6 +47,24 @@ em checkout limpo para relatório sem efeitos colaterais. O resultado
 `phase=pre-transfer` com referências operacionais pendentes é um **bloqueio
 real ao corte**, não uma autorização automática para transferir.
 
+## Dependência criptográfica do canal de release
+
+O arquivo `bootstrap/config/release-envelope-url` é **conteúdo com hash fixado**
+no artefato `bootstrap-release-channel` em
+`docs/contracts/minimal-bootstrap.json`. O hash da URL histórica com LF é
+`ea1f3bae328a1c1e7aca1474d4930f84b2dd6da1702dcc11b08c01ed63a6ee5b`.
+
+**Mudar só a URL quebra a integridade do bootstrap.** O auditor agora compara
+o proprietário no contrato do canal, a URL publicada, os bytes exatos do
+ponteiro com LF e o SHA-256 registrado no manifesto de bootstrap.
+`.gitattributes` obriga LF em Windows e Linux.
+
+A mudança de owner exige uma nova cadeia de bootstrap/release/assinatura
+verificada; **não** editar provas físicas, signing requests ou manifests
+assinados do owner anterior para mudar o hash silenciosamente. Se o canal,
+o ponteiro e o manifesto não coincidirem, `--require-cutover` recusa a
+transferência como concluída, ainda que o GitHub aponte ao novo owner.
+
 **Antes de tocar no proprietário físico**:
 
 1. Conferir `main`, branches/PRs ativas, actions, releases, environments,
