@@ -63,6 +63,62 @@ class CanonicalRequestBuilderTests(unittest.TestCase):
                 with self.assertRaises(builder.ValidationError):
                     builder.build_request(self.SOURCE, runs, inventories, historical)
 
+    def test_frozen_candidate_accepts_only_exact_ref_and_same_sha_for_three_runs(self):
+        runs, inventories, historical = self.fixture()
+        branch = "release-candidate/" + self.SOURCE
+        for kind in runs:
+            runs[kind]["head_branch"] = branch
+            inventories[kind]["artifacts"][0]["workflow_run"]["head_branch"] = branch
+        request = builder.build_request(self.SOURCE, runs, inventories, historical)
+        self.assertEqual(request["operator_ref"], branch)
+        self.assertFalse(request["publication_performed"])
+        self.assertFalse(request["physical_write_authorized"])
+        with mock.patch.object(builder, "fetch_json", return_value={
+            "ref": "refs/heads/" + branch,
+            "object": {"type": "commit", "sha": self.SOURCE},
+        }) as fetch:
+            builder.verify_frozen_candidate_ref(self.SOURCE, branch, "read-only-token")
+            self.assertEqual(fetch.call_args.args[0], "/git/ref/heads/" + branch)
+
+    def test_mixed_refs_and_lookalike_candidate_names_fail_closed(self):
+        branch = "release-candidate/" + self.SOURCE
+        runs, inventories, historical = self.fixture()
+        runs["system"]["head_branch"] = branch
+        inventories["system"]["artifacts"][0]["workflow_run"]["head_branch"] = branch
+        with self.assertRaisesRegex(builder.ValidationError, "same frozen source ref"):
+            builder.build_request(self.SOURCE, runs, inventories, historical)
+
+        for bad in (
+            "release-candidate/" + "b" * 40,
+            "release-candidate/" + self.SOURCE + "-suffix",
+            "release-candidate/../" + self.SOURCE,
+            "release-candidate/" + self.SOURCE.upper(),
+            "feature/my-code",
+            "refs/tags/ordax-stable-v4-" + self.SOURCE,
+        ):
+            with self.subTest(branch=bad):
+                runs, inventories, historical = self.fixture()
+                for kind in runs:
+                    runs[kind]["head_branch"] = bad
+                    inventories[kind]["artifacts"][0]["workflow_run"]["head_branch"] = bad
+                with self.assertRaisesRegex(builder.ValidationError, "operator ref"):
+                    builder.build_request(self.SOURCE, runs, inventories, historical)
+
+    def test_frozen_ref_cannot_move_after_successful_workflows(self):
+        branch = "release-candidate/" + self.SOURCE
+        for identity in (
+            {"ref": "refs/heads/" + branch, "object": {"type": "commit", "sha": "b" * 40}},
+            {"ref": "refs/heads/" + branch, "object": {"type": "tag", "sha": self.SOURCE}},
+            {"ref": "refs/heads/main", "object": {"type": "commit", "sha": self.SOURCE}},
+        ):
+            with self.subTest(identity=identity):
+                with mock.patch.object(builder, "fetch_json", return_value=identity):
+                    with self.assertRaisesRegex(builder.ValidationError, "no longer points"):
+                        builder.verify_frozen_candidate_ref(self.SOURCE, branch, "readonly-token")
+        with mock.patch.object(builder, "fetch_json") as fetch:
+            builder.verify_frozen_candidate_ref(self.SOURCE, "main", "readonly-token")
+            fetch.assert_not_called()
+
     def test_artifact_integrity_and_binding_is_required(self):
         for edit in ({"expired": True}, {"digest": "sha256:bad"},
                      {"id": 0}, {"name": "not-the-exact-operator-artifact"}):
