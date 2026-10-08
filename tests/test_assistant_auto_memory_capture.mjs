@@ -299,6 +299,17 @@ test("Native composition creates Assistant Memory capture only after Surface pre
   assert.ok(surfaceIndex >= 0);
   assert.ok(captureIndex > surfaceIndex);
   assert.ok(assistantIndex > captureIndex);
+  const assistantMount = native.slice(assistantIndex, native.indexOf("onError(error)", assistantIndex));
+  assert.match(assistantMount, /identitySessionPort:\s*identitySession/);
+  assert.match(assistantMount, /spaceSelectionPort:\s*spaceSelection/);
+  assert.match(assistantMount, /profileActivationStatePort:\s*profileActivationState/);
+  const assistantRuntime = readFileSync(
+    new URL("../system/apps/assistant/runtime.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(assistantRuntime, /createAssistantConversationRuntime\(\{/);
+  assert.match(assistantRuntime, /identitySessionPort/);
+  assert.match(assistantRuntime, /spaceSelectionPort/);
   assert.match(
     native.slice(captureIndex, assistantIndex),
     /surface\.preferences/,
