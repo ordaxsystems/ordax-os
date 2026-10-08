@@ -418,5 +418,40 @@
     "production_e2e_verified": false,
     "production_hostname_verified": false,
     "production_hostname_verification_evidence": "pending real Cloudflare Turnstile widget hostname configuration for ordax.com.br; source target corrected on 2026-10-08"
+  },
+  "cloudflare_dns_migration": {
+    "status": "dedicated-target-zone-ready-registrar-delegation-pending",
+    "purpose": "ordax-os-only",
+    "source_account_id": "ac1ca1b50d09c7a4cb81274d2aa1e78f",
+    "source_zone_id": "6c98a2130176029e14c14d949bafd66a",
+    "source_zone_status": "active",
+    "source_nameservers": [
+      "addyson.ns.cloudflare.com",
+      "dylan.ns.cloudflare.com"
+    ],
+    "destination_account_id": "42586bf13b61436219d21def299833e4",
+    "destination_zone_id": "f7273428d0643fab66349dc0cbd9d244",
+    "destination_zone_status": "pending",
+    "destination_nameservers": [
+      "martin.ns.cloudflare.com",
+      "meg.ns.cloudflare.com"
+    ],
+    "destination_dns_records_count": 4,
+    "destination_dns_record_names": [
+      "ordax.com.br",
+      "www.ordax.com.br",
+      "_vercel.ordax.com.br"
+    ],
+    "destination_dnssec_status": "disabled",
+    "source_dnssec_status": "disabled",
+    "destination_legacy_catalog_media_dns_record_present": false,
+    "destination_legacy_catalog_worker_routes_count": 0,
+    "destination_legacy_catalog_cache_rulesets_count": 0,
+    "legacy_catalog_data_deleted": false,
+    "registrar_nameserver_update_completed": false,
+    "public_delegation_points_to_destination": false,
+    "destination_https_and_www_production_revalidated_after_delegation": false,
+    "source_zone_may_be_removed": false,
+    "note": "The previous website merely reused the OrdaX name and was unrelated to OrdaX OS. The new zone intentionally excludes the former catalog/R2/Worker surface. Domain registrar delegation is the remaining separate action. Do not flip status to complete based on target-zone readiness alone."
   }
 }
