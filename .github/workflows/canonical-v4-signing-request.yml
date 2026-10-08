@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/canonical-v4-signing-request.yml'
+      - '.gitattributes'
       - 'docs/contracts/canonical-v4-signing-request.json'
       - 'docs/contracts/canonical-v4-signing-request-active.json'
       - 'tools/release-operator/select_active_signing_request.py'
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/canonical-v4-signing-request.yml'
+      - '.gitattributes'
       - 'docs/contracts/canonical-v4-signing-request.json'
       - 'docs/contracts/canonical-v4-signing-request-active.json'
       - 'tools/release-operator/**'
@@ -329,3 +331,26 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 6
+
+  verify-windows-byte-pinned-request:
+    name: Verify canonical request byte identity on Windows
+    runs-on: windows-2025
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout request and trust without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify exact Git blob bytes with autocrlf enabled
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config --local core.autocrlf true
+          git -c core.autocrlf=true checkout-index -f -- docs/contracts/canonical-v4-signing-request.json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot checkout historical request' }
+          $blob = (git rev-parse 'HEAD:docs/contracts/canonical-v4-signing-request.json').Trim()
+          $working = (git hash-object --no-filters docs/contracts/canonical-v4-signing-request.json).Trim()
+          if ($blob -ne $working) { throw 'Windows checkout modified historical signing-request bytes' }
+          python tools/release-operator/select_active_signing_request.py
+          if ($LASTEXITCODE -ne 0) { throw 'Historical byte identity verification failed' }

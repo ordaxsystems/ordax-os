@@ -93,6 +93,26 @@ class CanonicalSigningRequestSelectionTests(unittest.TestCase):
             with self.assertRaisesRegex(selector.ValidationError, "historical source commit"):
                 selector.selection(root)
 
+
+    def test_request_byte_pin_survives_checkout_and_gitattributes(self):
+        import hashlib
+        import subprocess
+
+        for path in (selector.HISTORICAL_PATH, selector.ACTIVE_PATH):
+            relative = path.as_posix()
+            attrs = subprocess.check_output(
+                ["git", "check-attr", "text", "eol", "--", relative],
+                cwd=ROOT, text=True,
+            )
+            self.assertIn(f"{relative}: text: set", attrs)
+            self.assertIn(f"{relative}: eol: lf", attrs)
+        original = (ROOT / selector.HISTORICAL_PATH).read_bytes()
+        git_blob = hashlib.sha1(
+            b"blob " + str(len(original)).encode("ascii") + b"\0" + original
+        ).hexdigest()
+        self.assertEqual(git_blob, selector.HISTORICAL_GIT_BLOB)
+
+
     def test_workflow_never_runs_assembly_for_history_or_unreviewed_pr(self):
         workflow = (ROOT / ".github/workflows/canonical-v4-signing-request.yml").read_text(encoding="utf-8")
         self.assertIn("needs.classify_request.outputs.active == 'true'", workflow)
