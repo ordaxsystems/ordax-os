@@ -4,7 +4,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20261005025500_sync_private_least_privilege_v2.sql"
+PAGED_SOURCE = ROOT / "infra" / "supabase" / "product" / "migrations" / "20260930140051_account_sync_paginated_snapshot_v2.sql"
 SOURCES = (
+    PAGED_SOURCE,
     ROOT / "infra" / "supabase" / "product" / "migrations" / "20260925004832_account_sync_private_store_v1.sql",
     ROOT / "infra" / "supabase" / "product" / "migrations" / "20260925013355_account_sync_incremental_cursor_v1.sql",
     ROOT / "infra" / "supabase" / "product" / "migrations" / "20260925013524_account_sync_atomic_snapshot_v1.sql",
@@ -152,6 +154,37 @@ class SyncPrivateLeastPrivilegeV2Tests(unittest.TestCase):
         self.assertEqual(self.sql.count("grant create on schema public to ordax_sync_executor;"), 1)
         self.assertEqual(self.sql.count("revoke create on schema public from ordax_sync_executor;"), 1)
 
+    def test_paginated_snapshot_historical_source_is_recovered_without_privilege_bypass(self):
+        sql = PAGED_SOURCE.read_text(encoding="utf-8").lower()
+        self.assertEqual(sql.count("create or replace function public.ordax_sync_snapshot_page_v2("), 1)
+        self.assertIn("stable security invoker", sql)
+        self.assertNotIn("stable security definer", sql)
+        self.assertIn("set search_path = ''", sql)
+        for guard in (
+            "auth.uid()",
+            "authentication-required",
+            "invalid-snapshot-page-limit",
+            "invalid-snapshot-page-token",
+            "invalid-snapshot-cursor",
+            "snapshot-cursor-ahead-of-account-history",
+            "sync-object-history-missing",
+            "where o.owner_user_id = v_user_id",
+            "where m.owner_user_id = v_user_id",
+            "limit p_limit + 1",
+        ):
+            self.assertIn(guard, sql)
+        self.assertIn(
+            "revoke all on function public.ordax_sync_snapshot_page_v2(bigint,text,text,integer)",
+            sql,
+        )
+        self.assertIn(
+            "grant execute on function public.ordax_sync_snapshot_page_v2(bigint,text,text,integer)",
+            sql,
+        )
+        # Only the later restricted executor migration may elevate the RPC.
+        self.assertIn("owner to ordax_sync_executor", self.sql)
+        self.assertIn("alter function public.ordax_sync_snapshot_page_v2", self.sql)
+
     def test_existing_definitions_are_search_path_pinned_and_subject_bound(self):
         source = "\n".join(path.read_text(encoding="utf-8").lower() for path in SOURCES)
         for name in (
@@ -160,6 +193,7 @@ class SyncPrivateLeastPrivilegeV2Tests(unittest.TestCase):
             "ordax_pull_sync_changes_v1",
             "ordax_list_sync_objects_v1",
             "ordax_sync_snapshot_v1",
+            "ordax_sync_snapshot_page_v2",
             "ordax_account_export_v1",
         ):
             start = source.find(f"function public.{name}")

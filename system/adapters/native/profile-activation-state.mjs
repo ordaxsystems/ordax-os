@@ -16,8 +16,32 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
   }
 
   let snapshot = createEmptyProfileActivationState("device");
+  let initialized = false;
   let disposed = false;
   let commandToken = null;
+  const listeners = new Set();
+
+  const acceptSnapshot = (value) => {
+    const next = validateProfileActivationState(value);
+    if (next.persistence !== "device") {
+      throw new Error("Native Profile activation state must be device-persistent");
+    }
+    if (disposed) throw new Error("Profile activation state is disposed");
+    if (initialized && next.revision < snapshot.revision) {
+      // A delayed GET must never roll back a newer authorized mutation.
+      return snapshot;
+    }
+    if (initialized && next.revision === snapshot.revision) {
+      if (JSON.stringify(next) !== JSON.stringify(snapshot)) {
+        throw new Error("Native Profile activation state changed without a revision");
+      }
+      return snapshot;
+    }
+    snapshot = next;
+    initialized = true;
+    for (const listener of [...listeners]) listener(snapshot);
+    return snapshot;
+  };
 
   const refresh = async () => {
     if (disposed) throw new Error("Profile activation state is disposed");
@@ -29,12 +53,7 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
     if (!response.ok) {
       throw new Error(`Native Profile activation state unavailable: ${response.status}`);
     }
-    const value = validateProfileActivationState(await response.json());
-    if (value.persistence !== "device") {
-      throw new Error("Native Profile activation state must be device-persistent");
-    }
-    snapshot = value;
-    return snapshot;
+    return acceptSnapshot(await response.json());
   };
 
   const loadCommandToken = async () => {
@@ -85,7 +104,7 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       throw error;
     }
     const result = await response.json();
-    snapshot = validateProfileActivationState(result.state);
+    acceptSnapshot(result.state);
     return result;
   };
 
@@ -95,6 +114,15 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
     schema: PROFILE_ACTIVATION_STATE_PORT_SCHEMA,
     getSnapshot() {
       return snapshot;
+    },
+    subscribe(listener) {
+      if (typeof listener !== "function") {
+        throw new TypeError("Profile activation listener must be a function");
+      }
+      if (disposed) return () => {};
+      listeners.add(listener);
+      listener(snapshot);
+      return () => listeners.delete(listener);
     },
     refresh,
     async previewActivation({ spaceId, spaceKind, profile, components = [] }) {
@@ -154,6 +182,7 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
     dispose() {
       disposed = true;
       commandToken = null;
+      listeners.clear();
     },
   });
 }
