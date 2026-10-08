@@ -275,7 +275,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             )
             self.assertEqual(
                 first_descriptor["source_repository"],
-                "ordaxsystems/prototipo-ordax-os",
+                "ordaxsystems/ordax-os",
             )
             self.assertEqual(first_descriptor["source_commit"], source_commit)
             self.assertEqual(first_descriptor["component"]["id"], "internet")
