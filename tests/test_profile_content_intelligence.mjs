@@ -47,6 +47,39 @@ function spaceSelectionPort(seed) {
   };
 }
 
+function authorizedContext(selection, extraSpaces = []) {
+  let subject = "user-1";
+  let catalog = {
+    schema: "ordax.spaces-snapshot/1",
+    state: "ready",
+    spaces: [
+      ...(selection.getSnapshot().state === "selected"
+        ? [selection.getSnapshot().selectedSpace] : []),
+      ...extraSpaces,
+    ],
+  };
+  const identitySessionPort = {
+    schema: "ordax.identity-session/1",
+    getSnapshot() { return {
+      state: "signed-in", subjectId: subject, displayName: "User",
+    }; },
+    subscribe() { return () => {}; },
+  };
+  const spacesPort = {
+    schema: "ordax.spaces/1",
+    getSnapshot() { return catalog; },
+    subscribe() { return () => {}; },
+    async refresh() { return catalog; },
+    reset() {},
+  };
+  return {
+    identitySessionPort,
+    spacesPort,
+    setSubject(next) { subject = next; },
+    setCatalog(next) { catalog = next; },
+  };
+}
+
 function intelligencePort() {
   const requests = [];
   return {
@@ -233,10 +266,13 @@ test("Selected-Space Profile Intelligence injects only the explicitly selected S
       profilePack: "developer",
     },
   });
+  const auth = authorizedContext(selection);
   const port = createSelectedSpaceProfileContentIntelligence({
     intelligencePort: intelligence,
     profileContentContextPort,
     spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
   });
 
   assert.equal(assertIntelligencePort(port), port);
@@ -261,10 +297,13 @@ test("Selected-Space Profile Intelligence never invents context while selection 
     subjectId: "user-1",
     selectedSpace: null,
   });
+  const auth = authorizedContext(selection);
   const port = createSelectedSpaceProfileContentIntelligence({
     intelligencePort: intelligence,
     profileContentContextPort,
     spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
   });
 
   await port.respond({
@@ -304,10 +343,16 @@ test("Selected-Space Profile Intelligence follows current selection without stal
       profilePack: "developer",
     },
   });
+  const auth = authorizedContext(selection, [{
+    id: "space-two", ownerId: "user-1", name: "Two",
+    kind: "professional", state: "active", profilePack: "developer",
+  }]);
   const port = createSelectedSpaceProfileContentIntelligence({
     intelligencePort: intelligence,
     profileContentContextPort,
     spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
   });
 
   await port.respond({ prompt: "one" });
