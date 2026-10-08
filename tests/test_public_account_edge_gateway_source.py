@@ -160,17 +160,18 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn('upstream.headers.get("set-cookie")', self.proxy)
 
     def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
-        self.assertIn("function trustedPublicSiteRequest(req: Request)", self.inner)
+        self.assertIn("const transport = await authorizeAccountTransport(req, path, {", self.inner)
         helper = (
             ROOT / "infra" / "supabase" / "functions" / "_shared"
             / "account_service_bridge.mjs"
         ).read_text(encoding="utf-8")
         self.assertIn('headers?.get?.("apikey")', helper)
         self.assertIn(
-            'import { authenticatedAccountBridge } from "../_shared/account_service_bridge.mjs"',
+            'import { authorizeAccountTransport } from "../_shared/account_transport_admission.mjs"',
             self.inner,
         )
-        self.assertIn("return authenticatedAccountBridge(", self.inner)
+        self.assertIn("verifyNativeSession: async () => {", self.inner)
+        self.assertIn("return Boolean(session.user && session.access);", self.inner)
         self.assertNotIn("expectedKey = adminConfig().key", self.inner)
         self.assertNotIn("constantTimeEqual(presentedKey, expectedKey)", self.inner)
         self.assertIn('"public-account-boundary-authentication-required"', self.inner)
@@ -190,6 +191,27 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('Deno.env.get("SUPABASE_SECRET_KEYS") ?? ""', self.inner)
         self.assertNotIn('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', helper)
         self.assertNotIn('process.env', helper)
+
+    def test_internal_gateway_requires_route_aware_transport_before_rate_limit_and_handler(self):
+        policy = (
+            ROOT / "infra" / "supabase" / "functions" / "_shared"
+            / "account_transport_admission.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn("authenticatedAccountBridge", policy)
+        self.assertIn("if (req.headers.has(\"x-ordax-public-site\"))", policy)
+        self.assertIn("verifyNativeSession(req)", policy)
+        self.assertIn('"/auth/login"', policy)
+        self.assertNotIn('"/account/export"', policy)
+        self.assertNotIn('"/sync/mutate"', policy)
+        gate = self.inner.index("const transport = await authorizeAccountTransport(req, path, {")
+        rate_limit = self.inner.index("const directRateLimitResponse = await enforceDirectAuthRateLimit(req, path)")
+        public_gate = self.inner.index("if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED)")
+        self.assertLess(gate, rate_limit)
+        self.assertLess(rate_limit, public_gate)
+        self.assertIn("new WeakMap<Request, ReturnType<typeof resolveAuthenticated>>()", self.inner)
+        self.assertIn("supabase.auth.getUser(access)", self.inner)
+        self.assertIn("sessionVerificationCache.get(req)", self.inner)
+        self.assertNotIn("function trustedPublicSiteRequest(req: Request)", self.inner)
 
     def test_direct_native_auth_uses_same_server_authoritative_rate_limit(self):
         self.assertIn("enforceDirectAuthRateLimit(req, path)", self.inner)
