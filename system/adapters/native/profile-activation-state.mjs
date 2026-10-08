@@ -126,16 +126,24 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
     },
     refresh,
     async previewActivation({ spaceId, spaceKind, profile, components = [] }) {
+      // Capture the revision before network IO: a concurrent Native command
+      // must never make an older permission review look current.
+      const expectedRevision = snapshot.revision;
       const result = await command({
         action: "preview-activate",
-        expectedRevision: snapshot.revision,
+        expectedRevision,
         spaceId,
         spaceKind,
         profile,
         components,
       });
+      if (snapshot.revision !== expectedRevision) {
+        const error = new Error("Native Profile activation preview revision changed");
+        error.status = 409;
+        throw error;
+      }
       return Object.freeze({
-        expectedRevision: snapshot.revision,
+        expectedRevision,
         permissionDiff: result.permissionDiff,
         permissionDiffSha256: result.permissionDiffSha256,
       });
@@ -147,10 +155,19 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       components = [],
       activatedAt = Date.now(),
       acceptedPermissionDiffSha256 = null,
+      expectedRevision = snapshot.revision,
     }) {
+      if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+        throw new TypeError("Profile activation expected revision is invalid");
+      }
+      if (snapshot.revision !== expectedRevision) {
+        const error = new Error("Native Profile activation review revision changed");
+        error.status = 409;
+        throw error;
+      }
       const body = {
         action: "activate",
-        expectedRevision: snapshot.revision,
+        expectedRevision,
         spaceId,
         spaceKind,
         profile,
