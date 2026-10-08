@@ -168,9 +168,9 @@ test("known optional utility is represented from verified catalog only; raw unkn
   assert.equal(snapshot.state, "ready");
   const calculator = snapshot.entries.find(item => item.appId === "calculator");
   assert.equal(calculator.state, "blocked");
+  assert.equal(calculator.blockedReason, "runtime-module-read-unavailable");
   assert.equal(calculator.installable, false);
   assert.equal(calculator.updatable, false);
-  assert.equal(calculator.blockedReason, "runtime-module-read-unavailable");
   assert.equal(calculator.artifactIdentityVerified, true);
   assert.equal(calculator.provenanceVerified, true);
   assert.ok(requests.some(row => row.url.includes("component=calculator")));
@@ -315,10 +315,169 @@ test("verified catalog unavailability propagates fail closed and live refresh ca
     reason: "catalog-watermark-unavailable",
     authority: "none",
   });
-  await projection.refresh();
+  // Catalog revocation must clear stale install buttons synchronously;
+  // waiting for a Native metadata fetch is unsafe for the displayed state.
   assert.equal(projection.port.getSnapshot().state, "unavailable");
   assert.deepEqual(projection.port.getSnapshot().entries, []);
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot().state, "unavailable");
   projection.destroy();
+});
+
+
+test("Native status reads use bounded concurrency and deterministic catalog order", async () => {
+  const catalog = catalogPort(ready([
+    candidate("notes", "0.4.3", "Notas"),
+    candidate("calculator", "0.2.0", "Calculadora"),
+  ]));
+  let active = 0, peak = 0;
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: async (url, options) => {
+      assert.equal(options.method, "GET");
+      assert.equal(options.redirect, "error");
+      assert.ok(options.signal instanceof AbortSignal);
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      active -= 1;
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return metadata(new URL(url).searchParams.get("component"));
+        },
+      };
+    },
+  });
+  const snapshot = await new Promise((resolve) => {
+    projection.port.subscribe((next) => {
+      if (next.state === "ready") resolve(next);
+    });
+  });
+  assert.equal(active, 0);
+  assert.ok(peak > 1 && peak <= 4, "Native queries must have a bounded fan-out");
+  assert.deepEqual(snapshot.entries.map((entry) => entry.appId), ["calculator", "notes"]);
+  assert.equal(snapshot.entries.find((entry) => entry.appId === "notes").installable, true);
+  assert.equal(snapshot.entries.find((entry) => entry.appId === "calculator").installable, false);
+  projection.destroy();
+});
+
+test("one unresponsive current-state lookup is blocked without stalling other verified apps", async () => {
+  const catalog = catalogPort(ready([
+    candidate("calculator", "0.2.0", "Calculadora"),
+    candidate("notes", "0.4.3", "Notas"),
+  ]));
+  let slowSignal = null, resolveSlow;
+  const slow = new Promise((resolve) => { resolveSlow = resolve; });
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    metadataTimeoutMs: 15,
+    fetchImpl: (url, options) => {
+      const appId = new URL(url).searchParams.get("component");
+      if (appId === "calculator") {
+        slowSignal = options.signal;
+        return slow; // Intentionally ignores AbortSignal to exercise the deadline.
+      }
+      return Promise.resolve({
+        ok: true, status: 200,
+        async json() { return metadata(appId); },
+      });
+    },
+  });
+  const snapshot = await new Promise((resolve) => {
+    projection.port.subscribe((next) => {
+      if (next.state === "ready") resolve(next);
+    });
+  });
+  assert.equal(slowSignal.aborted, true);
+  assert.equal(snapshot.entries.find((entry) => entry.appId === "notes").state, "available");
+  const calculator = snapshot.entries.find((entry) => entry.appId === "calculator");
+  assert.equal(calculator.state, "blocked");
+  assert.equal(calculator.blockedReason, "activation-state-unavailable");
+  assert.equal(calculator.installable, false);
+  resolveSlow({
+    ok: true, status: 200,
+    async json() { return metadata("calculator"); },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(projection.port.getSnapshot(), snapshot);
+  projection.destroy();
+});
+
+test("new signed catalog cancels stale Native reads and cannot display old candidates", async () => {
+  const catalog = catalogPort(ready([
+    candidate("notes", "0.4.3", "Notas"),
+    candidate("calculator", "0.2.0", "Calculadora"),
+  ]));
+  let phase = "old", firstSignal = null, resolveOld;
+  const old = new Promise((resolve) => { resolveOld = resolve; });
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: (url, options) => {
+      const appId = new URL(url).searchParams.get("component");
+      if (appId === "calculator" && phase === "old") {
+        firstSignal = options.signal;
+        return old;
+      }
+      return Promise.resolve({
+        ok: true, status: 200,
+        async json() { return metadata(appId); },
+      });
+    },
+  });
+  assert.ok(firstSignal !== null, "first catalog must start Native read");
+  phase = "new";
+  const updated = new Promise((resolve) => {
+    projection.port.subscribe((next) => {
+      if (next.state === "ready") resolve(next);
+    });
+  });
+  catalog.publish(ready([candidate("notes", "0.4.3", "Notas")]));
+  const snapshot = await updated;
+  assert.equal(firstSignal.aborted, true);
+  assert.deepEqual(snapshot.entries.map((entry) => entry.appId), ["notes"]);
+  resolveOld({
+    ok: true, status: 200,
+    async json() {
+      return metadata("calculator", {
+        source: "slot", version: "0.2.0", sourceCommit: SOURCE_COMMIT,
+      });
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(projection.port.getSnapshot(), snapshot);
+  projection.destroy();
+});
+
+test("destroy aborts outstanding Native queries and invalid timeouts fail closed", async () => {
+  const catalog = catalogPort(ready([candidate("calculator", "0.2.0")]));
+  for (const invalid of [0, -1, Number.POSITIVE_INFINITY, "3000", 30_001]) {
+    assert.throws(() => createVerifiedAppStoreProjection({
+      verifiedCatalogPort: catalog.port,
+      componentSource: source(),
+      metadataTimeoutMs: invalid,
+      fetchImpl: fetchFrom({calculator: metadata("calculator")}),
+    }), /bounded positive integer/);
+  }
+  let signal;
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: (url, options) => {
+      if (new URL(url).searchParams.get("component") === "calculator") {
+        signal = options.signal;
+      }
+      return new Promise(() => {}); // A non-cooperative Native adapter.
+    },
+  });
+  assert.ok(signal);
+  projection.destroy();
+  assert.equal(signal.aborted, true);
+  assert.equal(projection.port.getSnapshot().state, "unavailable");
 });
 
 
@@ -371,5 +530,45 @@ test("Native module-read capability remains a necessary condition, not trust or 
   assert.equal(entries.find((item) => item.appId === "calculator").installable, false);
   assert.equal(projection.port.authority, "none");
   assert.equal(typeof projection.port.requestLifecycle, "undefined");
+  projection.destroy();
+});
+
+
+test("live signed catalog replacement revokes stale installability before slow Native reads finish", async () => {
+  const catalog = catalogPort(ready([candidate("notes", "0.4.3", "Notas")]));
+  let stall = false;
+  let releaseRead;
+  const slowRead = new Promise((resolve) => { releaseRead = resolve; });
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: async (url) => {
+      if (stall) await slowRead;
+      return {
+        ok: true,
+        status: 200,
+        async json() { return metadata(new URL(url).searchParams.get("component")); },
+      };
+    },
+  });
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  assert.equal(projection.port.getSnapshot().entries[0].installable, true);
+
+  stall = true;
+  const nextReady = new Promise((resolve) => {
+    projection.port.subscribe((next) => {
+      if (next.state === "ready") resolve(next);
+    });
+  });
+  catalog.publish(ready([candidate("notes", "0.4.4", "Notas")]));
+  const invalidated = projection.port.getSnapshot();
+  assert.equal(invalidated.state, "unavailable");
+  assert.deepEqual(invalidated.entries, []);
+  assert.equal(invalidated.authority, "none");
+  releaseRead();
+  const fresh = await nextReady;
+  assert.equal(fresh.entries[0].availableVersion, "0.4.4");
+  assert.equal(fresh.entries[0].installable, true);
   projection.destroy();
 });
