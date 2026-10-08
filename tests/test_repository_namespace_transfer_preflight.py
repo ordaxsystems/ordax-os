@@ -50,6 +50,9 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         self.assertFalse(audit.is_operational("tests/test_repository_namespace_transfer_preflight.py"))
         self.assertTrue(audit.is_operational("docs/contracts/release-channel.json"))
         self.assertTrue(audit.is_operational("bootstrap/base-update/stage.py"))
+        self.assertTrue(audit.is_operational("boot/esp/build.py"))
+        self.assertTrue(audit.is_operational("sdk/app-sdk-v1/runtime-component-package-policy.json"))
+        self.assertTrue(audit.is_operational("docs/RELEASE-CHANNEL.md"))
 
     def test_release_pointer_sha_is_pinned_to_bootstrap_manifest(self):
         report = audit.release_pointer_integrity(ROOT, "ordaxsystems/prototipo-ordax-os")

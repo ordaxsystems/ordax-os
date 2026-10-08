@@ -22,9 +22,9 @@ PREVIOUS_OWNER = "washingtonmsdj"
 REPOSITORY_NAME = "prototipo-ordax-os"
 PLATFORM_REPOSITORY_ID = "1371063347"
 
-ACTIVE_PREFIXES = (".github/workflows/", "bootstrap/", "system/", "tools/", "tests/")
+ACTIVE_PREFIXES = (".github/workflows/", "bootstrap/", "boot/", "system/", "sdk/", "tools/", "tests/")
 ACTIVE_CONTRACT_PREFIX = "docs/contracts/"
-ACTIVE_DOC = "docs/REPOSITORY-OWNERSHIP.md"
+ACTIVE_DOCS = frozenset({"docs/REPOSITORY-OWNERSHIP.md", "docs/RELEASE-CHANNEL.md"})
 IGNORED_SUFFIXES = (".pack", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".exe")
 # Previously issued, pinned artifacts are provenance; rewriting their source
 # owner would falsify old signing/physical authorization evidence.
@@ -43,7 +43,7 @@ NEGATIVE_AUTHORITY_FIXTURES = frozenset({
 def is_operational(path: str) -> bool:
     if path in IMMUTABLE_HISTORICAL_PATHS or path in NEGATIVE_AUTHORITY_FIXTURES:
         return False
-    if path == ACTIVE_DOC or path.startswith(ACTIVE_CONTRACT_PREFIX):
+    if path in ACTIVE_DOCS or path.startswith(ACTIVE_CONTRACT_PREFIX):
         return True
     return path.startswith(ACTIVE_PREFIXES) and not path.endswith(IGNORED_SUFFIXES)
 

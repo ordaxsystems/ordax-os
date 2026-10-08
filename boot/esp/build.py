@@ -191,7 +191,7 @@ def build(work_dir: Path, out_dir: Path) -> dict:
         "-Dsbat-distro-summary=OrdaX",
         "-Dsbat-distro-pkgname=ordax-boot",
         f"-Dsbat-distro-version={contract['bootloader']['version']}",
-        "-Dsbat-distro-url=https://github.com/washingtonmsdj/prototipo-ordax-os",
+        "-Dsbat-distro-url=https://github.com/ordaxsystems/prototipo-ordax-os",
     ]
     run(meson_args, env=env)
 
