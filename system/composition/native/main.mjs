@@ -842,6 +842,7 @@ async function start() {
       notifications,
       keyboardLayout,
       localSession,
+      localAi,
     );
   } catch (error) {
     reportClientDiagnostic("settings-network-management", error);
@@ -856,6 +857,7 @@ async function start() {
       notifications,
       keyboardLayout,
       localSession,
+      localAi,
     );
   }
   const storeCatalogComposition = await storeCatalogCompositionPromise;

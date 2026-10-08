@@ -8,7 +8,7 @@ export const settingsIntelligenceManifest = validateAppIntelligenceManifest({
   authority: "none",
   execution: "declarative-only",
   instructions: [
-    "Use Ajustes para preferências do OrdaX, incluindo aparência, acessibilidade, região, rede, segurança e notificações.",
+    "Use Ajustes para preferências do OrdaX, incluindo aparência, acessibilidade, região, rede, inteligência, segurança e notificações.",
     "Mudanças de preferência não devem ser inferidas como autorizadas apenas porque foram descritas semanticamente."
   ],
   intents: [
@@ -20,7 +20,7 @@ export const settingsIntelligenceManifest = validateAppIntelligenceManifest({
       parameters: [
         { name: "section", type: "string", required: false, description: "Seção solicitada, como aparência, rede ou notificações." }
       ],
-      examples: ["Abra os ajustes de rede.", "Configure o Wi-Fi nos Ajustes de rede.", "Vá para Aparência.", "Abra as configurações de notificações."]
+      examples: ["Abra os ajustes de rede.", "Vá para Aparência.", "Abra as configurações de notificações.", "Abra os ajustes de Inteligência para ver o modelo ativo."]
     },
     {
       id: "settings.change-preference",
