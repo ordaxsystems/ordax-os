@@ -8,8 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ApplicationCompatibilityTests(unittest.TestCase):
     def test_node_application_compatibility_contract(self):
+        # Profile tests have their own discovery wrapper; never execute them twice.
         subprocess.run(
-            ["node", "--test", "tests/test_application_compatibility.mjs", "tests/test_application_compatibility_profiles.mjs"],
+            ["node", "--test", "tests/test_application_compatibility.mjs"],
             cwd=ROOT,
             check=True,
         )

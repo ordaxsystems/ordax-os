@@ -124,7 +124,11 @@ It validates:
 - PE32/PE32+ optional-header magic consistent with the COFF machine (PE32 for x86; PE32+ for x86-64/ARM64);
 - optional-header length covers the fixed fields (96 bytes for PE32; 112 for PE32+) and fits entirely within the inspected bytes;
 - PE header offset does not overlap the 64-byte DOS header;
-- DLL characteristic.
+- COFF `IMAGE_FILE_EXECUTABLE_IMAGE` characteristic (an object file cannot be treated as a launchable image);
+- section table has 1–96 entries and **all** 40-byte section headers fit inside the supplied bytes;
+- DLL characteristic, which always blocks launch planning even when `IMAGE_FILE_EXECUTABLE_IMAGE` is set.
+
+This is deliberately a **structural candidate check**, not full Windows loader certification or permission to execute. Unsupported or malformed PE payloads fail closed.
 
 Supported architecture identities for launch planning are currently:
 
@@ -153,7 +157,8 @@ A runtime may enter the inventory only through an explicit descriptor that decla
 - ecosystem family;
 - engine class;
 - semantic version;
-- supported architectures;
+- supported architectures (only known x86, x86-64, ARM64 values; never `unknown`);
+- an engine compatible with the declared family (Wine/Proton only for Windows, native-linux only for Linux; `other` remains explicitly family-scoped);
 - immutable source identity;
 - lowercase SHA-256 content identity;
 - `available=true`;
@@ -162,7 +167,7 @@ A runtime may enter the inventory only through an explicit descriptor that decla
 
 Unknown fields are rejected. A descriptor cannot smuggle a raw command, URL or shell path through the contract.
 
-The current manager only uses this inventory to answer whether launch planning has a compatible runtime. It does not execute the runtime.
+The current manager only uses this inventory to answer whether launch planning has a compatible runtime. It does not execute the runtime. A structurally valid descriptor is a declaration, **not** evidence that the runtime binary is present, content-verified or independently sandbox-tested; a future artifact/provenance owner must supply those proofs before any real install/launch permission.
 
 Planning accepts only the frozen inspection object issued by the **same** Compatibility Manager instance. A caller-created object, serialized/deserialized copy or inspection from another manager is not proof of the inspected bytes, even if its schema and fields match. For content-bound profile planning, callers use asynchronous `inspectVerified({ name, bytes })` with a `Uint8Array`. It hashes a private snapshot with Web Crypto SHA-256, then `planCreate` verifies that `payloadDigest` exactly matches that hash. Plain `inspect()` still supports format and launch **planning**, but cannot authorize a profile plan: a digest supplied only by the caller is insufficient.
 
