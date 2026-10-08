@@ -268,3 +268,95 @@ test("Native Profile adapter refreshes a stale revision on conflict without repl
   assert.equal(preview.expectedRevision, 2);
   assert.deepEqual(attemptedRevisions, [1, 2]);
 });
+
+test("Native Profile observers see successful mutations immediately and never see stale reads", async () => {
+  const original = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 1,
+    persistence: "device",
+    spaces: [],
+  };
+  const updated = {
+    ...original,
+    revision: 2,
+    spaces: [{
+      spaceId: "space-1",
+      spaceKind: "professional",
+      current: {
+        profile: { slug: "pizzaria-br", version: 1 },
+        components: [],
+        activatedAt: 100,
+      },
+      previous: null,
+    }],
+  };
+  let getCount = 0;
+  let finishStaleRead;
+  const windowRef = {
+    async fetch(path) {
+      if (path === "/__ordax/native/profile-activation-state") {
+        getCount++;
+        if (getCount === 1) return response(original);
+        return new Promise((resolve) => { finishStaleRead = resolve; });
+      }
+      if (path === "/__ordax/native/session") return response({
+        profileActivationAvailable: true,
+        profileActivationToken: "t".repeat(32),
+      });
+      if (path === "/__ordax/native/profile-activation-command") {
+        return response({ state: updated });
+      }
+      throw new Error("Unexpected Native Profile path");
+    },
+  };
+  const port = await createNativeProfileActivationState(windowRef);
+  const observed = [];
+  const unsubscribe = port.subscribe((state) => observed.push(state.revision));
+  assert.deepEqual(observed, [1]);
+  const delayed = port.refresh();
+  await port.activate({
+    spaceId: "space-1",
+    spaceKind: "professional",
+    profile: { slug: "pizzaria-br", version: 1 },
+    activatedAt: 100,
+  });
+  assert.equal(port.getSnapshot().revision, 2);
+  finishStaleRead(response(original));
+  await delayed;
+  assert.equal(port.getSnapshot().revision, 2);
+  assert.deepEqual(observed, [1, 2]);
+  unsubscribe();
+  port.dispose();
+});
+
+test("Native Profile state rejects equal-revision contradictory snapshots and detaches observers", async () => {
+  const original = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 4,
+    persistence: "device",
+    spaces: [],
+  };
+  let next = original;
+  const windowRef = { async fetch() { return response(next); } };
+  const port = await createNativeProfileActivationState(windowRef);
+  let changes = 0;
+  const unsubscribe = port.subscribe(() => { changes++; });
+  assert.equal(changes, 1);
+  next = { ...original, persistence: "device", spaces: [{
+    spaceId: "space-1", spaceKind: "work",
+    current: {
+      profile: { slug: "developer", version: 1 },
+      components: [], activatedAt: 101,
+    },
+    previous: null,
+  }] };
+  await assert.rejects(() => port.refresh(), /without a revision/);
+  assert.deepEqual(port.getSnapshot().spaces, []);
+  assert.equal(changes, 1);
+  unsubscribe();
+  port.dispose();
+  assert.equal(changes, 1);
+  const detach = port.subscribe(() => { changes++; });
+  detach();
+  assert.equal(changes, 1); // disposed port does not announce stale snapshots
+});

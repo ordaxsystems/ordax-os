@@ -31,6 +31,7 @@ import {
 import { assertProfileProvisioningPort } from "../../contracts/profile-provisioning.mjs";
 import {
   assertMutableProfileActivationStatePort,
+  currentProfileForSpace,
   validateProfileActivationState,
 } from "../../contracts/profile-activation-state.mjs";
 import { assertMvpZeroComponentProfileReview } from "./profile-activation-review.mjs";
@@ -723,13 +724,12 @@ export function mountAccountOverviewControls(
       return;
     }
 
-    const selectedSpace = spaceSelectionSnapshot?.state === "selected"
-      ? spaceSelectionSnapshot.selectedSpace
-      : null;
-    const activeRow = selectedSpace && profileActivationSnapshot
-      ? profileActivationSnapshot.spaces.find((row) => row.spaceId === selectedSpace.id) ?? null
-      : null;
-    const activeProfile = activeRow?.current?.profile ?? null;
+    const selectedSpace = (
+      sessionSnapshot.state === "signed-in"
+      && spaceSelectionSnapshot?.state === "selected"
+      && spaceSelectionSnapshot.subjectId === sessionSnapshot.subjectId
+    ) ? spaceSelectionSnapshot.selectedSpace : null;
+    const activeProfile = currentProfileForSpace(profileActivationSnapshot, selectedSpace);
 
     if (selectedSpace === null) {
       section.append(
@@ -1529,6 +1529,10 @@ export function mountAccountOverviewControls(
     spaceSelectionSnapshot = validateSpaceSelectionSnapshot(snapshot);
     replaceView();
   });
+  const unsubscribeProfileActivation = profileActivationPort?.subscribe?.((snapshot) => {
+    profileActivationSnapshot = validateProfileActivationState(snapshot);
+    if (activeSection === "profiles") replaceView();
+  });
   const unsubscribePreferences = preferencePort?.subscribe((snapshot) => {
     preferenceSnapshot = snapshot;
     if (activeSection === "memory") replaceView();
@@ -1547,6 +1551,7 @@ export function mountAccountOverviewControls(
       pendingProfileAction = null;
       memoryReviewControls?.dispose();
       memoryReviewControls = null;
+      unsubscribeProfileActivation?.();
       unsubscribePreferences?.();
       unsubscribeSpaceSelection?.();
       unsubscribeSpaces?.();
