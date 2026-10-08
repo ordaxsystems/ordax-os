@@ -235,7 +235,12 @@
     "destination_gateway_platform_auth_reference": "https://supabase.com/docs/guides/functions/auth-headers",
     "destination_gateway_service_auth_reference": "https://supabase.com/docs/guides/functions/auth",
     "destination_gateway_transport_proof_date": "2026-10-08",
-    "internal_gateway_staging_verified_source_change": "2026-10-08 bounded external HIBP streaming 256KiB and 5s timeout (PR #1412); JWT required and all public flags remain false"
+    "internal_gateway_staging_verified_source_change": "2026-10-08 bounded external HIBP streaming 256KiB and 5s timeout (PR #1412); JWT required and all public flags remain false",
+    "destination_named_bridge_key_name": "ordax-account-public-bridge",
+    "destination_named_bridge_source_prepared": true,
+    "destination_named_bridge_key_provisioned": false,
+    "destination_named_bridge_runtime_e2e_verified": false,
+    "destination_named_bridge_scope": "service-to-service only, not a Supabase JWT and never used as user credentials; SUPABASE_SECRET_KEYS named secret (not default)"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
