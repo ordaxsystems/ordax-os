@@ -6,6 +6,8 @@ import http.client
 import importlib.util
 import json
 import os
+import socket
+import time
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -212,6 +214,55 @@ class NativeLocalAiBridgeTests(unittest.TestCase):
                 )
                 self.assertEqual(status, 503)
         self.assertEqual(self.backend.received, [])
+
+    def test_incomplete_completion_body_expires_before_backend(self):
+        """A valid length must not pin a Native Host thread indefinitely."""
+        old_deadline = host.LOCAL_AI_BODY_READ_TIMEOUT_SECONDS
+        host.LOCAL_AI_BODY_READ_TIMEOUT_SECONDS = 0.2
+        try:
+            connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
+            try:
+                connection.request(
+                    "POST", bridge.NATIVE_LOCAL_AI_PREFIX + "/v1/chat/completions",
+                    body=b"{", headers={
+                        "Content-Type": "application/json",
+                        "Content-Length": "128",
+                    },
+                )
+                response = connection.getresponse()
+                self.assertEqual(response.status, 408)
+                self.assertEqual(response.read(), b"")
+                self.assertEqual(self.backend.received, [])
+            finally:
+                connection.close()
+        finally:
+            host.LOCAL_AI_BODY_READ_TIMEOUT_SECONDS = old_deadline
+
+    def test_trickling_body_cannot_extend_absolute_deadline(self):
+        old_deadline = host.LOCAL_AI_BODY_READ_TIMEOUT_SECONDS
+        host.LOCAL_AI_BODY_READ_TIMEOUT_SECONDS = 0.2
+        try:
+            with socket.create_connection(("127.0.0.1", self.port), timeout=2) as client:
+                client.settimeout(2)
+                client.sendall((
+                    f"POST {bridge.NATIVE_LOCAL_AI_PREFIX}/v1/chat/completions HTTP/1.1\r\n"
+                    f"Host: 127.0.0.1:{self.port}\r\n"
+                    "Content-Type: application/json\r\n"
+                    "Content-Length: 128\r\nConnection: close\r\n\r\n"
+                ).encode("ascii") + b"{")
+                time.sleep(0.1)
+                client.sendall(b'"')
+                # A steady trickle cannot reset a full-request deadline.
+                response = bytearray()
+                while b"\r\n" not in response:
+                    block = client.recv(1024)
+                    if not block:
+                        break
+                    response.extend(block)
+                self.assertIn(b" 408 ", bytes(response).split(b"\r\n", 1)[0])
+                self.assertEqual(self.backend.received, [])
+        finally:
+            host.LOCAL_AI_BODY_READ_TIMEOUT_SECONDS = old_deadline
 
     def test_byte_cap_and_unsupported_content_type(self):
         path = bridge.NATIVE_LOCAL_AI_PREFIX + "/v1/chat/completions"

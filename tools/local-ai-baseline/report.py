@@ -76,7 +76,7 @@ def validate_benchmark_result(value):
 
 def build_baseline(
     *,
-    base_url="http://127.0.0.1:17865",
+    base_url=None,
     runs=3,
     n_predict=32,
     timeout=120.0,
@@ -84,6 +84,10 @@ def build_baseline(
 ):
     hardware_module = load_module(HARDWARE_PROBE, "ordax_local_ai_hardware_probe")
     benchmark_module = load_module(BENCHMARK, "ordax_local_ai_benchmark")
+    # Benchmark owns the only production endpoint default. No second
+    # localhost model URL is maintained by the baseline compositor.
+    if base_url is None:
+        base_url = benchmark_module.DEFAULT_BASE_URL
 
     try:
         hardware = validate_hardware_result(hardware_module.probe_system())
@@ -126,7 +130,7 @@ def build_baseline(
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="http://127.0.0.1:17865")
+    parser.add_argument("--base-url", default=None)
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--n-predict", type=int, default=32)
     parser.add_argument("--timeout", type=float, default=120.0)

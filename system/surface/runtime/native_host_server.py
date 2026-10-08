@@ -3227,6 +3227,12 @@ class ProfileConsentUnavailableError(RuntimeError):
     pass
 
 
+# Absolute, not idle-only: a dribbling local client must not retain a Native
+# Host request thread indefinitely after advertising a valid Content-Length.
+LOCAL_AI_BODY_READ_TIMEOUT_SECONDS = 5.0
+LOCAL_AI_BODY_READ_CHUNK_BYTES = 64 * 1024
+
+
 class NativeHostServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -3447,10 +3453,32 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             if length == 0:
                 self._empty(400)
                 return
-            body = self.rfile.read(length)
-            if len(body) != length:
-                self._empty(400)
+            # A socket idle timeout alone permits slow-drip connections to hold
+            # threads forever. Bound the *total* read, even when bytes trickle.
+            deadline = time.monotonic() + LOCAL_AI_BODY_READ_TIMEOUT_SECONDS
+            previous_timeout = self.connection.gettimeout()
+            parts = []
+            remaining = length
+            try:
+                while remaining:
+                    budget = deadline - time.monotonic()
+                    if budget <= 0:
+                        raise TimeoutError("Native inference body read deadline exceeded")
+                    self.connection.settimeout(budget)
+                    part = self.rfile.read1(min(remaining, LOCAL_AI_BODY_READ_CHUNK_BYTES))
+                    if not part:
+                        self.close_connection = True
+                        self._empty(400)
+                        return
+                    parts.append(part)
+                    remaining -= len(part)
+            except (OSError, TimeoutError):
+                self.close_connection = True
+                self._empty(408)
                 return
+            finally:
+                self.connection.settimeout(previous_timeout)
+            body = b"".join(parts)
         try:
             status, response_body = forward_local_ai(method, suffix, body)
         except NativeLocalAiUpstreamError:

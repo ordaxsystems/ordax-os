@@ -42,7 +42,10 @@ class LocalAiBaselineTests(unittest.TestCase):
                 "tuning_applied": False,
             }
 
-        benchmark_module = types.SimpleNamespace(benchmark=benchmark)
+        benchmark_module = types.SimpleNamespace(
+            benchmark=benchmark,
+            DEFAULT_BASE_URL="http://127.0.0.1:8765/__ordax/native/local-ai",
+        )
         return hardware, benchmark_module
 
     def test_composes_probe_and_benchmark_without_claiming_release_or_tuning(self):
@@ -63,6 +66,20 @@ class LocalAiBaselineTests(unittest.TestCase):
         self.assertFalse(result["comparison_policy"]["release_gate"])
         self.assertFalse(result["comparison_policy"]["runtime_bytes_modified"])
         self.assertTrue(result["comparison_policy"]["single_variable_tuning_required"])
+
+    def test_unset_baseline_endpoint_uses_benchmark_owner_not_duplicate_raw_port(self):
+        hardware, benchmark = self.modules()
+        captured = []
+
+        def record(base_url, **kwargs):
+            captured.append(base_url)
+            return self.modules()[1].benchmark(base_url, **kwargs)
+
+        benchmark.benchmark = record
+        with patch.object(BASELINE, "load_module", side_effect=[hardware, benchmark]):
+            BASELINE.build_baseline()
+        self.assertEqual(captured, [benchmark.DEFAULT_BASE_URL])
+        self.assertTrue(captured[0].endswith("/__ordax/native/local-ai"))
 
     def test_incompatible_hardware_fails_before_benchmark(self):
         hardware, benchmark = self.modules(compatible=False)

@@ -20,7 +20,10 @@ import urllib.parse
 import urllib.request
 
 SCHEMA = "prototype-ordax.local-ai-benchmark/1"
-DEFAULT_BASE_URL = "http://127.0.0.1:17865"
+# Real product traffic enters the authenticated Native Host, not the protected
+# raw llama.cpp port. The Host owns the ephemeral inference credential.
+NATIVE_MODEL_BRIDGE_PATH = "/__ordax/native/local-ai"
+DEFAULT_BASE_URL = "http://127.0.0.1:8765" + NATIVE_MODEL_BRIDGE_PATH
 DEFAULT_PROMPT = "Reply with exactly: OK"
 MAX_DISCOVERY_BYTES = 256 * 1024
 MAX_COMPLETION_BYTES = 1024 * 1024
@@ -42,7 +45,7 @@ def validate_base_url(value: str) -> str:
         or parsed.hostname != "127.0.0.1"
         or parsed.username is not None
         or parsed.password is not None
-        or parsed.path not in ("", "/")
+        or parsed.path not in ("", "/", NATIVE_MODEL_BRIDGE_PATH)
         or parsed.query
         or parsed.fragment
     ):
@@ -53,7 +56,7 @@ def validate_base_url(value: str) -> str:
         raise BenchmarkError("benchmark endpoint port is invalid") from exc
     if port is None or not 1 <= port <= 65535:
         raise BenchmarkError("benchmark endpoint requires an explicit valid port")
-    return f"http://127.0.0.1:{port}"
+    return f"http://127.0.0.1:{port}{parsed.path if parsed.path == NATIVE_MODEL_BRIDGE_PATH else ''}"
 
 
 def validate_timeout(value: float) -> float:
@@ -144,7 +147,8 @@ def run_sample(base_url: str, *, model_id: str, timeout: float, n_predict: int, 
             "model": model_id,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": n_predict,
-            "temperature": 0.0,
+            # Strict Native bridge schema intentionally does not expose
+            # arbitrary sampling arguments or action/tool capabilities.
             "stream": False,
         },
     )
