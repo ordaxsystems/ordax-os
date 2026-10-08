@@ -18,6 +18,7 @@ from urllib.request import Request, urlopen
 from select_active_signing_request import ROOT, assert_new_canonical_request, load_historical_request
 from validate_canonical_v4_signing_request import (
     KIND_SPECS, REPOSITORY, REQUEST_SCHEMA, UNSAFE_FIELDS, ValidationError,
+    operator_ref_for_source,
 )
 
 REPOSITORY_ID = 1371063347
@@ -86,6 +87,7 @@ def build_request(source_commit: str, runs: dict, inventories: dict, historical:
         raise ValidationError("source commit must be exact lowercase 40-hex")
     tag = "ordax-stable-v4-" + source_commit
     bindings = {}
+    source_ref = None
     seen_runs, seen_artifacts = set(), set()
     for kind, spec in KIND_SPECS.items():
         run, inventory = runs[kind], inventories[kind]
@@ -93,14 +95,19 @@ def build_request(source_commit: str, runs: dict, inventories: dict, historical:
         if type(rid) is not int or rid <= 0 or rid in seen_runs:
             raise ValidationError(f"{kind} run ID is invalid or reused")
         seen_runs.add(rid)
+        run_ref = operator_ref_for_source(source_commit, run.get("head_branch"))
+        if source_ref is None:
+            source_ref = run_ref
+        elif source_ref != run_ref:
+            raise ValidationError("operator runs must use exactly the same frozen source ref")
         repo = run.get("repository")
         if not isinstance(repo, dict) or repo.get("full_name") != REPOSITORY or repo.get("id") != REPOSITORY_ID:
             raise ValidationError(f"{kind} run repository identity is invalid")
         if (run.get("event") != "workflow_dispatch"
             or run.get("status") != "completed" or run.get("conclusion") != "success"
-            or run.get("head_branch") != "main" or run.get("head_sha") != source_commit
+            or run.get("head_branch") != source_ref or run.get("head_sha") != source_commit
             or run.get("path") != spec["workflow_path"]):
-            raise ValidationError(f"{kind} run is not an exact manual build from the frozen main")
+            raise ValidationError(f"{kind} run is not an exact manual build from the frozen source ref")
         assets = inventory.get("artifacts")
         if not isinstance(assets, list) or inventory.get("total_count") != len(assets):
             raise ValidationError(f"{kind} artifact inventory is missing or incomplete")
@@ -118,7 +125,7 @@ def build_request(source_commit: str, runs: dict, inventories: dict, historical:
             or not isinstance(bound, dict) or bound.get("id") != rid
             or bound.get("repository_id") != REPOSITORY_ID
             or bound.get("head_repository_id") != REPOSITORY_ID
-            or bound.get("head_branch") != "main" or bound.get("head_sha") != source_commit):
+            or bound.get("head_branch") != source_ref or bound.get("head_sha") != source_commit):
             raise ValidationError(f"{kind} artifact binding, digest or expiry is invalid")
         bindings[kind] = {
             "workflow_path": spec["workflow_path"],
@@ -132,6 +139,7 @@ def build_request(source_commit: str, runs: dict, inventories: dict, historical:
         "status": "pending-public-assembly",
         "source_repository": REPOSITORY,
         "source_commit": source_commit,
+        "operator_ref": source_ref,
         "release_tag": tag,
         "operator_artifacts": bindings,
         "artifact_urls": {name: prefix + name for name in (
@@ -140,6 +148,22 @@ def build_request(source_commit: str, runs: dict, inventories: dict, historical:
     }
     assert_new_canonical_request(request, historical)
     return request
+
+
+def verify_frozen_candidate_ref(source_commit: str, source_ref: str, token: str) -> None:
+    """Verify immutable candidate ref still points to the exact proven commit."""
+    if source_ref == "main":
+        return  # Ancestor-of-main proof intentionally permits main to advance.
+    operator_ref_for_source(source_commit, source_ref)
+    meta = fetch_json(f"/git/ref/heads/{source_ref}", token)
+    obj = meta.get("object")
+    if (
+        meta.get("ref") != f"refs/heads/{source_ref}"
+        or not isinstance(obj, dict)
+        or obj.get("type") != "commit"
+        or obj.get("sha") != source_commit
+    ):
+        raise ValidationError("frozen candidate ref no longer points to the exact source commit")
 
 
 def write_once(path: Path, request: dict) -> None:
@@ -180,6 +204,7 @@ def main() -> int:
             runs[kind] = fetch_json(f"/actions/runs/{rid}", token)
             inventories[kind] = fetch_json(f"/actions/runs/{rid}/artifacts?per_page=100", token)
         request = build_request(args.source_commit, runs, inventories, load_historical_request(ROOT))
+        verify_frozen_candidate_ref(args.source_commit, request["operator_ref"], token)
         write_once(args.out, request)
         print(json.dumps({"status": "unsigned-request-drafted", "source_commit": args.source_commit,
                           "output": str(args.out), "signing_performed": False,
