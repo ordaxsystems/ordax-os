@@ -68,6 +68,7 @@ import { createNotificationsRuntime } from "../../services/notifications/runtime
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
 import { createDiagnosticJournalRuntime } from "../../services/diagnostics/runtime.mjs";
 import { createLocalAiRuntime } from "../../services/local-ai/runtime.mjs";
+import { createLocalAiProbeSupervisor } from "../../services/local-ai/probe-supervisor.mjs";
 import { LOCAL_AI_NATIVE_ENDPOINT } from "../../contracts/local-ai.mjs";
 import { createIntelligenceRuntime } from "../../services/intelligence/runtime.mjs";
 import { createApplicationIntelligenceAwareness } from "../../services/intelligence/application-awareness.mjs";
@@ -333,7 +334,8 @@ async function start() {
   const unsubscribeIntelligenceHealth = intelligence.subscribe(updateIntelligenceHealth);
   updateLocalAiHealth(localAi.getSnapshot());
   updateIntelligenceHealth(intelligence.getSnapshot());
-  void localAi.probe();
+  const localAiProbeSupervisor = createLocalAiProbeSupervisor({ localPort: localAi });
+  localAiProbeSupervisor.start();
 
   const localWorkspaceStore = createNativeWorkspaceStore(window);
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
@@ -1038,6 +1040,7 @@ async function start() {
       updateWatcher.dispose();
       unsubscribeIntelligenceHealth();
       unsubscribeLocalAiHealth();
+      localAiProbeSupervisor.dispose();
       intelligence.dispose();
       localAi.dispose();
       localSession?.dispose();
