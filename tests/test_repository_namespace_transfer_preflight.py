@@ -43,6 +43,11 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         self.assertEqual(report["historical_count"], 2)
         self.assertIn("tools/creator/go.mod", report["operational_paths"])
         self.assertIn("docs/evidence/original-release.md", report["historical_paths"])
+        self.assertFalse(audit.is_operational("docs/contracts/canonical-v4-signing-request.json"))
+        self.assertFalse(audit.is_operational("docs/contracts/physical-write-authorization.json"))
+        self.assertFalse(audit.is_operational("system/profile-content-sources/developer-core/v0.1.0/manifest.json"))
+        self.assertTrue(audit.is_operational("docs/contracts/release-channel.json"))
+        self.assertTrue(audit.is_operational("bootstrap/base-update/stage.py"))
 
     def test_does_not_accept_dual_authority_or_out_of_order_transfer(self):
         copy_ = copy.deepcopy(self.ownership)
