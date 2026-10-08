@@ -11,6 +11,15 @@
     "cloud_space_mutation_applied": false,
     "profile_owns_space_data": false
   },
+  "surface_observation": {
+    "native_port_snapshot_source": "ordax.profile-activation-state/1",
+    "native_port_subscription_supported": true,
+    "revision_ordering": "monotonic",
+    "stale_async_reads_can_overwrite_newer_mutations": false,
+    "same_revision_conflicting_payload_accepted": false,
+    "surface_mirrored_persistence": false,
+    "account_and_shell_observe_same_native_port": true
+  },
   "state": {
     "per_space": true,
     "max_spaces": 64,
