@@ -29,6 +29,21 @@ SOURCE_LOCK_SCHEMA = "prototype-ordax.local-ai-source-lock/1"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
+
+def operator_ref_for_source(source_commit: str, value: str | None) -> str:
+    """Only main or the exact same-commit candidate branch is allowed.
+
+    Missing field means main for historical v1 receipts; new frozen requests
+    explicitly bind operator_ref. This function is the sole ref policy.
+    """
+    if not isinstance(source_commit, str) or HEX40.fullmatch(source_commit) is None:
+        raise ValidationError("operator source commit must be lowercase 40-hex")
+    if value is None:
+        return "main"
+    if value not in ("main", f"release-candidate/{source_commit}"):
+        raise ValidationError("operator ref must be main or exact release-candidate/<source-commit>")
+    return value
+
 UNSAFE_FIELDS = (
     "publication_performed",
     "signing_performed",
@@ -155,6 +170,7 @@ def validate_request_document(request: dict) -> dict:
     source_commit = request.get("source_commit")
     if not isinstance(source_commit, str) or HEX40.fullmatch(source_commit) is None:
         raise ValidationError("signing request source commit must be lowercase 40-hex")
+    operator_ref_for_source(source_commit, request.get("operator_ref"))
     expected_tag = f"ordax-stable-v4-{source_commit}"
     if request.get("release_tag") != expected_tag:
         raise ValidationError("release tag is not bound to the exact source commit")
@@ -225,6 +241,7 @@ def _validate_run_and_artifact_metadata(
         metadata_dir / f"{kind}-artifact.json", f"{kind} artifact metadata"
     )
     source_commit = request["source_commit"]
+    source_ref = operator_ref_for_source(source_commit, request.get("operator_ref"))
     expected_run = entry["run_id"]
     expected_artifact = entry["artifact_id"]
 
@@ -234,8 +251,8 @@ def _validate_run_and_artifact_metadata(
         raise ValidationError(f"{kind} run was not manually dispatched")
     if run.get("status") != "completed" or run.get("conclusion") != "success":
         raise ValidationError(f"{kind} run is not a completed success")
-    if run.get("head_sha") != source_commit or run.get("head_branch") != "main":
-        raise ValidationError(f"{kind} run is not bound to the requested main source commit")
+    if run.get("head_sha") != source_commit or run.get("head_branch") != source_ref:
+        raise ValidationError(f"{kind} run is not bound to the requested source commit/ref")
     if run.get("path") != entry["workflow_path"]:
         raise ValidationError(f"{kind} run workflow path mismatch")
 
@@ -250,7 +267,7 @@ def _validate_run_and_artifact_metadata(
         raise ValidationError(f"{kind} artifact workflow binding is missing")
     if workflow_run.get("id") != expected_run:
         raise ValidationError(f"{kind} artifact belongs to another run")
-    if workflow_run.get("head_sha") != source_commit or workflow_run.get("head_branch") != "main":
+    if workflow_run.get("head_sha") != source_commit or workflow_run.get("head_branch") != source_ref:
         raise ValidationError(f"{kind} artifact belongs to another source commit/branch")
 
     return {
