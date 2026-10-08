@@ -21,8 +21,8 @@ function normalizeEndpoint(value) {
     throw new TypeError("Local AI endpoint must be literal 127.0.0.1 HTTP");
   }
   const raw = value.trim();
-  // Native Surface uses its own already-authorized same-origin Host gateway.
-  // No arbitrary relative URL, external host or generic proxy is permitted.
+  // The Native Surface uses the already-authorized Host same-origin gateway.
+  // No arbitrary relative URL, external origin or generic proxy is allowed.
   if (raw === LOCAL_AI_NATIVE_ENDPOINT) return raw;
   if (!LITERAL_LOOPBACK_ENDPOINT_RE.test(raw)) {
     throw new TypeError("Local AI endpoint must be literal 127.0.0.1 HTTP");
@@ -466,6 +466,16 @@ export function createLocalAiRuntime({
           LOCAL_AI_MAX_COMPLETION_RESPONSE_BYTES,
         );
         if (!response.ok) throw new Error(`Local AI inference failed: HTTP ${response.status}`);
+        // Some OpenAI-compatible backends report the model that actually served
+        // a completion. Do not assert the requested model as a verified result
+        // when the server explicitly reports a different identity.
+        if (
+          payload?.model !== undefined
+          && payload?.model !== null
+          && validateLocalAiModelId(payload.model) !== activeModelId
+        ) {
+          throw new Error("Local AI completion model identity mismatch");
+        }
         const text = validateLocalAiResponseText(payload?.choices?.[0]?.message?.content);
         publish({ ...snapshot, state: "ready" });
         return Object.freeze({ text, engineId: activeEngineId, modelId: activeModelId });

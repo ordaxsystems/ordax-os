@@ -39,6 +39,7 @@ on:
       - 'system/contracts/intelligence-tool.mjs'
       - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
+      - 'system/contracts/profile-discovery.mjs'
       - 'system/contracts/space-selection.mjs'
       - 'system/profile-packs/**'
       - 'system/services/intelligence/**'
@@ -105,6 +106,7 @@ on:
       - 'tests/test_memory_native_state.py'
       - 'tests/test_memory_native_endpoint.py'
       - 'tests/test_profile_pack_runtime.mjs'
+      - 'tests/test_profile_discovery.mjs'
       - 'tests/test_profile_pack_runtime.py'
       - 'PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md'
       - 'docs/contracts/profile-provisioning.json'
@@ -193,6 +195,7 @@ on:
       - 'system/contracts/intelligence-tool.mjs'
       - 'system/contracts/semantic-index.mjs'
       - 'system/contracts/profile-pack.mjs'
+      - 'system/contracts/profile-discovery.mjs'
       - 'system/profile-packs/**'
       - 'system/services/intelligence/**'
       - 'system/apps/assistant/**'
@@ -258,6 +261,7 @@ on:
       - 'tests/test_memory_native_state.py'
       - 'tests/test_memory_native_endpoint.py'
       - 'tests/test_profile_pack_runtime.mjs'
+      - 'tests/test_profile_discovery.mjs'
       - 'tests/test_profile_pack_runtime.py'
       - 'PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md'
       - 'docs/contracts/profile-provisioning.json'
@@ -440,6 +444,7 @@ jobs:
           node --test tests/test_memory_store_adapters.mjs
           node --test tests/test_memory_native_adapter_bounds.mjs
           node --test tests/test_profile_pack_runtime.mjs
+          node --test tests/test_profile_discovery.mjs
           node --test tests/test_profile_pack_bundled_source.mjs
           node --test tests/test_profile_pack_restore.mjs
           node --test tests/test_profile_pack_catalog.mjs

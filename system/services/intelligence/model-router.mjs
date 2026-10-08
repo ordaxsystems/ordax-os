@@ -28,6 +28,11 @@ function normalizeRequest(value) {
     }
     throw new Error(`Model provider ${provider} is not enabled in the Stable/MVP runtime`);
   }
+  // The current local port exposes text generation only. A semantic-index
+  // descriptor does not make embeddings executable without a verified backend.
+  if (purpose === "embedding") {
+    throw new Error("Local embedding route is unavailable without a verified embedding backend");
+  }
   return Object.freeze({ provider, purpose, egressApproved: false });
 }
 

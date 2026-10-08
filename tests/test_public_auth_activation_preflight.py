@@ -128,6 +128,10 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             for flag in (
                 "account-provider-cutover-incomplete",
                 "destination-account-gateway-deployment",
+                "destination-internal-gateway-runtime-proof",
+                "destination-service-auth-transport-proof",
+                "destination-vercel-oidc-project-binding",
+                "destination-vercel-oidc-runtime-proof",
                 "destination-active-legal-policy",
                 "destination-provider-settings-proof",
                 "destination-auth-rate-limit-e2e-proof",
@@ -150,6 +154,10 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             for flag in (
                 "functional_provider_cutover_complete",
                 "public_account_gateway_deployed",
+                "internal_gateway_runtime_e2e_verified",
+                "destination_service_transport_runtime_verified",
+                "destination_vercel_oidc_binding_verified",
+                "destination_vercel_oidc_runtime_e2e_verified",
                 "active_legal_policy_present",
                 "provider_settings_e2e_verified",
                 "public_auth_rate_limit_runtime_e2e_verified",
@@ -173,6 +181,32 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             self.assertEqual(preflight.main(["require-ready", "--root", str(root)]), 1)
         finally:
             temporary.cleanup()
+
+    def test_staging_installation_and_old_oidc_never_authorize_cutover(self):
+        hardening = preflight.load_json(ROOT, preflight.HARDENING)
+        stage = hardening["postgresql_destination"]
+        self.assertTrue(stage["internal_gateway_staging_deployed"])
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
+        self.assertFalse(stage["destination_vercel_public_project_found"])
+        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
+        self.assertFalse(stage["destination_vercel_oidc_runtime_e2e_verified"])
+        blockers, _ = preflight.readiness(ROOT)
+        for blocker in (
+            "destination-internal-gateway-runtime-proof",
+            "destination-vercel-oidc-project-binding",
+            "destination-vercel-oidc-runtime-proof",
+        ):
+            self.assertIn(blocker, blockers)
+
+    def test_service_transport_cannot_be_inferred_from_staging_gateway_deployment(self):
+        hardening = preflight.load_json(ROOT, preflight.HARDENING)
+        stage = hardening["postgresql_destination"]
+        self.assertTrue(stage["internal_gateway_staging_deployed"])
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertFalse(stage["destination_service_transport_runtime_verified"])
+        blockers, _ = preflight.readiness(ROOT)
+        self.assertIn("destination-service-auth-transport-proof", blockers)
 
     def test_malformed_destination_evidence_fails_closed(self):
         temporary, root = self.fixture_root()

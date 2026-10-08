@@ -91,6 +91,109 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             migration.read_text(encoding="utf-8").lower(),
         )
 
+    def test_staging_gateway_and_vercel_destination_evidence_are_distinct(self):
+        stage = self.destination
+        self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
+        self.assertTrue(stage["internal_gateway_staging_deployed"])
+        self.assertEqual(stage["internal_gateway_staging_version"], 3)
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
+        self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["destination_vercel_public_project_found"])
+        self.assertEqual(stage["destination_vercel_team_slug"], "ordaxsystems")
+        self.assertEqual(stage["destination_vercel_public_project_name"], "ordax-os-public")
+        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
+        self.assertFalse(stage["destination_vercel_oidc_runtime_e2e_verified"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["public_registration_enabled"])
+        source = ROOT / stage["internal_gateway_staging_source"]
+        gateway = source.read_text(encoding="utf-8")
+        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_CLOSE_ENABLED = false;", gateway)
+
+    def test_new_api_key_cannot_impersonate_supabase_jwt(self):
+        stage = self.destination
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertFalse(stage["destination_service_transport_runtime_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["public_login_enabled"])
+        outer = (ROOT / stage["destination_gateway_transport_source_reference"]).read_text(encoding="utf-8")
+        inner = (ROOT / stage["destination_gateway_auth_source_reference"]).read_text(encoding="utf-8")
+        self.assertIn('headers.set("apikey", serverSecret)', outer)
+        self.assertNotIn('headers.set("authorization",', outer)
+        self.assertIn("const transport = await authorizeAccountTransport(req, path, {", inner)
+        self.assertIn("verifyNativeSession: async () => {", inner)
+        self.assertIn("return Boolean(session.user && session.access)", inner)
+        self.assertNotIn("expectedKey = adminConfig().key", inner)
+        self.assertIn("headers: upstreamHeaders(req, publicBridgeKey())", outer)
+        self.assertTrue(stage["destination_gateway_platform_auth_reference"].startswith("https://supabase.com/"))
+
+    def test_named_service_bridge_is_not_production_credential_evidence(self):
+        stage = self.destination
+        self.assertTrue(stage["destination_named_bridge_source_prepared"])
+        self.assertEqual(
+            stage["destination_named_bridge_key_name"],
+            "ordax-account-public-bridge",
+        )
+        self.assertFalse(stage["destination_named_bridge_key_provisioned"])
+        self.assertFalse(stage["destination_named_bridge_runtime_e2e_verified"])
+        self.assertFalse(stage["destination_service_transport_runtime_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["public_registration_enabled"])
+        helper = (
+            ROOT / "infra" / "supabase" / "functions" / "_shared"
+            / "account_service_bridge.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax-account-public-bridge"', helper)
+        self.assertIn("authenticatedAccountBridge(", helper)
+
+    def test_new_oidc_source_is_scoped_without_runtime_activation(self):
+        stage = self.destination
+        self.assertTrue(stage["destination_vercel_oidc_source_updated"])
+        self.assertEqual(stage["destination_vercel_oidc_source_expected_team"], "ordaxsystems")
+        self.assertEqual(stage["destination_vercel_oidc_source_expected_project"], "ordax-os-public")
+        self.assertFalse(stage["destination_vercel_public_project_found"])
+        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
+        self.assertFalse(stage["destination_vercel_oidc_runtime_e2e_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        source = (
+            ROOT / "infra" / "supabase" / "functions"
+            / "ordax-public-account-gateway" / "vercel_oidc.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn("https://oidc.vercel.com/ordaxsystems", source)
+        self.assertIn(
+            "owner:ordaxsystems:project:ordax-os-public:environment:production", source
+        )
+        self.assertNotIn('jogo-brasils-projects', source)
+
+    def test_gateway_v3_is_deployed_but_runtime_promotion_is_still_blocked(self):
+        stage = self.destination
+        self.assertTrue(stage["destination_transport_admission_source_prepared"])
+        self.assertTrue(stage["destination_transport_admission_deployed"])
+        self.assertFalse(stage["destination_transport_admission_negative_http_verified"])
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertEqual(stage["internal_gateway_staging_version"], 3)
+        self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
+        self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
+        self.assertFalse(stage["destination_named_bridge_key_provisioned"])
+        self.assertFalse(stage["destination_named_bridge_runtime_e2e_verified"])
+        self.assertFalse(stage["destination_service_transport_runtime_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["public_registration_enabled"])
+        self.assertFalse(stage["functional_provider_cutover_complete"])
+        gateway = (
+            ROOT / "infra" / "supabase" / "functions"
+            / "ordax-account-gateway" / "index.ts"
+        ).read_text(encoding="utf-8")
+        self.assertIn("authorizeAccountTransport(req, path", gateway)
+        self.assertIn("supabase.auth.getUser(access)", gateway)
+
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]
         self.assertEqual(len(names), len(set(names)), "duplicate SQL source")

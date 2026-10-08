@@ -207,6 +207,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             "phase": "post-transfer",
             "destination": target,
             "operational_count": 0,
+            "retired_slug_operational_count": 0,
             "release_pointer_integrity_verified": True,
             "sdk_package_projection_verified": True,
         }
@@ -242,6 +243,61 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         status2["canonical_repositories"]["platform"] = "ordaxsystems/not-the-os"
         with self.assertRaisesRegex(ValueError, "Unexpected destination"):
             audit.validate_contracts(altered, status2)
+
+    def test_retired_intermediate_slug_is_never_a_second_operational_owner(self):
+        destination = "ordaxsystems/ordax-os"
+        environment = {
+            "GITHUB_REPOSITORY": destination,
+            "GITHUB_REPOSITORY_ID": "1371063347",
+        }
+        report = {
+            "phase": "post-transfer",
+            "destination": destination,
+            "operational_count": 0,
+            "release_pointer_integrity_verified": True,
+            "sdk_package_projection_verified": True,
+        }
+        self.assertEqual(
+            audit.cutover_ready(report, environment),
+            (False, "retired_slug_audit_not_proven"),
+        )
+        self.assertEqual(
+            audit.cutover_ready({**report, "retired_slug_operational_count": 1}, environment),
+            (False, "intermediate_repository_slug_still_operational"),
+        )
+        self.assertEqual(
+            audit.cutover_ready({**report, "retired_slug_operational_count": 0}, environment),
+            (True, "canonical_namespace_verified"),
+        )
+        self.assertFalse(audit.cutover_ready(
+            {**report, "retired_slug_operational_count": 0},
+            {**environment, "GITHUB_REPOSITORY": "ordaxsystems/prototipo-ordax-os"},
+        )[0])
+        # An active request issued for the old slug cannot silently serve as
+        # the current request for the new physical repository.
+        old = "ordaxsystems/prototipo-ordax-os"
+        counted = audit.count_old_references([
+            ("docs/contracts/canonical-v4-signing-request-active.json",
+             '{"source_repository":"' + old + '"}'),
+            ("docs/contracts/canonical-v4-signing-request.json",
+             '{"source_repository":"' + old + '"}'),
+            ("tools/creator/main.go", "source = " + old),
+        ], old)
+        self.assertEqual(counted["operational_count"], 2)
+        self.assertEqual(counted["historical_count"], 1)
+
+    def test_rename_workflow_gates_stay_live_only_for_exact_repo_and_ssot(self):
+        workflow = (ROOT / ".github/workflows/repository-namespace-transfer-preflight.yml").read_text(encoding="utf-8")
+        allowed = (
+            "(github.repository == 'ordaxsystems/prototipo-ordax-os' || "
+            "github.repository == 'ordaxsystems/ordax-os')"
+        )
+        self.assertEqual(workflow.count(allowed), 3)
+        self.assertIn("python3 tools/verify/repository_namespace_transfer_preflight.py --require-cutover", workflow)
+        self.assertIn("github.ref == 'refs/heads/main'", workflow)
+        self.assertIn("github.event_name != 'pull_request'", workflow)
+        self.assertIn("GOTOOLCHAIN=local CGO_ENABLED=0 go run . inspect", workflow)
+        self.assertNotIn("|| github.repository == 'washingtonmsdj/prototipo-ordax-os'", workflow)
 
     def test_cutover_proof_needs_no_live_legacy_refs_and_exact_github_identity(self):
         report = {
