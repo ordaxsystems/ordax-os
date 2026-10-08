@@ -8,6 +8,7 @@ import {
 } from "../system/contracts/intelligence.mjs";
 import { PROJECT_CATALOG_SCHEMA } from "../system/contracts/project-catalog.mjs";
 import { SPACE_SELECTION_SCHEMA } from "../system/contracts/space-selection.mjs";
+import { APPLICATION_SEMANTIC_ROUTER_SCHEMA } from "../system/services/intelligence/application-semantic-router.mjs";
 import {
   createApplicationActionCapabilityRegistry,
 } from "../system/services/intelligence/application-action-capabilities.mjs";
@@ -210,15 +211,55 @@ function applicationCapabilities() {
   });
 }
 
-function composition({ identity = mutableIdentitySession(), projects = mutableProjectCatalog() } = {}) {
+function semanticRouter() {
+  return {
+    schema: APPLICATION_SEMANTIC_ROUTER_SCHEMA,
+    select(goal) {
+      return /nota|note|anot/i.test(goal) ? [{ appId: "notes", score: 20 }] : [];
+    },
+    contextItemsForPrompt() { return []; },
+    route(goal) { return { selection: this.select(goal), contextItems: [] }; },
+  };
+}
+
+function proposalIntelligence(text) {
+  const requests = [];
+  return {
+    requests,
+    port: {
+      schema: INTELLIGENCE_PORT_SCHEMA,
+      getSnapshot: () => ({
+        schema: INTELLIGENCE_PORT_SCHEMA,
+        state: "ready", inferenceAvailable: true, engineId: "llama.cpp",
+        modelId: "qwen-test", authority: "none", toolExecution: false,
+      }),
+      subscribe() { return () => {}; },
+      async respond(request) {
+        requests.push(request);
+        return {
+          schema: INTELLIGENCE_RESPONSE_SCHEMA,
+          text, engineId: "llama.cpp", modelId: "qwen-test", authority: "none",
+        };
+      },
+    },
+  };
+}
+
+function composition({
+  identity = mutableIdentitySession(),
+  projects = mutableProjectCatalog(),
+  ai = intelligence(),
+  router = semanticRouter(),
+} = {}) {
   let ordinal = 0;
   const runtime = createNativePersonalOrdaxComposition({
     windowRef: { localStorage: memoryStorage() },
     identitySession: identity,
     spaceSelection: selectedSpace(),
     projects,
-    intelligence: intelligence(),
+    intelligence: ai,
     applicationActionCapabilityRegistry: applicationCapabilities(),
+    applicationSemanticRouter: router,
     createApplicationActionPreparationId: () => `prep-${++ordinal}`,
   });
   return { runtime, identity, projects };
@@ -327,4 +368,147 @@ test("Application Action preparation remains explicit and manually revocable", (
   assert.equal(runtime.revokeApplicationActionPreparation(prepared.resourceRef), false);
 
   runtime.dispose();
+});
+
+
+test("model suggests a verified first-party Application Action but cannot grant or execute it", async () => {
+  const ai = proposalIntelligence(JSON.stringify({
+    kind: "proposal", appId: "notes", actionId: "notes.create-note",
+    arguments: { title: "Ideias" },
+  }));
+  const { runtime } = composition({ ai: ai.port });
+  try {
+    const work = runtime.create("Criar uma nota para Ideias", {
+      spaceId: "space-a", projectId: "project-1",
+    });
+    const suggested = await runtime.suggestApplicationActionForWork(work.id);
+    assert.equal(suggested.appId, "notes");
+    assert.equal(suggested.actionId, "notes.create-note");
+    assert.deepEqual(suggested.arguments, { title: "Ideias" });
+    assert.equal(suggested.executionAuthorized, false);
+    assert.equal(suggested.modelDirectExecutionAuthorized, false);
+    assert.equal(ai.requests.length, 1);
+    assert.match(ai.requests[0].prompt, /allowedActions=/);
+    assert.doesNotMatch(ai.requests[0].prompt, /toolArtifactSha256|grantRef|approvalId/);
+
+    const before = runtime.getSnapshot();
+    const prepared = runtime.prepareSuggestedApplicationAction(work.id, suggested);
+    const after = runtime.getSnapshot();
+    assert.equal(prepared.workItemId, work.id);
+    assert.equal(prepared.proposal.capabilitySha256, suggested.capabilitySha256);
+    assert.equal(prepared.authority, "none");
+    assert.equal(prepared.executionAuthorized, false);
+    assert.equal(prepared.modelDirectExecutionAuthorized, false);
+    assert.deepEqual(after.approvals, before.approvals);
+    assert.deepEqual(after.decisions, before.decisions);
+    assert.deepEqual(after.attempts, before.attempts);
+    assert.equal(typeof runtime.executeApplicationAction, "undefined");
+    await assert.rejects(
+      async () => runtime.prepareSuggestedApplicationAction(work.id, suggested),
+      /not current or issued/,
+    );
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("model cannot invent a capability, smuggle authority or undeclared arguments", async () => {
+  for (const result of [
+    { kind: "proposal", appId: "notes", actionId: "notes.delete-note", arguments: {} },
+    { kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: {}, authority: "model" },
+    { kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: { rawPath: "/tmp" } },
+    { kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: { title: "x".repeat(241) } },
+  ]) {
+    const { runtime } = composition({ ai: proposalIntelligence(JSON.stringify(result)).port });
+    try {
+      const work = runtime.create("Criar uma nota");
+      await assert.rejects(() => runtime.suggestApplicationActionForWork(work.id));
+      assert.deepEqual(runtime.getSnapshot().approvals, []);
+      assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+    } finally {
+      runtime.dispose();
+    }
+  }
+});
+
+test("semantic router abstains from irrelevant Work instead of exposing random app actions", async () => {
+  const ai = proposalIntelligence(JSON.stringify({ kind: "none" }));
+  const { runtime } = composition({ ai: ai.port });
+  try {
+    const work = runtime.create("Qual é a previsão do tempo?");
+    assert.equal(await runtime.suggestApplicationActionForWork(work.id), null);
+    assert.equal(ai.requests.length, 0);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("model suggestion is revoked before preparation when owner changes", async () => {
+  const account = mutableIdentitySession();
+  const ai = proposalIntelligence(JSON.stringify({
+    kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: {},
+  }));
+  const { runtime } = composition({ ai: ai.port, identity: account });
+  try {
+    const work = runtime.create("Criar uma nota");
+    const suggestion = await runtime.suggestApplicationActionForWork(work.id);
+    account.signOut();
+    assert.throws(
+      () => runtime.prepareSuggestedApplicationAction(work.id, suggestion),
+      /Work|owner|scope|current/i,
+    );
+    assert.deepEqual(runtime.getSnapshot().approvals, []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("model suggestion is revoked if bound Project is removed", async () => {
+  const projects = mutableProjectCatalog();
+  const ai = proposalIntelligence(JSON.stringify({
+    kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: {},
+  }));
+  const { runtime } = composition({ ai: ai.port, projects });
+  try {
+    const work = runtime.create("Criar uma nota", {
+      spaceId: "space-a", projectId: "project-1",
+    });
+    const suggestion = await runtime.suggestApplicationActionForWork(work.id);
+    projects.removeProject("project-1");
+    assert.throws(
+      () => runtime.prepareSuggestedApplicationAction(work.id, suggestion),
+      /scope|Work|current/i,
+    );
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("account switch during asynchronous model planning discards the pending Application Action", async () => {
+  const account = mutableIdentitySession();
+  let complete;
+  const ai = proposalIntelligence("{}");
+  ai.port.respond = async () => new Promise((resolve) => {
+    complete = () => resolve({
+      schema: INTELLIGENCE_RESPONSE_SCHEMA,
+      text: JSON.stringify({
+        kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: {},
+      }),
+      engineId: "llama.cpp", modelId: "qwen-test", authority: "none",
+    });
+  });
+  const { runtime } = composition({ ai: ai.port, identity: account });
+  try {
+    const work = runtime.create("Criar uma nota");
+    const pending = runtime.suggestApplicationActionForWork(work.id);
+    account.signOut();
+    complete();
+    await assert.rejects(pending, /owner changed|Work/);
+    assert.deepEqual(runtime.getSnapshot().approvals, []);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
 });
