@@ -90,6 +90,7 @@ export function mountSpaceSwitcherControls(
       ? t("account.spaces.switcher.current", { space: active.name })
       : t("account.spaces.switcher.title"));
     trigger.setAttribute("aria-expanded", String(open));
+    menu.setAttribute("aria-label", t("account.spaces.switcher.title"));
     menu.hidden = !open;
     if (!open) return;
 
@@ -104,6 +105,8 @@ export function mountSpaceSwitcherControls(
     const list = element("div", "ordax-space-switcher-list");
     if (identity.state !== "signed-in") {
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.signIn.detail")));
+    } else if (selectionPort === null) {
+      list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.switcher.nativeOnly")));
     } else if (loading || catalog.state === "loading") {
       list.append(element("p", "ordax-space-switcher-empty", t("account.spaces.loading")));
     } else if (error || catalog.state === "error") {
@@ -117,7 +120,7 @@ export function mountSpaceSwitcherControls(
         const isCurrent = active?.id === space.id;
         const item = button("ordax-space-switcher-option");
         item.dataset.spaceSwitcherSelect = space.id;
-        item.disabled = space.state !== "active" || selectionPort === null || loading || isCurrent;
+        item.disabled = space.state !== "active" || selected?.state === "unavailable" || loading || isCurrent;
         item.setAttribute("aria-current", isCurrent ? "true" : "false");
         item.dataset.selected = String(isCurrent);
         const avatar = element("span", "ordax-space-switcher-avatar", space.name.trim().slice(0, 1).toLocaleUpperCase());
