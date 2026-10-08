@@ -27,6 +27,16 @@ antigo owner do OS. Em particular, valores operacionais persistem em:
 - script do boot/base-update/supervisor;
 - testes, source locks e contratos ativos.
 
+A classificação de referências operacionais inclui também `boot/`,
+`sdk/` e `docs/RELEASE-CHANNEL.md`, além de workflows,
+`bootstrap/`, `system/`, `tools/` e contratos ativos. A cópia pública
+`sdk/app-sdk-v1/runtime-component-package-policy.json` precisa ser
+**idêntica em bytes** à fonte canônica
+`docs/contracts/runtime-component-package.json`; o verificador
+`--require-cutover` recusa projeção divergente, mesmo se o owner e
+o SHA do ponteiro de release estiverem corretos. Um source no GitHub
+não autoriza duas políticas de pacotes distintas.
+
 Existem também referências históricas que **não devem ser reescritas**
 (signed manifests já publicados, evidence, hashes, commits, documentação
 histórica). Modificar proveniência de artefatos históricos cria uma
