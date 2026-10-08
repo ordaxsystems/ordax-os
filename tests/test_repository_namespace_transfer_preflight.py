@@ -49,6 +49,50 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         self.assertTrue(audit.is_operational("docs/contracts/release-channel.json"))
         self.assertTrue(audit.is_operational("bootstrap/base-update/stage.py"))
 
+    def test_release_pointer_sha_is_pinned_to_bootstrap_manifest(self):
+        report = audit.release_pointer_integrity(ROOT, "washingtonmsdj/prototipo-ordax-os")
+        self.assertTrue(report["release_pointer_integrity_verified"])
+        self.assertEqual(
+            report["release_pointer_sha256"],
+            report["bootstrap_pinned_sha256"],
+        )
+        self.assertEqual(
+            report["release_pointer_sha256"],
+            "ea1f3bae328a1c1e7aca1474d4930f84b2dd6da1702dcc11b08c01ed63a6ee5b",
+        )
+
+    def test_repointing_release_url_without_new_verified_bootstrap_fails(self):
+        # The same old bootstrap digest is NOT authority over new URL bytes.
+        from tempfile import TemporaryDirectory
+        import hashlib
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "docs/contracts").mkdir(parents=True)
+            (root / "bootstrap/config").mkdir(parents=True)
+            release = json.loads(
+                (ROOT / "docs/contracts/release-channel.json").read_text(encoding="utf-8")
+            )
+            release["source_authority"]["repository"] = "ordaxsystems/prototipo-ordax-os"
+            release["publication"]["latest_envelope_url"] = (
+                "https://github.com/ordaxsystems/prototipo-ordax-os/"
+                "releases/latest/download/release-envelope.json"
+            )
+            (root / "docs/contracts/release-channel.json").write_text(json.dumps(release))
+            (root / "docs/contracts/minimal-bootstrap.json").write_bytes(
+                (ROOT / "docs/contracts/minimal-bootstrap.json").read_bytes()
+            )
+            (root / "bootstrap/config/release-envelope-url").write_bytes(
+                (release["publication"]["latest_envelope_url"] + "\n").encode("utf-8")
+            )
+            report = audit.release_pointer_integrity(
+                root, "ordaxsystems/prototipo-ordax-os"
+            )
+            self.assertFalse(report["release_pointer_integrity_verified"])
+            self.assertNotEqual(
+                report["release_pointer_sha256"], report["bootstrap_pinned_sha256"]
+            )
+
     def test_does_not_accept_dual_authority_or_out_of_order_transfer(self):
         copy_ = copy.deepcopy(self.ownership)
         copy_["namespace_migration"]["dual_authority_allowed"] = True
@@ -80,6 +124,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             "phase": "post-transfer",
             "destination": "ordaxsystems/prototipo-ordax-os",
             "operational_count": 0,
+            "release_pointer_integrity_verified": True,
         }
         good = {
             "GITHUB_REPOSITORY": report["destination"],
@@ -93,6 +138,10 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             invalid = {**good, key: bad}
             self.assertFalse(audit.cutover_ready(report, invalid)[0])
         self.assertFalse(audit.cutover_ready({**report, "operational_count": 1}, good)[0])
+        self.assertEqual(
+            audit.cutover_ready({**report, "release_pointer_integrity_verified": False}, good),
+            (False, "release_pointer_identity_or_bootstrap_digest_mismatch"),
+        )
         self.assertFalse(audit.cutover_ready({**report, "phase": "pre-transfer"}, good)[0])
 
 
