@@ -10,7 +10,7 @@ begin
  if to_regprocedure('public.ordax_request_subject_v1()') is null then raise exception 'canonical subject bridge missing'; end if;
  if has_function_privilege('anon','public.ordax_request_subject_v1()','EXECUTE') or has_function_privilege('authenticated','public.ordax_request_subject_v1()','EXECUTE') or has_function_privilege('service_role','public.ordax_request_subject_v1()','EXECUTE') then raise exception 'subject bridge exposed to API roles'; end if;
  if pg_get_userbyid((select proowner from pg_proc where oid='public.ordax_request_subject_v1()'::regprocedure))<>'postgres' then raise exception 'subject bridge owner is not postgres'; end if;
- if (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and pg_get_userbyid(p.proowner)='ordax_sync_executor' and p.proname in ('ordax_apply_sync_mutation_v1','ordax_apply_sync_mutation_v2','ordax_list_sync_objects_v1','ordax_pull_sync_changes_v1','ordax_sync_snapshot_v1','ordax_sync_snapshot_page_v2') and p.prosecdef)=0 then raise exception 'sync rpc owner contract missing'; end if;
+ if (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and pg_get_userbyid(p.proowner)='ordax_sync_executor' and p.proname in ('ordax_apply_sync_mutation_v1','ordax_apply_sync_mutation_v2','ordax_list_sync_objects_v1','ordax_pull_sync_changes_v1','ordax_sync_snapshot_v1','ordax_sync_snapshot_page_v2') and p.prosecdef)<>6 then raise exception 'sync rpc owner contract missing'; end if;
 end;
 $preflight$;
 
