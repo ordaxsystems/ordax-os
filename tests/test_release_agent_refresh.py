@@ -43,7 +43,7 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertEqual(
             descriptor["download_url"],
             (
-                "https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/"
+                "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/"
                 f"ordax-release-agent-{target}/ordax-release-agent"
             ),
         )

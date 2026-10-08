@@ -134,7 +134,7 @@ jobs:
         run: |
           set -euo pipefail
           seed='550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66'
-          url='https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/ordax-release-agent-550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66/ordax-release-agent'
+          url='https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/ordax-release-agent-550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66/ordax-release-agent'
           tmp="$(mktemp)"
           curl --fail --location --silent --show-error "$url" --output "$tmp"
           actual="$(sha256sum "$tmp" | awk '{print $1}')"

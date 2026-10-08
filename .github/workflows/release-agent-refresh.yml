@@ -56,7 +56,7 @@ jobs:
           digest = hashlib.sha256(data).hexdigest()
           size = len(data)
           expected_url = (
-              'https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/'
+              'https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/'
               f'ordax-release-agent-{digest}/ordax-release-agent'
           )
           print('RELEASE_AGENT_REFRESH_SHA256=' + digest)
@@ -119,7 +119,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          repo='washingtonmsdj/prototipo-ordax-os'
+          repo='ordaxsystems/prototipo-ordax-os'
           descriptor='system/services/base-update/release-agent-refresh.json'
           digest="$(python3 -c "import json; print(json.load(open('$descriptor'))['target_sha256'])")"
           tag="ordax-release-agent-$digest"

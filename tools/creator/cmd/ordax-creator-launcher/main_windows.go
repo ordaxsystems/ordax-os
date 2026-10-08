@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	appchannel "github.com/washingtonmsdj/prototipo-ordax-os/tools/creator/appchannel"
+	appchannel "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/appchannel"
 )
 
 const launcherVersion = "2"
