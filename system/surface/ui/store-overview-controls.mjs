@@ -406,7 +406,9 @@ export function mountStoreOverviewControls(
     } else {
       const selectedEntry = snapshot.entries.find((entry) => entry.appId === selectedAppId);
       if (selectedEntry) {
-        appendDetail(documentObject, main, selectedEntry, lifecycleRequests, pendingRequest, removalConfirmationAppId, t, requestSessionId !== null);
+        appendDetail(documentObject, main, selectedEntry, lifecycleRequests,
+          batchInFlight ? { appId: "", operation: "update" } : pendingRequest,
+          removalConfirmationAppId, t, requestSessionId !== null);
       } else {
         selectedAppId = null;
         const search = node(documentObject, "div", "ordax-store-search");
