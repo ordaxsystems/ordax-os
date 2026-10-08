@@ -175,3 +175,33 @@ faltam implantação do gateway de destino, verificação de IP verdadeiro
 atrás do host e teste E2E com rede pública. Esses gates permanecem
 `false` em `docs/contracts/public-auth-hardening.json`; não habilitar
 cadastro/login por causa da preparação do schema.
+
+## Reconciliação da origem do snapshot paginado de Sync (2026-10-08)
+
+A migration registrada no provedor anterior como
+`20260930140051 account_sync_paginated_snapshot_v2` não tinha seu SQL
+versionado neste owner canônico. A definição de
+`public.ordax_sync_snapshot_page_v2(bigint,text,text,integer)` foi
+confrontada com a função real do PostgreSQL anterior e recuperada em
+`migrations/20260930140051_account_sync_paginated_snapshot_v2.sql`.
+
+Na posição histórica dessa migration, a função permanece
+`SECURITY INVOKER`, com `search_path` vazio e o sujeito obtido por
+`auth.uid()`. Somente a migration posterior e já canônica
+`20261005025500_sync_private_least_privilege_v2.sql` pode transferir
+a propriedade e promover a função para `SECURITY DEFINER`, após
+instituir o executor `NOLOGIN/NOBYPASSRLS`, restrições de RLS e grants
+específicos de transporte. O objetivo é **um único mecanismo** e
+nenhuma janela com proprietário privilegiado em `SECURITY DEFINER`.
+
+No Supabase de destino, as cinco migrations base, incluindo a
+restaurada, foram verificadas conjuntamente com `BEGIN ... ROLLBACK`.
+Provas: `anon` sem `EXECUTE`, `authenticated` com `EXECUTE`,
+e invocação sem sujeito rejeitada com `authentication-required`.
+Nova consulta confirmou ausência das tabelas e da RPC após rollback.
+
+**Não houve instalação permanente de Sync**, ativação de cadastro ou
+cópia de dados: a cadeia integral do novo backend ainda depende da
+reconciliação da autoridade de exportação, paginação, schema e do
+isolamento do executor antes de implantar o gateway de Conta. Não
+aplicar somente as etapas intermediárias com privilégios transitórios.
