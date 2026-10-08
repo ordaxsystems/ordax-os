@@ -14,6 +14,14 @@ The 14 current IDs consist of 13 unsigned component-package candidates plus Stud
 
 A known app ID is not an installation grant. A verified signed catalog, runtime `current` state, first-party delivery policy and platform lifecycle authority remain independent fail-closed gates; no helper can manufacture those. Native broker component support and production distribution are separately gated.
 
+## Native module-read readiness is not a Store grant
+
+The same generator also derives `EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS` from the **intersection** of the external package-source owner map and `native_loopback_broker_supported_components` in `docs/contracts/runtime-component-package.json`. Do not create a second app allowlist or widen that Native broker by editing Store code.
+
+`store-lifecycle-request-service.mjs` now **rejects install/update before privileged delegation** with `runtime-module-read-unavailable` if the runtime has no canonical module-read support for that product. Its check is necessary but not sufficient: native signer/trust, probation, health, promotion and rollback remain independent owner-controlled gates. **Removal stays permitted** when real `current` activation is verified, even if module-read support has since been withdrawn.
+
+This gate prevents a verified catalog candidate from becoming an executable install request by metadata alone. The UI's signed-catalog presentation is intentionally separate; it must not treat candidate appearance as proven host execution. The integration of this check into the visible Store projection should be done after the separate projection work merges, not by editing a conflicting active PR.
+
 ## Boundaries
 
 Four concepts must stay separate:
