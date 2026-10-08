@@ -230,6 +230,33 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(requirements["origin_agent_cluster_required"])
         self.assertTrue(requirements["legacy_cross_domain_policy_disabled"])
 
+    def test_vercel_static_cache_rules_match_delivery_contract(self):
+        policy = self.contract["cache_policy"]
+        cache_rules = {}
+        for route in self.vercel["headers"]:
+            values = [entry["value"] for entry in route["headers"]
+                      if entry["key"].lower() == "cache-control"]
+            if not values:
+                continue
+            self.assertEqual(len(values), 1, route["source"])
+            self.assertNotIn(route["source"], cache_rules)
+            cache_rules[route["source"]] = values[0]
+
+        self.assertEqual(cache_rules["/"], "no-cache, must-revalidate")
+        self.assertEqual(cache_rules["/index.html"], "no-cache, must-revalidate")
+        self.assertIn(policy["html"], cache_rules["/"])
+        for route in ("download", "login", "cadastro", "recuperar",
+                      "conta", "licencas", "privacidade", "termos"):
+            self.assertIn(policy["html"], cache_rules[f"/{route}/:path*"])
+        self.assertEqual(cache_rules["/config/public-site.json"],
+                         f'{policy["config"]}, max-age=0')
+        self.assertEqual(cache_rules["/releases/catalog.json"],
+                         f'{policy["release_catalog"]}, max-age=0')
+        self.assertEqual(cache_rules["/assets/:path*"], policy["assets"])
+        for route in ("/auth/:path*", "/sync/:path*", "/account/:path*"):
+            self.assertIn(policy["identity"], cache_rules[route])
+        self.assertNotIn("/(.*)", cache_rules)
+
     def test_turnstile_is_server_verified_and_secret_never_belongs_to_site_source(self):
         bot = self.contract["bot_protection"]
         self.assertEqual(bot["provider"], "cloudflare-turnstile")
