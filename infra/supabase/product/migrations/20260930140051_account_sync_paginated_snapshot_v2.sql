@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION public.ordax_sync_snapshot_page_v2(p_cursor bigint DE
  RETURNS jsonb
  LANGUAGE plpgsql
  STABLE SECURITY INVOKER
- SET search_path TO ''
+ SET search_path = ''
 AS $function$
 declare
   v_user_id uuid := (select auth.uid());
