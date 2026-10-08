@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.supabase-security-posture/1",
   "status": "reviewed-advisor-posture-public-rollout-blocked",
   "backend": "ordax-control-plane",
-  "reviewed_at": "2026-10-05",
+  "reviewed_at": "2026-10-07",
   "source": "supabase-security-advisor-plus-live-catalog-verification",
   "public_account_activation_allowed": false,
   "automatic_advisor_silencing_allowed": false,
@@ -15,12 +15,12 @@
   "advisor": {
     "rls_enabled_no_policy": {
       "level": "INFO",
-      "count": 72,
+      "count": 73,
       "classification": "reviewed-client-deny-by-default-no-api-role-grants",
       "review_complete": true,
       "auto_fix_allowed": false,
       "schema_counts": {
-        "private": 12,
+        "private": 13,
         "public": 60
       },
       "direct_data_privilege_table_counts": {
@@ -29,7 +29,7 @@
         "authenticated": 0,
         "service_role": 59
       },
-      "tables_without_service_role_data_privilege": 13,
+      "tables_without_service_role_data_privilege": 14,
       "client_policy_required_for_current_access_model": false,
       "service_role_bypasses_rls": true,
       "permissive_policy_would_not_harden_service_role": true
@@ -54,12 +54,37 @@
   "reviewed_security_definer_boundaries": {
     "account_export": {
       "warn_count": 1,
-      "status": "reviewed-intentional-authenticated-boundary",
+      "status": "reviewed-intentional-authenticated-least-privilege-executor-boundary",
       "rpc": "public.ordax_account_export_v1",
+      "migrations": [
+        "infra/supabase/product/migrations/20261007070000_account_export_executor_v1.sql",
+        "infra/supabase/product/migrations/20261007071500_account_export_subject_bridge_v1.sql"
+      ],
       "authenticated_execute_intentional": true,
+      "anon_execute_allowed": false,
+      "service_role_execute_allowed": false,
+      "executor_role": "ordax_account_export_executor",
+      "executor_login_allowed": false,
+      "executor_inherit_allowed": false,
+      "executor_bypass_rls_allowed": false,
+      "executor_superuser_allowed": false,
+      "executor_create_db_allowed": false,
+      "executor_create_role_allowed": false,
+      "executor_replication_allowed": false,
+      "executor_direct_write_privileges_allowed": false,
+      "executor_public_schema_create": false,
+      "executor_auth_schema_usage": false,
+      "executor_select_policy_scope": "own-subject-only",
+      "request_subject_bridge": "public.ordax_request_subject_v1",
+      "request_subject_bridge_security_definer": true,
+      "request_subject_bridge_owner": "postgres",
+      "request_subject_bridge_relation_reads": false,
+      "request_subject_bridge_api_role_execute_allowed": false,
       "owner_bound_by_auth_uid": true,
       "search_path_pinned_empty": true,
-      "cross_subject_reads_allowed": false
+      "cross_subject_reads_allowed": false,
+      "synthetic_unknown_subject_export_empty_verified": true,
+      "live_catalog_verified_at": "2026-10-07"
     },
     "cloud_memory": {
       "warn_count": 1,

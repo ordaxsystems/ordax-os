@@ -13,6 +13,7 @@ SEALED_EXECUTOR_ROLES = (
 )
 KNOWN_EXECUTOR_ROLES = SEALED_EXECUTOR_ROLES + (
     "ordax_account_close_executor",
+    "ordax_account_export_executor",
 )
 GUARD_FUNCTION = "ordax_enforce_private_function_acl"
 GUARD_TRIGGER = "ordax_private_function_acl_seal"
@@ -276,6 +277,19 @@ class PrivateApiSealTests(unittest.TestCase):
             )
         )
 
+    def test_future_rls_guard_checks_predicates_not_private_table_targets(self):
+        table_policy = (
+            "create policy own on private.ordax_sync_objects for select "
+            "using (owner_user_id = auth.uid())"
+        )
+        indirect_call = (
+            "create policy unsafe on private.ordax_sync_objects for select "
+            "using (private.unsafe_check())"
+        )
+        pattern = re.compile(r"\b(?:using|with\s+check)\s*\(")
+        self.assertNotIn("private.", table_policy[pattern.search(table_policy).start():])
+        self.assertIn("private.", indirect_call[pattern.search(indirect_call).start():])
+
     def test_future_rls_migrations_cannot_call_private_schema(self):
         violations = []
         for path in sorted(MIGRATIONS.glob("*.sql")):
@@ -283,7 +297,15 @@ class PrivateApiSealTests(unittest.TestCase):
                 continue
             for statement in split_statements(path.read_text(encoding="utf-8")):
                 normalized = " ".join(statement.lower().split())
-                if is_rls_policy_statement(statement) and "private." in normalized:
+                if not is_rls_policy_statement(statement):
+                    continue
+                # "ON private.table" declares the policy's own target;
+                # only USING/WITH CHECK expressions can smuggle private
+                # function calls into a policy's evaluation context.
+                predicate = re.search(
+                    r"\b(?:using|with\s+check)\s*\(", normalized
+                )
+                if predicate and "private." in normalized[predicate.start():]:
                     violations.append((path.name, normalized[:240]))
         self.assertEqual([], violations, f"future RLS policy references private schema: {violations}")
 

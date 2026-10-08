@@ -1,0 +1,25 @@
+{
+  "$schema": "prototype-ordax.postgres-account-cutover-plan/1",
+  "destination_project_ref": "jhfphsjptrpmtnzkpwud",
+  "destination_project_name": "ordax-platform",
+  "allowed_only_while_public_auth_disabled": true,
+  "requires_no_existing_auth_users": true,
+  "requires_absent_sync_tables_and_export_rpc": true,
+  "historical_export_skipped": "20260925031000_account_data_export_v1.sql",
+  "historical_export_skip_reason": "The old provider uses memory_items.project_ref; the destination's only canonical column is project_id. The historical migration has already run on the old provider and must not be rewritten or applied to the new project.",
+  "source_owner": "infra/supabase/product/migrations",
+  "ordered_source_files": [
+    "20260925004439_account_sync_objects_v1.sql",
+    "20260925004832_account_sync_private_store_v1.sql",
+    "20260925013355_account_sync_incremental_cursor_v1.sql",
+    "20260925013524_account_sync_atomic_snapshot_v1.sql",
+    "20260930140051_account_sync_paginated_snapshot_v2.sql",
+    "20261008085000_account_data_export_project_id_v1.sql",
+    "20261005025500_sync_private_least_privilege_v2.sql",
+    "20261007070000_account_export_executor_v1.sql",
+    "20261007071500_account_export_subject_bridge_v1.sql"
+  ],
+  "runtime_gate": "docs/contracts/public-auth-hardening.json",
+  "public_gateway_deploy_allowed": false,
+  "parallel_identity_write_allowed": false
+}

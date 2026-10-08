@@ -95,8 +95,22 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertTrue(contract["baseline"]["account_export_implemented"])
         self.assertEqual(contract["baseline"]["account_export_rpc"], "ordax_account_export_v1")
         self.assertTrue(contract["baseline"]["account_export_requires_authenticated_user"])
-        self.assertTrue(contract["baseline"]["account_export_uses_security_invoker"])
+        self.assertTrue(contract["baseline"]["account_export_security_definer"])
+        self.assertEqual(
+            contract["baseline"]["account_export_executor_role"],
+            "ordax_account_export_executor",
+        )
+        self.assertFalse(contract["baseline"]["account_export_executor_login_allowed"])
+        self.assertFalse(contract["baseline"]["account_export_executor_bypass_rls_allowed"])
+        self.assertFalse(contract["baseline"]["account_export_executor_auth_schema_usage"])
+        self.assertEqual(
+            contract["baseline"]["account_export_subject_bridge"],
+            "ordax_request_subject_v1",
+        )
+        self.assertFalse(contract["baseline"]["account_export_subject_bridge_api_role_execute_allowed"])
+        self.assertTrue(contract["baseline"]["account_export_own_subject_only"])
         self.assertFalse(contract["baseline"]["account_export_anon_execute_allowed"])
+        self.assertFalse(contract["baseline"]["account_export_service_role_execute_allowed"])
         self.assertFalse(contract["baseline"]["account_export_opaque_metadata_included"])
         self.assertFalse(contract["baseline"]["public_site_account_export_enabled"])
         self.assertTrue(contract["baseline"]["account_spaces_read_source_implemented"])
@@ -555,7 +569,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
             "POST",
             "/auth/register",
             {
-                "X-OrdaX-Public-Site": "1",
+                "X-OrDaX-Public-Site": "1",
                 "content-type": "application/x-www-form-urlencoded",
             },
             b"email=pessoa%40example.com&password=new-password-12&legal_acceptance=accepted",

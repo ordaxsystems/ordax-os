@@ -82,7 +82,7 @@
       "method": "GET",
       "path": "/account/export",
       "unconfigured_status": 503,
-      "purpose": "authenticated-rls-scoped-account-data-export"
+      "purpose": "authenticated-own-subject-account-data-export"
     },
     {
       "method": "GET",
@@ -178,8 +178,16 @@
     "account_export_implemented": true,
     "account_export_rpc": "ordax_account_export_v1",
     "account_export_requires_authenticated_user": true,
-    "account_export_uses_security_invoker": true,
+    "account_export_security_definer": true,
+    "account_export_executor_role": "ordax_account_export_executor",
+    "account_export_executor_login_allowed": false,
+    "account_export_executor_bypass_rls_allowed": false,
+    "account_export_executor_auth_schema_usage": false,
+    "account_export_subject_bridge": "ordax_request_subject_v1",
+    "account_export_subject_bridge_api_role_execute_allowed": false,
+    "account_export_own_subject_only": true,
     "account_export_anon_execute_allowed": false,
+    "account_export_service_role_execute_allowed": false,
     "account_export_opaque_metadata_included": false,
     "public_site_account_export_enabled": false,
     "account_close_source_implemented": true,

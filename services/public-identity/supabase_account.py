@@ -1,9 +1,12 @@
 """Supabase REST adapter for OrdaX account lifecycle reads.
 
 This adapter owns only provider-specific account export transport. It receives
-an already validated user access token, calls an RLS-scoped SECURITY INVOKER
-RPC, and returns provider-neutral account export data. No service-role key is
-accepted or used here.
+an already validated user access token and calls the reviewed
+``ordax_account_export_v1`` boundary. The RPC is SECURITY DEFINER only so it can
+read the private sync relation after the least-privilege split; it pins an empty
+search_path and scopes every exported domain to ``auth.uid()``. EXECUTE remains
+limited to authenticated users (plus the database owner), and no service-role
+key is accepted or used here.
 """
 
 from __future__ import annotations
