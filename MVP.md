@@ -313,7 +313,7 @@ A mídia transitória atual continua apenas como caminho de validação de hardw
 
 A Surface/área do usuário nunca substitui `/`. OrdaX Web é experiência autenticada futura e separada do portal público.
 
-Landing e Download comunicam MVP USB-only. Instalação permanente só pode aparecer como **futuro/pós-MVP**. Web, Mobile, sync, backup e continuidade ainda indisponíveis podem aparecer apenas como **Em breve**.
+Landing e Download devem comunicar **apenas a disponibilidade real do release público**. Enquanto Native não passar nos gates, a página informa que a execução atualmente oferecida é USB e que instalação interna está em desenvolvimento **dentro do ciclo MVP**, sem botão/download/install CTA fictício. Web, Mobile, sync, backup e continuidade ainda indisponíveis podem aparecer apenas como **Em breve**.
 
 ## 10. Conta e monetização
 
@@ -472,4 +472,4 @@ Native integra o escopo de trabalho do MVP, com gates específicos; não bloquei
 - `docs/contracts/sync-model.json`;
 - `docs/contracts/first-run.json`.
 
-Este documento define o **escopo público do MVP**. Os contratos machine-readable continuam autoridade dos invariantes técnicos.
+Este documento define o **escopo de integração do MVP** e os critérios de publicidade por funcionalidade. Os contratos machine-readable continuam autoridade para os invariantes técnicos, o estado real e a disponibilidade operacional.
