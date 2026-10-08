@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import http.client
 import json
+import os
 import socket
+import stat
 
 NATIVE_LOCAL_AI_PREFIX = "/__ordax/native/local-ai"
 UPSTREAM_PORT = 17865
+AUTH_FILE = "/run/ordax/local-ai-auth/key"
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_DISCOVERY_BYTES = 256 * 1024
 MAX_COMPLETION_BYTES = 1024 * 1024
@@ -30,6 +33,37 @@ class NativeLocalAiError(ValueError):
 
 class NativeLocalAiUpstreamError(NativeLocalAiError):
     pass
+
+
+def _private_inference_key() -> str:
+    """Read one boot-scoped secret from a regular, process-owner-only file."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise NativeLocalAiUpstreamError("secure file open is unsupported")
+    try:
+        fd = os.open(AUTH_FILE, flags)
+        try:
+            info = os.fstat(fd)
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.geteuid()
+                or stat.S_IMODE(info.st_mode) != 0o600
+                or info.st_nlink != 1
+                or info.st_size != 65
+            ):
+                raise NativeLocalAiUpstreamError("inference authorization file is unsafe")
+            raw = os.read(fd, 66)
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        raise NativeLocalAiUpstreamError("inference authorization is unavailable") from exc
+    if (
+        len(raw) != 65
+        or raw[-1:] != b"\n"
+        or any(byte not in b"0123456789abcdef" for byte in raw[:64])
+    ):
+        raise NativeLocalAiUpstreamError("inference authorization is invalid")
+    return raw[:64].decode("ascii")
 
 
 def _bounded_text(value: object, maximum: int) -> bool:
@@ -92,6 +126,8 @@ def forward_local_ai(method: str, suffix: str, body: bytes = b"") -> tuple[int, 
     elif body:
         raise NativeLocalAiError("GET request body is not allowed")
 
+    # Native Host alone owns this credential; the browser never receives it.
+    key = _private_inference_key()
     connection = http.client.HTTPConnection(
         "127.0.0.1",
         UPSTREAM_PORT,
@@ -104,6 +140,7 @@ def forward_local_ai(method: str, suffix: str, body: bytes = b"") -> tuple[int, 
             body=body if method == "POST" else None,
             headers={
                 "Accept": "application/json",
+                "Authorization": "Bearer " + key,
                 **({"Content-Type": "application/json"} if method == "POST" else {}),
             },
         )
