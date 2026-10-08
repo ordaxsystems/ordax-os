@@ -472,7 +472,7 @@ function bearerUserToken(req: Request) {
   if (!raw.startsWith("Bearer ")) return "";
   const value = raw.slice("Bearer ".length).trim();
   return value.length >= 32 && value.length <= 8192
-    && /^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(value)
+    && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)
     ? value : "";
 }
 
