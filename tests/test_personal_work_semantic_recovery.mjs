@@ -297,7 +297,7 @@ test("pending recovery inference A -> B -> A cannot be accepted on return to A",
     switchTo("user-b");
     switchTo("user-a");
     resolveInference();
-    await assert.rejects(pending, /owner or context changed/);
+    await assert.rejects(pending, /owner changed|context changed/);
   } finally {
     runtime.dispose();
   }
