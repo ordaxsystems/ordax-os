@@ -38,12 +38,13 @@ A mesma profissão pode ser instalada em centenas de Spaces sem copiar seu Knowl
 1. A seleção do Space é **contexto**, não autenticação ou autorização. A projeção canônica `system/services/spaces/authorized-view.mjs` exige sessão assinada, catálogo pronto, `subjectId`, Space ativo e correspondência do `spaceKind`.
 2. Antes de consultar conteúdo profissional, valide novamente o Space e a conta; depois da leitura assíncrona, revalide **antes** de entregar qualquer trecho à inferência. Mudança de identidade/Space no meio da leitura deve falhar fechada, sem reutilizar conteúdo já recuperado.
 3. `ProfileContentContext` deve sempre devolver o mesmo `spaceId` solicitado e respeitar `scope=workspace`, limites de caracteres e proveniência. O host Native valida inventário, receipt e arquivo imutável assinado antes de fornecer entradas.
-4. Conteúdo recuperado (incluindo instruções de Skill) é **dado não confiável**, não mensagem de sistema, permissão ou autorização de ferramenta. Prompt injection, fontes conflitantes e instruções para extrair segredos não atravessam o Policy owner.
+4. Se a ativação do Profile Pack mudar no mesmo Space durante a recuperação, o snapshot de revisão Native deve ser revalidado e o `profile.slug@version` da resposta deve coincidir com o Profile ativo. Uma consulta antiga não pode alimentar a IA com conhecimento de um Profile desativado ou substituído.
+6. Conteúdo recuperado (incluindo instruções de Skill) é **dado não confiável**, não mensagem de sistema, permissão ou autorização de ferramenta. Prompt injection, fontes conflitantes e instruções para extrair segredos não atravessam o Policy owner.
 5. Memory deve ser filtrada por owner/Space/projeto **antes do ranking**; itens restritos não entram automaticamente. Segredos não pertencem à Memory. Personalização opt-in deve continuar sujeita à revisão e exclusão pelo usuário.
-6. Sem conexão externa implícita para embeddings, RAG, assistente ou sincronização. Fluxos cloud dependem de egress consentido e políticas próprias.
-7. O orçamento de contexto existente é limitado; consumidor explícito tem prioridade. Resultados especializados não podem remover trechos fornecidos pelo usuário nem exceder os limites do contrato de Intelligence.
-8. Trocar, atualizar, desativar ou remover o Profile **não apaga** arquivos, Memory e projetos do Space. Revogação de fonte/pack invalida resultados de consulta e seu índice derivado antes da próxima resposta.
-9. Knowledge de domínios regulados (por exemplo, `legal-br`) exige fonte, revisão, jurisdição, licença, validação e avisos de limites, além do gate normal de publicação; não é liberado por escolher um rótulo profissional.
+7. Sem conexão externa implícita para embeddings, RAG, assistente ou sincronização. Fluxos cloud dependem de egress consentido e políticas próprias.
+8. O orçamento de contexto existente é limitado; consumidor explícito tem prioridade. Resultados especializados não podem remover trechos fornecidos pelo usuário nem exceder os limites do contrato de Intelligence.
+9. Trocar, atualizar, desativar ou remover o Profile **não apaga** arquivos, Memory e projetos do Space. Revogação de fonte/pack invalida resultados de consulta e seu índice derivado antes da próxima resposta.
+10. Knowledge de domínios regulados (por exemplo, `legal-br`) exige fonte, revisão, jurisdição, licença, validação e avisos de limites, além do gate normal de publicação; não é liberado por escolher um rótulo profissional.
 
 ## Evolução para centenas de perfis: etapas e owners
 
