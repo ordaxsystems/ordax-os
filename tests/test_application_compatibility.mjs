@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { peFixture } from "./fixtures/windows-pe.mjs";
@@ -8,6 +9,7 @@ import {
   defineApplicationCompatibilityRuntime,
 } from "../system/contracts/application-compatibility.mjs";
 import { createApplicationCompatibilityManager } from "../system/services/compatibility/manager.mjs";
+import { createApplicationCompatibilityProfilePlanner } from "../system/services/compatibility/profile-planner.mjs";
 
 
 function msiCandidateFixture() {
@@ -176,5 +178,79 @@ test("runtime descriptors reject placeholders, unsandboxed providers and hidden 
   assert.throws(
     () => defineApplicationCompatibilityRuntime({ ...runtime(), command: "wine" }),
     /fields are incompatible/,
+  );
+});
+
+test("launch and profile plans reject forged, copied, and cross-manager inspections", () => {
+  const manager = createApplicationCompatibilityManager({ runtimes: [runtime()] });
+  const anotherManager = createApplicationCompatibilityManager({ runtimes: [runtime()] });
+  const legitimate = manager.inspect({ name: "safe.exe", bytes: peFixture() });
+  assert.equal(Object.isFrozen(legitimate), true);
+  assert.equal(manager.planLaunch({ inspection: legitimate }).ready, true);
+
+  const unknown = manager.inspect({ name: "fake.exe", bytes: new Uint8Array([0, 1, 2]) });
+  const forged = Object.freeze({
+    ...unknown,
+    family: "windows",
+    kind: "windows-pe",
+    role: "executable",
+    architecture: "x86_64",
+    launchable: true,
+  });
+  const invalid = [
+    forged,
+    { ...legitimate },
+    anotherManager.inspect({ name: "other.exe", bytes: peFixture() }),
+    { schema: legitimate.schema, family: "windows", architecture: "x86_64", launchable: true },
+  ];
+
+  const planner = createApplicationCompatibilityProfilePlanner({ compatibility: manager });
+  for (const inspection of invalid) {
+    assert.throws(
+      () => manager.planLaunch({ inspection }),
+      /inspection issued by this compatibility manager/,
+    );
+    assert.throws(
+      () => planner.planCreate({
+        inspection,
+        profileId: "safe",
+        payloadDigest: `sha256:${"11".repeat(32)}`,
+      }),
+      /payload digest is not verified/,
+    );
+  }
+  assert.equal(manager.planLaunch({ inspection: unknown }).ready, false);
+});
+
+test("profile planning requires exact SHA-256 of the manager-inspected bytes", async () => {
+  const manager = createApplicationCompatibilityManager({ runtimes: [runtime()] });
+  const planner = createApplicationCompatibilityProfilePlanner({ compatibility: manager });
+  const bytes = peFixture();
+  const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  const unchecked = manager.inspect({ name: "unverified.exe", bytes });
+  assert.throws(
+    () => planner.planCreate({ inspection: unchecked, profileId: "editor", payloadDigest: digest }),
+    /payload digest is not verified/,
+  );
+
+  const verified = await manager.inspectVerified({ name: "verified.exe", bytes });
+  bytes[0] ^= 0xff; // Caller mutation after inspection must not alter the pinned identity.
+  assert.equal(planner.planCreate({ inspection: verified, profileId: "editor", payloadDigest: digest }).ready, true);
+
+  const forgedDigest = `sha256:${"ff".repeat(32)}`;
+  assert.throws(
+    () => planner.planCreate({ inspection: verified, profileId: "editor", payloadDigest: forgedDigest }),
+    /payload digest is not verified/,
+  );
+
+  const alternate = createApplicationCompatibilityManager({ runtimes: [runtime()] });
+  const crossManagerInspection = await alternate.inspectVerified({ name: "verified.exe", bytes: peFixture() });
+  assert.throws(
+    () => planner.planCreate({
+      inspection: crossManagerInspection,
+      profileId: "editor",
+      payloadDigest: digest,
+    }),
+    /payload digest is not verified/,
   );
 });
