@@ -48,6 +48,10 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         self.assertFalse(audit.is_operational("system/profile-content-sources/developer-core/v0.1.0/manifest.json"))
         self.assertTrue(audit.is_operational("docs/contracts/release-channel.json"))
         self.assertTrue(audit.is_operational("bootstrap/base-update/stage.py"))
+        self.assertTrue(audit.is_operational("boot/esp/build.py"))
+        self.assertTrue(audit.is_operational("sdk/app-sdk-v1/runtime-component-package-policy.json"))
+        self.assertTrue(audit.is_operational("docs/RELEASE-CHANNEL.md"))
+        self.assertFalse(audit.is_operational("docs/evidence/canonical-v4-release-proof.json"))
 
     def test_release_pointer_sha_is_pinned_to_bootstrap_manifest(self):
         report = audit.release_pointer_integrity(ROOT, "washingtonmsdj/prototipo-ordax-os")
@@ -93,6 +97,36 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
                 report["release_pointer_sha256"], report["bootstrap_pinned_sha256"]
             )
 
+    def test_sdk_public_package_projection_matches_authority(self):
+        result = audit.sdk_package_projection_integrity(ROOT)
+        self.assertTrue(result["sdk_package_projection_verified"])
+        self.assertEqual(
+            result["sdk_package_source_sha256"],
+            result["sdk_package_snapshot_sha256"],
+        )
+
+    def test_sdk_public_package_projection_drift_blocks_cutover(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "docs/contracts").mkdir(parents=True)
+            (root / "sdk/app-sdk-v1").mkdir(parents=True)
+            (root / "docs/contracts/runtime-component-package.json").write_text(
+                '{"source_repository":"ordaxsystems/prototipo-ordax-os"}',
+                encoding="utf-8",
+            )
+            (root / "sdk/app-sdk-v1/runtime-component-package-policy.json").write_text(
+                '{"source_repository":"washingtonmsdj/prototipo-ordax-os"}',
+                encoding="utf-8",
+            )
+            result = audit.sdk_package_projection_integrity(root)
+            self.assertFalse(result["sdk_package_projection_verified"])
+            self.assertNotEqual(
+                result["sdk_package_source_sha256"],
+                result["sdk_package_snapshot_sha256"],
+            )
+
     def test_does_not_accept_dual_authority_or_out_of_order_transfer(self):
         copy_ = copy.deepcopy(self.ownership)
         copy_["namespace_migration"]["dual_authority_allowed"] = True
@@ -125,6 +159,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             "destination": "ordaxsystems/prototipo-ordax-os",
             "operational_count": 0,
             "release_pointer_integrity_verified": True,
+            "sdk_package_projection_verified": True,
         }
         good = {
             "GITHUB_REPOSITORY": report["destination"],
@@ -138,6 +173,10 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             invalid = {**good, key: bad}
             self.assertFalse(audit.cutover_ready(report, invalid)[0])
         self.assertFalse(audit.cutover_ready({**report, "operational_count": 1}, good)[0])
+        self.assertEqual(
+            audit.cutover_ready({**report, "sdk_package_projection_verified": False}, good),
+            (False, "sdk_package_policy_projection_drift"),
+        )
         self.assertEqual(
             audit.cutover_ready({**report, "release_pointer_integrity_verified": False}, good),
             (False, "release_pointer_identity_or_bootstrap_digest_mismatch"),
