@@ -175,6 +175,27 @@ probe_local_ai_hardware() {
     return 0
 }
 
+create_local_ai_auth() {
+    # Stable Base owns ephemeral inference authentication. No key is committed,
+    # embedded in EROFS, placed on the command line or copied to user state.
+    local_ai_auth_dir=/run/ordax/local-ai-auth
+    [ ! -e "$local_ai_auth_dir" ] || return 1
+    (umask 077; mkdir "$local_ai_auth_dir") || return 1
+    local_ai_key=$(od -An -tx1 -N32 /dev/urandom | tr -d '[:space:]') || return 1
+    if ! is_sha256 "$local_ai_key"; then
+        unset local_ai_key
+        return 1
+    fi
+    (umask 077; printf '%s\n' "$local_ai_key" > "$local_ai_auth_dir/key") || {
+        unset local_ai_key
+        return 1
+    }
+    unset local_ai_key
+    [ -f "$local_ai_auth_dir/key" ] || return 1
+    [ "$(stat -c '%a' "$local_ai_auth_dir/key" 2>/dev/null)" = "600" ] || return 1
+    return 0
+}
+
 start_local_ai() {
     [ "${LOCAL_AI_READY:-0}" -eq 1 ] || return 0
 
@@ -186,7 +207,13 @@ start_local_ai() {
 
     mkdir -p /run/ordax
     umask 077
-    ORDAX_LOCAL_AI_RUNTIME_ROOT="$ORDAX_LOCAL_AI_RUNTIME_ROOT" \
+    if ! create_local_ai_auth; then
+        LOCAL_AI_READY=0
+        disable_local_ai "ephemeral inference authorization unavailable"
+        return 0
+    fi
+    LLAMA_ARG_API_KEY_FILE=/run/ordax/local-ai-auth/key \
+        ORDAX_LOCAL_AI_RUNTIME_ROOT="$ORDAX_LOCAL_AI_RUNTIME_ROOT" \
         "$ORDAX_LOCAL_AI_RUNTIME_ROOT/bin/ordax-local-ai" \
         >/run/ordax/local-ai.log 2>&1 &
     local_ai_pid=$!
