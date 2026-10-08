@@ -51,11 +51,25 @@ pelo lifecycle do OS e por um novo snapshot de estado Native verificável.
 
 ## Limites do MVP e integração
 
-A ligação visual de **Atualizar tudo** deve ser feita no owner existente
-`system/surface/ui/store-overview-controls.mjs` depois de reconciliar
-as PRs concorrentes de Store/Native. A Surface deve desmontar/cancelar
-a fila pendente ao abandonar o view/host e mostrar **pedidos aceitos**,
-não `Atualização concluída`, até que os estados Native comprovem promoção.
+A ligação visual de **Atualizar tudo** é candidata nesta integração
+de `system/surface/ui/store-overview-controls.mjs`, empilhada sobre a
+reconciliação de Ajustes/IA #1482 para não sobrescrever Store/Native
+em desenvolvimento simultâneo. O botão só aparece em **Atualizações**
+quando o catálogo está `ready` e fica indisponível se não houver
+candidatos elegíveis, port de lifecycle ou ID de sessão seguro.
+A Surface reutiliza o mesmo `createStoreRequestSessionId` do botão individual
+e mantém o contador de solicitações no mesmo escopo de montagem.
+
+A UI não executa instalações; apresenta contadores de pedidos aceitos,
+rejeitados e ignorados sem afirmar sucesso de promoção. Um clique repetido
+não cria segunda fila, e as ações individuais permanecem bloqueadas enquanto
+o lote estiver ativo. A Surface cancela pedidos **ainda não enviados**
+ao trocar de aba, receber catálogo alterado ou desmontar; pedidos já
+delegados continuam sob a responsabilidade da plataforma.
+
+Esta ligação ainda precisa de provas completas no HEAD, integração segura
+da PR e publicação posterior pelo canal de release do OS. Portanto,
+**não está ativada no MVP publicamente distribuído**.
 
 Atualização automática **não está ativada**. Ela precisa consumir as
 mesmas solicitações canônicas, apenas depois que policy/preferências,

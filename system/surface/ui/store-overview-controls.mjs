@@ -12,6 +12,7 @@ import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lif
 import { assertSystemMetricsPort } from "../../contracts/system-metrics.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { appendStoreLocalAiModels } from "./store-model-catalog.mjs";
+import { createStoreUpdateRequestBatch } from "../../services/apps/store-update-request-batch.mjs";
 
 const STORE_WINDOW_SELECTOR = '[data-window-id="store"]';
 const STORE_EXTENSION_SELECTOR = '[data-app-extension="store-overview"]';
@@ -266,6 +267,18 @@ export function mountStoreOverviewControls(
   let selectedAppId = null;
   let removalConfirmationAppId = null;
   const requestSessionId = createStoreRequestSessionId();
+  const updateAll = lifecycleRequests === null || requestSessionId === null ? null
+    : createStoreUpdateRequestBatch({
+      catalogPort: catalog,
+      lifecycleRequestPort: lifecycleRequests,
+      requestIdFactory: (appId) => {
+        requestOrdinal += 1;
+        return "store:update:" + appId + ":" + requestSessionId + ":" + requestOrdinal;
+      },
+    });
+  let batchInFlight = false;
+  let batchReport = null;
+  let batchPresentationGeneration = 0;
   let destroyed = false;
   let modelHardware = null;
   let modelMetricsSnapshot = null;
@@ -393,7 +406,9 @@ export function mountStoreOverviewControls(
     } else {
       const selectedEntry = snapshot.entries.find((entry) => entry.appId === selectedAppId);
       if (selectedEntry) {
-        appendDetail(documentObject, main, selectedEntry, lifecycleRequests, pendingRequest, removalConfirmationAppId, t, requestSessionId !== null);
+        appendDetail(documentObject, main, selectedEntry, lifecycleRequests,
+          batchInFlight ? { appId: "", operation: "update" } : pendingRequest,
+          removalConfirmationAppId, t, requestSessionId !== null);
       } else {
         selectedAppId = null;
         const search = node(documentObject, "div", "ordax-store-search");
@@ -432,9 +447,28 @@ export function mountStoreOverviewControls(
         const count = node(documentObject, "span", "ordax-store-result-count");
         count.dataset.storeResultsCount = "true";
         listHeader.append(titles, count);
+        if (activeView === "updates") {
+          const updateActions = node(documentObject, "div", "ordax-store-actions");
+          const action = makeButton(documentObject, "ordax-store-action",
+            t(batchInFlight ? "store.updateAll.requesting" : "store.updateAll.action"),
+            "storeUpdateAll", "true");
+          action.disabled = updateAll === null || batchInFlight || pendingRequest !== null
+            || !snapshot.entries.some((entry) => entry.updatable
+              && entry.state === "installed"
+              && entry.artifactIdentityVerified && entry.provenanceVerified);
+          updateActions.append(action);
+          if (batchInFlight) {
+            const cancel = makeButton(documentObject, "ordax-store-action ordax-store-action-secondary",
+              t("store.updateAll.cancel"), "storeCancelUpdateAll", "true");
+            updateActions.append(cancel);
+          }
+          listHeader.append(updateActions);
+        }
         const grid = node(documentObject, "div", "ordax-store-grid");
         for (const entry of sortStoreEntries(snapshot.entries, localization.getLocale())) {
-          appendCard(documentObject, grid, entry, lifecycleRequests, pendingRequest, t, requestSessionId !== null);
+          appendCard(documentObject, grid, entry, lifecycleRequests,
+            batchInFlight ? { appId: "", operation: "update" } : pendingRequest,
+            t, requestSessionId !== null);
         }
         const filterEmpty = node(documentObject, "div", "ordax-store-filter-empty");
         filterEmpty.dataset.storeFilterEmpty = "true";
@@ -459,6 +493,24 @@ export function mountStoreOverviewControls(
       message.setAttribute("role", "status");
       main.append(message);
     }
+    if (activeView === "updates" && snapshot.state === "ready") {
+      const explanation = node(documentObject, "p", "ordax-store-detail-note",
+        t("store.updateAll.explanation"));
+      main.append(explanation);
+      if (batchInFlight || batchReport !== null) {
+        const report = batchReport;
+        const state = batchInFlight ? "queued" : report?.state ?? "failed";
+        const status = node(documentObject, "p", "ordax-store-request-status",
+          t("store.updateAll.status." + state, {
+            accepted: String(report?.acceptedRequests ?? 0),
+            rejected: String(report?.rejectedRequests ?? 0),
+            skipped: String(report?.skippedRequests ?? 0),
+          }));
+        status.dataset.storeUpdateAllStatus = state;
+        status.setAttribute("role", "status");
+        main.append(status);
+      }
+    }
     layout.append(sidebar, main);
     slot.append(layout);
     refreshResults();
@@ -474,6 +526,37 @@ export function mountStoreOverviewControls(
 
   const onClick = (event) => {
     if (!mountedSlot) return;
+    const cancelUpdateAll = event.target.closest?.("[data-store-cancel-update-all]");
+    if (cancelUpdateAll && mountedSlot.contains(cancelUpdateAll) && batchInFlight) {
+      updateAll?.cancelPending();
+      return;
+    }
+    const submitUpdateAll = event.target.closest?.("[data-store-update-all]");
+    if (submitUpdateAll && mountedSlot.contains(submitUpdateAll)
+      && activeView === "updates" && selectedAppId === null
+      && !batchInFlight && pendingRequest === null && updateAll !== null
+      && snapshot.state === "ready"
+      && snapshot.entries.some((entry) => entry.state === "installed"
+        && entry.updatable && entry.artifactIdentityVerified && entry.provenanceVerified)) {
+      batchInFlight = true;
+      batchReport = null;
+      const generation = ++batchPresentationGeneration;
+      render();
+      void updateAll.submitAvailableUpdates().then((report) => {
+        if (destroyed) return;
+        batchInFlight = false;
+        if (generation === batchPresentationGeneration) batchReport = report;
+        render();
+      }, () => {
+        if (destroyed) return;
+        batchInFlight = false;
+        if (generation === batchPresentationGeneration) {
+          batchReport = { state: "failed" };
+        }
+        render();
+      });
+      return;
+    }
     const cancelButton = event.target.closest?.("[data-store-cancel-remove]");
     if (cancelButton && mountedSlot.contains(cancelButton)) {
       removalConfirmationAppId = null;
@@ -494,6 +577,11 @@ export function mountStoreOverviewControls(
     }
     const viewButton = event.target.closest?.("[data-store-view]");
     if (viewButton && mountedSlot.contains(viewButton) && VIEWS.includes(viewButton.dataset.storeView)) {
+      if (viewButton.dataset.storeView !== "updates") {
+        updateAll?.cancelPending();
+        batchPresentationGeneration += 1;
+        batchReport = null;
+      }
       activeView = viewButton.dataset.storeView;
       selectedAppId = null;
       removalConfirmationAppId = null;
@@ -527,7 +615,7 @@ export function mountStoreOverviewControls(
     }
 
     const button = event.target.closest?.("[data-store-operation][data-store-app-id]");
-    if (!button || !mountedSlot.contains(button) || lifecycleRequests === null || requestSessionId === null || pendingRequest !== null) return;
+    if (!button || !mountedSlot.contains(button) || lifecycleRequests === null || requestSessionId === null || pendingRequest !== null || batchInFlight) return;
     const appId = button.dataset.storeAppId;
     const operation = button.dataset.storeOperation;
     if (!OPERATIONS.has(operation)) return;
@@ -632,6 +720,9 @@ export function mountStoreOverviewControls(
       requestMessageId = null;
       requestReason = null;
       removalConfirmationAppId = null;
+      updateAll?.cancelPending();
+      batchPresentationGeneration += 1;
+      batchReport = null;
     }
     snapshot = verified;
     reconcileAcceptedRequest();
@@ -641,6 +732,11 @@ export function mountStoreOverviewControls(
   const unsubscribeLocalization = localization.subscribe(render);
   const unsubscribeActivation = activation?.subscribe((next) => {
     if (next.appId !== "store" || !VIEWS.includes(next.target)) return;
+    if (next.target !== "updates") {
+      updateAll?.cancelPending();
+      batchPresentationGeneration += 1;
+      batchReport = null;
+    }
     activeView = next.target;
     selectedAppId = null;
     removalConfirmationAppId = null;
@@ -658,6 +754,8 @@ export function mountStoreOverviewControls(
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      updateAll?.cancelPending();
+      batchPresentationGeneration += 1;
       modelReadOrdinal += 1;
       modelReadAbort?.abort();
       modelReadAbort = null;
