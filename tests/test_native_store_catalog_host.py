@@ -141,6 +141,56 @@ class NativeStoreCatalogHostTests(unittest.TestCase):
             Path(self.server.store_catalog_watermark_path),
         )
 
+    def test_configured_remote_refresh_runs_before_local_verified_snapshot(self) -> None:
+        self.server.store_catalog_base_origin = "https://store.example.test/catalog/"
+        snapshot = ready_snapshot()
+        calls = []
+        with (
+            mock.patch.object(
+                host,
+                "acquire_and_promote_store_catalog",
+                side_effect=lambda **kwargs: calls.append(("refresh", kwargs)) or (snapshot, True),
+            ) as refresh,
+            mock.patch.object(
+                host,
+                "read_native_store_catalog_snapshot",
+                side_effect=lambda **kwargs: calls.append(("read", kwargs)) or snapshot,
+            ) as reader,
+        ):
+            status, payload = self.get_json("/__ordax/native/store-catalog")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, snapshot)
+        self.assertEqual([kind for kind, _kwargs in calls], ["refresh", "read"])
+        refresh.assert_called_once()
+        reader.assert_called_once()
+        self.assertEqual(
+            refresh.call_args.kwargs["base_origin"],
+            "https://store.example.test/catalog/",
+        )
+
+    def test_remote_refresh_failure_preserves_local_last_known_good_catalog(self) -> None:
+        self.server.store_catalog_base_origin = "https://store.example.test/catalog/"
+        snapshot = ready_snapshot()
+        with (
+            mock.patch.object(
+                host,
+                "acquire_and_promote_store_catalog",
+                side_effect=host.StoreCatalogAcquisitionError("offline"),
+            ) as refresh,
+            mock.patch.object(
+                host,
+                "read_native_store_catalog_snapshot",
+                return_value=snapshot,
+            ) as reader,
+        ):
+            status, payload = self.get_json("/__ordax/native/store-catalog")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, snapshot)
+        refresh.assert_called_once()
+        reader.assert_called_once()
+
     def test_query_is_rejected_before_catalog_owner_is_called(self) -> None:
         with mock.patch.object(host, "read_native_store_catalog_snapshot") as reader:
             with self.assertRaises(HTTPError) as context:

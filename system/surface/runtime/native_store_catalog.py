@@ -24,6 +24,7 @@ SOURCE_REPOSITORY = "ordaxsystems/ordax-apps"
 TRUST_DOMAIN = "runtime-components"
 KEY_ID = "ordax-runtime-components-v1"
 MAX_VERIFIED_BYTES = 2 * 1024 * 1024
+MAX_ENVELOPE_BYTES = 4 * 1024 * 1024
 MAX_WATERMARK_BYTES = 16 * 1024
 MAX_ENTRIES = 128
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -303,20 +304,19 @@ def accept_verified_catalog(value: object, watermark_path: Path) -> tuple[dict, 
         return catalog, True
 
 
-def verify_and_accept_store_catalog(
+def verify_store_catalog_envelope(
     *,
     helper_path: Path,
     trust_path: Path,
     envelope_path: Path,
-    watermark_path: Path,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
-) -> tuple[dict, bool]:
+) -> dict:
+    """Cryptographically verify an envelope without mutating accepted state."""
     helper = _real_regular_file(helper_path, "runtime component channel")
     if os.name != "nt" and helper.st_mode & 0o111 == 0:
         raise StoreCatalogError("runtime component channel is not executable")
     _real_regular_file(trust_path, "runtime component trust", 16 * 1024)
-    _real_regular_file(envelope_path, "Store catalog envelope", 4 * 1024 * 1024)
-    _real_directory(watermark_path.parent, "Store catalog watermark parent")
+    _real_regular_file(envelope_path, "Store catalog envelope", MAX_ENVELOPE_BYTES)
 
     with tempfile.TemporaryDirectory(prefix="ordax-store-catalog-") as directory:
         verified_path = Path(directory) / "verified-store-catalog.json"
@@ -341,8 +341,120 @@ def verify_and_accept_store_catalog(
             raise StoreCatalogError("Store catalog verifier is unavailable") from exc
         if completed.returncode != 0:
             raise StoreCatalogError("Store catalog cryptographic verification failed")
-        verified = _read_json(verified_path, "verified Store catalog", MAX_VERIFIED_BYTES)
-        return accept_verified_catalog(verified, watermark_path)
+        return validate_verified_catalog(
+            _read_json(verified_path, "verified Store catalog", MAX_VERIFIED_BYTES)
+        )
+
+
+def _assert_catalog_against_watermark(catalog: dict, current: dict | None) -> bool:
+    """Return whether the accepted watermark must advance."""
+    if current is None:
+        return True
+    if catalog["sequence"] < current["sequence"]:
+        raise StoreCatalogReplayError("Store catalog sequence rollback detected")
+    if catalog["sequence"] == current["sequence"]:
+        if catalog["catalogSha256"] != current["catalogSha256"]:
+            raise StoreCatalogReplayError("Store catalog sequence equivocation detected")
+        return False
+    return True
+
+
+def _persist_catalog_envelope(path: Path, payload: bytes) -> None:
+    if not isinstance(payload, bytes) or not payload or len(payload) > MAX_ENVELOPE_BYTES:
+        raise StoreCatalogError("Store catalog envelope payload size is outside allowed bounds")
+    parent = _real_directory(path.parent, "Store catalog envelope parent")
+    if path.exists() or path.is_symlink():
+        _real_regular_file(path, "Store catalog envelope", MAX_ENVELOPE_BYTES)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.stage-", dir=parent)
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        if os.name != "nt":
+            directory_fd = os.open(parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+    except OSError as exc:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise StoreCatalogError("Store catalog envelope persistence failed") from exc
+
+
+def promote_verified_store_catalog_envelope(
+    *,
+    verified_catalog: object,
+    candidate_envelope_path: Path,
+    envelope_path: Path,
+    watermark_path: Path,
+) -> tuple[dict, bool]:
+    """Promote a verified remote envelope without allowing replay to clobber LKG.
+
+    The candidate is verified before this function is called. Under the
+    watermark lock, replay/equivocation is checked before the active envelope
+    changes. The envelope is persisted before the watermark: if the process
+    crashes between those two writes, the next local read can safely verify the
+    newer envelope and advance the watermark, while the inverse ordering could
+    leave a newer watermark pointing at an older envelope.
+    """
+    catalog = validate_verified_catalog(verified_catalog)
+    _real_directory(watermark_path.parent, "Store catalog watermark parent")
+    candidate_meta = _real_regular_file(
+        candidate_envelope_path,
+        "candidate Store catalog envelope",
+        MAX_ENVELOPE_BYTES,
+    )
+    try:
+        candidate_payload = candidate_envelope_path.read_bytes()
+    except OSError as exc:
+        raise StoreCatalogError("candidate Store catalog envelope is unavailable") from exc
+    if len(candidate_payload) != candidate_meta.st_size:
+        raise StoreCatalogError("candidate Store catalog envelope changed while reading")
+
+    with _watermark_lock(watermark_path):
+        current = _load_watermark(watermark_path)
+        changed = _assert_catalog_against_watermark(catalog, current)
+        _persist_catalog_envelope(envelope_path, candidate_payload)
+        if changed:
+            next_watermark = {
+                "schema": WATERMARK_SCHEMA,
+                "sequence": catalog["sequence"],
+                "catalogSha256": catalog["catalogSha256"],
+            }
+            _persist_watermark(watermark_path, next_watermark)
+            persisted = _load_watermark(watermark_path)
+            if persisted != next_watermark:
+                raise StoreCatalogError("Store catalog watermark persistence verification failed")
+        return catalog, changed
+
+
+def verify_and_accept_store_catalog(
+    *,
+    helper_path: Path,
+    trust_path: Path,
+    envelope_path: Path,
+    watermark_path: Path,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> tuple[dict, bool]:
+    verified = verify_store_catalog_envelope(
+        helper_path=helper_path,
+        trust_path=trust_path,
+        envelope_path=envelope_path,
+        runner=runner,
+    )
+    _real_directory(watermark_path.parent, "Store catalog watermark parent")
+    return accept_verified_catalog(verified, watermark_path)
 
 
 

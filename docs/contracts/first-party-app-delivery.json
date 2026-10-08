@@ -164,7 +164,7 @@
     "catalog_local_envelope_path": "/var/lib/ordax/store/catalog-envelope.json",
     "catalog_local_watermark_path": "/var/lib/ordax/store/catalog-watermark.json",
     "catalog_remote_acquisition_configured": false,
-    "catalog_remote_acquisition_owner": "unconfigured",
+    "catalog_remote_acquisition_owner": "native-store-catalog-acquisition",
     "native_host_fetches_remote_catalog": false,
     "missing_catalog_envelope_is_unavailable": true,
     "lifecycle_private_plan_contract": "ordax.app-lifecycle-plan/1",
@@ -234,7 +234,18 @@
     "native_lifecycle_endpoint_leaks_private_failure_detail": false,
     "native_lifecycle_install_update_acquires_before_offline_stage": true,
     "native_lifecycle_remove_skips_remote_artifact_acquisition": true,
-    "native_store_lifecycle_request_service_mounted": true
+    "native_store_lifecycle_request_service_mounted": true,
+    "catalog_remote_acquisition_implemented": true,
+    "catalog_remote_acquisition_transport": "https",
+    "catalog_remote_acquisition_fixed_envelope_name": "catalog-envelope.json",
+    "catalog_remote_acquisition_redirects_allowed": false,
+    "catalog_remote_acquisition_content_encoding": "identity-only",
+    "catalog_remote_acquisition_max_bytes": 4194304,
+    "catalog_remote_candidate_verified_before_active_replace": true,
+    "catalog_remote_replay_checked_before_active_replace": true,
+    "catalog_remote_failure_retains_last_known_good": true,
+    "catalog_active_envelope_persisted_before_watermark_advance": true,
+    "native_host_can_fetch_remote_catalog": true
   },
   "mvp": {
     "stable_payload_changed_by_this_foundation": false,
