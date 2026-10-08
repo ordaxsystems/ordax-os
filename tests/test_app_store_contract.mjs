@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import { storeApp } from "../system/apps/store/app.mjs";
+import { filterStoreEntries } from "../system/surface/ui/store-overview-controls.mjs";
 import {
   APP_STORE_CATALOG_SCHEMA,
   createUnavailableAppStoreCatalogPort,
@@ -222,4 +223,91 @@ test("Store catalog remains bounded and canonical", () => {
     }),
     /bounded array/,
   );
+});
+
+test("Store discovery filters consume only canonical catalog entries", () => {
+  const available = entry();
+  const installed = entry({
+    appId: "internet",
+    title: "Internet",
+    state: "installed",
+    installedVersion: "0.3.0",
+    availableVersion: null,
+    installable: false,
+    updatable: false,
+    removable: true,
+    artifactIdentityVerified: false,
+    provenanceVerified: false,
+  });
+  const update = entry({
+    appId: "studio",
+    title: "OrdaX Studio",
+    state: "installed",
+    installedVersion: "0.5.0",
+    availableVersion: "0.5.1",
+    installable: false,
+    updatable: true,
+    removable: true,
+  });
+  const retained = entry({
+    appId: "files",
+    title: "Arquivos",
+    state: "failed-retained",
+    installedVersion: "0.2.0",
+    availableVersion: null,
+    installable: false,
+    updatable: false,
+    removable: true,
+    artifactIdentityVerified: false,
+    provenanceVerified: false,
+  });
+  const entries = validateAppStoreCatalogSnapshot({
+    schema: APP_STORE_CATALOG_SCHEMA,
+    state: "ready",
+    entries: [available, installed, update, retained],
+    reason: null,
+    authority: "none",
+  }).entries;
+
+  assert.deepEqual(filterStoreEntries(entries).map((item) => item.appId), [
+    "notes", "internet", "studio", "files",
+  ]);
+  assert.deepEqual(filterStoreEntries(entries, "installed").map((item) => item.appId), [
+    "internet", "studio", "files",
+  ]);
+  assert.deepEqual(filterStoreEntries(entries, "updates").map((item) => item.appId), [
+    "studio", "files",
+  ]);
+  assert.deepEqual(filterStoreEntries(entries, "discover", "  STUDIO ").map((item) => item.appId), [
+    "studio",
+  ]);
+  assert.deepEqual(filterStoreEntries(entries, "installed", "notes"), []);
+  assert.throws(() => filterStoreEntries(entries, "admin"), /Invalid Store presentation filter/);
+});
+
+test("Store discovery uses accessible interaction and localized metadata without granting authority", async () => {
+  const source = await readFile(
+    new URL("../system/surface/ui/store-overview-controls.mjs", import.meta.url), "utf8",
+  );
+  const styles = await readFile(
+    new URL("../system/surface/ui/store.css", import.meta.url), "utf8",
+  );
+  const locale = await readFile(
+    new URL("../system/services/i18n/catalog/store.mjs", import.meta.url), "utf8",
+  );
+  for (const marker of [
+    "data-store-app-card", "data-store-search", "data-store-view",
+    "data-store-details", "aria-label", "aria-pressed", "role",
+    "filterStoreEntries", "entry.artifactIdentityVerified",
+    "entry.provenanceVerified", "entry.blockedReason",
+  ]) assert.ok(source.includes(marker), marker);
+  assert.match(styles, /@media \(max-width: 800px\)/);
+  assert.match(styles, /var\(--ordax-accent/);
+  assert.match(styles, /prefers-reduced-motion/);
+  for (const key of [
+    "store.navigation.discover", "store.navigation.installed",
+    "store.navigation.updates", "store.search.placeholder",
+    "store.details.permissionNote",
+  ]) assert.equal(locale.split(key).length, 3, key + " must exist in both locales");
+  assert.doesNotMatch(source, /fetch\(|localStorage|sessionStorage|innerHTML|new Worker/);
 });
