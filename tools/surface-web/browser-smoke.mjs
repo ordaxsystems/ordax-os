@@ -604,10 +604,15 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     );
     pickerHost.querySelector('[data-space-switcher-toggle]').click();
     pickerHost.querySelector('[data-space-switcher-select="picker-space"]').click();
+    result.spaceSwitcherFailedOptionEnabled =
+      pickerHost.querySelector('[data-space-switcher-select="picker-space"]')?.disabled === false;
+    result.spaceSwitcherFailedFeedback = Boolean(pickerHost.querySelector('[role="alert"]'));
+    result.spaceSwitcherFailureMenuOpen =
+      pickerHost.querySelector('#ordax-space-switcher-menu')?.hidden === false;
     result.spaceSwitcherFailureKeepsOptions =
-      pickerHost.querySelector('[data-space-switcher-select="picker-space"]')?.disabled === false
-      && Boolean(pickerHost.querySelector('[role="alert"]'))
-      && pickerHost.querySelector('#ordax-space-switcher-menu')?.hidden === false;
+      result.spaceSwitcherFailedOptionEnabled
+      && result.spaceSwitcherFailedFeedback
+      && result.spaceSwitcherFailureMenuOpen;
     pickerHost.querySelector('[data-space-switcher-select="picker-space"]').click();
     result.spaceSwitcherRetrySucceeds = pickerSelection.state === 'selected'
       && pickerHost.querySelector('[data-space-switcher-toggle]')?.getAttribute('aria-expanded') === 'false';
