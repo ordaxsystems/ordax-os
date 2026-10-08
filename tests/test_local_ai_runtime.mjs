@@ -432,3 +432,51 @@ test("local AI rejects non-loopback endpoints", () => {
     /literal 127\.0\.0\.1 HTTP/,
   );
 });
+
+test("local AI rejects a successful completion that reports a different model", async () => {
+  let healthCalls = 0;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) {
+        healthCalls += 1;
+        return { ok: true };
+      }
+      return {
+        ok: true,
+        async json() {
+          return {
+            model: "unexpected-model",
+            choices: [{ message: { content: "wrong model" } }],
+          };
+        },
+      };
+    },
+  });
+  await runtime.probe();
+  await assert.rejects(
+    () => runtime.generate({ prompt: "teste" }),
+    /completion model identity mismatch/,
+  );
+  assert.equal(healthCalls, 2);
+});
+
+test("local AI accepts a completion reporting its configured model", async () => {
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) return { ok: true };
+      return {
+        ok: true,
+        async json() {
+          return {
+            model: "ordax-small",
+            choices: [{ message: { content: "valid result" } }],
+          };
+        },
+      };
+    },
+  });
+  await runtime.probe();
+  assert.equal((await runtime.generate({ prompt: "teste" })).text, "valid result");
+});
