@@ -26,6 +26,7 @@ import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-so
 import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
 import { translateSurfaceMessage } from "../../services/i18n/surface.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
+import { mountSpaceSwitcherControls } from "../../surface/ui/space-switcher-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
 import { mountNotificationCenterControls } from "../../surface/ui/notification-center-controls.mjs";
 import { mountSurface } from "../../surface/ui/surface.mjs";
@@ -145,6 +146,14 @@ const resumeAccountConnectivity = async () => {
 };
 const onOnline = () => void resumeAccountConnectivity();
 window.addEventListener("online", onOnline, { passive: true });
+const spaceSwitcherControls = mountSpaceSwitcherControls(
+  root,
+  identitySession,
+  spaces,
+  null,
+  appActivation,
+  surface,
+);
 const accountOverviewControls = mountAccountOverviewControls(
   root,
   identitySession,
@@ -283,6 +292,7 @@ window.addEventListener(
     notificationCenter.destroy();
     settingsOverviewControls.destroy();
     accountOverviewControls.destroy();
+    spaceSwitcherControls.destroy();
     accountLifecycle.dispose();
     profileProvisioning.dispose();
     profileComponentInventory.dispose();
