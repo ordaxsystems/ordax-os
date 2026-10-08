@@ -65,6 +65,32 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
                 "requiresExplicitReview": False,
             })
 
+    def test_preview_rejects_stale_revision_before_presenting_permission_diff(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = {
+                "distribution_profile": "stable-mvp",
+                "state_path": str(root / "state.json"),
+                "inventory_path": str(root / "inventory.json"),
+                "lock_path": str(root / "state.lock"),
+            }
+            preview = command(slug="pizzaria-br")
+            preview["action"] = "preview-activate"
+            del preview["activatedAt"]
+            first = module.execute_profile_activation_command(preview, **args)
+            self.assertEqual(first["state"]["revision"], 0)
+            self.assertEqual(first["permissionDiff"]["componentAdds"], [])
+
+            module.execute_profile_activation_command(command(slug="pizzaria-br"), **args)
+            with self.assertRaisesRegex(ValueError, "preview revision is stale"):
+                module.execute_profile_activation_command(preview, **args)
+
+            preview["expectedRevision"] = 1
+            refreshed = module.execute_profile_activation_command(preview, **args)
+            self.assertEqual(refreshed["state"]["revision"], 1)
+            self.assertNotEqual(first["permissionDiffSha256"], refreshed["permissionDiffSha256"])
+
     def test_stable_allows_only_published_zero_component_profiles(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as directory:
