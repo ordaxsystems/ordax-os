@@ -661,7 +661,10 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
         schema: 'ordax.localization/2',
         getLocale() { return 'pt-BR'; },
         getProfile() { return localeProfile; },
-        translate(messageId) { return messageId; },
+        translate(messageId, parameters) {
+          if (typeof parameters?.reason === 'string') return messageId + ': ' + parameters.reason;
+          return messageId;
+        },
         subscribe() { return () => {}; },
       },
     };
@@ -686,7 +689,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.storeVerifiedCatalogRendered = proofStoreSlot?.dataset.storeState === 'ready'
       && proofStoreSlot.querySelectorAll('[data-store-app-card]').length === 3;
     result.storeAlphabeticallySorted = Array.from(proofStoreSlot.querySelectorAll('[data-store-app-card]'))
-      .map((card) => card.dataset.storeAppId).join(',') === 'audio,files,studio';
+      .map((card) => card.dataset.storeAppId).join(',') === 'files,audio,studio';
     storeProofRoot.style.width = '430px';
     result.storeResizesWithWindow = getComputedStyle(
       proofStoreSlot.querySelector('.ordax-store-layout'),
