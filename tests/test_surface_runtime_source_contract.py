@@ -102,7 +102,14 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             "reproof-required-after-upstream-tiff-drift",
             "reproof-required-after-upstream-openjpeg-drift",
         }:
-            self.assertNotEqual(proof["source_commit"], refresh["discovery_source_commit"])
+            # Historical evidence may refer to the same previous reviewed
+            # discovery commit: the lock changed after that proof. A differing
+            # SHA is not a prerequisite to invalidate its applicability.
+            if refresh["status"] == "reproof-required-after-upstream-tiff-drift":
+                self.assertNotEqual(proof["source_commit"], refresh["discovery_source_commit"])
+            else:
+                self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
+                self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
             self.assertEqual(proof["status"], "historical-pass-reproof-required")
             self.assertNotIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
             self.assertIn(
