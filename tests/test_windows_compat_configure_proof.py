@@ -68,7 +68,7 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
                 link.type = tarfile.SYMTYPE
                 link.linkname = "/etc/passwd"
                 tar.addfile(link)
-            with self.assertRaisesRegex(probe.ConfigureProofError, "unsafe foreign source symlink forbidden"):
+            with self.assertRaisesRegex(probe.ConfigureProofError, "invalid foreign source archive member: (unsafe archive link|archive link escapes)"):
                 probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
 
     def test_foreign_source_extractor_rejects_parent_symlink(self):
@@ -83,7 +83,7 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
                 link.type = tarfile.SYMTYPE
                 link.linkname = "../../etc/passwd"
                 tar.addfile(link)
-            with self.assertRaisesRegex(probe.ConfigureProofError, "unsafe foreign source symlink forbidden"):
+            with self.assertRaisesRegex(probe.ConfigureProofError, "invalid foreign source archive member: (unsafe archive link|archive link escapes)"):
                 probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
 
     def test_foreign_source_extractor_accepts_bounded_regular_member(self):
@@ -100,6 +100,64 @@ class WindowsCompatibilityConfigureProofTests(unittest.TestCase):
                 tar.addfile(member, io.BytesIO(payload))
             probe.safe_extract_foreign_source(archive, destination, "wine-11.0")
             self.assertEqual((destination / "wine-11.0/VERSION").read_bytes(), payload)
+
+    def test_foreign_extractor_uses_canonical_member_policy_and_data_filter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "foreign.tar.xz"
+            dest = Path(tmp) / "out"
+            with tarfile.open(archive, "w:xz") as tar:
+                version = b"Wine version 11.0\n"
+                root = tarfile.TarInfo("wine-11.0/VERSION")
+                root.size = len(version)
+                tar.addfile(root, io.BytesIO(version))
+                internal = tarfile.TarInfo("wine-11.0/src/version-link")
+                internal.type = tarfile.SYMTYPE
+                internal.linkname = "../VERSION"
+                tar.addfile(internal)
+            probe.safe_extract_foreign_source(archive, dest, "wine-11.0")
+            self.assertEqual((dest / "wine-11.0/src/version-link").read_bytes(), version)
+
+    def test_foreign_extractor_rejects_hardlink_escape_before_writing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "foreign.tar.xz"
+            dest = Path(tmp) / "out"
+            with tarfile.open(archive, "w:xz") as tar:
+                first = tarfile.TarInfo("wine-11.0/innocuous")
+                first.size = 2
+                tar.addfile(first, io.BytesIO(b"ok"))
+                escaped = tarfile.TarInfo("wine-11.0/escape")
+                escaped.type = tarfile.LNKTYPE
+                escaped.linkname = "../etc/passwd"
+                tar.addfile(escaped)
+            with self.assertRaisesRegex(probe.ConfigureProofError, "archive link escapes"):
+                probe.safe_extract_foreign_source(archive, dest, "wine-11.0")
+            self.assertFalse((dest / "wine-11.0/innocuous").exists())
+
+    def test_foreign_extractor_enforces_canonical_resource_limits(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "foreign.tar.xz"
+            dest = Path(tmp) / "out"
+            with tarfile.open(archive, "w:xz") as tar:
+                for name in ("a", "b"):
+                    member = tarfile.TarInfo(f"wine-11.0/{name}")
+                    member.size = 16
+                    tar.addfile(member, io.BytesIO(b"x" * 16))
+            original_count = probe.SOURCE.MAX_ARCHIVE_MEMBERS
+            try:
+                probe.SOURCE.MAX_ARCHIVE_MEMBERS = 1
+                with self.assertRaisesRegex(probe.ConfigureProofError, "member count exceeded bound"):
+                    probe.safe_extract_foreign_source(archive, dest, "wine-11.0")
+            finally:
+                probe.SOURCE.MAX_ARCHIVE_MEMBERS = original_count
+            self.assertFalse((dest / "wine-11.0/a").exists())
+            original_bytes = probe.SOURCE.MAX_UNPACKED_BYTES
+            try:
+                probe.SOURCE.MAX_UNPACKED_BYTES = 16
+                with self.assertRaisesRegex(probe.ConfigureProofError, "unpacked size exceeded bound"):
+                    probe.safe_extract_foreign_source(archive, dest, "wine-11.0")
+            finally:
+                probe.SOURCE.MAX_UNPACKED_BYTES = original_bytes
+            self.assertFalse((dest / "wine-11.0/a").exists())
 
     def test_installed_package_versions_reads_exact_apk_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
