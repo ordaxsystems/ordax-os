@@ -101,11 +101,17 @@ A verificação pós-transferência é sequencial e bloqueante:
 
 O resultado do passo 2 é `verified-metadata-only` e **nunca deve
 ser apresentado como assinatura verificada**. A autenticidade cabe
-exclusivamente ao passo 3. Os dois passos rodam automaticamente no workflow
-`Repository Namespace Transfer Preflight` **apenas após o GitHub reportar
-`ordaxsystems/prototipo-ordax-os`**. A falta atual de `/releases/latest`
-é bloqueio verdadeiro: não resolver apontando para prerelease, fabricando
-envelope ou aceitando fallback/dual owner. Atestar a assinatura do
+exclusivamente ao passo 3. Os dois passos rodam no workflow
+`Repository Namespace Transfer Preflight` **somente após o GitHub reportar
+`ordaxsystems/prototipo-ordax-os`, na `main`** (push ou dispatch).
+Durante a PR, o preflight continua verificando contratos, ponteiro de
+bootstrap, projeção do SDK e ID do repositório, mas não presume que uma
+release do novo proprietário já foi publicada. A ausência de
+`/releases/latest` **bloqueia a aceitação do canal estável na `main`**:
+não resolver apontando para prerelease, fabricando envelope ou aceitando
+fallback/dual owner. O gate continua fail-closed até a publicação e a
+verificação Ed25519; nenhuma promoção de produção pode depender apenas
+de uma PR aprovada. Atestar a assinatura do
 manifesto também não substitui os outros gates de boot, Creator, proveniência
 dos binários e autorização física separada.
 
