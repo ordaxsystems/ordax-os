@@ -191,7 +191,7 @@ async function readJson(response, label) {
 // Independent Native reads must not serialize the whole Store or create an
 // unbounded request fan-out as the first-party inventory grows.
 const MAX_CONCURRENT_METADATA_READS = 4;
-const DEFAULT_METADATA_TIMEOUT_MS = 3_000;
+const DEFAULT_METADATA_TIMEOUT_MS = 5_000;
 
 async function mapInSourceOrder(values, readOne, signal) {
   const results = new Array(values.length);
