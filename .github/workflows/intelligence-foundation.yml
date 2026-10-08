@@ -78,6 +78,7 @@ on:
       - 'tests/test_intelligence_artifact.mjs'
       - 'tests/test_intelligence_tool.mjs'
       - 'tests/test_semantic_index.mjs'
+      - 'tests/test_semantic_retrieval.mjs'
       - 'tests/test_local_ai_runtime.mjs'
       - 'tests/test_local_ai_endpoint_policy.mjs'
       - 'tests/test_local_ai_probe_races.mjs'
@@ -232,6 +233,7 @@ on:
       - 'tests/test_intelligence_artifact.mjs'
       - 'tests/test_intelligence_tool.mjs'
       - 'tests/test_semantic_index.mjs'
+      - 'tests/test_semantic_retrieval.mjs'
       - 'tests/test_local_ai_runtime.mjs'
       - 'tests/test_local_ai_endpoint_policy.mjs'
       - 'tests/test_local_ai_probe_races.mjs'
@@ -415,6 +417,7 @@ jobs:
           node --test tests/test_intelligence_artifact.mjs
           node --test tests/test_intelligence_tool.mjs
           node --test tests/test_semantic_index.mjs
+          node --test tests/test_semantic_retrieval.mjs
           node --test tests/test_application_intelligence_awareness.mjs
           node --test tests/test_application_intelligence_context.mjs
           node --test tests/test_application_semantic_router.mjs
