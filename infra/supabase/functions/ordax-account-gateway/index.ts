@@ -198,12 +198,17 @@ async function compromisedPasswordCount(password: string) {
       "Add-Padding": "true",
       "User-Agent": PWNED_PASSWORDS_USER_AGENT,
     },
+    signal: AbortSignal.timeout(5_000),
   });
   if (!response.ok) throw new Error("pwned-passwords-unavailable");
-  const body = await response.text();
-  if (body.length > PWNED_PASSWORDS_MAX_RESPONSE) {
-    throw new Error("pwned-passwords-response-too-large");
-  }
+  // The remote response is attacker-controlled; never call text() first.
+  const body = new TextDecoder("utf-8", { fatal: true }).decode(
+    await readBoundedBody(
+      response.body,
+      response.headers.get("content-length"),
+      PWNED_PASSWORDS_MAX_RESPONSE,
+    ),
+  );
   for (const line of body.split(/\r?\n/)) {
     const separator = line.indexOf(":");
     if (separator < 1) continue;
