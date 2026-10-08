@@ -1287,7 +1287,7 @@ stable_activate_exact_to() {
         "$STABLE_RELEASE_AGENT" activate-exact \
         --trust "$STABLE_TRUST_FILE" \
         --root "$STABLE_ROOT" \
-        --repository ordaxsystems/prototipo-ordax-os \
+        --repository ordaxsystems/ordax-os \
         --expected-commit "$expected_sha" \
         >"$receipt" 2>>"$UPDATE_LOG"
 }
@@ -1567,7 +1567,7 @@ check_stable_signed_update() {
         "$STABLE_RELEASE_AGENT" inspect \
         --envelope-url "$channel_url" \
         --trust "$STABLE_TRUST_FILE" \
-        --repository ordaxsystems/prototipo-ordax-os \
+        --repository ordaxsystems/ordax-os \
         >"$STABLE_INSPECT_RECEIPT" 2>>"$UPDATE_LOG"
     then
         rm -f "$STABLE_INSPECT_RECEIPT"
@@ -1627,7 +1627,7 @@ check_stable_signed_update() {
         --envelope-url "$channel_url" \
         --trust "$STABLE_TRUST_FILE" \
         --root "$STABLE_ROOT" \
-        --repository ordaxsystems/prototipo-ordax-os \
+        --repository ordaxsystems/ordax-os \
         --expected-commit "$remote_sha" \
         >"$STABLE_MATERIALIZE_RECEIPT" 2>>"$UPDATE_LOG"
     then
@@ -1713,7 +1713,7 @@ portable_release_is_verified() {
         "$STABLE_RELEASE_AGENT" "$portable_verify_subcommand" \
         --trust "$STABLE_TRUST_FILE" \
         --root "$PORTABLE_ROOT" \
-        --repository ordaxsystems/prototipo-ordax-os \
+        --repository ordaxsystems/ordax-os \
         --expected-commit "$expected_sha" \
         >"$PORTABLE_VERIFY_RECEIPT" 2>>"$UPDATE_LOG"
     then
@@ -1752,7 +1752,7 @@ portable_materialize_release() {
         --envelope-url "$channel_url" \
         --trust "$STABLE_TRUST_FILE" \
         --root "$PORTABLE_ROOT" \
-        --repository ordaxsystems/prototipo-ordax-os \
+        --repository ordaxsystems/ordax-os \
         --expected-commit "$expected_sha" \
         >"$PORTABLE_MATERIALIZE_RECEIPT" 2>>"$UPDATE_LOG"
     then
@@ -1836,7 +1836,7 @@ check_stable_portable_update() {
         "$STABLE_RELEASE_AGENT" inspect \
         --envelope-url "$channel_url" \
         --trust "$STABLE_TRUST_FILE" \
-        --repository ordaxsystems/prototipo-ordax-os \
+        --repository ordaxsystems/ordax-os \
         >"$STABLE_INSPECT_RECEIPT" 2>>"$UPDATE_LOG"
     then
         rm -f "$STABLE_INSPECT_RECEIPT"
