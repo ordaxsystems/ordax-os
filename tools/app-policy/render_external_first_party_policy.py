@@ -19,7 +19,7 @@ class PolicyGenerationError(RuntimeError):
     pass
 
 
-def load_external_sources(path: Path) -> dict[str, str]:
+def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...]]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -54,13 +54,25 @@ def load_external_sources(path: Path) -> dict[str, str]:
             raise PolicyGenerationError(
                 f"external source declaration disagrees with canonical package owner: {app_id}"
             )
-    return normalized
+    native_ids = value.get("native_loopback_broker_supported_components")
+    if (
+        not isinstance(native_ids, list)
+        or not native_ids
+        or any(not isinstance(app_id, str) or not APP_ID_RE.fullmatch(app_id) for app_id in native_ids)
+        or len(native_ids) != len(set(native_ids))
+    ):
+        raise PolicyGenerationError("Native module-read scope in canonical policy is invalid")
+    # These IDs are a necessary (not sufficient) runtime module-read gate.
+    # Presence in Store policy or the signed catalog must never invent it.
+    module_ready = tuple(sorted(set(normalized).intersection(native_ids)))
+    return normalized, module_ready
 
 
-def render_module(sources: dict[str, str]) -> str:
+def render_module(sources: dict[str, str], module_ready: tuple[str, ...]) -> str:
     mapping_lines = "\n".join(
         f'  "{app_id}": "{repository}",' for app_id, repository in sources.items()
     )
+    ready_lines = "\n".join(f'  "{app_id}",' for app_id in module_ready)
     return f'''// GENERATED FILE. DO NOT EDIT BY HAND.
 // Source of truth: docs/contracts/runtime-component-package.json
 // Generator: tools/app-policy/render_external_first_party_policy.py
@@ -75,7 +87,18 @@ export const EXTERNAL_FIRST_PARTY_COMPONENT_IDS = Object.freeze(
   Object.keys(EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT),
 );
 
+// Generated from the same canonical OS package policy's Native module broker
+// scope. Store catalog presence alone does not grant executable-read support.
+export const EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([
+{ready_lines}
+]);
+
 const IDS = new Set(EXTERNAL_FIRST_PARTY_COMPONENT_IDS);
+const MODULE_READ_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);
+if (MODULE_READ_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS.length
+  || [...MODULE_READ_IDS].some((appId) => !IDS.has(appId))) {{
+  throw new TypeError("External first-party module-read ids disagree with canonical owners");
+}}
 if (IDS.size !== EXTERNAL_FIRST_PARTY_COMPONENT_IDS.length) {{
   throw new TypeError("External first-party component ids must be unique");
 }}
@@ -93,6 +116,16 @@ export function listExternalFirstPartyComponentIds() {{
 export function isExternalFirstPartyComponentId(value) {{
   try {{
     return IDS.has(validateComponentId(value));
+  }} catch {{
+    return false;
+  }}
+}}
+
+// A necessary, not sufficient, gate for Store install/update delegation.
+// Native trust, health, promotion and rollback gates remain independent.
+export function hasNativeExternalFirstPartyModuleRead(value) {{
+  try {{
+    return MODULE_READ_IDS.has(validateComponentId(value));
   }} catch {{
     return false;
   }}
@@ -115,7 +148,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
     try:
-        rendered = render_module(load_external_sources(args.policy))
+        sources, module_ready = load_policy(args.policy)
+        rendered = render_module(sources, module_ready)
         if args.check:
             try:
                 current = args.out.read_text(encoding="utf-8")
