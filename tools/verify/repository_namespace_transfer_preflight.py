@@ -34,8 +34,13 @@ IMMUTABLE_HISTORICAL_PATHS = frozenset({
 })
 
 
+NEGATIVE_AUTHORITY_FIXTURES = frozenset({
+    "tools/verify/repository_namespace_transfer_preflight.py",
+    "tests/test_repository_namespace_transfer_preflight.py",
+})
+
 def is_operational(path: str) -> bool:
-    if path in IMMUTABLE_HISTORICAL_PATHS:
+    if path in IMMUTABLE_HISTORICAL_PATHS or path in NEGATIVE_AUTHORITY_FIXTURES:
         return False
     if path == ACTIVE_DOC or path.startswith(ACTIVE_CONTRACT_PREFIX):
         return True

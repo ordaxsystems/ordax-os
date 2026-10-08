@@ -22,10 +22,10 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             (ROOT / "docs/contracts/repository-migration-status.json").read_text(encoding="utf-8")
         )
 
-    def test_pretransfer_contract_has_exact_destination_and_preserved_order(self):
+    def test_posttransfer_contract_has_exact_destination_and_preserved_order(self):
         report = audit.validate_contracts(self.ownership, self.status)
-        self.assertEqual(report["phase"], "pre-transfer")
-        self.assertEqual(report["canonical"], "washingtonmsdj/prototipo-ordax-os")
+        self.assertEqual(report["phase"], "post-transfer")
+        self.assertEqual(report["canonical"], "ordaxsystems/prototipo-ordax-os")
         self.assertEqual(report["destination"], "ordaxsystems/prototipo-ordax-os")
 
     def test_transfer_audit_distinguishes_live_trust_code_from_provenance(self):
@@ -46,6 +46,8 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         self.assertFalse(audit.is_operational("docs/contracts/canonical-v4-signing-request.json"))
         self.assertFalse(audit.is_operational("docs/contracts/physical-write-authorization.json"))
         self.assertFalse(audit.is_operational("system/profile-content-sources/developer-core/v0.1.0/manifest.json"))
+        self.assertFalse(audit.is_operational("tools/verify/repository_namespace_transfer_preflight.py"))
+        self.assertFalse(audit.is_operational("tests/test_repository_namespace_transfer_preflight.py"))
         self.assertTrue(audit.is_operational("docs/contracts/release-channel.json"))
         self.assertTrue(audit.is_operational("bootstrap/base-update/stage.py"))
 
@@ -55,8 +57,8 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "policies"):
             audit.validate_contracts(copy_, self.status)
         copy_ = copy.deepcopy(self.ownership)
-        copy_["namespace_migration"]["completed_transfers"].append("platform")
-        with self.assertRaisesRegex(ValueError, "Pre-transfer"):
+        copy_["namespace_migration"]["completed_transfers"].remove("platform")
+        with self.assertRaisesRegex(ValueError, "Post-transfer"):
             audit.validate_contracts(copy_, self.status)
         copy_ = copy.deepcopy(self.ownership)
         copy_["repositories"]["platform"]["repo"] = "ordaxsystems/another-repo"
