@@ -205,17 +205,23 @@ jobs:
               --notes 'Hash-addressed bootstrap component migration asset. Authenticity for the live development owner is the source-controlled SHA-256 binding.'
           fi
 
-          if gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' \
+          if ! gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' \
               | grep -Fxq 'ordax-release-agent'; then
-            tmp="$(mktemp -d)"
-            gh release download "$tag" --repo "$repo" \
-              --pattern 'ordax-release-agent' --dir "$tmp"
-            published="$(sha256sum "$tmp/ordax-release-agent" | awk '{print $1}')"
-            test "$published" = "$digest"
-            rm -rf "$tmp"
-          else
             gh release upload "$tag" "$artifact#ordax-release-agent" --repo "$repo"
           fi
+
+          # Read back the immutable asset from GitHub even on the first upload.
+          # A successful upload response alone is not evidence of published bytes.
+          verification_dir="$(mktemp -d)"
+          trap 'rm -rf "$verification_dir"' EXIT
+          gh release download "$tag" --repo "$repo" \
+            --pattern 'ordax-release-agent' --dir "$verification_dir"
+          published="$verification_dir/ordax-release-agent"
+          test -f "$published"
+          test ! -L "$published"
+          test "$(sha256sum "$published" | awk '{print $1}')" = "$digest"
+          test "$(stat -c '%s' "$published")" = "$(stat -c '%s' "$artifact")"
+          echo 'RELEASE_AGENT_PUBLISHED_ASSET_READBACK=VERIFIED'
 
           echo "RELEASE_AGENT_REFRESH_TAG=$tag"
           echo "RELEASE_AGENT_REFRESH_MUTABLE_OVERWRITE=NO"
