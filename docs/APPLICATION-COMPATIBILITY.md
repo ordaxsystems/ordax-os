@@ -124,7 +124,11 @@ It validates:
 - PE32/PE32+ optional-header magic consistent with the COFF machine (PE32 for x86; PE32+ for x86-64/ARM64);
 - optional-header length covers the fixed fields (96 bytes for PE32; 112 for PE32+) and fits entirely within the inspected bytes;
 - PE header offset does not overlap the 64-byte DOS header;
-- DLL characteristic.
+- COFF `IMAGE_FILE_EXECUTABLE_IMAGE` characteristic (an object file cannot be treated as a launchable image);
+- section table has 1–96 entries and **all** 40-byte section headers fit inside the supplied bytes;
+- DLL characteristic, which always blocks launch planning even when `IMAGE_FILE_EXECUTABLE_IMAGE` is set.
+
+This is deliberately a **structural candidate check**, not full Windows loader certification or permission to execute. Unsupported or malformed PE payloads fail closed.
 
 Supported architecture identities for launch planning are currently:
 

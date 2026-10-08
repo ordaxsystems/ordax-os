@@ -296,3 +296,36 @@ test("a Linux-native runtime cannot be misrepresented as Windows to satisfy laun
   assert.equal(manager.planLaunch({ inspection }).ready, false);
   assert.equal(manager.planLaunch({ inspection }).reason, "runtime-unavailable");
 });
+
+test("Windows PE requires executable-image COFF flag and a complete bounded section table", () => {
+  const manager = createApplicationCompatibilityManager({ runtimes: [runtime()] });
+  const invalid = [
+    ["no-image-flag", peFixture({ executable: false }), "missing-executable-image-characteristic"],
+    ["zero-sections", peFixture({ sections: 0 }), "invalid-section-table"],
+    ["too-many-sections", peFixture({ sections: 97 }), "invalid-section-table"],
+    ["truncated-section-table", peFixture({ sections: 2, fileSize: 430 }), "invalid-section-table"],
+  ];
+  for (const [name, bytes, reason] of invalid) {
+    const inspection = manager.inspect({ name: `${name}.exe`, bytes });
+    assert.equal(inspection.kind, "windows-pe", name);
+    assert.equal(inspection.launchable, false, name);
+    assert.ok(inspection.evidence.includes(reason), name);
+    assert.deepEqual(manager.planLaunch({ inspection }), {
+      schema: "ordax.application-compatibility-plan/1",
+      ready: false,
+      runtimeId: null,
+      reason: "payload-not-launchable",
+    }, name);
+  }
+
+  const complete = manager.inspect({ name: "complete.exe", bytes: peFixture() });
+  assert.equal(complete.launchable, true);
+  assert.ok(complete.evidence.includes("valid-section-table"));
+  assert.ok(complete.evidence.includes("executable-image-characteristic"));
+
+  const dll = manager.inspect({ name: "component.dll", bytes: peFixture({ dll: true }) });
+  assert.equal(dll.role, "library");
+  assert.equal(dll.launchable, false);
+  assert.ok(dll.evidence.includes("executable-image-characteristic"));
+  assert.ok(dll.evidence.includes("dll-characteristic"));
+});

@@ -35,7 +35,12 @@
         "aarch64"
       ],
       "dll_launchable": false,
-      "malformed_optional_header_launchable": false
+      "malformed_optional_header_launchable": false,
+      "executable_image_flag_required": true,
+      "section_header_bytes": 40,
+      "min_sections": 1,
+      "max_sections": 96,
+      "section_table_must_fit_inspected_bytes": true
     },
     "msi": {
       "container_candidate_detection": true,
