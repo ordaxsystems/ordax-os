@@ -263,7 +263,7 @@
     "spirv-tools": "1.4.313.0-r0",
     "sqlite-libs": "3.49.2-r1",
     "ssl_client": "1.37.0-r20",
-    "tiff": "4.7.1-r0",
+    "tiff": "4.7.2-r0",
     "tslib": "1.23-r0",
     "udev-init-scripts": "35-r1",
     "utmps-libs": "0.1.3.1-r0",
@@ -312,16 +312,16 @@
     "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion"
   ],
   "apk_package_lock_count": 253,
-  "apk_package_lock_status": "reviewed-refresh-from-ci-run-36861995001",
+  "apk_package_lock_status": "reviewed-refresh-from-ci-run-37798187669",
   "discovery_evidence": {
-    "workflow_run_id": 36861995001,
-    "source_commit": "8a78884a3026594eb6dd088e098885c775b13cc1",
-    "artifact_name": "surface-runtime-candidate-8a78884a3026594eb6dd088e098885c775b13cc1",
-    "artifact_archive_sha256": "2ef3cc6a34351e892f5be07774395189086cf69b65873012e8353b3a153b48ba",
+    "workflow_run_id": 37798187669,
+    "source_commit": "16a7515f8596d90bcd0bee463b01c240b34ca0c5",
+    "artifact_name": "surface-runtime-candidate-16a7515f8596d90bcd0bee463b01c240b34ca0c5",
+    "artifact_archive_sha256": "e269c87f172f1a1dddc38d9da992dcac185978ffe2f1c2e99164266c8ba46157",
     "resolved_package_count": 253,
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "scope": "current-2026-10-01-python-lock-refresh"
+    "scope": "current-2026-10-08-tiff-full-lock-refresh"
   },
   "closed_gates": [
     "full-transitive-apk-lock-pinned",
@@ -333,19 +333,19 @@
   ],
   "reproducibility_proof": {
     "workflow": ".github/workflows/surface-runtime-lock-discovery.yml",
-    "workflow_run_id": 36861995001,
-    "source_commit": "8a78884a3026594eb6dd088e098885c775b13cc1",
+    "workflow_run_id": 37798187669,
+    "source_commit": "16a7515f8596d90bcd0bee463b01c240b34ca0c5",
     "status": "pass-ci-repeat-digest",
-    "tree_manifest_sha256": "31a08159a0e83d82e93bc8e5001ffd699b94cb2ba84bf2b105e722448dfbf3d6",
-    "normalized_tar_sha256": "a46843d17af395b3dbced2c25c4bfd41043407e71ef77054c5f4fcd8a67aa12e",
-    "erofs_sha256": "446f400a48bbd0b20aec9237a592ae009030cc3252186463cafebea167905b3d",
-    "erofs_size": 1052012544,
+    "tree_manifest_sha256": "7c5bd1eda95451f7e38511b1fd19caad5d62ef434f15930f2fa43971d92f5ec8",
+    "normalized_tar_sha256": "0dfedac3c59fbfb54b0f06669906382cd69c3036f32803ae85a92f1789179f9f",
+    "erofs_sha256": "c8d80ac6704742ac9f2e6708386a0f2e743294fc98ed84d9b09755ffabdef3b5",
+    "erofs_size": 1052020736,
     "repeat_digest_required": true,
     "repeat_digest_passed": true,
     "runtime_image_retained": false,
     "physical_artifact_authorized": false,
     "boot_handoff_connected_at_proof_time": false,
-    "scope": "current-2026-10-01-python-lock-refresh"
+    "scope": "current-2026-10-08-tiff-full-lock-refresh"
   },
   "runtime_generated_state": {
     "machine_identity_baked_into_image": false,
@@ -364,46 +364,31 @@
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reproof-required-after-upstream-libseccomp-drift",
-    "detected_by_qemu_run_id": 37470312340,
-    "discovery_run_id": 36861995001,
-    "discovery_source_commit": "8a78884a3026594eb6dd088e098885c775b13cc1",
-    "discovery_artifact_id": 11161819789,
-    "discovery_artifact_sha256": "2ef3cc6a34351e892f5be07774395189086cf69b65873012e8353b3a153b48ba",
+    "status": "reviewed-candidate-lock-refresh",
+    "detected_by_qemu_run_id": 37794806524,
+    "discovery_run_id": 37798187669,
+    "discovery_source_commit": "16a7515f8596d90bcd0bee463b01c240b34ca0c5",
+    "discovery_artifact_id": 11560175180,
+    "discovery_artifact_sha256": "e269c87f172f1a1dddc38d9da992dcac185978ffe2f1c2e99164266c8ba46157",
     "previous_package_count": 253,
     "resolved_package_count": 253,
     "missing": [],
     "extra": [],
     "changed": [
       {
-        "name": "pyc",
-        "from": "3.12.14-r0",
-        "to": "3.12.15-r0"
-      },
-      {
-        "name": "python3",
-        "from": "3.12.14-r0",
-        "to": "3.12.15-r0"
-      },
-      {
-        "name": "python3-pyc",
-        "from": "3.12.14-r0",
-        "to": "3.12.15-r0"
-      },
-      {
-        "name": "python3-pycache-pyc0",
-        "from": "3.12.14-r0",
-        "to": "3.12.15-r0"
+        "name": "tiff",
+        "from": "4.7.1-r0",
+        "to": "4.7.2-r0"
       }
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "reproducibility_reproof_required": true,
+    "reproducibility_reproof_required": false,
     "upstream_drift": {
-      "package": "libseccomp",
-      "from": "2.6.0-r0",
-      "to": "2.6.1-r0",
-      "detected_by_qemu_run_id": 37470312340
+      "package": "tiff",
+      "from": "4.7.1-r0",
+      "to": "4.7.2-r0",
+      "detected_by_qemu_run_id": 37794806524
     }
   }
 }

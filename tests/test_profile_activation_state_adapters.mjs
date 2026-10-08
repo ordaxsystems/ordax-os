@@ -360,3 +360,176 @@ test("Native Profile state rejects equal-revision contradictory snapshots and de
   detach();
   assert.equal(changes, 1); // disposed port does not announce stale snapshots
 });
+
+
+test("Native preview refuses stale consent when another mutation wins while it is in flight", async () => {
+  const state1 = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 1,
+    persistence: "device",
+    spaces: [],
+  };
+  const state2 = { ...state1, revision: 2 };
+  let current = state1;
+  let signalPreview;
+  let releasePreview;
+  const previewStarted = new Promise((resolve) => { signalPreview = resolve; });
+  const delayedPreview = new Promise((resolve) => { releasePreview = resolve; });
+  const sentRevisions = [];
+  const windowRef = {
+    async fetch(path, options) {
+      if (path === "/__ordax/native/profile-activation-state") return response(current);
+      if (path === "/__ordax/native/session") return response({
+        profileActivationAvailable: true,
+        profileActivationToken: "t".repeat(32),
+      });
+      if (path === "/__ordax/native/profile-activation-command") {
+        const body = JSON.parse(options.body);
+        sentRevisions.push(body.expectedRevision);
+        if (body.action === "preview-activate") {
+          signalPreview();
+          await delayedPreview;
+          return response({
+            state: state1,
+            permissionDiff: {
+              schema: "ordax.profile-permission-diff/1",
+              componentAdds: [], componentRemovals: [], authorityChanges: [],
+              requiresExplicitReview: false,
+            },
+            permissionDiffSha256: "c".repeat(64),
+          });
+        }
+        assert.equal(body.action, "activate");
+        current = state2;
+        return response({ state: state2 });
+      }
+      throw new Error("Unexpected Native path");
+    },
+  };
+  const port = await createNativeProfileActivationState(windowRef);
+  const intent = {
+    spaceId: "space-1",
+    spaceKind: "professional",
+    profile: { slug: "pizzaria-br", version: 1 },
+    components: [],
+  };
+  const preview = port.previewActivation(intent);
+  await previewStarted;
+  await port.activate(intent);
+  releasePreview();
+  await assert.rejects(preview, (error) => error.status === 409);
+  assert.deepEqual(sentRevisions, [1, 1]);
+  assert.equal(port.getSnapshot().revision, 2);
+  port.dispose();
+});
+
+test("Reviewed Profile revision must be used verbatim; stale confirmation never issues POST", async () => {
+  const state1 = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 3,
+    persistence: "device",
+    spaces: [],
+  };
+  let current = state1;
+  const bodies = [];
+  const windowRef = {
+    async fetch(path, options) {
+      if (path === "/__ordax/native/profile-activation-state") return response(current);
+      if (path === "/__ordax/native/session") return response({
+        profileActivationAvailable: true,
+        profileActivationToken: "t".repeat(32),
+      });
+      if (path === "/__ordax/native/profile-activation-command") {
+        const body = JSON.parse(options.body);
+        bodies.push(body);
+        if (body.action === "preview-activate") {
+          return response({
+            state: state1,
+            permissionDiff: {
+              schema: "ordax.profile-permission-diff/1",
+              componentAdds: [], componentRemovals: [], authorityChanges: [],
+              requiresExplicitReview: false,
+            },
+            permissionDiffSha256: "d".repeat(64),
+          });
+        }
+        return response({ state: { ...state1, revision: 5 } });
+      }
+      throw new Error("Unexpected Native path");
+    },
+  };
+  const port = await createNativeProfileActivationState(windowRef);
+  const intent = {
+    spaceId: "space-1",
+    spaceKind: "professional",
+    profile: { slug: "impressao-3d-br", version: 1 },
+    components: [],
+  };
+  const preview = await port.previewActivation(intent);
+  assert.equal(preview.expectedRevision, 3);
+  current = { ...state1, revision: 4 };
+  await port.refresh();
+  await assert.rejects(
+    () => port.activate({
+      ...intent,
+      expectedRevision: preview.expectedRevision,
+      acceptedPermissionDiffSha256: preview.permissionDiffSha256,
+    }),
+    (error) => error.status === 409,
+  );
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].action, "preview-activate");
+  assert.equal(port.getSnapshot().revision, 4);
+  port.dispose();
+});
+
+test("Reviewed Profile activation sends exactly the previewed revision on success", async () => {
+  const initial = {
+    schema: "ordax.profile-activation-state/1",
+    revision: 8,
+    persistence: "device",
+    spaces: [],
+  };
+  const requests = [];
+  const windowRef = {
+    async fetch(path, options) {
+      if (path === "/__ordax/native/profile-activation-state") return response(initial);
+      if (path === "/__ordax/native/session") return response({
+        profileActivationAvailable: true,
+        profileActivationToken: "t".repeat(32),
+      });
+      if (path === "/__ordax/native/profile-activation-command") {
+        const body = JSON.parse(options.body);
+        requests.push(body);
+        if (body.action === "preview-activate") {
+          return response({
+            state: initial,
+            permissionDiff: {
+              schema: "ordax.profile-permission-diff/1",
+              componentAdds: [], componentRemovals: [], authorityChanges: [],
+              requiresExplicitReview: false,
+            },
+            permissionDiffSha256: "e".repeat(64),
+          });
+        }
+        return response({ state: { ...initial, revision: 9 } });
+      }
+      throw new Error("Unexpected Native path");
+    },
+  };
+  const port = await createNativeProfileActivationState(windowRef);
+  const intent = {
+    spaceId: "space-1", spaceKind: "professional",
+    profile: { slug: "pizzaria-br", version: 1 }, components: [],
+  };
+  const preview = await port.previewActivation(intent);
+  await port.activate({
+    ...intent,
+    expectedRevision: preview.expectedRevision,
+    acceptedPermissionDiffSha256: preview.permissionDiffSha256,
+  });
+  assert.deepEqual(requests.map((body) => body.expectedRevision), [8, 8]);
+  assert.equal(requests[1].acceptedPermissionDiffSha256, "e".repeat(64));
+  assert.equal(port.getSnapshot().revision, 9);
+  port.dispose();
+});

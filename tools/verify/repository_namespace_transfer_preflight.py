@@ -239,9 +239,22 @@ def inspect(root: Path) -> dict:
     status = json.loads((root / STATUS_PATH).read_text(encoding="utf-8"))
     contract = validate_contracts(ownership, status)
     matches = tracked_references(root, f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}")
+    # The first namespace cutover is complete. On the final repository rename,
+    # the intermediate slug must stop being an operational authority too.
+    retired_slug = (
+        tracked_references(root, "ordaxsystems/prototipo-ordax-os")
+        if contract["destination"] == "ordaxsystems/ordax-os"
+        else {"operational_count": 0, "historical_count": 0,
+              "operational_paths": [], "historical_paths": []}
+    )
     pointer = release_pointer_integrity(root, contract["canonical"])
     snapshot = sdk_package_projection_integrity(root)
-    return {**contract, **matches, **pointer, **snapshot}
+    return {
+        **contract, **matches, **pointer, **snapshot,
+        "retired_slug_operational_count": retired_slug["operational_count"],
+        "retired_slug_operational_paths": retired_slug["operational_paths"],
+        "retired_slug_historical_count": retired_slug["historical_count"],
+    }
 
 
 def cutover_ready(report: dict, environ: dict[str, str]) -> tuple[bool, str]:
@@ -249,6 +262,12 @@ def cutover_ready(report: dict, environ: dict[str, str]) -> tuple[bool, str]:
         return False, "physical_transfer_and_ssot_cutover_not_completed"
     if report["operational_count"]:
         return False, "old_operational_owner_references_remaining"
+    if report["destination"] == "ordaxsystems/ordax-os":
+        count = report.get("retired_slug_operational_count")
+        if type(count) is not int or count < 0:
+            return False, "retired_slug_audit_not_proven"
+        if count:
+            return False, "intermediate_repository_slug_still_operational"
     if report.get("release_pointer_integrity_verified") is not True:
         return False, "release_pointer_identity_or_bootstrap_digest_mismatch"
     if report.get("sdk_package_projection_verified") is not True:
@@ -280,6 +299,9 @@ def main() -> int:
             "old_operational_file_count": report["operational_count"],
             "preserved_historical_file_count": report["historical_count"],
             "old_operational_paths_sample": report["operational_paths"][:args.max_paths],
+            "retired_slug_operational_file_count": report["retired_slug_operational_count"],
+            "retired_slug_historical_file_count": report["retired_slug_historical_count"],
+            "retired_slug_operational_paths_sample": report["retired_slug_operational_paths"][:args.max_paths],
             "release_pointer_integrity_verified": report["release_pointer_integrity_verified"],
             "release_pointer_sha256": report["release_pointer_sha256"],
             "bootstrap_pinned_sha256": report["bootstrap_pinned_sha256"],

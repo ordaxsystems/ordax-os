@@ -129,6 +129,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
                 "account-provider-cutover-incomplete",
                 "destination-account-gateway-deployment",
                 "destination-internal-gateway-runtime-proof",
+                "destination-service-auth-transport-proof",
                 "destination-vercel-oidc-project-binding",
                 "destination-vercel-oidc-runtime-proof",
                 "destination-active-legal-policy",
@@ -154,6 +155,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
                 "functional_provider_cutover_complete",
                 "public_account_gateway_deployed",
                 "internal_gateway_runtime_e2e_verified",
+                "destination_service_transport_runtime_verified",
                 "destination_vercel_oidc_binding_verified",
                 "destination_vercel_oidc_runtime_e2e_verified",
                 "active_legal_policy_present",
@@ -196,6 +198,15 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "destination-vercel-oidc-runtime-proof",
         ):
             self.assertIn(blocker, blockers)
+
+    def test_service_transport_cannot_be_inferred_from_staging_gateway_deployment(self):
+        hardening = preflight.load_json(ROOT, preflight.HARDENING)
+        stage = hardening["postgresql_destination"]
+        self.assertTrue(stage["internal_gateway_staging_deployed"])
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertFalse(stage["destination_service_transport_runtime_verified"])
+        blockers, _ = preflight.readiness(ROOT)
+        self.assertIn("destination-service-auth-transport-proof", blockers)
 
     def test_malformed_destination_evidence_fails_closed(self):
         temporary, root = self.fixture_root()
