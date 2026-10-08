@@ -30,19 +30,25 @@ function memoryStorage() {
 }
 
 function identitySession() {
-  const snapshot = {
+  let snapshot = {
     state: "signed-in",
     subjectId: "user-a",
     displayName: "User A",
   };
+  const listeners = new Set();
   return {
     schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot() {
       return snapshot;
     },
     subscribe(listener) {
+      listeners.add(listener);
       listener(snapshot);
-      return () => {};
+      return () => listeners.delete(listener);
+    },
+    switchTo(subjectId) {
+      snapshot = { state: "signed-in", subjectId, displayName: subjectId };
+      for (const listener of [...listeners]) listener(snapshot);
     },
   };
 }
@@ -227,6 +233,7 @@ function composition({
   onResolve = null,
   onArtifactIdentity = null,
   withArtifactBoundary = true,
+  identity = identitySession(),
 } = {}) {
   let runtime = null;
   const artifactInputs = withArtifactBoundary
@@ -241,7 +248,7 @@ function composition({
     : {};
   runtime = createNativePersonalOrdaxComposition({
     windowRef: { localStorage: memoryStorage() },
-    identitySession: identitySession(),
+    identitySession: identity,
     intelligence: intelligence(),
     applicationActionCapabilityRegistry: capabilityRegistry(),
     createApplicationActionPreparationId: () => "prep-provider-1",
@@ -458,4 +465,77 @@ test("Personal OrdaX fails closed when provider artifact boundary is not configu
   assert.equal(typeof runtime.executeApplicationAction, "undefined");
 
   runtime.dispose();
+});
+
+
+test("artifact resolution cannot return a stale provider across A -> B -> A identity switching", async () => {
+  const identity = identitySession();
+  let switched = false;
+  const runtime = composition({
+    identity,
+    onArtifactIdentity: async () => {
+      if (switched) return;
+      switched = true;
+      identity.switchTo("user-b");
+      identity.switchTo("user-a");
+    },
+  });
+  try {
+    const { preparation } = prepare(runtime);
+    await assert.rejects(
+      () => runtime.resolveApplicationActionProviderArtifact(preparation.resourceRef),
+      /changed|context|current/i,
+    );
+    assert.equal(runtime.resolveApplicationActionPreparation(preparation.resourceRef), null);
+    assert.equal(runtime.getSnapshot().approvals.length, 0);
+    assert.equal(typeof runtime.executeApplicationAction, "undefined");
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("provider activation cannot return prior-context result across A -> B -> A", async () => {
+  const identity = identitySession();
+  let switched = false;
+  const runtime = composition({
+    identity,
+    onResolve: async () => {
+      if (switched) return;
+      switched = true;
+      identity.switchTo("user-b");
+      identity.switchTo("user-a");
+    },
+  });
+  try {
+    const { preparation } = prepare(runtime);
+    await assert.rejects(
+      () => runtime.resolveApplicationActionProviderActivation(preparation.resourceRef),
+      /changed|context|current/i,
+    );
+    assert.equal(runtime.resolveApplicationActionPreparation(preparation.resourceRef), null);
+    assert.equal(runtime.getSnapshot().attempts.length, 0);
+    assert.equal(typeof runtime.activateApplicationActionProvider, "undefined");
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("explicit revocation during artifact hashing cannot leak an obsolete resolution", async () => {
+  const runtime = composition({
+    onArtifactIdentity: async (current) => {
+      for (const preparation of current.listApplicationActionPreparations("personal-work-1")) {
+        current.revokeApplicationActionPreparation(preparation.resourceRef);
+      }
+    },
+  });
+  try {
+    const { preparation } = prepare(runtime);
+    await assert.rejects(
+      () => runtime.resolveApplicationActionProviderArtifact(preparation.resourceRef),
+      /changed|context|current/i,
+    );
+    assert.equal(runtime.resolveApplicationActionPreparation(preparation.resourceRef), null);
+  } finally {
+    runtime.dispose();
+  }
 });
