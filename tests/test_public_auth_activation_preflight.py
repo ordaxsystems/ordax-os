@@ -99,10 +99,20 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
 
     def test_domain_identity_and_provider_redirects_use_deployment_ssot(self):
         blockers, _ = preflight.readiness(ROOT)
+        # DNS ownership, apex routing and www verification are now proven
+        # by the deployed public-site SSOT; they must no longer be blockers.
         for code in (
             "vercel-canonical-domain-ownership",
             "vercel-apex-dns-cutover",
             "vercel-www-domain-ownership",
+            "vercel-www-canonical-redirect",
+            "vercel-production-ready",
+            "vercel-production-http-proof",
+        ):
+            self.assertNotIn(code, blockers)
+
+        # A valid custom domain alone never enables the account runtime.
+        for code in (
             "vercel-production-environment",
             "vercel-production-account-routes",
             "vercel-production-oidc-proof",
