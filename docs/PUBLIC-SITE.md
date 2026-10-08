@@ -1,6 +1,6 @@
 # OrdaX Public Site
 
-Status: PUBLIC SITE PREVIEW READY / PRODUCTION NOT DEPLOYED (2026-10-08)
+Status: STATIC PRODUCTION READY / CANONICAL DOMAIN CLAIM AND PUBLIC ACCOUNT RUNTIME PENDING (2026-10-08)
 
 The public OrdaX site is a separate delivery surface from the OrdaX Web product mode.
 
@@ -231,11 +231,13 @@ The candidate workflow builds the site twice and compares outputs to protect det
 
 ### Canonical Vercel project and DNS cutover (2026-10-08)
 
-The Vercel team is `ordaxsystems` (`team_E3bdE137ZG3fhCGMmYuGKJ8o`), with the **single** public-site project `ordax-os-public` (`prj_mA9ew6hOfjdqlBr1cC757iMLPQJC`) linked to `ordaxsystems/ordax-os` on `main`. The project has a verified Vercel-assigned hostname (`ordax-os-public-tau.vercel.app`), **no production environment variables** and **no READY production deployment**. The protected preview `dpl_DiaSnV3d9tVCNoY5JkojYwpdRjRK` completed the `tools/public-site/build.py` check/build/verify sequence successfully; its artifact is `out/public-site`, including the generated release catalog. This is preview/build proof, not public OIDC runtime proof.
+The Vercel team is `ordaxsystems` (`team_E3bdE137ZG3fhCGMmYuGKJ8o`), with the **single** public-site project `ordax-os-public` (`prj_mA9ew6hOfjdqlBr1cC757iMLPQJC`) linked to `ordaxsystems/ordax-os` on `main`. The project has a verified Vercel-assigned hostname (`ordax-os-public-tau.vercel.app`) and **no production environment variables**. Static public-site production deployment `dpl_66jvy7HYTzGyevgnNawtTJfH2Bgq` is `READY` at source SHA `ddbaa362e2d586f76fd1ed878eb81414a5dee78a`, with `PUBLIC_SITE_BUILD=PASS` and `PUBLIC_SITE_VERIFY=PASS`; its deterministic artifact is `out/public-site`, including the empty authorized-release catalog. External HTTPS smoke tests of the assigned hostname returned `200` for the landing, download, runtime config and release catalog. `/auth/session` and `/sync/snapshot` both returned `503` (intentionally fail-closed); no signed production OIDC or public-account end-to-end runtime proof exists. The production deployment is **not evidence of the canonical custom-domain cutover or Account activation**.
+
+On 2026-10-08, `ordax.com.br` and `www.ordax.com.br` were attached to the new project as **unverified** project domains, with the latter configured for HTTP 308 to apex. The exact Vercel TXT challenges were added as additional records at `_vercel.ordax.com.br` in the existing authoritative Cloudflare zone, retaining the previous TXT records and all A/CNAME traffic records. Both new TXT values are publicly resolvable. **Vercel still reports `verified=false` for both project domains; the Verify & Claim action must complete before the DNS cutover is considered done. The apex still serves the old public site.**
 
 The historical `ordax-os-public.vercel.app` hostname is associated with a different Vercel team (verification returned 409). Never adopt that old team's OIDC identity, attempt an implicit transfer, or substitute the Vercel-assigned `-tau` hostname as production origin. The intended public domain is `ordax.com.br`, subject to an approved origin/identity cutover. At this observation date, the authoritative DNS zone for `ordax.com.br` is **active in the earlier Cloudflare account**, not in the new OrdaX Cloudflare account. Its apex, `www` and Vercel ownership TXT records already exist, as does the independent `catalogo-media` CNAME. Do not overwrite those records or swap nameservers from this site project.
 
-Before any production deployment or DNS change:
+Before custom-domain cutover, Account activation or re-enabling automatic production deployments:
 
 1. Coordinate with the Cloudflare/DNS owner to inventory and migrate all required zone records and DNS verification **without changing public routing early**.
 2. Resolve Vercel domain ownership with the existing owner and attach the approved final HTTPS domain to this exact project; validate certificates and routing. Do not modify another team's Vercel project.
