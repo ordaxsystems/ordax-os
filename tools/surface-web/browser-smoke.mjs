@@ -528,6 +528,98 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.spaceSwitcherWebFailsClosed = root.querySelectorAll('[data-space-switcher-select]').length === 0;
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     result.spaceSwitcherEscapeCloses = spaceTrigger?.getAttribute('aria-expanded') === 'false';
+    spaceTrigger?.focus();
+    spaceTrigger?.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowDown', bubbles: true, cancelable: true,
+    }));
+    const manageSpaces = root.querySelector('[data-space-switcher-manage]');
+    result.spaceSwitcherKeyboardOpens = spaceTrigger?.getAttribute('aria-expanded') === 'true';
+    result.spaceSwitcherKeyboardFocusesAction = Boolean(manageSpaces)
+      && document.activeElement === manageSpaces;
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    result.spaceSwitcherKeyboardRestoresFocus = spaceTrigger?.getAttribute('aria-expanded') === 'false'
+      && document.activeElement === spaceTrigger;
+
+    // Exercise a real interactive Native-style port in Chromium, with a
+    // transient selection failure. This fixture never touches product storage.
+    const pickerModule = await import(namespaceUrls['composition-first']['system/surface/ui/space-switcher-controls.mjs']);
+    const pickerHost = document.createElement('div');
+    pickerHost.innerHTML = '<div data-space-switcher-slot></div>';
+    document.body.append(pickerHost);
+    const pickerSpace = {
+      id: 'picker-space', name: 'Pizzaria teste', kind: 'professional',
+      state: 'active', ownerId: 'picker-subject', profilePack: null,
+    };
+    const pickerSession = { state: 'signed-in', subjectId: 'picker-subject', displayName: 'Teste' };
+    const pickerCatalog = { schema: 'ordax.spaces-snapshot/1', state: 'ready', spaces: [pickerSpace] };
+    let pickerSelection = {
+      schema: 'ordax.space-selection/1', state: 'unselected',
+      subjectId: 'picker-subject', selectedSpace: null,
+    };
+    let pickerFailures = 1;
+    const pickerPort = {
+      schema: 'ordax.space-selection/1',
+      getSnapshot() { return pickerSelection; },
+      subscribe(listener) { listener(pickerSelection); return () => {}; },
+      select(spaceId) {
+        if (pickerFailures-- > 0) throw new Error('selection temporarily unavailable');
+        if (spaceId !== pickerSpace.id) throw new Error('invalid selection');
+        pickerSelection = { ...pickerSelection, state: 'selected', selectedSpace: pickerSpace };
+        return pickerSelection;
+      },
+      clear() {},
+    };
+    const pickerControls = pickerModule.mountSpaceSwitcherControls(
+      pickerHost,
+      {
+        schema: 'ordax.identity-session/1',
+        getSnapshot() { return pickerSession; },
+        subscribe(listener) { listener(pickerSession); return () => {}; },
+      },
+      {
+        schema: 'ordax.spaces/1',
+        getSnapshot() { return pickerCatalog; },
+        subscribe(listener) { listener(pickerCatalog); return () => {}; },
+        async refresh() { return pickerCatalog; },
+        reset() {},
+      },
+      pickerPort,
+      { schema: 'ordax.app-activation/1', publish() {}, subscribe() { return () => {}; } },
+      {
+        schema: 'ordax.surface-render-lifecycle/5',
+        getAppTarget() { return null; },
+        setAppTarget() {},
+        subscribeRender() { return () => {}; },
+        localization: {
+          schema: 'ordax.localization/2',
+          getLocale() { return 'pt-BR'; },
+          getProfile() {
+            return { schema: 'ordax.locale-profile/1', locale: 'pt-BR',
+              language: 'pt', script: 'Latn', region: 'BR', direction: 'ltr' };
+          },
+          translate(key) { return key; },
+          subscribe() { return () => {}; },
+        },
+      },
+    );
+    pickerHost.querySelector('[data-space-switcher-toggle]').click();
+    pickerHost.querySelector('[data-space-switcher-select="picker-space"]').click();
+    result.spaceSwitcherFailedOptionEnabled =
+      pickerHost.querySelector('[data-space-switcher-select="picker-space"]')?.disabled === false;
+    result.spaceSwitcherFailedFeedback = Boolean(pickerHost.querySelector('[role="alert"]'));
+    result.spaceSwitcherFailureMenuOpen =
+      pickerHost.querySelector('#ordax-space-switcher-menu')?.hidden === false;
+    result.spaceSwitcherFailureKeepsOptions =
+      result.spaceSwitcherFailedOptionEnabled
+      && result.spaceSwitcherFailedFeedback
+      && result.spaceSwitcherFailureMenuOpen;
+    pickerHost.querySelector('[data-space-switcher-select="picker-space"]').click();
+    result.spaceSwitcherRetrySucceeds = pickerSelection.state === 'selected'
+      && pickerHost.querySelector('[data-space-switcher-toggle]')?.getAttribute('aria-expanded') === 'false';
+    pickerControls.destroy();
+    result.spaceSwitcherFixtureCleaned = pickerHost.querySelector('[data-space-switcher-toggle]') === null;
+    pickerHost.remove();
+
     const bootScreen = document.querySelector('#ordax-boot-screen');
     result.bootScreenCompleted = bootScreen?.hidden === true
       && bootScreen?.dataset.state === 'ready';
@@ -863,7 +955,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.systemOverviewRestored = restoredSystemSlot?.dataset.systemActiveSection === 'overview';
 
     const required = [
-      'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
+      'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'spaceSwitcherFailureKeepsOptions', 'spaceSwitcherRetrySucceeds', 'spaceSwitcherFixtureCleaned', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',

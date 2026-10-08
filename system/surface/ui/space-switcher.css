@@ -76,7 +76,7 @@
   white-space: nowrap;
 }
 
- .ordax-space-switcher-trigger[data-profile-configured="true"] .ordax-space-switcher-mark {
+.ordax-space-switcher-trigger[data-profile-configured="true"] .ordax-space-switcher-mark {
   border-color: color-mix(in srgb, var(--ordax-accent) 72%, var(--ordax-border));
   background: color-mix(in srgb, var(--ordax-accent) 20%, var(--ordax-panel));
 }
@@ -176,6 +176,17 @@
 .ordax-space-switcher-check {
   color: var(--ordax-accent);
   font-weight: 800;
+}
+
+.ordax-space-switcher-feedback {
+  margin: 0 8px 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  color: var(--ordax-text);
+  background: var(--ordax-subtle-bg);
+  font-size: 0.73rem;
+  line-height: 1.5;
 }
 
 .ordax-space-switcher-empty {
