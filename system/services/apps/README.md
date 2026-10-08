@@ -37,6 +37,12 @@ The Native catalog verifier owns signature verification **and** anti-replay pers
 
 `verified-store-projection.mjs` is deliberately derived state. It reads only the verified catalog plus the Native `current` activation metadata exposed by the canonical runtime-component activation owner. It never scans slot directories, never treats cache presence as installation, and never writes a parallel inventory. An installed external app remains removable even if a later verified catalog no longer advertises it; catalog drift, unavailable activation metadata, unknown delivery policy and bundled/component-slot conflicts fail closed as blocked presentation.
 
+## First-party utilities in the verified Store boundary
+
+The canonical `ordaxsystems/ordax-apps` repository has independent unsigned candidate packages for basic utility apps (Calculator, Clock, Converter, Text Viewer, Image Viewer, Calendar, Colors, Character Map, Paint, Media Player, PDF Viewer and Toolbox). The platform's `delivery-policy.mjs` now explicitly recognizes those product IDs as **on-demand / store-only**, so a **future signed and verified** Store catalog can project them without an accidental `first-party-delivery-policy-unavailable` blocker.
+
+This extension is *not* an expansion of the initial public USB MVP application payload. `mvp-delivery-policy.mjs` continues to define the six initial on-demand products, plus Files/Internet bootstrap and structural surfaces; additional policies must remain `store-only`. New on-demand policies do **not** publish candidates, select artifacts, authorize a signer or enable the native lifecycle executor. Unknown app IDs, unsigned catalogs and unavailable Native activation metadata still fail closed. The Store UI remains disabled for the public MVP under its existing contract. No app source is copied from the platform by adding a delivery policy.
+
 ## MVP launch delivery
 
 `mvp-delivery-policy.mjs` owns the launch intent and `docs/contracts/mvp-app-delivery.json` records it for release tooling.
