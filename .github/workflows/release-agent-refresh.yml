@@ -138,7 +138,7 @@ jobs:
           echo 'PHYSICAL_WRITE_AUTHORIZED=NO'
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/prototipo-ordax-os'
     needs: verify
     runs-on: ubuntu-24.04
     permissions:
@@ -155,6 +155,13 @@ jobs:
           go-version: '1.27.1'
           check-latest: false
           cache: false
+
+      - name: Enforce immutable repository identity before release publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'ordaxsystems/prototipo-ordax-os'
+          test "$GITHUB_REPOSITORY_ID" = '1371063347'
 
       - name: Rebuild exact immutable asset
         run: |
