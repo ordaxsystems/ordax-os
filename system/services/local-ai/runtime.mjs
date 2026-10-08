@@ -2,6 +2,7 @@ import {
   LOCAL_AI_MAX_COMPLETION_RESPONSE_BYTES,
   LOCAL_AI_MAX_MODEL_DISCOVERY_BYTES,
   LOCAL_AI_PORT_SCHEMA,
+  LOCAL_AI_NATIVE_ENDPOINT,
   validateLocalAiEngineId,
   validateLocalAiModelId,
   validateLocalAiRequest,
@@ -20,6 +21,9 @@ function normalizeEndpoint(value) {
     throw new TypeError("Local AI endpoint must be literal 127.0.0.1 HTTP");
   }
   const raw = value.trim();
+  // Native Surface uses its own already-authorized same-origin Host gateway.
+  // No arbitrary relative URL, external host or generic proxy is permitted.
+  if (raw === LOCAL_AI_NATIVE_ENDPOINT) return raw;
   if (!LITERAL_LOOPBACK_ENDPOINT_RE.test(raw)) {
     throw new TypeError("Local AI endpoint must be literal 127.0.0.1 HTTP");
   }
