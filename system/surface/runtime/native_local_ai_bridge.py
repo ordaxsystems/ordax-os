@@ -28,6 +28,10 @@ class NativeLocalAiError(ValueError):
     pass
 
 
+class NativeLocalAiUpstreamError(NativeLocalAiError):
+    pass
+
+
 def _bounded_text(value: object, maximum: int) -> bool:
     return (
         isinstance(value, str)
@@ -110,20 +114,20 @@ def forward_local_ai(method: str, suffix: str, body: bytes = b"") -> tuple[int, 
         if method == "GET" and suffix == "/health":
             return 200, b""
         if reply.getheader("Content-Encoding", "identity").lower() != "identity":
-            raise NativeLocalAiError("compressed upstream response is not allowed")
+            raise NativeLocalAiUpstreamError("compressed upstream response is not allowed")
         declared = reply.getheader("Content-Length")
         if declared is not None:
             if not declared.isascii() or not declared.isdecimal() or int(declared) > max_response:
-                raise NativeLocalAiError("invalid upstream response length")
+                raise NativeLocalAiUpstreamError("invalid upstream response length")
         payload = reply.read(max_response + 1)
         if len(payload) > max_response:
-            raise NativeLocalAiError("local AI response exceeded byte budget")
+            raise NativeLocalAiUpstreamError("local AI response exceeded byte budget")
         try:
             json.loads(payload.decode("utf-8", errors="strict"))
         except (ValueError, UnicodeDecodeError) as exc:
-            raise NativeLocalAiError("invalid upstream JSON") from exc
+            raise NativeLocalAiUpstreamError("invalid upstream JSON") from exc
         return 200, payload
     except (OSError, socket.timeout, TimeoutError, http.client.HTTPException) as exc:
-        raise NativeLocalAiError("local AI backend unavailable") from exc
+        raise NativeLocalAiUpstreamError("local AI backend unavailable") from exc
     finally:
         connection.close()
