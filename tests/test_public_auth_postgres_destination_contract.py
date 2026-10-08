@@ -55,8 +55,12 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             path = SOURCE / name
             self.assertTrue(path.is_file(), f"missing canonical migration: {name}")
             sql = path.read_text(encoding="utf-8").lower()
-            self.assertTrue(sql.lstrip().startswith("begin;"))
-            self.assertTrue(sql.rstrip().endswith("commit;"))
+            statements = [
+                line.strip() for line in sql.splitlines()
+                if line.strip() and not line.lstrip().startswith("--")
+            ]
+            self.assertEqual(statements[0], "begin;")
+            self.assertEqual(statements[-1], "commit;")
             sources[name] = sql
 
         registration = next(
