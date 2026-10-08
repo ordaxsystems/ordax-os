@@ -21,6 +21,7 @@ import {
 } from "./delivery-policy.mjs";
 import {
   listExternalFirstPartyComponentIds,
+  hasNativeExternalFirstPartyModuleRead,
 } from "./external-first-party-policy.mjs";
 
 const REQUEST_OPTIONS = Object.freeze({
@@ -100,6 +101,16 @@ function projectEntry({ appId, candidate, current, policy }) {
         reason: "structural-app-cannot-use-store-lifecycle",
       });
     }
+    // A verified package does not imply the Native host can read its runtime.
+    // Derive this capability from the same generated SSOT as the lifecycle gate.
+    if (!hasNativeExternalFirstPartyModuleRead(appId)) {
+      return blockedEntry({
+        appId,
+        title,
+        candidate,
+        reason: "runtime-module-read-unavailable",
+      });
+    }
     return {
       appId,
       title,
@@ -149,6 +160,18 @@ function projectEntry({ appId, candidate, current, policy }) {
   }
 
   if (componentVersionIsNewer(candidate.version, installedVersion)) {
+    // Installed state is still canonical and uninstall may remain valid,
+    // even if the host cannot load the newer candidate.
+    if (!hasNativeExternalFirstPartyModuleRead(appId)) {
+      return blockedEntry({
+        appId,
+        title,
+        installedVersion,
+        candidate,
+        reason: "runtime-module-read-unavailable",
+        removable: policy.removable,
+      });
+    }
     return {
       appId,
       title,
