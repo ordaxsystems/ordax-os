@@ -257,9 +257,10 @@ test("Assistant invokes automatic Memory capture after a successful response wit
 
   const response = await conversation.send("Prefiro respostas curtas.");
   assert.equal(response.text, "ok");
-  assert.deepEqual(turns, [{
-    userText: "Prefiro respostas curtas.",
-  }]);
+  assert.equal(turns.length, 1);
+  assert.equal(turns[0].userText, "Prefiro respostas curtas.");
+  assert.equal(typeof turns[0].isContextCurrent, "function");
+  assert.equal(turns[0].isContextCurrent(), true);
   assert.equal(conversation.getSnapshot().memoryCaptureState, "captured");
   conversation.dispose();
 });
