@@ -3406,7 +3406,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if urlsplit(self.path).query or self.path != parsed_path:
             self._empty(400)
             return
-        if self.server.local_session_locked:
+        # Read-only readiness/discovery remains available while the screen is
+        # locked; otherwise a one-shot boot probe cannot recover on unlock.
+        if method == "POST" and self.server.local_session_locked:
             self._empty(423)
             return
         body = b""
