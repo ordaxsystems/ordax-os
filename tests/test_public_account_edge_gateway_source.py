@@ -160,7 +160,11 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
 
     def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
         self.assertIn("function trustedPublicSiteRequest(req: Request)", self.inner)
-        self.assertIn('req.headers.get("apikey")', self.inner)
+        helper = (
+            ROOT / "infra" / "supabase" / "functions" / "_shared"
+            / "account_service_bridge.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn('headers?.get?.("apikey")', helper)
         self.assertIn(
             'import { authenticatedAccountBridge } from "../_shared/account_service_bridge.mjs"',
             self.inner,
