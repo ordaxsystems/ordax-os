@@ -79,6 +79,11 @@ function readConversationScope(identity, selection, profileActivation) {
   try {
     const account = validateIdentitySessionSnapshot(identity.getSnapshot());
     const space = validateSpaceSelectionSnapshot(selection.getSnapshot());
+    if (account.state === "unavailable") {
+      // Account service may be unconfigured or offline. Keep local inference usable,
+      // but never reuse account/Space history or imply authenticated Memory access.
+      return space.state === "unavailable" ? "device:identity-unavailable" : null;
+    }
     if (account.state === "signed-out") {
       return space.state === "unavailable" ? "device:signed-out" : null;
     }
