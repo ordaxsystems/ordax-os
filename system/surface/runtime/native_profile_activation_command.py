@@ -275,7 +275,7 @@ def execute_profile_activation_command(
         if action == "preview-activate":
             state = read_profile_activation_state(state_path)
             if state["revision"] != expected_revision:
-                raise ValueError("Profile activation preview revision is stale")
+                raise RuntimeError("Profile activation preview revision changed")
             return {
                 "schema": COMMAND_SCHEMA,
                 "action": action,
