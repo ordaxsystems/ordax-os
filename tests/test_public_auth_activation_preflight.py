@@ -178,6 +178,30 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    def test_missing_or_empty_destination_evidence_fails_closed(self):
+        for missing_value in (None, {}):
+            temporary, root = self.fixture_root()
+            try:
+                path = root / preflight.HARDENING
+                hardening = preflight.load_json(root, preflight.HARDENING)
+                if missing_value is None:
+                    hardening.pop("postgresql_destination")
+                else:
+                    hardening["postgresql_destination"] = missing_value
+                path.write_text(
+                    __import__("json").dumps(hardening, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                if missing_value is None:
+                    with self.assertRaisesRegex(ValueError, "postgresql_destination"):
+                        preflight.readiness(root)
+                else:
+                    blockers, _ = preflight.readiness(root)
+                    self.assertIn("account-provider-cutover-target-mismatch", blockers)
+                    self.assertIn("destination-sync-export-db-proof", blockers)
+            finally:
+                temporary.cleanup()
+
     def test_public_login_legal_receipt_guard_deployment_is_mandatory(self):
         temporary, root = self.fixture_root()
         try:
