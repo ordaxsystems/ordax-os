@@ -715,3 +715,28 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Intelligence settings only inspect canonical runtime state; no model install
+   authority or parallel preferences subsystem is exposed by this button. */
+.ordax-settings-intelligence-action {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 42px;
+  padding: 0 var(--ordax-space-4);
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-button-bg);
+  color: var(--ordax-button-text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.ordax-settings-intelligence-action:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 3px;
+}
+.ordax-settings-intelligence-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

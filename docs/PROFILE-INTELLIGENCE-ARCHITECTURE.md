@@ -44,6 +44,16 @@ O caminho sem consulta preserva a compatibilidade com o leitor existente. A perg
 
 **Limite de prontidão:** esta busca lexical não é RAG vetorial, não garante a melhor resposta nem substitui citations com licenças e fontes visíveis. Ainda faltam índice vetorial derivado, chunking semântico, avaliações de recall/latência, interface de fontes, atualização/revogação de índice e prova de desempenho com centenas de packs. Nenhum conteúdo comercial é elegível como Knowledge profissional.
 
+## Fundação de classificação vetorial local (ainda sem embeddings operacionais)
+
+O contrato existente `ordax.semantic-index/1` dispõe de identidade de proprietário, Space, projeto, modelo, SHA-256 de artefato, dimensão, métrica e vinculação ao hash do conteúdo-fonte. O classificador puro `system/services/intelligence/semantic-retrieval.mjs` foi acrescentado para preparar o futuro índice reconstruível, **sem** criar um segundo armazenamento de Memory ou Knowledge.
+
+O classificador recebe somente registros já indexados e fontes **previamente autorizadas pelo owner canônico**. Faz conferência de escopo exato, hash de conteúdo, identidade do índice, dimensões, valores finitos e orçamento de cálculo; calcula distância cosine/dot/l2, ordena deterministicamente e retorna somente IDs e scores. Registros fora do escopo nem sequer têm seus vetores examinados. Troca de modelo ou SHA-256 do artefato exige reconstrução total do índice derivado e retorna `rebuild-required`.
+
+**Esta API não é uma decisão de autorização.** Quem a utilizar deve passar o conjunto de fontes já filtrado por direitos atuais do usuário, e revalidar a sessão/Space/Profile antes de resolver texto ou enviar ao modelo. O uso incorreto da lista de fontes autorizadas não pode ser compensado por similaridade vetorial.
+
+Ainda não existe geração local de embeddings, provisionamento de modelo assinado, persistência de registros vetoriais, atualização atômica ou integração desse classificador com o fluxo de respostas do Jarvis. A busca lexical Native permanece a única recuperação operacional. Na próxima etapa, conectar apenas após prova real do artefato de embeddings, owner de índice, performance e fallback, com consentimento de qualquer acesso cloud.
+
 ## Regras de segurança que não podem regredir
 
 1. A seleção do Space é **contexto**, não autenticação ou autorização. A projeção canônica `system/services/spaces/authorized-view.mjs` exige sessão assinada, catálogo pronto, `subjectId`, Space ativo e correspondência do `spaceKind`.
@@ -66,6 +76,7 @@ O caminho sem consulta preserva a compatibilidade com o leitor existente. A perg
 | 2 | Memória persistente segregada por owner/Space e recuperação lexical autorizada | Existe; exige provas físicas | `system/services/memory` |
 | 3 | Proteção contra troca assíncrona de conta/Space na consulta de Profile | Implementada nesta etapa; CI/merge devem validar | `system/services/intelligence/profile-content.mjs` |
 | 3a | Busca lexical local por consulta em todas as entradas de Knowledge/Skill verificadas, com ordenação determinística, fragmentos relevantes e limite de oito itens | Implementação inicial nesta PR; exige CI e prova Native em hardware | Native Profile Content + Intelligence |
+| 3b | Classificador vetorial puro com escopo, SHA, orçamento e rebuild-required, sem modelo conectado | Fundação pronta nesta PR; integração operacional pendente | Intelligence + contrato Semantic Index |
 | 4 | Indexador local verificável (embedding model aprovado, chunk IDs determinísticos, content SHA, ACL e rebuild atômico) | **Não implementado** | Intelligence/Memory + storage owner |
 | 5 | Busca híbrida lexical + vetorial, ranking por relevância, citações e fallback offline | **Não implementado** | Intelligence retrieval owner |
 | 6 | UI de conhecimento profissional: fontes, versões, licença, última atualização, controles de exclusão/reindexação | **Não implementado** | Account/Profiles na Surface |
