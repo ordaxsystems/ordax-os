@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readBoundedBody } from "../infra/supabase/functions/ordax-public-account-gateway/bounded_body.mjs";
+import { readBoundedBody } from "../infra/supabase/functions/_shared/bounded_body.mjs";
 
 function streamOf(...chunks) {
   return new ReadableStream({
