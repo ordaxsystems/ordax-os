@@ -736,7 +736,7 @@ test("Native model proposal cannot survive an A -> B -> A owner round trip", asy
     identity.switchTo("user-b");
     identity.switchTo("user-a");
     complete();
-    await assert.rejects(pending, /owner or context changed/);
+    await assert.rejects(pending, /owner changed|context changed/);
     assert.throws(() => runtime.requestProposedAction(issued), /owner or context/);
     assert.equal(runtime.getSnapshot().approvals.length, 0);
   } finally {
