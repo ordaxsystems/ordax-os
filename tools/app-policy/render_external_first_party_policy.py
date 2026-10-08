@@ -58,8 +58,8 @@ def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...]]:
     if (
         not isinstance(native_ids, list)
         or not native_ids
-        or len(native_ids) != len(set(native_ids))
         or any(not isinstance(app_id, str) or not APP_ID_RE.fullmatch(app_id) for app_id in native_ids)
+        or len(native_ids) != len(set(native_ids))
     ):
         raise PolicyGenerationError("Native module-read scope in canonical policy is invalid")
     # These IDs are a necessary (not sufficient) runtime module-read gate.
