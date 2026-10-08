@@ -553,6 +553,94 @@ test("Profile-content wrapper rejects a cross-Space response from its reader", a
   assert.equal(ai.requests.length, 0);
 });
 
+
+test("Updating the Profile Pack in the same Space during a Knowledge read rejects stale instructions", async () => {
+  const ai = intelligencePort();
+  const activeSpace = {
+    id: "space-one", ownerId: "user-1", name: "One",
+    kind: "professional", state: "active", profilePack: "developer",
+  };
+  const selection = spaceSelectionPort({
+    schema: SPACE_SELECTION_SCHEMA, state: "selected",
+    subjectId: "user-1", selectedSpace: activeSpace,
+  });
+  const auth = authorizedContext(selection);
+  let start; let finish;
+  const entered = new Promise((resolve) => { start = resolve; });
+  const waiting = new Promise((resolve) => { finish = resolve; });
+  const port = createSelectedSpaceProfileContentIntelligence({
+    intelligencePort: ai,
+    spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
+    profileContentContextPort: {
+      schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+      async read(spaceId) {
+        start();
+        await waiting;
+        return context(spaceId, [{
+          id: "dev-old", scope: "workspace",
+          text: "Old professional instructions",
+          provenance: "profile-content:knowledge-pack:verified",
+        }]);
+      },
+    },
+  });
+  const pending = port.respond({ prompt: "Como proceder?" });
+  await entered;
+  auth.setActivation({
+    schema: "ordax.profile-activation-state/1",
+    revision: 2,
+    persistence: "device",
+    spaces: [{
+      spaceId: activeSpace.id, spaceKind: activeSpace.kind,
+      current: {
+        profile: { slug: "impressao-3d-br", version: 1 },
+        components: [], activatedAt: 200,
+      },
+      previous: {
+        profile: { slug: "developer", version: 1 },
+        components: [], activatedAt: 100,
+      },
+    }],
+  });
+  finish();
+  await assert.rejects(pending, /activation changed while reading context/);
+  assert.equal(ai.requests.length, 0);
+});
+
+test("Professional Knowledge from an inactive Profile is rejected on the same authorized Space", async () => {
+  const ai = intelligencePort();
+  const selection = spaceSelectionPort({
+    schema: SPACE_SELECTION_SCHEMA, state: "selected", subjectId: "user-1",
+    selectedSpace: {
+      id: "space-1", ownerId: "user-1", name: "A",
+      kind: "professional", state: "active", profilePack: "developer",
+    },
+  });
+  const auth = authorizedContext(selection);
+  const port = createSelectedSpaceProfileContentIntelligence({
+    intelligencePort: ai,
+    spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
+    profileContentContextPort: {
+      schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+      async read(spaceId) {
+        return context(spaceId, [{
+          id: "wrong-pack", scope: "workspace",
+          text: "Instructions for another profile",
+          provenance: "profile-content:knowledge-pack:verified",
+        }], { slug: "pizzaria-br", version: 1 });
+      },
+    },
+  });
+  await assert.rejects(() => port.respond({ prompt: "teste" }), /inactive Profile/);
+  assert.equal(ai.requests.length, 0);
+});
+
 test("Native Profile context capability is explicit and bounded", async () => {
   const requests = [];
   const enabled = await readNativeProfileContentContextCapability({
