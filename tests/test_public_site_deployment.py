@@ -91,13 +91,24 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             dependency_change = commit("dependency changed")
             self.assertEqual(ignored(shared_change, dependency_change), 1)
 
+            write("platform/releases/publications.json", '{"status":"no-public-releases","releases":[]}')
+            releases_change = commit("public release owner changed")
+            self.assertEqual(ignored(dependency_change, releases_change), 1)
+
+            write("tools/public-site/build.py", "# canonical site builder changed")
+            builder_change = commit("canonical site builder changed")
+            self.assertEqual(ignored(releases_change, builder_change), 1)
+
     def test_vercel_migration_target_is_dedicated_and_fail_closed(self):
         migration = self.contract["vercel_migration"]
-        self.assertEqual(migration["status"], "target-team-provisioning-pending")
+        self.assertEqual(migration["status"], "target-project-git-linked-runtime-pending")
         self.assertEqual(migration["target_account_email"], "ordaxos@gmail.com")
         self.assertEqual(migration["target_team_slug"], "ordaxsystems")
         self.assertEqual(migration["target_project"], "ordax-os-public")
         self.assertEqual(migration["target_github_organization"], "ordaxsystems")
+        self.assertEqual(migration["target_github_repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(migration["target_team_id"], "team_E3bdE137ZG3fhCGMmYuGKJ8o")
+        self.assertEqual(migration["target_project_id"], "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC")
         self.assertFalse(migration["personal_scope_allowed"])
         self.assertFalse(migration["legacy_team_allowed_after_cutover"])
         self.assertFalse(migration["shared_secret_fallback_allowed"])
@@ -247,7 +258,9 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(public_edge_rate_limit["shared_policy_deployed"])
 
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
-        self.assertEqual(self.vercel["outputDirectory"], "sites/public")
+        self.assertEqual(self.vercel["outputDirectory"], "out/public-site")
+        self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/public-site")
+        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
