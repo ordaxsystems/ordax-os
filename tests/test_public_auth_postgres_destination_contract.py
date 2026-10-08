@@ -95,7 +95,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         stage = self.destination
         self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(stage["internal_gateway_staging_deployed"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 4)
+        self.assertEqual(stage["internal_gateway_staging_version"], 5)
         self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
@@ -181,7 +181,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertTrue(stage["destination_transport_admission_deployed"])
         self.assertFalse(stage["destination_transport_admission_negative_http_verified"])
         self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 4)
+        self.assertEqual(stage["internal_gateway_staging_version"], 5)
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
         self.assertFalse(stage["destination_named_bridge_key_provisioned"])
@@ -198,11 +198,11 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("authorizeAccountTransport(req, path", gateway)
         self.assertIn("supabase.auth.getUser(access)", gateway)
 
-    def test_staging_v4_route_and_sync_fixes_are_deployed_without_public_release(self):
+    def test_staging_v5_exact_shared_route_and_sync_fixes_are_deployed_without_public_release(self):
         stage = self.destination
         self.assertTrue(stage["internal_gateway_route_prefix_hardening_deployed"])
         self.assertTrue(stage["internal_gateway_sync_mutation_object_guard_deployed"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 4)
+        self.assertEqual(stage["internal_gateway_staging_version"], 5)
         self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["destination_transport_admission_negative_http_verified"])
@@ -220,6 +220,8 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             / "ordax-account-gateway" / "index.ts"
         ).read_text(encoding="utf-8")
         self.assertIn('pathname.startsWith(prefix + "/")', owner)
+        self.assertIn("export function stripEdgeFunctionPrefix(", owner)
+        self.assertIn('return stripEdgeFunctionPrefix(pathname, "ordax-account-gateway")', owner)
         self.assertIn('accountGatewayRoutePath(url.pathname)', gateway)
         self.assertIn('if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))', gateway)
 
