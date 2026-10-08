@@ -7,7 +7,17 @@ import {
 } from "../../contracts/intelligence.mjs";
 import {
   assertProfileContentContextPort,
+  validateProfileContentContext,
 } from "../../contracts/profile-content-context.mjs";
+import { assertIdentitySessionPort, validateIdentitySessionSnapshot } from "../../contracts/identity-session.mjs";
+import { assertSpacesPort, validateSpacesSnapshot } from "../../contracts/spaces.mjs";
+import { deriveAuthorizedSpaces } from "../spaces/authorized-view.mjs";
+import {
+  assertProfileActivationStatePort,
+  currentProfileForSpace,
+  validateProfileActivationState,
+} from "../../contracts/profile-activation-state.mjs";
+import { PROFILE_CONTENT_CONTEXT_PORT_SCHEMA } from "../../contracts/profile-content-context.mjs";
 import {
   assertSpaceSelectionPort,
   validateSpaceSelectionSnapshot,
@@ -55,7 +65,11 @@ export function createProfileContentIntelligence({
   const respondForSpace = async (value, spaceId) => {
     const request = validateIntelligenceRequest(value);
     const normalizedSpaceId = boundedSpaceId(spaceId);
-    const profile = await profileContext.read(normalizedSpaceId);
+
+    const profile = validateProfileContentContext(await profileContext.read(normalizedSpaceId));
+    if (profile.spaceId !== normalizedSpaceId) {
+      throw new Error("Profile-content Intelligence Space identity changed");
+    }
 
     const remainingItems = INTELLIGENCE_MAX_CONTEXT_ITEMS - request.context.length;
     const usedChars = request.context.reduce((total, entry) => total + entry.text.length, 0);
@@ -109,14 +123,15 @@ export function createSelectedSpaceProfileContentIntelligence({
   intelligencePort,
   profileContentContextPort,
   spaceSelectionPort,
+  identitySessionPort,
+  spacesPort,
+  profileActivationStatePort,
 } = {}) {
   const intelligence = assertIntelligencePort(intelligencePort);
   const selection = assertSpaceSelectionPort(spaceSelectionPort);
-  const profileIntelligence = createProfileContentIntelligence({
-    intelligencePort: intelligence,
-    profileContentContextPort,
-  });
-
+  const identity = assertIdentitySessionPort(identitySessionPort);
+  const spaces = assertSpacesPort(spacesPort);
+  const activation = assertProfileActivationStatePort(profileActivationStatePort);
   return Object.freeze({
     schema: INTELLIGENCE_PORT_SCHEMA,
     getSnapshot() {
@@ -125,12 +140,79 @@ export function createSelectedSpaceProfileContentIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    respond(value) {
-      const snapshot = validateSpaceSelectionSnapshot(selection.getSnapshot());
-      if (snapshot.state !== "selected") {
-        return intelligence.respond(validateIntelligenceRequest(value));
+    async respond(value) {
+      const request = validateIntelligenceRequest(value);
+      const currentSpace = () => {
+        const currentIdentity = validateIdentitySessionSnapshot(identity.getSnapshot());
+        const currentCatalog = validateSpacesSnapshot(spaces.getSnapshot());
+        const currentSelection = validateSpaceSelectionSnapshot(selection.getSnapshot());
+        return deriveAuthorizedSpaces(currentIdentity, currentCatalog, currentSelection).activeSpace;
+      };
+      const selected = validateSpaceSelectionSnapshot(selection.getSnapshot());
+      if (selected.state !== "selected") {
+        // With no selected Space, consult the generic model without a profile.
+        return intelligence.respond(request);
       }
-      return profileIntelligence.forSpace(snapshot.selectedSpace.id).respond(value);
+      const authorized = currentSpace();
+      if (!authorized) {
+        throw new Error("Profile-content Intelligence requires the current authorized Space");
+      }
+      // A response from a slow Knowledge Pack read belongs to the original
+      // authenticated subject and Space, not whichever user opens the UI later.
+      const spaceId = authorized.id;
+      const subjectId = selected.subjectId;
+      const currentActivation = validateProfileActivationState(activation.getSnapshot());
+      const activeProfile = currentProfileForSpace(currentActivation, authorized);
+      const assertStableActivation = () => {
+        const next = validateProfileActivationState(activation.getSnapshot());
+        const profile = currentProfileForSpace(next, authorized);
+        if (
+          next.revision !== currentActivation.revision
+          || profile?.slug !== activeProfile?.slug
+          || profile?.version !== activeProfile?.version
+        ) {
+          throw new Error("Profile-content Intelligence activation changed while reading context");
+        }
+      };
+      const verifiedProfileContext = {
+        schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+        async read(id) {
+          const context = validateProfileContentContext(await profileContentContextPort.read(id));
+          assertStableActivation();
+          if (
+            context.profile?.slug !== activeProfile?.slug
+            || context.profile?.version !== activeProfile?.version
+          ) {
+            throw new Error("Profile-content Intelligence reader returned an inactive Profile");
+          }
+          return context;
+        },
+      };
+      const securedContextPort = {
+        schema: INTELLIGENCE_PORT_SCHEMA,
+        getSnapshot: () => intelligence.getSnapshot(),
+        subscribe: (listener) => intelligence.subscribe(listener),
+        respond: (merged) => {
+          const now = validateSpaceSelectionSnapshot(selection.getSnapshot());
+          const space = currentSpace();
+          assertStableActivation();
+          if (
+            now.state !== "selected"
+            || now.subjectId !== subjectId
+            || space?.id !== spaceId
+            || space.kind !== authorized.kind
+          ) {
+            throw new Error("Profile-content Intelligence Space changed while reading context");
+          }
+          return intelligence.respond(merged);
+        },
+      };
+      // Use the existing bounded context composition, with an additional
+      // post-read authorization guard before reaching the inference port.
+      return createProfileContentIntelligence({
+        intelligencePort: securedContextPort,
+        profileContentContextPort: verifiedProfileContext,
+      }).forSpace(spaceId).respond(request);
     },
   });
 }
