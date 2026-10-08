@@ -26,10 +26,27 @@ test("Space switcher derives active identity exclusively from authenticated cata
   assert.equal(view.active?.name, "Minha Pizzaria");
   assert.deepEqual(view.visibleSpaces, spaces);
   assert.ok(Object.isFrozen(view));
-  assert.equal(
-    deriveSpaceSwitcherView(signedIn, ready, { ...selected, subjectId: "other-user" }).active,
-    null,
-  );
+  const foreignSubject = deriveSpaceSwitcherView(signedIn, ready, {
+    ...selected, subjectId: "other-user",
+  });
+  assert.equal(foreignSubject.active, null);
+  assert.deepEqual(foreignSubject.visibleSpaces, []);
+  assert.deepEqual(foreignSubject.profilesBySpace, []);
+  const unavailableSelection = deriveSpaceSwitcherView(signedIn, ready, {
+    schema: "ordax.space-selection/1",
+    state: "unavailable",
+    subjectId: null,
+    selectedSpace: null,
+  });
+  assert.deepEqual(unavailableSelection.visibleSpaces, []);
+  assert.equal(unavailableSelection.active, null);
+  const currentUnselected = deriveSpaceSwitcherView(signedIn, ready, {
+    schema: "ordax.space-selection/1",
+    state: "unselected",
+    subjectId,
+    selectedSpace: null,
+  });
+  assert.deepEqual(currentUnselected.visibleSpaces, spaces);
   assert.equal(
     deriveSpaceSwitcherView(signedIn, ready, {
       ...selected, selectedSpace: { id: "not-in-catalog" },
