@@ -63,7 +63,7 @@
       ]
     },
     "control_plane": {
-      "repo": "ordaxsystems/ordax-control-plane",
+      "repo": "ordaxsystems/ordax-platform",
       "owns": [
         "product-mcp",
         "cloudflare-control-plane",
@@ -116,7 +116,7 @@
       "platform": "ordaxsystems/prototipo-ordax-os",
       "apps": "ordaxsystems/ordax-apps",
       "runtime": "ordaxsystems/ordax-runtime",
-      "control_plane": "ordaxsystems/ordax-control-plane"
+      "control_plane": "ordaxsystems/ordax-platform"
     },
     "cutover_order": [
       "runtime",
