@@ -66,7 +66,10 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn("authorization", request_headers.lower())
         self.assertIn('headers.set("x-ordax-public-site", "1")', self.edge)
         self.assertIn('headers.set("apikey", serverSecret)', self.edge)
+        self.assertIn("headers: upstreamHeaders(req, publicBridgeKey())", self.edge)
         self.assertIn("function serverSecretKey()", self.edge)
+        self.assertIn('import { accountBridgeSecret } from "../_shared/account_service_bridge.mjs"', self.edge)
+        self.assertNotIn("headers: upstreamHeaders(req, serverSecretKey())", self.edge)
         self.assertNotIn('headers.set("apikey", publishableKey)', self.edge)
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
@@ -158,9 +161,30 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
     def test_inner_gateway_rejects_spoofed_public_marker_without_backend_secret(self):
         self.assertIn("function trustedPublicSiteRequest(req: Request)", self.inner)
         self.assertIn('req.headers.get("apikey")', self.inner)
-        self.assertIn("expectedKey = adminConfig().key", self.inner)
-        self.assertIn("constantTimeEqual(presentedKey, expectedKey)", self.inner)
+        self.assertIn(
+            'import { authenticatedAccountBridge } from "../_shared/account_service_bridge.mjs"',
+            self.inner,
+        )
+        self.assertIn("return authenticatedAccountBridge(", self.inner)
+        self.assertNotIn("expectedKey = adminConfig().key", self.inner)
+        self.assertNotIn("constantTimeEqual(presentedKey, expectedKey)", self.inner)
         self.assertIn('"public-account-boundary-authentication-required"', self.inner)
+
+    def test_public_service_bridge_is_single_owned_and_requires_dedicated_secret(self):
+        helper = (
+            ROOT / "infra" / "supabase" / "functions" / "_shared"
+            / "account_service_bridge.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax-account-public-bridge"', helper)
+        self.assertIn("sb_secret_", helper)
+        self.assertIn("Object.prototype.hasOwnProperty.call", helper)
+        self.assertIn('headers?.get?.("apikey")', helper)
+        self.assertIn('headers?.get?.("x-ordax-public-site")', helper)
+        self.assertIn("constantTimeEqual", helper)
+        self.assertIn('accountBridgeSecret(Deno.env.get("SUPABASE_SECRET_KEYS")', self.edge)
+        self.assertIn('Deno.env.get("SUPABASE_SECRET_KEYS") ?? ""', self.inner)
+        self.assertNotIn('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', helper)
+        self.assertNotIn('process.env', helper)
 
     def test_direct_native_auth_uses_same_server_authoritative_rate_limit(self):
         self.assertIn("enforceDirectAuthRateLimit(req, path)", self.inner)
