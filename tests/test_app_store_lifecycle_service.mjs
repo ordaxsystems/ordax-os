@@ -501,7 +501,10 @@ test("store removal is not blocked by missing Native executable-read support", a
       artifactIdentityVerified:false,
       provenanceVerified:false,
     })),
-    verified:verifiedReady([]),
+    // The verified catalog contract requires at least one valid entry.
+    // Calculator has disappeared from that catalog, but is still installed
+    // and must retain the ability to uninstall without Native module reads.
+    verified:verifiedReady([verifiedEntry({appId:"studio"})]),
     executeLifecycle:async plan=>{
       calls += 1;
       return resultFor(plan);
