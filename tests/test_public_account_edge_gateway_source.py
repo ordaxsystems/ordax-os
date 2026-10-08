@@ -21,6 +21,25 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.inner = INNER_EDGE.read_text(encoding="utf-8")
         self.proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
+    def test_public_and_internal_gateways_use_one_exact_route_parser(self):
+        shared = (
+            ROOT / "infra" / "supabase" / "functions" / "_shared"
+            / "account_transport_admission.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn("export function stripEdgeFunctionPrefix(", shared)
+        self.assertIn('pathname.startsWith(prefix + "/")', shared)
+        self.assertIn("return stripEdgeFunctionPrefix(pathname, \"ordax-account-gateway\")", shared)
+        self.assertIn(
+            'import { stripEdgeFunctionPrefix } from "../_shared/account_transport_admission.mjs"',
+            self.edge,
+        )
+        self.assertIn(
+            'stripEdgeFunctionPrefix(url.pathname, "ordax-public-account-gateway")',
+            self.edge,
+        )
+        self.assertNotIn('url.pathname.indexOf("/ordax-public-account-gateway")', self.edge)
+        self.assertNotIn('url.pathname.indexOf("/ordax-account-gateway")', self.inner)
+
     def test_public_boundary_requires_identity_context_address_and_rate_limit_before_forward(self):
         self.assertIn("verifyPublicProxyIdentity(req)", self.edge)
         self.assertIn('identity.source !== "vercel-production-oidc"', self.edge)
