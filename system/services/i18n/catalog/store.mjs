@@ -1,4 +1,5 @@
 export const STORE_SOURCE_MESSAGES = Object.freeze({
+  "store.request.reason": "Motivo informado pela plataforma: {reason}",
   "store.details.openFor": "Ver detalhes de {title}",
   "store.details.notApplicable": "Não se aplica: sem versão candidata",
   "store.remove.confirmTitle": "Confirmar remoção do aplicativo",
@@ -70,6 +71,7 @@ export const STORE_SOURCE_MESSAGES = Object.freeze({
 });
 
 export const STORE_ENGLISH_MESSAGES = Object.freeze({
+  "store.request.reason": "Platform reason: {reason}",
   "store.details.openFor": "View details for {title}",
   "store.details.notApplicable": "Not applicable: no candidate version",
   "store.remove.confirmTitle": "Confirm application removal",
