@@ -60,15 +60,16 @@ export function filterStoreEntries(entries, view = "discover", query = "") {
   if (!VIEWS.includes(view) || typeof query !== "string") {
     throw new TypeError("Invalid Store presentation filter");
   }
-  const needle = query.trim().toLocaleLowerCase();
+  const normalize = (value) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
+  const needle = normalize(query.trim());
   return entries.filter((entry) => {
     if (view === "installed" && entry.installedVersion === null) return false;
     if (view === "updates" && (
       entry.installedVersion === null
       || !(entry.updatable || ["updating", "staged", "failed-retained"].includes(entry.state))
     )) return false;
-    return !needle || entry.title.toLocaleLowerCase().includes(needle)
-      || entry.appId.toLocaleLowerCase().includes(needle);
+    return !needle || normalize(entry.title).includes(needle)
+      || normalize(entry.appId).includes(needle);
   });
 }
 
@@ -116,7 +117,9 @@ function appendCard(documentObject, grid, entry, lifecycleRequests, pendingReque
   top.append(monogram, heading);
   const footer = node(documentObject, "div", "ordax-store-card-footer");
   appendStatus(documentObject, card, entry, t);
-  footer.append(makeButton(documentObject, "ordax-store-details-link", t("store.details.open"), "storeDetails", entry.appId));
+  const details = makeButton(documentObject, "ordax-store-details-link", t("store.details.open"), "storeDetails", entry.appId);
+  details.setAttribute("aria-label", t("store.details.openFor", { title: entry.title }));
+  footer.append(details);
   const actions = node(documentObject, "div", "ordax-store-actions");
   appendAction(documentObject, actions, entry, "install", lifecycleRequests, pendingRequest, t);
   appendAction(documentObject, actions, entry, "update", lifecycleRequests, pendingRequest, t);
@@ -125,7 +128,7 @@ function appendCard(documentObject, grid, entry, lifecycleRequests, pendingReque
   grid.append(card);
 }
 
-function appendDetail(documentObject, target, entry, lifecycleRequests, pendingRequest, t) {
+function appendDetail(documentObject, target, entry, lifecycleRequests, pendingRequest, removalConfirmationAppId, t) {
   const back = makeButton(documentObject, "ordax-store-back", t("store.details.back"), "storeBack", "true");
   const panel = node(documentObject, "section", "ordax-store-detail");
   const heading = node(documentObject, "header", "ordax-store-detail-header");
@@ -146,6 +149,29 @@ function appendDetail(documentObject, target, entry, lifecycleRequests, pendingR
     appendAction(documentObject, actions, entry, operation, lifecycleRequests, pendingRequest, t);
   }
   state.append(actions);
+  if (removalConfirmationAppId === entry.appId && entry.removable) {
+    const confirmation = node(documentObject, "section", "ordax-store-removal-confirmation");
+    confirmation.setAttribute("role", "group");
+    confirmation.setAttribute("aria-label", t("store.remove.confirmTitle"));
+    confirmation.append(
+      node(documentObject, "strong", "", t("store.remove.confirmTitle")),
+      node(documentObject, "p", "", t("store.remove.confirmDescription")),
+    );
+    const controls = node(documentObject, "div", "ordax-store-actions");
+    const confirmButton = makeButton(
+      documentObject, "ordax-store-action ordax-store-action-danger",
+      t("store.remove.confirmAction"), "storeConfirmRemove", "true",
+    );
+    confirmButton.dataset.storeOperation = "remove";
+    confirmButton.dataset.storeAppId = entry.appId;
+    const cancelButton = makeButton(
+      documentObject, "ordax-store-action ordax-store-action-secondary",
+      t("store.remove.cancel"), "storeCancelRemove", "true",
+    );
+    controls.append(confirmButton, cancelButton);
+    confirmation.append(controls);
+    state.append(confirmation);
+  }
 
   const technical = node(documentObject, "section", "ordax-store-detail-technical");
   technical.append(node(documentObject, "h4", "", t("store.details.technical")));
@@ -153,8 +179,8 @@ function appendDetail(documentObject, target, entry, lifecycleRequests, pendingR
     ["store.details.appId", entry.appId],
     ["store.details.installedVersion", entry.installedVersion ?? t("store.details.none")],
     ["store.details.availableVersion", entry.availableVersion ?? t("store.details.none")],
-    ["store.details.artifact", t(entry.artifactIdentityVerified ? "store.details.verified" : "store.details.notVerified")],
-    ["store.details.provenance", t(entry.provenanceVerified ? "store.details.verified" : "store.details.notVerified")],
+    ["store.details.artifact", entry.availableVersion === null ? t("store.details.notApplicable") : t(entry.artifactIdentityVerified ? "store.details.verified" : "store.details.notVerified")],
+    ["store.details.provenance", entry.availableVersion === null ? t("store.details.notApplicable") : t(entry.provenanceVerified ? "store.details.verified" : "store.details.notVerified")],
   ];
   const list = node(documentObject, "dl", "ordax-store-detail-facts");
   for (const [key, value] of rows) {
@@ -195,6 +221,7 @@ export function mountStoreOverviewControls(
   let activeView = "discover";
   let searchQuery = "";
   let selectedAppId = null;
+  let removalConfirmationAppId = null;
   const requestSessionId = globalThis.crypto?.randomUUID?.().replaceAll("-", "")
     ?? "s" + Date.now().toString(36);
   let destroyed = false;
@@ -226,6 +253,8 @@ export function mountStoreOverviewControls(
       mountedSlot = null;
       return;
     }
+    const restoreSearchFocus = slot.contains(slot.ownerDocument.activeElement)
+      && slot.ownerDocument.activeElement?.dataset?.storeSearch === "true";
     mountedSlot = slot;
     slot.dataset.ordaxStoreOverviewView = "true";
     slot.dataset.storeState = snapshot.state;
@@ -265,7 +294,7 @@ export function mountStoreOverviewControls(
     } else {
       const selectedEntry = snapshot.entries.find((entry) => entry.appId === selectedAppId);
       if (selectedEntry) {
-        appendDetail(documentObject, main, selectedEntry, lifecycleRequests, pendingRequest, t);
+        appendDetail(documentObject, main, selectedEntry, lifecycleRequests, pendingRequest, removalConfirmationAppId, t);
       } else {
         selectedAppId = null;
         const search = node(documentObject, "div", "ordax-store-search");
@@ -331,6 +360,7 @@ export function mountStoreOverviewControls(
     layout.append(sidebar, main);
     slot.append(layout);
     refreshResults();
+    if (restoreSearchFocus) slot.querySelector("[data-store-search]")?.focus?.();
   };
 
   const onInput = (event) => {
@@ -342,11 +372,20 @@ export function mountStoreOverviewControls(
 
   const onClick = (event) => {
     if (!mountedSlot) return;
+    const cancelButton = event.target.closest?.("[data-store-cancel-remove]");
+    if (cancelButton && mountedSlot.contains(cancelButton)) {
+      removalConfirmationAppId = null;
+      render();
+      mountedSlot?.querySelector('[data-store-operation="remove"]')?.focus?.();
+      return;
+    }
     const viewButton = event.target.closest?.("[data-store-view]");
     if (viewButton && mountedSlot.contains(viewButton) && VIEWS.includes(viewButton.dataset.storeView)) {
       activeView = viewButton.dataset.storeView;
       selectedAppId = null;
+      removalConfirmationAppId = null;
       render();
+      mountedSlot?.querySelector('[data-store-view="' + activeView + '"]')?.focus?.();
       return;
     }
     const detailButton = event.target.closest?.("[data-store-details]");
@@ -354,13 +393,20 @@ export function mountStoreOverviewControls(
       const appId = detailButton.dataset.storeDetails;
       if (!snapshot.entries.some((entry) => entry.appId === appId)) return;
       selectedAppId = appId;
+      removalConfirmationAppId = null;
       render();
+      mountedSlot?.querySelector("[data-store-back]")?.focus?.();
       return;
     }
     const backButton = event.target.closest?.("[data-store-back]");
     if (backButton && mountedSlot.contains(backButton)) {
+      const previousAppId = selectedAppId;
       selectedAppId = null;
+      removalConfirmationAppId = null;
       render();
+      const priorButton = Array.from(mountedSlot?.querySelectorAll("[data-store-details]") ?? [])
+        .find((candidate) => candidate.dataset.storeDetails === previousAppId);
+      priorButton?.focus?.();
       return;
     }
 
@@ -371,6 +417,14 @@ export function mountStoreOverviewControls(
     if (!OPERATIONS.has(operation)) return;
     const entry = snapshot.entries.find((candidate) => candidate.appId === appId);
     if (!entry || !operationAllowed(entry, operation)) return;
+    if (operation === "remove" && button.dataset.storeConfirmRemove !== "true") {
+      removalConfirmationAppId = appId;
+      render();
+      mountedSlot?.querySelector("[data-store-confirm-remove]")?.focus?.();
+      return;
+    }
+    if (operation === "remove" && removalConfirmationAppId !== appId) return;
+    removalConfirmationAppId = null;
 
     requestMessageId = null;
     requestOrdinal += 1;
@@ -390,7 +444,10 @@ export function mountStoreOverviewControls(
     });
     render();
 
-    void Promise.resolve(lifecycleRequests.requestLifecycle(request))
+    // Defer the delegate invocation as well: synchronous errors must clear the
+    // pending UI exactly like rejected asynchronous calls.
+    void Promise.resolve()
+      .then(() => lifecycleRequests.requestLifecycle(request))
       .then((rawResult) => {
         const result = validateAppLifecycleRequestResultForRequest(rawResult, request);
         requestMessageId = "store.request." + operation + "." + result.state;
@@ -414,8 +471,27 @@ export function mountStoreOverviewControls(
       });
   };
 
+  const onKeyDown = (event) => {
+    if (event.key !== "Escape" || !mountedSlot?.contains(event.target)) return;
+    if (removalConfirmationAppId !== null) {
+      removalConfirmationAppId = null;
+      render();
+      mountedSlot?.querySelector('[data-store-operation="remove"]')?.focus?.();
+      event.preventDefault();
+    } else if (selectedAppId !== null) {
+      const previousAppId = selectedAppId;
+      selectedAppId = null;
+      render();
+      const priorButton = Array.from(mountedSlot?.querySelectorAll("[data-store-details]") ?? [])
+        .find((candidate) => candidate.dataset.storeDetails === previousAppId);
+      priorButton?.focus?.();
+      event.preventDefault();
+    }
+  };
+
   root.addEventListener("click", onClick);
   root.addEventListener("input", onInput);
+  root.addEventListener("keydown", onKeyDown);
   const unsubscribeCatalog = catalog.subscribe((next) => {
     snapshot = validateAppStoreCatalogSnapshot(next);
     reconcileAcceptedRequest();
@@ -434,6 +510,7 @@ export function mountStoreOverviewControls(
       unsubscribeLocalization?.();
       root.removeEventListener("click", onClick);
       root.removeEventListener("input", onInput);
+      root.removeEventListener("keydown", onKeyDown);
       mountedSlot = null;
     },
   });
