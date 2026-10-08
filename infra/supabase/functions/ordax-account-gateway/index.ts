@@ -6,7 +6,7 @@ import {
   validateRateLimitRpcResult,
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
-import { authenticatedAccountBridge } from "../_shared/account_service_bridge.mjs";
+import { authorizeAccountTransport } from "../_shared/account_transport_admission.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -379,13 +379,6 @@ function publicSiteRequest(req: Request) {
   return (req.headers.get("x-ordax-public-site") ?? "") === "1";
 }
 
-function trustedPublicSiteRequest(req: Request) {
-  return authenticatedAccountBridge(
-    req.headers,
-    Deno.env.get("SUPABASE_SECRET_KEYS") ?? "",
-  );
-}
-
 function directNativeClientAddress(req: Request) {
   if (publicSiteRequest(req)) return null;
   return canonicalizeClientAddress(req.headers.get("cf-connecting-ip"));
@@ -470,12 +463,26 @@ function syncObject(item: Record<string, unknown>) {
   };
 }
 
-async function authenticated(req: Request) {
+// A request must resolve its Supabase session only once, including after a
+// refresh: both transport admission and the route handler consume this owner.
+const sessionVerificationCache = new WeakMap<Request, ReturnType<typeof resolveAuthenticated>>();
+
+function bearerUserToken(req: Request) {
+  const raw = (req.headers.get("authorization") ?? "").trim();
+  if (!raw.startsWith("Bearer ")) return "";
+  const value = raw.slice("Bearer ".length).trim();
+  return value.length >= 32 && value.length <= 8192
+    && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)
+    ? value : "";
+}
+
+async function resolveAuthenticated(req: Request) {
   const cookies = parseCookies(req);
-  const access = cookies.get(ACCESS_COOKIE) ?? "";
+  const access = cookies.get(ACCESS_COOKIE) || bearerUserToken(req);
   const refresh = cookies.get(REFRESH_COOKIE) ?? "";
   if (access) {
     const supabase = client();
+    // Supabase Auth, not a locally decoded JWT, is the sole user authority.
     const { data, error } = await supabase.auth.getUser(access);
     if (!error && data.user) return { access, user: data.user, cookies: [] as string[] };
   }
@@ -491,6 +498,15 @@ async function authenticated(req: Request) {
     }
   }
   return { access: "", user: null, cookies: clearCookies() };
+}
+
+function authenticated(req: Request) {
+  let result = sessionVerificationCache.get(req);
+  if (!result) {
+    result = resolveAuthenticated(req);
+    sessionVerificationCache.set(req, result);
+  }
+  return result;
 }
 
 async function authenticatedRecovery(req: Request) {
@@ -1044,12 +1060,25 @@ Deno.serve(async (req: Request) => {
     return error(403, "cross-site-request-rejected", "Solicitação de outra origem rejeitada.");
   }
 
-  if (publicSiteRequest(req) && !trustedPublicSiteRequest(req)) {
-    return error(
-      403,
-      "public-account-boundary-authentication-required",
-      "Boundary público não autenticado.",
-    );
+  // Must run before Native rate-limit bypass and before any route handler.
+  // Public calls prove the named service key; Native sessions are verified
+  // by Supabase Auth itself and then reused by the route handler.
+  const transport = await authorizeAccountTransport(req, path, {
+    rawBridgeSecretKeys: Deno.env.get("SUPABASE_SECRET_KEYS") ?? "",
+    verifyNativeSession: async () => {
+      const session = await authenticated(req);
+      return Boolean(session.user && session.access);
+    },
+  });
+  if (!transport.ok) {
+    const transportCode = transport.code ?? "account-transport-untrusted";
+    if (transportCode === "public-account-boundary-authentication-required") {
+      return error(403, transportCode, "Boundary público não autenticado.");
+    }
+    if (transportCode === "native-identity-unavailable") {
+      return error(503, transportCode, "O serviço de identidade OrdaX está indisponível.");
+    }
+    return error(401, transportCode, "Autenticação da Conta OrdaX obrigatória.");
   }
 
   const directRateLimitResponse = await enforceDirectAuthRateLimit(req, path);

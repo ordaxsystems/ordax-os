@@ -348,3 +348,43 @@ restritas, abuso e rate limit. Requer E2E no projeto definitivo
 com credenciais reais, OIDC do tenant novo e teste de chave
 inválida/faltante. Flags de implantação e cutover continuam
 `false` em `docs/contracts/public-auth-hardening.json`.
+
+## Admissão de transporte por rota no gateway interno (2026-10-08)
+
+O owner `_shared/account_transport_admission.mjs` separa as três
+classes de entrada **antes de qualquer handler de Conta**:
+
+- **Serviço público OrdaX:** qualquer presença de
+  `x-ordax-public-site` exige valor exatamente `1` e a chave
+  `ordax-account-public-bridge` conferida pelo verificador
+  **já canônico** `_shared/account_service_bridge.mjs`. Marcador
+  inválido não pode virar requisição Native por fallback.
+- **Native autenticado:** rotas protegidas de Conta, Sync e Rede
+  exigem uma sessão de usuário confirmada pelo Supabase Auth via
+  `getUser()` (token fornecido por cookie HttpOnly ou Bearer JWT)
+  ou por `refreshSession()`. O resultado é cacheado por
+  `Request` e reutilizado pelo handler. Não há segunda
+  implementação de verificação de assinatura JWT ou segunda fonte
+  de identidade.
+- **Native sem sessão:** somente métodos/caminhos exatos de
+  bootstrap (login, cadastro, recuperação, logout, política,
+  estado de sessão e health) podem prosseguir. As operações de
+  autenticação continuam sob o limitador RPC autoritativo e
+  respectiva validação de endereço na camada existente; flags
+  de cadastro e recuperação continuam fechadas.
+
+Nunca permitir `/account/*`, `/sync/*` ou `/network/*`
+por correspondência de prefixo num bootstrap. A camada de admissão
+deve continuar **antes** de qualquer bypass de rate limit e antes
+do roteamento. Testes de negação estão em
+`tests/test_account_transport_admission.mjs`.
+
+**Não confundir fonte com promoção:** esse controle ainda está
+somente no repositório. A Edge Function implantada no projeto novo
+continua na versão 2, com `verify_jwt=true`. O contrato do
+destino registra `destination_transport_admission_deployed=false`
+e `destination_transport_admission_negative_http_verified=false`.
+Somente após a criação da credencial nomeada, prova do OIDC do
+projeto Vercel efetivo, validação dos fluxos Native e HTTP negativos
+poderá ser avaliada uma mudança de `verify_jwt` no deployment,
+mantendo um autenticador real no handler.
