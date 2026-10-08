@@ -196,6 +196,18 @@ def validate_member_link(member: tarfile.TarInfo, expected_root: str) -> None:
         raise CompatibilityRuntimeBuildError(f"archive link escapes expected root: {member.name}")
 
 
+def validate_archive_member(member: tarfile.TarInfo, expected_root: str) -> None:
+    """Canonical Wine TAR member boundary used by both proof and extraction."""
+    path = PurePosixPath(member.name)
+    if not member.name or path.is_absolute() or ".." in path.parts or "\\" in member.name:
+        raise CompatibilityRuntimeBuildError(f"unsafe archive path: {member.name}")
+    if not path.parts or path.parts[0] != expected_root:
+        raise CompatibilityRuntimeBuildError(f"archive member escapes expected root: {member.name}")
+    if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
+        raise CompatibilityRuntimeBuildError(f"unsupported archive object: {member.name}")
+    validate_member_link(member, expected_root)
+
+
 def validate_archive(source: dict, archive: Path) -> dict:
     upstream = source["upstream"]
     if archive.stat().st_size != upstream["archive_size_bytes"]:
@@ -214,14 +226,7 @@ def validate_archive(source: dict, archive: Path) -> dict:
                 member_count += 1
                 if member_count > MAX_ARCHIVE_MEMBERS:
                     raise CompatibilityRuntimeBuildError("Wine source archive member count exceeded bound")
-                path = PurePosixPath(member.name)
-                if path.is_absolute() or ".." in path.parts:
-                    raise CompatibilityRuntimeBuildError(f"unsafe archive path: {member.name}")
-                if not path.parts or path.parts[0] != expected_root:
-                    raise CompatibilityRuntimeBuildError(f"archive member escapes expected root: {member.name}")
-                if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
-                    raise CompatibilityRuntimeBuildError(f"unsupported archive object: {member.name}")
-                validate_member_link(member, expected_root)
+                validate_archive_member(member, expected_root)
                 if member.isfile():
                     unpacked_bytes += member.size
                     if unpacked_bytes > MAX_UNPACKED_BYTES:
