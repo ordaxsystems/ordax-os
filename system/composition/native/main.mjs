@@ -481,13 +481,16 @@ async function start() {
     actionCapabilityRegistryPort: appActionCapabilities,
     semanticRouterPort: appSemanticRouter,
   });
-  const consumerIntelligence = profileContentContextCapability?.available === true
+  const consumerIntelligence = (
+    profileContentContextCapability?.available === true && profileActivationState !== null
+  )
     ? createSelectedSpaceProfileContentIntelligence({
         intelligencePort: appAwareIntelligence,
         profileContentContextPort: createNativeProfileContentContext(window),
         spaceSelectionPort: spaceSelection,
         identitySessionPort: identitySession,
         spacesPort: spaces,
+        profileActivationStatePort: profileActivationState,
       })
     : appAwareIntelligence;
   const selectedSpaceIntelligence = memory === null
@@ -624,7 +627,9 @@ async function start() {
   const keyboardLayoutAvailable = keyboardLayout !== null;
   const browserWebContentAvailable = browserSession.getSnapshot().supported;
   const intelligenceSystemAvailable = true;
-  const profileContentContextAvailable = profileContentContextCapability?.available === true;
+  const profileContentContextAvailable = (
+    profileContentContextCapability?.available === true && profileActivationState !== null
+  );
   const localSessionAvailable = localSession !== null;
   const readIdentityAvailable = () => identitySession.getSnapshot().state !== "unavailable";
   const host = createNativeSurfaceHost(window, {
