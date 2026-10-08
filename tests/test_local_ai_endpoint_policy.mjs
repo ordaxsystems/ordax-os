@@ -41,3 +41,29 @@ test("Local AI accepts only literal 127.0.0.1 HTTP endpoints", () => {
     );
   }
 });
+
+test("Native same-origin endpoint emits only the dedicated broker paths", async () => {
+  const visited = [];
+  const port = createLocalAiRuntime({
+    endpoint: LOCAL_AI_NATIVE_ENDPOINT,
+    modelId: null,
+    fetchImpl: async (url) => {
+      visited.push(url);
+      if (url.endsWith("/v1/models")) {
+        return {
+          ok: true,
+          async json() { return { data: [{ id: "model-a" }] }; },
+        };
+      }
+      if (url.endsWith("/health")) return { ok: true };
+      throw new Error("unexpected Native endpoint");
+    },
+  });
+  await port.probe();
+  assert.equal(port.getSnapshot().state, "ready");
+  assert.deepEqual(visited, [
+    LOCAL_AI_NATIVE_ENDPOINT + "/v1/models",
+    LOCAL_AI_NATIVE_ENDPOINT + "/health",
+  ]);
+  port.dispose();
+});
