@@ -153,6 +153,11 @@ test("bundled taxonomy source accepts only canonical same-origin immutable metad
     },
   });
   assert.equal(loaded.schema, PROFILE_TAXONOMY_SCHEMA);
+  const fromLoader = createProfileTaxonomyView({
+    catalogPort: createProfilePackCatalog({ rows }), taxonomy: loaded,
+  });
+  assert.equal(fromLoader.getCategory("business").profileCount, 2);
+  assert.equal(fromLoader.getCategory("business-food-service").directProfiles[0].slug, "pizzaria-br");
   assert.deepEqual(seen[0], {
     path: DEFAULT_PROFILE_TAXONOMY_PATH,
     options: { method: "GET", cache: "no-store", credentials: "same-origin", redirect: "error" },
