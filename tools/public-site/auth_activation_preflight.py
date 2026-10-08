@@ -165,9 +165,9 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     # The existing public-auth contract is the sole owner of these observations.
     # The candidate backend is not production-ready merely because its schema
     # contains the legal-receipt/rate-limit functions.
-    if destination is not None:
-        if not isinstance(destination, dict):
-            raise ValueError("postgresql_destination must be an object")
+    if not isinstance(destination, dict):
+        raise ValueError("postgresql_destination must be an object")
+    if destination:
         destination_ref = destination.get("project_ref")
         target_ref = target.get("project_ref") if isinstance(target, dict) else None
         need(
