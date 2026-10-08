@@ -9,11 +9,14 @@ import {
   validateAppLifecycleRequestResultForRequest,
 } from "../../contracts/app-lifecycle-request.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { assertSystemMetricsPort } from "../../contracts/system-metrics.mjs";
+import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
+import { appendStoreLocalAiModels } from "./store-model-catalog.mjs";
 
 const STORE_WINDOW_SELECTOR = '[data-window-id="store"]';
 const STORE_EXTENSION_SELECTOR = '[data-app-extension="store-overview"]';
 const OPERATIONS = new Set(["install", "update", "remove"]);
-const VIEWS = Object.freeze(["discover", "installed", "updates"]);
+const VIEWS = Object.freeze(["discover", "installed", "updates", "models"]);
 
 function node(documentObject, tag, className = "", content = undefined) {
   const element = documentObject.createElement(tag);
@@ -60,6 +63,7 @@ export function filterStoreEntries(entries, view = "discover", query = "") {
   if (!VIEWS.includes(view) || typeof query !== "string") {
     throw new TypeError("Invalid Store presentation filter");
   }
+  if (view === "models") return [];
   const normalize = (value) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
   const needle = normalize(query.trim());
   return entries.filter((entry) => {
@@ -229,6 +233,9 @@ export function mountStoreOverviewControls(
   catalogPort,
   surfaceLifecycle,
   lifecycleRequestPort = null,
+  modelHardwareReader = null,
+  modelMetricsPort = null,
+  appActivationPort = null,
 ) {
   const catalog = assertAppStoreCatalogPort(catalogPort);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
@@ -237,6 +244,11 @@ export function mountStoreOverviewControls(
   const lifecycleRequests = lifecycleRequestPort === null
     ? null
     : assertAppLifecycleRequestPort(lifecycleRequestPort);
+  if (modelHardwareReader !== null && typeof modelHardwareReader !== "function") {
+    throw new TypeError("Store Local AI hardware reader must be a function");
+  }
+  const modelMetrics = modelMetricsPort === null ? null : assertSystemMetricsPort(modelMetricsPort);
+  const activation = appActivationPort === null ? null : assertAppActivationPort(appActivationPort);
 
   let snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
   // These are ephemeral presentation revisions, not a second catalog or
@@ -254,6 +266,54 @@ export function mountStoreOverviewControls(
   let removalConfirmationAppId = null;
   const requestSessionId = createStoreRequestSessionId();
   let destroyed = false;
+  let modelHardware = null;
+  let modelMetricsSnapshot = null;
+  let modelReadState = "idle";
+  let modelReadOrdinal = 0;
+  let modelReadAbort = null;
+
+  const refreshModelResources = async () => {
+    if (destroyed || modelReadState === "loading") return;
+    const ordinal = ++modelReadOrdinal;
+    modelReadState = "loading";
+    modelHardware = null;
+    modelMetricsSnapshot = null;
+    render();
+    const controller = new AbortController();
+    modelReadAbort = controller;
+    let deadline = null;
+    const timedOut = new Promise((_, reject) => {
+      deadline = setTimeout(() => {
+        controller.abort();
+        reject(new Error("Native model capability read exceeded deadline"));
+      }, 5000);
+    });
+    let hardware, metrics;
+    try {
+      [hardware, metrics] = await Promise.allSettled([
+        Promise.race([
+          Promise.resolve().then(() => modelHardwareReader === null
+            ? null : modelHardwareReader({ signal: controller.signal })),
+          timedOut,
+        ]),
+        Promise.race([
+          Promise.resolve().then(() => modelMetrics === null
+            ? null : modelMetrics.read({ signal: controller.signal })),
+          timedOut,
+        ]),
+      ]);
+    } finally {
+      clearTimeout(deadline);
+      if (modelReadAbort === controller) modelReadAbort = null;
+    }
+    if (destroyed || ordinal !== modelReadOrdinal) return;
+    // Fail closed on incomplete readings; do not keep stale values as current.
+    modelHardware = hardware.status === "fulfilled" ? hardware.value : null;
+    modelMetricsSnapshot = metrics.status === "fulfilled" ? metrics.value : null;
+    modelReadState = hardware.status === "rejected" || metrics.status === "rejected"
+      ? "error" : "ready";
+    render();
+  };
 
   const reconcileAcceptedRequest = () => {
     if (pendingRequest?.phase !== "accepted") return;
@@ -262,7 +322,7 @@ export function mountStoreOverviewControls(
   };
 
   const refreshResults = () => {
-    if (!mountedSlot || snapshot.state !== "ready" || selectedAppId !== null) return;
+    if (!mountedSlot || activeView === "models" || snapshot.state !== "ready" || selectedAppId !== null) return;
     const filtered = filterStoreEntries(snapshot.entries, activeView, searchQuery);
     const shownIds = new Set(filtered.map((entry) => entry.appId));
     for (const card of mountedSlot.querySelectorAll("[data-store-app-card]")) {
@@ -312,7 +372,16 @@ export function mountStoreOverviewControls(
     header.append(copy);
     main.append(header);
 
-    if (snapshot.state !== "ready") {
+    if (activeView === "models") {
+      appendStoreLocalAiModels(documentObject, main, {
+        hardware: modelHardware,
+        metrics: modelMetricsSnapshot,
+        readState: modelReadState,
+        systemUpdatesAvailable: activation !== null,
+        t,
+        locale: localization.getLocale(),
+      });
+    } else if (snapshot.state !== "ready") {
       const empty = node(documentObject, "section", "ordax-store-empty");
       empty.append(
         node(documentObject, "span", "ordax-store-empty-symbol", "◇"),
@@ -411,6 +480,17 @@ export function mountStoreOverviewControls(
       mountedSlot?.querySelector('[data-store-operation="remove"]')?.focus?.();
       return;
     }
+    const systemUpdates = event.target.closest?.("[data-store-model-system-updates]");
+    if (systemUpdates && mountedSlot.contains(systemUpdates) && activeView === "models"
+      && activation !== null) {
+      activation.publish({ appId: "system", target: "updates" });
+      return;
+    }
+    const modelRefresh = event.target.closest?.("[data-store-models-refresh]");
+    if (modelRefresh && mountedSlot.contains(modelRefresh) && activeView === "models") {
+      void refreshModelResources();
+      return;
+    }
     const viewButton = event.target.closest?.("[data-store-view]");
     if (viewButton && mountedSlot.contains(viewButton) && VIEWS.includes(viewButton.dataset.storeView)) {
       activeView = viewButton.dataset.storeView;
@@ -418,6 +498,9 @@ export function mountStoreOverviewControls(
       removalConfirmationAppId = null;
       render();
       mountedSlot?.querySelector('[data-store-view="' + activeView + '"]')?.focus?.();
+      if (activeView === "models" && modelReadState === "idle") {
+        void refreshModelResources();
+      }
       return;
     }
     const detailButton = event.target.closest?.("[data-store-details]");
@@ -561,6 +644,9 @@ export function mountStoreOverviewControls(
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      modelReadOrdinal += 1;
+      modelReadAbort?.abort();
+      modelReadAbort = null;
       unsubscribeCatalog?.();
       unsubscribeRender?.();
       unsubscribeLocalization?.();

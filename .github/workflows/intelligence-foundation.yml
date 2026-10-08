@@ -48,6 +48,9 @@ on:
       - 'system/surface/runtime/native_local_ai_bridge.py'
       - 'tests/test_native_local_ai_bridge.py'
       - 'tests/test_local_ai_probe_supervisor.mjs'
+      - 'tools/local-ai-model-catalog/**'
+      - 'tests/test_local_ai_model_catalog_source.py'
+      - 'tests/test_local_ai_model_compatibility.mjs'
       - 'system/services/memory/**'
       - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
@@ -210,6 +213,9 @@ on:
       - 'system/surface/runtime/native_local_ai_bridge.py'
       - 'tests/test_native_local_ai_bridge.py'
       - 'tests/test_local_ai_probe_supervisor.mjs'
+      - 'tools/local-ai-model-catalog/**'
+      - 'tests/test_local_ai_model_catalog_source.py'
+      - 'tests/test_local_ai_model_compatibility.mjs'
       - 'system/services/memory/**'
       - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
@@ -398,6 +404,8 @@ jobs:
           python -m py_compile tools/local-ai-baseline/compare.py
           python -m py_compile tools/local-ai-benchmark/benchmark.py
           python -m py_compile tools/local-ai-hardware-probe/probe.py
+          python -m py_compile tools/local-ai-model-catalog/render.py
+          python tools/local-ai-model-catalog/render.py --check
           node --check system/apps/assistant/conversation.mjs
           node --check system/apps/intelligence-catalog.mjs
           find system/apps -path '*/ai/*.mjs' -type f -print0 | sort -z | xargs -0 -n1 node --check
@@ -446,6 +454,8 @@ jobs:
           node --test tests/test_local_ai_probe_races.mjs
           node --test tests/test_local_ai_response_lifecycle.mjs
           node --test tests/test_local_ai_model_rediscovery.mjs
+          node --test tests/test_local_ai_model_compatibility.mjs
+          python -m unittest tests.test_local_ai_model_catalog_source -v
           node --test tests/test_memory_runtime.mjs
           node --test tests/test_memory_context.mjs
           node --test tests/test_memory_capture.mjs
