@@ -109,3 +109,39 @@ Migration `20261002232500_account_registration_legal_fk_indexes_v1.sql` adds the
 covering policy foreign-key indexes used by registration intents and immutable legal
 receipts. It changes no authority and seeds no data.
 
+## PostgreSQL de destino: proteção de registro (2026-10-08)
+
+O projeto Supabase `ordax-platform` (`jhfphsjptrpmtnzkpwud`, São Paulo) é o
+**destino em preparação**, não o provedor de autenticação público já promovido.
+O campo `target` do SSOT `docs/contracts/public-auth-hardening.json` ainda
+identifica o runtime anterior `ordax-control-plane`; o objeto
+`postgresql_destination` registra apenas evidências do destino. Não são
+duas autoridades funcionais e **não existe dual-write**.
+
+Foram aplicadas ao destino, sem cópia ou nova implementação das regras, as
+cinco migrations já versionadas em `infra/supabase/product/migrations/`:
+a vinculação transacional do aceite jurídico e recibo imutável, a projeção
+privada da política, os índices de FKs, a verificação server-only de recibo
+no login e a ativação de política controlada. O histórico da execução consta
+nas migrations reais do projeto de destino; os arquivos SQL permanecem o
+único source canônico. Não reaplicar migrations que o ledger já registra.
+
+Provas ao vivo após implantação:
+
+- uma única trigger de criação `on_auth_user_created_ordax_product`;
+- tentativa de inserção em `auth.users` sem intent emitida pelo servidor
+  rejeitada com `ordax-registration-legal-intent-required`, dentro de
+  transação encerrada por `ROLLBACK`;
+- `anon` e `authenticated` sem `EXECUTE` nas RPCs de intent, projeção,
+  verificação de recibo e ativação; `service_role` com acesso estritamente
+  às RPCs de servidor previstas nas migrations;
+- verificação de recibo para subject inexistente retornando `false`;
+- zero contas e zero políticas jurídicas ativas no destino no momento da prova;
+- nenhuma Edge Function implantada no novo projeto nessa verificação.
+
+Isto **não ativa** autenticação pública. Antes do cutover ainda são necessários
+o gateway/host definitivo com OIDC e same-origin comprovados, configurações
+reais de Auth/email/redirect/password/rate limiting, termos e privacidade
+revisados, Turnstile, recovery e revogação E2E. A conta continua opcional
+para inicializar e usar o OS localmente. Nunca copiar tokens/senhas ou permitir
+um segundo writer de identidade durante a migração.
