@@ -97,6 +97,87 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
         self.assertEqual(preflight.main(["require-ready", "--root", str(ROOT)]), 1)
 
+    def test_old_provider_proofs_do_not_authorize_destination_cutover(self):
+        blockers, controls = preflight.readiness(ROOT)
+        self.assertIn("account-provider-cutover-target-mismatch", blockers)
+        self.assertIn("account-provider-cutover-incomplete", blockers)
+        self.assertIn("destination-account-gateway-deployment", blockers)
+        self.assertIn("destination-sync-export-db-proof", blockers)
+        self.assertIn("destination-account-export-e2e-proof", blockers)
+        self.assertIn("destination-sync-runtime-e2e-proof", blockers)
+        self.assertTrue(all(not enabled for enabled in controls.values()))
+
+    def test_destination_project_match_alone_does_not_authorize_registration(self):
+        temporary, root = self.fixture_root()
+        try:
+            path = root / preflight.HARDENING
+            hardening = preflight.load_json(root, preflight.HARDENING)
+            hardening["target"]["project_ref"] = hardening["postgresql_destination"]["project_ref"]
+            path.write_text(__import__("json").dumps(hardening, indent=2) + "\n", encoding="utf-8")
+            blockers, _ = preflight.readiness(root)
+            self.assertNotIn("account-provider-cutover-target-mismatch", blockers)
+            for flag in (
+                "account-provider-cutover-incomplete",
+                "destination-account-gateway-deployment",
+                "destination-active-legal-policy",
+                "destination-provider-settings-proof",
+                "destination-auth-rate-limit-e2e-proof",
+                "destination-session-revocation-proof",
+                "destination-recovery-e2e-proof",
+                "destination-sync-export-db-proof",
+                "destination-account-export-e2e-proof",
+                "destination-sync-runtime-e2e-proof",
+            ):
+                self.assertIn(flag, blockers)
+        finally:
+            temporary.cleanup()
+
+    def test_all_destination_proofs_are_individually_required(self):
+        temporary, root = self.fixture_root()
+        try:
+            path = root / preflight.HARDENING
+            hardening = preflight.load_json(root, preflight.HARDENING)
+            stage = hardening["postgresql_destination"]
+            hardening["target"]["project_ref"] = stage["project_ref"]
+            for flag in (
+                "functional_provider_cutover_complete",
+                "public_account_gateway_deployed",
+                "active_legal_policy_present",
+                "provider_settings_e2e_verified",
+                "public_auth_rate_limit_runtime_e2e_verified",
+                "session_revocation_e2e_verified",
+                "recovery_e2e_verified",
+                "sync_export_db_boundary_proven",
+                "account_export_runtime_e2e_verified",
+                "sync_runtime_e2e_verified",
+            ):
+                stage[flag] = True
+            path.write_text(__import__("json").dumps(hardening, indent=2) + "\n", encoding="utf-8")
+            blockers, _ = preflight.readiness(root)
+            self.assertFalse(any(
+                code == "account-provider-cutover-target-mismatch"
+                or code.startswith("destination-")
+                or code == "account-provider-cutover-incomplete"
+                for code in blockers
+            ))
+            # Clearing destination gates alone never clears unrelated release gates.
+            self.assertIn("provider-leaked-password-protection", blockers)
+            self.assertEqual(preflight.main(["require-ready", "--root", str(root)]), 1)
+        finally:
+            temporary.cleanup()
+
+    def test_malformed_destination_evidence_fails_closed(self):
+        temporary, root = self.fixture_root()
+        try:
+            path = root / preflight.HARDENING
+            hardening = preflight.load_json(root, preflight.HARDENING)
+            hardening["postgresql_destination"] = []
+            path.write_text(__import__("json").dumps(hardening, indent=2) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "postgresql_destination must be an object"):
+                preflight.readiness(root)
+        finally:
+            temporary.cleanup()
+
     def test_public_login_legal_receipt_guard_deployment_is_mandatory(self):
         temporary, root = self.fixture_root()
         try:
