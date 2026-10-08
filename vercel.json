@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "outputDirectory": "sites/public",
+  "outputDirectory": "out/public-site",
   "ignoreCommand": "node tools/public-site/vercel_ignore_build.mjs",
   "rewrites": [
     {
@@ -97,5 +97,6 @@
   ],
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify"
 }
