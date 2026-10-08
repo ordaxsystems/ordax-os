@@ -150,6 +150,36 @@ test("verified Store projection offers install only from verified catalog plus e
   projection.destroy();
 });
 
+test("known optional utility is represented from verified catalog only; raw unknown stays blocked", async () => {
+  const catalog = catalogPort(ready([
+    candidate("calculator", "0.2.0", "Calculadora"),
+    candidate("unapproved-product", "0.1.0", "Unapproved"),
+  ]));
+  const requests = [];
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({
+      calculator: metadata("calculator"),
+    }, requests),
+  });
+  await projection.refresh();
+  const snapshot = projection.port.getSnapshot();
+  assert.equal(snapshot.state, "ready");
+  const calculator = snapshot.entries.find(item => item.appId === "calculator");
+  assert.equal(calculator.state, "available");
+  assert.equal(calculator.installable, true);
+  assert.equal(calculator.updatable, false);
+  assert.equal(calculator.artifactIdentityVerified, true);
+  assert.equal(calculator.provenanceVerified, true);
+  assert.ok(requests.some(row => row.url.includes("component=calculator")));
+  const unknown = snapshot.entries.find(item => item.appId === "unapproved-product");
+  assert.equal(unknown.state, "blocked");
+  assert.equal(unknown.blockedReason, "first-party-delivery-policy-unavailable");
+  assert.equal(unknown.installable, false);
+  projection.destroy();
+});
+
 test("exact active slot is installed and a newer verified catalog candidate is updatable", async () => {
   for (const [currentVersion, currentCommit, expected] of [
     ["0.4.3", SOURCE_COMMIT, { updatable: false, availableVersion: null }],
