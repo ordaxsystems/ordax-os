@@ -31,8 +31,12 @@ function labelText(value, label) {
 // A Profile Pack's manifest.category remains the SSOT for its membership;
 // these nodes own ONLY category names and parent-child relationships.
 export function validateProfileTaxonomy(value) {
-  const source = strictObject(value, "Profile taxonomy", ["$schema", "revision", "nodes"]);
-  if (source.$schema !== PROFILE_TAXONOMY_SCHEMA) {
+  const normalized = value?.schema === PROFILE_TAXONOMY_SCHEMA;
+  const source = strictObject(
+    value, "Profile taxonomy",
+    [normalized ? "schema" : "$schema", "revision", "nodes"],
+  );
+  if ((normalized ? source.schema : source.$schema) !== PROFILE_TAXONOMY_SCHEMA) {
     throw new TypeError("Profile taxonomy schema is incompatible");
   }
   if (!Number.isSafeInteger(source.revision) || source.revision < 1) {
