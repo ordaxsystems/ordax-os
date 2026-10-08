@@ -7,6 +7,10 @@ import {
   validateIntelligenceSnapshot,
 } from "../../contracts/intelligence.mjs";
 
+import { assertIdentitySessionPort, validateIdentitySessionSnapshot } from "../../contracts/identity-session.mjs";
+import { assertSpaceSelectionPort, validateSpaceSelectionSnapshot } from "../../contracts/space-selection.mjs";
+import { assertProfileActivationStatePort, validateProfileActivationState } from "../../contracts/profile-activation-state.mjs";
+
 export const ASSISTANT_CONVERSATION_SCHEMA = "ordax.assistant-conversation/1";
 const MAX_MESSAGES = 24;
 const MAX_CONTEXT_MESSAGES = 8;
@@ -68,9 +72,50 @@ function runtimeState(snapshot) {
   return "unavailable";
 }
 
+// Conversation history is session-only and must never outlive its trusted scope.
+// These snapshots are read from the existing Identity, Space and Profile owners;
+// they confer no permissions and are never shown to the model as authority.
+function readConversationScope(identity, selection, profileActivation) {
+  try {
+    const account = validateIdentitySessionSnapshot(identity.getSnapshot());
+    const space = validateSpaceSelectionSnapshot(selection.getSnapshot());
+    if (account.state === "signed-out") {
+      return space.state === "unavailable" ? "device:signed-out" : null;
+    }
+    if (account.state !== "signed-in"
+      || space.state === "unavailable"
+      || space.subjectId !== account.subjectId) {
+      return null;
+    }
+    if (space.state === "unselected") {
+      return JSON.stringify(["account", account.subjectId, null]);
+    }
+    // The global Assistant currently receives no project-scoped input.
+    // A future project consumer must include the authorized project identity here.
+    const selected = space.selectedSpace;
+    const profileRevision = profileActivation === null
+      ? null
+      : validateProfileActivationState(profileActivation.getSnapshot()).revision;
+    return JSON.stringify([
+      "account",
+      account.subjectId,
+      selected.id,
+      selected.kind,
+      selected.profilePack,
+      profileRevision,
+    ]);
+  } catch {
+    // Malformed, stale or inaccessible authorization state is never a valid scope.
+    return null;
+  }
+}
+
 export function createAssistantConversationRuntime({
   intelligencePort = null,
   memoryCapture = null,
+  identitySessionPort,
+  spaceSelectionPort,
+  profileActivationStatePort = null,
 } = {}) {
   const intelligence = intelligencePort === null ? null : assertIntelligencePort(intelligencePort);
   if (
@@ -82,10 +127,21 @@ export function createAssistantConversationRuntime({
   ) {
     throw new TypeError("Assistant memoryCapture must implement bindTurn()");
   }
+  const identity = assertIdentitySessionPort(identitySessionPort);
+  const selection = assertSpaceSelectionPort(spaceSelectionPort);
+  const activation = profileActivationStatePort === null
+    ? null
+    : assertProfileActivationStatePort(profileActivationStatePort);
+  if (activation !== null && typeof activation.subscribe !== "function") {
+    throw new TypeError("Assistant Profile activation scope requires subscribe()");
+  }
+  let scopeKey = readConversationScope(identity, selection, activation);
+  let scopeGeneration = 0;
+  let requestInFlight = false;
   let messages = Object.freeze([]);
-  let state = runtimeState(
-    intelligence === null ? null : validateIntelligenceSnapshot(intelligence.getSnapshot()),
-  );
+  let state = scopeKey === null
+    ? "unavailable"
+    : runtimeState(intelligence === null ? null : validateIntelligenceSnapshot(intelligence.getSnapshot()));
   let lastError = null;
   let memoryCaptureState = memoryCapture === null ? "unavailable" : "idle";
   let ordinal = 0;
@@ -126,8 +182,30 @@ export function createAssistantConversationRuntime({
     return next;
   };
 
+  const reconcileScope = () => {
+    if (disposed) return;
+    const next = readConversationScope(identity, selection, activation);
+    if (scopeKey === next) return;
+    scopeKey = next;
+    scopeGeneration += 1;
+    messages = Object.freeze([]);
+    lastError = null;
+    memoryCaptureState = memoryCapture === null ? "unavailable" : "idle";
+    state = scopeKey === null ? "unavailable" : (
+      requestInFlight ? "busy" : runtimeState(
+        intelligence === null ? null : validateIntelligenceSnapshot(intelligence.getSnapshot()),
+      )
+    );
+    publish();
+  };
+
+  const unsubscribeIdentity = identity.subscribe(reconcileScope);
+  const unsubscribeSelection = selection.subscribe(reconcileScope);
+  const unsubscribeActivation = activation?.subscribe(reconcileScope) ?? null;
   const unsubscribe = intelligence?.subscribe((next) => {
-    if (disposed || state === "busy") return;
+    if (disposed) return;
+    reconcileScope();
+    if (scopeKey === null || requestInFlight) return;
     state = runtimeState(validateIntelligenceSnapshot(next));
     publish();
   }) ?? null;
@@ -135,6 +213,7 @@ export function createAssistantConversationRuntime({
   return Object.freeze({
     schema: ASSISTANT_CONVERSATION_SCHEMA,
     getSnapshot() {
+      reconcileScope();
       return snapshot();
     },
     subscribe(listener) {
@@ -142,17 +221,23 @@ export function createAssistantConversationRuntime({
         throw new TypeError("Assistant conversation listener must be a function");
       }
       if (disposed) return () => {};
+      reconcileScope();
       listeners.add(listener);
       listener(snapshot());
       return () => listeners.delete(listener);
     },
     async send(value) {
       assertAlive();
+      reconcileScope();
+      if (scopeKey === null) {
+        throw new Error("Assistant conversation context is unavailable");
+      }
+      const generationAtStart = scopeGeneration;
       const prompt = boundedPrompt(value);
       if (intelligence === null) {
         throw new Error("Ordax Intelligence is unavailable in this composition");
       }
-      if (state === "busy") {
+      if (requestInFlight) {
         throw new Error("Assistant conversation is already processing a request");
       }
       const intelligenceSnapshot = validateIntelligenceSnapshot(intelligence.getSnapshot());
@@ -172,6 +257,7 @@ export function createAssistantConversationRuntime({
         }
       }
       append("user", prompt);
+      requestInFlight = true;
       state = "busy";
       lastError = null;
       publish();
@@ -183,7 +269,10 @@ export function createAssistantConversationRuntime({
           context: priorContext,
           maxTokens: 512,
         }));
-        if (disposed) return response;
+        reconcileScope();
+        if (disposed || scopeGeneration !== generationAtStart) {
+          throw new Error("Assistant conversation context changed");
+        }
         append("assistant", response.text, {
           engineId: response.engineId,
           modelId: response.modelId,
@@ -193,14 +282,26 @@ export function createAssistantConversationRuntime({
         publish();
 
         if (boundMemoryTurn !== null) {
+          reconcileScope();
+          if (scopeGeneration !== generationAtStart) {
+            throw new Error("Assistant conversation context changed");
+          }
           memoryCaptureState = "pending";
           publish();
           try {
             const captureResult = await boundMemoryTurn.capture({
               userText: prompt,
             });
+            reconcileScope();
+            if (scopeGeneration !== generationAtStart) {
+              throw new Error("Assistant conversation context changed");
+            }
             memoryCaptureState = captureResult?.status ?? "complete";
           } catch {
+            reconcileScope();
+            if (scopeGeneration !== generationAtStart) {
+              throw new Error("Assistant conversation context changed");
+            }
             memoryCaptureState = "error";
           }
           publish();
@@ -208,16 +309,29 @@ export function createAssistantConversationRuntime({
         return response;
       } catch {
         if (disposed) throw new Error("Assistant response failed");
+        reconcileScope();
+        if (scopeGeneration !== generationAtStart) {
+          throw new Error("Assistant conversation context changed");
+        }
         state = runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()));
         if (state === "ready") state = "error";
         lastError = "response-failed";
         publish();
         throw new Error("Assistant response failed");
+      } finally {
+        requestInFlight = false;
+        if (!disposed && scopeGeneration !== generationAtStart) {
+          state = scopeKey === null
+            ? "unavailable"
+            : runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()));
+          publish();
+        }
       }
     },
     clear() {
       assertAlive();
-      if (state === "busy") {
+      reconcileScope();
+      if (requestInFlight) {
         throw new Error("Assistant conversation cannot be cleared while a response is pending");
       }
       messages = Object.freeze([]);
@@ -233,6 +347,9 @@ export function createAssistantConversationRuntime({
       if (disposed) return;
       disposed = true;
       unsubscribe?.();
+      unsubscribeActivation?.();
+      unsubscribeSelection();
+      unsubscribeIdentity();
       listeners.clear();
       messages = Object.freeze([]);
     },
