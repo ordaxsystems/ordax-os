@@ -147,3 +147,31 @@ reais de Auth/email/redirect/password/rate limiting, termos e privacidade
 revisados, Turnstile, recovery e revogação E2E. A conta continua opcional
 para inicializar e usar o OS localmente. Nunca copiar tokens/senhas ou permitir
 um segundo writer de identidade durante a migração.
+
+### Limitação de tentativas e quarentena jurídica no destino (2026-10-08)
+
+O mesmo PostgreSQL de destino recebeu duas migrations **já existentes no
+owner canônico**, sem duplicação do rate limiter ou das regras de identidade:
+
+- `20261004202500_public_auth_rate_limit_v1.sql`: RPC
+  `ordax_consume_public_auth_rate_limit_v1`, executável só por
+  `service_role`; limites por endereço IP canônico e operação, estado privado
+  com IP representado somente por hash SHA-256;
+- `20261007044500_account_legacy_legal_quarantine_v1.sql`: bloqueio e
+  reconciliação de contas anteriores sem recibo legal, incluindo a trigger
+  de liberação somente quando surgir o recibo legítimo.
+
+As duas migrations foram compiladas em uma transação com `ROLLBACK` antes
+da aplicação no destino. A prova SQL **canônica existente** em
+`tests/sql/test_public_auth_rate_limit_v1.sql` passou contra o PostgreSQL
+de destino com `ROLLBACK`: cobrança de tentativas até o limite, rejeição
+posterior, isolamento IPv4, normalização IPv6, rejeição de buckets/IPs
+inválidos e ausência de grants diretos. Uma segunda leitura confirmou
+`0` janelas de rate limit, `0` contas e `0` contas em quarentena no
+destino após os testes. Apenas `service_role` pode invocar as RPCs.
+
+O rate limit do banco **não significa proteção pública comprovada**:
+faltam implantação do gateway de destino, verificação de IP verdadeiro
+atrás do host e teste E2E com rede pública. Esses gates permanecem
+`false` em `docs/contracts/public-auth-hardening.json`; não habilitar
+cadastro/login por causa da preparação do schema.
