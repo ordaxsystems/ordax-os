@@ -8,6 +8,10 @@ on:
       - 'tools/creator/pre_usb_nova_ordax_audit.py'
       - 'tools/creator/physical_promotion.py'
       - 'tools/creator/stable_mvp_usb_readiness.py'
+      - 'tools/ops/first_mvp_operator_readiness.py'
+      - 'docs/contracts/creator-code-signing.json'
+      - 'docs/contracts/creator-consumer-flow.json'
+      - 'tests/test_first_mvp_operator_readiness.py'
       - 'docs/contracts/physical-write-authorization.json'
       - 'docs/contracts/mvp-app-delivery.json'
       - 'docs/MVP-PRONTIDAO-CONTINUA.md'
@@ -45,24 +49,48 @@ jobs:
           python -m unittest \
             tests.test_pre_usb_nova_ordax_audit \
             tests.test_stable_mvp_usb_readiness \
+            tests.test_first_mvp_operator_readiness \
             tests.test_physical_promotion_boundary \
             tests.test_stable_mvp_readiness_snapshot_workflow -v
 
-      - name: Snapshot exactly the canonical Stable MVP readiness evaluator
+      - name: Snapshot canonical USB and Creator public-readiness boundaries
         shell: bash
         env:
           SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           mkdir -p out/mvp-readiness
-          python tools/creator/stable_mvp_usb_readiness.py --repo-root . > out/mvp-readiness/status.json
+          python tools/ops/first_mvp_operator_readiness.py --repo-root . > out/mvp-readiness/operator.json
           python - <<'PY'
           import json
           import os
           from pathlib import Path
 
-          path = Path("out/mvp-readiness/status.json")
-          state = json.loads(path.read_text(encoding="utf-8"))
+          operator = json.loads(Path("out/mvp-readiness/operator.json").read_text(encoding="utf-8"))
+          if operator.get("$schema") != "prototype-ordax.first-mvp-operator-readiness/1":
+              raise SystemExit("Unexpected operator readiness schema")
+          if operator.get("status") not in {"blocked", "ready-for-operator-handoff"} or "error" in operator:
+              raise SystemExit("Operator readiness evaluation failed")
+          if not isinstance(operator.get("first_usb"), dict):
+              raise SystemExit("Missing canonical first USB operator boundary")
+          creator = operator.get("official_creator")
+          if not isinstance(creator, dict):
+              raise SystemExit("Missing official Creator publication boundary")
+          if not isinstance(creator.get("publication_ready"), bool) or not isinstance(creator.get("blockers"), list):
+              raise SystemExit("Invalid official Creator publication gate")
+          if creator.get("may_block_first_usb_proof") is not False:
+              raise SystemExit("Creator publication gate must not block first USB proof")
+          for key in ("private_key_read", "signature_created", "release_published",
+                      "physical_target_selected", "writer_invoked", "physical_write_performed",
+                      "internal_disk_write_performed"):
+              if operator.get("boundaries", {}).get(key) is not False:
+                  raise SystemExit(f"Read-only operator assessment cannot claim {key}")
+          state = operator.get("source", {}).get("stable_mvp_usb_readiness")
+          if not isinstance(state, dict):
+              raise SystemExit("Missing canonical USB assessment in operator source")
+          Path("out/mvp-readiness/status.json").write_text(
+              json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
           if state.get("$schema") != "prototype-ordax.stable-mvp-usb-readiness/1":
               raise SystemExit("Unexpected readiness evaluator schema")
           if state.get("status") not in {"blocked", "ready"}:
@@ -89,15 +117,24 @@ jobs:
               f"**Estado canônico:** \x60{state['status']}\x60",
               f"**Etapa atual:** \x60{state['stage']}\x60",
               "",
-              "**Pendências obrigatórias restantes:**",
+              "**Pendências obrigatórias restantes para o USB:**",
           ]
           gates = state["remaining_gates"]
           lines += [f"- \x60{gate}\x60" for gate in gates] if gates else ["- Nenhuma nesta fase"]
           lines += [
               "",
+              "**Separação da disponibilização pública do Creator:**",
+              f"- Prontidão de publicação oficial: `{creator['publication_ready']}`",
+              f"- Primeiro USB / fluxo do operador: `{operator['status']}`",
+          ]
+          creator_blockers = creator["blockers"]
+          lines += [f"- Bloqueio do Creator: `{reason}`" for reason in creator_blockers] if creator_blockers else ["- Nenhum bloqueio de identidade registrado neste snapshot"]
+          lines += [
+              "",
               "Um workflow verde atesta somente o avaliador e o snapshot; **não** aprova "
               "publicação, mídia física, assinatura ou escrita USB.",
-              "Fonte: tools/creator/stable_mvp_usb_readiness.py.",
+              "Fontes: tools/ops/first_mvp_operator_readiness.py → "
+              "tools/creator/stable_mvp_usb_readiness.py.",
           ]
           summary = "\n".join(lines) + "\n"
           Path("out/mvp-readiness/README.md").write_text(summary, encoding="utf-8")

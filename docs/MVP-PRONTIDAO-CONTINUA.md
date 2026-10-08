@@ -10,6 +10,7 @@
 | App essencial vs opcional e atualização assinada | `system/services/apps/mvp-delivery-policy.mjs` e `system/supervisor` |
 | Gates de produto, integridade, boot e promoção | `docs/PROMOTION-GATES.md` |
 | Avaliação fonte/USB e autorização física | `tools/creator/stable_mvp_usb_readiness.py` e `docs/contracts/physical-write-authorization.json` |
+| Distinção primeiro USB / Creator público | `tools/ops/first_mvp_operator_readiness.py` e `docs/contracts/creator-code-signing.json` |
 | Trust e rollback do sistema | Contratos de release e ativação canônicos |
 | Disponibilidade da compatibilidade Windows | `docs/contracts/application-compatibility.json` |
 
@@ -28,14 +29,19 @@ Nenhum relatório ou interface pode inferir `execution_available`, instalação,
 ## Leitura contínua, sem falso indicador de pronto
 
 ```sh
+python tools/ops/first_mvp_operator_readiness.py --repo-root .
 python tools/creator/stable_mvp_usb_readiness.py --repo-root .
 ```
+
+O primeiro comando é o agregador **já existente**: compõe exatamente uma leitura da prontidão USB com o estado separado da assinatura e disponibilização pública do Creator. O segundo é a consulta direta do gate físico, útil para diagnóstico. O workflow executa **apenas o agregador** e deriva `status.json` do objeto USB aninhado; não repete a auditoria nem persiste novo estado.
+
+`first_usb` indica a preparação/prova do primeiro USB controlado. `official_creator.publication_ready` indica o gate específico de identidade Authenticode e publicação do Creator oficial. **Um pode estar bloqueado sem que isso autorize ou bloqueie automaticamente o outro**. Nenhum dos dois campos, isoladamente, atesta que o produto inteiro pode ser lançado.
 
 Workflow: `.github/workflows/stable-mvp-readiness-snapshot.yml`, acionado em todo push da `main`, por despacho manual ou PR que altere o boundary de prontidão.
 
 O job é considerado bem-sucedido quando o **avaliador** funciona e o snapshot é íntegro. Isso **não** significa que o status interno seja `ready`, muito menos que a release pública esteja autorizada. O campo `remaining_gates` define o trabalho físico pendente; `status=ready` nesse avaliador significa, no máximo, *candidato autorizado para um fluxo físico posterior*, não lançamento liberado.
 
-Artefatos incluem `status.json` e explicação por SHA; só leitura, sem chave privada, sem seleção de USB, sem alteração da autorização, sem acionamento do writer e sem publicação.
+Artefatos incluem `operator.json` (agregador canônico), `status.json` (mesmo objeto USB sem nova avaliação) e explicação por SHA; só leitura, sem chave privada, sem seleção de USB, sem alteração da autorização, sem acionamento do writer e sem publicação.
 
 ## O que falta hoje para um lançamento público
 
