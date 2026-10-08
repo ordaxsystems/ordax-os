@@ -17,6 +17,10 @@ import {
   validateVerifiedAppStoreCatalogSnapshot,
 } from "../../contracts/verified-app-store-catalog.mjs";
 
+import {
+  hasNativeExternalFirstPartyModuleRead,
+} from "./external-first-party-policy.mjs";
+
 export const APP_LIFECYCLE_DELEGATE_SCHEMA = "ordax.app-lifecycle-delegate/1";
 
 const MAX_COMPLETED_REQUESTS = 256;
@@ -156,6 +160,16 @@ export function createAppLifecycleRequestService({
       && !candidateMatchesProjection(candidate, entry)
     ) {
       return rejectAndRemember(request, fingerprint, "verified-candidate-projection-mismatch");
+    }
+
+    // Signed catalog presence is not executable-read authority. Until the
+    // canonical Native broker supports this app, do not delegate an install or
+    // update the host cannot load. Removing an installed app stays available.
+    if (
+      ["install", "update"].includes(request.operation)
+      && !hasNativeExternalFirstPartyModuleRead(request.appId)
+    ) {
+      return rejectAndRemember(request, fingerprint, "runtime-module-read-unavailable");
     }
 
     let plan;
