@@ -9,13 +9,31 @@
   "boot_critical": false,
   "foreign_payload_default_trust": "untrusted",
   "foreign_payload_becomes_native_trust": false,
-  "implemented_operations": ["inspect", "inspect.verified", "runtime.list", "launch.plan", "profile.create.plan"],
-  "reserved_future_operations": ["profile.create", "install.plan", "install", "launch", "health", "rollback", "remove"],
+  "implemented_operations": [
+    "inspect",
+    "inspect.verified",
+    "runtime.list",
+    "launch.plan",
+    "profile.create.plan"
+  ],
+  "reserved_future_operations": [
+    "profile.create",
+    "install.plan",
+    "install",
+    "launch",
+    "health",
+    "rollback",
+    "remove"
+  ],
   "windows": {
     "pe_detection": {
       "content_based": true,
       "extension_only_trusted": false,
-      "architectures": ["x86", "x86_64", "aarch64"],
+      "architectures": [
+        "x86",
+        "x86_64",
+        "aarch64"
+      ],
       "dll_launchable": false,
       "malformed_optional_header_launchable": false
     },
@@ -27,7 +45,11 @@
     "runtime": {
       "selected_engine": null,
       "provider_must_be_explicit": true,
-      "allowed_engine_classes": ["wine", "proton", "other"],
+      "allowed_engine_classes": [
+        "wine",
+        "proton",
+        "other"
+      ],
       "sandbox_required": true,
       "execution_enabled_descriptor_required": true,
       "content_addressed_source_required": true,
@@ -41,7 +63,10 @@
         "binary_artifact_pinned": false,
         "activation_authorized": false,
         "owner_development_only": true
-      }
+      },
+      "engine_family_compatible_descriptor_required": true,
+      "unknown_architecture_descriptor_allowed": false,
+      "descriptor_is_artifact_proof": false
     },
     "profile": {
       "planner_schema": "ordax.application-compatibility-profile-planner/1",
