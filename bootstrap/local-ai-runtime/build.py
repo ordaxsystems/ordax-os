@@ -128,6 +128,11 @@ def load_source_lock(path=SOURCE_LOCK):
         raise RuntimeBuildError("model revision is not pinned")
     if model.get("download_at_build_time_only") is not True:
         raise RuntimeBuildError("model must be a build-time-only network input")
+    # A distributable model must have the reviewed license identity as well
+    # as the corresponding vendored legal text. A changed upstream model/license
+    # requires a new reviewed source-lock, not a mislabeled release artifact.
+    if model.get("license") != "Apache-2.0":
+        raise RuntimeBuildError("model license is not approved for the pinned MVP candidate")
     license_path = model.get("license_text_path")
     if license_path != "third_party/licenses/Apache-2.0.txt":
         raise RuntimeBuildError("model license text must be vendored at the canonical path")
