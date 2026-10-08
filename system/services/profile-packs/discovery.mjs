@@ -35,7 +35,8 @@ export function projectProfileDiscovery({
   if (verified !== true) return empty("unavailable");
   const data = validateProfileDiscoveryCatalog(catalog);
   if (typeof asOf !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(asOf)
-      || Number.isNaN(Date.parse(asOf))) {
+      || Number.isNaN(Date.parse(asOf))
+      || new Date(asOf).toISOString().replace(".000Z", "Z") !== asOf) {
     throw new TypeError("Discovery requires the caller's bounded UTC clock");
   }
   if (typeof sponsoredEnabled !== "boolean") {
