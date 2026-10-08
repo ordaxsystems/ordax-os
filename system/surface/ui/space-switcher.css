@@ -1,4 +1,9 @@
 /* Authenticated Space context, owned by the shell and backed by Account ports. */
+/* Keep the global switcher above app windows without enabling clicks on the whole brandbar. */
+.ordax-brandbar {
+  z-index: 80;
+}
+
 .ordax-space-switcher-slot {
   position: relative;
   min-width: 0;
