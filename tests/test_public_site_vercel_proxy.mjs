@@ -414,6 +414,62 @@ test("Turnstile verifier requires success, exact hostname and exact action", asy
   assert.equal(wrongHost, false);
 });
 
+test("Turnstile response rejects oversized content-length without pulling remote bytes", async () => {
+  let pulled = false;
+  const stream = new ReadableStream({
+    pull() { pulled = true; },
+  }, { highWaterMark: 0 });
+  const response = new Response(stream, {
+    headers: { "content-length": String(64 * 1024 + 1) },
+  });
+  await assert.rejects(
+    verifyTurnstileToken("token-12345678901234567890", {
+      secret: "server-secret",
+      remoteIp: "203.0.113.15",
+      expectedHostname: "ordax-os-public.vercel.app",
+      fetchImpl: async () => response,
+    }),
+    { name: "RangeError", message: "body-too-large" },
+  );
+  assert.equal(pulled, false);
+  await stream.cancel();
+});
+
+test("Turnstile rejects oversized streamed response even with a false small header", async () => {
+  let cancelled = false;
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new Uint8Array(40 * 1024));
+      controller.enqueue(new Uint8Array(40 * 1024));
+    },
+    cancel() { cancelled = true; },
+  });
+  await assert.rejects(
+    verifyTurnstileToken("token-12345678901234567890", {
+      secret: "server-secret",
+      remoteIp: "203.0.113.15",
+      expectedHostname: "ordax-os-public.vercel.app",
+      fetchImpl: async () => new Response(stream, {
+        headers: { "content-length": "3" },
+      }),
+    }),
+    { name: "RangeError", message: "body-too-large" },
+  );
+  assert.equal(cancelled, true);
+});
+
+test("Turnstile fails closed on malformed UTF-8 response without forwarding anything", async () => {
+  await assert.rejects(
+    verifyTurnstileToken("token-12345678901234567890", {
+      secret: "server-secret",
+      remoteIp: "203.0.113.15",
+      expectedHostname: "ordax-os-public.vercel.app",
+      fetchImpl: async () => new Response(new Uint8Array([0xff, 0xfe]), { status: 200 }),
+    }),
+    TypeError,
+  );
+});
+
 test("public login fails closed without Turnstile and never forwards challenge token", async () => {
   const originalFetch = globalThis.fetch;
   let observed;
