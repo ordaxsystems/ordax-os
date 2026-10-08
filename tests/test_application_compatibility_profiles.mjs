@@ -165,7 +165,7 @@ test("ready profile-plan contract rejects forged, cloned, and unissued profile o
     { schema: profile.schema, hostAuthority: "system" },
     { ...profile },
     Object.freeze({ ...profile }),
-    { ...profile, payload: { ...profile.payload, digest: `sha256:${"ff".repeat(32)}` },
+    { ...profile, payload: { ...profile.payload, digest: `sha256:${"ff".repeat(32)}` } },
     { ...profile, storageKey: "../../etc", execute: "wine" },
   ]) {
     assert.throws(
