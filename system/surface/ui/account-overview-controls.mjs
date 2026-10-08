@@ -668,6 +668,10 @@ export function mountAccountOverviewControls(
         detail,
         isSelected ? "available" : space.state === "active" ? "available" : "neutral",
       );
+      card.classList.add("ordax-account-space-card");
+      card.dataset.spaceKind = space.kind;
+      card.dataset.selected = String(isSelected);
+      card.dataset.spaceState = space.state;
       if (spaceSelectionPort && space.state === "active") {
         const cardActions = node(documentObject, "div", "ordax-account-actions");
         const select = node(
@@ -773,6 +777,10 @@ export function mountAccountOverviewControls(
               ? "unavailable"
               : "neutral",
       );
+      card.classList.add("ordax-account-profile-card");
+      card.dataset.profileSlug = plan.profile.slug;
+      card.dataset.selected = String(isActive);
+      card.dataset.availability = plan.state;
 
       if (profileActivationPort && selectedSpace) {
         const actions = node(documentObject, "div", "ordax-account-actions");
