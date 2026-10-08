@@ -87,7 +87,7 @@
   "vercel_adapter": {
     "status": "oidc-zero-trust-source-ready-not-deployed",
     "project": "ordax-os-public",
-    "team": "jogo-brasils-projects",
+    "team": "ordaxsystems",
     "project_config_source": "vercel.json",
     "function_source": "api/account-proxy.mjs",
     "static_output_directory": "out/public-site",
@@ -102,7 +102,7 @@
     "canonical_public_origin_environment_variable": "ORDAX_PUBLIC_ORIGIN",
     "canonical_public_origin_required": true,
     "canonical_public_origin_live_configured": false,
-    "canonical_public_origin": "https://ordax-os-public.vercel.app",
+    "canonical_public_origin": "https://ordax.com.br",
     "gateway_upstream_environment_scope": [
       "production"
     ],
