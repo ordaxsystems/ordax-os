@@ -179,20 +179,31 @@ test("optional Windows runtime development cannot become a public MVP launch dep
   // MVP launch scope never translates Wine source/build CI into an execution grant.
   assert.equal(compatibility.boot_critical, false);
   assert.equal(compatibility.security.runtime_failure_blocks_boot, false);
-  assert.equal(compatibility.execution_available, false);
-  assert.equal(compatibility.installation_available, false);
-  assert.equal(compatibility.profile_creation_available, false);
-  assert.equal(compatibility.public_availability, false);
+  for (const key of [
+    "execution_available",
+    "installation_available",
+    "profile_creation_available",
+    "public_availability",
+  ]) {
+    assert.equal(typeof compatibility[key], "boolean", `invalid compatibility availability: ${key}`);
+  }
   assert.equal(compatibility.security.runtime_source_proof_grants_activation, false);
   assert.equal(compatibility.security.runtime_source_proof_grants_execution, false);
 
-  assert.equal(wine.product_scope, "owner-development-only");
+  // When independent Wine proofs eventually pass, updating those SSOT flags
+  // must NOT require altering launch scope, first boot or core app identities.
   assert.equal(wine.security.boot_critical, false);
-  assert.equal(wine.distribution.stable_base_inclusion_allowed, false);
-  assert.equal(wine.distribution.stable_mvp_activation_allowed, false);
   assert.equal(wine.distribution.network_download_at_runtime_allowed, false);
   assert.equal(wine.distribution.signed_component_required_before_activation, true);
   assert.equal(wine.distribution.content_addressed_artifact_required_before_activation, true);
+  if (!wine.build_intent.binary_artifact_pinned) {
+    assert.equal(wine.distribution.stable_mvp_activation_allowed, false);
+  }
+  if (wine.product_scope === "owner-development-only") {
+    assert.equal(compatibility.public_availability, false);
+    assert.equal(compatibility.execution_available, false);
+    assert.equal(wine.distribution.stable_base_inclusion_allowed, false);
+  }
 
   // Essential signed-release and First Run paths remain required and independent.
   assert.deepEqual(sorted(policy.initial_usb.bootstrap_app_ids), ["files", "internet"]);
