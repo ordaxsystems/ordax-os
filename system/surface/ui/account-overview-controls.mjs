@@ -33,6 +33,7 @@ import {
   assertMutableProfileActivationStatePort,
   validateProfileActivationState,
 } from "../../contracts/profile-activation-state.mjs";
+import { assertMvpZeroComponentProfileReview } from "./profile-activation-review.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import {
   MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
@@ -1393,18 +1394,7 @@ export function mountAccountOverviewControls(
               components: [],
             };
             const preview = await profileActivationPort.previewActivation(intent);
-            // The MVP UI only supports zero-component compositions.
-            // Components and privilege reviews require the trusted Native consent flow.
-            const diff = preview?.permissionDiff;
-            if (
-              diff?.requiresExplicitReview !== false
-              || !Array.isArray(diff.componentAdds) || diff.componentAdds.length !== 0
-              || !Array.isArray(diff.componentRemovals) || diff.componentRemovals.length !== 0
-              || !Array.isArray(diff.authorityChanges) || diff.authorityChanges.length !== 0
-              || !/^[0-9a-f]{64}$/.test(preview.permissionDiffSha256)
-            ) {
-              throw new Error("Profile activation preview requires unsupported review");
-            }
+            const acceptedDigest = assertMvpZeroComponentProfileReview(preview);
             if (
               sessionSnapshot.state !== "signed-in"
               || sessionSnapshot.subjectId !== actingSubjectId
@@ -1415,7 +1405,7 @@ export function mountAccountOverviewControls(
             }
             const next = await profileActivationPort.activate({
               ...intent,
-              acceptedPermissionDiffSha256: preview.permissionDiffSha256,
+              acceptedPermissionDiffSha256: acceptedDigest,
             });
             profileActivationSnapshot = validateProfileActivationState(next);
             profileMessage = t("account.profiles.activated");
