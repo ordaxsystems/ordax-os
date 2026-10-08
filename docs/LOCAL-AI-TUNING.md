@@ -227,3 +227,21 @@ ser promovido por **prova de runtime e de lifecycle**, não por um botão visual
 Mínimos de RAM, espaço no volume real, requisitos de instruções e metas de
 latência devem nascer de provas físicas versionadas em diferentes faixas
 de hardware. Não publicar "compatível" só porque a arquitetura coincide.
+
+
+### Ajustes → Inteligência e origem dos estados
+
+A seção de Ajustes consome diretamente `ordax.local-ai/1` da composição
+Native e mostra `ready/busy/stopped/error/unavailable` **observados**.
+Quando não existe modelo ativo, não converte a identidade fixada do release
+em prova de execução. A ficha planejada vem do mesmo
+`model-candidate.generated.mjs` da Loja, sem segundo registro de modelos.
+Não há preferência de modelo arbitrária nem download/instalação nessa seção.
+
+O botão **Ver modelos de IA na Loja** utiliza
+`ordax.app-activation/1` com `{appId:"store",target:"models"}`.
+O Store existente consome esse destino como navegação, sem invocar lifecycle
+de Apps nem introduzir permissões de execução. A composição local compartilha
+a mesma instância de runtime e a inscrição de estado é encerrada junto à
+Surface. A futura preferência de modelo ativo só deve existir depois de
+integrar o canal assinado, rollback e a verificação real de compatibilidade.
