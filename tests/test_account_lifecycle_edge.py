@@ -140,7 +140,7 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
             (ROOT / "infra" / "supabase" / "product"
              / "account_destination_migration_plan.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(bundle.count("\\nBEGIN;\\n"), 1)
+        self.assertEqual(bundle.splitlines().count("BEGIN;"), 1)
         self.assertTrue(bundle.rstrip().endswith("COMMIT;"))
         self.assertIn("account-cutover-destination-not-empty", bundle)
         self.assertIn("account-cutover-users-present", bundle)
