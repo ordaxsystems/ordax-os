@@ -42,7 +42,7 @@ def make_candidate(root: Path):
     app_id = "notes"
     version = "0.4.2"
     commit = "a" * 40
-    source = "washingtonmsdj/ordax-apps"
+    source = "ordaxsystems/ordax-apps"
 
     bodies = {
         "system/apps/notes/src/runtime.mjs": b'export const runtime = "notes";\n',
@@ -217,7 +217,7 @@ class UnsignedExternalCandidateTests(unittest.TestCase):
             result = verifier.verify(candidate, policy)
         self.assertEqual(result["component_id"], "notes")
         self.assertEqual(result["version"], "0.4.2")
-        self.assertEqual(result["source_repository"], "washingtonmsdj/ordax-apps")
+        self.assertEqual(result["source_repository"], "ordaxsystems/ordax-apps")
         self.assertEqual(result["source_commit"], "a" * 40)
 
     def test_authority_escalation_is_rejected(self):

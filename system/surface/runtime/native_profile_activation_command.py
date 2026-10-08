@@ -273,11 +273,14 @@ def execute_profile_activation_command(
             permission_diff=permission_diff,
         )
         if action == "preview-activate":
+            state = read_profile_activation_state(state_path)
+            if state["revision"] != expected_revision:
+                raise RuntimeError("Profile activation preview revision changed")
             return {
                 "schema": COMMAND_SCHEMA,
                 "action": action,
                 "changed": False,
-                "state": read_profile_activation_state(state_path),
+                "state": state,
                 "permissionDiff": permission_diff,
                 "permissionDiffSha256": review_digest,
             }

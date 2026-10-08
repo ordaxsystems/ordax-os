@@ -71,6 +71,15 @@ export async function createNativeProfileActivationState(windowRef = globalThis.
       body: JSON.stringify({ schema: COMMAND_SCHEMA, ...body }),
     });
     if (!response.ok) {
+      if (response.status === 409) {
+        // A concurrent mutation invalidated our revision; refresh for the next
+        // explicit user action, but never replay the rejected mutation.
+        try {
+          await refresh();
+        } catch {
+          // Preserve the original conflict, not a secondary read failure.
+        }
+      }
       const error = new Error(`Native Profile activation command failed: ${response.status}`);
       error.status = response.status;
       throw error;

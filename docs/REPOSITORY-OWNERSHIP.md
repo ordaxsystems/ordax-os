@@ -12,7 +12,7 @@ Nenhum repositório pode absorver uma responsabilidade de outro apenas para simp
 
 ## Os quatro repositórios oficiais
 
-### 1. washingtonmsdj/prototipo-ordax-os
+### 1. ordaxsystems/prototipo-ordax-os
 
 **Papel:** plataforma/sistema operacional OrdaX.
 
@@ -36,7 +36,7 @@ Não é owner de:
 - connectors específicos de ChatGPT/Grok;
 - adapters especializados como Blender como produto separado.
 
-### 2. washingtonmsdj/ordax-apps
+### 2. ordaxsystems/ordax-apps
 
 **Papel:** source first-party dos aplicativos removíveis/atualizáveis.
 
@@ -56,7 +56,7 @@ Não é owner de:
 - provider connectors como runtime;
 - unrestricted shell/device authority.
 
-### 3. washingtonmsdj/ordax-runtime
+### 3. ordaxsystems/ordax-runtime
 
 **Papel:** Runtime/host local para ambientes que não fornecem os serviços nativos do OrdaX OS, inicialmente Windows.
 
@@ -77,7 +77,7 @@ Não é owner de:
 - OAuth/Cloudflare/Product Grants;
 - serviços estruturais do OrdaX OS.
 
-### 4. washingtonmsdj/ordax-control-plane
+### 4. ordaxsystems/ordax-control-plane
 
 **Papel:** infraestrutura remota/provider-neutral e conectores externos.
 
@@ -167,23 +167,23 @@ A exclusão só é permitida depois que:
 
 ## Estado operacional da migração
 
-Atualizado em 2026-10-05.
+Atualizado em 2026-10-07.
 
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
-| OrdaX OS / plataforma | `washingtonmsdj/prototipo-ordax-os` | canônico |
-| Apps first-party / ORDAX Studio | `washingtonmsdj/ordax-apps` | canônico; Studio portátil em `apps/studio` |
-| Runtime / Device Host Windows | `washingtonmsdj/ordax-runtime` | repositório criado; migração do legado pendente |
-| Product MCP / Control Plane / connectors | `washingtonmsdj/ordax-control-plane` | repositório criado; migração do legado pendente |
+| OrdaX OS / plataforma | `ordaxsystems/prototipo-ordax-os` | canônico |
+| Apps first-party / ORDAX Studio | `ordaxsystems/ordax-apps` | canônico; Studio portátil em `apps/studio` |
+| Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico; namespace transferido e histórico preservado |
+| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-control-plane` | repositório criado; migração do legado pendente |
 | Incubação antiga | `washingtonmsdj/mcp-blender` | legado congelado; exclusão bloqueada até conclusão dos gates |
 
 ### Rastreamento cruzado
 
-- `washingtonmsdj/ordax-apps#31` — retirar dependência operacional de `mcp-blender`;
-- `washingtonmsdj/ordax-runtime#1` — migrar Runtime/Device Host;
-- `washingtonmsdj/ordax-control-plane#2` — migrar Product MCP/Control Plane e connector;
-- `washingtonmsdj/ordax-apps#22` — roadmap operacional do Studio;
-- `washingtonmsdj/ordax-apps#23` a `#27` — projetos, continuidade, preview, transactions/undo e Blender tipado.
+- `ordaxsystems/ordax-apps#31` — retirar dependência operacional de `mcp-blender`;
+- `ordaxsystems/ordax-runtime#1` — migrar Runtime/Device Host;
+- `ordaxsystems/ordax-control-plane#2` — migrar Product MCP/Control Plane e connector;
+- `ordaxsystems/ordax-apps#22` — roadmap operacional do Studio;
+- `ordaxsystems/ordax-apps#23` a `#27` — projetos, continuidade, preview, transactions/undo e Blender tipado.
 
 ### Regra de atualização
 

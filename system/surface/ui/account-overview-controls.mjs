@@ -33,6 +33,7 @@ import {
   assertMutableProfileActivationStatePort,
   validateProfileActivationState,
 } from "../../contracts/profile-activation-state.mjs";
+import { assertMvpZeroComponentProfileReview } from "./profile-activation-review.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import {
   MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
@@ -682,7 +683,7 @@ export function mountAccountOverviewControls(
         );
         select.type = "button";
         select.dataset.accountSpaceSelect = space.id;
-        select.disabled = isSelected || spaceSelectionSnapshot?.state === "unavailable";
+        select.disabled = isSelected || spaceSelectionSnapshot?.state === "unavailable" || pendingProfileAction !== null;
         if (isSelected) select.setAttribute("aria-current", "true");
         cardActions.append(select);
         card.append(cardActions);
@@ -1347,6 +1348,7 @@ export function mountAccountOverviewControls(
 
     const spaceButton = event.target.closest("[data-account-space-select]");
     if (spaceButton && root.contains(spaceButton) && spaceSelectionPort) {
+      if (pendingProfileAction !== null) return;
       try {
         spaceSelectionPort.select(spaceButton.dataset.accountSpaceSelect);
         spaceMessage = "";
@@ -1360,6 +1362,8 @@ export function mountAccountOverviewControls(
 
     const profileButton = event.target.closest("[data-account-profile-action]");
     if (profileButton && root.contains(profileButton) && profileActivationPort) {
+      if (pendingProfileAction !== null || sessionSnapshot.state !== "signed-in") return;
+      const actingSubjectId = sessionSnapshot.subjectId;
       const selectedSpace = spaceSelectionSnapshot?.state === "selected"
         ? spaceSelectionSnapshot.selectedSpace
         : null;
@@ -1380,7 +1384,7 @@ export function mountAccountOverviewControls(
           if (action === "activate") {
             const version = Number(profileButton.dataset.accountProfileVersion);
             if (!Number.isSafeInteger(version) || version < 1) throw new TypeError("invalid Profile version");
-            const next = await profileActivationPort.activate({
+            const intent = {
               spaceId: selectedSpace.id,
               spaceKind: selectedSpace.kind,
               profile: {
@@ -1388,6 +1392,20 @@ export function mountAccountOverviewControls(
                 version,
               },
               components: [],
+            };
+            const preview = await profileActivationPort.previewActivation(intent);
+            const acceptedDigest = assertMvpZeroComponentProfileReview(preview);
+            if (
+              sessionSnapshot.state !== "signed-in"
+              || sessionSnapshot.subjectId !== actingSubjectId
+              || spaceSelectionSnapshot?.state !== "selected"
+              || spaceSelectionSnapshot.selectedSpace.id !== selectedSpace.id
+            ) {
+              throw new Error("Profile activation context changed during preview");
+            }
+            const next = await profileActivationPort.activate({
+              ...intent,
+              acceptedPermissionDiffSha256: acceptedDigest,
             });
             profileActivationSnapshot = validateProfileActivationState(next);
             profileMessage = t("account.profiles.activated");

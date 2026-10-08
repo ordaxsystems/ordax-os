@@ -1,5 +1,31 @@
 # OrdaX Release Signing
 
+## Solicitação ativa após a transferência para ordaxsystems
+
+O arquivo `docs/contracts/canonical-v4-signing-request.json` é uma **evidência
+histórica imutável** emitida no proprietário `washingtonmsdj`; não é mais uma
+solicitação operacional. Seu Git blob é fixado e validado pelo seletor do
+workflow. Ele jamais deve ser reescrito para simular uma assinatura atual.
+
+A única solicitação ativa elegível é
+`docs/contracts/canonical-v4-signing-request-active.json`, criada apenas
+depois de existirem três novos runs manuais e seus artifacts imutáveis para
+um mesmo source commit do proprietário `ordaxsystems`. O seletor exige
+proprietário canônico, commit/tag/URLs consistentes, runs/artifacts distintos
+dos históricos e integridade exata do documento antigo.
+
+Enquanto o arquivo ativo não existir, a CI informa
+`CANONICAL_V4_UNSIGNED_ASSEMBLY=BLOCKED_NO_CANONICAL_REQUEST` e **não
+executa montagem, assinatura nem publicação**. Uma PR testa o seletor mas
+nunca executa a montagem; na `main` somente uma solicitação ativa válida
+pode liberar o job de montagem pública *não assinada*. O pipeline completo
+revalida ainda metadados dos runs, SHA-256 dos downloads, receipts e trust.
+Um job de classificação verde significa apenas que as barreiras do
+seletor estão corretas: **não equivale a uma release Ed25519 assinada**.
+O gate de release estável em `Repository Namespace Transfer Preflight`
+continua fail-closed até o canal canônico possuir envelope legítimo.
+
+
 `tools/release-signing/` owns the host-neutral utility for the public/private boundary of the OrdaX release protocol.
 
 It uses only the Go standard library and standard Ed25519/PKCS#8 primitives. It does not own release publication, device provisioning or physical-media authorization.

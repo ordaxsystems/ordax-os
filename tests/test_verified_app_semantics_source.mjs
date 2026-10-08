@@ -51,7 +51,7 @@ function appManifest(appId = "notes", version = "0.4.1", overrides = {}) {
     failureDomain: "app",
     restartScope: "component",
     healthMode: "runtime",
-    owner: "washingtonmsdj/ordax-apps",
+    owner: "ordaxsystems/ordax-apps",
     dependencies: [],
     ...overrides,
   };
@@ -204,7 +204,7 @@ test("verified app semantics binds identity, AI and Actions to the exact current
   assert.equal(entries[0].application.title, "Notas");
   assert.equal(entries[0].application.component.version, "0.4.1");
   assert.equal(entries[0].application.component.releaseMode, "component-slot");
-  assert.equal(entries[0].application.component.owner, "washingtonmsdj/ordax-apps");
+  assert.equal(entries[0].application.component.owner, "ordaxsystems/ordax-apps");
   assert.equal(entries[0].intelligenceManifest.appId, "notes");
   assert.equal(entries[0].intelligenceManifest.appVersion, "0.4.1");
   assert.equal(entries[0].intelligenceManifest.authority, "none");
@@ -291,7 +291,7 @@ test("verified external app identity replaces same-id development app and append
   assert.deepEqual(overlaid.map((app) => app.id), ["studio", "files", "notes"]);
   assert.equal(overlaid[0].component.releaseMode, "component-slot");
   assert.equal(overlaid[0].component.version, "0.4.3");
-  assert.equal(overlaid[2].component.owner, "washingtonmsdj/ordax-apps");
+  assert.equal(overlaid[2].component.owner, "ordaxsystems/ordax-apps");
 });
 
 test("verified application overlay rejects arbitrary or incompletely verified replacements", () => {

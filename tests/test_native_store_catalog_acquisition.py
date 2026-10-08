@@ -14,6 +14,7 @@ if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
 import native_store_catalog_acquisition as acquisition
+from native_store_catalog import SOURCE_REPOSITORY
 
 
 COMMIT = "a" * 40
@@ -30,7 +31,7 @@ def verified(sequence: int, digest: str) -> dict:
         "sequence": sequence,
         "catalogSha256": digest,
         "source": {
-            "repository": "washingtonmsdj/ordax-apps",
+            "repository": SOURCE_REPOSITORY,
             "commit": COMMIT,
         },
         "trust": {
