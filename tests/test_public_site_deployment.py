@@ -99,11 +99,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             builder_change = commit("canonical site builder changed")
             self.assertEqual(ignored(releases_change, builder_change), 1)
 
-    def test_cloudflare_new_zone_is_exclusive_and_not_yet_delegated(self):
+    def test_cloudflare_exclusive_zone_is_active_with_independent_runtime_proof_pending(self):
         migration = self.contract["cloudflare_dns_migration"]
         self.assertEqual(migration["purpose"], "ordax-os-only")
         self.assertEqual(
-            migration["status"], "dedicated-target-zone-ready-registrar-delegation-pending"
+            migration["status"], "dedicated-zone-active-post-delegation-http-revalidation-pending"
         )
         self.assertEqual(migration["destination_account_id"], "42586bf13b61436219d21def299833e4")
         self.assertEqual(migration["destination_zone_id"], "f7273428d0643fab66349dc0cbd9d244")
@@ -111,8 +111,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             migration["destination_nameservers"],
             ["martin.ns.cloudflare.com", "meg.ns.cloudflare.com"],
         )
-        self.assertEqual(migration["source_zone_status"], "active")
-        self.assertEqual(migration["destination_zone_status"], "pending")
+        self.assertEqual(migration["source_zone_status"], "moved")
+        self.assertEqual(migration["destination_zone_status"], "active")
         self.assertEqual(migration["destination_dns_records_count"], 4)
         self.assertEqual(
             set(migration["destination_dns_record_names"]),
@@ -124,15 +124,17 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(migration["destination_legacy_catalog_worker_routes_count"], 0)
         self.assertEqual(migration["destination_legacy_catalog_cache_rulesets_count"], 0)
         self.assertFalse(migration["legacy_catalog_data_deleted"])
-        self.assertFalse(migration["registrar_nameserver_update_completed"])
-        self.assertFalse(migration["public_delegation_points_to_destination"])
+        self.assertTrue(migration["registrar_nameserver_update_completed"])
+        self.assertTrue(migration["public_delegation_points_to_destination"])
+        self.assertIn("legacy zone reports moved", migration["note"])
+        self.assertFalse(migration["independent_parent_ns_recheck_completed"])
         self.assertFalse(
             migration["destination_https_and_www_production_revalidated_after_delegation"]
         )
         self.assertFalse(migration["source_zone_may_be_removed"])
         self.assertEqual(
             self.contract["vercel_migration"]["target_dns_zone_owner_account"],
-            "legacy-cloudflare-account",
+            "ordaxos-exclusive-cloudflare-account",
         )
 
     def test_vercel_migration_target_is_dedicated_and_fail_closed(self):

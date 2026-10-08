@@ -54,7 +54,7 @@
     "target_domain_claim_txt_published": true,
     "target_domain_claim_txt_dns_publicly_resolved": true,
     "target_domain_claim_pending_reason": null,
-    "target_dns_zone_owner_account": "legacy-cloudflare-account",
+    "target_dns_zone_owner_account": "ordaxos-exclusive-cloudflare-account",
     "target_dns_apex_routing_cutover_verified": true,
     "target_runtime_oidc_e2e_verified": false,
     "target_legacy_verification_txt_removed": true,
@@ -420,18 +420,18 @@
     "production_hostname_verification_evidence": "pending real Cloudflare Turnstile widget hostname configuration for ordax.com.br; source target corrected on 2026-10-08"
   },
   "cloudflare_dns_migration": {
-    "status": "dedicated-target-zone-ready-registrar-delegation-pending",
+    "status": "dedicated-zone-active-post-delegation-http-revalidation-pending",
     "purpose": "ordax-os-only",
     "source_account_id": "ac1ca1b50d09c7a4cb81274d2aa1e78f",
     "source_zone_id": "6c98a2130176029e14c14d949bafd66a",
-    "source_zone_status": "active",
+    "source_zone_status": "moved",
     "source_nameservers": [
       "addyson.ns.cloudflare.com",
       "dylan.ns.cloudflare.com"
     ],
     "destination_account_id": "42586bf13b61436219d21def299833e4",
     "destination_zone_id": "f7273428d0643fab66349dc0cbd9d244",
-    "destination_zone_status": "pending",
+    "destination_zone_status": "active",
     "destination_nameservers": [
       "martin.ns.cloudflare.com",
       "meg.ns.cloudflare.com"
@@ -448,10 +448,13 @@
     "destination_legacy_catalog_worker_routes_count": 0,
     "destination_legacy_catalog_cache_rulesets_count": 0,
     "legacy_catalog_data_deleted": false,
-    "registrar_nameserver_update_completed": false,
-    "public_delegation_points_to_destination": false,
+    "registrar_nameserver_update_completed": true,
+    "public_delegation_points_to_destination": true,
     "destination_https_and_www_production_revalidated_after_delegation": false,
     "source_zone_may_be_removed": false,
-    "note": "The previous website merely reused the OrdaX name and was unrelated to OrdaX OS. The new zone intentionally excludes the former catalog/R2/Worker surface. Domain registrar delegation is the remaining separate action. Do not flip status to complete based on target-zone readiness alone."
+    "note": "OrdaX OS exclusive DNS zone is active according to the destination Cloudflare account, and legacy zone reports moved. Preserve legacy account resources. Do not mark complete or remove the source zone until independent authoritative parent DNS and post-cutover HTTP/TLS/WWW/Account fail-closed checks are documented.",
+    "delegation_evidence": "Cloudflare destination zone active and former zone moved; registrar update user-confirmed. Independent parent NS lookup was not available in this verification.",
+    "independent_parent_ns_recheck_completed": false,
+    "provisioning_verified_date": "2026-10-08"
   }
 }
