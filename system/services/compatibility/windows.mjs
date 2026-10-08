@@ -6,6 +6,10 @@ const CFB_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 const IMAGE_FILE_DLL = 0x2000;
 const PE32_MAGIC = 0x010b;
 const PE32_PLUS_MAGIC = 0x020b;
+const DOS_HEADER_SIZE = 0x40;
+const COFF_HEADER_SIZE = 20;
+const PE32_OPTIONAL_HEADER_MIN_SIZE = 96;
+const PE32_PLUS_OPTIONAL_HEADER_MIN_SIZE = 112;
 
 const PE_MACHINES = new Map([
   [0x014c, "x86"],
@@ -55,13 +59,30 @@ export function inspectWindowsPayload({ name, bytes: input }) {
 
   if (data.length >= 96 && hasSignature(data, 0, DOS_MAGIC)) {
     const peOffset = readU32LE(data, 0x3c);
-    if (peOffset !== null && peOffset <= data.length - 26 && hasSignature(data, peOffset, PE_SIGNATURE)) {
+    if (
+      peOffset !== null
+      && peOffset >= DOS_HEADER_SIZE
+      && peOffset <= data.length - (PE_SIGNATURE.length + COFF_HEADER_SIZE + 2)
+      && hasSignature(data, peOffset, PE_SIGNATURE)
+    ) {
       const machine = readU16LE(data, peOffset + 4);
       const optionalHeaderSize = readU16LE(data, peOffset + 20);
       const characteristics = readU16LE(data, peOffset + 22);
       const optionalMagic = readU16LE(data, peOffset + 24);
       const architecture = PE_MACHINES.get(machine) ?? "unknown";
-      const validOptionalHeader = optionalHeaderSize >= 2 && [PE32_MAGIC, PE32_PLUS_MAGIC].includes(optionalMagic);
+      const expectedMagic = architecture === "x86"
+        ? PE32_MAGIC
+        : (architecture === "x86_64" || architecture === "aarch64" ? PE32_PLUS_MAGIC : null);
+      const optionalHeaderOffset = peOffset + PE_SIGNATURE.length + COFF_HEADER_SIZE;
+      const minimumOptionalSize = expectedMagic === PE32_MAGIC
+        ? PE32_OPTIONAL_HEADER_MIN_SIZE
+        : PE32_PLUS_OPTIONAL_HEADER_MIN_SIZE;
+      const validOptionalHeader = (
+        expectedMagic !== null
+        && optionalMagic === expectedMagic
+        && optionalHeaderSize >= minimumOptionalSize
+        && optionalHeaderOffset + optionalHeaderSize <= data.length
+      );
       const isLibrary = (characteristics & IMAGE_FILE_DLL) !== 0;
       const launchable = architecture !== "unknown" && validOptionalHeader && !isLibrary;
       return validateApplicationCompatibilityInspection({

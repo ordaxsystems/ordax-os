@@ -116,7 +116,9 @@ It validates:
 - DOS `MZ` header;
 - PE signature at the bounded offset declared by the DOS header;
 - COFF machine identity;
-- PE32/PE32+ optional-header magic;
+- PE32/PE32+ optional-header magic consistent with the COFF machine (PE32 for x86; PE32+ for x86-64/ARM64);
+- optional-header length covers the fixed fields (96 bytes for PE32; 112 for PE32+) and fits entirely within the inspected bytes;
+- PE header offset does not overlap the 64-byte DOS header;
 - DLL characteristic.
 
 Supported architecture identities for launch planning are currently:

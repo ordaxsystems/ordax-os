@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { peFixture } from "./fixtures/windows-pe.mjs";
+
 import {
   APPLICATION_COMPATIBILITY_PROFILE_PLANNER_SCHEMA,
   assertApplicationCompatibilityProfilePlanner,
@@ -9,23 +11,6 @@ import {
 import { createApplicationCompatibilityManager } from "../system/services/compatibility/manager.mjs";
 import { createApplicationCompatibilityProfilePlanner } from "../system/services/compatibility/profile-planner.mjs";
 
-function peFixture({ machine = 0x8664, dll = false, optionalMagic = 0x020b } = {}) {
-  const bytes = new Uint8Array(256);
-  bytes[0] = 0x4d;
-  bytes[1] = 0x5a;
-  const peOffset = 0x80;
-  bytes[0x3c] = peOffset;
-  bytes[peOffset] = 0x50;
-  bytes[peOffset + 1] = 0x45;
-  bytes[peOffset + 4] = machine & 0xff;
-  bytes[peOffset + 5] = (machine >> 8) & 0xff;
-  bytes[peOffset + 20] = 0x70;
-  bytes[peOffset + 22] = dll ? 0x02 : 0x00;
-  bytes[peOffset + 23] = dll ? 0x20 : 0x00;
-  bytes[peOffset + 24] = optionalMagic & 0xff;
-  bytes[peOffset + 25] = (optionalMagic >> 8) & 0xff;
-  return bytes;
-}
 
 function runtime(overrides = {}) {
   return {

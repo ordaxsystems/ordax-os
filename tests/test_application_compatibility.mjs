@@ -1,29 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { peFixture } from "./fixtures/windows-pe.mjs";
+
 import {
   APPLICATION_COMPATIBILITY_SCHEMA,
   defineApplicationCompatibilityRuntime,
 } from "../system/contracts/application-compatibility.mjs";
 import { createApplicationCompatibilityManager } from "../system/services/compatibility/manager.mjs";
 
-function peFixture({ machine = 0x8664, dll = false, optionalMagic = 0x020b } = {}) {
-  const bytes = new Uint8Array(256);
-  bytes[0] = 0x4d;
-  bytes[1] = 0x5a;
-  const peOffset = 0x80;
-  bytes[0x3c] = peOffset;
-  bytes[peOffset] = 0x50;
-  bytes[peOffset + 1] = 0x45;
-  bytes[peOffset + 4] = machine & 0xff;
-  bytes[peOffset + 5] = (machine >> 8) & 0xff;
-  bytes[peOffset + 20] = 0x70;
-  bytes[peOffset + 22] = dll ? 0x02 : 0x00;
-  bytes[peOffset + 23] = dll ? 0x20 : 0x00;
-  bytes[peOffset + 24] = optionalMagic & 0xff;
-  bytes[peOffset + 25] = (optionalMagic >> 8) & 0xff;
-  return bytes;
-}
 
 function msiCandidateFixture() {
   const bytes = new Uint8Array(64);
@@ -88,6 +73,38 @@ test("DLLs and malformed PE optional headers are never launchable", () => {
   assert.equal(malformed.kind, "windows-pe");
   assert.equal(malformed.launchable, false);
   assert.ok(malformed.evidence.includes("invalid-optional-header"));
+});
+
+test("Windows PE rejects truncated, undersized and architecture-mismatched optional headers before planning", () => {
+  const manager = createApplicationCompatibilityManager({ runtimes: [runtime()] });
+  const invalidFiles = [
+    ["truncated-header-bytes", peFixture({ fileSize: 256 })],
+    ["declared-header-too-short", peFixture({ optionalHeaderSize: 2 })],
+    ["x64-with-pe32", peFixture({ machine: 0x8664, optionalMagic: 0x010b })],
+    ["x86-with-pe32-plus", peFixture({ machine: 0x014c, optionalMagic: 0x020b })],
+    ["arm64-with-pe32", peFixture({ machine: 0xaa64, optionalMagic: 0x010b })],
+  ];
+
+  for (const [name, bytes] of invalidFiles) {
+    const inspection = manager.inspect({ name: `${name}.exe`, bytes });
+    assert.equal(inspection.kind, "windows-pe", name);
+    assert.equal(inspection.launchable, false, name);
+    assert.ok(inspection.evidence.includes("invalid-optional-header"), name);
+    assert.deepEqual(manager.planLaunch({ inspection }), {
+      schema: "ordax.application-compatibility-plan/1",
+      ready: false,
+      runtimeId: null,
+      reason: "payload-not-launchable",
+    }, name);
+  }
+
+  const overlapping = manager.inspect({
+    name: "overlapping-dos-header.exe",
+    bytes: peFixture({ peOffset: 0x20 }),
+  });
+  assert.equal(overlapping.kind, "unknown");
+  assert.equal(overlapping.launchable, false);
+  assert.equal(manager.planLaunch({ inspection: overlapping }).ready, false);
 });
 
 test("MSI is only recognized as an installer candidate until a real database verifier exists", () => {
