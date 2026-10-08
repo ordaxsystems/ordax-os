@@ -846,7 +846,7 @@ async function start() {
     storeCatalog,
     surface,
     storeLifecycleRequests,
-    () => readNativeHardwareInventory(window),
+    (options) => readNativeHardwareInventory(window, options),
     systemMetrics,
   );
   const systemOverviewControls = mountSystemOverviewControls(
