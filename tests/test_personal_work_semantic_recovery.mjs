@@ -222,3 +222,83 @@ test("recovery acceptance delegates paused resume to canonical runtime instead o
     /acceptRecoveredWork[\s\S]{0,1600}(selectSpace|setSelectedSpace|selectProject|setProject|spaceSelection\.)/,
   );
 });
+
+
+test("issued Work recovery cannot be reused after A -> B -> A owner round trip", async () => {
+  const listeners = new Set();
+  let snapshot = { state: "signed-in", subjectId: "user-a", displayName: "A" };
+  const identity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot: () => snapshot,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  const switchTo = (subjectId) => {
+    snapshot = { state: "signed-in", subjectId, displayName: subjectId };
+    for (const listener of [...listeners]) listener(snapshot);
+  };
+  const ai = intelligence(() => JSON.stringify({
+    kind: "match", workItemId: "personal-work-1", rationale: "Work A",
+  }));
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identity,
+    intelligence: ai.port,
+  });
+  try {
+    const workA = runtime.create("Continue o trabalho da pizzaria");
+    const suggestion = await runtime.recoverWorkForRequest("continue pizzaria");
+    assert.equal(suggestion.workItemId, workA.id);
+    switchTo("user-b");
+    switchTo("user-a");
+    assert.throws(() => runtime.acceptRecoveredWork(suggestion), /owner or context/);
+    assert.equal(runtime.getSnapshot().ownerId, "user-a");
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("pending recovery inference A -> B -> A cannot be accepted on return to A", async () => {
+  const listeners = new Set();
+  let snapshot = { state: "signed-in", subjectId: "user-a", displayName: "A" };
+  const identity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot: () => snapshot,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  const switchTo = (subjectId) => {
+    snapshot = { state: "signed-in", subjectId, displayName: subjectId };
+    for (const listener of [...listeners]) listener(snapshot);
+  };
+  let resolveInference;
+  const ai = intelligence(() => "{}");
+  ai.port.respond = () => new Promise((resolve) => {
+    resolveInference = () => resolve({
+      schema: INTELLIGENCE_RESPONSE_SCHEMA,
+      text: JSON.stringify({
+        kind: "match", workItemId: "personal-work-1", rationale: "Late match for A",
+      }),
+      engineId: "llama.cpp", modelId: "qwen-test", authority: "none",
+    });
+  });
+  const runtime = createNativePersonalOrdaxComposition({
+    windowRef: { localStorage: memoryStorage() },
+    identitySession: identity,
+    intelligence: ai.port,
+  });
+  try {
+    runtime.create("Continue trabalho de A");
+    const pending = runtime.recoverWorkForRequest("continue trabalho");
+    switchTo("user-b");
+    switchTo("user-a");
+    resolveInference();
+    await assert.rejects(pending, /owner changed|context changed/);
+  } finally {
+    runtime.dispose();
+  }
+});

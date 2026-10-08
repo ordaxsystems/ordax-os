@@ -50,29 +50,43 @@ function mutableIdentitySession() {
       };
       for (const listener of [...listeners]) listener(snapshot);
     },
+    switchTo(subjectId) {
+      snapshot = {
+        state: "signed-in",
+        subjectId,
+        displayName: subjectId,
+      };
+      for (const listener of [...listeners]) listener(snapshot);
+    },
   };
 }
 
 function selectedSpace() {
+  let spaceId = "space-a";
+  const listeners = new Set();
+  const snapshot = () => ({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "selected",
+    subjectId: "user-a",
+    selectedSpace: {
+      id: spaceId,
+      name: "Pizzaria",
+      kind: "professional",
+      state: "active",
+      ownerId: "user-a",
+      profilePack: "pizzaria-br",
+    },
+  });
   return {
     schema: SPACE_SELECTION_SCHEMA,
-    getSnapshot() {
-      return {
-        schema: SPACE_SELECTION_SCHEMA,
-        state: "selected",
-        subjectId: "user-a",
-        selectedSpace: {
-          id: "space-a",
-          name: "Pizzaria",
-          kind: "professional",
-          state: "active",
-          ownerId: "user-a",
-          profilePack: "pizzaria-br",
-        },
-      };
+    getSnapshot: snapshot,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
-    subscribe() {
-      return () => {};
+    setSpaceId(id) {
+      spaceId = id;
+      for (const listener of [...listeners]) listener(snapshot());
     },
     select() {},
     clear() {},
@@ -102,6 +116,9 @@ function mutableProjectCatalog() {
     },
     removeProject(id) {
       projects = projects.filter((project) => project.id !== id);
+      for (const listener of [...listeners]) listener(snapshot());
+    },
+    touch() {
       for (const listener of [...listeners]) listener(snapshot());
     },
     create() {},
@@ -248,6 +265,7 @@ function proposalIntelligence(text) {
 function composition({
   identity = mutableIdentitySession(),
   projects = mutableProjectCatalog(),
+  spaces = selectedSpace(),
   ai = intelligence(),
   router = semanticRouter(),
 } = {}) {
@@ -255,14 +273,14 @@ function composition({
   const runtime = createNativePersonalOrdaxComposition({
     windowRef: { localStorage: memoryStorage() },
     identitySession: identity,
-    spaceSelection: selectedSpace(),
+    spaceSelection: spaces,
     projects,
     intelligence: ai,
     applicationActionCapabilityRegistry: applicationCapabilities(),
     applicationSemanticRouter: router,
     createApplicationActionPreparationId: () => `prep-${++ordinal}`,
   });
-  return { runtime, identity, projects };
+  return { runtime, identity, projects, spaces };
 }
 
 test("Native composition prepares verified Application Actions without creating authority", () => {
@@ -507,6 +525,113 @@ test("account switch during asynchronous model planning discards the pending App
     complete();
     await assert.rejects(pending, /owner changed|Work/);
     assert.deepEqual(runtime.getSnapshot().approvals, []);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+
+test("A -> B -> A owner switch cannot resurrect an already-issued app suggestion", async () => {
+  const identity = mutableIdentitySession();
+  const ai = proposalIntelligence(JSON.stringify({
+    kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: {},
+  }));
+  const { runtime } = composition({ identity, ai: ai.port });
+  try {
+    const work = runtime.create("Criar uma nota");
+    const suggestion = await runtime.suggestApplicationActionForWork(work.id);
+    identity.switchTo("user-b");
+    identity.switchTo("user-a");
+    assert.throws(
+      () => runtime.prepareSuggestedApplicationAction(work.id, suggestion),
+      /context|scope|Work/i,
+    );
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("A -> B -> A owner switch during pending inference cannot resurrect app response", async () => {
+  const identity = mutableIdentitySession();
+  let finish;
+  const ai = proposalIntelligence("{}");
+  ai.port.respond = () => new Promise((resolve) => {
+    finish = () => resolve({
+      schema: INTELLIGENCE_RESPONSE_SCHEMA,
+      text: JSON.stringify({
+        kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: {},
+      }),
+      engineId: "llama.cpp", modelId: "qwen-test", authority: "none",
+    });
+  });
+  const { runtime } = composition({ identity, ai: ai.port });
+  try {
+    const work = runtime.create("Criar uma nota");
+    const pending = runtime.suggestApplicationActionForWork(work.id);
+    identity.switchTo("user-b");
+    identity.switchTo("user-a");
+    finish();
+    await assert.rejects(pending, /context changed|owner changed/);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("Space A -> B -> A invalidates app suggestion even when Work is unchanged", async () => {
+  const spaces = selectedSpace();
+  const ai = proposalIntelligence(JSON.stringify({
+    kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: {},
+  }));
+  const { runtime } = composition({ spaces, ai: ai.port });
+  try {
+    const work = runtime.create("Criar uma nota"); // no Space-bound Work mutation
+    const suggestion = await runtime.suggestApplicationActionForWork(work.id);
+    spaces.setSpaceId("space-b");
+    spaces.setSpaceId("space-a");
+    assert.throws(
+      () => runtime.prepareSuggestedApplicationAction(work.id, suggestion),
+      /context|scope/i,
+    );
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("project catalog change invalidates issued app suggestions with no authority leakage", async () => {
+  const projects = mutableProjectCatalog();
+  const ai = proposalIntelligence(JSON.stringify({
+    kind: "proposal", appId: "notes", actionId: "notes.create-note", arguments: {},
+  }));
+  const { runtime } = composition({ projects, ai: ai.port });
+  try {
+    const work = runtime.create("Criar uma nota");
+    const suggestion = await runtime.suggestApplicationActionForWork(work.id);
+    projects.touch(); // conservatively invalidate even if the Work revision is unchanged
+    assert.throws(
+      () => runtime.prepareSuggestedApplicationAction(work.id, suggestion),
+      /context|scope/i,
+    );
+    assert.deepEqual(runtime.getSnapshot().approvals, []);
+    assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("prepared app action reference cannot return after A -> B -> A account switch", () => {
+  const identity = mutableIdentitySession();
+  const { runtime } = composition({ identity });
+  try {
+    const work = runtime.create("Criar uma nota");
+    const proposal = runtime.proposeApplicationAction("notes", "notes.create-note", {});
+    const prepared = runtime.prepareApplicationAction(work.id, proposal);
+    identity.switchTo("user-b");
+    identity.switchTo("user-a");
+    assert.equal(runtime.resolveApplicationActionPreparation(prepared.resourceRef), null);
     assert.deepEqual(runtime.listApplicationActionPreparations(work.id), []);
   } finally {
     runtime.dispose();
