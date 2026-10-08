@@ -49,6 +49,8 @@ GH_TOKEN=<TOKEN-SOMENTE-LEITURA-ACTIONS> python3 tools/release-operator/build_ca
 
 O builder verifica diretamente no GitHub nome canônico do proprietário,
 repositório ID `1371063347`, branch main, evento manual, workflow correto,
+ancestralidade Git verificável desde o merge de cutover `9eb4dbb` e
+permanência da revisão congelada no histórico atual da `main`,
 conclusão com sucesso, SHA de origem, inventário completo e único,
 artifact ID, SHA-256, expiração e vínculo ao mesmo run/repositório.
 Também rejeita quaisquer IDs, artefatos ou revisão histórica reutilizados.
