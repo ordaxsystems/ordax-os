@@ -159,7 +159,7 @@ class SyncPrivateLeastPrivilegeV2Tests(unittest.TestCase):
         self.assertEqual(sql.count("create or replace function public.ordax_sync_snapshot_page_v2("), 1)
         self.assertIn("stable security invoker", sql)
         self.assertNotIn("stable security definer", sql)
-        self.assertIn("set search_path to ''", sql)
+        self.assertIn("set search_path = ''", sql)
         for guard in (
             "auth.uid()",
             "authentication-required",
