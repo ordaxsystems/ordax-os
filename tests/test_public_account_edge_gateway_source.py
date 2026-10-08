@@ -92,6 +92,9 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('MAX_UPSTREAM_RESPONSE,', self.edge)
         self.assertNotIn("await req.arrayBuffer()", self.edge)
         self.assertNotIn("await upstream.arrayBuffer()", self.edge)
+        self.assertIn('import { readBoundedBody } from "../_shared/bounded_body.mjs"', self.inner)
+        self.assertIn('readBoundedBody(req.body, req.headers.get("content-length"), MAX_BODY)', self.inner)
+        self.assertNotIn("await req.arrayBuffer()", self.inner)
         self.assertIn('"account-gateway-response-invalid"', self.edge)
         self.assertIn('"account-gateway-response-too-large"', self.edge)
 
