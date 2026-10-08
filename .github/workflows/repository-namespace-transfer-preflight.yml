@@ -8,6 +8,10 @@ on:
       - 'docs/REPOSITORY-NAMESPACE-TRANSFER-PREFLIGHT.md'
       - 'tools/verify/repository_namespace_transfer_preflight.py'
       - 'tests/test_repository_namespace_transfer_preflight.py'
+      - 'tools/verify/repository_namespace_stable_release.py'
+      - 'tests/test_repository_namespace_stable_release.py'
+      - 'docs/contracts/release-channel.json'
+      - 'bootstrap/trust/release-ed25519.json'
       - '.github/workflows/repository-namespace-transfer-preflight.yml'
   push:
     branches: [main]
@@ -17,6 +21,10 @@ on:
       - 'docs/REPOSITORY-NAMESPACE-TRANSFER-PREFLIGHT.md'
       - 'tools/verify/repository_namespace_transfer_preflight.py'
       - 'tests/test_repository_namespace_transfer_preflight.py'
+      - 'tools/verify/repository_namespace_stable_release.py'
+      - 'tests/test_repository_namespace_stable_release.py'
+      - 'docs/contracts/release-channel.json'
+      - 'bootstrap/trust/release-ed25519.json'
       - '.github/workflows/repository-namespace-transfer-preflight.yml'
   workflow_dispatch:
 
@@ -26,7 +34,7 @@ permissions:
 jobs:
   repository-owner-contract:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -42,8 +50,32 @@ jobs:
             python3 -m unittest discover -v -s tests -p "$test_file"
           done
           python3 tools/verify/repository_namespace_transfer_preflight.py --max-paths 8
+          python3 -m unittest discover -v -s tests -p 'test_repository_namespace_stable_release.py'
       - name: Require exact GitHub identity after canonical transfer
         if: ${{ github.repository == 'ordaxsystems/prototipo-ordax-os' }}
         run: |
           set -euo pipefail
           python3 tools/verify/repository_namespace_transfer_preflight.py --require-cutover
+      - name: Install pinned Go verifier after physical transfer
+        if: ${{ github.repository == 'ordaxsystems/prototipo-ordax-os' }}
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+      - name: Require published stable Ed25519-signed release after transfer
+        if: ${{ github.repository == 'ordaxsystems/prototipo-ordax-os' }}
+        run: |
+          set -euo pipefail
+          # GitHub metadata proves stable publication, not signature.
+          python3 tools/verify/repository_namespace_stable_release.py
+          url="$(python3 -c 'import json; print(json.load(open("docs/contracts/release-channel.json"))["publication"]["latest_envelope_url"])')"
+          # The canonical Go Release Agent cryptographically verifies the
+          # signed envelope with the pinned local trust anchor, read-only.
+          (
+            cd bootstrap/release-acquisition
+            GOTOOLCHAIN=local CGO_ENABLED=0 go run . inspect \
+              --envelope-url "$url" \
+              --trust ../../bootstrap/trust/release-ed25519.json \
+              --repository "$GITHUB_REPOSITORY"
+          )
