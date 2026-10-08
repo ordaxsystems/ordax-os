@@ -74,8 +74,21 @@ def build_candidate(contract: dict, origin: str) -> dict:
         raise ValueError("runtime-proof-must-gate-public-auth")
 
     target_team = migration["target_team_slug"]
-    current_team = contract["vercel_adapter"]["team"]
-    if target_team == current_team:
+    adapter_team = contract["vercel_adapter"]["team"]
+    if target_team != adapter_team:
+        raise ValueError("adapter-team-must-match-target-team")
+
+    # The adapter now belongs to the destination, not the legacy team.
+    # Obtain historical identity only from the recorded earlier deployment,
+    # never from the new adapter or an independent hardcoded slug.
+    historical_issuer = contract["public_edge_gateway"].get("oidc_issuer")
+    prefix = "https://oidc.vercel.com/"
+    if not isinstance(historical_issuer, str) or not historical_issuer.startswith(prefix):
+        raise ValueError("legacy-issuer-evidence-required")
+    historical_team = historical_issuer[len(prefix):]
+    if not SLUG_RE.fullmatch(historical_team):
+        raise ValueError("invalid-legacy-issuer-evidence")
+    if target_team == historical_team:
         raise ValueError("target-team-must-not-equal-legacy-team")
 
     return build_identity(target_team, migration["target_project"], origin)
