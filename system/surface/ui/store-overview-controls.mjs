@@ -73,7 +73,32 @@ export function filterStoreEntries(entries, view = "discover", query = "") {
   });
 }
 
-function appendAction(documentObject, target, entry, operation, lifecycleRequests, pendingRequest, t) {
+export function sortStoreEntries(entries, locale = "pt-BR") {
+  const collator = new Intl.Collator(locale, { sensitivity: "base", numeric: true });
+  return [...entries].sort((left, right) =>
+    collator.compare(left.title, right.title) || left.appId.localeCompare(right.appId));
+}
+
+// Client-generated identities support idempotency but never grant authority.
+// When the host does not expose secure entropy, lifecycle requests fail closed.
+export function createStoreRequestSessionId(cryptoProvider = globalThis.crypto) {
+  try {
+    if (typeof cryptoProvider?.randomUUID === "function") {
+      const uuid = cryptoProvider.randomUUID();
+      if (typeof uuid === "string" && /^[0-9a-fA-F-]{36}$/.test(uuid)) {
+        return uuid.replaceAll("-", "").toLowerCase();
+      }
+    }
+    if (typeof cryptoProvider?.getRandomValues !== "function") return null;
+    const bytes = new Uint8Array(16);
+    cryptoProvider.getRandomValues(bytes);
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return null;
+  }
+}
+
+function appendAction(documentObject, target, entry, operation, lifecycleRequests, pendingRequest, t, requestIdentityReady) {
   if (!operationAllowed(entry, operation)) return;
   const isPending = pendingRequest?.appId === entry.appId
     && pendingRequest?.operation === operation;
@@ -85,8 +110,8 @@ function appendAction(documentObject, target, entry, operation, lifecycleRequest
     operation,
   );
   button.dataset.storeAppId = entry.appId;
-  button.disabled = lifecycleRequests === null || pendingRequest !== null;
-  if (lifecycleRequests === null) button.title = t("store.action.unavailable");
+  button.disabled = lifecycleRequests === null || !requestIdentityReady || pendingRequest !== null;
+  if (lifecycleRequests === null || !requestIdentityReady) button.title = t("store.action.unavailable");
   target.append(button);
 }
 
@@ -100,7 +125,7 @@ function appendStatus(documentObject, parent, entry, t) {
   parent.append(status);
 }
 
-function appendCard(documentObject, grid, entry, lifecycleRequests, pendingRequest, t) {
+function appendCard(documentObject, grid, entry, lifecycleRequests, pendingRequest, t, requestIdentityReady) {
   const card = node(documentObject, "article", "ordax-store-card");
   card.dataset.storeAppId = entry.appId;
   card.dataset.storeAppCard = "true";
@@ -121,14 +146,14 @@ function appendCard(documentObject, grid, entry, lifecycleRequests, pendingReque
   details.setAttribute("aria-label", t("store.details.openFor", { title: entry.title }));
   footer.append(details);
   const actions = node(documentObject, "div", "ordax-store-actions");
-  appendAction(documentObject, actions, entry, "install", lifecycleRequests, pendingRequest, t);
-  appendAction(documentObject, actions, entry, "update", lifecycleRequests, pendingRequest, t);
+  appendAction(documentObject, actions, entry, "install", lifecycleRequests, pendingRequest, t, requestIdentityReady);
+  appendAction(documentObject, actions, entry, "update", lifecycleRequests, pendingRequest, t, requestIdentityReady);
   footer.append(actions);
   card.append(top, footer);
   grid.append(card);
 }
 
-function appendDetail(documentObject, target, entry, lifecycleRequests, pendingRequest, removalConfirmationAppId, t) {
+function appendDetail(documentObject, target, entry, lifecycleRequests, pendingRequest, removalConfirmationAppId, t, requestIdentityReady) {
   const back = makeButton(documentObject, "ordax-store-back", t("store.details.back"), "storeBack", "true");
   const panel = node(documentObject, "section", "ordax-store-detail");
   const heading = node(documentObject, "header", "ordax-store-detail-header");
@@ -146,7 +171,7 @@ function appendDetail(documentObject, target, entry, lifecycleRequests, pendingR
   appendStatus(documentObject, state, entry, t);
   const actions = node(documentObject, "div", "ordax-store-actions");
   for (const operation of OPERATIONS) {
-    appendAction(documentObject, actions, entry, operation, lifecycleRequests, pendingRequest, t);
+    appendAction(documentObject, actions, entry, operation, lifecycleRequests, pendingRequest, t, requestIdentityReady);
   }
   state.append(actions);
   if (removalConfirmationAppId === entry.appId && entry.removable) {
@@ -217,13 +242,13 @@ export function mountStoreOverviewControls(
   let mountedSlot = null;
   let pendingRequest = null;
   let requestMessageId = null;
+  let requestReason = null;
   let requestOrdinal = 0;
   let activeView = "discover";
   let searchQuery = "";
   let selectedAppId = null;
   let removalConfirmationAppId = null;
-  const requestSessionId = globalThis.crypto?.randomUUID?.().replaceAll("-", "")
-    ?? "s" + Date.now().toString(36);
+  const requestSessionId = createStoreRequestSessionId();
   let destroyed = false;
 
   const reconcileAcceptedRequest = () => {
@@ -294,7 +319,7 @@ export function mountStoreOverviewControls(
     } else {
       const selectedEntry = snapshot.entries.find((entry) => entry.appId === selectedAppId);
       if (selectedEntry) {
-        appendDetail(documentObject, main, selectedEntry, lifecycleRequests, pendingRequest, removalConfirmationAppId, t);
+        appendDetail(documentObject, main, selectedEntry, lifecycleRequests, pendingRequest, removalConfirmationAppId, t, requestSessionId !== null);
       } else {
         selectedAppId = null;
         const search = node(documentObject, "div", "ordax-store-search");
@@ -334,8 +359,8 @@ export function mountStoreOverviewControls(
         count.dataset.storeResultsCount = "true";
         listHeader.append(titles, count);
         const grid = node(documentObject, "div", "ordax-store-grid");
-        for (const entry of snapshot.entries) {
-          appendCard(documentObject, grid, entry, lifecycleRequests, pendingRequest, t);
+        for (const entry of sortStoreEntries(snapshot.entries, localization.getLocale())) {
+          appendCard(documentObject, grid, entry, lifecycleRequests, pendingRequest, t, requestSessionId !== null);
         }
         const filterEmpty = node(documentObject, "div", "ordax-store-filter-empty");
         filterEmpty.dataset.storeFilterEmpty = "true";
@@ -353,7 +378,10 @@ export function mountStoreOverviewControls(
     security.dataset.storeAuthority = "none";
     main.append(security);
     if (requestMessageId !== null) {
-      const message = node(documentObject, "p", "ordax-store-request-status", t(requestMessageId));
+      const messageText = t(requestMessageId) + (
+        requestReason === null ? "" : " " + t("store.request.reason", { reason: requestReason })
+      );
+      const message = node(documentObject, "p", "ordax-store-request-status", messageText);
       message.setAttribute("role", "status");
       main.append(message);
     }
@@ -411,7 +439,7 @@ export function mountStoreOverviewControls(
     }
 
     const button = event.target.closest?.("[data-store-operation][data-store-app-id]");
-    if (!button || !mountedSlot.contains(button) || lifecycleRequests === null || pendingRequest !== null) return;
+    if (!button || !mountedSlot.contains(button) || lifecycleRequests === null || requestSessionId === null || pendingRequest !== null) return;
     const appId = button.dataset.storeAppId;
     const operation = button.dataset.storeOperation;
     if (!OPERATIONS.has(operation)) return;
@@ -427,6 +455,7 @@ export function mountStoreOverviewControls(
     removalConfirmationAppId = null;
 
     requestMessageId = null;
+    requestReason = null;
     requestOrdinal += 1;
     const request = validateAppLifecycleRequest({
       schema: APP_LIFECYCLE_REQUEST_SCHEMA,
@@ -451,6 +480,7 @@ export function mountStoreOverviewControls(
       .then((rawResult) => {
         const result = validateAppLifecycleRequestResultForRequest(rawResult, request);
         requestMessageId = "store.request." + operation + "." + result.state;
+        requestReason = result.state === "rejected" ? result.reason : null;
         if (result.state === "accepted") {
           pendingRequest = Object.freeze({
             appId,
@@ -467,6 +497,7 @@ export function mountStoreOverviewControls(
       .catch(() => {
         pendingRequest = null;
         requestMessageId = "store.request." + operation + ".failed";
+        requestReason = null;
         render();
       });
   };
