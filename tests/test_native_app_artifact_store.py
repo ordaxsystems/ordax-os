@@ -69,7 +69,11 @@ class NativeAppArtifactStoreTests(unittest.TestCase):
         original_link = os.link
 
         def race_with_uncooperative_writer(source, destination):
+            # Make the conflicting artifact satisfy the cache's strict file
+            # permissions: the test must prove it is NOT overwritten even
+            # when the digest/size validation is the next failed boundary.
             Path(destination).write_bytes(competitor)
+            Path(destination).chmod(0o400)
             return original_link(source, destination)
 
         with patch.object(store.os, "link", side_effect=race_with_uncooperative_writer):
