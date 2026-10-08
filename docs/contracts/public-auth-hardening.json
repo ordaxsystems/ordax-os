@@ -216,9 +216,9 @@
     "sync_executor_direct_auth_schema_usage": false,
     "sync_export_database_user_count_after_proof": 0,
     "internal_gateway_staging_deployed": true,
-    "internal_gateway_staging_version": 1,
+    "internal_gateway_staging_version": 2,
     "internal_gateway_staging_verify_jwt": true,
-    "internal_gateway_staging_artifact_sha256": "c5597140211faa49f08031d222b3718c59da657e5a2e04bb88619d27f93b91ca",
+    "internal_gateway_staging_artifact_sha256": "2bb8838be10104415b0a1abcc27113fd699fd6b6ed14e2542bc85bd5ec8f65e7",
     "internal_gateway_staging_source": "infra/supabase/functions/ordax-account-gateway/index.ts",
     "internal_gateway_runtime_e2e_verified": false,
     "destination_vercel_team_slug": "ordaxsystems",
@@ -234,7 +234,8 @@
     "destination_gateway_auth_source_reference": "infra/supabase/functions/ordax-account-gateway/index.ts",
     "destination_gateway_platform_auth_reference": "https://supabase.com/docs/guides/functions/auth-headers",
     "destination_gateway_service_auth_reference": "https://supabase.com/docs/guides/functions/auth",
-    "destination_gateway_transport_proof_date": "2026-10-08"
+    "destination_gateway_transport_proof_date": "2026-10-08",
+    "internal_gateway_staging_verified_source_change": "2026-10-08 bounded external HIBP streaming 256KiB and 5s timeout (PR #1412); JWT required and all public flags remain false"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
