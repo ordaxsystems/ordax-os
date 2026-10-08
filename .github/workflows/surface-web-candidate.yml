@@ -100,6 +100,7 @@ on:
       - 'tests/test_surface_ui_contract.py'
       - 'tests/test_system_resource_localization.py'
       - 'tests/test_settings_deep_localization.py'
+      - 'tests/test_settings_local_ai_view_contract.py'
       - 'tests/test_system_update_details_localization.py'
       - 'tests/test_surface_async_lifecycle.py'
       - 'tests/test_native_local_session.py'
@@ -512,6 +513,7 @@ jobs:
           python -m unittest tests.test_diagnostic_system_owner_mount -v
           python -m unittest tests.test_system_resource_localization -v
           python -m unittest tests.test_settings_deep_localization -v
+          python -m unittest tests.test_settings_local_ai_view_contract -v
           python -m unittest tests.test_system_update_details_localization -v
           python -m unittest tests.test_surface_async_lifecycle -v
           python -m unittest tests.test_native_local_session -v
