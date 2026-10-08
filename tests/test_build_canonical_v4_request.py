@@ -93,29 +93,57 @@ class CanonicalRequestBuilderTests(unittest.TestCase):
 
     def test_source_must_descend_from_cutover_and_remain_on_main(self):
         source = self.SOURCE
-        ok = [
-            {"status": "ahead", "head_commit": {"sha": source}},
-            {"status": "ahead", "head_commit": {"sha": "f" * 40}},
+
+        def comparison(base, status="ahead", behind=0, merge=None):
+            return {
+                "status": status,
+                "behind_by": behind,
+                "base_commit": {"sha": base},
+                "merge_base_commit": {"sha": merge or base},
+            }
+
+        valid = [
+            {"sha": source},
+            comparison(builder.CUTOVER_COMMIT),
+            comparison(source),
         ]
-        with mock.patch.object(builder, "fetch_json", side_effect=ok) as fetch:
+        with mock.patch.object(builder, "fetch_json", side_effect=valid) as fetch:
             builder.verify_cutover_ancestry(source, "readonly-token")
+            self.assertEqual(fetch.call_args_list[0].args[0], f"/git/commits/{source}")
             self.assertEqual(
-                fetch.call_args_list[0].args[0],
+                fetch.call_args_list[1].args[0],
                 f"/compare/{builder.CUTOVER_COMMIT}...{source}",
             )
-            self.assertEqual(fetch.call_args_list[1].args[0], f"/compare/{source}...main")
+            self.assertEqual(fetch.call_args_list[2].args[0], f"/compare/{source}...main")
 
-        with mock.patch.object(builder, "fetch_json", return_value={
-            "status": "diverged", "head_commit": {"sha": source},
-        }):
-            with self.assertRaisesRegex(builder.ValidationError, "does not descend"):
+        with mock.patch.object(builder, "fetch_json", return_value={"sha": "c" * 40}):
+            with self.assertRaisesRegex(builder.ValidationError, "resolved exactly"):
                 builder.verify_cutover_ancestry(source, "readonly-token")
-        with mock.patch.object(builder, "fetch_json", side_effect=[
+
+        for bad in (
+            comparison(builder.CUTOVER_COMMIT, status="diverged"),
+            comparison(builder.CUTOVER_COMMIT, behind=1),
+            comparison(builder.CUTOVER_COMMIT, merge="f" * 40),
             {"status": "ahead", "head_commit": {"sha": source}},
-            {"status": "behind"},
-        ]):
-            with self.assertRaisesRegex(builder.ValidationError, "ancestor of current main"):
-                builder.verify_cutover_ancestry(source, "readonly-token")
+        ):
+            with self.subTest(bad=bad):
+                with mock.patch.object(builder, "fetch_json", side_effect=[
+                    {"sha": source}, bad,
+                ]):
+                    with self.assertRaisesRegex(builder.ValidationError, "does not descend"):
+                        builder.verify_cutover_ancestry(source, "readonly-token")
+        for bad in (
+            comparison(source, status="behind"),
+            comparison(source, behind=1),
+            comparison(source, merge="f" * 40),
+        ):
+            with self.subTest(bad=bad):
+                with mock.patch.object(builder, "fetch_json", side_effect=[
+                    {"sha": source}, comparison(builder.CUTOVER_COMMIT), bad,
+                ]):
+                    with self.assertRaisesRegex(builder.ValidationError, "ancestor of current main"):
+                        builder.verify_cutover_ancestry(source, "readonly-token")
+
 
     def test_historical_source_and_artifact_cannot_be_reused(self):
         runs, inv, hist = self.fixture()
