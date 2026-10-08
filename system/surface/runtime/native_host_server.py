@@ -29,6 +29,14 @@ if _RUNTIME_DIR not in sys.path:
     sys.path.insert(0, _RUNTIME_DIR)
 
 from native_request_boundary import expected_surface_authority, request_is_trusted
+from native_local_ai_bridge import (
+    MAX_REQUEST_BYTES as MAX_LOCAL_AI_REQUEST_BYTES,
+    NATIVE_LOCAL_AI_PREFIX,
+    NativeLocalAiError,
+    NativeLocalAiUpstreamError,
+    PATHS as LOCAL_AI_BRIDGE_PATHS,
+    forward_local_ai,
+)
 from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
@@ -3387,6 +3395,73 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self.send_header("Pragma", "no-cache")
         super().end_headers()
 
+    def _write_local_ai_result(self, status: int, payload: bytes) -> None:
+        if not payload:
+            self._empty(status)
+            return
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _serve_local_ai(self, method: str, parsed_path: str) -> None:
+        suffix = parsed_path[len(NATIVE_LOCAL_AI_PREFIX):]
+        if (method, suffix) not in LOCAL_AI_BRIDGE_PATHS:
+            self._empty(404)
+            return
+        if self.client_address[0] != "127.0.0.1":
+            self._empty(403)
+            return
+        if urlsplit(self.path).query or self.path != parsed_path:
+            self._empty(400)
+            return
+        # Read-only readiness/discovery remains available while the screen is
+        # locked; otherwise a one-shot boot probe cannot recover on unlock.
+        if method == "POST" and self.server.local_session_locked:
+            self._empty(423)
+            return
+        body = b""
+        if method == "POST":
+            if self.headers.get_all("Transfer-Encoding", []):
+                self._empty(400)
+                return
+            content_types = self.headers.get_all("Content-Type", [])
+            if len(content_types) != 1 or content_types[0].split(";", 1)[0].strip().lower() != "application/json":
+                self._empty(415)
+                return
+            lengths = self.headers.get_all("Content-Length", [])
+            if len(lengths) != 1:
+                self._empty(400)
+                return
+            length_text = lengths[0]
+            if len(length_text) > 9 or not length_text.isascii() or not length_text.isdecimal():
+                self._empty(400)
+                return
+            length = int(length_text)
+            if length > MAX_LOCAL_AI_REQUEST_BYTES:
+                self._empty(413)
+                return
+            if length == 0:
+                self._empty(400)
+                return
+            body = self.rfile.read(length)
+            if len(body) != length:
+                self._empty(400)
+                return
+        try:
+            status, response_body = forward_local_ai(method, suffix, body)
+        except NativeLocalAiUpstreamError:
+            # Neither prompts nor completion contents belong in host logs.
+            self._empty(503)
+            return
+        except NativeLocalAiError:
+            self._empty(400)
+            return
+        self._write_local_ai_result(status, response_body)
+
     def _write_json(self, status: int, payload: dict) -> None:
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         self.send_response(status)
@@ -3495,6 +3570,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if not self._request_is_trusted():
             return
         parsed_path = urlsplit(self.path).path
+        if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
+            self._serve_local_ai("GET", parsed_path)
+            return
         if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_REGISTRATION_POLICY_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
             if self.client_address[0] != "127.0.0.1":
                 self._empty(403)
@@ -4181,6 +4259,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
+            self._serve_local_ai("POST", parsed_path)
+            return
         if parsed_path == STORE_LIFECYCLE_PATH:
             if urlsplit(self.path).query:
                 self._empty(400)

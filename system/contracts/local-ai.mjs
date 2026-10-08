@@ -1,4 +1,5 @@
 export const LOCAL_AI_PORT_SCHEMA = "ordax.local-ai/1";
+export const LOCAL_AI_NATIVE_ENDPOINT = "/__ordax/native/local-ai";
 export const LOCAL_AI_MAX_SYSTEM_PROMPT_CHARS = 8192;
 export const LOCAL_AI_MAX_PROMPT_CHARS = 32768;
 export const LOCAL_AI_MAX_OUTPUT_TOKENS = 2048;

@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -18,6 +21,75 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.nginx = NGINX.read_text(encoding="utf-8")
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
+
+    def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
+        self.assertEqual(
+            self.vercel["ignoreCommand"],
+            "sh tools/public-site/should_skip_vercel_build.sh",
+        )
+        self.assertFalse(self.vercel["git"]["deploymentEnabled"])
+        script = ROOT / "tools/public-site/should_skip_vercel_build.sh"
+        self.assertTrue(script.is_file())
+
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            def git(*args):
+                result = subprocess.run(
+                    ["git", *args], cwd=work, text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    check=True,
+                )
+                return result.stdout.strip()
+
+            def write(path, value):
+                target = work / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(value, encoding="utf-8")
+
+            def commit(message):
+                git("add", "-A")
+                git("-c", "user.name=OrdaX Test",
+                    "-c", "user.email=ordax-test@example.invalid",
+                    "commit", "-m", message)
+                return git("rev-parse", "HEAD")
+
+            def ignored(previous, current):
+                env = dict(os.environ)
+                env["VERCEL_GIT_PREVIOUS_SHA"] = previous
+                env["VERCEL_GIT_COMMIT_SHA"] = current
+                result = subprocess.run(
+                    ["sh", str(script)], cwd=work, env=env,
+                    capture_output=True, text=True, check=False,
+                )
+                return result.returncode
+
+            git("init")
+            write("sites/public/index.html", "<h1>OrdaX</h1>")
+            write("docs/README.md", "initial documentation")
+            initial = commit("initial")
+            # First deployment, missing current ref and a shallow history
+            # must BUILD (1), not skip (0) or fatal-exit (128).
+            self.assertEqual(ignored("", initial), 1)
+            self.assertEqual(ignored(initial, ""), 1)
+            self.assertEqual(ignored("f" * 40, initial), 1)
+            self.assertEqual(ignored(initial, "f" * 40), 1)
+
+            write("docs/README.md", "documentation only")
+            docs_only = commit("unrelated documentation")
+            self.assertEqual(ignored(initial, docs_only), 0)
+
+            write("sites/public/index.html", "<h1>OrdaX updated</h1>")
+            site_change = commit("public site change")
+            self.assertEqual(ignored(docs_only, site_change), 1)
+
+            write("infra/supabase/functions/_shared/bounded_body.mjs",
+                  "export const bound = 64;")
+            shared_change = commit("shared HTTP boundary change")
+            self.assertEqual(ignored(site_change, shared_change), 1)
+
+            write("package.json", '{"private": true}')
+            dependency_change = commit("dependency changed")
+            self.assertEqual(ignored(shared_change, dependency_change), 1)
 
     def test_vercel_migration_target_is_dedicated_and_fail_closed(self):
         migration = self.contract["vercel_migration"]
