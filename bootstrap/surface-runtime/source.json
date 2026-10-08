@@ -237,7 +237,7 @@
     "openexr-libopenexr": "3.3.11-r0",
     "openexr-libopenexrcore": "3.3.11-r0",
     "openh264": "2.6.0-r0",
-    "openjpeg": "2.5.4-r0",
+    "openjpeg": "2.5.4-r1",
     "opus": "1.5.2-r1",
     "orc": "0.4.40-r1",
     "p11-kit": "0.26.2-r0",
@@ -309,7 +309,8 @@
   "promotion_blockers": [
     "prove-stable-first-surface-boot-with-network-disabled-on-current-head",
     "prove-physical-stable-surface-on-supported-usb-hardware",
-    "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion"
+    "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion",
+    "repeat-byte-reproducible-erofs-build-on-current-apk-lock"
   ],
   "apk_package_lock_count": 253,
   "apk_package_lock_status": "reviewed-refresh-from-ci-run-37798187669",
@@ -325,7 +326,6 @@
   },
   "closed_gates": [
     "full-transitive-apk-lock-pinned",
-    "byte-reproducible-erofs-runtime-ci",
     "signed-release-manifest-v3-runtime-binding-implemented",
     "creator-content-addressed-runtime-preseed-implemented",
     "initramfs-runtime-erofs-ephemeral-overlay-handoff-implemented",
@@ -335,7 +335,7 @@
     "workflow": ".github/workflows/surface-runtime-lock-discovery.yml",
     "workflow_run_id": 37798187669,
     "source_commit": "16a7515f8596d90bcd0bee463b01c240b34ca0c5",
-    "status": "pass-ci-repeat-digest",
+    "status": "historical-pass-reproof-required",
     "tree_manifest_sha256": "7c5bd1eda95451f7e38511b1fd19caad5d62ef434f15930f2fa43971d92f5ec8",
     "normalized_tar_sha256": "0dfedac3c59fbfb54b0f06669906382cd69c3036f32803ae85a92f1789179f9f",
     "erofs_sha256": "c8d80ac6704742ac9f2e6708386a0f2e743294fc98ed84d9b09755ffabdef3b5",
@@ -364,8 +364,8 @@
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reviewed-candidate-lock-refresh",
-    "detected_by_qemu_run_id": 37794806524,
+    "status": "reproof-required-after-upstream-openjpeg-drift",
+    "detected_by_qemu_run_id": 37839826453,
     "discovery_run_id": 37798187669,
     "discovery_source_commit": "16a7515f8596d90bcd0bee463b01c240b34ca0c5",
     "discovery_artifact_id": 11560175180,
@@ -379,16 +379,21 @@
         "name": "tiff",
         "from": "4.7.1-r0",
         "to": "4.7.2-r0"
+      },
+      {
+        "name": "openjpeg",
+        "from": "2.5.4-r0",
+        "to": "2.5.4-r1"
       }
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "reproducibility_reproof_required": false,
+    "reproducibility_reproof_required": true,
     "upstream_drift": {
-      "package": "tiff",
-      "from": "4.7.1-r0",
-      "to": "4.7.2-r0",
-      "detected_by_qemu_run_id": 37794806524
+      "package": "openjpeg",
+      "from": "2.5.4-r0",
+      "to": "2.5.4-r1",
+      "detected_by_qemu_run_id": 37839826453
     }
   }
 }
