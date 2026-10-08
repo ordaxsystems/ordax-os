@@ -68,18 +68,24 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
 
     def test_bootstrap_assembly_restores_immutable_seed_after_refresh_target_build(self):
         seed = "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66"
-        tag = f"ordax-release-agent-{seed}"
+        script_path = ROOT / "bootstrap/release-acquisition/restore_pinned_seed.sh"
+        script = script_path.read_text(encoding="utf-8")
+        self.assertIn(seed, script)
+        self.assertIn("expected_repository_id='1371063347'", script)
+        self.assertIn('"${GITHUB_REPOSITORY_ID:-}" != "$expected_repository_id"', script)
+        self.assertIn("releases/download/ordax-release-agent-${seed_sha256}/ordax-release-agent", script)
+        self.assertIn(
+            'install -m 0755 "$tmp" "$destination"',
+            script,
+        )
+        self.assertIn("canonical release-agent seed hash mismatch", script)
+        self.assertIn("RELEASE_AGENT_REFRESH_TARGET_REMAINS_SEPARATE=YES", script)
         for workflow_path in (CREATOR_WORKFLOW, FULL_MEDIA_WORKFLOW):
             workflow = workflow_path.read_text(encoding="utf-8")
             self.assertIn("Restore canonical release-agent seed for bootstrap assembly", workflow)
-            self.assertIn(seed, workflow)
-            self.assertIn(tag, workflow)
-            self.assertIn(
-                "install -m 0755 \"$tmp\" bootstrap/release-acquisition/ordax-release-agent",
-                workflow,
-            )
-            self.assertIn("canonical release-agent seed hash mismatch", workflow)
-            self.assertIn("RELEASE_AGENT_REFRESH_TARGET_REMAINS_SEPARATE=YES", workflow)
+            self.assertIn("run: bash bootstrap/release-acquisition/restore_pinned_seed.sh", workflow)
+            self.assertNotIn("curl --fail --location", workflow)
+            self.assertNotIn("releases/download/ordax-release-agent-", workflow)
 
     def test_full_media_proof_removes_transient_seed_before_clean_checkout_assertion(self):
         workflow = FULL_MEDIA_WORKFLOW.read_text(encoding="utf-8")
