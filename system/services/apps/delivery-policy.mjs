@@ -20,6 +20,20 @@ const RAW_POLICIES = Object.freeze([
   { appId: "activity", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
   { appId: "notes", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
   { appId: "network", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+
+  // Additional optional first-party products: verified catalog only, no MVP bootstrap.
+  { appId: "calculator", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "clock", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "converter", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "text-viewer", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "image-viewer", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "calendar", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "colors", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "character-map", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "paint", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "media-player", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "pdf-viewer", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "toolbox", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
 ]);
 
 const POLICIES = Object.freeze(
