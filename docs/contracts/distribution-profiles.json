@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.distribution-profiles/1",
   "status": "canonical-product-boundary",
   "source_authority": {
-    "repository": "ordaxsystems/prototipo-ordax-os",
+    "repository": "ordaxsystems/ordax-os",
     "branch": "main",
     "single_product_codebase": true,
     "permanent_profile_forks_allowed": false

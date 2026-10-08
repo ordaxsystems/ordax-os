@@ -6,7 +6,7 @@
   "envelope_schema": "prototype-ordax.runtime-component-envelope/1",
   "trust_schema": "prototype-ordax.runtime-component-trust/1",
   "trust_domain": "runtime-components",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "component_manifest_source": "system/services/components/manifests/",
   "supported_components": [
     "internet",
@@ -115,7 +115,7 @@
   "intelligence_component_activation_enabled": false,
   "intelligence_component_health_promotion_proven": false,
   "intelligence_component_rollback_proven": false,
-  "default_source_repository": "ordaxsystems/prototipo-ordax-os",
+  "default_source_repository": "ordaxsystems/ordax-os",
   "canonical_external_source_repository_by_component": {
     "notes": "ordaxsystems/ordax-apps",
     "studio": "ordaxsystems/ordax-apps"
