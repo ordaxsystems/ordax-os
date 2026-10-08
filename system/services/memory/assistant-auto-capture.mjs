@@ -108,7 +108,13 @@ function parseCandidates(text, userText) {
 
 function captureAuthorization(identityPort, spaceSelectionPort) {
   const identity = validateIdentitySessionSnapshot(identityPort.getSnapshot());
-  if (identity.state !== "signed-in") {
+  if (identity.state === "unavailable") {
+    throw new Error("Assistant Memory identity is unavailable");
+  }
+  if (identity.state === "signed-out") {
+    if (validateSpaceSelectionSnapshot(spaceSelectionPort.getSnapshot()).state !== "unavailable") {
+      throw new Error("Assistant Memory Space state is not settled");
+    }
     return Object.freeze({
       schema: MEMORY_CAPTURE_AUTH_SCHEMA,
       authority: "composition",
@@ -120,10 +126,11 @@ function captureAuthorization(identityPort, spaceSelectionPort) {
   }
 
   const selection = validateSpaceSelectionSnapshot(spaceSelectionPort.getSnapshot());
-  if (
-    selection.state === "selected"
-    && selection.subjectId === identity.subjectId
-  ) {
+  if (selection.state === "unavailable"
+    || selection.subjectId !== identity.subjectId) {
+    throw new Error("Assistant Memory Space ownership is not settled");
+  }
+  if (selection.state === "selected") {
     return Object.freeze({
       schema: MEMORY_CAPTURE_AUTH_SCHEMA,
       authority: "composition",
@@ -161,12 +168,48 @@ export function createAssistantAutoCaptureRuntime({
     schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
 
     bindTurn() {
-      const authorization = captureAuthorization(identity, spaces);
+      let authorization;
+      try {
+        authorization = captureAuthorization(identity, spaces);
+      } catch {
+        // Unknown identity or inconsistent selection is not permission to write
+        // into device/account Memory. Text-only Local AI may remain available.
+        return Object.freeze({
+          async capture() {
+            return Object.freeze({
+              schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+              status: "unavailable",
+              captured: 0,
+            });
+          },
+        });
+      }
       const enabledAtBind = memoryAutoCaptureEnabled(preferences.getSnapshot());
+      const currentScope = () => {
+        try {
+          const active = captureAuthorization(identity, spaces);
+          return active.ownerKind === authorization.ownerKind
+            && active.ownerId === authorization.ownerId
+            && active.scope === authorization.scope
+            && active.spaceId === authorization.spaceId;
+        } catch {
+          return false;
+        }
+      };
+      const scopeChanged = () => Object.freeze({
+        schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+        status: "scope-changed",
+        captured: 0,
+      });
 
       return Object.freeze({
-        async capture({ userText } = {}) {
+        async capture({ userText, isContextCurrent = () => true } = {}) {
           const user = boundedTurnText(userText, "Assistant Memory user turn");
+          if (typeof isContextCurrent !== "function") {
+            throw new TypeError("Assistant Memory context guard must be a function");
+          }
+          const mayCommit = () => currentScope() && isContextCurrent() === true;
+          if (!mayCommit()) return scopeChanged();
 
           if (
             !enabledAtBind
@@ -201,6 +244,7 @@ export function createAssistantAutoCaptureRuntime({
             });
           }
 
+          if (!mayCommit()) return scopeChanged();
           const candidates = parseCandidates(response.text, extractionUser);
           if (candidates.length === 0) {
             return Object.freeze({
@@ -212,6 +256,13 @@ export function createAssistantAutoCaptureRuntime({
 
           let captured = 0;
           for (const candidate of candidates) {
+            if (!mayCommit()) {
+              return Object.freeze({
+                schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+                status: "scope-changed",
+                captured,
+              });
+            }
             try {
               const result = await capture.capture({
                 content: candidate.content,
@@ -227,6 +278,13 @@ export function createAssistantAutoCaptureRuntime({
                 });
               }
               captured += 1;
+              if (!mayCommit()) {
+                return Object.freeze({
+                  schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+                  status: "scope-changed",
+                  captured,
+                });
+              }
             } catch {
               return Object.freeze({
                 schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,

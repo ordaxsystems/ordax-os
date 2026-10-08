@@ -299,6 +299,17 @@ test("Native composition creates Assistant Memory capture only after Surface pre
   assert.ok(surfaceIndex >= 0);
   assert.ok(captureIndex > surfaceIndex);
   assert.ok(assistantIndex > captureIndex);
+  const assistantMount = native.slice(assistantIndex, native.indexOf("onError(error)", assistantIndex));
+  assert.match(assistantMount, /identitySessionPort:\s*identitySession/);
+  assert.match(assistantMount, /spaceSelectionPort:\s*spaceSelection/);
+  assert.match(assistantMount, /profileActivationStatePort:\s*profileActivationState/);
+  const assistantRuntime = readFileSync(
+    new URL("../system/apps/assistant/runtime.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(assistantRuntime, /createAssistantConversationRuntime\(\{/);
+  assert.match(assistantRuntime, /identitySessionPort/);
+  assert.match(assistantRuntime, /spaceSelectionPort/);
   assert.match(
     native.slice(captureIndex, assistantIndex),
     /surface\.preferences/,
@@ -376,7 +387,7 @@ test("automatic Memory source evidence validates capture but is never persisted"
   });
 });
 
-test("automatic Memory authorization is bound before extraction and cannot retarget to a new Space", async () => {
+test("automatic Memory discards candidates when the selected Space changed before extraction", async () => {
   let selectedSpaceId = "space-a";
   const identityPort = identity("signed-in", "user-1");
   const spacePort = {
@@ -411,9 +422,98 @@ test("automatic Memory authorization is bound before extraction and cannot retar
 
   const bound = runtime.bindTurn();
   selectedSpaceId = "space-b";
-  await bound.capture({ userText: "Fato do Space A." });
+  const result = await bound.capture({ userText: "Fato do Space A." });
 
-  assert.equal(capture.calls.length, 1);
-  assert.equal(capture.calls[0].authorization.scope, "space");
-  assert.equal(capture.calls[0].authorization.spaceId, "space-a");
+  assert.equal(result.status, "scope-changed");
+  assert.equal(capture.calls.length, 0);
+});
+
+
+test("automatic Memory aborts pending extraction when identity changes before persistence", async () => {
+  let subjectId = "user-a";
+  let resolveExtraction;
+  const scopeIdentity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot() {
+      return { state: "signed-in", subjectId, displayName: "Test User" };
+    },
+    subscribe() { return () => {}; },
+  };
+  const scopeSelection = {
+    schema: SPACE_SELECTION_SCHEMA,
+    getSnapshot() {
+      return {
+        schema: SPACE_SELECTION_SCHEMA,
+        state: "unselected",
+        subjectId,
+        selectedSpace: null,
+      };
+    },
+    subscribe() { return () => {}; },
+    select() {},
+    clear() {},
+  };
+  const ai = intelligence('{"memories":[]}');
+  ai.respond = async (request) => {
+    ai.requests.push(request);
+    return new Promise((resolve) => {
+      resolveExtraction = () => resolve({
+        schema: INTELLIGENCE_RESPONSE_SCHEMA,
+        text: '{"memories":[{"kind":"fact","content":"Minha empresa é A.","evidence":"Minha empresa é A."}]}',
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+      });
+    });
+  };
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: ai,
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: scopeIdentity,
+    spaceSelectionPort: scopeSelection,
+  });
+  const bound = runtime.bindTurn();
+  const pending = bound.capture({ userText: "Minha empresa é A." });
+  subjectId = "user-b";
+  resolveExtraction();
+  const result = await pending;
+  assert.equal(result.status, "scope-changed");
+  assert.equal(capture.calls.length, 0);
+});
+
+test("automatic Memory discards extraction when conversation generation is revoked", async () => {
+  const capture = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: intelligence('{"memories":[{"kind":"fact","content":"Fato A.","evidence":"Fato A."}]}'),
+    captureRuntime: capture,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity(),
+    spaceSelectionPort: selection(),
+  });
+  const result = await runtime.bindTurn().capture({
+    userText: "Fato A.",
+    isContextCurrent: () => false,
+  });
+  assert.equal(result.status, "scope-changed");
+  assert.equal(capture.calls.length, 0);
+});
+
+
+test("Account unavailability disables automatic Memory but does not request inference", async () => {
+  const ai = intelligence('{"memories":[{"kind":"fact","content":"u","evidence":"u"}]}');
+  const store = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: ai,
+    captureRuntime: store,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity("unavailable"),
+    spaceSelectionPort: selection("unavailable"),
+  });
+  const result = await runtime.bindTurn().capture({ userText: "u" });
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.captured, 0);
+  assert.equal(ai.requests.length, 0);
+  assert.equal(store.calls.length, 0);
 });

@@ -949,6 +949,9 @@ async function start() {
       surfaceLifecycle: surface,
       intelligence: selectedSpaceIntelligence,
       memoryCapture: assistantMemoryCapture,
+      identitySessionPort: identitySession,
+      spaceSelectionPort: spaceSelection,
+      profileActivationStatePort: profileActivationState,
     },
     onError(error) {
       reportClientDiagnostic("assistant-runtime", error);

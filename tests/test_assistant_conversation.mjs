@@ -7,8 +7,74 @@ import {
 } from "../system/contracts/intelligence.mjs";
 import {
   ASSISTANT_CONVERSATION_SCHEMA,
-  createAssistantConversationRuntime,
+  createAssistantConversationRuntime as createBoundConversationRuntime,
 } from "../system/apps/assistant/conversation.mjs";
+
+function observablePort(schema, initial, methods = {}) {
+  let current = initial;
+  const listeners = new Set();
+  return {
+    schema,
+    getSnapshot() { return current; },
+    subscribe(listener) {
+      listeners.add(listener);
+      listener(current);
+      return () => listeners.delete(listener);
+    },
+    setSnapshot(next) {
+      current = next;
+      for (const listener of [...listeners]) listener(current);
+    },
+    ...methods,
+  };
+}
+
+function selectedSpace(subjectId, id = "space-a", profilePack = "pizzaria-br") {
+  return {
+    schema: "ordax.space-selection/1",
+    state: "selected",
+    subjectId,
+    selectedSpace: {
+      schema: "ordax.spaces/1",
+      id,
+      name: "Empresa",
+      kind: "professional",
+      state: "active",
+      ownerId: subjectId,
+      profilePack,
+    },
+  };
+}
+
+function scopePorts(subjectId = null, spaceId = null) {
+  const identity = observablePort("ordax.identity-session/1", subjectId === null
+    ? { state: "signed-out" }
+    : { state: "signed-in", subjectId, displayName: "Conta" });
+  const spaceSelection = observablePort("ordax.space-selection/1", subjectId === null
+    ? { schema: "ordax.space-selection/1", state: "unavailable" }
+    : spaceId === null
+      ? { schema: "ordax.space-selection/1", state: "unselected", subjectId }
+      : selectedSpace(subjectId, spaceId), {
+    select() {},
+    clear() {},
+  });
+  const profileActivation = observablePort("ordax.profile-activation-state-port/1", {
+    schema: "ordax.profile-activation-state/1",
+    revision: 0,
+    persistence: "session",
+    spaces: [],
+  }, { refresh() {}, dispose() {} });
+  return { identity, spaceSelection, profileActivation };
+}
+
+function createAssistantConversationRuntime(options = {}) {
+  const scope = scopePorts();
+  return createBoundConversationRuntime({
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+    ...options,
+  });
+}
 
 function intelligencePort({ state = "ready", responses = [] } = {}) {
   let snapshot = {
@@ -191,9 +257,10 @@ test("Assistant invokes automatic Memory capture after a successful response wit
 
   const response = await conversation.send("Prefiro respostas curtas.");
   assert.equal(response.text, "ok");
-  assert.deepEqual(turns, [{
-    userText: "Prefiro respostas curtas.",
-  }]);
+  assert.equal(turns.length, 1);
+  assert.equal(turns[0].userText, "Prefiro respostas curtas.");
+  assert.equal(typeof turns[0].isContextCurrent, "function");
+  assert.equal(turns[0].isContextCurrent(), true);
   assert.equal(conversation.getSnapshot().memoryCaptureState, "captured");
   conversation.dispose();
 });
@@ -246,5 +313,175 @@ test("Assistant binds Memory ownership before starting Intelligence inference", 
 
   await conversation.send("mensagem");
   assert.deepEqual(events, ["bind-memory", "inference", "capture-memory"]);
+  conversation.dispose();
+});
+
+
+test("Assistant binds its transcript to the account and active Space, including signed-out device", async () => {
+  const scope = scopePorts("account-a", "space-a");
+  const intelligence = intelligencePort();
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+  });
+
+  await conversation.send("informação privada da empresa A");
+  assert.equal(conversation.getSnapshot().messages.length, 2);
+
+  scope.spaceSelection.setSnapshot(selectedSpace("account-a", "space-b"));
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  await conversation.send("pergunta na empresa B");
+  assert.deepEqual(intelligence.requests[1].context, []);
+
+  scope.identity.setSnapshot({ state: "signed-in", subjectId: "account-b", displayName: "Outra conta" });
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  assert.equal(conversation.getSnapshot().state, "unavailable");
+  await assert.rejects(() => conversation.send("não pode continuar"), /context is unavailable/);
+
+  scope.spaceSelection.setSnapshot(selectedSpace("account-b", "space-c"));
+  await conversation.send("pergunta na conta B");
+  assert.deepEqual(intelligence.requests[2].context, []);
+
+  scope.identity.setSnapshot({ state: "signed-out" });
+  scope.spaceSelection.setSnapshot({ schema: "ordax.space-selection/1", state: "unavailable" });
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  await conversation.send("conversa local no dispositivo");
+  assert.deepEqual(intelligence.requests[3].context, []);
+  conversation.dispose();
+});
+
+test("Assistant invalidates history when the active Profile revision changes", async () => {
+  const scope = scopePorts("account-a", "space-a");
+  const intelligence = intelligencePort();
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+    profileActivationStatePort: scope.profileActivation,
+  });
+  await conversation.send("contexto de perfil anterior");
+  scope.profileActivation.setSnapshot({
+    schema: "ordax.profile-activation-state/1",
+    revision: 1,
+    persistence: "session",
+    spaces: [],
+  });
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  await conversation.send("novo perfil");
+  assert.deepEqual(intelligence.requests[1].context, []);
+  conversation.dispose();
+});
+
+test("Assistant discards a late inference result after an account/Space switch", async () => {
+  const scope = scopePorts("account-a", "space-a");
+  const intelligence = intelligencePort();
+  let finish;
+  const originalRespond = intelligence.respond.bind(intelligence);
+  intelligence.respond = async (request) => {
+    if (request.prompt === "pedido antigo") {
+      intelligence.requests.push(request);
+      return new Promise((resolve) => {
+        finish = () => resolve({
+          schema: INTELLIGENCE_RESPONSE_SCHEMA,
+          text: "RESPOSTA PRIVADA A",
+          engineId: "llama.cpp",
+          modelId: "qwen-test",
+          authority: "none",
+        });
+      });
+    }
+    return originalRespond(request);
+  };
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+  });
+
+  const pending = conversation.send("pedido antigo");
+  scope.spaceSelection.setSnapshot(selectedSpace("account-a", "space-b"));
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  assert.equal(conversation.getSnapshot().state, "busy");
+  finish();
+  await assert.rejects(pending, /context changed/);
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  assert.equal(conversation.getSnapshot().state, "ready");
+
+  await conversation.send("pedido novo");
+  assert.deepEqual(intelligence.requests[1].context, []);
+  assert.doesNotMatch(JSON.stringify(conversation.getSnapshot().messages), /RESPOSTA PRIVADA A/);
+  conversation.dispose();
+});
+
+test("Assistant invalidates in-flight work even if the user returns to the original Space", async () => {
+  const scope = scopePorts("account-a", "space-a");
+  const intelligence = intelligencePort();
+  let finish;
+  intelligence.respond = async (request) => {
+    intelligence.requests.push(request);
+    return new Promise((resolve) => {
+      finish = () => resolve({
+        schema: INTELLIGENCE_RESPONSE_SCHEMA,
+        text: "stale",
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+      });
+    });
+  };
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+  });
+  const pending = conversation.send("old");
+  scope.spaceSelection.setSnapshot(selectedSpace("account-a", "space-b"));
+  scope.spaceSelection.setSnapshot(selectedSpace("account-a", "space-a"));
+  finish();
+  await assert.rejects(pending, /context changed/);
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  conversation.dispose();
+});
+
+test("Assistant refuses an unsettled identity/Space boundary before sending inference", async () => {
+  const scope = scopePorts("account-a", "space-a");
+  const intelligence = intelligencePort();
+  scope.spaceSelection.setSnapshot({ schema: "ordax.space-selection/1", state: "unavailable" });
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+  });
+  assert.equal(conversation.getSnapshot().state, "unavailable");
+  await assert.rejects(() => conversation.send("não usar memória"), /context is unavailable/);
+  assert.equal(intelligence.requests.length, 0);
+  conversation.dispose();
+});
+
+
+test("Assistant stays useful in isolated local-only mode when Account service is unavailable", async () => {
+  const scope = scopePorts("account-a", "space-a");
+  const intelligence = intelligencePort();
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+  });
+  await conversation.send("informação do Space A");
+  scope.identity.setSnapshot({ state: "unavailable" });
+  // Until the Space owner also invalidates selection, there is no safe scope.
+  assert.equal(conversation.getSnapshot().state, "unavailable");
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  scope.spaceSelection.setSnapshot({ schema: "ordax.space-selection/1", state: "unavailable" });
+  assert.equal(conversation.getSnapshot().state, "ready");
+
+  await conversation.send("olá offline");
+  assert.deepEqual(intelligence.requests[1].context, []);
+  scope.identity.setSnapshot({ state: "signed-in", subjectId: "account-a", displayName: "Conta" });
+  scope.spaceSelection.setSnapshot(selectedSpace("account-a", "space-a"));
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  await conversation.send("voltei à conta");
+  assert.deepEqual(intelligence.requests[2].context, []);
   conversation.dispose();
 });
