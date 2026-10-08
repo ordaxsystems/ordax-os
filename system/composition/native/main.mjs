@@ -105,6 +105,7 @@ import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
 import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
 import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
+import { mountSpaceSwitcherControls } from "../../surface/ui/space-switcher-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
 import { mountNetworkTrayControls } from "../../surface/ui/network-tray-controls.mjs";
@@ -749,6 +750,14 @@ async function start() {
     });
   };
   window.addEventListener("online", onOnline, { passive: true });
+  const spaceSwitcherControls = mountSpaceSwitcherControls(
+    root,
+    identitySession,
+    spaces,
+    spaceSelection,
+    appActivation,
+    surface,
+  );
   const accountOverviewControls = mountAccountOverviewControls(
     root,
     identitySession,
@@ -992,6 +1001,7 @@ async function start() {
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
+      spaceSwitcherControls.destroy();
       accountLifecycle.dispose();
       memoryReview?.dispose();
       memoryReviewSession?.dispose();
