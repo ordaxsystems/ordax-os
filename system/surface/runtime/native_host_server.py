@@ -3111,17 +3111,29 @@ def ensure_standard_user_directories(user_root: str) -> tuple[str, ...]:
     return tuple(ready)
 
 
-def requested_profile_content_space_id(request_target: str) -> str:
+def requested_profile_content_parameters(request_target: str) -> tuple[str, str | None]:
     parsed = urlsplit(request_target)
-    if parsed.path != PROFILE_CONTENT_CONTEXT_PATH:
+    if parsed.path != PROFILE_CONTENT_CONTEXT_PATH or parsed.fragment:
         raise ValueError("not a Profile content context request")
     query = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
-    if set(query) != {"spaceId"} or len(query["spaceId"]) != 1:
-        raise ValueError("Profile content context requires exactly one Space id")
+    if not set(query).issubset({"spaceId", "query"}) or set(query) == set():
+        raise ValueError("Profile content context query fields are invalid")
+    if len(query.get("spaceId", [])) != 1 or len(query.get("query", [])) > 1:
+        raise ValueError("Profile content context requires one Space and at most one query")
     space_id = query["spaceId"][0].strip()
     if not space_id or len(space_id) > 160 or "\0" in space_id:
         raise ValueError("Profile content context Space id is invalid")
-    return space_id
+    relevance_query = query.get("query", [None])[0]
+    if relevance_query is not None:
+        relevance_query = relevance_query.strip()
+        if not relevance_query or len(relevance_query) > 256 or "\0" in relevance_query:
+            raise ValueError("Profile content retrieval query is invalid")
+    return space_id, relevance_query
+
+
+def requested_profile_content_space_id(request_target: str) -> str:
+    # Retained read-only helper for existing Native callers.
+    return requested_profile_content_parameters(request_target)[0]
 
 
 def requested_file_path(request_target: str, endpoint: str = FILES_PATH) -> str:
@@ -4128,8 +4140,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(404)
                 return
             try:
-                space_id = requested_profile_content_space_id(self.path)
-                payload = read_active_profile_content_context(space_id)
+                space_id, relevance_query = requested_profile_content_parameters(self.path)
+                payload = read_active_profile_content_context(space_id, query=relevance_query)
             except (OSError, UnicodeError, ValueError) as exc:
                 print(
                     f"ordax-native-host: Profile content context unavailable safely: {exc}",
