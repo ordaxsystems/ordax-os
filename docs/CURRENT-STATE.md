@@ -8,13 +8,15 @@ This is the canonical handoff snapshot. Architecture/contracts win if another do
 
 The first-party delivery policy additionally recognizes twelve optional utility app IDs from `ordaxsystems/ordax-apps` as `on-demand/store-only`. This is **metadata/presentation policy only**: a future verified signed catalog may project them, but no app becomes installed, launchable or production-installable from metadata alone. Initial USB MVP scope and on-demand boot policy remain unchanged; Native Store lifecycle executor and public Store UI remain disabled until separate trust, lifecycle and release gates are proven. The source, G0 package inventory and public App SDK contracts retain their respective canonical owners.
 
-## MVP scope decision — USB only
+## MVP current release activation (USB) and integrated-development scope (USB + Native target)
 
 ```text
 MVP_PUBLIC_EXECUTION_MODE=USB_ONLY
 MVP_NATIVE_INSTALLATION_AVAILABLE=NO
 MVP_INTERNAL_DISK_DESTRUCTIVE_WRITE=NO
-NATIVE_FOUNDATION_RETAINED_FOR_POST_MVP=YES
+MVP_INTEGRATED_DEVELOPMENT_SCOPE=ALL_SUBSTANTIVELY_STARTED_CAPABILITIES
+NATIVE_MVP_DEVELOPMENT_TARGET=YES
+NATIVE_FOUNDATION_RETAINED_FOR_MVP_INTEGRATION=YES
 MVP_BILLING_IMPLEMENTED=NO
 MVP_PRICING_DEFINED=NO
 MVP_PLAN_STRUCTURE_DEFINED=YES
