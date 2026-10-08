@@ -20,6 +20,8 @@ SOURCE = Path(__file__).with_name("source.json")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 RUNTIME_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 MAX_SOURCE_BYTES = 64 * 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 250_000
+MAX_UNPACKED_BYTES = 2 * 1024 * 1024 * 1024
 
 
 class CompatibilityRuntimeBuildError(RuntimeError):
@@ -169,6 +171,31 @@ def download_exact(source: dict, cache_dir: Path) -> Path:
     return destination
 
 
+def validate_member_link(member: tarfile.TarInfo, expected_root: str) -> None:
+    """Prove that a TAR link resolves within the single pinned archive root.
+
+    Symlink targets resolve relative to their containing directory; TAR
+    hardlink names are archive-root-relative. Do not permit links to escape
+    the source tree even when the containing member name itself is safe.
+    """
+    if not (member.issym() or member.islnk()):
+        return
+    target = member.linkname
+    if not target or target.startswith("/") or "\\" in target:
+        raise CompatibilityRuntimeBuildError(f"unsafe archive link target: {member.name}")
+
+    parts = list(PurePosixPath(member.name).parts[:-1]) if member.issym() else []
+    for segment in PurePosixPath(target).parts:
+        if segment == "..":
+            if len(parts) <= 1:
+                raise CompatibilityRuntimeBuildError(f"archive link escapes expected root: {member.name}")
+            parts.pop()
+        elif segment != ".":
+            parts.append(segment)
+    if not parts or parts[0] != expected_root:
+        raise CompatibilityRuntimeBuildError(f"archive link escapes expected root: {member.name}")
+
+
 def validate_archive(source: dict, archive: Path) -> dict:
     upstream = source["upstream"]
     if archive.stat().st_size != upstream["archive_size_bytes"]:
@@ -180,24 +207,36 @@ def validate_archive(source: dict, archive: Path) -> dict:
     version_member = f"{expected_root}/{upstream['version_file']}"
     seen_version = None
     member_count = 0
+    unpacked_bytes = 0
     try:
         with tarfile.open(archive, "r:xz") as tar:
             for member in tar:
                 member_count += 1
+                if member_count > MAX_ARCHIVE_MEMBERS:
+                    raise CompatibilityRuntimeBuildError("Wine source archive member count exceeded bound")
                 path = PurePosixPath(member.name)
                 if path.is_absolute() or ".." in path.parts:
                     raise CompatibilityRuntimeBuildError(f"unsafe archive path: {member.name}")
                 if not path.parts or path.parts[0] != expected_root:
                     raise CompatibilityRuntimeBuildError(f"archive member escapes expected root: {member.name}")
-                if member.isdev() or member.isfifo():
+                if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
                     raise CompatibilityRuntimeBuildError(f"unsupported archive object: {member.name}")
+                validate_member_link(member, expected_root)
+                if member.isfile():
+                    unpacked_bytes += member.size
+                    if unpacked_bytes > MAX_UNPACKED_BYTES:
+                        raise CompatibilityRuntimeBuildError("Wine source archive unpacked size exceeded bound")
                 if member.name == version_member:
+                    if seen_version is not None:
+                        raise CompatibilityRuntimeBuildError("duplicate Wine VERSION member")
+                    if not member.isfile() or member.size > 128:
+                        raise CompatibilityRuntimeBuildError("VERSION member must be a bounded regular file")
                     handle = tar.extractfile(member)
                     if handle is None:
                         raise CompatibilityRuntimeBuildError("VERSION member is not a regular file")
-                    raw = handle.read(128)
-                    if handle.read(1):
-                        raise CompatibilityRuntimeBuildError("VERSION member exceeds bound")
+                    raw = handle.read(129)
+                    if len(raw) != member.size or len(raw) > 128:
+                        raise CompatibilityRuntimeBuildError("VERSION member changed size or exceeded bound")
                     seen_version = raw.decode("utf-8").strip()
     except (tarfile.TarError, UnicodeDecodeError, OSError) as exc:
         raise CompatibilityRuntimeBuildError(f"cannot validate Wine source archive: {exc}") from exc
@@ -217,6 +256,8 @@ def validate_archive(source: dict, archive: Path) -> dict:
         "archive_size_bytes": archive.stat().st_size,
         "archive_sha256": upstream["archive_sha256"],
         "archive_member_count": member_count,
+        "archive_unpacked_bytes": unpacked_bytes,
+        "archive_link_targets_root_bounded": True,
         "version_file_value": seen_version,
         "build_performed": False,
         "activation_authorized": False,
