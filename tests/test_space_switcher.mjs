@@ -135,3 +135,27 @@ test("Native wires canonical Profile state to shell while Web remains without it
   assert.match(read("system/surface/ui/account-overview-controls.mjs"),
     /profileActivationPort\?\.subscribe\?\.\(/);
 });
+
+test("Space selector retains catalog choices after transient selection failure", () => {
+  const component = read("system/surface/ui/space-switcher-controls.mjs");
+  assert.match(component, /selectionFailed = true;\s*render\(\);/);
+  assert.match(component, /if \(selectionFailed\) \{[\s\S]*?role", "alert"/);
+  assert.match(component, /menu\.append\(list\);\s*if \(selectionFailed\)/);
+  assert.doesNotMatch(component, /catch \{\s*error = true;\s*render\(\);/);
+  assert.match(component, /if \(open\) \{ error = false; selectionFailed = false; \}/);
+});
+
+test("Space selector keeps navigable, dismissible, focus-safe popup on updates", () => {
+  const component = read("system/surface/ui/space-switcher-controls.mjs");
+  const smoke = read("tools/surface-web/browser-smoke.mjs");
+  assert.match(component, /aria-haspopup", "dialog"/);
+  assert.match(component, /menu\.setAttribute\("role", "dialog"\)/);
+  assert.match(component, /const focusOption = \(key\) =>/);
+  assert.match(component, /\["ArrowDown", "ArrowUp", "Home", "End"\]/);
+  assert.match(component, /doc\.addEventListener\("focusin", onFocusIn\)/);
+  assert.match(component, /doc\.removeEventListener\("focusin", onFocusIn\)/);
+  assert.match(component, /focusedSpaceId/);
+  assert.match(smoke, /spaceSwitcherKeyboardOpens/);
+  assert.match(smoke, /spaceSwitcherKeyboardFocusesAction/);
+  assert.match(smoke, /spaceSwitcherKeyboardRestoresFocus/);
+});
