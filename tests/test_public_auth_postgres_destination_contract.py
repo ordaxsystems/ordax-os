@@ -44,10 +44,20 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             self.assertFalse(stage["public_login_enabled"])
             self.assertFalse(stage["public_registration_enabled"])
 
+    def test_destination_runtime_remains_closed_despite_sql_readiness(self):
+        stage = self.destination
+        self.assertTrue(stage["database_rate_limit_full_sql_proof_passed"])
+        self.assertTrue(stage["database_rate_limit_test_rows_rolled_back"])
+        self.assertTrue(stage["legacy_legal_quarantine_applied"])
+        self.assertFalse(stage["public_auth_rate_limit_runtime_e2e_verified"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["public_registration_enabled"])
+        self.assertFalse(stage["parallel_identity_write_enabled"])
+
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]
         self.assertEqual(len(names), len(set(names)), "duplicate SQL source")
-        self.assertGreaterEqual(len(names), 6)
+        self.assertGreaterEqual(len(names), 8)
         sources = {}
         for name in names:
             self.assertEqual(Path(name).name, name)
@@ -81,6 +91,23 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("char_length(v_email) > 320 then", validation_body)
         self.assertIn("registration-legal-policy-unavailable", validation_body)
         self.assertIn("to service_role", validation_body)
+
+        rate_limit = next(
+            body for name, body in sources.items()
+            if "public_auth_rate_limit_v1.sql" in name
+        )
+        self.assertIn("private.ordax_public_auth_rate_limits", rate_limit)
+        self.assertIn("ordax_consume_public_auth_rate_limit_v1", rate_limit)
+        self.assertIn("to service_role", rate_limit)
+        self.assertIn("enable row level security", rate_limit)
+
+        quarantine = next(
+            body for name, body in sources.items()
+            if "account_legacy_legal_quarantine_v1.sql" in name
+        )
+        self.assertIn("ordax_account_legal_quarantine", quarantine)
+        self.assertIn("ordax_account_legal_receipts", quarantine)
+        self.assertIn("to service_role", quarantine)
 
         login_guard = next(
             body for name, body in sources.items()
