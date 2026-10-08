@@ -21,6 +21,7 @@ const CSS_FILES = [
   'system/surface/ui/files.css',
   'system/surface/ui/system.css',
   'system/surface/ui/account.css',
+  'system/surface/ui/space-switcher.css',
   'system/surface/ui/settings.css',
   'system/surface/ui/store.css',
 ];
