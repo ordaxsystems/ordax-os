@@ -14,6 +14,7 @@ A mesma OrdaX Intelligence deve atender os vários ambientes. Um perfil profissi
 - **Memory** `ordax.memory/1`: fatos, preferências e histórico **dos proprietários** (device/account/Space/projeto), não do Profile Pack. Profile não cria proprietário novo nem amplia permissões.
 - **Índice semântico** `ordax.semantic-index/1`: *visão derivada*, vinculada ao SHA-256 do conteúdo, artefato exato de embeddings e proprietário/Space/projeto. Pode ser descartado e reconstruído, nunca se torna SSOT.
 - **OrdaX Intelligence** `ordax.intelligence/1`: único ponto de combinação de contexto e inferência; permanece consultativo no MVP.
+- **Descoberta editorial/comercial por perfil**: catálogo separado para cursos, receitas, eventos e patrocínio contextual, com publicação assinada e opt-in comercial como gates. Jamais injeta anúncios na IA nem lê Memory. Ver [`PROFILE-DISCOVERY-AND-SPONSORSHIP.md`](PROFILE-DISCOVERY-AND-SPONSORSHIP.md).
 
 ### Exemplo de resolução sem duplicação
 
