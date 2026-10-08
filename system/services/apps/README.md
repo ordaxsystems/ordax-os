@@ -2,6 +2,18 @@
 
 `system/services/apps` owns application-level system services. It does not turn apps into authority owners and it does not replace the Component Manager.
 
+## External first-party product SSOT
+
+The first-party external component registry is **generated**, never hand-maintained:
+`docs/contracts/runtime-component-package.json` →
+`canonical_package_source_repository_by_component` →
+`tools/app-policy/render_external_first_party_policy.py` →
+`system/services/apps/external-first-party-policy.mjs`.
+
+The 14 current IDs consist of 13 unsigned component-package candidates plus Studio's separate distribution path. The older, narrower `canonical_external_source_repository_by_component` must remain a consistent subset; it **cannot** silently override the canonical package source set. Regeneration is checked in CI. This also keeps previously installed optional apps visible as potential *installed entries* even if a subsequent signed catalog omits them, once the runtime's verified activation state is available.
+
+A known app ID is not an installation grant. A verified signed catalog, runtime `current` state, first-party delivery policy and platform lifecycle authority remain independent fail-closed gates; no helper can manufacture those. Native broker component support and production distribution are separately gated.
+
 ## Boundaries
 
 Four concepts must stay separate:

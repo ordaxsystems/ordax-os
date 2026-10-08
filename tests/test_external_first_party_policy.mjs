@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
 import {
   EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
@@ -11,14 +12,22 @@ import {
 
 test("generated external first-party runtime policy exposes one canonical owner mapping", () => {
   assert.equal(EXTERNAL_FIRST_PARTY_OWNER, "ordaxsystems/ordax-apps");
-  assert.deepEqual(
-    EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT,
-    {
-      notes: EXTERNAL_FIRST_PARTY_OWNER,
-      studio: EXTERNAL_FIRST_PARTY_OWNER,
-    },
+  const packagePolicy = JSON.parse(readFileSync(
+    new URL("../docs/contracts/runtime-component-package.json", import.meta.url),
+    "utf8",
+  ));
+  const canonicalSources = packagePolicy.canonical_package_source_repository_by_component;
+  const expected = Object.fromEntries(
+    Object.entries(canonicalSources).sort(([a], [b]) => a.localeCompare(b)),
   );
-  assert.deepEqual([...EXTERNAL_FIRST_PARTY_COMPONENT_IDS], ["notes", "studio"]);
+  assert.deepEqual(EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT, expected);
+  assert.deepEqual([...EXTERNAL_FIRST_PARTY_COMPONENT_IDS], Object.keys(expected));
+  assert.equal(EXTERNAL_FIRST_PARTY_COMPONENT_IDS.length >= 14, true,
+    "the 13 package candidates and Studio must not silently disappear");
+  for (const [appId, owner] of Object.entries(canonicalSources)) {
+    assert.equal(owner, EXTERNAL_FIRST_PARTY_OWNER, appId);
+    assert.equal(isExternalFirstPartyComponentId(appId), true, appId);
+  }
   assert.strictEqual(listExternalFirstPartyComponentIds(), EXTERNAL_FIRST_PARTY_COMPONENT_IDS);
   assert.equal(isExternalFirstPartyComponentId("notes"), true);
   assert.equal(isExternalFirstPartyComponentId("studio"), true);

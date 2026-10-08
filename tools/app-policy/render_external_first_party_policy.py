@@ -26,9 +26,12 @@ def load_external_sources(path: Path) -> dict[str, str]:
         raise PolicyGenerationError(f"cannot read canonical component policy: {path}") from exc
     if not isinstance(value, dict) or value.get("$schema") != POLICY_SCHEMA:
         raise PolicyGenerationError("canonical component policy schema is invalid")
-    sources = value.get("canonical_external_source_repository_by_component")
+    # The canonical package-source mapping already names every owner-approved
+    # first-party component delivered by ordax-apps. Do not maintain a second
+    # curated list of component IDs in the generated runtime policy.
+    sources = value.get("canonical_package_source_repository_by_component")
     if not isinstance(sources, dict) or not sources:
-        raise PolicyGenerationError("canonical external source repository mapping is missing")
+        raise PolicyGenerationError("canonical package source repository mapping is missing")
     normalized: dict[str, str] = {}
     for app_id, repository in sorted(sources.items()):
         if not isinstance(app_id, str) or not APP_ID_RE.fullmatch(app_id):
@@ -40,6 +43,17 @@ def load_external_sources(path: Path) -> dict[str, str]:
                 f"external first-party app {app_id} must be owned by {CANONICAL_OWNER}"
             )
         normalized[app_id] = repository
+
+    # Retain the narrower historical external-source declaration only as a
+    # consistency assertion. It is not a second candidate-discovery source.
+    historical = value.get("canonical_external_source_repository_by_component")
+    if not isinstance(historical, dict):
+        raise PolicyGenerationError("legacy external source declaration is invalid")
+    for app_id, repository in historical.items():
+        if normalized.get(app_id) != repository:
+            raise PolicyGenerationError(
+                f"external source declaration disagrees with canonical package owner: {app_id}"
+            )
     return normalized
 
 
