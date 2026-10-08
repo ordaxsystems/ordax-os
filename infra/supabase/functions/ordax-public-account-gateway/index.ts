@@ -9,6 +9,7 @@ import { verifyTrustedPublicRequestContext } from "./public_request_context.mjs"
 import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountBridgeSecret } from "../_shared/account_service_bridge.mjs";
+import { stripEdgeFunctionPrefix } from "../_shared/account_transport_admission.mjs";
 
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
@@ -97,10 +98,8 @@ function adminClient() {
 }
 
 function routePath(url: URL, method: string) {
-  const marker = "/ordax-public-account-gateway";
-  const index = url.pathname.indexOf(marker);
-  if (index < 0) return null;
-  const pathname = url.pathname.slice(index + marker.length) || "/";
+  const pathname = stripEdgeFunctionPrefix(url.pathname, "ordax-public-account-gateway");
+  if (pathname === null) return null;
   if (
     pathname.length > 2048
     || !pathname.startsWith("/")

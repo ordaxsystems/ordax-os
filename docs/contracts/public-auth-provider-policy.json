@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-auth-provider-policy/1",
-  "status": "reviewed-production-origin-selected-provider-verification-pending",
+  "status": "reviewed-canonical-origin-selected-provider-verification-pending",
   "provider": "supabase",
   "confirm_email_required": true,
   "redirect_policy": {
@@ -10,8 +10,8 @@
     "required_paths": [
       "/auth/recover/verify"
     ],
-    "origin": "https://ordax-os-public.vercel.app",
-    "recovery_verify_url": "https://ordax-os-public.vercel.app/auth/recover/verify"
+    "origin": "https://ordax.com.br",
+    "recovery_verify_url": "https://ordax.com.br/auth/recover/verify"
   },
   "provider_verification": {
     "confirm_email": true,
@@ -19,7 +19,7 @@
     "production_origin": false,
     "password_policy": false,
     "observed_date": null,
-    "evidence": "pending-live-management-api-proof",
+    "evidence": "destination origin updated to verified OrdaX canonical domain in source only; Supabase Auth redirect allowlist and recovery email template remain unverified (2026-10-08)",
     "confirm_email_evidence": "supabase-auth-v1-settings-mailer-autoconfirm-false",
     "confirm_email_observed_date": "2026-10-07"
   },

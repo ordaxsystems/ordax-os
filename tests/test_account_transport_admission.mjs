@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   authorizeAccountTransport,
   accountGatewayRoutePath,
+  stripEdgeFunctionPrefix,
   isNativeBootstrapRoute,
 } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 
@@ -146,4 +147,23 @@ test("only the canonical Edge Function path segment maps to a privileged route",
   }
   assert.equal(accountGatewayRoutePath(null), null);
   assert.equal(accountGatewayRoutePath("auth/login"), null);
+});
+
+test("public and internal Account boundaries share exact Edge path normalization", () => {
+  for (const name of ["ordax-public-account-gateway", "ordax-account-gateway"]) {
+    for (const prefix of [`/functions/v1/${name}`, `/${name}`]) {
+      assert.equal(stripEdgeFunctionPrefix(prefix, name), "/");
+      assert.equal(stripEdgeFunctionPrefix(prefix + "/auth/session", name), "/auth/session");
+      assert.equal(stripEdgeFunctionPrefix(prefix + "/account/export", name), "/account/export");
+      assert.equal(stripEdgeFunctionPrefix(prefix + "-evil/auth/login", name), null);
+      assert.equal(stripEdgeFunctionPrefix("/arbitrary" + prefix + "/auth/login", name), null);
+      assert.equal(stripEdgeFunctionPrefix("/functions/v1/other" + prefix + "/auth/login", name), null);
+    }
+  }
+  for (const invalid of [null, undefined, "", "auth/login", "/somewhere"]) {
+    assert.equal(stripEdgeFunctionPrefix(invalid, "ordax-public-account-gateway"), null);
+  }
+  assert.equal(stripEdgeFunctionPrefix("/auth/login", "bad/name"), null);
+  assert.equal(stripEdgeFunctionPrefix("/auth/login", "__proto__"), null);
+  assert.equal(stripEdgeFunctionPrefix("/ordax-account-gateway/auth/session", "ordax-public-account-gateway"), null);
 });

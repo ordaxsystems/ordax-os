@@ -56,7 +56,7 @@
     "turnstile": {
       "provider": "cloudflare-turnstile",
       "sitekey": "0x4AAAAAAFP2xxwpJ9Bl_5Ka",
-      "hostname": "ordax-os-public.vercel.app",
+      "hostname": "ordax.com.br",
       "action": "ordax-account",
       "protected_forms": [
         "login",

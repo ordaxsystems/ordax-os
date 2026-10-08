@@ -20,6 +20,7 @@ REQUIRED = (
     preflight.IDENTITY,
     preflight.LIFECYCLE,
     preflight.RUNTIME,
+    preflight.PUBLIC_SITE,
     preflight.EDGE,
     preflight.REFERENCE_GATEWAY,
     preflight.LIFECYCLE_EDGE,
@@ -48,11 +49,11 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         )
         self.assertEqual(
             provider_policy["redirect_policy"]["origin"],
-            "https://ordax-os-public.vercel.app",
+            "https://ordax.com.br",
         )
         self.assertEqual(
             provider_policy["redirect_policy"]["recovery_verify_url"],
-            "https://ordax-os-public.vercel.app/auth/recover/verify",
+            "https://ordax.com.br/auth/recover/verify",
         )
         self.assertFalse(provider_policy["provider_verification"]["production_origin"])
         self.assertTrue(deployment["public_edge_gateway"]["deployed"])
@@ -91,6 +92,8 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "session-revocation-proof",
             "bot-protection-production-secret",
             "bot-protection-e2e-proof",
+            "turnstile-canonical-hostname-provider-proof",
+            "turnstile-canonical-runtime-proof",
         ):
             self.assertIn(expected, blockers)
         self.assertNotIn("legacy-account-legal-receipt-reconciliation", blockers)
@@ -117,10 +120,15 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "vercel-production-account-routes",
             "vercel-production-oidc-proof",
             "vercel-canonical-origin-binding",
-            "provider-redirect-canonical-origin",
-            "provider-recovery-canonical-origin",
+            "turnstile-canonical-hostname-provider-proof",
+            "turnstile-canonical-runtime-proof",
         ):
             self.assertIn(code, blockers)
+        # The *source* recovery target now matches the verified domain.
+        # Supabase provider-side redirect allowlist and runtime remain unproven.
+        self.assertNotIn("provider-redirect-canonical-origin", blockers)
+        self.assertNotIn("provider-recovery-canonical-origin", blockers)
+        self.assertIn("redirect-allowlist-provider-verification", blockers)
 
     def test_canonical_domain_cutover_requires_independent_vercel_proofs(self):
         temporary, root = self.fixture_root()
@@ -131,6 +139,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             policy = preflight.load_json(root, preflight.PROVIDER_POLICY)
             migration = deployment["vercel_migration"]
             adapter = deployment["vercel_adapter"]
+            bot = deployment["bot_protection"]
             origin = "https://" + migration["target_canonical_domain"]
 
             for name in (
@@ -147,6 +156,8 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             adapter["canonical_public_origin"] = origin
             adapter["canonical_public_origin_live_configured"] = True
             adapter["canonical_public_origin_deployment_verified"] = True
+            bot["production_hostname_verified"] = True
+            bot["production_e2e_verified"] = True
             policy["redirect_policy"]["origin"] = origin
             policy["redirect_policy"]["recovery_verify_url"] = origin + "/auth/recover/verify"
 
@@ -173,6 +184,9 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
                 "vercel-canonical-origin-binding",
                 "provider-redirect-canonical-origin",
                 "provider-recovery-canonical-origin",
+                "turnstile-canonical-hostname-binding",
+                "turnstile-canonical-hostname-provider-proof",
+                "turnstile-canonical-runtime-proof",
             }
             self.assertFalse(guarded.intersection(check()))
             # Even when all independent Vercel proofs are marked true,
@@ -190,6 +204,16 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
                 migration[name] = False
                 self.assertIn(expected, check())
                 migration[name] = True
+
+            bot["production_hostname_verified"] = False
+            self.assertIn("turnstile-canonical-hostname-provider-proof", check())
+            bot["production_hostname_verified"] = True
+            bot["production_e2e_verified"] = False
+            self.assertIn("turnstile-canonical-runtime-proof", check())
+            bot["production_e2e_verified"] = True
+            bot["hostname_allowlist"] = ["old-team.vercel.app"]
+            self.assertIn("turnstile-canonical-hostname-binding", check())
+            bot["hostname_allowlist"] = ["ordax.com.br"]
 
             adapter["canonical_public_origin"] = "https://old-team.vercel.app"
             self.assertIn("vercel-canonical-origin-binding", check())

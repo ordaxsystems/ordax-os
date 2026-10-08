@@ -24,6 +24,7 @@ DEPLOYMENT = Path("docs/contracts/public-site-deployment.json")
 IDENTITY = Path("docs/contracts/public-identity.json")
 LIFECYCLE = Path("docs/contracts/account-lifecycle.json")
 RUNTIME = Path("sites/public/config/public-site.json")
+PUBLIC_SITE = Path("docs/contracts/public-site.json")
 EDGE = Path("infra/supabase/functions/ordax-account-gateway/index.ts")
 REFERENCE_GATEWAY = Path("services/public-identity/gateway.py")
 LIFECYCLE_EDGE = Path("infra/supabase/functions/ordax-account-lifecycle/index.ts")
@@ -82,6 +83,7 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     identity = load_json(root, IDENTITY)
     lifecycle = load_json(root, LIFECYCLE)
     runtime = load_json(root, RUNTIME)
+    public_site = load_json(root, PUBLIC_SITE)
     switches = source_switches(root)
 
     blockers: list[str] = []
@@ -306,6 +308,27 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
         == canonical_origin + "/auth/recover/verify",
         "provider-recovery-canonical-origin",
     )
+    # Browser widget target, edge host allowlist and production URL must agree.
+    # Hostname intent alone does not prove the Cloudflare widget was updated;
+    # keep independent provider-side and runtime proof requirements.
+    turnstile = public_site.get("identity", {}).get("turnstile", {})
+    bot = deployment.get("bot_protection", {})
+    need(
+        isinstance(bot, dict) and isinstance(turnstile, dict)
+        and isinstance(target_domain, str)
+        and bot.get("hostname_allowlist") == [target_domain]
+        and turnstile.get("hostname") == target_domain,
+        "turnstile-canonical-hostname-binding",
+    )
+    need(
+        isinstance(bot, dict) and bot.get("production_hostname_verified") is True,
+        "turnstile-canonical-hostname-provider-proof",
+    )
+    need(
+        isinstance(bot, dict) and bot.get("production_e2e_verified") is True,
+        "turnstile-canonical-runtime-proof",
+    )
+
     need(vercel_adapter.get("status") == "deployed", "vercel-same-origin-adapter-deployment")
     need(routing.get("vercel_adapter_routed_to_public_edge_gateway") is True, "vercel-public-edge-routing")
     need(adapter.get("public_auth_rate_limit_deployed") is True, "deployment-rate-limit")

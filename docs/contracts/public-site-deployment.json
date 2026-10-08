@@ -87,7 +87,7 @@
   "vercel_adapter": {
     "status": "oidc-zero-trust-source-ready-not-deployed",
     "project": "ordax-os-public",
-    "team": "jogo-brasils-projects",
+    "team": "ordaxsystems",
     "project_config_source": "vercel.json",
     "function_source": "api/account-proxy.mjs",
     "static_output_directory": "out/public-site",
@@ -102,7 +102,7 @@
     "canonical_public_origin_environment_variable": "ORDAX_PUBLIC_ORIGIN",
     "canonical_public_origin_required": true,
     "canonical_public_origin_live_configured": false,
-    "canonical_public_origin": "https://ordax-os-public.vercel.app",
+    "canonical_public_origin": "https://ordax.com.br",
     "gateway_upstream_environment_scope": [
       "production"
     ],
@@ -399,7 +399,7 @@
     "widget_name": "OrdaX Account Production",
     "sitekey": "0x4AAAAAAFP2xxwpJ9Bl_5Ka",
     "hostname_allowlist": [
-      "ordax-os-public.vercel.app"
+      "ordax.com.br"
     ],
     "widget_mode": "managed",
     "action": "ordax-account",
@@ -415,6 +415,8 @@
     "token_max_bytes": 2048,
     "token_forwarded_to_inner_gateway": false,
     "production_secret_configured": false,
-    "production_e2e_verified": false
+    "production_e2e_verified": false,
+    "production_hostname_verified": false,
+    "production_hostname_verification_evidence": "pending real Cloudflare Turnstile widget hostname configuration for ordax.com.br; source target corrected on 2026-10-08"
   }
 }

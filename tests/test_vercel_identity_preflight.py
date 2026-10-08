@@ -48,9 +48,28 @@ class VercelIdentityPreflightTests(unittest.TestCase):
 
     def test_legacy_team_cannot_be_target(self):
         contract = json.loads(json.dumps(self.contract))
-        contract["vercel_migration"]["target_team_slug"] = contract["vercel_adapter"]["team"]
+        historical = contract["public_edge_gateway"]["oidc_issuer"].removeprefix(
+            "https://oidc.vercel.com/"
+        )
+        self.assertNotEqual(historical, contract["vercel_migration"]["target_team_slug"])
+        contract["vercel_migration"]["target_team_slug"] = historical
+        contract["vercel_adapter"]["team"] = historical
         with self.assertRaisesRegex(ValueError, "target-team-must-not-equal-legacy-team"):
             self.module.build_candidate(contract, "https://ordax.com.br")
+
+    def test_destination_adapter_must_match_migration_team(self):
+        contract = json.loads(json.dumps(self.contract))
+        contract["vercel_adapter"]["team"] = "other-team"
+        with self.assertRaisesRegex(ValueError, "adapter-team-must-match-target-team"):
+            self.module.build_candidate(contract, "https://ordax.com.br")
+
+    def test_legacy_team_evidence_must_be_valid(self):
+        for old_issuer in (None, "", "http://oidc.vercel.com/old-team",
+                           "https://oidc.vercel.com/old/team"):
+            contract = json.loads(json.dumps(self.contract))
+            contract["public_edge_gateway"]["oidc_issuer"] = old_issuer
+            with self.assertRaisesRegex(ValueError, "(issuer-evidence|invalid-legacy)"):
+                self.module.build_candidate(contract, "https://ordax.com.br")
 
     def test_preview_or_shared_secret_fallback_cannot_be_enabled(self):
         for key in ("preview_identity_allowed", "shared_secret_fallback_allowed"):
