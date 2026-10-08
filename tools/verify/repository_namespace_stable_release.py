@@ -17,7 +17,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ID = "1371063347"
-REPOSITORY = "ordaxsystems/prototipo-ordax-os"
+REPOSITORY = "ordaxsystems/ordax-os"
 ENVELOPE_ASSET = "release-envelope.json"
 TAG_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 

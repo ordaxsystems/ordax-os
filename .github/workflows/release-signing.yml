@@ -349,7 +349,7 @@ jobs:
           cat > "$work/release-manifest.json" <<'JSON'
           {
             "$schema": "prototype-ordax.release-manifest/1",
-            "source_repository": "ordaxsystems/prototipo-ordax-os",
+            "source_repository": "ordaxsystems/ordax-os",
             "source_commit": "0123456789abcdef0123456789abcdef01234567",
             "release_id": "0123456789abcdef0123456789abcdef01234567",
             "created_from_ci_recipe": "release/native/1",

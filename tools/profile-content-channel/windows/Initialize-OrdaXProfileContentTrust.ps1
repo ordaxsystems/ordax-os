@@ -53,7 +53,7 @@ if ($Provenance.'$schema' -ne 'prototype-ordax.profile-content-trust-toolkit/1' 
     $Provenance.status -ne 'candidate') {
     throw 'Profile content trust toolkit provenance is invalid.'
 }
-if ($Provenance.source_repository -ne 'ordaxsystems/prototipo-ordax-os' -or
+if ($Provenance.source_repository -ne 'ordaxsystems/ordax-os' -or
     $Provenance.source_event -ne 'push' -or
     $Provenance.source_ref -ne 'refs/heads/main' -or
     $Provenance.canonical_profile_content_trust_ceremony_eligible -ne $true) {

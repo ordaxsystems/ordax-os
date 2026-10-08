@@ -20,7 +20,7 @@ on:
       envelope_url:
         description: Canonical Stable v4 release-envelope URL.
         required: true
-        default: https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/ordax-stable-v4-b924ff8d74d1761232381ae3f9604bba17497cfd/release-envelope.json
+        default: https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-b924ff8d74d1761232381ae3f9604bba17497cfd/release-envelope.json
         type: string
 
 permissions:

@@ -75,7 +75,7 @@ jobs:
           PY
           pushd tools/creator >/dev/null
           deps="$(CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go list -deps ./cmd/ordax-creator)"
-          if grep -qx 'github.com/ordaxsystems/prototipo-ordax-os/tools/creator/host/windows' <<<"$deps"; then
+          if grep -qx 'github.com/ordaxsystems/ordax-os/tools/creator/host/windows' <<<"$deps"; then
             echo 'Windows toolkit Creator unexpectedly links the native raw-disk host package' >&2
             exit 1
           fi
@@ -239,7 +239,7 @@ jobs:
               ),
           }
           canonical_main_push = (
-              os.environ['GITHUB_REPOSITORY'] == 'ordaxsystems/prototipo-ordax-os'
+              os.environ['GITHUB_REPOSITORY'] == 'ordaxsystems/ordax-os'
               and os.environ['GITHUB_EVENT_NAME'] == 'push'
               and os.environ['GITHUB_REF'] == 'refs/heads/main'
           )
@@ -309,7 +309,7 @@ jobs:
           }
           assert all(isinstance(value, bool) for value in prerequisites.values())
           canonical_main_push = (
-              os.environ['GITHUB_REPOSITORY'] == 'ordaxsystems/prototipo-ordax-os'
+              os.environ['GITHUB_REPOSITORY'] == 'ordaxsystems/ordax-os'
               and os.environ['GITHUB_EVENT_NAME'] == 'push'
               and os.environ['GITHUB_REF'] == 'refs/heads/main'
           )

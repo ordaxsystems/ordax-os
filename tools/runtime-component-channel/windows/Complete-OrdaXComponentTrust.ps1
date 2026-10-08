@@ -63,7 +63,7 @@ if ($PrimaryAbsolute.Equals($RecoveredAbsolute, [StringComparison]::OrdinalIgnor
 $Provenance = Get-Content -LiteralPath $ToolkitProvenancePath -Raw | ConvertFrom-Json
 if ($Provenance.'$schema' -ne 'prototype-ordax.component-trust-toolkit/1' -or
     $Provenance.status -ne 'candidate' -or
-    $Provenance.source_repository -ne 'ordaxsystems/prototipo-ordax-os' -or
+    $Provenance.source_repository -ne 'ordaxsystems/ordax-os' -or
     $Provenance.source_event -ne 'push' -or
     $Provenance.source_ref -ne 'refs/heads/main' -or
     $Provenance.canonical_component_trust_ceremony_eligible -ne $true) {
@@ -154,7 +154,7 @@ if ([string]$InitialResult.public_trust_sha256 -ne $CurrentTrustHash -or
 
 $ProofRelease = Get-Content -LiteralPath $ProofReleasePath -Raw | ConvertFrom-Json
 if ($ProofRelease.'$schema' -ne 'prototype-ordax.runtime-component-release/1' -or
-    $ProofRelease.source_repository -ne 'ordaxsystems/prototipo-ordax-os' -or
+    $ProofRelease.source_repository -ne 'ordaxsystems/ordax-os' -or
     [string]$ProofRelease.source_commit -ne $SourceCommit -or
     $ProofRelease.created_from_ci_recipe -ne 'runtime-component/package/1' -or
     $ProofRelease.component.id -ne 'internet' -or

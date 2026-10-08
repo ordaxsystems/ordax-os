@@ -12,7 +12,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Repository = 'ordaxsystems/prototipo-ordax-os'
+$Repository = 'ordaxsystems/ordax-os'
 $ReleaseTag = 'creator-physical'
 $KeyId = 'ordax-prototype-release-v1'
 $ExpectedManifestSchema = 'prototype-ordax.creator-physical-manifest/2'

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPO_URL=${ORDAX_REPO_URL:-https://github.com/ordaxsystems/prototipo-ordax-os.git}
+REPO_URL=${ORDAX_REPO_URL:-https://github.com/ordaxsystems/ordax-os.git}
 BRANCH=${ORDAX_REPO_BRANCH:-main}
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}

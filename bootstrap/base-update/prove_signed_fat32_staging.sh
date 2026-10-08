@@ -97,7 +97,7 @@ PY
 "$MANIFEST_TOOL" \
   --artifact "$SYSTEM_TAR" \
   --source-commit "$RELEASE_SHA" \
-  --artifact-url "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/ci-signed-base-proof/system.tar" \
+  --artifact-url "https://github.com/ordaxsystems/ordax-os/releases/download/ci-signed-base-proof/system.tar" \
   --out "$MANIFEST"
 
 "$SIGNER" generate-key \
