@@ -77,6 +77,7 @@ try {
       taxonomy: profileTaxonomy.taxonomy,
     });
   } catch (error) {
+    profileTaxonomy = null;
     console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
   }
 } catch (error) {
