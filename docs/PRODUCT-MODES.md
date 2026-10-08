@@ -16,18 +16,18 @@ OrdaX Web
 
 These are capability targets, not separate products or forks.
 
-## MVP availability
+## MVP integration scope versus enabled public modes
 
-The architecture remains prepared for all five modes, but **public MVP availability is USB-only**.
+The **implementation scope** of the integrated MVP includes every materially started capability across OS, Apps, Runtime and Platform, including the OrdaX Native installer for SSD/NVMe/HDD. An implemented source slice is not automatically an authorized public feature.
 
 ```text
-MVP available:          OrdaX USB
-Coming soon:            Web, Mobile, sync/continuity
-Future product surface: Desktop experience
-Post-MVP foundation:    OrdaX Native (internal SSD/NVMe/HDD)
+Current public-candidate execution: USB only (not yet public release)
+Integrated MVP target:            USB plus Native disk, after independent gates
+Other initiated modes/capabilities: inventory, integrate, test and promote by capability
+Currently unavailable:           no fabricated Mobile APK, Native APPLY or public device runtime
 ```
 
-Native installation source/contracts/proofs remain preserved. Stable/MVP must not expose its installer capability, target discovery token, destructive internal-disk write or installation CTA.
+Machine-readable `stable-mvp` still describes **current activation**: USB-only, Native capability disabled, internal-disk destructive writes forbidden. These flags must remain fail-closed until verified install, first-boot health, rollback/recovery and explicit per-target authorization are implemented and proven. The target scope in `MVP.md` does not bypass those runtime gates.
 
 ### 1. OrdaX Web
 
@@ -70,13 +70,13 @@ usb
 native-disk
 ```
 
-The bootstrap exports that value as `ORDAX_PRODUCT_MODE`; guardian, supervisor and Surface preserve it. In the **Stable/MVP profile**, Native installation capability is forced unavailable even while its technical foundation remains present. A future post-MVP promotion may explicitly activate that capability after separate product/hardware gates.
+The bootstrap exports that value as `ORDAX_PRODUCT_MODE`; guardian, supervisor and Surface preserve it. In the **currently active Stable/MVP profile**, Native installation remains unavailable even though its technical foundation is present. A later release within the integrated MVP cycle may activate it only through explicit product/hardware/security gates and authorization.
 
 The future installer writes `native-disk` into the target bootstrap as part of installation materialization. This remains configuration of one product mode, not a code or release fork.
 
-### 5. OrdaX Native — post-MVP
+### 5. OrdaX Native — integrated MVP target, not yet available
 
-Installs the OrdaX operating system to internal SSD/NVMe/HDD. It is preserved as a future deployment mode and is **not an MVP user-facing capability**.
+Installs the OrdaX operating system to SSD/NVMe/HDD using the shared signed release and a whole-disk, informed-destructive-consent flow. This work is **in scope for the integrated MVP**, while physical APPLY, boot without USB and recovery are not yet homologated; therefore the mode is **not yet an available user-facing capability**.
 
 ## One account across all devices
 
@@ -197,8 +197,7 @@ Web and Mobile do not get separate order databases, printer queues or authorizat
 They consume the same versioned events and action contracts as Desktop/Native according to
 their capability envelope.
 
-The public MVP remains USB-only. The source contract exists now so Web/PWA and a future
-Android APK can be added after the MVP without redesigning Account, Spaces or Device Agent.
+The current publicly eligible USB candidate remains USB-only. The broader MVP integration scope includes already-started Web/PWA/Mobile slices, to be enabled by separately proven capabilities without redesigning Account, Spaces or Device Agent.
 There is currently **no released OrdaX APK and no public remote-device runtime**.
 
 See `docs/OPERATIONAL-REALTIME.md`.
