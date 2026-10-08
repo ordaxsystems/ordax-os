@@ -3411,14 +3411,19 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
         body = b""
         if method == "POST":
-            if self.headers.get("Transfer-Encoding") is not None:
+            if self.headers.get_all("Transfer-Encoding", []):
                 self._empty(400)
                 return
-            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+            content_types = self.headers.get_all("Content-Type", [])
+            if len(content_types) != 1 or content_types[0].split(";", 1)[0].strip().lower() != "application/json":
                 self._empty(415)
                 return
-            length_text = self.headers.get("Content-Length", "")
-            if not length_text.isascii() or not length_text.isdecimal():
+            lengths = self.headers.get_all("Content-Length", [])
+            if len(lengths) != 1:
+                self._empty(400)
+                return
+            length_text = lengths[0]
+            if len(length_text) > 9 or not length_text.isascii() or not length_text.isdecimal():
                 self._empty(400)
                 return
             length = int(length_text)
