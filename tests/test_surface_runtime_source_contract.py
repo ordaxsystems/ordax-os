@@ -45,6 +45,7 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
                 "reviewed-candidate-lock-refresh",
                 "reproof-required-after-upstream-libseccomp-drift",
                 "reproof-required-after-upstream-tiff-drift",
+                "reproof-required-after-upstream-openjpeg-drift",
             },
         )
         self.assertIsInstance(refresh["detected_by_qemu_run_id"], int)
@@ -63,6 +64,19 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertIsInstance(refresh["discovery_artifact_id"], int)
         self.assertGreater(refresh["discovery_artifact_id"], 0)
         self.assertRegex(refresh["discovery_artifact_sha256"], r"^[0-9a-f]{64}$")
+        if refresh["status"] == "reproof-required-after-upstream-openjpeg-drift":
+            self.assertEqual(contract["apk_package_lock"]["openjpeg"], "2.5.4-r1")
+            self.assertEqual(refresh["detected_by_qemu_run_id"], 37839826453)
+            self.assertIn(
+                {"name": "openjpeg", "from": "2.5.4-r0", "to": "2.5.4-r1"},
+                refresh["changed"],
+            )
+            self.assertTrue(refresh["reproducibility_reproof_required"])
+            self.assertNotIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
+            self.assertEqual(
+                contract["reproducibility_proof"]["status"],
+                "historical-pass-reproof-required",
+            )
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
         if refresh["status"] == "reviewed-candidate-lock-refresh":
@@ -73,6 +87,7 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             expected = {
                 "reproof-required-after-upstream-libseccomp-drift": ("libseccomp", "2.6.0-r0", "2.6.1-r0"),
                 "reproof-required-after-upstream-tiff-drift": ("tiff", "4.7.1-r0", "4.7.2-r0"),
+                "reproof-required-after-upstream-openjpeg-drift": ("openjpeg", "2.5.4-r0", "2.5.4-r1"),
             }[refresh["status"]]
             self.assertEqual((drift["package"], drift["from"], drift["to"]), expected)
             self.assertEqual(contract["apk_package_lock"][drift["package"]], drift["to"])
@@ -83,8 +98,18 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
             self.assertEqual(proof["status"], "pass-ci-repeat-digest")
             self.assertIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
-        elif refresh["status"] == "reproof-required-after-upstream-tiff-drift":
-            self.assertNotEqual(proof["source_commit"], refresh["discovery_source_commit"])
+        elif refresh["status"] in {
+            "reproof-required-after-upstream-tiff-drift",
+            "reproof-required-after-upstream-openjpeg-drift",
+        }:
+            # Historical evidence may refer to the same previous reviewed
+            # discovery commit: the lock changed after that proof. A differing
+            # SHA is not a prerequisite to invalidate its applicability.
+            if refresh["status"] == "reproof-required-after-upstream-tiff-drift":
+                self.assertNotEqual(proof["source_commit"], refresh["discovery_source_commit"])
+            else:
+                self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
+                self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
             self.assertEqual(proof["status"], "historical-pass-reproof-required")
             self.assertNotIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
             self.assertIn(
