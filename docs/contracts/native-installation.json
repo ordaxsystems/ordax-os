@@ -1,7 +1,15 @@
 {
   "$schema": "prototype-ordax.native-installation/1",
-  "status": "post-mvp-foundation-preserved-mvp-disabled",
+  "status": "mvp-integration-target-public-availability-disabled",
   "mvp_required": false,
+  "mvp_implementation_scope": {
+    "authority": "MVP.md",
+    "native_disk_included": true,
+    "must_preserve_single_creator_core": true,
+    "current_first_usb_release_not_blocked": true,
+    "native_public_promotion_requires_physical_e2e": true,
+    "no_release_claim_from_source_proof": true
+  },
   "source_mode": "ordax-usb",
   "target_mode": "native-disk",
   "distribution_profile": "stable-mvp",
@@ -166,7 +174,7 @@
     "target_discovery_exposed": false,
     "internal_disk_write_allowed": false,
     "destructive_operations_allowed": false,
-    "activation_phase": "post-mvp",
+    "activation_phase": "mvp-after-physical-acceptance",
     "foundation_retained": true
   },
   "post_mvp_activation_scope": {
