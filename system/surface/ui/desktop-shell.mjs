@@ -81,6 +81,7 @@ export function createDesktopShellMarkup(localization) {
             <span class="ordax-brand-word">OrdaX</span>
           </div>
           <span class="ordax-brand-rule" aria-hidden="true"></span>
+          <div class="ordax-space-switcher-slot" data-space-switcher-slot></div>
         </header>
 
         <section class="ordax-desktop" aria-labelledby="surface-home-title">
