@@ -23,7 +23,7 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         self.assertFalse(stable["automatic_partition_resize_available"])
         self.assertFalse(stable["manual_partition_editor_available"])
         self.assertTrue(stable["native_install_foundation_retained"])
-        self.assertEqual(stable["native_install_activation_phase"], "post-mvp")
+        self.assertEqual(stable["native_install_activation_phase"], "mvp-after-physical-acceptance")
 
     def test_integrated_mvp_scope_includes_native_without_authorizing_disk_writes(self):
         scope = (ROOT / "MVP.md").read_text(encoding="utf-8")
