@@ -12,3 +12,14 @@ docs/evidence/canonical-v4-release-proof.json text eol=lf
 
 # The release discovery URL is bound by exact byte SHA-256 in minimal-bootstrap.
 bootstrap/config/release-envelope-url text eol=lf
+
+# Minimal bootstrap manifest pins these exact text-source bytes by SHA-256.
+# Never let Windows core.autocrlf modify a trusted payload on checkout.
+boot/esp/loader/loader.conf text eol=lf
+boot/esp/loader/entries/ordax.conf text eol=lf
+boot/esp/loader/entries/ordax-recovery.conf text eol=lf
+bootstrap/entrypoint text eol=lf
+bootstrap/network/bring-up text eol=lf
+bootstrap/network/udhcpc.script text eol=lf
+bootstrap/config/product-mode text eol=lf
+bootstrap/recovery/entrypoint text eol=lf
