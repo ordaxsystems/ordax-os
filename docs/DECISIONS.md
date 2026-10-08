@@ -411,4 +411,16 @@ Rules:
 Reason: the repository already contains the durable identity, Spaces, Projects, Memory, Intelligence
 and Action Gateway boundaries. Composing them into one personal work model scales the product
 without creating a second agent stack or coupling OrdaX to one model/provider.
-\n
+
+
+## ADR-026 - Integrated MVP scope is distinct from per-release availability (2026-10-08)
+
+Decision: **Every product capability with a substantive implementation already started belongs in the integrated MVP consolidation inventory**, across OrdaX OS, Apps, Runtime and Platform. No artificial rule pushes started work to "post-MVP" merely to close an issue or ship a narrow USB release. This includes the existing Native SSD/NVMe/HDD installation foundation, alongside boot, Creator, Account, Intelligence, Memory, Profiles/Spaces, Store/apps, Studio, site, platform and update/recovery.
+
+Do not equate **scope** with **public availability**. Each capability must have one canonical owner, a coherent functional slice, verified compatibility, negative security tests where relevant, host-specific proof and an authorized release. A source file, PR, package candidate or signed manifest cannot, by itself, claim a usable feature. Unready capabilities remain safely unavailable and recorded with specific gates; improvements may be integrated before or after the first USB release without destabilizing its known-good path.
+
+Native installation is an **in-scope MVP engineering and homologation target**, using the existing Creator Core and shared `native-disk` profile. Initially whole-disk only, with exact-target identity, source-boot protection, explicit destructive confirmation, verified signed release, independent readback, actual UEFI boot without USB, first-boot health and recovery/rollback. It is **currently not implemented/authorized for physical APPLY**; neither documentation nor this ADR grants privileges or changes flags. Keep the current Stable runtime and public site USB-only until the Native path passes its independent gates. Promotion must update authoritative machine-readable contracts, consumer tests and operators' approvals atomically in an implementation PR. Never advertise install where the code cannot safely perform it.
+
+Release governance remains progressive: a safe USB candidate may be shipped while independent work is still in progress, but finishing that candidate does not silently close the full integration backlog. Features proven in their own environment can enter subsequent signed releases, including before a public launch. The work coordination issue must retain real blockers and evidence for every unfinished started capability.
+
+This decision refines earlier USB-only **MVP scope** language in ADRs/docs; it does not rewrite history or revoke earlier physical-write safety gates. Scope owner: `MVP.md`; actual runtime activation and proof owner: matching machine-readable contracts and `docs/CURRENT-STATE.md`.

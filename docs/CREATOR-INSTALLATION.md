@@ -161,9 +161,9 @@ Git main
 
 The user's machine needs only the signed Creator application, its verified payload and normal administrator authorization for the narrow raw-device step.
 
-## Native installation foundation — post-MVP
+## Native installation foundation — integrated MVP target, release currently disabled
 
-The public MVP Creator prepares **removable OrdaX USB media only**. It does not install OrdaX to an internal SSD/NVMe/HDD and does not expose dual boot, resize or a partition editor.
+The currently authorized public-candidate Creator prepares **removable OrdaX USB media only**. The integrated MVP implementation scope includes finishing Native disk installation via the same Creator Core. The current public build does **not yet** install to SSD/NVMe/HDD, and dual boot, resize and partition editing are not part of the first Native mode.
 
 The same Creator Core already contains non-destructive Native planning and supporting architecture:
 
@@ -174,9 +174,9 @@ PlanNativeDiskTargetStorage
  -> Native storage / boot proofs
 ```
 
-Those foundations are intentionally retained for a post-MVP activation. They must not be deleted or reimplemented as a second installer. Stable/MVP keeps the Native install capability disabled and does not authorize internal-disk APPLY.
+Those foundations must be completed and homologated **within the integrated MVP development cycle**, not reimplemented as a second installer. The current Stable release keeps Native disabled, and internal-disk APPLY remains forbidden until explicit target authorization and physical end-to-end proof.
 
-When Native is deliberately promoted after the MVP, it must continue through the same Creator Core, signed release trust, exact-target identity, destructive authorization and hardware-validation gates documented in `docs/NATIVE-INSTALLATION.md` and `docs/contracts/native-installation.json`.
+When Native is promoted through the MVP-cycle gates, it must continue through the same Creator Core, signed release trust, exact-target identity, destructive authorization and hardware-validation gates documented in `docs/NATIVE-INSTALLATION.md` and `docs/contracts/native-installation.json`.
 
 
 ## Transition into the full Desktop product

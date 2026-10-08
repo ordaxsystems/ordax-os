@@ -123,7 +123,7 @@
       "automatic_partition_resize_available": false,
       "manual_partition_editor_available": false,
       "native_install_foundation_retained": true,
-      "native_install_activation_phase": "post-mvp",
+      "native_install_activation_phase": "mvp-after-physical-acceptance",
       "runtime_layout_default": "legacy-tree",
       "runtime_layouts_supported": [
         "legacy-tree",

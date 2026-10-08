@@ -16,11 +16,16 @@ class NativeInstallationContractTests(unittest.TestCase):
         cls.install = json.loads(INSTALL.read_text(encoding="utf-8"))
         cls.storage = json.loads(STORAGE.read_text(encoding="utf-8"))
 
-    def test_native_install_is_preserved_post_mvp_but_not_exposed_in_mvp(self):
+    def test_native_is_in_mvp_integration_scope_but_not_yet_public(self):
         self.assertEqual(
             self.install["$schema"], "prototype-ordax.native-installation/1"
         )
-        self.assertFalse(self.install["mvp_required"])
+        self.assertFalse(self.install["mvp_required"])  # Not a blocker for the first USB release.
+        integration = self.install["mvp_implementation_scope"]
+        self.assertEqual(integration["authority"], "MVP.md")
+        self.assertTrue(integration["native_disk_included"])
+        self.assertTrue(integration["current_first_usb_release_not_blocked"])
+        self.assertTrue(integration["native_public_promotion_requires_physical_e2e"])
         availability = self.install["mvp_availability"]
         self.assertFalse(availability["available"])
         self.assertFalse(availability["advertised"])
@@ -28,7 +33,7 @@ class NativeInstallationContractTests(unittest.TestCase):
         self.assertFalse(availability["target_discovery_exposed"])
         self.assertFalse(availability["internal_disk_write_allowed"])
         self.assertFalse(availability["destructive_operations_allowed"])
-        self.assertEqual(availability["activation_phase"], "post-mvp")
+        self.assertEqual(availability["activation_phase"], "mvp-after-physical-acceptance")
         self.assertTrue(availability["foundation_retained"])
         self.assertEqual(self.install["source_mode"], "ordax-usb")
         self.assertEqual(self.install["target_mode"], "native-disk")

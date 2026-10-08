@@ -1,14 +1,12 @@
 # OrdaX Native Installation
 
-Status: POST-MVP FOUNDATION — PRESERVED / MVP CAPABILITY DISABLED
+Status: INTEGRATED MVP DEVELOPMENT SCOPE — PUBLIC NATIVE CAPABILITY STILL DISABLED
 
 Machine-readable authority: `docs/contracts/native-installation.json`.
 
-The public MVP is **USB-only**. It boots and runs OrdaX directly from authorized removable media and does not offer installation to SSD/NVMe/HDD.
+The **currently enabled Stable public-candidate release** is USB-only. The integrated MVP **development scope** now includes completing and validating installation to SSD/NVMe/HDD, using the existing Creator Core and the `native-disk` storage profile from `docs/contracts/storage-architecture.json`, not a second product or installer.
 
-This document preserves the Native installation foundation for a **post-MVP** phase. Native installation is not a different OrdaX product; when activated later it will install the same verified release using the `native-disk` storage profile from `docs/contracts/storage-architecture.json`.
-
-For Stable/MVP, the Native capability, target-discovery token and internal-disk destructive operations remain disabled/inaccessible even if their source code and CI proofs exist.
+Until an explicit release promotion with verified APPLY, physical boot, recovery and first-boot health, the Native capability, target-discovery token and internal-disk destructive operations remain disabled/inaccessible. The existing machine-readable contract describes that **current effective policy**; the expanded MVP target is documented in `MVP.md` and does not authorize a disk write.
 
 Execution mode is explicit rather than inferred from hardware:
 
@@ -20,17 +18,17 @@ Execution mode is explicit rather than inferred from hardware:
 
 The Stable bootstrap passes this identity as `ORDAX_PRODUCT_MODE` through guardian, supervisor and Surface. The future physical installer must write `native-disk` into the target bootstrap before first boot. The shared signed `system.tar` is the same in both modes; this marker does not fork the product.
 
-## Future post-MVP activation scope
+## Native integration scope in the MVP cycle (subject to safety gates)
 
-If Native installation is promoted after the MVP, the first activation should remain deliberately smaller than a general-purpose partition editor:
+When Native installation is eventually promoted through its MVP-cycle gates, the first activation should remain deliberately smaller than a general-purpose partition editor:
 
 - whole-disk installation only;
 - explicit target-disk selection;
 - explicit warning that existing target data will be erased;
 - the booted OrdaX USB can never be selected as the target;
 - no automatic shrinking of Windows/Linux partitions;
-- no "install alongside" flow in the first MVP;
-- no manual partition editor in the first MVP.
+- no "install alongside" flow for the first Native availability;
+- no manual partition editor for the first Native availability.
 
 This keeps the first destructive path auditable and avoids pretending that dual-boot migration is safe before it has its own contracts and hardware proof.
 
@@ -69,7 +67,7 @@ The fixed initramfs is deliberately **not** expanded for the installer. Once Ord
 
 Transport alone is not authority: an internal NVMe/SATA disk and a suitable external SSD may both use the Native profile, while the source live USB remains forbidden.
 
-## Future activation phases
+## Activation phases to complete before Native public availability
 
 ```text
 inspect target
@@ -104,7 +102,7 @@ The Creator Core already implements target geometry in:
 
 `tools/creator/core/storage_profiles.go#PlanNativeDiskTargetStorage`
 
-The first MVP implementation slice adds a pure, non-destructive Native installation plan:
+The initial Native implementation slice already adds a pure, non-destructive Native installation plan:
 
 `tools/creator/core/native_install.go#PlanNativeInstallation`
 

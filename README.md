@@ -33,7 +33,7 @@ Futuro             -> experiência Desktop ampliada
 Pós-MVP            -> OrdaX Native (SSD/NVMe/HD)
 ```
 
-O MVP roda diretamente pelo pendrive e não oferece instalação em disco interno. A fundação Native permanece preservada para ativação posterior. Todos os modos futuros devem reutilizar identidade, Surface/app source e adapters de capacidade quando aplicável.
+O primeiro candidato Stable executa pelo pendrive e ainda não oferece instalação em disco interno. **O escopo de integração do MVP foi ampliado** para concluir as capacidades já iniciadas, incluindo instalação Native em SSD/NVMe/HD no mesmo Creator Core, sem liberar gravação física até instalação, boot, recovery e proteção do alvo serem homologados. Os modos preservam identidade, Surface/app source e adapters de capacidade compartilhados.
 
 ## Site publico
 
