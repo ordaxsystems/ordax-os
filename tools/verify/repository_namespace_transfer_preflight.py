@@ -77,6 +77,11 @@ NEGATIVE_HISTORICAL_ASSERTIONS = {
         'self.assertEqual(request["source_repository"], "washingtonmsdj/prototipo-ordax-os")',
     "tests/test_release_agent_seed_restore_identity.py":
         'self.assertNotIn("washingtonmsdj/prototipo-ordax-os", script)',
+    # Exact historical negative assertions are not an operational owner fallback.
+    "tools/release-operator/select_active_signing_request.py":
+        'HISTORICAL_OWNER = "washingtonmsdj/prototipo-ordax-os"',
+    "tests/test_build_canonical_v4_request.py":
+        '{"repository": {"full_name": "washingtonmsdj/prototipo-ordax-os", "id": builder.REPOSITORY_ID}},',
 }
 
 
