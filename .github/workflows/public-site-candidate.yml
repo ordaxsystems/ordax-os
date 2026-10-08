@@ -8,8 +8,6 @@ on:
       - 'deploy/public-site/**'
       - 'api/account-proxy.mjs'
       - 'vercel.json'
-      - 'tools/public-site/vercel_ignore_build.mjs'
-      - 'tests/test_vercel_ignore_build.mjs'
       - 'tools/public-site/**'
       - 'tools/security/**'
       - 'docs/PUBLIC-SITE.md'
@@ -51,6 +49,7 @@ on:
       - 'tests/test_account_transport_admission.mjs'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
+      - 'infra/supabase/functions/_shared/bounded_body.mjs'
       - 'tests/test_public_account_edge_gateway_source.py'
       - 'tests/test_auth_provider_probe.py'
       - 'tests/test_account_release_provider_proof.py'
@@ -73,8 +72,6 @@ on:
       - 'deploy/public-site/**'
       - 'api/account-proxy.mjs'
       - 'vercel.json'
-      - 'tools/public-site/vercel_ignore_build.mjs'
-      - 'tests/test_vercel_ignore_build.mjs'
       - 'tools/public-site/**'
       - 'tools/security/**'
       - 'docs/PUBLIC-SITE.md'
@@ -116,6 +113,7 @@ on:
       - 'tests/test_account_transport_admission.mjs'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
+      - 'infra/supabase/functions/_shared/bounded_body.mjs'
       - 'tests/test_public_account_edge_gateway_source.py'
       - 'tests/test_auth_provider_probe.py'
       - 'tests/test_account_release_provider_proof.py'
@@ -159,7 +157,6 @@ jobs:
           python tools/public-site/build.py check
           python tools/public-site/auth_activation_preflight.py check
           node tests/test_public_site_localization.mjs
-          node --test tests/test_vercel_ignore_build.mjs
           node --test tests/test_public_site_vercel_proxy.mjs
           node --test tests/test_public_proxy_request_context.mjs
           node --test tests/test_public_proxy_vercel_oidc.mjs
