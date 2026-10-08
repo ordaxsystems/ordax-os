@@ -21,11 +21,14 @@ class PublicSiteDeploymentTests(unittest.TestCase):
 
     def test_vercel_migration_target_is_dedicated_and_fail_closed(self):
         migration = self.contract["vercel_migration"]
-        self.assertEqual(migration["status"], "target-team-provisioning-pending")
+        self.assertEqual(migration["status"], "target-project-git-linked-runtime-pending")
         self.assertEqual(migration["target_account_email"], "ordaxos@gmail.com")
         self.assertEqual(migration["target_team_slug"], "ordaxsystems")
         self.assertEqual(migration["target_project"], "ordax-os-public")
         self.assertEqual(migration["target_github_organization"], "ordaxsystems")
+        self.assertEqual(migration["target_github_repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(migration["target_team_id"], "team_E3bdE137ZG3fhCGMmYuGKJ8o")
+        self.assertEqual(migration["target_project_id"], "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC")
         self.assertFalse(migration["personal_scope_allowed"])
         self.assertFalse(migration["legacy_team_allowed_after_cutover"])
         self.assertFalse(migration["shared_secret_fallback_allowed"])
