@@ -14,6 +14,9 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "system" / "surface" / "runtime" / "native_component_slots.py"
+# Mirror the Native host bootstrap: sibling generated policy is importable.
+if str(MODULE.parent) not in sys.path:
+    sys.path.insert(0, str(MODULE.parent))
 
 spec = importlib.util.spec_from_file_location("ordax_native_component_slots_test", MODULE)
 slots = importlib.util.module_from_spec(spec)
