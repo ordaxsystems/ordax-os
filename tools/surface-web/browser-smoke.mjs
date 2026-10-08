@@ -639,6 +639,8 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
         artifactIdentityVerified: true, provenanceVerified: true,
       },
     ];
+    // Deliberately unsorted incoming SSOT: presentation must order it without mutation.
+    verifiedStoreEntries.reverse();
     const verifiedStoreSnapshot = {
       schema: 'ordax.app-store-catalog/2', state: 'ready', entries: verifiedStoreEntries,
       reason: null, authority: 'none',
