@@ -13,8 +13,8 @@ CREATOR_WORKFLOW = ROOT / ".github/workflows/creator-payload-candidate.yml"
 FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
 ASSEMBLER = ROOT / "tools/creator/assemble.py"
 
-CURRENT_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
-PREVIOUS_REFRESH_TARGET = "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78"
+CURRENT_REFRESH_TARGET = "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af"
+PREVIOUS_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
 
 
 class MVPSeedArtifactBindingsTests(unittest.TestCase):
