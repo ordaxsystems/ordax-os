@@ -188,29 +188,29 @@ def download_exact(url: str, destination: Path, expected_sha256: str, max_bytes:
 
 
 def safe_extract_foreign_source(archive: Path, destination: Path, expected_root: str) -> None:
-    """Extract untrusted source without normalizing foreign archive metadata."""
+    """Apply the canonical Wine member policy, then Python's data extraction filter.
+
+    Validate every member before extracting any: reject oversize archives without
+    materializing an additional list of TAR member objects in memory.
+    """
     destination.mkdir(parents=True, exist_ok=True)
     try:
         with tarfile.open(archive, "r:xz") as tar:
-            members = []
-            for member in tar.getmembers():
-                name = member.name
-                while name.startswith("./"):
-                    name = name[2:]
-                path = PurePosixPath(name)
-                if not name or path.is_absolute() or ".." in path.parts:
-                    raise ConfigureProofError(f"unsafe foreign source archive path: {member.name}")
-                if not path.parts or path.parts[0] != expected_root:
-                    raise ConfigureProofError(f"foreign source member outside expected root: {member.name}")
-                if member.isdev() or member.isfifo():
-                    raise ConfigureProofError(f"unsupported foreign source archive object: {member.name}")
-                if member.issym() or member.islnk():
-                    link = PurePosixPath(member.linkname)
-                    if link.is_absolute() or ".." in link.parts:
-                        kind = "symlink" if member.issym() else "hardlink"
-                        raise ConfigureProofError(f"unsafe foreign source {kind} forbidden: {member.name}")
-                members.append(member)
-            tar.extractall(destination, members=members, filter="data")
+            member_count = 0
+            unpacked_bytes = 0
+            for member in tar:
+                member_count += 1
+                if member_count > SOURCE.MAX_ARCHIVE_MEMBERS:
+                    raise ConfigureProofError("foreign source archive member count exceeded bound")
+                try:
+                    SOURCE.validate_archive_member(member, expected_root)
+                except SOURCE.CompatibilityRuntimeBuildError as exc:
+                    raise ConfigureProofError(f"invalid foreign source archive member: {exc}") from exc
+                if member.isfile():
+                    unpacked_bytes += member.size
+                    if unpacked_bytes > SOURCE.MAX_UNPACKED_BYTES:
+                        raise ConfigureProofError("foreign source archive unpacked size exceeded bound")
+            tar.extractall(destination, members=tar.members, filter="data")
     except (tarfile.TarError, OSError) as exc:
         raise ConfigureProofError(f"foreign source extraction failed: {exc}") from exc
 
