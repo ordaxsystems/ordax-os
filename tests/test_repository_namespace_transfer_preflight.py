@@ -190,6 +190,59 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         report = audit.validate_contracts(ownership, status)
         self.assertEqual(report["phase"], "post-transfer")
 
+    def test_repo_rename_requires_one_canonical_ssot_identity(self):
+        renamed = copy.deepcopy(self.ownership)
+        status = copy.deepcopy(self.status)
+        target = "ordaxsystems/ordax-os"
+        renamed["repositories"]["platform"]["repo"] = target
+        renamed["namespace_migration"]["canonical_targets"]["platform"] = target
+        status["canonical_repositories"]["platform"] = target
+        outcome = audit.validate_contracts(renamed, status)
+        self.assertEqual(outcome["phase"], "post-transfer")
+        self.assertEqual(outcome["canonical"], target)
+
+        # The target must not gain authority merely because the old GitHub
+        # address redirects. Physical owner + immutable numeric ID must match.
+        post_rename_report = {
+            "phase": "post-transfer",
+            "destination": target,
+            "operational_count": 0,
+            "release_pointer_integrity_verified": True,
+            "sdk_package_projection_verified": True,
+        }
+        self.assertEqual(audit.cutover_ready(post_rename_report, {
+            "GITHUB_REPOSITORY": target,
+            "GITHUB_REPOSITORY_ID": "1371063347",
+        }), (True, "canonical_namespace_verified"))
+        self.assertFalse(audit.cutover_ready(post_rename_report, {
+            "GITHUB_REPOSITORY": "ordaxsystems/prototipo-ordax-os",
+            "GITHUB_REPOSITORY_ID": "1371063347",
+        })[0])
+        self.assertFalse(audit.cutover_ready(post_rename_report, {
+            "GITHUB_REPOSITORY": target,
+            "GITHUB_REPOSITORY_ID": "0",
+        })[0])
+
+        # Old bootstrap bytes/sha cannot be used as authority for the new URL.
+        self.assertFalse(audit.release_pointer_integrity(ROOT, target)[
+            "release_pointer_integrity_verified"
+        ])
+        altered = copy.deepcopy(renamed)
+        altered["namespace_migration"]["canonical_targets"]["platform"] = (
+            "ordaxsystems/prototipo-ordax-os"
+        )
+        with self.assertRaisesRegex(ValueError, "unrecognized|destination|disagree"):
+            audit.validate_contracts(altered, status)
+        altered = copy.deepcopy(renamed)
+        altered["repositories"]["platform"]["repo"] = "ordaxsystems/not-the-os"
+        altered["namespace_migration"]["canonical_targets"]["platform"] = (
+            "ordaxsystems/not-the-os"
+        )
+        status2 = copy.deepcopy(status)
+        status2["canonical_repositories"]["platform"] = "ordaxsystems/not-the-os"
+        with self.assertRaisesRegex(ValueError, "Unexpected destination"):
+            audit.validate_contracts(altered, status2)
+
     def test_cutover_proof_needs_no_live_legacy_refs_and_exact_github_identity(self):
         report = {
             "phase": "post-transfer",

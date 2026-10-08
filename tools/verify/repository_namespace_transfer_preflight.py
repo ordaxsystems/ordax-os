@@ -21,6 +21,12 @@ STATUS_PATH = Path("docs/contracts/repository-migration-status.json")
 PREVIOUS_OWNER = "washingtonmsdj"
 REPOSITORY_NAME = "prototipo-ordax-os"
 PLATFORM_REPOSITORY_ID = "1371063347"
+# Existing owner remains authoritative until the exact physical rename is verified.
+# Both names are allowed as *values* of the single ownership SSOT, never in parallel.
+POST_TRANSFER_SLUGS = frozenset({
+    "ordaxsystems/prototipo-ordax-os",
+    "ordaxsystems/ordax-os",
+})
 
 ACTIVE_PREFIXES = (".github/workflows/", "boot/", "bootstrap/", "sdk/", "system/", "tools/", "tests/")
 ACTIVE_CONTRACT_PREFIX = "docs/contracts/"
@@ -71,6 +77,11 @@ NEGATIVE_HISTORICAL_ASSERTIONS = {
         'self.assertEqual(request["source_repository"], "washingtonmsdj/prototipo-ordax-os")',
     "tests/test_release_agent_seed_restore_identity.py":
         'self.assertNotIn("washingtonmsdj/prototipo-ordax-os", script)',
+    # Exact historical negative assertions are not an operational owner fallback.
+    "tools/release-operator/select_active_signing_request.py":
+        'HISTORICAL_OWNER = "washingtonmsdj/prototipo-ordax-os"',
+    "tests/test_build_canonical_v4_request.py":
+        '{"repository": {"full_name": "washingtonmsdj/prototipo-ordax-os", "id": builder.REPOSITORY_ID}},',
 }
 
 
@@ -123,7 +134,7 @@ def validate_contracts(ownership: dict, state: dict) -> dict:
     status = state["canonical_repositories"]
     target = migration["canonical_targets"]["platform"]
     current = canonical["platform"]["repo"]
-    if target != "ordaxsystems/prototipo-ordax-os":
+    if target not in POST_TRANSFER_SLUGS:
         raise ValueError("Unexpected destination, cannot transfer the wrong repository")
     if migration["cutover_order"] != ["runtime", "apps", "control_plane", "platform"]:
         raise ValueError("Namespace transfer order no longer canonical")
