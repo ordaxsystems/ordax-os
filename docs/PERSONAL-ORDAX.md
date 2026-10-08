@@ -201,8 +201,10 @@ user file-space into `/Downloads`, strips retained `grantRef` values and omits r
 There is no automatic export, account sync, upload or Web fake-file fallback.
 
 Phase 1 does **not** enable background autonomy, generic egress, generic device control, shell, raw
-disk, release-key access, physical writes, non-idempotent file mutations or model-generated action
-proposals.
+disk, release-key access, physical writes, non-idempotent file mutations or **automatic execution
+of model-generated proposals**. The consultative planner can suggest one catalog action for
+explicit human review. The proposal itself grants no authority and can only become a pending
+approval through an intentional user action in Activity.
 
 ### Phase 2 — resumable bounded background work
 
@@ -306,3 +308,35 @@ O executor diferencia falha comprovadamente anterior ao adapter de falha depois 
 Se o processo cair com Attempt `started`, o restore converte esse Attempt para `uncertain` antes de expor o runtime, revoga a authority session-only e mantém o Work pausado. A Activity projeta esse estado para o usuário. Esse protocolo é pré-requisito para qualquer futura mutação não idempotente; rename/move/trash continuam desabilitados neste corte.
 
 Decision e Action Executor também exigem o mesmo `approvalId` exato, além de Work/action/effect/grant, impedindo substituição entre approvals do mesmo tipo de ação.
+
+
+## Prova automatizada do fluxo modelo → ação autorizada (MVP)
+
+O teste `tests/test_personal_intelligence_foreground_e2e.mjs` exercita, pela
+composição Native canônica e sem rota paralela, todo o percurso:
+
+1. `Work` criado a partir de uma solicitação em português;
+2. `createPersonalActionProposalPlanner` usa `ordax.intelligence/1` para
+   propor apenas a entrada permitida do catálogo, sem conceder autoridade;
+3. `requestProposedAction()` produz approval pendente, ainda sem mutação;
+4. `approvalConsent.approve()` emite grant limitado pelo proprietário,
+   recurso, ação e SHA-256 do artefato;
+5. `executeApprovedAction()` revalida autorização com o Action Gateway,
+   entra no adapter Native `files.directory.ensure` e retorna receipt
+   com referência à pasta verificada;
+6. a tentativa é registrada na Activity e a approval não pode ser reutilizada.
+
+A suíte também prova que negar a approval, inventar uma ferramenta ou trocar
+a conta antes da aprovação **não** produz efeitos no file-space.
+
+**Tipo de evidência:** teste E2E de integração dos módulos reais com saída
+controlada do modelo e implementação de file-space em memória. Ele confirma os
+limites de contratos/consentimento, mas **não** mede precisão do modelo Qwen
+real, inicialização da engine, latência, segurança do backend Native real ou
+resultado em máquina física. O caminho de aprovação é explicitamente humano;
+o modelo não ganha o poder de aprovar, executar ou criar grants.
+
+O teste é requisito de regressão de
+`.github/workflows/application-action-capability-foundation.yml`. O
+passe na CI não altera o estado `PUBLIC RUNTIME DISABLED` nem substitui o
+gate físico Stable/MVP ou a revisão de segurança de distribuição.

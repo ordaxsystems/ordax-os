@@ -34,6 +34,7 @@ on:
       - 'tests/test_native_verified_component_artifact_identity.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - 'tests/test_application_action_preparation_composition.mjs'
+      - 'tests/test_personal_intelligence_foreground_e2e.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
   push:
     branches: [main]
@@ -69,6 +70,7 @@ on:
       - 'tests/test_native_verified_component_artifact_identity.mjs'
       - 'tests/test_verified_app_semantics_source.mjs'
       - 'tests/test_application_action_preparation_composition.mjs'
+      - 'tests/test_personal_intelligence_foreground_e2e.mjs'
       - '.github/workflows/application-action-capability-foundation.yml'
 
 permissions:
@@ -116,6 +118,7 @@ jobs:
           node --check tests/test_application_action_provider_resolver.mjs
           node --check tests/test_native_verified_component_artifact_identity.mjs
           node --check tests/test_application_action_preparation_composition.mjs
+          node --check tests/test_personal_intelligence_foreground_e2e.mjs
           node --check tests/test_verified_app_semantics_source.mjs
 
       - name: Run capability, preparation, provider binding, artifact resolution, composition and awareness contract tests
@@ -129,6 +132,7 @@ jobs:
           node --test tests/test_application_action_provider_resolver.mjs
           node --test tests/test_native_verified_component_artifact_identity.mjs
           node --test tests/test_application_action_preparation_composition.mjs
+          node --test tests/test_personal_intelligence_foreground_e2e.mjs
           node --test tests/test_verified_app_semantics_source.mjs
           node --test tests/test_application_intelligence_awareness.mjs
           node --test tests/test_application_intelligence_context.mjs
