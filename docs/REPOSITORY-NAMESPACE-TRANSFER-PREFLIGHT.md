@@ -75,6 +75,35 @@ assinados do owner anterior para mudar o hash silenciosamente. Se o canal,
 o ponteiro e o manifesto não coincidirem, `--require-cutover` recusa a
 transferência como concluída, ainda que o GitHub aponte ao novo owner.
 
+## Comprovação obrigatória de release estável assinada
+
+Um ponteiro `/releases/latest/download/release-envelope.json` com SHA-256
+coerente **não prova a existência de uma release** nem sua autenticidade.
+A verificação pós-transferência é sequencial e bloqueante:
+
+1. `tools/verify/repository_namespace_transfer_preflight.py --require-cutover`
+   valida o owner do runner e preservação do repo ID `1371063347`.
+2. `tools/verify/repository_namespace_stable_release.py` exige uma release
+   GitHub **publicada, não draft, não prerelease**, na origem exata do owner
+   do contrato, com **um único** `release-envelope.json` completamente
+   carregado e URL que pertence à tag exata. Resposta 404, tag ausente,
+   asset ausente, repo incompatível ou erro de rede bloqueiam.
+3. **Somente então** o `ordax-release-agent inspect` canônico (Go) busca
+   `latest_envelope_url` via HTTPS, valida Ed25519 usando a chave pública
+   `bootstrap/trust/release-ed25519.json` e exige a origem do manifesto
+   `--repository "$GITHUB_REPOSITORY"`. A inspeção não materializa release,
+   não altera ponteiros, não inicializa disco, não pede reboot.
+
+O resultado do passo 2 é `verified-metadata-only` e **nunca deve
+ser apresentado como assinatura verificada**. A autenticidade cabe
+exclusivamente ao passo 3. Os dois passos rodam automaticamente no workflow
+`Repository Namespace Transfer Preflight` **apenas após o GitHub reportar
+`ordaxsystems/prototipo-ordax-os`**. A falta atual de `/releases/latest`
+é bloqueio verdadeiro: não resolver apontando para prerelease, fabricando
+envelope ou aceitando fallback/dual owner. Atestar a assinatura do
+manifesto também não substitui os outros gates de boot, Creator, proveniência
+dos binários e autorização física separada.
+
 **Antes de tocar no proprietário físico**:
 
 1. Conferir `main`, branches/PRs ativas, actions, releases, environments,
