@@ -36,7 +36,7 @@ class ReleaseSeedRestoreIdentityTests(unittest.TestCase):
             self.assertNotIn(SEED_SHA256, text)
             self.assertNotIn("curl --fail --location", text)
 
-    @unittest.skipUnless(shutil.which("bash"), "bash is required for local shell policy test")
+    @unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "POSIX bash is required for shell policy test")
     def test_rejects_wrong_repository_id_before_any_download(self):
         env = {
             **os.environ,
@@ -55,7 +55,7 @@ class ReleaseSeedRestoreIdentityTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("RELEASE_AGENT_SEED_REPOSITORY_ID=REJECTED", result.stderr)
 
-    @unittest.skipUnless(shutil.which("bash"), "bash is required for local shell policy test")
+    @unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "POSIX bash is required for shell policy test")
     def test_rejects_repository_name_change_before_any_download(self):
         env = {
             **os.environ,
