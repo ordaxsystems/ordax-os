@@ -1,4 +1,5 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
+import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
 import {
   assertIdentityActionsPort,
   isIdentityActionSupported,
@@ -564,6 +565,10 @@ export function mountAccountOverviewControls(
     view.append(section);
   };
 
+  const authorizedSpaces = () => deriveAuthorizedSpaces(
+    sessionSnapshot, spacesSnapshot, spaceSelectionSnapshot,
+  );
+
   const refreshSpaces = () => {
     if (!spacesPort || sessionSnapshot.state !== "signed-in") return;
     void spacesPort.refresh().catch(() => {});
@@ -637,14 +642,20 @@ export function mountAccountOverviewControls(
       view.append(section);
       return;
     }
-    if (spacesSnapshot.spaces.length === 0) {
+    const spaceContext = authorizedSpaces();
+    if (!spaceContext.ready) {
+      section.append(node(documentObject, "p", "ordax-account-message", t("account.spaces.unavailable.detail")));
+      view.append(section);
+      return;
+    }
+    if (spaceContext.visibleSpaces.length === 0) {
       section.append(node(documentObject, "p", "ordax-account-message", t("account.spaces.empty")));
       view.append(section);
       return;
     }
 
     const grid = node(documentObject, "div", "ordax-account-grid");
-    for (const space of spacesSnapshot.spaces) {
+    for (const space of spaceContext.visibleSpaces) {
       const access = space.ownerId === sessionSnapshot.subjectId
         ? t("account.spaces.access.owner")
         : t("account.spaces.access.member");
@@ -658,10 +669,7 @@ export function mountAccountOverviewControls(
             pack: space.profilePack,
           })
         : t("account.spaces.card.detail", { kind, state, access });
-      const isSelected = (
-        spaceSelectionSnapshot?.state === "selected"
-        && spaceSelectionSnapshot.selectedSpace.id === space.id
-      );
+      const isSelected = spaceContext.activeSpace?.id === space.id;
       const card = appendStateCard(
         documentObject,
         grid,
@@ -724,11 +732,7 @@ export function mountAccountOverviewControls(
       return;
     }
 
-    const selectedSpace = (
-      sessionSnapshot.state === "signed-in"
-      && spaceSelectionSnapshot?.state === "selected"
-      && spaceSelectionSnapshot.subjectId === sessionSnapshot.subjectId
-    ) ? spaceSelectionSnapshot.selectedSpace : null;
+    const selectedSpace = authorizedSpaces().activeSpace;
     const activeProfile = currentProfileForSpace(profileActivationSnapshot, selectedSpace);
 
     if (selectedSpace === null) {
@@ -1358,9 +1362,14 @@ export function mountAccountOverviewControls(
     if (spaceButton && root.contains(spaceButton) && spaceSelectionPort) {
       if (pendingProfileAction !== null) return;
       try {
+        if (!authorizedSpaces().visibleSpaces.some((space) =>
+          space.id === spaceButton.dataset.accountSpaceSelect && space.state === "active"
+        )) {
+          throw new Error("Space selection is not authorized by the current catalog");
+        }
         spaceSelectionPort.select(spaceButton.dataset.accountSpaceSelect);
         spaceMessage = "";
-      profileMessage = "";
+        profileMessage = "";
       } catch {
         spaceMessage = t("account.spaces.selection.failed");
       }
@@ -1372,9 +1381,7 @@ export function mountAccountOverviewControls(
     if (profileButton && root.contains(profileButton) && profileActivationPort) {
       if (pendingProfileAction !== null || sessionSnapshot.state !== "signed-in") return;
       const actingSubjectId = sessionSnapshot.subjectId;
-      const selectedSpace = spaceSelectionSnapshot?.state === "selected"
-        ? spaceSelectionSnapshot.selectedSpace
-        : null;
+      const selectedSpace = authorizedSpaces().activeSpace;
       if (!selectedSpace || selectedSpace.id !== profileButton.dataset.accountProfileSpaceId) {
         profileMessage = t("account.profiles.failed");
         replaceView();
@@ -1406,8 +1413,8 @@ export function mountAccountOverviewControls(
             if (
               sessionSnapshot.state !== "signed-in"
               || sessionSnapshot.subjectId !== actingSubjectId
-              || spaceSelectionSnapshot?.state !== "selected"
-              || spaceSelectionSnapshot.selectedSpace.id !== selectedSpace.id
+              || authorizedSpaces().activeSpace?.id !== selectedSpace.id
+              || authorizedSpaces().activeSpace?.kind !== selectedSpace.kind
             ) {
               throw new Error("Profile activation context changed during preview");
             }
@@ -1474,9 +1481,18 @@ export function mountAccountOverviewControls(
     }
   });
   const unsubscribeSession = sessionPort.subscribe((snapshot) => {
+    const priorSubject = sessionSnapshot.state === "signed-in"
+      ? sessionSnapshot.subjectId : null;
     sessionSnapshot = validateIdentitySessionSnapshot(snapshot);
-    if (sessionSnapshot.state !== "signed-in") {
+    const currentSubject = sessionSnapshot.state === "signed-in"
+      ? sessionSnapshot.subjectId : null;
+    if (priorSubject !== currentSubject || sessionSnapshot.state !== "signed-in") {
+      // Invalidate all in-flight catalog reads before painting the new account.
       spacesPort?.reset();
+      spaceMessage = "";
+      profileMessage = "";
+    }
+    if (sessionSnapshot.state !== "signed-in") {
       closePasswordDraft = "";
       closeConfirmationChecked = false;
       closeMessage = "";
