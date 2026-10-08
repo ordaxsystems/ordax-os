@@ -14,6 +14,9 @@ export function createLocalAiProbeSupervisor({
   cancel = (id) => clearTimeout(id),
 } = {}) {
   const local = assertLocalAiPort(localPort);
+  if (typeof local.probe !== "function") {
+    throw new TypeError("Local AI probe supervisor requires a probe-capable port");
+  }
   if (typeof schedule !== "function" || typeof cancel !== "function") {
     throw new TypeError("Local AI probe supervisor requires scheduling functions");
   }
