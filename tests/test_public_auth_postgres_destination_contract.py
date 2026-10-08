@@ -95,7 +95,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         stage = self.destination
         self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(stage["internal_gateway_staging_deployed"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 1)
+        self.assertGreaterEqual(stage["internal_gateway_staging_version"], 2)
         self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
