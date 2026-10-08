@@ -96,6 +96,7 @@ import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
 import { loadBundledProfileTaxonomy } from "../../services/profile-packs/taxonomy-source.mjs";
 import { createProfilePackCatalogFromPacks } from "../../services/profile-packs/catalog.mjs";
+import { createProfileTaxonomyView } from "../../services/profile-packs/taxonomy.mjs";
 import { resolveProfilePackRestore } from "../../services/profile-packs/restore.mjs";
 import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
@@ -563,6 +564,11 @@ async function start() {
           taxonomy: await loadBundledProfileTaxonomy({
             fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
           }),
+        });
+        // Fail closed on unknown categories before the UI can open.
+        createProfileTaxonomyView({
+          catalogPort: profileTaxonomy.catalogPort,
+          taxonomy: profileTaxonomy.taxonomy,
         });
       } catch (error) {
         console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
