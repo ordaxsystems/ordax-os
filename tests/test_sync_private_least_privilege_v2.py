@@ -18,6 +18,42 @@ class SyncPrivateLeastPrivilegeV2Tests(unittest.TestCase):
     def setUp(self):
         self.sql = MIGRATION.read_text(encoding="utf-8").lower()
 
+    def test_new_provider_sync_rpc_and_rls_use_canonical_request_subject_bridge(self):
+        migration = (
+            ROOT / "infra" / "supabase" / "product" / "migrations"
+            / "20261008092000_sync_request_subject_bridge_v1.sql"
+        ).read_text(encoding="utf-8").lower()
+        self.assertIn(
+            "grant execute on function public.ordax_request_subject_v1() to ordax_sync_executor;",
+            migration,
+        )
+        self.assertIn("grant usage on schema public to ordax_sync_executor;", migration)
+        self.assertIn("subject bridge leaked to clients", migration)
+        self.assertIn("sync executor unexpectedly gained auth schema authority", migration)
+        self.assertEqual(migration.count("create or replace function public.ordax_"), 6)
+        for name in (
+            "ordax_apply_sync_mutation_v1",
+            "ordax_apply_sync_mutation_v2",
+            "ordax_pull_sync_changes_v1",
+            "ordax_list_sync_objects_v1",
+            "ordax_sync_snapshot_v1",
+            "ordax_sync_snapshot_page_v2",
+        ):
+            self.assertIn("create or replace function public." + name, migration)
+        for name in (
+            "ordax_sync_objects_select_own",
+            "ordax_sync_objects_insert_own",
+            "ordax_sync_objects_update_own",
+            "ordax_sync_mutations_select_own",
+            "ordax_sync_mutations_insert_own",
+        ):
+            self.assertIn("alter policy " + name, migration)
+        self.assertIn("owner_user_id=(select public.ordax_request_subject_v1())", migration)
+        self.assertNotIn("v_user_id uuid := (select auth.uid());", migration)
+        self.assertIn("sync rpc privilege or subject contract drifted", migration)
+        self.assertIn("sync transport table exposed", migration)
+        self.assertIn("commit;", migration)
+
     def test_executor_bootstrap_is_hosted_safe_and_fail_closed(self):
         self.assertNotRegex(self.sql, r"alter\s+role\s+ordax_sync_executor")
         create = re.search(
