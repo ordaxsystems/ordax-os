@@ -52,17 +52,31 @@ def fetch_json(path: str, token: str) -> dict:
 
 
 
+def _compare_confirms_ancestry(result: dict, expected_base: str) -> bool:
+    """Validate the fields GitHub REST actually returns for /compare/{base}...{head}."""
+    base = result.get("base_commit")
+    merged = result.get("merge_base_commit")
+    return (
+        result.get("status") in ("ahead", "identical")
+        and type(result.get("behind_by")) is int
+        and result["behind_by"] == 0
+        and isinstance(base, dict) and base.get("sha") == expected_base
+        and isinstance(merged, dict) and merged.get("sha") == expected_base
+    )
+
+
 def verify_cutover_ancestry(source_commit: str, token: str) -> None:
-    """GitHub can relabel pre-transfer runs; prove Git ancestry, not just owner name."""
+    """Verify exact commit existence and GitHub ancestry across the physical cutover."""
     if HEX40.fullmatch(source_commit) is None:
         raise ValidationError("source commit must be exact lowercase 40-hex")
-    postcutover = fetch_json(f"/compare/{CUTOVER_COMMIT}...{source_commit}", token)
-    if (postcutover.get("status") not in ("ahead", "identical")
-        or not isinstance(postcutover.get("head_commit"), dict)
-        or postcutover["head_commit"].get("sha") != source_commit):
+    commit = fetch_json(f"/git/commits/{source_commit}", token)
+    if commit.get("sha") != source_commit:
+        raise ValidationError("canonical source commit cannot be resolved exactly")
+    after_transfer = fetch_json(f"/compare/{CUTOVER_COMMIT}...{source_commit}", token)
+    if not _compare_confirms_ancestry(after_transfer, CUTOVER_COMMIT):
         raise ValidationError("source commit does not descend from canonical cutover")
     still_main = fetch_json(f"/compare/{source_commit}...main", token)
-    if still_main.get("status") not in ("ahead", "identical"):
+    if not _compare_confirms_ancestry(still_main, source_commit):
         raise ValidationError("frozen release source is not an ancestor of current main")
 
 
