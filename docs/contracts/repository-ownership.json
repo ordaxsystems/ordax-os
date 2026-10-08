@@ -3,7 +3,7 @@
   "status": "canonical",
   "repositories": {
     "platform": {
-      "repo": "washingtonmsdj/prototipo-ordax-os",
+      "repo": "ordaxsystems/prototipo-ordax-os",
       "owns": [
         "base",
         "boot",
@@ -104,8 +104,8 @@
     "migration_residue_may_not_become_second_ssot": true
   },
   "namespace_migration": {
-    "status": "in-progress",
-    "current_namespace": "washingtonmsdj",
+    "status": "complete",
+    "current_namespace": "ordaxsystems",
     "target_namespace": "ordaxsystems",
     "repository_name_changes_during_transfer": false,
     "redirect_dependency_allowed": false,
@@ -127,7 +127,8 @@
     "completed_transfers": [
       "runtime",
       "apps",
-      "control_plane"
+      "control_plane",
+      "platform"
     ],
     "transfer_policy": "transfer-one-repository-then-repoint-and-verify-before-next"
   }

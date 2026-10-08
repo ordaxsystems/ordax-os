@@ -132,7 +132,7 @@ def verify_release(
         "verify-portable-exact",
         "--trust", str(trust),
         "--root", str(portable_root),
-        "--repository", "washingtonmsdj/prototipo-ordax-os",
+        "--repository", "ordaxsystems/prototipo-ordax-os",
         "--expected-commit", commit,
     ])
     try:

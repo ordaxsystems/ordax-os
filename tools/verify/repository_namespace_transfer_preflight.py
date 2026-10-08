@@ -35,8 +35,13 @@ IMMUTABLE_HISTORICAL_PATHS = frozenset({
 })
 
 
+NEGATIVE_AUTHORITY_FIXTURES = frozenset({
+    "tools/verify/repository_namespace_transfer_preflight.py",
+    "tests/test_repository_namespace_transfer_preflight.py",
+})
+
 def is_operational(path: str) -> bool:
-    if path in IMMUTABLE_HISTORICAL_PATHS:
+    if path in IMMUTABLE_HISTORICAL_PATHS or path in NEGATIVE_AUTHORITY_FIXTURES:
         return False
     if path in ACTIVE_DOCS or path.startswith(ACTIVE_CONTRACT_PREFIX):
         return True
@@ -58,6 +63,29 @@ def count_old_references(files: list[tuple[str, str]], old_full_name: str) -> di
     }
 
 
+# These are historical *negative* assertions, not an executable authority.
+# Each exemption is valid only while the whole old-owner reference matches
+# exactly the documented assertion. Any extra old-owner use fails closed.
+NEGATIVE_HISTORICAL_ASSERTIONS = {
+    "tests/test_canonical_v4_signing_request.py":
+        'self.assertEqual(request["source_repository"], "washingtonmsdj/prototipo-ordax-os")',
+    "tests/test_release_agent_seed_restore_identity.py":
+        'self.assertNotIn("washingtonmsdj/prototipo-ordax-os", script)',
+}
+
+
+def verified_negative_historical_assertion(root: Path, name: str, old: str) -> bool:
+    expected = NEGATIVE_HISTORICAL_ASSERTIONS.get(name)
+    if expected is None:
+        return False
+    try:
+        lines = (root / name).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return False
+    actual = [line.strip() for line in lines if old in line]
+    return actual == [expected]
+
+
 def tracked_references(root: Path, old_full_name: str) -> dict:
     # Git's binary-safe index is faster and more faithful than reading
     # every checked-out file, including large assets and Git LFS pointers.
@@ -71,8 +99,17 @@ def tracked_references(root: Path, old_full_name: str) -> dict:
     if result.returncode not in (0, 1):
         raise RuntimeError("Unable to inspect tracked repository owner references")
     paths = [name.decode("utf-8") for name in result.stdout.split(b"\x00") if name]
-    operational = sorted(name for name in paths if is_operational(name))
-    historical = sorted(name for name in paths if not is_operational(name))
+    operational = []
+    historical = []
+    for name in paths:
+        if is_operational(name) and not verified_negative_historical_assertion(
+            root, name, old_full_name
+        ):
+            operational.append(name)
+        else:
+            historical.append(name)
+    operational.sort()
+    historical.sort()
     return {
         "operational_count": len(operational),
         "historical_count": len(historical),
