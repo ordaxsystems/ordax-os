@@ -5,6 +5,7 @@ import {
   canonicalizeClientAddress,
   validateRateLimitRpcResult,
 } from "../_shared/auth_rate_limit.mjs";
+import { readBoundedBody } from "../_shared/bounded_body.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -462,10 +463,7 @@ function routePath(url: URL) {
 }
 
 async function boundedBody(req: Request) {
-  const length = Number(req.headers.get("content-length") ?? "0");
-  if (Number.isFinite(length) && length > MAX_BODY) throw new Error("request-too-large");
-  const raw = new Uint8Array(await req.arrayBuffer());
-  if (raw.byteLength > MAX_BODY) throw new Error("request-too-large");
+  const raw = await readBoundedBody(req.body, req.headers.get("content-length"), MAX_BODY);
   return new TextDecoder().decode(raw);
 }
 

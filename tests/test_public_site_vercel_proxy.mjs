@@ -485,6 +485,33 @@ test("public auth fails closed when Turnstile server secret is absent or verific
   assert.equal((await response.json()).error, "bot-verification-unavailable");
 });
 
+test("proxy rejects an oversized streamed body even when content-length lies", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response("should never reach upstream");
+  };
+  try {
+    const response = await proxyPublicAccountRequest(
+      request("/sync/mutate", {
+        method: "POST",
+        headers: {
+          "content-length": "1",
+          "content-type": "application/json",
+        },
+        body: "a".repeat(64 * 1024 + 1),
+      }),
+      options(),
+    );
+    assert.equal(response.status, 413);
+    assert.equal((await response.json()).error, "request-too-large");
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("proxy rejects oversized bodies before upstream access", async () => {
   const response = await proxyPublicAccountRequest(
     request("/auth/login", {
