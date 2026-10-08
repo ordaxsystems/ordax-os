@@ -167,7 +167,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('headers?.get?.("apikey")', helper)
         self.assertIn(
-            'import { authorizeAccountTransport } from "../_shared/account_transport_admission.mjs"',
+            'import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs"',
             self.inner,
         )
         self.assertIn("verifyNativeSession: async () => {", self.inner)
@@ -191,6 +191,20 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('Deno.env.get("SUPABASE_SECRET_KEYS") ?? ""', self.inner)
         self.assertNotIn('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', helper)
         self.assertNotIn('process.env', helper)
+
+    def test_exact_gateway_prefix_and_non_object_sync_mutations_fail_closed(self):
+        policy = (
+            ROOT / "infra" / "supabase" / "functions" / "_shared"
+            / "account_transport_admission.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn('export function accountGatewayRoutePath(pathname)', policy)
+        self.assertIn('pathname.startsWith(prefix + "/")', policy)
+        self.assertNotIn('pathname.indexOf(', policy)
+        self.assertNotIn('function routePath(url: URL)', self.inner)
+        self.assertIn('accountGatewayRoutePath(url.pathname) ?? ""', self.inner)
+        self.assertIn('const parsed: unknown = JSON.parse(await boundedBody(req))', self.inner)
+        self.assertIn('if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))', self.inner)
+        self.assertIn('mutation = parsed as Record<string, unknown>', self.inner)
 
     def test_internal_gateway_requires_route_aware_transport_before_rate_limit_and_handler(self):
         policy = (
@@ -229,7 +243,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('"auth-rate-limit-unavailable"', self.inner)
         self.assertIn('"auth-rate-limited"', self.inner)
         self.assertIn('response.headers.set("retry-after"', self.inner)
-        self.assertNotIn("user-agent", self.inner[self.inner.index("function directNativeClientAddress"):self.inner.index("function routePath")].lower())
+        self.assertNotIn("user-agent", self.inner[self.inner.index("function directNativeClientAddress"):self.inner.index("async function boundedBody")].lower())
         limiter_index = self.inner.index("enforceDirectAuthRateLimit(req, path)")
         login_index = self.inner.index('path === "/auth/login" && req.method === "POST"')
         self.assertLess(limiter_index, login_index)

@@ -6,7 +6,7 @@ import {
   validateRateLimitRpcResult,
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
-import { authorizeAccountTransport } from "../_shared/account_transport_admission.mjs";
+import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -433,16 +433,6 @@ async function enforceDirectAuthRateLimit(req: Request, path: string) {
     return response;
   }
   return null;
-}
-
-function routePath(url: URL) {
-  const marker = "/ordax-account-gateway";
-  const index = url.pathname.indexOf(marker);
-  if (index >= 0) {
-    const rest = url.pathname.slice(index + marker.length);
-    return rest || "/";
-  }
-  return url.pathname;
 }
 
 async function boundedBody(req: Request) {
@@ -1054,7 +1044,7 @@ async function sendNetworkMessage(req: Request) {
 
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
-  const path = routePath(url);
+  const path = accountGatewayRoutePath(url.pathname) ?? "";
 
   if (crossSiteStateChange(req)) {
     return error(403, "cross-site-request-rejected", "Solicitação de outra origem rejeitada.");
@@ -1445,7 +1435,11 @@ Deno.serve(async (req: Request) => {
     }
     let mutation: Record<string, unknown>;
     try {
-      mutation = JSON.parse(await boundedBody(req));
+      const parsed: unknown = JSON.parse(await boundedBody(req));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new TypeError("sync-mutation-object-required");
+      }
+      mutation = parsed as Record<string, unknown>;
     } catch {
       return error(400, "invalid-sync-mutation", "A alteração de sincronização é inválida.");
     }

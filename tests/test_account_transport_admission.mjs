@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   authorizeAccountTransport,
+  accountGatewayRoutePath,
   isNativeBootstrapRoute,
 } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 
@@ -116,4 +117,33 @@ test("missing bridge configuration cannot be overridden by marker or default adm
       ok: false, code: "public-account-boundary-authentication-required",
     });
   }
+});
+
+test("only the canonical Edge Function path segment maps to a privileged route", async () => {
+  const legitimate = [
+    ["/functions/v1/ordax-account-gateway/auth/login", "/auth/login"],
+    ["/ordax-account-gateway/auth/login", "/auth/login"],
+    ["/functions/v1/ordax-account-gateway", "/"],
+    ["/ordax-account-gateway", "/"],
+    ["/auth/login", "/auth/login"],
+  ];
+  for (const [pathname, expected] of legitimate) {
+    assert.equal(accountGatewayRoutePath(pathname), expected);
+  }
+  const forgeries = [
+    "/foo/ordax-account-gateway/auth/login",
+    "/functions/v1/other/ordax-account-gateway/auth/login",
+    "/functions/v1/ordax-account-gateway-evil/auth/login",
+    "/ordax-account-gateway-evil/auth/login",
+    "/functions/v1//ordax-account-gateway/auth/login",
+    "/whatever/ordax-account-gateway/auth/session",
+  ];
+  for (const pathname of forgeries) {
+    const derived = accountGatewayRoutePath(pathname);
+    assert.equal(derived, pathname, `unexpected route normalization: ${pathname}`);
+    const req = make("/auth/login", "POST");
+    assert.equal((await authorizeAccountTransport(req, derived)).ok, false);
+  }
+  assert.equal(accountGatewayRoutePath(null), null);
+  assert.equal(accountGatewayRoutePath("auth/login"), null);
 });
