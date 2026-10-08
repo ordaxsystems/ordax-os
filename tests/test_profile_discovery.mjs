@@ -129,6 +129,7 @@ test("reject untrusted links, duplicate entries, unsupported kind and invalid da
     "javascript:alert(1)",
     "https://name:pass@example.org/recipe",
     "https://example.org/recipe#pixel",
+    "https://example.org/recipe?user_id=123",
   ]) {
     assert.throws(() => validateProfileDiscoveryCatalog(
       catalog([entry({ destinationUrl: url })]),
