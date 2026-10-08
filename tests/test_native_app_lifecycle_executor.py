@@ -380,6 +380,15 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 )
             self.assertEqual([argv[1] for argv in calls], ["status"])
 
+    def test_native_plan_validation_normalizes_artifact_identity_failures(self) -> None:
+        plan = self.plan()
+        plan["candidate"]["artifacts"]["package"]["sha256"] = "not-a-digest"
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError,
+            "artifact identity is invalid",
+        ):
+            lifecycle.validate_lifecycle_plan(plan)
+
     def test_native_plan_validation_rejects_authority_or_ui_artifact_smuggling(self) -> None:
         plan = self.plan()
         plan["authority"] = "platform-component-lifecycle"

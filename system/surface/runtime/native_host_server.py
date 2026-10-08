@@ -59,6 +59,17 @@ from native_profile_human_consent import ProfileHumanConsentAuthority
 from native_profile_consent_presenter import ProfileHumanConsentCoordinator
 from native_profile_consent_ipc import request_native_decision
 from native_store_catalog import StoreCatalogError, read_native_store_catalog_snapshot
+from native_app_artifact_store import DEFAULT_ARTIFACT_ROOT
+from native_app_artifact_acquisition import (
+    AppArtifactAcquisitionError,
+    acquire_lifecycle_plan_artifacts,
+    normalize_https_base_origin,
+)
+from native_app_lifecycle_executor import (
+    NativeAppLifecycleError,
+    execute_offline_lifecycle_plan,
+    validate_lifecycle_plan,
+)
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -114,11 +125,13 @@ UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
 STORE_CATALOG_PATH = "/__ordax/native/store-catalog"
+STORE_LIFECYCLE_PATH = "/__ordax/native/store-lifecycle"
 DEFAULT_COMPONENT_CHANNEL_BIN = "/srv/ordax-system/bin/ordax-runtime-component-channel"
 DEFAULT_COMPONENT_TRUST_PATH = "/srv/ordax-system/trust/runtime-components-ed25519.json"
 DEFAULT_COMPONENT_SLOT_ROOT = "/var/lib/ordax/components"
 DEFAULT_STORE_CATALOG_ENVELOPE_PATH = "/var/lib/ordax/store/catalog-envelope.json"
 DEFAULT_STORE_CATALOG_WATERMARK_PATH = "/var/lib/ordax/store/catalog-watermark.json"
+DEFAULT_STORE_ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 UPDATE_STATE_FILE = "/run/ordax-update/state.json"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
@@ -145,6 +158,7 @@ PROFILE_ACTIVATION_TOKEN_HEADER = "X-OrdaX-Profile-Activation-Token"
 DIAGNOSTIC_TOKEN_HEADER = "X-OrdaX-Diagnostic-Token"
 HEALTH_TOKEN_HEADER = "X-OrdaX-Health-Token"
 MAX_CONTROL_BODY = 512
+MAX_STORE_LIFECYCLE_BODY = 16 * 1024
 MAX_NETWORK_ACTION_BODY = 1024
 MAX_NETWORK_SCAN_BYTES = 512 * 1024
 MAX_NETWORKS = 32
@@ -3208,6 +3222,8 @@ class NativeHostServer(ThreadingHTTPServer):
         component_slot_root: str = DEFAULT_COMPONENT_SLOT_ROOT,
         store_catalog_envelope_path: str = DEFAULT_STORE_CATALOG_ENVELOPE_PATH,
         store_catalog_watermark_path: str = DEFAULT_STORE_CATALOG_WATERMARK_PATH,
+        store_artifact_root: str = DEFAULT_STORE_ARTIFACT_ROOT,
+        store_artifact_base_origin: str = "",
         account_gateway_origin: str = "",
     ):
         super().__init__(server_address, handler_class)
@@ -3269,6 +3285,13 @@ class NativeHostServer(ThreadingHTTPServer):
         self.store_catalog_envelope_path = store_catalog_envelope_path
         self.store_catalog_watermark_path = store_catalog_watermark_path
         self.store_catalog_lock = threading.Lock()
+        self.store_lifecycle_lock = threading.Lock()
+        self.store_artifact_root = store_artifact_root
+        self.store_artifact_base_origin = (
+            normalize_https_base_origin(store_artifact_base_origin)
+            if store_artifact_base_origin
+            else ""
+        )
         self.component_slot_read_available = component_slot_reader_available(
             helper_path=self.component_channel_bin,
             trust_path=self.component_trust_path,
@@ -4120,6 +4143,63 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path == STORE_LIFECYCLE_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            payload = self._read_json_body(MAX_STORE_LIFECYCLE_BODY)
+            if payload is None:
+                self._empty(400)
+                return
+            try:
+                plan = validate_lifecycle_plan(payload)
+            except NativeAppLifecycleError:
+                self._empty(400)
+                return
+            request_value = plan["request"]
+            try:
+                with self.server.store_lifecycle_lock:
+                    if request_value["operation"] in {"install", "update"}:
+                        if not self.server.store_artifact_base_origin:
+                            self._empty(503)
+                            return
+                        acquire_lifecycle_plan_artifacts(
+                            plan,
+                            base_origin=self.server.store_artifact_base_origin,
+                            artifact_root=self.server.store_artifact_root,
+                            watermark_path=self.server.store_catalog_watermark_path,
+                        )
+                    execute_offline_lifecycle_plan(
+                        plan,
+                        artifact_root=self.server.store_artifact_root,
+                        channel_bin=self.server.component_channel_bin,
+                        trust_path=self.server.component_trust_path,
+                        slot_root=self.server.component_slot_root,
+                        watermark_path=self.server.store_catalog_watermark_path,
+                    )
+            except (AppArtifactAcquisitionError, NativeAppLifecycleError) as exc:
+                print(
+                    f"ordax-native-host: Store lifecycle failed closed: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
+                return
+            self._write_json(
+                200,
+                {
+                    "schema": "ordax.app-lifecycle-request-result/1",
+                    "requestId": request_value["requestId"],
+                    "appId": request_value["appId"],
+                    "operation": request_value["operation"],
+                    "source": request_value["source"],
+                    "state": "accepted",
+                    "reason": None,
+                    "authority": "none",
+                },
+            )
+            return
+
         if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
             if self.server.account_gateway is None:
                 self._empty(503)
@@ -4839,6 +4919,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--component-slot-root", default=DEFAULT_COMPONENT_SLOT_ROOT)
     parser.add_argument("--store-catalog-envelope", default=DEFAULT_STORE_CATALOG_ENVELOPE_PATH)
     parser.add_argument("--store-catalog-watermark", default=DEFAULT_STORE_CATALOG_WATERMARK_PATH)
+    parser.add_argument("--store-artifact-root", default=DEFAULT_STORE_ARTIFACT_ROOT)
+    parser.add_argument("--store-artifact-base-origin", default="")
     parser.add_argument("--account-gateway-origin", default="")
     return parser.parse_args()
 
@@ -4881,6 +4963,8 @@ def main() -> int:
         component_slot_root=args.component_slot_root,
         store_catalog_envelope_path=args.store_catalog_envelope,
         store_catalog_watermark_path=args.store_catalog_watermark,
+        store_artifact_root=args.store_artifact_root,
+        store_artifact_base_origin=args.store_artifact_base_origin,
         account_gateway_origin=args.account_gateway_origin,
     )
     telemetry_started = start_telemetry_heartbeat(args.telemetry_config)
