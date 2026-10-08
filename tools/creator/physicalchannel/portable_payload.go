@@ -68,7 +68,7 @@ func validPortablePayloadURL(raw string) error {
 		parsed.RawQuery != "" {
 		return errors.New("Portable payload URL must be canonical HTTPS github.com URL")
 	}
-	const prefix = "/ordaxsystems/prototipo-ordax-os/releases/download/"
+	const prefix = "/ordaxsystems/ordax-os/releases/download/"
 	if !strings.HasPrefix(parsed.Path, prefix) {
 		return errors.New("Portable payload URL must stay inside the OrdaX release namespace")
 	}

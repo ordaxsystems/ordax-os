@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const ownerUpdateManifestURL = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-owner-prototype/creator-owner-update.json"
+const ownerUpdateManifestURL = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-owner-prototype/creator-owner-update.json"
 
 var (
 	updateMu           sync.Mutex
@@ -78,7 +78,7 @@ func validateOwnerUpdateManifest(manifest ownerUpdateManifest) error {
 	if err != nil || parsed.Scheme != "https" || parsed.Host != "github.com" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return errors.New("Creator update URL is invalid")
 	}
-	if parsed.Path != "/ordaxsystems/prototipo-ordax-os/releases/download/creator-owner-prototype/OrdaX-Creator-Owner-Prototype.zip" {
+	if parsed.Path != "/ordaxsystems/ordax-os/releases/download/creator-owner-prototype/OrdaX-Creator-Owner-Prototype.zip" {
 		return errors.New("Creator update bundle is outside the OrdaX release channel")
 	}
 	if manifest.AutomaticInAppUpdate {
@@ -133,7 +133,7 @@ func ownerUpdateIsForward(currentSource, candidateSource string) (bool, error) {
 	if !validLowerHexString(currentSource, 40) || !validLowerHexString(candidateSource, 40) {
 		return false, errors.New("Creator update lineage cannot be validated")
 	}
-	compareURL := "https://api.github.com/repos/ordaxsystems/prototipo-ordax-os/compare/" + currentSource + "..." + candidateSource + "?per_page=1"
+	compareURL := "https://api.github.com/repos/ordaxsystems/ordax-os/compare/" + currentSource + "..." + candidateSource + "?per_page=1"
 	client := &http.Client{Timeout: 20 * time.Second}
 	req, err := http.NewRequest(http.MethodGet, compareURL, nil)
 	if err != nil {

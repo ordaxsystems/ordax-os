@@ -29,7 +29,7 @@ const (
 	releaseSchema       = "prototype-ordax.runtime-component-release/1"
 	trustSchema         = "prototype-ordax.runtime-component-trust/1"
 	packageSchema       = "prototype-ordax.runtime-component-package/1"
-	sourceRepository    = "ordaxsystems/prototipo-ordax-os"
+	sourceRepository    = "ordaxsystems/ordax-os"
 	appsSourceRepository = "ordaxsystems/ordax-apps"
 	createdFromRecipe   = "runtime-component/package/1"
 	packageManifestName = "component-package.json"

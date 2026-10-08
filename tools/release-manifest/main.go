@@ -20,7 +20,7 @@ const (
 	manifestSchemaV2              = "prototype-ordax.release-manifest/2"
 	manifestSchemaV3               = "prototype-ordax.release-manifest/3"
 	manifestSchemaV4               = "prototype-ordax.release-manifest/4"
-	defaultRepo                    = "ordaxsystems/prototipo-ordax-os"
+	defaultRepo                    = "ordaxsystems/ordax-os"
 	defaultRecipe                  = "release/native/1"
 	defaultPortableRecipe          = "release/portable-usb-v2/1"
 	defaultPortableRuntimeRecipe   = "release/portable-usb-v2-runtime/1"

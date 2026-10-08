@@ -71,7 +71,7 @@ type staticTransport struct {
 func (s staticTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	body := s.envelope
 	contentType := "application/json"
-	if req.URL.Path == "/ordaxsystems/prototipo-ordax-os/releases/download/creator-app/OrdaX-Creator-App.exe" {
+	if req.URL.Path == "/ordaxsystems/ordax-os/releases/download/creator-app/OrdaX-Creator-App.exe" {
 		body = s.artifact
 		contentType = "application/octet-stream"
 	}
@@ -132,7 +132,7 @@ func TestAcquireCachesSignedAppAndCurrentWorksOffline(t *testing.T) {
 	envelope := signedEnvelope(t, manifest, private)
 	client := &http.Client{Transport: staticTransport{envelope: envelope, artifact: body}}
 
-	installed, changed, err := AcquireCached(client, root, "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-app/creator-app-envelope.json", trust, trustSHA)
+	installed, changed, err := AcquireCached(client, root, "https://github.com/ordaxsystems/ordax-os/releases/download/creator-app/creator-app-envelope.json", trust, trustSHA)
 	if err != nil {
 		t.Fatal(err)
 	}

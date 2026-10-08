@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	creatorcore "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/core"
-	physicalchannel "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/physicalchannel"
+	creatorcore "github.com/ordaxsystems/ordax-os/tools/creator/core"
+	physicalchannel "github.com/ordaxsystems/ordax-os/tools/creator/physicalchannel"
 )
 
 type portablePhysicalPreparationDocument struct {

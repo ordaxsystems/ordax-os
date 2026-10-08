@@ -24,7 +24,7 @@ const (
 	ChannelSchemaV2      = "prototype-ordax.creator-update-channel/2"
 	ChannelSchema        = ChannelSchemaV2
 	DevelopmentChannel   = "development"
-	DefaultManifestURL   = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-dev/creator-dev-manifest.json"
+	DefaultManifestURL   = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/creator-dev-manifest.json"
 	maxManifestBytes     = 256 << 10
 	maxPayloadBytes      = int64(128 << 20)
 	maxExtractedBytes    = int64(256 << 20)
@@ -109,7 +109,7 @@ func validateAssetURL(raw string) error {
 	if err != nil || parsed.Scheme != "https" || parsed.Host != "github.com" || parsed.User != nil || parsed.Fragment != "" {
 		return errors.New("payload URL must be canonical HTTPS github.com URL")
 	}
-	prefix := "/ordaxsystems/prototipo-ordax-os/releases/download/creator-dev/"
+	prefix := "/ordaxsystems/ordax-os/releases/download/creator-dev/"
 	if !strings.HasPrefix(parsed.Path, prefix) {
 		return errors.New("payload URL must stay inside the OrdaX creator-dev release")
 	}

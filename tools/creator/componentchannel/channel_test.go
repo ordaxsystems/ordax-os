@@ -38,7 +38,7 @@ func validManifest() Manifest {
 		ReleaseSequence:   1,
 		CreatedFromRecipe: Recipe,
 		Bundle: Bundle{
-			URL:    "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-components/ordax-creator-components-windows-amd64.zip",
+			URL:    "https://github.com/ordaxsystems/ordax-os/releases/download/creator-components/ordax-creator-components-windows-amd64.zip",
 			SHA256: strings.Repeat("a", 64),
 			Size:   1234,
 		},

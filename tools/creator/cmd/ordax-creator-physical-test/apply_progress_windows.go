@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	windowsadapter "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/host/windows"
+	windowsadapter "github.com/ordaxsystems/ordax-os/tools/creator/host/windows"
 )
 
 const applyProgressSchema = "prototype-ordax.creator-physical-progress/1"
