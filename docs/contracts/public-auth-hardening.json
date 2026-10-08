@@ -214,7 +214,20 @@
     "sync_export_postgres_sql_proof_rolled_back": true,
     "sync_export_executors_no_login_no_bypassrls_verified": true,
     "sync_executor_direct_auth_schema_usage": false,
-    "sync_export_database_user_count_after_proof": 0
+    "sync_export_database_user_count_after_proof": 0,
+    "internal_gateway_staging_deployed": true,
+    "internal_gateway_staging_version": 1,
+    "internal_gateway_staging_verify_jwt": true,
+    "internal_gateway_staging_artifact_sha256": "c5597140211faa49f08031d222b3718c59da657e5a2e04bb88619d27f93b91ca",
+    "internal_gateway_staging_source": "infra/supabase/functions/ordax-account-gateway/index.ts",
+    "internal_gateway_runtime_e2e_verified": false,
+    "destination_vercel_team_slug": "ordaxsystems",
+    "destination_vercel_team_id": "team_E3bdE137ZG3fhCGMmYuGKJ8o",
+    "destination_vercel_public_project_name": "ordax-os-public",
+    "destination_vercel_public_project_found": false,
+    "destination_vercel_oidc_binding_verified": false,
+    "destination_vercel_oidc_runtime_e2e_verified": false,
+    "destination_vercel_oidc_observation": "Connected team OrdaX Systems had no matching ordax-os-public project (list/get_project 404) on 2026-10-08; source OIDC verifier still targets prior jogo-brasils-projects tenant."
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
