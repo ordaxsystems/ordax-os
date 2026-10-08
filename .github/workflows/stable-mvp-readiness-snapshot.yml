@@ -50,6 +50,8 @@ jobs:
 
       - name: Snapshot exactly the canonical Stable MVP readiness evaluator
         shell: bash
+        env:
+          SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           mkdir -p out/mvp-readiness
@@ -79,7 +81,7 @@ jobs:
               if state.get(key) is not False:
                   raise SystemExit(f"Read-only assessment cannot claim {key}")
 
-          sha = os.environ["GITHUB_SHA"]
+          sha = os.environ["SOURCE_COMMIT_SHA"]
           lines = [
               "## Stable/MVP — leitura de prontidão (sem autorização de lançamento)",
               "",
