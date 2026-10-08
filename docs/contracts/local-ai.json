@@ -19,7 +19,11 @@
   "runtime": {
     "engine_boundary": "OpenAI-compatible loopback HTTP",
     "listen_scope": "127.0.0.1-only",
-    "client_endpoint_policy": "literal-http-127.0.0.1-no-userinfo",
+    "client_endpoint_policy": "literal-http-127.0.0.1-or-exact-native-same-origin-bridge",
+    "native_same_origin_endpoint": "/__ordax/native/local-ai",
+    "native_bridge_paths": ["GET /health", "GET /v1/models", "POST /v1/chat/completions"],
+    "native_bridge_host_origin_restriction": true,
+    "native_bridge_not_a_local_process_authentication_boundary": true,
     "internet_required_for_inference": false,
     "engine_migratable": true,
     "model_migratable": true,

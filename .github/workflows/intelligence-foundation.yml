@@ -45,6 +45,9 @@ on:
       - 'system/services/intelligence/**'
       - 'system/apps/assistant/**'
       - 'system/services/local-ai/**'
+      - 'system/surface/runtime/native_local_ai_bridge.py'
+      - 'tests/test_native_local_ai_bridge.py'
+      - 'tests/test_local_ai_probe_supervisor.mjs'
       - 'system/services/memory/**'
       - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
@@ -199,6 +202,9 @@ on:
       - 'system/services/intelligence/**'
       - 'system/apps/assistant/**'
       - 'system/services/local-ai/**'
+      - 'system/surface/runtime/native_local_ai_bridge.py'
+      - 'tests/test_native_local_ai_bridge.py'
+      - 'tests/test_local_ai_probe_supervisor.mjs'
       - 'system/services/memory/**'
       - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
@@ -366,6 +372,7 @@ jobs:
           python -m py_compile system/surface/runtime/native_memory_state.py
           python -m py_compile system/surface/runtime/native_memory_endpoint.py
           python -m py_compile system/surface/runtime/native_host_server.py
+          python -m py_compile system/surface/runtime/native_local_ai_bridge.py
           python -m py_compile services/public-identity/supabase_memory.py
           python -m py_compile services/public-identity/supabase_sync.py
           python -m py_compile services/public-identity/supabase_password.py
@@ -420,6 +427,8 @@ jobs:
           node --test tests/test_application_semantic_router.mjs
           node --test tests/test_local_ai_runtime.mjs
           node --test tests/test_local_ai_endpoint_policy.mjs
+          node --test tests/test_local_ai_probe_supervisor.mjs
+          python -m unittest tests.test_native_local_ai_bridge -v
           node --test tests/test_local_ai_probe_races.mjs
           node --test tests/test_local_ai_response_lifecycle.mjs
           node --test tests/test_local_ai_model_rediscovery.mjs
