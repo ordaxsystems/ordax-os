@@ -257,7 +257,7 @@ as $$
       jsonb_build_object(
         'memory_id', m.memory_id,
         'space_id', m.space_id,
-        'project_ref', m.project_ref,
+        'project_id', m.project_id,
         'scope', m.scope,
         'kind', m.kind,
         'sensitivity', m.sensitivity,
