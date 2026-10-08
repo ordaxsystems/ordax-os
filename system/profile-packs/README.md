@@ -20,6 +20,48 @@ auto-join a community, grant a Network role or own messages. Membership and mess
 remain server-authoritative under the OrdaX Network boundary.
 
 
+## Categorias e nichos — navegação sem outro SSOT
+
+A árvore de categorias é publicada em `system/profile-packs/taxonomy.json`
+(`ordax.profile-taxonomy/1`), validada por
+`system/contracts/profile-taxonomy.mjs` e projetada pelo serviço
+`system/services/profile-packs/taxonomy.mjs`.
+
+```text
+Empresas e negócios
+├── Alimentação e bebidas
+│   └── Pizzarias e serviços de alimentação → pizzaria-br@1
+└── Indústria e produção
+    └── Fabricação digital e impressão 3D → impressao-3d-br@1
+
+Tecnologia → Desenvolvimento de software → developer@1
+Serviços profissionais → Serviços jurídicos → legal-br@1
+```
+
+**Separação de responsabilidades:**
+
+- `manifest.category` é o único campo que define em qual categoria o Profile pertence.
+- `taxonomy.json` é o único owner de nomes e relações categoria/pai. Não guarda
+  composição de apps, templates, licenças, políticas ou autoridade.
+- `system/services/profile-packs/catalog.mjs` permanece o catálogo de Profiles
+  ativos e suas composições. A árvore exibe exclusivamente os itens recebidos
+  desse catálogo, sem publicar automaticamente packs em estado draft.
+- `Space.kind = professional` continua um tipo de ambiente, não é uma
+  categoria comercial ou autorização de empresa. Uma empresa poderá possuir
+  vários Spaces, mas a taxonomia não concede acesso cruzado.
+- Apps de Finanças, Vendas, Estoque e CRM devem pertencer a seus **owners de app**,
+  com contratos reutilizáveis e controles próprios. Um Profile apenas os
+  referencia quando forem disponibilizados e autorizados; nenhuma instalação
+  ou módulo financeiro fictício é criada pela taxonomia.
+- Categoria desconhecida ou ciclo impede publicar a árvore (fail-closed). Novos
+  nichos entram por alteração versionada neste registro, sem duplicar dados
+  de usuário ou alterar o runtime.
+  
+O leitor `system/services/profile-packs/taxonomy-source.mjs` aceita somente o
+caminho bundled same-origin canônico. A UI poderá utilizá-lo na navegação dos
+perfis quando houver uma tela integrada, mantendo a composição de instalação
+independente.
+
 ## Distribution and provisioning
 
 Profile manifests are the single source of truth for composition. Distribution is a separate boundary that owns only delivery policy such as bundled/on-demand mode, public-install gating, offline expectations and artifact size metadata.
