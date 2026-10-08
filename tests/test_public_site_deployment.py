@@ -178,7 +178,9 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(public_edge_rate_limit["shared_policy_deployed"])
 
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
-        self.assertEqual(self.vercel["outputDirectory"], "sites/public")
+        self.assertEqual(self.vercel["outputDirectory"], "out/public-site")
+        self.assertEqual(self.vercel["buildCommand"], 'python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit "$VERCEL_GIT_COMMIT_SHA" && python3 tools/public-site/build.py verify')
+        self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/public-site")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
