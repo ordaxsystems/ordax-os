@@ -58,6 +58,8 @@ class PortableV4AiHandoffContractTests(unittest.TestCase):
         self.assertIn('disable_local_ai "verified runtime mount is unavailable or incomplete"', text)
         self.assertIn("ORDAX_LOCAL_AI_BACKEND=DEGRADED", text)
         self.assertIn("ORDAX_LOCAL_AI_BACKEND=STARTED", text)
+        self.assertIn("create_local_ai_auth()", text)
+        self.assertIn("LLAMA_ARG_API_KEY_FILE=/run/ordax/local-ai-auth/key", text)
         self.assertIn('exec /system/entrypoint', text)
         self.assertLess(text.index("start_local_ai"), text.rindex("exec /system/entrypoint"))
 
