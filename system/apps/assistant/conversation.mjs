@@ -293,6 +293,10 @@ export function createAssistantConversationRuntime({
           try {
             const captureResult = await boundMemoryTurn.capture({
               userText: prompt,
+              isContextCurrent: () => {
+                reconcileScope();
+                return !disposed && scopeGeneration === generationAtStart;
+              },
             });
             reconcileScope();
             if (scopeGeneration !== generationAtStart) {
