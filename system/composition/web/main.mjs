@@ -153,6 +153,7 @@ const spaceSwitcherControls = mountSpaceSwitcherControls(
   null,
   appActivation,
   surface,
+  null,
 );
 const accountOverviewControls = mountAccountOverviewControls(
   root,
