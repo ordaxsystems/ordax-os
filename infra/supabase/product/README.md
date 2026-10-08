@@ -261,9 +261,13 @@ Não reduzir `verify_jwt` só para tornar o deploy acessível.
 Também foi consultada a equipe Vercel **OrdaX Systems** (slug
 `ordaxsystems`, `team_E3bdE137ZG3fhCGMmYuGKJ8o`). O projeto
 `ordax-os-public` não foi encontrado nesta equipe. O módulo OIDC
-ainda fixa `jogo-brasils-projects` como issuer/audience/subject,
-que pertence ao ambiente anterior. Isso é **um bloqueio de identidade
-de implantação**, não uma justificativa para reutilizar o token antigo.
+canônico foi corrigido para exigir exclusivamente a equipe
+`ordaxsystems`, projeto `ordax-os-public` e ambiente `production`,
+rejeitando explicitamente as claims do tenant anterior
+`jogo-brasils-projects`. Isso elimina a confiança legada **no
+código**, mas o projeto ainda não foi encontrado na Vercel nova
+e não existe prova criptográfica E2E do deployment. O bloqueio de
+identidade **permanece**, não é justificativa para habilitar Conta.
 O proprietário do Vercel deve comprovar existência do projeto novo,
 origem HTTPS, emissor, audiência, sujeito e verificação criptográfica
 do OIDC no ambiente correto. Toda configuração/prova deve ser

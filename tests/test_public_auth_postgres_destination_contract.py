@@ -151,6 +151,25 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax-account-public-bridge"', helper)
         self.assertIn("authenticatedAccountBridge(", helper)
 
+    def test_new_oidc_source_is_scoped_without_runtime_activation(self):
+        stage = self.destination
+        self.assertTrue(stage["destination_vercel_oidc_source_updated"])
+        self.assertEqual(stage["destination_vercel_oidc_source_expected_team"], "ordaxsystems")
+        self.assertEqual(stage["destination_vercel_oidc_source_expected_project"], "ordax-os-public")
+        self.assertFalse(stage["destination_vercel_public_project_found"])
+        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
+        self.assertFalse(stage["destination_vercel_oidc_runtime_e2e_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        source = (
+            ROOT / "infra" / "supabase" / "functions"
+            / "ordax-public-account-gateway" / "vercel_oidc.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn("https://oidc.vercel.com/ordaxsystems", source)
+        self.assertIn(
+            "owner:ordaxsystems:project:ordax-os-public:environment:production", source
+        )
+        self.assertNotIn('jogo-brasils-projects', source)
+
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]
         self.assertEqual(len(names), len(set(names)), "duplicate SQL source")

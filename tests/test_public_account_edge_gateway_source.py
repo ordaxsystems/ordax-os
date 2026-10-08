@@ -46,16 +46,17 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('url.protocol !== "https:"', self.request_context)
 
     def test_oidc_is_scoped_to_team_project_and_production_environment(self):
-        self.assertIn('https://oidc.vercel.com/jogo-brasils-projects', self.oidc)
-        self.assertIn('https://vercel.com/jogo-brasils-projects', self.oidc)
+        self.assertIn('https://oidc.vercel.com/ordaxsystems', self.oidc)
+        self.assertIn('https://vercel.com/ordaxsystems', self.oidc)
         self.assertIn(
-            'owner:jogo-brasils-projects:project:ordax-os-public:environment:production',
+            'owner:ordaxsystems:project:ordax-os-public:environment:production',
             self.oidc,
         )
         self.assertIn('npm:jose@6.2.12', self.oidc)
         self.assertIn('new URL("/.well-known/jwks", VERCEL_OIDC_ISSUER)', self.oidc)
         self.assertIn('algorithms: ["RS256", "ES256"]', self.oidc)
         self.assertNotIn('environment:preview', self.oidc)
+        self.assertNotIn('jogo-brasils-projects', self.oidc)
 
     def test_runtime_oidc_and_trusted_proxy_context_are_consumed_not_forwarded(self):
         request_headers_start = self.edge.index("const REQUEST_HEADERS")
