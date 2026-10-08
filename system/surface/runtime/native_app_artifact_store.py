@@ -178,7 +178,13 @@ def store_verified_artifact(
                 handle.write(payload)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary, target)
+            # Publish without replacing another writer's artifact. A digest
+            # lock coordinates our callers, but a racing process may not obey
+            # that lock: os.replace() would clobber its target. Atomic hardlink
+            # creation is O_EXCL-like on the same private filesystem. Drop the
+            # staging name before verifying the target's single-link metadata.
+            os.link(temporary, target)
+            temporary.unlink()
             if os.name != "nt":
                 directory_fd = os.open(parent, os.O_RDONLY | getattr(os, "O_CLOEXEC", 0))
                 try:
