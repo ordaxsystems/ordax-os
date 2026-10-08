@@ -1,4 +1,6 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
+import { assertLocalAiPort, validateLocalAiSnapshot } from "../../contracts/local-ai.mjs";
+import { BUNDLED_LOCAL_AI_MODEL_CANDIDATE } from "../../services/local-ai/model-candidate.generated.mjs";
 import { assertNotificationsPort } from "../../contracts/notifications.mjs";
 import {
   assertLocalSessionPort,
@@ -43,6 +45,7 @@ const SETTINGS_SECTIONS = Object.freeze([
   Object.freeze({ id: "accessibility", messageId: "settings.section.accessibility" }),
   Object.freeze({ id: "regional", messageId: "settings.section.regional" }),
   Object.freeze({ id: "network", messageId: "settings.section.network" }),
+  Object.freeze({ id: "intelligence", messageId: "settings.section.intelligence" }),
   Object.freeze({ id: "security", messageId: "settings.section.security" }),
   Object.freeze({ id: "notifications", messageId: "settings.section.notifications" }),
 ]);
@@ -180,6 +183,7 @@ export function mountSettingsOverviewControls(
   notifications = null,
   keyboardLayout = null,
   localSession = null,
+  localAiPort = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Settings overview controls require a Surface root Element");
@@ -198,6 +202,7 @@ export function mountSettingsOverviewControls(
     keyboardLayout === null ? null : assertKeyboardLayoutPort(keyboardLayout);
   const localSessionPort =
     localSession === null ? null : assertLocalSessionPort(localSession);
+  const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
   const documentObject = root.ownerDocument;
 
   let hostSnapshot = validateSurfaceSnapshot(hostPort.getSnapshot());
@@ -215,6 +220,7 @@ export function mountSettingsOverviewControls(
   let localSessionSnapshot = localSessionPort === null
     ? null
     : validateLocalSessionSnapshot(localSessionPort.getSnapshot());
+  let localAiSnapshot = localAi === null ? null : validateLocalAiSnapshot(localAi.getSnapshot());
   let localSessionPending = false;
   let localSessionMessageId = null;
   let networkManagementReadFailed = false;
@@ -1156,6 +1162,47 @@ export function mountSettingsOverviewControls(
     view.append(section);
   };
 
+  const renderIntelligence = (view) => {
+    const section = node(documentObject, "section", "ordax-settings-section");
+    section.dataset.settingsIntelligence = "";
+    section.append(
+      node(documentObject, "span", "ordax-settings-section-kicker", t("settings.intelligence.kicker")),
+      node(documentObject, "h4", "ordax-settings-section-title", t("settings.intelligence.title")),
+      node(documentObject, "p", "ordax-settings-section-description", t("settings.intelligence.description")),
+    );
+
+    // Candidate metadata is a signed-release *source pin*, not active proof.
+    const pinned = BUNDLED_LOCAL_AI_MODEL_CANDIDATE;
+    const pinnedInfo = node(documentObject, "p", "", t("settings.intelligence.pinned", {
+      modelId: pinned.id,
+      engineId: pinned.engine,
+    }));
+    section.append(pinnedInfo);
+
+    const state = localAiSnapshot?.state ?? "unavailable";
+    const status = node(documentObject, "p", "", t("settings.intelligence.state." + state));
+    status.dataset.settingsLocalAiState = state;
+    status.setAttribute("role", "status");
+    section.append(status);
+
+    if (["ready", "busy"].includes(state) && localAiSnapshot?.modelId && localAiSnapshot?.engineId) {
+      section.append(node(documentObject, "p", "", t("settings.intelligence.active", {
+        modelId: localAiSnapshot.modelId,
+        engineId: localAiSnapshot.engineId,
+      })));
+    } else {
+      section.append(node(documentObject, "p", "", t("settings.intelligence.notActive")));
+    }
+    section.append(node(documentObject, "p", "", t("settings.intelligence.selectionPolicy")));
+    const open = node(documentObject, "button", "ordax-settings-action",
+      t("settings.intelligence.openStoreModels"));
+    open.type = "button";
+    open.dataset.settingsOpenModelStore = "true";
+    open.disabled = activationPort === null;
+    section.append(open);
+    view.append(section);
+  };
+
   const paint = (slot) => {
     const interaction = captureInteractionState(slot);
     slot.replaceChildren();
@@ -1169,6 +1216,8 @@ export function mountSettingsOverviewControls(
       if (activeSection === "regional") renderKeyboardLayout(view);
     } else if (activeSection === "network") {
       renderNetwork(view);
+    } else if (activeSection === "intelligence") {
+      renderIntelligence(view);
     } else if (activeSection === "security") {
       renderSecurity(view);
     } else if (activeSection === "notifications") {
@@ -1324,6 +1373,12 @@ export function mountSettingsOverviewControls(
   };
 
   const onClick = (event) => {
+    const openModels = event.target.closest("[data-settings-open-model-store]");
+    if (openModels && root.contains(openModels) && activeSection === "intelligence"
+      && activationPort !== null) {
+      activationPort.publish({ appId: "store", target: "models" });
+      return;
+    }
     const sectionButton = event.target.closest("[data-settings-section]");
     if (
       sectionButton
@@ -1545,6 +1600,10 @@ export function mountSettingsOverviewControls(
     localSessionSnapshot = validateLocalSessionSnapshot(snapshot);
     if (activeSection === "security") replaceView();
   });
+  const unsubscribeLocalAi = localAi?.subscribe((snapshot) => {
+    localAiSnapshot = validateLocalAiSnapshot(snapshot);
+    if (activeSection === "intelligence") replaceView();
+  });
   const unsubscribeNotifications = notificationPort?.subscribe((snapshot) => {
     notificationSnapshot = snapshot;
     if (activeSection === "notifications") replaceView();
@@ -1569,6 +1628,7 @@ export function mountSettingsOverviewControls(
       if (networkPoll !== null) clearInterval(networkPoll);
       if (networkManagementPoll !== null) clearInterval(networkManagementPoll);
       unsubscribeNotifications?.();
+      unsubscribeLocalAi?.();
       unsubscribeLocalSession?.();
       unsubscribePreferences?.();
       unsubscribeHost?.();
