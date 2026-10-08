@@ -257,6 +257,7 @@ export function mountSpaceSwitcherControls(
     }),
     spacesPort.subscribe(render),
     selectionPort?.subscribe(render),
+    profilePort?.subscribe?.(render),
     lifecycle.subscribeRender(render),
     lifecycle.localization.subscribe?.(render),
   ];
