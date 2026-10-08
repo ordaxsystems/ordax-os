@@ -2,6 +2,18 @@
 
 `system/services/apps` owns application-level system services. It does not turn apps into authority owners and it does not replace the Component Manager.
 
+## External first-party product SSOT
+
+The first-party external component registry is **generated**, never hand-maintained:
+`docs/contracts/runtime-component-package.json` →
+`canonical_package_source_repository_by_component` →
+`tools/app-policy/render_external_first_party_policy.py` →
+`system/services/apps/external-first-party-policy.mjs`.
+
+The 14 current IDs consist of 13 unsigned component-package candidates plus Studio's separate distribution path. The older, narrower `canonical_external_source_repository_by_component` must remain a consistent subset; it **cannot** silently override the canonical package source set. Regeneration is checked in CI. This also keeps previously installed optional apps visible as potential *installed entries* even if a subsequent signed catalog omits them, once the runtime's verified activation state is available.
+
+A known app ID is not an installation grant. A verified signed catalog, runtime `current` state, first-party delivery policy and platform lifecycle authority remain independent fail-closed gates; no helper can manufacture those. Native broker component support and production distribution are separately gated.
+
 ## Boundaries
 
 Four concepts must stay separate:
@@ -37,16 +49,23 @@ The Native catalog verifier owns signature verification **and** anti-replay pers
 
 `verified-store-projection.mjs` is deliberately derived state. It reads only the verified catalog plus the Native `current` activation metadata exposed by the canonical runtime-component activation owner. It never scans slot directories, never treats cache presence as installation, and never writes a parallel inventory. An installed external app remains removable even if a later verified catalog no longer advertises it; catalog drift, unavailable activation metadata, unknown delivery policy and bundled/component-slot conflicts fail closed as blocked presentation.
 
+## First-party utilities in the verified Store boundary
+
+The canonical `ordaxsystems/ordax-apps` repository has independent unsigned candidate packages for basic utility apps (Calculator, Clock, Converter, Text Viewer, Image Viewer, Calendar, Colors, Character Map, Paint, Media Player, PDF Viewer and Toolbox). The platform's `delivery-policy.mjs` now explicitly recognizes those product IDs as **on-demand / store-only**, so a **future signed and verified** Store catalog can project them without an accidental `first-party-delivery-policy-unavailable` blocker.
+
+This extension is *not* an expansion of the initial public USB MVP application payload. `mvp-delivery-policy.mjs` continues to define the six initial on-demand products, plus Files/Internet bootstrap and structural surfaces; additional policies must remain `store-only`. New on-demand policies do **not** publish candidates, select artifacts, authorize a signer or enable the native lifecycle executor. Unknown app IDs, unsigned catalogs and unavailable Native activation metadata still fail closed. The Store UI remains disabled for the public MVP under its existing contract. No app source is copied from the platform by adding a delivery policy.
+
 ## Surface da Loja: experiência e contrato
 
 A Loja estrutural permanece sob `system/apps/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.
 
-- **Descobrir**: apresenta apenas entradas fornecidas pelo catálogo verificado. A busca local funciona por título/ID com normalização de acentos e não altera o snapshot.
+- **Descobrir**: apresenta apenas entradas fornecidas pelo catálogo verificado. A busca local funciona por título/ID com normalização de acentos e não altera o snapshot. A apresentação tem ordenação alfabética natural, independente da ordem do catálogo assinado.
 - **Instalados**: deriva da versão instalada confirmada pelo owner canônico, nunca de arquivos em cache.
 - **Atualizações**: mostra candidatos novos e estados relevantes de atualização/retensão; somente a flag `updatable` permite solicitar uma atualização.
 - **Detalhes**: exibe IDs, versões e estados sem inventar publisher, ícones oficiais, capturas, preço, avaliação, categoria ou permissões que o contrato ainda não fornece. Identidade/procedência verificadas referem-se à **versão candidata**, não à instalação anterior.
 - **Remoção**: exige confirmação explícita no frontend, mas ainda passa pelo mesmo pedido `authority:none` e pelo gate do lifecycle. Cancelar não emite pedido. Remover instalação não remove dados.
-- **Falhas**: erro síncrono ou assíncrono do port deve liberar o estado visual pendente e mostrar falha; aceitação não equivale a instalação concluída. Catálogo indisponível mantém operações desabilitadas.
+- **Falhas**: erro síncrono ou assíncrono do port deve liberar o estado visual pendente e mostrar falha; motivos de rejeição já validados pela plataforma podem ser mostrados como texto; aceitação não equivale a instalação concluída. Catálogo indisponível mantém operações desabilitadas.
+- **IDs de pedido**: solicitações precisam de identidade gerada a partir de fonte criptográfica segura; na ausência dela, operações ficam desabilitadas. Nunca usar relógio como fallback de request ID.
 - **Composição**: o layout reage à largura efetiva da janela, usa somente tokens de Surface, restaura o foco em buscas e navegação e não cria persistência paralela por aplicativo.
 
 **Provas**: `tests/test_app_store_contract.mjs` valida filtros, catálogo e boundaries sem autoridade. O `Surface Web Candidate` executa Chromium real com catálogo indisponível na composição e uma fixture isolada, validada apenas para interação da interface, incluindo pesquisa, redimensionamento, confirmação de remoção, cancelamento e erro síncrono. A fixture nunca publica artefatos, não altera a fonte canônica e não autoriza instalação.
