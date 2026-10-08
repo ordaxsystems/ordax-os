@@ -245,21 +245,21 @@ class NativeLocalAiBridgeTests(unittest.TestCase):
             with socket.create_connection(("127.0.0.1", self.port), timeout=2) as client:
                 client.settimeout(2)
                 client.sendall((
-                    f"POST {bridge.NATIVE_LOCAL_AI_PREFIX}/v1/chat/completions HTTP/1.1\\r\\n"
-                    f"Host: 127.0.0.1:{self.port}\\r\\n"
-                    "Content-Type: application/json\\r\\n"
-                    "Content-Length: 128\\r\\nConnection: close\\r\\n\\r\\n"
+                    f"POST {bridge.NATIVE_LOCAL_AI_PREFIX}/v1/chat/completions HTTP/1.1\r\n"
+                    f"Host: 127.0.0.1:{self.port}\r\n"
+                    "Content-Type: application/json\r\n"
+                    "Content-Length: 128\r\nConnection: close\r\n\r\n"
                 ).encode("ascii") + b"{")
                 time.sleep(0.1)
                 client.sendall(b'"')
                 # A steady trickle cannot reset a full-request deadline.
                 response = bytearray()
-                while b"\\r\\n" not in response:
+                while b"\r\n" not in response:
                     block = client.recv(1024)
                     if not block:
                         break
                     response.extend(block)
-                self.assertIn(b" 408 ", bytes(response).split(b"\\r\\n", 1)[0])
+                self.assertIn(b" 408 ", bytes(response).split(b"\r\n", 1)[0])
                 self.assertEqual(self.backend.received, [])
         finally:
             host.LOCAL_AI_BODY_READ_TIMEOUT_SECONDS = old_deadline
