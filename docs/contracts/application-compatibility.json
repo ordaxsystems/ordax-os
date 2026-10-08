@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.application-compatibility-contract/1",
-  "port": "ordax.application-compatibility/1",
+  "port": "ordax.application-compatibility/2",
   "status": "source-foundation-profile-planning-runtime-source-proof",
   "public_availability": false,
   "execution_available": false,
@@ -9,7 +9,7 @@
   "boot_critical": false,
   "foreign_payload_default_trust": "untrusted",
   "foreign_payload_becomes_native_trust": false,
-  "implemented_operations": ["inspect", "runtime.list", "launch.plan", "profile.create.plan"],
+  "implemented_operations": ["inspect", "inspect.verified", "runtime.list", "launch.plan", "profile.create.plan"],
   "reserved_future_operations": ["profile.create", "install.plan", "install", "launch", "health", "rollback", "remove"],
   "windows": {
     "pe_detection": {
@@ -56,6 +56,9 @@
   },
   "security": {
     "extension_grants_trust": false,
+    "launch_plan_requires_manager_issued_inspection": true,
+    "profile_plan_requires_manager_verified_payload_sha256": true,
+    "inspection_object_is_durable_attestation": false,
     "payload_grants_system_authority": false,
     "runtime_failure_blocks_boot": false,
     "current_port_exposes_execute": false,
