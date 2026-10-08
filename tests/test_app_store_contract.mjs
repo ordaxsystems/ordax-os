@@ -342,7 +342,12 @@ test("Store lifecycle controls confirm removal and survive synchronous as well a
   assert.match(source, /operation === "remove" && removalConfirmationAppId !== appId/);
   assert.match(source, /storeConfirmRemove/);
   assert.match(source, /storeCancelRemove/);
-  assert.match(source, /Promise\.resolve\(\)\s*\.then\(\(\) => lifecycleRequests\.requestLifecycle\(request\)\)/);
+  // The delegate may only run while its request still belongs to the
+  // exact signed catalog generation and the currently pending request.
+  assert.match(source, /const isCurrentRequest = \(\) => !destroyed/);
+  assert.match(source, /catalogGeneration === requestGeneration/);
+  assert.match(source, /pendingRequest\?\.requestId === request\.requestId/);
+  assert.match(source, /Promise\.resolve\(\)\s*\.then\(\(\) => \{\s*if \(!isCurrentRequest\(\)\) return null;\s*return lifecycleRequests\.requestLifecycle\(request\);/);
   assert.match(source, /\.catch\(\(\) => \{\s*if \(!isCurrentRequest\(\)\) return;\s*pendingRequest = null;/);
   assert.match(source, /restoreSearchFocus/);
   assert.match(source, /root\.addEventListener\("keydown", onKeyDown\)/);
