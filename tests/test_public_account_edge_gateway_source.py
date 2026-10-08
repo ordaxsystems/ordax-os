@@ -84,6 +84,17 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('"retry-after"', self.edge)
         self.assertIn('trustedPublicClientAddress', self.rate_limit)
 
+    def test_body_limits_are_checked_while_streaming_not_after_allocation(self):
+        self.assertIn('import { readBoundedBody } from "./bounded_body.mjs"', self.edge)
+        self.assertIn('readBoundedBody(req.body, req.headers.get("content-length"), MAX_BODY)', self.edge)
+        self.assertIn('readBoundedBody(', self.edge)
+        self.assertIn('upstream.body,', self.edge)
+        self.assertIn('MAX_UPSTREAM_RESPONSE,', self.edge)
+        self.assertNotIn("await req.arrayBuffer()", self.edge)
+        self.assertNotIn("await upstream.arrayBuffer()", self.edge)
+        self.assertIn('"account-gateway-response-invalid"', self.edge)
+        self.assertIn('"account-gateway-response-too-large"', self.edge)
+
     def test_public_boundary_is_narrow_and_bounded(self):
         self.assertIn('const MAX_BODY = 64 * 1024', self.edge)
         self.assertIn('const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024', self.edge)
