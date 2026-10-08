@@ -3,7 +3,7 @@
   "status": "public-edge-oidc-v7-live-cookie-envelope-shared-auth-rate-limit-vercel-source-not-deployed",
   "site_artifact": "public-site",
   "vercel_migration": {
-    "status": "target-project-git-linked-runtime-pending",
+    "status": "target-project-provisioned-domain-and-identity-cutover-blocked",
     "target_account_email": "ordaxos@gmail.com",
     "target_team_slug": "ordaxsystems",
     "target_project": "ordax-os-public",
@@ -21,9 +21,23 @@
     "runtime_proof_required_before_public_auth": true,
     "automatic_git_deployments_frozen": true,
     "reenable_git_deployments_only_after_new_team_runtime_proof": true,
-    "target_team_id": "team_E3bdE137ZG3fhCGMmYuGKJ8o",
+    "target_project_provisioned": true,
     "target_project_id": "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC",
-    "target_github_repository": "ordaxsystems/ordax-os"
+    "target_team_id": "team_E3bdE137ZG3fhCGMmYuGKJ8o",
+    "target_git_repository": "ordaxsystems/ordax-os",
+    "target_project_assigned_domain": "ordax-os-public-tau.vercel.app",
+    "target_project_assigned_domain_verified": true,
+    "expected_production_domain": "ordax-os-public.vercel.app",
+    "expected_production_domain_bound": false,
+    "expected_production_domain_block_reason": "Vercel 409 owned-on-other-team on 2026-10-08; do not transfer or use the legacy-team domain without ownership cutover",
+    "target_project_environment_variables_present": false,
+    "target_project_production_deployment_ready": false,
+    "target_project_preview_deployment_id": "dpl_HT7edk8zSTJVQdTrWxtPV3HN5LMj",
+    "target_project_preview_deployment_commit": "3e5aaa8d5872e0f20c33bec76714a77495206828",
+    "target_project_preview_deployment_ready": true,
+    "target_project_preview_deployment_url": "https://ordax-os-public-hljr8un8h-ordaxsystems.vercel.app",
+    "target_project_preview_deployment_is_production": false,
+    "target_project_first_deployment_failure": "dpl_4wowhggKL5kFKNdk8ad8RXRdmmpT: ignoreStep bad revision empty prior SHA, fixed by PR #1449"
   },
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -57,7 +71,7 @@
     "trusted_client_address_header": "x-ordax-client-address",
     "canonical_public_origin_environment_variable": "ORDAX_PUBLIC_ORIGIN",
     "canonical_public_origin_required": true,
-    "canonical_public_origin_live_configured": true,
+    "canonical_public_origin_live_configured": false,
     "canonical_public_origin": "https://ordax-os-public.vercel.app",
     "gateway_upstream_environment_scope": [
       "production"
@@ -124,7 +138,8 @@
     "transport_set_cookie_forwarded": false,
     "product_cookie_envelope_header": "x-ordax-cookie-envelope",
     "product_cookie_envelope_source_ready": true,
-    "product_cookie_envelope_deployed": false
+    "product_cookie_envelope_deployed": false,
+    "canonical_public_origin_deployment_verified": false
   },
   "public_edge_gateway": {
     "status": "v7-oidc-live-cookie-envelope-shared-auth-rate-limit-runtime-proof-pending",
