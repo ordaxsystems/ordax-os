@@ -1,6 +1,6 @@
 # OrdaX Public Site
 
-Status: FOUNDATION / NOT DEPLOYED
+Status: PUBLIC SITE PREVIEW READY / PRODUCTION NOT DEPLOYED (2026-10-08)
 
 The public OrdaX site is a separate delivery surface from the OrdaX Web product mode.
 
@@ -85,7 +85,7 @@ The machine-readable entry boundary is `docs/contracts/public-identity.json`. It
 
 Public credential entry points also use a dedicated Cloudflare Turnstile widget bound to the canonical production hostname. The sitekey is public configuration; the secret key is never stored in this repository or exposed to browser JavaScript. Login, registration and recovery requests are accepted by the server boundary only after Siteverify returns success for the exact hostname and action. Missing configuration, invalid/expired/replayed tokens, hostname/action mismatch or verification outage fail closed; the Turnstile token is removed before the request reaches the inner identity gateway.
 
-The server-side responsibility is prepared under `services/public-identity/`. The dedicated Supabase project `ordax-control-plane` is now the selected pre-MVP backend target and the canonical product-domain schema under `infra/supabase/product/` has been applied there. This prepares account/Spaces/entitlements/Profile Packs/Memory without enabling the public gateway. Login and registration remain fail-closed until same-origin deployment, Auth hardening and legal-readiness gates are complete. The previously considered shared project remains rejected because it already owns unrelated Auth/profile behavior.
+The account service source remains owned by `services/public-identity/` and `infra/supabase/`. The destination Supabase project is `ordax-platform` (`jhfphsjptrpmtnzkpwud`), not the former `ordax-control-plane` destination. The internal `ordax-account-gateway` is deployed, but the new public Vercel-to-Supabase transport, named bridge credential, signed production OIDC, and end-to-end behavior remain unverified. Public login and registration stay disabled until same-origin deployment, legal-readiness and auth-hardening gates are proven. See `docs/contracts/public-auth-hardening.json` for the account owner's deployment observations.
 
 ## Download boundary
 
@@ -192,10 +192,7 @@ both devices while retaining the explicitly simulated continuity notice.
 Login, registration and
 download continue through the existing fail-closed routes and owners.
 
-Handoff: this is source implementation only, not deployment evidence. The
-dependency-free fixture, public-site check and public-site smoke tests validate
-the local artifact; production hosting and configured identity/release owners
-remain separate requirements. Do not promote the demonstration into a second
+Handoff: the marketing demonstration is not evidence of product runtime or public account readiness. The protected Vercel preview proves the static public-site build, but a production HTTPS origin, configured identity route and authorized release publication remain separate requirements. Do not promote the demonstration into a second
 product runtime or treat its fixtures as real user data.
 
 The portal shares OrdaX brand language, not the desktop shell implementation:
@@ -231,6 +228,23 @@ The candidate workflow builds the site twice and compares outputs to protect det
 
 
 ## Runtime preview and deployment boundary
+
+### Canonical Vercel project and DNS cutover (2026-10-08)
+
+The Vercel team is `ordaxsystems` (`team_E3bdE137ZG3fhCGMmYuGKJ8o`), with the **single** public-site project `ordax-os-public` (`prj_mA9ew6hOfjdqlBr1cC757iMLPQJC`) linked to `ordaxsystems/ordax-os` on `main`. The project has a verified Vercel-assigned hostname (`ordax-os-public-tau.vercel.app`), **no production environment variables** and **no READY production deployment**. The protected preview `dpl_DiaSnV3d9tVCNoY5JkojYwpdRjRK` completed the `tools/public-site/build.py` check/build/verify sequence successfully; its artifact is `out/public-site`, including the generated release catalog. This is preview/build proof, not public OIDC runtime proof.
+
+The historical `ordax-os-public.vercel.app` hostname is associated with a different Vercel team (verification returned 409). Never adopt that old team's OIDC identity, attempt an implicit transfer, or substitute the Vercel-assigned `-tau` hostname as production origin. The intended public domain is `ordax.com.br`, subject to an approved origin/identity cutover. At this observation date, the authoritative DNS zone for `ordax.com.br` is **active in the earlier Cloudflare account**, not in the new OrdaX Cloudflare account. Its apex, `www` and Vercel ownership TXT records already exist, as does the independent `catalogo-media` CNAME. Do not overwrite those records or swap nameservers from this site project.
+
+Before any production deployment or DNS change:
+
+1. Coordinate with the Cloudflare/DNS owner to inventory and migrate all required zone records and DNS verification **without changing public routing early**.
+2. Resolve Vercel domain ownership with the existing owner and attach the approved final HTTPS domain to this exact project; validate certificates and routing. Do not modify another team's Vercel project.
+3. Coordinate with the Account/Supabase owner to provision the **named** internal service credential and public gateway in the canonical destination, with fail-closed transport tests. Do not use a legacy `service_role` fallback.
+4. Bind `ORDAX_PUBLIC_ORIGIN`, `ORDAX_ACCOUNT_GATEWAY_URL` and production-only OIDC issuer/audience/subject to the deployed project and exact origin; prove signed tokens, cookies, session/recovery boundaries and rate limits in runtime.
+5. Rebind Cloudflare Turnstile to the verified production hostname and validate Siteverify; require final legal/provider gates before enabling account controls.
+6. Run `tools/public-site/prove_deployment.py` against the **real** final HTTPS origin. Only after runtime evidence is recorded should the owner consider lifting the versioned `git.deploymentEnabled=false` freeze.
+
+The authoritative machine-readable deployment and Account state live in `docs/contracts/public-site-deployment.json` and `docs/contracts/public-auth-hardening.json`. This paragraph is an operational explanation, not an independent SSOT.
 
 `tools/public-site/preview_server.py` is a loopback-only development/test adapter for the built artifact. It serves the static portal and mounts the fail-closed public identity gateway under the same `/auth/*` origin so CI can exercise the complete route boundary without deploying a provider.
 
