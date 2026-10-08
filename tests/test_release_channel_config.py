@@ -9,8 +9,8 @@ CHANNEL_FILE = ROOT / "bootstrap" / "config" / "release-envelope-url"
 MINIMAL_BOOTSTRAP = ROOT / "docs" / "contracts" / "minimal-bootstrap.json"
 RELEASE_CHANNEL = ROOT / "docs" / "contracts" / "release-channel.json"
 
-EXPECTED_URL = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/latest/download/release-envelope.json"
-EXPECTED_SHA256 = "3c3e78d65aee0b120071e6bcee776c83de9e5ea1d8bd1a936d61d09499141741"
+EXPECTED_URL = "https://github.com/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json"
+EXPECTED_SHA256 = "a5d34ab75cdef9e8826ccef29baf746f1cbb43f1cac1dc94568e47671d335849"
 
 
 class ReleaseChannelConfigTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class ReleaseChannelConfigTests(unittest.TestCase):
         self.assertEqual(parsed.fragment, "")
         self.assertEqual(
             parsed.path,
-            "/ordaxsystems/prototipo-ordax-os/releases/latest/download/release-envelope.json",
+            "/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json",
         )
 
     def test_release_channel_contract_matches_bootstrap_pointer(self):
@@ -36,7 +36,7 @@ class ReleaseChannelConfigTests(unittest.TestCase):
         self.assertEqual(contract["$schema"], "prototype-ordax.release-channel/1")
         self.assertEqual(
             contract["source_authority"]["repository"],
-            "ordaxsystems/prototipo-ordax-os",
+            "ordaxsystems/ordax-os",
         )
         self.assertEqual(contract["publication"]["release_envelope_asset_name"], "release-envelope.json")
         self.assertEqual(contract["publication"]["latest_envelope_url"], EXPECTED_URL)
