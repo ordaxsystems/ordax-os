@@ -609,3 +609,70 @@ test("unchanged verified installed slot remains removable without a listed candi
   assert.equal(result.state, "accepted");
   assert.equal(delegated, 1);
 });
+
+
+test("installed slot version drift blocks stale update and remove before Native delegation", async () => {
+  for (const operation of ["update", "remove"]) {
+    let current = ready(entry({
+      state: "installed",
+      installedVersion: "0.4.1",
+      availableVersion: operation === "update" ? "0.4.3" : null,
+      installable: false,
+      updatable: operation === "update",
+      removable: true,
+      artifactIdentityVerified: operation === "update",
+      provenanceVerified: operation === "update",
+    }));
+    let delegated = 0;
+    const runtime = createAppLifecycleRequestService({
+      catalogPort: Object.freeze({
+        schema: APP_STORE_CATALOG_PORT_SCHEMA,
+        authority: "none",
+        getSnapshot() { return current; },
+        subscribe() { return () => {}; },
+      }),
+      verifiedCatalogPort: verifiedPort(verifiedReady()),
+      lifecycleDelegate: delegate((plan) => {
+        delegated += 1;
+        return resultFor(plan);
+      }),
+    });
+    const ask = request(operation, {
+      requestId: "store:" + operation + ":notes:slot-drift",
+    });
+    const pending = runtime.requestLifecycle(ask);
+    // The candidate digest and signed catalog remain identical. Only the
+    // installed slot changes, while both actions remain otherwise permitted.
+    current = ready(entry({
+      ...current.entries[0],
+      installedVersion: "0.4.2",
+    }));
+    const response = await pending;
+    assert.equal(response.state, "rejected", operation);
+    assert.equal(response.reason, "verified-lifecycle-plan-stale", operation);
+    assert.equal(delegated, 0, operation);
+    assert.deepEqual(await runtime.requestLifecycle(ask), response, operation + " replay");
+  }
+});
+
+test("irrelevant signed Store metadata cannot silently switch requested entry before delegation", async () => {
+  let current = ready();
+  let delegated = 0;
+  const runtime = createAppLifecycleRequestService({
+    catalogPort: Object.freeze({
+      schema: APP_STORE_CATALOG_PORT_SCHEMA, authority: "none",
+      getSnapshot() { return current; },
+      subscribe() { return () => {}; },
+    }),
+    verifiedCatalogPort: verifiedPort(verifiedReady()),
+    lifecycleDelegate: delegate((plan) => { delegated += 1; return resultFor(plan); }),
+  });
+  const pending = runtime.requestLifecycle(request("install", {
+    requestId: "store:install:notes:title-replaced",
+  }));
+  current = ready(entry({ title: "Notas desconhecidas" }));
+  const result = await pending;
+  assert.equal(result.state, "rejected");
+  assert.equal(result.reason, "verified-lifecycle-plan-stale");
+  assert.equal(delegated, 0);
+});
