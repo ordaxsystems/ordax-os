@@ -78,7 +78,15 @@ export function createStoreUpdateRequestBatch({
     // Rapid double-clicks must reuse the same in-flight batch and not issue
     // duplicate lifecycle requests.
     if (current !== null) return current.promise;
-    const initial = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+    let initial;
+    try {
+      initial = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+    } catch {
+      // The mounted Store may have outlived a malformed or revoked Native
+      // snapshot. This action must return a bounded denial, not throw into
+      // the Surface event handler or issue a lifecycle request.
+      return Promise.resolve(result("catalog-unavailable", [], 0));
+    }
     if (initial.state !== "ready") {
       return Promise.resolve(result("catalog-unavailable", [], 0));
     }
