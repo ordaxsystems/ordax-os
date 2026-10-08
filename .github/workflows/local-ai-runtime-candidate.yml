@@ -135,7 +135,17 @@ jobs:
           }
           trap cleanup EXIT
 
-          ORDAX_LOCAL_AI_RUNTIME_ROOT="$mountpoint" \
+          # CI uses an ephemeral, private credential, never a key in the signed image.
+          python - "$work/ai-auth-key" <<'PY'
+          import os, pathlib, secrets, sys
+          key = pathlib.Path(sys.argv[1])
+          descriptor = os.open(key, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+          with os.fdopen(descriptor, "w", encoding="ascii") as output:
+              output.write(secrets.token_hex(32) + "\n")
+          PY
+
+          LLAMA_ARG_API_KEY_FILE="$work/ai-auth-key" \
+            ORDAX_LOCAL_AI_RUNTIME_ROOT="$mountpoint" \
             "$mountpoint/bin/ordax-local-ai" \
             >"$work/llama-server.log" 2>&1 &
           server_pid=$!
@@ -160,11 +170,25 @@ jobs:
             exit 1
           fi
 
-          curl -fsS \
-            -H 'Content-Type: application/json' \
-            -d '{"prompt":"The word after alpha is","n_predict":8,"temperature":0.0,"stream":false}' \
-            http://127.0.0.1:17865/completion \
-            >"$work/completion.json"
+          python - "$work/ai-auth-key" "$work/completion.json" <<'PY'
+          import pathlib, sys, urllib.request, urllib.error
+          key = pathlib.Path(sys.argv[1]).read_text(encoding="ascii").strip()
+          dest = pathlib.Path(sys.argv[2])
+          url = "http://127.0.0.1:17865/completion"
+          body = b'{"prompt":"The word after alpha is","n_predict":8,"temperature":0.0,"stream":false}'
+          request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+          try:
+              urllib.request.urlopen(request, timeout=90)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 401, f"unauthorized request expected 401; got {exc.code}"
+              exc.close()
+          else:
+              raise AssertionError("local AI accepted an unauthenticated completion")
+          request.add_header("Authorization", "Bearer " + key)
+          with urllib.request.urlopen(request, timeout=90) as response:
+              dest.write_bytes(response.read())
+          print("LOCAL_AI_UNAUTHENTICATED_COMPLETION=DENIED")
+          PY
 
           python - "$work/completion.json" <<'PY'
           import json, pathlib, sys
@@ -229,7 +253,8 @@ jobs:
           print("LOCAL_AI_ALPINE_EXTRACTION_POLICY=ORDAX_STABLE_BASE")
           PY
 
-          mkdir -p "$alpine_root/opt/ordax-local-ai"
+          mkdir -p "$alpine_root/opt/ordax-local-ai" "$alpine_root/run/ordax/local-ai-auth"
+          install -m 600 "$work/ai-auth-key" "$alpine_root/run/ordax/local-ai-auth/key"
           sudo mount --bind "$mountpoint" "$alpine_root/opt/ordax-local-ai"
           sudo mount -o remount,bind,ro,nodev,nosuid "$alpine_root/opt/ordax-local-ai"
           mkdir -p "$alpine_root/proc"
@@ -252,7 +277,7 @@ jobs:
           trap 'cleanup_alpine; cleanup' EXIT
 
           sudo chroot "$alpine_root" /bin/sh -c \
-            'IFS=" " read -r pid _ </proc/self/stat; printf "%s\n" "$pid" >/tmp/ordax-local-ai.pid; ORDAX_LOCAL_AI_RUNTIME_ROOT=/opt/ordax-local-ai exec /opt/ordax-local-ai/bin/ordax-local-ai' \
+            'IFS=" " read -r pid _ </proc/self/stat; printf "%s\n" "$pid" >/tmp/ordax-local-ai.pid; LLAMA_ARG_API_KEY_FILE=/run/ordax/local-ai-auth/key ORDAX_LOCAL_AI_RUNTIME_ROOT=/opt/ordax-local-ai exec /opt/ordax-local-ai/bin/ordax-local-ai' \
             >"$work/llama-server-alpine.log" 2>&1 &
           alpine_chroot_job=$!
 
@@ -279,11 +304,24 @@ jobs:
           done
           test "$alpine_ready" -eq 1
 
-          curl -fsS \
-            -H 'Content-Type: application/json' \
-            -d '{"model":"qwen3.5-0.8b-q4_0","messages":[{"role":"user","content":"Reply with exactly: OK"}],"temperature":0,"max_tokens":16,"stream":false}' \
-            http://127.0.0.1:17865/v1/chat/completions \
-            >"$work/alpine-completion.json"
+          python - "$work/ai-auth-key" "$work/alpine-completion.json" <<'PY'
+          import pathlib, sys, urllib.request, urllib.error
+          key = pathlib.Path(sys.argv[1]).read_text(encoding="ascii").strip()
+          url = "http://127.0.0.1:17865/v1/chat/completions"
+          payload = b'{"model":"qwen3.5-0.8b-q4_0","messages":[{"role":"user","content":"Reply with exactly: OK"}],"temperature":0,"max_tokens":16,"stream":false}'
+          req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+          try:
+              urllib.request.urlopen(req, timeout=90)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 401, f"Alpine backend unauthorized status: {exc.code}"
+              exc.close()
+          else:
+              raise AssertionError("Alpine backend accepted an unauthenticated completion")
+          req.add_header("Authorization", "Bearer " + key)
+          with urllib.request.urlopen(req, timeout=90) as response:
+              pathlib.Path(sys.argv[2]).write_bytes(response.read())
+          print("LOCAL_AI_ALPINE_UNAUTHENTICATED_COMPLETION=DENIED")
+          PY
 
           python - "$work/alpine-completion.json" <<'PY'
           import json, pathlib, sys
