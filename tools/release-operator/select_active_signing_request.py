@@ -30,18 +30,39 @@ HISTORICAL_GIT_BLOB = "be7e9afe1ff26416ead79cf8ff7bcf4bc8294370"
 HISTORICAL_OWNER = "washingtonmsdj/prototipo-ordax-os"
 
 
-def selection(root: Path) -> dict:
-    historical_path = root / HISTORICAL_PATH
-    original = _regular_bytes(historical_path, "historical operator request")
-    # Git blob identity is a source-control integrity pin, NEVER a signature.
+def load_historical_request(root: Path) -> dict:
+    """Preserve the original source-controlled request as non-authorizing evidence."""
+    original = _regular_bytes(root / HISTORICAL_PATH, "historical operator request")
     blob = hashlib.sha1(b"blob " + str(len(original)).encode("ascii") + b"\0" + original).hexdigest()
     if blob != HISTORICAL_GIT_BLOB:
         raise ValidationError("historical signing-request provenance changed")
-    historical, _ = _load_json(historical_path, "historical operator request")
+    historical, _ = _load_json(root / HISTORICAL_PATH, "historical operator request")
     if historical.get("source_repository") != HISTORICAL_OWNER:
         raise ValidationError("historical signing-request owner drifted")
     if any(historical.get(field) is not False for field in UNSAFE_FIELDS):
         raise ValidationError("historical signing request claims an unsafe action")
+    return historical
+
+
+def assert_new_canonical_request(request: dict, historical: dict) -> None:
+    """Single source of truth for owner, historical and cross-kind identity checks."""
+    validate_request_document(request)
+    if request["source_commit"] == historical["source_commit"]:
+        raise ValidationError("active signing request cannot reuse historical source commit")
+    run_ids, artifact_ids = set(), set()
+    for kind, old in historical["operator_artifacts"].items():
+        entry = request["operator_artifacts"][kind]
+        if entry["run_id"] == old["run_id"] or entry["artifact_id"] == old["artifact_id"]:
+            raise ValidationError(f"active {kind} signing request reuses historical run/artifact identity")
+        if entry["run_id"] in run_ids or entry["artifact_id"] in artifact_ids:
+            raise ValidationError("operator run/artifact identities must be distinct between kinds")
+        run_ids.add(entry["run_id"])
+        artifact_ids.add(entry["artifact_id"])
+
+
+
+def selection(root: Path) -> dict:
+    historical = load_historical_request(root)
 
     active = root / ACTIVE_PATH
     if not active.exists():
@@ -55,13 +76,7 @@ def selection(root: Path) -> dict:
             "publication_performed": False,
         }
     request, _ = _load_json(active, "active canonical signing request")
-    validate_request_document(request)
-    if request["source_commit"] == historical["source_commit"]:
-        raise ValidationError("active signing request cannot reuse historical source commit")
-    for kind, original_entry in historical["operator_artifacts"].items():
-        proposed = request["operator_artifacts"][kind]
-        if proposed["run_id"] == original_entry["run_id"] or proposed["artifact_id"] == original_entry["artifact_id"]:
-            raise ValidationError(f"active {kind} signing request reuses historical run/artifact identity")
+    assert_new_canonical_request(request, historical)
 
     return {
         "status": "eligible-for-unsigned-assembly",

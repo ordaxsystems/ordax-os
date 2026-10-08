@@ -6,10 +6,16 @@ This boundary exists to assemble the Stable/MVP v4 signing request without movin
 large operator EROFS artifacts through a developer workstation or ChatGPT connector.
 It does **not** move the canonical private key into GitHub Actions.
 
-The machine-readable request is:
+The historical, immutable request (for provenance only) is:
 
 ```text
 docs/contracts/canonical-v4-signing-request.json
+```
+
+The only eligible new active request is:
+
+```text
+docs/contracts/canonical-v4-signing-request-active.json
 ```
 
 The validator is:
@@ -23,6 +29,37 @@ The assembly workflow is:
 ```text
 .github/workflows/canonical-v4-signing-request.yml
 ```
+
+## Emitir um novo pedido com verificações do GitHub
+
+Após congelar um SHA na main canônica, executar manualmente os workflows
+`portable-release-image.yml`, `surface-runtime-lock-discovery.yml` e
+`local-ai-runtime-candidate.yml` na **mesma revisão exata**.
+Cada um gera um artifact de operador por `workflow_dispatch` com validade de 1 dia.
+Recolher os três IDs das execuções reais e executar:
+
+```bash
+GH_TOKEN=<TOKEN-SOMENTE-LEITURA-ACTIONS> python3 tools/release-operator/build_canonical_v4_request.py \
+  --source-commit <SHA40-EXATO-DA-MAIN> \
+  --system-run <RUN_ID_DO_SISTEMA> \
+  --surface-run <RUN_ID_DA_SURFACE> \
+  --local-ai-run <RUN_ID_DA_IA_LOCAL> \
+  --out docs/contracts/canonical-v4-signing-request-active.json
+```
+
+O builder verifica diretamente no GitHub nome canônico do proprietário,
+repositório ID `1371063347`, branch main, evento manual, workflow correto,
+ancestralidade Git verificável desde o merge de cutover `9eb4dbb` e
+permanência da revisão congelada no histórico atual da `main`,
+conclusão com sucesso, SHA de origem, inventário completo e único,
+artifact ID, SHA-256, expiração e vínculo ao mesmo run/repositório.
+Também rejeita quaisquer IDs, artefatos ou revisão histórica reutilizados.
+O token é usado somente para consulta e não é gravado no documento.
+O arquivo só é criado se toda a verificação passar; nunca é sobrescrito.
+
+A montagem pública posterior continua exigindo a validação integral dos
+bytes EROFS, recibos e manifests. Este builder **não baixa EROFS, não assina,
+não publica, não ativa e não autoriza dispositivo físico**.
 
 ## Inputs
 
