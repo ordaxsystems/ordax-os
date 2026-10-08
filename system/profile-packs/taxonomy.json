@@ -1,0 +1,78 @@
+{
+  "$schema": "ordax.profile-taxonomy/1",
+  "revision": 1,
+  "nodes": [
+    {
+      "id": "business",
+      "parentId": null,
+      "labels": {
+        "ptBR": "Empresas e negócios",
+        "en": "Businesses"
+      }
+    },
+    {
+      "id": "business-food",
+      "parentId": "business",
+      "labels": {
+        "ptBR": "Alimentação e bebidas",
+        "en": "Food and beverage"
+      }
+    },
+    {
+      "id": "business-food-service",
+      "parentId": "business-food",
+      "labels": {
+        "ptBR": "Pizzarias e serviços de alimentação",
+        "en": "Pizzerias and food service"
+      }
+    },
+    {
+      "id": "business-production",
+      "parentId": "business",
+      "labels": {
+        "ptBR": "Indústria e produção",
+        "en": "Manufacturing and production"
+      }
+    },
+    {
+      "id": "digital-fabrication",
+      "parentId": "business-production",
+      "labels": {
+        "ptBR": "Fabricação digital e impressão 3D",
+        "en": "Digital fabrication and 3D printing"
+      }
+    },
+    {
+      "id": "technology",
+      "parentId": null,
+      "labels": {
+        "ptBR": "Tecnologia",
+        "en": "Technology"
+      }
+    },
+    {
+      "id": "development",
+      "parentId": "technology",
+      "labels": {
+        "ptBR": "Desenvolvimento de software",
+        "en": "Software development"
+      }
+    },
+    {
+      "id": "professional-services",
+      "parentId": null,
+      "labels": {
+        "ptBR": "Serviços profissionais",
+        "en": "Professional services"
+      }
+    },
+    {
+      "id": "legal",
+      "parentId": "professional-services",
+      "labels": {
+        "ptBR": "Serviços jurídicos",
+        "en": "Legal services"
+      }
+    }
+  ]
+}
