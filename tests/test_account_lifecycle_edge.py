@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import unittest
 from pathlib import Path
@@ -127,6 +128,31 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
         self.assertIn("ordax_account_export_executor", bridge)
         # Old provider history must never be rewritten to fake its schema.
         self.assertNotIn("'project_id', m.project_id", historical)
+
+    def test_destination_cutover_bundle_is_one_transaction_with_one_source_of_truth(self):
+        generator = ROOT / "infra" / "supabase" / "product" / "render_account_destination_migration.py"
+        spec = importlib.util.spec_from_file_location("ordax_account_cutover_bundle", generator)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        bundle = module.render(project_ref="jhfphsjptrpmtnzkpwud")
+        plan = json.loads(
+            (ROOT / "infra" / "supabase" / "product"
+             / "account_destination_migration_plan.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(bundle.count("\\nBEGIN;\\n"), 1)
+        self.assertTrue(bundle.rstrip().endswith("COMMIT;"))
+        self.assertIn("account-cutover-destination-not-empty", bundle)
+        self.assertIn("account-cutover-users-present", bundle)
+        self.assertIn("account-cutover-privileged-executor", bundle)
+        self.assertIn("account-cutover-memory-project-identity-drift", bundle)
+        self.assertIn("account-cutover-subject-bridge-exposed", bundle)
+        self.assertNotIn("SOURCE 20260925031000_account_data_export_v1.sql", bundle)
+        self.assertIn("SOURCE 20261008085000_account_data_export_project_id_v1.sql", bundle)
+        self.assertEqual(len(plan["ordered_source_files"]), 9)
+        self.assertEqual(bundle.count("-- SOURCE "), 9)
+        with self.assertRaisesRegex(ValueError, "destination-cutover-plan-untrusted"):
+            module.render(project_ref="eobcxuyvhkvdmkbaihwh")
 
     def test_account_export_rpc_uses_dedicated_non_bypass_executor(self):
         migration = EXPORT_EXECUTOR_MIGRATION.read_text(encoding="utf-8").lower()
