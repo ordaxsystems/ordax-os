@@ -4929,6 +4929,16 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         self._write_json(202, {"accepted": True, "action": action})
 
     def log_message(self, fmt: str, *args) -> None:
+        if urlsplit(self.path).path == PROFILE_CONTENT_CONTEXT_PATH:
+            # Query terms originate from a user's question and must never
+            # enter persistent access logs, including on 4xx/5xx responses.
+            print(
+                f"ordax-native-host: {self.address_string()} - "
+                f"{self.command} {PROFILE_CONTENT_CONTEXT_PATH} [query redacted]",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
         print(f"ordax-native-host: {self.address_string()} - {fmt % args}", file=sys.stderr, flush=True)
 
 
