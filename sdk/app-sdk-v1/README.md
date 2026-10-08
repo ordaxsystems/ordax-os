@@ -114,7 +114,7 @@ It contains no install authority, private keys, grants, provider credentials or 
 
 ## Consumers
 
-- `washingtonmsdj/ordax-apps` for official apps;
+- `ordaxsystems/ordax-apps` for official apps;
 - future third-party/user app repositories;
 - package/build tooling that needs a stable public compatibility target.
 

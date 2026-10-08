@@ -50,7 +50,19 @@
       "projects",
       "activity",
       "notes",
-      "network"
+      "network",
+      "calculator",
+      "clock",
+      "converter",
+      "text-viewer",
+      "image-viewer",
+      "calendar",
+      "colors",
+      "character-map",
+      "paint",
+      "media-player",
+      "pdf-viewer",
+      "toolbox"
     ]
   },
   "surface_projection": {
@@ -110,7 +122,7 @@
     "rollback_is_platform_owned": true,
     "verified_catalog_contract": "ordax.verified-app-store-catalog/1",
     "verified_catalog_port": "ordax.verified-app-store-catalog-port/1",
-    "verified_catalog_source_repository": "washingtonmsdj/ordax-apps",
+    "verified_catalog_source_repository": "ordaxsystems/ordax-apps",
     "verified_catalog_trust_domain": "runtime-components",
     "verified_catalog_key_id": "ordax-runtime-components-v1",
     "catalog_signature_verifier_mounted": true,

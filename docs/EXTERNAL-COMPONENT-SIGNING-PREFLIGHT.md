@@ -11,7 +11,7 @@ private key material.
 ## Canonical flow
 
 External first-party applications such as Notes are produced in
-`washingtonmsdj/ordax-apps`. The source repository emits a deterministic,
+`ordaxsystems/ordax-apps`. The source repository emits a deterministic,
 authority-free unsigned candidate. The OrdaX platform then performs:
 
 1. unsigned candidate verification through
