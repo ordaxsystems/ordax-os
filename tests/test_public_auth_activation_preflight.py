@@ -120,10 +120,15 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "vercel-production-account-routes",
             "vercel-production-oidc-proof",
             "vercel-canonical-origin-binding",
-            "provider-redirect-canonical-origin",
-            "provider-recovery-canonical-origin",
+            "turnstile-canonical-hostname-provider-proof",
+            "turnstile-canonical-runtime-proof",
         ):
             self.assertIn(code, blockers)
+        # The *source* recovery target now matches the verified domain.
+        # Supabase provider-side redirect allowlist and runtime remain unproven.
+        self.assertNotIn("provider-redirect-canonical-origin", blockers)
+        self.assertNotIn("provider-recovery-canonical-origin", blockers)
+        self.assertIn("redirect-allowlist-provider-verification", blockers)
 
     def test_canonical_domain_cutover_requires_independent_vercel_proofs(self):
         temporary, root = self.fixture_root()
