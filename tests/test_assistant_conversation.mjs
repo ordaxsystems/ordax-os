@@ -458,3 +458,30 @@ test("Assistant refuses an unsettled identity/Space boundary before sending infe
   assert.equal(intelligence.requests.length, 0);
   conversation.dispose();
 });
+
+
+test("Assistant stays useful in isolated local-only mode when Account service is unavailable", async () => {
+  const scope = scopePorts("account-a", "space-a");
+  const intelligence = intelligencePort();
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+  });
+  await conversation.send("informação do Space A");
+  scope.identity.setSnapshot({ state: "unavailable" });
+  // Until the Space owner also invalidates selection, there is no safe scope.
+  assert.equal(conversation.getSnapshot().state, "unavailable");
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  scope.spaceSelection.setSnapshot({ schema: "ordax.space-selection/1", state: "unavailable" });
+  assert.equal(conversation.getSnapshot().state, "ready");
+
+  await conversation.send("olá offline");
+  assert.deepEqual(intelligence.requests[1].context, []);
+  scope.identity.setSnapshot({ state: "signed-in", subjectId: "account-a", displayName: "Conta" });
+  scope.spaceSelection.setSnapshot(selectedSpace("account-a", "space-a"));
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  await conversation.send("voltei à conta");
+  assert.deepEqual(intelligence.requests[2].context, []);
+  conversation.dispose();
+});
