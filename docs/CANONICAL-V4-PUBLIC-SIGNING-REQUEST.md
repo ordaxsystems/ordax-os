@@ -61,6 +61,41 @@ A montagem pública posterior continua exigindo a validação integral dos
 bytes EROFS, recibos e manifests. Este builder **não baixa EROFS, não assina,
 não publica, não ativa e não autoriza dispositivo físico**.
 
+## Congelar um SHA enquanto a main continua evoluindo
+
+Os três workflows de operador `workflow_dispatch` aceitam a mesma revisão de fonte
+pela `main` **ou** por uma branch dedicada com identidade exata:
+`release-candidate/<SHA40>`. O builder e o validador verificam um mesmo
+`source_commit` e um mesmo `operator_ref` entre os três runs e seus artefatos.
+
+Procedimento não destrutivo:
+
+1. Escolher um commit da `main` posterior ao cutover e com as provas essenciais
+   aprovadas; criar a branch `release-candidate/<SHA40>` apontando **exatamente**
+   para esse commit. Não reescrever nem mover essa branch após iniciar provas.
+2. Acionar `portable-release-image.yml`, `surface-runtime-lock-discovery.yml`
+   e `local-ai-runtime-candidate.yml` manualmente, **todos pela mesma branch**.
+   Outras melhorias podem continuar entrando na `main` sem alterar esses bytes.
+3. Usar `build_canonical_v4_request.py --source-commit <SHA40>` e os três
+   run IDs observados. O builder confirma o repositório/provenance, que o SHA
+   é ancestral da `main`, que todos os runs têm `event=workflow_dispatch`,
+   sucesso, commit e branch idênticos, que os artifact IDs e hashes pertencem
+   a esses runs e que a branch congelada ainda aponta para o mesmo commit.
+   Um request novo vincula `operator_ref` explicitamente.
+4. Se houver uma correção essencial, escolher novo SHA e gerar novas provas;
+   nunca reciclar os IDs de artefatos do commit anterior.
+
+Nomes de branch arbitrários, tags, mistura de `main` com candidata,
+branch candidata associada a outro SHA e mudança de ref após os builds são
+rejeitados. Requests históricos sem `operator_ref` continuam interpretados
+exclusivamente como `main`, sem permitir builds de outras branches.
+
+A seleção de fonte **não é um novo SSOT, nem autorização**: a `main` continua
+sendo a linhagem canônica; a referência candidata só congela um commit já
+validado. Nenhuma dessas operações assina, publica, ativa, seleciona USB ou
+grava dispositivo. Ainda serão necessárias custódia da chave fora do CI,
+materialização, assinatura canônica, confirmação e prova física do Stable/MVP.
+
 ## Inputs
 
 The request binds one frozen source commit and exactly three manually exported operator
