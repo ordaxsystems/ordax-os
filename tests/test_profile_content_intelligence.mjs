@@ -297,7 +297,6 @@ test("Selected-Space Profile Intelligence injects only the explicitly selected S
     identitySessionPort: auth.identitySessionPort,
     spacesPort: auth.spacesPort,
     profileActivationStatePort: auth.profileActivationStatePort,
-    profileActivationStatePort: auth.profileActivationStatePort,
   });
 
   assert.equal(assertIntelligencePort(port), port);
@@ -329,7 +328,6 @@ test("Selected-Space Profile Intelligence never invents context while selection 
     spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort,
     spacesPort: auth.spacesPort,
-    profileActivationStatePort: auth.profileActivationStatePort,
     profileActivationStatePort: auth.profileActivationStatePort,
   });
 
@@ -380,7 +378,6 @@ test("Selected-Space Profile Intelligence follows current selection without stal
     spaceSelectionPort: selection,
     identitySessionPort: auth.identitySessionPort,
     spacesPort: auth.spacesPort,
-    profileActivationStatePort: auth.profileActivationStatePort,
     profileActivationStatePort: auth.profileActivationStatePort,
   });
 
