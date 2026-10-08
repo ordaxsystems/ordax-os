@@ -1,5 +1,8 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
-import { assertProfileActivationStatePort } from "../../contracts/profile-activation-state.mjs";
+import {
+  assertProfileActivationStatePort,
+  currentProfileForSpace,
+} from "../../contracts/profile-activation-state.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertSpaceSelectionPort } from "../../contracts/space-selection.mjs";
 import { assertSpacesPort } from "../../contracts/spaces.mjs";
@@ -17,13 +20,7 @@ export function deriveSpaceSwitcherView(identity, catalog, selection, activation
   ) ? visibleSpaces.find((space) => space.id === selection.selectedSpace.id && space.state === "active") ?? null : null;
   // Device-scoped activation is only displayable inside the authenticated
   // user's current catalog. Never render a profile from a stale/foreign Space.
-  const profileFor = (space) => {
-    if (!space || !activation || activation.schema !== "ordax.profile-activation-state/1") return null;
-    const row = activation.spaces.find((item) =>
-      item.spaceId === space.id && item.spaceKind === space.kind
-    );
-    return row?.current?.profile ?? null;
-  };
+  const profileFor = (space) => currentProfileForSpace(activation, space);
   return Object.freeze({
     visibleSpaces,
     active,
