@@ -62,6 +62,7 @@ export function filterStoreEntries(entries, view = "discover", query = "") {
   if (!VIEWS.includes(view) || typeof query !== "string") {
     throw new TypeError("Invalid Store presentation filter");
   }
+  if (view === "models") return [];
   const normalize = (value) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
   const needle = normalize(query.trim());
   return entries.filter((entry) => {
@@ -262,16 +263,42 @@ export function mountStoreOverviewControls(
   let modelMetricsSnapshot = null;
   let modelReadState = "idle";
   let modelReadOrdinal = 0;
+  let modelReadAbort = null;
 
   const refreshModelResources = async () => {
     if (destroyed || modelReadState === "loading") return;
     const ordinal = ++modelReadOrdinal;
     modelReadState = "loading";
+    modelHardware = null;
+    modelMetricsSnapshot = null;
     render();
-    const [hardware, metrics] = await Promise.allSettled([
-      modelHardwareReader === null ? Promise.resolve(null) : modelHardwareReader(),
-      modelMetrics === null ? Promise.resolve(null) : modelMetrics.read(),
-    ]);
+    const controller = new AbortController();
+    modelReadAbort = controller;
+    let deadline = null;
+    const timedOut = new Promise((_, reject) => {
+      deadline = setTimeout(() => {
+        controller.abort();
+        reject(new Error("Native model capability read exceeded deadline"));
+      }, 5000);
+    });
+    let hardware, metrics;
+    try {
+      [hardware, metrics] = await Promise.allSettled([
+        Promise.race([
+          Promise.resolve().then(() => modelHardwareReader === null
+            ? null : modelHardwareReader({ signal: controller.signal })),
+          timedOut,
+        ]),
+        Promise.race([
+          Promise.resolve().then(() => modelMetrics === null
+            ? null : modelMetrics.read({ signal: controller.signal })),
+          timedOut,
+        ]),
+      ]);
+    } finally {
+      clearTimeout(deadline);
+      if (modelReadAbort === controller) modelReadAbort = null;
+    }
     if (destroyed || ordinal !== modelReadOrdinal) return;
     // Fail closed on incomplete readings; do not keep stale values as current.
     modelHardware = hardware.status === "fulfilled" ? hardware.value : null;
@@ -583,6 +610,8 @@ export function mountStoreOverviewControls(
       if (destroyed) return;
       destroyed = true;
       modelReadOrdinal += 1;
+      modelReadAbort?.abort();
+      modelReadAbort = null;
       unsubscribeCatalog?.();
       unsubscribeRender?.();
       unsubscribeLocalization?.();
