@@ -18,6 +18,7 @@ class FakeLlamaHandler(BaseHTTPRequestHandler):
     model_id = "qwen3.5-0.8b-q4_0"
     completion_calls = 0
     requested_models = []
+    captured_payloads = []
 
     def log_message(self, format, *args):
         return
@@ -31,19 +32,20 @@ class FakeLlamaHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_GET(self):
-        if self.path != "/v1/models":
+        if self.path not in ("/v1/models", "/__ordax/native/local-ai/v1/models"):
             self.send_error(404)
             return
         self._send_json({"data": [{"id": self.model_id}]})
 
     def do_POST(self):
-        if self.path != "/v1/chat/completions":
+        if self.path not in ("/v1/chat/completions", "/__ordax/native/local-ai/v1/chat/completions"):
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length", "0"))
         request = json.loads(self.rfile.read(length).decode("utf-8"))
         self.__class__.completion_calls += 1
         self.__class__.requested_models.append(request.get("model"))
+        self.__class__.captured_payloads.append(request)
         tokens = min(4, request["max_tokens"])
         self._send_json({
             "choices": [{"message": {"role": "assistant", "content": "OK"}}],
@@ -56,6 +58,7 @@ class ServerFixture:
     def __enter__(self):
         FakeLlamaHandler.completion_calls = 0
         FakeLlamaHandler.requested_models = []
+        FakeLlamaHandler.captured_payloads = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeLlamaHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -74,6 +77,10 @@ class LocalAiBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             BENCH.validate_base_url("http://127.0.0.1:17865"),
             "http://127.0.0.1:17865",
+        )
+        self.assertEqual(
+            BENCH.validate_base_url("http://127.0.0.1:8765/__ordax/native/local-ai"),
+            BENCH.DEFAULT_BASE_URL,
         )
         for invalid in (
             "http://localhost:17865",
@@ -113,6 +120,23 @@ class LocalAiBenchmarkTests(unittest.TestCase):
         self.assertEqual(result["summary"]["median_server_tokens_per_second"], 20.0)
         self.assertFalse(result["release_gate"])
         self.assertFalse(result["tuning_applied"])
+
+    def test_authenticated_product_route_uses_exact_strict_native_schema(self):
+        self.assertEqual(
+            BENCH.DEFAULT_BASE_URL,
+            "http://127.0.0.1:8765/__ordax/native/local-ai",
+        )
+        with ServerFixture() as fixture:
+            result = BENCH.benchmark(
+                fixture.url + BENCH.NATIVE_MODEL_BRIDGE_PATH,
+                runs=1, n_predict=8, timeout=2,
+            )
+        self.assertEqual(result["endpoint"], fixture.url + BENCH.NATIVE_MODEL_BRIDGE_PATH)
+        self.assertEqual(FakeLlamaHandler.completion_calls, 2)
+        for payload in FakeLlamaHandler.captured_payloads:
+            self.assertEqual(set(payload), {"model", "messages", "max_tokens", "stream"})
+            self.assertFalse(payload["stream"])
+            self.assertNotIn("temperature", payload)
 
     def test_model_mismatch_fails_before_any_completion(self):
         with ServerFixture() as fixture:
