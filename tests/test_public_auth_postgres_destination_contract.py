@@ -95,7 +95,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         stage = self.destination
         self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(stage["internal_gateway_staging_deployed"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 1)
+        self.assertGreaterEqual(stage["internal_gateway_staging_version"], 2)
         self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
@@ -114,6 +114,20 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", gateway)
         self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", gateway)
         self.assertIn("const ACCOUNT_CLOSE_ENABLED = false;", gateway)
+
+    def test_new_api_key_cannot_impersonate_supabase_jwt(self):
+        stage = self.destination
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertFalse(stage["destination_service_transport_runtime_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["public_login_enabled"])
+        outer = (ROOT / stage["destination_gateway_transport_source_reference"]).read_text(encoding="utf-8")
+        inner = (ROOT / stage["destination_gateway_auth_source_reference"]).read_text(encoding="utf-8")
+        self.assertIn('headers.set("apikey", serverSecret)', outer)
+        self.assertNotIn('headers.set("authorization",', outer)
+        self.assertIn('function trustedPublicSiteRequest(req: Request)', inner)
+        self.assertIn("expectedKey = adminConfig().key", inner)
+        self.assertTrue(stage["destination_gateway_platform_auth_reference"].startswith("https://supabase.com/"))
 
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]

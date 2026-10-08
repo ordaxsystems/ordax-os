@@ -276,3 +276,40 @@ ativação exige agora evidência independente do gateway interno e do
 OIDC do **mesmo destino**, além de todas as provas já exigidas de
 cadastro, consentimento, bot protection, rate limit, recuperação,
 sessões e exportação/sincronização HTTP.
+
+## Transporte autenticado de serviço na nova Conta (2026-10-08)
+
+A implantação restrita `ordax-account-gateway` **v1**
+possui `verify_jwt=true`, isto é, o gateway Supabase valida
+`Authorization: Bearer <JWT da própria instância Supabase>` *antes*
+da execução do código. O `ordax-public-account-gateway` existente,
+porém, encaminha ao interno uma credencial de backend
+**exclusivamente em `apikey`**, e não um bearer Supabase válido.
+Chaves modernas `sb_secret_...` e `sb_publishable_...` são
+**API keys, não JWTs**. O OIDC assinado da Vercel também **não** é
+JWT emitido pelo Supabase. Portanto a cadeia atual é incapaz de
+comprovar um transporte autenticado ponta-a-ponta apenas com um
+status `ACTIVE` das Edge Functions.
+
+Fontes normativas:
+- https://supabase.com/docs/guides/functions/auth-headers
+- https://supabase.com/docs/guides/functions/auth
+
+**Desenho para futura correção no owner da identidade (não implantado
+nesta etapa):** verificar a prova criptográfica do OIDC Vercel na
+fronteira pública, exigir a identidade do projeto/equipe/ambiente
+de destino, e autenticar a chamada interna por chave de serviço com
+validação nativa Supabase `auth: 'secret:<nome>'`. A opção
+`verify_jwt=false` seria permitida **apenas** se a validação de
+credencial própria do handler fosse previamente instalada, coberta
+por testes negativos e comprovada em runtime; nunca deve ser usada
+sozinha para contornar o 401. Os endpoints Native autenticados
+devem seguir validando individualmente o JWT do usuário sob
+`auth: 'user'`, sem conceder a `service_role` autorização do sujeito
+final nem abrir as rotas anônimas por engano.
+
+O contrato SSOT `docs/contracts/public-auth-hardening.json`
+registra `destination_service_transport_runtime_verified=false`,
+e o pré-check bloqueia o cutover até que um teste HTTP real confirme
+identidade, autorização, rate limit e isolamento de usuário do
+**mesmo destino**, sem legados ou dual-write.
