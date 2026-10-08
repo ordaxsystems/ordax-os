@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import { storeApp } from "../system/apps/store/app.mjs";
-import { filterStoreEntries } from "../system/surface/ui/store-overview-controls.mjs";
+import { createStoreRequestSessionId, filterStoreEntries, sortStoreEntries } from "../system/surface/ui/store-overview-controls.mjs";
 import {
   APP_STORE_CATALOG_SCHEMA,
   createUnavailableAppStoreCatalogPort,
@@ -349,4 +349,52 @@ test("Store lifecycle controls confirm removal and survive synchronous as well a
   assert.match(source, /root\.removeEventListener\("keydown", onKeyDown\)/);
   assert.match(source, /candidate\.dataset\.storeDetails === previousAppId/);
   assert.doesNotMatch(source, /Promise\.resolve\(lifecycleRequests\.requestLifecycle/);
+});
+
+
+test("Store request identifiers never fall back to a collision-prone clock token", () => {
+  assert.equal(createStoreRequestSessionId(null), null);
+  assert.equal(createStoreRequestSessionId({}), null);
+  assert.equal(createStoreRequestSessionId({ randomUUID() { return "not-a-uuid"; } }), null);
+  const uuid = createStoreRequestSessionId({
+    randomUUID() { return "550e8400-e29b-41d4-a716-446655440000"; },
+  });
+  assert.equal(uuid, "550e8400e29b41d4a716446655440000");
+  const fallback = createStoreRequestSessionId({
+    getRandomValues(value) {
+      value.fill(0xab);
+      return value;
+    },
+  });
+  assert.equal(fallback, "ab".repeat(16));
+  assert.equal(createStoreRequestSessionId({
+    getRandomValues() { throw new Error("entropy-unavailable"); },
+  }), null);
+});
+
+test("Store list sorting is deterministic, localized and does not mutate canonical inventory", () => {
+  const records = [
+    { title: "Notas 10", appId: "notes10" },
+    { title: "Áudio", appId: "audio" },
+    { title: "Notas 2", appId: "notes2" },
+  ];
+  const sorted = sortStoreEntries(records, "pt-BR");
+  assert.deepEqual(sorted.map((item) => item.appId), ["audio", "notes2", "notes10"]);
+  assert.deepEqual(records.map((item) => item.appId), ["notes10", "audio", "notes2"]);
+});
+
+test("Store presents validated platform rejection reason but cannot mint authority", async () => {
+  const source = await readFile(
+    new URL("../system/surface/ui/store-overview-controls.mjs", import.meta.url), "utf8",
+  );
+  const locales = await readFile(
+    new URL("../system/services/i18n/catalog/store.mjs", import.meta.url), "utf8",
+  );
+  assert.match(source, /result\.state === "rejected" \? result\.reason : null/);
+  assert.match(source, /t\("store.request.reason", \{ reason: requestReason \}\)/);
+  assert.match(source, /requestSessionId === null/);
+  assert.match(source, /sortStoreEntries\(snapshot\.entries, localization\.getLocale\(\)\)/);
+  assert.equal(locales.split('"store.request.reason"').length, 3);
+  assert.doesNotMatch(source, /Date\.now\(\)/);
+  assert.doesNotMatch(source, /innerHTML/);
 });
