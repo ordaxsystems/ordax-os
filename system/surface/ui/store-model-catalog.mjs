@@ -56,6 +56,8 @@ export function appendStoreLocalAiModels(documentObject, target, {
 
   const info = node(documentObject, "dl", "ordax-store-detail-facts");
   fact(documentObject, info, t("store.models.engine"), candidate.engine);
+  fact(documentObject, info, t("store.models.modelId"), candidate.id);
+  fact(documentObject, info, t("store.models.revision"), candidate.modelRevision);
   fact(documentObject, info, t("store.models.format"), candidate.modelFormat + " · " + candidate.quantization);
   fact(documentObject, info, t("store.models.license"), candidate.license + " / " + candidate.engineLicense);
   fact(documentObject, info, t("store.models.architecture"), result.artifactArchitecture);
@@ -64,6 +66,7 @@ export function appendStoreLocalAiModels(documentObject, target, {
   fact(documentObject, info, t("store.models.ramAvailable"), bytesText(result.memoryAvailableBytes, locale));
   fact(documentObject, info, t("store.models.storageFree"), bytesText(result.userStorageFreeBytes, locale));
   fact(documentObject, info, t("store.models.binaryLowerBound"), bytesText(result.modelAndEngineBytesLowerBound, locale));
+  fact(documentObject, info, t("store.models.gpu"), t("store.models.gpuOptional"));
   fact(documentObject, info, t("store.models.minimumRam"), t("store.models.unqualified"));
   fact(documentObject, info, t("store.models.performance"), t("store.models.unqualified"));
   card.append(info);
