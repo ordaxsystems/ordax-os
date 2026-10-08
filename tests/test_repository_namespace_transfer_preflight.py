@@ -181,8 +181,8 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
     def test_posttransfer_needs_all_four_owners_in_ssot(self):
         ownership = copy.deepcopy(self.ownership)
         status = copy.deepcopy(self.status)
-        ownership["repositories"]["platform"]["repo"] = "ordaxsystems/prototipo-ordax-os"
-        status["canonical_repositories"]["platform"] = "ordaxsystems/prototipo-ordax-os"
+        ownership["repositories"]["platform"]["repo"] = "ordaxsystems/ordax-os"
+        status["canonical_repositories"]["platform"] = "ordaxsystems/ordax-os"
         migration = ownership["namespace_migration"]
         migration["current_namespace"] = "ordaxsystems"
         migration["status"] = "complete"
