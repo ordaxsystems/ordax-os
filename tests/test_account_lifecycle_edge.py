@@ -20,6 +20,22 @@ EXPORT_SUBJECT_BRIDGE_MIGRATION = (
     / "migrations"
     / "20261007071500_account_export_subject_bridge_v1.sql"
 )
+DESTINATION_EXPORT_MIGRATION = (
+    ROOT
+    / "infra"
+    / "supabase"
+    / "product"
+    / "migrations"
+    / "20261008085000_account_data_export_project_id_v1.sql"
+)
+HISTORICAL_EXPORT_MIGRATION = (
+    ROOT
+    / "infra"
+    / "supabase"
+    / "product"
+    / "migrations"
+    / "20260925031000_account_data_export_v1.sql"
+)
 ACCOUNT_LIFECYCLE_CONTRACT = ROOT / "docs" / "contracts" / "account-lifecycle.json"
 SECURITY_POSTURE_CONTRACT = ROOT / "docs" / "contracts" / "supabase-security-posture.json"
 ACCOUNT_PROVIDER_SOURCE = ROOT / "services" / "public-identity" / "supabase_account.py"
@@ -93,6 +109,24 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
     def test_health_reports_disabled_state(self):
         self.assertIn('service: "ordax-account-lifecycle"', self.text)
         self.assertIn("accountCloseEnabled: ACCOUNT_CLOSE_ENABLED", self.text)
+
+    def test_destination_export_initial_migration_uses_canonical_memory_project_id(self):
+        init = DESTINATION_EXPORT_MIGRATION.read_text(encoding="utf-8").lower()
+        bridge = EXPORT_SUBJECT_BRIDGE_MIGRATION.read_text(encoding="utf-8").lower()
+        historical = HISTORICAL_EXPORT_MIGRATION.read_text(encoding="utf-8").lower()
+        for sql in (init, bridge):
+            self.assertIn("'project_id', m.project_id", sql)
+            self.assertNotIn("'project_ref', m.project_ref", sql)
+            self.assertIn("where m.owner_user_id = (select user_id from me)", sql)
+            self.assertIn("'$schema', 'prototype-ordax.account-export/1'", sql)
+        self.assertIn("'project_ref', m.project_ref", historical)
+        self.assertIn("security invoker", init)
+        self.assertIn("set search_path = ''", init)
+        self.assertIn("grant execute on function public.ordax_account_export_v1()", init)
+        self.assertIn("revoke all on function public.ordax_account_export_v1()", init)
+        self.assertIn("ordax_account_export_executor", bridge)
+        # Old provider history must never be rewritten to fake its schema.
+        self.assertNotIn("'project_id', m.project_id", historical)
 
     def test_account_export_rpc_uses_dedicated_non_bypass_executor(self):
         migration = EXPORT_EXECUTOR_MIGRATION.read_text(encoding="utf-8").lower()
