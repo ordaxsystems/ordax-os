@@ -58,9 +58,13 @@ Serviços profissionais → Serviços jurídicos → legal-br@1
   de usuário ou alterar o runtime.
   
 O leitor `system/services/profile-packs/taxonomy-source.mjs` aceita somente o
-caminho bundled same-origin canônico. A UI poderá utilizá-lo na navegação dos
-perfis quando houver uma tela integrada, mantendo a composição de instalação
-independente.
+caminho bundled same-origin canônico. A tela **Conta → Perfis** nas composições
+Web/Native carrega a taxonomia verificada, projeta somente os Profile Packs
+`active` do manifest canônico e oferece um filtro de categorias/nichos. O
+planner de instalação continua com a mesma fonte e não concede capacidade.
+Pacotes `draft` ou `retired` não entram na navegação publicada. Se a
+taxonomia estiver ausente ou inválida, a tela preserva a lista anterior,
+sem inventar categorias ou perder a capacidade de revisar um perfil.
 
 ## Distribution and provisioning
 
