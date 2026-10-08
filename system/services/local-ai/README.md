@@ -18,6 +18,11 @@ The Native Host applies its existing Host/Origin/Fetch-Site policy and bounds
 payloads; this bridge is **not** an authentication boundary against arbitrary
 local processes that can contact the raw backend listener. A future isolated
 backend with per-session authorization needs separate physical proof.
+Because the native inference server starts independently of the Surface,
+`system/services/local-ai/probe-supervisor.mjs` owns the initial read-only
+readiness probe and bounded 2–60-second recovery retries. It stops scheduling
+when ready/busy, resumes after backend degradation, and cancels pending work
+during Surface teardown. It never replays a user prompt or runs generation.
 Prompt content stays local by default.
 There is no implicit cloud fallback, filesystem access, tool execution or
 prompt telemetry.
