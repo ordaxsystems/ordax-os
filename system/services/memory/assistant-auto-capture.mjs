@@ -168,7 +168,22 @@ export function createAssistantAutoCaptureRuntime({
     schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
 
     bindTurn() {
-      const authorization = captureAuthorization(identity, spaces);
+      let authorization;
+      try {
+        authorization = captureAuthorization(identity, spaces);
+      } catch {
+        // Unknown identity or inconsistent selection is not permission to write
+        // into device/account Memory. Text-only Local AI may remain available.
+        return Object.freeze({
+          async capture() {
+            return Object.freeze({
+              schema: ASSISTANT_AUTO_CAPTURE_SCHEMA,
+              status: "unavailable",
+              captured: 0,
+            });
+          },
+        });
+      }
       const enabledAtBind = memoryAutoCaptureEnabled(preferences.getSnapshot());
       const currentScope = () => {
         try {
