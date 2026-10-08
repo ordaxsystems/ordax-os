@@ -301,13 +301,52 @@ test("Store discovery uses accessible interaction and localized metadata without
     "filterStoreEntries", "entry.artifactIdentityVerified",
     "entry.provenanceVerified", "entry.blockedReason",
   ]) assert.ok(source.includes(marker), marker);
-  assert.match(styles, /@media \(max-width: 800px\)/);
+  assert.match(styles, /@container \(max-width: 800px\)/);
+  assert.match(styles, /container-type: inline-size/);
+  assert.match(styles, /ordax-store-removal-confirmation/);
   assert.match(styles, /var\(--ordax-accent/);
   assert.match(styles, /prefers-reduced-motion/);
   for (const key of [
     "store.navigation.discover", "store.navigation.installed",
     "store.navigation.updates", "store.search.placeholder",
-    "store.details.permissionNote",
+    "store.details.permissionNote", "store.details.openFor",
+    "store.details.notApplicable", "store.remove.confirmTitle",
+    "store.remove.confirmDescription", "store.remove.confirmAction",
+    "store.remove.cancel",
   ]) assert.equal(locale.split(key).length, 3, key + " must exist in both locales");
   assert.doesNotMatch(source, /fetch\(|localStorage|sessionStorage|innerHTML|new Worker/);
+});
+
+
+test("Store search normalizes accents without changing installability or catalog state", () => {
+  const entries = validateAppStoreCatalogSnapshot({
+    schema: APP_STORE_CATALOG_SCHEMA,
+    state: "ready",
+    entries: [
+      entry({ appId: "audio", title: "Áudio" }),
+      entry({ appId: "acoes", title: "Ações" }),
+    ],
+    reason: null,
+    authority: "none",
+  }).entries;
+  assert.deepEqual(filterStoreEntries(entries, "discover", "audio").map((value) => value.appId), ["audio"]);
+  assert.deepEqual(filterStoreEntries(entries, "discover", "AÇOES").map((value) => value.appId), ["acoes"]);
+  assert.deepEqual(filterStoreEntries(entries, "updates", "audio"), []);
+});
+
+test("Store lifecycle controls confirm removal and survive synchronous as well as async delegate failures", async () => {
+  const source = await readFile(
+    new URL("../system/surface/ui/store-overview-controls.mjs", import.meta.url), "utf8",
+  );
+  assert.match(source, /removalConfirmationAppId = appId/);
+  assert.match(source, /operation === "remove" && removalConfirmationAppId !== appId/);
+  assert.match(source, /storeConfirmRemove/);
+  assert.match(source, /storeCancelRemove/);
+  assert.match(source, /Promise\.resolve\(\)\s*\.then\(\(\) => lifecycleRequests\.requestLifecycle\(request\)\)/);
+  assert.match(source, /\.catch\(\(\) => \{\s*pendingRequest = null;/);
+  assert.match(source, /restoreSearchFocus/);
+  assert.match(source, /root\.addEventListener\("keydown", onKeyDown\)/);
+  assert.match(source, /root\.removeEventListener\("keydown", onKeyDown\)/);
+  assert.match(source, /candidate\.dataset\.storeDetails === previousAppId/);
+  assert.doesNotMatch(source, /Promise\.resolve\(lifecycleRequests\.requestLifecycle/);
 });
