@@ -286,7 +286,7 @@ class PrivateApiSealTests(unittest.TestCase):
             "create policy unsafe on private.ordax_sync_objects for select "
             "using (private.unsafe_check())"
         )
-        pattern = re.compile(r"\\b(?:using|with\\s+check)\\s*\\(")
+        pattern = re.compile(r"\b(?:using|with\s+check)\s*\(")
         self.assertNotIn("private.", table_policy[pattern.search(table_policy).start():])
         self.assertIn("private.", indirect_call[pattern.search(indirect_call).start():])
 
@@ -303,7 +303,7 @@ class PrivateApiSealTests(unittest.TestCase):
                 # only USING/WITH CHECK expressions can smuggle private
                 # function calls into a policy's evaluation context.
                 predicate = re.search(
-                    r"\\b(?:using|with\\s+check)\\s*\\(", normalized
+                    r"\b(?:using|with\s+check)\s*\(", normalized
                 )
                 if predicate and "private." in normalized[predicate.start():]:
                     violations.append((path.name, normalized[:240]))
