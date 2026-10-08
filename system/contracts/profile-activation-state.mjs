@@ -237,6 +237,9 @@ export function assertProfileActivationStatePort(port) {
       throw new TypeError(`Profile activation state port must implement ${method}()`);
     }
   }
+  if ("subscribe" in port && typeof port.subscribe !== "function") {
+    throw new TypeError("Profile activation subscribe must be a function when provided");
+  }
   validateProfileActivationState(port.getSnapshot());
   return port;
 }
