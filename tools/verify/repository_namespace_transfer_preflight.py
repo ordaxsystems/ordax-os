@@ -8,6 +8,7 @@ Its only SSOT inputs are the existing ownership and migration contracts.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -124,12 +125,61 @@ def validate_contracts(ownership: dict, state: dict) -> dict:
     return {"phase": phase, "canonical": current, "destination": target}
 
 
+
+def release_pointer_integrity(root: Path, owner: str) -> dict:
+    """Prove the discovery pointer bytes remain covered by bootstrap authority."""
+    release = json.loads(
+        (root / "docs/contracts/release-channel.json").read_text(encoding="utf-8")
+    )
+    bootstrap = json.loads(
+        (root / "docs/contracts/minimal-bootstrap.json").read_text(encoding="utf-8")
+    )
+    expected_url = (
+        f"https://github.com/{owner}/releases/latest/download/release-envelope.json"
+    )
+    data = (root / "bootstrap/config/release-envelope-url").read_bytes()
+    source = release["source_authority"]["repository"]
+    publication = release["publication"]["latest_envelope_url"]
+    group = next(
+        (item for item in bootstrap["artifact_groups"]
+         if item.get("id") == "bootstrap-release-channel"),
+        None,
+    )
+    if group is None or len(group.get("artifacts", [])) != 1:
+        raise ValueError("bootstrap release channel binding is missing or ambiguous")
+    artifact = group["artifacts"][0]
+    digest = hashlib.sha256(data).hexdigest()
+    expected_digest = artifact["sha256"]
+    paths_match = (
+        artifact["source_path"] == "bootstrap/config/release-envelope-url"
+        and artifact["target_path"] == "/ordax/bootstrap/config/release-envelope-url"
+    )
+    reason = (
+        "canonical_release_pointer_verified"
+        if (
+            source == owner
+            and publication == expected_url
+            and data == (expected_url + "\n").encode("utf-8")
+            and digest == expected_digest
+            and paths_match
+        )
+        else "release_pointer_identity_or_bootstrap_digest_mismatch"
+    )
+    return {
+        "release_pointer_integrity_verified": reason == "canonical_release_pointer_verified",
+        "release_pointer_integrity_reason": reason,
+        "release_pointer_sha256": digest,
+        "bootstrap_pinned_sha256": expected_digest,
+    }
+
+
 def inspect(root: Path) -> dict:
     ownership = json.loads((root / OWNERSHIP_PATH).read_text(encoding="utf-8"))
     status = json.loads((root / STATUS_PATH).read_text(encoding="utf-8"))
     contract = validate_contracts(ownership, status)
     matches = tracked_references(root, f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}")
-    return {**contract, **matches}
+    pointer = release_pointer_integrity(root, contract["canonical"])
+    return {**contract, **matches, **pointer}
 
 
 def cutover_ready(report: dict, environ: dict[str, str]) -> tuple[bool, str]:
@@ -137,6 +187,8 @@ def cutover_ready(report: dict, environ: dict[str, str]) -> tuple[bool, str]:
         return False, "physical_transfer_and_ssot_cutover_not_completed"
     if report["operational_count"]:
         return False, "old_operational_owner_references_remaining"
+    if report.get("release_pointer_integrity_verified") is not True:
+        return False, "release_pointer_identity_or_bootstrap_digest_mismatch"
     if environ.get("GITHUB_REPOSITORY") != report["destination"]:
         return False, "github_workflow_repository_identity_not_verified"
     if environ.get("GITHUB_REPOSITORY_ID") != PLATFORM_REPOSITORY_ID:
@@ -164,6 +216,9 @@ def main() -> int:
             "old_operational_file_count": report["operational_count"],
             "preserved_historical_file_count": report["historical_count"],
             "old_operational_paths_sample": report["operational_paths"][:args.max_paths],
+            "release_pointer_integrity_verified": report["release_pointer_integrity_verified"],
+            "release_pointer_sha256": report["release_pointer_sha256"],
+            "bootstrap_pinned_sha256": report["bootstrap_pinned_sha256"],
             "cutover_ready": ready,
             "reason": reason,
         }, indent=2, ensure_ascii=False))
