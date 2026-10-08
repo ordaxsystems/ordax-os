@@ -247,6 +247,65 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     need(public_edge_gateway.get("oidc_source_ready") is True, "public-edge-oidc-source")
     need(public_edge_gateway.get("oidc_deployed") is True, "public-edge-oidc-deployment")
     need(public_edge_gateway.get("runtime_provenance_e2e_verified") is True, "public-edge-provenance-proof")
+    # Deployment is the SSOT for Vercel project identity, public hostname,
+    # authoritative DNS and production availability. Auth's own OIDC proof is
+    # necessary, but it must never override a mismatched site origin or a
+    # recovery redirect still pointing to the previous team's domain.
+    migration = deployment.get("vercel_migration", {})
+    if not isinstance(migration, dict):
+        raise ValueError("vercel_migration must be an object")
+    target_domain = migration.get("target_canonical_domain")
+    canonical_origin = (
+        f"https://{target_domain}"
+        if isinstance(target_domain, str)
+        and re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{1,251}[a-z0-9])?", target_domain)
+        and "." in target_domain
+        else None
+    )
+    need(
+        migration.get("target_project_provisioned") is True
+        and destination.get("destination_vercel_public_project_found") is True
+        and migration.get("target_team_id") == destination.get("destination_vercel_team_id")
+        and migration.get("target_project") == destination.get("destination_vercel_public_project_name")
+        and isinstance(migration.get("target_git_repository"), str)
+        and migration["target_git_repository"].startswith(
+            migration.get("target_github_organization", "") + "/"
+        ),
+        "vercel-canonical-project-identity",
+    )
+    need(migration.get("target_canonical_domain_verified") is True, "vercel-canonical-domain-ownership")
+    need(migration.get("target_dns_apex_routing_cutover_verified") is True, "vercel-apex-dns-cutover")
+    need(migration.get("target_www_domain_verified") is True, "vercel-www-domain-ownership")
+    need(
+        migration.get("target_www_domain_redirect_status") == 308
+        and migration.get("target_www_domain") == f"www.{target_domain}",
+        "vercel-www-canonical-redirect",
+    )
+    need(migration.get("target_project_production_deployment_ready") is True, "vercel-production-ready")
+    need(migration.get("target_project_production_http_smoke_verified") is True, "vercel-production-http-proof")
+    need(migration.get("target_project_environment_variables_present") is True, "vercel-production-environment")
+    need(
+        migration.get("target_project_production_public_account_routes_available") is True,
+        "vercel-production-account-routes",
+    )
+    need(migration.get("target_runtime_oidc_e2e_verified") is True, "vercel-production-oidc-proof")
+    need(
+        canonical_origin is not None
+        and vercel_adapter.get("canonical_public_origin") == canonical_origin
+        and vercel_adapter.get("canonical_public_origin_live_configured") is True
+        and vercel_adapter.get("canonical_public_origin_deployment_verified") is True,
+        "vercel-canonical-origin-binding",
+    )
+    need(
+        canonical_origin is not None and redirect_policy.get("origin") == canonical_origin,
+        "provider-redirect-canonical-origin",
+    )
+    need(
+        canonical_origin is not None
+        and redirect_policy.get("recovery_verify_url")
+        == canonical_origin + "/auth/recover/verify",
+        "provider-recovery-canonical-origin",
+    )
     need(vercel_adapter.get("status") == "deployed", "vercel-same-origin-adapter-deployment")
     need(routing.get("vercel_adapter_routed_to_public_edge_gateway") is True, "vercel-public-edge-routing")
     need(adapter.get("public_auth_rate_limit_deployed") is True, "deployment-rate-limit")
