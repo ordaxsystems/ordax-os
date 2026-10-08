@@ -496,3 +496,43 @@ The broker exposes only `resolve(resourceRef)`. It does not expose activation, i
 **Current composition state:** the activation broker is now mounted in the Native Personal OrdaX composition as the read-only `resolveApplicationActionProviderActivation(resourceRef)` continuation of verified provider artifact resolution. It is created only when the artifact boundary is available, reuses the same live verified semantics source and canonical first-party owner, and fails closed otherwise. The exposed result remains `providerExecution/state=unavailable`, `brokerOnly=true`, `authority=none`, `executionAuthorized=false`, and `modelDirectExecutionAuthorized=false`; no provider code is imported or executed.
 
 Changing a provider from `execution: "unavailable"` is not part of this state. That requires a separately versioned/gated provider contract plus the existing Personal OrdaX approval -> scoped grant -> Action Gateway -> Action Executor -> receipt path. It must not create a second permission store, confirmation system, executor or receipt format.
+
+
+## Sugestões verificadas da Intelligence para aplicativos — somente consulta e preparação
+
+A composição Native reutiliza os responsáveis já existentes:
+
+- `ordax.application-semantic-router/1`: seleciona até 3 aplicativos
+  relevantes para o objetivo do Work;
+- `ordax.application-action-capability-registry/1`: fornece somente ações
+  **first-party/native** com identidade conhecida e parâmetros tipados;
+- `ordax.intelligence/1`: pode sugerir `kind=none` ou um único par
+  `appId/actionId` com argumentos, em JSON de campos estritos;
+- `ordax.personal-ordax/1`: vincula a sugestão à conta, Space, Project e
+  revisão do Work antes e depois da inferência assíncrona;
+- `ordax.application-action-preparation/1`: aceita somente a proposta
+  original emitida pelo catálogo, após a ação explícita de preparar.
+
+A entrada do modelo **não** pode declarar grants, SHA de artefato, permissão,
+recursos brutos ou status de execução. A proposta validada é reconstruída pelo
+registry canônico, que impõe `executionAuthorized=false` e
+`modelDirectExecutionAuthorized=false`. O planner limita a 12 ações, usa
+argumentos tipados e **recusa** catálogos além do orçamento, sem cortar
+silenciosamente permissões. Conteúdo desconhecido ou ferramentas inventadas
+falham antes de criar preparações.
+
+Na Activity, `Sugerir ação de aplicativo` apresenta uma prévia explícita.
+`Preparar sugestão de aplicativo` cria apenas uma preparação revogável
+vinculada ao Work atual. Ela **não** solicita aprovação nem executa aplicativos.
+A sugestão antiga não é aceita depois de troca de conta, mudança de revisão
+de Work ou perda de Space/Project. O usuário pode descartá-la/revogar sua
+preparação. Os testes ficam em
+`tests/test_application_action_preparation_composition.mjs` e
+`tests/test_personal_ordax_activity_surface.mjs`.
+
+Este corte **não** habilita ações reais nos aplicativos: a implementação de
+grants, consentimento e adapter verificado para cada ação continua sendo
+um gate independente, sem segundo gateway nem bypass no modelo. A ação Native
+`files.directory.ensure` permanece como o único efeito foreground validado
+no Personal OrdaX. A CI prova os contratos com inferência controlada; não
+comprova desempenho ou acurácia da IA real nem substitui o teste físico.
