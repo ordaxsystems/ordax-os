@@ -22,9 +22,9 @@ PREVIOUS_OWNER = "washingtonmsdj"
 REPOSITORY_NAME = "prototipo-ordax-os"
 PLATFORM_REPOSITORY_ID = "1371063347"
 
-ACTIVE_PREFIXES = (".github/workflows/", "bootstrap/", "system/", "tools/", "tests/")
+ACTIVE_PREFIXES = (".github/workflows/", "boot/", "bootstrap/", "sdk/", "system/", "tools/", "tests/")
 ACTIVE_CONTRACT_PREFIX = "docs/contracts/"
-ACTIVE_DOC = "docs/REPOSITORY-OWNERSHIP.md"
+ACTIVE_DOCS = frozenset({"docs/REPOSITORY-OWNERSHIP.md", "docs/RELEASE-CHANNEL.md"})
 IGNORED_SUFFIXES = (".pack", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".exe")
 # Previously issued, pinned artifacts are provenance; rewriting their source
 # owner would falsify old signing/physical authorization evidence.
@@ -38,7 +38,7 @@ IMMUTABLE_HISTORICAL_PATHS = frozenset({
 def is_operational(path: str) -> bool:
     if path in IMMUTABLE_HISTORICAL_PATHS:
         return False
-    if path == ACTIVE_DOC or path.startswith(ACTIVE_CONTRACT_PREFIX):
+    if path in ACTIVE_DOCS or path.startswith(ACTIVE_CONTRACT_PREFIX):
         return True
     return path.startswith(ACTIVE_PREFIXES) and not path.endswith(IGNORED_SUFFIXES)
 
@@ -173,13 +173,27 @@ def release_pointer_integrity(root: Path, owner: str) -> dict:
     }
 
 
+def sdk_package_projection_integrity(root: Path) -> dict:
+    """The SDK public view must be identical to the canonical package policy."""
+    source = (root / "docs/contracts/runtime-component-package.json").read_bytes()
+    snapshot = (root / "sdk/app-sdk-v1/runtime-component-package-policy.json").read_bytes()
+    if not source or not snapshot:
+        raise ValueError("runtime component source policy and SDK snapshot must not be empty")
+    return {
+        "sdk_package_projection_verified": source == snapshot,
+        "sdk_package_source_sha256": hashlib.sha256(source).hexdigest(),
+        "sdk_package_snapshot_sha256": hashlib.sha256(snapshot).hexdigest(),
+    }
+
+
 def inspect(root: Path) -> dict:
     ownership = json.loads((root / OWNERSHIP_PATH).read_text(encoding="utf-8"))
     status = json.loads((root / STATUS_PATH).read_text(encoding="utf-8"))
     contract = validate_contracts(ownership, status)
     matches = tracked_references(root, f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}")
     pointer = release_pointer_integrity(root, contract["canonical"])
-    return {**contract, **matches, **pointer}
+    snapshot = sdk_package_projection_integrity(root)
+    return {**contract, **matches, **pointer, **snapshot}
 
 
 def cutover_ready(report: dict, environ: dict[str, str]) -> tuple[bool, str]:
@@ -189,6 +203,8 @@ def cutover_ready(report: dict, environ: dict[str, str]) -> tuple[bool, str]:
         return False, "old_operational_owner_references_remaining"
     if report.get("release_pointer_integrity_verified") is not True:
         return False, "release_pointer_identity_or_bootstrap_digest_mismatch"
+    if report.get("sdk_package_projection_verified") is not True:
+        return False, "sdk_package_policy_projection_drift"
     if environ.get("GITHUB_REPOSITORY") != report["destination"]:
         return False, "github_workflow_repository_identity_not_verified"
     if environ.get("GITHUB_REPOSITORY_ID") != PLATFORM_REPOSITORY_ID:
@@ -219,6 +235,9 @@ def main() -> int:
             "release_pointer_integrity_verified": report["release_pointer_integrity_verified"],
             "release_pointer_sha256": report["release_pointer_sha256"],
             "bootstrap_pinned_sha256": report["bootstrap_pinned_sha256"],
+            "sdk_package_projection_verified": report["sdk_package_projection_verified"],
+            "sdk_package_source_sha256": report["sdk_package_source_sha256"],
+            "sdk_package_snapshot_sha256": report["sdk_package_snapshot_sha256"],
             "cutover_ready": ready,
             "reason": reason,
         }, indent=2, ensure_ascii=False))
