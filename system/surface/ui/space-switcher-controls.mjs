@@ -6,6 +6,17 @@ import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lif
 
 // One presentation for the existing Account-owned Spaces catalog and selection.
 // Selecting a Space is navigation context, never a permission grant.
+export function deriveSpaceSwitcherView(identity, catalog, selection) {
+  const visibleSpaces = identity.state === "signed-in" && catalog.state === "ready"
+    ? catalog.spaces : [];
+  const active = (
+    identity.state === "signed-in"
+    && selection?.state === "selected"
+    && selection.subjectId === identity.subjectId
+  ) ? visibleSpaces.find((space) => space.id === selection.selectedSpace.id && space.state === "active") ?? null : null;
+  return Object.freeze({ visibleSpaces, active });
+}
+
 export function mountSpaceSwitcherControls(
   root,
   identitySession,
@@ -53,22 +64,14 @@ export function mountSpaceSwitcherControls(
   let loading = false;
   let error = false;
   let destroyed = false;
-
-  const authorizedSelection = (identity, selected) => (
-    identity.state === "signed-in"
-    && selected?.state === "selected"
-    && selected.subjectId === identity.subjectId
-    ? selected.selectedSpace : null
-  );
+  let refreshRevision = 0;
 
   const render = () => {
     if (destroyed) return;
     const identity = identityPort.getSnapshot();
     const catalog = spacesPort.getSnapshot();
     const selected = selectionPort?.getSnapshot() ?? null;
-    const active = authorizedSelection(identity, selected);
-    const canShow = identity.state === "signed-in" && catalog.state === "ready";
-    const spacesVisible = canShow ? catalog.spaces : [];
+    const { active, visibleSpaces: spacesVisible } = deriveSpaceSwitcherView(identity, catalog, selected);
 
     trigger.replaceChildren();
     const mark = element("span", "ordax-space-switcher-mark", active ? active.name.trim().slice(0, 1).toLocaleUpperCase() : "◇");
@@ -148,13 +151,14 @@ export function mountSpaceSwitcherControls(
 
   const refreshCatalog = () => {
     if (loading || identityPort.getSnapshot().state !== "signed-in") return;
+    const revision = ++refreshRevision;
     loading = true;
     error = false;
     render();
     void spacesPort.refresh().catch(() => {
-      if (!destroyed) error = true;
+      if (!destroyed && revision === refreshRevision) error = true;
     }).finally(() => {
-      if (destroyed) return;
+      if (destroyed || revision !== refreshRevision) return;
       loading = false;
       render();
     });
@@ -209,7 +213,13 @@ export function mountSpaceSwitcherControls(
   doc.addEventListener("click", onOutside);
   doc.addEventListener("keydown", onKeyDown);
   const subscriptions = [
-    identityPort.subscribe(() => { open = false; error = false; render(); }),
+    identityPort.subscribe(() => {
+      refreshRevision += 1;
+      loading = false;
+      open = false;
+      error = false;
+      render();
+    }),
     spacesPort.subscribe(render),
     selectionPort?.subscribe(render),
     lifecycle.localization.subscribe?.(render),
