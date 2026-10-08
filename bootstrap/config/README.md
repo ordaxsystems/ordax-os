@@ -19,7 +19,7 @@ Canonical runtime path:
 The file contains exactly one HTTPS URL:
 
 ```text
-https://github.com/ordaxsystems/prototipo-ordax-os/releases/latest/download/release-envelope.json
+https://github.com/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json
 ```
 
 GitHub documents `/releases/latest/download/<asset>` as the direct download form for an asset on the latest release. This pointer selects the candidate delivery object only; it is **not** an authenticity authority. The downloaded envelope must still pass the local Ed25519 trust anchor, strict schema checks, repository pin, exact source-commit identity, artifact size checks and SHA-256 verification.

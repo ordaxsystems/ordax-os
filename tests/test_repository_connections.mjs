@@ -20,7 +20,7 @@ const row = {
   external_account_id: "github-user-123",
   installation_id: 987654321,
   repository_id: "1234567890123456789",
-  repository_full_name: "ordaxsystems/prototipo-ordax-os",
+  repository_full_name: "ordaxsystems/ordax-os",
   default_branch: "main",
   access_mode: "read-write",
   state: "active",
@@ -52,7 +52,7 @@ const row = {
   assert.equal(entry.projectId, projectA);
   assert.equal(entry.provider, "github");
   assert.equal(entry.repositoryId, "1234567890123456789");
-  assert.equal(entry.repositoryFullName, "ordaxsystems/prototipo-ordax-os");
+  assert.equal(entry.repositoryFullName, "ordaxsystems/ordax-os");
   assert.equal(entry.accessMode, "read-write");
   assert.equal(entry.selection, "explicit-repository");
   assert.equal(entry.mutationAuthority, "none");
