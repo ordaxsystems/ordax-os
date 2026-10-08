@@ -83,7 +83,7 @@ class NativeProfileActivationCommandTests(unittest.TestCase):
             self.assertEqual(first["permissionDiff"]["componentAdds"], [])
 
             module.execute_profile_activation_command(command(slug="pizzaria-br"), **args)
-            with self.assertRaisesRegex(ValueError, "preview revision is stale"):
+            with self.assertRaisesRegex(RuntimeError, "preview revision changed"):
                 module.execute_profile_activation_command(preview, **args)
 
             preview["expectedRevision"] = 1
