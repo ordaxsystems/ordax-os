@@ -451,3 +451,67 @@ test("signed candidate mismatch denial cannot be replayed after catalog reconcil
   )).state, "accepted");
   assert.equal(calls, 1);
 });
+
+test("unsigned runtime capability cannot be invented by a verified catalog for optional apps", async () => {
+  let delegated = 0;
+  const executeLifecycle = async (plan) => {
+    delegated += 1;
+    return resultFor(plan);
+  };
+  for (const operation of ["install", "update"]) {
+    const projection = entry({
+      appId: "calculator",
+      title: "Calculadora",
+      state: operation === "install" ? "available" : "installed",
+      installedVersion: operation === "install" ? null : "0.4.2",
+      availableVersion: "0.4.3",
+      installable: operation === "install",
+      updatable: operation === "update",
+      removable: operation === "update",
+    });
+    const runtime = service({
+      projection: ready(projection),
+      verified: verifiedReady([verifiedEntry({appId:"calculator"})]),
+      executeLifecycle,
+    });
+    const ask = request(operation, {
+      appId:"calculator",
+      requestId:"store:" + operation + ":calculator:module-gate",
+    });
+    const denied = await runtime.requestLifecycle(ask);
+    assert.equal(denied.state,"rejected");
+    assert.equal(denied.reason,"runtime-module-read-unavailable");
+    assert.strictEqual(await runtime.requestLifecycle(ask),denied,
+      "same requestId remains rejected after checks change");
+  }
+  assert.equal(delegated,0,"Native lifecycle delegate must not be invoked");
+});
+
+test("store removal is not blocked by missing Native executable-read support", async () => {
+  let calls=0;
+  const runtime=service({
+    projection:ready(entry({
+      appId:"calculator",
+      title:"Calculadora",
+      state:"installed",
+      installedVersion:"0.2.0",
+      availableVersion:null,
+      installable:false, updatable:false,
+      removable:true,
+      artifactIdentityVerified:false,
+      provenanceVerified:false,
+    })),
+    verified:verifiedReady([]),
+    executeLifecycle:async plan=>{
+      calls += 1;
+      return resultFor(plan);
+    },
+  });
+  const response=await runtime.requestLifecycle(request("remove",{
+    appId:"calculator",
+    requestId:"store:remove:calculator:no-module-read",
+  }));
+  assert.equal(response.state,"accepted");
+  assert.equal(calls,1);
+});
+
