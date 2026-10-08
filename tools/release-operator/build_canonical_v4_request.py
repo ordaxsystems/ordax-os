@@ -21,6 +21,7 @@ from validate_canonical_v4_signing_request import (
 )
 
 REPOSITORY_ID = 1371063347
+CUTOVER_COMMIT = "9eb4dbbe7f1898ddf517ccc58948b062ed7db391"
 API = f"https://api.github.com/repos/{REPOSITORY}"
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
@@ -48,6 +49,22 @@ def fetch_json(path: str, token: str) -> dict:
     if not isinstance(data, dict):
         raise ValidationError("GitHub metadata must be an object")
     return data
+
+
+
+def verify_cutover_ancestry(source_commit: str, token: str) -> None:
+    """GitHub can relabel pre-transfer runs; prove Git ancestry, not just owner name."""
+    if HEX40.fullmatch(source_commit) is None:
+        raise ValidationError("source commit must be exact lowercase 40-hex")
+    postcutover = fetch_json(f"/compare/{CUTOVER_COMMIT}...{source_commit}", token)
+    if (postcutover.get("status") not in ("ahead", "identical")
+        or not isinstance(postcutover.get("head_commit"), dict)
+        or postcutover["head_commit"].get("sha") != source_commit):
+        raise ValidationError("source commit does not descend from canonical cutover")
+    still_main = fetch_json(f"/compare/{source_commit}...main", token)
+    if still_main.get("status") not in ("ahead", "identical"):
+        raise ValidationError("frozen release source is not an ancestor of current main")
+
 
 
 def build_request(source_commit: str, runs: dict, inventories: dict, historical: dict) -> dict:
@@ -140,6 +157,7 @@ def main() -> int:
         if (repo.get("full_name") != REPOSITORY or repo.get("id") != REPOSITORY_ID
             or repo.get("default_branch") != "main" or repo.get("archived") is not False):
             raise ValidationError("GitHub canonical repository identity is invalid")
+        verify_cutover_ancestry(args.source_commit, token)
         ids = {"system": args.system_run, "surface": args.surface_run, "local-ai": args.local_ai_run}
         runs, inventories = {}, {}
         for kind, rid in ids.items():
