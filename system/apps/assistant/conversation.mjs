@@ -277,7 +277,9 @@ export function createAssistantConversationRuntime({
           engineId: response.engineId,
           modelId: response.modelId,
         });
-        state = runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()));
+        state = boundMemoryTurn === null
+          ? runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()))
+          : "busy";
         lastError = null;
         publish();
 
@@ -304,6 +306,7 @@ export function createAssistantConversationRuntime({
             }
             memoryCaptureState = "error";
           }
+          state = runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()));
           publish();
         }
         return response;
@@ -337,9 +340,11 @@ export function createAssistantConversationRuntime({
       messages = Object.freeze([]);
       lastError = null;
       memoryCaptureState = memoryCapture === null ? "unavailable" : "idle";
-      state = runtimeState(
-        intelligence === null ? null : validateIntelligenceSnapshot(intelligence.getSnapshot()),
-      );
+      state = scopeKey === null
+        ? "unavailable"
+        : runtimeState(
+          intelligence === null ? null : validateIntelligenceSnapshot(intelligence.getSnapshot()),
+        );
       publish();
       return snapshot();
     },
