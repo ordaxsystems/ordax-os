@@ -263,7 +263,7 @@
     "spirv-tools": "1.4.313.0-r0",
     "sqlite-libs": "3.49.2-r1",
     "ssl_client": "1.37.0-r20",
-    "tiff": "4.7.1-r0",
+    "tiff": "4.7.2-r0",
     "tslib": "1.23-r0",
     "udev-init-scripts": "35-r1",
     "utmps-libs": "0.1.3.1-r0",
@@ -307,25 +307,25 @@
     "purpose": "resolve-and-review-the-full-transitive-apk-lock-before-any-runtime-artifact-is-promotable"
   },
   "promotion_blockers": [
+    "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
     "prove-stable-first-surface-boot-with-network-disabled-on-current-head",
     "prove-physical-stable-surface-on-supported-usb-hardware",
     "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion"
   ],
   "apk_package_lock_count": 253,
-  "apk_package_lock_status": "reviewed-refresh-from-ci-run-36861995001",
+  "apk_package_lock_status": "ci-drift-resolved-pending-repeat-erofs-proof-37797603686",
   "discovery_evidence": {
-    "workflow_run_id": 36861995001,
-    "source_commit": "8a78884a3026594eb6dd088e098885c775b13cc1",
-    "artifact_name": "surface-runtime-candidate-8a78884a3026594eb6dd088e098885c775b13cc1",
-    "artifact_archive_sha256": "2ef3cc6a34351e892f5be07774395189086cf69b65873012e8353b3a153b48ba",
+    "workflow_run_id": 37797603686,
+    "source_commit": "785255cdb6328b54b5618b9016844f42a2e1f8b3",
+    "artifact_name": "surface-runtime-candidate-785255cdb6328b54b5618b9016844f42a2e1f8b3",
+    "artifact_archive_sha256": "8b5d9604b06a79b456ec2de291db035ac326ef9f91d5ecad41ce1d6c163f554a",
     "resolved_package_count": 253,
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "scope": "current-2026-10-01-python-lock-refresh"
+    "scope": "2026-10-08-resolved-full-transitive-drift-pending-erofs-reproof"
   },
   "closed_gates": [
     "full-transitive-apk-lock-pinned",
-    "byte-reproducible-erofs-runtime-ci",
     "signed-release-manifest-v3-runtime-binding-implemented",
     "creator-content-addressed-runtime-preseed-implemented",
     "initramfs-runtime-erofs-ephemeral-overlay-handoff-implemented",
@@ -335,7 +335,7 @@
     "workflow": ".github/workflows/surface-runtime-lock-discovery.yml",
     "workflow_run_id": 36861995001,
     "source_commit": "8a78884a3026594eb6dd088e098885c775b13cc1",
-    "status": "pass-ci-repeat-digest",
+    "status": "historical-pass-reproof-required",
     "tree_manifest_sha256": "31a08159a0e83d82e93bc8e5001ffd699b94cb2ba84bf2b105e722448dfbf3d6",
     "normalized_tar_sha256": "a46843d17af395b3dbced2c25c4bfd41043407e71ef77054c5f4fcd8a67aa12e",
     "erofs_sha256": "446f400a48bbd0b20aec9237a592ae009030cc3252186463cafebea167905b3d",
@@ -345,7 +345,7 @@
     "runtime_image_retained": false,
     "physical_artifact_authorized": false,
     "boot_handoff_connected_at_proof_time": false,
-    "scope": "current-2026-10-01-python-lock-refresh"
+    "scope": "historical-2026-10-01-lock-refresh-not-current"
   },
   "runtime_generated_state": {
     "machine_identity_baked_into_image": false,
@@ -364,46 +364,31 @@
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reproof-required-after-upstream-libseccomp-drift",
-    "detected_by_qemu_run_id": 37470312340,
-    "discovery_run_id": 36861995001,
-    "discovery_source_commit": "8a78884a3026594eb6dd088e098885c775b13cc1",
-    "discovery_artifact_id": 11161819789,
-    "discovery_artifact_sha256": "2ef3cc6a34351e892f5be07774395189086cf69b65873012e8353b3a153b48ba",
+    "status": "reproof-required-after-upstream-tiff-drift",
+    "detected_by_qemu_run_id": 37794806524,
+    "discovery_run_id": 37797603686,
+    "discovery_source_commit": "785255cdb6328b54b5618b9016844f42a2e1f8b3",
+    "discovery_artifact_id": 11559496802,
+    "discovery_artifact_sha256": "8b5d9604b06a79b456ec2de291db035ac326ef9f91d5ecad41ce1d6c163f554a",
     "previous_package_count": 253,
     "resolved_package_count": 253,
     "missing": [],
     "extra": [],
     "changed": [
       {
-        "name": "pyc",
-        "from": "3.12.14-r0",
-        "to": "3.12.15-r0"
-      },
-      {
-        "name": "python3",
-        "from": "3.12.14-r0",
-        "to": "3.12.15-r0"
-      },
-      {
-        "name": "python3-pyc",
-        "from": "3.12.14-r0",
-        "to": "3.12.15-r0"
-      },
-      {
-        "name": "python3-pycache-pyc0",
-        "from": "3.12.14-r0",
-        "to": "3.12.15-r0"
+        "name": "tiff",
+        "from": "4.7.1-r0",
+        "to": "4.7.2-r0"
       }
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
     "reproducibility_reproof_required": true,
     "upstream_drift": {
-      "package": "libseccomp",
-      "from": "2.6.0-r0",
-      "to": "2.6.1-r0",
-      "detected_by_qemu_run_id": 37470312340
+      "package": "tiff",
+      "from": "4.7.1-r0",
+      "to": "4.7.2-r0",
+      "detected_by_qemu_run_id": 37794806524
     }
   }
 }
