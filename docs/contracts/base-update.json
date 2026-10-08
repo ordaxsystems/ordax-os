@@ -437,7 +437,7 @@
     "source_path": "bootstrap/config/release-envelope-url",
     "target": "/ordax/bootstrap/config/release-envelope-url",
     "authority": "minimal-bootstrap-sha256",
-    "expected_sha256": "3c3e78d65aee0b120071e6bcee776c83de9e5ea1d8bd1a936d61d09499141741",
+    "expected_sha256": "a5d34ab75cdef9e8826ccef29baf746f1cbb43f1cac1dc94568e47671d335849",
     "mode": "0644",
     "absent_channel_enrollment": true,
     "existing_divergent_channel": "block",

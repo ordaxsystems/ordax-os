@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.repository-migration-status/1",
   "status": "cutover-complete-legacy-retired",
   "canonical_repositories": {
-    "platform": "ordaxsystems/prototipo-ordax-os",
+    "platform": "ordaxsystems/ordax-os",
     "apps": "ordaxsystems/ordax-apps",
     "runtime": "ordaxsystems/ordax-runtime",
     "control_plane": "ordaxsystems/ordax-control-plane"

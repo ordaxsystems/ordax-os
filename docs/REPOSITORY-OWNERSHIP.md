@@ -12,7 +12,7 @@ Nenhum repositório pode absorver uma responsabilidade de outro apenas para simp
 
 ## Os quatro repositórios oficiais
 
-### 1. ordaxsystems/prototipo-ordax-os
+### 1. ordaxsystems/ordax-os
 
 **Papel:** plataforma/sistema operacional OrdaX.
 
@@ -171,7 +171,7 @@ Atualizado em 2026-10-07.
 
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
-| OrdaX OS / plataforma | `ordaxsystems/prototipo-ordax-os` | canônico |
+| OrdaX OS / plataforma | `ordaxsystems/ordax-os` | canônico |
 | Apps first-party / ORDAX Studio | `ordaxsystems/ordax-apps` | canônico; Studio portátil em `apps/studio` |
 | Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico; namespace transferido e histórico preservado |
 | Product MCP / Control Plane / connectors | `ordaxsystems/ordax-control-plane` | repositório criado; migração do legado pendente |

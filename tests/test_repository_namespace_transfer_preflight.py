@@ -25,8 +25,8 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
     def test_posttransfer_contract_has_exact_destination_and_preserved_order(self):
         report = audit.validate_contracts(self.ownership, self.status)
         self.assertEqual(report["phase"], "post-transfer")
-        self.assertEqual(report["canonical"], "ordaxsystems/prototipo-ordax-os")
-        self.assertEqual(report["destination"], "ordaxsystems/prototipo-ordax-os")
+        self.assertEqual(report["canonical"], "ordaxsystems/ordax-os")
+        self.assertEqual(report["destination"], "ordaxsystems/ordax-os")
 
     def test_transfer_audit_distinguishes_live_trust_code_from_provenance(self):
         old = "washingtonmsdj/prototipo-ordax-os"
@@ -82,7 +82,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             )
 
     def test_release_pointer_sha_is_pinned_to_bootstrap_manifest(self):
-        report = audit.release_pointer_integrity(ROOT, "ordaxsystems/prototipo-ordax-os")
+        report = audit.release_pointer_integrity(ROOT, "ordaxsystems/ordax-os")
         self.assertTrue(report["release_pointer_integrity_verified"])
         self.assertEqual(
             report["release_pointer_sha256"],
@@ -90,7 +90,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         )
         self.assertEqual(
             report["release_pointer_sha256"],
-            "3c3e78d65aee0b120071e6bcee776c83de9e5ea1d8bd1a936d61d09499141741",
+            "a5d34ab75cdef9e8826ccef29baf746f1cbb43f1cac1dc94568e47671d335849",
         )
 
     def test_repointing_release_url_without_new_verified_bootstrap_fails(self):
@@ -223,8 +223,8 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             "GITHUB_REPOSITORY_ID": "0",
         })[0])
 
-        # Old bootstrap bytes/sha cannot be used as authority for the new URL.
-        self.assertFalse(audit.release_pointer_integrity(ROOT, target)[
+        # The new pointer and new manifest pin agree in the staged cutover.
+        self.assertTrue(audit.release_pointer_integrity(ROOT, target)[
             "release_pointer_integrity_verified"
         ])
         altered = copy.deepcopy(renamed)
@@ -259,7 +259,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
     def test_cutover_proof_needs_no_live_legacy_refs_and_exact_github_identity(self):
         report = {
             "phase": "post-transfer",
-            "destination": "ordaxsystems/prototipo-ordax-os",
+            "destination": "ordaxsystems/ordax-os",
             "operational_count": 0,
             "release_pointer_integrity_verified": True,
             "sdk_package_projection_verified": True,
