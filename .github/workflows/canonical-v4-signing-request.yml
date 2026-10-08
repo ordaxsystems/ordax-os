@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/canonical-v4-signing-request.yml'
-      - pathlib.Path(os.environ['CANONICAL_V4_REQUEST_PATH'])
+      - 'docs/contracts/canonical-v4-signing-request.json'
       - 'docs/contracts/canonical-v4-signing-request-active.json'
       - 'tools/release-operator/select_active_signing_request.py'
       - 'tests/test_canonical_v4_signing_request_selection.py'
@@ -14,7 +14,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/canonical-v4-signing-request.yml'
-      - pathlib.Path(os.environ['CANONICAL_V4_REQUEST_PATH'])
+      - 'docs/contracts/canonical-v4-signing-request.json'
       - 'docs/contracts/canonical-v4-signing-request-active.json'
       - 'tools/release-operator/**'
       - 'tests/test_canonical_v4_signing_request*.py'
@@ -43,8 +43,6 @@ jobs:
           python3 -m unittest discover -v -s tests -p 'test_canonical_v4_signing_request_selection.py'
       - name: Select current request without confusing historical provenance
         id: select
-        env:
-          SELECTION_OUTPUT: ${{ github.output }}
         run: |
           set -euo pipefail
           python3 tools/release-operator/select_active_signing_request.py \
@@ -99,7 +97,7 @@ jobs:
           set -euo pipefail
           python - "$GITHUB_OUTPUT" <<'PY'
           import json, os, pathlib, sys
-          request = json.loads(pathlib.Path(pathlib.Path(os.environ['CANONICAL_V4_REQUEST_PATH'])).read_text(encoding='utf-8'))
+          request = json.loads(pathlib.Path(os.environ['CANONICAL_V4_REQUEST_PATH']).read_text(encoding='utf-8'))
           out = pathlib.Path(sys.argv[1])
           values = {
               'source_commit': request['source_commit'],
