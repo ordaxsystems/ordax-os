@@ -154,6 +154,19 @@ export function createNativePersonalOrdaxComposition({
   const recoveryBindings = new WeakMap();
   const applicationActionPreparationBindings = new Map();
 
+  // Identity, Space and Project owners are the SSOT. This local generation is
+  // only a revocation fence for transient, model-suggested objects. It is not
+  // persisted, treated as identity, or exposed to Intelligence as authority.
+  // A -> B -> A must not resurrect an old inference or previously issued offer.
+  let contextGeneration = 0;
+  let disposed = false;
+  const invalidateContext = () => { contextGeneration += 1; };
+  const contextUnsubscribers = [
+    identitySession.subscribe(invalidateContext),
+    spaceSelection?.subscribe(invalidateContext) ?? null,
+    projects?.subscribe(invalidateContext) ?? null,
+  ].filter((unsubscribe) => typeof unsubscribe === "function");
+
   const ownerKeyFromSnapshot = (snapshot) => (
     snapshot.ownerKind === "account"
       ? `account:${snapshot.ownerId}`
@@ -222,6 +235,7 @@ export function createNativePersonalOrdaxComposition({
       );
       const invalid = (
         binding.ownerKey !== ownerKey
+        || binding.contextGeneration !== contextGeneration
         || !applicationActionWorkContextIsCurrent(work)
         || ["executed", "revoked", "denied", "cancelled"].includes(approval?.status)
         || ["succeeded", "uncertain"].includes(attempt?.status)
@@ -245,6 +259,7 @@ export function createNativePersonalOrdaxComposition({
     proposalBindings.set(proposal, Object.freeze({
       ownerKey: ownerKeyFromSnapshot(runtime.getSnapshot()),
       workRevision: workRevision(work),
+      contextGeneration,
     }));
     return proposal;
   };
@@ -262,6 +277,7 @@ export function createNativePersonalOrdaxComposition({
     recoveryBindings.set(suggestion, Object.freeze({
       ownerKey,
       workRevision: workRevision(work),
+      contextGeneration,
     }));
     return suggestion;
   };
@@ -299,6 +315,7 @@ export function createNativePersonalOrdaxComposition({
       Object.freeze({
         ownerKey: ownerKeyFromSnapshot(runtime.getSnapshot()),
         workRevision: workRevision(work),
+        contextGeneration,
       }),
     );
     return preparation;
@@ -360,6 +377,7 @@ export function createNativePersonalOrdaxComposition({
     if (
       currentPreparation !== preparation
       || ownerKeyFromSnapshot(snapshot) !== preparationBinding.ownerKey
+      || preparationBinding.contextGeneration !== contextGeneration
       || !currentWork
       || workRevision(currentWork) !== preparationBinding.workRevision
     ) {
@@ -434,10 +452,12 @@ export function createNativePersonalOrdaxComposition({
         throw new Error("Personal OrdaX Application Action Work scope is no longer current");
       }
       const revision = workRevision(work);
+      const generation = contextGeneration;
       const proposal = await applicationActionProposalPlanner.propose(work);
       const after = runtime.getSnapshot();
-      if (ownerKeyFromSnapshot(after) !== ownerKey) {
-        throw new Error("Personal OrdaX Application Action owner changed during planning");
+      if (disposed || contextGeneration !== generation
+        || ownerKeyFromSnapshot(after) !== ownerKey) {
+        throw new Error("Personal OrdaX Application Action owner or context changed during planning");
       }
       const currentWork = currentProposalWork(workItemId);
       if (workRevision(currentWork) !== revision
@@ -448,6 +468,7 @@ export function createNativePersonalOrdaxComposition({
         applicationActionProposalBindings.set(proposal, Object.freeze({
           ownerKey,
           workRevision: revision,
+          contextGeneration: generation,
         }));
       }
       return proposal;
@@ -461,7 +482,8 @@ export function createNativePersonalOrdaxComposition({
         throw new Error("Personal OrdaX Application Action suggestion is not current or issued");
       }
       const work = currentProposalWork(workItemId);
-      if (ownerKeyFromSnapshot(runtime.getSnapshot()) !== binding.ownerKey
+      if (disposed || contextGeneration !== binding.contextGeneration
+        || ownerKeyFromSnapshot(runtime.getSnapshot()) !== binding.ownerKey
         || workRevision(work) !== binding.workRevision
         || !applicationActionWorkContextIsCurrent(work)) {
         throw new Error("Personal OrdaX Application Action suggestion scope has changed");
@@ -522,10 +544,12 @@ export function createNativePersonalOrdaxComposition({
       const ownerKey = ownerKeyFromSnapshot(before);
       const work = currentProposalWork(workItemId);
       const revision = workRevision(work);
+      const generation = contextGeneration;
       const proposal = await proposalPlanner.propose(work);
       const after = runtime.getSnapshot();
-      if (ownerKeyFromSnapshot(after) !== ownerKey) {
-        throw new Error("Personal OrdaX proposal owner changed while planning");
+      if (disposed || contextGeneration !== generation
+        || ownerKeyFromSnapshot(after) !== ownerKey) {
+        throw new Error("Personal OrdaX proposal owner or context changed while planning");
       }
       const currentWork = currentProposalWork(workItemId);
       if (workRevision(currentWork) !== revision) {
@@ -546,8 +570,9 @@ export function createNativePersonalOrdaxComposition({
       }
       const proposal = validatePersonalActionProposal(proposalValue);
       const snapshot = runtime.getSnapshot();
-      if (ownerKeyFromSnapshot(snapshot) !== binding.ownerKey) {
-        throw new Error("Personal OrdaX proposal belongs to a different owner");
+      if (disposed || contextGeneration !== binding.contextGeneration
+        || ownerKeyFromSnapshot(snapshot) !== binding.ownerKey) {
+        throw new Error("Personal OrdaX proposal belongs to a different owner or context");
       }
       const work = currentProposalWork(proposal.workItemId);
       if (workRevision(work) !== binding.workRevision) {
@@ -566,13 +591,15 @@ export function createNativePersonalOrdaxComposition({
       const before = runtime.getSnapshot();
       const ownerKey = ownerKeyFromSnapshot(before);
       const candidates = recoverableWorks(before);
+      const generation = contextGeneration;
       const revisions = new Map(
         candidates.map((work) => [work.id, workRevision(work)]),
       );
       const suggestion = await workRecoveryPlanner.suggest(request, candidates);
       const after = runtime.getSnapshot();
-      if (ownerKeyFromSnapshot(after) !== ownerKey) {
-        throw new Error("Personal OrdaX Work recovery owner changed while matching");
+      if (disposed || contextGeneration !== generation
+        || ownerKeyFromSnapshot(after) !== ownerKey) {
+        throw new Error("Personal OrdaX Work recovery owner or context changed while matching");
       }
       if (suggestion === null) return null;
       const work = recoverableWorks(after).find(
@@ -593,8 +620,9 @@ export function createNativePersonalOrdaxComposition({
       }
       const suggestion = validatePersonalWorkRecoverySuggestion(suggestionValue);
       const snapshot = runtime.getSnapshot();
-      if (ownerKeyFromSnapshot(snapshot) !== binding.ownerKey) {
-        throw new Error("Personal OrdaX Work recovery belongs to a different owner");
+      if (disposed || contextGeneration !== binding.contextGeneration
+        || ownerKeyFromSnapshot(snapshot) !== binding.ownerKey) {
+        throw new Error("Personal OrdaX Work recovery belongs to a different owner or context");
       }
       const work = recoverableWorks(snapshot).find(
         (candidate) => candidate.id === suggestion.workItemId,
@@ -698,6 +726,9 @@ export function createNativePersonalOrdaxComposition({
       }
     },
     dispose() {
+      if (disposed) return;
+      disposed = true;
+      for (const unsubscribe of contextUnsubscribers) unsubscribe();
       unsubscribeApplicationActionPreparations();
       for (const resourceRef of [...applicationActionPreparationBindings.keys()]) {
         applicationActionPreparations?.revoke(resourceRef);
