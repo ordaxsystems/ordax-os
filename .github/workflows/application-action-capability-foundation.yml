@@ -25,6 +25,9 @@ on:
       - 'system/adapters/native/verified-component-artifact-identity.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
+      - 'system/apps/activity/ui/workspace-controls.mjs'
+      - 'system/services/i18n/catalog/activity.mjs'
+      - 'tests/test_personal_ordax_activity_surface.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'tests/test_application_action_capability.mjs'
       - 'tests/test_application_action_preparations.mjs'
@@ -62,6 +65,9 @@ on:
       - 'system/adapters/native/verified-component-artifact-identity.mjs'
       - 'system/composition/native/personal-ordax.mjs'
       - 'system/composition/native/main.mjs'
+      - 'system/apps/activity/ui/workspace-controls.mjs'
+      - 'system/services/i18n/catalog/activity.mjs'
+      - 'tests/test_personal_ordax_activity_surface.mjs'
       - 'system/services/intelligence/application-awareness.mjs'
       - 'tests/test_application_action_capability.mjs'
       - 'tests/test_application_action_preparations.mjs'
@@ -106,6 +112,9 @@ jobs:
           node --check system/adapters/native/verified-component-artifact-identity.mjs
           node --check system/composition/native/personal-ordax.mjs
           node --check system/composition/native/main.mjs
+          node --check system/apps/activity/ui/workspace-controls.mjs
+          node --check system/services/i18n/catalog/activity.mjs
+          node --check tests/test_personal_ordax_activity_surface.mjs
           node --check system/services/intelligence/application-awareness.mjs
           node --check system/services/intelligence/application-context.mjs
           node --check system/services/intelligence/application-semantic-router.mjs
@@ -135,6 +144,7 @@ jobs:
           node --test tests/test_application_action_provider_resolver.mjs
           node --test tests/test_native_verified_component_artifact_identity.mjs
           node --test tests/test_application_action_preparation_composition.mjs
+          node --test tests/test_personal_ordax_activity_surface.mjs
           node --test tests/test_personal_intelligence_foreground_e2e.mjs
           node --test tests/test_verified_app_semantics_source.mjs
           node --test tests/test_application_intelligence_awareness.mjs
