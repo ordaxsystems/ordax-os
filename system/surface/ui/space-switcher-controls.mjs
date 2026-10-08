@@ -81,6 +81,7 @@ export function mountSpaceSwitcherControls(
   let open = false;
   let loading = false;
   let error = false;
+  let selectionFailed = false;
   let destroyed = false;
   let refreshRevision = 0;
 
@@ -120,6 +121,11 @@ export function mountSpaceSwitcherControls(
     menu.hidden = !open;
     if (!open) return;
 
+    // Replacing catalog children must not steal focus during an async update.
+    const focusedSpaceId = menu.contains(doc.activeElement)
+      ? doc.activeElement?.dataset?.spaceSwitcherSelect ?? null : null;
+    const hadManageFocus = menu.contains(doc.activeElement)
+      && doc.activeElement?.hasAttribute?.("data-space-switcher-manage");
     menu.replaceChildren();
     const head = element("div", "ordax-space-switcher-head");
     head.append(
@@ -169,9 +175,21 @@ export function mountSpaceSwitcherControls(
       }
     }
     menu.append(list);
+    if (selectionFailed) {
+      const feedback = element("p", "ordax-space-switcher-feedback", t("account.spaces.selection.failed"));
+      feedback.setAttribute("role", "alert");
+      menu.append(feedback);
+    }
     const manage = button("ordax-space-switcher-manage", t("account.spaces.switcher.manage"));
     manage.dataset.spaceSwitcherManage = "";
     menu.append(manage);
+    if (focusedSpaceId !== null) {
+      [...list.querySelectorAll("[data-space-switcher-select]")].find((item) =>
+        item.dataset.spaceSwitcherSelect === focusedSpaceId && !item.disabled
+      )?.focus();
+    } else if (hadManageFocus) {
+      manage.focus();
+    }
   };
 
   const close = (restoreFocus = false) => {
@@ -199,6 +217,7 @@ export function mountSpaceSwitcherControls(
   const onClick = (event) => {
     if (trigger.contains(event.target)) {
       open = !open;
+      if (open) { error = false; selectionFailed = false; }
       render();
       if (open && spacesPort.getSnapshot().state !== "ready") refreshCatalog();
       return;
@@ -224,10 +243,12 @@ export function mountSpaceSwitcherControls(
     if (!match || match.state !== "active") return;
     try {
       selectionPort.select(match.id);
+      selectionFailed = false;
       close(true);
       render();
     } catch {
-      error = true;
+      // A failed selection is not a catalog read failure: keep options usable.
+      selectionFailed = true;
       render();
     }
   };
@@ -235,21 +256,48 @@ export function mountSpaceSwitcherControls(
   const onOutside = (event) => {
     if (open && !control.contains(event.target)) close();
   };
+  const focusOption = (key) => {
+    const enabled = [...menu.querySelectorAll("button:not(:disabled)")];
+    if (!enabled.length) return;
+    const currentIndex = enabled.indexOf(doc.activeElement);
+    const targetIndex = key === "Home" ? 0
+      : key === "End" ? enabled.length - 1
+        : key === "ArrowUp" ? (currentIndex < 0 ? enabled.length - 1 : (currentIndex - 1 + enabled.length) % enabled.length)
+          : (currentIndex + 1) % enabled.length;
+    enabled[targetIndex].focus();
+  };
   const onKeyDown = (event) => {
+    if (!control.contains(event.target)) return;
     if (open && event.key === "Escape") {
       event.preventDefault();
       close(true);
+      return;
     }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    if (!open) {
+      open = true;
+      error = false;
+      selectionFailed = false;
+      render();
+      if (spacesPort.getSnapshot().state !== "ready") refreshCatalog();
+    }
+    focusOption(event.key);
+  };
+  const onFocusIn = (event) => {
+    if (open && !control.contains(event.target)) close();
   };
   control.addEventListener("click", onClick);
   doc.addEventListener("click", onOutside);
   doc.addEventListener("keydown", onKeyDown);
+  doc.addEventListener("focusin", onFocusIn);
   const subscriptions = [
     identityPort.subscribe(() => {
       refreshRevision += 1;
       loading = false;
       open = false;
       error = false;
+      selectionFailed = false;
       render();
     }),
     spacesPort.subscribe(render),
@@ -267,6 +315,7 @@ export function mountSpaceSwitcherControls(
       control.removeEventListener("click", onClick);
       doc.removeEventListener("click", onOutside);
       doc.removeEventListener("keydown", onKeyDown);
+      doc.removeEventListener("focusin", onFocusIn);
       for (const unsubscribe of subscriptions) unsubscribe?.();
       control.remove();
     },
