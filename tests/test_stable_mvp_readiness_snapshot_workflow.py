@@ -22,6 +22,8 @@ class ContinuousReadinessSnapshotTests(unittest.TestCase):
         self.assertIn("permissions:\n  contents: read", workflow)
         self.assertIn("persist-credentials: false", workflow)
         self.assertIn("github.event.pull_request.head.sha || github.sha", workflow)
+        self.assertIn('SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}', workflow)
+        self.assertIn('sha = os.environ["SOURCE_COMMIT_SHA"]', workflow)
         self.assertIn("python tools/creator/stable_mvp_usb_readiness.py --repo-root . > out/mvp-readiness/status.json", workflow)
         self.assertIn("stable-mvp-readiness-", workflow)
         self.assertIn("retention-days: 14", workflow)
