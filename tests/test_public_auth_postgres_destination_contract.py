@@ -54,6 +54,43 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertFalse(stage["public_registration_enabled"])
         self.assertFalse(stage["parallel_identity_write_enabled"])
 
+    def test_live_sync_export_sql_proof_cannot_be_confused_with_public_runtime(self):
+        stage = self.destination
+        self.assertTrue(stage["sync_export_db_boundary_proven"])
+        self.assertTrue(stage["sync_request_subject_bridge_deployed"])
+        self.assertTrue(stage["sync_export_postgres_two_subject_sql_proof_passed"])
+        self.assertTrue(stage["sync_export_postgres_sql_proof_rolled_back"])
+        self.assertTrue(stage["sync_export_executors_no_login_no_bypassrls_verified"])
+        self.assertFalse(stage["sync_executor_direct_auth_schema_usage"])
+        self.assertEqual(stage["sync_export_database_user_count_after_proof"], 0)
+        self.assertEqual(
+            stage["sync_export_atomic_migration_name"],
+            "account_sync_export_destination_atomic_v1",
+        )
+        self.assertEqual(
+            stage["sync_request_subject_bridge_migration_name"],
+            "sync_request_subject_bridge_v1",
+        )
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["account_export_runtime_e2e_verified"])
+        self.assertFalse(stage["sync_runtime_e2e_verified"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["public_registration_enabled"])
+        self.assertFalse(stage["functional_provider_cutover_complete"])
+
+        source = ROOT / stage["sync_export_postgres_two_subject_sql_proof_source"]
+        proof = source.read_text(encoding="utf-8").lower()
+        self.assertIn("public.ordax_account_export_v1()", proof)
+        self.assertIn("public.ordax_apply_sync_mutation_v2(", proof)
+        self.assertIn("cross-user-sync-export-leak", proof)
+        self.assertTrue(proof.rstrip().endswith("rollback;"))
+        migration = SOURCE / "20261008092000_sync_request_subject_bridge_v1.sql"
+        self.assertTrue(migration.is_file())
+        self.assertIn(
+            "grant execute on function public.ordax_request_subject_v1() to ordax_sync_executor",
+            migration.read_text(encoding="utf-8").lower(),
+        )
+
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]
         self.assertEqual(len(names), len(set(names)), "duplicate SQL source")

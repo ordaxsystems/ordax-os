@@ -201,9 +201,20 @@
     "legacy_legal_quarantine_applied": true,
     "legal_quarantine_accounts_pending": 0,
     "public_auth_rate_limit_runtime_e2e_verified": false,
-    "sync_export_db_boundary_proven": false,
+    "sync_export_db_boundary_proven": true,
     "account_export_runtime_e2e_verified": false,
-    "sync_runtime_e2e_verified": false
+    "sync_runtime_e2e_verified": false,
+    "sync_export_atomic_migration_name": "account_sync_export_destination_atomic_v1",
+    "sync_export_atomic_migration_version": "20261008080635",
+    "sync_request_subject_bridge_migration_name": "sync_request_subject_bridge_v1",
+    "sync_request_subject_bridge_migration_version": "20261008081516",
+    "sync_request_subject_bridge_deployed": true,
+    "sync_export_postgres_two_subject_sql_proof_passed": true,
+    "sync_export_postgres_two_subject_sql_proof_source": "tests/sql/test_account_sync_export_subject_isolation_v1.sql",
+    "sync_export_postgres_sql_proof_rolled_back": true,
+    "sync_export_executors_no_login_no_bypassrls_verified": true,
+    "sync_executor_direct_auth_schema_usage": false,
+    "sync_export_database_user_count_after_proof": 0
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
