@@ -68,11 +68,12 @@ export function mountSpaceSwitcherControls(
   const control = element("div", "ordax-space-switcher");
   const trigger = button("ordax-space-switcher-trigger");
   trigger.dataset.spaceSwitcherToggle = "";
-  trigger.setAttribute("aria-haspopup", "true");
+  trigger.setAttribute("aria-haspopup", "dialog");
   trigger.setAttribute("aria-expanded", "false");
   trigger.setAttribute("aria-controls", "ordax-space-switcher-menu");
   const menu = element("section", "ordax-space-switcher-menu");
   menu.id = "ordax-space-switcher-menu";
+  menu.setAttribute("role", "dialog");
   menu.setAttribute("aria-label", t("account.spaces.switcher.title"));
   menu.hidden = true;
   control.append(trigger, menu);
