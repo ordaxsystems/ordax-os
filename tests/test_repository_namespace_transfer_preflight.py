@@ -105,9 +105,9 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             release = json.loads(
                 (ROOT / "docs/contracts/release-channel.json").read_text(encoding="utf-8")
             )
-            release["source_authority"]["repository"] = "ordaxsystems/prototipo-ordax-os"
+            release["source_authority"]["repository"] = "ordaxsystems/ordax-os"
             release["publication"]["latest_envelope_url"] = (
-                "https://github.com/ordaxsystems/prototipo-ordax-os/"
+                "https://github.com/ordaxsystems/ordax-os/"
                 "releases/latest/download/release-envelope.json"
             )
             (root / "docs/contracts/release-channel.json").write_text(json.dumps(release))
@@ -127,7 +127,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
                 (release["publication"]["latest_envelope_url"] + "\n").encode("utf-8")
             )
             report = audit.release_pointer_integrity(
-                root, "ordaxsystems/prototipo-ordax-os"
+                root, "ordaxsystems/ordax-os"
             )
             self.assertFalse(report["release_pointer_integrity_verified"])
             self.assertNotEqual(
@@ -150,7 +150,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             (root / "docs/contracts").mkdir(parents=True)
             (root / "sdk/app-sdk-v1").mkdir(parents=True)
             (root / "docs/contracts/runtime-component-package.json").write_text(
-                '{"source_repository":"ordaxsystems/prototipo-ordax-os"}',
+                '{"source_repository":"ordaxsystems/ordax-os"}',
                 encoding="utf-8",
             )
             (root / "sdk/app-sdk-v1/runtime-component-package-policy.json").write_text(
@@ -224,7 +224,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             "GITHUB_REPOSITORY_ID": "0",
         })[0])
 
-        # The staged new release pointer is covered by the exact new bootstrap pin.
+        # The new URL must be backed by exactly the newly pinned bootstrap bytes.
         self.assertTrue(audit.release_pointer_integrity(ROOT, target)[
             "release_pointer_integrity_verified"
         ])
