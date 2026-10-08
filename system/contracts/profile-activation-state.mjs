@@ -224,6 +224,19 @@ export function validateProfileActivationState(value) {
   });
 }
 
+// Read-only projection used by Account and the global Workspace selector.
+// Only a *current* activation for the same Space ID and kind can be displayed.
+export function currentProfileForSpace(state, space) {
+  if (state === null || space === null) return null;
+  if (state?.schema !== PROFILE_ACTIVATION_STATE_SCHEMA) {
+    throw new TypeError("Compatible Profile activation state is required");
+  }
+  const row = state.spaces.find((entry) =>
+    entry.spaceId === space.id && entry.spaceKind === space.kind
+  );
+  return row?.current?.profile ?? null;
+}
+
 export function assertProfileActivationStatePort(port) {
   if (
     !port
