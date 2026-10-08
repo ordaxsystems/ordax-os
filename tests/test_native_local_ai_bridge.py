@@ -5,6 +5,7 @@ from __future__ import annotations
 import http.client
 import importlib.util
 import json
+import os
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -22,15 +23,24 @@ import native_local_ai_bridge as bridge  # noqa: E402
 
 
 class FakeBackend(BaseHTTPRequestHandler):
+    def authorized(self):
+        return self.headers.get("Authorization") == "Bearer " + self.server.expected_key
+
     def do_GET(self):
         if self.path == "/health":
             self.respond(200, b'{"status":"ok"}')
         elif self.path == "/v1/models":
+            if not self.authorized():
+                self.respond(401, b'')
+                return
             self.respond(200, b'{"data":[{"id":"test-model"}]}')
         else:
             self.respond(404, b"")
 
     def do_POST(self):
+        if not self.authorized():
+            self.respond(401, b"")
+            return
         length = int(self.headers.get("Content-Length", "0"))
         payload = self.rfile.read(length)
         self.server.received.append((self.path, payload))
@@ -52,6 +62,14 @@ class NativeLocalAiBridgeTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.backend = ThreadingHTTPServer(("127.0.0.1", 0), FakeBackend)
         self.backend.received = []
+        self.backend.expected_key = "ab" * 32
+        self.real_auth_file = bridge.AUTH_FILE
+        root = Path(self.temp.name)
+        key_path = root / "local-ai-key"
+        key_path.write_text(self.backend.expected_key + "\n", encoding="ascii")
+        key_path.chmod(0o600)
+        bridge.AUTH_FILE = str(key_path)
+        self.auth_path = key_path
         self.real_upstream_port = bridge.UPSTREAM_PORT
         bridge.UPSTREAM_PORT = self.backend.server_address[1]
         self.backend_thread = threading.Thread(target=self.backend.serve_forever, daemon=True)
@@ -78,6 +96,7 @@ class NativeLocalAiBridgeTests(unittest.TestCase):
         self.backend.server_close()
         self.backend_thread.join(timeout=2)
         bridge.UPSTREAM_PORT = self.real_upstream_port
+        bridge.AUTH_FILE = self.real_auth_file
         self.temp.cleanup()
 
     def request(self, method, path, *, body=None, headers=None):
@@ -166,6 +185,32 @@ class NativeLocalAiBridgeTests(unittest.TestCase):
                 headers={"Content-Type": "application/json"},
             )
             self.assertEqual(status, 400)
+        self.assertEqual(self.backend.received, [])
+
+    def test_missing_or_unsafe_secret_fails_closed_before_forwarding(self):
+        path = bridge.NATIVE_LOCAL_AI_PREFIX + "/v1/chat/completions"
+        good_body = self.completion()
+        for change in ("missing", "world-readable", "wrong-length", "symlink"):
+            with self.subTest(change=change):
+                if self.auth_path.exists() or self.auth_path.is_symlink():
+                    self.auth_path.unlink()
+                if change == "missing":
+                    pass
+                elif change == "symlink":
+                    other = self.auth_path.parent / "other-secret"
+                    other.write_text(self.backend.expected_key + "\n", encoding="ascii")
+                    other.chmod(0o600)
+                    self.auth_path.symlink_to(other)
+                else:
+                    self.auth_path.write_text(
+                        self.backend.expected_key + ("\n" if change != "wrong-length" else ""),
+                        encoding="ascii",
+                    )
+                    self.auth_path.chmod(0o644 if change == "world-readable" else 0o600)
+                status, _, _ = self.request(
+                    "POST", path, body=good_body, headers={"Content-Type": "application/json"},
+                )
+                self.assertEqual(status, 503)
         self.assertEqual(self.backend.received, [])
 
     def test_byte_cap_and_unsupported_content_type(self):
