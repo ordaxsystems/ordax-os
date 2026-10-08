@@ -188,3 +188,31 @@ test("a result limit does not modify or overwrite canonical Memory/Knowledge", (
   assert.equal(result.matches.length, 1);
   assert.deepEqual(entries, before);
 });
+
+
+test("scoring refuses an excessively large vector workload", () => {
+  assert.throws(
+    () => run({
+      index: descriptor({ dimensions: 4097 }),
+      runtime: {
+        embeddingModelId: "local-embed-v1",
+        embeddingArtifactSha256: sha("a"),
+        dimensions: 4097,
+        distance: "cosine",
+      },
+      records: [],
+      authorizedSources: [],
+    }),
+    /scoring budget/,
+  );
+  assert.throws(
+    () => run({
+      authorizedSources: [source("a", "b", { sourceId: "../escape" })],
+    }),
+    /identity is invalid/,
+  );
+  assert.throws(
+    () => run({ authorizedSources: [source("a", "b", { sourceKind: "X".repeat(49) })] }),
+    /identity is invalid/,
+  );
+});
