@@ -5,16 +5,25 @@ import { authenticatedAccountBridge } from "./account_service_bridge.mjs";
 
 // Only an exact Edge Function path segment can be removed. Searching for a
 // substring in an arbitrary path lets unexpected prefixes impersonate routes.
-export function accountGatewayRoutePath(pathname) {
-  if (typeof pathname !== "string" || !pathname.startsWith("/")) return null;
+// One exact Edge Function prefix parser serves both internal and public
+// Account gateways. No substring search: malformed prefixes are not routes.
+export function stripEdgeFunctionPrefix(pathname, functionName) {
+  if (typeof pathname !== "string" || !pathname.startsWith("/")
+    || typeof functionName !== "string"
+    || !/^[a-z][a-z0-9-]{1,79}$/.test(functionName)) return null;
   for (const prefix of [
-    "/functions/v1/ordax-account-gateway",
-    "/ordax-account-gateway",
+    `/functions/v1/${functionName}`,
+    `/${functionName}`,
   ]) {
     if (pathname === prefix) return "/";
     if (pathname.startsWith(prefix + "/")) return pathname.slice(prefix.length);
   }
-  return pathname;
+  return null;
+}
+
+export function accountGatewayRoutePath(pathname) {
+  if (typeof pathname !== "string" || !pathname.startsWith("/")) return null;
+  return stripEdgeFunctionPrefix(pathname, "ordax-account-gateway") ?? pathname;
 }
 
 // These paths are necessarily callable before a user has a session. State-
