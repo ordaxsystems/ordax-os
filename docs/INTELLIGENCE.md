@@ -310,8 +310,13 @@ Na troca de conta, Space ou revisão do Profile ativo, o transcript é descartad
 mesmo que a pessoa retorne imediatamente ao Space anterior. A geração em voo
 continua sujeita aos limites do Local AI, mas sua resposta tardia não aparece
 nem é reciclada como contexto de outra sessão. Enquanto o trabalho anterior
-estiver pendente, uma nova geração é recusada. Snapshot da identidade
-indisponível, Space inconsistente ou leitura inválida suspendem o envio (fail-closed).
+estiver pendente, uma nova geração é recusada. Space inconsistente ou leitura
+inválida suspendem o envio (fail-closed). Quando a conta está explicitamente
+`unavailable` **e** a seleção de Space também está `unavailable`, a IA
+continua utilizável em uma conversa `device:identity-unavailable` isolada:
+nenhum histórico anterior de conta/Space é reaproveitado e a captura automática
+em Memory fica indisponível. A recuperação de identidade recria o escopo da
+conversa; o modo local nunca simula uma sessão autenticada.
 
 A captura automática de Memory recebe um verificador da geração da conversa,
 além da autorização de proprietário já atribuída no `bindTurn()`. Ela
