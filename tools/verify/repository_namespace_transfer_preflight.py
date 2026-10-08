@@ -48,30 +48,27 @@ def count_old_references(files: list[tuple[str, str]], old_full_name: str) -> di
     }
 
 
-def tracked_files(root: Path) -> list[tuple[str, str]]:
+def tracked_references(root: Path, old_full_name: str) -> dict:
+    # Git's binary-safe index is faster and more faithful than reading
+    # every checked-out file, including large assets and Git LFS pointers.
     result = subprocess.run(
-        ["git", "ls-files", "-z"],
+        ["git", "grep", "-l", "-z", "-I", "-F", old_full_name, "--"],
         cwd=root,
         capture_output=True,
-        check=True,
-        timeout=30,
+        check=False,
+        timeout=40,
     )
-    scanned = []
-    for path_bytes in result.stdout.split(b"\x00"):
-        if not path_bytes:
-            continue
-        name = path_bytes.decode("utf-8")
-        if name.endswith(IGNORED_SUFFIXES):
-            continue
-        try:
-            raw = (root / name).read_bytes()
-        except (OSError, ValueError) as exc:
-            raise RuntimeError(f"Cannot inspect tracked source: {name}") from exc
-        if b"\x00" in raw:
-            continue
-        scanned.append((name, raw.decode("utf-8", errors="replace")))
-    return scanned
-
+    if result.returncode not in (0, 1):
+        raise RuntimeError("Unable to inspect tracked repository owner references")
+    paths = [name.decode("utf-8") for name in result.stdout.split(b"\x00") if name]
+    operational = sorted(name for name in paths if is_operational(name))
+    historical = sorted(name for name in paths if not is_operational(name))
+    return {
+        "operational_count": len(operational),
+        "historical_count": len(historical),
+        "operational_paths": operational,
+        "historical_paths": historical,
+    }
 
 def validate_contracts(ownership: dict, state: dict) -> dict:
     migration = ownership["namespace_migration"]
@@ -122,9 +119,7 @@ def inspect(root: Path) -> dict:
     ownership = json.loads((root / OWNERSHIP_PATH).read_text(encoding="utf-8"))
     status = json.loads((root / STATUS_PATH).read_text(encoding="utf-8"))
     contract = validate_contracts(ownership, status)
-    matches = count_old_references(
-        tracked_files(root), f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}"
-    )
+    matches = tracked_references(root, f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}")
     return {**contract, **matches}
 
 
