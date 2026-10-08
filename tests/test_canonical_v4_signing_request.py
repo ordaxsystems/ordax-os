@@ -236,6 +236,58 @@ class CanonicalV4SigningRequestTests(unittest.TestCase):
             self.assertFalse(result["physical_write_authorized"])
             self.assertTrue(out.is_file())
 
+    def test_frozen_candidate_metadata_requires_exact_operator_ref_for_every_kind(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            request_path, metadata, artifacts, trust, manifest = self._fixture(root)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            branch = "release-candidate/" + SOURCE
+            request["operator_ref"] = branch
+            self._write_json(request_path, request)
+            for kind in module.KIND_SPECS:
+                for suffix in ("run", "artifact"):
+                    path = metadata / f"{kind}-{suffix}.json"
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    if suffix == "run":
+                        data["head_branch"] = branch
+                    else:
+                        data["workflow_run"]["head_branch"] = branch
+                    self._write_json(path, data)
+            receipt = module.validate_all(
+                request_path=request_path, metadata_dir=metadata,
+                artifact_dirs={kind: artifacts / kind for kind in module.KIND_SPECS},
+                trust_path=trust, manifest_path=manifest,
+                output_path=root / "candidate-validated.json",
+            )
+            self.assertEqual(receipt["status"], "validated-public-signing-request")
+            self.assertFalse(receipt["publication_performed"])
+
+            path = metadata / "surface-artifact.json"
+            tampered = json.loads(path.read_text(encoding="utf-8"))
+            tampered["workflow_run"]["head_branch"] = "main"
+            self._write_json(path, tampered)
+            with self.assertRaisesRegex(module.ValidationError, "another source commit/branch"):
+                module.validate_all(
+                    request_path=request_path, metadata_dir=metadata,
+                    artifact_dirs={kind: artifacts / kind for kind in module.KIND_SPECS},
+                    trust_path=trust, manifest_path=manifest,
+                    output_path=root / "candidate-rejected.json",
+                )
+
+    def test_candidate_request_rejects_arbitrary_ref_and_sha_mismatch(self):
+        request = self._request()
+        for invalid in (
+            "feature/anything", "release-candidate/" + "b" * 40,
+            "release-candidate/" + SOURCE + "-extra",
+            "refs/tags/" + SOURCE,
+        ):
+            with self.subTest(invalid=invalid):
+                request["operator_ref"] = invalid
+                with self.assertRaisesRegex(module.ValidationError, "operator ref"):
+                    module.validate_request_document(request)
+        request["operator_ref"] = "release-candidate/" + SOURCE
+        self.assertEqual(module.validate_request_document(request)["operator_ref"], request["operator_ref"])
+
     def test_modified_payload_is_rejected_against_operator_receipt(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
