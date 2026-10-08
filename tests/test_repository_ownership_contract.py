@@ -13,7 +13,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
     def test_four_canonical_repositories(self):
         repos = self.contract["repositories"]
         self.assertEqual(set(repos), {"platform", "apps", "runtime", "control_plane"})
-        self.assertEqual(repos["platform"]["repo"], "ordaxsystems/prototipo-ordax-os")
+        self.assertEqual(repos["platform"]["repo"], "ordaxsystems/ordax-os")
         self.assertEqual(repos["apps"]["repo"], "ordaxsystems/ordax-apps")
         self.assertEqual(repos["runtime"]["repo"], "ordaxsystems/ordax-runtime")
         self.assertEqual(repos["control_plane"]["repo"], "ordaxsystems/ordax-control-plane")
