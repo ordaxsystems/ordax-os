@@ -33,6 +33,7 @@ export function createApplicationCompatibilityProfilePlanner({ compatibility } =
       throw new TypeError("Compatibility profile payload digest must be sha256:<lowercase-hex>");
     }
 
+    port.assertInspectionDigest({ inspection, payloadDigest });
     const launch = port.planLaunch({ inspection, runtimeId });
     if (!launch.ready || launch.runtimeId === null) {
       return validateApplicationCompatibilityProfilePlan({

@@ -1,4 +1,4 @@
-export const APPLICATION_COMPATIBILITY_SCHEMA = "ordax.application-compatibility/1";
+export const APPLICATION_COMPATIBILITY_SCHEMA = "ordax.application-compatibility/2";
 export const APPLICATION_COMPATIBILITY_RUNTIME_SCHEMA = "ordax.application-compatibility-runtime/1";
 export const APPLICATION_COMPATIBILITY_INSPECTION_SCHEMA = "ordax.application-compatibility-inspection/1";
 export const APPLICATION_COMPATIBILITY_PLAN_SCHEMA = "ordax.application-compatibility-plan/1";
@@ -156,7 +156,7 @@ export function assertApplicationCompatibilityPort(port) {
   if (!port || typeof port !== "object" || port.schema !== APPLICATION_COMPATIBILITY_SCHEMA) {
     throw new TypeError("A compatible application-compatibility port is required");
   }
-  for (const method of ["inspect", "listRuntimes", "planLaunch"]) {
+  for (const method of ["inspect", "inspectVerified", "assertInspectionDigest", "listRuntimes", "planLaunch"]) {
     if (typeof port[method] !== "function") {
       throw new TypeError(`Application-compatibility port must implement ${method}()`);
     }

@@ -10,12 +10,14 @@ The machine-readable state of this foundation is `docs/contracts/application-com
 
 Implemented in source:
 
-- `ordax.application-compatibility/1` inspection/runtime-selection contract;
+- `ordax.application-compatibility/2` inspection/runtime-selection contract;
 - byte-based Windows PE inspection for x86, x86-64 and ARM64;
 - DLL and malformed-PE rejection for launch planning;
 - bounded MSI container-candidate recognition without claiming MSI database verification;
 - explicit compatibility-runtime descriptors bound to a source identity and SHA-256 digest;
 - fail-closed launch planning when no real runtime is supplied;
+- manager-local inspection provenance required for launch/profile plans (external schema-shaped objects and cross-manager copies are rejected);
+- profile planning requires a manager-verified SHA-256 of an immutable snapshot of inspected payload bytes; callers cannot provide an unrelated digest;
 - `ordax.application-compatibility-profile-planner/1` for side-effect-free isolated profile planning;
 - profile plans bind the inspected payload SHA-256, architecture and selected runtime to a safe relative durable-user storage key;
 - tests proving there is no implicit/fake Wine or Proton provider and no profile path escape;
@@ -43,6 +45,9 @@ WINDOWS_PROFILE_PLANNING_AVAILABLE=YES_SOURCE
 WINDOWS_COMPATIBILITY_FOUNDATION=PASS_SOURCE
 PUBLIC_COMPATIBILITY_AVAILABILITY=NO
 ```
+
+
+The compatibility manager port is version `ordax.application-compatibility/2`: version 2 requires verified-inspection hashing methods in addition to the original format/launch planning methods. The port schema changed instead of silently changing the required methods of version 1. The inspection and profile schemas retain their separate existing versions.
 
 ## 2. Architecture
 
@@ -77,7 +82,7 @@ For Windows specifically:
 ```text
 EXE / PE / MSI candidate
   -> content inspection
-  -> ordax.application-compatibility/1
+  -> ordax.application-compatibility/2
   -> verified runtime descriptor
   -> isolated compatibility profile plan
   -> future profile materialization
@@ -158,6 +163,10 @@ A runtime may enter the inventory only through an explicit descriptor that decla
 Unknown fields are rejected. A descriptor cannot smuggle a raw command, URL or shell path through the contract.
 
 The current manager only uses this inventory to answer whether launch planning has a compatible runtime. It does not execute the runtime.
+
+Planning accepts only the frozen inspection object issued by the **same** Compatibility Manager instance. A caller-created object, serialized/deserialized copy or inspection from another manager is not proof of the inspected bytes, even if its schema and fields match. For content-bound profile planning, callers use asynchronous `inspectVerified({ name, bytes })` with a `Uint8Array`. It hashes a private snapshot with Web Crypto SHA-256, then `planCreate` verifies that `payloadDigest` exactly matches that hash. Plain `inspect()` still supports format and launch **planning**, but cannot authorize a profile plan: a digest supplied only by the caller is insufficient.
+
+The private, ephemeral identity check is not a durable attestation and never authorizes installation or execution; future remote/durable consumers need an explicit content-bound verification boundary rather than treating JSON as authority.
 
 ## 6. Compatibility profiles
 
