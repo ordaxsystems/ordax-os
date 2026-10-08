@@ -379,12 +379,15 @@ deve continuar **antes** de qualquer bypass de rate limit e antes
 do roteamento. Testes de negação estão em
 `tests/test_account_transport_admission.mjs`.
 
-**Não confundir deploy interno com promoção pública:** o código da
-PR #1433 foi implantado em `ordax-platform` na Edge Function
-`ordax-account-gateway` **v3**, `ACTIVE`,
-`verify_jwt=true`, usando os cinco arquivos do owner canônico.
-Artefato SHA-256
-`89e9d06ba67daf56b266a0628df1068417dcdf2710dfde528ce2059fd03c6b61`.
+**Não confundir deploy interno com promoção pública:** a PR #1433
+implantou inicialmente a versão v3; após a PR #1441, a Edge Function
+`ordax-account-gateway` do `ordax-platform` está na versão **v4**,
+`ACTIVE`, `verify_jwt=true`, com os cinco arquivos do owner canônico.
+O SHA-256 atual do artefato é
+`0adae36471932ffbce57ef58392c76e608e6c07045e9457d06de5917e36312e8`.
+A versão v4 usa `accountGatewayRoutePath` para aceitar apenas prefixos
+exatos da Edge e retorna erro controlado quando o JSON da mutação Sync
+não é um objeto, evitando exceções não tratadas.
 A consulta posterior de versão, flags, lista de arquivos e conteúdo
 confirmou o deploy; banco após deploy: 0 usuários, 0 políticas legais
 ativas e 0 registros Sync. Essas verificações **não equivalem a

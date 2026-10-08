@@ -779,16 +779,21 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       },
     };
     const proofRequests = [];
+    let deferStoreInstall = false;
+    let resolveStoreInstall = null;
     const proofRequestsPort = {
       schema: 'ordax.app-lifecycle-request-port/1', authority: 'none',
       requestLifecycle(request) {
         proofRequests.push(request);
-        if (request.operation === 'install') return {
-          schema: 'ordax.app-lifecycle-request-result/1',
-          requestId: request.requestId, appId: request.appId,
-          operation: request.operation, source: request.source,
-          state: 'rejected', reason: 'incompatible-host-policy', authority: 'none',
-        };
+        if (request.operation === 'install') {
+          if (deferStoreInstall) return new Promise((resolve) => { resolveStoreInstall = resolve; });
+          return {
+            schema: 'ordax.app-lifecycle-request-result/1',
+            requestId: request.requestId, appId: request.appId,
+            operation: request.operation, source: request.source,
+            state: 'rejected', reason: 'incompatible-host-policy', authority: 'none',
+          };
+        }
         throw new Error('intentional synchronous Store proof failure');
       },
     };
@@ -849,6 +854,57 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       && proofRequests[1].operation === 'install'
       && proofStoreSlot.querySelector('.ordax-store-request-status')?.textContent
         ?.includes('incompatible-host-policy') === true;
+
+    // A delayed platform reply must not mark a request as accepted after a
+    // different signed catalog projection has replaced the visible candidate.
+    deferStoreInstall = true;
+    proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]').click();
+    await Promise.resolve();
+    const delayedStoreRequest = proofRequests.at(-1);
+    result.storeDeferredRequestStarted = proofRequests.length === 3
+      && delayedStoreRequest?.operation === 'install'
+      && typeof resolveStoreInstall === 'function';
+    notifyStore(verifiedStoreSnapshot);
+    result.storeRetainsRequestOnIdenticalSnapshot =
+      proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === true;
+    const replacedStoreSnapshot = {
+      ...verifiedStoreSnapshot,
+      entries: verifiedStoreEntries.map((entry) => entry.appId === 'audio'
+        ? { ...entry, availableVersion: '1.0.1' } : entry),
+    };
+    notifyStore(replacedStoreSnapshot);
+    result.storeInvalidatesRequestOnCatalogChange =
+      proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === false
+      && proofStoreSlot.querySelector('.ordax-store-request-status') === null;
+    resolveStoreInstall({
+      schema: 'ordax.app-lifecycle-request-result/1',
+      requestId: delayedStoreRequest.requestId, appId: delayedStoreRequest.appId,
+      operation: delayedStoreRequest.operation, source: delayedStoreRequest.source,
+      state: 'accepted', reason: null, authority: 'none',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    result.storeIgnoresStaleAcceptedResponse =
+      proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === false
+      && proofStoreSlot.querySelector('.ordax-store-request-status') === null;
+
+    // The microtask that would invoke Native has not run yet. If the signed
+    // catalog changes now, no obsolete request may ever cross that boundary.
+    const previousStoreRequestCount = proofRequests.length;
+    proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]').click();
+    notifyStore({
+      ...replacedStoreSnapshot,
+      entries: replacedStoreSnapshot.entries.map((entry) => entry.appId === 'audio'
+        ? { ...entry, availableVersion: '1.0.2' } : entry),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    result.storeNeverDelegatesRevokedRequest = proofRequests.length === previousStoreRequestCount
+      && proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === false
+      && proofStoreSlot.querySelector('.ordax-store-request-status') === null;
+
     storeProof.destroy();
     storeProofRoot.remove();
     result.storeVerifiedFixtureCleaned = notifyStore === null;
@@ -973,7 +1029,11 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'storeResizesWithWindow', 'storeAccentInsensitiveSearch', 'storePreservesSearchFocus',
       'storeInstalledFilter', 'storeRemovalRequiresConfirmation',
       'storeRemovalCanCancel', 'storeSyncFailureRecovered',
-      'storeShowsValidatedRejectionReason', 'storeVerifiedFixtureCleaned', 'internetComponentStyleMounted',
+      'storeShowsValidatedRejectionReason', 'storeDeferredRequestStarted',
+      'storeRetainsRequestOnIdenticalSnapshot',
+      'storeInvalidatesRequestOnCatalogChange', 'storeIgnoresStaleAcceptedResponse',
+      'storeNeverDelegatesRevokedRequest',
+      'storeVerifiedFixtureCleaned', 'internetComponentStyleMounted',
       'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
       'internetFailsClosedOnWeb', 'internetDoesNotEmbedWebContent',

@@ -20,6 +20,9 @@ const PROFILE_KEYS = Object.freeze([
   "hostAuthority",
 ]);
 const PAYLOAD_KEYS = Object.freeze(["name", "digest"]);
+// In-process profile-plan validation must not accept a caller-supplied schema-shaped clone.
+// This verifies issuance by the structural profile constructor, NOT payload/runtime attestation.
+const issuedProfiles = new WeakSet();
 
 function exactKeys(value, allowed, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -82,7 +85,7 @@ export function defineApplicationCompatibilityProfile(spec) {
   if (!DIGEST_RE.test(digest)) {
     throw new TypeError("Application compatibility profile payload digest must be sha256:<lowercase-hex>");
   }
-  return Object.freeze({
+  const profile = Object.freeze({
     schema: APPLICATION_COMPATIBILITY_PROFILE_SCHEMA,
     id: id(spec.id, "compatibility profile id"),
     family: spec.family,
@@ -96,6 +99,8 @@ export function defineApplicationCompatibilityProfile(spec) {
     persistence: "durable-user",
     hostAuthority: "none",
   });
+  issuedProfiles.add(profile);
+  return profile;
 }
 
 export function validateApplicationCompatibilityProfilePlan(value) {
@@ -105,8 +110,13 @@ export function validateApplicationCompatibilityProfilePlan(value) {
   }
   const reason = text(value.reason, "compatibility profile plan reason", 240);
   if (value.ready) {
-    if (!value.profile || value.profile.schema !== APPLICATION_COMPATIBILITY_PROFILE_SCHEMA) {
-      throw new TypeError("Ready compatibility profile plan requires a validated profile");
+    if (
+      !value.profile
+      || typeof value.profile !== "object"
+      || value.profile.schema !== APPLICATION_COMPATIBILITY_PROFILE_SCHEMA
+      || !issuedProfiles.has(value.profile)
+    ) {
+      throw new TypeError("Ready compatibility profile plan requires a canonically issued profile");
     }
     return Object.freeze({
       schema: APPLICATION_COMPATIBILITY_PROFILE_PLAN_SCHEMA,

@@ -40,6 +40,41 @@ The initial source lock targets a small Qwen3.5 GGUF profile served by
 update may replace the model, quantization or inference engine without changing
 the stable Intelligence API.
 
+### Troca de modelo, atualização e distribuição comercial
+
+O contrato `ordax.intelligence/1` é estável em relação a modelos. O MVP fixa
+**um** motor e **um** modelo no `source-lock.json` para reprodutibilidade,
+não por imposição de permanência. O builder inicial valida especificamente
+`llama.cpp` + `Qwen3.5-0.8B-Q4_0.gguf`; aceitar outro engine, quantização
+ou modelo requer atualizar o builder e os gates de compatibilidade com
+revisão de contrato. Hoje a substituição deve ser distribuída como release
+assinado do sistema. Seleção arbitrária de modelos na interface, download em
+runtime e atualização por component-slot são **capacidade futura**, não recurso
+liberado do MVP. O Memory SSOT persiste separado do modelo; índices derivados
+de embeddings devem ser invalidados/recriados quando a identidade mudar.
+
+O candidato de inferência inclui `llama.cpp` sob MIT e o GGUF Qwen3.5-0.8B
+sob Apache-2.0, com origem, commit/revisão, hash e tamanho fixados. Ambas
+são licenças permissivas para distribuição comercial, condicionadas à
+preservação dos textos de licença e avisos aplicáveis; não concedem
+direitos de marca e não cobrem automaticamente dependências, plugins ou
+modelos opcionais futuros. O builder copia a licença MIT da fonte exata
+do motor e `third_party/licenses/Apache-2.0.txt` para o EROFS assinado
+em `licenses/`. A validação do candidato MVP exige coincidência exata
+entre `model.license=Apache-2.0` e o texto vendorizado; uma futura escolha
+de outra licença exige uma revisão explícita, não renomear um manifesto.
+Revisar quaisquer NOTICE/copyright adicionais, dependências transitivas
+e textos exibidos ao usuário é um gate de distribuição do **produto inteiro**,
+não uma alegação de aprovação jurídica automática.
+
+Para apps: `ai/manifest.json` e `actions/manifest.json` verificados alimentam
+somente conhecimento, intents e propostas. A presença de módulos de provider
+no pacote não equivale a execução autorizada: grants, confirmação, executor
+e recibos continuam governados pelo Personal OrdaX/Action Gateway. Apps sem
+slot instalado/verificado não ganham capacidades fictícias. O CI valida
+manifestos e identidades, mas a operação ponta a ponta com um pacote físico
+e uma conta/sessão real permanece gate separado.
+
 The release layer has a dedicated v4 source contract for this payload.
 `prototype-ordax.release-manifest/4` keeps the system image and Surface runtime
 semantics from v3, adds `local-ai-runtime.erofs`, and signs a binding to the

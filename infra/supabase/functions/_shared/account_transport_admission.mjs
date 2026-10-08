@@ -3,6 +3,20 @@
 // by the existing Supabase Auth getUser/refreshSession code at the call site.
 import { authenticatedAccountBridge } from "./account_service_bridge.mjs";
 
+// Only an exact Edge Function path segment can be removed. Searching for a
+// substring in an arbitrary path lets unexpected prefixes impersonate routes.
+export function accountGatewayRoutePath(pathname) {
+  if (typeof pathname !== "string" || !pathname.startsWith("/")) return null;
+  for (const prefix of [
+    "/functions/v1/ordax-account-gateway",
+    "/ordax-account-gateway",
+  ]) {
+    if (pathname === prefix) return "/";
+    if (pathname.startsWith(prefix + "/")) return pathname.slice(prefix.length);
+  }
+  return pathname;
+}
+
 // These paths are necessarily callable before a user has a session. State-
 // changing routes still require the gateway's direct Native IP/rate limit and
 // all existing feature/consent gates. No /account, /sync, or /network here.
