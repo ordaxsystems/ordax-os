@@ -730,6 +730,11 @@ export function mountStoreOverviewControls(
   const unsubscribeLocalization = localization.subscribe(render);
   const unsubscribeActivation = activation?.subscribe((next) => {
     if (next.appId !== "store" || !VIEWS.includes(next.target)) return;
+    if (next.target !== "updates") {
+      updateAll?.cancelPending();
+      batchPresentationGeneration += 1;
+      batchReport = null;
+    }
     activeView = next.target;
     selectedAppId = null;
     removalConfirmationAppId = null;
