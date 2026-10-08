@@ -1194,7 +1194,7 @@ export function mountSettingsOverviewControls(
       section.append(node(documentObject, "p", "", t("settings.intelligence.notActive")));
     }
     section.append(node(documentObject, "p", "", t("settings.intelligence.selectionPolicy")));
-    const open = node(documentObject, "button", "ordax-settings-action",
+    const open = node(documentObject, "button", "ordax-settings-intelligence-action",
       t("settings.intelligence.openStoreModels"));
     open.type = "button";
     open.dataset.settingsOpenModelStore = "true";
