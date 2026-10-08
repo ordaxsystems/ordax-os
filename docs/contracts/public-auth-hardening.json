@@ -200,7 +200,10 @@
     "database_rate_limit_test_rows_rolled_back": true,
     "legacy_legal_quarantine_applied": true,
     "legal_quarantine_accounts_pending": 0,
-    "public_auth_rate_limit_runtime_e2e_verified": false
+    "public_auth_rate_limit_runtime_e2e_verified": false,
+    "sync_export_db_boundary_proven": false,
+    "account_export_runtime_e2e_verified": false,
+    "sync_runtime_e2e_verified": false
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
