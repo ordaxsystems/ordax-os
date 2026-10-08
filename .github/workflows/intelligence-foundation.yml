@@ -115,9 +115,14 @@ on:
       - 'tests/test_pre_mvp_ecosystem_foundation.py'
       - 'docs/contracts/profile-pack-runtime.json'
       - 'system/contracts/profile-pack-catalog.mjs'
+      - 'system/contracts/profile-taxonomy.mjs'
+      - 'system/profile-packs/taxonomy.json'
       - 'system/services/profile-packs/catalog.mjs'
+      - 'system/services/profile-packs/taxonomy.mjs'
+      - 'system/services/profile-packs/taxonomy-source.mjs'
       - 'system/composition/web/main.mjs'
       - 'tests/test_profile_pack_catalog.mjs'
+      - 'tests/test_profile_taxonomy.mjs'
       - 'tests/test_profile_pack_catalog.py'
       - 'system/contracts/profile-component-inventory.mjs'
       - 'system/services/profile-packs/inventory.mjs'
@@ -269,9 +274,14 @@ on:
       - 'tests/test_pre_mvp_ecosystem_foundation.py'
       - 'docs/contracts/profile-pack-runtime.json'
       - 'system/contracts/profile-pack-catalog.mjs'
+      - 'system/contracts/profile-taxonomy.mjs'
+      - 'system/profile-packs/taxonomy.json'
       - 'system/services/profile-packs/catalog.mjs'
+      - 'system/services/profile-packs/taxonomy.mjs'
+      - 'system/services/profile-packs/taxonomy-source.mjs'
       - 'system/composition/web/main.mjs'
       - 'tests/test_profile_pack_catalog.mjs'
+      - 'tests/test_profile_taxonomy.mjs'
       - 'tests/test_profile_pack_catalog.py'
       - 'system/contracts/profile-component-inventory.mjs'
       - 'system/services/profile-packs/inventory.mjs'
@@ -346,6 +356,9 @@ jobs:
           node --check system/contracts/profile-pack-source.mjs
           node --check system/contracts/profile-pack-restore.mjs
           node --check system/contracts/profile-pack-catalog.mjs
+          node --check system/contracts/profile-taxonomy.mjs
+          node --check system/services/profile-packs/taxonomy.mjs
+          node --check system/services/profile-packs/taxonomy-source.mjs
           node --check system/contracts/profile-provisioning.mjs
           node --check system/contracts/profile-component-inventory.mjs
           node --check system/contracts/profile-install-receipt.mjs
@@ -397,6 +410,7 @@ jobs:
           python -m json.tool docs/contracts/intelligence-tools.json >/dev/null
           python -m json.tool docs/contracts/semantic-index.json >/dev/null
           python -m json.tool system/profile-packs/catalog.json >/dev/null
+          python -m json.tool system/profile-packs/taxonomy.json >/dev/null
           python -m json.tool system/profile-packs/developer/v1/manifest.json >/dev/null
           python -m json.tool system/profile-packs/legal-br/v1/manifest.json >/dev/null
           python -m json.tool docs/contracts/profile-provisioning.json >/dev/null
@@ -442,6 +456,7 @@ jobs:
           node --test tests/test_profile_pack_bundled_source.mjs
           node --test tests/test_profile_pack_restore.mjs
           node --test tests/test_profile_pack_catalog.mjs
+          node --test tests/test_profile_taxonomy.mjs
           node --test tests/test_profile_provisioning.mjs
           node --test tests/test_profile_component_inventory.mjs
           node --test tests/test_profile_install_receipt.mjs
