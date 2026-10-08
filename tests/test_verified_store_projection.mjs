@@ -167,8 +167,9 @@ test("known optional utility is represented from verified catalog only; raw unkn
   const snapshot = projection.port.getSnapshot();
   assert.equal(snapshot.state, "ready");
   const calculator = snapshot.entries.find(item => item.appId === "calculator");
-  assert.equal(calculator.state, "available");
-  assert.equal(calculator.installable, true);
+  assert.equal(calculator.state, "blocked");
+  assert.equal(calculator.blockedReason, "runtime-module-read-unavailable");
+  assert.equal(calculator.installable, false);
   assert.equal(calculator.updatable, false);
   assert.equal(calculator.artifactIdentityVerified, true);
   assert.equal(calculator.provenanceVerified, true);
@@ -355,7 +356,10 @@ test("Native status reads use bounded concurrency and deterministic catalog orde
   assert.equal(active, 0);
   assert.ok(peak > 1 && peak <= 4, "Native queries must have a bounded fan-out");
   assert.deepEqual(snapshot.entries.map((entry) => entry.appId), ["calculator", "notes"]);
-  assert.ok(snapshot.entries.every((entry) => entry.installable && !entry.updatable));
+  assert.equal(snapshot.entries.find((entry) => entry.appId === "notes").installable, true);
+  const calculator = snapshot.entries.find((entry) => entry.appId === "calculator");
+  assert.equal(calculator.installable, false);
+  assert.equal(calculator.blockedReason, "runtime-module-read-unavailable");
   projection.destroy();
 });
 
@@ -473,4 +477,68 @@ test("destroy aborts outstanding Native queries and invalid timeouts fail closed
   projection.destroy();
   assert.equal(signal.aborted, true);
   assert.equal(projection.port.getSnapshot().state, "unavailable");
+});
+
+
+test("Native module-read gate blocks upgrades without blocking verified uninstall", async () => {
+  const catalog = catalogPort(ready([candidate("calculator", "0.4.3", "Calculadora")]));
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({
+      calculator: metadata("calculator", {
+        source: "slot", version: "0.4.2", sourceCommit: "a".repeat(40),
+      }),
+    }),
+  });
+  await projection.refresh();
+  const value = projection.port.getSnapshot().entries.find((item) => item.appId === "calculator");
+  assert.equal(value.state, "blocked");
+  assert.equal(value.blockedReason, "runtime-module-read-unavailable");
+  assert.equal(value.installedVersion, "0.4.2");
+  assert.equal(value.availableVersion, "0.4.3");
+  assert.equal(value.updatable, false);
+  assert.equal(value.installable, false);
+  assert.equal(value.removable, true);
+  projection.destroy();
+});
+
+test("new signed catalog immediately clears stale Store actions while Native refresh is slow", async () => {
+  const catalog = catalogPort(ready([candidate("notes", "0.4.3", "Notas")]));
+  let pauseReads = false;
+  let resume;
+  const delayed = new Promise((resolve) => { resume = resolve; });
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: async (url) => {
+      if (pauseReads) await delayed;
+      return {
+        ok: true, status: 200,
+        async json() { return metadata(new URL(url).searchParams.get("component")); },
+      };
+    },
+  });
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  assert.equal(projection.port.getSnapshot().entries[0].installable, true);
+
+  pauseReads = true;
+  const newest = new Promise((resolve) => {
+    projection.port.subscribe((next) => {
+      if (next.state === "ready") resolve(next);
+    });
+  });
+  catalog.publish(ready([candidate("notes", "0.4.4", "Notas")]));
+  const suspended = projection.port.getSnapshot();
+  assert.equal(suspended.state, "unavailable");
+  assert.equal(suspended.reason, "verified-store-projection-refreshing");
+  assert.deepEqual(suspended.entries, []);
+  assert.equal(suspended.authority, "none");
+
+  resume();
+  const fresh = await newest;
+  assert.equal(fresh.entries[0].availableVersion, "0.4.4");
+  assert.equal(fresh.entries[0].installable, true);
+  projection.destroy();
 });

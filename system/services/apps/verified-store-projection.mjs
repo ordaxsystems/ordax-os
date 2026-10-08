@@ -21,6 +21,7 @@ import {
 } from "./delivery-policy.mjs";
 import {
   listExternalFirstPartyComponentIds,
+  hasNativeExternalFirstPartyModuleRead,
 } from "./external-first-party-policy.mjs";
 
 const REQUEST_OPTIONS = Object.freeze({
@@ -100,6 +101,12 @@ function projectEntry({ appId, candidate, current, policy }) {
         reason: "structural-app-cannot-use-store-lifecycle",
       });
     }
+    if (!hasNativeExternalFirstPartyModuleRead(appId)) {
+      return blockedEntry({
+        appId, title, candidate,
+        reason: "runtime-module-read-unavailable",
+      });
+    }
     return {
       appId,
       title,
@@ -149,6 +156,13 @@ function projectEntry({ appId, candidate, current, policy }) {
   }
 
   if (componentVersionIsNewer(candidate.version, installedVersion)) {
+    if (!hasNativeExternalFirstPartyModuleRead(appId)) {
+      return blockedEntry({
+        appId, title, installedVersion, candidate,
+        reason: "runtime-module-read-unavailable",
+        removable: policy.removable,
+      });
+    }
     return {
       appId,
       title,
@@ -330,10 +344,16 @@ export function createVerifiedAppStoreProjection({
   };
 
   const refresh = async () => {
+    if (destroyed) return snapshot;
     activeRefresh?.abort();
     const controller = new AbortController();
     activeRefresh = controller;
     const requestGeneration = ++generation;
+    // Revoke any stale install/update buttons synchronously before current
+    // activation metadata is fetched from the Native host.
+    if (snapshot.state === "ready") {
+      emit(unavailable("verified-store-projection-refreshing"));
+    }
     let next;
     try {
       next = await build(controller.signal);
