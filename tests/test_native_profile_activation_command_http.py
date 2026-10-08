@@ -1,4 +1,6 @@
+from contextlib import redirect_stderr
 from functools import partial
+from io import StringIO
 import http.client
 import importlib.util
 import json
@@ -253,8 +255,8 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
         temporary, server, thread = self.start_server()
         original = native_host.read_active_profile_content_context
         seen = []
-        native_host.read_active_profile_content_context = lambda space_id: (
-            seen.append(space_id)
+        native_host.read_active_profile_content_context = lambda space_id, *, query=None: (
+            seen.append((space_id, query))
             or {
                 "schema": "ordax.profile-content-context/1",
                 "spaceId": space_id,
@@ -263,14 +265,18 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
             }
         )
         try:
-            status, body = self.request(
-                server,
-                "GET",
-                f"{native_host.PROFILE_CONTENT_CONTEXT_PATH}?spaceId=space-professional-1",
-                headers=self.trusted_headers(server),
-            )
+            log_capture = StringIO()
+            with redirect_stderr(log_capture):
+                status, body = self.request(
+                    server,
+                    "GET",
+                    f"{native_host.PROFILE_CONTENT_CONTEXT_PATH}?spaceId=space-professional-1&query=extrusao",
+                    headers=self.trusted_headers(server),
+                )
+            self.assertNotIn("extrusao", log_capture.getvalue())
+            self.assertIn("[query redacted]", log_capture.getvalue())
             self.assertEqual(status, 200)
-            self.assertEqual(seen, ["space-professional-1"])
+            self.assertEqual(seen, [("space-professional-1", "extrusao")])
             payload = json.loads(body.decode("utf-8"))
             self.assertEqual(payload["spaceId"], "space-professional-1")
         finally:
@@ -281,8 +287,8 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
         temporary, server, thread = self.start_server("stable-mvp")
         original = native_host.read_active_profile_content_context
         seen = []
-        native_host.read_active_profile_content_context = lambda space_id: (
-            seen.append(space_id)
+        native_host.read_active_profile_content_context = lambda space_id, *, query=None: (
+            seen.append((space_id, query))
             or {
                 "schema": "ordax.profile-content-context/1",
                 "spaceId": space_id,
@@ -298,11 +304,34 @@ class ProfileActivationCommandHttpTests(unittest.TestCase):
                 headers=self.trusted_headers(server),
             )
             self.assertEqual(status, 200)
-            self.assertEqual(seen, ["space-professional-1"])
+            self.assertEqual(seen, [("space-professional-1", None)])
             payload = json.loads(body.decode("utf-8"))
             self.assertEqual(payload["profile"]["slug"], "pizzaria-br")
         finally:
             native_host.read_active_profile_content_context = original
+            self.stop_server(temporary, server, thread)
+
+
+    def test_native_profile_context_rejects_query_injection_and_duplicates(self):
+        temporary, server, thread = self.start_server()
+        try:
+            invalid_targets = [
+                "?spaceId=space-1&query=a&query=b",
+                "?spaceId=space-1&query=" + ("x" * 257),
+                "?spaceId=space-1&query=",
+                "?spaceId=space-1&unexpected=secret",
+                "?spaceId=space-1&spaceId=space-2",
+            ]
+            for suffix in invalid_targets:
+                with self.subTest(suffix=suffix[:60]):
+                    status, body = self.request(
+                        server, "GET",
+                        f"{native_host.PROFILE_CONTENT_CONTEXT_PATH}{suffix}",
+                        headers=self.trusted_headers(server),
+                    )
+                    self.assertEqual(status, 409)
+                    self.assertEqual(body, b"")
+        finally:
             self.stop_server(temporary, server, thread)
 
     def test_revision_conflict_maps_to_http_409_with_valid_token(self):

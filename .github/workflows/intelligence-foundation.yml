@@ -64,6 +64,7 @@ on:
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
+      - 'system/surface/runtime/native_profile_content_context.py'
       - 'system/composition/native/account-memory.mjs'
       - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
@@ -134,6 +135,7 @@ on:
       - 'system/contracts/profile-content-pack.mjs'
       - 'tests/test_profile_content_pack.mjs'
       - 'tests/test_profile_content_intelligence.mjs'
+      - 'tests/test_native_profile_content_context.py'
       - 'tests/test_native_profile_content_context_contract.py'
       - 'system/adapters/native/profile-content-context-capability.mjs'
       - 'system/contracts/profile-content-context-capability.mjs'
@@ -219,6 +221,7 @@ on:
       - 'system/surface/runtime/native_memory_state.py'
       - 'system/surface/runtime/native_memory_endpoint.py'
       - 'system/surface/runtime/native_host_server.py'
+      - 'system/surface/runtime/native_profile_content_context.py'
       - 'system/composition/native/account-memory.mjs'
       - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
@@ -454,6 +457,7 @@ jobs:
           node --test tests/test_profile_content_proof.mjs
           node --test tests/test_profile_content_pack.mjs
           node --test tests/test_profile_content_intelligence.mjs
+          python -m unittest tests.test_native_profile_content_context -v
           python -m unittest tests.test_native_profile_content_context_contract -v
           node --test tests/test_profile_activation_state.mjs
           node --test tests/test_profile_activation_state_adapters.mjs
