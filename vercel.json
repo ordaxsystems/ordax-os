@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "outputDirectory": "out/public-site",
-  "ignoreCommand": "node tools/public-site/vercel_ignore_build.mjs",
+  "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
   "rewrites": [
     {
       "source": "/auth/:path*",
