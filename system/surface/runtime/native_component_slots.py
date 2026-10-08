@@ -9,6 +9,8 @@ import stat
 import subprocess
 from dataclasses import dataclass
 
+from native_store_metadata_policy import STORE_METADATA_COMPONENT_IDS
+
 DEFAULT_SLOT_ROOT = "/var/lib/ordax/components"
 COMPONENT_MODULE_PREFIX = "/__ordax/native/component-module/"
 MAX_RUNTIME_FILE_BYTES = 2 * 1024 * 1024
@@ -21,6 +23,10 @@ _SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 _SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
 
 SUPPORTED_COMPONENTS = frozenset({"internet", "notes", "studio"})
+# Metadata-only current-state queries may include more known first-party apps.
+# Executable file reads, Native module URLs and health writes stay restricted.
+if not SUPPORTED_COMPONENTS.issubset(STORE_METADATA_COMPONENT_IDS):
+    raise RuntimeError("Native module components missing from canonical metadata registry")
 HEALTH_MUTATION_COMPONENTS = frozenset({"internet", "notes"})
 SUPPORTED_STATES = frozenset({"current", "pending"})
 
@@ -99,8 +105,15 @@ def component_slot_reader_available(
     )
 
 
-def _validate_request(component_id: str, state: str, requested_path: str | None = None) -> None:
-    if component_id not in SUPPORTED_COMPONENTS or not _COMPONENT_RE.fullmatch(component_id):
+def _validate_request(
+    component_id: str,
+    state: str,
+    requested_path: str | None = None,
+    *,
+    metadata_current_only: bool = False,
+) -> None:
+    allowed = STORE_METADATA_COMPONENT_IDS if metadata_current_only and state == "current" else SUPPORTED_COMPONENTS
+    if component_id not in allowed or not _COMPONENT_RE.fullmatch(component_id):
         raise ComponentSlotRequestError("unsupported runtime component")
     if state not in SUPPORTED_STATES:
         raise ComponentSlotRequestError("unsupported runtime component state")
@@ -323,7 +336,7 @@ def resolve_component_slot(
     slot_root: str = DEFAULT_SLOT_ROOT,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> ComponentSlotResolution:
-    _validate_request(component_id, state)
+    _validate_request(component_id, state, metadata_current_only=True)
     command = "resolve-current" if state == "current" else "resolve-pending"
     output = _run_helper(
         helper_path,
