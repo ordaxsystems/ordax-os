@@ -205,3 +205,33 @@ cópia de dados: a cadeia integral do novo backend ainda depende da
 reconciliação da autoridade de exportação, paginação, schema e do
 isolamento do executor antes de implantar o gateway de Conta. Não
 aplicar somente as etapas intermediárias com privilégios transitórios.
+
+## Correção da identidade de Sync no PostgreSQL de destino (2026-10-08)
+
+O Supabase gerencia a propriedade do schema `auth`. O executor restrito
+`ordax_sync_executor` não possui `USAGE` nesse schema; portanto,
+executar `auth.uid()` dentro dos seis RPCs `SECURITY DEFINER` de
+Sync causa `permission denied for schema auth`.
+
+A migration canônica
+`migrations/20261008092000_sync_request_subject_bridge_v1.sql`
+corrige **os seis RPCs existentes** e **as cinco políticas RLS
+existentes** para consumir
+`public.ordax_request_subject_v1()`, a ponte mínima e
+`SECURITY DEFINER` já implementada pelo owner de Account Export.
+Concede apenas `USAGE` no schema `public` e `EXECUTE`
+dessa função para `ordax_sync_executor`; nunca concede acesso
+direto ao schema `auth`, não cria uma segunda ponte de identidade
+e mantém o executor `NOLOGIN/NOBYPASSRLS`.
+
+A falha foi reproduzida com duas contas e recibos jurídicos sintéticos,
+dentro de `BEGIN ... ROLLBACK`. A prova com a migration corretiva
+passou: gravação de Sync pelo sujeito A, snapshot e exportação
+correspondentes; o sujeito B não recebeu os dados do sujeito A.
+O SQL reproduzível está em
+`tests/sql/test_account_sync_export_subject_isolation_v1.sql`.
+Nenhuma conta, política jurídica ou alteração sintética persistiu.
+
+A verificação não autoriza cadastro/login públicos. A implantação
+de gateway, integração OIDC, provedor e recuperação de sessão seguem
+exigindo provas específicas para o mesmo destino.
