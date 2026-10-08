@@ -256,7 +256,8 @@ export function mountStoreOverviewControls(
   let requestMessageId = null;
   let requestReason = null;
   let requestOrdinal = 0;
-  let activeView = "discover";
+  let activeView = VIEWS.includes(lifecycle.getAppTarget("store"))
+    ? lifecycle.getAppTarget("store") : "discover";
   let searchQuery = "";
   let selectedAppId = null;
   let removalConfirmationAppId = null;
@@ -613,7 +614,20 @@ export function mountStoreOverviewControls(
   });
   const unsubscribeRender = lifecycle.subscribeRender(render);
   const unsubscribeLocalization = localization.subscribe(render);
+  const unsubscribeActivation = activation?.subscribe((next) => {
+    if (next.appId !== "store" || !VIEWS.includes(next.target)) return;
+    activeView = next.target;
+    selectedAppId = null;
+    removalConfirmationAppId = null;
+    render();
+    if (activeView === "models" && modelReadState === "idle") {
+      void refreshModelResources();
+    }
+  });
   render();
+  if (activeView === "models" && modelReadState === "idle") {
+    void refreshModelResources();
+  }
 
   return Object.freeze({
     destroy() {
@@ -623,6 +637,7 @@ export function mountStoreOverviewControls(
       modelReadAbort?.abort();
       modelReadAbort = null;
       unsubscribeCatalog?.();
+      unsubscribeActivation?.();
       unsubscribeRender?.();
       unsubscribeLocalization?.();
       root.removeEventListener("click", onClick);
