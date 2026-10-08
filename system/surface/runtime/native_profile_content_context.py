@@ -13,6 +13,8 @@ import hashlib
 import json
 import os
 import stat
+import re
+import unicodedata
 from pathlib import Path
 
 from native_profile_activation_state import (
@@ -33,6 +35,65 @@ MAX_CONTEXT_TOTAL_CHARS = 32768
 MAX_CONTENT_PACK_BYTES = 64 * 1024 * 1024
 MAX_PACK_ENTRIES = 2048
 MAX_ENTRY_TEXT_CHARS = 1024 * 1024
+MAX_RETRIEVAL_QUERY_CHARS = 256
+MAX_RETRIEVAL_QUERY_TERMS = 24
+
+# A lexical baseline, not embeddings/RAG. Stopwords never grant relevance.
+_RETRIEVAL_STOPWORDS = frozenset((
+    "a", "as", "o", "os", "um", "uma", "uns", "umas",
+    "de", "da", "das", "do", "dos", "em", "na", "nas", "no", "nos",
+    "e", "ou", "para", "por", "com", "sem", "que", "qual", "quais",
+    "como", "mais", "menos", "me", "meu", "minha", "sua", "seu",
+    "eu", "voce", "preciso", "quero", "sobre", "the", "and", "for",
+    "what", "which", "how", "with", "this", "that", "you",
+))
+
+
+def _fold_retrieval_text(value: str) -> str:
+    # Accent-insensitive, local-only and independent of a model/provider.
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", value.casefold())
+        if not unicodedata.combining(char)
+    )
+
+
+def _retrieval_terms(query: str | None) -> tuple[str, ...]:
+    if query is None:
+        return ()
+    query = _bounded_text(query, "Profile content retrieval query", MAX_RETRIEVAL_QUERY_CHARS)
+    words = re.findall(r"[a-z0-9]{2,}", _fold_retrieval_text(query))
+    unique = dict.fromkeys(
+        word for word in words if word not in _RETRIEVAL_STOPWORDS
+    )
+    return tuple(list(unique)[:MAX_RETRIEVAL_QUERY_TERMS])
+
+
+def _entry_relevance(text: str, title: str, entry_id: str, terms: tuple[str, ...]) -> int:
+    if not terms:
+        return 0
+    body = _fold_retrieval_text(text)
+    heading = _fold_retrieval_text(f"{title} {entry_id}")
+    # Whole words avoid accidental substring matches; saturate frequency
+    # so repetition/prompt injection cannot dominate deterministic ranking.
+    body_counts = {}
+    for word in re.findall(r"[a-z0-9]{2,}", body):
+        if word in terms and body_counts.get(word, 0) < 3:
+            body_counts[word] = body_counts.get(word, 0) + 1
+    header_words = set(re.findall(r"[a-z0-9]{2,}", heading))
+    score = sum(
+        min(body_counts.get(term, 0), 3) * 2 + (8 if term in header_words else 0)
+        for term in terms
+    )
+    coverage = all(term in body_counts or term in header_words for term in terms)
+    # Prefer a close ordering of the user's terms over equal-frequency but
+    # scattered matches; ties remain stable by content-addressed entry ID.
+    positions = [body.find(term) for term in terms]
+    ordered = bool(positions) and all(
+        position >= 0 and position <= following
+        for position, following in zip(positions, positions[1:])
+    ) and positions[-1] >= 0
+    return score + (12 if coverage else 0) + (5 if ordered and len(terms) > 1 else 0)
+
 
 _ALLOWED_KINDS = frozenset(("knowledge-pack", "skill-pack"))
 _ALLOWED_MEDIA_TYPES = frozenset(("text/plain", "text/markdown", "application/json"))
@@ -175,7 +236,27 @@ def _entry_provenance(component: dict, entry_id: str, revision: str) -> str:
     return value
 
 
-def _project_pack(component: dict, raw: bytes) -> list[dict]:
+def _relevant_excerpt(text: str, terms: tuple[str, ...]) -> str:
+    if len(text) <= MAX_CONTEXT_ITEM_CHARS or not terms:
+        return text[:MAX_CONTEXT_ITEM_CHARS].strip()
+    # Scan source windows; never select just the first 8 KiB when a
+    # matching paragraph appears later in a verified large entry.
+    stride = MAX_CONTEXT_ITEM_CHARS // 2
+    best_score = -1
+    best_start = 0
+    for start in range(0, len(text), stride):
+        fragment = text[start:start + MAX_CONTEXT_ITEM_CHARS]
+        score = _entry_relevance(fragment, "", "", terms)
+        if score > best_score:
+            best_score = score
+            best_start = start
+    selected = text[best_start:best_start + MAX_CONTEXT_ITEM_CHARS].strip()
+    return selected
+
+
+def _project_pack(
+    component: dict, raw: bytes, query_terms: tuple[str, ...] = (),
+) -> list[dict]:
     pack = _strict_json(raw)
     if (
         not isinstance(pack, dict)
@@ -234,7 +315,11 @@ def _project_pack(component: dict, raw: bytes) -> list[dict]:
         if entry_id in ids:
             raise ValueError("Profile content pack entry ids must be unique")
         ids.add(entry_id)
-        clipped = text[:MAX_CONTEXT_ITEM_CHARS].strip()
+        relevance = _entry_relevance(text, source["title"], entry_id, query_terms)
+        # Validate every entry and its digest even when it is not relevant.
+        if query_terms and relevance == 0:
+            continue
+        clipped = _relevant_excerpt(text, query_terms)
         if not clipped:
             raise ValueError("Profile content projection produced empty text")
         component_tag = hashlib.sha256(
@@ -245,6 +330,7 @@ def _project_pack(component: dict, raw: bytes) -> list[dict]:
             "scope": "workspace",
             "text": clipped,
             "provenance": _entry_provenance(component, entry_id, source["revision"]),
+            "_retrievalScore": relevance,
         })
     return projected
 
@@ -252,12 +338,14 @@ def _project_pack(component: dict, raw: bytes) -> list[dict]:
 def read_active_profile_content_context(
     space_id: str,
     *,
+    query: str | None = None,
     activation_state_path: str = PROFILE_ACTIVATION_STATE_FILE,
     inventory_path: str = PROFILE_COMPONENT_INVENTORY_FILE,
     receipt_root: str = DEFAULT_RECEIPT_ROOT,
     content_root: str = DEFAULT_PROFILE_CONTENT_ROOT,
 ) -> dict:
     space_id = _bounded_text(space_id, "Profile content Space id", 160)
+    terms = _retrieval_terms(query)
     state = read_profile_activation_state(activation_state_path)
     row = next((entry for entry in state["spaces"] if entry["spaceId"] == space_id), None)
     if row is None or row["current"] is None:
@@ -280,9 +368,17 @@ def read_active_profile_content_context(
         if component["kind"] not in _ALLOWED_KINDS:
             continue
         candidates.extend(
-            _project_pack(component, _read_immutable_content(component, content_root))
+            _project_pack(
+                component, _read_immutable_content(component, content_root), terms,
+            )
         )
 
+    # Rank over every verified entry, not merely the first eight in a pack.
+    # A stopword-only query cannot arbitrarily recommend unrelated content.
+    if query is not None:
+        if not terms:
+            candidates = []
+        candidates.sort(key=lambda item: (-item["_retrievalScore"], item["id"]))
     entries = []
     remaining_chars = MAX_CONTEXT_TOTAL_CHARS
     for entry in candidates:
@@ -296,6 +392,7 @@ def read_active_profile_content_context(
             if not clipped:
                 break
             entry = {**entry, "text": f"{clipped}…"}
+        entry = {key: value for key, value in entry.items() if key != "_retrievalScore"}
         entries.append(entry)
         remaining_chars -= len(entry["text"])
 

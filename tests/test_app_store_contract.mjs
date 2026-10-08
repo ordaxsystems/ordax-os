@@ -343,7 +343,7 @@ test("Store lifecycle controls confirm removal and survive synchronous as well a
   assert.match(source, /storeConfirmRemove/);
   assert.match(source, /storeCancelRemove/);
   assert.match(source, /Promise\.resolve\(\)\s*\.then\(\(\) => lifecycleRequests\.requestLifecycle\(request\)\)/);
-  assert.match(source, /\.catch\(\(\) => \{\s*pendingRequest = null;/);
+  assert.match(source, /\.catch\(\(\) => \{\s*if \(!isCurrentRequest\(\)\) return;\s*pendingRequest = null;/);
   assert.match(source, /restoreSearchFocus/);
   assert.match(source, /root\.addEventListener\("keydown", onKeyDown\)/);
   assert.match(source, /root\.removeEventListener\("keydown", onKeyDown\)/);
@@ -397,4 +397,22 @@ test("Store presents validated platform rejection reason but cannot mint authori
   assert.equal(locales.split('"store.request.reason"').length, 3);
   assert.doesNotMatch(source, /Date\.now\(\)/);
   assert.doesNotMatch(source, /innerHTML/);
+});
+
+
+test("Store never reactivates a stale lifecycle request after catalog replacement or teardown", async () => {
+  const source = await readFile(
+    new URL("../system/surface/ui/store-overview-controls.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /let catalogFingerprint = JSON\.stringify\(snapshot\)/);
+  assert.match(source, /let catalogGeneration = 0;/);
+  assert.match(source, /fingerprint !== catalogFingerprint/);
+  assert.match(source, /catalogGeneration \+= 1;\s*pendingRequest = null;/);
+  assert.match(source, /const isCurrentRequest = \(\) => !destroyed/);
+  assert.match(source, /catalogGeneration === requestGeneration/);
+  assert.match(source, /pendingRequest\?\.requestId === request\.requestId/);
+  assert.match(source, /if \(!isCurrentRequest\(\)\) return null;/);
+  assert.match(source, /if \(!isCurrentRequest\(\)\) return;/);
+  assert.doesNotMatch(source, /localStorage|sessionStorage|new Map\(\)/);
 });

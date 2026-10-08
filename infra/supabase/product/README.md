@@ -348,3 +348,58 @@ restritas, abuso e rate limit. Requer E2E no projeto definitivo
 com credenciais reais, OIDC do tenant novo e teste de chave
 inválida/faltante. Flags de implantação e cutover continuam
 `false` em `docs/contracts/public-auth-hardening.json`.
+
+## Admissão de transporte por rota no gateway interno (2026-10-08)
+
+O owner `_shared/account_transport_admission.mjs` separa as três
+classes de entrada **antes de qualquer handler de Conta**:
+
+- **Serviço público OrdaX:** qualquer presença de
+  `x-ordax-public-site` exige valor exatamente `1` e a chave
+  `ordax-account-public-bridge` conferida pelo verificador
+  **já canônico** `_shared/account_service_bridge.mjs`. Marcador
+  inválido não pode virar requisição Native por fallback.
+- **Native autenticado:** rotas protegidas de Conta, Sync e Rede
+  exigem uma sessão de usuário confirmada pelo Supabase Auth via
+  `getUser()` (token fornecido por cookie HttpOnly ou Bearer JWT)
+  ou por `refreshSession()`. O resultado é cacheado por
+  `Request` e reutilizado pelo handler. Não há segunda
+  implementação de verificação de assinatura JWT ou segunda fonte
+  de identidade.
+- **Native sem sessão:** somente métodos/caminhos exatos de
+  bootstrap (login, cadastro, recuperação, logout, política,
+  estado de sessão e health) podem prosseguir. As operações de
+  autenticação continuam sob o limitador RPC autoritativo e
+  respectiva validação de endereço na camada existente; flags
+  de cadastro e recuperação continuam fechadas.
+
+Nunca permitir `/account/*`, `/sync/*` ou `/network/*`
+por correspondência de prefixo num bootstrap. A camada de admissão
+deve continuar **antes** de qualquer bypass de rate limit e antes
+do roteamento. Testes de negação estão em
+`tests/test_account_transport_admission.mjs`.
+
+**Não confundir deploy interno com promoção pública:** a PR #1433
+implantou inicialmente a versão v3; após a PR #1441, a Edge Function
+`ordax-account-gateway` do `ordax-platform` está na versão **v4**,
+`ACTIVE`, `verify_jwt=true`, com os cinco arquivos do owner canônico.
+O SHA-256 atual do artefato é
+`0adae36471932ffbce57ef58392c76e608e6c07045e9457d06de5917e36312e8`.
+A versão v4 usa `accountGatewayRoutePath` para aceitar apenas prefixos
+exatos da Edge e retorna erro controlado quando o JSON da mutação Sync
+não é um objeto, evitando exceções não tratadas.
+A consulta posterior de versão, flags, lista de arquivos e conteúdo
+confirmou o deploy; banco após deploy: 0 usuários, 0 políticas legais
+ativas e 0 registros Sync. Essas verificações **não equivalem a
+testes HTTP com uma credencial real**: o contrato único registra
+`destination_transport_admission_deployed=true`, mas
+`destination_transport_admission_negative_http_verified=false`,
+`destination_named_bridge_key_provisioned=false`,
+`destination_service_transport_runtime_verified=false` e
+`public_account_gateway_deployed=false`. A implementação pública
+permanece desativada.
+
+Somente após provisionar a chave nomeada, comprovar o OIDC do projeto
+Vercel real, testar os fluxos Native e HTTP negativos e revisar
+os controles poderá ser avaliada uma mudança de `verify_jwt`,
+sempre preservando um autenticador próprio antes do roteamento.

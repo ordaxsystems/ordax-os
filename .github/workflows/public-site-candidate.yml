@@ -46,6 +46,8 @@ on:
       - 'tests/test_public_auth_edge_rate_limit.mjs'
       - 'tests/test_public_account_edge_bounded_body.mjs'
       - 'tests/test_account_service_bridge.mjs'
+      - 'tests/test_account_transport_admission.mjs'
+      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
       - 'tests/test_public_account_edge_gateway_source.py'
       - 'tests/test_auth_provider_probe.py'
@@ -107,6 +109,8 @@ on:
       - 'tests/test_public_auth_edge_rate_limit.mjs'
       - 'tests/test_public_account_edge_bounded_body.mjs'
       - 'tests/test_account_service_bridge.mjs'
+      - 'tests/test_account_transport_admission.mjs'
+      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
       - 'tests/test_public_account_edge_gateway_source.py'
       - 'tests/test_auth_provider_probe.py'
@@ -157,6 +161,7 @@ jobs:
           node --test tests/test_public_auth_edge_rate_limit.mjs
           node --test tests/test_public_account_edge_bounded_body.mjs
           node --test tests/test_account_service_bridge.mjs
+          node --test tests/test_account_transport_admission.mjs
           python -m unittest tests.test_public_account_edge_gateway_source -v
           python -m unittest tests.test_auth_provider_probe -v
           python -m unittest tests.test_account_release_provider_proof -v

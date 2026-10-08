@@ -23,8 +23,14 @@ class NativeProfileContentContextContractTests(unittest.TestCase):
             'self.server.distribution_profile not in {"owner-development", "stable-mvp"}',
             host,
         )
-        self.assertIn("requested_profile_content_space_id", host)
+        self.assertIn("requested_profile_content_parameters", host)
         self.assertIn("PROFILE_CONTENT_CONTEXT_PATH", host)
+        self.assertIn('set(query).issubset({"spaceId", "query"})', host)
+        self.assertIn('len(query.get("spaceId", [])) != 1', host)
+        self.assertIn('len(query.get("query", [])) > 1', host)
+        self.assertIn("len(relevance_query) > 256", host)
+        self.assertIn("read_active_profile_content_context(space_id, query=relevance_query)", host)
+        self.assertIn('query.set("query", retrievalQuery.trim())', adapter)
         self.assertIn('ENDPOINT = "/__ordax/native/profile-content-context"', adapter)
         self.assertIn('method: "GET"', adapter)
         self.assertNotIn('method: "POST"', adapter)

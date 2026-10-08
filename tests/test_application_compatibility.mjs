@@ -254,3 +254,78 @@ test("profile planning requires exact SHA-256 of the manager-inspected bytes", a
     /payload digest is not verified/,
   );
 });
+
+test("runtime descriptors reject mismatched engine families and unknown architectures", () => {
+  const invalid = [
+    { family: "windows", engine: "native-linux" },
+    { family: "linux", engine: "wine" },
+    { family: "linux", engine: "proton" },
+    { architectures: ["unknown"] },
+    { architectures: ["x86_64", "unknown"] },
+  ];
+  for (const override of invalid) {
+    assert.throws(
+      () => defineApplicationCompatibilityRuntime(runtime(override)),
+      /engine and family are incompatible|runtime architectures contains an unsupported value/,
+    );
+    assert.throws(() => createApplicationCompatibilityManager({ runtimes: [runtime(override)] }));
+  }
+
+  for (const descriptor of [
+    runtime({ family: "windows", engine: "wine" }),
+    runtime({ family: "windows", engine: "proton" }),
+    runtime({ family: "windows", engine: "other" }),
+    runtime({ family: "linux", engine: "native-linux" }),
+    runtime({ family: "linux", engine: "other" }),
+  ]) {
+    assert.equal(defineApplicationCompatibilityRuntime(descriptor).family, descriptor.family);
+  }
+});
+
+test("a Linux-native runtime cannot be misrepresented as Windows to satisfy launch planning", () => {
+  assert.throws(
+    () => createApplicationCompatibilityManager({
+      runtimes: [runtime({ family: "windows", engine: "native-linux" })],
+    }),
+    /engine and family are incompatible/,
+  );
+  const manager = createApplicationCompatibilityManager({
+    runtimes: [runtime({ id: "linux-test", family: "linux", engine: "native-linux" })],
+  });
+  const inspection = manager.inspect({ name: "windows.exe", bytes: peFixture() });
+  assert.equal(manager.planLaunch({ inspection }).ready, false);
+  assert.equal(manager.planLaunch({ inspection }).reason, "runtime-unavailable");
+});
+
+test("Windows PE requires executable-image COFF flag and a complete bounded section table", () => {
+  const manager = createApplicationCompatibilityManager({ runtimes: [runtime()] });
+  const invalid = [
+    ["no-image-flag", peFixture({ executable: false }), "missing-executable-image-characteristic"],
+    ["zero-sections", peFixture({ sections: 0 }), "invalid-section-table"],
+    ["too-many-sections", peFixture({ sections: 97 }), "invalid-section-table"],
+    ["truncated-section-table", peFixture({ sections: 2, fileSize: 430 }), "invalid-section-table"],
+  ];
+  for (const [name, bytes, reason] of invalid) {
+    const inspection = manager.inspect({ name: `${name}.exe`, bytes });
+    assert.equal(inspection.kind, "windows-pe", name);
+    assert.equal(inspection.launchable, false, name);
+    assert.ok(inspection.evidence.includes(reason), name);
+    assert.deepEqual(manager.planLaunch({ inspection }), {
+      schema: "ordax.application-compatibility-plan/1",
+      ready: false,
+      runtimeId: null,
+      reason: "payload-not-launchable",
+    }, name);
+  }
+
+  const complete = manager.inspect({ name: "complete.exe", bytes: peFixture() });
+  assert.equal(complete.launchable, true);
+  assert.ok(complete.evidence.includes("valid-section-table"));
+  assert.ok(complete.evidence.includes("executable-image-characteristic"));
+
+  const dll = manager.inspect({ name: "component.dll", bytes: peFixture({ dll: true }) });
+  assert.equal(dll.role, "library");
+  assert.equal(dll.launchable, false);
+  assert.ok(dll.evidence.includes("executable-image-characteristic"));
+  assert.ok(dll.evidence.includes("dll-characteristic"));
+});
