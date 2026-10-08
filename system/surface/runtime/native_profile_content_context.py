@@ -84,7 +84,15 @@ def _entry_relevance(text: str, title: str, entry_id: str, terms: tuple[str, ...
         min(body_counts.get(term, 0), 3) * 2 + (8 if term in header_words else 0)
         for term in terms
     )
-    return score + (12 if all(term in body_counts or term in header_words for term in terms) else 0)
+    coverage = all(term in body_counts or term in header_words for term in terms)
+    # Prefer a close ordering of the user's terms over equal-frequency but
+    # scattered matches; ties remain stable by content-addressed entry ID.
+    positions = [body.find(term) for term in terms]
+    ordered = bool(positions) and all(
+        position >= 0 and position <= following
+        for position, following in zip(positions, positions[1:])
+    ) and positions[-1] >= 0
+    return score + (12 if coverage else 0) + (5 if ordered and len(terms) > 1 else 0)
 
 
 _ALLOWED_KINDS = frozenset(("knowledge-pack", "skill-pack"))
