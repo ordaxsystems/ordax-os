@@ -889,6 +889,22 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === false
       && proofStoreSlot.querySelector('.ordax-store-request-status') === null;
 
+    // The microtask that would invoke Native has not run yet. If the signed
+    // catalog changes now, no obsolete request may ever cross that boundary.
+    const previousStoreRequestCount = proofRequests.length;
+    proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]').click();
+    notifyStore({
+      ...replacedStoreSnapshot,
+      entries: replacedStoreSnapshot.entries.map((entry) => entry.appId === 'audio'
+        ? { ...entry, availableVersion: '1.0.2' } : entry),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    result.storeNeverDelegatesRevokedRequest = proofRequests.length === previousStoreRequestCount
+      && proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === false
+      && proofStoreSlot.querySelector('.ordax-store-request-status') === null;
+
     storeProof.destroy();
     storeProofRoot.remove();
     result.storeVerifiedFixtureCleaned = notifyStore === null;
@@ -1016,6 +1032,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'storeShowsValidatedRejectionReason', 'storeDeferredRequestStarted',
       'storeRetainsRequestOnIdenticalSnapshot',
       'storeInvalidatesRequestOnCatalogChange', 'storeIgnoresStaleAcceptedResponse',
+      'storeNeverDelegatesRevokedRequest',
       'storeVerifiedFixtureCleaned', 'internetComponentStyleMounted',
       'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
