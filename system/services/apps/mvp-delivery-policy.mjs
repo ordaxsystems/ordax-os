@@ -37,11 +37,23 @@ function assertCanonicalPolicy() {
     INITIAL_BOOTSTRAP_APP_IDS,
     "MVP bootstrap app set",
   );
-  sameIds(
-    policies.filter((entry) => entry.deliveryClass === "on-demand").map((entry) => entry.appId),
-    INITIAL_ON_DEMAND_APP_IDS,
-    "MVP on-demand app set",
+  // The first USB MVP's six on-demand products are a launch-scope subset.
+  // Additional first-party Store-only utility apps must not modify First Run,
+  // become bootstrap, or make independent Store delivery a launch blocker.
+  const onDemandById = new Map(
+    policies.filter((entry) => entry.deliveryClass === "on-demand")
+      .map((entry) => [entry.appId, entry]),
   );
+  for (const appId of INITIAL_ON_DEMAND_APP_IDS) {
+    if (!onDemandById.has(appId)) {
+      throw new TypeError("Missing initial MVP on-demand policy: " + appId);
+    }
+  }
+  for (const [appId, policy] of onDemandById) {
+    if (!INITIAL_ON_DEMAND_APP_IDS.includes(appId) && policy.discovery !== "store-only") {
+      throw new TypeError("Extended first-party Store product cannot change MVP launcher policy: " + appId);
+    }
+  }
 }
 
 assertCanonicalPolicy();

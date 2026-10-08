@@ -4,6 +4,10 @@ Status date: 2026-09-30
 
 This is the canonical handoff snapshot. Architecture/contracts win if another document conflicts with it. Detailed historical evidence remains under `docs/evidence/`; this file records the current boundary without treating CI proof, development-hardware proof and product-release authorization as interchangeable. Values that mirror structured source — including product/app versions, component release modes and physical-media geometry — are regression-checked against their owners so this snapshot cannot silently drift from the implementation.
 
+## First-party utility Store policies (2026-10-08)
+
+The first-party delivery policy additionally recognizes twelve optional utility app IDs from `ordaxsystems/ordax-apps` as `on-demand/store-only`. This is **metadata/presentation policy only**: a future verified signed catalog may project them, but no app becomes installed, launchable or production-installable from metadata alone. Initial USB MVP scope and on-demand boot policy remain unchanged; Native Store lifecycle executor and public Store UI remain disabled until separate trust, lifecycle and release gates are proven. The source, G0 package inventory and public App SDK contracts retain their respective canonical owners.
+
 ## MVP scope decision — USB only
 
 ```text

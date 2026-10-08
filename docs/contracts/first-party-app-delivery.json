@@ -50,7 +50,19 @@
       "projects",
       "activity",
       "notes",
-      "network"
+      "network",
+      "calculator",
+      "clock",
+      "converter",
+      "text-viewer",
+      "image-viewer",
+      "calendar",
+      "colors",
+      "character-map",
+      "paint",
+      "media-player",
+      "pdf-viewer",
+      "toolbox"
     ]
   },
   "surface_projection": {
