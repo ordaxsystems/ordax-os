@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'system/surface/runtime/native_store_catalog.py'
+      - 'system/surface/runtime/native_store_https_origin.py'
+      - 'tests/test_native_store_https_origin.py'
       - 'system/surface/runtime/native_store_catalog_acquisition.py'
       - 'tests/test_native_store_catalog_acquisition.py'
       - 'system/surface/runtime/native_app_artifact_store.py'
@@ -58,6 +60,8 @@ on:
   pull_request:
     paths:
       - 'system/surface/runtime/native_store_catalog.py'
+      - 'system/surface/runtime/native_store_https_origin.py'
+      - 'tests/test_native_store_https_origin.py'
       - 'system/surface/runtime/native_store_catalog_acquisition.py'
       - 'tests/test_native_store_catalog_acquisition.py'
       - 'system/surface/runtime/native_app_artifact_store.py'
@@ -152,10 +156,12 @@ jobs:
           python -m unittest tests.test_dynamic_component_probation_contract -v
           node --test tests/test_native_app_lifecycle_delegate.mjs
           python -m py_compile system/surface/runtime/native_store_catalog.py system/surface/runtime/native_host_server.py
+          python -m py_compile system/surface/runtime/native_store_https_origin.py tests/test_native_store_https_origin.py
           python -m py_compile system/surface/runtime/native_store_catalog.py system/surface/runtime/native_store_catalog_acquisition.py system/surface/runtime/native_app_artifact_store.py system/surface/runtime/native_app_artifact_acquisition.py system/surface/runtime/native_app_lifecycle_executor.py system/surface/runtime/native_host_server.py
           python -m py_compile system/surface/runtime/native_component_slots.py
           python -m py_compile system/surface/runtime/native_component_pending_decision.py
           python -m unittest tests.test_native_store_catalog -v
+          python -m unittest tests.test_native_store_https_origin -v
           python -m unittest tests.test_native_store_catalog_acquisition -v
           python -m unittest tests.test_native_app_artifact_store -v
           python -m unittest tests.test_native_app_artifact_acquisition -v

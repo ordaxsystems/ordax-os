@@ -13,6 +13,11 @@ from dataclasses import dataclass
 from typing import Callable
 from urllib import error, parse, request
 
+from native_store_https_origin import (
+    StoreHttpsOriginError,
+    normalize_store_https_base_origin,
+)
+
 from native_app_artifact_store import (
     AppArtifactStoreError,
     MAX_ARTIFACT_BYTES,
@@ -57,27 +62,10 @@ class HttpsArtifactSource:
 
 
 def normalize_https_base_origin(value: object) -> str:
-    if not isinstance(value, str) or not value or value != value.strip():
-        raise AppArtifactAcquisitionError("artifact HTTPS base origin is invalid")
-    parsed = parse.urlsplit(value)
-    if (
-        parsed.scheme != "https"
-        or not parsed.hostname
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.query
-        or parsed.fragment
-        or "\\" in parsed.path
-    ):
-        raise AppArtifactAcquisitionError("artifact HTTPS base origin is invalid")
-    segments = [segment for segment in parsed.path.split("/") if segment]
-    if any(segment in {".", ".."} for segment in segments):
-        raise AppArtifactAcquisitionError("artifact HTTPS base origin path is invalid")
-    path = parsed.path or "/"
-    if not path.endswith("/"):
-        path += "/"
-    return parse.urlunsplit(("https", parsed.netloc, path, "", ""))
-
+    try:
+        return normalize_store_https_base_origin(value)
+    except StoreHttpsOriginError as exc:
+        raise AppArtifactAcquisitionError(str(exc)) from exc
 
 def artifact_relative_path(identity: object) -> str:
     normalized = validate_artifact_identity(identity)

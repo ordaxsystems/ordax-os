@@ -12,6 +12,11 @@ from pathlib import Path
 import tempfile
 from urllib import error, parse, request
 
+from native_store_https_origin import (
+    StoreHttpsOriginError,
+    normalize_store_https_base_origin,
+)
+
 from native_store_catalog import (
     MAX_ENVELOPE_BYTES,
     StoreCatalogError,
@@ -34,27 +39,10 @@ class _RejectRedirects(request.HTTPRedirectHandler):
 
 
 def normalize_catalog_base_origin(value: object) -> str:
-    if not isinstance(value, str) or not value or value != value.strip():
-        raise StoreCatalogAcquisitionError("Store catalog HTTPS base origin is invalid")
-    parsed = parse.urlsplit(value)
-    if (
-        parsed.scheme != "https"
-        or not parsed.hostname
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.query
-        or parsed.fragment
-        or "\\" in parsed.path
-    ):
-        raise StoreCatalogAcquisitionError("Store catalog HTTPS base origin is invalid")
-    segments = [segment for segment in parsed.path.split("/") if segment]
-    if any(segment in {".", ".."} for segment in segments):
-        raise StoreCatalogAcquisitionError("Store catalog HTTPS base origin path is invalid")
-    path = parsed.path or "/"
-    if not path.endswith("/"):
-        path += "/"
-    return parse.urlunsplit(("https", parsed.netloc, path, "", ""))
-
+    try:
+        return normalize_store_https_base_origin(value)
+    except StoreHttpsOriginError as exc:
+        raise StoreCatalogAcquisitionError(str(exc)) from exc
 
 def catalog_envelope_url(base_origin: object) -> str:
     base = normalize_catalog_base_origin(base_origin)
