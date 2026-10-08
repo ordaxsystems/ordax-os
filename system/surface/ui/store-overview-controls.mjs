@@ -251,6 +251,10 @@ export function mountStoreOverviewControls(
   const activation = appActivationPort === null ? null : assertAppActivationPort(appActivationPort);
 
   let snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+  // These are ephemeral presentation revisions, not a second catalog or
+  // persisted inventory. Only semantic snapshot changes invalidate a request.
+  let catalogFingerprint = JSON.stringify(snapshot);
+  let catalogGeneration = 0;
   let mountedSlot = null;
   let pendingRequest = null;
   let requestMessageId = null;
@@ -555,13 +559,21 @@ export function mountStoreOverviewControls(
       requestId: request.requestId,
       phase: "requesting",
     });
+    const requestGeneration = catalogGeneration;
+    const isCurrentRequest = () => !destroyed
+      && catalogGeneration === requestGeneration
+      && pendingRequest?.requestId === request.requestId;
     render();
 
-    // Defer the delegate invocation as well: synchronous errors must clear the
-    // pending UI exactly like rejected asynchronous calls.
+    // Deferred work must never resurrect a request from a replaced signed
+    // catalog, another request, or a destroyed Surface instance.
     void Promise.resolve()
-      .then(() => lifecycleRequests.requestLifecycle(request))
+      .then(() => {
+        if (!isCurrentRequest()) return null;
+        return lifecycleRequests.requestLifecycle(request);
+      })
       .then((rawResult) => {
+        if (!isCurrentRequest()) return;
         const result = validateAppLifecycleRequestResultForRequest(rawResult, request);
         requestMessageId = "store.request." + operation + "." + result.state;
         requestReason = result.state === "rejected" ? result.reason : null;
@@ -579,6 +591,7 @@ export function mountStoreOverviewControls(
         render();
       })
       .catch(() => {
+        if (!isCurrentRequest()) return;
         pendingRequest = null;
         requestMessageId = "store.request." + operation + ".failed";
         requestReason = null;
@@ -608,7 +621,19 @@ export function mountStoreOverviewControls(
   root.addEventListener("input", onInput);
   root.addEventListener("keydown", onKeyDown);
   const unsubscribeCatalog = catalog.subscribe((next) => {
-    snapshot = validateAppStoreCatalogSnapshot(next);
+    const verified = validateAppStoreCatalogSnapshot(next);
+    const fingerprint = JSON.stringify(verified);
+    if (fingerprint !== catalogFingerprint) {
+      // Drop stale visual request state before showing the new projection.
+      // Platform requests already delegated remain platform-owned.
+      catalogFingerprint = fingerprint;
+      catalogGeneration += 1;
+      pendingRequest = null;
+      requestMessageId = null;
+      requestReason = null;
+      removalConfirmationAppId = null;
+    }
+    snapshot = verified;
     reconcileAcceptedRequest();
     render();
   });

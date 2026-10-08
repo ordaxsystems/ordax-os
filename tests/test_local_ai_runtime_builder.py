@@ -84,6 +84,33 @@ class LocalAiRuntimeBuilderTests(unittest.TestCase):
             with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "engine artifact pin"):
                 BUILDER.load_source_lock(path)
 
+    def test_builder_rejects_model_license_identity_drift(self):
+        lock = json.loads(SOURCE_LOCK.read_text(encoding="utf-8"))
+        for value in (None, "MIT", "Proprietary", "apache-2.0"):
+            with self.subTest(license=value):
+                altered = json.loads(json.dumps(lock))
+                altered["model"]["license"] = value
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "source-lock.json"
+                    path.write_text(json.dumps(altered), encoding="utf-8")
+                    with self.assertRaisesRegex(
+                        BUILDER.RuntimeBuildError,
+                        "model license is not approved",
+                    ):
+                        BUILDER.load_source_lock(path)
+
+    def test_current_candidate_includes_exact_mit_and_apache_license_sources(self):
+        lock = BUILDER.load_source_lock()
+        self.assertEqual(lock["engine"]["license"], "MIT")
+        self.assertEqual(lock["model"]["license"], "Apache-2.0")
+        model_license = ROOT / lock["model"]["license_text_path"]
+        contents = model_license.read_text(encoding="utf-8")
+        self.assertIn("Apache License", contents[:120])
+        self.assertIn("Version 2.0, January 2004", contents[:160])
+        builder = BUILDER_PATH.read_text(encoding="utf-8")
+        self.assertIn('runtime / "licenses/llama.cpp-MIT.txt"', builder)
+        self.assertIn('runtime / "licenses/model-Apache-2.0.txt"', builder)
+
     def test_model_url_is_revision_pinned(self):
         lock = BUILDER.load_source_lock()
         url = BUILDER.model_url(lock)

@@ -66,7 +66,12 @@ export function createProfileContentIntelligence({
     const request = validateIntelligenceRequest(value);
     const normalizedSpaceId = boundedSpaceId(spaceId);
 
-    const profile = validateProfileContentContext(await profileContext.read(normalizedSpaceId));
+    // Search text stays on the Native loopback. Only bounded query characters
+    // reach the read-only Knowledge reader; no external embeddings or provider.
+    const searchQuery = request.prompt.replace(/\s+/g, " ").trim().slice(0, 256);
+    const profile = validateProfileContentContext(await profileContext.read(
+      normalizedSpaceId, searchQuery ? { query: searchQuery } : undefined,
+    ));
     if (profile.spaceId !== normalizedSpaceId) {
       throw new Error("Profile-content Intelligence Space identity changed");
     }
@@ -176,8 +181,10 @@ export function createSelectedSpaceProfileContentIntelligence({
       };
       const verifiedProfileContext = {
         schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
-        async read(id) {
-          const context = validateProfileContentContext(await profileContentContextPort.read(id));
+        async read(id, options) {
+          const context = validateProfileContentContext(
+            await profileContentContextPort.read(id, options),
+          );
           assertStableActivation();
           if (
             context.profile?.slug !== activeProfile?.slug

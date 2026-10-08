@@ -8,7 +8,13 @@ const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Z
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
 const FAMILIES = new Set(["windows", "linux"]);
 const ENGINES = new Set(["wine", "proton", "native-linux", "other"]);
+const ENGINE_FAMILIES = Object.freeze({
+  wine: "windows",
+  proton: "windows",
+  "native-linux": "linux",
+});
 const ARCHITECTURES = new Set(["x86", "x86_64", "aarch64", "unknown"]);
+const RUNTIME_ARCHITECTURES = new Set([...ARCHITECTURES].filter((architecture) => architecture !== "unknown"));
 const KINDS = new Set(["windows-pe", "windows-msi", "linux-elf", "linux-appimage", "unknown"]);
 const ROLES = new Set(["executable", "installer", "library", "unknown"]);
 const RUNTIME_KEYS = Object.freeze([
@@ -74,6 +80,9 @@ export function defineApplicationCompatibilityRuntime(spec) {
   exactKeys(spec.source, SOURCE_KEYS, "Application compatibility runtime source");
   if (!FAMILIES.has(spec.family)) throw new TypeError("Application compatibility runtime family is unsupported");
   if (!ENGINES.has(spec.engine)) throw new TypeError("Application compatibility runtime engine is unsupported");
+  if (Object.hasOwn(ENGINE_FAMILIES, spec.engine) && ENGINE_FAMILIES[spec.engine] !== spec.family) {
+    throw new TypeError("Application compatibility runtime engine and family are incompatible");
+  }
   if (typeof spec.version !== "string" || !SEMVER_RE.test(spec.version)) {
     throw new TypeError("Application compatibility runtime version must be semantic version");
   }
@@ -96,7 +105,7 @@ export function defineApplicationCompatibilityRuntime(spec) {
     family: spec.family,
     engine: spec.engine,
     version: spec.version,
-    architectures: stringArray(spec.architectures, "runtime architectures", ARCHITECTURES),
+    architectures: stringArray(spec.architectures, "runtime architectures", RUNTIME_ARCHITECTURES),
     source: Object.freeze({
       identity: text(spec.source.identity, "runtime source identity", 256),
       digest,

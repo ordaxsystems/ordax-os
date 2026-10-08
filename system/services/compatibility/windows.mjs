@@ -4,6 +4,9 @@ const DOS_MAGIC = [0x4d, 0x5a];
 const PE_SIGNATURE = [0x50, 0x45, 0x00, 0x00];
 const CFB_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 const IMAGE_FILE_DLL = 0x2000;
+const IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002;
+const SECTION_HEADER_BYTES = 40;
+const MAX_IMAGE_SECTIONS = 96;
 const PE32_MAGIC = 0x010b;
 const PE32_PLUS_MAGIC = 0x020b;
 const DOS_HEADER_SIZE = 0x40;
@@ -66,6 +69,7 @@ export function inspectWindowsPayload({ name, bytes: input }) {
       && hasSignature(data, peOffset, PE_SIGNATURE)
     ) {
       const machine = readU16LE(data, peOffset + 4);
+      const numberOfSections = readU16LE(data, peOffset + 6);
       const optionalHeaderSize = readU16LE(data, peOffset + 20);
       const characteristics = readU16LE(data, peOffset + 22);
       const optionalMagic = readU16LE(data, peOffset + 24);
@@ -83,8 +87,19 @@ export function inspectWindowsPayload({ name, bytes: input }) {
         && optionalHeaderSize >= minimumOptionalSize
         && optionalHeaderOffset + optionalHeaderSize <= data.length
       );
+      const sectionTableOffset = optionalHeaderOffset + optionalHeaderSize;
+      const validSectionTable = (
+        numberOfSections >= 1
+        && numberOfSections <= MAX_IMAGE_SECTIONS
+        && sectionTableOffset + numberOfSections * SECTION_HEADER_BYTES <= data.length
+      );
+      const isExecutableImage = (characteristics & IMAGE_FILE_EXECUTABLE_IMAGE) !== 0;
       const isLibrary = (characteristics & IMAGE_FILE_DLL) !== 0;
-      const launchable = architecture !== "unknown" && validOptionalHeader && !isLibrary;
+      const launchable = architecture !== "unknown"
+        && validOptionalHeader
+        && validSectionTable
+        && isExecutableImage
+        && !isLibrary;
       return validateApplicationCompatibilityInspection({
         name: payloadName,
         family: "windows",
@@ -97,7 +112,9 @@ export function inspectWindowsPayload({ name, bytes: input }) {
           "pe-signature",
           `machine:0x${machine.toString(16).padStart(4, "0")}`,
           validOptionalHeader ? "valid-optional-header" : "invalid-optional-header",
-          isLibrary ? "dll-characteristic" : "executable-characteristic",
+          validSectionTable ? "valid-section-table" : "invalid-section-table",
+          isExecutableImage ? "executable-image-characteristic" : "missing-executable-image-characteristic",
+          isLibrary ? "dll-characteristic" : "not-dll-characteristic",
         ],
       });
     }

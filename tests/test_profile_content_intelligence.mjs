@@ -677,3 +677,93 @@ test("Native Profile context capability is explicit and bounded", async () => {
     /capability is incompatible/,
   );
 });
+
+
+test("Native Profile reader carries bounded relevance terms to loopback only", async () => {
+  const urls = [];
+  const port = createNativeProfileContentContext({
+    async fetch(path, options) {
+      urls.push([path, options]);
+      return response(context("space-dev"));
+    },
+  });
+  await port.read("space-dev", { query: "  temperatura extrusao PLA  " });
+  assert.equal(
+    new URL(urls[0][0], "https://native.invalid").searchParams.get("query"),
+    "temperatura extrusao PLA",
+  );
+  assert.equal(urls[0][1].method, "GET");
+  assert.equal(urls[0][1].credentials, "same-origin");
+  await assert.rejects(() => port.read("space-dev", { query: "x".repeat(257) }),
+    /retrieval query is invalid/);
+  await assert.rejects(() => port.read("space-dev", { query: "  " }),
+    /retrieval query is invalid/);
+  assert.equal(urls.length, 1);
+  port.dispose();
+});
+
+test("Intelligence requests query-specific verified Profile context without increasing permissions", async () => {
+  const ai = intelligencePort();
+  const reads = [];
+  const bridge = createProfileContentIntelligence({
+    intelligencePort: ai,
+    profileContentContextPort: {
+      schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+      async read(spaceId, options) {
+        reads.push({ spaceId, options });
+        return context(spaceId, [{
+          id: "verified-entry", scope: "workspace",
+          text: "A temperatura de extrusão do PLA precisa ser ajustada.",
+          provenance: "profile-content:knowledge-pack:verified",
+        }]);
+      },
+    },
+  });
+  await bridge.forSpace("space-dev").respond({
+    prompt: "  temperatura  da   extrusão  do PLA ",
+  });
+  assert.equal(reads.length, 1);
+  assert.deepEqual(reads[0], {
+    spaceId: "space-dev",
+    options: { query: "temperatura da extrusão do PLA" },
+  });
+  assert.equal(ai.requests.length, 1);
+  assert.equal(ai.requests[0].context.length, 1);
+  assert.equal(ai.requests[0].context[0].scope, "workspace");
+  assert.equal(ai.requests[0].context[0].provenance,
+    "profile-content:knowledge-pack:verified");
+});
+
+test("Current Space authorization wrapper forwards the same bounded relevance query", async () => {
+  const selectedSpace = {
+    id: "space-test", name: "3D", ownerId: "user-1",
+    state: "active", kind: "professional", profilePack: "developer",
+  };
+  const selection = spaceSelectionPort({
+    schema: SPACE_SELECTION_SCHEMA, state: "selected",
+    subjectId: "user-1", selectedSpace,
+  });
+  const auth = authorizedContext(selection);
+  const ai = intelligencePort();
+  const reads = [];
+  const port = createSelectedSpaceProfileContentIntelligence({
+    intelligencePort: ai,
+    spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
+    profileContentContextPort: {
+      schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+      async read(spaceId, options) {
+        reads.push([spaceId, options]);
+        return context(spaceId, [{
+          id: "ref", scope: "workspace", text: "PLA verificado",
+          provenance: "profile-content:knowledge-pack:verified",
+        }], { slug: "developer", version: 1 });
+      },
+    },
+  });
+  await port.respond({ prompt: "Extrusão  de PLA" });
+  assert.deepEqual(reads, [["space-test", { query: "Extrusão de PLA" }]]);
+  assert.equal(ai.requests.length, 1);
+});
