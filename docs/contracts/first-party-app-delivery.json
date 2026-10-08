@@ -253,6 +253,21 @@
     "native_pending_reject_requires_exact_revision": true,
     "native_pending_decision_receipt_requires_exact_identity": true,
     "store_may_invoke_pending_decision_directly": false,
+    "post_lifecycle_dynamic_probation_trigger_implemented": true,
+    "post_lifecycle_dynamic_probation_trigger_owner": "platform-component-lifecycle",
+    "post_lifecycle_dynamic_probation_operations": [
+      "install",
+      "update"
+    ],
+    "post_lifecycle_dynamic_probation_components": [
+      "internet",
+      "notes"
+    ],
+    "post_lifecycle_dynamic_probation_browser_host_owns_nonce": true,
+    "post_lifecycle_dynamic_probation_active_probe_rerun_coalesced": true,
+    "post_lifecycle_dynamic_probation_failure_keeps_pending_health": true,
+    "post_lifecycle_dynamic_probation_can_promote": false,
+    "post_lifecycle_dynamic_probation_can_activate": false,
     "production_pending_decision_mounted": false
   },
   "mvp": {

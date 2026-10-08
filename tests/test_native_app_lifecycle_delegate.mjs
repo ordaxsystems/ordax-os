@@ -140,3 +140,147 @@ test("remove plan carries no remote candidate or artifact identity", async () =>
   await delegate.executeLifecycle(value);
   assert.equal(calls[0].candidate, null);
 });
+
+
+test("accepted install requests platform-owned probation for supported components", async () => {
+  const value = plan("install");
+  const messages = [];
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch() {
+      return response(acceptedFor(value));
+    },
+    webkit: {
+      messageHandlers: {
+        ordaxBrowser: {
+          postMessage(message) {
+            messages.push(JSON.parse(message));
+          },
+        },
+      },
+    },
+  });
+
+  const result = await delegate.executeLifecycle(value);
+  assert.equal(result.state, "accepted");
+  assert.deepEqual(messages, [{
+    type: "component.probation.request",
+    componentId: "notes",
+  }]);
+});
+
+test("remove and unsupported apps never request probation", async () => {
+  const unsupported = plan("install");
+  unsupported.request = {
+    ...unsupported.request,
+    requestId: "store:install:studio:native-test",
+    appId: "studio",
+  };
+  unsupported.candidate = {
+    ...unsupported.candidate,
+    appId: "studio",
+    artifacts: {
+      package: artifact("studio.zip", "b"),
+      release: artifact("studio.release.json", "c"),
+      compatibility: artifact("studio.compatibility.json", "d"),
+      componentEnvelope: artifact("studio.runtime-component-envelope.json", "e"),
+    },
+  };
+
+  for (const value of [plan("remove"), unsupported]) {
+    const messages = [];
+    const delegate = createNativeAppLifecycleDelegate({
+      async fetch() {
+        return response(acceptedFor(value));
+      },
+      webkit: {
+        messageHandlers: {
+          ordaxBrowser: {
+            postMessage(message) {
+              messages.push(JSON.parse(message));
+            },
+          },
+        },
+      },
+    });
+    const result = await delegate.executeLifecycle(value);
+    assert.equal(result.state, "accepted");
+    assert.deepEqual(messages, []);
+  }
+});
+
+test("missing probation bridge never rewrites an accepted staged result", async () => {
+  const value = plan("update");
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch() {
+      return response(acceptedFor(value));
+    },
+  });
+
+  const result = await delegate.executeLifecycle(value);
+  assert.equal(result.state, "accepted");
+  assert.equal(result.operation, "update");
+});
+
+
+test("rejected or identity-drifted lifecycle replies never dispatch probation", async () => {
+  const value = plan("install");
+  const messages = [];
+  const windowRef = {
+    webkit: {
+      messageHandlers: {
+        ordaxBrowser: {
+          postMessage(message) { messages.push(message); },
+        },
+      },
+    },
+  };
+
+  const denied = createNativeAppLifecycleDelegate({
+    ...windowRef,
+    async fetch() {
+      return response({
+        ...acceptedFor(value),
+        state: "rejected",
+        reason: "platform-policy-blocked",
+      });
+    },
+  });
+  const deniedResult = await denied.executeLifecycle(value);
+  assert.equal(deniedResult.state, "rejected");
+  assert.deepEqual(messages, []);
+
+  const mismatched = createNativeAppLifecycleDelegate({
+    ...windowRef,
+    async fetch() {
+      return response({ ...acceptedFor(value), appId: "studio" });
+    },
+  });
+  await assert.rejects(() => mismatched.executeLifecycle(value), /identity mismatch/);
+  assert.deepEqual(messages, []);
+});
+
+test("probation bridge exception cannot change a platform-accepted staging receipt", async () => {
+  const value = plan("install");
+  let warnings = 0;
+  const originalWarn = console.warn;
+  const delegate = createNativeAppLifecycleDelegate({
+    async fetch() {
+      return response(acceptedFor(value));
+    },
+    webkit: {
+      messageHandlers: {
+        ordaxBrowser: {
+          postMessage() { throw new Error("bridge is temporarily unavailable"); },
+        },
+      },
+    },
+  });
+  try {
+    console.warn = () => { warnings += 1; };
+    const result = await delegate.executeLifecycle(value);
+    assert.deepEqual(result, acceptedFor(value));
+    assert.equal(warnings, 1);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
