@@ -267,12 +267,12 @@ export function mountSpaceSwitcherControls(
     enabled[targetIndex].focus();
   };
   const onKeyDown = (event) => {
-    if (!control.contains(event.target)) return;
     if (open && event.key === "Escape") {
       event.preventDefault();
       close(true);
       return;
     }
+    if (!control.contains(event.target)) return;
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
     if (!open) {
