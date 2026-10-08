@@ -18,6 +18,66 @@ func nativeInstallTargetFixture() NativeInstallTargetIdentity {
 	return target
 }
 
+// Earlier delimiter-joined fingerprints interpreted Model="Atlas|RevA",
+// Serial="123" exactly like Model="Atlas", Serial="RevA|123". Confirm a
+// changed physical identity cannot inherit another disk's authorization.
+func TestNativeTargetConfirmationTokenFramesMetadataUnambiguously(t *testing.T) {
+	first := nativeInstallTargetFixture()
+	first.Model = "Atlas|RevA"
+	first.Serial = "123"
+	second := nativeInstallTargetFixture()
+	second.Model = "Atlas"
+	second.Serial = "RevA|123"
+	if first.Model+"|"+first.Serial != second.Model+"|"+second.Serial {
+		t.Fatal("fixture must reproduce the delimiter-collision shape")
+	}
+	first, err := FinalizeNativeInstallTarget(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err = FinalizeNativeInstallTarget(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ConfirmationToken == second.ConfirmationToken {
+		t.Fatal("different disk identities must not share a confirmation token")
+	}
+	if _, err := MatchConfirmedNativeInstallTarget(
+		[]NativeInstallTargetIdentity{second},
+		first.ConfirmationToken,
+	); err == nil {
+		t.Fatal("stale confirmation must not retarget the other metadata identity")
+	}
+	confirmed, err := MatchConfirmedNativeInstallTarget(
+		[]NativeInstallTargetIdentity{first, second},
+		first.ConfirmationToken,
+	)
+	if err != nil || confirmed.Model != first.Model || confirmed.Serial != first.Serial {
+		t.Fatalf("the selected identity must remain exact: target=%#v err=%v", confirmed, err)
+	}
+}
+
+func TestNativeTargetTokenIsStableAcrossFormattingOnlyButBindsTransport(t *testing.T) {
+	target := nativeInstallTargetFixture()
+	first := target.ConfirmationToken
+	target.Model = " " + target.Model + " "
+	same, err := FinalizeNativeInstallTarget(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if same.ConfirmationToken != first {
+		t.Fatal("whitespace normalization must remain stable")
+	}
+	same.Transport = "ata"
+	mutated, err := FinalizeNativeInstallTarget(same)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mutated.ConfirmationToken == first {
+		t.Fatal("transport change must invalidate confirmation")
+	}
+}
+
 func TestFinalizeNativeInstallTargetBindsExactIdentity(t *testing.T) {
 	target := nativeInstallTargetFixture()
 	if !target.Eligible {
