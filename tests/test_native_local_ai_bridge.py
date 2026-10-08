@@ -134,17 +134,25 @@ class NativeLocalAiBridgeTests(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(self.backend.received, [])
 
-    def test_session_lock_blocks_inference_and_model_discovery(self):
+    def test_session_lock_blocks_inference_but_not_readiness_and_recovers_on_unlock(self):
         self.native.local_session_locked = True
-        for method, suffix, body, headers in (
-            ("GET", "/v1/models", None, None),
-            ("POST", "/v1/chat/completions", self.completion(), {"Content-Type": "application/json"}),
-        ):
-            status, _, _ = self.request(
-                method, bridge.NATIVE_LOCAL_AI_PREFIX + suffix, body=body, headers=headers,
-            )
-            self.assertEqual(status, 423)
+        for suffix in ("/health", "/v1/models"):
+            status, _, _ = self.request("GET", bridge.NATIVE_LOCAL_AI_PREFIX + suffix)
+            self.assertEqual(status, 200)
+        path = bridge.NATIVE_LOCAL_AI_PREFIX + "/v1/chat/completions"
+        status, _, _ = self.request(
+            "POST", path, body=self.completion(),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(status, 423)
         self.assertEqual(self.backend.received, [])
+        self.native.local_session_locked = False
+        status, _, _ = self.request(
+            "POST", path, body=self.completion(),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(len(self.backend.received), 1)
 
     def test_no_arbitrary_routes_queries_tools_or_stream(self):
         prefix = bridge.NATIVE_LOCAL_AI_PREFIX
