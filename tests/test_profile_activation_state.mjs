@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createEmptyProfileActivationState,
+  currentProfileForSpace,
   validateProfileActivationRef,
   validateProfileActivationState,
 } from "../system/contracts/profile-activation-state.mjs";
@@ -153,4 +154,39 @@ test("Profile activation component order is canonical and current/previous canno
     }),
     /current and previous must differ/,
   );
+});
+
+
+test("Profile projection requires the exact authorized Space id and kind, never previous", () => {
+  const state = validateProfileActivationState({
+    schema: "ordax.profile-activation-state/1",
+    revision: 2,
+    persistence: "device",
+    spaces: [{
+      spaceId: "space-professional-1",
+      spaceKind: "professional",
+      current: activation(),
+      previous: null,
+    }, {
+      spaceId: "space-personal-1",
+      spaceKind: "personal",
+      current: null,
+      previous: activation(),
+    }],
+  });
+  assert.deepEqual(currentProfileForSpace(state, {
+    id: "space-professional-1", kind: "professional",
+  }), { slug: "developer", version: 1 });
+  assert.equal(currentProfileForSpace(state, {
+    id: "space-professional-1", kind: "personal",
+  }), null);
+  assert.equal(currentProfileForSpace(state, {
+    id: "foreign-space", kind: "professional",
+  }), null);
+  assert.equal(currentProfileForSpace(state, {
+    id: "space-personal-1", kind: "personal",
+  }), null);
+  assert.equal(currentProfileForSpace(null, {
+    id: "space-professional-1", kind: "professional",
+  }), null);
 });
