@@ -49,6 +49,7 @@ on:
       - 'system/services/profile-packs/**'
       - 'system/surface/ui/memory-review-controls.mjs'
       - 'system/surface/ui/account-overview-controls.mjs'
+      - 'system/surface/ui/profile-activation-review.mjs'
       - 'system/surface/ui/account.css'
       - 'system/services/i18n/catalog/account.mjs'
       - 'system/adapters/web/memory.mjs'
@@ -136,6 +137,7 @@ on:
       - 'system/surface/runtime/native_profile_activation_state.py'
       - 'tests/test_profile_activation_state.mjs'
       - 'tests/test_profile_activation_state_adapters.mjs'
+      - 'tests/test_profile_activation_review.mjs'
       - 'tests/test_native_profile_activation_state.py'
       - 'system/contracts/profile-pack-source.mjs'
       - 'system/contracts/profile-pack-restore.mjs'
@@ -193,6 +195,7 @@ on:
       - 'system/services/profile-packs/**'
       - 'system/surface/ui/memory-review-controls.mjs'
       - 'system/surface/ui/account-overview-controls.mjs'
+      - 'system/surface/ui/profile-activation-review.mjs'
       - 'system/surface/ui/account.css'
       - 'system/services/i18n/catalog/account.mjs'
       - 'system/adapters/web/memory.mjs'
@@ -276,6 +279,7 @@ on:
       - 'system/surface/runtime/native_profile_activation_state.py'
       - 'tests/test_profile_activation_state.mjs'
       - 'tests/test_profile_activation_state_adapters.mjs'
+      - 'tests/test_profile_activation_review.mjs'
       - 'tests/test_native_profile_activation_state.py'
       - 'system/contracts/profile-pack-source.mjs'
       - 'system/contracts/profile-pack-restore.mjs'
@@ -431,6 +435,7 @@ jobs:
           python -m unittest tests.test_native_profile_content_context_contract -v
           node --test tests/test_profile_activation_state.mjs
           node --test tests/test_profile_activation_state_adapters.mjs
+          node --test tests/test_profile_activation_review.mjs
           node --test tests/test_profile_provisioning_runtime.mjs
           python -m unittest tests.test_local_ai_baseline -v
           python -m unittest tests.test_local_ai_baseline_compare -v
