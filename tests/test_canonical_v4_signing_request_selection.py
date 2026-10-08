@@ -113,6 +113,36 @@ class CanonicalSigningRequestSelectionTests(unittest.TestCase):
         self.assertEqual(git_blob, selector.HISTORICAL_GIT_BLOB)
 
 
+    def test_retired_unsigned_request_keeps_exact_pre_rename_bytes(self):
+        import hashlib
+
+        archived_path = ROOT / "docs/evidence/rename-ordax-os/canonical-v4-pre-rename-request.json"
+        raw = archived_path.read_bytes()
+        blob = hashlib.sha1(
+            b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw
+        ).hexdigest()
+        self.assertEqual(blob, "c003cf92c58c9945bf07f63de5e9e2c8321f2b2e")
+        issued = json.loads(raw)
+        self.assertEqual(issued["source_repository"], "ordaxsystems/prototipo-ordax-os")
+        self.assertEqual(
+            issued["source_commit"],
+            "6a629922d9acbbdca4229f115567d929d5efbec6",
+        )
+        for field in selector.UNSAFE_FIELDS:
+            self.assertIs(issued[field], False)
+
+        # New active requests cannot re-authorize a pre-rename issued request.
+        active_path = ROOT / selector.ACTIVE_PATH
+        if active_path.exists():
+            current = json.loads(active_path.read_text(encoding="utf-8"))
+            self.assertEqual(current["source_repository"], "ordaxsystems/ordax-os")
+            self.assertNotEqual(current["source_commit"], issued["source_commit"])
+            for kind in issued["operator_artifacts"]:
+                self.assertNotEqual(
+                    current["operator_artifacts"][kind]["artifact_id"],
+                    issued["operator_artifacts"][kind]["artifact_id"],
+                )
+
     def test_workflow_never_runs_assembly_for_history_or_unreviewed_pr(self):
         workflow = (ROOT / ".github/workflows/canonical-v4-signing-request.yml").read_text(encoding="utf-8")
         self.assertIn("needs.classify_request.outputs.active == 'true'", workflow)
