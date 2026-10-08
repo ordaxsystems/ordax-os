@@ -76,6 +76,11 @@
   white-space: nowrap;
 }
 
+ .ordax-space-switcher-trigger[data-profile-configured="true"] .ordax-space-switcher-mark {
+  border-color: color-mix(in srgb, var(--ordax-accent) 72%, var(--ordax-border));
+  background: color-mix(in srgb, var(--ordax-accent) 20%, var(--ordax-panel));
+}
+
 .ordax-space-switcher-chevron {
   color: var(--ordax-muted);
   font-size: 1.1rem;
