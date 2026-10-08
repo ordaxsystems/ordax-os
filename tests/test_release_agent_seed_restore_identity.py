@@ -82,16 +82,16 @@ class ReleaseSeedRestoreIdentityTests(unittest.TestCase):
             fake_bin = Path(tmp)
             fake_curl = fake_bin / "curl"
             fake_curl.write_text(
-                '#!/bin/sh\\n'
-                'prev=""\\n'
-                'for arg in "$@"; do\\n'
-                '  if [ "$prev" = "--output" ]; then\\n'
-                '    printf "wrong-pinned-seed" > "$arg"\\n'
-                '    exit 0\\n'
-                '  fi\\n'
-                '  prev="$arg"\\n'
-                'done\\n'
-                'exit 5\\n', encoding="utf-8"
+                '#!/bin/sh\n'
+                'prev=""\n'
+                'for arg in "$@"; do\n'
+                '  if [ "$prev" = "--output" ]; then\n'
+                '    printf "wrong-pinned-seed" > "$arg"\n'
+                '    exit 0\n'
+                '  fi\n'
+                '  prev="$arg"\n'
+                'done\n'
+                'exit 5\n', encoding="utf-8"
             )
             fake_curl.chmod(0o755)
             env = {
