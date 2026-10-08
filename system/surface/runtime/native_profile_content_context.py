@@ -228,6 +228,24 @@ def _entry_provenance(component: dict, entry_id: str, revision: str) -> str:
     return value
 
 
+def _relevant_excerpt(text: str, terms: tuple[str, ...]) -> str:
+    if len(text) <= MAX_CONTEXT_ITEM_CHARS or not terms:
+        return text[:MAX_CONTEXT_ITEM_CHARS].strip()
+    # Scan source windows; never select just the first 8 KiB when a
+    # matching paragraph appears later in a verified large entry.
+    stride = MAX_CONTEXT_ITEM_CHARS // 2
+    best_score = -1
+    best_start = 0
+    for start in range(0, len(text), stride):
+        fragment = text[start:start + MAX_CONTEXT_ITEM_CHARS]
+        score = _entry_relevance(fragment, "", "", terms)
+        if score > best_score:
+            best_score = score
+            best_start = start
+    selected = text[best_start:best_start + MAX_CONTEXT_ITEM_CHARS].strip()
+    return selected
+
+
 def _project_pack(
     component: dict, raw: bytes, query_terms: tuple[str, ...] = (),
 ) -> list[dict]:
@@ -293,7 +311,7 @@ def _project_pack(
         # Validate every entry and its digest even when it is not relevant.
         if query_terms and relevance == 0:
             continue
-        clipped = text[:MAX_CONTEXT_ITEM_CHARS].strip()
+        clipped = _relevant_excerpt(text, query_terms)
         if not clipped:
             raise ValueError("Profile content projection produced empty text")
         component_tag = hashlib.sha256(
@@ -348,8 +366,10 @@ def read_active_profile_content_context(
         )
 
     # Rank over every verified entry, not merely the first eight in a pack.
-    # Preserve legacy order only when no query was supplied.
+    # A stopword-only query cannot arbitrarily recommend unrelated content.
     if query is not None:
+        if not terms:
+            candidates = []
         candidates.sort(key=lambda item: (-item["_retrievalScore"], item["id"]))
     entries = []
     remaining_chars = MAX_CONTEXT_TOTAL_CHARS
