@@ -126,8 +126,30 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn('headers.set("apikey", serverSecret)', outer)
         self.assertNotIn('headers.set("authorization",', outer)
         self.assertIn('function trustedPublicSiteRequest(req: Request)', inner)
-        self.assertIn("expectedKey = adminConfig().key", inner)
+        self.assertIn("return authenticatedAccountBridge(", inner)
+        self.assertNotIn("expectedKey = adminConfig().key", inner)
+        self.assertIn("headers: upstreamHeaders(req, publicBridgeKey())", outer)
         self.assertTrue(stage["destination_gateway_platform_auth_reference"].startswith("https://supabase.com/"))
+
+    def test_named_service_bridge_is_not_production_credential_evidence(self):
+        stage = self.destination
+        self.assertTrue(stage["destination_named_bridge_source_prepared"])
+        self.assertEqual(
+            stage["destination_named_bridge_key_name"],
+            "ordax-account-public-bridge",
+        )
+        self.assertFalse(stage["destination_named_bridge_key_provisioned"])
+        self.assertFalse(stage["destination_named_bridge_runtime_e2e_verified"])
+        self.assertFalse(stage["destination_service_transport_runtime_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["public_registration_enabled"])
+        helper = (
+            ROOT / "infra" / "supabase" / "functions" / "_shared"
+            / "account_service_bridge.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax-account-public-bridge"', helper)
+        self.assertIn("authenticatedAccountBridge(", helper)
 
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]

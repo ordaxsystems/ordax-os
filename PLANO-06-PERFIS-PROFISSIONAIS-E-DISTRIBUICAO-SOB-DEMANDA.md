@@ -3,6 +3,8 @@
 **Estado:** fundação MVP em implementação.  
 **Decisão canônica:** o pendrive Stable não carrega todos os Profiles profissionais. Ele carrega o Runtime único, Intelligence, Memory, apps essenciais e um catálogo leve. Conteúdo profissional é provisionado sob demanda e, depois de instalado, deve continuar utilizável offline dentro de suas capacidades locais.
 
+> **Arquitetura cognitiva/RAG:** consultar [`docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md`](docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md). A fundação atual já combina conteúdo Profile Pack e Memory segregada; RAG vetorial operacional e distribuição pública de conhecimento em escala continuam pendentes. O único OrdaX Intelligence atende todos os perfis, sem modelos duplicados ou treinamento por Space.
+
 ## 1. Princípio
 
 ```text

@@ -313,3 +313,34 @@ registra `destination_service_transport_runtime_verified=false`,
 e o pré-check bloqueia o cutover até que um teste HTTP real confirme
 identidade, autorização, rate limit e isolamento de usuário do
 **mesmo destino**, sem legados ou dual-write.
+
+## Segregação da credencial entre gateways de Conta (2026-10-08)
+
+O header `x-ordax-public-site: 1` **não é uma identidade** e
+não pode ser autorizado com a chave administrativa padrão
+`SUPABASE_SECRET_KEYS.default` ou com `SUPABASE_SERVICE_ROLE_KEY`.
+O código passou a compartilhar **um único verificador** em
+`infra/supabase/functions/_shared/account_service_bridge.mjs`,
+usado pelo gateway público para construir a chamada e pelo interno
+para autenticar a proveniência.
+
+Esse verificador só aceita `SUPABASE_SECRET_KEYS["ordax-account-public-bridge"]`
+com formato atual `sb_secret_...`, escopo exclusivo
+de **transporte serviço-para-serviço**. Nunca autentica um usuário,
+não deduz sessão da chave nem aceita credenciais legadas. Ausência
+do segredo nomeado implica recusa fechada, não fallback ao admin.
+Sua concessão e rotação devem usar o gerenciador de chaves nomeadas
+do Supabase, fora do Git; não registrar seus bytes em documentos,
+CI, env pública ou commits. Um token OIDC da Vercel continua sendo
+autenticado separadamente na fronteira pública.
+
+**Importante:** este contrato de código não contorna o gate de
+plataforma. O gateway interno implantado usa `verify_jwt=true` e
+vai rejeitar chamadas de serviço que só enviem `apikey`. Não
+desativar a verificação até implementar e testar explicitamente
+a autenticação handler-scoped de `auth: 'secret:<nome>'` e dos
+usuários Native com `auth: 'user'`, preservando rotas anônimas
+restritas, abuso e rate limit. Requer E2E no projeto definitivo
+com credenciais reais, OIDC do tenant novo e teste de chave
+inválida/faltante. Flags de implantação e cutover continuam
+`false` em `docs/contracts/public-auth-hardening.json`.
