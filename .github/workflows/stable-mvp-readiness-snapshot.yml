@@ -1,0 +1,115 @@
+name: Stable MVP Continuous Readiness Snapshot
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'tools/creator/pre_usb_nova_ordax_audit.py'
+      - 'tools/creator/physical_promotion.py'
+      - 'tools/creator/stable_mvp_usb_readiness.py'
+      - 'docs/contracts/physical-write-authorization.json'
+      - 'docs/contracts/mvp-app-delivery.json'
+      - 'docs/MVP-PRONTIDAO-CONTINUA.md'
+      - '.github/workflows/stable-mvp-readiness-snapshot.yml'
+      - 'tests/test_stable_mvp_readiness_snapshot_workflow.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-mvp-readiness-snapshot-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  readonly-readiness:
+    name: Read-only readiness evidence (not release authorization)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact triggering SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Prove canonical read-only evaluator and workflow boundaries
+        run: |
+          python -m unittest \
+            tests.test_pre_usb_nova_ordax_audit \
+            tests.test_stable_mvp_usb_readiness \
+            tests.test_physical_promotion_boundary \
+            tests.test_stable_mvp_readiness_snapshot_workflow -v
+
+      - name: Snapshot exactly the canonical Stable MVP readiness evaluator
+        shell: bash
+        env:
+          SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out/mvp-readiness
+          python tools/creator/stable_mvp_usb_readiness.py --repo-root . > out/mvp-readiness/status.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("out/mvp-readiness/status.json")
+          state = json.loads(path.read_text(encoding="utf-8"))
+          if state.get("$schema") != "prototype-ordax.stable-mvp-usb-readiness/1":
+              raise SystemExit("Unexpected readiness evaluator schema")
+          if state.get("status") not in {"blocked", "ready"}:
+              raise SystemExit("Unrecognized readiness status")
+          if state.get("stage") == "readiness-evaluation-failed":
+              raise SystemExit("Readiness evaluation failed")
+          if not isinstance(state.get("remaining_gates"), list):
+              raise SystemExit("Missing ordered physical promotion gates")
+          for key in (
+              "physical_target_selected",
+              "target_specific_destructive_confirmation_recorded",
+              "writer_invoked",
+              "physical_write_performed",
+              "physical_proof_completed",
+          ):
+              if state.get(key) is not False:
+                  raise SystemExit(f"Read-only assessment cannot claim {key}")
+
+          sha = os.environ["SOURCE_COMMIT_SHA"]
+          lines = [
+              "## Stable/MVP — leitura de prontidão (sem autorização de lançamento)",
+              "",
+              f"**Commit do workflow:** \x60{sha}\x60",
+              f"**Estado canônico:** \x60{state['status']}\x60",
+              f"**Etapa atual:** \x60{state['stage']}\x60",
+              "",
+              "**Pendências obrigatórias restantes:**",
+          ]
+          gates = state["remaining_gates"]
+          lines += [f"- \x60{gate}\x60" for gate in gates] if gates else ["- Nenhuma nesta fase"]
+          lines += [
+              "",
+              "Um workflow verde atesta somente o avaliador e o snapshot; **não** aprova "
+              "publicação, mídia física, assinatura ou escrita USB.",
+              "Fonte: tools/creator/stable_mvp_usb_readiness.py.",
+          ]
+          summary = "\n".join(lines) + "\n"
+          Path("out/mvp-readiness/README.md").write_text(summary, encoding="utf-8")
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as output:
+              output.write(summary)
+          print(summary)
+          PY
+
+      - name: Retain non-authorizing readiness snapshot only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: stable-mvp-readiness-${{ github.event.pull_request.head.sha || github.sha }}
+          path: out/mvp-readiness/
+          if-no-files-found: error
+          retention-days: 14
