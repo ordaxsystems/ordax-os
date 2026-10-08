@@ -1,4 +1,10 @@
 export const STORE_SOURCE_MESSAGES = Object.freeze({
+  "store.details.openFor": "Ver detalhes de {title}",
+  "store.details.notApplicable": "Não se aplica: sem versão candidata",
+  "store.remove.confirmTitle": "Confirmar remoção do aplicativo",
+  "store.remove.confirmDescription": "O aplicativo será removido após confirmação pela plataforma. Seus documentos e dados permanecem separados da instalação.",
+  "store.remove.confirmAction": "Confirmar remoção",
+  "store.remove.cancel": "Cancelar",
   "store.navigation.label": "Navegação da Loja",
   "store.navigation.discover": "Descobrir",
   "store.navigation.installed": "Instalados",
@@ -64,6 +70,12 @@ export const STORE_SOURCE_MESSAGES = Object.freeze({
 });
 
 export const STORE_ENGLISH_MESSAGES = Object.freeze({
+  "store.details.openFor": "View details for {title}",
+  "store.details.notApplicable": "Not applicable: no candidate version",
+  "store.remove.confirmTitle": "Confirm application removal",
+  "store.remove.confirmDescription": "The application will be removed after platform confirmation. Documents and user data remain separate from the installation.",
+  "store.remove.confirmAction": "Confirm removal",
+  "store.remove.cancel": "Cancel",
   "store.navigation.label": "Store navigation",
   "store.navigation.discover": "Discover",
   "store.navigation.installed": "Installed",
