@@ -1,0 +1,47 @@
+name: Repository Namespace Transfer Preflight
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/repository-ownership.json'
+      - 'docs/contracts/repository-migration-status.json'
+      - 'docs/REPOSITORY-NAMESPACE-TRANSFER-PREFLIGHT.md'
+      - 'tools/verify/repository_namespace_transfer_preflight.py'
+      - 'tests/test_repository_namespace_transfer_preflight.py'
+      - '.github/workflows/repository-namespace-transfer-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/repository-ownership.json'
+      - 'docs/contracts/repository-migration-status.json'
+      - 'docs/REPOSITORY-NAMESPACE-TRANSFER-PREFLIGHT.md'
+      - 'tools/verify/repository_namespace_transfer_preflight.py'
+      - 'tests/test_repository_namespace_transfer_preflight.py'
+      - '.github/workflows/repository-namespace-transfer-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-owner-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate namespace transfer source contracts
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v \
+            tests/test_repository_namespace_migration.py \
+            tests/test_repository_ownership_contract.py \
+            tests/test_repository_migration_status.py \
+            tests/test_repository_namespace_transfer_preflight.py
+          python3 tools/verify/repository_namespace_transfer_preflight.py --max-paths 8
+      - name: Require exact GitHub identity after canonical transfer
+        if: ${{ github.repository == 'ordaxsystems/prototipo-ordax-os' }}
+        run: |
+          set -euo pipefail
+          python3 tools/verify/repository_namespace_transfer_preflight.py --require-cutover
