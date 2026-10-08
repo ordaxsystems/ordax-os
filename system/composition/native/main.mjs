@@ -94,6 +94,8 @@ import { createMemoryReviewViewModel } from "../../services/memory/review-view-m
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
 import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
+import { loadBundledProfileTaxonomy } from "../../services/profile-packs/taxonomy-source.mjs";
+import { createProfilePackCatalogFromPacks } from "../../services/profile-packs/catalog.mjs";
 import { resolveProfilePackRestore } from "../../services/profile-packs/restore.mjs";
 import { createLocalProfileDistributions } from "../../profile-packs/distributions.mjs";
 import { createUpdateDiagnosticRecorder } from "../../services/diagnostics/update-recorder.mjs";
@@ -551,9 +553,20 @@ async function start() {
     () => createNativeProfileComponentInventory(window),
   ) ?? createSessionProfileComponentInventory();
   let profileDistributions = [];
+  let profileTaxonomy = null;
   if (bundledProfilePacks !== null) {
     try {
       profileDistributions = createLocalProfileDistributions(bundledProfilePacks.packs);
+      try {
+        profileTaxonomy = Object.freeze({
+          catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
+          taxonomy: await loadBundledProfileTaxonomy({
+            fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
+          }),
+        });
+      } catch (error) {
+        console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
+      }
     } catch (error) {
       console.warn("OrdaX Profile distribution metadata unavailable; continuing without Profiles", error);
     }
@@ -789,6 +802,7 @@ async function start() {
     profileActivationState,
     memoryConflictReview,
     accountLifecycle,
+    profileTaxonomy,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
