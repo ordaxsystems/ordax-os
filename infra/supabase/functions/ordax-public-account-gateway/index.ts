@@ -7,6 +7,7 @@ import {
 import { authRateLimitBucket } from "../_shared/auth_rate_limit.mjs";
 import { verifyTrustedPublicRequestContext } from "./public_request_context.mjs";
 import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
+import { readBoundedBody } from "../_shared/bounded_body.mjs";
 
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
@@ -108,11 +109,7 @@ function routePath(url: URL, method: string) {
 
 async function boundedRequestBody(req: Request) {
   if (req.method === "GET") return undefined;
-  const declared = Number(req.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > MAX_BODY) throw new RangeError("request-too-large");
-  const body = new Uint8Array(await req.arrayBuffer());
-  if (body.byteLength > MAX_BODY) throw new RangeError("request-too-large");
-  return body;
+  return readBoundedBody(req.body, req.headers.get("content-length"), MAX_BODY);
 }
 
 function upstreamHeaders(req: Request, serverSecret: string) {
@@ -165,18 +162,22 @@ function responseHeaders(upstream: Response) {
 }
 
 async function boundedUpstreamResponse(upstream: Response) {
-  const declared = Number(upstream.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > MAX_UPSTREAM_RESPONSE) {
-    return error(502, "account-gateway-response-too-large", "Resposta de Conta inválida.");
+  let body;
+  try {
+    body = await readBoundedBody(
+      upstream.body,
+      upstream.headers.get("content-length"),
+      MAX_UPSTREAM_RESPONSE,
+    );
+    return new Response(body, {
+      status: upstream.status,
+      headers: responseHeaders(upstream),
+    });
+  } catch (cause) {
+    return cause instanceof RangeError
+      ? error(502, "account-gateway-response-too-large", "Resposta de Conta inválida.")
+      : error(502, "account-gateway-response-invalid", "Resposta de Conta inválida.");
   }
-  const body = new Uint8Array(await upstream.arrayBuffer());
-  if (body.byteLength > MAX_UPSTREAM_RESPONSE) {
-    return error(502, "account-gateway-response-too-large", "Resposta de Conta inválida.");
-  }
-  return new Response(body, {
-    status: upstream.status,
-    headers: responseHeaders(upstream),
-  });
 }
 
 Deno.serve(async (req: Request) => {

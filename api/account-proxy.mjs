@@ -2,6 +2,7 @@ import {
   normalizePublicOrigin,
   verifyBrowserOriginContext,
 } from "../infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs";
+import { readBoundedBody } from "../infra/supabase/functions/_shared/bounded_body.mjs";
 
 export { normalizePublicOrigin };
 
@@ -238,11 +239,7 @@ function copyResponseHeaders(upstream) {
 
 async function boundedBody(request) {
   if (request.method === "GET") return undefined;
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) throw new RangeError("request-too-large");
-  const value = new Uint8Array(await request.arrayBuffer());
-  if (value.byteLength > MAX_BODY_BYTES) throw new RangeError("request-too-large");
-  return value;
+  return readBoundedBody(request.body, request.headers.get("content-length"), MAX_BODY_BYTES);
 }
 
 
