@@ -42,7 +42,7 @@ function httpsUrl(value, label) {
   let url;
   try { url = new URL(uri); } catch { throw new TypeError(label + " must be an HTTPS URL"); }
   if (url.protocol !== "https:" || url.username || url.password || !url.hostname
-      || url.hash || url.href !== uri) {
+      || url.search || url.hash || url.href !== uri) {
     throw new TypeError(label + " must be a canonical HTTPS URL without credentials or fragments");
   }
   return uri;
