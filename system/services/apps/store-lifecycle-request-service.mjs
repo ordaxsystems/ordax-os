@@ -184,9 +184,44 @@ export function createAppLifecycleRequestService({
       return rejectAndRemember(request, fingerprint, "verified-lifecycle-plan-unavailable");
     }
 
+    // A catalog can change between synchronous planning and the deferred
+    // privileged call. Check the same SSOT ports again at the actual handoff,
+    // including candidate artifacts, not only its version or appId.
+    const isStillEligible = () => {
+      try {
+        const latestProjection = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+        const currentEntry = latestProjection.state === "ready"
+          ? latestProjection.entries.find((value) => value.appId === request.appId)
+          : null;
+        if (!currentEntry || !operationAllowed(currentEntry, request.operation)) return false;
+
+        const latestCatalog = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
+        if (latestCatalog.state !== "ready") return false;
+        const latestCandidate = latestCatalog.entries.find((value) => value.appId === request.appId) ?? null;
+        if (["install", "update"].includes(request.operation)) {
+          if (!candidateMatchesProjection(latestCandidate, currentEntry)
+              || !hasNativeExternalFirstPartyModuleRead(request.appId)) return false;
+        }
+
+        // createAppLifecyclePlan() already owns canonical normalization for
+        // source identity and all four artifact identities. No duplicate
+        // signing policy or independent Store catalog is introduced here.
+        const currentPlan = createAppLifecyclePlan({
+          request,
+          verifiedCatalog: latestCatalog,
+          candidate: latestCandidate,
+        });
+        return JSON.stringify(currentPlan) === JSON.stringify(plan);
+      } catch {
+        return false;
+      }
+    };
+
     inFlightByApp.set(request.appId, request.requestId);
     const promise = Promise.resolve()
-      .then(() => delegate.executeLifecycle(plan))
+      .then(() => isStillEligible()
+        ? delegate.executeLifecycle(plan)
+        : rejection(request, "verified-lifecycle-plan-stale"))
       .then((rawResult) => validateAppLifecycleRequestResultForRequest(rawResult, request))
       .catch(() => rejection(request, "platform-lifecycle-unavailable"))
       .finally(() => {
