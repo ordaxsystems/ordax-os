@@ -25,6 +25,29 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         self.assertTrue(stable["native_install_foundation_retained"])
         self.assertEqual(stable["native_install_activation_phase"], "post-mvp")
 
+    def test_integrated_mvp_scope_includes_native_without_authorizing_disk_writes(self):
+        scope = (ROOT / "MVP.md").read_text(encoding="utf-8")
+        decisions = (ROOT / "docs" / "DECISIONS.md").read_text(encoding="utf-8")
+        native = json.loads(
+            (ROOT / "docs/contracts/native-installation.json").read_text(encoding="utf-8")
+        )
+        profiles = json.loads(
+            (ROOT / "docs/contracts/distribution-profiles.json").read_text(encoding="utf-8")
+        )
+        stable = profiles["profiles"]["stable-mvp"]
+        # Planning scope is additive; runtime activation is an independent gate.
+        self.assertIn("Escopo revisado: MVP integrado, progressivo e verificável", scope)
+        self.assertIn("OrdaX Native (SSD/NVMe/HD)", scope)
+        self.assertIn("ADR-026 - Integrated MVP scope is distinct from per-release availability", decisions)
+        self.assertEqual(stable["mvp_execution_mode"], "usb-only")
+        self.assertFalse(stable["native_install_capability_enabled"])
+        self.assertFalse(stable["internal_disk_destructive_write_allowed"])
+        self.assertFalse(native["current_implementation"]["physical_apply_implemented"])
+        self.assertFalse(native["current_implementation"]["physical_apply_authorized"])
+        self.assertFalse(native["current_implementation"]["first_boot_health_connected"])
+        self.assertFalse(native["mvp_availability"]["available"])
+        self.assertFalse(native["mvp_availability"]["destructive_operations_allowed"])
+
     def test_public_site_never_presents_native_installation_as_mvp_feature(self):
         landing = (ROOT / "sites/public/index.html").read_text(encoding="utf-8")
         download = (ROOT / "sites/public/download/index.html").read_text(encoding="utf-8")
