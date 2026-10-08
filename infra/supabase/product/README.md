@@ -379,12 +379,24 @@ deve continuar **antes** de qualquer bypass de rate limit e antes
 do roteamento. Testes de negação estão em
 `tests/test_account_transport_admission.mjs`.
 
-**Não confundir fonte com promoção:** esse controle ainda está
-somente no repositório. A Edge Function implantada no projeto novo
-continua na versão 2, com `verify_jwt=true`. O contrato do
-destino registra `destination_transport_admission_deployed=false`
-e `destination_transport_admission_negative_http_verified=false`.
-Somente após a criação da credencial nomeada, prova do OIDC do
-projeto Vercel efetivo, validação dos fluxos Native e HTTP negativos
-poderá ser avaliada uma mudança de `verify_jwt` no deployment,
-mantendo um autenticador real no handler.
+**Não confundir deploy interno com promoção pública:** o código da
+PR #1433 foi implantado em `ordax-platform` na Edge Function
+`ordax-account-gateway` **v3**, `ACTIVE`,
+`verify_jwt=true`, usando os cinco arquivos do owner canônico.
+Artefato SHA-256
+`89e9d06ba67daf56b266a0628df1068417dcdf2710dfde528ce2059fd03c6b61`.
+A consulta posterior de versão, flags, lista de arquivos e conteúdo
+confirmou o deploy; banco após deploy: 0 usuários, 0 políticas legais
+ativas e 0 registros Sync. Essas verificações **não equivalem a
+testes HTTP com uma credencial real**: o contrato único registra
+`destination_transport_admission_deployed=true`, mas
+`destination_transport_admission_negative_http_verified=false`,
+`destination_named_bridge_key_provisioned=false`,
+`destination_service_transport_runtime_verified=false` e
+`public_account_gateway_deployed=false`. A implementação pública
+permanece desativada.
+
+Somente após provisionar a chave nomeada, comprovar o OIDC do projeto
+Vercel real, testar os fluxos Native e HTTP negativos e revisar
+os controles poderá ser avaliada uma mudança de `verify_jwt`,
+sempre preservando um autenticador próprio antes do roteamento.
