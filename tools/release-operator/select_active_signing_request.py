@@ -61,8 +61,22 @@ def assert_new_canonical_request(request: dict, historical: dict) -> None:
 
 
 
-def selection(root: Path) -> dict:
+def selection(root: Path, *, execution_repository: str | None = None) -> dict:
     historical = load_historical_request(root)
+
+    # GitHub Actions supplies its actual owner/name independently of the
+    # source's release identity. During a repository rename a stale source
+    # request must never trigger assembly through GitHub URL redirects.
+    if execution_repository is not None and execution_repository != REPOSITORY:
+        return {
+            "status": "blocked-execution-repository-identity-mismatch",
+            "active": False,
+            "historical_request_preserved": True,
+            "source_repository": REPOSITORY,
+            "execution_repository": execution_repository,
+            "signing_performed": False,
+            "publication_performed": False,
+        }
 
     active = root / ACTIVE_PATH
     if not active.exists():
@@ -95,7 +109,12 @@ def main() -> int:
     parser.add_argument("--require-active", action="store_true")
     args = parser.parse_args()
     try:
-        result = selection(ROOT)
+        # In the Actions workflow this identity is supplied by GitHub, not
+        # by the JSON request. Missing identity also fails closed.
+        execution_repository = os.environ.get("GITHUB_REPOSITORY")
+        if not execution_repository:
+            raise ValidationError("GitHub execution repository identity is unavailable")
+        result = selection(ROOT, execution_repository=execution_repository)
         if args.require_active and not result["active"]:
             raise ValidationError("canonical signing request has not been supplied")
         if args.github_output:
