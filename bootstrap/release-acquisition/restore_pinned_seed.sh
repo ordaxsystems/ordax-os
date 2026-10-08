@@ -6,13 +6,16 @@
 set -euo pipefail
 
 readonly expected_repository_id='1371063347'
+# The repository was renamed in place; its immutable GitHub repository ID
+# and the historical seed's SHA-256 remain unchanged.
+readonly expected_repository='ordaxsystems/ordax-os'
 readonly seed_sha256='550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66'
 
 if [[ "${GITHUB_REPOSITORY_ID:-}" != "$expected_repository_id" ]]; then
   echo 'RELEASE_AGENT_SEED_REPOSITORY_ID=REJECTED' >&2
   exit 1
 fi
-if [[ ! "${GITHUB_REPOSITORY:-}" =~ ^[a-zA-Z0-9_.-]+/prototipo-ordax-os$ ]]; then
+if [[ "${GITHUB_REPOSITORY:-}" != "$expected_repository" ]]; then
   echo 'RELEASE_AGENT_SEED_REPOSITORY_NAME=REJECTED' >&2
   exit 1
 fi

@@ -69,6 +69,9 @@ jobs:
           check-latest: false
           cache: false
 
+      - name: Restore canonical release-agent seed for bootstrap assembly
+        run: bash bootstrap/release-acquisition/restore_pinned_seed.sh
+
       - name: Install bounded build dependencies
         run: |
           sudo apt-get update
@@ -129,9 +132,6 @@ jobs:
             echo 'release acquisition agent is dynamically linked' >&2
             exit 1
           fi
-
-      - name: Restore canonical release-agent seed for bootstrap assembly
-        run: bash bootstrap/release-acquisition/restore_pinned_seed.sh
 
       - name: Assemble and verify canonical complete Creator payload
         run: |
