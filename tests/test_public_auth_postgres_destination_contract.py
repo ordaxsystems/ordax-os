@@ -126,7 +126,9 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn('headers.set("apikey", serverSecret)', outer)
         self.assertNotIn('headers.set("authorization",', outer)
         self.assertIn('function trustedPublicSiteRequest(req: Request)', inner)
-        self.assertIn("expectedKey = adminConfig().key", inner)
+        self.assertIn("return authenticatedAccountBridge(", inner)
+        self.assertNotIn("expectedKey = adminConfig().key", inner)
+        self.assertIn("headers: upstreamHeaders(req, publicBridgeKey())", outer)
         self.assertTrue(stage["destination_gateway_platform_auth_reference"].startswith("https://supabase.com/"))
 
     def test_named_service_bridge_is_not_production_credential_evidence(self):
