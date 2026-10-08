@@ -19,6 +19,7 @@ on:
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
+      - 'system/services/personal-ordax/application-action-proposal-planner.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
       - 'system/services/personal-ordax/application-action-provider-artifact-resolver.mjs'
       - 'system/adapters/native/verified-component-artifact-identity.mjs'
@@ -55,6 +56,7 @@ on:
       - 'system/contracts/application-intelligence-awareness.mjs'
       - 'system/services/intelligence/application-action-capabilities.mjs'
       - 'system/services/personal-ordax/application-action-preparations.mjs'
+      - 'system/services/personal-ordax/application-action-proposal-planner.mjs'
       - 'system/services/personal-ordax/application-action-provider-bindings.mjs'
       - 'system/services/personal-ordax/application-action-provider-artifact-resolver.mjs'
       - 'system/adapters/native/verified-component-artifact-identity.mjs'
@@ -98,6 +100,7 @@ jobs:
           node --check system/services/intelligence/application-action-capabilities.mjs
           node --check system/services/intelligence/verified-app-semantics.mjs
           node --check system/services/personal-ordax/application-action-preparations.mjs
+          node --check system/services/personal-ordax/application-action-proposal-planner.mjs
           node --check system/services/personal-ordax/application-action-provider-bindings.mjs
           node --check system/services/personal-ordax/application-action-provider-artifact-resolver.mjs
           node --check system/adapters/native/verified-component-artifact-identity.mjs
