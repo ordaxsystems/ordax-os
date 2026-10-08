@@ -685,3 +685,99 @@
   margin: 1px 0 0;
   accent-color: var(--ordax-accent);
 }
+
+
+/* Workspaces and professional Profile Packs are catalog views, not mock dashboards. */
+.ordax-app-extension[data-account-active-section="spaces"] .ordax-account-grid,
+.ordax-app-extension[data-account-active-section="profiles"] .ordax-account-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 14px;
+}
+
+.ordax-account-space-card,
+.ordax-account-profile-card {
+  position: relative;
+  display: flex;
+  min-height: 196px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 18px;
+  border-radius: var(--ordax-radius-lg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ordax-text) 4%, transparent);
+}
+
+.ordax-account-space-card::before,
+.ordax-account-profile-card::before {
+  content: "◇";
+  display: grid;
+  width: 43px;
+  height: 43px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--ordax-accent) 26%, var(--ordax-border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--ordax-accent) 12%, var(--ordax-subtle-bg));
+  color: var(--ordax-accent);
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
+.ordax-account-space-card[data-space-kind="personal"]::before { content: "⌂"; }
+.ordax-account-space-card[data-space-kind="work"]::before { content: "▣"; }
+.ordax-account-space-card[data-space-kind="professional"]::before { content: "✦"; }
+.ordax-account-profile-card[data-profile-slug="developer"]::before { content: "⌘"; }
+.ordax-account-profile-card[data-profile-slug="legal-br"]::before { content: "⚖"; }
+.ordax-account-profile-card[data-profile-slug="pizzaria-br"]::before { content: "◈"; }
+.ordax-account-profile-card[data-profile-slug="impressao-3d-br"]::before { content: "⬡"; }
+
+.ordax-account-space-card[data-selected="true"],
+.ordax-account-profile-card[data-selected="true"] {
+  border-color: var(--ordax-accent);
+  background:
+    radial-gradient(circle at 95% 0%, color-mix(in srgb, var(--ordax-accent) 16%, transparent), transparent 46%),
+    color-mix(in srgb, var(--ordax-panel) 85%, var(--ordax-selected-bg));
+}
+
+.ordax-account-space-card .ordax-account-card-label,
+.ordax-account-profile-card .ordax-account-card-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ordax-account-space-card .ordax-account-card-value,
+.ordax-account-profile-card .ordax-account-card-value {
+  margin-top: 7px;
+  font-family: var(--ordax-font-display);
+  font-size: 1.04rem;
+}
+
+.ordax-account-space-card .ordax-account-card-detail,
+.ordax-account-profile-card .ordax-account-card-detail {
+  margin-bottom: 10px;
+}
+
+.ordax-account-space-card .ordax-account-actions,
+.ordax-account-profile-card .ordax-account-actions {
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.ordax-account-space-card .ordax-account-action,
+.ordax-account-profile-card .ordax-account-action {
+  min-height: 36px;
+  font-size: 0.76rem;
+}
+
+.ordax-account-profile-card[data-availability="blocked"] {
+  opacity: 0.78;
+}
+
+@media (max-width: 760px) {
+  .ordax-account-space-card,
+  .ordax-account-profile-card {
+    min-height: 170px;
+  }
+}
