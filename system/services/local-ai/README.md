@@ -15,9 +15,19 @@ The service listens on loopback only. Native Surface calls the exact
 `/__ordax/native/local-ai` same-origin Host bridge (GET health/models, POST
 chat completions) rather than using cross-origin browser requests to port 17865.
 The Native Host applies its existing Host/Origin/Fetch-Site policy and bounds
-payloads; this bridge is **not** an authentication boundary against arbitrary
-local processes that can contact the raw backend listener. A future isolated
-backend with per-session authorization needs separate physical proof.
+payloads; the bridge never exposes the boot-generated private bearer key to the browser.
+Stable Base creates the key in /run/ordax/local-ai-auth/key (0600, ephemeral),
+then passes its **path** to the pinned llama.cpp server through the documented
+LLAMA_ARG_API_KEY_FILE startup variable. Native Host reads it with O_NOFOLLOW,
+owner/mode/size validation and attaches Authorization only to the fixed
+loopback upstream requests. The system degrades Intelligence (not boot) when
+secret generation or validation fails. The raw backend rejects unauthenticated
+completion requests; CI verifies this with the exact pinned binary.
+
+This still is **not** full cross-process sandboxing: another local process
+may forge headers when connecting to the Native Host, and privileged processes
+may read their own process-owner secrets. App sandbox/network namespace or a
+credentialed local IPC layer requires a separate security gate.
 Because the native inference server starts independently of the Surface,
 `system/services/local-ai/probe-supervisor.mjs` owns the initial read-only
 readiness probe and bounded 2–60-second recovery retries. It stops scheduling
