@@ -107,3 +107,67 @@ func TestEnumerateNativeInstallTargetsSkipsUnsupportedOrUnstableDevices(t *testi
 		}
 	}
 }
+
+func TestEnumerateNativeInstallTargetsFailsClosedOnUnknownSafetyMetadata(t *testing.T) {
+	cases := []struct {
+		name   string
+		field  string
+		value  string
+		remove bool
+	}{
+		{name: "missing-read-only", field: "ro", remove: true},
+		{name: "invalid-read-only", field: "ro", value: "unknown"},
+		{name: "out-of-range-read-only", field: "ro", value: "2"},
+		{name: "missing-removable", field: "removable", remove: true},
+		{name: "invalid-removable", field: "removable", value: "unknown"},
+		{name: "out-of-range-removable", field: "removable", value: "2"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			addDiskFixture(t, root, "sdb", "source", "67108864", "512", "0", "1")
+			writeFixture(t, filepath.Join(root, "sdb1", "partition"), "1")
+			addDiskFixture(t, root, "sda", "internal-target", "134217728", "512", "0", "0")
+
+			path := filepath.Join(root, "sda", tc.field)
+			if tc.remove {
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				writeFixture(t, path, tc.value)
+			}
+			targets, err := EnumerateNativeInstallTargets(root, "/dev", "/dev/sdb1")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(targets) != 1 || targets[0].DevicePath != "/dev/sdb" ||
+				targets[0].Eligible || !targets[0].SourceBootMedia {
+				t.Fatalf("unknown disk safety state must never become an eligible target: %#v", targets)
+			}
+		})
+	}
+}
+
+func TestEnumerateNativeInstallTargetsKeepsKnownReadOnlyDiskIneligible(t *testing.T) {
+	root := t.TempDir()
+	addDiskFixture(t, root, "sdb", "source", "67108864", "512", "0", "1")
+	writeFixture(t, filepath.Join(root, "sdb1", "partition"), "1")
+	addDiskFixture(t, root, "sda", "read-only", "134217728", "512", "1", "0")
+	targets, err := EnumerateNativeInstallTargets(root, "/dev", "/dev/sdb1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 2 {
+		t.Fatalf("known read-only disk should remain visible for explanation: %#v", targets)
+	}
+	for _, target := range targets {
+		if target.DevicePath == "/dev/sda" {
+			if !target.ReadOnly || target.Eligible {
+				t.Fatalf("read-only disk must remain visible but ineligible: %#v", target)
+			}
+			return
+		}
+	}
+	t.Fatal("known read-only disk was unexpectedly omitted")
+}

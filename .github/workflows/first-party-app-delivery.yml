@@ -24,6 +24,8 @@ on:
       - 'tests/test_native_component_slots.py'
       - 'docs/contracts/runtime-component-package.json'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
+      - 'system/services/apps/store-update-request-batch.mjs'
+      - 'tests/test_store_update_request_batch.mjs'
       - 'system/services/apps/verified-store-projection.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
@@ -68,6 +70,8 @@ on:
       - 'system/surface/runtime/native_component_slots.py'
       - 'tests/test_native_component_slots.py'
       - 'system/services/apps/store-lifecycle-request-service.mjs'
+      - 'system/services/apps/store-update-request-batch.mjs'
+      - 'tests/test_store_update_request_batch.mjs'
       - 'system/services/apps/verified-store-projection.mjs'
       - 'system/services/apps/mvp-delivery-policy.mjs'
       - 'system/services/apps/README.md'
@@ -126,6 +130,8 @@ jobs:
           python -m py_compile tools/app-policy/render_native_store_metadata_policy.py system/surface/runtime/native_store_metadata_policy.py system/surface/runtime/native_component_slots.py
           python tools/app-policy/render_native_store_metadata_policy.py --check
           node --check system/services/apps/store-lifecycle-request-service.mjs
+          node --check system/services/apps/store-update-request-batch.mjs
+          node --check tests/test_store_update_request_batch.mjs
           node --check system/services/apps/verified-store-projection.mjs
           node --check system/adapters/native/verified-app-store-catalog.mjs
           node --check system/adapters/native/app-lifecycle-delegate.mjs
@@ -161,6 +167,7 @@ jobs:
           node --test tests/test_app_store_contract.mjs
           node --test tests/test_app_lifecycle_request.mjs
           node --test tests/test_app_store_lifecycle_service.mjs
+          node --test tests/test_store_update_request_batch.mjs
           node --test tests/test_app_artifact_acquisition_source.mjs
           node --test tests/test_component_runtime_metadata.mjs
           node --test tests/test_external_first_party_policy.mjs

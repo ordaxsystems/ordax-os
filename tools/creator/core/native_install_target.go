@@ -3,6 +3,7 @@ package creatorcore
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -50,24 +51,44 @@ func validateNativeIdentityShape(target NativeInstallTargetIdentity) error {
 
 // NativeInstallTargetConfirmationToken binds the user-visible selection to the
 // exact re-enumerated identity. The token is a fingerprint, not a secret.
+// The v2 domain and canonical JSON struct unambiguously frame each field,
+// including untrusted sysfs strings that may themselves contain '|'. A token
+// issued under the previous ambiguous v1 encoding is deliberately invalid:
+// confirmation is ephemeral and must be obtained from fresh enumeration.
 func NativeInstallTargetConfirmationToken(target NativeInstallTargetIdentity) (string, error) {
 	if err := validateNativeIdentityShape(target); err != nil {
 		return "", err
 	}
-	identity := fmt.Sprintf(
-		"ordax-native-install-target-v1|%s|%s|%s|%s|%s|%d|%d|%t|%t|%t",
-		normalizedNativeIdentityField(target.StableID),
-		normalizedNativeIdentityField(target.DevicePath),
-		normalizedNativeIdentityField(target.Model),
-		normalizedNativeIdentityField(target.Serial),
-		normalizedNativeIdentityField(target.Transport),
-		target.PhysicalBytes,
-		target.LogicalSectorBytes,
-		target.Removable,
-		target.ReadOnly,
-		target.SourceBootMedia,
-	)
-	digest := sha256.Sum256([]byte(identity))
+	// A fixed-field struct (not a map) gives one stable order and type for
+	// every field. No optional identity fields may be omitted from the hash.
+	identity := struct {
+		StableID           string `json:"stable_id"`
+		DevicePath         string `json:"device_path"`
+		Model              string `json:"model"`
+		Serial             string `json:"serial"`
+		Transport          string `json:"transport"`
+		PhysicalBytes      uint64 `json:"physical_bytes"`
+		LogicalSectorBytes uint64 `json:"logical_sector_bytes"`
+		Removable          bool   `json:"removable"`
+		ReadOnly           bool   `json:"read_only"`
+		SourceBootMedia    bool   `json:"source_boot_media"`
+	}{
+		StableID:           normalizedNativeIdentityField(target.StableID),
+		DevicePath:         normalizedNativeIdentityField(target.DevicePath),
+		Model:              normalizedNativeIdentityField(target.Model),
+		Serial:             normalizedNativeIdentityField(target.Serial),
+		Transport:          normalizedNativeIdentityField(target.Transport),
+		PhysicalBytes:      target.PhysicalBytes,
+		LogicalSectorBytes: target.LogicalSectorBytes,
+		Removable:          target.Removable,
+		ReadOnly:           target.ReadOnly,
+		SourceBootMedia:    target.SourceBootMedia,
+	}
+	encoded, err := json.Marshal(identity)
+	if err != nil {
+		return "", fmt.Errorf("encode native install target identity: %w", err)
+	}
+	digest := sha256.Sum256(append([]byte("ordax-native-install-target-v2\x00"), encoded...))
 	return hex.EncodeToString(digest[:]), nil
 }
 
