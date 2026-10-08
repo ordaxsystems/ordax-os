@@ -85,12 +85,14 @@ test("Store Model UI offers compatibility check only, not fabricated lifecycle b
     t: (key) => key,
     hardware: hardware("x86_64"),
     metrics: metrics(),
+    systemUpdatesAvailable: true,
   });
   const all = (value) => [value, ...value.children.flatMap(all)];
   const nodes = all(root);
   const buttons = nodes.filter((x) => x.tag === "button");
-  assert.equal(buttons.length, 1);
+  assert.equal(buttons.length, 2);
   assert.equal(buttons[0].dataset.storeModelsRefresh, "true");
+  assert.equal(buttons[1].dataset.storeModelSystemUpdates, "true");
   assert.equal(nodes.some((x) => x.dataset.storeOperation || x.dataset.storeAppId), false);
   assert.equal(nodes.find((x) => x.dataset.storeModelsView === "true").dataset.storeModelAuthority, "none");
 });
