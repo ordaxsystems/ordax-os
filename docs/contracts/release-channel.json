@@ -3,7 +3,7 @@
   "status": "canonical-prototype-contract",
   "source_authority": {
     "kind": "git",
-    "repository": "ordaxsystems/prototipo-ordax-os",
+    "repository": "ordaxsystems/ordax-os",
     "branch": "main"
   },
   "device_pre_release": {
@@ -31,7 +31,7 @@
     "github_is_only_allowed_future_host": false,
     "codex_required": false,
     "release_envelope_asset_name": "release-envelope.json",
-    "latest_envelope_url": "https://github.com/ordaxsystems/prototipo-ordax-os/releases/latest/download/release-envelope.json",
+    "latest_envelope_url": "https://github.com/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json",
     "latest_pointer_is_delivery_selector_not_authenticity": true
   },
   "kernel": {
