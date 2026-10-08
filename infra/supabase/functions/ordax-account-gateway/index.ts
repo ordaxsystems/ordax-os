@@ -6,6 +6,7 @@ import {
   validateRateLimitRpcResult,
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
+import { authenticatedAccountBridge } from "../_shared/account_service_bridge.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -374,31 +375,15 @@ function crossSiteStateChange(req: Request) {
   }
 }
 
-function constantTimeEqual(left: string, right: string) {
-  const a = new TextEncoder().encode(left);
-  const b = new TextEncoder().encode(right);
-  if (a.byteLength !== b.byteLength) return false;
-  let diff = 0;
-  for (let index = 0; index < a.byteLength; index += 1) {
-    diff |= a[index] ^ b[index];
-  }
-  return diff === 0;
-}
-
 function publicSiteRequest(req: Request) {
   return (req.headers.get("x-ordax-public-site") ?? "") === "1";
 }
 
 function trustedPublicSiteRequest(req: Request) {
-  if (!publicSiteRequest(req)) return false;
-  const presentedKey = (req.headers.get("apikey") ?? "").trim();
-  let expectedKey = "";
-  try {
-    expectedKey = adminConfig().key;
-  } catch {
-    return false;
-  }
-  return Boolean(presentedKey) && constantTimeEqual(presentedKey, expectedKey);
+  return authenticatedAccountBridge(
+    req.headers,
+    Deno.env.get("SUPABASE_SECRET_KEYS") ?? "",
+  );
 }
 
 function directNativeClientAddress(req: Request) {

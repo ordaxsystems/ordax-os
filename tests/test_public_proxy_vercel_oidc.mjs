@@ -8,9 +8,9 @@ import {
 
 const TOKEN = `${"a".repeat(24)}.${"b".repeat(32)}.${"c".repeat(32)}`;
 const EXPECTED_PAYLOAD = Object.freeze({
-  iss: "https://oidc.vercel.com/jogo-brasils-projects",
-  aud: "https://vercel.com/jogo-brasils-projects",
-  sub: "owner:jogo-brasils-projects:project:ordax-os-public:environment:production",
+  iss: "https://oidc.vercel.com/ordaxsystems",
+  aud: "https://vercel.com/ordaxsystems",
+  sub: "owner:ordaxsystems:project:ordax-os-public:environment:production",
 });
 
 function request(headers = {}) {
@@ -27,7 +27,7 @@ test("canonical public proxy identity is production-only and fully scoped", () =
     jwks: "https://oidc.vercel.com/.well-known/jwks",
     environment: "production",
     project: "ordax-os-public",
-    team: "jogo-brasils-projects",
+    team: "ordaxsystems",
   });
   assert.doesNotMatch(VERCEL_PUBLIC_PROXY_IDENTITY.subject, /environment:preview/);
 });
@@ -76,10 +76,13 @@ test("missing marker, malformed token and verification failure all fail closed",
 
 test("preview, wrong project, wrong team and wrong audience cannot impersonate production", async () => {
   const variants = [
-    { ...EXPECTED_PAYLOAD, sub: "owner:jogo-brasils-projects:project:ordax-os-public:environment:preview" },
-    { ...EXPECTED_PAYLOAD, sub: "owner:jogo-brasils-projects:project:other:environment:production" },
+    { ...EXPECTED_PAYLOAD, sub: "owner:ordaxsystems:project:ordax-os-public:environment:preview" },
+    { ...EXPECTED_PAYLOAD, sub: "owner:ordaxsystems:project:other:environment:production" },
     { ...EXPECTED_PAYLOAD, iss: "https://oidc.vercel.com/other-team" },
     { ...EXPECTED_PAYLOAD, aud: "https://vercel.com/other-team" },
+    { ...EXPECTED_PAYLOAD, iss: "https://oidc.vercel.com/jogo-brasils-projects" },
+    { ...EXPECTED_PAYLOAD, aud: "https://vercel.com/jogo-brasils-projects" },
+    { ...EXPECTED_PAYLOAD, sub: "owner:jogo-brasils-projects:project:ordax-os-public:environment:production" },
   ];
 
   for (const payload of variants) {
