@@ -1529,6 +1529,10 @@ export function mountAccountOverviewControls(
     spaceSelectionSnapshot = validateSpaceSelectionSnapshot(snapshot);
     replaceView();
   });
+  const unsubscribeProfileActivation = profileActivationPort?.subscribe?.((snapshot) => {
+    profileActivationSnapshot = validateProfileActivationState(snapshot);
+    if (activeSection === "profiles") replaceView();
+  });
   const unsubscribePreferences = preferencePort?.subscribe((snapshot) => {
     preferenceSnapshot = snapshot;
     if (activeSection === "memory") replaceView();
@@ -1547,6 +1551,7 @@ export function mountAccountOverviewControls(
       pendingProfileAction = null;
       memoryReviewControls?.dispose();
       memoryReviewControls = null;
+      unsubscribeProfileActivation?.();
       unsubscribePreferences?.();
       unsubscribeSpaceSelection?.();
       unsubscribeSpaces?.();
