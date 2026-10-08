@@ -34,6 +34,16 @@ Prompt do usuário + contextos com proveniência e limite
 
 A mesma profissão pode ser instalada em centenas de Spaces sem copiar seu Knowledge Pack público para cada negócio; a sobreposição particular (cardápio, preços, fornecedores, clientes, tarefas) permanece em arquivos e Memory **privados de cada Space**. Deduplicação de artefatos não implica acesso cruzado a dados.
 
+## Recuperação lexical MVP: mecanismo e limites
+
+A consulta de perfil passa pelo **mesmo port Native read-only** `ordax.profile-content-context-port/1`. O OrdaX Intelligence envia uma consulta local limitada a 256 caracteres. O host Native valida os parâmetros exatos `spaceId` e `query`; o leitor continua conferindo o inventário ativo, receipts, SHA-256 do artefato e dos textos antes de selecionar qualquer entrada.
+
+O ranqueamento é **lexical, determinístico e offline**: termos normalizados sem acentos, correspondência por palavras, título/identificador e cobertura da pergunta. A seleção examina todas as entradas verificadas disponíveis, não apenas as primeiras oito; recorta trechos dos documentos longos sem exceder os limites da Intelligence. Itens sem correspondência não são fornecidos como contexto "relevante". O retorno não acrescenta autoridade nem muda o schema de entrada da IA.
+
+O caminho sem consulta preserva a compatibilidade com o leitor existente. A pergunta não é enviada a terceiros ou anunciantes; passa somente pelo endpoint Native loopback, com cache desabilitado e autorização de Space revalidada antes da inferência. O valor da consulta no URL local é transitório; **não deve ser copiado para logs, telemetria ou armazenamento de publicidade**. Uma migração futura de transporte pode reduzir a exposição a logs do sistema.
+
+**Limite de prontidão:** esta busca lexical não é RAG vetorial, não garante a melhor resposta nem substitui citations com licenças e fontes visíveis. Ainda faltam índice vetorial derivado, chunking semântico, avaliações de recall/latência, interface de fontes, atualização/revogação de índice e prova de desempenho com centenas de packs. Nenhum conteúdo comercial é elegível como Knowledge profissional.
+
 ## Regras de segurança que não podem regredir
 
 1. A seleção do Space é **contexto**, não autenticação ou autorização. A projeção canônica `system/services/spaces/authorized-view.mjs` exige sessão assinada, catálogo pronto, `subjectId`, Space ativo e correspondência do `spaceKind`.
@@ -55,6 +65,7 @@ A mesma profissão pode ser instalada em centenas de Spaces sem copiar seu Knowl
 | 1 | Contents assinados/receipts, leitor Native e entrada na Intelligence | Base Owner/Development; publicação pública ainda bloqueada | `system/profile-content-sources` + Native |
 | 2 | Memória persistente segregada por owner/Space e recuperação lexical autorizada | Existe; exige provas físicas | `system/services/memory` |
 | 3 | Proteção contra troca assíncrona de conta/Space na consulta de Profile | Implementada nesta etapa; CI/merge devem validar | `system/services/intelligence/profile-content.mjs` |
+| 3a | Busca lexical local por consulta em todas as entradas de Knowledge/Skill verificadas, com ordenação determinística, fragmentos relevantes e limite de oito itens | Implementação inicial nesta PR; exige CI e prova Native em hardware | Native Profile Content + Intelligence |
 | 4 | Indexador local verificável (embedding model aprovado, chunk IDs determinísticos, content SHA, ACL e rebuild atômico) | **Não implementado** | Intelligence/Memory + storage owner |
 | 5 | Busca híbrida lexical + vetorial, ranking por relevância, citações e fallback offline | **Não implementado** | Intelligence retrieval owner |
 | 6 | UI de conhecimento profissional: fontes, versões, licença, última atualização, controles de exclusão/reindexação | **Não implementado** | Account/Profiles na Surface |
