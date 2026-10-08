@@ -141,6 +141,17 @@ test("Update all stops before delegation when the signed Store becomes unavailab
   assert.equal((await queue.submitAvailableUpdates()).state, "catalog-unavailable");
 });
 
+test("Malformed initial catalog fails closed without throwing or delegating", async () => {
+  const h = harness();
+  const queue = h.create();
+  h.setMalformed();
+  const report = await queue.submitAvailableUpdates();
+  assert.equal(report.state, "catalog-unavailable");
+  assert.equal(report.intendedCount, 0);
+  assert.equal(report.acceptedRequests, 0);
+  assert.equal(h.calls.length, 0);
+});
+
 test("A replaced candidate is never replayed from the initial Store snapshot", async () => {
   const h = harness(undefined, async (_req, index) => {
     if (index === 1) h.setEntries([
