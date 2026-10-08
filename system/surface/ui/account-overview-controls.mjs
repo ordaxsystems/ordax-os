@@ -682,7 +682,7 @@ export function mountAccountOverviewControls(
         );
         select.type = "button";
         select.dataset.accountSpaceSelect = space.id;
-        select.disabled = isSelected || spaceSelectionSnapshot?.state === "unavailable";
+        select.disabled = isSelected || spaceSelectionSnapshot?.state === "unavailable" || pendingProfileAction !== null;
         if (isSelected) select.setAttribute("aria-current", "true");
         cardActions.append(select);
         card.append(cardActions);
@@ -1347,6 +1347,7 @@ export function mountAccountOverviewControls(
 
     const spaceButton = event.target.closest("[data-account-space-select]");
     if (spaceButton && root.contains(spaceButton) && spaceSelectionPort) {
+      if (pendingProfileAction !== null) return;
       try {
         spaceSelectionPort.select(spaceButton.dataset.accountSpaceSelect);
         spaceMessage = "";
@@ -1360,6 +1361,8 @@ export function mountAccountOverviewControls(
 
     const profileButton = event.target.closest("[data-account-profile-action]");
     if (profileButton && root.contains(profileButton) && profileActivationPort) {
+      if (pendingProfileAction !== null || sessionSnapshot.state !== "signed-in") return;
+      const actingSubjectId = sessionSnapshot.subjectId;
       const selectedSpace = spaceSelectionSnapshot?.state === "selected"
         ? spaceSelectionSnapshot.selectedSpace
         : null;
@@ -1380,7 +1383,7 @@ export function mountAccountOverviewControls(
           if (action === "activate") {
             const version = Number(profileButton.dataset.accountProfileVersion);
             if (!Number.isSafeInteger(version) || version < 1) throw new TypeError("invalid Profile version");
-            const next = await profileActivationPort.activate({
+            const intent = {
               spaceId: selectedSpace.id,
               spaceKind: selectedSpace.kind,
               profile: {
@@ -1388,6 +1391,31 @@ export function mountAccountOverviewControls(
                 version,
               },
               components: [],
+            };
+            const preview = await profileActivationPort.previewActivation(intent);
+            // The MVP UI only supports zero-component compositions.
+            // Components and privilege reviews require the trusted Native consent flow.
+            const diff = preview?.permissionDiff;
+            if (
+              diff?.requiresExplicitReview !== false
+              || !Array.isArray(diff.componentAdds) || diff.componentAdds.length !== 0
+              || !Array.isArray(diff.componentRemovals) || diff.componentRemovals.length !== 0
+              || !Array.isArray(diff.authorityChanges) || diff.authorityChanges.length !== 0
+              || !/^[0-9a-f]{64}$/.test(preview.permissionDiffSha256)
+            ) {
+              throw new Error("Profile activation preview requires unsupported review");
+            }
+            if (
+              sessionSnapshot.state !== "signed-in"
+              || sessionSnapshot.subjectId !== actingSubjectId
+              || spaceSelectionSnapshot?.state !== "selected"
+              || spaceSelectionSnapshot.selectedSpace.id !== selectedSpace.id
+            ) {
+              throw new Error("Profile activation context changed during preview");
+            }
+            const next = await profileActivationPort.activate({
+              ...intent,
+              acceptedPermissionDiffSha256: preview.permissionDiffSha256,
             });
             profileActivationSnapshot = validateProfileActivationState(next);
             profileMessage = t("account.profiles.activated");
