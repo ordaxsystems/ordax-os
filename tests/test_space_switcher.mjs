@@ -131,4 +131,7 @@ test("Native wires canonical Profile state to shell while Web remains without it
   assert.match(web, /spaces,\s*null,\s*appActivation,\s*surface,\s*null/);
   assert.match(selector, /assertProfileActivationStatePort/);
   assert.match(selector, /lifecycle\.subscribeRender\(render\)/);
+  assert.match(selector, /profilePort\?\.subscribe\?\.\(render\)/);
+  assert.match(read("system/surface/ui/account-overview-controls.mjs"),
+    /profileActivationPort\?\.subscribe\?\.\(/);
 });
