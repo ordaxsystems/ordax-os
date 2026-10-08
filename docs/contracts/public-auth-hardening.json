@@ -227,9 +227,9 @@
     "destination_vercel_public_project_found": false,
     "destination_vercel_oidc_binding_verified": false,
     "destination_vercel_oidc_runtime_e2e_verified": false,
-    "destination_vercel_oidc_observation": "Connected team OrdaX Systems had no matching ordax-os-public project (list/get_project 404) on 2026-10-08; source OIDC verifier still targets prior jogo-brasils-projects tenant.",
+    "destination_vercel_oidc_observation": "Connected team OrdaX Systems had no matching ordax-os-public project (list/get_project 404) on 2026-10-08. Source now rejects prior jogo-brasils-projects OIDC claims and expects ordaxsystems/ordax-os-public/production; existence, signed production OIDC and HTTP runtime remain unverified.",
     "destination_service_transport_runtime_verified": false,
-    "destination_gateway_transport_observed": "Inner ordax-account-gateway v1 has platform verify_jwt=true, but outer ordax-public-account-gateway upstreamHeaders supplies only apikey and no Authorization bearer. A new sb_secret API key is not a JWT. The chain is not interoperable; no public gateway deployed or live HTTP test proved.",
+    "destination_gateway_transport_observed": "Inner ordax-account-gateway v2 has platform verify_jwt=true, but outer ordax-public-account-gateway upstreamHeaders supplies only apikey and no Authorization bearer. A new sb_secret API key is not a JWT. The chain is not interoperable; no public gateway deployed or live HTTP test proved.",
     "destination_gateway_transport_source_reference": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "destination_gateway_auth_source_reference": "infra/supabase/functions/ordax-account-gateway/index.ts",
     "destination_gateway_platform_auth_reference": "https://supabase.com/docs/guides/functions/auth-headers",
@@ -240,7 +240,10 @@
     "destination_named_bridge_source_prepared": true,
     "destination_named_bridge_key_provisioned": false,
     "destination_named_bridge_runtime_e2e_verified": false,
-    "destination_named_bridge_scope": "service-to-service only, not a Supabase JWT and never used as user credentials; SUPABASE_SECRET_KEYS named secret (not default)"
+    "destination_named_bridge_scope": "service-to-service only, not a Supabase JWT and never used as user credentials; SUPABASE_SECRET_KEYS named secret (not default)",
+    "destination_vercel_oidc_source_expected_team": "ordaxsystems",
+    "destination_vercel_oidc_source_expected_project": "ordax-os-public",
+    "destination_vercel_oidc_source_updated": true
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
