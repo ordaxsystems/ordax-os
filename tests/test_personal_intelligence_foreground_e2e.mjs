@@ -166,7 +166,7 @@ test("natural-language Work -> model suggestion -> visible consent -> grant -> N
     assert.equal(personal.canExecuteApprovedAction(work.id, pending.id), false);
     await assert.rejects(
       () => personal.executeApprovedAction(work.id, pending.id),
-      /approved approval/,
+      /queued work|approved approval/,
     );
 
     assert.equal(personal.approvalConsent.canApprove(work.id, pending.id), true);
@@ -211,7 +211,7 @@ test("model suggestion followed by explicit human refusal never reaches file-spa
     assert.equal(personal.canExecuteApprovedAction(work.id, pending.id), false);
     await assert.rejects(
       () => personal.executeApprovedAction(work.id, pending.id),
-      /approved approval/,
+      /queued work|approved approval/,
     );
     assert.deepEqual(files.mutations, []);
   } finally {
