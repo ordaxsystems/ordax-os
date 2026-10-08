@@ -119,10 +119,12 @@ identifica o runtime anterior `ordax-control-plane`; o objeto
 duas autoridades funcionais e **não existe dual-write**.
 
 Foram aplicadas ao destino, sem cópia ou nova implementação das regras, as
-cinco migrations já versionadas em `infra/supabase/product/migrations/`:
+seis migrations já versionadas em `infra/supabase/product/migrations/`:
 a vinculação transacional do aceite jurídico e recibo imutável, a projeção
 privada da política, os índices de FKs, a verificação server-only de recibo
-no login e a ativação de política controlada. O histórico da execução consta
+no login, a ativação de política controlada e a correção da validação de e-mail
+que utilizava `chr(0)` (chamada inválida para `text` no PostgreSQL). A última
+correção também foi aplicada no provedor anterior, por ter a mesma falha. O histórico da execução consta
 nas migrations reais do projeto de destino; os arquivos SQL permanecem o
 único source canônico. Não reaplicar migrations que o ledger já registra.
 
