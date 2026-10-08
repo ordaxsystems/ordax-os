@@ -606,6 +606,143 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       && storeSlot?.querySelector('[data-store-operation]') === null
       && storeSlot?.querySelector('[data-store-authority="none"]') !== null;
 
+
+    // Exercise the Store in Chromium against a verified contract fixture.
+    // This fixture is isolated from the real composition and cannot authorize installs.
+    const { mountStoreOverviewControls } = await import(
+      namespaceUrls['composition-first']['system/surface/ui/store-overview-controls.mjs']
+    );
+    const { createLocaleProfile } = await import(
+      namespaceUrls['composition-first']['system/contracts/locale-profile.mjs']
+    );
+    const storeProofRoot = document.createElement('div');
+    storeProofRoot.style.width = '1100px';
+    storeProofRoot.innerHTML = '<section data-window-id="store"><div class="ordax-app-extension" data-app-extension="store-overview"></div></section>';
+    document.body.append(storeProofRoot);
+    const verifiedStoreEntries = [
+      {
+        appId: 'audio', title: 'Áudio', state: 'available',
+        installedVersion: null, availableVersion: '1.0.0',
+        installable: true, updatable: false, removable: false, blockedReason: null,
+        artifactIdentityVerified: true, provenanceVerified: true,
+      },
+      {
+        appId: 'files', title: 'Arquivos', state: 'installed',
+        installedVersion: '1.0.0', availableVersion: null,
+        installable: false, updatable: false, removable: true, blockedReason: null,
+        artifactIdentityVerified: false, provenanceVerified: false,
+      },
+      {
+        appId: 'studio', title: 'OrdaX Studio', state: 'installed',
+        installedVersion: '1.0.0', availableVersion: '1.0.1',
+        installable: false, updatable: true, removable: true, blockedReason: null,
+        artifactIdentityVerified: true, provenanceVerified: true,
+      },
+    ];
+    // Deliberately unsorted incoming SSOT: presentation must order it without mutation.
+    verifiedStoreEntries.reverse();
+    const verifiedStoreSnapshot = {
+      schema: 'ordax.app-store-catalog/2', state: 'ready', entries: verifiedStoreEntries,
+      reason: null, authority: 'none',
+    };
+    let notifyStore = null;
+    const proofCatalog = {
+      schema: 'ordax.app-store-catalog-port/2', authority: 'none',
+      getSnapshot() { return verifiedStoreSnapshot; },
+      subscribe(listener) { notifyStore = listener; return () => { notifyStore = null; }; },
+    };
+    const localeProfile = createLocaleProfile('pt-BR');
+    const proofLifecycle = {
+      schema: 'ordax.surface-render-lifecycle/5',
+      getAppTarget() { return null; },
+      setAppTarget() {},
+      subscribeRender() { return () => {}; },
+      localization: {
+        schema: 'ordax.localization/2',
+        getLocale() { return 'pt-BR'; },
+        getProfile() { return localeProfile; },
+        translate(messageId, parameters) {
+          if (typeof parameters?.reason === 'string') return messageId + ': ' + parameters.reason;
+          return messageId;
+        },
+        subscribe() { return () => {}; },
+      },
+    };
+    const proofRequests = [];
+    const proofRequestsPort = {
+      schema: 'ordax.app-lifecycle-request-port/1', authority: 'none',
+      requestLifecycle(request) {
+        proofRequests.push(request);
+        if (request.operation === 'install') return {
+          schema: 'ordax.app-lifecycle-request-result/1',
+          requestId: request.requestId, appId: request.appId,
+          operation: request.operation, source: request.source,
+          state: 'rejected', reason: 'incompatible-host-policy', authority: 'none',
+        };
+        throw new Error('intentional synchronous Store proof failure');
+      },
+    };
+    const storeProof = mountStoreOverviewControls(
+      storeProofRoot, proofCatalog, proofLifecycle, proofRequestsPort,
+    );
+    const proofStoreSlot = storeProofRoot.querySelector('[data-app-extension="store-overview"]');
+    result.storeVerifiedCatalogRendered = proofStoreSlot?.dataset.storeState === 'ready'
+      && proofStoreSlot.querySelectorAll('[data-store-app-card]').length === 3;
+    result.storeAlphabeticallySorted = Array.from(proofStoreSlot.querySelectorAll('[data-store-app-card]'))
+      .map((card) => card.dataset.storeAppId).join(',') === 'files,audio,studio';
+    storeProofRoot.style.width = '430px';
+    result.storeResizesWithWindow = getComputedStyle(
+      proofStoreSlot.querySelector('.ordax-store-layout'),
+    ).gridTemplateColumns.split(' ').length === 1;
+    storeProofRoot.style.width = '1100px';
+    const proofSearch = proofStoreSlot.querySelector('[data-store-search]');
+    proofSearch.value = 'audio';
+    proofSearch.dispatchEvent(new Event('input', { bubbles: true }));
+    result.storeAccentInsensitiveSearch = proofStoreSlot.querySelector('[data-store-app-card][data-store-app-id="audio"]')?.hidden === false
+      && proofStoreSlot.querySelector('[data-store-app-card][data-store-app-id="files"]')?.hidden === true;
+    proofSearch.focus();
+    notifyStore(verifiedStoreSnapshot);
+    result.storePreservesSearchFocus = document.activeElement
+      === proofStoreSlot.querySelector('[data-store-search]');
+    const installedTab = proofStoreSlot.querySelector('[data-store-view="installed"]');
+    installedTab.click();
+    const installedSearch = proofStoreSlot.querySelector('[data-store-search]');
+    installedSearch.value = '';
+    installedSearch.dispatchEvent(new Event('input', { bubbles: true }));
+    result.storeInstalledFilter = proofStoreSlot.querySelector('[data-store-app-card][data-store-app-id="audio"]')?.hidden === true
+      && proofStoreSlot.querySelector('[data-store-app-card][data-store-app-id="files"]')?.hidden === false;
+    proofStoreSlot.querySelector('[data-store-details="files"]').click();
+    const removeAction = () => proofStoreSlot.querySelector('[data-store-operation="remove"]');
+    removeAction().click();
+    result.storeRemovalRequiresConfirmation = proofRequests.length === 0
+      && proofStoreSlot.querySelector('[data-store-confirm-remove]') !== null;
+    proofStoreSlot.querySelector('[data-store-cancel-remove]').click();
+    result.storeRemovalCanCancel = proofRequests.length === 0
+      && proofStoreSlot.querySelector('[data-store-confirm-remove]') === null;
+    removeAction().click();
+    proofStoreSlot.querySelector('[data-store-confirm-remove]').click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    result.storeSyncFailureRecovered = proofRequests.length === 1
+      && proofRequests[0].operation === 'remove'
+      && proofRequests[0].authority === 'none'
+      && proofStoreSlot.querySelector('[data-store-operation="remove"]')?.disabled === false
+      && proofStoreSlot.querySelector('.ordax-store-request-status')?.textContent === 'store.request.remove.failed';
+    proofStoreSlot.querySelector('[data-store-back]').click();
+    proofStoreSlot.querySelector('[data-store-view="discover"]').click();
+    proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]').click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    result.storeShowsValidatedRejectionReason = proofRequests.length === 2
+      && proofRequests[1].operation === 'install'
+      && proofStoreSlot.querySelector('.ordax-store-request-status')?.textContent
+        ?.includes('incompatible-host-policy') === true;
+    storeProof.destroy();
+    storeProofRoot.remove();
+    result.storeVerifiedFixtureCleaned = notifyStore === null;
+
     // Internet coverage must remain independent from Notes. Before the
     // remove-first cutover this target was reached through a Notes reference,
     // which accidentally made the browser smoke depend on the removed app.
@@ -721,7 +858,12 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
-      'storeOwnerMounted', 'storeFailsClosedWithoutVerifiedCatalog', 'internetComponentStyleMounted',
+      'storeOwnerMounted', 'storeFailsClosedWithoutVerifiedCatalog',
+      'storeVerifiedCatalogRendered', 'storeAlphabeticallySorted',
+      'storeResizesWithWindow', 'storeAccentInsensitiveSearch', 'storePreservesSearchFocus',
+      'storeInstalledFilter', 'storeRemovalRequiresConfirmation',
+      'storeRemovalCanCancel', 'storeSyncFailureRecovered',
+      'storeShowsValidatedRejectionReason', 'storeVerifiedFixtureCleaned', 'internetComponentStyleMounted',
       'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
       'internetFailsClosedOnWeb', 'internetDoesNotEmbedWebContent',
