@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools/release-operator"))
@@ -89,6 +90,32 @@ class CanonicalRequestBuilderTests(unittest.TestCase):
         runs["surface"]["id"] = runs["system"]["id"]
         with self.assertRaises(builder.ValidationError):
             builder.build_request(self.SOURCE, runs, inv, hist)
+
+    def test_source_must_descend_from_cutover_and_remain_on_main(self):
+        source = self.SOURCE
+        ok = [
+            {"status": "ahead", "head_commit": {"sha": source}},
+            {"status": "ahead", "head_commit": {"sha": "f" * 40}},
+        ]
+        with mock.patch.object(builder, "fetch_json", side_effect=ok) as fetch:
+            builder.verify_cutover_ancestry(source, "readonly-token")
+            self.assertEqual(
+                fetch.call_args_list[0].args[0],
+                f"/compare/{builder.CUTOVER_COMMIT}...{source}",
+            )
+            self.assertEqual(fetch.call_args_list[1].args[0], f"/compare/{source}...main")
+
+        with mock.patch.object(builder, "fetch_json", return_value={
+            "status": "diverged", "head_commit": {"sha": source},
+        }):
+            with self.assertRaisesRegex(builder.ValidationError, "does not descend"):
+                builder.verify_cutover_ancestry(source, "readonly-token")
+        with mock.patch.object(builder, "fetch_json", side_effect=[
+            {"status": "ahead", "head_commit": {"sha": source}},
+            {"status": "behind"},
+        ]):
+            with self.assertRaisesRegex(builder.ValidationError, "ancestor of current main"):
+                builder.verify_cutover_ancestry(source, "readonly-token")
 
     def test_historical_source_and_artifact_cannot_be_reused(self):
         runs, inv, hist = self.fixture()
