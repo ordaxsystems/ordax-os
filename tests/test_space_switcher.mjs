@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
 
 import { deriveSpaceSwitcherView } from "../system/surface/ui/space-switcher-controls.mjs";
+import { deriveAuthorizedSpaces } from "../system/services/spaces/authorized-view.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFileSync(resolve(root, path), "utf8");
@@ -18,7 +19,7 @@ const ready = { state: "ready", spaces };
 const selected = {
   state: "selected",
   subjectId,
-  selectedSpace: { id: "pizza", name: "Minha Pizzaria", state: "active" },
+  selectedSpace: { id: "pizza", name: "Minha Pizzaria", kind: "professional", state: "active" },
 };
 
 test("Space switcher derives active identity exclusively from authenticated catalog and selection", () => {
@@ -175,4 +176,51 @@ test("Space selector keeps navigable, dismissible, focus-safe popup on updates",
   assert.match(smoke, /spaceSwitcherKeyboardOpens/);
   assert.match(smoke, /spaceSwitcherKeyboardFocusesAction/);
   assert.match(smoke, /spaceSwitcherKeyboardRestoresFocus/);
+});
+
+
+test("Account and Shell use the same subject-bound Space view for every transition", () => {
+  const own = deriveAuthorizedSpaces(signedIn, ready, selected);
+  assert.equal(own.ready, true);
+  assert.equal(own.activeSpace.id, "pizza");
+  assert.deepEqual(own.visibleSpaces, spaces);
+
+  const subjectChanged = deriveAuthorizedSpaces(
+    { state: "signed-in", subjectId: "another-account" }, ready, selected,
+  );
+  assert.equal(subjectChanged.ready, false);
+  assert.equal(subjectChanged.activeSpace, null);
+  assert.deepEqual(subjectChanged.visibleSpaces, []);
+
+  const unavailable = deriveAuthorizedSpaces(signedIn, ready, {
+    state: "unavailable", subjectId: null, selectedSpace: null,
+  });
+  assert.deepEqual(unavailable.visibleSpaces, []);
+  assert.equal(unavailable.activeSpace, null);
+
+  const kindMismatch = deriveAuthorizedSpaces(signedIn, ready, {
+    ...selected, selectedSpace: { ...selected.selectedSpace, kind: "personal" },
+  });
+  assert.deepEqual(kindMismatch.visibleSpaces, spaces);
+  assert.equal(kindMismatch.activeSpace, null);
+
+  const deleted = deriveAuthorizedSpaces(signedIn, { state: "ready", spaces: [] }, selected);
+  assert.equal(deleted.activeSpace, null);
+  assert.deepEqual(deleted.visibleSpaces, []);
+
+  const webReadOnly = deriveAuthorizedSpaces(signedIn, ready, null);
+  assert.equal(webReadOnly.ready, true);
+  assert.deepEqual(webReadOnly.visibleSpaces, spaces);
+  assert.equal(webReadOnly.activeSpace, null);
+});
+
+test("Account resets catalog when the subject changes and gates activation using authorized selection", () => {
+  const account = read("system/surface/ui/account-overview-controls.mjs");
+  const shell = read("system/surface/ui/space-switcher-controls.mjs");
+  assert.match(account, /deriveAuthorizedSpaces\(/);
+  assert.match(shell, /deriveAuthorizedSpaces\(/);
+  assert.match(account, /priorSubject !== currentSubject/);
+  assert.match(account, /spacesPort\?\.reset\(\)/);
+  assert.match(account, /authorizedSpaces\(\)\.activeSpace/);
+  assert.match(account, /authorizedSpaces\(\)\.visibleSpaces/);
 });

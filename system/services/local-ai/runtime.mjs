@@ -462,6 +462,16 @@ export function createLocalAiRuntime({
           LOCAL_AI_MAX_COMPLETION_RESPONSE_BYTES,
         );
         if (!response.ok) throw new Error(`Local AI inference failed: HTTP ${response.status}`);
+        // Some OpenAI-compatible backends report the model that actually served
+        // a completion. Do not assert the requested model as a verified result
+        // when the server explicitly reports a different identity.
+        if (
+          payload?.model !== undefined
+          && payload?.model !== null
+          && validateLocalAiModelId(payload.model) !== activeModelId
+        ) {
+          throw new Error("Local AI completion model identity mismatch");
+        }
         const text = validateLocalAiResponseText(payload?.choices?.[0]?.message?.content);
         publish({ ...snapshot, state: "ready" });
         return Object.freeze({ text, engineId: activeEngineId, modelId: activeModelId });

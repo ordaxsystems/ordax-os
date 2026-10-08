@@ -7,23 +7,14 @@ import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs"
 import { assertSpaceSelectionPort } from "../../contracts/space-selection.mjs";
 import { assertSpacesPort } from "../../contracts/spaces.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
 
 // One presentation for the existing Account-owned Spaces catalog and selection.
 // Selecting a Space is navigation context, never a permission grant.
 export function deriveSpaceSwitcherView(identity, catalog, selection, activation = null) {
-  // Native selection carries the authenticated subject binding. If identity
-  // changes before a catalog reset arrives, never reveal the old subject's list.
-  const selectionAuthorized = selection === null || (
-    selection.state !== "unavailable" && selection.subjectId === identity.subjectId
+  const { visibleSpaces, activeSpace: active } = deriveAuthorizedSpaces(
+    identity, catalog, selection,
   );
-  const visibleSpaces = (
-    identity.state === "signed-in" && catalog.state === "ready" && selectionAuthorized
-  ) ? catalog.spaces : [];
-  const active = (
-    identity.state === "signed-in"
-    && selection?.state === "selected"
-    && selection.subjectId === identity.subjectId
-  ) ? visibleSpaces.find((space) => space.id === selection.selectedSpace.id && space.state === "active") ?? null : null;
   // Device-scoped activation is only displayable inside the authenticated
   // user's current catalog. Never render a profile from a stale/foreign Space.
   const profileFor = (space) => currentProfileForSpace(activation, space);

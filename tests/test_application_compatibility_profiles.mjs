@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { peFixture } from "./fixtures/windows-pe.mjs";
@@ -30,12 +31,16 @@ function runtime(overrides = {}) {
   };
 }
 
-const payloadDigest = `sha256:${"22".repeat(32)}`;
+function digestOf(bytes) {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
 
-test("profile planning fails closed when no verified runtime exists", () => {
+const payloadDigest = digestOf(peFixture());
+
+test("profile planning fails closed when no verified runtime exists", async () => {
   const compatibility = createApplicationCompatibilityManager();
   const planner = createApplicationCompatibilityProfilePlanner({ compatibility });
-  const inspection = compatibility.inspect({ name: "editor.exe", bytes: peFixture() });
+  const inspection = await compatibility.inspectVerified({ name: "editor.exe", bytes: peFixture() });
 
   const plan = planner.planCreate({
     inspection,
@@ -48,10 +53,10 @@ test("profile planning fails closed when no verified runtime exists", () => {
   assert.equal(plan.profile, null);
 });
 
-test("ready profile plan binds payload identity, runtime and isolated relative storage key", () => {
+test("ready profile plan binds payload identity, runtime and isolated relative storage key", async () => {
   const compatibility = createApplicationCompatibilityManager({ runtimes: [runtime()] });
   const planner = createApplicationCompatibilityProfilePlanner({ compatibility });
-  const inspection = compatibility.inspect({ name: "editor.exe", bytes: peFixture() });
+  const inspection = await compatibility.inspectVerified({ name: "editor.exe", bytes: peFixture() });
 
   const plan = planner.planCreate({
     inspection,
@@ -79,24 +84,25 @@ test("ready profile plan binds payload identity, runtime and isolated relative s
   assert.equal(plan.profile.storageKey.includes(".."), false);
 });
 
-test("planner independently rejects non-launchable payloads through compatibility manager", () => {
+test("planner independently rejects non-launchable payloads through compatibility manager", async () => {
   const compatibility = createApplicationCompatibilityManager({ runtimes: [runtime()] });
   const planner = createApplicationCompatibilityProfilePlanner({ compatibility });
-  const inspection = compatibility.inspect({ name: "plugin.dll", bytes: peFixture({ dll: true }) });
+  const dllBytes = peFixture({ dll: true });
+  const inspection = await compatibility.inspectVerified({ name: "plugin.dll", bytes: dllBytes });
 
   const plan = planner.planCreate({
     inspection,
     profileId: "plugin",
-    payloadDigest,
+    payloadDigest: digestOf(dllBytes),
   });
   assert.equal(plan.ready, false);
   assert.equal(plan.reason, "payload-not-launchable");
 });
 
-test("profile identity and payload digest are strict and cannot escape user storage namespace", () => {
+test("profile identity and payload digest are strict and cannot escape user storage namespace", async () => {
   const compatibility = createApplicationCompatibilityManager({ runtimes: [runtime()] });
   const planner = createApplicationCompatibilityProfilePlanner({ compatibility });
-  const inspection = compatibility.inspect({ name: "editor.exe", bytes: peFixture() });
+  const inspection = await compatibility.inspectVerified({ name: "editor.exe", bytes: peFixture() });
 
   for (const profileId of ["../escape", "/absolute", "Editor", "", "a/child"]) {
     assert.throws(

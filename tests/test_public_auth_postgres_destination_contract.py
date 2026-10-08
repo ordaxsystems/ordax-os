@@ -91,6 +91,30 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             migration.read_text(encoding="utf-8").lower(),
         )
 
+    def test_staging_gateway_and_vercel_destination_evidence_are_distinct(self):
+        stage = self.destination
+        self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
+        self.assertTrue(stage["internal_gateway_staging_deployed"])
+        self.assertEqual(stage["internal_gateway_staging_version"], 1)
+        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
+        self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
+        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertFalse(stage["destination_vercel_public_project_found"])
+        self.assertEqual(stage["destination_vercel_team_slug"], "ordaxsystems")
+        self.assertEqual(stage["destination_vercel_public_project_name"], "ordax-os-public")
+        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
+        self.assertFalse(stage["destination_vercel_oidc_runtime_e2e_verified"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["public_registration_enabled"])
+        source = ROOT / stage["internal_gateway_staging_source"]
+        gateway = source.read_text(encoding="utf-8")
+        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_CLOSE_ENABLED = false;", gateway)
+
     def test_migration_sources_are_single_owned_and_versioned(self):
         names = self.destination["canonical_migrations_applied"]
         self.assertEqual(len(names), len(set(names)), "duplicate SQL source")

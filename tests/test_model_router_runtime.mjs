@@ -77,3 +77,15 @@ test("external providers remain disabled even when egress approval is supplied",
     /explicit egress approval/,
   );
 });
+
+test("model router refuses embeddings until a real local embedding backend exists", () => {
+  const router = createModelRouterRuntime({ localPort: localPort() });
+  assert.throws(
+    () => router.route({ provider: "local", purpose: "embedding" }),
+    /embedding route is unavailable/,
+  );
+  // Rejecting embeddings must not disable supported text inference purposes.
+  for (const purpose of ["general", "reason", "summarize", "code"]) {
+    assert.equal(router.route({ purpose }).purpose, purpose);
+  }
+});
