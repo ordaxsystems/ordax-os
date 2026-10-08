@@ -8,8 +8,11 @@ import {
 export const SCOPED_SEMANTIC_RETRIEVAL_SCHEMA = "ordax.scoped-semantic-retrieval/1";
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
+const SOURCE_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,191}$/;
 const MAX_RECORDS = 8192;
 const MAX_RESULTS = 32;
+const MAX_SCORING_DIMENSIONS = 4096;
+const MAX_SCORING_COMPONENTS = 8_388_608;
 
 function requireScope(scope) {
   if (!scope || typeof scope !== "object" || Array.isArray(scope)) {
@@ -103,6 +106,10 @@ export function rankScopedSemanticRecords({
       || authorizedSources.length > MAX_RECORDS || records.length > MAX_RECORDS) {
     throw new TypeError("Semantic retrieval source/record counts exceed bounds");
   }
+  if (descriptor.dimensions > MAX_SCORING_DIMENSIONS
+      || records.length * descriptor.dimensions > MAX_SCORING_COMPONENTS) {
+    throw new TypeError("Semantic retrieval exceeds local vector scoring budget");
+  }
   const empty = (state) => Object.freeze({
     schema: SCOPED_SEMANTIC_RETRIEVAL_SCHEMA,
     state,
@@ -124,7 +131,9 @@ export function rankScopedSemanticRecords({
   for (const source of authorizedSources) {
     if (!source || typeof source !== "object" || Array.isArray(source)
         || typeof source.sourceKind !== "string"
-        || typeof source.sourceId !== "string"
+        || source.sourceKind.length < 1 || source.sourceKind.length > 48
+        || source.sourceKind.includes("\0")
+        || typeof source.sourceId !== "string" || !SOURCE_ID_RE.test(source.sourceId)
         || typeof source.contentSha256 !== "string"
         || !SHA256_RE.test(source.contentSha256)) {
       throw new TypeError("Semantic authorized source identity is invalid");
