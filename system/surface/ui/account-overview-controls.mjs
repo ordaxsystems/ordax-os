@@ -30,6 +30,8 @@ import {
   validateSpaceSelectionSnapshot,
 } from "../../contracts/space-selection.mjs";
 import { assertProfileProvisioningPort } from "../../contracts/profile-provisioning.mjs";
+import { assertProfilePackCatalogPort } from "../../contracts/profile-pack-catalog.mjs";
+import { createProfileTaxonomyView } from "../../services/profile-packs/taxonomy.mjs";
 import {
   assertMutableProfileActivationStatePort,
   currentProfileForSpace,
@@ -121,6 +123,7 @@ export function mountAccountOverviewControls(
   profileActivationState = null,
   memoryConflictReview = null,
   accountLifecycle = null,
+  profileTaxonomy = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -140,6 +143,9 @@ export function mountAccountOverviewControls(
   const profileProvisioningPort = profileProvisioning === null
     ? null
     : assertProfileProvisioningPort(profileProvisioning);
+  const profileCategoryCatalog = profileTaxonomy === null
+    ? null
+    : assertProfilePackCatalogPort(profileTaxonomy.catalogPort);
   const spaceSelectionPort = spaceSelection === null
     ? null
     : assertSpaceSelectionPort(spaceSelection);
@@ -183,6 +189,7 @@ export function mountAccountOverviewControls(
     ? validateSpaceSelectionSnapshot(spaceSelectionPort.getSnapshot())
     : null;
   let profilePlans = profileProvisioningPort ? profileProvisioningPort.list() : null;
+  let selectedProfileCategory = null;
   let profileActivationSnapshot = profileActivationPort
     ? validateProfileActivationState(profileActivationPort.getSnapshot())
     : null;
@@ -753,8 +760,51 @@ export function mountAccountOverviewControls(
       );
     }
 
+    // The category hierarchy only organizes already validated active manifests.
+    // Neither the taxonomy nor this UI may grant apps, activation or entitlements.
+    const categoryView = profileCategoryCatalog === null ? null
+      : createProfileTaxonomyView({
+          catalogPort: profileCategoryCatalog,
+          taxonomy: profileTaxonomy.taxonomy,
+          language: localization.getLocale().startsWith("pt") ? "ptBR" : "en",
+        });
+    let visiblePlans = profilePlans;
+    if (categoryView !== null) {
+      const controls = node(documentObject, "div", "ordax-account-actions");
+      const chooser = node(documentObject, "select", "ordax-account-action");
+      chooser.dataset.accountProfileCategory = "";
+      chooser.setAttribute("aria-label", t("account.profiles.categories.label"));
+      const all = node(documentObject, "option", "", t("account.profiles.categories.all"));
+      all.value = "";
+      chooser.append(all);
+      const appendCategories = (categories, depth) => {
+        for (const category of categories) {
+          if (category.profileCount === 0) continue;
+          const label = `${"— ".repeat(depth)}${category.label} (${category.profileCount})`;
+          const option = node(documentObject, "option", "", label);
+          option.value = category.id;
+          chooser.append(option);
+          appendCategories(category.children, depth + 1);
+        }
+      };
+      appendCategories(categoryView.roots, 0);
+      chooser.value = selectedProfileCategory ?? "";
+      controls.append(chooser);
+      section.append(controls);
+      visiblePlans = profilePlans.filter((plan) => {
+        const published = profileCategoryCatalog.get(plan.profile.slug, plan.profile.version);
+        if (published === null) return false; // never promote a draft by listing it
+        if (selectedProfileCategory === null) return true;
+        const category = categoryView.getCategory(published.category);
+        return category !== null && (
+          category.id === selectedProfileCategory
+          || category.ancestorIds.includes(selectedProfileCategory)
+        );
+      });
+    }
+
     const grid = node(documentObject, "div", "ordax-account-grid");
-    for (const plan of profilePlans) {
+    for (const plan of visiblePlans) {
       const nameKey = `account.profiles.name.${plan.profile.slug}`;
       const stateKey = `account.profiles.state.${plan.state}`;
       const detailKey = plan.offlineAfterInstall
@@ -825,6 +875,10 @@ export function mountAccountOverviewControls(
       }
     }
     section.append(grid);
+    if (categoryView !== null && visiblePlans.length === 0) {
+      section.append(node(documentObject, "p", "ordax-account-message",
+        t("account.profiles.categories.empty")));
+    }
     if (profileMessage) {
       section.append(node(documentObject, "p", "ordax-account-message", profileMessage));
     }
@@ -1264,6 +1318,23 @@ export function mountAccountOverviewControls(
     }
   };
 
+  const onChange = (event) => {
+    const control = event.target;
+    if (!(control instanceof HTMLSelectElement)
+        || !root.contains(control)
+        || !control.matches("[data-account-profile-category]")
+        || profileCategoryCatalog === null) return;
+    const next = control.value;
+    const view = createProfileTaxonomyView({
+      catalogPort: profileCategoryCatalog,
+      taxonomy: profileTaxonomy.taxonomy,
+      language: localization.getLocale().startsWith("pt") ? "ptBR" : "en",
+    });
+    if (next !== "" && view.getCategory(next) === null) return;
+    selectedProfileCategory = next === "" ? null : next;
+    replaceView();
+  };
+
   const onInput = (event) => {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !root.contains(input)) return;
@@ -1456,6 +1527,7 @@ export function mountAccountOverviewControls(
 
   root.addEventListener("click", onClick);
   root.addEventListener("input", onInput);
+  root.addEventListener("change", onChange);
   const unsubscribeRender = lifecycle.subscribeRender(() => {
     const persistedTarget = lifecycle.getAppTarget("account");
     const nextSection = validAccountSection(persistedTarget) ? persistedTarget : "overview";
@@ -1586,6 +1658,7 @@ export function mountAccountOverviewControls(
       registrationPolicy = null;
       registrationLegalAccepted = false;
       root.removeEventListener("input", onInput);
+      root.removeEventListener("change", onChange);
       root.removeEventListener("click", onClick);
       const slot = findSlot();
       if (slot?.dataset.ordaxAccountOverviewView !== undefined) {
