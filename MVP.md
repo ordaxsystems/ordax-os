@@ -4,23 +4,21 @@ Status: CANÔNICO PARA PLANEJAMENTO DO MVP
 
 Este arquivo define o escopo público do MVP. Leia-o antes de trabalhar em lançamento, pendrive, Creator, site, conta, releases, instalação Native ou monetização.
 
-## 1. Decisão definitiva de escopo
+## 1. Escopo revisado: MVP integrado, progressivo e verificável (2026-10-08)
 
-**MVP = execução pelo pendrive.**
+**MVP não é sinônimo de USB-only, nem de apenas cinco aplicativos.** A meta de produto desta etapa é consolidar **todas as capacidades com implementação efetivamente iniciada** nos quatro owners canônicos do OrdaX — OS, Apps, Runtime e Platform — respeitando o SSOT de cada responsabilidade, antes de declarar encerrada a consolidação. Não adiar trabalho utilizável simplesmente por ser chamado de "pós-MVP"; concluir os recortes já iniciados e continuar evoluindo mesmo antes da primeira distribuição.
 
-No MVP público, o OrdaX funciona exclusivamente como **OrdaX USB**:
+Entram no inventário e no ciclo de integração: boot/Kernel/Base, USB e **instalação Native SSD/NVMe/HD**, Creator, recuperação e atualizações; Conta e autenticação, perfis/Spaces/Memory, OrdaX Intelligence e IA local, Personal OrdaX, ferramentas e ações governadas; Surface e layout; Store, gerenciador e apps first-party; Studio e Runtime/Device Host; rede/Network; Web, site público, serviços da Platform, Cloudflare, PostgreSQL, Vercel, segurança, distribuição e atualizações. Capacidades Web/Mobile/Desktop com código já iniciado também devem ser inventariadas, sem inventar APK, serviço ou port inexistente.
 
-```text
-site oficial
- -> OrdaX Creator
- -> USB Stable/MVP verificado
- -> boot pelo pendrive
- -> OrdaX em execução diretamente pelo USB
-```
+**A inclusão no escopo não é autorização de exposição.** Cada capacidade possui evidência própria de maturidade: `fonte/estrutura` → `funcional e testada` → `integrada` → `homologada no host-alvo` → `disponível no release/canal autorizado`. Ícone, contrato, arquivo-fonte, branch, build ou CI verde não equivalem a uma função utilizável. Funcionalidade real já madura entra em um candidato compatível; trabalho ainda bloqueado fica versionado, visível no inventário, isolado e com próximo gate definido. Nenhuma falsificação de "pronto" para ampliar contagem de apps.
 
-O MVP **não oferece instalação permanente** em SSD, NVMe ou HD. Também não oferece dual boot, resize, editor de partições nem qualquer escrita destrutiva em disco interno.
+**Modos do MVP:** OrdaX USB é o primeiro modo de execução já comprovado parcialmente em hardware; **OrdaX Native (SSD/NVMe/HD) também passa a ser alvo de implementação/homologação deste ciclo de MVP**, aproveitando o Creator Core, storage LUKS2/Btrfs, initramfs e provas existentes. O Native não deve ser empurrado automaticamente para outra fase, mas sua ativação pública exige provas reais de escrita segura, boot, recovery e proteção de dados. A primeira candidata Stable pode continuar USB-only enquanto o modo Native não passar nesses gates: isso descreve o **release atualmente habilitado**, e não reduz o escopo de desenvolvimento do MVP.
 
-A instalação **OrdaX Native** continua sendo uma direção arquitetural válida. Todo o trabalho técnico já realizado deve ser preservado, testado e evoluído como fundação **pós-MVP**. Preservar a fundação não significa expor a capability ao usuário do MVP.
+**Segurança de disco:** por enquanto o contrato `stable-mvp` ainda desativa `native_install_capability_enabled` e proíbe `internal_disk_destructive_write_allowed`. São **verdades operacionais atuais**, não veto definitivo ao modo Native. Nunca mudá-las apenas para habilitar UI, token ou teste. A promoção deve ocorrer em PR técnico próprio, alinhando contrato, implementação, provas descartáveis + físicas e autorização específica do dono/alvo. Inicialmente admitir somente instalação de disco inteiro selecionado conscientemente; **não** prometer dual boot, redimensionamento automático ou instalação preservando dados já existentes sem novos contratos e provas.
+
+**Gestão de releases:** manter sempre um caminho Stable passível de homologação e recuperação, sem esperar todas as capacidades independentes ficarem públicas. Não converter todas as frentes iniciadas em bloqueadoras do primeiro USB: o bloqueio é por requisito essencial do modo/fluxo anunciado, risco crítico, violação de contrato ou segurança. Todos os demais recortes seguem sendo concluídos e entregues por releases e atualizações verificadas, inclusive antes do lançamento se aprovados.
+
+O SSOT de escopo é este `MVP.md`; `docs/CURRENT-STATE.md` e os contratos machine-readable continuam descrevendo **o que está implementado e habilitado hoje**. Nenhuma decisão textual transforma um gate técnico não realizado em `PASS`.
 
 ## 2. Um produto, dois perfis de distribuição
 
@@ -40,9 +38,9 @@ O OrdaX não deve virar dois sistemas nem dois códigos divergentes.
 - não depende de Git operacional;
 - recebe somente releases oficiais verificadas;
 - Creator é o caminho normal para criar o USB;
-- **modo de execução público: USB**;
-- **instalação Native: desativada e inacessível**;
-- **escrita destrutiva em disco interno: proibida**;
+- **modo de execução atualmente habilitado: USB**, com Native dentro do ciclo de implementação/homologação MVP;
+- **instalação Native: desativada no release atual até fechar gates próprios**;
+- **escrita destrutiva em disco interno: proibida sem promoção técnica e autorização explícita do alvo**;
 - conhecido-bom, health e rollback permanecem obrigatórios.
 
 Diferenças pertencem a profile, build, configuração, canal, capability e política — nunca a forks permanentes.
@@ -129,7 +127,8 @@ Um usuário deve conseguir:
 11. recuperar automaticamente de atualização defeituosa;
 12. escolher **Entrar**, **Criar conta** ou **Continuar sem conta**; conta continua opcional, mas Entrar/Criar conta devem funcionar de ponta a ponta no MVP;
 13. usar `/conta/` como área autenticada separada da landing quando uma sessão real existir, incluindo logout e recuperação de acesso;
-14. quando autenticado e usando um Space profissional opt-in, usar a **OrdaX Network** para descobrir outros Spaces do segmento, participar voluntariamente de comunidades/grupos e trocar mensagens 1:1 ou em grupo, sem expor automaticamente a conta pessoal.
+14. quando autenticado e usando um Space profissional opt-in, usar a **OrdaX Network** para descobrir outros Spaces do segmento, participar voluntariamente de comunidades/grupos e trocar mensagens 1:1 ou em grupo, sem expor automaticamente a conta pessoal;
+15. quando o modo Native estiver homologado e oferecido pelo canal autorizado, selecionar conscientemente um disco interno, visualizar plano e consequências, confirmar a instalação de disco inteiro sem preservar os dados anteriores, instalar uma release assinada e iniciar/recover sem USB. **Esse item está em implementação, não disponível agora.**
 
 ## 5.1 Fechamento funcional que precedeu o primeiro USB Stable
 
@@ -156,7 +155,7 @@ alvo/UAC/confirmação continuam gates separados. O gate pré-USB exige, no mín
 - release-manifest/4 real com `local-ai-runtime.erofs` assinada/materializável.
 
 Store pública, Mobile completo, Native em disco, sync cloud geral, federação, cobrança e
-tools/agentes mutáveis de IA permanecem pós-MVP. A exceção de colaboração é a **OrdaX Network MVP**
+tools/agentes mutáveis de IA, **quando houver implementação iniciada**, integram o inventário do ciclo MVP e os seus gates de integração; continuam indisponíveis no release até homologação específica. A exceção de colaboração é a **OrdaX Network MVP**
 deliberadamente limitada por `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md`: diretório opt-in
 por Space, comunidades, grupos, mensagens e trust & safety mínimos. **A fundação arquitetural** de
 Store/distribuição, Spaces/Profile Packs profissionais, entitlements, memória provider-neutral,
@@ -198,37 +197,30 @@ Bloqueiam lançamento:
 - **Profiles demonstráveis seguros**: `pizzaria-br@1` e `impressao-3d-br@1` ativáveis/desativáveis em Space profissional no Stable/MVP pelo mesmo boundary genérico, sem downloads extras ou privilégio novo;
 - **OrdaX Network MVP segura**: diretório de Spaces somente opt-in, membership explícita, grupos, mensagens 1:1/grupo, bloqueio/denúncia/rate limit, autorização server-side fail-closed e prova negativa de isolamento entre contas/Spaces; indisponibilidade da Network não pode impedir boot ou apps locais.
 
-**Não bloqueiam o MVP:** instalador Native, boot por SSD/NVMe/HD, dual boot, resize ou particionamento interno.
+**Não bloqueiam a primeira candidata USB:** instalador Native e boot por SSD/NVMe/HD ainda não homologados; ambos permanecem no ciclo MVP com gates explícitos. Dual boot, resize e editor de partições não são requisitos iniciais da modalidade Native de disco inteiro. O lançamento do modo Native é bloqueado enquanto sua escrita/boot/recovery físicos não estiverem comprovados.
 
 O layout do teclado físico é uma capability do host Native, não uma preferência Web. A alteração feita em Ajustes é gravada no USB e aplicada pelo Cage no próximo início da Surface. O seletor não deve aparecer no primeiro uso enquanto não existir uma troca segura na sessão atual ou um handoff gráfico anterior ao compositor.
 
-## 7. Fundação Native pós-MVP
+## 7. Instalação Native — trabalho do MVP com disponibilidade condicionada
 
-Não apagar, duplicar ou degradar a arquitetura já construída para Native.
+**Decisão de escopo:** concluir e homologar o recorte Native já iniciado faz parte do MVP integrado. Não reimplementar Creator Core, não criar outro produto, não bifurcar Surface nem compartilhar grants da forma errada.
 
-Permanecem como fundação pós-MVP:
+Fundação já registrada no repositório: planners não destrutivos de storage e instalação; vinculação/revalidação de identidade de alvo; GPT + LUKS2 + Btrfs; Native initramfs; pré-requisitos do kernel; modo `native-disk` separado de `usb`; teste de materialização de storage descartável; adapter read-only de descoberta. **Ainda não há prova de APPLY físico, boot Native completo, recovery e first-boot health do candidato real.** Esses itens não podem ser declarados implementados por existir sua estrutura.
 
-- contratos de storage Native;
-- Creator Core e planners;
-- identidade/revalidação de target;
-- LUKS2 + Btrfs;
-- initramfs Native;
-- kernel compartilhado com pré-requisitos Native;
-- boot entries e ESP Native;
-- provas descartáveis de storage/runtime/ESP;
-- brokers/adapters de descoberta;
-- testes e provenance.
+Para tornar o modo Native publicável neste ciclo, exigir nesta ordem de dependência: verificar a proteção ao USB de origem e discos não selecionados; provar plano exato e consentimento destrutivo; implementar o APPLY no owner existente; verificar bytes/GPT/ESP/LUKS2/Btrfs e a release assinada no alvo; testar boot UEFI sem USB, desbloqueio, atualização, recovery/rollback e persistência após reinicialização; executar homologação no hardware declarado. Criar ou consumir evidências versionadas e observáveis em cada etapa. Não usar uma opção de UI como bypass.
 
-No perfil Stable/MVP:
+**Política operacional durante o desenvolvimento:**
 
 ```text
-native-install-capability = disabled
-internal-disk-destructive-write = forbidden
-native-install-ui = absent
-native-install-api-token = absent
+native-install-capability = disabled (release Stable atual)
+internal-disk-destructive-write = forbidden (até promoção e autorização)
+native-install-ui = absent/disabled enquanto indisponível
+native-install-api-token = absent enquanto indisponível
+native-development-scope = MVP_INTEGRATED
+native-public-availability = PENDING_E2E_PHYSICAL_GATES
 ```
 
-A reativação futura exige promoção explícita pós-MVP e novos gates de produto/hardware.
+O contrato atual em `docs/contracts/native-installation.json` e a distribuição em `docs/contracts/distribution-profiles.json` governam a disponibilidade efetiva. A futura mudança de flags exige revisão conjunta de contrato/implementação/testes no mesmo PR, nunca uma alteração documental isolada. O escopo inicial será **disco inteiro com apagamento informado**, sem dual boot/resize/editor de partições nesta fase.
 
 ## 8. Pendrive e Creator
 
@@ -261,7 +253,7 @@ site oficial
  -> usa o OrdaX diretamente pelo pendrive
 ```
 
-O Creator do MVP prepara mídia removível. Não oferece gravação/instalação em disco interno.
+O Creator **atualmente disponível no recorte Stable** prepara mídia removível. A evolução do mesmo Creator Core para instalar OrdaX em disco interno integra este ciclo de MVP, mas seu APPLY físico continua bloqueado até gates próprios; não afirmar que já está disponível.
 
 **IA não é um extra selecionável do Creator.** O Stable/MVP inclui Ordax Intelligence e seu backend local verificado como parte do produto. Depois da instalação, modelo, quantização ou engine podem evoluir por atualização governada; isso não equivale a oferecer um checkbox para instalar o OrdaX sem sua camada de Intelligence.
 
@@ -440,18 +432,19 @@ O MVP público oferece **pt-BR e en-US** nos seletores de primeiro uso e da Surf
 10. executar o smoke físico estruturado da Surface com FAIL=0
 11. fechar Secure Boot ou registrar explicitamente a política de suporte do MVP sem alegar prova inexistente
 12. conectar Conta OrdaX real apenas se o portal público for ativado, sem torná-la requisito de boot
-13. fechar legal/publicação e publicar o MVP USB-only
+13. fechar legal/publicação e publicar o primeiro candidato USB quando seus gates próprios passarem, sem tratar essa publicação como conclusão automática de todo o ciclo MVP
+14. continuar a integração/homologação dos componentes iniciados e concluir a modalidade Native de disco inteiro nos mesmos owners, disponibilizando-a **somente** após gates completos
 ```
 
-Native permanece em trilha técnica pós-MVP, sem bloquear a sequência.
+Native integra o escopo de trabalho do MVP, com gates específicos; não bloqueia artificialmente a primeira release USB segura, mas também não pode ser declarado entregue até funcionar e ser homologado.
 
 ## 13. Regras para próximos chats
 
 - sincronize com `main` e PRs antes de editar;
 - não duplique trabalho paralelo;
-- Stable/MVP público = USB-only;
-- preserve fundações Native, mas não as exponha no MVP;
-- não introduza escrita destrutiva em disco interno no MVP;
+- escopo de implementação do MVP abrange tudo o que já foi realmente iniciado nos owners canônicos; disponibilidade é verificada por funcionalidade e canal;
+- preserve e conclua Native neste ciclo, mas não exponha seu instalador enquanto seus gates não passarem;
+- não introduza escrita destrutiva em disco interno sem contrato, prova, consentimento explícito e autorização do alvo;
 - não introduza Git operacional no Stable/MVP;
 - não anuncie recurso futuro como disponível;
 - não invente preços, tiers ou limites comerciais;
