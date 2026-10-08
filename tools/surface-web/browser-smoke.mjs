@@ -668,6 +668,12 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       schema: 'ordax.app-lifecycle-request-port/1', authority: 'none',
       requestLifecycle(request) {
         proofRequests.push(request);
+        if (request.operation === 'install') return {
+          schema: 'ordax.app-lifecycle-request-result/1',
+          requestId: request.requestId, appId: request.appId,
+          operation: request.operation, source: request.source,
+          state: 'rejected', reason: 'incompatible-host-policy', authority: 'none',
+        };
         throw new Error('intentional synchronous Store proof failure');
       },
     };
@@ -677,6 +683,8 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     const proofStoreSlot = storeProofRoot.querySelector('[data-app-extension="store-overview"]');
     result.storeVerifiedCatalogRendered = proofStoreSlot?.dataset.storeState === 'ready'
       && proofStoreSlot.querySelectorAll('[data-store-app-card]').length === 3;
+    result.storeAlphabeticallySorted = Array.from(proofStoreSlot.querySelectorAll('[data-store-app-card]'))
+      .map((card) => card.dataset.storeAppId).join(',') === 'audio,files,studio';
     storeProofRoot.style.width = '430px';
     result.storeResizesWithWindow = getComputedStyle(
       proofStoreSlot.querySelector('.ordax-store-layout'),
@@ -716,6 +724,16 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       && proofRequests[0].authority === 'none'
       && proofStoreSlot.querySelector('[data-store-operation="remove"]')?.disabled === false
       && proofStoreSlot.querySelector('.ordax-store-request-status')?.textContent === 'store.request.remove.failed';
+    proofStoreSlot.querySelector('[data-store-back]').click();
+    proofStoreSlot.querySelector('[data-store-view="discover"]').click();
+    proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]').click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    result.storeShowsValidatedRejectionReason = proofRequests.length === 2
+      && proofRequests[1].operation === 'install'
+      && proofStoreSlot.querySelector('.ordax-store-request-status')?.textContent
+        ?.includes('incompatible-host-policy') === true;
     storeProof.destroy();
     storeProofRoot.remove();
     result.storeVerifiedFixtureCleaned = notifyStore === null;
@@ -836,11 +854,11 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
       'storeOwnerMounted', 'storeFailsClosedWithoutVerifiedCatalog',
-      'storeVerifiedCatalogRendered', 'storeResizesWithWindow',
-      'storeAccentInsensitiveSearch', 'storePreservesSearchFocus',
+      'storeVerifiedCatalogRendered', 'storeAlphabeticallySorted',
+      'storeResizesWithWindow', 'storeAccentInsensitiveSearch', 'storePreservesSearchFocus',
       'storeInstalledFilter', 'storeRemovalRequiresConfirmation',
       'storeRemovalCanCancel', 'storeSyncFailureRecovered',
-      'storeVerifiedFixtureCleaned', 'internetComponentStyleMounted',
+      'storeShowsValidatedRejectionReason', 'storeVerifiedFixtureCleaned', 'internetComponentStyleMounted',
       'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
       'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
       'internetFailsClosedOnWeb', 'internetDoesNotEmbedWebContent',
