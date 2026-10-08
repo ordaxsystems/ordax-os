@@ -21,7 +21,9 @@ def render(lock: dict) -> str:
     if (
         engine["id"] != "llama.cpp"
         or engine["artifact"]["platform"] != "linux-x86_64"
+        or model["id"] != "qwen3.5-0.8b-q4_0"
         or model["format"] != "GGUF"
+        or model["quantization"] != "Q4_0"
         or model["license"] != "Apache-2.0"
         or engine["license"] != "MIT"
         or distribution["signed_release_artifact_required"] is not True
