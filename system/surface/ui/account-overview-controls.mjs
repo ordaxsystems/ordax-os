@@ -1420,6 +1420,7 @@ export function mountAccountOverviewControls(
             }
             const next = await profileActivationPort.activate({
               ...intent,
+              expectedRevision: preview.expectedRevision,
               acceptedPermissionDiffSha256: acceptedDigest,
             });
             profileActivationSnapshot = validateProfileActivationState(next);

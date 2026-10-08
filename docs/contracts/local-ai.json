@@ -57,6 +57,7 @@
     "non_ok_json_response_body_is_cancelled": true,
     "max_completion_chars": 131072,
     "completion_nul_allowed": false,
+    "completion_reported_model_id_must_match_when_present": true,
     "stale_probe_may_override_newer_activity": false,
     "newest_concurrent_probe_owns_probe_state": true,
     "hardware_probe_runtime_owner": "bootstrap/stable-base/ordax-stable-init",

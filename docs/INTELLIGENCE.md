@@ -130,7 +130,10 @@ rebuilding the index must not delete Memory. Secret material remains forbidden, 
 cloud embedding generation would require explicit egress policy.
 
 No semantic runtime is enabled yet; current retrieval remains lexical until an approved
-embedding runtime and persistence owner are implemented and proven.
+embedding runtime and persistence owner are implemented and proven. The MVP model
+router therefore rejects `purpose=embedding` rather than advertising text-generation
+inference as an embedding service. This does not change the generic router contract:
+an embedding route requires an independently verified implementation before enabling it.
 
 The source also has explicit persistence and retrieval boundaries. Web uses a local browser
 memory store. If persistent browser storage is unavailable, its fallback is explicitly

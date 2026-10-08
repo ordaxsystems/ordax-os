@@ -8,6 +8,7 @@ import { authRateLimitBucket } from "../_shared/auth_rate_limit.mjs";
 import { verifyTrustedPublicRequestContext } from "./public_request_context.mjs";
 import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
+import { accountBridgeSecret } from "../_shared/account_service_bridge.mjs";
 
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
@@ -81,6 +82,12 @@ function serverSecretKey() {
   return secretKey;
 }
 
+function publicBridgeKey() {
+  const key = accountBridgeSecret(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "");
+  if (!key) throw new Error("account-public-bridge-unconfigured");
+  return key;
+}
+
 function adminClient() {
   const { url } = providerConfig();
   const secretKey = serverSecretKey();
@@ -119,7 +126,7 @@ function upstreamHeaders(req: Request, serverSecret: string) {
     if (value) headers.set(name, value);
   }
   // The public marker is privileged provenance. The inner gateway accepts it
-  // only when the request is authenticated with a backend-only Supabase secret.
+  // only after matching the dedicated, named backend bridge secret.
   headers.set("apikey", serverSecret);
   headers.set("x-ordax-public-site", "1");
   return headers;
@@ -261,7 +268,7 @@ Deno.serve(async (req: Request) => {
   try {
     upstream = await fetch(innerTarget, {
       method: req.method,
-      headers: upstreamHeaders(req, serverSecretKey()),
+      headers: upstreamHeaders(req, publicBridgeKey()),
       body,
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),

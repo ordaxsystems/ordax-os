@@ -235,3 +235,168 @@ Nenhuma conta, política jurídica ou alteração sintética persistiu.
 A verificação não autoriza cadastro/login públicos. A implantação
 de gateway, integração OIDC, provedor e recuperação de sessão seguem
 exigindo provas específicas para o mesmo destino.
+
+## Gateway interno no Supabase novo: implantação restrita (2026-10-08)
+
+O projeto canônico `ordax-platform` (`jhfphsjptrpmtnzkpwud`)
+recebeu a versão **1** de `ordax-account-gateway`, com entrada
+`verify_jwt=true`, sem implantar `ordax-public-account-gateway`
+e sem publicar o frontend no domínio definitivo. O deploy utilizou o
+source da `main` e seus dois módulos `_shared` canônicos.
+O artefato compilado reportado pela plataforma tem SHA-256
+`c5597140211faa49f08031d222b3718c59da657e5a2e04bb88619d27f93b91ca`.
+A lista e a leitura da Edge Function no destino confirmaram
+`ACTIVE`, versão 1 e `verify_jwt=true`; não comprovam resposta
+HTTP, autenticação ou sessão ponta-a-ponta.
+
+**A presença desse gateway interno NÃO significa que a Conta
+pública foi implantada ou promovida.** As flags de cadastro,
+recuperação e fechamento continuam desativadas; não existem usuários,
+política jurídica ativa nem testes de credenciais HTTP no destino.
+A configuração JWT obrigatória é uma contenção para esta fase; a
+cadeia Vercel `OIDC -> public gateway -> internal gateway` exige
+validação de compatibilidade dos tokens/chaves antes de ser conectada.
+Não reduzir `verify_jwt` só para tornar o deploy acessível.
+
+Também foi consultada a equipe Vercel **OrdaX Systems** (slug
+`ordaxsystems`, `team_E3bdE137ZG3fhCGMmYuGKJ8o`). O projeto
+`ordax-os-public` não foi encontrado nesta equipe. O módulo OIDC
+canônico foi corrigido para exigir exclusivamente a equipe
+`ordaxsystems`, projeto `ordax-os-public` e ambiente `production`,
+rejeitando explicitamente as claims do tenant anterior
+`jogo-brasils-projects`. Isso elimina a confiança legada **no
+código**, mas o projeto ainda não foi encontrado na Vercel nova
+e não existe prova criptográfica E2E do deployment. O bloqueio de
+identidade **permanece**, não é justificativa para habilitar Conta.
+O proprietário do Vercel deve comprovar existência do projeto novo,
+origem HTTPS, emissor, audiência, sujeito e verificação criptográfica
+do OIDC no ambiente correto. Toda configuração/prova deve ser
+versionada no owner, sem criar um segundo projeto ou usar
+credenciais de produção manualmente.
+
+Os fatos observados estão no único SSOT
+`docs/contracts/public-auth-hardening.json`. O pré-check de
+ativação exige agora evidência independente do gateway interno e do
+OIDC do **mesmo destino**, além de todas as provas já exigidas de
+cadastro, consentimento, bot protection, rate limit, recuperação,
+sessões e exportação/sincronização HTTP.
+
+## Transporte autenticado de serviço na nova Conta (2026-10-08)
+
+A implantação restrita `ordax-account-gateway` **v1**
+possui `verify_jwt=true`, isto é, o gateway Supabase valida
+`Authorization: Bearer <JWT da própria instância Supabase>` *antes*
+da execução do código. O `ordax-public-account-gateway` existente,
+porém, encaminha ao interno uma credencial de backend
+**exclusivamente em `apikey`**, e não um bearer Supabase válido.
+Chaves modernas `sb_secret_...` e `sb_publishable_...` são
+**API keys, não JWTs**. O OIDC assinado da Vercel também **não** é
+JWT emitido pelo Supabase. Portanto a cadeia atual é incapaz de
+comprovar um transporte autenticado ponta-a-ponta apenas com um
+status `ACTIVE` das Edge Functions.
+
+Fontes normativas:
+- https://supabase.com/docs/guides/functions/auth-headers
+- https://supabase.com/docs/guides/functions/auth
+
+**Desenho para futura correção no owner da identidade (não implantado
+nesta etapa):** verificar a prova criptográfica do OIDC Vercel na
+fronteira pública, exigir a identidade do projeto/equipe/ambiente
+de destino, e autenticar a chamada interna por chave de serviço com
+validação nativa Supabase `auth: 'secret:<nome>'`. A opção
+`verify_jwt=false` seria permitida **apenas** se a validação de
+credencial própria do handler fosse previamente instalada, coberta
+por testes negativos e comprovada em runtime; nunca deve ser usada
+sozinha para contornar o 401. Os endpoints Native autenticados
+devem seguir validando individualmente o JWT do usuário sob
+`auth: 'user'`, sem conceder a `service_role` autorização do sujeito
+final nem abrir as rotas anônimas por engano.
+
+O contrato SSOT `docs/contracts/public-auth-hardening.json`
+registra `destination_service_transport_runtime_verified=false`,
+e o pré-check bloqueia o cutover até que um teste HTTP real confirme
+identidade, autorização, rate limit e isolamento de usuário do
+**mesmo destino**, sem legados ou dual-write.
+
+## Segregação da credencial entre gateways de Conta (2026-10-08)
+
+O header `x-ordax-public-site: 1` **não é uma identidade** e
+não pode ser autorizado com a chave administrativa padrão
+`SUPABASE_SECRET_KEYS.default` ou com `SUPABASE_SERVICE_ROLE_KEY`.
+O código passou a compartilhar **um único verificador** em
+`infra/supabase/functions/_shared/account_service_bridge.mjs`,
+usado pelo gateway público para construir a chamada e pelo interno
+para autenticar a proveniência.
+
+Esse verificador só aceita `SUPABASE_SECRET_KEYS["ordax-account-public-bridge"]`
+com formato atual `sb_secret_...`, escopo exclusivo
+de **transporte serviço-para-serviço**. Nunca autentica um usuário,
+não deduz sessão da chave nem aceita credenciais legadas. Ausência
+do segredo nomeado implica recusa fechada, não fallback ao admin.
+Sua concessão e rotação devem usar o gerenciador de chaves nomeadas
+do Supabase, fora do Git; não registrar seus bytes em documentos,
+CI, env pública ou commits. Um token OIDC da Vercel continua sendo
+autenticado separadamente na fronteira pública.
+
+**Importante:** este contrato de código não contorna o gate de
+plataforma. O gateway interno implantado usa `verify_jwt=true` e
+vai rejeitar chamadas de serviço que só enviem `apikey`. Não
+desativar a verificação até implementar e testar explicitamente
+a autenticação handler-scoped de `auth: 'secret:<nome>'` e dos
+usuários Native com `auth: 'user'`, preservando rotas anônimas
+restritas, abuso e rate limit. Requer E2E no projeto definitivo
+com credenciais reais, OIDC do tenant novo e teste de chave
+inválida/faltante. Flags de implantação e cutover continuam
+`false` em `docs/contracts/public-auth-hardening.json`.
+
+## Admissão de transporte por rota no gateway interno (2026-10-08)
+
+O owner `_shared/account_transport_admission.mjs` separa as três
+classes de entrada **antes de qualquer handler de Conta**:
+
+- **Serviço público OrdaX:** qualquer presença de
+  `x-ordax-public-site` exige valor exatamente `1` e a chave
+  `ordax-account-public-bridge` conferida pelo verificador
+  **já canônico** `_shared/account_service_bridge.mjs`. Marcador
+  inválido não pode virar requisição Native por fallback.
+- **Native autenticado:** rotas protegidas de Conta, Sync e Rede
+  exigem uma sessão de usuário confirmada pelo Supabase Auth via
+  `getUser()` (token fornecido por cookie HttpOnly ou Bearer JWT)
+  ou por `refreshSession()`. O resultado é cacheado por
+  `Request` e reutilizado pelo handler. Não há segunda
+  implementação de verificação de assinatura JWT ou segunda fonte
+  de identidade.
+- **Native sem sessão:** somente métodos/caminhos exatos de
+  bootstrap (login, cadastro, recuperação, logout, política,
+  estado de sessão e health) podem prosseguir. As operações de
+  autenticação continuam sob o limitador RPC autoritativo e
+  respectiva validação de endereço na camada existente; flags
+  de cadastro e recuperação continuam fechadas.
+
+Nunca permitir `/account/*`, `/sync/*` ou `/network/*`
+por correspondência de prefixo num bootstrap. A camada de admissão
+deve continuar **antes** de qualquer bypass de rate limit e antes
+do roteamento. Testes de negação estão em
+`tests/test_account_transport_admission.mjs`.
+
+**Não confundir deploy interno com promoção pública:** o código da
+PR #1433 foi implantado em `ordax-platform` na Edge Function
+`ordax-account-gateway` **v3**, `ACTIVE`,
+`verify_jwt=true`, usando os cinco arquivos do owner canônico.
+Artefato SHA-256
+`89e9d06ba67daf56b266a0628df1068417dcdf2710dfde528ce2059fd03c6b61`.
+A consulta posterior de versão, flags, lista de arquivos e conteúdo
+confirmou o deploy; banco após deploy: 0 usuários, 0 políticas legais
+ativas e 0 registros Sync. Essas verificações **não equivalem a
+testes HTTP com uma credencial real**: o contrato único registra
+`destination_transport_admission_deployed=true`, mas
+`destination_transport_admission_negative_http_verified=false`,
+`destination_named_bridge_key_provisioned=false`,
+`destination_service_transport_runtime_verified=false` e
+`public_account_gateway_deployed=false`. A implementação pública
+permanece desativada.
+
+Somente após provisionar a chave nomeada, comprovar o OIDC do projeto
+Vercel real, testar os fluxos Native e HTTP negativos e revisar
+os controles poderá ser avaliada uma mudança de `verify_jwt`,
+sempre preservando um autenticador próprio antes do roteamento.

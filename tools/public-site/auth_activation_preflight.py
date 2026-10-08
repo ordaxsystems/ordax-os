@@ -178,6 +178,10 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     for flag, blocker in (
         ("functional_provider_cutover_complete", "account-provider-cutover-incomplete"),
         ("public_account_gateway_deployed", "destination-account-gateway-deployment"),
+        ("internal_gateway_runtime_e2e_verified", "destination-internal-gateway-runtime-proof"),
+        ("destination_service_transport_runtime_verified", "destination-service-auth-transport-proof"),
+        ("destination_vercel_oidc_binding_verified", "destination-vercel-oidc-project-binding"),
+        ("destination_vercel_oidc_runtime_e2e_verified", "destination-vercel-oidc-runtime-proof"),
         ("active_legal_policy_present", "destination-active-legal-policy"),
         ("provider_settings_e2e_verified", "destination-provider-settings-proof"),
         ("public_auth_rate_limit_runtime_e2e_verified", "destination-auth-rate-limit-e2e-proof"),

@@ -1,7 +1,7 @@
 const PUBLIC_SITE_HEADER = "x-ordax-public-site";
-const VERCEL_OIDC_ISSUER = "https://oidc.vercel.com/jogo-brasils-projects";
-const VERCEL_OIDC_AUDIENCE = "https://vercel.com/jogo-brasils-projects";
-const VERCEL_OIDC_SUBJECT = "owner:jogo-brasils-projects:project:ordax-os-public:environment:production";
+const VERCEL_OIDC_ISSUER = "https://oidc.vercel.com/ordaxsystems";
+const VERCEL_OIDC_AUDIENCE = "https://vercel.com/ordaxsystems";
+const VERCEL_OIDC_SUBJECT = "owner:ordaxsystems:project:ordax-os-public:environment:production";
 const JWT_RE = /^[A-Za-z0-9_-]{16,4096}\.[A-Za-z0-9_-]{2,16384}\.[A-Za-z0-9_-]{16,16384}$/;
 
 let runtimeVerifierPromise;
@@ -86,5 +86,5 @@ export const VERCEL_PUBLIC_PROXY_IDENTITY = Object.freeze({
   jwks: "https://oidc.vercel.com/.well-known/jwks",
   environment: "production",
   project: "ordax-os-public",
-  team: "jogo-brasils-projects",
+  team: "ordaxsystems",
 });
