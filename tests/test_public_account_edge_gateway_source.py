@@ -210,6 +210,11 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertLess(rate_limit, public_gate)
         self.assertIn("new WeakMap<Request, ReturnType<typeof resolveAuthenticated>>()", self.inner)
         self.assertIn("supabase.auth.getUser(access)", self.inner)
+        self.assertIn("const access = cookies.get(ACCESS_COOKIE) || bearerUserToken(req)", self.inner)
+        self.assertIn(
+            r"/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/",
+            self.inner,
+        )
         self.assertIn("sessionVerificationCache.get(req)", self.inner)
         self.assertNotIn("function trustedPublicSiteRequest(req: Request)", self.inner)
 
