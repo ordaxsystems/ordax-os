@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { assertMvpZeroComponentProfileReview } from "../system/surface/ui/profile-activation-review.mjs";
 
@@ -46,4 +48,14 @@ test("MVP Profile review rejects forged or incomplete revisions and digests", ()
       /unsupported review/,
     );
   }
+});
+
+
+test("Account binds the Native confirmation to the preview revision", () => {
+  const accountPath = new URL("../system/surface/ui/account-overview-controls.mjs", import.meta.url);
+  const source = readFileSync(fileURLToPath(accountPath), "utf8");
+  assert.match(source, /const preview = await profileActivationPort\.previewActivation\(intent\)/);
+  assert.match(source, /const acceptedDigest = assertMvpZeroComponentProfileReview\(preview\)/);
+  assert.match(source, /expectedRevision: preview\.expectedRevision/);
+  assert.match(source, /acceptedPermissionDiffSha256: acceptedDigest/);
 });
