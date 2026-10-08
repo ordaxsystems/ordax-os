@@ -499,3 +499,21 @@ test("automatic Memory discards extraction when conversation generation is revok
   assert.equal(result.status, "scope-changed");
   assert.equal(capture.calls.length, 0);
 });
+
+
+test("Account unavailability disables automatic Memory but does not request inference", async () => {
+  const ai = intelligence('{"memories":[{"kind":"fact","content":"u","evidence":"u"}]}');
+  const store = captureRuntime();
+  const runtime = createAssistantAutoCaptureRuntime({
+    intelligencePort: ai,
+    captureRuntime: store,
+    preferenceRuntime: preferences(true),
+    identitySessionPort: identity("unavailable"),
+    spaceSelectionPort: selection("unavailable"),
+  });
+  const result = await runtime.bindTurn().capture({ userText: "u" });
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.captured, 0);
+  assert.equal(ai.requests.length, 0);
+  assert.equal(store.calls.length, 0);
+});
