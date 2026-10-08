@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.windows-compat-build-version-lock/1",
-  "status": "version-lock-from-proven-configure-not-content-addressed-not-build-proven",
+  "status": "reviewed-network-closure-refresh-not-build-proven",
   "runtime_id": "wine-11.0-wow64-x86_64-candidate",
   "wine_version": "11.0",
   "source": {
@@ -80,7 +80,7 @@
   },
   "resolved_closure": {
     "package_count": 342,
-    "canonical_json_sha256": "99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e",
+    "canonical_json_sha256": "e393674aac035f51e0e7b42c85e25850cfb026d9ab79499e0ca444bb0803ecdd",
     "canonicalization": "sorted-object-keys-utf8-json-no-whitespace"
   },
   "provenance": {
@@ -97,6 +97,40 @@
     "full_build_proof_passed": false,
     "runtime_dependency_inventory_complete": false,
     "binary_artifact_pinned": false,
+    "activation_authorized": false,
+    "execution_authorized": false
+  },
+  "lock_refresh": {
+    "status": "reviewed-two-version-drift-offline-content-reproof-required",
+    "historical_artifact": {
+      "source_commit": "3c29aa03a7b26cdcfb95b74694e5ba4954ae9cb0",
+      "workflow_run_id": 36895104347,
+      "artifact_id": 11179727536,
+      "archive_sha256": "c5b381e5439452eb0a460efbc59e3af00f85ca4d92ed8d020f72d1c0180d1670",
+      "resolved_closure_sha256": "99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e",
+      "resolved_package_count": 342
+    },
+    "current_observation": {
+      "apk_discovery_run_id": 37811046910,
+      "full_build_run_id": 37811047117,
+      "dependency_diagnostic_run_id": 37811047307,
+      "resolved_closure_sha256": "e393674aac035f51e0e7b42c85e25850cfb026d9ab79499e0ca444bb0803ecdd",
+      "resolved_package_count": 342
+    },
+    "changed_packages": [
+      {
+        "name": "zlib",
+        "from": "1.3.2-r0",
+        "to": "1.3.2-r1"
+      },
+      {
+        "name": "zlib-dev",
+        "from": "1.3.2-r0",
+        "to": "1.3.2-r1"
+      }
+    ],
+    "offline_apk_content_reproof_required": true,
+    "full_build_reproof_required": true,
     "activation_authorized": false,
     "execution_authorized": false
   }

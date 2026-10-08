@@ -132,8 +132,10 @@ jobs:
           assert gates['execution_authorized'] is False
           assert gates['windows_payload_executed'] is False
           assert gates['wine_executed'] is False
-          assert proof['apk_content_manifest_sha256'] == '9ecad632554f9f164294a803af9cfe8ccbfba525c71e1cd61c7cbd9fc7e8d7bf'
-          assert proof['resolved_closure_sha256'] == '99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e'
+          content_lock = json.loads(pathlib.Path('bootstrap/windows-compat-runtime/apk-content-lock.json').read_text(encoding='utf-8'))
+          version_lock = json.loads(pathlib.Path('bootstrap/windows-compat-runtime/build-version-lock.json').read_text(encoding='utf-8'))
+          assert proof['apk_content_manifest_sha256'] == content_lock['external_apk_set']['canonical_manifest_sha256']
+          assert proof['resolved_closure_sha256'] == version_lock['resolved_closure']['canonical_json_sha256']
           link = proof['unixlib_link_policy']
           assert link['$schema'] == 'prototype-ordax.windows-compat-unixlib-link-policy-proof/1'
           assert link['status'] == 'origin-runpath-build-policy-proven-not-runtime-pinned'

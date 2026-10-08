@@ -49,7 +49,7 @@ def validate_package_map(value: object, label: str) -> dict[str, str]:
 def validate_lock(lock: dict, source: dict, environment: dict) -> dict:
     if lock.get("$schema") != "prototype-ordax.windows-compat-build-version-lock/1":
         raise BuildVersionLockError("unexpected version lock schema")
-    if lock.get("status") != "version-lock-from-proven-configure-not-content-addressed-not-build-proven":
+    if lock.get("status") != "reviewed-network-closure-refresh-not-build-proven":
         raise BuildVersionLockError("version lock status drifted")
 
     if lock.get("runtime_id") != source.get("runtime_id") or lock.get("wine_version") != source.get("version"):
@@ -101,6 +101,38 @@ def validate_lock(lock: dict, source: dict, environment: dict) -> dict:
         raise BuildVersionLockError("closure package count invalid")
     if not SHA256_RE.fullmatch(str(closure.get("canonical_json_sha256", ""))):
         raise BuildVersionLockError("closure digest invalid")
+
+    refresh = lock.get("lock_refresh")
+    if not isinstance(refresh, dict) or refresh.get("status") != "reviewed-two-version-drift-offline-content-reproof-required":
+        raise BuildVersionLockError("reviewed closure refresh evidence missing")
+    previous = refresh.get("historical_artifact")
+    current = refresh.get("current_observation")
+    if not isinstance(previous, dict) or not isinstance(current, dict):
+        raise BuildVersionLockError("closure refresh provenance missing")
+    if previous.get("resolved_closure_sha256") != "99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e":
+        raise BuildVersionLockError("previous closure digest drifted")
+    if previous.get("source_commit") != "3c29aa03a7b26cdcfb95b74694e5ba4954ae9cb0" or previous.get("workflow_run_id") != 36895104347 or previous.get("artifact_id") != 11179727536:
+        raise BuildVersionLockError("historical source artifact identity drifted")
+    if previous.get("archive_sha256") != "c5b381e5439452eb0a460efbc59e3af00f85ca4d92ed8d020f72d1c0180d1670":
+        raise BuildVersionLockError("historical source artifact digest drifted")
+    if current.get("resolved_closure_sha256") != closure["canonical_json_sha256"] or current.get("resolved_closure_sha256") != "e393674aac035f51e0e7b42c85e25850cfb026d9ab79499e0ca444bb0803ecdd":
+        raise BuildVersionLockError("current closure digest is not the reviewed observation")
+    if current.get("resolved_package_count") != closure["package_count"] or previous.get("resolved_package_count") != closure["package_count"]:
+        raise BuildVersionLockError("closure package count drifted")
+    if any(not isinstance(current.get(key), int) or current[key] <= 0 for key in ("apk_discovery_run_id", "full_build_run_id", "dependency_diagnostic_run_id")):
+        raise BuildVersionLockError("refresh CI evidence missing")
+    if refresh.get("changed_packages") != [
+        {"name": "zlib", "from": "1.3.2-r0", "to": "1.3.2-r1"},
+        {"name": "zlib-dev", "from": "1.3.2-r0", "to": "1.3.2-r1"},
+    ]:
+        raise BuildVersionLockError("reviewed package drift does not match source evidence")
+    if (
+        refresh.get("offline_apk_content_reproof_required") is not True
+        or refresh.get("full_build_reproof_required") is not True
+        or refresh.get("activation_authorized") is not False
+        or refresh.get("execution_authorized") is not False
+    ):
+        raise BuildVersionLockError("closure refresh cannot promote Wine")
 
     provenance = lock.get("provenance")
     if not isinstance(provenance, dict):

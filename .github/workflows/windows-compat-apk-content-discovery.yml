@@ -71,7 +71,8 @@ jobs:
           assert proof['gates']['execution_authorized'] is False
           assert proof['requested_package_count'] == 39
           assert proof['resolved_package_count'] == 342
-          expected = '99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e'
+          lock = json.loads(pathlib.Path('bootstrap/windows-compat-runtime/build-version-lock.json').read_text(encoding='utf-8'))
+          expected = lock['resolved_closure']['canonical_json_sha256']
           assert proof['resolved_closure_sha256'] == expected
           assert proof['offline_replay_closure_sha256'] == expected
           assert 0 < proof['external_apk_package_count'] <= proof['resolved_package_count']

@@ -6,12 +6,12 @@
   "host_rootfs_sha256": "4b4daa9fe2fc696c4919c4412a4c3d3e770d8fb70292a004a2c72f5096175282",
   "resolved_closure": {
     "package_count": 342,
-    "canonical_json_sha256": "99f0881664ee6a089755baa74e71513a671d8073e91a8256d36ef2c4c303243e"
+    "canonical_json_sha256": "e393674aac035f51e0e7b42c85e25850cfb026d9ab79499e0ca444bb0803ecdd"
   },
   "external_apk_set": {
-    "package_count": 326,
-    "total_size_bytes": 595141970,
-    "canonical_manifest_sha256": "9ecad632554f9f164294a803af9cfe8ccbfba525c71e1cd61c7cbd9fc7e8d7bf",
+    "package_count": 327,
+    "total_size_bytes": 595197429,
+    "canonical_manifest_sha256": "a3ccadb533a23b3c5362df177740cef4478cd79ea3b361ed03eb04534485d2c9",
     "canonicalization": "sorted-package-map-json-no-whitespace",
     "manifest_entry_fields": [
       "filename",
@@ -22,10 +22,10 @@
     "meaning": "the canonical digest commits to every external APK package name, exact version, filename, byte size and SHA-256"
   },
   "provenance": {
-    "discovery_head_sha": "3c29aa03a7b26cdcfb95b74694e5ba4954ae9cb0",
-    "workflow_run_id": 36895104347,
-    "artifact_id": 11179727536,
-    "artifact_digest": "sha256:c5b381e5439452eb0a460efbc59e3af00f85ca4d92ed8d020f72d1c0180d1670"
+    "discovery_head_sha": "9ef37e4a0191a655a8d6e957db32063ebf2b9802",
+    "workflow_run_id": 37812741652,
+    "artifact_id": 11564979845,
+    "artifact_digest": "sha256:134ac687d31a1f3a43aa17a7a123505bd005aa158c1db341343440f7969aa6a8"
   },
   "gates": {
     "version_lock_verified": true,
