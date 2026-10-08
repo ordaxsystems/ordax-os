@@ -2,6 +2,8 @@
 .ordax-app-extension[data-app-extension="store-overview"] {
   grid-column: 1 / -1;
   min-height: 520px;
+  /* The Store is a resizable OS window, not a full browser viewport. */
+  container-type: inline-size;
   padding: 0;
   overflow: hidden;
   background: var(--ordax-app-bg);
@@ -413,6 +415,28 @@
   color: var(--ordax-muted);
 }
 
+.ordax-store-action-danger {
+  border-color: color-mix(in srgb, var(--ordax-danger) 40%, var(--ordax-border));
+  background: var(--ordax-danger-bg);
+  color: var(--ordax-danger);
+}
+
+.ordax-store-removal-confirmation {
+  display: grid;
+  flex: 1 0 100%;
+  gap: var(--ordax-space-3);
+  padding: var(--ordax-space-4);
+  border: 1px solid color-mix(in srgb, var(--ordax-warning) 45%, var(--ordax-border));
+  border-radius: var(--ordax-radius-md);
+  background: var(--ordax-warning-bg);
+}
+
+.ordax-store-removal-confirmation p {
+  margin: 0;
+  color: var(--ordax-muted);
+  line-height: 1.5;
+}
+
 .ordax-store-action:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -541,7 +565,7 @@
   display: none;
 }
 
-@media (max-width: 800px) {
+@container (max-width: 800px) {
   .ordax-store-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -570,7 +594,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@container (max-width: 480px) {
   .ordax-store-main {
     padding: var(--ordax-space-4);
     gap: var(--ordax-space-4);
