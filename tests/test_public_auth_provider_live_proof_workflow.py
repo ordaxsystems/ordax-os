@@ -16,7 +16,11 @@ class PublicAuthProviderLiveProofWorkflowTests(unittest.TestCase):
 
     def test_proof_is_live_sanitized_and_bound_to_canonical_project(self):
         self.assertIn("probe_auth_provider.py --live", self.text)
-        self.assertIn("SUPABASE_PROJECT_REF: eobcxuyvhkvdmkbaihwh", self.text)
+        self.assertIn("resolve_auth_provider_target.py", self.text)
+        self.assertNotIn("SUPABASE_PROJECT_REF: eobcxuyvhkvdmkbaihwh", self.text)
+        self.assertNotIn("SUPABASE_PROJECT_REF: jhfphsjptrpmtnzkpwud", self.text)
+        self.assertIn('--origin "${ORDAX_REQUESTED_ORIGIN}"', self.text)
+        self.assertIn('>> "${GITHUB_ENV}"', self.text)
         self.assertIn('data["project_ref"] == "redacted"', self.text)
         self.assertIn('data["ready"] is True', self.text)
         self.assertIn("auth-provider-proof-", self.text)
