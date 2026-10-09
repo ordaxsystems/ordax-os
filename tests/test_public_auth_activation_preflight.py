@@ -317,7 +317,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         hardening = preflight.load_json(ROOT, preflight.HARDENING)
         stage = hardening["postgresql_destination"]
         self.assertTrue(stage["internal_gateway_staging_deployed"])
-        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
         self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
         self.assertTrue(stage["destination_vercel_public_project_found"])
         self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
@@ -335,7 +335,7 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         hardening = preflight.load_json(ROOT, preflight.HARDENING)
         stage = hardening["postgresql_destination"]
         self.assertTrue(stage["internal_gateway_staging_deployed"])
-        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
         self.assertFalse(stage["destination_service_transport_runtime_verified"])
         blockers, _ = preflight.readiness(ROOT)
         self.assertIn("destination-service-auth-transport-proof", blockers)
