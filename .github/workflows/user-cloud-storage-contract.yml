@@ -89,7 +89,15 @@ jobs:
       - name: Prove storage reservation integrity on PostgreSQL 16
         run: |
           set -euo pipefail
-          # Peer authentication to the ephemeral local superuser only;
-          # no TCP listener, baked-in password or external container image.
+          # Hosted runner workspaces are inaccessible to the postgres Unix
+          # account. Stage exact committed SQL inputs in an isolated, readable
+          # directory. Keep \\ir relative includes intact and avoid passwords,
+          # TCP access and Docker Hub entirely.
+          stage="$(mktemp -d)"
+          trap 'rm -rf "$stage"' EXIT
+          chmod 755 "$stage"
+          install -d -m 755 "$stage/tests/sql" "$stage/infra/supabase/product/migrations"
+          install -m 644 tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql "$stage/tests/sql/"
+          cp -R infra/supabase/product/migrations/. "$stage/infra/supabase/product/migrations/"
           sudo -u postgres psql --no-psqlrc -v ON_ERROR_STOP=1 \
-            -f "${GITHUB_WORKSPACE}/tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql"
+            -f "$stage/tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql"
