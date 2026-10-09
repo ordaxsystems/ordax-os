@@ -81,3 +81,41 @@ Provider operator (production project **ordax-platform**, NOT the legacy
    Never put bearer/refresh tokens or recovery codes into issues, logs or docs.
 
 Do not use SQL as a replacement for changing Auth hosted configuration.
+
+## Resend transactional SMTP — operator state (2026-10-09)
+
+Verified sending domain: `auth.ordax.com.br`, Resend region `sa-east-1`
+(DKIM, SPF and return path verified). Cloudflare owns the DNS records,
+with an initial monitoring DMARC policy. Sending only; receiving disabled;
+enforced TLS; no open/click tracking. The main website DNS and MX were not
+modified.
+
+Canonical expected SMTP settings are owned by
+`docs/contracts/public-auth-provider-policy.json#transactional_email`.
+In the hosted Supabase project **ordax-platform**, configure:
+- **Authentication / SMTP Settings**: custom SMTP enabled; host
+  `smtp.resend.com`, port `465`, username `resend`, sender email
+  `no-reply@auth.ordax.com.br`, sender name `OrdaX`, and a *sending-only,
+  domain-restricted Resend API key* as SMTP password. Never put that password
+  in GitHub, JS, migrations, logs or source.
+- **Authentication / URL Configuration**: Site URL
+  `https://ordax.com.br` and exact redirect URLs
+  `https://ordax.com.br/login/` and
+  `https://ordax.com.br/auth/recover/verify`. Remove development localhost
+  or cross-origin wildcard redirects on production.
+- **Authentication / Email Templates / Confirm signup**: use
+  `email-templates/confirmation.html` and the subject
+  `Confirme seu e-mail — Conta OrdaX`.
+
+Deployed **ordax-account-gateway** v11 is ACTIVE in `ordax-platform`
+with the server-side signup callback and canonical redirect. The provider's
+SMTP settings, Site URL and confirmation HTML are **still pending**:
+DNS validation and a deployed gateway do not prove successful delivery.
+
+`tools/public-site/probe_auth_provider.py` validates the hosted management
+settings and produces sanitized pass/fail fields, never SMTP secrets.
+The older `public-auth-provider-live-proof.yml` target resolver may still
+select the former project from incomplete cutover contracts; do not cite it
+as the destination's production proof until the provider SSOT is reconciled.
+A real new-email signup, confirmation and login end-to-end test is still
+required after SMTP activation.
