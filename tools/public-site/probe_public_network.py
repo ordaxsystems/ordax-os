@@ -9,6 +9,7 @@ is active. It never sends credentials or performs state-changing requests.
 from __future__ import annotations
 
 import json
+import re
 import socket
 from pathlib import Path
 import ssl
@@ -112,6 +113,15 @@ def check_anonymous_account_boundary() -> None:
             session.get("$schema") != "prototype-ordax.public-site-proxy-error/1"
             or session.get("error") != "account-gateway-unconfigured"
         ):
+            # The diagnostic is a bounded, non-sensitive machine error code;
+            # never echo arbitrary provider response fields or user data.
+            raw_code = session.get("error")
+            diagnostic = (
+                raw_code if isinstance(raw_code, str)
+                and re.fullmatch(r"[a-z][a-z0-9-]{0,63}", raw_code)
+                else "unclassified"
+            )
+            print("ORDAX_PUBLIC_ACCOUNT_ERROR_CODE=" + diagnostic, flush=True)
             fail("unexpected-account-gateway-failure")
         print("ORDAX_PUBLIC_ACCOUNT_GATE=disabled-unconfigured", flush=True)
         return
