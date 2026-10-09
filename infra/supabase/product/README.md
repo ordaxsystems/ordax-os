@@ -464,3 +464,16 @@ mantêm status 503 e não acionam cadastro/login. A implantação anterior v2
 pode produzir o segundo código nos dois cenários e **não permite concluir
 qual deles aconteceu** sem nova prova após implantação revisada. Não tratar
 falhas como estado normal de Conta desativada no monitor público.
+
+## Prova runtime publicada v3/v6 (2026-10-09)
+
+Owner imutável do código: `ordaxsystems/ordax-os`, commit `fd17f81a1092c3c587bd1c6009c6c1c80c93779d`.
+Supabase canônico `jhfphsjptrpmtnzkpwud`:
+
+- Pública `ordax-public-account-gateway`: ACTIVE v3, platform `verify_jwt=false`, artefato SHA256 `2fdfb1f177e40e294ebdc0215de0c64675ff5b51bd12e13b9e350bbd63fe03bf`; autorização OIDC Vercel assinada ocorre no handler. Consulta direta sem OIDC devolveu **403**.
+- Interna `ordax-account-gateway`: ACTIVE v6, platform `verify_jwt=false`, artefato SHA256 `6f27b767012ec06ddaa470f0fcb9d866aac83697bd703c46c21645cab82c0758`. A autenticação do handler permanece em `_shared/account_transport_admission.mjs`: named `sb_secret_` somente para serviço, `getUser`/refreshSession Supabase para Native e bootstrap anônimo com método/caminho exatos.
+- HTTP de prova (sem contas nem secrets): interno `/health` **200**; `/account/export` sem sessão **401**; marcador público sem chave **403**; sessão Native anônima **200**. Portanto a mudança do JWT de plataforma não implicou liberação indevida de rotas protegidas nesses casos.
+- Site público `/auth/session` devolveu **503 `account-public-bridge-unconfigured`**: identidade Vercel assinada chegou à Edge pública, mas a chave de serviço nomeada `ordax-account-public-bridge` não está provisionada. NÃO usar `default`/`service_role` como substituto. Provisionar a chave pelo Supabase Settings > API keys no projeto canônico, então testar HTTP positivo/negativo e rotação.
+- Cadastro/login web continuam fechados porque os documentos legais não são versões finais aprovadas, política ativa ausente, registros de consentimento não disponíveis e o E2E real de email/sessão/recovery ainda não passou. Não ativar flags antes dessas provas.
+
+A liberação do MVP **não** se fundamenta só nesses testes negativos: `destination_service_transport_runtime_verified=false`, `destination_named_bridge_runtime_e2e_verified=false`, `internal_gateway_runtime_e2e_verified=false` e `active_legal_policy_present=false` continuam bloqueados.
