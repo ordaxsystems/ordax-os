@@ -23,6 +23,8 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[2]
 LEGAL = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 CANONICAL_ACCOUNT_DESTINATION = ROOT / "infra" / "supabase" / "product" / "account_destination_migration_plan.json"
+PUBLIC_AUTH_CONTRACT = ROOT / "docs" / "contracts" / "public-auth-provider-policy.json"
+MAX_PUBLIC_DOCUMENT_BYTES = 2 * 1024 * 1024
 SITE = ROOT / "sites" / "public"
 SCHEMA = "prototype-ordax.account-legal-policy-candidate/1"
 RECEIPT_SCHEMA = "prototype-ordax.account-legal-policy-activation-receipt/1"
@@ -66,6 +68,83 @@ def clean_origin(raw: str) -> str:
     ):
         raise ValueError("clean https origin required")
     return f"https://{parsed.netloc}"
+
+
+def canonical_public_origin() -> str:
+    """Bind public legal documents to the source-owned production origin."""
+    try:
+        policy = json.loads(PUBLIC_AUTH_CONTRACT.read_text(encoding="utf-8"))
+        value = policy["redirect_policy"]["origin"]
+        clean = clean_origin(value)
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        fail("canonical-public-origin-invalid")
+    if value != clean:
+        fail("canonical-public-origin-invalid")
+    return clean
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        return None
+
+
+def verify_published_legal_documents(candidate: dict) -> None:
+    """Prove exact published HTML equals the immutable, approved source bytes.
+
+    Reads public HTML only. No authorization or Supabase credentials are sent.
+    """
+    origin = canonical_public_origin()
+    if candidate.get("origin") != origin:
+        fail("legal-document-origin-mismatch")
+    try:
+        contract = json.loads(LEGAL.read_text(encoding="utf-8"))
+        documents = contract["documents"]
+        if contract.get("status") != "ready" or contract.get("account_activation_ready") is not True:
+            fail("legal-document-policy-not-ready")
+    except (OSError, KeyError, TypeError, ValueError):
+        fail("legal-document-contract-invalid")
+
+    opener = urllib.request.build_opener(_NoRedirectHandler())
+    for name in ("privacy", "terms"):
+        try:
+            route = documents[name]["route"]
+            item = candidate[name]
+            expected_url = origin + route
+            local_digest = sha256_file(route_file(route))
+            if (
+                documents[name].get("final") is not True
+                or item["url"] != expected_url
+                or item["version"] != documents[name]["version"]
+                or item["effective_date"] != documents[name]["effective_date"]
+                or item["sha256"] != local_digest
+                or not SHA_RE.fullmatch(item["sha256"])
+            ):
+                fail("legal-document-source-mismatch")
+        except (KeyError, TypeError, OSError, ValueError):
+            fail("legal-document-source-invalid")
+
+        request = urllib.request.Request(
+            expected_url,
+            headers={
+                "Accept": "text/html",
+                "Accept-Encoding": "identity",
+                "User-Agent": "OrdaX-Legal-Policy-Activation/1",
+            },
+        )
+        try:
+            with opener.open(request, timeout=15) as response:
+                if response.status != 200:
+                    fail("legal-document-unexpected-status")
+                content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
+                if content_type != "text/html":
+                    fail("legal-document-content-type-invalid")
+                body = response.read(MAX_PUBLIC_DOCUMENT_BYTES + 1)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, TimeoutError):
+            fail("legal-document-publication-unavailable")
+        if len(body) > MAX_PUBLIC_DOCUMENT_BYTES:
+            fail("legal-document-response-too-large")
+        if hashlib.sha256(body).hexdigest() != local_digest:
+            fail("legal-document-published-content-mismatch")
 
 
 def route_file(route: str) -> Path:
@@ -148,6 +227,10 @@ def apply_candidate(candidate: dict) -> str:
     if url != canonical_provider_url():
         fail("provider-project-mismatch")
 
+    # A green source contract is not proof the legal terms are actually live.
+    # Never activate an unseen/mismatched document or follow redirects.
+    verify_published_legal_documents(candidate)
+
     privacy = candidate["privacy"]
     terms = candidate["terms"]
     payload = {
@@ -174,7 +257,7 @@ def apply_candidate(candidate: dict) -> str:
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with urllib.request.build_opener(_NoRedirectHandler()).open(request, timeout=20) as response:
             raw = response.read(4096)
             status = response.status
     except urllib.error.HTTPError as exc:

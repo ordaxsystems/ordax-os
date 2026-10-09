@@ -177,12 +177,113 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, "provider-project-mismatch"):
                     activation.apply_candidate({})
 
+    def test_published_final_documents_must_match_approved_source_bytes(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            site = root / "public"
+            policy = root / "legal.json"
+            public_auth = root / "public-auth.json"
+            contents = {"privacy": b"<h1>Privacy final</h1>\n", "terms": b"<h1>Terms final</h1>\n"}
+            for name, route in (("privacy", "privacidade"), ("terms", "termos")):
+                (site / route).mkdir(parents=True)
+                (site / route / "index.html").write_bytes(contents[name])
+            policy.write_text(json.dumps({
+                "status": "ready",
+                "account_activation_ready": True,
+                "documents": {
+                    "privacy": {"route": "/privacidade/", "version": "p1",
+                                "effective_date": "2026-10-09", "final": True},
+                    "terms": {"route": "/termos/", "version": "t1",
+                              "effective_date": "2026-10-09", "final": True},
+                },
+            }), encoding="utf-8")
+            public_auth.write_text(json.dumps({
+                "redirect_policy": {"origin": "https://ordax.com.br"}
+            }), encoding="utf-8")
+            import hashlib
+            candidate = {
+                "origin": "https://ordax.com.br",
+                "privacy": {
+                    "version": "p1", "effective_date": "2026-10-09",
+                    "url": "https://ordax.com.br/privacidade/",
+                    "sha256": hashlib.sha256(contents["privacy"]).hexdigest(),
+                },
+                "terms": {
+                    "version": "t1", "effective_date": "2026-10-09",
+                    "url": "https://ordax.com.br/termos/",
+                    "sha256": hashlib.sha256(contents["terms"]).hexdigest(),
+                },
+            }
+
+            class Published:
+                status = 200
+                headers = {"Content-Type": "text/html; charset=utf-8"}
+                def __init__(self, data):
+                    self.data = data
+                def __enter__(self):
+                    return self
+                def __exit__(self, *_):
+                    return False
+                def read(self, limit):
+                    return self.data[:limit]
+
+            delivered = dict(contents)
+            accessed = []
+            class Opener:
+                def open(self, request, timeout):
+                    self_test.assertEqual(timeout, 15)
+                    self_test.assertTrue(request.full_url.startswith("https://ordax.com.br/"))
+                    self_test.assertFalse(any(name.lower() == "authorization" for name in request.headers))
+                    accessed.append(request.full_url)
+                    suffix = "privacy" if request.full_url.endswith("/privacidade/") else "terms"
+                    return Published(delivered[suffix])
+
+            self_test = self
+            with (
+                patch.object(activation, "SITE", site),
+                patch.object(activation, "LEGAL", policy),
+                patch.object(activation, "PUBLIC_AUTH_CONTRACT", public_auth),
+                patch.object(activation.urllib.request, "build_opener", return_value=Opener()),
+            ):
+                activation.verify_published_legal_documents(candidate)
+                self.assertEqual(accessed, [
+                    "https://ordax.com.br/privacidade/",
+                    "https://ordax.com.br/termos/",
+                ])
+
+                delivered["terms"] = b"Old, stale or replaced terms."
+                with self.assertRaisesRegex(SystemExit, "published-content-mismatch"):
+                    activation.verify_published_legal_documents(candidate)
+                delivered["terms"] = contents["terms"]
+
+                bad_origin = dict(candidate, origin="https://old.invalid")
+                with self.assertRaisesRegex(SystemExit, "origin-mismatch"):
+                    activation.verify_published_legal_documents(bad_origin)
+
+                bad_policy = json.loads(policy.read_text(encoding="utf-8"))
+                bad_policy["status"] = "not-ready"
+                policy.write_text(json.dumps(bad_policy), encoding="utf-8")
+                with self.assertRaisesRegex(SystemExit, "policy-not-ready"):
+                    activation.verify_published_legal_documents(candidate)
+
+    def test_legal_document_http_redirects_are_rejected(self):
+        handler = activation._NoRedirectHandler()
+        self.assertIsNone(handler.redirect_request(None, None, 302, "Moved", {},
+                                                   "https://attacker.invalid"))
+
     def test_workflow_is_manual_confirmed_secret_backed_and_receipt_only(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", text)
         self.assertNotIn("pull_request:", text)
         self.assertNotIn("push:", text)
         self.assertIn("activate-reviewed-legal-policy", text)
+        self.assertIn("refs/heads/main", text)
+        self.assertIn("ordaxsystems/ordax-os", text)
+        self.assertIn("## Production publication attestation", (
+            ROOT / "docs/PUBLIC-LEGAL-READINESS.md"
+        ).read_text(encoding="utf-8"))
         self.assertIn("secrets.ORDAX_SUPABASE_SECRET_KEY", text)
         self.assertIn("ACCOUNT_LEGAL_POLICY_OPERATOR_CREDENTIAL_PRINTED=NO", text)
         self.assertIn("activate_account_legal_policy.py candidate", text)

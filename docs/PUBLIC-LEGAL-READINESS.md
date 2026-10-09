@@ -51,6 +51,29 @@ from the migration plan, not from the legacy provider project. It is still
 **blocked** while the documents remain drafts and must never be run with
 an old-project service credential.
 
+## Production publication attestation
+
+Legal activation is a **manual, reviewed main-only** operation in the
+canonical `ordaxsystems/ordax-os` repository. It is not a shortcut for
+creating the first Supabase Auth user. After the final documents are approved
+and marked ready in source, the operator must also prove that the **exact
+published HTML bytes** at the canonical public origin agree with the reviewed
+source documents. The canonical public origin is read from
+`docs/contracts/public-auth-provider-policy.json`, not entered as an arbitrary
+destination or copied into another constant.
+
+The activation tool compares SHA-256 values for both `/privacidade/` and
+`/termos/`, checks exact version/effective date, refuses redirects and non-HTML
+responses, limits document response size, and will not send the policy activation
+RPC if either document differs from the reviewed source. All public document
+verification requests are unauthenticated; the privileged Supabase activation
+request does not follow HTTP redirects either.
+
+A successful activation proves the documents were published consistently
+**at the time of the check**. It does not replace legal review, E2E account
+registration, or a content-deployment freeze/immutable release policy. A changed
+published document must receive a new reviewed version and activation.
+
 ## Account activation gate
 
 A live account entry point must remain disabled until all of the following are true:

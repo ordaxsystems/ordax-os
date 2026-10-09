@@ -33,6 +33,19 @@ jobs:
           set -euo pipefail
           python -c 'import runpy; module = runpy.run_path("tools/public-site/activate_account_legal_policy.py"); print("ORDAX_SUPABASE_URL=" + module["canonical_provider_url"]())' >> "$GITHUB_ENV"
 
+      - name: Require reviewed canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main" || {
+            echo 'Legal activation requires the reviewed main branch.' >&2
+            exit 2
+          }
+          test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os" || {
+            echo 'Legal activation requires the canonical repository.' >&2
+            exit 2
+          }
+
       - name: Require explicit reviewed-policy confirmation
         shell: bash
         run: |
