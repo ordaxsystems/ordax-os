@@ -253,11 +253,21 @@ Deno.serve(async (req: Request) => {
     config.url,
   );
 
+  // Credentials must be validated separately from network transport failures.
+  // Both paths remain fail-closed, but a missing named bridge is not an
+  // upstream connectivity outage and must not masquerade as one.
+  let bridgeKey: string;
+  try {
+    bridgeKey = publicBridgeKey();
+  } catch {
+    return error(503, "account-public-bridge-unconfigured", "O serviço de Conta está indisponível.");
+  }
+
   let upstream: Response;
   try {
     upstream = await fetch(innerTarget, {
       method: req.method,
-      headers: upstreamHeaders(req, publicBridgeKey()),
+      headers: upstreamHeaders(req, bridgeKey),
       body,
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),
