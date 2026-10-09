@@ -93,7 +93,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY_ID" = '1371063347'
-          [[ "$GITHUB_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/prototipo-ordax-os$ ]]
+          test "$GITHUB_REPOSITORY" = 'ordaxsystems/ordax-os'
           python3 - "$GITHUB_OUTPUT" <<'PY'
           import json, os, pathlib, re, sys
           descriptor = json.loads(pathlib.Path(

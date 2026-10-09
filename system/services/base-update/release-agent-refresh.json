@@ -15,11 +15,12 @@
     "721f8a3fcec1ccfd2dd75c4d633ff2efd960909287c5e11fcf9abf19e5372740",
     "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66",
     "91fa852bd9ca2417f9f1c31124b68bed592bdf2e63d87b453bae1803cc981b78",
-    "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
+    "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e",
+    "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af"
   ],
-  "target_sha256": "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af",
+  "target_sha256": "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd",
   "target_size": 7245984,
-  "download_url": "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-release-agent-e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af/ordax-release-agent",
+  "download_url": "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-release-agent-444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd/ordax-release-agent",
   "target_path": "/ordax/bootstrap/release-acquisition/ordax-release-agent",
   "mode": "0755",
   "physical_media_rewrite_required": false,
