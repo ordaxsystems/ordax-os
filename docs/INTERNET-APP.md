@@ -136,7 +136,7 @@ tipada é `system/contracts/browser-navigation.mjs` e é reutilizada pelos
 controles compartilhados; não existe parser de endereços paralelo na UI.
 
 - Domínios digitados sem protocolo usam HTTPS; endereços HTTP(S) mantêm o protocolo informado.
-- Consultas textuais usam o provedor inicial DuckDuckGo, declarado uma única vez no contrato; ainda não há seletor persistido de provedor.
+- Pesquisas textuais usam o provedor escolhido em `BROWSER_SEARCH_PROVIDERS`, com preferência persistida no perfil Native; DuckDuckGo é o padrão.
 - Links internos de outros aplicativos devem solicitar navegação explícita e **não** se transformam silenciosamente em consultas de pesquisa.
 - Esquemas não web, URLs com credenciais, entradas malformadas, caracteres de controle e campos excessivos falham antes de chegar ao host.
 - O host Native/WebKit continua sendo a autoridade de rede; a resolução no chrome não concede acesso a localhost, IPs privados ou aos recursos privilegiados do sistema.
@@ -323,7 +323,7 @@ Intentionally not faked yet:
 - downloads maiores que 64 MiB, download-resume, verificações antivírus e revisão de destinos alternativos;
 - website permission UI;
 - private-session lifecycle;
-- page-to-AI context extraction;
+- extração automática de páginas inteiras para IA (somente seleção explícita e consultiva foi implementada);
 - desktop/mobile browser engines.
 
 The concept surfaces these future controls, but disabled controls must remain honest until their domain owners and persistence/security contracts exist.
