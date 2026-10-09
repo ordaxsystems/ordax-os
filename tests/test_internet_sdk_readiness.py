@@ -63,10 +63,14 @@ class InternetSdkReadinessTests(unittest.TestCase):
             self.assertFalse(partial["sdkBoundaryClean"])
             self.assertEqual(partial["publishedContracts"], ["system/contracts/browser-session.mjs"])
             self.assertEqual(partial["unpublishedContracts"], ["system/contracts/component-runtime.mjs"])
-            fixture(root, sdk_paths=(
-                "system/contracts/browser-session.mjs",
-                "system/contracts/component-runtime.mjs",
-            ))
+            bundle_path = root / "sdk/app-sdk-v1/bundle.json"
+            bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+            bundle["contracts"].append({
+                "source_path": "system/contracts/component-runtime.mjs",
+                "schema": "ordax.component-runtime/1",
+                "major": 1,
+            })
+            bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
             clean = checker.audit(root)
             self.assertTrue(clean["sdkBoundaryClean"])
             self.assertEqual(clean["blockers"], [])
