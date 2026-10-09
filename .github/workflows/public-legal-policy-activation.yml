@@ -20,13 +20,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      ORDAX_SUPABASE_URL: https://eobcxuyvhkvdmkbaihwh.supabase.co
       ORDAX_SUPABASE_SECRET_KEY: ${{ secrets.ORDAX_SUPABASE_SECRET_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Bind provider to canonical account destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c 'import runpy; module = runpy.run_path("tools/public-site/activate_account_legal_policy.py"); print("ORDAX_SUPABASE_URL=" + module["canonical_provider_url"]())' >> "$GITHUB_ENV"
 
       - name: Require explicit reviewed-policy confirmation
         shell: bash

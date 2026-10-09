@@ -152,6 +152,31 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
             else:
                 os.environ.pop("ORDAX_SOURCE_COMMIT", None)
 
+    def test_legal_activation_uses_account_destination_ssot(self):
+        destination = json.loads((
+            ROOT / "infra/supabase/product/account_destination_migration_plan.json"
+        ).read_text(encoding="utf-8"))
+        expected = f"https://{destination['destination_project_ref']}.supabase.co"
+        self.assertEqual(activation.canonical_provider_url(), expected)
+
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertNotIn("eobcxuyvhkvdmkbaihwh.supabase.co", workflow)
+        self.assertIn('module["canonical_provider_url"]()', workflow)
+        self.assertIn('>> "$GITHUB_ENV"', workflow)
+
+    def test_legal_activation_rejects_legacy_provider_before_api_call(self):
+        from unittest.mock import patch
+        with patch.dict(os.environ, {
+            "ORDAX_SUPABASE_URL": "https://eobcxuyvhkvdmkbaihwh.supabase.co",
+            "ORDAX_SUPABASE_SECRET_KEY": "unusable-test-only-key",
+        }):
+            with patch.object(
+                activation.urllib.request, "urlopen",
+                side_effect=AssertionError("activation must not send any request"),
+            ):
+                with self.assertRaisesRegex(SystemExit, "provider-project-mismatch"):
+                    activation.apply_candidate({})
+
     def test_workflow_is_manual_confirmed_secret_backed_and_receipt_only(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", text)
