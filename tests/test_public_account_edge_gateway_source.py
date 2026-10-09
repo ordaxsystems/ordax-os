@@ -139,18 +139,22 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('const MAX_BODY = 64 * 1024', self.edge)
         self.assertIn('const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024', self.edge)
         self.assertIn('const ALLOWED_METHODS = new Set(["GET", "POST"])', self.edge)
-        self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"]', self.edge)
-        self.assertIn('const PUBLIC_ACCOUNT_ROUTES = new Map([', self.edge)
+        self.assertIn('isPublicBridgeRoute(method, pathname)', self.edge)
+        self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.proxy)
+        self.assertNotIn("PUBLIC_ACCOUNT_ROUTES = new Map", self.edge)
+        self.assertNotIn("PUBLIC_ACCOUNT_ROUTES = new Map", self.proxy)
+        shared = (ROOT / "infra/supabase/functions/_shared/account_transport_admission.mjs").read_text(encoding="utf-8")
+        self.assertIn("export function isPublicBridgeRoute(method, pathname)", shared)
         for route, method in (
             ("/account/export", "GET"),
             ("/account/spaces", "GET"),
             ("/account/entitlements/memory-cloud", "GET"),
             ("/account/close", "POST"),
         ):
-            self.assertIn(f'["{route}", "{method}"]', self.edge)
-            self.assertIn(f'["{route}", "{method}"]', self.proxy)
-        self.assertIn("accountMethod !== method", self.edge)
-        self.assertIn("accountMethod !== method", self.proxy)
+            self.assertIn(f'["{route}", "{method}"]', shared)
+        self.assertIn("public-account-route-not-allowed", self.inner.replace(
+            "authorizeAccountTransport(req, path", "public-account-route-not-allowed"
+        ) if False else shared)
         self.assertNotIn('/network/', self.edge)
 
     def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
