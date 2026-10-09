@@ -113,6 +113,17 @@ class NativePageFindTests(unittest.TestCase):
         self.assertEqual(host.events[-1]["state"],"not-found")
         self.assertEqual(host.events[-1]["count"],0)
 
+    def test_find_accelerator_only_intercepts_visible_internet_viewport(self):
+        host_source = HOST.read_text(encoding="utf-8")
+        controls_source = (
+            HOST.parents[2] / "apps" / "internet" / "ui" / "browser-controls.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'if action == "focus-page-find" and not self.viewport["visible"]:',
+            host_source,
+        )
+        self.assertIn("findSlot()?.contains(event.target)", controls_source)
+
     def test_find_command_never_extracts_page_text(self):
         host=isolated_host()
         host.handle_page_find("page-find.search","tab-1","private")
