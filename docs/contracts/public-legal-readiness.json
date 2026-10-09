@@ -69,5 +69,15 @@
     "policy_activation_receipt_schema": "prototype-ordax.account-legal-policy-activation-receipt/1",
     "policy_activation_requires_final_documents": true,
     "policy_activation_currently_allowed": false
+  },
+  "operator": {
+    "legal_form": "natural_person",
+    "operation_phase": "initial_individual_operator_no_company",
+    "operating_country": "BR",
+    "legal_name": null,
+    "privacy_contact_email": null,
+    "identity_reviewed": false,
+    "privacy_contact_verified": false,
+    "business_registration": null
   }
 }
