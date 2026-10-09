@@ -72,6 +72,26 @@ class BrandPipelineTests(unittest.TestCase):
         self.assertEqual(sys.path, path_before)
         self.assertEqual(public.render_site_css(), brand.render_site_css())
 
+    def test_public_logo_is_derived_from_surface_without_a_duplicate_asset(self):
+        import sys
+        import xml.etree.ElementTree as ET
+        p = ROOT / "tools/public-site/build.py"
+        original_path = list(sys.path)
+        try:
+            sys.path.insert(0, str(p.parent))
+            pspec = importlib.util.spec_from_file_location("ordax_public_logo_builder", p)
+            module = importlib.util.module_from_spec(pspec)
+            pspec.loader.exec_module(module)
+        finally:
+            sys.path[:] = original_path
+        canonical = ROOT / "system/surface/ui/brand/ordax-symbol.svg"
+        self.assertEqual(module.CANONICAL_SYMBOL, canonical)
+        self.assertEqual(module.PUBLIC_SYMBOL_PATH, "assets/ordax-symbol.svg")
+        svg = ET.fromstring(canonical.read_text(encoding="utf-8"))
+        self.assertEqual(svg.tag, "{http://www.w3.org/2000/svg}svg")
+        self.assertTrue(any(node.tag.endswith("path") for node in svg))
+        self.assertIn("shutil.copyfile(CANONICAL_SYMBOL, stage / PUBLIC_SYMBOL_PATH)", p.read_text(encoding="utf-8"))
+
     def test_publishing_requires_confirmed_project_and_never_runs_by_default(self):
         with self.assertRaises(brand.BrandError):
             brand.publish_emails(brand.SUPABASE_REF)
