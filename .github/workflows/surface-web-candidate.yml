@@ -73,6 +73,7 @@ on:
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/browser-session.mjs'
       - 'system/contracts/browser-navigation.mjs'
+      - 'system/contracts/browser-page-selection.mjs'
       - 'system/surface/**'
       - 'system/apps/**'
       - 'system/services/account/**'
@@ -130,6 +131,9 @@ on:
       - 'tests/test_internet_favorites_contract.py'
       - 'tests/test_browser_history.mjs'
       - 'tests/test_internet_navigation.mjs'
+      - 'tests/test_browser_page_selection.mjs'
+      - 'tests/test_native_browser_page_selection.mjs'
+      - 'tests/test_internet_native_page_selection.py'
       - 'tests/test_internet_history_contract.py'
       - 'tests/test_internet_deep_localization.py'
       - 'tests/test_project_file_space_continuity.mjs'
@@ -272,6 +276,7 @@ on:
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/browser-session.mjs'
       - 'system/contracts/browser-navigation.mjs'
+      - 'system/contracts/browser-page-selection.mjs'
       - 'system/surface/**'
       - 'system/apps/**'
       - 'system/services/account/**'
@@ -326,6 +331,9 @@ on:
       - 'tests/test_internet_favorites_contract.py'
       - 'tests/test_browser_history.mjs'
       - 'tests/test_internet_navigation.mjs'
+      - 'tests/test_browser_page_selection.mjs'
+      - 'tests/test_native_browser_page_selection.mjs'
+      - 'tests/test_internet_native_page_selection.py'
       - 'tests/test_internet_history_contract.py'
       - 'tests/test_internet_deep_localization.py'
       - 'tests/test_project_file_space_continuity.mjs'
@@ -463,6 +471,8 @@ jobs:
           node --test tests/test_browser_favorites.mjs
           node --test tests/test_browser_history.mjs
           node --test tests/test_internet_navigation.mjs
+          node --test tests/test_browser_page_selection.mjs
+          node --test tests/test_native_browser_page_selection.mjs
           node --test tests/test_project_file_space_continuity.mjs
           node --test tests/test_home_continuation.mjs
           node --test tests/test_notifications.mjs
@@ -549,6 +559,7 @@ jobs:
           python -m unittest tests.test_internet_accessibility_contract -v
           python -m unittest tests.test_internet_browser_contract -v
           python -m unittest tests.test_internet_popup_policy -v
+          python -m unittest tests.test_internet_native_page_selection -v
           python -m unittest tests.test_internet_project_context_contract -v
           python -m unittest tests.test_internet_favorites_contract -v
           python -m unittest tests.test_internet_history_contract -v
