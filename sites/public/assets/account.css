@@ -24,16 +24,16 @@
   position:relative;isolation:isolate;max-width:1440px;min-height:700px;
   margin:auto;display:grid;grid-template-columns:minmax(0,1.06fr) minmax(405px,.94fr);
   overflow:hidden;border-bottom:1px solid #283a54;
-  background:linear-gradient(115deg,#0a1424 0%,#0b1625 47%,#0d1726 100%);
+  background:linear-gradient(115deg,var(--ordax-bg) 0%,var(--ordax-surface) 47%,var(--ordax-app-bg) 100%);
 }
 :is(.login-stage,.signup-stage)::before{
   content:"";position:absolute;inset:0 35% 0 0;z-index:-2;
-  background:linear-gradient(90deg,#08121ecc,#08121e55 70%),linear-gradient(0deg,#091321,transparent 45%),url('/assets/aurora-titanium.png') center/cover no-repeat;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--ordax-bg) 80%,transparent),color-mix(in srgb,var(--ordax-bg) 35%,transparent) 70%),linear-gradient(0deg,var(--ordax-bg),transparent 45%),url('/assets/aurora-titanium.png') center/cover no-repeat;
   opacity:.41;pointer-events:none;
 }
 :is(.login-stage,.signup-stage)::after{
   content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
-  background:radial-gradient(ellipse at 64% 40%,#8aaee01b,transparent 43%),linear-gradient(90deg,transparent 40%,#090f1a77 63%);
+  background:radial-gradient(ellipse at 64% 40%,color-mix(in srgb,var(--ordax-accent) 11%,transparent),transparent 43%),linear-gradient(90deg,transparent 40%,color-mix(in srgb,var(--ordax-bg) 47%,transparent) 63%);
 }
 :is(.login-story,.signup-story){
   position:relative;min-width:0;padding:clamp(66px,7vw,105px) 46px 58px clamp(24px,6.6vw,95px);
@@ -63,7 +63,7 @@
 :is(.login-access,.signup-access){position:relative;z-index:1;display:flex;align-items:center;justify-content:center;padding:60px clamp(24px,4.4vw,64px) 60px 20px}
 :is(.login-card,.signup-card){
   width:100%;max-width:520px;padding:clamp(26px,3.1vw,42px);
-  border:1px solid #49617f;border-radius:21px;background:linear-gradient(155deg,#172840fa,#0c1728fa 82%);
+  border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-xl);background:linear-gradient(155deg,color-mix(in srgb,var(--ordax-panel) 98%,transparent),color-mix(in srgb,var(--ordax-surface) 98%,transparent) 82%);
   box-shadow:0 28px 85px #0008,inset 0 1px 0 #dceaff1c;
 }
 :is(.login-card-header,.signup-card-header){display:flex;justify-content:space-between;align-items:center;gap:15px}
@@ -71,7 +71,7 @@
 .account-card-index{font:11px ui-monospace,monospace;letter-spacing:.15em;color:#a3b8d2}
 :is(.login-card,.signup-card) h2{font:500 clamp(35px,3.6vw,52px)/1.08 var(--sans);letter-spacing:-.055em;margin:24px 0 14px;text-wrap:balance}
 :is(.login-intro,.signup-intro){font-size:14px;line-height:1.65;color:var(--ordax-muted);margin:0;max-width:450px}
-.account-ui .identity-state{display:flex;gap:15px;align-items:flex-start;margin:28px 0 0;padding:18px;border:1px solid #6383a3;border-radius:12px;background:linear-gradient(115deg,#203a59b8,#10243bb8)}
+.account-ui .identity-state{display:flex;gap:15px;align-items:flex-start;margin:28px 0 0;padding:18px;border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-lg);background:linear-gradient(115deg,var(--ordax-selected-bg),var(--ordax-subtle-bg))}
 .account-ui .state-icon{width:39px;height:39px;border:1px solid #7b9dc2;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;color:#c3e0ff;background:#162a44}
 .account-ui .state-icon svg{width:22px;height:22px}
 .account-ui .identity-state strong{display:block;font-size:14px;font-weight:650;line-height:1.4;color:#ecf6ff}
@@ -79,16 +79,16 @@
 .account-ui .identity-form{display:grid;gap:19px;margin:26px 0 0}
 .account-ui .identity-form[hidden]{display:none}
 .account-ui .identity-field{display:grid;gap:9px;font-size:13px;font-weight:600;color:#e4effe}
-.account-ui .identity-field input{min-height:54px;width:100%;border:1px solid #6a84a1;border-radius:10px;background:#0c1828;color:var(--ordax-text);font:400 15px var(--sans);padding:0 15px}
-.account-ui .identity-field input::placeholder{color:#9aafc9}
+.account-ui .identity-field input{min-height:54px;width:100%;border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-md);background:var(--ordax-app-bg);color:var(--ordax-text);font:400 15px var(--sans);padding:0 15px}
+.account-ui .identity-field input::placeholder{color:var(--ordax-muted)}
 .account-ui .identity-field input:focus-visible{outline:3px solid #a8d2ff;outline-offset:2px;border-color:#aad4ff}
 .account-ui .identity-field small{font-size:12px;font-weight:400;color:#b1c4df}
 .account-ui .form-support{text-align:right;font-size:12px}
 .account-ui .form-support a{text-decoration:underline;text-underline-offset:4px}
-.account-ui .identity-submit{width:100%;min-height:54px;border:0;border-radius:11px;background:linear-gradient(110deg,#e6f2ff,#add2ff);color:#0c1b30;font:650 14px var(--sans);display:flex;justify-content:space-between;align-items:center;padding:0 18px}
-.account-ui .identity-submit:hover{color:#08192e}
+.account-ui .identity-submit{width:100%;min-height:54px;border:0;border-radius:var(--ordax-radius-md);background:linear-gradient(110deg,var(--ordax-accent-strong),var(--ordax-button-bg));color:var(--ordax-button-text);font:650 14px var(--sans);display:flex;justify-content:space-between;align-items:center;padding:0 18px}
+.account-ui .identity-submit:hover{color:var(--ordax-button-text)}
 .account-ui .identity-submit:disabled{opacity:.6;cursor:not-allowed}
-.account-ui .registration-legal{display:grid;gap:14px;padding:17px;border:1px solid #466181;border-radius:11px;background:#0b1a2b}
+.account-ui .registration-legal{display:grid;gap:14px;padding:17px;border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);background:var(--ordax-surface)}
 .account-ui .registration-legal[hidden]{display:none}
 .account-ui .registration-legal p{margin:0;font-size:12px;line-height:1.6;color:#c4d3e9}
 .account-ui .registration-legal-documents{display:flex;gap:13px;flex-wrap:wrap}
@@ -122,7 +122,7 @@
   .account-ui :is(.login-nav-actions,.signup-nav-actions){margin-left:auto;font-size:12px}
   :is(.login-stage,.signup-stage){display:block;min-height:0}
   :is(.login-stage,.signup-stage)::before{inset:0 0 40% 0;opacity:.25}
-  :is(.login-stage,.signup-stage)::after{background:linear-gradient(180deg,transparent 0%,#0a1321 55%,#0a1321 100%)}
+  :is(.login-stage,.signup-stage)::after{background:linear-gradient(180deg,transparent 0%,var(--ordax-bg) 55%,var(--ordax-bg) 100%)}
   :is(.login-story,.signup-story){padding:58px 22px 25px;gap:28px}
   :is(.login-story,.signup-story) h1{font-size:clamp(42px,10vw,63px)}
   .account-ui .story-lead{font-size:14px}
@@ -159,18 +159,18 @@
   content:"";position:absolute;width:20px;height:20px;border:2px solid #c4e0ff50;
   border-top-color:#d9eeff;border-radius:50%;animation:account-status-spin 1s linear infinite;
 }
-.account-ui .identity-state[data-status="ready"]{border-color:#458f83;background:linear-gradient(115deg,#103932,#102a31)}
-.account-ui .identity-state[data-status="ready"] .state-icon{border-color:#5ea99c;background:#16483f;color:#dcfff3}
-.account-ui .identity-state[data-status="unavailable"]{border-color:#b18c60;background:linear-gradient(115deg,#382d24,#1c2634)}
-.account-ui .identity-state[data-status="unavailable"] .state-icon{border-color:#b18c60;background:#3d3127;color:#ffe3b5}
+.account-ui .identity-state[data-status="ready"]{border-color:var(--ordax-success);background:var(--ordax-success-bg)}
+.account-ui .identity-state[data-status="ready"] .state-icon{border-color:var(--ordax-success);background:var(--ordax-success-bg);color:var(--ordax-success)}
+.account-ui .identity-state[data-status="unavailable"]{border-color:var(--ordax-warning);background:var(--ordax-warning-bg)}
+.account-ui .identity-state[data-status="unavailable"] .state-icon{border-color:var(--ordax-warning);background:var(--ordax-warning-bg);color:var(--ordax-warning)}
 .account-ui[data-identity-ready="true"] .gated-guidance,
 .account-ui .identity-state[data-status="checking"]~.gated-guidance{display:none}
 .account-ui .verification-hint{font-size:12px;line-height:1.5;color:#b9cde7;margin:-12px 0 0}
 .account-ui .registration-legal-documents a{
   display:inline-flex;align-items:center;flex-wrap:wrap;gap:5px;padding:9px 12px;
-  border:1px solid #6686a7;border-radius:8px;background:#1b324b;color:#edf6ff;
+  border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-sm);background:var(--ordax-selected-bg);color:var(--ordax-text);
 }
-.account-ui .registration-legal-documents a:hover{background:#254664}
+.account-ui .registration-legal-documents a:hover{background:var(--ordax-hover-bg)}
 .account-ui .registration-legal-documents span{font-size:11px;overflow-wrap:anywhere}
 .account-ui .identity-field input:user-invalid{border-color:var(--ordax-danger)}
 .account-ui .identity-form button:focus-visible,.account-ui .registration-legal input:focus-visible{
