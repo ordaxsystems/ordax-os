@@ -155,6 +155,24 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn("public-account-route-not-allowed", shared)
         self.assertNotIn('/network/', self.edge)
 
+    def test_named_bridge_configuration_is_distinct_from_upstream_failure(self):
+        # Never mistake an unprovisioned service credential for a network
+        # outage. Neither case permits fallback to the default admin key.
+        source = self.edge
+        start = source.index("let bridgeKey: string;")
+        validation = source.index("bridgeKey = publicBridgeKey();", start)
+        unconfigured = source.index('"account-public-bridge-unconfigured"', validation)
+        send = source.index("upstream = await fetch(innerTarget", unconfigured)
+        unavailable = source.index('"account-gateway-unavailable"', send)
+        self.assertLess(start, validation)
+        self.assertLess(validation, unconfigured)
+        self.assertLess(unconfigured, send)
+        self.assertLess(send, unavailable)
+        self.assertIn("headers: upstreamHeaders(req, bridgeKey)", source)
+        self.assertNotIn("headers: upstreamHeaders(req, publicBridgeKey())", source)
+        self.assertIn('"account-public-bridge-unconfigured"', source)
+        self.assertIn('"account-gateway-unavailable"', source)
+
     def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
         self.assertIn(
             'const PUBLIC_GATEWAY_PATH = "/functions/v1/ordax-public-account-gateway"',
