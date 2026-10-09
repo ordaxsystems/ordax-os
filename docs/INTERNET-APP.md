@@ -41,6 +41,42 @@ unprivileged web-content plane
 
 The shared Surface only owns browser chrome and orchestration. The native adapter owns the engine boundary. This keeps the product aligned with the repository rule that platform differences are capability adapters rather than copied applications.
 
+## Ownership do produto e da plataforma (SSOT)
+
+**Hoje:** `system/apps/internet/` e o manifesto
+`system/apps/internet/component.mjs` pertencem a este repositório.
+O componente roda como `git-app` opcional (`0.3.0 Beta`) no fluxo
+Native da plataforma. Não há uma segunda implementação em
+`ordaxsystems/ordax-apps/apps/internet`.
+
+**Destino do produto:** `ordaxsystems/ordax-apps/apps/internet`, mas somente
+após o corte remove-first. O SSOT da migração é
+[`migrations/internet.externalization.json`](https://github.com/ordaxsystems/ordax-apps/blob/main/migrations/internet.externalization.json)
+no repositório de aplicativos. Enquanto
+`source_cutover_allowed=false`, é proibido copiar a UI/runtime do Internet
+para o outro repositório, inclusive como skeleton sem manifesto.
+
+Após o cutover, a separação precisa ser:
+
+- **ordax-apps:** UI, tema, favoritos, histórico e preferências do
+  produto; lógica de navegação/busca no nível do app; i18n; manifesto de
+  inteligência e ações declarativas; empacotamento e testes do app.
+- **ordax-os:** WebKitGTK, WebContext/WebViews isolados e ponte segura;
+  segurança de rede e de site, navegação no host, permissões nativas,
+  armazenamento e ciclo de downloads, política de instalação/atualização,
+  catálogo verificado, assinatura, ativação e rollback.
+- **Integração:** contratos públicos do App SDK com compatibilidade
+  pinada; nenhuma cópia do motor, gerenciador de permissões, updater ou
+  serviços da plataforma dentro de `ordax-apps`.
+
+O `git-app` atual **não é um `component-slot` de distribuição
+independente já comprovada**. O cutover requer prova de remoção do source
+antigo e boot do OS sem o aplicativo, um snapshot reprodutível, ports
+publicados, empacotamento determinístico, instalação/saúde,
+reinstalação offline, atualização com rollback e preservação de dados.
+A atualização de `source_cutover_allowed` e a distribuição assinada
+são gates distintos; não adiantar a ativação com flags.
+
 ## Native engine
 
 The USB/native-disk runtime uses the WebKitGTK 4.1 engine already appropriate to the Alpine graphical runtime, but the OrdaX host owns the application integration instead of delegating product behavior to a generic browser shell.
