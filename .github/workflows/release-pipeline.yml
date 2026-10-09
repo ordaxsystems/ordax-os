@@ -165,7 +165,7 @@ jobs:
           "$manifest_tool" \
             --artifact "$work/public/system.tar" \
             --source-commit "$commit" \
-            --artifact-url "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/ci-proof/system.tar" \
+            --artifact-url "https://github.com/ordaxsystems/ordax-os/releases/download/ci-proof/system.tar" \
             --out "$work/public/release-manifest.json" | tee "$work/manifest.txt"
           "$signer" generate-key \
             --private-key "$work/private.pem" \

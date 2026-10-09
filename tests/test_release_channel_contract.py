@@ -15,7 +15,7 @@ class ReleaseChannelContractTest(unittest.TestCase):
     def test_git_main_remains_source_authority(self):
         source = CONTRACT["source_authority"]
         self.assertEqual(source["kind"], "git")
-        self.assertEqual(source["repository"], "ordaxsystems/prototipo-ordax-os")
+        self.assertEqual(source["repository"], "ordaxsystems/ordax-os")
         self.assertEqual(source["branch"], "main")
 
     def test_bootstrap_does_not_need_git_checkout_or_compiler(self):

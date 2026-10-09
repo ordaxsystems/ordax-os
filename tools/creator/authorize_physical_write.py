@@ -33,7 +33,7 @@ _spec.loader.exec_module(promotion)
 AUTH_PATH = Path("docs/contracts/physical-write-authorization.json")
 AUTH_SCHEMA = "prototype-ordax.physical-write-authorization/3"
 RESULT_SCHEMA = "prototype-ordax.physical-owner-authorization/1"
-EXPECTED_REPOSITORY = "ordaxsystems/prototipo-ordax-os"
+EXPECTED_REPOSITORY = "ordaxsystems/ordax-os"
 EXPECTED_SCOPE = "first-real-stable-mvp-usb-proof"
 PRE_TRUST_STATUS = "blocked-canonical-trust-pending"
 PRE_RELEASE_STATUS = "blocked-canonical-v4-release-proof-pending"

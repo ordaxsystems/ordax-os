@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	windowsadapter "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/host/windows"
+	windowsadapter "github.com/ordaxsystems/ordax-os/tools/creator/host/windows"
 )
 
 func main() {

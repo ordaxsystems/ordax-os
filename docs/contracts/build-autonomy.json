@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.build-autonomy/2",
   "status": "canonical-prototype-contract",
   "source_authority": {
-    "repository": "ordaxsystems/prototipo-ordax-os",
+    "repository": "ordaxsystems/ordax-os",
     "branch": "main"
   },
   "required_independence": {

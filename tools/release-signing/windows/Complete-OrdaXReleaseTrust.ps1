@@ -63,7 +63,7 @@ if ($ToolkitProvenance.'$schema' -ne 'prototype-ordax.windows-prototype-toolkit/
     $ToolkitProvenance.status -ne 'candidate') {
     throw 'Toolkit provenance schema or status is invalid.'
 }
-if ($ToolkitProvenance.source_repository -ne 'ordaxsystems/prototipo-ordax-os' -or
+if ($ToolkitProvenance.source_repository -ne 'ordaxsystems/ordax-os' -or
     $ToolkitProvenance.source_event -ne 'push' -or
     $ToolkitProvenance.source_ref -ne 'refs/heads/main' -or
     $ToolkitProvenance.canonical_trust_ceremony_eligible -ne $true) {
@@ -128,7 +128,7 @@ if ($InitialSourceCommit -ne $ToolkitSourceCommit) {
 }
 $ProofManifest = Get-Content -LiteralPath $ProofManifestPath -Raw | ConvertFrom-Json
 if ($ProofManifest.'$schema' -ne 'prototype-ordax.release-manifest/1' -or
-    $ProofManifest.source_repository -ne 'ordaxsystems/prototipo-ordax-os' -or
+    $ProofManifest.source_repository -ne 'ordaxsystems/ordax-os' -or
     [string]$ProofManifest.source_commit -ne $ToolkitSourceCommit -or
     [string]$ProofManifest.release_id -ne $ToolkitSourceCommit) {
     throw 'Trust proof manifest source identity does not match toolkit provenance.'

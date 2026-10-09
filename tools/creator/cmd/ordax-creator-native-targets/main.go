@@ -8,8 +8,8 @@ import (
 	"path"
 	"strings"
 
-	creatorcore "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/core"
-	linuxadapter "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/host/linux"
+	creatorcore "github.com/ordaxsystems/ordax-os/tools/creator/core"
+	linuxadapter "github.com/ordaxsystems/ordax-os/tools/creator/host/linux"
 )
 
 func readSourceBootDevice(sourceFile string) (string, error) {

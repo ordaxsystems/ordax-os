@@ -18,7 +18,7 @@ import stat
 import sys
 from urllib.parse import urlsplit
 
-REPOSITORY = "ordaxsystems/prototipo-ordax-os"
+REPOSITORY = "ordaxsystems/ordax-os"
 REQUEST_SCHEMA = "prototype-ordax.canonical-v4-signing-request/1"
 RECEIPT_SCHEMA = "prototype-ordax.canonical-v4-operator-artifact/1"
 RESULT_SCHEMA = "prototype-ordax.canonical-v4-signing-request-validation/1"

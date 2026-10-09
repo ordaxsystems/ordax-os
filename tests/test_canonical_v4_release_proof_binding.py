@@ -49,7 +49,7 @@ class CanonicalV4ReleaseProofBindingTests(unittest.TestCase):
                 "physical_write_allowed": False,
                 "explicit_owner_authorization": False,
                 "scope": "first-real-stable-mvp-usb-proof",
-                "source_repository": "ordaxsystems/prototipo-ordax-os",
+                "source_repository": "ordaxsystems/ordax-os",
                 "release_sequence": 1,
                 "authorization_context_sha256": None,
                 "bindings": {

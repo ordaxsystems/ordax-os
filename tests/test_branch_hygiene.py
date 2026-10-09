@@ -13,7 +13,7 @@ sys.modules[spec.name] = branch_hygiene
 spec.loader.exec_module(branch_hygiene)
 
 
-REPO = "ordaxsystems/prototipo-ordax-os"
+REPO = "ordaxsystems/ordax-os"
 
 
 def pr(ref, sha, *, merged_at=None, closed_at="2026-09-28T00:00:00Z"):

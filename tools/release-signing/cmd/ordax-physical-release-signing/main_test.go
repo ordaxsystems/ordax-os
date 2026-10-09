@@ -33,7 +33,7 @@ func validPhysicalManifestBytes() []byte {
 	m := manifest{
 		Schema: manifestSchema, Purpose: purpose, SourceRepository: repository,
 		SourceCommit: "0123456789abcdef0123456789abcdef01234567", CreatedFromRecipe: recipe,
-		Bundle: bundle{URL: "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-physical/ordax-creator-physical-windows-amd64.zip", SHA256: strings.Repeat("a", 64), Size: 1234},
+		Bundle: bundle{URL: "https://github.com/ordaxsystems/ordax-os/releases/download/creator-physical/ordax-creator-physical-windows-amd64.zip", SHA256: strings.Repeat("a", 64), Size: 1234},
 		Files: []fileBinding{
 			{Name: "ordax-creator-physical-test.exe", SHA256: strings.Repeat("1", 64), Size: 11},
 			{Name: "release-ed25519.json", SHA256: strings.Repeat("2", 64), Size: 22},
@@ -112,7 +112,7 @@ func validPortablePayloadForSigner() portablePayloadManifest {
 	for i, id := range ids {
 		artifacts = append(artifacts, portablePayloadArtifactBinding{
 			ID: id,
-			URL: "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/ordax-stable-v4-0123456789abcdef0123456789abcdef01234567/" + id,
+			URL: "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-0123456789abcdef0123456789abcdef01234567/" + id,
 			SHA256: strings.Repeat(string("123456789abcdef"[i%15]), 64),
 			SizeBytes: int64(i + 1),
 		})

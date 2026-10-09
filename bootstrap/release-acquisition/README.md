@@ -56,7 +56,7 @@ Prototype schema:
 ```json
 {
   "$schema": "prototype-ordax.release-manifest/1",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "source_commit": "<lowercase 40-hex commit>",
   "release_id": "<same commit in prototype>",
   "created_from_ci_recipe": "release/native/1",
@@ -161,7 +161,7 @@ A Stable/MVP update must not resolve `latest` again after staged health succeeds
 ordax-release-agent activate-exact \
   --root /ordax \
   --trust /ordax/bootstrap/trust/release-ed25519.json \
-  --repository ordaxsystems/prototipo-ordax-os \
+  --repository ordaxsystems/ordax-os \
   --expected-commit <40-hex-source-commit>
 ```
 

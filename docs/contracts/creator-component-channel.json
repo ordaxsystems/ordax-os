@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.creator-component-channel/1",
   "status": "candidate-enabled",
   "purpose": "creator-inspection-windows-amd64",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "release_tag": "creator-components",
   "bundle_name": "ordax-creator-components-windows-amd64.zip",
   "envelope_name": "creator-component-envelope.json",

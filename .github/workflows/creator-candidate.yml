@@ -82,7 +82,7 @@ jobs:
           PY
 
           deps="$(CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go list -deps ./cmd/ordax-creator)"
-          if grep -qx 'github.com/ordaxsystems/prototipo-ordax-os/tools/creator/host/windows' <<<"$deps"; then
+          if grep -qx 'github.com/ordaxsystems/ordax-os/tools/creator/host/windows' <<<"$deps"; then
             echo 'public Windows Creator unexpectedly links the native raw-disk host package' >&2
             exit 1
           fi

@@ -19,7 +19,7 @@
   ],
   "target_sha256": "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af",
   "target_size": 7245984,
-  "download_url": "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/ordax-release-agent-e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af/ordax-release-agent",
+  "download_url": "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-release-agent-e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af/ordax-release-agent",
   "target_path": "/ordax/bootstrap/release-acquisition/ordax-release-agent",
   "mode": "0755",
   "physical_media_rewrite_required": false,

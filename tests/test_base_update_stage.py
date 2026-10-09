@@ -49,7 +49,7 @@ def make_signed_release_fixture(root: Path):
 
     manifest = {
         "$schema": "prototype-ordax.release-manifest/1",
-        "source_repository": "ordaxsystems/prototipo-ordax-os",
+        "source_repository": "ordaxsystems/ordax-os",
         "source_commit": commit,
         "release_id": commit,
         "created_from_ci_recipe": "release/native/1",

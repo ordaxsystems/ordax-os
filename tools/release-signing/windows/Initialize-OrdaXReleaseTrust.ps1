@@ -44,7 +44,7 @@ if ($ToolkitProvenance.'$schema' -ne 'prototype-ordax.windows-prototype-toolkit/
     $ToolkitProvenance.status -ne 'candidate') {
     throw 'Toolkit provenance schema or status is invalid.'
 }
-if ($ToolkitProvenance.source_repository -ne 'ordaxsystems/prototipo-ordax-os' -or
+if ($ToolkitProvenance.source_repository -ne 'ordaxsystems/ordax-os' -or
     $ToolkitProvenance.source_event -ne 'push' -or
     $ToolkitProvenance.source_ref -ne 'refs/heads/main' -or
     $ToolkitProvenance.canonical_trust_ceremony_eligible -ne $true) {
@@ -177,7 +177,7 @@ if ($PublicBytes.Length -ne 32) {
 $ProofCommit = $ToolkitSourceCommit
 $Manifest = [ordered]@{
     '$schema' = 'prototype-ordax.release-manifest/1'
-    source_repository = 'ordaxsystems/prototipo-ordax-os'
+    source_repository = 'ordaxsystems/ordax-os'
     source_commit = $ProofCommit
     release_id = $ProofCommit
     created_from_ci_recipe = 'release/native/1'

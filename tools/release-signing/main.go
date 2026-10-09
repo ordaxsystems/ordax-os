@@ -28,7 +28,7 @@ const (
 	manifestSchemaV3 = "prototype-ordax.release-manifest/3"
 	manifestSchemaV4 = "prototype-ordax.release-manifest/4"
 	trustSchema      = "prototype-ordax.release-trust/1"
-	defaultRepo    = "ordaxsystems/prototipo-ordax-os"
+	defaultRepo    = "ordaxsystems/ordax-os"
 	maxManifest    = 512 << 10
 	maxEnvelope    = 2 << 20
 	maxPrivateKey  = 16 << 10

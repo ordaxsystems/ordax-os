@@ -12,7 +12,7 @@ Nenhum repositório pode absorver uma responsabilidade de outro apenas para simp
 
 ## Os quatro repositórios oficiais
 
-### 1. ordaxsystems/prototipo-ordax-os
+### 1. ordaxsystems/ordax-os
 
 **Papel:** plataforma/sistema operacional OrdaX.
 
@@ -77,7 +77,7 @@ Não é owner de:
 - OAuth/Cloudflare/Product Grants;
 - serviços estruturais do OrdaX OS.
 
-### 4. ordaxsystems/ordax-control-plane
+### 4. ordaxsystems/ordax-platform
 
 **Papel:** infraestrutura remota/provider-neutral e conectores externos.
 
@@ -171,17 +171,17 @@ Atualizado em 2026-10-07.
 
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
-| OrdaX OS / plataforma | `ordaxsystems/prototipo-ordax-os` | canônico |
+| OrdaX OS / plataforma | `ordaxsystems/ordax-os` | canônico |
 | Apps first-party / ORDAX Studio | `ordaxsystems/ordax-apps` | canônico; Studio portátil em `apps/studio` |
 | Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico; namespace transferido e histórico preservado |
-| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-control-plane` | repositório criado; migração do legado pendente |
+| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | repositório criado; migração do legado pendente |
 | Incubação antiga | `washingtonmsdj/mcp-blender` | legado congelado; exclusão bloqueada até conclusão dos gates |
 
 ### Rastreamento cruzado
 
 - `ordaxsystems/ordax-apps#31` — retirar dependência operacional de `mcp-blender`;
 - `ordaxsystems/ordax-runtime#1` — migrar Runtime/Device Host;
-- `ordaxsystems/ordax-control-plane#2` — migrar Product MCP/Control Plane e connector;
+- `ordaxsystems/ordax-platform#2` — migrar Product MCP/Control Plane e connector;
 - `ordaxsystems/ordax-apps#22` — roadmap operacional do Studio;
 - `ordaxsystems/ordax-apps#23` a `#27` — projetos, continuidade, preview, transactions/undo e Blender tipado.
 

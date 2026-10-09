@@ -137,7 +137,7 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
 
         release = {
             "$schema": "prototype-ordax.runtime-component-release/1",
-            "source_repository": "ordaxsystems/prototipo-ordax-os",
+            "source_repository": "ordaxsystems/ordax-os",
             "source_commit": SOURCE_COMMIT,
             "created_from_ci_recipe": "runtime-component/package/1",
             "component": {

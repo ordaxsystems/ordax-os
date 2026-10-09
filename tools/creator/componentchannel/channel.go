@@ -26,13 +26,13 @@ const (
 	ManifestSchema     = "prototype-ordax.creator-component-manifest/1"
 	TrustSchema        = "prototype-ordax.release-trust/1"
 	Purpose            = "creator-inspection-windows-amd64"
-	SourceRepository   = "ordaxsystems/prototipo-ordax-os"
+	SourceRepository   = "ordaxsystems/ordax-os"
 	Recipe             = "creator/component/windows/1"
-	DefaultEnvelopeURL = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-components/creator-component-envelope.json"
+	DefaultEnvelopeURL = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-components/creator-component-envelope.json"
 
 	bundleName          = "ordax-creator-components-windows-amd64.zip"
 	expectedFile        = "ordax-creator-physical-test.exe"
-	releasePathPrefix   = "/ordaxsystems/prototipo-ordax-os/releases/download/creator-components/"
+	releasePathPrefix   = "/ordaxsystems/ordax-os/releases/download/creator-components/"
 	currentEnvelopeName = "current-envelope.json"
 	maxTrustBytes       = 16 << 10
 	maxEnvelopeBytes    = 1 << 20

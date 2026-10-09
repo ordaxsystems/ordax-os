@@ -137,7 +137,7 @@ func TestAppSignerRejectsWrongPurposeSequenceAndURL(t *testing.T) {
 	}
 
 	_ = json.Unmarshal(validManifestBytes(), &m)
-	m.Artifact.URL = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-dev/OrdaX-Creator-App.exe"
+	m.Artifact.URL = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/OrdaX-Creator-App.exe"
 	data, _ = json.Marshal(m)
 	if _, err := validateManifest(data); err == nil || !strings.Contains(err.Error(), "creator-app") {
 		t.Fatalf("wrong URL error=%v", err)
@@ -169,7 +169,7 @@ func TestAppSignerRejectsWrongKeyAndOverwrite(t *testing.T) {
 }
 
 func TestAppSignerRejectsUnknownManifestField(t *testing.T) {
-	data := []byte(`{"$schema":"prototype-ordax.creator-app-manifest/1","purpose":"creator-app-windows-amd64","source_repository":"ordaxsystems/prototipo-ordax-os","source_commit":"0123456789abcdef0123456789abcdef01234567","version":"0.1.0","release_sequence":1,"created_from_recipe":"creator/app/windows/1","artifact":{"name":"OrdaX-Creator-App.exe","url":"https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-app/OrdaX-Creator-App.exe","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1},"unexpected":true}`)
+	data := []byte(`{"$schema":"prototype-ordax.creator-app-manifest/1","purpose":"creator-app-windows-amd64","source_repository":"ordaxsystems/ordax-os","source_commit":"0123456789abcdef0123456789abcdef01234567","version":"0.1.0","release_sequence":1,"created_from_recipe":"creator/app/windows/1","artifact":{"name":"OrdaX-Creator-App.exe","url":"https://github.com/ordaxsystems/ordax-os/releases/download/creator-app/OrdaX-Creator-App.exe","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1},"unexpected":true}`)
 	if _, err := validateManifest(data); err == nil {
 		t.Fatal("unknown manifest field unexpectedly accepted")
 	}

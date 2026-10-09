@@ -395,12 +395,12 @@ jobs:
           manifest = {
               '$schema': 'prototype-ordax.creator-physical-manifest/2',
               'purpose': 'creator-portable-physical-windows-amd64',
-              'source_repository': 'ordaxsystems/prototipo-ordax-os',
+              'source_repository': 'ordaxsystems/ordax-os',
               'source_commit': os.environ['GITHUB_SHA'],
               'created_from_recipe': 'creator/physical/portable-windows/2',
               'bundle': {
                   'url': (
-                      'https://github.com/ordaxsystems/prototipo-ordax-os/'
+                      'https://github.com/ordaxsystems/ordax-os/'
                       'releases/download/creator-physical/'
                       'ordax-creator-physical-windows-amd64.zip'
                   ),

@@ -43,7 +43,7 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertEqual(
             descriptor["download_url"],
             (
-                "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/"
+                "https://github.com/ordaxsystems/ordax-os/releases/download/"
                 f"ordax-release-agent-{target}/ordax-release-agent"
             ),
         )
@@ -131,8 +131,8 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertIn("gh release download", workflow)
         self.assertIn("RELEASE_AGENT_PUBLISHED_ASSET_READBACK=VERIFIED", workflow)
         publisher = workflow.split("  publish:", 1)[1]
-        self.assertIn("github.repository == 'ordaxsystems/prototipo-ordax-os'", publisher)
-        self.assertIn('test "$GITHUB_REPOSITORY" = \'ordaxsystems/prototipo-ordax-os\'', publisher)
+        self.assertIn("github.repository == 'ordaxsystems/ordax-os'", publisher)
+        self.assertIn('test "$GITHUB_REPOSITORY" = \'ordaxsystems/ordax-os\'', publisher)
         self.assertIn('test "$GITHUB_REPOSITORY_ID" = \'1371063347\'', publisher)
         self.assertIn('gh release download "$tag" --repo "$repo"', publisher)
         self.assertIn('test ! -L "$published"', publisher)

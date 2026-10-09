@@ -15,7 +15,7 @@ import tarfile
 import sys
 
 SCHEMA = "prototype-ordax.dev-base-candidate/3"
-REPOSITORY = "ordaxsystems/prototipo-ordax-os"
+REPOSITORY = "ordaxsystems/ordax-os"
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 MAX_KERNEL_BYTES = 64 * 1024 * 1024

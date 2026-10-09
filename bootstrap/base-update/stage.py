@@ -465,7 +465,7 @@ def _signed_manifest_from_envelope(envelope_path: Path, verified_commit: str) ->
         raise StageError("signed release manifest has unexpected fields")
     if manifest.get("$schema") != RELEASE_MANIFEST_SCHEMA:
         raise StageError("signed release manifest schema is unsupported")
-    if manifest.get("source_repository") != "ordaxsystems/prototipo-ordax-os":
+    if manifest.get("source_repository") != "ordaxsystems/ordax-os":
         raise StageError("signed release manifest repository mismatch")
     if manifest.get("source_commit") != verified_commit or manifest.get("release_id") != verified_commit:
         raise StageError("signed release manifest identity mismatch")

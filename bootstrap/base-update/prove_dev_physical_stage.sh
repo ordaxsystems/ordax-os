@@ -107,7 +107,7 @@ def binding(name, payload):
     return {
         "name": name,
         "url": (
-            "https://github.com/ordaxsystems/prototipo-ordax-os/"
+            "https://github.com/ordaxsystems/ordax-os/"
             f"releases/download/{tag}/{name}"
         ),
         "sha256": hashlib.sha256(payload).hexdigest(),
@@ -117,7 +117,7 @@ def binding(name, payload):
 manifest = {
     "$schema": "prototype-ordax.dev-base-candidate/3",
     "status": "development-candidate",
-    "source_repository": "ordaxsystems/prototipo-ordax-os",
+    "source_repository": "ordaxsystems/ordax-os",
     "source_commit": source,
     "tag": tag,
     "activation": "inactive-slot-next-boot",
