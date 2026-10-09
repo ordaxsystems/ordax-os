@@ -1064,11 +1064,14 @@ export function mountInternetBrowserControls(
           t("internet.downloads.approve"));
         approve.type = "button";
         approve.dataset.browserDownloadApprove = record.id;
+        row.append(approve);
+      }
+      if (record.status === "pending" || record.status === "downloading") {
         const cancel = node(documentObject, "button", "ordax-internet-download-cancel",
           t("internet.downloads.cancel"));
         cancel.type = "button";
         cancel.dataset.browserDownloadCancel = record.id;
-        row.append(approve, cancel);
+        row.append(cancel);
       }
       return row;
     });
@@ -1279,7 +1282,8 @@ export function mountInternetBrowserControls(
       if (!downloadPort) return;
       const id = approvedId || cancelledId;
       const existing = downloadRecords.get(id);
-      if (existing?.status !== "pending") return;
+      if (!existing || (approvedId && existing.status !== "pending")
+          || (cancelledId && !["pending", "downloading"].includes(existing.status))) return;
       downloadRecords.set(id, {
         ...existing, status: approvedId ? "downloading" : "cancelled",
       });
