@@ -197,6 +197,31 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertNotIn("FormData", script)
         self.assertNotIn("password", script.lower())
 
+    def test_account_forms_use_live_server_readiness_and_safe_feedback(self):
+        script = (SITE / "assets" / "site.js").read_text(encoding="utf-8")
+        css = (SITE / "assets" / "site.css").read_text(encoding="utf-8")
+        for page in ("login", "cadastro", "recuperar"):
+            html = (SITE / page / "index.html").read_text(encoding="utf-8")
+            self.assertIn("data-identity-notice", html)
+            self.assertIn('aria-live="polite"', html)
+            self.assertIn('method="post"', html)
+
+        self.assertIn('loadJson("/auth/session")', script)
+        self.assertIn('value.provider === "supabase"', script)
+        self.assertIn('value.$schema === "prototype-ordax.public-identity-session/1"', script)
+        self.assertIn("validSessionReadiness", script)
+        self.assertIn('url.origin === window.location.origin', script)
+        self.assertIn('url.pathname === path', script)
+        self.assertIn('validRegistrationDocument(value.privacy, "/privacidade/")', script)
+        self.assertIn('validRegistrationDocument(value.terms, "/termos/")', script)
+        self.assertIn('new URLSearchParams(window.location.search)', script)
+        self.assertIn('notice.textContent = message[1]', script)
+        self.assertNotIn("notice.innerHTML", script)
+        self.assertIn('"verifique-email"', script)
+        self.assertIn('"credenciais"', script)
+        self.assertIn('"conta-requer-reconciliacao"', script)
+        self.assertIn(".identity-notice[hidden]", css)
+
     def test_runtime_integration_uses_same_origin_paths(self):
         script = (SITE / "assets" / "site.js").read_text(encoding="utf-8")
         self.assertIn('value.startsWith("/")', script)
