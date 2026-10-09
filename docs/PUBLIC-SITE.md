@@ -366,3 +366,21 @@ If a particular ISP still times out, obtain the client-side
 and a mobile-network comparison before making another risky DNS change.
 Do not touch any other sites, the old Cloudflare account, registration
 switches, or account secrets as part of this DNS diagnosis.
+
+## Área autenticada da Conta OrdaX (2026-10-09)
+
+A rota pública `/conta/` é um **portal de identidade**, distinto da landing
+`/` e do produto OrdaX Web. Depois do login, o servidor direciona para essa
+rota. A interface pede `GET /auth/session` (mesma origem, `no-store`), valida
+o contrato `prototype-ordax.public-identity-session/1` e mostra o e-mail
+somente se o Supabase Auth confirmar uma sessão válida. Estado anônimo
+oferece login; resposta inválida/indisponível falha fechada. Campos remotos
+usam exclusivamente `textContent`, nunca `innerHTML`.
+
+O botão `Encerrar sessão` usa formulário nativo `POST /auth/logout` do
+owner existente, com cookies `HttpOnly; Secure; SameSite=Lax`, verificação
+de origem e revogação local no provedor. Nenhum JWT, refresh token, senha ou
+session ID entra em JavaScript, armazenamento local ou parâmetros de URL.
+Sincronização, dispositivos, cobrança e OrdaX Web não são simulados nem
+habilitados por essa página. Recuperação de senha e revogação global ainda
+exigem homologação E2E separada.
