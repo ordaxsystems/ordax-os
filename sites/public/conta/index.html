@@ -3,62 +3,56 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Área autenticada da Conta OrdaX.">
-  <title>Conta — OrdaX</title>
+  <meta name="description" content="Minha Conta OrdaX: sessão, serviços e acesso ao OrdaX Web.">
+  <title>Minha conta — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
-  <link rel="stylesheet" href="/assets/portal.css?v=titanium-1">
+  <link rel="stylesheet" href="/assets/account-dashboard.css?v=account-1">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
-  <script src="/assets/site.js?v=auth-nav-1" defer></script>
+  <script src="/assets/site.js?v=account-2" defer></script>
 </head>
-<body data-page="conta">
+<body data-page="conta" class="account-portal">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
   <header class="site-header">
     <a class="brand" href="/" aria-label="OrdaX — início"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a>
-    <nav class="site-nav" aria-label="Navegação principal"><a href="/">Início</a><a href="/download/">Download</a><a href="/login/" data-auth-nav="login"><span data-auth-nav-label>Entrar</span></a></nav>
+    <nav class="site-nav" aria-label="Navegação principal"><a href="/">Início</a><a href="/download/">Download</a><a href="/web/">OrdaX Web</a><a href="/login/" data-auth-nav="login"><span data-auth-nav-label>Entrar</span></a></nav>
   </header>
-  <main id="conteudo" class="auth-shell">
-    <section class="auth-copy">
-      <p class="eyebrow">CONTA ORDA X / IDENTIDADE</p>
-      <h1>Seu espaço começa pela sua identidade.</h1>
-      <p>Consulte sua Conta OrdaX com sessão verificada pelo servidor. A página pública e o OrdaX Web permanecem experiências separadas.</p>
-    </section>
-    <section class="auth-card" aria-labelledby="account-title">
-      <p class="eyebrow">ACESSO SEGURO</p>
-      <h2 id="account-title">Minha Conta OrdaX</h2>
-      <div class="identity-state" data-account-state data-status="checking" aria-live="polite" aria-busy="true">
-        <strong>Verificando sua sessão</strong>
-        <p>Consultando o serviço oficial de identidade.</p>
-      </div>
-      <section data-account-authenticated hidden aria-label="Sessão autenticada">
-        <p class="eyebrow">SESSÃO AUTENTICADA</p>
-        <p class="account-label">E-mail da conta</p>
-        <p class="account-email" data-account-email></p>
-        <p class="account-help">Sua sessão é validada no servidor. Senhas e tokens não são apresentados nesta página.</p>
-        <form action="/auth/logout" method="post" data-account-logout>
-          <button type="submit" class="button button-primary" disabled>Encerrar sessão</button>
-        </form>
+  <main id="conteudo" class="account-layout">
+    <aside class="account-navigation" aria-label="Seções da conta">
+      <p class="eyebrow">CONTA ORDAX</p>
+      <nav><a href="#visao-geral">Visão geral</a><a href="#seguranca">Identidade e segurança</a><a href="#servicos">Plano e serviços</a><a href="/web/">Acessar OrdaX Web <span aria-hidden="true">↗</span></a></nav>
+      <p class="navigation-note">Seu acesso ao ecossistema OrdaX.</p>
+    </aside>
+    <div class="account-content">
+      <section id="visao-geral" class="account-heading">
+        <p class="eyebrow">SEU ESPAÇO</p>
+        <h1>Minha conta<span class="heading-dot" aria-hidden="true">.</span></h1>
+        <p>Gerencie sua sessão e acompanhe os serviços da sua Conta OrdaX.</p>
       </section>
-      <section data-account-anonymous hidden>
-        <p class="account-help">Sua sessão não está ativa. Entre para acessar os dados da sua conta.</p>
-        <a class="button button-primary" href="/login/">Entrar na Conta OrdaX</a>
+      <section class="account-web-banner" aria-labelledby="web-title">
+        <div><span class="portal-orbit" aria-hidden="true"></span><p class="eyebrow">ORDAX NO NAVEGADOR</p><h2 id="web-title">Seu próximo espaço de trabalho.</h2><p>Acesse o OrdaX Web e continue com os recursos disponíveis para sua conta.</p></div>
+        <a class="button button-primary" href="/web/">Acessar OrdaX Web <span aria-hidden="true">↗</span></a>
       </section>
-      <section data-account-unavailable hidden>
-        <p class="account-help">Não foi possível verificar sua sessão. Nenhum dado pessoal será exibido até a conexão ser restabelecida.</p>
-        <a class="button button-primary" href="/conta/">Tentar novamente</a>
+      <section id="seguranca" class="account-panel" aria-labelledby="account-title">
+        <div class="panel-heading"><div><p class="eyebrow">IDENTIDADE</p><h2 id="account-title">Sua conta, com acesso seguro.</h2></div><span class="section-index" aria-hidden="true">01</span></div>
+        <div class="identity-state" data-account-state data-status="checking" aria-live="polite" aria-busy="true"><strong>Verificando sua sessão</strong><p>Consultando o serviço oficial de identidade.</p></div>
+        <section data-account-authenticated hidden aria-label="Sessão autenticada">
+          <dl class="account-details"><div><dt>E-mail da conta</dt><dd data-account-email></dd></div><div><dt>Conexão neste navegador</dt><dd>Sessão autenticada</dd></div></dl>
+          <div class="session-actions"><p>Encerrar esta sessão não exclui sua conta nem os arquivos dos seus dispositivos.</p><form action="/auth/logout" method="post" data-account-logout><button type="submit" class="button button-secondary" disabled>Encerrar sessão</button></form></div>
+        </section>
+        <section data-account-anonymous hidden><p>Sua sessão não está ativa. Entre para acessar os dados da sua conta.</p><div class="portal-actions"><a class="button button-primary" href="/login/">Entrar na Conta OrdaX</a><a class="button button-secondary" href="/cadastro/">Criar conta</a></div></section>
+        <section data-account-unavailable hidden><p>Não foi possível verificar sua sessão. Nenhum dado pessoal será exibido até a conexão ser restabelecida.</p><a class="button button-secondary" href="/conta/">Tentar novamente</a></section>
       </section>
-      <div class="identity-state account-future">
-        <p class="eyebrow">Em breve</p>
-        <strong>Outros recursos em desenvolvimento</strong>
-        <p>OrdaX Web, dispositivos, sincronização, backup e continuidade não são ativados por este portal de identidade.</p>
-      </div>
-      <div class="identity-state account-future">
-        <strong>Sem preços ou planos definidos</strong>
-        <p>O MVP não implementa cobrança, tiers comerciais nem limite comercial de dispositivos. A arquitetura fica preparada para serviços futuros sem cobrar arbitrariamente pelo segundo dispositivo.</p>
-      </div>
-      <p class="auth-switch"><a href="/">Voltar ao site da OrdaX</a></p>
-    </section>
+      <section id="servicos" class="account-services" aria-labelledby="services-title">
+        <div class="panel-heading"><div><p class="eyebrow">ECOSSISTEMA</p><h2 id="services-title">Plano e serviços</h2></div><span class="section-index" aria-hidden="true">02</span></div>
+        <div class="service-grid">
+          <article class="service-card"><span class="service-label">PLANOS</span><h3>Uma estrutura para crescer.</h3><p>Free, Personal, Professional e Team compõem a estrutura de planos OrdaX. Assinaturas pagas ainda não estão disponíveis.</p><p class="service-note">Seu plano e seus limites serão exibidos quando o serviço da conta estiver disponível.</p></article>
+          <article class="service-card"><span class="service-label">ARMAZENAMENTO</span><h3>Seus arquivos, seu controle.</h3><p>O armazenamento na nuvem está em preparação. Seus arquivos locais continuam nos seus dispositivos.</p><p class="service-note">Não há uso ou capacidade de armazenamento verificados para exibir nesta página.</p></article>
+          <article class="service-card"><span class="service-label">DISPOSITIVOS</span><h3>Conexões com permissão.</h3><p>Dispositivos e conexões de IA terão controles próprios. Entrar na conta não autoriza acesso aos seus arquivos ou equipamentos.</p><p class="service-note">O gerenciamento de dispositivos ainda não está disponível neste portal.</p></article>
+        </div>
+      </section>
+    </div>
   </main>
-  <footer class="site-footer"><a class="brand brand-small" href="/"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a><p>A raiz pública continua sendo a landing page.</p><nav><a href="/">Início</a><a href="/download/">Download</a><a href="/privacidade/">Privacidade</a></nav></footer>
+  <footer class="site-footer"><a href="/">OrdaX</a><p>Uma conta. Seu espaço de trabalho.</p><nav aria-label="Informações do site"><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a><a href="/download/">Download</a></nav></footer>
 </body>
 </html>

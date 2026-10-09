@@ -43,11 +43,43 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 
 ## Route ownership
 
+### My account and Web entry — 2026-10-09 source candidate
+
+`/conta/` now presents a responsive account overview, the existing verified
+session/email and native sign-out action, an entry to `/web/`, and honest
+availability for plans, storage and device management. Personal data is hidden
+and cleared before session revalidation, including back-forward navigation.
+No usage meter, device catalog, assigned plan or billing data is inferred from
+login or local browser state. Plan names remain the defined structure, with
+paid subscriptions unavailable.
+
+`/web/` is a product-entry page, not the Surface runtime or a marketing demo.
+It shares the existing single same-origin session lookup and exposes a launch
+link only for a verified authenticated session and a configured product path.
+Runtime configuration lives in `config/public-site.json` under `product.web`;
+the approved destination/availability lives in this topic's structured
+`account_area.web_entry` contract. Build rejects an unapproved activation and
+external, ambiguous or reserved destinations. Missing configuration/session
+shows an explicit pending/error/sign-in state, with no localhost/public link
+fabrication. The actual product host must independently authorize its own
+requests; portal navigation is never an authentication boundary.
+
+Owner: public portal in OS; Identity/session, entitlements, storage, device
+execution and Surface remain their existing owners. PT-BR/en-US use the
+existing public locale owner; dashboard styles consume compiled brand tokens.
+The portal does not import/copy the Surface, issue grants or store credentials.
+Acceptance covers launch admission, session failures, back navigation,
+localization, desktop/mobile rendering and deterministic public-site build.
+Public Web runtime remains unavailable in config/contract. Live identity
+activation, legal consistency, hosted Surface delivery and account E2E remain
+separate gates; this increment does not provision or deploy them.
+
 - `/`: public landing page. It must never become the authenticated OrdaX workspace.
 - `/download/`: public release discovery and verified download links.
 - `/login/`: sign-in entry point.
 - `/cadastro/`: account-creation entry point.
 - `/conta/`: authenticated user area. Until real identity/session integration is enabled, it remains fail-closed and must not simulate user data.
+- `/web/`: authenticated product-entry navigation when the approved Web host is available; otherwise sign-in/pending/error state.
 - `/licencas/`: release-specific license, SBOM and source-compliance entry point.
 - `/privacidade/`: privacy-readiness page; not a final policy while account activation is blocked.
 - `/termos/`: terms-readiness page; not final terms while account activation is blocked.

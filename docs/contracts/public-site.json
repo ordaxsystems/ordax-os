@@ -16,7 +16,8 @@
     "account": "/conta/",
     "recovery": "/recuperar/",
     "recovery_complete": "/recuperar/nova-senha/",
-    "recovery_new_password": "/recuperar/nova-senha/"
+    "recovery_new_password": "/recuperar/nova-senha/",
+    "web_entry": "/web/"
   },
   "runtime_dependencies": {
     "remote_javascript": true,
@@ -115,7 +116,16 @@
     "may_simulate_user_data": false,
     "public_root_may_render_authenticated_workspace": false,
     "ordax_web_is_separate_product_mode": true,
-    "ordax_web_entry_is_reached_from_authenticated_product_experience": true
+    "ordax_web_entry_is_reached_from_authenticated_product_experience": true,
+    "web_entry": {
+      "route": "/web/",
+      "runtime_available": false,
+      "runtime_path": null,
+      "same_origin_navigation_only": true,
+      "session_verification_required": true,
+      "destination_must_enforce_own_authorization": true,
+      "surface_imported_by_portal": false
+    }
   },
   "mvp_scope": {
     "execution_mode": "usb-only",

@@ -49,6 +49,7 @@ on:
       - 'tests/test_vercel_identity_preflight.py'
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_auth_header_nav.mjs'
+      - 'tests/test_public_account_web_entry.mjs'
       - 'tests/test_public_proxy_request_context.mjs'
       - 'tests/test_public_proxy_vercel_oidc.mjs'
       - 'tests/test_public_auth_edge_rate_limit.mjs'
@@ -121,6 +122,7 @@ on:
       - 'tests/test_vercel_identity_preflight.py'
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_auth_header_nav.mjs'
+      - 'tests/test_public_account_web_entry.mjs'
       - 'tests/test_public_proxy_request_context.mjs'
       - 'tests/test_public_proxy_vercel_oidc.mjs'
       - 'tests/test_public_auth_edge_rate_limit.mjs'
@@ -178,6 +180,7 @@ jobs:
           node --test tests/test_public_site_localization_runtime.mjs
           node --test tests/test_public_site_vercel_proxy.mjs
           node --test tests/test_public_auth_header_nav.mjs
+          node --test tests/test_public_account_web_entry.mjs
           node --test tests/test_public_proxy_request_context.mjs
           node --test tests/test_public_proxy_vercel_oidc.mjs
           node --test tests/test_public_auth_edge_rate_limit.mjs

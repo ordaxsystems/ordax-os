@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import shutil
 import sys
 import tempfile
 import threading
@@ -31,6 +32,29 @@ preview = load_module("ordax_public_site_preview_smoke", PREVIEW_PATH)
 
 
 class PublicSiteRuntimeSmokeTests(unittest.TestCase):
+    def test_web_config_cannot_activate_an_unapproved_product(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "site"
+            shutil.copytree(ROOT / "sites/public", source)
+            config_path = source / "config/public-site.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["product"]["web"] = {"enabled": True, "entry_url": "/ordax/"}
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            with self.assertRaisesRegex(build.PublicSiteError, "authorized by its owner"):
+                build.validate_source(source)
+
+    def test_web_config_rejects_external_or_reserved_navigation_targets(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "site"
+            shutil.copytree(ROOT / "sites/public", source)
+            config_path = source / "config/public-site.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            for path in ("//example.invalid/", "https://example.invalid/", "/web/", "/auth/logout/", "/ordax/%2f/", "/ordax//next/", "/ordax/../conta/"):
+                config["product"]["web"] = {"enabled": False, "entry_url": path}
+                config_path.write_text(json.dumps(config), encoding="utf-8")
+                with self.subTest(path=path), self.assertRaisesRegex(build.PublicSiteError, "same-origin product path"):
+                    build.validate_source(source)
+
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()

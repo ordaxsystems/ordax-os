@@ -70,6 +70,8 @@ REQUIRED_FILES = (
     "recuperar/index.html",
     "recuperar/nova-senha/index.html",
     "conta/index.html",
+    "web/index.html",
+    "assets/account-dashboard.css",
     "licencas/index.html",
     "privacidade/index.html",
     "termos/index.html",
@@ -185,6 +187,30 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
         raise PublicSiteError("identity.turnstile_sitekey must be a valid public Turnstile sitekey")
     if not same_origin_path(downloads.get("catalog_url")):
         raise PublicSiteError("downloads.catalog_url must be null or a same-origin path")
+
+    # Product entry is navigation, not an authentication or release authority.
+    # A real Web host still has to authorize requests independently of this portal.
+    product = config.get("product", {})
+    if not isinstance(product, dict):
+        raise PublicSiteError("product config must be an object")
+    web = product.get("web", {})
+    if not isinstance(web, dict) or not isinstance(web.get("enabled", False), bool):
+        raise PublicSiteError("product.web.enabled must be boolean")
+    entry = web.get("entry_url")
+    if entry is not None and (
+        not isinstance(entry, str)
+        or not re.fullmatch(r"/[A-Za-z0-9/_-]+/", entry)
+        or "//" in entry
+        or re.match(r"/(auth|account|sync|config|api|conta|login|cadastro|web)(/|$)", entry)
+    ):
+        raise PublicSiteError("product.web.entry_url must be a separate same-origin product path")
+    site_contract = json.loads((ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8"))
+    approved_entry = site_contract["account_area"].get("web_entry", {})
+    if web.get("enabled") is True and (
+        approved_entry.get("runtime_available") is not True
+        or not entry or entry != approved_entry.get("runtime_path")
+    ):
+        raise PublicSiteError("Web launch requires the deployed product entry authorized by its owner")
 
     for key in ("privacy_url", "terms_url"):
         if not same_origin_path(legal.get(key)):

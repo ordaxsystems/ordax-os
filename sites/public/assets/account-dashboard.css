@@ -1,0 +1,88 @@
+/* Public portal presentation. Identity, quotas and product execution stay with their owners. */
+.account-portal { background:var(--ordax-bg); color:var(--ordax-text); }
+.account-portal [hidden] { display:none!important; }
+.account-portal a { text-decoration:none; }
+.account-portal :focus-visible { outline:3px solid var(--ordax-focus); outline-offset:5px; }
+.account-portal .site-header { position:relative; max-width:1440px; margin:auto; min-height:90px; padding:22px clamp(20px,4vw,60px); border-bottom:1px solid var(--ordax-border); }
+.account-portal .site-nav { display:flex; gap:26px; flex-wrap:wrap; font-size:13px; }
+.account-portal .eyebrow { color:var(--ordax-accent); font:600 10px/1.5 ui-monospace,monospace; letter-spacing:.17em; margin:0 0 16px; }
+.account-layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:60px; max-width:1440px; margin:auto; padding:54px clamp(20px,4vw,60px) 80px; }
+.account-navigation { align-self:start; position:sticky; top:30px; padding-top:8px; }
+.account-navigation nav { display:grid; gap:8px; }
+.account-navigation a { display:flex; justify-content:space-between; gap:12px; padding:13px 12px; border-radius:var(--ordax-radius-md); color:var(--ordax-muted); font-size:13px; }
+.account-navigation a:hover,.account-navigation a:focus-visible { color:var(--ordax-text); background:var(--ordax-selected-bg); }
+.navigation-note { margin-top:38px; padding:18px 12px 0; border-top:1px solid var(--ordax-border); font-size:12px; color:var(--ordax-muted); line-height:1.7; }
+.account-content { min-width:0; }
+.account-heading h1 { font:500 clamp(42px,5vw,64px)/1.08 var(--sans); letter-spacing:-.05em; margin:0 0 18px; }
+.heading-dot { color:var(--ordax-accent); }
+.account-heading>p:last-child { color:var(--ordax-muted); font-size:15px; line-height:1.7; margin-bottom:34px; }
+.account-web-banner { display:flex; gap:30px; justify-content:space-between; align-items:center; padding:30px; border:1px solid var(--ordax-border); border-radius:var(--ordax-radius-xl); background:linear-gradient(125deg,var(--ordax-selected-bg),var(--ordax-panel)); margin-bottom:24px; }
+.account-web-banner>div { position:relative; padding-right:50px; }
+.account-web-banner h2 { font:500 clamp(23px,2.5vw,30px)/1.25 var(--sans); letter-spacing:-.035em; margin:0 0 12px; }
+.account-web-banner p:last-child { max-width:460px; font-size:13px; line-height:1.65; color:var(--ordax-muted); margin:0; }
+.account-web-banner .button { flex-shrink:0; }
+.account-portal .button { min-height:46px; padding:12px 18px; border-radius:var(--ordax-radius-md); gap:20px; font:600 13px var(--sans); cursor:pointer; }
+.account-portal .button:disabled { cursor:not-allowed; opacity:.5; }
+.account-panel { padding:30px; border:1px solid var(--ordax-border); border-radius:var(--ordax-radius-xl); background:var(--ordax-panel); scroll-margin-top:24px; }
+.panel-heading { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+.panel-heading h2 { font:500 24px/1.3 var(--sans); letter-spacing:-.03em; margin:0; }
+.section-index { color:var(--ordax-muted); font:12px ui-monospace,monospace; }
+.account-portal .identity-state { margin:24px 0; padding:18px 20px; border:1px solid var(--ordax-border); border-radius:var(--ordax-radius-md); background:var(--ordax-subtle-bg); }
+.account-portal .identity-state strong { display:block; font-size:14px; line-height:1.5; }
+.account-portal .identity-state p { font-size:13px; line-height:1.65; color:var(--ordax-muted); margin:8px 0 0; }
+.account-panel>section>p { font-size:14px; line-height:1.7; color:var(--ordax-muted); }
+.account-details { display:grid; grid-template-columns:1fr 1fr; gap:24px; padding-bottom:20px; }
+.account-details dt { font-size:12px; color:var(--ordax-muted); margin:0 0 10px; }
+.account-details dd { margin:0; font-size:14px; overflow-wrap:anywhere; }
+.session-actions { display:flex; align-items:center; justify-content:space-between; gap:24px; border-top:1px solid var(--ordax-border); padding-top:24px; }
+.session-actions p { max-width:470px; margin:0; color:var(--ordax-muted); font-size:12px; line-height:1.7; }
+.session-actions .button { white-space:nowrap; }
+.portal-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:20px; }
+.account-services { margin-top:38px; scroll-margin-top:24px; }
+.service-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:24px; }
+.service-card { padding:24px; border:1px solid var(--ordax-border); border-radius:var(--ordax-radius-lg); background:var(--ordax-surface); }
+.service-label { color:var(--ordax-accent); font:10px ui-monospace,monospace; letter-spacing:.13em; }
+.service-card h3 { font:500 20px/1.4 var(--sans); letter-spacing:-.025em; margin:20px 0 14px; }
+.service-card p { font-size:13px; line-height:1.7; color:var(--ordax-muted); }
+.service-card .service-note { margin-top:22px; padding-top:18px; border-top:1px solid var(--ordax-border); font-size:12px; }
+.account-portal .site-footer { max-width:1440px; margin:auto; display:flex; justify-content:space-between; gap:24px; padding:30px clamp(20px,4vw,60px); border-top:1px solid var(--ordax-border); font-size:12px; color:var(--ordax-muted); }
+.account-portal .site-footer nav { display:flex; gap:24px; }
+.account-portal .site-footer p { margin:0; }
+.web-entry-layout { max-width:1440px; margin:auto; display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,.8fr); align-items:center; gap:80px; min-height:calc(100vh - 180px); padding:70px clamp(20px,5vw,72px); }
+.web-entry-story h1 { font:500 clamp(40px,4.8vw,65px)/1.08 var(--sans); letter-spacing:-.05em; margin:0 0 26px; }
+.web-lead { color:var(--ordax-muted); font-size:16px; line-height:1.8; max-width:540px; }
+.web-entry-benefits { display:grid; gap:22px; margin-top:40px; }
+.web-entry-benefits>div { padding-left:42px; position:relative; }
+.web-entry-benefits span { position:absolute; left:0; top:4px; color:var(--ordax-accent); font:11px ui-monospace,monospace; }
+.web-entry-benefits h2 { font:500 15px var(--sans); margin:0 0 8px; }
+.web-entry-benefits p { font-size:13px; line-height:1.6; margin:0; color:var(--ordax-muted); }
+.web-entry-card { padding:40px; border:1px solid var(--ordax-border); border-radius:var(--ordax-radius-xl); background:linear-gradient(145deg,var(--ordax-selected-bg),var(--ordax-panel) 60%); box-shadow:0 24px 64px #0003; }
+.portal-orbit { display:block; width:40px; height:40px; border:1px solid var(--ordax-accent); border-radius:40% 60% 45% 55%; transform:rotate(-30deg); margin-bottom:30px; box-shadow:inset 0 0 16px color-mix(in srgb,var(--ordax-accent) 20%,transparent); }
+.account-web-banner .portal-orbit { position:absolute; right:0; top:4px; width:25px; height:25px; }
+.web-entry-card h2 { font:500 32px/1.2 var(--sans); letter-spacing:-.035em; margin:0; }
+.web-entry-card .button { width:100%; justify-content:space-between; margin-top:10px; }
+.web-entry-note { color:var(--ordax-muted); font-size:12px; line-height:1.7; margin:24px 0; }
+.web-account-link { display:flex; gap:12px; justify-content:space-between; border-top:1px solid var(--ordax-border); padding-top:22px; font-size:13px; }
+@media(max-width:1100px) {
+  .account-layout { grid-template-columns:170px minmax(0,1fr); gap:30px; }
+  .account-web-banner { align-items:flex-start; flex-direction:column; }
+  .service-grid { grid-template-columns:1fr; }
+  .web-entry-layout { gap:38px; }
+}
+@media(max-width:760px) {
+  .account-portal .site-header { align-items:flex-start; flex-direction:column; gap:22px; padding:22px; }
+  .account-portal .site-nav { width:100%; justify-content:space-between; gap:12px; font-size:12px; }
+  .account-layout { display:block; padding:24px 20px 50px; }
+  .account-navigation { position:static; padding:0 0 28px; }
+  .account-navigation>.eyebrow,.navigation-note { display:none; }
+  .account-navigation nav { display:flex; gap:8px; overflow:auto; padding:4px; scrollbar-width:none; }
+  .account-navigation nav::-webkit-scrollbar { display:none; }
+  .account-navigation a { white-space:nowrap; background:var(--ordax-subtle-bg); border:1px solid var(--ordax-border); font-size:12px; }
+  .account-panel,.account-web-banner { padding:22px; }
+  .account-details { grid-template-columns:1fr; }
+  .session-actions { align-items:stretch; flex-direction:column; gap:16px; }
+  .session-actions .button { width:100%; }
+  .web-entry-layout { display:block; padding:40px 22px 55px; }
+  .web-entry-card { margin-top:40px; padding:26px; }
+  .account-portal .site-footer { align-items:flex-start; flex-direction:column; padding:28px 22px; }
+}

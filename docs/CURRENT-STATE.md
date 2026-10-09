@@ -1,5 +1,17 @@
 # Current State
 
+## Public account and Web entry — 2026-10-09 source candidate
+
+The public portal now has a responsive My account overview at `/conta/` and a
+separate `/web/` entry. Account data comes only from the existing verified
+same-origin session; native sign-out remains unchanged. Back navigation clears
+personal data and launch links before revalidation. Plans/storage/devices show
+availability without fabricated usage, permissions or assigned subscription.
+Web launch requires verified identity and a configured, owner-approved product
+destination. Configuration and contract keep the actual Web runtime disabled;
+no hosted Surface, public identity activation or live account E2E is implied.
+See `docs/PUBLIC-SITE.md` for ownership, acceptance and remaining gates.
+
 ## Studio Web availability — 2026-10-09 source candidate
 
 The shared rail now opens the existing Studio host integration panel. The panel distinguishes read discovery from an operational workspace, suppresses misleading zero capability metrics when the reader is absent, delegates Projects to its existing app owner and links to the public ChatGPT site with explicit mode/quota guidance. The full portable conversation/preview source belongs to `ordaxsystems/ordax-apps` and is **not yet composed into OS Web**. The bundled `system/apps/studio` version identifies the legacy integration component, not the current canonical portable product version. No external payload, provider session, Runtime execution or production installation has been activated. See [STUDIO-WEB-AVAILABILITY.md](STUDIO-WEB-AVAILABILITY.md).

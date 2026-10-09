@@ -8,7 +8,8 @@ Routes:
 - `/download/` — public release catalog;
 - `/login/` — sign-in entry point;
 - `/cadastro/` — account creation entry point;
-- `/conta/` — reserved authenticated user area; fail-closed until real identity/session integration is ready.
+- `/conta/` — account overview using verified identity/session, with availability of services and a Web entry.
+- `/web/` — product-entry page; authenticated launch is gated by approved destination configuration. The hosted product runtime remains disabled.
 
 The baseline is dependency-free HTML/CSS/JavaScript. Runtime integration is configured by `config/public-site.json` and fails closed when identity or public release services are not authorized for public activation. The real account forms remain hidden and disabled until those gates pass. The public login and registration entry pages present a neutral loading state while the live gateway is consulted, show credential fields only after server readiness (and legal policy for registration) is verified, and suppress gated-only guidance when available. Neither the home-page registration link nor this presentation state is authority to create an account.
 
