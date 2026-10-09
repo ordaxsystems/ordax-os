@@ -28,7 +28,7 @@
   },
   "current_observation": {
     "source": "supabase-security-advisor-and-live-deployment-reconciliation",
-    "observed_date": "2026-10-07",
+    "observed_date": "2026-10-09",
     "leaked_password_protection": "enabled-product-gateway",
     "public_login_enabled": false,
     "edge_gateway": "v28-deployed-native-rate-limit-live-public-login-legal-receipt-guard-live-registration-disabled-close-disabled-recovery-isolated",
@@ -126,7 +126,7 @@
     "bot_protection_e2e_tested": false,
     "password_recovery_session_isolated": true,
     "password_recovery_cookie_path": "/auth/recover",
-    "bot_protection_widget_live_verified": true,
+    "bot_protection_widget_live_verified": false,
     "bot_protection_widget_mode": "managed",
     "bot_protection_widget_domains": [
       "ordax.com.br",
