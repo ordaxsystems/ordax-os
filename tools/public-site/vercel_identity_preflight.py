@@ -78,20 +78,27 @@ def build_candidate(contract: dict, origin: str) -> dict:
     if target_team != adapter_team:
         raise ValueError("adapter-team-must-match-target-team")
 
-    # The adapter now belongs to the destination, not the legacy team.
-    # Obtain historical identity only from the recorded earlier deployment,
-    # never from the new adapter or an independent hardcoded slug.
-    historical_issuer = contract["public_edge_gateway"].get("oidc_issuer")
-    prefix = "https://oidc.vercel.com/"
-    if not isinstance(historical_issuer, str) or not historical_issuer.startswith(prefix):
-        raise ValueError("legacy-issuer-evidence-required")
-    historical_team = historical_issuer[len(prefix):]
-    if not SLUG_RE.fullmatch(historical_team):
-        raise ValueError("invalid-legacy-issuer-evidence")
+    # Legacy team is historical evidence in the migration owner, NOT the
+    # deployed public Edge's current issuer. Never derive old authority from
+    # current deployment state, which must instead match the active target.
+    historical_team = migration.get("historical_team_slug")
+    if not isinstance(historical_team, str) or not SLUG_RE.fullmatch(historical_team):
+        raise ValueError("invalid-legacy-team-evidence")
     if target_team == historical_team:
         raise ValueError("target-team-must-not-equal-legacy-team")
 
-    return build_identity(target_team, migration["target_project"], origin)
+    candidate = build_identity(target_team, migration["target_project"], origin)
+    active_edge = contract.get("public_edge_gateway")
+    if not isinstance(active_edge, dict) or active_edge.get("deployed") is not True:
+        raise ValueError("canonical-public-edge-deployment-required")
+    for evidence, candidate_key in (
+        ("oidc_issuer", "issuer"),
+        ("oidc_audience", "audience"),
+        ("oidc_subject", "subject"),
+    ):
+        if active_edge.get(evidence) != candidate[candidate_key]:
+            raise ValueError("canonical-public-edge-oidc-mismatch")
+    return candidate
 
 
 def main() -> int:
