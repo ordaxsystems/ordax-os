@@ -448,7 +448,7 @@
     ["Conta", "Account"],
     ["Organize documentos, imagens, downloads e conteúdo persistente do usuário.", "Organize documents, images, downloads, and persistent user content."],
     ["Organize projetos locais, conexões e continuidade entre dispositivos.", "Organize local projects, connections, and continuity across devices."],
-    ["Crie e opere projetos com o runtime agentic do ORDAX e ferramentas locais tipadas.", "Create and operate projects with the ORDAX agentic runtime and typed local tools."],
+    ["Acesse seus projetos e confira a integração do Studio com este host.", "Access your projects and check Studio integration with this host."],
     ["Seu espaço de escrita", "Your writing space"],
     ["Escrita local, projetos, tarefas e referências disponíveis offline.", "Local writing, projects, tasks, and references available offline."],
     ["Conversa local com a OrdaX Intelligence, sem autoridade implícita para executar ações.", "Local conversation with OrdaX Intelligence, without implicit authority to execute actions."],
