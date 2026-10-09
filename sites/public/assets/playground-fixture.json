@@ -25,6 +25,7 @@
     "rail_apps": [
       "files",
       "projects",
+      "studio",
       "assistant",
       "internet",
       "network",
@@ -40,6 +41,10 @@
       {
         "id": "projects",
         "label": "Projetos"
+      },
+      {
+        "id": "studio",
+        "label": "ORDAX Studio"
       },
       {
         "id": "assistant",
@@ -85,7 +90,7 @@
     {
       "id": "studio",
       "title": "ORDAX Studio",
-      "description": "Crie e opere projetos com o runtime agentic do ORDAX e ferramentas locais tipadas.",
+      "description": "Acesse seus projetos e confira a integração do Studio com este host.",
       "monogram": "ST",
       "display_title": "ORDAX Studio"
     },
