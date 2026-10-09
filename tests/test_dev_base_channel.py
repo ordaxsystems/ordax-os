@@ -127,6 +127,59 @@ def write_provenance_fixture(root: Path, source_commit: str = SOURCE):
 
 
 class DevBaseProducerTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "requires POSIX executable bits")
+    def test_full_build_accepts_flattened_apk_hardlinks_and_pins_unique_provenance(self):
+        # Reproduce the real CI failure: 390 references to 1 MiB make the
+        # pathname-sum exceed 320 MiB while only 1 MiB of payload is stored.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            kernel_dir, initramfs_dir, rootfs_dir, _kernel, _initramfs = (
+                write_provenance_fixture(root)
+            )
+            tree = rootfs_dir / "rootfs"
+            library = tree / "usr/lib"
+            library.mkdir(parents=True)
+            original = library / "shared.bin"
+            original.write_bytes(b"X" * (1024 * 1024))
+            for index in range(390):
+                os.link(original, library / f"alias-{index:04d}.bin")
+            provenance_path = rootfs_dir / "provenance.json"
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+            provenance["unique_regular_bytes"] += 1024 * 1024
+            provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+            self.assertGreater(
+                390 * (1024 * 1024), builder.MAX_ROOTFS_EXPANDED_BYTES
+            )
+            self.assertEqual(builder.validate_rootfs_source(rootfs_dir, SOURCE), tree)
+            out = root / "candidate"
+            builder.build(
+                source_commit=SOURCE,
+                kernel_dir=kernel_dir,
+                initramfs_dir=initramfs_dir,
+                rootfs_dir=rootfs_dir,
+                out_dir=out,
+            )
+            self.assertLess((out / "rootfs.tar").stat().st_size, 8 * 1024 * 1024)
+            self.assertEqual(builder.verify(out)["source_commit"], SOURCE)
+            self.assertEqual(
+                sum(m.islnk() for m in consumer._validate_rootfs_archive(out / "rootfs.tar")),
+                390,
+            )
+
+    @unittest.skipUnless(os.name == "posix", "requires POSIX executable bits")
+    def test_rejects_dev_base_provenance_size_drift_without_relaxing_limits(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rootfs_dir = write_rootfs_fixture(root)
+            provenance_path = rootfs_dir / "provenance.json"
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+            provenance["unique_regular_bytes"] += 1
+            provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+            with self.assertRaisesRegex(
+                builder.CandidateError, "unique bytes differ from provenance"
+            ):
+                builder.validate_rootfs_source(rootfs_dir, SOURCE)
+
     def test_large_hardlink_fanout_is_serialized_once_and_verified_by_both_sides(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
