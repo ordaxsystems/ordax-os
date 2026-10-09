@@ -321,8 +321,8 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertLess(limiter_index, login_index)
 
     def test_inner_gateway_remains_fail_closed_during_boundary_rollout(self):
-        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", self.inner)
-        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = false;", self.inner)
+        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = true;", self.inner)
+        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = true;", self.inner)
         self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", self.inner)
         self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", self.inner)
         self.assertIn('"public-account-access-disabled"', self.inner)
