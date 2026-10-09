@@ -710,3 +710,20 @@
 }
 .ordax-internet-find-status { font-size: .8rem; flex: 1 1 auto; }
 .ordax-internet-find-bar button { flex: 0 0 auto; min-width: 32px; }
+
+/* Per-profile search provider picker, sharing the existing toolbar tokens. */
+.ordax-internet-search-provider {
+  min-width: 0;
+  max-width: 142px;
+  flex: 0 1 142px;
+  border: 1px solid var(--ordax-border, rgba(130,144,170,.35));
+  border-radius: 8px;
+  background: var(--ordax-panel, transparent);
+  color: inherit;
+  font: inherit;
+  padding: 8px 5px;
+}
+.ordax-internet-search-provider:disabled { opacity: .6; }
+@container (max-width: 520px) {
+  .ordax-internet-search-provider { flex-basis: 104px; max-width: 104px; }
+}
