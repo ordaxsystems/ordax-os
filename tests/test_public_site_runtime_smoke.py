@@ -32,6 +32,17 @@ preview = load_module("ordax_public_site_preview_smoke", PREVIEW_PATH)
 
 
 class PublicSiteRuntimeSmokeTests(unittest.TestCase):
+    def test_account_assets_and_plan_catalog_are_derived_from_existing_owners(self):
+        self.assertEqual((self.out / "assets/ordax-landscape.png").read_bytes(), build.CANONICAL_WALLPAPER.read_bytes())
+        self.assertEqual((self.out / "assets/fonts" / build.CANONICAL_FONT.name).read_bytes(), build.CANONICAL_FONT.read_bytes())
+        self.assertEqual((self.out / "assets/fonts" / build.CANONICAL_FONT_LICENSE.name).read_bytes(), build.CANONICAL_FONT_LICENSE.read_bytes())
+        self.assertEqual((self.out / "assets/ordax-font.css").read_text(encoding="utf-8"), build.render_site_font_css())
+        account = (self.out / "conta/index.html").read_text(encoding="utf-8")
+        plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
+        for plan in plans:
+            self.assertIn("<li>" + plan["display_name"] + "</li>", account)
+        self.assertNotIn("<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->", account)
+
     def test_web_config_cannot_activate_an_unapproved_product(self):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "site"

@@ -617,6 +617,13 @@ Uma desconexão não prova revogação, e um cache de perfil não prova sessão 
 
 ### 8.2 Visão geral
 
+**Portal público — incremento solicitado em 09/10/2026:** Minha conta em
+`sites/public/conta/` segue o concept aprovado, com navegação responsiva, busca e
+seções de serviços. Usa a exportação de identidade visual do OS e os nomes do
+catálogo de entitlements; não duplica providers, preferências globais, billing ou
+controle de dispositivos. O portal não amplia as capacidades do app Conta da
+Surface. Disponibilidade e critérios de aceite estão em `docs/PUBLIC-SITE.md`.
+
 **Objetivo:** responder “quem está conectado e o que está sendo mantido entre dispositivos?”.
 
 **Sem provedor, na etapa atual:** estado honesto de indisponibilidade; indicação de que preferências/workspace permanecem locais; fila local, se exposta, descrita como preparação sem envio à nuvem. Detalhes técnicos ficam recolhidos.

@@ -45,6 +45,32 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 
 ### My account and Web entry — 2026-10-09 source candidate
 
+The user-approved account concept is implemented as a responsive product-facing
+dashboard: desktop lateral navigation and cards; mobile account shortcuts,
+compact service rows, section detail and a single shared navigation menu. Profile
+and session, plan, security, devices, storage/sync, integrations, preferences,
+activity/notifications, billing, privacy, Web entry and support are covered.
+Only existing session/logout and portal locale actions are operational;
+unsupported services have explicit availability, with no simulated profile,
+2FA toggle, device count, billing record, cloud usage or notification feed.
+Search filters service content; section navigation preserves browser history,
+direct links and keyboard focus. JavaScript-free navigation remains readable.
+
+The existing brand compiler exports typography, material and brand-fill tokens
+from `system/surface/ui/tokens.css`. Public build copies the exact original
+Surface symbol, landscape and Inter bytes and derives its local font declaration;
+no artwork or type palette is authored again in the portal. Marketing and
+credential pages retain their independent existing composition. The plan list
+is derived at build from `docs/contracts/entitlements.json`, not an additional
+commercial catalog. Locale selection uses the existing public i18n owner;
+it changes this browser's portal language, never device preferences.
+
+This is the explicit account-page request in the current product cycle, not
+activation of backend capabilities. Risks include narrow layouts, focus/history,
+contrast over art and drift between visual assets. Acceptance covers desktop,
+tablet, narrow mobile, search/no-results, section/menu keyboard behavior, locale,
+identity revalidation and deterministic build with byte-exact canonical assets.
+
 `/conta/` now presents a responsive account overview, the existing verified
 session/email and native sign-out action, an entry to `/web/`, and honest
 availability for plans, storage and device management. Personal data is hidden

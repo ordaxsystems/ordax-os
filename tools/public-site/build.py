@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import os
 import re
@@ -35,11 +36,15 @@ if _BRAND_SPEC is None or _BRAND_SPEC.loader is None:
 _BRAND_MODULE = importlib.util.module_from_spec(_BRAND_SPEC)
 _BRAND_SPEC.loader.exec_module(_BRAND_MODULE)
 render_site_css = _BRAND_MODULE.render_site_css
+render_site_font_css = _BRAND_MODULE.render_site_font_css
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "sites" / "public"
 CANONICAL_SYMBOL = ROOT / "system" / "surface" / "ui" / "brand" / "ordax-symbol.svg"
 PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.svg"
+CANONICAL_WALLPAPER = ROOT / "system/surface/ui/brand/midnight-landscape.png"
+CANONICAL_FONT = ROOT / "system/surface/ui/fonts/inter-latin-wght-normal.woff2"
+CANONICAL_FONT_LICENSE = ROOT / "third_party/licenses/Inter-OFL-1.1.txt"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
 LEGAL_READINESS = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 AUTH_HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
@@ -72,6 +77,7 @@ REQUIRED_FILES = (
     "conta/index.html",
     "web/index.html",
     "assets/account-dashboard.css",
+    "assets/account-portal.js",
     "licencas/index.html",
     "privacidade/index.html",
     "termos/index.html",
@@ -128,6 +134,18 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
     for path in files:
         suffix = path.suffix.lower()
         relative_path = path.relative_to(root).as_posix()
+        if suffix == ".txt":
+            if (root.resolve() == SOURCE.resolve()
+                    or relative_path != "assets/fonts/Inter-OFL-1.1.txt"
+                    or path.read_bytes() != CANONICAL_FONT_LICENSE.read_bytes()):
+                raise PublicSiteError("public font license must match its canonical owner")
+            continue
+        if suffix == ".woff2":
+            if (root.resolve() == SOURCE.resolve()
+                    or relative_path != "assets/fonts/" + CANONICAL_FONT.name
+                    or path.read_bytes() != CANONICAL_FONT.read_bytes()):
+                raise PublicSiteError("public font must be the generated canonical Surface asset")
+            continue
         if suffix == ".svg":
             # Only the generated copy of the canonical Surface symbol is
             # served. Never import arbitrary icons into the public origin.
@@ -301,9 +319,26 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
         # Its mask/symbol is exposed for UI composition; existing public HTML
         # and its in-progress layout remain untouched.
         shutil.copyfile(CANONICAL_SYMBOL, stage / PUBLIC_SYMBOL_PATH)
+        shutil.copyfile(CANONICAL_WALLPAPER, stage / "assets/ordax-landscape.png")
+        font_dir = stage / "assets/fonts"
+        font_dir.mkdir(exist_ok=True)
+        shutil.copyfile(CANONICAL_FONT, font_dir / CANONICAL_FONT.name)
+        shutil.copyfile(CANONICAL_FONT_LICENSE, font_dir / CANONICAL_FONT_LICENSE.name)
+        (stage / "assets/ordax-font.css").write_text(render_site_font_css(), encoding="utf-8")
         for page in stage.rglob("*.html"):
             try:
                 markup = render_public_html(page.read_text(encoding="utf-8"))
+                marker = "<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->"
+                if marker in markup:
+                    plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
+                    if page.relative_to(stage).as_posix() != "conta/index.html" or markup.count(marker) != 1:
+                        raise PublicSiteError("plan catalog has one public account presentation")
+                    labels = [plan["display_name"] for plan in plans]
+                    if not labels or any(not isinstance(label, str) or len(label) > 64 for label in labels):
+                        raise PublicSiteError("invalid canonical account plan names")
+                    markup = markup.replace(marker, '<ul class="plan-catalog">' + "".join(
+                        "<li>" + html.escape(label) + "</li>" for label in labels
+                    ) + "</ul>")
             except ValueError as exc:
                 raise PublicSiteError(str(exc)) from exc
             page.write_text(markup, encoding="utf-8")
@@ -403,6 +438,17 @@ def verify_bundle(out_dir: Path) -> dict:
         )
     if PUBLIC_SYMBOL_PATH not in actual or actual[PUBLIC_SYMBOL_PATH].read_bytes() != CANONICAL_SYMBOL.read_bytes():
         raise PublicSiteError("canonical OrdaX public symbol asset missing or stale")
+    for relative, canonical in (
+        ("assets/ordax-landscape.png", CANONICAL_WALLPAPER),
+        ("assets/fonts/" + CANONICAL_FONT.name, CANONICAL_FONT),
+        ("assets/fonts/" + CANONICAL_FONT_LICENSE.name, CANONICAL_FONT_LICENSE),
+    ):
+        if relative not in actual or actual[relative].read_bytes() != canonical.read_bytes():
+            raise PublicSiteError("canonical OrdaX public visual asset missing or stale")
+    if actual.get("assets/ordax-font.css") is None or actual["assets/ordax-font.css"].read_text(encoding="utf-8") != render_site_font_css():
+        raise PublicSiteError("canonical OrdaX public font declaration missing or stale")
+    if actual.get("assets/ordax-design-tokens.css") is None or actual["assets/ordax-design-tokens.css"].read_text(encoding="utf-8") != render_site_css():
+        raise PublicSiteError("canonical OrdaX public design tokens missing or stale")
 
     for relative, path in actual.items():
         payload = path.read_bytes()

@@ -3,7 +3,15 @@
 ## Public account and Web entry — 2026-10-09 source candidate
 
 The public portal now has a responsive My account overview at `/conta/` and a
-separate `/web/` entry. Account data comes only from the existing verified
+separate `/web/` entry.
+
+The account concept now uses the exact OS ribbon, landscape and Inter through
+the canonical brand build. It includes responsive service sections, search,
+deep links, keyboard focus and mobile navigation. Plan names are derived from
+entitlements; locale uses the existing portal owner. These are presentation
+capabilities, not activation of billing, profile editing or device control.
+
+Account data comes only from the existing verified
 same-origin session; native sign-out remains unchanged. Back navigation clears
 personal data and launch links before revalidation. Plans/storage/devices show
 availability without fabricated usage, permissions or assigned subscription.

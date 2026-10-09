@@ -108,13 +108,30 @@ class BrandPipelineTests(unittest.TestCase):
             self.assertNotIn("--account-bg:#", stylesheet)
             self.assertNotIn("--canvas:#080f19", stylesheet)
             self.assertIn(".brand-mark", stylesheet)
-        for route in ("login", "cadastro", "conta"):
+        for route in ("login", "cadastro"):
             html = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
             self.assertIn('class="brand-mark"', html)
             self.assertNotIn('ordax-symbol.svg', html)
         # Marketing landing and current brand artwork are untouched by this cutover.
         landing = (ROOT / "sites/public/assets/playground.css").read_text(encoding="utf-8")
         self.assertIn('body[data-page="landing"]', landing)
+
+    def test_account_concept_uses_canonical_visual_assets_and_no_second_palette(self):
+        import re
+        css = (ROOT / "sites/public/assets/account-dashboard.css").read_text(encoding="utf-8")
+        self.assertNotRegex(css, r"#[0-9a-fA-F]{3,8}\b")
+        self.assertNotRegex(css, r"--ordax-[a-z-]+\s*:")
+        for name in ("brand-fill", "font", "wallpaper-scrim", "shadow", "border-soft", "focus"):
+            self.assertIn(f"var(--ordax-{name})", css)
+            self.assertIn(f"--ordax-{name}:", brand.render_site_css())
+        for route in ("conta", "web"):
+            markup = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
+            self.assertIn('class="ordax-symbol"', markup)
+            self.assertIn('/assets/ordax-font.css', markup)
+        font = brand.render_site_font_css()
+        canonical = re.search(r"@font-face\s*\{[^{}]+\}", brand.TOKENS.read_text(encoding="utf-8")).group()
+        self.assertIn(canonical, font)
+        self.assertNotIn("https://", font)
 
     def test_account_and_portal_materials_follow_surface_semantics(self):
         import re
