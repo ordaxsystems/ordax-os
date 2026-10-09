@@ -1,0 +1,72 @@
+name: Native Project Authority Cutover
+
+on:
+  pull_request:
+    paths:
+      - 'system/composition/native/projects-authority.mjs'
+      - 'system/services/files/native-project-catalog-runtime.mjs'
+      - 'system/services/files/native-project-state-migration.mjs'
+      - 'system/adapters/native/project-state.mjs'
+      - 'system/surface/runtime/native_project_state.py'
+      - 'system/surface/runtime/native_project_endpoint.py'
+      - 'system/surface/runtime/native_project_host.py'
+      - 'system/surface/runtime/native_app_data_runtime.py'
+      - 'system/surface/runtime/native_host_server.py'
+      - 'system/composition/native/main.mjs'
+      - 'docs/contracts/project-native-state.json'
+      - 'tests/test_native_project_authority_cutover.mjs'
+      - 'tests/test_native_project_host.py'
+      - '.github/workflows/native-project-authority-cutover.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/composition/native/projects-authority.mjs'
+      - 'system/services/files/native-project-catalog-runtime.mjs'
+      - 'system/services/files/native-project-state-migration.mjs'
+      - 'system/adapters/native/project-state.mjs'
+      - 'system/surface/runtime/native_project_state.py'
+      - 'system/surface/runtime/native_project_endpoint.py'
+      - 'system/surface/runtime/native_project_host.py'
+      - 'system/surface/runtime/native_app_data_runtime.py'
+      - 'system/surface/runtime/native_host_server.py'
+      - 'system/composition/native/main.mjs'
+      - 'docs/contracts/project-native-state.json'
+      - 'tests/test_native_project_authority_cutover.mjs'
+      - 'tests/test_native_project_host.py'
+      - '.github/workflows/native-project-authority-cutover.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authority-cutover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate cutover composition syntax
+        run: |
+          set -euo pipefail
+          node --check system/composition/native/projects-authority.mjs
+          node --check tests/test_native_project_authority_cutover.mjs
+          python -m py_compile \
+            system/surface/runtime/native_project_state.py \
+            system/surface/runtime/native_project_endpoint.py \
+            system/surface/runtime/native_project_host.py \
+            system/surface/runtime/native_app_data_runtime.py \
+            tests/test_native_project_host.py
+
+      - name: Prove migration precedes Native authority with no legacy fallback
+        run: |
+          set -euo pipefail
+          node --test tests/test_native_project_authority_cutover.mjs
+
+      - name: Prove typed Project route on canonical Native host
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_native_project_host -v

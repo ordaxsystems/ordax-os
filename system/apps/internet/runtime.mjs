@@ -56,6 +56,7 @@ export const componentRuntime = Object.freeze({
     browserSession,
     surfaceLifecycle,
     projects = null,
+    projectMutations = null,
     projectReferences = null,
     createFavoritesStore = null,
     createHistoryStore = null,
@@ -104,7 +105,7 @@ export const componentRuntime = Object.freeze({
         root,
         browserSession,
         surfaceLifecycle,
-        { projects, projectReferences, favorites, history },
+        { projects, projectMutations, projectReferences, favorites, history },
       );
       shortcuts = enableShortcuts
         ? mountInternetBrowserShortcuts(root, browserSession)

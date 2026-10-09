@@ -17,7 +17,8 @@ class HomeContinuationContractTests(unittest.TestCase):
 
     def test_home_consumes_existing_owners_without_becoming_another_store(self):
         source = self.source()
-        self.assertIn("assertProjectCatalogPort", source)
+        self.assertIn("assertProjectCatalogReader", source)
+        self.assertNotIn("assertProjectCatalogPort", source)
         self.assertIn("assertRecentFilesPort", source)
         self.assertIn("projectPort?.getSnapshot()", source)
         self.assertIn("recentPort?.getSnapshot()", source)

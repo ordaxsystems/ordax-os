@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 
 import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import { PROJECT_MUTATIONS_SCHEMA } from "../system/contracts/project-mutations.mjs";
 import { createProjectCatalogRuntime } from "../system/services/files/projects.mjs";
 import { createProjectContinuityFileSpace } from "../system/services/files/project-continuity-file-space.mjs";
 
@@ -65,6 +65,20 @@ function createFileSpace({ failRename = false, failMove = false, failTrash = fal
   return Object.freeze({ port: Object.freeze(port), calls });
 }
 
+function projectMutations(projects, overrides = {}) {
+  return Object.freeze({
+    schema: PROJECT_MUTATIONS_SCHEMA,
+    create: (...args) => projects.create(...args),
+    rename: (...args) => projects.rename(...args),
+    recordOpened: (...args) => projects.recordOpened(...args),
+    recordFileOpened: (...args) => projects.recordFileOpened(...args),
+    clearLastFile: (...args) => projects.clearLastFile(...args),
+    relocateLastFilePath: (...args) => projects.relocateLastFilePath(...args),
+    remove: (...args) => projects.remove(...args),
+    ...overrides,
+  });
+}
+
 function createProjectWithLastFile(filePath = "/Documentos/A/pasta/contexto.txt") {
   let clock = 100;
   const projects = createProjectCatalogRuntime({ now: () => clock++ });
@@ -74,10 +88,16 @@ function createProjectWithLastFile(filePath = "/Documentos/A/pasta/contexto.txt"
   return projects;
 }
 
+function decorate(port, projects, overrides = {}) {
+  return createProjectContinuityFileSpace(port, projects, {
+    projectMutations: projectMutations(projects, overrides),
+  });
+}
+
 test("rename and move relocate project continuity only after file-space success", async () => {
   const projects = createProjectWithLastFile();
   const { port } = createFileSpace();
-  const files = createProjectContinuityFileSpace(port, projects);
+  const files = decorate(port, projects);
 
   await files.renameEntry("/Documentos/A", "pasta", "renomeada");
   let projectA = projects.getSnapshot().projects.find((project) => project.id === "project-1");
@@ -93,14 +113,14 @@ test("rename and move relocate project continuity only after file-space success"
 test("trash clears affected project continuity only after file-space success", async () => {
   const projects = createProjectWithLastFile();
   const { port } = createFileSpace();
-  const files = createProjectContinuityFileSpace(port, projects);
+  const files = decorate(port, projects);
 
   await files.trashEntry("/Documentos/A", "pasta");
   const projectA = projects.getSnapshot().projects.find((project) => project.id === "project-1");
   assert.equal(projectA.lastFilePath, null);
 
   const failedProjects = createProjectWithLastFile();
-  const failedFiles = createProjectContinuityFileSpace(
+  const failedFiles = decorate(
     createFileSpace({ failTrash: true }).port,
     failedProjects,
   );
@@ -115,7 +135,7 @@ test("trash clears affected project continuity only after file-space success", a
 test("trash listing and restore are proxied without inventing project continuity", async () => {
   const projects = createProjectWithLastFile();
   const { port, calls } = createFileSpace();
-  const files = createProjectContinuityFileSpace(port, projects);
+  const files = decorate(port, projects);
   const before = projects.getSnapshot();
 
   await files.listTrash();
@@ -132,7 +152,7 @@ test("copy never changes project continuity", async () => {
   const projects = createProjectWithLastFile();
   const before = projects.getSnapshot();
   const { port } = createFileSpace();
-  const files = createProjectContinuityFileSpace(port, projects);
+  const files = decorate(port, projects);
 
   await files.copyFile("/Documentos/A/pasta", "contexto.txt", "/Documentos/B", "copia.txt");
   assert.deepEqual(projects.getSnapshot(), before);
@@ -140,7 +160,7 @@ test("copy never changes project continuity", async () => {
 
 test("failed file operations never mutate project continuity", async () => {
   const renameProjects = createProjectWithLastFile();
-  const renameFiles = createProjectContinuityFileSpace(
+  const renameFiles = decorate(
     createFileSpace({ failRename: true }).port,
     renameProjects,
   );
@@ -152,7 +172,7 @@ test("failed file operations never mutate project continuity", async () => {
   assert.deepEqual(renameProjects.getSnapshot(), beforeRename);
 
   const moveProjects = createProjectWithLastFile();
-  const moveFiles = createProjectContinuityFileSpace(
+  const moveFiles = decorate(
     createFileSpace({ failMove: true }).port,
     moveProjects,
   );
@@ -164,17 +184,16 @@ test("failed file operations never mutate project continuity", async () => {
   assert.deepEqual(moveProjects.getSnapshot(), beforeMove);
 });
 
-test("project continuity failure is fail-soft after a completed file operation", async () => {
+test("async project continuity failure is fail-soft after a completed file operation", async () => {
   const projects = createProjectWithLastFile();
-  const throwingProjects = Object.freeze({
-    ...projects,
-    relocateLastFilePath() {
-      throw new Error("private project-store detail");
-    },
-  });
   const errors = [];
   const { port } = createFileSpace();
-  const files = createProjectContinuityFileSpace(port, throwingProjects, {
+  const files = createProjectContinuityFileSpace(port, projects, {
+    projectMutations: projectMutations(projects, {
+      async relocateLastFilePath() {
+        throw new Error("private project-store detail");
+      },
+    }),
     onContinuityError(error) {
       errors.push(error);
       throw new Error("diagnostic reporter failed too");
@@ -187,8 +206,16 @@ test("project continuity failure is fail-soft after a completed file operation",
   assert.match(errors[0].message, /private project-store detail/);
 });
 
+test("continuity refuses reader without matching mutation authority", () => {
+  const projects = createProjectWithLastFile();
+  const { port } = createFileSpace();
+  assert.throws(
+    () => createProjectContinuityFileSpace(port, projects),
+    /reader and mutation authority together/,
+  );
+});
+
 test("without a project catalog the decorator preserves the original file-space identity", () => {
   const { port } = createFileSpace();
   assert.equal(createProjectContinuityFileSpace(port, null), port);
 });
-

@@ -30,7 +30,7 @@ import {
   validateSpaceSelectionSnapshot,
 } from "../../contracts/space-selection.mjs";
 import {
-  assertProjectCatalogPort,
+  assertProjectCatalogReader,
   validateProjectCatalogSnapshot,
 } from "../../contracts/project-catalog.mjs";
 import {
@@ -207,7 +207,7 @@ export function createPersonalOrdaxRuntime({
   }
   const identity = assertIdentitySessionPort(identitySessionPort);
   const selection = spaceSelectionPort === null ? null : assertSpaceSelectionPort(spaceSelectionPort);
-  const projects = projectCatalogPort === null ? null : assertProjectCatalogPort(projectCatalogPort);
+  const projects = projectCatalogPort === null ? null : assertProjectCatalogReader(projectCatalogPort);
   const intelligence = intelligencePort === null ? null : assertIntelligencePort(intelligencePort);
   const actionGateway = actionGatewayPort === null ? null : assertActionGateway(actionGatewayPort);
   if (revokeGrant !== null && typeof revokeGrant !== "function") {

@@ -6,7 +6,7 @@ import {
   validateProjectCloudLinksSnapshot,
 } from "../../contracts/project-cloud-links.mjs";
 import {
-  assertProjectCatalogPort,
+  assertProjectCatalogReader,
   validateProjectId,
 } from "../../contracts/project-catalog.mjs";
 import {
@@ -39,7 +39,7 @@ export function createProjectCloudLinksRuntime({
   store = null,
   now = Date.now,
 } = {}) {
-  const projectCatalog = assertProjectCatalogPort(projects);
+  const projectCatalog = assertProjectCatalogReader(projects);
   const durableStore = store === null ? null : assertProjectCloudLinkStore(store);
   if (typeof now !== "function") {
     throw new TypeError("Project cloud links runtime requires a clock");

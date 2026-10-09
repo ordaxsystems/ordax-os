@@ -1,5 +1,5 @@
 import {
-  assertProjectCatalogPort,
+  assertProjectCatalogReader,
   validateProjectCatalogSnapshot,
 } from "../../../contracts/project-catalog.mjs";
 import {
@@ -155,7 +155,7 @@ export function mountProjectsWorkspaceControls(
   if (!root || typeof root.querySelector !== "function" || !root.ownerDocument) {
     throw new TypeError("Projects workspace requires a Surface root");
   }
-  const projectPort = projects === null ? null : assertProjectCatalogPort(projects);
+  const projectPort = projects === null ? null : assertProjectCatalogReader(projects);
   const cloudPort = projectCloudLinks === null
     ? null
     : assertProjectCloudLinksReaderPort(projectCloudLinks);

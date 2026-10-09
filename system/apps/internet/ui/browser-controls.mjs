@@ -4,7 +4,8 @@ import {
   validateBrowserFavoriteUrl,
 } from "../../../contracts/browser-favorites.mjs";
 import { assertBrowserHistoryPort } from "../../../contracts/browser-history.mjs";
-import { assertProjectCatalogPort } from "../../../contracts/project-catalog.mjs";
+import { assertProjectCatalogReader } from "../../../contracts/project-catalog.mjs";
+import { assertProjectMutations } from "../../../contracts/project-mutations.mjs";
 import {
   assertProjectWebReferencePort,
   validateProjectWebUrl,
@@ -306,6 +307,7 @@ export function mountInternetBrowserControls(
   surfaceLifecycle,
   {
     projects = null,
+    projectMutations = null,
     projectReferences = null,
     favorites = null,
     history = null,
@@ -317,7 +319,11 @@ export function mountInternetBrowserControls(
   const localization = lifecycle.localization;
   const t = localization.translate;
   const locale = () => localization.getLocale();
-  const projectPort = projects === null ? null : assertProjectCatalogPort(projects);
+  if ((projects === null) !== (projectMutations === null)) {
+    throw new TypeError("Internet Project context requires reader and mutation authority together");
+  }
+  const projectReader = projects === null ? null : assertProjectCatalogReader(projects);
+  const projectMutationPort = projectMutations === null ? null : assertProjectMutations(projectMutations);
   const referencePort = projectReferences === null
     ? null
     : assertProjectWebReferencePort(projectReferences);
@@ -326,7 +332,7 @@ export function mountInternetBrowserControls(
   const documentObject = root.ownerDocument;
   const windowObject = documentObject.defaultView;
   let snapshot = port.getSnapshot();
-  let projectSnapshot = projectPort?.getSnapshot() ?? null;
+  let projectSnapshot = projectReader?.getSnapshot() ?? null;
   let referenceSnapshot = referencePort?.getSnapshot() ?? null;
   let favoriteSnapshot = favoritePort?.getSnapshot() ?? null;
   let historySnapshot = historyPort?.getSnapshot() ?? null;
@@ -954,7 +960,7 @@ export function mountInternetBrowserControls(
     ensureTab();
   };
 
-  const onClick = (event) => {
+  const onClick = async (event) => {
     const target = event.target.closest("button");
     if (!target || !root.contains(target)) return;
     const slot = findSlot();
@@ -1030,12 +1036,14 @@ export function mountInternetBrowserControls(
 
     const projectId = target.dataset.browserProjectId;
     if (projectId) {
-      if (!projectPort) return;
+      if (!projectReader || !projectMutationPort) return;
       try {
-        projectPort.recordOpened(projectId);
+        projectSnapshot = await projectMutationPort.recordOpened(projectId);
+        if (destroyed) return;
         selectedProjectId = projectId;
         clearMessage();
       } catch (error) {
+        if (destroyed) return;
         if (error instanceof Error && error.message) setExternalMessage(error.message);
         else setMessage("internet.project.openFailed");
       }
@@ -1048,7 +1056,7 @@ export function mountInternetBrowserControls(
       const tab = activeTab();
       const url = activeReferenceUrl();
       const project = selectedProject();
-      if (!referencePort || !project || !tab || !url) return;
+      if (!referencePort || !projectMutationPort || !project || !tab || !url) return;
       try {
         referencePort.save({
           projectId: project.id,
@@ -1056,13 +1064,15 @@ export function mountInternetBrowserControls(
           title: tab.title || displayHost(url, t("internet.tab.new")),
           note: noteDraftValue,
         });
-        projectPort?.recordOpened(project.id);
+        projectSnapshot = await projectMutationPort.recordOpened(project.id);
+        if (destroyed) return;
         setMessage(
           referenceSnapshot?.persistence === "session"
             ? "internet.reference.savedSession"
             : "internet.reference.savedProject",
         );
       } catch (error) {
+        if (destroyed) return;
         if (error instanceof Error && error.message) setExternalMessage(error.message);
         else setMessage("internet.reference.saveFailed");
       }
@@ -1238,7 +1248,7 @@ export function mountInternetBrowserControls(
       pendingTabFocusId = null;
     }
   });
-  const unsubscribeProjects = projectPort?.subscribe((nextSnapshot) => {
+  const unsubscribeProjects = projectReader?.subscribe((nextSnapshot) => {
     projectSnapshot = nextSnapshot;
     if (selectedProjectId && !nextSnapshot.projects.some((project) => project.id === selectedProjectId)) {
       selectedProjectId = null;

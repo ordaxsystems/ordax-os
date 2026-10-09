@@ -1,5 +1,5 @@
 import {
-  assertProjectCatalogPort,
+  assertProjectCatalogReader,
   validateProjectCatalogSnapshot,
 } from "../../contracts/project-catalog.mjs";
 import {
@@ -114,7 +114,7 @@ export function mountHomeContinuation(
   { projects = null, recentFiles = null, surfaceLifecycle = null } = {},
 ) {
   const root = assertHomeRoot(rootValue);
-  const projectPort = projects === null ? null : assertProjectCatalogPort(projects);
+  const projectPort = projects === null ? null : assertProjectCatalogReader(projects);
   const recentPort = recentFiles === null ? null : assertRecentFilesPort(recentFiles);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;

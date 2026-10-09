@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Run the canonical Native host with private current-boot App Data authority.
+"""Run the canonical Native host with private App Data and Project authority.
 
 This entrypoint composes the existing Native host with the receipt-bound App
-Data route. Stable/MVP publishes the already-verified opaque binding descriptors
-only through a root-owned one-shot tmpfs handoff consumed by the privileged
-WebKit host; apps never receive those descriptors directly.
+Data route and the typed durable Project state route on the same trusted
+loopback origin. Stable/MVP publishes verified opaque App Data descriptors only
+through a root-owned one-shot tmpfs handoff; Projects remain platform-owned and
+are never retargeted by request data.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ import os
 import sys
 from functools import partial
 
-from native_app_data_host import NativeAppDataHostHandler, NativeAppDataHostServer
 from native_app_data_port_bootstrap import (
     DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
     NativeAppDataPortBootstrapError,
@@ -31,6 +31,7 @@ from native_host_server import (
     parse_args,
     start_telemetry_heartbeat,
 )
+from native_project_host import NativeProjectHostHandler, NativeProjectHostServer
 
 TRUSTED_STATE_UID = 0
 
@@ -90,8 +91,8 @@ def main() -> int:
             flush=True,
         )
 
-    handler = partial(NativeAppDataHostHandler, directory=args.directory)
-    server = NativeAppDataHostServer(
+    handler = partial(NativeProjectHostHandler, directory=args.directory)
+    server = NativeProjectHostServer(
         (args.bind, args.port),
         handler,
         user_root=args.user_root,
@@ -127,7 +128,7 @@ def main() -> int:
         ValueError,
     ) as exc:
         print(
-            f"ordax-native-host: refusing App Data startup: {exc}",
+            f"ordax-native-host: refusing private-state startup: {exc}",
             file=sys.stderr,
             flush=True,
         )
@@ -136,7 +137,7 @@ def main() -> int:
 
     telemetry_started = start_telemetry_heartbeat(args.telemetry_config)
     print(
-        "ordax-native-host: serving %s on %s:%d; user root=%s; power actions=%s; recovery-generation=%d; telemetry=%s; private-app-data-bindings=%d"
+        "ordax-native-host: serving %s on %s:%d; user root=%s; power actions=%s; recovery-generation=%d; telemetry=%s; private-app-data-bindings=%d; project-state=native-cas"
         % (
             args.directory,
             args.bind,
