@@ -8,7 +8,7 @@ import {
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs";
-import { PUBLIC_SIGNUP_REDIRECT, parseSignupConfirmation } from "../_shared/account_email_confirmation.mjs";
+import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, parseSignupConfirmation } from "../_shared/account_email_confirmation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
