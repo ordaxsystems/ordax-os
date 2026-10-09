@@ -454,7 +454,7 @@
     ["Preferências compartilhadas, aparência e rede do OrdaX.", "Shared OrdaX preferences, appearance, and network."],
     ["Identidade, acesso e continuidade segura entre os modos do OrdaX.", "Identity, access, and secure continuity across OrdaX modes."],
     ["Aplicativos OrdaX", "OrdaX applications"],
-    ["Descubra aplicativos verificados e solicite instalação pelo lifecycle da plataforma.", "Discover verified apps and request installation through the platform lifecycle."]
+    ["Descubra aplicativos verificados e solicite instalação pelo lifecycle da plataforma.", "Discover verified apps and request installation through the platform lifecycle."],
     ["Como a Conta OrdaX utiliza e protege dados pessoais.", "How the OrdaX Account uses and protects personal information."],
     ["Política de Privacidade — OrdaX", "Privacy Policy — OrdaX"],
     ["CONTA ORDA X · DOCUMENTO VIGENTE", "ORDA X ACCOUNT · CURRENT DOCUMENT"],
