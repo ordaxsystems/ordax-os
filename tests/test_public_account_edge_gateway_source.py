@@ -86,7 +86,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertNotIn("authorization", request_headers.lower())
         self.assertIn('headers.set("x-ordax-public-site", "1")', self.edge)
         self.assertIn('headers.set("apikey", serverSecret)', self.edge)
-        self.assertIn("headers: upstreamHeaders(req, publicBridgeKey())", self.edge)
+        self.assertIn("headers: upstreamHeaders(req, bridgeKey)", self.edge)
         self.assertIn("function serverSecretKey()", self.edge)
         self.assertIn('import { accountBridgeSecret } from "../_shared/account_service_bridge.mjs"', self.edge)
         self.assertNotIn("headers: upstreamHeaders(req, serverSecretKey())", self.edge)
