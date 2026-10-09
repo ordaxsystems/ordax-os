@@ -128,6 +128,25 @@ It is currently a baseline capability of `usb` and `native-disk`. The Web mode i
 
 Desktop and mobile remain unclaimed until their adapters provide an equivalent isolation contract.
 
+## Navegação e busca na barra de endereço
+
+A barra única do OrdaX Internet agora distingue endereços HTTP(S) explícitos,
+domínios públicos digitados sem protocolo e consultas de pesquisa. A política
+tipada é `system/contracts/browser-navigation.mjs` e é reutilizada pelos
+controles compartilhados; não existe parser de endereços paralelo na UI.
+
+- Domínios digitados sem protocolo usam HTTPS; endereços HTTP(S) mantêm o protocolo informado.
+- Consultas textuais usam o provedor inicial DuckDuckGo, declarado uma única vez no contrato; ainda não há seletor persistido de provedor.
+- Links internos de outros aplicativos devem solicitar navegação explícita e **não** se transformam silenciosamente em consultas de pesquisa.
+- Esquemas não web, URLs com credenciais, entradas malformadas, caracteres de controle e campos excessivos falham antes de chegar ao host.
+- O host Native/WebKit continua sendo a autoridade de rede; a resolução no chrome não concede acesso a localhost, IPs privados ou aos recursos privilegiados do sistema.
+- O host agora recusa adicionalmente credenciais em URLs externas, barras invertidas e controles, inclusive em requisições de recursos.
+
+**Provas:** `node --test tests/test_internet_navigation.mjs` e
+`python3 -m unittest tests.test_internet_browser_contract`, além da verificação
+física já documentada abaixo. A presença dos testes não significa que foram
+executados em hardware neste PR.
+
 ## First implementation slice
 
 Implemented in source:
