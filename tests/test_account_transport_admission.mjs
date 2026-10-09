@@ -69,7 +69,7 @@ test("public bridge is constrained to same exact route policy at all three hops"
   for (const [method, path] of denied) {
     assert.equal(isPublicBridgeRoute(method, path), false, method + " " + path);
     const result = await authorizeAccountTransport(
-      make("/auth/session", method === "DELETE" ? "GET" : method,
+      make("/auth/session", method,
         { "x-ordax-public-site": "1", apikey: bridgeKey }),
       path, { rawBridgeSecretKeys: bridgeEnv },
     );
