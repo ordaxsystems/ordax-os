@@ -5,7 +5,7 @@ import re
 import stat
 
 MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
-MAX_DOWNLOAD_NAME_LENGTH = 120
+MAX_DOWNLOAD_NAME_LENGTH = 90  # prefix download-<16-hex>- keeps full filename below 120
 SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,119}$")
 OPAQUE_ID_RE = re.compile(r"^download-[0-9a-f]{16}$")
 
