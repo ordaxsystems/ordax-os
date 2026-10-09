@@ -48,9 +48,7 @@ class VercelIdentityPreflightTests(unittest.TestCase):
 
     def test_legacy_team_cannot_be_target(self):
         contract = json.loads(json.dumps(self.contract))
-        historical = contract["public_edge_gateway"]["oidc_issuer"].removeprefix(
-            "https://oidc.vercel.com/"
-        )
+        historical = contract["vercel_migration"]["historical_team_slug"]
         self.assertNotEqual(historical, contract["vercel_migration"]["target_team_slug"])
         contract["vercel_migration"]["target_team_slug"] = historical
         contract["vercel_adapter"]["team"] = historical
@@ -64,11 +62,23 @@ class VercelIdentityPreflightTests(unittest.TestCase):
             self.module.build_candidate(contract, "https://ordax.com.br")
 
     def test_legacy_team_evidence_must_be_valid(self):
-        for old_issuer in (None, "", "http://oidc.vercel.com/old-team",
-                           "https://oidc.vercel.com/old/team"):
+        for legacy in (None, "", "http://oidc.vercel.com/old-team", "old/team"):
             contract = json.loads(json.dumps(self.contract))
-            contract["public_edge_gateway"]["oidc_issuer"] = old_issuer
-            with self.assertRaisesRegex(ValueError, "(issuer-evidence|invalid-legacy)"):
+            contract["vercel_migration"]["historical_team_slug"] = legacy
+            with self.assertRaisesRegex(ValueError, "invalid-legacy-team-evidence"):
+                self.module.build_candidate(contract, "https://ordax.com.br")
+
+    def test_current_public_edge_claims_must_match_target(self):
+        for name, bad in (
+            ("oidc_issuer", "https://oidc.vercel.com/other-team"),
+            ("oidc_audience", "https://vercel.com/other-team"),
+            ("oidc_subject", "owner:other-team:project:ordax-os-public:environment:production"),
+        ):
+            contract = json.loads(json.dumps(self.contract))
+            contract["public_edge_gateway"][name] = bad
+            with self.subTest(name=name), self.assertRaisesRegex(
+                ValueError, "canonical-public-edge-oidc-mismatch"
+            ):
                 self.module.build_candidate(contract, "https://ordax.com.br")
 
     def test_preview_or_shared_secret_fallback_cannot_be_enabled(self):
