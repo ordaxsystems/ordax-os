@@ -73,7 +73,7 @@ def public_network_uri(uri: str, schemes: frozenset[str]) -> bool:
         return False
     # URL parsers and WebKit can interpret backslashes, embedded controls and
     # userinfo differently. Reject ambiguity before validating the destination.
-    if "\\\\" in uri or any(ord(char) < 0x20 or ord(char) == 0x7f for char in uri):
+    if "\\" in uri or any(ord(char) < 0x20 or ord(char) == 0x7f for char in uri):
         return False
     try:
         parsed = urlsplit(uri)
