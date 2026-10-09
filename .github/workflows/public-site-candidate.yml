@@ -33,6 +33,7 @@ on:
       - 'docs/contracts/build-autonomy.json'
       - 'docs/BUILD-AUTONOMY.md'
       - 'tests/test_public_site_contract.py'
+      - 'tests/test_public_account_entry_ux.py'
       - 'tests/test_public_site_localization.mjs'
       - 'tests/test_public_site_localization_runtime.mjs'
       - 'tests/test_public_release_catalog.py'
@@ -98,6 +99,7 @@ on:
       - 'docs/contracts/build-autonomy.json'
       - 'docs/BUILD-AUTONOMY.md'
       - 'tests/test_public_site_contract.py'
+      - 'tests/test_public_account_entry_ux.py'
       - 'tests/test_public_site_localization.mjs'
       - 'tests/test_public_site_localization_runtime.mjs'
       - 'tests/test_public_release_catalog.py'
@@ -174,6 +176,7 @@ jobs:
           python -m unittest tests.test_account_release_database_proof -v
           python -m unittest tests.test_account_release_session_revocation_proof -v
           python -m unittest tests.test_public_site_contract -v
+          python -m unittest tests.test_public_account_entry_ux -v
           python -m unittest tests.test_public_release_catalog -v
           python -m unittest tests.test_public_identity_backend_prep -v
           python -m unittest tests.test_public_identity_gateway -v
