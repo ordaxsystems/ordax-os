@@ -1,5 +1,6 @@
 import { assertBrowserSessionPort } from "../../../contracts/browser-session.mjs";
 import { assertBrowserPageFindPort, MAX_BROWSER_PAGE_FIND_CHARS } from "../../../contracts/browser-page-find.mjs";
+import { assertBrowserDownloadPort } from "../../../contracts/browser-download.mjs";
 import { BROWSER_SEARCH_PROVIDERS, BROWSER_SEARCH_PROVIDER, resolveBrowserNavigation } from "../../../contracts/browser-navigation.mjs";
 import { assertBrowserSearchPreferencesPort } from "../../../contracts/browser-search-preferences.mjs";
 import {
@@ -190,8 +191,8 @@ function createToolbar(documentObject, t) {
   find.dataset.browserFindToggle = "";
   toolbar.append(form, providerSelect, find, iconButton(documentObject, "☆", t("internet.action.bookmark"), "bookmark"));
   const downloads = iconButton(documentObject, "⇩", t("internet.action.downloads"), "downloads");
-  downloads.disabled = true;
-  downloads.title = t("internet.downloads.pending");
+  downloads.dataset.browserDownloadsToggle = "";
+  downloads.setAttribute("aria-expanded", "false");
   const more = iconButton(documentObject, "⋮", t("internet.action.projectPanel"), "more");
   more.setAttribute("aria-controls", PROJECT_PANEL_ID);
   more.setAttribute("aria-expanded", "true");
@@ -368,7 +369,11 @@ function createView(documentObject, snapshot, t) {
   viewport.append(createHome(documentObject, snapshot.supported, snapshot.reason, t));
   center.append(viewport);
   body.append(createSidebar(documentObject, t), center, createProjectPanel(documentObject, t));
-  view.append(toolbar, createPageFindBar(documentObject, t), body);
+  const downloadsPanel = node(documentObject, "section", "ordax-internet-downloads-panel");
+  downloadsPanel.dataset.browserDownloadsPanel = "";
+  downloadsPanel.setAttribute("aria-label", t("internet.downloads.heading"));
+  downloadsPanel.hidden = true;
+  view.append(toolbar, downloadsPanel, createPageFindBar(documentObject, t), body);
   return view;
 }
 
@@ -384,6 +389,7 @@ export function mountInternetBrowserControls(
     searchPreferences = null,
     pageSelection = null,
     pageFind = null,
+    downloads = null,
     intelligence = null,
     identitySessionPort = null,
     spaceSelectionPort = null,
@@ -406,6 +412,7 @@ export function mountInternetBrowserControls(
     ? null : assertBrowserSearchPreferencesPort(searchPreferences);
   const selectionPort = pageSelection === null ? null : assertBrowserPageSelectionPort(pageSelection);
   const findPort = pageFind === null ? null : assertBrowserPageFindPort(pageFind);
+  const downloadPort = downloads === null ? null : assertBrowserDownloadPort(downloads);
   const intelligencePort = intelligence === null ? null : assertIntelligencePort(intelligence);
   const scopeIdentity = identitySessionPort === null ? null : assertIdentitySessionPort(identitySessionPort);
   const scopeSelection = spaceSelectionPort === null ? null : assertSpaceSelectionPort(spaceSelectionPort);
@@ -433,6 +440,8 @@ export function mountInternetBrowserControls(
   let pendingTabFocusId = null;
   let handledSurfaceTarget = null;
   let resizeObserver = null;
+  let downloadsExpanded = false;
+  const downloadRecords = new Map();
   let findOpen = false;
   let findQuery = "";
   let findTabId = null;
@@ -1025,6 +1034,47 @@ export function mountInternetBrowserControls(
       : "internet.searchProvider.session");
   };
 
+  const syncDownloads = (slot) => {
+    const toggle = slot.querySelector("[data-browser-downloads-toggle]");
+    if (toggle) {
+      toggle.disabled = !downloadPort;
+      toggle.setAttribute("aria-expanded", String(downloadsExpanded));
+      toggle.title = t(downloadPort ? "internet.downloads.heading" : "internet.downloads.pending");
+    }
+    const panel = slot.querySelector("[data-browser-downloads-panel]");
+    if (!panel) return;
+    panel.hidden = !downloadsExpanded || !downloadPort;
+    if (panel.hidden) return;
+    const heading = node(documentObject, "h3", "", t("internet.downloads.heading"));
+    const rows = [...downloadRecords.values()];
+    if (!rows.length) {
+      panel.replaceChildren(heading, node(documentObject, "p", "", t("internet.downloads.empty")));
+      return;
+    }
+    const items = rows.map((record) => {
+      const row = node(documentObject, "div", "ordax-internet-download-row");
+      const info = node(documentObject, "div", "ordax-internet-download-info");
+      info.append(
+        node(documentObject, "strong", "", record.fileName),
+        node(documentObject, "span", "", t("internet.downloads.status." + record.status)),
+      );
+      row.append(info);
+      if (record.status === "pending") {
+        const approve = node(documentObject, "button", "ordax-internet-download-approve",
+          t("internet.downloads.approve"));
+        approve.type = "button";
+        approve.dataset.browserDownloadApprove = record.id;
+        const cancel = node(documentObject, "button", "ordax-internet-download-cancel",
+          t("internet.downloads.cancel"));
+        cancel.type = "button";
+        cancel.dataset.browserDownloadCancel = record.id;
+        row.append(approve, cancel);
+      }
+      return row;
+    });
+    panel.replaceChildren(heading, ...items);
+  };
+
   const syncPageFind = (slot) => {
     const tab = activeTab();
     if (findOpen && (findTabId !== tab?.id || !tab?.url || tab.loading)) {
@@ -1152,6 +1202,7 @@ export function mountInternetBrowserControls(
     syncFavorites(slot);
     syncHistory(slot);
     syncSearchProvider(slot);
+    syncDownloads(slot);
     syncPageFind(slot);
     syncAssistance(slot);
     syncPanel(slot);
@@ -1216,6 +1267,32 @@ export function mountInternetBrowserControls(
     const slot = findSlot();
     if (!slot?.contains(target)) return;
 
+    if (target.dataset.browserDownloadsToggle !== undefined) {
+      if (!downloadPort) return;
+      downloadsExpanded = !downloadsExpanded;
+      render();
+      return;
+    }
+    const approvedId = target.dataset.browserDownloadApprove;
+    const cancelledId = target.dataset.browserDownloadCancel;
+    if (approvedId || cancelledId) {
+      if (!downloadPort) return;
+      const id = approvedId || cancelledId;
+      const existing = downloadRecords.get(id);
+      if (existing?.status !== "pending") return;
+      downloadRecords.set(id, {
+        ...existing, status: approvedId ? "downloading" : "cancelled",
+      });
+      render();
+      try {
+        if (approvedId) downloadPort.approve(id);
+        else downloadPort.cancel(id);
+      } catch {
+        downloadRecords.set(id, { ...existing, status: "failed" });
+        render();
+      }
+      return;
+    }
     if (target.dataset.browserFindToggle !== undefined) {
       if (findOpen) {
         clearPageFind();
@@ -1616,6 +1693,16 @@ export function mountInternetBrowserControls(
     historySnapshot = nextSnapshot;
     render();
   }) ?? (() => {});
+  const unsubscribeDownloads = downloadPort?.subscribe((event) => {
+    if (destroyed) return;
+    downloadRecords.delete(event.id);
+    downloadRecords.set(event.id, event);
+    while (downloadRecords.size > 8) {
+      downloadRecords.delete(downloadRecords.keys().next().value);
+    }
+    if (event.status === "pending") downloadsExpanded = true;
+    render();
+  }) ?? (() => {});
   const unsubscribeFind = findPort?.subscribe((result) => {
     if (!destroyed && findOpen && findTabId === result.tabId
         && snapshot.activeTabId === result.tabId && findQuery === result.query) {
@@ -1658,6 +1745,7 @@ export function mountInternetBrowserControls(
       unsubscribeHistory();
       unsubscribeSearchPreferences();
       unsubscribeFind();
+      unsubscribeDownloads();
       unsubscribeShortcutFind();
       clearPageFind();
       unsubscribeIntelligence();
