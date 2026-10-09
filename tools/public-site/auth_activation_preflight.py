@@ -79,6 +79,25 @@ def source_switches(root: Path) -> dict[str, bool]:
     return result
 
 
+def source_web_auth_only(root: Path) -> bool:
+    # This is a narrowly scoped candidate, NOT approval of the entire public
+    # Account MVP. Both implementations must agree or source validation fails.
+    edge_text = (root / EDGE).read_text(encoding="utf-8")
+    ref_text = (root / REFERENCE_GATEWAY).read_text(encoding="utf-8")
+    edge = re.findall(r"^const PUBLIC_WEB_AUTH_ENABLED = (true|false);$", edge_text, re.MULTILINE)
+    ref = re.findall(r"^PUBLIC_WEB_AUTH_ENABLED = (True|False)$", ref_text, re.MULTILINE)
+    if len(edge) != 1 or len(ref) != 1 or (edge[0] == "true") != (ref[0] == "True"):
+        raise ValueError("web-only-auth-switch-mismatch")
+    if edge[0] == "true":
+        # A positive source switch is not enough to enable every Account
+        # surface. Check that the exact method/path admission exists.
+        if "PUBLIC_WEB_AUTH_ROUTES.has(req.method + \" \" + path)" not in edge_text:
+            raise ValueError("web-only-auth-route-gate-missing")
+        if "PUBLIC_WEB_AUTH_ENABLED and (method, path) in PUBLIC_WEB_AUTH_ROUTES" not in ref_text:
+            raise ValueError("web-only-auth-reference-gate-missing")
+    return edge[0] == "true"
+
+
 def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     legal = load_json(root, LEGAL)
     hardening = load_json(root, HARDENING)
@@ -376,6 +395,23 @@ def main(argv: list[str] | None = None) -> int:
 
     enabled = sorted(name for name, value in controls.items() if value)
     disabled = sorted(name for name, value in controls.items() if not value)
+    try:
+        auth_only = source_web_auth_only(Path(args.root).resolve())
+    except (OSError, ValueError) as exc:
+        print(f"PUBLIC_AUTH_ACTIVATION_PREFLIGHT=FAIL reason={exc}", file=sys.stderr)
+        return 1
+
+    # A source candidate may enable only the identity endpoints without
+    # enabling sync, memory, export, recovery or the full public Account MVP.
+    # Full-release checks and the require-ready command remain fail closed.
+    if auth_only:
+        if enabled:
+            print("PUBLIC_AUTH_ACTIVATION_PREFLIGHT=UNSAFE_MIXED_AUTH_AND_MVP", file=sys.stderr)
+            return 1
+        if args.mode == "check":
+            print("PUBLIC_AUTH_ACTIVATION_PREFLIGHT=AUTH_ONLY_SOURCE_CANDIDATE")
+            print("PUBLIC_AUTH_OPERATIONAL_E2E_REQUIRED=true")
+            return 0
 
     if enabled and disabled:
         print("PUBLIC_AUTH_ACTIVATION_PREFLIGHT=UNSAFE_PARTIAL_ACTIVATION", file=sys.stderr)
