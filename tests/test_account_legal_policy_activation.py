@@ -281,7 +281,7 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
         self.assertIn("activate-reviewed-legal-policy", text)
         self.assertIn("refs/heads/main", text)
         self.assertIn("ordaxsystems/ordax-os", text)
-        self.assertIn("exact public document", (
+        self.assertIn("## Production publication attestation", (
             ROOT / "docs/PUBLIC-LEGAL-READINESS.md"
         ).read_text(encoding="utf-8"))
         self.assertIn("secrets.ORDAX_SUPABASE_SECRET_KEY", text)
