@@ -26,10 +26,27 @@ class AuthProviderProbeTests(unittest.TestCase):
     def test_ready_configuration_is_sanitized_and_green(self):
         proof = MODULE.evaluate(self.base_config(), "https://ordax.com.br")
         self.assertTrue(proof["ready"])
-        self.assertEqual(proof["$schema"], "prototype-ordax.auth-provider-proof/1")
+        self.assertEqual(proof["$schema"], "prototype-ordax.auth-provider-proof/2")
         self.assertEqual(proof["project_ref"], "redacted")
+        self.assertIsNone(proof["project_binding"])
+        self.assertIsNone(proof["source_commit"])
         self.assertEqual(proof["observed"]["password_min_length"], 12)
         self.assertNotIn("mailer_templates_recovery_content", proof)
+
+    def test_project_and_commit_binding_is_deterministic_and_validated(self):
+        ref, commit = "a" * 20, "b" * 40
+        proof = MODULE.evaluate(
+            self.base_config(), "https://ordax.com.br", project_ref=ref, commit=commit
+        )
+        self.assertEqual(proof["source_commit"], commit)
+        self.assertRegex(proof["project_binding"], r"^[0-9a-f]{64}$")
+        self.assertNotIn(ref, str(proof))
+        self.assertNotEqual(proof["project_binding"], MODULE.project_binding("c" * 20))
+        for invalid in ("../etc/passwd", "a" * 19, "a" * 20 + "/configuration"):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                MODULE.project_binding(invalid)
+        with self.assertRaises(ValueError):
+            MODULE.source_commit("not-a-commit")
 
     def test_autoconfirm_or_weak_password_blocks(self):
         config = self.base_config()
