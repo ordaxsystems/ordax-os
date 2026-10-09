@@ -6,12 +6,12 @@
   <meta name="description" content="Acesso seguro à Conta OrdaX.">
   <title>Entrar — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
-  <link rel="stylesheet" href="/assets/login.css?v=titanium-1">
+  <link rel="stylesheet" href="/assets/account.css?v=account-shell-1">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
   <script src="/assets/site.js?v=identity-copy-2" defer></script>
 </head>
-<body data-page="login">
+<body data-page="login" class="account-ui">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
   <header class="site-header">
     <a class="brand" href="/" aria-label="OrdaX — início"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a>
@@ -23,19 +23,25 @@
     <section class="login-story" aria-labelledby="login-story-title">
       <div class="story-copy">
         <p class="eyebrow">CONTA ORDA X</p>
-        <h1 id="login-story-title">Um acesso.<br><span>Seu OrdaX inteiro.</span></h1>
-        <p class="story-lead">Quando o acesso público for ativado, sua identidade poderá acompanhar projetos, preferências e dispositivos pelos modos OrdaX.</p>
-        <div class="mode-line" aria-label="Modos do produto"><span>Web</span><i></i><span>Mobile</span><i></i><span>Desktop</span><i></i><span>USB</span><i></i><span>Native</span></div>
+        <h1 id="login-story-title">Seu espaço.<br><span>Sua identidade.</span></h1>
+        <p class="story-lead">Sua Conta OrdaX reúne identidade e continuidade em um só lugar. O estado do acesso é verificado nesta página antes de liberar qualquer formulário.</p>
+        <ul class="account-benefits" aria-label="Recursos planejados para a Conta OrdaX">
+          <li><strong>01 / ACESSO</strong><span>Uma identidade para seus projetos</span></li>
+          <li><strong>02 / SEGURANÇA</strong><span>Sessão protegida pelo servidor</span></li>
+          <li><strong>03 / CONTROLE</strong><span>Recuperação e privacidade</span></li>
+        </ul>
       </div>
-      <div class="identity-promise"><span class="promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Uma identidade, com controle seu.</strong><p>Privacidade, sessão e recuperação seguem o mesmo contrato seguro em todos os modos.</p></div></div>
+      <div class="account-side-footer"><div class="identity-promise"><span class="promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Uma identidade, com controle seu.</strong><p>Privacidade, sessão e recuperação seguem o mesmo contrato seguro em todos os modos.</p></div></div>
+        <nav class="account-quicklinks" aria-label="Atalhos para sua conta"><a href="/cadastro/">Conhecer o cadastro</a><a href="/recuperar/">Recuperar acesso</a><a href="/privacidade/">Privacidade</a></nav>
+      </div>
       <div class="story-orbit" aria-hidden="true"><span></span><i></i></div>
     </section>
 
     <section class="login-access" aria-labelledby="auth-title">
       <div class="login-card">
-        <header class="login-card-header"><p class="eyebrow">ACESSO SEGURO</p><span aria-hidden="true">01</span></header>
+        <header class="login-card-header"><p class="eyebrow">ACESSO SEGURO</p><span class="account-card-index" aria-hidden="true">01 / 02</span></header>
         <h2 id="auth-title">Entrar na<br>Conta OrdaX.</h2>
-        <p class="login-intro">Continue de onde parou quando o acesso público estiver disponível.</p>
+        <p class="login-intro">A disponibilidade é confirmada pelo serviço real antes que você possa informar e-mail e senha.</p>
 
         <div class="identity-state" data-identity-state="login" aria-live="polite">
           <span class="state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span>
