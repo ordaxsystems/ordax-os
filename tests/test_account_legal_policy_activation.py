@@ -67,8 +67,8 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
             site = root / "public"
             (site / "privacidade").mkdir(parents=True)
             (site / "termos").mkdir(parents=True)
-            (site / "privacidade" / "index.html").write_bytes(b"privacy-final-v1\n")
-            (site / "termos" / "index.html").write_bytes(b"terms-final-v1\n")
+            (site / "privacidade" / "index.html").write_bytes(b"<html><head></head><body>privacy-final-v1</body></html>\n")
+            (site / "termos" / "index.html").write_bytes(b"<html><head></head><body>terms-final-v1</body></html>\n")
             legal.write_text(
                 json.dumps(
                     {
@@ -300,7 +300,7 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
             site = root / "public"
             policy = root / "legal.json"
             public_auth = root / "public-auth.json"
-            contents = {"privacy": b"<h1>Privacy final</h1>\n", "terms": b"<h1>Terms final</h1>\n"}
+            contents = {"privacy": b"<html><head></head><body>Privacy final</body></html>\n", "terms": b"<html><head></head><body>Terms final</body></html>\n"}
             for name, route in (("privacy", "privacidade"), ("terms", "termos")):
                 (site / route).mkdir(parents=True)
                 (site / route / "index.html").write_bytes(contents[name])
@@ -318,17 +318,21 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 "redirect_policy": {"origin": "https://ordax.com.br"}
             }), encoding="utf-8")
             import hashlib
+            emitted = {
+                name: activation.render_public_html(value.decode("utf-8")).encode("utf-8")
+                for name, value in contents.items()
+            }
             candidate = {
                 "origin": "https://ordax.com.br",
                 "privacy": {
                     "version": "p1", "effective_date": "2026-10-09",
                     "url": "https://ordax.com.br/privacidade/",
-                    "sha256": hashlib.sha256(contents["privacy"]).hexdigest(),
+                    "sha256": hashlib.sha256(emitted["privacy"]).hexdigest(),
                 },
                 "terms": {
                     "version": "t1", "effective_date": "2026-10-09",
                     "url": "https://ordax.com.br/termos/",
-                    "sha256": hashlib.sha256(contents["terms"]).hexdigest(),
+                    "sha256": hashlib.sha256(emitted["terms"]).hexdigest(),
                 },
             }
 
@@ -344,7 +348,7 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 def read(self, limit):
                     return self.data[:limit]
 
-            delivered = dict(contents)
+            delivered = dict(emitted)
             accessed = []
             class Opener:
                 def open(self, request, timeout):
@@ -371,7 +375,7 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 delivered["terms"] = b"Old, stale or replaced terms."
                 with self.assertRaisesRegex(SystemExit, "published-content-mismatch"):
                     activation.verify_published_legal_documents(candidate)
-                delivered["terms"] = contents["terms"]
+                delivered["terms"] = emitted["terms"]
 
                 bad_origin = dict(candidate, origin="https://old.invalid")
                 with self.assertRaisesRegex(SystemExit, "origin-mismatch"):
