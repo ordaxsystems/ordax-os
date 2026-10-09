@@ -39,6 +39,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             "system/contracts/app-store.mjs",
             "system/surface/ui/tokens.css",
             "system/surface/ui/brand/ordax-symbol.svg",
+            "system/surface/ui/brand/midnight-landscape.png",
             "system/surface/ui/surface.css",
             "system/surface/ui/files.css",
             "system/surface/ui/system.css",

@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import hashlib
 import xml.etree.ElementTree as ET
 import unittest
 
@@ -22,20 +23,20 @@ INTER_LICENSE = ROOT / "third_party" / "licenses" / "Inter-OFL-1.1.txt"
 
 
 class SurfaceVisualIdentityTests(unittest.TestCase):
-    def test_basalt_limestone_tokens_are_canonical(self):
+    def test_midnight_ice_tokens_are_canonical(self):
         tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
         self.assertNotIn("#ed4b25", tokens)
         for declaration in (
-            "--ordax-bg: #121613",
-            "--ordax-app-bg: #171c18",
-            "--ordax-panel: #222924",
-            "--ordax-text: #f2f0e7",
-            "--ordax-accent: #9acbb8",
-            "--ordax-bg: #eeeae1",
-            "--ordax-app-bg: #faf8f2",
-            "--ordax-panel: #fffdf8",
-            "--ordax-text: #252e28",
-            "--ordax-accent: #176b59",
+            "--ordax-bg: #0a0f1f",
+            "--ordax-app-bg: #111827",
+            "--ordax-panel: #161f33",
+            "--ordax-text: #e3f0ff",
+            "--ordax-accent: #8dbbff",
+            "--ordax-bg: #edf3fc",
+            "--ordax-app-bg: #f8fbff",
+            "--ordax-panel: #ffffff",
+            "--ordax-text: #14213b",
+            "--ordax-accent: #235ac0",
             "--ordax-font: Inter, system-ui, \"Segoe UI\", sans-serif",
             "--ordax-font-display: Inter, system-ui, \"Segoe UI\", sans-serif",
             "--ordax-motion-fast: 150ms",
@@ -76,7 +77,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             html = index.read_text(encoding="utf-8")
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
-            self.assertIn('name="theme-color" content="#eeeae1"', html)
+            self.assertIn('name="theme-color" content="#edf3fc"', html)
 
     def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
         css = (SURFACE / "identity.css").read_text(encoding="utf-8")
@@ -213,6 +214,18 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             self.assertNotIn('script', element.tag)
         for stylesheet in ('identity.css', 'boot-screen.css'):
             self.assertIn('./brand/ordax-symbol.svg', (SURFACE / stylesheet).read_text(encoding='utf-8'))
+
+    def test_original_wallpaper_is_pinned_and_shared_without_copying_reference_board(self):
+        wallpaper = (SURFACE / 'brand' / 'midnight-landscape.png').read_bytes()
+        self.assertEqual(wallpaper[:8], b'\x89PNG\r\n\x1a\n')
+        self.assertEqual(hashlib.sha256(wallpaper).hexdigest(),
+                         '805969ce2fb30001842a545c2dead4516285bcc4973a8673f66aa3599d2601ce')
+        css = (SURFACE / 'identity.css').read_text(encoding='utf-8')
+        self.assertIn('url("./brand/midnight-landscape.png")', css)
+        self.assertNotRegex(css, r'#[a-fA-F0-9]{3,8}\b')
+        provenance = (SURFACE / 'brand' / 'ARTWORK-SOURCE.md').read_text(encoding='utf-8')
+        self.assertIn(hashlib.sha256(wallpaper).hexdigest(), provenance)
+        self.assertIn('No text, logo, interface', provenance)
 
     def test_browser_smoke_exercises_shared_identity_layers(self):
         smoke = BROWSER_SMOKE.read_text(encoding="utf-8")

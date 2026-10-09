@@ -2,7 +2,7 @@
 
 ## Surface visual identity — 2026-10-09 source candidate
 
-Basalto (dark) and Calcário (light) replace the previous landing-derived palette in the shared Surface tokens/composition. The original local open-frame SVG is shared by the shell and loading screen; Settings previews use the same tokens and the existing `appearance.theme` owner. Light remains the default, and preference persistence, accessibility and account-sync authority are unchanged. See [DESKTOP-IDENTITY.md](DESKTOP-IDENTITY.md) for scope, acceptance and ownership. This source candidate does not activate a production release or establish physical-media evidence.
+Midnight (dark) and Ice (light) implement the approved ribbon/blue-violet visual direction in the shared Surface tokens/composition. The original local ribbon SVG is shared by the shell and loading screen; the generated landscape is a local offline asset with recorded provenance. Navigation, command search, Home shortcuts and the floating dock retain canonical state owners; Settings previews use the same tokens and the existing `appearance.theme` owner. Light remains the default, and preference persistence, accessibility and account-sync authority are unchanged. See [DESKTOP-IDENTITY.md](DESKTOP-IDENTITY.md) for scope, acceptance and ownership. This source candidate does not activate a production release or establish physical-media evidence.
 
 Status date: 2026-09-30
 

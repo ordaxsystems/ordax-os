@@ -52,7 +52,7 @@
 .ordax-boot-mark {
   width: 48px;
   height: 48px;
-  background: var(--ordax-accent);
+  background: var(--ordax-brand-fill);
   mask: url("./brand/ordax-symbol.svg") center / contain no-repeat;
   -webkit-mask: url("./brand/ordax-symbol.svg") center / contain no-repeat;
 }

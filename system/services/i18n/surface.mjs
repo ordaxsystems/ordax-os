@@ -24,6 +24,9 @@ export const SURFACE_ENGLISH_TARGET_LOCALE = "en-US";
 
 const SOURCE = Object.freeze({
   "shell.rail.aria": "Aplicativos principais",
+  "shell.home.title": "Início",
+  "shell.home.tagline": "Inteligência no centro.",
+  "shell.home.quickAccess": "Acesso rápido",
   "shell.home.loadingDate": "Carregando data…",
   "shell.launcher.command": "Abrir aplicativo…",
   "shell.space.title": "Seu espaço",
@@ -174,6 +177,9 @@ const SOURCE = Object.freeze({
 
 const ENGLISH = Object.freeze({
   "shell.rail.aria": "Main applications",
+  "shell.home.title": "Home",
+  "shell.home.tagline": "Intelligence at the core.",
+  "shell.home.quickAccess": "Quick access",
   "shell.home.loadingDate": "Loading date…",
   "shell.launcher.command": "Open application…",
   "shell.space.title": "Your space",

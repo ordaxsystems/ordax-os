@@ -654,6 +654,10 @@ class SurfaceUiContractTests(unittest.TestCase):
         for path in [item for root in roots for item in root.rglob("*")]:
             if not path.is_file():
                 continue
+            # Binary assets are discovered by the offline source graph, not decoded
+            # as source code. The wallpaper is independently pinned by SHA-256.
+            if path.suffix in ('.png', '.woff2'):
+                continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             # XML namespace identifiers do not request network resources.
             if path.suffix == '.svg':
@@ -707,10 +711,12 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("data-launcher-query", shell)
         self.assertIn("Ctrl + K", shell)
         self.assertIn("ordax-brand-symbol", shell)
-        self.assertIn("ordax-identity-art", shell)
-        self.assertIn("--ordax-accent: #9acbb8", tokens)
+        self.assertIn("ordax-home-hero", shell)
+        self.assertIn("data-show-desktop", shell)
+        self.assertIn("ordax-home-action-grid", shell)
+        self.assertIn("--ordax-accent: #8dbbff", tokens)
         self.assertIn("--ordax-font-display", tokens)
-        self.assertIn(".ordax-identity-art", css)
+        self.assertIn(".ordax-home-panel", (SURFACE / "identity.css").read_text(encoding="utf-8"))
         self.assertIn(".ordax-rail", css)
         self.assertIn(".ordax-statusbar", css)
         self.assertIn(".ordax-wifi-arc-outer", css)

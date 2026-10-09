@@ -1,23 +1,23 @@
 # OrdaX Desktop Identity
 
-The OrdaX shared Surface identity uses two materials: **Basalto** (dark) and **Calcário** (light). The 2026-10-09 product refresh replaces the earlier graphite/glacial landing direction with warm neutral canvases, restrained green accents and an original open-frame mark. This is implemented in the shared source, not a second desktop shell.
+The OrdaX shared Surface identity follows the user-approved 2026-10-09 ribbon/blue-violet reference: **Midnight / Meia-noite** (dark) and **Ice / Gelo** (light). Navigation, command search, a landscape Home and a floating dock are implemented in the existing shared Surface, with the same application and preference owners across Web/Native. This direction supersedes the earlier visual candidate.
 
 This is a product identity contract, not a screenshot contract. Implementations preserve the visual language while remaining functional, responsive, accessible, offline-capable and shared across supported hosts.
 
 ## Canonical visual language
 
-- warm charcoal Basalto and limestone Calcário canvases, with solid application surfaces;
-- pale mineral text in dark mode and deep neutral ink in light mode;
-- a restrained green accent for actions, navigation and focus;
-- thin structural rules, moderate corner radii and quiet shadows;
+- midnight navy and ice canvases, with opaque working application surfaces;
+- ice text in dark mode and deep blue ink in light mode;
+- blue/violet/cyan for brand decoration; accessible semantic accents for controls;
+- thin structural rules, rounded cards, restrained glow and translucent shell materials;
 - Inter as the canonical product type family, with compact, legible controls;
-- an open orthogonal frame as the brand signature, shared by the header, loading screen and desktop artwork;
-- fixed primary-app rail on desktop and a compact responsive equivalent on narrow surfaces;
-- bottom area/status strip for workspace identity, running applications, update state and connectivity.
+- an original rounded ribbon-loop vector shared by the navigation, header, Home and loading screen;
+- labeled lateral navigation on desktop, compact rail on intermediate widths and one-column Home on narrow surfaces;
+- a top command search and real Home shortcuts; a floating dock for areas, app shortcuts, running applications, updates and connectivity.
 
-The composition favors content over decoration: no neon glow, orbital motifs or blurred shell panels. The desktop artwork is a local scalable vector rather than a baked screenshot. Application headings remain sized for working interfaces. Semantic colors and geometry are authoritative in the tokens, not duplicated in documentation or app palettes.
+The original mountain/arc wallpaper is an optional decorative layer behind functional HTML controls. It has no embedded text or UI. Light mode uses a shared scrim, and high contrast removes the wallpaper and translucent material. Application headings remain sized for working interfaces. Palette, geometry and motion are authoritative in the tokens, not duplicated in documentation or app palettes.
 
-The original monochrome symbol is `system/surface/ui/brand/ordax-symbol.svg`; it is repository-authored, has no external references and is rendered through a CSS mask. The same asset works in both themes and is included by the offline source graph. No new third-party artwork, dependency or font is introduced.
+The original monochrome symbol is `system/surface/ui/brand/ordax-symbol.svg`; it is repository-authored, has no external references and is rendered through a CSS mask with the shared brand fill. The generated original landscape, its generation brief and SHA-256 are recorded in `system/surface/ui/brand/ARTWORK-SOURCE.md`. Both assets are included by the offline source graph. No external software, runtime generator dependency or new font is introduced.
 
 ## Shared design-system ownership
 
@@ -45,6 +45,9 @@ The desktop shell must remain operational rather than decorative:
 
 - Arquivos, Projetos, Notas, Internet, Ajustes, Conta and Sistema launch their real first-party applications when their capabilities are available;
 - `Ctrl+K` opens the shared application launcher;
+- Home restores the desktop by minimizing existing windows through the workspace owner; it does not delete sessions;
+- Home and dock shortcuts use the same app catalog, activation handler, capability checks and live localization as lateral navigation;
+- continuation and pending cards appear only from real ProjectCatalog/RecentFiles/Notifications/Sync snapshots; there are no illustrative people, device counts, tasks or automation toggles;
 - area controls are backed by `ordax.workspace-store/2` and independent window state;
 - `+` creates a real new area subject to the workspace bound;
 - power actions remain host-capability driven and require explicit confirmation;
@@ -66,6 +69,6 @@ New desktop controls must have a real state owner and contract before being pres
 
 ## Acceptance and delivery
 
-Owner: OrdaX OS Surface. Dependencies: existing appearance/runtime/store contracts, local Inter and local SVG; no new public execution contract. Scope: shared Web/Native composition, loading screen, shell, Settings previews and tokens consumed by first-party views. Risks: contrast, CSS specificity, narrow layout and offline asset resolution.
+Roadmap: shared Surface identity and minimal functional desktop in `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. Owner: OrdaX OS Surface. Dependencies: existing appearance/runtime/workspace/store contracts, local Inter, SVG and PNG; no new public execution contract. Scope: shared Web/Native composition, loading screen, shell, Settings previews and tokens consumed by first-party views. Risks: contrast over artwork, CSS specificity, narrow layout, image size and offline asset resolution.
 
 Acceptance requires visual/contrast regressions, existing preference/localization tests, source-graph and deterministic bundle verification, and real Chromium shell/composition smoke. Web inspection covers desktop and narrow breakpoints and both materials. Source publication is a reviewable candidate, not production activation, a signed release or proof of USB/mobile hardware operation. A visual refresh does not require a kernel rebuild or USB rewrite.

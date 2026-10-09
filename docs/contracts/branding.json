@@ -8,12 +8,17 @@
     "owner": "system/surface/ui/tokens.css",
     "composition_owner": "system/surface/ui/identity.css",
     "symbol": "system/surface/ui/brand/ordax-symbol.svg",
-    "themes": { "light": "Calcário", "dark": "Basalto" },
+    "themes": {
+      "light": "Gelo",
+      "dark": "Meia-noite"
+    },
     "preference_id": "appearance.theme",
     "preference_owner": "system/services/preferences/appearance.mjs",
     "default_theme": "light",
     "external_visual_dependencies": false,
-    "production_activation": false
+    "production_activation": false,
+    "wallpaper": "system/surface/ui/brand/midnight-landscape.png",
+    "wallpaper_provenance": "system/surface/ui/brand/ARTWORK-SOURCE.md"
   },
   "surface_loading": {
     "implemented": true,
