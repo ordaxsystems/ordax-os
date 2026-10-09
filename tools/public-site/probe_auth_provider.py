@@ -9,7 +9,9 @@ file mode exists so CI can exercise the evaluator without external credentials.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import os
 import sys
 import urllib.error
@@ -17,9 +19,25 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
-SCHEMA = "prototype-ordax.auth-provider-proof/1"
+SCHEMA = "prototype-ordax.auth-provider-proof/2"
 MIN_PASSWORD_CHARS = 12
 RECOVERY_PATH = "/auth/recover/verify"
+PROJECT_REF_RE = re.compile(r"[a-z0-9]{20}\Z")
+COMMIT_RE = re.compile(r"[0-9a-f]{40}\Z")
+
+
+def project_binding(project_ref: str) -> str:
+    """Consistency tag for the probed project, NOT an authenticated signature."""
+    if not isinstance(project_ref, str) or PROJECT_REF_RE.fullmatch(project_ref) is None:
+        raise ValueError("invalid Supabase project ref")
+    return hashlib.sha256(("supabase-auth-project/1:" + project_ref).encode("ascii")).hexdigest()
+
+
+def source_commit(value: str) -> str:
+    if not isinstance(value, str) or COMMIT_RE.fullmatch(value) is None:
+        raise ValueError("valid GitHub source commit required")
+    return value
+
 
 
 def clean_origin(raw: str) -> str:
@@ -47,7 +65,10 @@ def redirect_values(raw: object) -> list[str]:
     return []
 
 
-def evaluate(config: dict, expected_origin: str) -> dict:
+def evaluate(
+    config: dict, expected_origin: str, *,
+    project_ref: str | None = None, commit: str | None = None,
+) -> dict:
     origin = clean_origin(expected_origin)
     site_url = str(config.get("site_url") or "").rstrip("/")
     redirects = redirect_values(config.get("uri_allow_list"))
@@ -104,6 +125,8 @@ def evaluate(config: dict, expected_origin: str) -> dict:
         "$schema": SCHEMA,
         "provider": "supabase",
         "project_ref": "redacted",
+        "project_binding": project_binding(project_ref) if project_ref is not None else None,
+        "source_commit": source_commit(commit) if commit is not None else None,
         "expected_origin": origin,
         "checks": checks,
         "observed": {
@@ -117,6 +140,7 @@ def evaluate(config: dict, expected_origin: str) -> dict:
 
 
 def fetch_live(project_ref: str, access_token: str) -> dict:
+    project_binding(project_ref)  # validate before interpolating into management URL
     request = urllib.request.Request(
         f"https://api.supabase.com/v1/projects/{project_ref}/config/auth",
         headers={
@@ -158,13 +182,15 @@ def main(argv: list[str] | None = None) -> int:
             config = json.loads(Path(args.config_file).read_text(encoding="utf-8"))
             if not isinstance(config, dict):
                 raise ValueError("config object required")
+            proof = evaluate(config, origin)  # fixtures carry no release authority
         else:
             token = os.environ.get("SUPABASE_ACCESS_TOKEN", "").strip()
             project_ref = args.project_ref.strip()
             if not token or not project_ref:
                 raise ValueError("live probe requires SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF")
+            verified_commit = source_commit(os.environ.get("GITHUB_SHA", "").strip())
             config = fetch_live(project_ref, token)
-        proof = evaluate(config, origin)
+            proof = evaluate(config, origin, project_ref=project_ref, commit=verified_commit)
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"AUTH_PROVIDER_PROBE=FAIL reason={exc}", file=sys.stderr)
         return 1

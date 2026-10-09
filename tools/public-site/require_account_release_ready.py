@@ -19,8 +19,13 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+# Reuse the current Auth owner and binding rules, never a parallel project authority.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from probe_auth_provider import project_binding
+from resolve_auth_provider_target import resolve_target
+
 ROOT = Path(__file__).resolve().parents[2]
-PROBE_SCHEMA = "prototype-ordax.auth-provider-proof/1"
+PROBE_SCHEMA = "prototype-ordax.auth-provider-proof/2"
 DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/3"
 SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
 REQUIRED_CHECKS = (
@@ -74,7 +79,8 @@ REQUIRED_DB_OBSERVED_FLAGS = frozenset((
     "app_role_sync_sequence_privilege",
 ))
 PROVIDER_PROOF_FIELDS = frozenset((
-    "$schema", "provider", "project_ref", "expected_origin", "checks", "observed", "ready"
+    "$schema", "provider", "project_ref", "project_binding", "source_commit",
+    "expected_origin", "checks", "observed", "ready"
 ))
 DATABASE_PROOF_FIELDS = frozenset((
     "$schema", "provider", "project_ref", "checks", "observed", "ready"
@@ -109,9 +115,14 @@ def clean_commit(raw: str) -> str:
     return value
 
 
-def validate_provider_proof(value: object, expected_origin: str) -> list[str]:
+def validate_provider_proof(
+    value: object, expected_origin: str, expected_source_commit: str, root: Path = ROOT
+) -> list[str]:
     blockers: list[str] = []
     origin = clean_origin(expected_origin)
+    commit = clean_commit(expected_source_commit)
+    owner_ref, _ = resolve_target(root, origin)
+    expected_binding = project_binding(owner_ref)
     if not isinstance(value, dict):
         return ["provider-proof-object-required"]
     if set(value) != PROVIDER_PROOF_FIELDS:
@@ -122,6 +133,10 @@ def validate_provider_proof(value: object, expected_origin: str) -> list[str]:
         blockers.append("provider-proof-provider")
     if value.get("project_ref") != "redacted":
         blockers.append("provider-proof-not-sanitized")
+    if value.get("project_binding") != expected_binding:
+        blockers.append("provider-proof-project-binding")
+    if value.get("source_commit") != commit:
+        blockers.append("provider-proof-source-commit")
     if value.get("expected_origin") != origin:
         blockers.append("provider-proof-origin-mismatch")
     checks = value.get("checks")
@@ -290,7 +305,9 @@ def main(argv: list[str] | None = None) -> int:
         provider_proof = load_proof(Path(args.provider_proof).resolve())
         database_proof = load_proof(Path(args.database_proof).resolve())
         session_proof = load_proof(Path(args.session_revocation_proof).resolve())
-        blockers = validate_provider_proof(provider_proof, args.expected_origin)
+        blockers = validate_provider_proof(
+            provider_proof, args.expected_origin, args.expected_source_commit, root
+        )
         blockers.extend(validate_database_proof(database_proof))
         blockers.extend(
             validate_session_revocation_proof(

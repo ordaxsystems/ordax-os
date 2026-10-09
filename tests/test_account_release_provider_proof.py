@@ -11,11 +11,22 @@ SPEC.loader.exec_module(MODULE)
 
 
 class AccountReleaseProviderProofTests(unittest.TestCase):
+    COMMIT = "a" * 40
+
+    def validate(self, proof, origin="https://ordax.com.br", commit=None, root=ROOT):
+        return MODULE.validate_provider_proof(
+            proof, origin, commit or self.COMMIT, root
+        )
+
     def valid_proof(self):
         return {
-            "$schema": "prototype-ordax.auth-provider-proof/1",
+            "$schema": "prototype-ordax.auth-provider-proof/2",
             "provider": "supabase",
             "project_ref": "redacted",
+            "project_binding": MODULE.project_binding(
+                MODULE.resolve_target(ROOT, "https://ordax.com.br")[0]
+            ),
+            "source_commit": self.COMMIT,
             "expected_origin": "https://ordax.com.br",
             "checks": {
                 "confirm_email": True,
@@ -35,7 +46,7 @@ class AccountReleaseProviderProofTests(unittest.TestCase):
 
     def test_valid_sanitized_proof_matches_exact_origin(self):
         self.assertEqual(
-            MODULE.validate_provider_proof(self.valid_proof(), "https://ordax.com.br"),
+            self.validate(self.valid_proof(), "https://ordax.com.br"),
             [],
         )
 
@@ -44,23 +55,28 @@ class AccountReleaseProviderProofTests(unittest.TestCase):
         proof["observed"]["redirect_count"] = False
         proof["observed"]["unexpected_email"] = "sensitive-value"
         proof["unreviewed_secret"] = "sensitive-value"
-        blockers = MODULE.validate_provider_proof(proof, "https://ordax.com.br")
+        blockers = self.validate(proof, "https://ordax.com.br")
         self.assertIn("provider-proof-redirect-count", blockers)
         self.assertIn("provider-proof-observation-set", blockers)
         self.assertIn("provider-proof-field-set", blockers)
 
     def test_origin_mismatch_blocks(self):
-        blockers = MODULE.validate_provider_proof(
-            self.valid_proof(),
-            "https://www.ordax.com.br",
-        )
-        self.assertIn("provider-proof-origin-mismatch", blockers)
+        with self.assertRaisesRegex(ValueError, "requested origin"):
+            self.validate(self.valid_proof(), "https://www.ordax.com.br")
+
+    def test_wrong_project_or_source_commit_blocks_release(self):
+        proof = self.valid_proof()
+        proof["project_binding"] = MODULE.project_binding("z" * 20)
+        proof["source_commit"] = "b" * 40
+        blockers = self.validate(proof)
+        self.assertIn("provider-proof-project-binding", blockers)
+        self.assertIn("provider-proof-source-commit", blockers)
 
     def test_proof_must_be_sanitized_and_exact(self):
         proof = self.valid_proof()
         proof["project_ref"] = "real-project-ref-must-not-be-persisted"
         proof["checks"]["extra"] = True
-        blockers = MODULE.validate_provider_proof(proof, "https://ordax.com.br")
+        blockers = self.validate(proof, "https://ordax.com.br")
         self.assertIn("provider-proof-not-sanitized", blockers)
         self.assertIn("provider-proof-check-set", blockers)
 
@@ -68,7 +84,7 @@ class AccountReleaseProviderProofTests(unittest.TestCase):
         proof = self.valid_proof()
         proof["checks"]["confirm_email"] = False
         proof["ready"] = False
-        blockers = MODULE.validate_provider_proof(proof, "https://ordax.com.br")
+        blockers = self.validate(proof, "https://ordax.com.br")
         self.assertIn("provider-proof-confirm_email", blockers)
         self.assertIn("provider-proof-not-ready", blockers)
 
@@ -77,7 +93,7 @@ class AccountReleaseProviderProofTests(unittest.TestCase):
         proof["observed"]["password_min_length"] = 8
         proof["observed"]["wildcard_redirect_present"] = True
         proof["observed"]["cross_origin_redirect_present"] = True
-        blockers = MODULE.validate_provider_proof(proof, "https://ordax.com.br")
+        blockers = self.validate(proof, "https://ordax.com.br")
         self.assertIn("provider-proof-password-floor", blockers)
         self.assertIn("provider-proof-wildcard-redirect", blockers)
         self.assertIn("provider-proof-cross-origin-redirect", blockers)
@@ -89,7 +105,7 @@ class AccountReleaseProviderProofTests(unittest.TestCase):
             "https://user@ordax.com.br",
         ):
             with self.assertRaises(ValueError):
-                MODULE.validate_provider_proof(self.valid_proof(), origin)
+                self.validate(self.valid_proof(), origin)
 
 
 if __name__ == "__main__":
