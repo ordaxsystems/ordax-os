@@ -99,6 +99,8 @@ def verify_published_legal_documents(candidate: dict) -> None:
     try:
         contract = json.loads(LEGAL.read_text(encoding="utf-8"))
         documents = contract["documents"]
+        if contract.get("status") != "ready" or contract.get("account_activation_ready") is not True:
+            fail("legal-document-policy-not-ready")
     except (OSError, KeyError, TypeError, ValueError):
         fail("legal-document-contract-invalid")
 
@@ -110,7 +112,10 @@ def verify_published_legal_documents(candidate: dict) -> None:
             expected_url = origin + route
             local_digest = sha256_file(route_file(route))
             if (
-                item["url"] != expected_url
+                documents[name].get("final") is not True
+                or item["url"] != expected_url
+                or item["version"] != documents[name]["version"]
+                or item["effective_date"] != documents[name]["effective_date"]
                 or item["sha256"] != local_digest
                 or not SHA_RE.fullmatch(item["sha256"])
             ):
