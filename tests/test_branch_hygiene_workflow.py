@@ -43,11 +43,15 @@ class BranchHygieneWorkflowTests(unittest.TestCase):
             self.implementation,
         )
         self.assertIn(
-            "preserve = set(PROTECTED_BRANCHES) | open_heads",
+            "preserve = {ref for ref in current if is_protected_ref(ref, current[ref])} | open_heads",
             self.implementation,
         )
         self.assertIn(
-            'if head_ref in PROTECTED_BRANCHES:',
+            'ref == f"release-candidate/{source_sha}"',
+            self.implementation,
+        )
+        self.assertIn(
+            'if is_protected_ref(head_ref, merged_head_sha):',
             self.implementation,
         )
 
