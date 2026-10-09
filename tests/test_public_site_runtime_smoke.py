@@ -42,6 +42,9 @@ class PublicSiteRuntimeSmokeTests(unittest.TestCase):
         for plan in plans:
             self.assertIn("<li>" + plan["display_name"] + "</li>", account)
         self.assertNotIn("<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->", account)
+        for asset in ("account-dashboard.css", "account-portal.js", "ordax-design-tokens.css", "ordax-font.css"):
+            fingerprint = build.sha256_bytes((self.out / "assets" / asset).read_bytes())[:16]
+            self.assertIn("/assets/" + asset + "?v=" + fingerprint, account)
 
     def test_web_config_cannot_activate_an_unapproved_product(self):
         with tempfile.TemporaryDirectory() as temporary:

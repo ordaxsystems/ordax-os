@@ -328,6 +328,16 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
         for page in stage.rglob("*.html"):
             try:
                 markup = render_public_html(page.read_text(encoding="utf-8"))
+                if page.relative_to(stage).as_posix() in ("conta/index.html", "web/index.html"):
+                    # A new account layout must never reuse stale cached CSS or
+                    # presentation code. Stable bytes keep a stable URL; no clock.
+                    for asset in (
+                        "assets/account-dashboard.css", "assets/account-portal.js",
+                        "assets/ordax-design-tokens.css", "assets/ordax-font.css",
+                    ):
+                        version = sha256_bytes((stage / asset).read_bytes())[:16]
+                        pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
+                        markup = re.sub(pattern, lambda match: match[1] + "/" + asset + "?v=" + version + match[2], markup)
                 marker = "<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->"
                 if marker in markup:
                     plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]

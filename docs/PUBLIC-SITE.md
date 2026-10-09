@@ -64,6 +64,8 @@ credential pages retain their independent existing composition. The plan list
 is derived at build from `docs/contracts/entitlements.json`, not an additional
 commercial catalog. Locale selection uses the existing public i18n owner;
 it changes this browser's portal language, never device preferences.
+Account/Web CSS and presentation URLs receive a deterministic content hash in
+the build, so cached assets cannot retain an older layout after source updates.
 
 This is the explicit account-page request in the current product cycle, not
 activation of backend capabilities. Risks include narrow layouts, focus/history,
