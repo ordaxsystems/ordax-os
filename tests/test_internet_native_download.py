@@ -182,7 +182,7 @@ class BrowserDownloadNativeTests(unittest.TestCase):
             self.assertEqual(host.events[-1]["status"],"failed")
             self.assertEqual(d.cancel_count,1)
             d.emit("finished")
-            d2=FakeDownload(host.view,bytes_expected=-1)
+            d2=FakeDownload(host.view,bytes_expected=0)  # WebKitGTK unknown Content-Length
             host.on_download_started(None,d2)
             id=next(iter(host.downloads))
             d2.emit("decide-destination","unknown-size.bin")
