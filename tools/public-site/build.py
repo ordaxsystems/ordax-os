@@ -21,10 +21,18 @@ from public_release_catalog import (
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
 
-# Surface tokens are the sole visual owner. The public site receives a derived
-# CSS bridge at build time rather than maintaining a competing color palette.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "brand"))
-from build import render_site_css
+# Load the brand compiler by an isolated module identity. Importing a generic
+# "build" module or prepending to sys.path shadows the component-package
+# builder elsewhere in the OS foundation and corrupts unrelated releases.
+import importlib.util
+
+_BRAND_COMPILER_PATH = Path(__file__).resolve().parents[1] / "brand" / "build.py"
+_BRAND_SPEC = importlib.util.spec_from_file_location("_ordax_brand_compiler", _BRAND_COMPILER_PATH)
+if _BRAND_SPEC is None or _BRAND_SPEC.loader is None:
+    raise RuntimeError("canonical OrdaX brand compiler unavailable")
+_BRAND_MODULE = importlib.util.module_from_spec(_BRAND_SPEC)
+_BRAND_SPEC.loader.exec_module(_BRAND_MODULE)
+render_site_css = _BRAND_MODULE.render_site_css
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "sites" / "public"
