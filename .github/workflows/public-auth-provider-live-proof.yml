@@ -16,17 +16,24 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_REF: eobcxuyvhkvdmkbaihwh
-      ORDAX_PUBLIC_ORIGIN: ${{ inputs.origin }}
+      ORDAX_REQUESTED_ORIGIN: ${{ inputs.origin }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
+      - name: Resolve active Auth authority and origin from source contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public-site/resolve_auth_provider_target.py \
+            --origin "${ORDAX_REQUESTED_ORIGIN}" >> "${GITHUB_ENV}"
+
       - name: Require provider-management credential without printing it
         shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           test -n "${SUPABASE_ACCESS_TOKEN:-}" || {
@@ -39,6 +46,7 @@ jobs:
       - name: Probe hosted Supabase Auth configuration
         shell: bash
         env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           ORDAX_PROVIDER_PROOF_PATH: ${{ runner.temp }}/auth-provider-proof.json
         run: |
           set -euo pipefail
