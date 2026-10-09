@@ -309,10 +309,19 @@ DNS A address resolves **directly to Vercel**, the five important public HTML
 pages return HTTP 200 over valid HTTPS, and `www` returns the canonical
 308 redirect. It also makes **anonymous GET requests only** to
 `/config/public-site.json` and `/auth/session`: their schemas, cache
-controls, and active/gated identity state must agree. While registration is
-explicitly disabled, `/auth/session` may return **HTTP 503 with only**
+controls, and anonymous identity service state must agree. An HTTP 200
+`/auth/session` must report `provider: supabase` and an anonymous session,
+**regardless of** `legal.account_activation_ready`: the supported
+`auth_only_source_enabled` path may expose real sign-in/sign-up before
+unrelated cloud/account capabilities are activated. The probe emits
+`ORDAX_PUBLIC_ACCOUNT_GATE=supabase` and the **separate**
+`ORDAX_PUBLIC_LEGAL_ACTIVATION=ready|not-ready` diagnostic. Neither proves
+that registration, current consent policy or login E2E works; those are
+server-side gates requiring their own evidence. When the identity service is
+unconfigured and legal activation is not ready, `/auth/session` may instead
+return **HTTP 503 with only**
 `prototype-ordax.public-site-proxy-error/1` /
-`account-gateway-unconfigured`. The probe logs that as
+`account-gateway-unconfigured`. The probe logs this as
 `ORDAX_PUBLIC_ACCOUNT_GATE=disabled-unconfigured`, never as a working
 login service. A different 503 is an outage; once legal activation is true,
 **any** 503 is a failure.
