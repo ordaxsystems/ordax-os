@@ -73,6 +73,7 @@ on:
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/browser-session.mjs'
       - 'system/contracts/browser-navigation.mjs'
+      - 'system/contracts/browser-search-preferences.mjs'
       - 'system/contracts/browser-page-selection.mjs'
       - 'system/contracts/browser-page-find.mjs'
       - 'system/surface/**'
@@ -132,6 +133,7 @@ on:
       - 'tests/test_internet_favorites_contract.py'
       - 'tests/test_browser_history.mjs'
       - 'tests/test_internet_navigation.mjs'
+      - 'tests/test_browser_search_preferences.mjs'
       - 'tests/test_browser_page_selection.mjs'
       - 'tests/test_browser_page_find.mjs'
       - 'tests/test_internet_native_page_find.py'
@@ -279,6 +281,7 @@ on:
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/browser-session.mjs'
       - 'system/contracts/browser-navigation.mjs'
+      - 'system/contracts/browser-search-preferences.mjs'
       - 'system/contracts/browser-page-selection.mjs'
       - 'system/contracts/browser-page-find.mjs'
       - 'system/surface/**'
@@ -335,6 +338,7 @@ on:
       - 'tests/test_internet_favorites_contract.py'
       - 'tests/test_browser_history.mjs'
       - 'tests/test_internet_navigation.mjs'
+      - 'tests/test_browser_search_preferences.mjs'
       - 'tests/test_browser_page_selection.mjs'
       - 'tests/test_browser_page_find.mjs'
       - 'tests/test_internet_native_page_find.py'
@@ -477,6 +481,7 @@ jobs:
           node --test tests/test_browser_favorites.mjs
           node --test tests/test_browser_history.mjs
           node --test tests/test_internet_navigation.mjs
+          node --test tests/test_browser_search_preferences.mjs
           node --test tests/test_browser_page_selection.mjs
           node --test tests/test_browser_page_find.mjs
           node --test tests/test_native_browser_page_selection.mjs
