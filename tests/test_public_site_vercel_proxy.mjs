@@ -100,6 +100,52 @@ test("Vercel rewritten signup callback preserves only exact one-time OTP params"
   }
 });
 
+test("ordinary auth routes survive Vercel rewrite metadata without OTP parsing", async () => {
+  const originalFetch = globalThis.fetch;
+  const forwarded = [];
+  globalThis.fetch = async (url) => {
+    forwarded.push(String(url));
+    return new Response(JSON.stringify({
+      $schema: "prototype-ordax.public-identity-session/1",
+      provider: "supabase",
+      status: "anonymous",
+      authenticated: false,
+    }), {status:200,headers:{"content-type":"application/json"}});
+  };
+  try {
+    // Real Vercel routes include internal rewrite query fields. Treat these
+    // solely as routing metadata, never as signup verification tokens.
+    for (const path of ["/auth/session", "/auth/registration-policy", "/auth/login", "/sync/snapshot", "/account/spaces"]) {
+      const url = PUBLIC_ORIGIN + "/api/account-proxy?ordax_path=" + encodeURIComponent(path) +
+        "&ordax_path=" + encodeURIComponent(path) + "&request-path=middleware";
+      const response = await proxyPublicAccountRequest(
+        new Request(url, {headers:{"x-forwarded-for":"203.0.113.15"}}),
+        options(),
+      );
+      assert.equal(response.status, 200, path);
+      assert.ok(forwarded.at(-1).endsWith(path), path);
+      assert.ok(!forwarded.at(-1).includes("request-path"), path);
+    }
+    // The OTP route is the exception: duplicates, extra parameters and
+    // arbitrary redirections remain rejected before reaching the edge.
+    const hash = "a".repeat(64);
+    for(const qs of [
+      "ordax_path=/auth/confirm&ordax_path=/auth/confirm&token_hash=" + hash + "&type=email",
+      "ordax_path=/auth/confirm&token_hash=" + hash + "&type=email&next=https://evil.invalid",
+    ]) {
+      const before = forwarded.length;
+      const bad = await proxyPublicAccountRequest(
+        new Request(PUBLIC_ORIGIN + "/api/account-proxy?" + qs, {headers:{"x-forwarded-for":"203.0.113.15"}}),
+        options(),
+      );
+      assert.equal(bad.status, 404);
+      assert.equal(forwarded.length, before);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("gateway configuration is strict https and exact public account gateway path", () => {
   assert.equal(normalizeGatewayUrl(GATEWAY)?.origin, "https://example.supabase.co");
   for (const invalid of [

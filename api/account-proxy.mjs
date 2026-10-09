@@ -351,7 +351,15 @@ export async function proxyPublicAccountRequest(
   if (!browserContext.ok) return error(403, browserContext.code);
 
   const route = normalizeProductPath(incoming.searchParams.get("ordax_path"), request.method);
-  const productPath = route && forwardPublicConfirmationQuery(route, incoming.searchParams);
+  // Production Vercel rewrites may contribute extra query parameters. Only
+  // the email-confirmation callback needs their strict OTP validation. Every
+  // other already-allowlisted route must retain its normalized path unchanged.
+  // Passing ordinary /auth/session or /auth/registration-policy through the
+  // OTP parser caused a production 404 and incorrectly gated both forms.
+  const isConfirmation = route && new URL(route, PUBLIC_ACCOUNT_ORIGIN).pathname === PUBLIC_CONFIRMATION_PATH;
+  const productPath = isConfirmation
+    ? forwardPublicConfirmationQuery(route, incoming.searchParams)
+    : route;
   if (!productPath) return error(404, "unsupported-account-route");
 
   const gateway = normalizeGatewayUrl(gatewayUrl);
