@@ -212,6 +212,35 @@ class InternetBrowserContractTests(unittest.TestCase):
                 self.assertFalse(allowed_navigation(uri))
                 self.assertFalse(allowed_resource(uri))
 
+    def test_native_policy_rejects_credential_and_parser_ambiguity(self):
+        navigation = self.browser_uri_policy()["allowed_external_uri"]
+        resource = self.browser_uri_policy()["allowed_external_resource_uri"]
+        rejected = (
+            "https://user:password@example.com/",
+            "https://user@example.com/",
+            "https://@example.com/",
+            "https://example.com\\\\@internal.example/",
+            "https://example.com/\\\\internal.example/",
+            "https://example.com/\x00admin",
+            "https://example.com/\nheader",
+            "https://example.com/\tpath",
+        )
+        for url in rejected:
+            with self.subTest(url=repr(url)):
+                self.assertFalse(navigation(url))
+                self.assertFalse(resource(url))
+
+    def test_shared_address_policy_is_an_explicit_pure_contract(self):
+        controls = self.text(CONTROLS)
+        policy = self.text(ROOT / "system" / "contracts" / "browser-navigation.mjs")
+        self.assertIn('resolveBrowserNavigation(input.value)?.url', controls)
+        self.assertIn('resolveBrowserNavigation(target, { allowSearch: false })?.url', controls)
+        self.assertNotIn('function normalizedAddress(', controls)
+        self.assertIn('BROWSER_SEARCH_PROVIDER = Object.freeze(', policy)
+        self.assertIn('new URL(BROWSER_SEARCH_PROVIDER.origin)', policy)
+        self.assertNotIn('window.', policy)
+        self.assertNotIn('fetch(', policy)
+
     def test_native_surface_runtime_owns_webkit_dependencies_directly(self):
         launcher = self.text(SURFACE_LAUNCHER)
         self.assertIn('RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1', launcher)
