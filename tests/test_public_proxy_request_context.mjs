@@ -14,8 +14,8 @@ function request(method = "GET", headers = {}) {
     method,
     headers: {
       "x-ordax-public-origin": ORIGIN,
-      "x-forwarded-host": HOST,
-      "x-forwarded-proto": "https",
+      "x-ordax-public-host": HOST,
+      "x-ordax-public-proto": "https",
       ...headers,
     },
   });
@@ -68,20 +68,36 @@ test("foreign and sibling origins are rejected", () => {
   }
 });
 
-test("forwarded host or proto spoofing is rejected", () => {
+test("trusted canonical host or proto spoofing is rejected", () => {
   let result = verifyTrustedPublicRequestContext(request("POST", {
     origin: ORIGIN,
     "sec-fetch-site": "same-origin",
-    "x-forwarded-host": "evil.example",
+    "x-ordax-public-host": "evil.example",
   }));
-  assert.deepEqual(result, { ok: false, code: "trusted-forwarded-authority-mismatch" });
+  assert.deepEqual(result, { ok: false, code: "trusted-public-authority-mismatch" });
 
   result = verifyTrustedPublicRequestContext(request("POST", {
     origin: ORIGIN,
     "sec-fetch-site": "same-origin",
+    "x-ordax-public-proto": "http",
+  }));
+  assert.deepEqual(result, { ok: false, code: "trusted-public-authority-mismatch" });
+});
+
+test("upstream rewritten forwarding headers do not corrupt signed Vercel authority", () => {
+  const result = verifyTrustedPublicRequestContext(request("GET", {
+    "x-forwarded-host": "jhfphsjptrpmtnzkpwud.supabase.co",
     "x-forwarded-proto": "http",
   }));
-  assert.deepEqual(result, { ok: false, code: "trusted-forwarded-authority-mismatch" });
+  assert.deepEqual(result, { ok: true, origin: ORIGIN, host: HOST });
+});
+
+test("missing private Vercel authority is rejected even with matching forwarded host", () => {
+  const result = verifyTrustedPublicRequestContext(request("GET", {
+    "x-ordax-public-host": "",
+    "x-forwarded-host": HOST,
+  }));
+  assert.deepEqual(result, { ok: false, code: "trusted-public-authority-mismatch" });
 });
 
 test("trusted public origin is mandatory", () => {
