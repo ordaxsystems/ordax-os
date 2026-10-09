@@ -48,6 +48,45 @@ REQUIRED_DB_CHECKS = (
 )
 
 
+REQUIRED_PROVIDER_OBSERVED = frozenset((
+    "password_min_length",
+    "redirect_count",
+    "wildcard_redirect_present",
+    "cross_origin_redirect_present",
+))
+REQUIRED_DB_OBSERVED_COUNTERS = frozenset((
+    "anon_table_grant_count",
+    "anon_function_execute_count",
+    "public_function_execute_count",
+    "unsafe_security_definer_search_path_count",
+    "authenticated_private_function_execute_count",
+    "authenticated_sync_table_grant_count",
+    "service_role_sync_table_grant_count",
+    "non_executor_sync_policy_count",
+    "service_role_user_sync_rpc_execute_count",
+    "unexpected_authenticated_write_grant_count",
+    "private_cloud_storage_rls_enabled_count",
+    "sync_policy_count",
+))
+REQUIRED_DB_OBSERVED_FLAGS = frozenset((
+    "anon_private_schema_usage",
+    "authenticated_private_schema_usage",
+    "app_role_sync_sequence_privilege",
+))
+PROVIDER_PROOF_FIELDS = frozenset((
+    "$schema", "provider", "project_ref", "expected_origin", "checks", "observed", "ready"
+))
+DATABASE_PROOF_FIELDS = frozenset((
+    "$schema", "provider", "project_ref", "checks", "observed", "ready"
+))
+SESSION_REVOCATION_PROOF_FIELDS = frozenset((
+    "$schema", "status", "scope", "gateway_origin", "source_commit", "workflow_run_id",
+    "two_independent_sessions", "session_a_anonymous_after_logout",
+    "revoked_session_restore_rejected", "session_b_remained_authenticated",
+    "credentials_persisted", "account_identifier_recorded", "sensitive_auth_material_recorded",
+))
+
+
 def clean_origin(raw: str) -> str:
     value = raw.strip().rstrip("/")
     parsed = urlparse(value)
@@ -75,6 +114,8 @@ def validate_provider_proof(value: object, expected_origin: str) -> list[str]:
     origin = clean_origin(expected_origin)
     if not isinstance(value, dict):
         return ["provider-proof-object-required"]
+    if set(value) != PROVIDER_PROOF_FIELDS:
+        blockers.append("provider-proof-field-set")
     if value.get("$schema") != PROBE_SCHEMA:
         blockers.append("provider-proof-schema")
     if value.get("provider") != "supabase":
@@ -98,6 +139,11 @@ def validate_provider_proof(value: object, expected_origin: str) -> list[str]:
     if not isinstance(observed, dict):
         blockers.append("provider-proof-observation")
     else:
+        if set(observed) != REQUIRED_PROVIDER_OBSERVED:
+            blockers.append("provider-proof-observation-set")
+        count = observed.get("redirect_count")
+        if type(count) is not int or count < 1:
+            blockers.append("provider-proof-redirect-count")
         if observed.get("wildcard_redirect_present") is not False:
             blockers.append("provider-proof-wildcard-redirect")
         if observed.get("cross_origin_redirect_present") is not False:
@@ -112,6 +158,8 @@ def validate_database_proof(value: object) -> list[str]:
     blockers: list[str] = []
     if not isinstance(value, dict):
         return ["database-proof-object-required"]
+    if set(value) != DATABASE_PROOF_FIELDS:
+        blockers.append("database-proof-field-set")
     if value.get("$schema") != DB_PROBE_SCHEMA:
         blockers.append("database-proof-schema")
     if value.get("provider") != "supabase-postgres":
@@ -133,6 +181,15 @@ def validate_database_proof(value: object) -> list[str]:
     if not isinstance(observed, dict):
         blockers.append("database-proof-observation")
     else:
+        if set(observed) != REQUIRED_DB_OBSERVED_COUNTERS | REQUIRED_DB_OBSERVED_FLAGS:
+            blockers.append("database-proof-observation-set")
+        for name in REQUIRED_DB_OBSERVED_COUNTERS:
+            count = observed.get(name)
+            if type(count) is not int or count < 0:
+                blockers.append(f"database-proof-observation-type-{name}")
+        for name in REQUIRED_DB_OBSERVED_FLAGS:
+            if type(observed.get(name)) is not bool:
+                blockers.append(f"database-proof-observation-type-{name}")
         for name in (
             "anon_table_grant_count",
             "anon_function_execute_count",
@@ -170,6 +227,16 @@ def validate_session_revocation_proof(
     commit = clean_commit(expected_source_commit)
     if not isinstance(value, dict):
         return ["session-revocation-proof-object-required"]
+    if set(value) != SESSION_REVOCATION_PROOF_FIELDS:
+        blockers.append("session-revocation-proof-field-set")
+    workflow_run_id = value.get("workflow_run_id")
+    if workflow_run_id is not None and (
+        type(workflow_run_id) is not str
+        or not workflow_run_id.isascii()
+        or not workflow_run_id.isdecimal()
+        or not (1 <= len(workflow_run_id) <= 20)
+    ):
+        blockers.append("session-revocation-proof-workflow-run-id")
     if value.get("$schema") != SESSION_REVOCATION_SCHEMA:
         blockers.append("session-revocation-proof-schema")
     if value.get("status") != "pass":
