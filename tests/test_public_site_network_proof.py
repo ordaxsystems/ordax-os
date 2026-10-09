@@ -187,8 +187,33 @@ class PublicNetworkProofTests(unittest.TestCase):
             patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
             patch.object(network, "fetch", side_effect=failing),
         ):
-            with self.assertRaisesRegex(SystemExit, "unexpected-account-gateway-failure"):
+            output = io.StringIO()
+            with redirect_stdout(output), self.assertRaisesRegex(
+                SystemExit, "unexpected-account-gateway-failure"
+            ):
                 network.main()
+            self.assertIn("ORDAX_PUBLIC_ACCOUNT_ERROR_CODE=account-gateway-unavailable", output.getvalue())
+
+    def test_untrusted_error_text_never_enters_public_network_diagnostic(self):
+        def failing(host, path, *, accept="text/html"):
+            if path == "/auth/session":
+                return Response(503, payload={
+                    "$schema": "prototype-ordax.public-site-proxy-error/1",
+                    "error": "token=" + "sensitive_" * 8,
+                })
+            return fake_fetch(host, path, accept=accept)
+
+        with (
+            patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
+            patch.object(network, "fetch", side_effect=failing),
+        ):
+            output = io.StringIO()
+            with redirect_stdout(output), self.assertRaisesRegex(
+                SystemExit, "unexpected-account-gateway-failure"
+            ):
+                network.main()
+            self.assertIn("ORDAX_PUBLIC_ACCOUNT_ERROR_CODE=unclassified", output.getvalue())
+            self.assertNotIn("sensitive_", output.getvalue())
 
 
 if __name__ == "__main__":

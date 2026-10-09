@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "public-edge-oidc-v7-live-cookie-envelope-shared-auth-rate-limit-vercel-source-not-deployed",
+  "status": "canonical-public-edge-v2-oidc-deployed-runtime-e2e-pending",
   "site_artifact": "public-site",
   "vercel_migration": {
     "status": "target-static-production-canonical-domain-live-identity-runtime-pending",
@@ -67,7 +67,8 @@
     "target_canonical_domain_sync_http_status": 503,
     "target_canonical_domain_unknown_route_http_status": 404,
     "target_legacy_project_dashboard_detachment_verified": false,
-    "target_canonical_domain_proof_observed_date": "2026-10-08"
+    "target_canonical_domain_proof_observed_date": "2026-10-08",
+    "historical_team_slug": "jogo-brasils-projects"
   },
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
@@ -172,7 +173,7 @@
     "canonical_public_origin_deployment_verified": false
   },
   "public_edge_gateway": {
-    "status": "v7-oidc-live-cookie-envelope-shared-auth-rate-limit-runtime-proof-pending",
+    "status": "canonical-supabase-v2-production-oidc-deployed-runtime-e2e-pending",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
@@ -181,8 +182,8 @@
     "request_context_validation_connected": true,
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
-    "deployed_version": 7,
-    "deployment_source_commit": "735ef1da0a00f92fc28e9c14bbe0765d304e733e",
+    "deployed_version": 2,
+    "deployment_source_commit": null,
     "deployed_authentication": "vercel-production-oidc-v2",
     "source_authentication": "vercel-production-oidc-v2",
     "oidc_source_ready": true,
@@ -200,9 +201,9 @@
     ],
     "proxy_authentication_required": true,
     "oidc_jose_version": "6.2.12",
-    "oidc_issuer": "https://oidc.vercel.com/jogo-brasils-projects",
-    "oidc_audience": "https://vercel.com/jogo-brasils-projects",
-    "oidc_subject": "owner:jogo-brasils-projects:project:ordax-os-public:environment:production",
+    "oidc_issuer": "https://oidc.vercel.com/ordaxsystems",
+    "oidc_audience": "https://vercel.com/ordaxsystems",
+    "oidc_subject": "owner:ordaxsystems:project:ordax-os-public:environment:production",
     "oidc_jwks": "https://oidc.vercel.com/.well-known/jwks",
     "oidc_preview_allowed": false,
     "shared_proxy_secret_required": false,
@@ -244,7 +245,12 @@
     "shared_rate_limit_policy_deployed": true,
     "product_cookie_envelope_emission_deployed": true,
     "product_cookie_envelope_header": "x-ordax-cookie-envelope",
-    "transport_set_cookie_forwarding": false
+    "transport_set_cookie_forwarding": false,
+    "canonical_project_ref": "jhfphsjptrpmtnzkpwud",
+    "deployment_source_commit_verified": false,
+    "deployment_artifact_sha256": "1d882e54d3d51eeca6570e28e6905d5874707ca5e9f037c5465ead87647252e4",
+    "shared_public_route_ssot_source_integrated": true,
+    "shared_public_route_ssot_deployed": false
   },
   "routing": {
     "static_routes": [
@@ -388,7 +394,7 @@
     "public_edge": {
       "source_ready": true,
       "deployed": true,
-      "deployment_revision_observed": 7,
+      "deployment_revision_observed": 2,
       "rpc": "ordax_consume_public_auth_rate_limit_v1",
       "shared_policy_deployed": true,
       "shared_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs"

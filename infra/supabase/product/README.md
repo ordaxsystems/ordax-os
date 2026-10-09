@@ -423,3 +423,44 @@ a chave nomeada e sua rotação, testes de rejeição por HTTP, rate limit,
 origem OIDC e gates legais. Não converter apikey em bearer de service_role,
 não criar JWT paralelo nem ativar Conta sem E2E. O estado observado e os
 gates de promoção permanecem em `docs/contracts/public-auth-hardening.json`.
+
+## Estado real do gateway público no projeto novo (2026-10-09)
+
+Consulta MCP Supabase somente leitura em `ordax-platform`
+(`jhfphsjptrpmtnzkpwud`) observou a função
+`ordax-public-account-gateway` como **ACTIVE v2**, `verify_jwt=false`,
+artefato SHA-256 `1d882e54d3d51eeca6570e28e6905d5874707ca5e9f037c5465ead87647252e4`.
+O conteúdo efetivamente implantado declara issuer
+`https://oidc.vercel.com/ordaxsystems`, audience
+`https://vercel.com/ordaxsystems`, subject
+`owner:ordaxsystems:project:ordax-os-public:environment:production`.
+A função pública exige validação OIDC no handler; `verify_jwt=false`
+**nessa função pública** não autoriza acesso anônimo ao gateway.
+
+A versão v7 e o time OIDC legado registrados anteriormente pertenciam a
+outra implantação e **não são evidências do projeto canônico**. O commit
+exato que produziu o pacote da v2 não foi comprovado, portanto
+`deployment_source_commit=null`; guardamos somente o hash do artefato
+observado, sem inventar proveniência GitHub. A centralização da allowlist
+(#1520) está integrada no source, **ainda não implantada** nessa v2.
+A função interna segue v5 com `verify_jwt=true`, chave nomeada ainda
+não provisionada e testes E2E pendentes. Conta pública continua fechada;
+não marcar OIDC, gateway service-to-service, login ou cadastro como prontos.
+
+## Diferenciação de falhas na ponte de Conta (source, 2026-10-09)
+
+As provas HTTP reais do domínio `ordax.com.br/auth/session` retornaram
+`503 account-gateway-unavailable`. No Supabase canônico, a função pública
+v2 registrou `503 EDGE_FUNCTION_ERROR` nas mesmas janelas, com tempos de
+execução aproximados de 206–440 ms. Um pedido direto **sem** OIDC à Edge
+v2 retornou `403 public-proxy-authentication-required` (segurança ativa).
+A URL `ORDAX_ACCOUNT_GATEWAY_URL` de produção corresponde ao destino
+canônico da Edge pública, conforme inspeção autenticada read-only na Vercel.
+
+O código da Edge pública (ainda **não implantado** nesta revisão) separa
+agora `account-public-bridge-unconfigured` (credencial nomeada ausente) de
+`account-gateway-unavailable` (transporte interno rejeitado/falhou). Ambos
+mantêm status 503 e não acionam cadastro/login. A implantação anterior v2
+pode produzir o segundo código nos dois cenários e **não permite concluir
+qual deles aconteceu** sem nova prova após implantação revisada. Não tratar
+falhas como estado normal de Conta desativada no monitor público.

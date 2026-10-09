@@ -32,9 +32,9 @@
     "leaked_password_protection": "enabled-product-gateway",
     "public_login_enabled": false,
     "edge_gateway": "v28-deployed-native-rate-limit-live-public-login-legal-receipt-guard-live-registration-disabled-close-disabled-recovery-isolated",
-    "public_edge_gateway": "canonical-supabase-v1-20261009-oidc-boundary-deployed-production-bridge-policy-and-e2e-pending",
+    "public_edge_gateway": "canonical-supabase-v2-20261009-oidc-boundary-deployed-route-ssot-rollout-and-e2e-pending",
     "public_edge_gateway_deployed": true,
-    "public_edge_gateway_version": 1,
+    "public_edge_gateway_version": 2,
     "public_edge_oidc_source_ready": true,
     "public_edge_oidc_deployed": true,
     "public_edge_oidc_runtime_verified": false,
@@ -166,7 +166,7 @@
     "public_edge_product_cookie_envelope_header": "x-ordax-cookie-envelope",
     "vercel_product_cookie_envelope_source_merged": true,
     "vercel_product_cookie_envelope_deployed": false,
-    "destination_vercel_oidc_observation": "Canonical Supabase project jhfphsjptrpmtnzkpwud public Edge gateway v1 deployed with Vercel signed OIDC validation; Vercel production has ORDAX_ACCOUNT_GATEWAY_URL and a private Turnstile secret. Signed service to service transport, named bridge provisioning and login/registration E2E remain unverified."
+    "destination_vercel_oidc_observation": "Canonical Supabase project jhfphsjptrpmtnzkpwud public Edge gateway v2 is ACTIVE with the ordaxsystems Vercel OIDC issuer/audience/subject in deployed source; verify_jwt=false at the public Edge with independent signed OIDC verification. Inner gateway still requires a Supabase platform JWT, named service bridge is unprovisioned, shared route SSOT #1520 is source-only, and end-to-end login/registration/OIDC remain unverified."
   },
   "postgresql_destination": {
     "project_name": "ordax-platform",

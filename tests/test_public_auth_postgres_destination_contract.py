@@ -131,7 +131,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("verifyNativeSession: async () => {", inner)
         self.assertIn("return Boolean(session.user && session.access)", inner)
         self.assertNotIn("expectedKey = adminConfig().key", inner)
-        self.assertIn("headers: upstreamHeaders(req, publicBridgeKey())", outer)
+        self.assertIn("headers: upstreamHeaders(req, bridgeKey)", outer)
         self.assertTrue(stage["destination_gateway_platform_auth_reference"].startswith("https://supabase.com/"))
 
     def test_named_service_bridge_is_not_production_credential_evidence(self):
