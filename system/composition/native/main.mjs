@@ -5,6 +5,7 @@ import {
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
 import { createNativeBrowserPageSelection } from "../../adapters/native/browser-page-selection.mjs";
 import { createNativeBrowserPageFind } from "../../adapters/native/browser-page-find.mjs";
+import { createNativeBrowserDownload } from "../../adapters/native/browser-download.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
 import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser-favorites.mjs";
 import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
@@ -995,6 +996,7 @@ async function start() {
       projectReferences,
       createPageSelectionPort: () => createNativeBrowserPageSelection(window),
       createPageFindPort: () => createNativeBrowserPageFind(window),
+      createDownloadPort: () => createNativeBrowserDownload(window),
       intelligence: selectedSpaceIntelligence,
       identitySessionPort: identitySession,
       spaceSelectionPort: spaceSelection,
