@@ -288,7 +288,13 @@
     const expectedTarget = route?.[0] ?? null;
     const target = route?.[1] ?? null;
     const legalReady = config?.legal?.account_activation_ready === true;
-    let available = legalReady && target === expectedTarget && sameOriginPath(target);
+    // Login and signup can ship without activating unrelated Cloud features.
+    // This static flag only makes the form eligible for *live server checks*;
+    // the session and active legal policy are authoritative.
+    const authOnly = config?.legal?.auth_only_source_enabled === true
+      && (kind === "login" || kind === "register");
+    let available = (legalReady || authOnly)
+      && target === expectedTarget && sameOriginPath(target);
     if (available) {
       try {
         // The server is authoritative: a static configuration alone cannot
