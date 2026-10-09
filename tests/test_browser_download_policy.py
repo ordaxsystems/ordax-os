@@ -3,6 +3,8 @@ from pathlib import Path
 import tempfile
 import unittest
 import os
+from types import SimpleNamespace
+from unittest.mock import patch
 
 POLICY = Path(__file__).resolve().parents[1] / "system/surface/runtime/browser_download_policy.py"
 spec = importlib.util.spec_from_file_location("browser_download_policy_test", POLICY)
@@ -33,14 +35,36 @@ class DownloadPolicyTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 policy.download_destination(root, "download-0123456789abcdef", "a.txt")
 
-    def test_regular_file_limit_and_permissions(self):
+    def test_large_regular_file_and_permissions(self):
         with tempfile.TemporaryDirectory() as root:
             path, _ = policy.download_destination(root, "download-0123456789abcdef", "a.txt")
-            Path(path).write_bytes(b"abc")
-            self.assertEqual(policy.verified_download(path), 3)
+            with open(path, "wb") as stream:
+                stream.truncate(256 * 1024 * 1024 + 1)
+            self.assertEqual(policy.verified_download(path), 256 * 1024 * 1024 + 1)
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
-            with self.assertRaisesRegex(ValueError, "too large"):
-                policy.verified_download(path, limit=2)
+    def test_capacity_depends_on_volume_not_file_size(self):
+        gib = 1024 ** 3
+        stats = SimpleNamespace(f_frsize=4096, f_bsize=4096,
+                                f_blocks=100 * gib // 4096,
+                                f_bavail=10 * gib // 4096)
+        with patch.object(policy.os, "statvfs", return_value=stats):
+            self.assertGreaterEqual(policy.ensure_download_space("/Downloads", 8 * gib), 8 * gib)
+            self.assertGreaterEqual(policy.ensure_download_space("/Downloads"), 8 * gib)
+            with self.assertRaises(policy.DownloadStorageSpaceError):
+                policy.ensure_download_space("/Downloads", 12 * gib)
+            for invalid in (-1, 1.5, True):
+                with self.assertRaises(ValueError):
+                    policy.ensure_download_space("/Downloads", invalid)
+
+    def test_low_space_blocks_unknown_length_stream(self):
+        gib = 1024 ** 3
+        stats = SimpleNamespace(f_frsize=4096, f_bsize=4096,
+                                f_blocks=10 * gib // 4096,
+                                f_bavail=1)
+        with patch.object(policy.os, "statvfs", return_value=stats):
+            with self.assertRaises(policy.DownloadStorageSpaceError):
+                policy.ensure_download_space("/Downloads")
+
 
     def test_reject_id_and_symlink_payload(self):
         with tempfile.TemporaryDirectory() as root:
