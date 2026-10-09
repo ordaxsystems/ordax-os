@@ -56,7 +56,12 @@ test("signup confirmation allows only one email token hash and canonical OrdaX p
   assert.equal(PUBLIC_SIGNUP_REDIRECT, PUBLIC_ORIGIN + "/login/");
   assert.equal(PUBLIC_CONFIRMATION_URL, PUBLIC_ORIGIN + "/auth/confirm");
   const hash = "a".repeat(64);
+  const liveFormatHash = "b".repeat(56);
   assert.equal(parseSignupConfirmation(new URL(PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=email")), hash);
+  assert.equal(parseSignupConfirmation(new URL(PUBLIC_CONFIRMATION_URL + "?token_hash=" + liveFormatHash + "&type=email")), liveFormatHash);
+  for (const tooShortOrLong of ["a".repeat(31), "b".repeat(129), "g".repeat(56)]) {
+    assert.equal(parseSignupConfirmation(new URL(PUBLIC_CONFIRMATION_URL + "?token_hash=" + tooShortOrLong + "&type=email")), null);
+  }
   for (const u of [
     PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=signup",
     PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=email&type=email",
@@ -67,7 +72,7 @@ test("signup confirmation allows only one email token hash and canonical OrdaX p
 });
 
 test("Vercel rewritten signup callback preserves only exact one-time OTP params", async () => {
-  const hash = "a".repeat(64);
+  const hash = "a".repeat(56);
   const valid = new URLSearchParams({ordax_path: "/auth/confirm", token_hash: hash, type:"email"});
   const result = forwardPublicConfirmationQuery("/auth/confirm", valid);
   const augmented = new URLSearchParams("ordax_path=/auth/confirm&ordax_path=/auth/login&token_hash=" + hash + "&type=email&next=https://evil.invalid");

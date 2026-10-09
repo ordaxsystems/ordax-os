@@ -20,6 +20,8 @@ class SignupConfirmationContractTests(unittest.TestCase):
         self.assertIn('auth.verifyOtp({ token_hash: tokenHash, type: "email" })', inner)
         self.assertIn('revokeCurrentSession(result.data.session.access_token)', inner)
         self.assertIn('"https://ordax.com.br"', shared)
+        self.assertIn('EMAIL_TOKEN_HASH_RE = /^[0-9a-f]{32,128}$/i;', shared)
+        self.assertNotIn('EMAIL_TOKEN_HASH_RE = /^[0-9a-f]{64}$/i;', shared)
         self.assertIn('window.history.replaceState(null, "", window.location.pathname + window.location.search)', js)
         self.assertNotIn('window.location.hash.slice', js)
 

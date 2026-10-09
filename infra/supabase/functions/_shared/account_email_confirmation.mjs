@@ -4,7 +4,11 @@ export const PUBLIC_ACCOUNT_ORIGIN = "https://ordax.com.br";
 export const PUBLIC_SIGNUP_REDIRECT = PUBLIC_ACCOUNT_ORIGIN + "/login/";
 export const PUBLIC_CONFIRMATION_PATH = "/auth/confirm";
 export const PUBLIC_CONFIRMATION_URL = PUBLIC_ACCOUNT_ORIGIN + PUBLIC_CONFIRMATION_PATH;
-const EMAIL_TOKEN_HASH_RE = /^[0-9a-f]{64}$/i;
+// Supabase Auth's {{ .TokenHash }} is an opaque, provider-generated hex
+// value. A real 2026-10-09 signup message carried 56 hex characters, not 64.
+// Enforce a bounded hex encoding here; the server verifies one-time validity
+// and expiry with Supabase Auth's verifyOtp (never via client-side length).
+const EMAIL_TOKEN_HASH_RE = /^[0-9a-f]{32,128}$/i;
 
 export function parseSignupConfirmation(url, routePath = PUBLIC_CONFIRMATION_PATH) {
   // Supabase Edge Functions may present the deployment prefix in req.url.
