@@ -26,3 +26,22 @@ export function parseSignupConfirmation(url, routePath = PUBLIC_CONFIRMATION_PAT
   if (hashes.length !== 1 || types.length !== 1 || types[0] !== "email") return null;
   return EMAIL_TOKEN_HASH_RE.test(hashes[0]) ? hashes[0] : null;
 }
+
+// Recovery links share the same bounded, opaque token hash encoding as signup
+// confirmation, but cannot be used for signup (or vice versa).
+export const PUBLIC_RECOVERY_VERIFY_PATH = "/auth/recover/verify";
+export const PUBLIC_RECOVERY_VERIFY_URL = PUBLIC_ACCOUNT_ORIGIN + PUBLIC_RECOVERY_VERIFY_PATH;
+
+export function parseRecoveryLink(url, routePath = PUBLIC_RECOVERY_VERIFY_PATH) {
+  const acceptedPaths = new Set([
+    PUBLIC_RECOVERY_VERIFY_PATH,
+    "/ordax-account-gateway" + PUBLIC_RECOVERY_VERIFY_PATH,
+    "/functions/v1/ordax-account-gateway" + PUBLIC_RECOVERY_VERIFY_PATH,
+  ]);
+  if (!(url instanceof URL) || routePath !== PUBLIC_RECOVERY_VERIFY_PATH || !acceptedPaths.has(url.pathname)) return null;
+  if ([...url.searchParams].length !== 2) return null;
+  const hashes = url.searchParams.getAll("token_hash");
+  const types = url.searchParams.getAll("type");
+  if (hashes.length !== 1 || types.length !== 1 || types[0] !== "recovery") return null;
+  return EMAIL_TOKEN_HASH_RE.test(hashes[0]) ? hashes[0] : null;
+}

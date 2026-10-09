@@ -8,7 +8,7 @@ import {
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs";
-import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, parseSignupConfirmation } from "../_shared/account_email_confirmation.mjs";
+import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -55,6 +55,9 @@ const PUBLIC_WEB_AUTH_ROUTES = new Set([
   "GET /auth/login",
   "GET /auth/register",
   "GET /auth/confirm",
+  "GET /auth/recover/verify",
+  "POST /auth/recover",
+  "POST /auth/recover/complete",
   "POST /auth/login",
   "POST /auth/register",
   "POST /auth/logout",
@@ -176,23 +179,10 @@ function adminConfig() {
   return { url, key };
 }
 
+// A single production HTTPS recovery destination, not an environment
+// fallback which could silently reopen localhost or an unrelated origin.
 function recoveryRedirect() {
-  const value = (Deno.env.get("ORDAX_ACCOUNT_RECOVERY_REDIRECT_URL") ?? "").trim();
-  if (!value) return null;
-  try {
-    const split = new URL(value);
-    if (
-      split.protocol !== "https:" ||
-      !split.host ||
-      split.username ||
-      split.password ||
-      split.search ||
-      split.hash
-    ) return null;
-    return split.toString();
-  } catch {
-    return null;
-  }
+  return PUBLIC_RECOVERY_VERIFY_URL;
 }
 
 async function compromisedPasswordCount(password: string) {
@@ -611,15 +601,11 @@ async function verifyRecoveryLink(req: Request, url: URL) {
   if (!ACCOUNT_RECOVERY_COMPLETION_ENABLED) {
     return error(503, "account-recovery-completion-disabled", "A conclusão da recuperação da Conta OrdaX ainda não foi ativada.");
   }
-  const tokenHash = url.searchParams.get("token_hash") ?? "";
-  const recoveryType = url.searchParams.get("type") ?? "";
-  if (
-    recoveryType !== "recovery" ||
-    tokenHash.length < 16 ||
-    tokenHash.length > 2048 ||
-    /\s/.test(tokenHash)
-  ) {
-    return error(400, "invalid-recovery-link", "O link de recuperação é inválido ou expirou.");
+  const tokenHash = parseRecoveryLink(url, PUBLIC_RECOVERY_VERIFY_PATH);
+  if (!tokenHash) {
+    return wantsJson(req)
+      ? error(400, "invalid-recovery-link", "O link de recuperação é inválido ou expirou.")
+      : redirectResponse("/recuperar/?erro=link-invalido");
   }
 
   try {

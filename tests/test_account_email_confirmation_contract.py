@@ -25,6 +25,19 @@ class SignupConfirmationContractTests(unittest.TestCase):
         self.assertIn('window.history.replaceState(null, "", window.location.pathname + window.location.search)', js)
         self.assertNotIn('window.location.hash.slice', js)
 
+    def test_password_recovery_uses_same_origin_hash_only_and_remains_gated(self):
+        html = (ROOT / "infra/supabase/identity/email-templates/recovery.html").read_text(encoding="utf-8")
+        inner = INNER.read_text(encoding="utf-8")
+        shared = SHARED.read_text(encoding="utf-8")
+        self.assertIn("https://ordax.com.br/auth/recover/verify?token_hash={{ .TokenHash }}&amp;type=recovery", html)
+        self.assertNotIn("{{ .ConfirmationURL }}", html)
+        self.assertNotIn("{{ .RedirectTo }}", html)
+        self.assertIn("PUBLIC_RECOVERY_VERIFY_URL", shared)
+        self.assertIn("parseRecoveryLink(url, PUBLIC_RECOVERY_VERIFY_PATH)", inner)
+        self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", inner)
+        self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", inner)
+        self.assertIn("return PUBLIC_RECOVERY_VERIFY_URL;", inner)
+
     def test_branded_email_links_to_canonical_token_hash_route(self):
         html = TEMPLATE.read_text(encoding="utf-8")
         self.assertIn('lang="pt-BR"', html)
