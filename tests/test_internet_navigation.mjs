@@ -19,6 +19,8 @@ test("browser navigation resolves absolute and bare public URLs", () => {
   assert.equal(resolveBrowserNavigation(""), null);
   assert.equal(resolveBrowserNavigation("  "), null);
   assert.equal(resolveBrowserNavigation("https://bücher.de").kind, "url");
+  assert.equal(resolveBrowserNavigation("https://8.8.8.8/").url, "https://8.8.8.8/");
+  assert.equal(resolveBrowserNavigation("https://[2001:4860:4860::8888]/").kind, "url");
 });
 
 test("address bar searches words and preserves query semantics without executing text", () => {
@@ -51,6 +53,16 @@ test("reject unsafe or ambiguous browser targets instead of treating schemes as 
     "//example.com", "https://example.com\\@evil.example/",
     "https://example.com/path with spaces", "https://printer",
     "http://127.0.0.1\\evil.example",
+    "http://127.0.0.1", "127.1", "http://0x7f000001",
+    "https://192.168.1.1/", "https://10.20.30.40/",
+    "http://172.16.0.9/", "http://100.64.5.1/",
+    "http://169.254.10.20/", "http://224.0.0.1/",
+    "http://0.0.0.0/", "http://localhost/",
+    "https://printer.local/", "https://gateway.home.arpa/",
+    "https://127。0.0.1/", "http://[::1]/",
+    "http://[fd00::abcd]/", "http://[fe80::1]/",
+    "https://192.0.2.4/", "http://198.51.100.9/",
+    "http://203.0.113.8/",
     "hello\u0000world", "evil\u202ereversed",
     "x".repeat(MAX_BROWSER_ADDRESS_INPUT + 1),
     "q".repeat(MAX_BROWSER_SEARCH_QUERY + 1),
