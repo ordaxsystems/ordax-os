@@ -52,10 +52,14 @@ export function verifyTrustedPublicRequestContext(request) {
   if (!canonicalOrigin) return fail("trusted-public-origin-required");
 
   const canonical = new URL(canonicalOrigin);
-  const forwardedProto = (request.headers.get("x-forwarded-proto") ?? "").trim().toLowerCase();
-  const forwardedHost = (request.headers.get("x-forwarded-host") ?? "").trim().toLowerCase();
-  if (forwardedProto !== "https" || forwardedHost !== canonical.host.toLowerCase()) {
-    return fail("trusted-forwarded-authority-mismatch");
+  // These fields are minted by the authenticated Vercel proxy from
+  // ORDAX_PUBLIC_ORIGIN, never copied from browser headers. Supabase's edge
+  // ingress can rewrite x-forwarded-host/proto, so those hop-specific headers
+  // are not the cross-provider authority contract.
+  const trustedProto = (request.headers.get("x-ordax-public-proto") ?? "").trim().toLowerCase();
+  const trustedHost = (request.headers.get("x-ordax-public-host") ?? "").trim().toLowerCase();
+  if (trustedProto !== "https" || trustedHost !== canonical.host.toLowerCase()) {
+    return fail("trusted-public-authority-mismatch");
   }
 
   const browserContext = verifyBrowserOriginContext(request, canonicalOrigin);
