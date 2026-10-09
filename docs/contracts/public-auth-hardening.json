@@ -238,7 +238,7 @@
     "destination_gateway_service_auth_reference": "https://supabase.com/docs/guides/functions/auth",
     "destination_gateway_transport_proof_date": "2026-10-09",
     "internal_gateway_staging_verified_source_change": "2026-10-09 #1520: shared public method/path SSOT; v6 platform verify_jwt=false with handler-specific named bridge authentication, Native Supabase Auth getUser and exact anonymous bootstrap. Public account/registration flags remain false.",
-    "destination_named_bridge_key_name": "ordax-account-public-bridge",
+    "destination_named_bridge_key_name": "ordax_account_public_bridge",
     "destination_named_bridge_source_prepared": true,
     "destination_named_bridge_key_provisioned": false,
     "destination_named_bridge_runtime_e2e_verified": false,

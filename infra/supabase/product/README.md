@@ -328,7 +328,7 @@ O código passou a compartilhar **um único verificador** em
 usado pelo gateway público para construir a chamada e pelo interno
 para autenticar a proveniência.
 
-Esse verificador só aceita `SUPABASE_SECRET_KEYS["ordax-account-public-bridge"]`
+Esse verificador só aceita `SUPABASE_SECRET_KEYS["ordax_account_public_bridge"]`
 com formato atual `sb_secret_...`, escopo exclusivo
 de **transporte serviço-para-serviço**. Nunca autentica um usuário,
 não deduz sessão da chave nem aceita credenciais legadas. Ausência
@@ -356,7 +356,7 @@ classes de entrada **antes de qualquer handler de Conta**:
 
 - **Serviço público OrdaX:** qualquer presença de
   `x-ordax-public-site` exige valor exatamente `1` e a chave
-  `ordax-account-public-bridge` conferida pelo verificador
+  `ordax_account_public_bridge` conferida pelo verificador
   **já canônico** `_shared/account_service_bridge.mjs`. Marcador
   inválido não pode virar requisição Native por fallback.
 - **Native autenticado:** rotas protegidas de Conta, Sync e Rede
@@ -409,7 +409,7 @@ sempre preservando um autenticador próprio antes do roteamento.
 A política de rotas públicas agora reside **somente** em
 `infra/supabase/functions/_shared/account_transport_admission.mjs`.
 Vercel, Edge pública e Edge interna aplicam `isPublicBridgeRoute`;
-a chave nomeada `ordax-account-public-bridge` autentica o serviço,
+a chave nomeada `ordax_account_public_bridge` autentica o serviço,
 mas não libera rotas Native extras, Rede ou mutações por método incorreto.
 Testes negativos impedem regressão antes de qualquer mudança do gate de JWT.
 
@@ -473,7 +473,11 @@ Supabase canônico `jhfphsjptrpmtnzkpwud`:
 - Pública `ordax-public-account-gateway`: ACTIVE v3, platform `verify_jwt=false`, artefato SHA256 `2fdfb1f177e40e294ebdc0215de0c64675ff5b51bd12e13b9e350bbd63fe03bf`; autorização OIDC Vercel assinada ocorre no handler. Consulta direta sem OIDC devolveu **403**.
 - Interna `ordax-account-gateway`: ACTIVE v6, platform `verify_jwt=false`, artefato SHA256 `6f27b767012ec06ddaa470f0fcb9d866aac83697bd703c46c21645cab82c0758`. A autenticação do handler permanece em `_shared/account_transport_admission.mjs`: named `sb_secret_` somente para serviço, `getUser`/refreshSession Supabase para Native e bootstrap anônimo com método/caminho exatos.
 - HTTP de prova (sem contas nem secrets): interno `/health` **200**; `/account/export` sem sessão **401**; marcador público sem chave **403**; sessão Native anônima **200**. Portanto a mudança do JWT de plataforma não implicou liberação indevida de rotas protegidas nesses casos.
-- Site público `/auth/session` devolveu **503 `account-public-bridge-unconfigured`**: identidade Vercel assinada chegou à Edge pública, mas a chave de serviço nomeada `ordax-account-public-bridge` não está provisionada. NÃO usar `default`/`service_role` como substituto. Provisionar a chave pelo Supabase Settings > API keys no projeto canônico, então testar HTTP positivo/negativo e rotação.
+- Site público `/auth/session` devolveu **503 `account-public-bridge-unconfigured`**: identidade Vercel assinada chegou à Edge pública, mas a chave de serviço nomeada `ordax_account_public_bridge` não está provisionada. NÃO usar `default`/`service_role` como substituto. Provisionar a chave pelo Supabase Settings > API keys no projeto canônico, então testar HTTP positivo/negativo e rotação.
 - Cadastro/login web continuam fechados porque os documentos legais não são versões finais aprovadas, política ativa ausente, registros de consentimento não disponíveis e o E2E real de email/sessão/recovery ainda não passou. Não ativar flags antes dessas provas.
 
 A liberação do MVP **não** se fundamenta só nesses testes negativos: `destination_service_transport_runtime_verified=false`, `destination_named_bridge_runtime_e2e_verified=false`, `internal_gateway_runtime_e2e_verified=false` e `active_legal_policy_present=false` continuam bloqueados.
+
+## Correção de nome da Secret API Key (2026-10-09)
+
+A tela de criação do Supabase aceita **somente letras minúsculas, números e `_`** no **nome** de Secret API Keys. O nome anterior com hifens não podia ser salvo, mantendo a ponte fechada. O identificador canônico agora é **`ordax_account_public_bridge`**. Essa chave secreta confere privilégios elevados e **nunca deve aparecer no frontend, chat, logs ou Git**; só o nome pode ser documentado. O verificador aceita exclusivamente a chave nomeada no objeto `SUPABASE_SECRET_KEYS`, sem fallback para `default`, service_role, publishable key ou antiga chave com hifens. Depois de implantar ambas as Edge Functions com o mesmo código, crie a chave nomeada no projeto Supabase canônico. Verifique o HTTP `/auth/session` e a negação de rotas não autorizadas antes de prosseguir com registro e aceite legal.

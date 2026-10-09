@@ -1,7 +1,12 @@
 // Canonical authorization boundary between public and internal Account gateways.
 // Named Supabase secret keys authenticate a service, not a user and not a JWT.
 // Never allow the project's default admin key or a legacy service_role key here.
-export const ACCOUNT_BRIDGE_KEY_NAME = "ordax-account-public-bridge";
+export const ACCOUNT_BRIDGE_KEY_NAME = "ordax_account_public_bridge";
+// Supabase Secret API Key names permit only lowercase letters, digits and _.
+// Never use a hyphen: the Dashboard refuses it and the bridge remains closed.
+if (!/^[a-z0-9_]+$/.test(ACCOUNT_BRIDGE_KEY_NAME)) {
+  throw new Error("invalid-supabase-named-secret");
+}
 const SECRET_KEY_PATTERN = /^sb_secret_[A-Za-z0-9_-]{16,256}$/;
 
 export function accountBridgeSecret(raw) {
