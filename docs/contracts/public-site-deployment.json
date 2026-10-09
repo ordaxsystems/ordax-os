@@ -67,7 +67,8 @@
     "target_canonical_domain_sync_http_status": 503,
     "target_canonical_domain_unknown_route_http_status": 404,
     "target_legacy_project_dashboard_detachment_verified": false,
-    "target_canonical_domain_proof_observed_date": "2026-10-08"
+    "target_canonical_domain_proof_observed_date": "2026-10-08",
+    "historical_team_slug": "jogo-brasils-projects"
   },
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
