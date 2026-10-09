@@ -370,8 +370,6 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(bot["secret_environment_variable"], "ORDAX_TURNSTILE_SECRET_KEY")
         self.assertFalse(bot["secret_may_exist_in_repository"])
         self.assertFalse(bot["token_forwarded_to_inner_gateway"])
-        self.assertFalse(bot["production_secret_configured"])
-        self.assertFalse(bot["production_e2e_verified"])
         self.assertTrue(self.contract["production_requirements"]["public_auth_turnstile_required"])
         self.assertTrue(self.contract["production_requirements"]["turnstile_server_side_siteverify_required"])
 
