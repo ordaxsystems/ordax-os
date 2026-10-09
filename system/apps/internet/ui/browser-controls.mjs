@@ -1,4 +1,5 @@
 import { assertBrowserSessionPort } from "../../../contracts/browser-session.mjs";
+import { assertBrowserPageFindPort, MAX_BROWSER_PAGE_FIND_CHARS } from "../../../contracts/browser-page-find.mjs";
 import {
   assertBrowserPageSelectionPort,
   validateBrowserPageSelection,
@@ -174,7 +175,9 @@ function createToolbar(documentObject, t) {
   input.setAttribute("aria-label", t("internet.address.aria"));
   input.dataset.browserAddress = "";
   form.append(node(documentObject, "span", "ordax-internet-site-control", "◈"), input);
-  toolbar.append(form, iconButton(documentObject, "☆", t("internet.action.bookmark"), "bookmark"));
+  const find = iconButton(documentObject, "⌕", t("internet.pageFind.open"), "find");
+  find.dataset.browserFindToggle = "";
+  toolbar.append(form, find, iconButton(documentObject, "☆", t("internet.action.bookmark"), "bookmark"));
   const downloads = iconButton(documentObject, "⇩", t("internet.action.downloads"), "downloads");
   downloads.disabled = true;
   downloads.title = t("internet.downloads.pending");
@@ -318,6 +321,31 @@ function createProjectPanel(documentObject, t) {
   return panel;
 }
 
+function createPageFindBar(documentObject, t) {
+  const bar = node(documentObject, "div", "ordax-internet-find-bar");
+  bar.dataset.browserFindBar = "";
+  bar.hidden = true;
+  bar.setAttribute("role", "search");
+  const input = node(documentObject, "input", "ordax-internet-find-input");
+  input.type = "search";
+  input.maxLength = MAX_BROWSER_PAGE_FIND_CHARS;
+  input.placeholder = t("internet.pageFind.placeholder");
+  input.setAttribute("aria-label", t("internet.pageFind.placeholder"));
+  input.dataset.browserFindInput = "";
+  const status = node(documentObject, "span", "ordax-internet-find-status");
+  status.dataset.browserFindStatus = "";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  const previous = iconButton(documentObject, "↑", t("internet.pageFind.previous"), "find-previous");
+  previous.dataset.browserFindPrevious = "";
+  const next = iconButton(documentObject, "↓", t("internet.pageFind.next"), "find-next");
+  next.dataset.browserFindNext = "";
+  const close = iconButton(documentObject, "×", t("internet.pageFind.close"), "find-close");
+  close.dataset.browserFindClose = "";
+  bar.append(input, status, previous, next, close);
+  return bar;
+}
+
 function createView(documentObject, snapshot, t) {
   const view = node(documentObject, "div", "ordax-internet-view");
   view.dataset.ordaxInternetView = "";
@@ -329,7 +357,7 @@ function createView(documentObject, snapshot, t) {
   viewport.append(createHome(documentObject, snapshot.supported, snapshot.reason, t));
   center.append(viewport);
   body.append(createSidebar(documentObject, t), center, createProjectPanel(documentObject, t));
-  view.append(toolbar, body);
+  view.append(toolbar, createPageFindBar(documentObject, t), body);
   return view;
 }
 
@@ -343,6 +371,7 @@ export function mountInternetBrowserControls(
     favorites = null,
     history = null,
     pageSelection = null,
+    pageFind = null,
     intelligence = null,
     identitySessionPort = null,
     spaceSelectionPort = null,
@@ -362,6 +391,7 @@ export function mountInternetBrowserControls(
   const favoritePort = favorites === null ? null : assertBrowserFavoritesPort(favorites);
   const historyPort = history === null ? null : assertBrowserHistoryPort(history);
   const selectionPort = pageSelection === null ? null : assertBrowserPageSelectionPort(pageSelection);
+  const findPort = pageFind === null ? null : assertBrowserPageFindPort(pageFind);
   const intelligencePort = intelligence === null ? null : assertIntelligencePort(intelligence);
   const scopeIdentity = identitySessionPort === null ? null : assertIdentitySessionPort(identitySessionPort);
   const scopeSelection = spaceSelectionPort === null ? null : assertSpaceSelectionPort(spaceSelectionPort);
@@ -389,6 +419,10 @@ export function mountInternetBrowserControls(
   let pendingTabFocusId = null;
   let handledSurfaceTarget = null;
   let resizeObserver = null;
+  let findOpen = false;
+  let findQuery = "";
+  let findTabId = null;
+  let findResult = null;
   let selectedPage = null;
   let questionDraft = "";
   let selectionAnswer = "";
@@ -966,6 +1000,34 @@ export function mountInternetBrowserControls(
     }
   };
 
+  const syncPageFind = (slot) => {
+    const tab = activeTab();
+    if (findOpen && (findTabId !== tab?.id || !tab?.url || tab.loading)) {
+      clearPageFind({ finish: false });
+    }
+    const toggle = slot.querySelector("[data-browser-find-toggle]");
+    if (toggle) {
+      toggle.disabled = !findPort || !tab?.url || tab.loading;
+      toggle.setAttribute("aria-pressed", String(findOpen));
+    }
+    const bar = slot.querySelector("[data-browser-find-bar]");
+    if (!bar) return;
+    bar.hidden = !findOpen;
+    const input = slot.querySelector("[data-browser-find-input]");
+    if (input && documentObject.activeElement !== input) input.value = findQuery;
+    const status = slot.querySelector("[data-browser-find-status]");
+    if (status) {
+      if (!findQuery) status.textContent = "";
+      else if (!findResult) status.textContent = t("internet.pageFind.searching");
+      else if (findResult.state === "not-found") status.textContent = t("internet.pageFind.none");
+      else status.textContent = t("internet.pageFind.matches", { count: findResult.count });
+    }
+    for (const selector of ["[data-browser-find-next]", "[data-browser-find-previous]"]) {
+      const control = slot.querySelector(selector);
+      if (control) control.disabled = !findQuery || findResult?.state === "not-found";
+    }
+  };
+
   const syncAssistance = (slot) => {
     const tab = activeTab();
     if (selectedPage && (selectedPage.tabId !== tab?.id || selectedPage.url !== tab?.url || tab.loading)) {
@@ -999,6 +1061,30 @@ export function mountInternetBrowserControls(
       answer.hidden = !selectionAnswer;
       answer.textContent = selectionAnswer;
     }
+  };
+
+  const clearPageFind = ({ finish = true } = {}) => {
+    if (finish && findPort && findTabId && snapshot.activeTabId === findTabId) {
+      findPort.finish(findTabId);
+    }
+    findOpen = false;
+    findQuery = "";
+    findResult = null;
+    findTabId = null;
+  };
+
+  const openPageFind = () => {
+    if (!findPort || !snapshot.supported) return;
+    const tab = activeTab();
+    if (!tab?.url || tab.loading) return;
+    findOpen = true;
+    findTabId = tab.id;
+    render();
+    windowObject.requestAnimationFrame(() => {
+      const input = findSlot()?.querySelector("[data-browser-find-input]");
+      input?.focus({ preventScroll: true });
+      input?.select();
+    });
   };
 
   const syncPanel = (slot) => {
@@ -1040,6 +1126,7 @@ export function mountInternetBrowserControls(
     syncReferenceControls(slot);
     syncFavorites(slot);
     syncHistory(slot);
+    syncPageFind(slot);
     syncAssistance(slot);
     syncPanel(slot);
     windowObject.requestAnimationFrame(syncViewport);
@@ -1103,6 +1190,27 @@ export function mountInternetBrowserControls(
     const slot = findSlot();
     if (!slot?.contains(target)) return;
 
+    if (target.dataset.browserFindToggle !== undefined) {
+      if (findOpen) {
+        clearPageFind();
+        render();
+      } else {
+        openPageFind();
+      }
+      return;
+    }
+    if (target.dataset.browserFindClose !== undefined) {
+      clearPageFind();
+      render();
+      return;
+    }
+    if (target.dataset.browserFindNext !== undefined || target.dataset.browserFindPrevious !== undefined) {
+      if (findPort && findTabId && findQuery) {
+        if (target.dataset.browserFindNext !== undefined) findPort.next(findTabId);
+        else findPort.previous(findTabId);
+      }
+      return;
+    }
     if (target.dataset.browserCaptureSelection !== undefined) {
       void captureSelectedPage();
       return;
@@ -1313,6 +1421,27 @@ export function mountInternetBrowserControls(
   };
 
   const onKeyDown = (event) => {
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key?.toLowerCase() === "f"
+        && findPort && findSlot()) {
+      event.preventDefault();
+      openPageFind();
+      return;
+    }
+    if (findOpen && event.key === "Escape" && findSlot()?.contains(event.target)) {
+      event.preventDefault();
+      clearPageFind();
+      render();
+      return;
+    }
+    const findInput = event.target.closest("[data-browser-find-input]");
+    if (findOpen && findInput && findSlot()?.contains(findInput) && event.key === "Enter") {
+      event.preventDefault();
+      if (findQuery && findTabId) {
+        if (event.shiftKey) findPort.previous(findTabId);
+        else findPort.next(findTabId);
+      }
+      return;
+    }
     const searchInput = event.target.closest("[data-browser-tab-search]");
     if (searchInput && root.contains(searchInput) && event.key === "Escape" && tabQuery) {
       event.preventDefault();
@@ -1351,6 +1480,14 @@ export function mountInternetBrowserControls(
   };
 
   const onInput = (event) => {
+    const findInput = event.target.closest("[data-browser-find-input]");
+    if (findInput && root.contains(findInput) && findSlot()?.contains(findInput) && findPort && findTabId) {
+      findQuery = findInput.value;
+      findResult = null;
+      findPort.search(findTabId, findQuery);
+      syncPageFind(findSlot());
+      return;
+    }
     const question = event.target.closest("[data-browser-selection-question]");
     if (question && root.contains(question) && findSlot()?.contains(question)) {
       questionDraft = question.value;
@@ -1394,6 +1531,11 @@ export function mountInternetBrowserControls(
 
   const unsubscribeSession = port.subscribe((nextSnapshot) => {
     snapshot = nextSnapshot;
+    if (findOpen && (findTabId !== snapshot.activeTabId
+        || snapshot.tabs.find((tab) => tab.id === findTabId)?.loading
+        || !snapshot.tabs.find((tab) => tab.id === findTabId)?.url)) {
+      clearPageFind({ finish: false });
+    }
     if (selectedPage && (selectedPage.tabId !== snapshot.activeTabId
         || snapshot.tabs.find((tab) => tab.id === selectedPage.tabId)?.url !== selectedPage.url
         || snapshot.tabs.find((tab) => tab.id === selectedPage.tabId)?.loading)) {
@@ -1429,6 +1571,17 @@ export function mountInternetBrowserControls(
     historySnapshot = nextSnapshot;
     render();
   }) ?? (() => {});
+  const unsubscribeFind = findPort?.subscribe((result) => {
+    if (!destroyed && findOpen && findTabId === result.tabId
+        && snapshot.activeTabId === result.tabId && findQuery === result.query) {
+      findResult = result;
+      const slot = findSlot();
+      if (slot) syncPageFind(slot);
+    }
+  }) ?? (() => {});
+  const unsubscribeShortcutFind = port.subscribeShortcuts((action) => {
+    if (action === "focus-page-find") openPageFind();
+  });
   const unsubscribeIntelligence = intelligencePort?.subscribe(() => render()) ?? (() => {});
   const invalidateSelectedContext = () => {
     clearSelectedPage();
@@ -1457,6 +1610,9 @@ export function mountInternetBrowserControls(
       unsubscribeReferences();
       unsubscribeFavorites();
       unsubscribeHistory();
+      unsubscribeFind();
+      unsubscribeShortcutFind();
+      clearPageFind();
       unsubscribeIntelligence();
       unsubscribeIdentity();
       unsubscribeSpaceSelection();
