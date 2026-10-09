@@ -341,6 +341,9 @@
     const paragraph = state.querySelector("p");
     if (strong) strong.textContent = title;
     if (paragraph) paragraph.textContent = detail;
+    state.dataset.status = available ? "ready" : "unavailable";
+    state.removeAttribute("aria-busy");
+    document.body.dataset.identityReady = available ? "true" : "false";
     showIdentityNotice(kind, available);
   }
 

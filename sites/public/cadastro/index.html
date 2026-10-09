@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Criação da futura Conta OrdaX.">
+  <meta name="description" content="Crie sua Conta OrdaX com segurança.">
   <title>Criar conta — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
-  <link rel="stylesheet" href="/assets/account.css?v=account-shell-1">
+  <link rel="stylesheet" href="/assets/account.css?v=account-ux-2">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
-  <script src="/assets/site.js?v=identity-copy-2" defer></script>
+  <script src="/assets/site.js?v=identity-ux-2" defer></script>
 </head>
 <body data-page="cadastro" class="account-ui">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -41,11 +41,11 @@
       <div class="signup-card">
         <header class="signup-card-header"><p class="eyebrow">NOVA CONTA</p><span class="account-card-index" aria-hidden="true">02 / 02</span></header>
         <h2 id="auth-title">Crie sua<br>Conta OrdaX.</h2>
-        <p class="signup-intro">Os campos aparecem somente após a confirmação da identidade, da segurança e das políticas de cadastro.</p>
+        <p class="signup-intro">Comece com seu e-mail e uma senha segura. Leia os documentos vigentes antes de criar a conta.</p>
 
-        <div class="identity-state" data-identity-state="register" aria-live="polite">
+        <div class="identity-state" data-identity-state="register" data-status="checking" aria-live="polite" aria-busy="true">
           <span class="state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-3a8 8 0 0 1 16 0v3Z"/></svg></span>
-          <div><strong>Cadastro ainda não configurado</strong><p>O botão será habilitado somente quando existir um endpoint de identidade aprovado para o portal.</p></div>
+          <div><strong>Verificando conexão segura</strong><p>Consultando o serviço de identidade e a política de cadastro.</p></div>
         </div>
 
         <p class="identity-notice" data-identity-notice hidden aria-live="polite"></p>
@@ -62,6 +62,7 @@
             <label class="registration-legal-acceptance"><input type="checkbox" name="legal_acceptance" value="accepted" required disabled><span>Li e aceito os documentos vigentes indicados acima.</span></label>
           </div>
           <div class="identity-turnstile" data-turnstile aria-label="Verificação anti-automação"></div>
+          <p class="verification-hint">Conclua a verificação de segurança para habilitar o botão.</p>
           <button class="button button-primary identity-submit" type="submit" disabled>Criar conta com segurança <span aria-hidden="true">↗</span></button>
         </form>
 
