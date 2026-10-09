@@ -69,6 +69,31 @@ Após o cutover, a separação precisa ser:
   pinada; nenhuma cópia do motor, gerenciador de permissões, updater ou
   serviços da plataforma dentro de `ordax-apps`.
 
+### Auditoria executável do App SDK (sem antecipar a migração)
+
+`python3 tools/verify/internet_sdk_readiness.py --check` lê todos os
+`system/apps/internet/**/*.mjs`, resolve imports e assets, lê o
+`sdk/app-sdk-v1/bundle.json` **publicado** e reporta os contratos
+necessários que ainda não aparecem no SDK. Imports de módulos internos
+do OS aparecem em `privatePlatformImports` e não podem virar dependências
+externas do app. Imports remotos, caminhos inexistentes ou dinâmicos sem
+literal falham fechados.
+
+O inventário JSON `ordax.internet-sdk-readiness/1` é derivado; não há
+uma segunda lista editável de contratos. A CI do Surface Web Candidate
+executa a auditoria e `tests/test_internet_sdk_readiness.py`.
+A opção `--require-public` permite usar o mesmo verificador como
+Gate estrito em uma migração futura: enquanto houver imports privados
+ou contratos não publicados, retorna falha em vez de autorizar o cutover.
+
+**Importante:** `sdkBoundaryClean` não é autorização de instalação.
+`sourceCutoverAuthorized` e `distributionActivated` continuam
+`false` neste relatório; apenas os owners de migração e release podem
+mudar essas condições após os testes completos. O SDK 1.12 não publica
+ainda toda a família de browser ports, e `app-contract.mjs` ainda é
+um import interno do produto. A migração não deve copiar esses módulos
+nem criar uma segunda implementação.
+
 O `git-app` atual **não é um `component-slot` de distribuição
 independente já comprovada**. O cutover requer prova de remoção do source
 antigo e boot do OS sem o aplicativo, um snapshot reprodutível, ports
