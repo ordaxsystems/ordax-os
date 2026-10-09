@@ -226,6 +226,11 @@ def apply_candidate(candidate: dict) -> str:
         fail("provider-url-invalid")
     if url != canonical_provider_url():
         fail("provider-project-mismatch")
+    # Opaque sb_secret keys are NOT JWTs. Require a dedicated modern backend
+    # key and send it only on apikey; a Bearer copy breaks PostgREST role
+    # inference, even if its value matches the apikey header.
+    if not re.fullmatch(r"sb_secret_[A-Za-z0-9_-]{16,256}", secret):
+        fail("provider-operator-secret-key-format-invalid")
 
     # A green source contract is not proof the legal terms are actually live.
     # Never activate an unseen/mismatched document or follow redirects.
@@ -250,7 +255,6 @@ def apply_candidate(candidate: dict) -> str:
         method="POST",
         headers={
             "apikey": secret,
-            "authorization": "Bearer " + secret,
             "content-type": "application/json",
             "accept": "application/json",
             "user-agent": "OrdaX-Legal-Policy-Activation/1",

@@ -177,6 +177,81 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, "provider-project-mismatch"):
                     activation.apply_candidate({})
 
+    def test_legal_activation_opaque_secret_uses_only_apikey_without_bearer(self):
+        from unittest.mock import patch
+
+        # Regression: Supabase sb_secret keys are not JWTs. Sending the same
+        # opaque key as Bearer used to break service_role RPC activation.
+        service_key = "sb_secret_" + "z" * 48
+        policy_id = "4e5e29b6-d271-4d6a-b7be-34c38a8d5ba1"
+        candidate = {
+            "privacy": {
+                "version": "privacy-v1",
+                "effective_date": "2026-10-09",
+                "sha256": "a" * 64,
+                "url": "https://ordax.com.br/privacidade/",
+            },
+            "terms": {
+                "version": "terms-v1",
+                "effective_date": "2026-10-09",
+                "sha256": "b" * 64,
+                "url": "https://ordax.com.br/termos/",
+            },
+        }
+        seen = []
+
+        class ApiResponse:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def read(self, _limit):
+                return json.dumps(policy_id).encode("utf-8")
+
+        class Opener:
+            def open(self, request, timeout):
+                seen.append((request, timeout))
+                return ApiResponse()
+
+        with (
+            patch.dict(os.environ, {
+                "ORDAX_SUPABASE_URL": activation.canonical_provider_url(),
+                "ORDAX_SUPABASE_SECRET_KEY": service_key,
+            }),
+            patch.object(activation, "verify_published_legal_documents"),
+            patch.object(activation.urllib.request, "build_opener", return_value=Opener()),
+        ):
+            self.assertEqual(activation.apply_candidate(candidate), policy_id)
+
+        self.assertEqual(len(seen), 1)
+        request, timeout = seen[0]
+        self.assertEqual(timeout, 20)
+        self.assertEqual(request.get_method(), "POST")
+        self.assertEqual(request.get_header("Apikey"), service_key)
+        self.assertFalse(request.has_header("Authorization"))
+        self.assertNotIn("Bearer", str(request.header_items()))
+        self.assertEqual(request.full_url,
+            activation.canonical_provider_url() + "/rest/v1/rpc/ordax_activate_account_legal_policy_v1")
+
+    def test_legal_activation_rejects_legacy_jwt_operator_secret(self):
+        from unittest.mock import patch
+        with (
+            patch.dict(os.environ, {
+                "ORDAX_SUPABASE_URL": activation.canonical_provider_url(),
+                "ORDAX_SUPABASE_SECRET_KEY": "eyJhbGciOiJIUzI1NiJ9.old.jwt",
+            }),
+            patch.object(
+                activation, "verify_published_legal_documents",
+                side_effect=AssertionError("must reject before legal/public requests"),
+            ),
+        ):
+            with self.assertRaisesRegex(SystemExit, "provider-operator-secret-key-format-invalid"):
+                activation.apply_candidate({})
+
     def test_published_final_documents_must_match_approved_source_bytes(self):
         from unittest.mock import patch
 
