@@ -4,6 +4,8 @@ import {
 } from "../infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs";
 import { readBoundedBody } from "../infra/supabase/functions/_shared/bounded_body.mjs";
 import { isPublicBridgeRoute } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
+import { trustedCookieEnvelope } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
+export { trustedCookieEnvelope, trustedSetCookie } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
 
 export { normalizePublicOrigin };
 
@@ -19,16 +21,7 @@ const TURNSTILE_ACTION = "ordax-account";
 const TURNSTILE_PROTECTED_PATHS = new Set(["/auth/login", "/auth/register", "/auth/recover"]);
 const MAX_TURNSTILE_TOKEN_BYTES = 2048;
 const MAX_TURNSTILE_RESPONSE_BYTES = 64 * 1024;
-const MAX_COOKIE_ENVELOPE_BYTES = 32 * 1024;
-const MAX_COOKIE_COUNT = 5;
 const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope";
-const SAFE_COOKIE_NAMES = new Set([
-  "ordax_access",
-  "ordax_refresh",
-  "ordax_recovery",
-  "ordax_recovery_access",
-  "ordax_recovery_refresh",
-]);
 const PASSTHROUGH_REQUEST_HEADERS = [
   "accept",
   "content-type",
@@ -146,63 +139,6 @@ export function normalizeUpstreamLocation(raw) {
   } catch {
     return null;
   }
-}
-
-export function trustedSetCookie(raw) {
-  if (typeof raw !== "string" || raw.length === 0 || raw.length > 16_384) return null;
-  if (/[\r\n]/.test(raw)) return null;
-  const parts = raw.split(";").map((part) => part.trim()).filter(Boolean);
-  if (parts.length < 5) return null;
-  const first = parts[0];
-  const separator = first.indexOf("=");
-  if (separator < 1) return null;
-  const name = first.slice(0, separator);
-  if (!SAFE_COOKIE_NAMES.has(name)) return null;
-
-  const attributes = new Map();
-  for (const part of parts.slice(1)) {
-    const index = part.indexOf("=");
-    const key = (index < 0 ? part : part.slice(0, index)).trim().toLowerCase();
-    const value = index < 0 ? "" : part.slice(index + 1).trim();
-    if (!key || attributes.has(key)) return null;
-    attributes.set(key, value);
-  }
-  if (attributes.has("domain")) return null;
-  if (!attributes.has("secure") || !attributes.has("httponly")) return null;
-  const expectedPath = name.startsWith("ordax_recovery") ? "/auth/recover" : "/";
-  if (attributes.get("path") !== expectedPath) return null;
-  if ((attributes.get("samesite") ?? "").toLowerCase() !== "lax") return null;
-  const maxAge = attributes.get("max-age");
-  if (maxAge === undefined || !/^-?\d{1,10}$/.test(maxAge)) return null;
-  return raw;
-}
-
-export function trustedCookieEnvelope(raw) {
-  if (raw === null || raw === undefined || raw === "") return [];
-  if (typeof raw !== "string") throw new TypeError("invalid-cookie-envelope");
-  if (new TextEncoder().encode(raw).byteLength > MAX_COOKIE_ENVELOPE_BYTES) {
-    throw new RangeError("cookie-envelope-too-large");
-  }
-  let values;
-  try {
-    values = JSON.parse(raw);
-  } catch {
-    throw new TypeError("invalid-cookie-envelope");
-  }
-  if (!Array.isArray(values) || values.length > MAX_COOKIE_COUNT) {
-    throw new TypeError("invalid-cookie-envelope");
-  }
-  const names = new Set();
-  const cookies = [];
-  for (const rawCookie of values) {
-    const cookie = trustedSetCookie(rawCookie);
-    if (!cookie) throw new TypeError("unsafe-upstream-cookie");
-    const name = cookie.slice(0, cookie.indexOf("="));
-    if (names.has(name)) throw new TypeError("duplicate-upstream-cookie");
-    names.add(name);
-    cookies.push(cookie);
-  }
-  return cookies;
 }
 
 function copyResponseHeaders(upstream) {

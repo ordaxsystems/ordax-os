@@ -10,12 +10,11 @@ import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountBridgeSecret } from "../_shared/account_service_bridge.mjs";
 import { stripEdgeFunctionPrefix, isPublicBridgeRoute } from "../_shared/account_transport_admission.mjs";
+import { productCookiesFromUpstream } from "../_shared/account_cookie_policy.mjs";
 
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
 const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024;
-const MAX_COOKIE_ENVELOPE_BYTES = 32 * 1024;
-const MAX_COOKIE_COUNT = 5;
 const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope";
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
 const REQUEST_HEADERS = [
@@ -128,18 +127,7 @@ function upstreamCookies(upstream: Response) {
     : upstream.headers.get("set-cookie")
       ? [upstream.headers.get("set-cookie") as string]
       : [];
-  if (values.length > MAX_COOKIE_COUNT) throw new RangeError("too-many-account-cookies");
-  let totalBytes = 0;
-  for (const value of values) {
-    if (typeof value !== "string" || !value || /[\r\n]/.test(value)) {
-      throw new TypeError("invalid-account-cookie");
-    }
-    totalBytes += new TextEncoder().encode(value).byteLength;
-  }
-  if (totalBytes > MAX_COOKIE_ENVELOPE_BYTES) {
-    throw new RangeError("account-cookie-envelope-too-large");
-  }
-  return values;
+  return productCookiesFromUpstream(values);
 }
 
 function responseHeaders(upstream: Response) {

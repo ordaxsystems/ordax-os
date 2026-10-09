@@ -481,3 +481,19 @@ A liberação do MVP **não** se fundamenta só nesses testes negativos: `destin
 ## Correção de nome da Secret API Key (2026-10-09)
 
 A tela de criação do Supabase aceita **somente letras minúsculas, números e `_`** no **nome** de Secret API Keys. O nome anterior com hifens não podia ser salvo, mantendo a ponte fechada. O identificador canônico agora é **`ordax_account_public_bridge`**. Essa chave secreta confere privilégios elevados e **nunca deve aparecer no frontend, chat, logs ou Git**; só o nome pode ser documentado. O verificador aceita exclusivamente a chave nomeada no objeto `SUPABASE_SECRET_KEYS`, sem fallback para `default`, service_role, publishable key ou antiga chave com hifens. Depois de implantar ambas as Edge Functions com o mesmo código, crie a chave nomeada no projeto Supabase canônico. Verifique o HTTP `/auth/session` e a negação de rotas não autorizadas antes de prosseguir com registro e aceite legal.
+
+## Isolamento de cookies entre Supabase e Vercel (2026-10-09)
+
+Após a chave `ordax_account_public_bridge` se tornar disponível, a Edge
+pública v5 respondeu 200 em `/auth/session` nos registros do Supabase,
+mas a Vercel rejeitou a resposta com 502 `unsafe-account-gateway-response`.
+O código antigo empacotava **todos** os cookies `Set-Cookie` da chamada
+interna, inclusive possíveis cookies da infraestrutura/CDN (`__cf_bm`),
+no envelope reservado ao produto, que o destino corretamente rejeitava.
+
+O proprietário único de validação é agora
+`infra/supabase/functions/_shared/account_cookie_policy.mjs`, importado pela
+Edge pública e pelo proxy Vercel. Cookies de transporte são descartados antes
+da formação do envelope; cookies `ordax_*` desconhecidos, atributos
+ilegais, duplicatas e excesso de tamanho são bloqueados. Não liberar cadastro
+por causa dessa correção; exigir teste HTTP do domínio e política legal final.
