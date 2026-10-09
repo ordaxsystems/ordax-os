@@ -37,6 +37,17 @@ class AccountReleaseSessionRevocationProofTests(unittest.TestCase):
             [],
         )
 
+    def test_receipt_must_have_exact_sanitized_fields_and_bounded_run_id(self):
+        proof = self.valid_proof()
+        proof["new_sensitive_property"] = "must-not-persist"
+        proof["workflow_run_id"] = "secret-token"
+        blockers = MODULE.validate_session_revocation_proof(proof, ORIGIN, COMMIT)
+        self.assertIn("session-revocation-proof-field-set", blockers)
+        self.assertIn("session-revocation-proof-workflow-run-id", blockers)
+        proof.pop("new_sensitive_property")
+        proof["workflow_run_id"] = None
+        self.assertEqual(MODULE.validate_session_revocation_proof(proof, ORIGIN, COMMIT), [])
+
     def test_native_or_other_origin_cannot_release_public_account(self):
         proof = self.valid_proof()
         proof["gateway_origin"] = "https://example.supabase.co"
