@@ -8,6 +8,7 @@ import { createNativeBrowserPageFind } from "../../adapters/native/browser-page-
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
 import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser-favorites.mjs";
 import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
+import { createNativeBrowserSearchPreferencesStore } from "../../adapters/native/browser-search-preferences.mjs";
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
 import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
@@ -1000,6 +1001,7 @@ async function start() {
       profileActivationStatePort: profileActivationState,
       createFavoritesStore: () => createNativeBrowserFavoritesStore(window),
       createHistoryStore: () => createNativeBrowserHistoryStore(window),
+      createSearchPreferencesStore: () => createNativeBrowserSearchPreferencesStore(window),
       enableShortcuts: true,
       reportDiagnostic: reportClientDiagnostic,
     },
