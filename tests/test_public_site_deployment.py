@@ -120,7 +120,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             migration["destination_www_cname"],
             "41ba9f63fdc43df6.vercel-dns-017.com",
         )
-        self.assertFalse(migration["destination_dns_only_independent_http_proof_passed"])
+        self.assertTrue(migration["destination_dns_only_independent_http_proof_passed"])
+        self.assertEqual(
+            migration["destination_dns_only_independent_http_proof_url"],
+            "https://github.com/ordaxsystems/ordax-os/actions/runs/37883115797",
+        )
         self.assertEqual(
             migration["destination_dns_only_independent_http_proof_workflow"],
             ".github/workflows/public-network-proof.yml",
@@ -139,7 +143,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(migration["public_delegation_points_to_destination"])
         self.assertIn("legacy zone reports moved", migration["note"])
         self.assertFalse(migration["independent_parent_ns_recheck_completed"])
-        self.assertFalse(
+        self.assertTrue(
             migration["destination_https_and_www_production_revalidated_after_delegation"]
         )
         self.assertFalse(migration["source_zone_may_be_removed"])
