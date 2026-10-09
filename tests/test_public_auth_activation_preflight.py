@@ -91,10 +91,12 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "recovery-e2e-proof",
             "session-revocation-proof",
             "bot-protection-e2e-proof",
-            "turnstile-canonical-hostname-provider-proof",
             "turnstile-canonical-runtime-proof",
         ):
             self.assertIn(expected, blockers)
+        # The canonical widget's hostname is proved in Cloudflare. Its
+        # runtime Siteverify and the broader Account E2E are not.
+        self.assertNotIn("turnstile-canonical-hostname-provider-proof", blockers)
         self.assertNotIn("bot-protection-production-secret", blockers)
         self.assertNotIn("legacy-account-legal-receipt-reconciliation", blockers)
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
@@ -120,10 +122,10 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "vercel-production-account-routes",
             "vercel-production-oidc-proof",
             "vercel-canonical-origin-binding",
-            "turnstile-canonical-hostname-provider-proof",
             "turnstile-canonical-runtime-proof",
         ):
             self.assertIn(code, blockers)
+        self.assertNotIn("turnstile-canonical-hostname-provider-proof", blockers)
         # The *source* recovery target now matches the verified domain.
         # Supabase provider-side redirect allowlist and runtime remain unproven.
         self.assertNotIn("provider-redirect-canonical-origin", blockers)
