@@ -3,6 +3,7 @@ import {
   renderedSourceSha,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
+import { createNativeBrowserPageSelection } from "../../adapters/native/browser-page-selection.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
 import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser-favorites.mjs";
 import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
@@ -990,6 +991,8 @@ async function start() {
       surfaceLifecycle: surface,
       projects,
       projectReferences,
+      createPageSelectionPort: () => createNativeBrowserPageSelection(window),
+      intelligence: selectedSpaceIntelligence,
       createFavoritesStore: () => createNativeBrowserFavoritesStore(window),
       createHistoryStore: () => createNativeBrowserHistoryStore(window),
       enableShortcuts: true,
