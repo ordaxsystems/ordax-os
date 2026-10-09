@@ -84,10 +84,10 @@ class InternetAccessibilityContractTests(unittest.TestCase):
         self.assertIn('.ordax-internet-tab-activate', styles)
 
         theme_samples = (
-            ("dark-app", "#8e9db4", "#a9c9f7", "#090f1b"),
-            ("dark-panel", "#8e9db4", "#a9c9f7", "#111e30"),
-            ("light-app", "#62748c", "#315f9f", "#f7f9fc"),
-            ("light-panel", "#62748c", "#315f9f", "#ffffff"),
+            ("dark-app", "#adb6ab", "#aee0cf", "#171c18"),
+            ("dark-panel", "#adb6ab", "#aee0cf", "#222924"),
+            ("light-app", "#5d6b60", "#176b59", "#faf8f2"),
+            ("light-panel", "#5d6b60", "#176b59", "#fffdf8"),
         )
         for name, secondary, focus, surface in theme_samples:
             with self.subTest(theme=name, token="secondary-text"):

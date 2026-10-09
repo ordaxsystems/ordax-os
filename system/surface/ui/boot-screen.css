@@ -5,9 +5,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--ordax-accent) 13%, transparent), transparent 30%),
-    linear-gradient(135deg, color-mix(in srgb, var(--ordax-bg) 86%, var(--ordax-accent)), var(--ordax-bg));
+  background: var(--ordax-bg);
   color: var(--ordax-text);
 }
 
@@ -48,30 +46,15 @@
   border-radius: var(--ordax-radius-lg);
   background: color-mix(in srgb, var(--ordax-surface-strong) 78%, transparent);
   box-shadow: var(--ordax-shadow);
-  backdrop-filter: blur(18px);
   text-align: center;
 }
 
 .ordax-boot-mark {
-  position: relative;
   width: 48px;
   height: 48px;
-  border: 1.5px solid color-mix(in srgb, var(--ordax-text) 72%, transparent);
-  border-radius: 50%;
-  box-shadow: 0 0 0 7px color-mix(in srgb, var(--ordax-accent) 8%, transparent),
-    0 0 34px color-mix(in srgb, var(--ordax-accent) 22%, transparent);
-}
-
-.ordax-boot-mark::after {
-  position: absolute;
-  top: 8px;
-  right: -7px;
-  width: 2px;
-  height: 32px;
-  border-radius: 2px;
   background: var(--ordax-accent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--ordax-accent) 62%, transparent);
-  content: "";
+  mask: url("./brand/ordax-symbol.svg") center / contain no-repeat;
+  -webkit-mask: url("./brand/ordax-symbol.svg") center / contain no-repeat;
 }
 
 .ordax-boot-wordmark {

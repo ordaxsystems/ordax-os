@@ -655,6 +655,9 @@ class SurfaceUiContractTests(unittest.TestCase):
             if not path.is_file():
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
+            # XML namespace identifiers do not request network resources.
+            if path.suffix == '.svg':
+                text = text.replace('xmlns="http://www.w3.org/2000/svg"', '')
             self.assertNotIn("http://", text, path)
             self.assertNotIn("https://", text, path)
             self.assertNotIn("cdn.", text.lower(), path)
@@ -705,7 +708,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("Ctrl + K", shell)
         self.assertIn("ordax-brand-symbol", shell)
         self.assertIn("ordax-identity-art", shell)
-        self.assertIn("--ordax-accent: #a9c9f7", tokens)
+        self.assertIn("--ordax-accent: #9acbb8", tokens)
         self.assertIn("--ordax-font-display", tokens)
         self.assertIn(".ordax-identity-art", css)
         self.assertIn(".ordax-rail", css)

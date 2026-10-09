@@ -98,6 +98,7 @@ on:
       - 'tools/surface-web/**'
       - 'tools/source_graph.py'
       - 'tests/test_surface_ui_contract.py'
+      - 'tests/test_surface_visual_identity.py'
       - 'tests/test_system_resource_localization.py'
       - 'tests/test_settings_deep_localization.py'
       - 'tests/test_settings_local_ai_view_contract.py'
@@ -293,6 +294,7 @@ on:
       - 'tools/surface-web/**'
       - 'tools/source_graph.py'
       - 'tests/test_surface_ui_contract.py'
+      - 'tests/test_surface_visual_identity.py'
       - 'tests/test_system_resource_localization.py'
       - 'tests/test_system_update_details_localization.py'
       - 'tests/test_surface_async_lifecycle.py'
@@ -509,6 +511,7 @@ jobs:
       - name: Run Surface and Web bundle regressions
         run: |
           python -m unittest tests.test_surface_ui_contract -v
+          python -m unittest tests.test_surface_visual_identity -v
           python -m unittest tests.test_surface_residual_localization -v
           python -m unittest tests.test_diagnostic_system_view_contract -v
           python -m unittest tests.test_diagnostic_system_owner_mount -v

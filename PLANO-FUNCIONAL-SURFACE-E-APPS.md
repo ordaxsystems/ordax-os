@@ -55,7 +55,7 @@ As imagens servem como referência de linguagem visual, não como especificaçã
 - **Dispositivos da conta** significa sessões vinculadas à identidade; não significa mouse, teclado ou impressora.
 - Tema Automático, seleção de papel de parede, cores alternativas, edição de perfil e autenticação em duas etapas eram sugestões visuais, não funcionalidades demonstradas.
 - “Seu nome”, dados de exemplo e botões sem backend não devem aparecer como estado real no produto.
-- O conceito de cores alternativas fica para evolução posterior: a identidade vigente define o laranja como destaque principal.
+- A identidade vigente está em `docs/DESKTOP-IDENTITY.md`: Basalto (escuro) e Calcário (claro) usam neutros quentes e verde. A mudança visual de 2026-10-09 preserva o contrato de preferência existente; cores arbitrárias continuam fora do escopo.
 
 ### 1.3 Restrições que continuam valendo
 
@@ -89,7 +89,7 @@ As prioridades são de implementação, não de exposição: uma tela P2 não de
 
 | Área | Existe no source | Ainda falta em relação a este plano |
 |---|---|---|
-| Identidade visual | Documento `DESKTOP-IDENTITY.md`, canvas mineral, laranja, rail, composição geométrica, temas claro/escuro. | Refinar consistência, responsividade, acessibilidade e retirar textos de investigação da experiência normal. |
+| Identidade visual | Documento `docs/DESKTOP-IDENTITY.md`, materiais Basalto/Calcário, símbolo vetorial local, rail e temas claro/escuro compartilhados. | Validar contraste, responsividade e recursos offline sem criar outro owner de preferências. |
 | Área de trabalho | Relógio/data, lançador com busca, quatro apps, atalhos para pastas, áreas e persistência do workspace. | Navegação uniforme por subseções, restauração de estado interno dos apps e testes de fluxo completos. |
 | Arquivos | Adapter nativo delimitado, navegação/breadcrumbs, seleção, preview UTF-8, criar pasta, renomear, duplicar/copiar, mover, importar/exportar, busca local, ordenação, metadado Modificado real, Recentes locais limitados/deduplicados, retomada da última pasta validada após reload pelo workspace existente e catálogo local de Projetos com referências não destrutivas a pastas validadas. | Favoritos, lixeira, múltiplos itens/diretórios e “Abrir com” para apps compatíveis ainda faltam; retomada serializada de conteúdo/atividade por app permanece em C05. |
 | Ajustes | Catálogo de preferências com `appearance.theme`, valores `light`/`dark`, persistência e integração com núcleo local de sync. | Subseções e demais preferências; automático, wallpaper, acessibilidade e configurações de hardware não estão demonstrados. |
@@ -213,7 +213,7 @@ Sistema
 
 Cada app usa um cabeçalho com nome, uma navegação interna quando necessária, uma região de conteúdo e uma área discreta de feedback. Não reproduzir o título gigante do conceito em toda janela pequena. Título e espaçamento precisam funcionar em uma janela normal, maximizada e em celular.
 
-A linguagem vigente está em `DESKTOP-IDENTITY.md`: fundo mineral, texto preto/grafite, laranja de destaque, tipografia editorial para identidade e sans-serif para controles. Usar tokens semânticos. Claro e escuro são duas apresentações da mesma interface.
+A linguagem vigente está em `docs/DESKTOP-IDENTITY.md`: materiais Basalto e Calcário, neutros quentes, verde de destaque, tipografia Inter e geometria de portal. Usar os tokens semânticos compartilhados. Claro e escuro são duas apresentações da mesma interface; a referência anterior ao laranja foi substituída no source em 2026-10-09.
 
 ### 4.2 Estados obrigatórios
 

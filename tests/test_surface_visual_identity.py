@@ -1,4 +1,6 @@
 from pathlib import Path
+import re
+import xml.etree.ElementTree as ET
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,19 +22,20 @@ INTER_LICENSE = ROOT / "third_party" / "licenses" / "Inter-OFL-1.1.txt"
 
 
 class SurfaceVisualIdentityTests(unittest.TestCase):
-    def test_graphite_glacial_tokens_are_canonical(self):
+    def test_basalt_limestone_tokens_are_canonical(self):
         tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
         self.assertNotIn("#ed4b25", tokens)
         for declaration in (
-            "--ordax-bg: #080f19",
-            "--ordax-app-bg: #090f1b",
-            "--ordax-panel: #111e30",
-            "--ordax-text: #e2ebf7",
-            "--ordax-muted: #8e9db4",
-            "--ordax-accent: #a9c9f7",
-            "--ordax-button-bg: #d1e4ff",
-            "--ordax-button-text: #172b47",
-            "--ordax-border: #243249",
+            "--ordax-bg: #121613",
+            "--ordax-app-bg: #171c18",
+            "--ordax-panel: #222924",
+            "--ordax-text: #f2f0e7",
+            "--ordax-accent: #9acbb8",
+            "--ordax-bg: #eeeae1",
+            "--ordax-app-bg: #faf8f2",
+            "--ordax-panel: #fffdf8",
+            "--ordax-text: #252e28",
+            "--ordax-accent: #176b59",
             "--ordax-font: Inter, system-ui, \"Segoe UI\", sans-serif",
             "--ordax-font-display: Inter, system-ui, \"Segoe UI\", sans-serif",
             "--ordax-motion-fast: 150ms",
@@ -41,7 +44,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         ):
             self.assertIn(declaration, tokens)
 
-    def test_graphite_is_visual_reference_without_changing_theme_default(self):
+    def test_identity_preserves_theme_default_and_public_values(self):
         appearance = APPEARANCE.read_text(encoding="utf-8")
         self.assertIn('defaultValue: "light"', appearance)
         self.assertIn('{ value: "light", label: "Claro" }', appearance)
@@ -73,7 +76,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             html = index.read_text(encoding="utf-8")
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
-            self.assertIn('name="theme-color" content="#080f19"', html)
+            self.assertIn('name="theme-color" content="#eeeae1"', html)
 
     def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
         css = (SURFACE / "identity.css").read_text(encoding="utf-8")
@@ -159,18 +162,57 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
 
     def test_settings_previews_match_canonical_light_and_dark_palettes(self):
         css = SETTINGS_CSS.read_text(encoding="utf-8")
-        self.assertNotIn("#ed4b25", css)
-        for color in (
-            "#f7f9fc",
-            "#527eb8",
-            "#172b47",
-            "#8797aa",
-            "#090f1b",
-            "#a9c9f7",
-            "#e2ebf7",
-            "#8e9db4",
-        ):
-            self.assertIn(color, css)
+        previews = css[css.index('.ordax-settings-theme-preview {'):]
+        self.assertNotRegex(previews, r'#[a-fA-F0-9]{3,8}\b')
+        for token in ('app-bg', 'rail-bg', 'accent', 'text', 'muted'):
+            self.assertIn(f'var(--ordax-{token})', previews)
+        tokens = (SURFACE / 'tokens.css').read_text(encoding='utf-8')
+        for theme in ('light', 'dark'):
+            self.assertIn(f'[data-theme-preview="{theme}"]', tokens)
+
+    def test_accessible_palette_contrast_in_both_materials(self):
+        css = (SURFACE / 'tokens.css').read_text(encoding='utf-8')
+        blocks = list(re.finditer(r'([^{}]+)\{([^{}]+)\}', css))
+
+        def palette(selector):
+            block = next(m[2] for m in blocks if selector in m[1])
+            return dict(re.findall(r'--ordax-([\w-]+):\s*(#[a-fA-F0-9]{6})\s*;', block))
+
+        def luminance(hex_color):
+            rgb = [int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+            linear = [c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4 for c in rgb]
+            return sum(c * w for c, w in zip(linear, (.2126, .7152, .0722)))
+
+        def contrast(first, second):
+            low, high = sorted((luminance(first), luminance(second)))
+            return (high + .05) / (low + .05)
+
+        for theme in ('dark', 'light'):
+            standard = palette(f'[data-theme-preview="{theme}"]')
+            for high_contrast in (False, True):
+                colors = {**standard}
+                if high_contrast:
+                    colors.update(palette(f'[data-ordax-theme="{theme}"][data-ordax-contrast="high"]'))
+                for background in ('bg', 'app-bg', 'panel', 'surface', 'rail-bg'):
+                    for foreground in ('text', 'muted', 'faint'):
+                        with self.subTest(theme=theme, high=high_contrast, bg=background, fg=foreground):
+                            self.assertGreaterEqual(contrast(colors[foreground], colors[background]),
+                                                    7 if high_contrast else 4.5)
+                    self.assertGreaterEqual(contrast(colors['focus'], colors[background]), 3)
+                    for state in ('success', 'warning', 'danger', 'accent'):
+                        self.assertGreaterEqual(contrast(colors[state], colors[background]), 4.5)
+                self.assertGreaterEqual(contrast(colors['button-text'], colors['button-bg']), 4.5)
+
+    def test_shared_symbol_is_local_vector_without_external_references(self):
+        symbol = SURFACE / 'brand' / 'ordax-symbol.svg'
+        svg = ET.parse(symbol).getroot()
+        self.assertEqual(svg.attrib['viewBox'], '0 0 64 64')
+        self.assertTrue(svg.findall('{http://www.w3.org/2000/svg}path'))
+        for element in svg.iter():
+            self.assertFalse(any('href' in key for key in element.attrib))
+            self.assertNotIn('script', element.tag)
+        for stylesheet in ('identity.css', 'boot-screen.css'):
+            self.assertIn('./brand/ordax-symbol.svg', (SURFACE / stylesheet).read_text(encoding='utf-8'))
 
     def test_browser_smoke_exercises_shared_identity_layers(self):
         smoke = BROWSER_SMOKE.read_text(encoding="utf-8")
