@@ -181,6 +181,8 @@ class InternetBrowserContractTests(unittest.TestCase):
         allowed_resource = policy["allowed_external_resource_uri"]
 
         self.assertTrue(allowed_navigation("https://example.com/path"))
+        self.assertTrue(allowed_navigation("https://bücher.de/docs"))
+        self.assertTrue(allowed_navigation("https://example。com/docs"))
         self.assertTrue(allowed_navigation("https://8.8.8.8/"))
         self.assertTrue(allowed_resource("wss://example.com/socket"))
         self.assertTrue(allowed_resource("data:text/plain,ok"))
@@ -204,6 +206,18 @@ class InternetBrowserContractTests(unittest.TestCase):
             "http://127.1/",
             "http://0x7f.0.0.1/",
             "http://2130706433/",
+            # WHATWG/IDNA host normalization must not expose loopback or LAN.
+            "http://%31%32%37.0.0.1/",
+            "http://%6cocalhost/",
+            "http://127%2e0.0.1/",
+            "http://127。0.0.1/",
+            "http://127．0.0.1/",
+            "http://127｡0.0.1/",
+            "http://router。local/",
+            "http://printer．home.arpa/",
+            "http://192。168.0.1/",
+            "http://127%EF%BC%8E0.0.1/",
+
             "http://0300.0250.0001.0001/",
             "http://0xc0.0xa8.0x1.0x1/",
         )
