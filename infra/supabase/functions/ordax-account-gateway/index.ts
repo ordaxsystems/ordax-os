@@ -820,7 +820,7 @@ async function closeAccount(req: Request) {
 // session is revoked immediately. The browser gets no JWT and must sign in
 // normally through the same-origin OrdaX login flow.
 async function confirmPublicSignup(url: URL) {
-  const tokenHash = parseSignupConfirmation(url);
+  const tokenHash = parseSignupConfirmation(url, PUBLIC_CONFIRMATION_PATH);
   if (!tokenHash) return redirectResponse("/login/?erro=confirmacao-invalida");
   try {
     const result = await client().auth.verifyOtp({ token_hash: tokenHash, type: "email" });
