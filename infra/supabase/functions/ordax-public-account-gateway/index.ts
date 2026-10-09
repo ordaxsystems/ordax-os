@@ -9,7 +9,7 @@ import { verifyTrustedPublicRequestContext } from "./public_request_context.mjs"
 import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountBridgeSecret } from "../_shared/account_service_bridge.mjs";
-import { stripEdgeFunctionPrefix } from "../_shared/account_transport_admission.mjs";
+import { stripEdgeFunctionPrefix, isPublicBridgeRoute } from "../_shared/account_transport_admission.mjs";
 
 const ERROR_SCHEMA = "prototype-ordax.public-identity-error/1";
 const MAX_BODY = 64 * 1024;
@@ -18,13 +18,6 @@ const MAX_COOKIE_ENVELOPE_BYTES = 32 * 1024;
 const MAX_COOKIE_COUNT = 5;
 const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope";
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
-const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
-const PUBLIC_ACCOUNT_ROUTES = new Map([
-  ["/account/export", "GET"],
-  ["/account/spaces", "GET"],
-  ["/account/entitlements/memory-cloud", "GET"],
-  ["/account/close", "POST"],
-]);
 const REQUEST_HEADERS = [
   "accept",
   "content-type",
@@ -106,10 +99,7 @@ function routePath(url: URL, method: string) {
     || pathname.includes("\\")
     || pathname.includes("\0")
   ) return null;
-  const prefixAllowed = ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-  const accountMethod = PUBLIC_ACCOUNT_ROUTES.get(pathname);
-  if (!prefixAllowed && accountMethod !== method) return null;
-  if (accountMethod && accountMethod !== method) return null;
+  if (!isPublicBridgeRoute(method, pathname)) return null;
   return `${pathname}${url.search}`;
 }
 

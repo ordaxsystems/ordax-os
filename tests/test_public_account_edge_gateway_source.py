@@ -30,7 +30,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('pathname.startsWith(prefix + "/")', shared)
         self.assertIn("return stripEdgeFunctionPrefix(pathname, \"ordax-account-gateway\")", shared)
         self.assertIn(
-            'import { stripEdgeFunctionPrefix } from "../_shared/account_transport_admission.mjs"',
+            'import { stripEdgeFunctionPrefix, isPublicBridgeRoute } from "../_shared/account_transport_admission.mjs"',
             self.edge,
         )
         self.assertIn(
@@ -139,18 +139,20 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('const MAX_BODY = 64 * 1024', self.edge)
         self.assertIn('const MAX_UPSTREAM_RESPONSE = 2 * 1024 * 1024', self.edge)
         self.assertIn('const ALLOWED_METHODS = new Set(["GET", "POST"])', self.edge)
-        self.assertIn('const ALLOWED_PREFIXES = ["/auth/", "/sync/"]', self.edge)
-        self.assertIn('const PUBLIC_ACCOUNT_ROUTES = new Map([', self.edge)
+        self.assertIn('isPublicBridgeRoute(method, pathname)', self.edge)
+        self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.proxy)
+        self.assertNotIn("PUBLIC_ACCOUNT_ROUTES = new Map", self.edge)
+        self.assertNotIn("PUBLIC_ACCOUNT_ROUTES = new Map", self.proxy)
+        shared = (ROOT / "infra/supabase/functions/_shared/account_transport_admission.mjs").read_text(encoding="utf-8")
+        self.assertIn("export function isPublicBridgeRoute(method, pathname)", shared)
         for route, method in (
             ("/account/export", "GET"),
             ("/account/spaces", "GET"),
             ("/account/entitlements/memory-cloud", "GET"),
             ("/account/close", "POST"),
         ):
-            self.assertIn(f'["{route}", "{method}"]', self.edge)
-            self.assertIn(f'["{route}", "{method}"]', self.proxy)
-        self.assertIn("accountMethod !== method", self.edge)
-        self.assertIn("accountMethod !== method", self.proxy)
+            self.assertIn(f'["{route}", "{method}"]', shared)
+        self.assertIn("public-account-route-not-allowed", shared)
         self.assertNotIn('/network/', self.edge)
 
     def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
@@ -238,8 +240,12 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn("if (req.headers.has(\"x-ordax-public-site\"))", policy)
         self.assertIn("verifyNativeSession(req)", policy)
         self.assertIn('"/auth/login"', policy)
-        self.assertNotIn('"/account/export"', policy)
-        self.assertNotIn('"/sync/mutate"', policy)
+        bootstrap_only = policy.split("const NATIVE_BOOTSTRAP =", 1)[1].split(
+            "export function isNativeBootstrapRoute", 1
+        )[0]
+        self.assertNotIn('"/account/export"', bootstrap_only)
+        self.assertNotIn('"/sync/mutate"', bootstrap_only)
+        self.assertIn("!isPublicBridgeRoute(req.method, path)", policy)
         gate = self.inner.index("const transport = await authorizeAccountTransport(req, path, {")
         rate_limit = self.inner.index("const directRateLimitResponse = await enforceDirectAuthRateLimit(req, path)")
         public_gate = self.inner.index("if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED)")

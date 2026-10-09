@@ -3,19 +3,13 @@ import {
   verifyBrowserOriginContext,
 } from "../infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs";
 import { readBoundedBody } from "../infra/supabase/functions/_shared/bounded_body.mjs";
+import { isPublicBridgeRoute } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 
 export { normalizePublicOrigin };
 
 const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const ALLOWED_METHODS = new Set(["GET", "POST"]);
-const ALLOWED_PREFIXES = ["/auth/", "/sync/"];
-const PUBLIC_ACCOUNT_ROUTES = new Map([
-  ["/account/export", "GET"],
-  ["/account/spaces", "GET"],
-  ["/account/entitlements/memory-cloud", "GET"],
-  ["/account/close", "POST"],
-]);
 const PUBLIC_GATEWAY_PATH = "/functions/v1/ordax-public-account-gateway";
 const VERCEL_OIDC_TOKEN_RE = /^[A-Za-z0-9_-]{16,4096}\.[A-Za-z0-9_-]{2,16384}\.[A-Za-z0-9_-]{16,16384}$/;
 const EDGE_ADDRESS_RE = /^[0-9A-Fa-f:.]{3,64}$/;
@@ -100,10 +94,7 @@ export function normalizeProductPath(raw, method) {
   if (!value.startsWith("/") || value.includes("\\") || value.includes("\0")) return null;
   const parsed = new URL(value, "https://ordax.invalid");
   if (parsed.pathname.includes("/../") || parsed.pathname.endsWith("/..")) return null;
-  const prefixAllowed = ALLOWED_PREFIXES.some((prefix) => parsed.pathname.startsWith(prefix));
-  const accountMethod = PUBLIC_ACCOUNT_ROUTES.get(parsed.pathname);
-  if (!prefixAllowed && accountMethod !== method) return null;
-  if (accountMethod && accountMethod !== method) return null;
+  if (!isPublicBridgeRoute(method, parsed.pathname)) return null;
   return `${parsed.pathname}${parsed.search}`;
 }
 
