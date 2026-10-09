@@ -190,7 +190,8 @@ Limites e proteções:
   alterada durante a captura;
 - trecho e resposta ficam apenas em memória, sem histórico, sincronização ou
   persistência de página;
-- trocas de aba ou URL invalidam a prévia para evitar contexto cruzado;
+- trocas de aba, URL, Conta OrdaX, Space ou Profile invalidam a prévia e descartam respostas atrasadas para impedir contexto cruzado;
+- prévia avisa quando o recorte de 4.096 caracteres exclui parte do texto;
 - modo Web mantém a captura indisponível sem fabricar um `iframe`.
 
 Provas de contrato:
