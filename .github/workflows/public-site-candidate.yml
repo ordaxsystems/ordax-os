@@ -9,6 +9,10 @@ on:
       - 'api/account-proxy.mjs'
       - 'vercel.json'
       - 'tools/public-site/**'
+      - 'tools/brand/**'
+      - 'system/surface/ui/tokens.css'
+      - 'infra/supabase/identity/email-templates/src/**'
+      - 'tests/test_brand_pipeline.py'
       - 'tools/security/**'
       - 'docs/PUBLIC-SITE.md'
       - 'docs/RELEASE-COMPLIANCE.md'
@@ -76,6 +80,10 @@ on:
       - 'api/account-proxy.mjs'
       - 'vercel.json'
       - 'tools/public-site/**'
+      - 'tools/brand/**'
+      - 'system/surface/ui/tokens.css'
+      - 'infra/supabase/identity/email-templates/src/**'
+      - 'tests/test_brand_pipeline.py'
       - 'tools/security/**'
       - 'docs/PUBLIC-SITE.md'
       - 'docs/RELEASE-COMPLIANCE.md'
@@ -161,6 +169,8 @@ jobs:
         run: |
           set -euo pipefail
           python tools/public-site/build.py check
+          python tools/brand/build.py check
+          python -m unittest tests.test_brand_pipeline -v
           python tools/public-site/auth_activation_preflight.py check
           node tests/test_public_site_localization.mjs
           node --test tests/test_public_site_localization_runtime.mjs

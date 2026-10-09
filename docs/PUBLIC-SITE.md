@@ -396,3 +396,11 @@ Após autenticação: `Entrar` vira `Minha conta`; CTA de cadastro é
 ocultado se também existir o link de conta (se só houver CTA, ele se torna
 o link da conta). Sem sessão ou com erro, apenas os links públicos aparecem.
 Retorno por bfcache refaz a verificação. Tokens nunca são expostos ao JS.
+
+## Brand SSOT bridge (2026-10-09)
+
+Public Site builds now derive and inject `assets/ordax-design-tokens.css`
+from the canonical Surface token owner. Each page receives a local stylesheet
+link in the **generated bundle**, not the in-progress HTML source; no second
+palette is edited. Supabase email templates use the same colors through
+`tools/brand/build.py` and verified generated HTML. See `docs/BRAND-SSOT.md`.

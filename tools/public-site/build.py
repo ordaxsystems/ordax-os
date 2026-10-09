@@ -21,6 +21,11 @@ from public_release_catalog import (
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
 
+# Surface tokens are the sole visual owner. The public site receives a derived
+# CSS bridge at build time rather than maintaining a competing color palette.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "brand"))
+from build import render_site_css
+
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "sites" / "public"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
@@ -229,6 +234,19 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
             destination = stage / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, destination)
+
+        # Derived CSS bridge: no manual palette in sites/public and no risk of
+        # overwriting in-progress public-site layouts or source files.
+        token_asset = stage / "assets" / "ordax-design-tokens.css"
+        token_asset.write_text(render_site_css(), encoding="utf-8")
+        for page in stage.rglob("*.html"):
+            markup = page.read_text(encoding="utf-8")
+            if '<link rel="stylesheet" href="/assets/ordax-design-tokens.css">' in markup:
+                raise PublicSiteError("brand tokens link already authored; use the build bridge")
+            if markup.count("</head>") != 1:
+                raise PublicSiteError("public page requires one head for design tokens")
+            markup = markup.replace("</head>", '  <link rel="stylesheet" href="/assets/ordax-design-tokens.css">\n</head>')
+            page.write_text(markup, encoding="utf-8")
 
         catalog = write_catalog(PUBLICATIONS, stage / PUBLIC_CATALOG_RELATIVE)
 
