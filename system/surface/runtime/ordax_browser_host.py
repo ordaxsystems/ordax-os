@@ -85,8 +85,17 @@ def public_network_uri(uri: str, schemes: frozenset[str]) -> bool:
         return False
     if parsed.username is not None or parsed.password is not None:
         return False
-
-    host = parsed.hostname.rstrip(".").lower()
+    # WebKit applies WHATWG host normalization, including percent-decoding.
+    # urlsplit does not: a host such as %31%32%37.0.0.1 must never bypass
+    # the private-network boundary before WebKit resolves it to 127.0.0.1.
+    if "%" in parsed.netloc:
+        return False
+    try:
+        # Unicode dot variants and IDNA compatibility characters can also
+        # normalize into local hosts or numeric IPs in the browser engine.
+        host = parsed.hostname.encode("idna").decode("ascii").rstrip(".").lower()
+    except (UnicodeError, ValueError):
+        return False
     if (
         host == "localhost"
         or host.endswith(LOCAL_HOST_SUFFIXES)
