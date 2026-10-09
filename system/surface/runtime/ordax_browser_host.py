@@ -1157,7 +1157,7 @@ class OrdaXBrowserHost:
             tab = self.tabs.get(self.active_tab_id)
             if (
                 not allowed_external_uri(request_uri) or tab is None
-                or tab.view is not view or tab.loading
+                or tab.view is not view
                 or not allowed_external_uri(tab.url)
                 or len(self.downloads) >= 4
             ):
