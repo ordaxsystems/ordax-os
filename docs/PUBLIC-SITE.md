@@ -298,3 +298,41 @@ python tools/public-site/auth_activation_preflight.py require-ready
 That stricter mode requires legal readiness, provider hardening evidence,
 same-origin deployment, real-IP rate limiting, recovery configuration and
 end-to-end proofs before the public account controls may be enabled together.
+
+
+### Independent hourly public-site availability proof
+
+The `OrdaX Public DNS and HTTPS Proof` GitHub Actions workflow runs every
+hour (UTC, at minute 17 on GitHub's best-effort schedule), on changes to the
+deployment proof, and on manual dispatch. It checks the canonical external
+DNS A address resolves **directly to Vercel**, the five important public HTML
+pages return HTTP 200 over valid HTTPS, and `www` returns the canonical
+308 redirect. It also makes **anonymous GET requests only** to
+`/config/public-site.json` and `/auth/session`: their schemas, cache
+controls, and active/gated identity state must agree. While registration is
+explicitly disabled, `/auth/session` may return **HTTP 503 with only**
+`prototype-ordax.public-site-proxy-error/1` /
+`account-gateway-unconfigured`. The probe logs that as
+`ORDAX_PUBLIC_ACCOUNT_GATE=disabled-unconfigured`, never as a working
+login service. A different 503 is an outage; once legal activation is true,
+**any** 503 is a failure.
+
+The probe never uses account credentials or changes account data. A green
+`ORDAX_PUBLIC_NETWORK_PROOF=PASS` is uptime evidence, **not** proof
+that registration, passwords, e-mail delivery, or service-to-service OAuth
+works. A failure is recorded in GitHub Actions; notifications require the
+repository's GitHub Actions notification settings or a dedicated alerting
+integration. Scheduled runs can be delayed or skipped by GitHub, so this is a
+regression guard rather than a contractual uptime SLA.
+
+Commands for operators:
+
+```bash
+python -m unittest tests.test_public_site_network_proof -v
+python tools/public-site/probe_public_network.py
+```
+
+If the portal fails externally, compare Cloudflare DNS-only records with
+`docs/contracts/public-site-deployment.json`, validate Vercel production
+aliases and the exact deployed Git SHA, and inspect GitHub Actions failures.
+Do not silently restore Cloudflare proxying or disable Auth security checks.
