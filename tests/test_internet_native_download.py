@@ -169,6 +169,24 @@ class BrowserDownloadNativeTests(unittest.TestCase):
             d2.emit("finished")
             self.assertFalse(Path(path).exists())
 
+    def test_cancel_after_approval_cleans_partial_file(self):
+        with tempfile.TemporaryDirectory() as root:
+            host=fake_host(root)
+            d=FakeDownload(host.view)
+            host.on_download_started(None,d)
+            id=next(iter(host.downloads))
+            d.emit("decide-destination","large-file.bin")
+            host.handle_download_decision("download.approve",id)
+            path=host.downloads[id]["path"]
+            Path(path).write_bytes(b"unfinished")
+            d.emit("created-destination",d.destination)
+            host.handle_download_decision("download.cancel",id)
+            self.assertEqual(host.events[-1]["status"],"cancelled")
+            self.assertEqual(d.cancel_count,1)
+            d.emit("finished")
+            self.assertFalse(Path(path).exists())
+            self.assertEqual(host.downloads,{})
+
     def test_reject_malformed_or_replayed_approval(self):
         with tempfile.TemporaryDirectory() as root:
             host=fake_host(root)
