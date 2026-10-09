@@ -33,7 +33,7 @@ class FilesNavigationHistoryTests(unittest.TestCase):
         self.assertIn("const changedPath = Boolean(listing && listing.path !== next.path)", load_block)
         self.assertIn("if (changedPath)", load_block)
         self.assertIn('setMessage("files.location.openFailed")', load_block)
-        self.assertLess(load_block.index("const next = validateFileListing"), load_block.index("searchQuery = \"\""))
+        self.assertLess(load_block.index("const next = validateListingForRequest"), load_block.index("searchQuery = \"\""))
 
     def test_navigation_controls_are_accessible_and_responsive(self):
         controls = CONTROLS.read_text(encoding="utf-8")
