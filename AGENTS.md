@@ -4,9 +4,11 @@ Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa q
 
 ## 1. Identidade do repositorio
 
-`prototipo-ordax-os` e uma **clean-room experimental**. Ele existe para provar uma arquitetura OrdaX OS simplificada sem depender estruturalmente de `washingtonmsdj/novo-ordax-os`.
+`ordaxsystems/ordax-os` é o **repositório oficial e canônico do OrdaX OS**. A identidade e os responsáveis atuais são definidos por `docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`.
 
-Nao trate este repositorio como sucessor oficial enquanto `docs/PROMOTION-GATES.md` nao estiver aprovado.
+O produto continua em desenvolvimento e homologação: a promoção/renomeação do repositório **não equivale à aprovação de uma release Stable/MVP**, assinatura, aceite físico ou autorização para publicação e gravação de dispositivos. Esses gates permanecem independentes; consulte `MVP.md` e `docs/PROMOTION-GATES.md`.
+
+`washingtonmsdj/novo-ordax-os` e os slugs anteriores do repositório canônico são somente referências históricas e de proveniência, nunca uma segunda autoridade de desenvolvimento.
 
 ## 2. Fonte de verdade
 
