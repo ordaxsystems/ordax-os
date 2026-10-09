@@ -57,7 +57,7 @@ class PublicLegalReadinessTests(unittest.TestCase):
 
     def test_auth_hardening_gate_is_not_ready(self):
         contract = json.loads(AUTH_HARDENING.read_text(encoding="utf-8"))
-        self.assertEqual(contract["status"], "public-auth-disabled-hardening-pending")
+        self.assertEqual(contract["status"], "public-auth-disabled-bridge-unprovisioned-legal-pending")
         observation = contract["current_observation"]
         self.assertEqual(observation["leaked_password_protection"], "enabled-product-gateway")
         self.assertTrue(observation["product_leaked_password_protection_verified"])
