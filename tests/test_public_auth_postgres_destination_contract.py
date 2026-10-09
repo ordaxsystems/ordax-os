@@ -111,8 +111,8 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertFalse(stage["public_registration_enabled"])
         source = ROOT / stage["internal_gateway_staging_source"]
         gateway = source.read_text(encoding="utf-8")
-        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = true;", gateway)
-        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = true;", gateway)
+        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", gateway)
+        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = false;", gateway)
         self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", gateway)
         self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", gateway)
         self.assertIn("const ACCOUNT_CLOSE_ENABLED = false;", gateway)
