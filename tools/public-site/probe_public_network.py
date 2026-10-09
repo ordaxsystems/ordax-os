@@ -96,9 +96,26 @@ def check_anonymous_account_boundary() -> None:
     session_path = "/auth/session"
     with fetch(CANONICAL_HOST, session_path, accept="application/json") as response:
         print("ORDAX_PUBLIC_SESSION_STATUS=" + str(response.status), flush=True)
-        if response.status != 200:
+        if response.status not in (200, 503):
             fail("session-http-status")
         session = bounded_json(response, path=session_path)
+        session_http_status = response.status
+
+    if session_http_status == 503:
+        # A disabled static public account frontend legitimately has no
+        # Supabase public gateway configured yet. Record it as a separate,
+        # deliberately blocked account state—not as a healthy login gateway.
+        # Any 503 once the site advertises live registration is an outage.
+        if legal["account_activation_ready"]:
+            fail("active-account-session-unavailable")
+        if (
+            session.get("$schema") != "prototype-ordax.public-site-proxy-error/1"
+            or session.get("error") != "account-gateway-unconfigured"
+        ):
+            fail("unexpected-account-gateway-failure")
+        print("ORDAX_PUBLIC_ACCOUNT_GATE=disabled-unconfigured", flush=True)
+        return
+
     if session.get("$schema") != "prototype-ordax.public-identity-session/1":
         fail("session-schema")
     if session.get("authenticated") is not False or session.get("status") != "anonymous":
