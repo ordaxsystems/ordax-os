@@ -95,31 +95,31 @@ export function normalizeProductPath(raw, method) {
 // Vercel may attach original URL parameters to the rewritten API route
 // separately from ordax_path. Preserve only the fixed public OTP callback
 // parameters. No arbitrary query forwarding is introduced for other endpoints.
+// Only the two approved OTP values are reconstructed from request routing.
+// Deployment rewrite parameters are never interpreted as verification data,
+// and unrelated URL parameters are never sent to the identity provider.
+// This avoids Vercel's internal query-shape differences without weakening
+// the one-time token validation or allowing arbitrary redirect targets.
 export function forwardPublicConfirmationQuery(normalizedPath, params) {
   if (typeof normalizedPath !== "string"
     || !params
-    || typeof params.getAll !== "function"
-    || typeof params[Symbol.iterator] !== "function") return null;
+    || typeof params.getAll !== "function") return null;
   const route = new URL(normalizedPath, PUBLIC_ACCOUNT_ORIGIN);
   if (route.pathname !== PUBLIC_CONFIRMATION_PATH) return null;
 
-  // Vercel can repeat a rewrite parameter when combining the original URL
-  // with the destination query. Accept repeated values ONLY if they resolve
-  // to the same normalized allowlisted callback. Conflicts fail closed.
-  const rewrittenPaths = params.getAll("ordax_path");
-  if (rewrittenPaths.length === 0
-    || rewrittenPaths.some(value => normalizeProductPath(value, "GET") !== normalizedPath)) return null;
-
-  const forwarded = new URLSearchParams();
-  for (const [key, value] of params) {
-    if (key === "ordax_path") continue;
-    if (key !== "token_hash" && key !== "type") return null;
-    forwarded.append(key, value);
-  }
-  if (forwarded.size === 0) return normalizedPath;
-  if (route.search) return null;
-  route.search = forwarded.toString();
-  return parseSignupConfirmation(route) ? route.pathname + route.search : null;
+  const query = new URLSearchParams(route.search);
+  const hashes = [...query.getAll("token_hash"), ...params.getAll("token_hash")];
+  const types = [...query.getAll("type"), ...params.getAll("type")];
+  if (hashes.length === 0 && types.length === 0) return PUBLIC_CONFIRMATION_PATH;
+  if (hashes.length === 0 || types.length === 0) return null;
+  // A rewrite can duplicate the same value in both path and query metadata.
+  // Contradictory values are untrusted and never forwarded.
+  if (!hashes.every(hash => hash === hashes[0])
+    || !types.every(type => type === types[0])) return null;
+  const canonical = new URL(PUBLIC_CONFIRMATION_PATH, PUBLIC_ACCOUNT_ORIGIN);
+  canonical.searchParams.set("token_hash", hashes[0]);
+  canonical.searchParams.set("type", types[0]);
+  return parseSignupConfirmation(canonical) ? canonical.pathname + canonical.search : null;
 }
 
 export function normalizeVercelOidcToken(raw) {

@@ -70,6 +70,12 @@ test("Vercel rewritten signup callback preserves only exact one-time OTP params"
   const hash = "a".repeat(64);
   const valid = new URLSearchParams({ordax_path: "/auth/confirm", token_hash: hash, type:"email"});
   const result = forwardPublicConfirmationQuery("/auth/confirm", valid);
+  const augmented = new URLSearchParams("ordax_path=/auth/confirm&ordax_path=/auth/login&token_hash=" + hash + "&type=email&next=https://evil.invalid");
+  assert.equal(forwardPublicConfirmationQuery("/auth/confirm", augmented), "/auth/confirm?token_hash=" + hash + "&type=email");
+  const containedHash = "/auth/confirm?token_hash=" + hash + "&type=email";
+  const doubled = new URLSearchParams({ordax_path: containedHash, token_hash: hash, type:"email"});
+  assert.equal(forwardPublicConfirmationQuery(containedHash, doubled), "/auth/confirm?token_hash=" + hash + "&type=email");
+  assert.equal(forwardPublicConfirmationQuery("/auth/confirm", new URLSearchParams("ordax_path=/auth/confirm")), "/auth/confirm");
   assert.equal(result, "/auth/confirm?token_hash=" + hash + "&type=email");
   assert.equal(forwardPublicConfirmationQuery("/auth/confirm", new URLSearchParams({ordax_path: "/auth/confirm"})), "/auth/confirm");
   // Vercel may duplicate the same destination rewrite field. That must not
@@ -78,8 +84,8 @@ test("Vercel rewritten signup callback preserves only exact one-time OTP params"
   assert.equal(forwardPublicConfirmationQuery("/auth/confirm", twice), "/auth/confirm?token_hash=" + hash + "&type=email");
   for(const invalid of [
     new URLSearchParams({ordax_path: "/auth/login", token_hash:hash, type:"email"}),
-    new URLSearchParams("ordax_path=/auth/confirm&token_hash=" + hash + "&type=email&redirect_to=https://evil.test"),
-    new URLSearchParams("ordax_path=/auth/confirm&ordax_path=/auth/login&token_hash=" + hash + "&type=email"),
+    new URLSearchParams("ordax_path=/auth/confirm&token_hash=" + hash + "&type=signup"),
+    new URLSearchParams("ordax_path=/auth/confirm&token_hash=" + hash + "&token_hash=" + "b".repeat(64) + "&type=email"),
   ]) {
     assert.equal(forwardPublicConfirmationQuery(invalid.get("ordax_path"), invalid), null);
   }
@@ -138,12 +144,12 @@ test("ordinary auth routes survive Vercel rewrite metadata without OTP parsing",
       assert.ok(forwarded.at(-1).endsWith(path), path);
       assert.ok(!forwarded.at(-1).includes("request-path"), path);
     }
-    // OTP routes reject conflicting rewrite values, extra parameters, and
-    // arbitrary redirections; identical rewrites are valid (tested above).
+    // Contradictory OTP values fail closed, even when rewrite metadata is
+    // repeated. Irrelevant query values are dropped, never forwarded.
     const hash = "a".repeat(64);
     for(const qs of [
-      "ordax_path=/auth/confirm&ordax_path=/auth/login&token_hash=" + hash + "&type=email",
-      "ordax_path=/auth/confirm&token_hash=" + hash + "&type=email&next=https://evil.invalid",
+      "ordax_path=/auth/confirm&token_hash=" + hash + "&token_hash=" + "b".repeat(64) + "&type=email",
+      "ordax_path=/auth/confirm&token_hash=" + hash + "&type=signup",
     ]) {
       const before = forwarded.length;
       const bad = await proxyPublicAccountRequest(
