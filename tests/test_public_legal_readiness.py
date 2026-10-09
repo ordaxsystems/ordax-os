@@ -32,6 +32,22 @@ class PublicLegalReadinessTests(unittest.TestCase):
         contract = json.loads(LEGAL_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(contract["status"], "not-ready")
         self.assertFalse(contract["account_activation_ready"])
+        operator = contract["operator"]
+        self.assertEqual(operator["legal_form"], "natural_person")
+        self.assertEqual(operator["operation_phase"], "initial_individual_operator_no_company")
+        self.assertEqual(operator["operating_country"], "BR")
+        self.assertIsNone(operator["legal_name"])
+        self.assertIsNone(operator["privacy_contact_email"])
+        self.assertFalse(operator["identity_reviewed"])
+        self.assertFalse(operator["privacy_contact_verified"])
+        self.assertIsNone(operator["business_registration"])
+        for path in (
+            ROOT / "docs/legal/review/PRIVACIDADE-MINUTA.md",
+            ROOT / "docs/legal/review/TERMOS-CONTA-MINUTA.md",
+        ):
+            draft = path.read_text(encoding="utf-8")
+            self.assertIn("pessoa física", draft)
+            self.assertIn("PENDENTE", draft)
         self.assertFalse(contract["documents"]["privacy"]["final"])
         self.assertFalse(contract["documents"]["terms"]["final"])
         self.assertIsNone(contract["documents"]["privacy"]["version"])

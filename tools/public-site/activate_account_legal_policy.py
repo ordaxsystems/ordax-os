@@ -18,6 +18,10 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+# Both public activation gates use one implementation of operator identity rules.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from legal_operator import operator_blockers
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -170,6 +174,10 @@ def build_candidate(origin: str) -> dict:
         raise ValueError("unexpected legal readiness schema")
     if contract.get("status") != "ready" or contract.get("account_activation_ready") is not True:
         raise ValueError("legal readiness is not ready")
+
+    operator_issues = operator_blockers(contract.get("operator"))
+    if operator_issues:
+        raise ValueError("legal operator not ready: " + ",".join(operator_issues))
 
     clean = clean_origin(origin)
     documents = contract.get("documents")

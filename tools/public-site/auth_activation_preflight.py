@@ -15,6 +15,10 @@ import re
 import sys
 from pathlib import Path
 
+# Both public activation gates use one implementation of operator identity rules.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from legal_operator import operator_blockers
+
 ROOT = Path(__file__).resolve().parents[2]
 
 LEGAL = Path("docs/contracts/public-legal-readiness.json")
@@ -108,6 +112,8 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     privacy = documents.get("privacy", {})
     terms = documents.get("terms", {})
     registration_binding = legal.get("registration_binding", {})
+    for operator_blocker in operator_blockers(legal.get("operator")):
+        blockers.append(operator_blocker)
     need(legal.get("status") == "ready", "legal-status")
     need(legal.get("account_activation_ready") is True, "legal-account-activation")
     need(lifecycle.get("identity_owner") == "ordax-account-gateway", "account-lifecycle-owner")
