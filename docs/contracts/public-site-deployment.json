@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "canonical-public-edge-v2-oidc-deployed-runtime-e2e-pending",
+  "status": "canonical-public-edge-v3-oidc-ingress-proven-service-bridge-and-legal-blocked",
   "site_artifact": "public-site",
   "vercel_migration": {
     "status": "target-static-production-canonical-domain-live-identity-runtime-pending",
@@ -173,7 +173,7 @@
     "canonical_public_origin_deployment_verified": false
   },
   "public_edge_gateway": {
-    "status": "canonical-supabase-v2-production-oidc-deployed-runtime-e2e-pending",
+    "status": "canonical-supabase-v3-oidc-admission-proven-service-bridge-unprovisioned",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
@@ -182,8 +182,8 @@
     "request_context_validation_connected": true,
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
-    "deployed_version": 2,
-    "deployment_source_commit": null,
+    "deployed_version": 3,
+    "deployment_source_commit": "fd17f81a1092c3c587bd1c6009c6c1c80c93779d",
     "deployed_authentication": "vercel-production-oidc-v2",
     "source_authentication": "vercel-production-oidc-v2",
     "oidc_source_ready": true,
@@ -247,10 +247,18 @@
     "product_cookie_envelope_header": "x-ordax-cookie-envelope",
     "transport_set_cookie_forwarding": false,
     "canonical_project_ref": "jhfphsjptrpmtnzkpwud",
-    "deployment_source_commit_verified": false,
-    "deployment_artifact_sha256": "1d882e54d3d51eeca6570e28e6905d5874707ca5e9f037c5465ead87647252e4",
+    "deployment_source_commit_verified": true,
+    "deployment_artifact_sha256": "2fdfb1f177e40e294ebdc0215de0c64675ff5b51bd12e13b9e350bbd63fe03bf",
     "shared_public_route_ssot_source_integrated": true,
-    "shared_public_route_ssot_deployed": false
+    "shared_public_route_ssot_deployed": true,
+    "public_oidc_ingress_positive_http_verified": true,
+    "public_oidc_ingress_negative_http_verified": true,
+    "named_inner_service_bridge_provisioned": false,
+    "named_inner_service_bridge_http_status": 503,
+    "named_inner_service_bridge_diagnostic": "account-public-bridge-unconfigured",
+    "inner_gateway_deployed_version": 6,
+    "inner_gateway_platform_verify_jwt": false,
+    "inner_gateway_custom_auth_verified_for_negative_http": true
   },
   "routing": {
     "static_routes": [
@@ -394,7 +402,7 @@
     "public_edge": {
       "source_ready": true,
       "deployed": true,
-      "deployment_revision_observed": 2,
+      "deployment_revision_observed": 3,
       "rpc": "ordax_consume_public_auth_rate_limit_v1",
       "shared_policy_deployed": true,
       "shared_policy_source": "infra/supabase/functions/_shared/auth_rate_limit.mjs"
