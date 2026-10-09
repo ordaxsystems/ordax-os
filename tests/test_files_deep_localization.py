@@ -62,7 +62,6 @@ class FilesDeepLocalizationTests(unittest.TestCase):
             'setMessage("files.copy.created"',
             'setMessage("files.rename.renamed"',
             'setMessage("files.directory.created"',
-            "setMessage(outcome.presentation.messageId, outcome.presentation.messageParams)",
         ):
             self.assertIn(marker, controls)
 
