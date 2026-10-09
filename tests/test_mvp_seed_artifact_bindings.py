@@ -29,6 +29,17 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
         self.assertEqual(len(artifacts), 1)
         return artifacts[0]
 
+    def test_current_efi_binding_uses_reproduced_final_namespace_sbat(self):
+        group = self.groups["uefi-boot"]
+        efi = next(x for x in group["artifacts"] if x["source_path"] == "boot/esp/EFI/BOOT/BOOTX64.EFI")
+        self.assertEqual(efi["source_path"], "boot/esp/EFI/BOOT/BOOTX64.EFI")
+        self.assertEqual(efi["sha256"], "17041f6bcdae189a11880c5926d052f60b289dc2ed16b0c9e7aa681bdb592d03")
+        self.assertEqual(efi["mode"], "0644")
+        builder = (ROOT / "boot/esp/build.py").read_text(encoding="utf-8")
+        self.assertIn("-Dsbat-distro-url=https://github.com/ordaxsystems/ordax-os", builder)
+        self.assertNotIn("-Dsbat-distro-url=https://github.com/ordaxsystems/prototipo-ordax-os", builder)
+        self.assertFalse(self.contract["physical_write_allowed"])
+
     def test_current_kernel_binding_matches_portable_v2_capable_kernel(self):
         artifact = self.artifact("kernel")
         self.assertEqual(artifact["source_path"], "bootstrap/kernel/vmlinuz-6.6.52")

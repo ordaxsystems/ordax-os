@@ -48,7 +48,7 @@
         {
           "source_path": "boot/esp/EFI/BOOT/BOOTX64.EFI",
           "target_path": "/EFI/BOOT/BOOTX64.EFI",
-          "sha256": "fed636dedec875e4b4b8b1b19d04df1eb919532da87bbbdde78d192d1ab5cb1f",
+          "sha256": "17041f6bcdae189a11880c5926d052f60b289dc2ed16b0c9e7aa681bdb592d03",
           "mode": "0644",
           "logical_owner": "uefi-boot",
           "reason": "Repository-built systemd-boot fallback executable for x86_64 UEFI"
