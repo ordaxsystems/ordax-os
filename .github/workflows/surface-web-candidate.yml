@@ -76,6 +76,7 @@ on:
       - 'system/contracts/browser-search-preferences.mjs'
       - 'system/contracts/browser-page-selection.mjs'
       - 'system/contracts/browser-page-find.mjs'
+      - 'system/contracts/browser-download.mjs'
       - 'system/surface/**'
       - 'system/apps/**'
       - 'system/services/account/**'
@@ -136,6 +137,9 @@ on:
       - 'tests/test_browser_search_preferences.mjs'
       - 'tests/test_browser_page_selection.mjs'
       - 'tests/test_browser_page_find.mjs'
+      - 'tests/test_browser_download.mjs'
+      - 'tests/test_browser_download_policy.py'
+      - 'tests/test_internet_native_download.py'
       - 'tests/test_internet_native_page_find.py'
       - 'tests/test_native_browser_page_selection.mjs'
       - 'tests/test_internet_native_page_selection.py'
@@ -284,6 +288,7 @@ on:
       - 'system/contracts/browser-search-preferences.mjs'
       - 'system/contracts/browser-page-selection.mjs'
       - 'system/contracts/browser-page-find.mjs'
+      - 'system/contracts/browser-download.mjs'
       - 'system/surface/**'
       - 'system/apps/**'
       - 'system/services/account/**'
@@ -341,6 +346,9 @@ on:
       - 'tests/test_browser_search_preferences.mjs'
       - 'tests/test_browser_page_selection.mjs'
       - 'tests/test_browser_page_find.mjs'
+      - 'tests/test_browser_download.mjs'
+      - 'tests/test_browser_download_policy.py'
+      - 'tests/test_internet_native_download.py'
       - 'tests/test_internet_native_page_find.py'
       - 'tests/test_native_browser_page_selection.mjs'
       - 'tests/test_internet_native_page_selection.py'
@@ -484,6 +492,7 @@ jobs:
           node --test tests/test_browser_search_preferences.mjs
           node --test tests/test_browser_page_selection.mjs
           node --test tests/test_browser_page_find.mjs
+          node --test tests/test_browser_download.mjs
           node --test tests/test_native_browser_page_selection.mjs
           node --test tests/test_project_file_space_continuity.mjs
           node --test tests/test_home_continuation.mjs
@@ -573,6 +582,8 @@ jobs:
           python -m unittest tests.test_internet_popup_policy -v
           python -m unittest tests.test_internet_native_page_selection -v
           python -m unittest tests.test_internet_native_page_find -v
+          python -m unittest tests.test_browser_download_policy -v
+          python -m unittest tests.test_internet_native_download -v
           python -m unittest tests.test_internet_project_context_contract -v
           python -m unittest tests.test_internet_favorites_contract -v
           python -m unittest tests.test_internet_history_contract -v
