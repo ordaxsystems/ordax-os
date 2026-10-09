@@ -52,7 +52,7 @@ def fake_fetch(host, path, *, accept="text/html", ready=False, provider=None):
             "$schema": "prototype-ordax.public-identity-session/1",
             "authenticated": False,
             "status": "anonymous",
-            "provider": provider or ("supabase" if ready else "gated"),
+            "provider": provider if provider is not None else "supabase",
         })
     return Response()
 
@@ -75,7 +75,8 @@ class PublicNetworkProofTests(unittest.TestCase):
             stream = io.StringIO()
             with redirect_stdout(stream):
                 self.assertEqual(network.main(), 0)
-            self.assertIn("ORDAX_PUBLIC_ACCOUNT_GATE=gated", stream.getvalue())
+            self.assertIn("ORDAX_PUBLIC_ACCOUNT_GATE=supabase", stream.getvalue())
+            self.assertIn("ORDAX_PUBLIC_LEGAL_ACTIVATION=not-ready", stream.getvalue())
             self.assertIn("ORDAX_PUBLIC_SESSION_STATUS=200", stream.getvalue())
             self.assertIn("ORDAX_PUBLIC_NETWORK_PROOF=PASS", stream.getvalue())
 
@@ -89,6 +90,7 @@ class PublicNetworkProofTests(unittest.TestCase):
             with redirect_stdout(stream):
                 self.assertEqual(network.main(), 0)
             self.assertIn("ORDAX_PUBLIC_ACCOUNT_GATE=supabase", stream.getvalue())
+            self.assertIn("ORDAX_PUBLIC_LEGAL_ACTIVATION=ready", stream.getvalue())
 
     def test_cloudflare_proxy_address_cannot_count_as_direct_vercel(self):
         with patch.object(network, "resolve_v4", return_value={"104.21.40.1"}):
@@ -106,16 +108,17 @@ class PublicNetworkProofTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "unexpected-page-status:/login/"):
                 network.main()
 
-    def test_public_session_provider_must_match_legal_activation(self):
-        for ready, wrong_provider in ((False, "supabase"), (True, "gated")):
-            with self.subTest(ready=ready):
-                with (
-                    patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
-                    patch.object(network, "fetch", side_effect=lambda h, p, *, accept="text/html":
-                                 fake_fetch(h, p, accept=accept, ready=ready, provider=wrong_provider)),
-                ):
-                    with self.assertRaisesRegex(SystemExit, "public-session-provider-gate-mismatch"):
-                        network.main()
+    def test_public_session_rejects_non_supabase_for_both_legal_states(self):
+        for ready in (False, True):
+            for wrong_provider in ("gated", "mock", ""):
+                with self.subTest(ready=ready, provider=wrong_provider):
+                    with (
+                        patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
+                        patch.object(network, "fetch", side_effect=lambda h, p, *, accept="text/html":
+                                     fake_fetch(h, p, accept=accept, ready=ready, provider=wrong_provider)),
+                    ):
+                        with self.assertRaisesRegex(SystemExit, "public-session-provider-invalid"):
+                            network.main()
 
     def test_json_endpoint_must_not_serve_html_or_cache_session(self):
         for header, value, expected in (
