@@ -38,7 +38,10 @@ class AuthProviderTargetResolutionTests(unittest.TestCase):
         hardening = self.load(ROOT, TARGET.HARDENING)
         plan = self.load(ROOT, TARGET.DESTINATION_PLAN)
         self.assertEqual(actual, (hardening["target"]["project_ref"], "https://ordax.com.br"))
-        self.assertNotEqual(actual[0], plan["destination_project_ref"])
+        if hardening["postgresql_destination"]["functional_provider_cutover_complete"]:
+            self.assertEqual(actual[0], plan["destination_project_ref"])
+        else:
+            self.assertNotEqual(actual[0], plan["destination_project_ref"])
 
     def test_rejects_unapproved_origin_or_malformed_project_ref(self):
         with self.assertRaisesRegex(ValueError, "requested origin"):
