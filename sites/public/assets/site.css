@@ -1067,3 +1067,10 @@ a {
   justify-content: flex-start;
   overflow: hidden;
 }
+
+
+/* Auth messages are plain text from a fixed allowlist, never arbitrary URLs or HTML. */
+.identity-notice{margin:16px 0 0;padding:13px 15px;border:1px solid #536c85;border-radius:9px;background:#15283a;color:#d9eaff;font-size:12px;line-height:1.6}
+.identity-notice[hidden]{display:none!important}
+.identity-notice[data-kind="error"]{border-color:#a45e68;background:#3b1c27;color:#ffe1e5}
+.identity-notice[data-kind="success"]{border-color:#448b78;background:#13352f;color:#d7fae9}
