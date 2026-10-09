@@ -688,6 +688,10 @@ class OrdaXBrowserHost:
 
     def open_tab(self, tab_id_value: object, url_value: object) -> None:
         tab_id = self.valid_tab_id(tab_id_value)
+        # Reject first: an invalid external target must not create a ghost tab
+        # or activate a different existing tab before the host rejects it.
+        if not isinstance(url_value, str) or (url_value and not allowed_external_uri(url_value)):
+            raise ValueError("only public external http/https addresses are allowed")
         if tab_id in self.tabs:
             self.activate_tab(tab_id)
             return
