@@ -11,7 +11,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
@@ -293,38 +293,56 @@ def _fsync_dir(path: Path) -> None:
         os.close(descriptor)
 
 
+
+def _canonical_archive_path(value: str) -> bool:
+    if not isinstance(value, str) or not value or "\\" in value:
+        return False
+    path = PurePosixPath(value)
+    return (
+        not path.is_absolute()
+        and path.as_posix() == value
+        and all(part not in (".", "..") for part in path.parts)
+    )
+
+
 def _validate_rootfs_archive(path: Path) -> list[tarfile.TarInfo]:
     members: list[tarfile.TarInfo] = []
     seen: set[str] = set()
-    expanded = 0
+    regular_modes: dict[str, int] = {}
+    unique_payload_bytes = 0
     try:
         with tarfile.open(path, "r:") as archive:
             for member in archive.getmembers():
                 name = member.name
-                relative = Path(name)
-                if (
-                    not name
-                    or relative.is_absolute()
-                    or ".." in relative.parts
-                    or name in seen
-                ):
+                if not _canonical_archive_path(name) or name in seen:
                     raise DevBaseChannelError(
                         "development rootfs archive contains unsafe or duplicate path"
-                    )
-                if member.issym() or member.islnk() or not (member.isdir() or member.isreg()):
-                    raise DevBaseChannelError(
-                        f"development rootfs archive contains unsafe member: {name}"
                     )
                 seen.add(name)
                 members.append(member)
                 if len(members) > MAX_ROOTFS_MEMBERS:
                     raise DevBaseChannelError("development rootfs archive has too many members")
-                if member.isreg():
-                    expanded += member.size
-                    if expanded > MAX_ROOTFS_EXPANDED_BYTES:
+                if member.isdir():
+                    if member.size != 0 or member.linkname:
+                        raise DevBaseChannelError("development rootfs directory is malformed")
+                elif member.isreg():
+                    if member.linkname:
+                        raise DevBaseChannelError("development rootfs regular member has a link target")
+                    unique_payload_bytes += member.size
+                    if unique_payload_bytes > MAX_ROOTFS_EXPANDED_BYTES:
                         raise DevBaseChannelError(
                             "development rootfs expanded bytes exceed channel limit"
                         )
+                    regular_modes[name] = member.mode
+                elif member.islnk():
+                    target = member.linkname
+                    if (not _canonical_archive_path(target) or target not in regular_modes
+                            or member.size != 0 or member.mode != regular_modes[target]):
+                        raise DevBaseChannelError("development rootfs archive has unsafe hardlink")
+                else:
+                    raise DevBaseChannelError(
+                        f"development rootfs archive contains unsafe member: {name}"
+                    )
     except tarfile.TarError as exc:
         raise DevBaseChannelError("development rootfs archive is invalid") from exc
 
