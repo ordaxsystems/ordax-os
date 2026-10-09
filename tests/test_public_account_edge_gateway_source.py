@@ -61,7 +61,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('fetchSite !== "same-origin"', self.request_context)
         self.assertIn('fail("browser-origin-required")', self.request_context)
         self.assertIn('fail("browser-origin-mismatch")', self.request_context)
-        self.assertIn('fail("trusted-forwarded-authority-mismatch")', self.request_context)
+        self.assertIn('fail("trusted-public-authority-mismatch")', self.request_context)
         self.assertIn('url.protocol !== "https:"', self.request_context)
 
     def test_oidc_is_scoped_to_team_project_and_production_environment(self):
@@ -94,6 +94,8 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("authorization", `Bearer ${trustedOidcToken}`)', self.proxy)
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
+        self.assertIn('headers.set("x-ordax-public-host", canonical.host)', self.proxy)
+        self.assertIn('headers.set("x-ordax-public-proto", "https")', self.proxy)
         self.assertNotIn("x-ordax-public-proxy-secret", self.proxy)
 
     def test_auth_rate_limit_runs_before_inner_account_gateway(self):
@@ -167,6 +169,8 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('headers.set("x-ordax-client-address", realIp)', self.proxy)
         self.assertIn('headers.set("x-forwarded-host", canonical.host)', self.proxy)
         self.assertIn('headers.set("x-ordax-public-origin", trustedPublicOrigin)', self.proxy)
+        self.assertIn('headers.set("x-ordax-public-host", canonical.host)', self.proxy)
+        self.assertIn('headers.set("x-ordax-public-proto", "https")', self.proxy)
 
     def test_product_cookies_use_private_envelope_not_transport_set_cookie(self):
         self.assertIn('const COOKIE_ENVELOPE_HEADER = "x-ordax-cookie-envelope"', self.edge)

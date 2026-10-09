@@ -280,6 +280,8 @@ test("proxy derives forwarded authority from canonical config, never browser Hos
     assert.equal(observed.init.headers.get("x-forwarded-host"), "ordax.com.br");
     assert.equal(observed.init.headers.get("x-forwarded-proto"), "https");
     assert.equal(observed.init.headers.get("x-ordax-public-origin"), PUBLIC_ORIGIN);
+    assert.equal(observed.init.headers.get("x-ordax-public-host"), "ordax.com.br");
+    assert.equal(observed.init.headers.get("x-ordax-public-proto"), "https");
     assert.equal(observed.init.headers.has("x-ordax-public-proxy-secret"), false);
     assert.equal(response.headers.get("cache-control"), "no-store, max-age=0");
     assert.equal(response.headers.has("access-control-allow-origin"), false);

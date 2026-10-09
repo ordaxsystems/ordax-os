@@ -417,9 +417,14 @@ export async function proxyPublicAccountRequest(
   headers.set("authorization", `Bearer ${trustedOidcToken}`);
   headers.set("x-forwarded-for", realIp);
   headers.set("x-real-ip", realIp);
+  // Upstream CDNs may replace RFC forwarding headers with their own
+  // authority. Use private, Vercel-derived values across the signed OIDC
+  // boundary rather than trusting mutable proxy hop metadata.
   headers.set("x-forwarded-host", canonical.host);
   headers.set("x-forwarded-proto", "https");
   headers.set("x-ordax-public-origin", trustedPublicOrigin);
+  headers.set("x-ordax-public-host", canonical.host);
+  headers.set("x-ordax-public-proto", "https");
   headers.set("x-ordax-public-site", "1");
   headers.set("x-ordax-client-address", realIp);
 
