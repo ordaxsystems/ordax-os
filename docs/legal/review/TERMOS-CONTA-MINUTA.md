@@ -7,12 +7,20 @@ permanece aviso de preparação; esta minuta não é um contrato em vigor.
 
 ## 1. Prestador e contato
 
-Responsável pelo serviço: **[PENDENTE: razão social/identificação jurídica]**.
-CNPJ (se aplicável): **[PENDENTE]**.
+**Fase inicial declarada: prestação por pessoa física, sem empresa
+constituída ou CNPJ exigido por este documento.**
+
+Nome civil do prestador individual: **[PENDENTE: confirmação do operador]**.
 Contato oficial para suporte, notificações e questões jurídicas:
-**[PENDENTE: canal validado]**.
+**[PENDENTE: e-mail institucional ou canal público validado]**.
+Endereço ou outro identificador publicável, se exigível:
+**[PENDENTE: avaliação jurídica; não divulgar CPF ou residência por padrão]**.
+
 Definições de usuário, conta, serviços e funcionalidades dependem da
-identificação aprovada do produto e do operador.
+identificação aprovada do produto e do operador. Caso o OrdaX passe a ser
+operado por uma pessoa jurídica, a identidade contratual, o aviso prévio,
+a nova versão destes Termos e eventuais obrigações de transferência
+precisarão de revisão e publicação antes do cutover.
 
 ## 2. Serviço e disponibilidade
 
