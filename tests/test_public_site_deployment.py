@@ -359,6 +359,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(bot["hostname_allowlist"], ["ordax.com.br"])
         self.assertTrue(bot["production_hostname_verified"])
         self.assertIn("Cloudflare dedicated OrdaX account", bot["production_hostname_verification_evidence"])
+        # Vercel project metadata confirms the production secret exists, but
+        # its value is never read here and no Siteverify E2E is inferred.
+        self.assertTrue(bot["production_secret_configured"])
+        self.assertTrue(hardening["current_observation"]["bot_protection_production_secret_configured"])
+        self.assertFalse(bot["production_e2e_verified"])
         self.assertEqual(bot["action"], "ordax-account")
         self.assertEqual(bot["protected_paths"], ["/auth/login", "/auth/register", "/auth/recover"])
         self.assertTrue(bot["server_side_verification_required"])
