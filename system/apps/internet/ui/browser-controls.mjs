@@ -288,6 +288,10 @@ function createProjectPanel(documentObject, t) {
   preview.rows = 4;
   preview.hidden = true;
   preview.setAttribute("aria-label", t("internet.assistance.selectionPreview"));
+  const clipped = node(documentObject, "span", "ordax-internet-selection-warning",
+    t("internet.assistance.truncated"));
+  clipped.dataset.browserSelectionTruncated = "";
+  clipped.hidden = true;
   const question = node(documentObject, "input", "ordax-internet-assistance-question");
   question.type = "text";
   question.maxLength = 800;
@@ -307,7 +311,7 @@ function createProjectPanel(documentObject, t) {
   answer.dataset.browserSelectionAnswer = "";
   answer.setAttribute("role", "status");
   answer.hidden = true;
-  assistance.append(capture, preview, question, send, clear, answer,
+  assistance.append(capture, preview, clipped, question, send, clear, answer,
     node(documentObject, "span", "", t("internet.assistance.copy")));
 
   panel.append(header, intro, projects, current, note, materials, assistance);
@@ -974,6 +978,8 @@ export function mountInternetBrowserControls(
       preview.hidden = !selectedPage;
       preview.value = selectedPage?.text ?? "";
     }
+    const clipped = slot.querySelector("[data-browser-selection-truncated]");
+    if (clipped) clipped.hidden = !selectedPage?.truncated;
     const question = slot.querySelector("[data-browser-selection-question]");
     if (question) {
       question.hidden = !selectedPage;
