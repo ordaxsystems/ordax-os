@@ -403,3 +403,23 @@ Somente após provisionar a chave nomeada, comprovar o OIDC do projeto
 Vercel real, testar os fluxos Native e HTTP negativos e revisar
 os controles poderá ser avaliada uma mudança de `verify_jwt`,
 sempre preservando um autenticador próprio antes do roteamento.
+
+## Preparação para cutover de serviço — allowlist canônica (2026-10-09)
+
+A política de rotas públicas agora reside **somente** em
+`infra/supabase/functions/_shared/account_transport_admission.mjs`.
+Vercel, Edge pública e Edge interna aplicam `isPublicBridgeRoute`;
+a chave nomeada `ordax-account-public-bridge` autentica o serviço,
+mas não libera rotas Native extras, Rede ou mutações por método incorreto.
+Testes negativos impedem regressão antes de qualquer mudança do gate de JWT.
+
+**O transporte continua BLOQUEADO em produção.** Na instância atual,
+`ordax-account-gateway` usa `verify_jwt=true` e a chamada interna com
+`apikey=sb_secret_...` não satisfaz esse gate da plataforma. A modalidade
+recomendada para um serviço com chave nomeada exige configuração explícita
+`verify_jwt=false` **somente após** validar o autenticador próprio do
+handler (bridge nomeada, sessão Native Supabase Auth e bootstrap restrito),
+a chave nomeada e sua rotação, testes de rejeição por HTTP, rate limit,
+origem OIDC e gates legais. Não converter apikey em bearer de service_role,
+não criar JWT paralelo nem ativar Conta sem E2E. O estado observado e os
+gates de promoção permanecem em `docs/contracts/public-auth-hardening.json`.
