@@ -1,4 +1,13 @@
 import { assertBrowserSessionPort } from "../../../contracts/browser-session.mjs";
+import {
+  assertBrowserPageSelectionPort,
+  validateBrowserPageSelection,
+  browserSelectionIntelligenceRequest,
+} from "../../../contracts/browser-page-selection.mjs";
+import { assertIntelligencePort, validateIntelligenceResponse } from "../../../contracts/intelligence.mjs";
+import { assertIdentitySessionPort } from "../../../contracts/identity-session.mjs";
+import { assertSpaceSelectionPort } from "../../../contracts/space-selection.mjs";
+import { assertProfileActivationStatePort } from "../../../contracts/profile-activation-state.mjs";
 import { resolveBrowserNavigation } from "../../../contracts/browser-navigation.mjs";
 import {
   assertBrowserFavoritesPort,
@@ -269,10 +278,41 @@ function createProjectPanel(documentObject, t) {
 
   const assistance = node(documentObject, "section", "ordax-internet-assistance");
   assistance.append(node(documentObject, "h3", "", t("internet.assistance.title")));
-  const ask = node(documentObject, "button", "ordax-internet-ask-button", `▢  ${t("internet.assistance.ask")}`);
-  ask.type = "button";
-  ask.disabled = true;
-  assistance.append(ask, node(documentObject, "span", "", t("internet.assistance.copy")));
+  const capture = node(documentObject, "button", "ordax-internet-ask-button", t("internet.assistance.capture"));
+  capture.type = "button";
+  capture.disabled = true;
+  capture.dataset.browserCaptureSelection = "";
+  const preview = node(documentObject, "textarea", "ordax-internet-selected-preview");
+  preview.dataset.browserSelectionPreview = "";
+  preview.readOnly = true;
+  preview.rows = 4;
+  preview.hidden = true;
+  preview.setAttribute("aria-label", t("internet.assistance.selectionPreview"));
+  const clipped = node(documentObject, "span", "ordax-internet-selection-warning",
+    t("internet.assistance.truncated"));
+  clipped.dataset.browserSelectionTruncated = "";
+  clipped.hidden = true;
+  const question = node(documentObject, "input", "ordax-internet-assistance-question");
+  question.type = "text";
+  question.maxLength = 800;
+  question.placeholder = t("internet.assistance.questionPlaceholder");
+  question.dataset.browserSelectionQuestion = "";
+  question.hidden = true;
+  const send = node(documentObject, "button", "ordax-internet-ask-button", t("internet.assistance.ask"));
+  send.type = "button";
+  send.disabled = true;
+  send.dataset.browserSendSelection = "";
+  send.hidden = true;
+  const clear = node(documentObject, "button", "ordax-internet-assistance-clear", t("internet.assistance.clear"));
+  clear.type = "button";
+  clear.dataset.browserClearSelection = "";
+  clear.hidden = true;
+  const answer = node(documentObject, "div", "ordax-internet-assistance-answer");
+  answer.dataset.browserSelectionAnswer = "";
+  answer.setAttribute("role", "status");
+  answer.hidden = true;
+  assistance.append(capture, preview, clipped, question, send, clear, answer,
+    node(documentObject, "span", "", t("internet.assistance.copy")));
 
   panel.append(header, intro, projects, current, note, materials, assistance);
   return panel;
@@ -302,6 +342,11 @@ export function mountInternetBrowserControls(
     projectReferences = null,
     favorites = null,
     history = null,
+    pageSelection = null,
+    intelligence = null,
+    identitySessionPort = null,
+    spaceSelectionPort = null,
+    profileActivationStatePort = null,
   } = {},
 ) {
   if (!(root instanceof Element)) throw new TypeError("Internet controls require a Surface root Element");
@@ -316,6 +361,11 @@ export function mountInternetBrowserControls(
     : assertProjectWebReferencePort(projectReferences);
   const favoritePort = favorites === null ? null : assertBrowserFavoritesPort(favorites);
   const historyPort = history === null ? null : assertBrowserHistoryPort(history);
+  const selectionPort = pageSelection === null ? null : assertBrowserPageSelectionPort(pageSelection);
+  const intelligencePort = intelligence === null ? null : assertIntelligencePort(intelligence);
+  const scopeIdentity = identitySessionPort === null ? null : assertIdentitySessionPort(identitySessionPort);
+  const scopeSelection = spaceSelectionPort === null ? null : assertSpaceSelectionPort(spaceSelectionPort);
+  const scopeProfile = profileActivationStatePort === null ? null : assertProfileActivationStatePort(profileActivationStatePort);
   const documentObject = root.ownerDocument;
   const windowObject = documentObject.defaultView;
   let snapshot = port.getSnapshot();
@@ -339,6 +389,19 @@ export function mountInternetBrowserControls(
   let pendingTabFocusId = null;
   let handledSurfaceTarget = null;
   let resizeObserver = null;
+  let selectedPage = null;
+  let questionDraft = "";
+  let selectionAnswer = "";
+  let selectionGeneration = 0;
+  let selectionCaptureBusy = false;
+  let selectionSendBusy = false;
+  const clearSelectedPage = () => {
+    selectionGeneration += 1;
+    selectedPage = null;
+    selectionAnswer = "";
+    questionDraft = "";
+  };
+
 
   const findSlot = () => root.querySelector(`${INTERNET_WINDOW_SELECTOR} ${INTERNET_EXTENSION_SELECTOR}`);
   const clearMessage = () => {
@@ -903,6 +966,41 @@ export function mountInternetBrowserControls(
     }
   };
 
+  const syncAssistance = (slot) => {
+    const tab = activeTab();
+    if (selectedPage && (selectedPage.tabId !== tab?.id || selectedPage.url !== tab?.url || tab.loading)) {
+      clearSelectedPage();
+    }
+    const capture = slot.querySelector("[data-browser-capture-selection]");
+    if (capture) capture.disabled = !selectionPort || !tab?.url || tab.loading || selectionCaptureBusy;
+    const preview = slot.querySelector("[data-browser-selection-preview]");
+    if (preview) {
+      preview.hidden = !selectedPage;
+      preview.value = selectedPage?.text ?? "";
+    }
+    const clipped = slot.querySelector("[data-browser-selection-truncated]");
+    if (clipped) clipped.hidden = !selectedPage?.truncated;
+    const question = slot.querySelector("[data-browser-selection-question]");
+    if (question) {
+      question.hidden = !selectedPage;
+      if (documentObject.activeElement !== question) question.value = questionDraft;
+    }
+    const send = slot.querySelector("[data-browser-send-selection]");
+    const intelligenceReady = intelligencePort?.getSnapshot().state === "ready";
+    if (send) {
+      send.hidden = !selectedPage;
+      send.disabled = !selectedPage || !intelligenceReady || selectionSendBusy;
+      send.textContent = t(selectionSendBusy ? "internet.assistance.processing" : "internet.assistance.ask");
+    }
+    const clear = slot.querySelector("[data-browser-clear-selection]");
+    if (clear) clear.hidden = !selectedPage;
+    const answer = slot.querySelector("[data-browser-selection-answer]");
+    if (answer) {
+      answer.hidden = !selectionAnswer;
+      answer.textContent = selectionAnswer;
+    }
+  };
+
   const syncPanel = (slot) => {
     const panel = slot.querySelector(`#${PROJECT_PANEL_ID}`);
     panel?.toggleAttribute("hidden", panelCollapsed);
@@ -942,9 +1040,61 @@ export function mountInternetBrowserControls(
     syncReferenceControls(slot);
     syncFavorites(slot);
     syncHistory(slot);
+    syncAssistance(slot);
     syncPanel(slot);
     windowObject.requestAnimationFrame(syncViewport);
     ensureTab();
+  };
+
+  const captureSelectedPage = async () => {
+    const tab = activeTab();
+    if (!selectionPort || !tab?.url || tab.loading || selectionCaptureBusy) return;
+    clearSelectedPage();
+    const generation = selectionGeneration;
+    selectionCaptureBusy = true;
+    render();
+    try {
+      const captured = validateBrowserPageSelection(await selectionPort.readSelection(tab.id));
+      const current = activeTab();
+      if (!destroyed && generation === selectionGeneration && current?.id === tab.id
+          && current.url === tab.url && !current.loading && captured.url === tab.url) {
+        selectedPage = captured;
+        clearMessage();
+      }
+    } catch {
+      if (!destroyed && generation === selectionGeneration) setMessage("internet.assistance.captureFailed");
+    } finally {
+      selectionCaptureBusy = false;
+      render();
+    }
+  };
+
+  const sendSelectedPage = async () => {
+    if (!selectedPage || !intelligencePort || selectionSendBusy) return;
+    const current = activeTab();
+    if (current?.id !== selectedPage.tabId || current.url !== selectedPage.url || current.loading) return;
+    const generation = selectionGeneration;
+    const request = browserSelectionIntelligenceRequest({
+      selection: selectedPage,
+      question: questionDraft.trim() || t("internet.assistance.defaultQuestion"),
+      confirmed: true,
+    });
+    selectionSendBusy = true;
+    selectionAnswer = "";
+    render();
+    try {
+      const response = validateIntelligenceResponse(await intelligencePort.respond(request));
+      const now = activeTab();
+      if (!destroyed && generation === selectionGeneration
+          && now?.id === current.id && now.url === current.url && !now.loading) {
+        selectionAnswer = response.text;
+      }
+    } catch {
+      if (!destroyed && generation === selectionGeneration) setMessage("internet.assistance.askFailed");
+    } finally {
+      selectionSendBusy = false;
+      render();
+    }
   };
 
   const onClick = (event) => {
@@ -952,6 +1102,20 @@ export function mountInternetBrowserControls(
     if (!target || !root.contains(target)) return;
     const slot = findSlot();
     if (!slot?.contains(target)) return;
+
+    if (target.dataset.browserCaptureSelection !== undefined) {
+      void captureSelectedPage();
+      return;
+    }
+    if (target.dataset.browserSendSelection !== undefined) {
+      void sendSelectedPage();
+      return;
+    }
+    if (target.dataset.browserClearSelection !== undefined) {
+      clearSelectedPage();
+      render();
+      return;
+    }
 
     if (target.dataset.browserHistoryToggle !== undefined) {
       if (!historyPort) return;
@@ -1187,6 +1351,11 @@ export function mountInternetBrowserControls(
   };
 
   const onInput = (event) => {
+    const question = event.target.closest("[data-browser-selection-question]");
+    if (question && root.contains(question) && findSlot()?.contains(question)) {
+      questionDraft = question.value;
+      return;
+    }
     const note = event.target.closest("[data-browser-reference-note]");
     if (note && root.contains(note)) {
       const slot = findSlot();
@@ -1225,6 +1394,11 @@ export function mountInternetBrowserControls(
 
   const unsubscribeSession = port.subscribe((nextSnapshot) => {
     snapshot = nextSnapshot;
+    if (selectedPage && (selectedPage.tabId !== snapshot.activeTabId
+        || snapshot.tabs.find((tab) => tab.id === selectedPage.tabId)?.url !== selectedPage.url
+        || snapshot.tabs.find((tab) => tab.id === selectedPage.tabId)?.loading)) {
+      clearSelectedPage();
+    }
     render();
     if (pendingTabFocusId && snapshot.tabs.some((tab) => tab.id === pendingTabFocusId)) {
       focusTab(pendingTabFocusId);
@@ -1255,6 +1429,14 @@ export function mountInternetBrowserControls(
     historySnapshot = nextSnapshot;
     render();
   }) ?? (() => {});
+  const unsubscribeIntelligence = intelligencePort?.subscribe(() => render()) ?? (() => {});
+  const invalidateSelectedContext = () => {
+    clearSelectedPage();
+    render();
+  };
+  const unsubscribeIdentity = scopeIdentity?.subscribe(invalidateSelectedContext) ?? (() => {});
+  const unsubscribeSpaceSelection = scopeSelection?.subscribe(invalidateSelectedContext) ?? (() => {});
+  const unsubscribeProfile = scopeProfile?.subscribe?.(invalidateSelectedContext) ?? (() => {});
   const unsubscribeSurface = lifecycle.subscribeRender(render);
   root.addEventListener("click", onClick);
   root.addEventListener("keydown", onKeyDown);
@@ -1275,7 +1457,12 @@ export function mountInternetBrowserControls(
       unsubscribeReferences();
       unsubscribeFavorites();
       unsubscribeHistory();
+      unsubscribeIntelligence();
+      unsubscribeIdentity();
+      unsubscribeSpaceSelection();
+      unsubscribeProfile();
       unsubscribeSurface();
+      clearSelectedPage();
       root.removeEventListener("click", onClick);
       root.removeEventListener("keydown", onKeyDown);
       root.removeEventListener("input", onInput);

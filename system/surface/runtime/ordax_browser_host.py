@@ -51,6 +51,8 @@ APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-boots
 TRUSTED_STATE_UID = 0
 TAB_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 MAX_TABS = 16
+PAGE_SELECTION_MAX_CHARS = 4096
+PAGE_SELECTION_REQUEST_RE = re.compile(r"^selection-[1-9][0-9]{0,8}$")
 MAX_URI_LENGTH = 8192
 SUPPORTED_PROBATION_COMPONENTS = ("internet", "notes")
 MAX_VIEWPORT_DIMENSION = 16384
@@ -543,7 +545,7 @@ class OrdaXBrowserHost:
         self.app_data_bootstrap_bindings = ()
 
     def emit_host_event(self, payload: dict) -> None:
-        encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        encoded = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
         script = (
             "window.dispatchEvent(new CustomEvent('ordax-browser-host',{detail:"
             + encoded
@@ -606,6 +608,10 @@ class OrdaXBrowserHost:
                 self.emit_snapshot()
             elif command == "tab.open":
                 self.open_tab(payload.get("tabId"), payload.get("url", ""))
+            elif command == "page-selection.capture":
+                if set(payload) != {"type", "requestId", "tabId"}:
+                    raise ValueError("Page selection request fields are invalid")
+                self.capture_page_selection(payload.get("requestId"), payload.get("tabId"))
             elif command == "tab.close":
                 self.close_tab(payload.get("tabId"))
             elif command == "tab.activate":
@@ -760,6 +766,82 @@ class OrdaXBrowserHost:
         self.update_visibility()
         self.emit_snapshot()
         self.persist_session()
+
+    def capture_page_selection(self, request_id: object, tab_id_value: object) -> None:
+        # Only the trusted Surface bridge may request this one-shot action.
+        # External pages have no OrdaX message handler.
+        if not isinstance(request_id, str) or PAGE_SELECTION_REQUEST_RE.fullmatch(request_id) is None:
+            raise ValueError("invalid page selection request id")
+        tab_id = self.valid_tab_id(tab_id_value)
+
+        def unavailable() -> None:
+            self.emit_host_event({
+                "type": "page-selection.result",
+                "requestId": request_id,
+                "tabId": tab_id,
+                "error": "unavailable",
+            })
+
+        tab = self.tabs.get(tab_id)
+        if tab is None or tab_id != self.active_tab_id or tab.loading:
+            unavailable()
+            return
+        view = tab.view
+        uri = view.get_uri() or ""
+        if uri != tab.url or not allowed_external_uri(uri):
+            unavailable()
+            return
+
+        # Retrieve only what the user highlighted, never arbitrary DOM, cookies
+        # or hidden inputs. The excerpt is untrusted website data.
+        script = (
+            "(()=>{const selection=window.getSelection();"
+            "return selection ? String(selection).slice(0,4097) : '';})()"
+        )
+
+        def completed(_view: object, result: object) -> None:
+            # Ignore late callbacks if tab/URL/active scope changed mid-flight.
+            current = self.tabs.get(tab_id)
+            if (
+                current is not tab or self.active_tab_id != tab_id
+                or current.loading or (view.get_uri() or "") != uri
+                or not allowed_external_uri(uri)
+            ):
+                unavailable()
+                return
+            try:
+                js_result = view.run_javascript_finish(result)
+                selected = js_result.get_js_value().to_string()
+                if not isinstance(selected, str):
+                    raise ValueError("invalid page selection")
+                selected = selected.strip()
+                if not selected:
+                    raise ValueError("empty page selection")
+                truncated = len(selected) > PAGE_SELECTION_MAX_CHARS
+                selected = selected[:PAGE_SELECTION_MAX_CHARS]
+                title = (view.get_title() or "")[:256]
+                self.emit_host_event({
+                    "type": "page-selection.result",
+                    "requestId": request_id,
+                    "tabId": tab_id,
+                    "selection": {
+                        "schema": "ordax.browser-page-selection/1",
+                        "kind": "selection",
+                        "source": "untrusted-web-content",
+                        "tabId": tab_id,
+                        "url": uri,
+                        "title": title,
+                        "text": selected,
+                        "truncated": truncated,
+                    },
+                })
+            except Exception:
+                unavailable()
+
+        try:
+            view.run_javascript(script, None, completed, None)
+        except Exception:
+            unavailable()
 
     def history_action(self, tab_id_value: object, action: str) -> None:
         tab_id = self.valid_tab_id(tab_id_value)

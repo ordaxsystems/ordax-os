@@ -661,3 +661,28 @@
   background: color-mix(in srgb, currentColor 8%, transparent);
   color: inherit;
 }
+
+/* Opt-in webpage selection stays inside the existing project-context panel. */
+.ordax-internet-selected-preview,
+.ordax-internet-assistance-question,
+.ordax-internet-assistance-answer {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-block: 8px;
+  padding: 10px;
+  border: 1px solid var(--ordax-border, rgba(130, 144, 170, .35));
+  border-radius: 10px;
+  background: var(--ordax-panel, transparent);
+  color: inherit;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+.ordax-internet-assistance-answer {
+  white-space: pre-wrap;
+  max-height: 260px;
+  overflow: auto;
+}
+.ordax-internet-assistance [hidden] { display: none !important; }
+.ordax-internet-assistance-clear { margin-inline-start: 8px; }
