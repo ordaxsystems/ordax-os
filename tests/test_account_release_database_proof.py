@@ -131,6 +131,22 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         self.assertIn("database-proof-private_cloud_storage_rls_enabled", blockers)
         self.assertIn("database-proof-private_cloud_storage_rls_enabled_count", blockers)
 
+    def test_boolean_counts_must_not_pass_as_integer_zero_or_expected_policy_count(self):
+        proof = self.valid_proof()
+        proof["observed"]["anon_table_grant_count"] = False
+        proof["observed"]["sync_policy_count"] = True
+        blockers = MODULE.validate_database_proof(proof)
+        self.assertIn("database-proof-observation-type-anon_table_grant_count", blockers)
+        self.assertIn("database-proof-observation-type-sync_policy_count", blockers)
+
+    def test_extra_evidence_fields_are_rejected_instead_of_persisted(self):
+        proof = self.valid_proof()
+        proof["observed"]["unreviewed_extra"] = {"secret": "must-not-persist"}
+        proof["opaque_secrets"] = "must-not-persist"
+        blockers = MODULE.validate_database_proof(proof)
+        self.assertIn("database-proof-observation-set", blockers)
+        self.assertIn("database-proof-field-set", blockers)
+
     def test_database_proof_must_be_sanitized_and_exact(self):
         proof = self.valid_proof()
         proof["project_ref"] = "must-not-be-persisted"
