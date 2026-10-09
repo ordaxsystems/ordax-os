@@ -27,6 +27,11 @@ API = f"https://api.github.com/repos/{REPOSITORY}"
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 MAX_BYTES = 2 * 1024 * 1024
+# GitHub compare's default first page can contain 250 commits and 300
+# changed-file diffs (>2 MiB for a mature repository). The second page with
+# one commit per page retains the authoritative status/base/merge metadata
+# while limiting the unrelated diff payload. Do not increase MAX_BYTES.
+BOUNDED_ANCESTRY_QUERY = "?per_page=1&page=2"
 
 
 def fetch_json(path: str, token: str) -> dict:
@@ -73,10 +78,10 @@ def verify_cutover_ancestry(source_commit: str, token: str) -> None:
     commit = fetch_json(f"/git/commits/{source_commit}", token)
     if commit.get("sha") != source_commit:
         raise ValidationError("canonical source commit cannot be resolved exactly")
-    after_transfer = fetch_json(f"/compare/{CUTOVER_COMMIT}...{source_commit}", token)
+    after_transfer = fetch_json(f"/compare/{CUTOVER_COMMIT}...{source_commit}{BOUNDED_ANCESTRY_QUERY}", token)
     if not _compare_confirms_ancestry(after_transfer, CUTOVER_COMMIT):
         raise ValidationError("source commit does not descend from canonical cutover")
-    still_main = fetch_json(f"/compare/{source_commit}...main", token)
+    still_main = fetch_json(f"/compare/{source_commit}...main{BOUNDED_ANCESTRY_QUERY}", token)
     if not _compare_confirms_ancestry(still_main, source_commit):
         raise ValidationError("frozen release source is not an ancestor of current main")
 

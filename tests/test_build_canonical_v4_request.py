@@ -147,6 +147,20 @@ class CanonicalRequestBuilderTests(unittest.TestCase):
         with self.assertRaises(builder.ValidationError):
             builder.build_request(self.SOURCE, runs, inv, hist)
 
+    def test_comparison_is_bounded_without_relaxing_metadata_limit(self):
+        self.assertEqual(builder.BOUNDED_ANCESTRY_QUERY, "?per_page=1&page=2")
+        self.assertEqual(builder.MAX_BYTES, 2 * 1024 * 1024)
+        with mock.patch.object(builder, "urlopen") as opener:
+            response = opener.return_value.__enter__.return_value
+            response.status = 200
+            response.geturl.return_value = builder.API + "/example"
+            response.read.return_value = b"x" * (builder.MAX_BYTES + 1)
+            with self.assertRaisesRegex(
+                builder.ValidationError, "metadata exceeds the maximum size"
+            ):
+                builder.fetch_json("/example", "read-only-token")
+            response.read.assert_called_once_with(builder.MAX_BYTES + 1)
+
     def test_source_must_descend_from_cutover_and_remain_on_main(self):
         source = self.SOURCE
 
@@ -168,9 +182,9 @@ class CanonicalRequestBuilderTests(unittest.TestCase):
             self.assertEqual(fetch.call_args_list[0].args[0], f"/git/commits/{source}")
             self.assertEqual(
                 fetch.call_args_list[1].args[0],
-                f"/compare/{builder.CUTOVER_COMMIT}...{source}",
+                f"/compare/{builder.CUTOVER_COMMIT}...{source}{builder.BOUNDED_ANCESTRY_QUERY}",
             )
-            self.assertEqual(fetch.call_args_list[2].args[0], f"/compare/{source}...main")
+            self.assertEqual(fetch.call_args_list[2].args[0], f"/compare/{source}...main{builder.BOUNDED_ANCESTRY_QUERY}")
 
         with mock.patch.object(builder, "fetch_json", return_value={"sha": "c" * 40}):
             with self.assertRaisesRegex(builder.ValidationError, "resolved exactly"):

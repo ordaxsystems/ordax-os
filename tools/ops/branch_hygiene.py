@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import json
+import re
 import subprocess
 import sys
 import urllib.parse
@@ -18,6 +19,24 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 PROTECTED_BRANCHES = frozenset({"main", "ordax-rescue"})
+# The release operator binds three immutable workflow receipts to this exact
+# ref until the canonical request is reviewed. The ordinary "contained in
+# main" cleanup must not invalidate the operator's cryptographic provenance.
+# This is retention only, never release/signing/physical-write authority.
+FROZEN_CANDIDATE_REF = re.compile(r"release-candidate/[0-9a-f]{40}\Z")
+
+
+def is_protected_ref(ref: str, source_sha: str | None = None) -> bool:
+    if ref in PROTECTED_BRANCHES:
+        return True
+    # A similarly named branch pointing at other bytes is not a frozen
+    # operator candidate and remains eligible for normal cleanup.
+    return (
+        isinstance(source_sha, str)
+        and FROZEN_CANDIDATE_REF.fullmatch(ref) is not None
+        and ref == f"release-candidate/{source_sha}"
+    )
+
 
 
 @dataclass(frozen=True)
@@ -78,12 +97,12 @@ def plan_deletions(
         for pr in open_prs
         if _same_repo_head(pr, repository)
     }
-    preserve = set(PROTECTED_BRANCHES) | open_heads
     current = {
         branch["name"]: branch["commit"]["sha"]
         for branch in branches
         if branch.get("name") and (branch.get("commit") or {}).get("sha")
     }
+    preserve = {ref for ref in current if is_protected_ref(ref, current[ref])} | open_heads
     selected: dict[str, DeleteCandidate] = {}
 
     latest_merged = _latest_pr_by_ref(closed_prs, repository, merged=True)
@@ -223,7 +242,7 @@ def prune(repository: str) -> int:
 
 
 def delete_merged_head(repository: str, head_ref: str, merged_head_sha: str) -> int:
-    if head_ref in PROTECTED_BRANCHES:
+    if is_protected_ref(head_ref, merged_head_sha):
         print(f"Preserving protected project branch: {head_ref}")
         return 0
     api = GitHubApi(repository)
