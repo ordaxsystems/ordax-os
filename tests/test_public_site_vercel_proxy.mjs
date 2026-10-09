@@ -138,11 +138,11 @@ test("ordinary auth routes survive Vercel rewrite metadata without OTP parsing",
       assert.ok(forwarded.at(-1).endsWith(path), path);
       assert.ok(!forwarded.at(-1).includes("request-path"), path);
     }
-    // The OTP route is the exception: duplicates, extra parameters and
-    // arbitrary redirections remain rejected before reaching the edge.
+    // OTP routes reject conflicting rewrite values, extra parameters, and
+    // arbitrary redirections; identical rewrites are valid (tested above).
     const hash = "a".repeat(64);
     for(const qs of [
-      "ordax_path=/auth/confirm&ordax_path=/auth/confirm&token_hash=" + hash + "&type=email",
+      "ordax_path=/auth/confirm&ordax_path=/auth/login&token_hash=" + hash + "&type=email",
       "ordax_path=/auth/confirm&token_hash=" + hash + "&type=email&next=https://evil.invalid",
     ]) {
       const before = forwarded.length;
