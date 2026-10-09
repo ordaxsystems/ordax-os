@@ -21,6 +21,7 @@ from public_release_catalog import (
     write_catalog,
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
+from public_html_render import render_public_html
 
 # Load the brand compiler by an isolated module identity. Importing a generic
 # "build" module or prepending to sys.path shadows the component-package
@@ -275,12 +276,10 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
         # and its in-progress layout remain untouched.
         shutil.copyfile(CANONICAL_SYMBOL, stage / PUBLIC_SYMBOL_PATH)
         for page in stage.rglob("*.html"):
-            markup = page.read_text(encoding="utf-8")
-            if '<link rel="stylesheet" href="/assets/ordax-design-tokens.css">' in markup:
-                raise PublicSiteError("brand tokens link already authored; use the build bridge")
-            if markup.count("</head>") != 1:
-                raise PublicSiteError("public page requires one head for design tokens")
-            markup = markup.replace("</head>", '  <link rel="stylesheet" href="/assets/ordax-design-tokens.css">\n</head>')
+            try:
+                markup = render_public_html(page.read_text(encoding="utf-8"))
+            except ValueError as exc:
+                raise PublicSiteError(str(exc)) from exc
             page.write_text(markup, encoding="utf-8")
 
         catalog = write_catalog(PUBLICATIONS, stage / PUBLIC_CATALOG_RELATIVE)
