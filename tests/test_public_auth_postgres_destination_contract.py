@@ -139,7 +139,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertTrue(stage["destination_named_bridge_source_prepared"])
         self.assertEqual(
             stage["destination_named_bridge_key_name"],
-            "ordax-account-public-bridge",
+            "ordax_account_public_bridge",
         )
         self.assertFalse(stage["destination_named_bridge_key_provisioned"])
         self.assertFalse(stage["destination_named_bridge_runtime_e2e_verified"])
@@ -151,7 +151,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             ROOT / "infra" / "supabase" / "functions" / "_shared"
             / "account_service_bridge.mjs"
         ).read_text(encoding="utf-8")
-        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax-account-public-bridge"', helper)
+        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax_account_public_bridge"', helper)
         self.assertIn("authenticatedAccountBridge(", helper)
 
     def test_new_oidc_source_is_scoped_without_runtime_activation(self):
