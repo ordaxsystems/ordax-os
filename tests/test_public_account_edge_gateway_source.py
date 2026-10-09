@@ -30,7 +30,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn('pathname.startsWith(prefix + "/")', shared)
         self.assertIn("return stripEdgeFunctionPrefix(pathname, \"ordax-account-gateway\")", shared)
         self.assertIn(
-            'import { stripEdgeFunctionPrefix } from "../_shared/account_transport_admission.mjs"',
+            'import { stripEdgeFunctionPrefix, isPublicBridgeRoute } from "../_shared/account_transport_admission.mjs"',
             self.edge,
         )
         self.assertIn(
@@ -240,8 +240,12 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn("if (req.headers.has(\"x-ordax-public-site\"))", policy)
         self.assertIn("verifyNativeSession(req)", policy)
         self.assertIn('"/auth/login"', policy)
-        self.assertNotIn('"/account/export"', policy)
-        self.assertNotIn('"/sync/mutate"', policy)
+        bootstrap_only = policy.split("const NATIVE_BOOTSTRAP =", 1)[1].split(
+            "export function isNativeBootstrapRoute", 1
+        )[0]
+        self.assertNotIn('"/account/export"', bootstrap_only)
+        self.assertNotIn('"/sync/mutate"', bootstrap_only)
+        self.assertIn("!isPublicBridgeRoute(req.method, path)", policy)
         gate = self.inner.index("const transport = await authorizeAccountTransport(req, path, {")
         rate_limit = self.inner.index("const directRateLimitResponse = await enforceDirectAuthRateLimit(req, path)")
         public_gate = self.inner.index("if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED)")
