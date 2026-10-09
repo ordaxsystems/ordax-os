@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/assets/portal.css?v=titanium-1">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
+  <script src="/assets/site.js?v=account-session-1" defer></script>
 </head>
 <body data-page="conta">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -18,27 +19,44 @@
   </header>
   <main id="conteudo" class="auth-shell">
     <section class="auth-copy">
-      <p class="eyebrow">CONTA ORDA X</p>
-      <h1>Sua área OrdaX fica aqui, não na página inicial pública.</h1>
-      <p>Esta rota é reservada à experiência autenticada do usuário. Perfil e sessão só aparecem quando os serviços reais estiverem habilitados. Web, Mobile, sincronização, backup e continuidade permanecem “Em breve”.</p>
+      <p class="eyebrow">CONTA ORDA X / IDENTIDADE</p>
+      <h1>Seu espaço começa pela sua identidade.</h1>
+      <p>Consulte sua Conta OrdaX com sessão verificada pelo servidor. A página pública e o OrdaX Web permanecem experiências separadas.</p>
     </section>
     <section class="auth-card" aria-labelledby="account-title">
-      <p class="eyebrow">ACESSO PROTEGIDO</p>
-      <h2 id="account-title">Área da conta ainda indisponível</h2>
-      <div class="identity-state" aria-live="polite">
-        <strong>Sessão real obrigatória</strong>
-        <p>O portal não simula dados de usuário, dispositivos, sincronização, assinatura ou uma sessão local. Enquanto a identidade pública não estiver pronta, esta área permanece fechada.</p>
+      <p class="eyebrow">ACESSO SEGURO</p>
+      <h2 id="account-title">Minha Conta OrdaX</h2>
+      <div class="identity-state" data-account-state data-status="checking" aria-live="polite" aria-busy="true">
+        <strong>Verificando sua sessão</strong>
+        <p>Consultando o serviço oficial de identidade.</p>
       </div>
-      <div class="identity-state">
-        <strong>Em breve</strong>
-        <p>OrdaX Web, Mobile, sincronização, backup e continuidade entre dispositivos serão ativados somente quando os serviços reais existirem.</p>
+      <section data-account-authenticated hidden aria-label="Sessão autenticada">
+        <p class="eyebrow">SESSÃO AUTENTICADA</p>
+        <p class="account-label">E-mail da conta</p>
+        <p class="account-email" data-account-email></p>
+        <p class="account-help">Sua sessão é validada no servidor. Senhas e tokens não são apresentados nesta página.</p>
+        <form action="/auth/logout" method="post" data-account-logout>
+          <button type="submit" class="button button-primary" disabled>Encerrar sessão</button>
+        </form>
+      </section>
+      <section data-account-anonymous hidden>
+        <p class="account-help">Sua sessão não está ativa. Entre para acessar os dados da sua conta.</p>
+        <a class="button button-primary" href="/login/">Entrar na Conta OrdaX</a>
+      </section>
+      <section data-account-unavailable hidden>
+        <p class="account-help">Não foi possível verificar sua sessão. Nenhum dado pessoal será exibido até a conexão ser restabelecida.</p>
+        <a class="button button-primary" href="/conta/">Tentar novamente</a>
+      </section>
+      <div class="identity-state account-future">
+        <p class="eyebrow">Em breve</p>
+        <strong>Outros recursos em desenvolvimento</strong>
+        <p>OrdaX Web, dispositivos, sincronização, backup e continuidade não são ativados por este portal de identidade.</p>
       </div>
-      <div class="identity-state">
+      <div class="identity-state account-future">
         <strong>Sem preços ou planos definidos</strong>
         <p>O MVP não implementa cobrança, tiers comerciais nem limite comercial de dispositivos. A arquitetura fica preparada para serviços futuros sem cobrar arbitrariamente pelo segundo dispositivo.</p>
       </div>
-      <a class="button button-primary" href="/login/">Ir para Entrar</a>
-      <p class="auth-switch"><a href="/">Voltar para a landing page</a></p>
+      <p class="auth-switch"><a href="/">Voltar ao site da OrdaX</a></p>
     </section>
   </main>
   <footer class="site-footer"><a class="brand brand-small" href="/"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a><p>A raiz pública continua sendo a landing page.</p><nav><a href="/">Início</a><a href="/download/">Download</a><a href="/privacidade/">Privacidade</a></nav></footer>

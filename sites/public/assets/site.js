@@ -284,6 +284,53 @@
       );
   }
 
+  // The account page displays only identity data returned by the same-origin
+  // verified session owner. No locally inferred or simulated account state.
+  async function renderAccount() {
+    const state = document.querySelector("[data-account-state]");
+    const authenticated = document.querySelector("[data-account-authenticated]");
+    const anonymous = document.querySelector("[data-account-anonymous]");
+    const unavailable = document.querySelector("[data-account-unavailable]");
+    const email = document.querySelector("[data-account-email]");
+    const logout = document.querySelector('[data-account-logout] button[type="submit"]');
+    if (!state || !authenticated || !anonymous || !unavailable || !email || !logout) return;
+
+    // Always hide stale personal information during refresh and locale changes.
+    authenticated.hidden = true;
+    anonymous.hidden = true;
+    unavailable.hidden = true;
+    email.textContent = "";
+    logout.disabled = true;
+    state.dataset.status = "checking";
+    state.setAttribute("aria-busy", "true");
+    setStatus("[data-account-state]", t("account.session.checking.title"), t("account.session.checking.detail"));
+
+    try {
+      const session = await loadJson("/auth/session");
+      if (!validSessionReadiness(session)) throw new Error("invalid-identity-session");
+      if (session.authenticated === true) {
+        // This text is never HTML: remote identity attributes are untrusted.
+        email.textContent = typeof session.email === "string" && session.email.length <= 254
+          ? session.email
+          : t("account.session.emailUnavailable");
+        authenticated.hidden = false;
+        logout.disabled = false;
+        state.dataset.status = "ready";
+        setStatus("[data-account-state]", t("account.session.active.title"), t("account.session.active.detail"));
+      } else {
+        anonymous.hidden = false;
+        state.dataset.status = "anonymous";
+        setStatus("[data-account-state]", t("account.session.anonymous.title"), t("account.session.anonymous.detail"));
+      }
+    } catch {
+      unavailable.hidden = false;
+      state.dataset.status = "unavailable";
+      setStatus("[data-account-state]", t("account.session.unavailable.title"), t("account.session.unavailable.detail"));
+    } finally {
+      state.removeAttribute("aria-busy");
+    }
+  }
+
   async function renderIdentity(config) {
     const state = document.querySelector("[data-identity-state]");
     const form = document.querySelector("[data-identity-form]");
@@ -634,7 +681,9 @@
       // Never parse, exchange or persist them in the public portal.
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
-    if (page === "download") {
+    if (page === "conta") {
+      await renderAccount();
+    } else if (page === "download") {
       await initDownload(config);
     } else if (page === "licencas") {
       await initCompliance(config);
