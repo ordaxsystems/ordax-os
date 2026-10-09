@@ -147,18 +147,18 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
             legal.write_text(json.dumps(ready), encoding="utf-8")
             from unittest.mock import patch
             with patch.object(activation, "LEGAL", legal):
-                with self.assertRaisesRegex(ValueError, "identity or contact not approved"):
+                with self.assertRaisesRegex(ValueError, "legal-operator-identity-review"):
                     activation.build_candidate("https://ordax.com.br")
                 ready["operator"].update({
                     "identity_reviewed": True,
                     "privacy_contact_verified": True,
                 })
                 legal.write_text(json.dumps(ready), encoding="utf-8")
-                with self.assertRaisesRegex(ValueError, "name missing"):
+                with self.assertRaisesRegex(ValueError, "legal-operator-name"):
                     activation.build_candidate("https://ordax.com.br")
                 ready["operator"]["legal_name"] = "Operador Exemplo"
                 legal.write_text(json.dumps(ready), encoding="utf-8")
-                with self.assertRaisesRegex(ValueError, "contact invalid"):
+                with self.assertRaisesRegex(ValueError, "legal-operator-contact"):
                     activation.build_candidate("https://ordax.com.br")
 
     def test_origin_must_be_clean_https_origin(self):
