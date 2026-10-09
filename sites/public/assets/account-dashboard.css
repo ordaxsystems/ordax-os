@@ -34,6 +34,7 @@
 .account-search:focus-within { outline:2px solid var(--ordax-focus); outline-offset:3px; }
 .account-search input:focus-visible { outline:none; }
 .account-portal .site-nav { display:flex; align-items:center; gap:24px; font-size:12px; }
+.account-portal .account-header .site-nav { width:auto; flex-shrink:0; }
 .account-portal .site-nav a { display:flex; align-items:center; gap:10px; border:0; white-space:nowrap; min-height:44px; }
 .header-account-symbol { width:27px; height:27px; }
 .account-navigation { padding:28px 18px; border-right:1px solid var(--ordax-border-soft); background:var(--ordax-app-bg); }
