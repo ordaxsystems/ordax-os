@@ -336,3 +336,30 @@ If the portal fails externally, compare Cloudflare DNS-only records with
 `docs/contracts/public-site-deployment.json`, validate Vercel production
 aliases and the exact deployed Git SHA, and inspect GitHub Actions failures.
 Do not silently restore Cloudflare proxying or disable Auth security checks.
+
+
+### Canonical DNS upgrade for connectivity incident — 2026-10-09
+
+The user continued to experience `ERR_CONNECTION_TIMED_OUT` even after
+Cloudflare proxying was disabled, and independent runners could reach the old
+address. Vercel's authenticated domain configuration reported the old apex
+`76.76.21.21` as IPv4 *rank 2*, while the **rank 1** destination is the
+pair `216.198.79.1` and `64.29.17.1`.
+
+The exclusive OrdaX Cloudflare zone now publishes those two rank-1 IPv4
+addresses as separate unproxied A records for `ordax.com.br` (TTL 60).
+The existing `www` CNAME remains untouched, as it was independently verified
+and the Vercel domain configuration reported no required change for it.
+
+The Vercel domain-config check after the edit reported both addresses and
+`ipStatus: no-change`, `misconfigured: false`. These are **configuration
+checks, not independent proof that the affected user's ISP can connect**.
+Until the post-change external workflow passes, the current
+`destination_dns_only_independent_http_proof_passed` is false. Previous
+run evidence is preserved separately under the preceding legacy IPv4 address.
+
+If a particular ISP still times out, obtain the client-side
+`Resolve-DnsName ordax.com.br`, `Test-NetConnection ordax.com.br -Port 443`
+and a mobile-network comparison before making another risky DNS change.
+Do not touch any other sites, the old Cloudflare account, registration
+switches, or account secrets as part of this DNS diagnosis.
