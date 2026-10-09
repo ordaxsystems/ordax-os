@@ -7,7 +7,14 @@ export const PUBLIC_CONFIRMATION_URL = PUBLIC_ACCOUNT_ORIGIN + PUBLIC_CONFIRMATI
 const EMAIL_TOKEN_HASH_RE = /^[0-9a-f]{64}$/i;
 
 export function parseSignupConfirmation(url, routePath = PUBLIC_CONFIRMATION_PATH) {
-  if (!(url instanceof URL) || routePath !== PUBLIC_CONFIRMATION_PATH) return null;
+  // Supabase Edge Functions may present the deployment prefix in req.url.
+  // Resolve only the exact known function path; never accept arbitrary suffixes.
+  const acceptedPaths = new Set([
+    PUBLIC_CONFIRMATION_PATH,
+    "/ordax-account-gateway" + PUBLIC_CONFIRMATION_PATH,
+    "/functions/v1/ordax-account-gateway" + PUBLIC_CONFIRMATION_PATH,
+  ]);
+  if (!(url instanceof URL) || routePath !== PUBLIC_CONFIRMATION_PATH || !acceptedPaths.has(url.pathname)) return null;
   const entries = [...url.searchParams];
   if (entries.length !== 2) return null;
   const hashes = url.searchParams.getAll("token_hash");
