@@ -1,10 +1,12 @@
-# Prototipo OrdaX OS
+# OrdaX OS
 
-Clean-room experimental para validar uma arquitetura OrdaX OS simples, reproduzivel e Git-first antes de substituir qualquer base atual.
+Repositório oficial e canônico do sistema operacional OrdaX em `ordaxsystems/ordax-os`. A `main` é a autoridade do código; os limites entre OS, Apps, Runtime e Platform seguem `docs/contracts/repository-ownership.json`.
 
-> **Status:** PROTOTIPO / NAO PROMOVIDO
+> **Status do repositório:** oficial, com migração concluída conforme `docs/contracts/repository-migration-status.json`.
 >
-> Este repositorio nao substitui `washingtonmsdj/novo-ordax-os` enquanto os gates de `docs/PROMOTION-GATES.md` nao forem aprovados.
+> **Status do produto:** MVP em desenvolvimento/homologação. Uma release pública Stable/MVP, a aprovação de assinatura e a gravação física de USB/HD/SSD **não são autorizadas** pela promoção do repositório. Consulte `MVP.md` e `docs/PROMOTION-GATES.md` para os gates independentes.
+>
+> `washingtonmsdj/novo-ordax-os` permanece referência histórica, não uma segunda fonte de verdade ou destino de publicação.
 
 ## MVP e canais de produto
 
