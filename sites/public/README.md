@@ -10,7 +10,7 @@ Routes:
 - `/cadastro/` — account creation entry point;
 - `/conta/` — reserved authenticated user area; fail-closed until real identity/session integration is ready.
 
-The baseline is dependency-free HTML/CSS/JavaScript. Runtime integration is configured by `config/public-site.json` and fails closed when identity or public release services are not authorized for public activation. The real account forms remain hidden and disabled until those gates pass.
+The baseline is dependency-free HTML/CSS/JavaScript. Runtime integration is configured by `config/public-site.json` and fails closed when identity or public release services are not authorized for public activation. The real account forms remain hidden and disabled until those gates pass. The public login and registration entry pages present a neutral loading state while the live gateway is consulted, show credential fields only after server readiness (and legal policy for registration) is verified, and suppress gated-only guidance when available. Neither the home-page registration link nor this presentation state is authority to create an account.
 
 ## Localization
 

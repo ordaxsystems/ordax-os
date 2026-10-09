@@ -1,8 +1,8 @@
 {
   "$schema": "prototype-ordax.public-site-runtime/1",
   "identity": {
-    "login_url": null,
-    "register_url": null,
+    "login_url": "/auth/login",
+    "register_url": "/auth/register",
     "recovery_url": null,
     "recovery_complete_url": null,
     "turnstile_sitekey": "0x4AAAAAAFR-Kz0Uc9rNW_iE"
@@ -13,6 +13,7 @@
   "legal": {
     "privacy_url": "/privacidade/",
     "terms_url": "/termos/",
-    "account_activation_ready": false
+    "account_activation_ready": false,
+    "auth_only_source_enabled": true
   }
 }

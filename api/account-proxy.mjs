@@ -170,6 +170,33 @@ async function boundedBody(request) {
 }
 
 
+// Browser form posts always return to a safe public page on challenge failure.
+ // API clients retain machine-readable HTTP errors; no credential, token or query
+ // values from the request are copied into the redirect.
+function botError(request, productPath, status, code) {
+  if (request.method === "POST" && request.headers.get("accept")?.includes("text/html")) {
+    const path = new URL(productPath, "https://ordax.invalid").pathname;
+    const destination = {
+      "/auth/login": "/login/",
+      "/auth/register": "/cadastro/",
+      "/auth/recover": "/recuperar/",
+    }[path];
+    if (destination) {
+      const reason = status === 503 ? "seguranca-indisponivel" : "verificacao-falhou";
+      return new Response(null, {
+        status: 303,
+        headers: {
+          location: `${destination}?erro=${reason}`,
+          "cache-control": "no-store, max-age=0",
+          pragma: "no-cache",
+          "x-content-type-options": "nosniff",
+        },
+      });
+    }
+  }
+  return error(status, code);
+}
+
 function protectedTurnstileRoute(method, productPath) {
   if (method !== "POST") return false;
   const parsed = new URL(productPath, "https://ordax.invalid");
@@ -250,12 +277,31 @@ export async function verifyTurnstileToken(
   } catch {
     throw new Error("turnstile-siteverify-invalid-json");
   }
-  return Boolean(
+  const verified = Boolean(
     result
     && result.success === true
     && result.hostname === expectedHostname
     && result.action === TURNSTILE_ACTION
   );
+  if (!verified) {
+    // Fixed category only. Never log the challenge token, IP, secret, email
+    // or untrusted Cloudflare payload.
+    const known = new Set([
+      "invalid-input-secret", "missing-input-secret", "invalid-input-response",
+      "missing-input-response", "timeout-or-duplicate", "bad-request", "internal-error",
+    ]);
+    const errors = Array.isArray(result?.["error-codes"]) ? result["error-codes"] : [];
+    const cloudflareCode = errors.find((value) => typeof value === "string" && known.has(value));
+    const reason = cloudflareCode ?? (
+      result?.success === true && result?.hostname !== expectedHostname
+        ? "hostname-mismatch"
+        : result?.success === true && result?.action !== TURNSTILE_ACTION
+          ? "action-mismatch"
+          : "verification-rejected"
+    );
+    console.warn("ordax.turnstile.verification_rejected", reason);
+  }
+  return verified;
 }
 
 export async function proxyPublicAccountRequest(
@@ -308,13 +354,13 @@ export async function proxyPublicAccountRequest(
 
   if (protectedTurnstileRoute(request.method, productPath)) {
     if (typeof turnstileSecret !== "string" || !turnstileSecret.trim()) {
-      return error(503, "bot-protection-unconfigured");
+      return botError(request, productPath, 503, "bot-protection-unconfigured");
     }
     let challenge;
     try {
       challenge = stripTurnstileToken(body, request.headers.get("content-type") ?? "");
     } catch {
-      return error(403, "bot-verification-required");
+      return botError(request, productPath, 403, "bot-verification-required");
     }
     let verified = false;
     try {
@@ -325,9 +371,9 @@ export async function proxyPublicAccountRequest(
         timeoutMs: Math.min(timeoutMs, 5000),
       });
     } catch {
-      return error(503, "bot-verification-unavailable");
+      return botError(request, productPath, 503, "bot-verification-unavailable");
     }
-    if (!verified) return error(403, "bot-verification-failed");
+    if (!verified) return botError(request, productPath, 403, "bot-verification-failed");
     body = challenge.body;
   }
 

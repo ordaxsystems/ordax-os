@@ -86,10 +86,11 @@ class PublicLegalReadinessTests(unittest.TestCase):
         self.assertFalse(config["legal"]["account_activation_ready"])
         self.assertEqual(config["legal"]["privacy_url"], "/privacidade/")
         self.assertEqual(config["legal"]["terms_url"], "/termos/")
-        self.assertIsNone(config["identity"]["login_url"])
-        self.assertIsNone(config["identity"]["register_url"])
+        self.assertEqual(config["identity"]["login_url"], "/auth/login")
+        self.assertEqual(config["identity"]["register_url"], "/auth/register")
+        self.assertTrue(config["legal"]["auth_only_source_enabled"])
 
-    def test_identity_urls_cannot_be_enabled_while_legal_gate_is_not_ready(self):
+    def test_identity_urls_cannot_be_enabled_without_auth_only_or_full_readiness(self):
         with tempfile.TemporaryDirectory() as tmp:
             copied = Path(tmp) / "public"
             shutil.copytree(SITE, copied)
@@ -97,11 +98,25 @@ class PublicLegalReadinessTests(unittest.TestCase):
             config = json.loads(config_path.read_text(encoding="utf-8"))
             config["identity"]["login_url"] = "/auth/login"
             config["identity"]["register_url"] = "/auth/register"
+            config["legal"]["auth_only_source_enabled"] = False
             config_path.write_text(json.dumps(config), encoding="utf-8")
 
             with self.assertRaises(build.PublicSiteError) as caught:
                 build.validate_source(copied)
             self.assertIn("identity URLs must remain null", str(caught.exception))
+
+    def test_auth_only_does_not_open_recovery_or_cloud_routes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            copied = Path(tmp) / "public"
+            shutil.copytree(SITE, copied)
+            config_path = copied / "config" / "public-site.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["identity"]["recovery_url"] = "/auth/recover"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            with self.assertRaisesRegex(
+                build.PublicSiteError, "auth-only source cannot silently enable password recovery"
+            ):
+                build.validate_source(copied)
 
     def test_legal_ready_alone_cannot_activate_accounts_while_auth_hardening_is_pending(self):
         with tempfile.TemporaryDirectory() as tmp:

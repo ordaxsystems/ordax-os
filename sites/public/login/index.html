@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Acesso seguro à Conta OrdaX.">
+  <meta name="description" content="Entre na sua Conta OrdaX com autenticação segura.">
   <title>Entrar — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
-  <link rel="stylesheet" href="/assets/account.css?v=account-shell-1">
+  <link rel="stylesheet" href="/assets/account.css?v=account-ux-2">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
-  <script src="/assets/site.js?v=identity-copy-2" defer></script>
+  <script src="/assets/site.js?v=identity-ux-2" defer></script>
 </head>
 <body data-page="login" class="account-ui">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -24,11 +24,11 @@
       <div class="story-copy">
         <p class="eyebrow">CONTA ORDA X</p>
         <h1 id="login-story-title">Seu espaço.<br><span>Sua identidade.</span></h1>
-        <p class="story-lead">Sua Conta OrdaX reúne identidade e continuidade em um só lugar. O estado do acesso é verificado nesta página antes de liberar qualquer formulário.</p>
+        <p class="story-lead">Entre com sua identidade OrdaX. A segurança da sessão é validada pelo serviço oficial; novos recursos serão disponibilizados gradualmente.</p>
         <ul class="account-benefits" aria-label="Recursos planejados para a Conta OrdaX">
           <li><strong>01 / ACESSO</strong><span>Uma identidade para seus projetos</span></li>
           <li><strong>02 / SEGURANÇA</strong><span>Sessão protegida pelo servidor</span></li>
-          <li><strong>03 / CONTROLE</strong><span>Recuperação e privacidade</span></li>
+          <li><strong>03 / CONTROLE</strong><span>Privacidade e controle</span></li>
         </ul>
       </div>
       <div class="account-side-footer"><div class="identity-promise"><span class="promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Uma identidade, com controle seu.</strong><p>Privacidade, sessão e recuperação seguem o mesmo contrato seguro em todos os modos.</p></div></div>
@@ -41,11 +41,11 @@
       <div class="login-card">
         <header class="login-card-header"><p class="eyebrow">ACESSO SEGURO</p><span class="account-card-index" aria-hidden="true">01 / 02</span></header>
         <h2 id="auth-title">Entrar na<br>Conta OrdaX.</h2>
-        <p class="login-intro">A disponibilidade é confirmada pelo serviço real antes que você possa informar e-mail e senha.</p>
+        <p class="login-intro">Informe seu e-mail e senha para continuar. A disponibilidade do serviço é verificada automaticamente.</p>
 
-        <div class="identity-state" data-identity-state="login" aria-live="polite">
+        <div class="identity-state" data-identity-state="login" data-status="checking" aria-live="polite" aria-busy="true">
           <span class="state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span>
-          <div><strong>Serviço de identidade ainda não configurado</strong><p>Quando a integração for ativada, o acesso será conectado ao serviço seguro de identidade e sessão da OrdaX.</p></div>
+          <div><strong>Verificando conexão segura</strong><p>Consultando o serviço de identidade OrdaX.</p></div>
         </div>
 
         <p class="identity-notice" data-identity-notice hidden aria-live="polite"></p>
@@ -55,11 +55,12 @@
           <label class="identity-field"><span>Senha</span><input type="password" name="password" autocomplete="current-password" maxlength="256" placeholder="Sua senha" required disabled></label>
           <div class="form-support"><a href="/recuperar/">Esqueci minha senha</a></div>
           <div class="identity-turnstile" data-turnstile aria-label="Verificação anti-automação"></div>
+          <p class="verification-hint">Conclua a verificação de segurança para habilitar o botão.</p>
           <button class="button button-primary identity-submit" type="submit" disabled>Entrar com segurança <span aria-hidden="true">↗</span></button>
         </form>
 
         <div class="gated-guidance"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/></svg></span><p>Esta página não coleta credenciais enquanto o serviço real de identidade não estiver conectado.</p></div>
-        <div class="account-entry"><div><span>NOVO NA ORDA X?</span><strong>Prepare sua futura conta.</strong></div><a href="/cadastro/">Conhecer o cadastro <span aria-hidden="true">↗</span></a></div>
+        <div class="account-entry"><div><span>NOVO NA ORDA X?</span><strong>Crie sua Conta OrdaX.</strong></div><a href="/cadastro/">Criar conta <span aria-hidden="true">↗</span></a></div>
         <nav class="login-legal" aria-label="Documentação da conta"><a href="/recuperar/">Recuperação</a><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav>
       </div>
     </section>

@@ -165,8 +165,23 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
     if legal["account_activation_ready"] is not contract_ready:
         raise PublicSiteError("runtime legal readiness must match canonical legal-readiness contract")
 
+    auth_only = legal.get("auth_only_source_enabled", False)
+    if not isinstance(auth_only, bool):
+        raise PublicSiteError("legal.auth_only_source_enabled must be a boolean")
     if not contract_ready:
-        if any(
+        if auth_only:
+            # Limited to identity only. The browser still requires the
+            # *live* Supabase session provider and active registration policy.
+            if identity.get("login_url") != "/auth/login" or identity.get("register_url") != "/auth/register":
+                raise PublicSiteError("auth-only source requires exact same-origin login/signup routes")
+            if identity.get("recovery_url") is not None or identity.get("recovery_complete_url") is not None:
+                raise PublicSiteError("auth-only source cannot silently enable password recovery")
+            documents = legal_contract.get("documents", {})
+            for name in ("privacy", "terms"):
+                doc = documents.get(name, {})
+                if doc.get("final") is not True or not doc.get("version") or not doc.get("effective_date"):
+                    raise PublicSiteError("auth-only source needs published versioned legal documents")
+        elif any(
             identity.get(key) is not None
             for key in ("login_url", "register_url", "recovery_url", "recovery_complete_url")
         ):
