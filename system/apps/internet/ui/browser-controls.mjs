@@ -1,6 +1,6 @@
 import { assertBrowserSessionPort } from "../../../contracts/browser-session.mjs";
 import { assertBrowserPageFindPort, MAX_BROWSER_PAGE_FIND_CHARS } from "../../../contracts/browser-page-find.mjs";
-import { BROWSER_SEARCH_PROVIDERS, BROWSER_SEARCH_PROVIDER } from "../../../contracts/browser-navigation.mjs";
+import { BROWSER_SEARCH_PROVIDERS, BROWSER_SEARCH_PROVIDER, resolveBrowserNavigation } from "../../../contracts/browser-navigation.mjs";
 import { assertBrowserSearchPreferencesPort } from "../../../contracts/browser-search-preferences.mjs";
 import {
   assertBrowserPageSelectionPort,
@@ -11,7 +11,7 @@ import { assertIntelligencePort, validateIntelligenceResponse } from "../../../c
 import { assertIdentitySessionPort } from "../../../contracts/identity-session.mjs";
 import { assertSpaceSelectionPort } from "../../../contracts/space-selection.mjs";
 import { assertProfileActivationStatePort } from "../../../contracts/profile-activation-state.mjs";
-import { resolveBrowserNavigation } from "../../../contracts/browser-navigation.mjs";
+
 import {
   assertBrowserFavoritesPort,
   validateBrowserFavoriteUrl,
