@@ -39,6 +39,16 @@ class AccountReleaseProviderProofTests(unittest.TestCase):
             [],
         )
 
+    def test_rejects_malformed_or_extra_sanitized_provider_observations(self):
+        proof = self.valid_proof()
+        proof["observed"]["redirect_count"] = False
+        proof["observed"]["unexpected_email"] = "sensitive-value"
+        proof["unreviewed_secret"] = "sensitive-value"
+        blockers = MODULE.validate_provider_proof(proof, "https://ordax.com.br")
+        self.assertIn("provider-proof-redirect-count", blockers)
+        self.assertIn("provider-proof-observation-set", blockers)
+        self.assertIn("provider-proof-field-set", blockers)
+
     def test_origin_mismatch_blocks(self):
         blockers = MODULE.validate_provider_proof(
             self.valid_proof(),
