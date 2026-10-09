@@ -92,6 +92,30 @@ class BrandPipelineTests(unittest.TestCase):
         self.assertTrue(any(node.tag.endswith("path") for node in svg))
         self.assertIn("shutil.copyfile(CANONICAL_SYMBOL, stage / PUBLIC_SYMBOL_PATH)", p.read_text(encoding="utf-8"))
 
+    def test_web_auth_and_portal_consume_surface_ssot_without_logo_replacement(self):
+        css = brand.render_site_css()
+        for token in ("surface", "border-soft", "selected-bg", "focus",
+                      "warning", "danger", "radius-lg", "motion-fast"):
+            self.assertIn(f"--ordax-{token}: ", css)
+        for filename in ("account.css", "portal.css"):
+            stylesheet = (ROOT / "sites/public/assets" / filename).read_text(encoding="utf-8")
+            self.assertIn("var(--ordax-bg)", stylesheet)
+            self.assertIn("var(--ordax-panel)", stylesheet)
+            self.assertIn("var(--ordax-text)", stylesheet)
+            self.assertIn("var(--ordax-muted)", stylesheet)
+            self.assertIn("var(--ordax-border)", stylesheet)
+            self.assertIn("var(--ordax-accent)", stylesheet)
+            self.assertNotIn("--account-bg:#", stylesheet)
+            self.assertNotIn("--canvas:#080f19", stylesheet)
+            self.assertIn(".brand-mark", stylesheet)
+        for route in ("login", "cadastro", "conta"):
+            html = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
+            self.assertIn('class="brand-mark"', html)
+            self.assertNotIn('ordax-symbol.svg', html)
+        # Marketing landing and current brand artwork are untouched by this cutover.
+        landing = (ROOT / "sites/public/assets/playground.css").read_text(encoding="utf-8")
+        self.assertIn('body[data-page="landing"]', landing)
+
     def test_publishing_requires_confirmed_project_and_never_runs_by_default(self):
         with self.assertRaises(brand.BrandError):
             brand.publish_emails(brand.SUPABASE_REF)

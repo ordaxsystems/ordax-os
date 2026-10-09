@@ -28,6 +28,21 @@ COLORS = (
     "accent", "accent-strong", "focus", "button-bg", "button-text",
 )
 BRAND_COLORS = ("brand-blue", "brand-violet", "brand-cyan")
+# The public account/product bridge must receive the SAME semantic tokens as
+# the native Surface. These are read-only exported values, never a second
+# source of palette, typography or geometry.
+SITE_SEMANTIC_TOKENS = (
+    "surface", "surface-strong", "border-soft", "subtle-bg", "hover-bg",
+    "selected-bg", "success", "success-bg", "warning", "warning-bg",
+    "danger", "danger-bg", "radius-sm", "radius-md", "radius-lg",
+    "radius-xl", "motion-fast", "motion-base",
+)
+SITE_SEMANTIC_VALUE = re.compile(
+    r"^(?:#[0-9a-fA-F]{6}|"
+    r"rgba\([0-9., ]+\)|"
+    r"[0-9]+(?:\.[0-9]+)?(?:px|rem|ms))$"
+)
+
 SUPPORTED_TEMPLATES = {
     "confirmation": ("email", "/auth/confirm", "mailer_templates_confirmation_content", "mailer_subjects_confirmation", "Confirme seu e-mail — Conta OrdaX"),
     "recovery": ("recovery", "/auth/recover/verify", "mailer_templates_recovery_content", "mailer_subjects_recovery", "Redefina sua senha — Conta OrdaX"),
@@ -84,6 +99,16 @@ def render_site_css(tokens_path: Path = TOKENS) -> str:
     dark, light = load_colors(tokens_path)
     names = [f"--ordax-{key}" for key in COLORS]
     names.extend(f"--ordax-{key}" for key in BRAND_COLORS if f"--ordax-{key}" in dark)
+    for key in SITE_SEMANTIC_TOKENS:
+        name = f"--ordax-{key}"
+        if name in names or name not in dark:
+            raise BrandError("missing or duplicated Surface semantic token")
+        if not SITE_SEMANTIC_VALUE.fullmatch(dark[name]):
+            raise BrandError("unsafe Surface semantic token value")
+        if name in light and not SITE_SEMANTIC_VALUE.fullmatch(light[name]):
+            raise BrandError("unsafe Surface light theme token value")
+        names.append(name)
+
     result = ["/* Generated from system/surface/ui/tokens.css; do not edit. */", ":root {"]
     result.extend(f"  {name}: {dark[name]};" for name in names)
     result.append("}")

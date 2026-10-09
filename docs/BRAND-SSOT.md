@@ -86,3 +86,29 @@ alterações de tokens/templates aprovadas e compiladas são publicadas sem
 recopiar HTML no dashboard. Revisões estruturais do layout Web não
 alteram automaticamente a estrutura dos e-mails: compartilham somente os
 valores semânticos da marca.
+
+## Aplicação ao Web sem substituir o logotipo (2026-10-09)
+
+As páginas públicas de **Conta OrdaX** (login, cadastro, conta,
+recuperação e documentação legal) agora consomem variáveis canônicas
+`--ordax-*` em seus tokens semânticos de fundo, superfície, texto,
+bordas, foco, CTA e status. O compilador exporta os estados/raios
+necessários diretamente de `system/surface/ui/tokens.css`; não cria
+nova paleta nem sobrescreve temas ou CSS de aplicativos.
+
+A marca do cabeçalho, incluindo o atual HTML `.brand-mark` e as suas
+regras CSS, permanece **intocada**. O SVG geométrico existe como
+asset separado, mas **não é aplicado** nas páginas enquanto o asset
+final do conceito visual não for aprovado. Nenhum PNG de geração é
+copiado automaticamente para GitHub ou produção.
+
+A landing `sites/public/index.html` e seu `playground.css` também
+permanecem intocados, pois **não são o OrdaX Web como produto**.
+Gradientes e arte decorativa legados são migrados por etapas, com
+testes visuais; os tokens semânticos agora têm dono único e validação
+no `tests/test_brand_pipeline.py`.
+
+O build do Web injeta `/assets/ordax-design-tokens.css` em todas as
+páginas. As páginas de identidade não dependem de configurações
+duplicadas: a Surface é a única origem das cores, e o Supabase mantém
+a autoridade sobre autenticação e sessões.
