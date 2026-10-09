@@ -241,10 +241,12 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                     return Published(delivered[suffix])
 
             self_test = self
-            with patch.object(activation, "SITE", site), \\
-                 patch.object(activation, "LEGAL", policy), \\
-                 patch.object(activation, "PUBLIC_AUTH_CONTRACT", public_auth), \\
-                 patch.object(activation.urllib.request, "build_opener", return_value=Opener()):
+            with (
+                patch.object(activation, "SITE", site),
+                patch.object(activation, "LEGAL", policy),
+                patch.object(activation, "PUBLIC_AUTH_CONTRACT", public_auth),
+                patch.object(activation.urllib.request, "build_opener", return_value=Opener()),
+            ):
                 activation.verify_published_legal_documents(candidate)
                 self.assertEqual(accessed, [
                     "https://ordax.com.br/privacidade/",
