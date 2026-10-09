@@ -61,6 +61,9 @@ export const componentRuntime = Object.freeze({
     createHistoryStore = null,
     createPageSelectionPort = null,
     intelligence = null,
+    identitySessionPort = null,
+    spaceSelectionPort = null,
+    profileActivationStatePort = null,
     enableShortcuts = true,
     reportDiagnostic = null,
   } = {}) {
@@ -112,7 +115,8 @@ export const componentRuntime = Object.freeze({
         root,
         browserSession,
         surfaceLifecycle,
-        { projects, projectReferences, favorites, history, pageSelection, intelligence },
+        { projects, projectReferences, favorites, history, pageSelection, intelligence,
+          identitySessionPort, spaceSelectionPort, profileActivationStatePort },
       );
       shortcuts = enableShortcuts
         ? mountInternetBrowserShortcuts(root, browserSession)
