@@ -67,7 +67,18 @@
     }
   }
 
-  function validRegistrationDocument(value) {
+  // Legal consent must only reference the approved pages on this origin.
+  function canonicalLegalDocument(value, path) {
+    if (!validHttpsDocumentUrl(value)) return false;
+    try {
+      const url = new URL(value);
+      return url.origin === window.location.origin && url.pathname === path;
+    } catch {
+      return false;
+    }
+  }
+
+  function validRegistrationDocument(value, path) {
     return (
       value
       && typeof value === "object"
@@ -76,7 +87,7 @@
       && typeof value.effectiveDate === "string"
       && /^\d{4}-\d{2}-\d{2}$/.test(value.effectiveDate)
       && validSha256(value.sha256)
-      && validHttpsDocumentUrl(value.url)
+      && canonicalLegalDocument(value.url, path)
     );
   }
 
@@ -88,8 +99,8 @@
       && value.registrationEnabled === true
       && typeof value.policyId === "string"
       && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.policyId)
-      && validRegistrationDocument(value.privacy)
-      && validRegistrationDocument(value.terms)
+      && validRegistrationDocument(value.privacy, "/privacidade/")
+      && validRegistrationDocument(value.terms, "/termos/")
     );
   }
 
@@ -201,6 +212,63 @@
     return messageIds.map((messageId) => t(messageId));
   }
 
+  // Server-generated redirect codes are mapped to safe, accessible messages.
+  // Never interpolate query text as HTML or read credentials in JavaScript.
+  const IDENTITY_NOTICES = Object.freeze({
+    login: {
+      cadastro: { "verifique-email": ["success", "Cadastro recebido. Verifique seu e-mail para confirmar a conta antes de entrar."] },
+      erro: {
+        formulario: ["error", "Revise o e-mail e a senha informados."],
+        credenciais: ["error", "Não foi possível entrar. Confira suas credenciais e tente novamente."],
+        "validacao-conta-indisponivel": ["error", "A validação da conta está indisponível. Tente novamente mais tarde."],
+        "conta-requer-reconciliacao": ["error", "Sua conta precisa de validação adicional antes do acesso público."],
+      },
+    },
+    register: {
+      erro: {
+        formulario: ["error", "Revise os dados de cadastro."],
+        "aceite-legal": ["error", "É necessário ler e aceitar os documentos vigentes."],
+        senha: ["error", "Escolha uma senha com pelo menos 12 caracteres."],
+        "senha-comprometida": ["error", "Essa senha foi encontrada em vazamentos. Escolha outra."],
+        "seguranca-indisponivel": ["error", "A verificação de segurança está indisponível. Tente novamente mais tarde."],
+        "politica-legal-indisponivel": ["error", "A política de cadastro está indisponível. O cadastro não foi concluído."],
+        cadastro: ["error", "Não foi possível concluir o cadastro. Revise os dados e tente novamente."],
+      },
+    },
+    recover: { erro: { formulario: ["error", "Informe um e-mail válido."] } },
+  });
+
+  function showIdentityNotice(kind, available) {
+    const notice = document.querySelector("[data-identity-notice]");
+    if (!notice) return;
+    notice.hidden = true;
+    notice.removeAttribute("role");
+    notice.textContent = "";
+    if (!available) return;
+    const allowed = IDENTITY_NOTICES[kind];
+    if (!allowed) return;
+    const params = new URLSearchParams(window.location.search);
+    for (const key of ["erro", "cadastro"]) {
+      const code = params.get(key);
+      if (code === null) continue;
+      const message = allowed[key]?.[code];
+      if (!message) continue;
+      notice.textContent = message[1];
+      notice.dataset.kind = message[0];
+      notice.setAttribute("role", message[0] === "error" ? "alert" : "status");
+      notice.hidden = false;
+      return;
+    }
+  }
+
+  function validSessionReadiness(value) {
+    return value
+      && value.$schema === "prototype-ordax.public-identity-session/1"
+      && value.provider === "supabase"
+      && typeof value.authenticated === "boolean"
+      && (value.status === "authenticated" || value.status === "anonymous");
+  }
+
   async function renderIdentity(config) {
     const state = document.querySelector("[data-identity-state]");
     const form = document.querySelector("[data-identity-form]");
@@ -218,6 +286,15 @@
     const target = route?.[1] ?? null;
     const legalReady = config?.legal?.account_activation_ready === true;
     let available = legalReady && target === expectedTarget && sameOriginPath(target);
+    if (available) {
+      try {
+        // The server is authoritative: a static configuration alone cannot
+        // enable forms when the public identity gateway is unavailable.
+        available = validSessionReadiness(await loadJson("/auth/session"));
+      } catch {
+        available = false;
+      }
+    }
     if (available && kind === "register") {
       try {
         const policy = await loadJson("/auth/registration-policy");
@@ -255,6 +332,7 @@
     const paragraph = state.querySelector("p");
     if (strong) strong.textContent = title;
     if (paragraph) paragraph.textContent = detail;
+    showIdentityNotice(kind, available);
   }
 
   function validSha256(value) {
