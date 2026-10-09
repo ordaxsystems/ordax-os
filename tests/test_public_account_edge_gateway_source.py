@@ -224,7 +224,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
             ROOT / "infra" / "supabase" / "functions" / "_shared"
             / "account_service_bridge.mjs"
         ).read_text(encoding="utf-8")
-        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax-account-public-bridge"', helper)
+        self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax_account_public_bridge"', helper)
         self.assertIn("sb_secret_", helper)
         self.assertIn("Object.prototype.hasOwnProperty.call", helper)
         self.assertIn('headers?.get?.("apikey")', helper)
