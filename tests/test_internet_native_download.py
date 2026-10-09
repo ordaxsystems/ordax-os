@@ -192,7 +192,7 @@ class BrowserDownloadNativeTests(unittest.TestCase):
             host=fake_host(root)
             with self.assertRaisesRegex(ValueError,"identifier"):
                 host.handle_download_decision("download.approve","../danger")
-            with self.assertRaisesRegex(ValueError,"pending"):
+            with self.assertRaisesRegex(ValueError,"no-longer-active"):
                 host.handle_download_decision("download.approve","download-0123456789abcdef")
 
 if __name__=="__main__":
