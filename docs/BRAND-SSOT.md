@@ -112,3 +112,23 @@ O build do Web injeta `/assets/ordax-design-tokens.css` em todas as
 páginas. As páginas de identidade não dependem de configurações
 duplicadas: a Surface é a única origem das cores, e o Supabase mantém
 a autoridade sobre autenticação e sessões.
+
+## Materiais e estados sem duplicar paleta (2026-10-09)
+
+Os componentes existentes de cadastro/login, conta, recuperação e documentos
+públicos agora derivam também **fundos de cartões, gradientes, camadas,
+bordas, radius, focus, botões e estados semânticos** de `--ordax-*`.
+Estados de autenticação prontos usam `--ordax-success[-bg]`; falhas de
+serviço usam `--ordax-warning[-bg]`. Valores decorativos translúcidos
+são obtidos de `color-mix(in srgb, var(--ordax-*), transparent)`, sem
+introduzir uma segunda paleta nem cor de referência no HTML.
+
+A imagem decorativa `aurora-titanium.png`, os estilos e estrutura do
+logotipo existente (`.brand*`) e **toda a landing/experiência demonstrativa**
+permanecem intocados. Nenhuma substituição de asset está implícita nesta
+etapa. A autenticação, o Supabase e os modelos Resend não são alterados.
+
+Regressões adicionais em `tests/test_brand_pipeline.py` inspecionam os
+materiais visíveis para bloquear o retorno acidental de cores CSS literais
+em fundos e bordas estruturais. A Surface mantém a responsabilidade
+exclusiva pelos tokens de identidade.

@@ -116,6 +116,49 @@ class BrandPipelineTests(unittest.TestCase):
         landing = (ROOT / "sites/public/assets/playground.css").read_text(encoding="utf-8")
         self.assertIn('body[data-page="landing"]', landing)
 
+    def test_account_and_portal_materials_follow_surface_semantics(self):
+        import re
+        account = (ROOT / "sites/public/assets/account.css").read_text(encoding="utf-8")
+        portal = (ROOT / "sites/public/assets/portal.css").read_text(encoding="utf-8")
+        # Important visible layers must not contain a second literal palette.
+        def rule_body(source, selector):
+            for match in re.finditer(r"([^{}]+)\\{([^{}]*)\\}", source):
+                if match.group(1).strip().startswith("/*"):
+                    continue
+                if match.group(1).strip() == selector:
+                    return match.group(2)
+            self.fail("missing css rule: " + selector)
+
+        for source, selectors in (
+            (account, (
+                ":is(.login-stage,.signup-stage)", ":is(.login-card,.signup-card)",
+                ".account-ui .identity-state", ".account-ui .identity-submit",
+                '.account-ui .identity-state[data-status="ready"]',
+                '.account-ui .identity-state[data-status="unavailable"]',
+                ".account-ui .registration-legal",
+            )),
+            (portal, (
+                ".auth-shell", ".auth-card", ".identity-state",
+                ".identity-field input", ".release-card", ".status-panel",
+            )),
+        ):
+            for selector in selectors:
+                body = rule_body(source, selector)
+                for declaration in re.findall(r"(?:background|border-color|color):[^;]+;", body):
+                    self.assertNotRegex(declaration, r"#[0-9a-fA-F]{3,8}\\b", selector)
+                    self.assertIn("var(--ordax-", declaration, selector)
+        self.assertIn("var(--ordax-success-bg)", account)
+        self.assertIn("var(--ordax-warning-bg)", account)
+        self.assertIn("var(--ordax-button-bg)", account)
+        self.assertIn("var(--ordax-radius-xl)", portal)
+        self.assertIn("url('/assets/aurora-titanium.png')", account)
+        self.assertIn("url('/assets/aurora-titanium.png')", portal)
+        # The existing mark and marketing site have not been altered.
+        for source in (account, portal):
+            self.assertIn(".brand-mark", source)
+        self.assertIn('body[data-page="landing"]',
+                      (ROOT / "sites/public/assets/playground.css").read_text(encoding="utf-8"))
+
     def test_publishing_requires_confirmed_project_and_never_runs_by_default(self):
         with self.assertRaises(brand.BrandError):
             brand.publish_emails(brand.SUPABASE_REF)
