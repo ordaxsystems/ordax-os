@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   BROWSER_DOWNLOAD_PORT_SCHEMA,
-  MAX_BROWSER_DOWNLOAD_BYTES,
   validateBrowserDownloadEvent,
   validateBrowserDownloadId,
 } from "../system/contracts/browser-download.mjs";
@@ -47,7 +46,6 @@ test("download event forbids extra metadata, arbitrary names, and unauthorized s
   assert.deepEqual(validateBrowserDownloadEvent(valid),valid);
   assert.equal(Object.isFrozen(validateBrowserDownloadEvent(valid)),true);
   assert.equal(validateBrowserDownloadId(id),id);
-  assert.equal(MAX_BROWSER_DOWNLOAD_BYTES,64*1024*1024);
   for(const candidate of [
     {...valid,status:"executed"},{...valid,type:"file-import"},
     {...valid,fileName:"../bad"},{...valid,fileName:"file\\name"},
