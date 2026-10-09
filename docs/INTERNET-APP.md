@@ -228,6 +228,33 @@ Validação: `node --test tests/test_browser_page_find.mjs` e
 `Surface Web Candidate`. A prova física WebKitGTK/USB, inclusive
 foco do atalho, continua necessária antes de promover lançamento.
 
+## Preferências do provedor de pesquisa
+
+A barra única de navegação aceita pesquisa por texto e agora permite escolher o
+mecanismo de pesquisa no próprio Internet: **DuckDuckGo (padrão), Brave Search,
+Google ou Bing**. Não há provedores arbitrários nem execução de consultas
+na composição. As origens HTTPS e parâmetros ficam na lista SSOT
+`BROWSER_SEARCH_PROVIDERS` em `system/contracts/browser-navigation.mjs`.
+
+A preferência é armazenada somente no perfil privilegiado Native,
+via `ordax.native.browser-search-preferences.v1`; salva apenas `providerId`
+e não armazena consultas nem tokens. Os contratos ficam em
+`system/contracts/browser-search-preferences.mjs` e a lógica em
+`system/apps/internet/services/search-preferences.mjs`. Quando o storage
+nativo não está disponível, a preferência vale para a sessão e é sinalizada
+como tal. O modo Web não simula um motor de navegação: a seleção fica
+desabilitada quando o Browser Session não está disponível.
+
+O provedor participa exclusivamente de pesquisas textuais. URLs explícitas e
+ativação de URLs enviadas por outros apps não são reescritas ou encaminhadas a
+buscadores, preservando a fronteira de segurança entre pesquisa e navegação.
+`tests/test_browser_search_preferences.mjs` cobre validação dos quatro
+provedores, codificação da consulta, descarte de configuração corrompida,
+persistência, fallback e rejeição de IDs desconhecidos.
+
+O mecanismo de pesquisa é uma preferência do navegador, não um provider
+de IA, nem uma permissão para o Studio ou agentes.
+
 ## First implementation slice
 
 Implemented in source:
