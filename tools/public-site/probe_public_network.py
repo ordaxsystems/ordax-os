@@ -181,7 +181,7 @@ def check_public_legal_consistency() -> int:
             or not isinstance(item.get("version"), str)
             or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", item["version"])
             or not isinstance(item.get("effectiveDate"), str)
-            or not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", item["effectiveDate"])
+            or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", item["effectiveDate"])
             or not isinstance(digest, str)
             or not re.fullmatch(r"[0-9a-f]{64}", digest)
         ):
