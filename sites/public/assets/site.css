@@ -1074,3 +1074,6 @@ a {
 .identity-notice[hidden]{display:none!important}
 .identity-notice[data-kind="error"]{border-color:#a45e68;background:#3b1c27;color:#ffe1e5}
 .identity-notice[data-kind="success"]{border-color:#448b78;background:#13352f;color:#d7fae9}
+
+/* Session-aware header: hidden signup links stay hidden in all layouts. */
+.site-header [data-auth-nav][hidden]{display:none!important}

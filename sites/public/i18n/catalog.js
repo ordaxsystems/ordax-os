@@ -537,6 +537,7 @@
   ];
 
   const SEMANTIC = Object.freeze({
+    "account.navigation.account": ["Minha conta", "My account"],
     "playground.note.initialTitle": ["Uma ideia começa aqui", "An idea starts here"],
     "playground.note.initialBody": ["Um espaço para pensar com calma.\n\nEscreva algo aqui e veja sua ideia aparecer na outra tela.", "A space to think calmly.\n\nWrite something here and watch your idea appear on the other screen."],
     "playground.appsOnDevice": ["Apps no {device}", "Apps on {device}"],

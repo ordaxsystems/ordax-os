@@ -384,3 +384,15 @@ session ID entra em JavaScript, armazenamento local ou parâmetros de URL.
 Sincronização, dispositivos, cobrança e OrdaX Web não são simulados nem
 habilitados por essa página. Recuperação de senha e revogação global ainda
 exigem homologação E2E separada.
+
+
+## Cabeçalho e autenticação (2026-10-09)
+
+O cabeçalho público de todas as rotas usa `data-auth-nav` e o owner
+`sites/public/assets/site.js`. A única autoridade do estado é
+`GET /auth/session` sem cache e com schema validado. A área `/conta/`
+e os formulários compartilham a mesma promessa por documento.
+Após autenticação: `Entrar` vira `Minha conta`; CTA de cadastro é
+ocultado se também existir o link de conta (se só houver CTA, ele se torna
+o link da conta). Sem sessão ou com erro, apenas os links públicos aparecem.
+Retorno por bfcache refaz a verificação. Tokens nunca são expostos ao JS.
