@@ -2,6 +2,8 @@
 
 > **Incremento de 09/10/2026 — Studio na navegação:** pedido explícito do usuário, exceção à rodada de polimento. Sidebar compartilhada usa o app/lifecycle existente. O painel de host informa a ausência da interface completa e não concede execução. Integração da UI canônica continua pendente; [owners, risco e aceite](docs/STUDIO-WEB-AVAILABILITY.md).
 
+> **Revisão mobile do Studio — 09/10/2026:** hierarquia única, ações com descrições e alvos de toque, ajuda progressiva e layout por largura da janela. Usa os tokens do OS; não cria outro source Studio. Disclosures permanecem abertos durante reconciliação. [Escopo e critérios](docs/STUDIO-WEB-AVAILABILITY.md).
+
 **Status:** proposta detalhada de produto e roteiro de implementação; não altera contratos canônicos nem declara funcionalidades concluídas.
 
 **Data:** 18/09/2026. **Base inspecionada:** `origin/main`, commit `4f1ea27d052ca75ff32807f3ee7578a3059b7707`, do repositório `washingtonmsdj/prototipo-ordax-os`.

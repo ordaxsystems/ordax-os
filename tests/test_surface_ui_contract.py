@@ -669,6 +669,13 @@ class SurfaceUiContractTests(unittest.TestCase):
                 self.assertIn('chatgpt.target = "_blank"', text)
                 self.assertIn('chatgpt.rel = "noopener noreferrer"', text)
                 text = text.replace('chatgpt.href = "https://chatgpt.com/";', '')
+                # Inline SVG construction uses an XML namespace identifier,
+                # never a fetch or an external image source.
+                for tag in ('svg', 'path'):
+                    text = text.replace(
+                        f'documentObject.createElementNS("http://www.w3.org/2000/svg", "{tag}")',
+                        f'documentObject.createElementNS(SVG_NAMESPACE, "{tag}")',
+                    )
             self.assertNotIn("http://", text, path)
             self.assertNotIn("https://", text, path)
             self.assertNotIn("cdn.", text.lower(), path)

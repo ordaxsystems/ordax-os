@@ -10,6 +10,12 @@ Studio agora está na rail compartilhada e usa o mesmo launcher/lifecycle/catál
 
 ## Trabalho restante
 
+### Apresentação em janelas estreitas — 09/10/2026
+
+Pedido explícito de revisão mobile, vinculado ao incremento Studio do plano funcional da Surface. Owner deste incremento: apresentação do host no OS; o source portátil completo continua no owner Apps. O painel usa os tokens semânticos existentes, uma única hierarquia de título e ações de Projects/ChatGPT com descrições. Container query adapta a janela abaixo de 520px, inclusive em desktop; não existe outra UI mobile. Aviso de integração incompleta permanece visível. Orientação de conexão/cotas e diagnóstico ficam em disclosures separados, com alvos de toque de pelo menos 48px; as ações têm pelo menos 80px em janela estreita.
+
+Reconciliação preserva disclosures e foco em vez de reconstruir a interface a cada atualização da Surface. Mudança de idioma preserva abertura/foco; fechamento destrói subscriptions pelo lifecycle existente. Risco restrito a apresentação/reconciliação, sem nova execução, storage ou autoridade. Aceite: sem overflow horizontal em 320/390/768px, ações acessíveis por teclado, Projects abre seu owner real, detalhes continuam abertos após navegação e estados indisponíveis não viram métricas fictícias. Testes de Studio/Surface e smoke Chromium verificam hierarquia e persistência dos disclosures.
+
 - Entrega da interface canônica por composição verificada, sem um segundo source Studio e sem promover candidato não assinado pela Surface.
 - Adapter de conversas/sessão para o Web. Os ports Studio Runtime descrevem ações autorizadas; não autorizam inferência de provedores nem importação de cookies.
 - Vínculos de dispositivo/projeto e resultados via `ordax.studio-runtime/3`, preservando os owners de contexto, Identity, Memory e Action Gateway.

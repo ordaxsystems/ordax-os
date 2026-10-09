@@ -558,9 +558,13 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.studioUnavailableDoesNotDisplayZeroMetrics = studioWorkspace?.querySelector('.ordax-studio-metrics') === null;
     const studioChatLink = studioWorkspace?.querySelector('a');
     result.studioChatUsesExternalPublicSite = studioChatLink?.href === 'https://chatgpt.com/' && studioChatLink?.rel === 'noopener noreferrer';
+    const studioAbout = studioWorkspace?.querySelector('[data-studio-disclosure="about"]');
+    if (studioAbout) studioAbout.open = true;
+    result.studioHasSingleContentHeading = [...root.querySelectorAll('[data-app-extension="studio-workspace"] h3')].filter((heading) => getComputedStyle(heading).display !== 'none').length === 1;
     studioWorkspace?.querySelector('[data-launch-app="projects"]')?.click();
     await Promise.resolve();
     result.studioProjectsUsesExistingOwner = Boolean(root.querySelector('[data-window-id="projects"]'));
+    result.studioDisclosureSurvivesNavigation = root.querySelector('[data-studio-workspace="true"] [data-studio-disclosure="about"]')?.open === true;
     const homeSettings = root.querySelector('.ordax-home-actions [data-launch-app="settings"]');
     homeSettings?.click();
     await Promise.resolve();
@@ -1105,6 +1109,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'studioNavigationOpensSharedApp', 'studioWebAvailabilityIsHonest',
       'studioUnavailableDoesNotDisplayZeroMetrics', 'studioChatUsesExternalPublicSite',
       'studioProjectsUsesExistingOwner',
+      'studioHasSingleContentHeading', 'studioDisclosureSurvivesNavigation',
       'homeShortcutOpensRealOwner', 'homeRestoresDesktopWithoutDeletingWindows',
       'homeNavigationReflectsWorkspace', 'homeNavigationClearsWhenAppIsActive',
       'dockShortcutOpensRealOwner', 'sharedShortcutLabels', 'localWallpaperBundled', 'localWallpaperDecoded',
