@@ -2,6 +2,7 @@ import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs"
 import { INTERNET_VERSION } from "./version.mjs";
 import { createBrowserFavoritesRuntime } from "./services/favorites.mjs";
 import { createBrowserHistoryRuntime } from "./services/history.mjs";
+import { createBrowserSearchPreferencesRuntime } from "./services/search-preferences.mjs";
 import { createBrowserHistoryBridge } from "./services/history-bridge.mjs";
 import { mountInternetBrowserControls } from "./ui/browser-controls.mjs";
 import { mountInternetBrowserShortcuts } from "./ui/browser-shortcuts.mjs";
@@ -59,6 +60,7 @@ export const componentRuntime = Object.freeze({
     projectReferences = null,
     createFavoritesStore = null,
     createHistoryStore = null,
+    createSearchPreferencesStore = null,
     createPageSelectionPort = null,
     createPageFindPort = null,
     intelligence = null,
@@ -70,6 +72,9 @@ export const componentRuntime = Object.freeze({
   } = {}) {
     if (createFavoritesStore !== null && typeof createFavoritesStore !== "function") {
       throw new TypeError("Internet createFavoritesStore must be a function or null");
+    }
+    if (createSearchPreferencesStore !== null && typeof createSearchPreferencesStore !== "function") {
+      throw new TypeError("Internet createSearchPreferencesStore must be a function or null");
     }
     if (createHistoryStore !== null && typeof createHistoryStore !== "function") {
       throw new TypeError("Internet createHistoryStore must be a function or null");
@@ -83,6 +88,7 @@ export const componentRuntime = Object.freeze({
     const releaseStyles = await mountInternetStyles(root);
     let favorites = null;
     let history = null;
+    let searchPreferences = null;
     let historyBridge = null;
     let controls = null;
     let shortcuts = null;
@@ -96,6 +102,7 @@ export const componentRuntime = Object.freeze({
       pageFind?.dispose();
       historyBridge?.destroy();
       history?.destroy();
+      searchPreferences?.destroy();
       favorites?.destroy();
       releaseStyles();
     };
@@ -105,6 +112,8 @@ export const componentRuntime = Object.freeze({
       pageFind = createPageFindPort?.() ?? null;
       const favoritesStore = createFavoritesStore?.() ?? null;
       const historyStore = createHistoryStore?.() ?? null;
+      const searchPreferencesStore = createSearchPreferencesStore?.() ?? null;
+      searchPreferences = createBrowserSearchPreferencesRuntime({ store: searchPreferencesStore });
       favorites = favoritesStore === null
         ? null
         : createBrowserFavoritesRuntime({ store: favoritesStore });
@@ -122,7 +131,7 @@ export const componentRuntime = Object.freeze({
         root,
         browserSession,
         surfaceLifecycle,
-        { projects, projectReferences, favorites, history, pageSelection, pageFind, intelligence,
+        { projects, projectReferences, favorites, history, searchPreferences, pageSelection, pageFind, intelligence,
           identitySessionPort, spaceSelectionPort, profileActivationStatePort },
       );
       shortcuts = enableShortcuts
