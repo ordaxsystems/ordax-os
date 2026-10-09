@@ -1,0 +1,42 @@
+name: OrdaX Public Legal Hash Integrity
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/public-legal-integrity.yml'
+      - 'tools/public-site/probe_public_network.py'
+      - 'tests/test_public_legal_hash_consistency.py'
+      - 'tests/test_public_site_network_proof.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/public-legal-integrity.yml'
+      - 'tools/public-site/probe_public_network.py'
+      - 'tests/test_public_legal_hash_consistency.py'
+      - 'tests/test_public_site_network_proof.py'
+  schedule:
+    - cron: '31 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-legal-integrity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Prepare Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Prove policy and legal digest invariants locally
+        run: python -m unittest tests.test_public_site_network_proof tests.test_public_legal_hash_consistency -v
+      - name: Audit actual public policy and immutable published HTML
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        run: python tools/public-site/probe_public_network.py --legal-consistency
