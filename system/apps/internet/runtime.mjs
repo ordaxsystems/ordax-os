@@ -63,6 +63,7 @@ export const componentRuntime = Object.freeze({
     createSearchPreferencesStore = null,
     createPageSelectionPort = null,
     createPageFindPort = null,
+    createDownloadPort = null,
     intelligence = null,
     identitySessionPort = null,
     spaceSelectionPort = null,
@@ -82,6 +83,9 @@ export const componentRuntime = Object.freeze({
     if (createPageSelectionPort !== null && typeof createPageSelectionPort !== "function") {
       throw new TypeError("Internet createPageSelectionPort must be a function or null");
     }
+    if (createDownloadPort !== null && typeof createDownloadPort !== "function") {
+      throw new TypeError("Internet createDownloadPort must be a function or null");
+    }
     if (createPageFindPort !== null && typeof createPageFindPort !== "function") {
       throw new TypeError("Internet createPageFindPort must be a function or null");
     }
@@ -94,12 +98,14 @@ export const componentRuntime = Object.freeze({
     let shortcuts = null;
     let pageSelection = null;
     let pageFind = null;
+    let downloads = null;
 
     const cleanup = () => {
       shortcuts?.destroy();
       controls?.destroy();
       pageSelection?.dispose();
       pageFind?.dispose();
+      downloads?.dispose();
       historyBridge?.destroy();
       history?.destroy();
       searchPreferences?.destroy();
@@ -110,6 +116,7 @@ export const componentRuntime = Object.freeze({
     try {
       pageSelection = createPageSelectionPort?.() ?? null;
       pageFind = createPageFindPort?.() ?? null;
+      downloads = createDownloadPort?.() ?? null;
       const favoritesStore = createFavoritesStore?.() ?? null;
       const historyStore = createHistoryStore?.() ?? null;
       const searchPreferencesStore = createSearchPreferencesStore?.() ?? null;
@@ -131,7 +138,7 @@ export const componentRuntime = Object.freeze({
         root,
         browserSession,
         surfaceLifecycle,
-        { projects, projectReferences, favorites, history, searchPreferences, pageSelection, pageFind, intelligence,
+        { projects, projectReferences, favorites, history, searchPreferences, pageSelection, pageFind, downloads, intelligence,
           identitySessionPort, spaceSelectionPort, profileActivationStatePort },
       );
       shortcuts = enableShortcuts
