@@ -61,7 +61,13 @@ class BrandPipelineTests(unittest.TestCase):
         public_path = ROOT / "tools/public-site/build.py"
         public_spec = importlib.util.spec_from_file_location("ordax_public_builder_isolation", public_path)
         public = importlib.util.module_from_spec(public_spec)
-        public_spec.loader.exec_module(public)
+        # This builder also imports its neighboring release/fixture helpers;
+        # give it the normal script directory for this isolated test only.
+        try:
+            sys.path.insert(0, str(public_path.parent))
+            public_spec.loader.exec_module(public)
+        finally:
+            sys.path[:] = path_before
         self.assertIs(sys.modules.get("build"), before)
         self.assertEqual(sys.path, path_before)
         self.assertEqual(public.render_site_css(), brand.render_site_css())
