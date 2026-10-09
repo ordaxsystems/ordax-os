@@ -354,9 +354,12 @@ and the Vercel domain configuration reported no required change for it.
 The Vercel domain-config check after the edit reported both addresses and
 `ipStatus: no-change`, `misconfigured: false`. These are **configuration
 checks, not independent proof that the affected user's ISP can connect**.
-Until the post-change external workflow passes, the current
-`destination_dns_only_independent_http_proof_passed` is false. Previous
-run evidence is preserved separately under the preceding legacy IPv4 address.
+The [independent post-change proof](https://github.com/ordaxsystems/ordax-os/actions/runs/37887216529)
+passed with both IPv4 addresses resolved, public pages returning 200 and
+`www` returning 308. The current
+`destination_dns_only_independent_http_proof_passed` is now true for
+the **runner's network only**. Previous run evidence remains preserved
+separately under the preceding legacy IPv4 address.
 
 If a particular ISP still times out, obtain the client-side
 `Resolve-DnsName ordax.com.br`, `Test-NetConnection ordax.com.br -Port 443`
