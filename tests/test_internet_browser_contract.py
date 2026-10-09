@@ -247,11 +247,13 @@ class InternetBrowserContractTests(unittest.TestCase):
     def test_shared_address_policy_is_an_explicit_pure_contract(self):
         controls = self.text(CONTROLS)
         policy = self.text(ROOT / "system" / "contracts" / "browser-navigation.mjs")
-        self.assertIn('resolveBrowserNavigation(input.value)?.url', controls)
+        self.assertIn('resolveBrowserNavigation(input.value, {', controls)
+        self.assertIn('searchProviderId: searchPreferencesPort?.getSnapshot().providerId', controls)
         self.assertIn('resolveBrowserNavigation(target, { allowSearch: false })?.url', controls)
         self.assertNotIn('function normalizedAddress(', controls)
-        self.assertIn('BROWSER_SEARCH_PROVIDER = Object.freeze(', policy)
-        self.assertIn('new URL(BROWSER_SEARCH_PROVIDER.origin)', policy)
+        self.assertIn('BROWSER_SEARCH_PROVIDERS = Object.freeze([', policy)
+        self.assertIn('BROWSER_SEARCH_PROVIDER = BROWSER_SEARCH_PROVIDERS[0]', policy)
+        self.assertIn('new URL(provider.origin)', policy)
         self.assertNotIn('window.', policy)
         self.assertNotIn('fetch(', policy)
 
