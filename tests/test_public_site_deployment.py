@@ -227,7 +227,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_canonical_destination_edge_v2_does_not_inherit_legacy_rollout_proof(self):
         self.assertEqual(
             self.contract["status"],
-            "canonical-public-edge-v2-oidc-deployed-runtime-e2e-pending",
+            "canonical-public-edge-v3-oidc-ingress-proven-service-bridge-and-legal-blocked",
         )
         self.assertEqual(
             self.contract["vercel_adapter"]["status"],
@@ -235,16 +235,16 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         )
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 2)
+        self.assertEqual(edge["deployed_version"], 3)
         self.assertEqual(edge["canonical_project_ref"], "jhfphsjptrpmtnzkpwud")
-        self.assertFalse(edge["deployment_source_commit_verified"])
+        self.assertTrue(edge["deployment_source_commit_verified"])
         self.assertEqual(
             edge["deployment_artifact_sha256"],
-            "1d882e54d3d51eeca6570e28e6905d5874707ca5e9f037c5465ead87647252e4",
+            "2fdfb1f177e40e294ebdc0215de0c64675ff5b51bd12e13b9e350bbd63fe03bf",
         )
         self.assertTrue(edge["shared_public_route_ssot_source_integrated"])
-        self.assertFalse(edge["shared_public_route_ssot_deployed"])
-        self.assertIsNone(edge["deployment_source_commit"])
+        self.assertTrue(edge["shared_public_route_ssot_deployed"])
+        self.assertEqual(edge["deployment_source_commit"], "fd17f81a1092c3c587bd1c6009c6c1c80c93779d")
         self.assertEqual(edge["deployed_authentication"], "vercel-production-oidc-v2")
         self.assertEqual(edge["source_authentication"], "vercel-production-oidc-v2")
         self.assertTrue(edge["oidc_source_ready"])
@@ -381,7 +381,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(native["shared_policy_deployed"])
         public_edge_rate_limit = self.contract["security_rate_limits"]["public_edge"]
         self.assertTrue(public_edge_rate_limit["deployed"])
-        self.assertEqual(public_edge_rate_limit["deployment_revision_observed"], 2)
+        self.assertEqual(public_edge_rate_limit["deployment_revision_observed"], 3)
         self.assertTrue(public_edge_rate_limit["shared_policy_deployed"])
 
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
