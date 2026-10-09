@@ -131,7 +131,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
 
     def test_public_auth_hardening_keeps_login_fail_closed(self):
         hardening = json.loads(AUTH_HARDENING.read_text(encoding="utf-8"))
-        self.assertEqual(hardening["status"], "public-auth-disabled-hardening-pending")
+        self.assertEqual(hardening["status"], "public-auth-disabled-bridge-unprovisioned-legal-pending")
         self.assertEqual(
             hardening["current_observation"]["leaked_password_protection"],
             "enabled-product-gateway",
