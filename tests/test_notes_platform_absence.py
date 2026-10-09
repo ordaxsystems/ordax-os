@@ -8,6 +8,7 @@ REMOVED_PATHS = (
     "system/apps/notes",
     "system/contracts/notes-store.mjs",
     "system/contracts/notes-file-importer.mjs",
+    "system/surface/ui/file-notes-action.mjs",
     "system/adapters/native/notes.mjs",
     "system/adapters/web/notes.mjs",
     "system/services/i18n/catalog/notes.mjs",
@@ -17,6 +18,12 @@ class NotesPlatformAbsenceTests(unittest.TestCase):
     def test_notes_product_source_is_absent_from_platform(self):
         for relative in REMOVED_PATHS:
             self.assertFalse((ROOT / relative).exists(), relative)
+
+    def test_files_do_not_import_removed_notes_contract(self):
+        controls = (ROOT / "system/surface/ui/file-space-controls.mjs").read_text(encoding="utf-8")
+        self.assertNotIn("notes-file-importer", controls)
+        self.assertNotIn("notesFileImporter", controls)
+        self.assertNotIn("createNoteFromSelected", controls)
 
     def test_local_catalogs_do_not_import_notes_implementation(self):
         app_catalog = (ROOT / "system/apps/catalog.mjs").read_text(encoding="utf-8")

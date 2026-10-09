@@ -3,8 +3,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import { mountFileSpaceControls } from "../system/surface/ui/file-space-controls.mjs";
 import { createProjectCatalogRuntime } from "../system/services/files/projects.mjs";
 import { createProjectContinuityFileSpace } from "../system/services/files/project-continuity-file-space.mjs";
+
+test("Files UI module resolves existing platform contracts", () => {
+  assert.equal(typeof mountFileSpaceControls, "function");
+});
 
 function emptyListing(path) {
   return Object.freeze({ path, entries: Object.freeze([]) });
