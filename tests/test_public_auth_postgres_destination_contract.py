@@ -95,8 +95,8 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         stage = self.destination
         self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(stage["internal_gateway_staging_deployed"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 5)
-        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertEqual(stage["internal_gateway_staging_version"], 6)
+        self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
         self.assertFalse(stage["public_account_gateway_deployed"])
@@ -117,9 +117,9 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", gateway)
         self.assertIn("const ACCOUNT_CLOSE_ENABLED = false;", gateway)
 
-    def test_new_api_key_cannot_impersonate_supabase_jwt(self):
+    def test_named_bridge_requires_custom_handler_auth_not_platform_jwt(self):
         stage = self.destination
-        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
         self.assertFalse(stage["destination_service_transport_runtime_verified"])
         self.assertFalse(stage["public_account_gateway_deployed"])
         self.assertFalse(stage["public_login_enabled"])
@@ -180,8 +180,8 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertTrue(stage["destination_transport_admission_source_prepared"])
         self.assertTrue(stage["destination_transport_admission_deployed"])
         self.assertFalse(stage["destination_transport_admission_negative_http_verified"])
-        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 5)
+        self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
+        self.assertEqual(stage["internal_gateway_staging_version"], 6)
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
         self.assertFalse(stage["destination_named_bridge_key_provisioned"])
@@ -202,8 +202,8 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         stage = self.destination
         self.assertTrue(stage["internal_gateway_route_prefix_hardening_deployed"])
         self.assertTrue(stage["internal_gateway_sync_mutation_object_guard_deployed"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 5)
-        self.assertTrue(stage["internal_gateway_staging_verify_jwt"])
+        self.assertEqual(stage["internal_gateway_staging_version"], 6)
+        self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
         self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
         self.assertFalse(stage["destination_transport_admission_negative_http_verified"])
         self.assertFalse(stage["destination_named_bridge_key_provisioned"])
