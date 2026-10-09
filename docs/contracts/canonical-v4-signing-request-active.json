@@ -1,0 +1,39 @@
+{
+  "$schema": "prototype-ordax.canonical-v4-signing-request/1",
+  "status": "pending-public-assembly",
+  "source_repository": "ordaxsystems/ordax-os",
+  "source_commit": "eaac763a607bb697d8c7a0f76d44f37a399674c7",
+  "operator_ref": "release-candidate/eaac763a607bb697d8c7a0f76d44f37a399674c7",
+  "release_tag": "ordax-stable-v4-eaac763a607bb697d8c7a0f76d44f37a399674c7",
+  "operator_artifacts": {
+    "system": {
+      "workflow_path": ".github/workflows/portable-release-image.yml",
+      "run_id": 37877844919,
+      "artifact_id": 11592913482,
+      "artifact_name": "canonical-v4-operator-system-eaac763a607bb697d8c7a0f76d44f37a399674c7"
+    },
+    "surface": {
+      "workflow_path": ".github/workflows/surface-runtime-lock-discovery.yml",
+      "run_id": 37877847998,
+      "artifact_id": 11592679610,
+      "artifact_name": "canonical-v4-operator-surface-eaac763a607bb697d8c7a0f76d44f37a399674c7"
+    },
+    "local-ai": {
+      "workflow_path": ".github/workflows/local-ai-runtime-candidate.yml",
+      "run_id": 37877851229,
+      "artifact_id": 11593168889,
+      "artifact_name": "canonical-v4-operator-local-ai-eaac763a607bb697d8c7a0f76d44f37a399674c7"
+    }
+  },
+  "artifact_urls": {
+    "system.erofs": "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-eaac763a607bb697d8c7a0f76d44f37a399674c7/system.erofs",
+    "native-surface-runtime.erofs": "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-eaac763a607bb697d8c7a0f76d44f37a399674c7/native-surface-runtime.erofs",
+    "local-ai-runtime.erofs": "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-eaac763a607bb697d8c7a0f76d44f37a399674c7/local-ai-runtime.erofs"
+  },
+  "publication_performed": false,
+  "signing_performed": false,
+  "release_activated": false,
+  "physical_target_selected": false,
+  "physical_write_authorized": false,
+  "physical_write_performed": false
+}
