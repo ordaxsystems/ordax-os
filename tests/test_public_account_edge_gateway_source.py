@@ -272,7 +272,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn("!isPublicBridgeRoute(req.method, path)", policy)
         gate = self.inner.index("const transport = await authorizeAccountTransport(req, path, {")
         rate_limit = self.inner.index("const directRateLimitResponse = await enforceDirectAuthRateLimit(req, path)")
-        public_gate = self.inner.index("if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED)")
+        public_gate = self.inner.index("if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED")
         self.assertLess(gate, rate_limit)
         self.assertLess(rate_limit, public_gate)
         self.assertIn("new WeakMap<Request, ReturnType<typeof resolveAuthenticated>>()", self.inner)

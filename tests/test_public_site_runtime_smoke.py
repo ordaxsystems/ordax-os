@@ -81,7 +81,7 @@ class PublicSiteRuntimeSmokeTests(unittest.TestCase):
             payload = json.load(response)
             self.assertEqual(response.status, 200)
             self.assertFalse(payload["authenticated"])
-            self.assertEqual(payload["provider"], "gated")
+            self.assertEqual(payload["provider"], "unconfigured")
             self.assertEqual(response.headers["Cache-Control"], "no-store, max-age=0")
 
     def test_login_page_is_reachable_but_credentials_fail_closed_without_provider(self):
@@ -103,7 +103,7 @@ class PublicSiteRuntimeSmokeTests(unittest.TestCase):
             urlopen(request, timeout=3)
         self.assertEqual(caught.exception.code, 503)
         payload = json.loads(caught.exception.read().decode("utf-8"))
-        self.assertEqual(payload["error"], "public-account-access-disabled")
+        self.assertEqual(payload["error"], "identity-provider-unavailable")
 
     def test_sync_route_is_same_origin_and_fails_closed_without_provider(self):
         with self.assertRaises(HTTPError) as caught:
