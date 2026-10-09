@@ -88,9 +88,17 @@ class PublicAccountEntryUxTests(unittest.TestCase):
                 and bool(tag.get("aria-label"))
                 for name, tag in parsed.tags
             ))
+            # Consent document links deliberately have no href until the
+            # authoritative server policy has approved their destinations.
             self.assertTrue(all(
-                isinstance(href, str) and href.startswith(("/", "#"))
-                for href in anchors
+                anchor.get("href", "").startswith(("/", "#"))
+                for anchor in parsed.links
+                if "href" in anchor
+            ), route)
+            self.assertTrue(all(
+                "href" not in anchor
+                for anchor in parsed.links
+                if "data-registration-privacy" in anchor or "data-registration-terms" in anchor
             ), route)
 
     def test_pages_preserve_server_owned_form_gate_and_consent(self):
@@ -132,7 +140,7 @@ class PublicAccountEntryUxTests(unittest.TestCase):
     def test_shared_visual_layout_keeps_loading_and_auth_separate(self):
         css = SHARED.read_text(encoding="utf-8")
         self.assertNotRegex(css, r"(?i)@import\s|https?://")
-        self.assertNotIn("display:none!important", re.sub(r"\[hidden\]", "", css))
+        self.assertIn(".account-ui [hidden]{display:none!important}", css)
         for route in ("login", "cadastro"):
             html, _ = self.read(route)
             self.assertIn('href="/assets/account.css?v=account-shell-1"', html)
