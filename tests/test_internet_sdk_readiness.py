@@ -16,7 +16,7 @@ spec.loader.exec_module(checker)
 
 def fixture(root: Path, *, sdk_paths: tuple[str, ...] = ()) -> Path:
     app = root / "system/apps/internet"
-    app.mkdir(parents=True)
+    app.mkdir(parents=True, exist_ok=True)
     (root / "system/contracts").mkdir(parents=True)
     (root / "system/apps/app-contract.mjs").write_text("export const internal=true;\n", encoding="utf-8")
     for path in ("browser-session.mjs", "component-runtime.mjs"):
