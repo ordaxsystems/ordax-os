@@ -126,7 +126,11 @@ def validate_rootfs_source(rootfs_dir: Path, source_commit: str) -> Path:
     rootfs = rootfs_dir / "rootfs"
     if rootfs.is_symlink() or not rootfs.is_dir():
         raise CandidateError("development rootfs tree is missing or unsafe")
+    # The source builder accounts for unique regular inodes, including
+    # flattened APK symlinks. Counting every pathname would turn hundreds of
+    # hardlinks into fictitious expanded bytes, rejecting a valid 67 MiB Base.
     total = 0
+    seen_inodes: set[tuple[int, int]] = set()
     for path in sorted(rootfs.rglob("*"), key=lambda item: item.relative_to(rootfs).as_posix()):
         metadata = path.lstat()
         if stat.S_ISLNK(metadata.st_mode):
@@ -135,9 +139,14 @@ def validate_rootfs_source(rootfs_dir: Path, source_commit: str) -> Path:
             continue
         if not stat.S_ISREG(metadata.st_mode):
             raise CandidateError(f"development rootfs contains unsafe object: {path.relative_to(rootfs)}")
-        total += metadata.st_size
-        if total > MAX_ROOTFS_EXPANDED_BYTES:
-            raise CandidateError("development rootfs expanded bytes exceed channel limit")
+        inode = (metadata.st_dev, metadata.st_ino)
+        if inode not in seen_inodes:
+            seen_inodes.add(inode)
+            total += metadata.st_size
+            if total > MAX_ROOTFS_EXPANDED_BYTES:
+                raise CandidateError("development rootfs expanded bytes exceed channel limit")
+    if total != measured:
+        raise CandidateError("development rootfs unique bytes differ from provenance")
     for relative in REQUIRED_ROOTFS_PATHS:
         path = rootfs / relative
         if path.is_symlink() or not path.is_file():
