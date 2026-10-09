@@ -125,6 +125,15 @@ def allowed_external_resource_uri(uri: str) -> bool:
     return public_network_uri(uri, RESOURCE_NETWORK_SCHEMES)
 
 
+def allocate_popup_tab_id(existing_ids: object) -> str:
+    """Give page-opened tabs their own namespace, apart from Surface tab IDs."""
+    for index in range(1, MAX_TABS + 1):
+        candidate = f"popup-{index}"
+        if candidate not in existing_ids:
+            return candidate
+    raise ValueError("tab limit reached")
+
+
 def bounded_int(value: object, minimum: int, maximum: int) -> int | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         return None
@@ -840,17 +849,29 @@ class OrdaXBrowserHost:
             WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION,
         }:
             return False
+        new_window = decision_type == WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION
         try:
             action = decision.get_navigation_action()
             uri = action.get_request().get_uri()
+            user_gesture = bool(action.is_user_gesture()) if new_window else False
         except Exception:
             decision.ignore()
             return True
         if not allowed_external_uri(uri):
             decision.ignore()
             return True
-        if decision_type == WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION:
+        if new_window:
+            # A page can request a popup, but it cannot create arbitrary browser
+            # windows or gain the privileged Surface bridge. Only explicit
+            # user-initiated links enter a regular isolated browser tab.
             decision.ignore()
+            if not user_gesture or _tab_id not in self.tabs or len(self.tabs) >= MAX_TABS:
+                return True
+            try:
+                self.open_tab(allocate_popup_tab_id(self.tabs), uri)
+            except (TypeError, ValueError):
+                # The native tab host remains authoritative for the limit and URI.
+                return True
             return True
         return False
 
