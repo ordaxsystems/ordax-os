@@ -32,6 +32,26 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertFalse(legacy["new_features_allowed"])
         self.assertGreaterEqual(len(legacy["delete_only_after"]), 6)
 
+    def test_current_owner_documentation_matches_canonical_namespace(self):
+        document = (ROOT / "docs" / "REPOSITORY-OWNERSHIP.md").read_text(encoding="utf-8")
+        migration = json.loads(
+            (ROOT / "docs" / "contracts" / "repository-migration-status.json")
+            .read_text(encoding="utf-8")
+        )
+        self.assertIn(f"Status de migração: `{migration['status']}`", document)
+        self.assertEqual(
+            migration["canonical_repositories"],
+            {role: data["repo"] for role, data in self.contract["repositories"].items()},
+        )
+        active = document.split("## Fluxos oficiais", 1)[1].split(
+            "## Regra para o legado mcp-blender", 1
+        )[0]
+        for role in ("platform", "apps", "runtime", "control_plane"):
+            self.assertIn(self.contract["repositories"][role]["repo"], active)
+        self.assertNotIn("ordax-control-plane", active)
+        self.assertNotIn("prototipo-ordax-os", active)
+        self.assertNotIn("migração do legado pendente", document)
+
     def test_security_and_ssot_invariants(self):
         invariants = self.contract["invariants"]
         for key, value in invariants.items():
