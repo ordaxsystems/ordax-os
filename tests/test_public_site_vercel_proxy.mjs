@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { productCookiesFromUpstream } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
 
+import { PUBLIC_ACCOUNT_ORIGIN, PUBLIC_SIGNUP_REDIRECT, PUBLIC_CONFIRMATION_URL, parseSignupConfirmation } from "../infra/supabase/functions/_shared/account_email_confirmation.mjs";
+
 import {
   normalizeGatewayUrl,
   normalizeProductPath,
@@ -47,6 +49,21 @@ function request(path, init = {}) {
     },
   );
 }
+
+test("signup confirmation allows only one email token hash and canonical OrdaX paths", () => {
+  assert.equal(PUBLIC_ACCOUNT_ORIGIN, PUBLIC_ORIGIN);
+  assert.equal(PUBLIC_SIGNUP_REDIRECT, PUBLIC_ORIGIN + "/login/");
+  assert.equal(PUBLIC_CONFIRMATION_URL, PUBLIC_ORIGIN + "/auth/confirm");
+  const hash = "a".repeat(64);
+  assert.equal(parseSignupConfirmation(new URL(PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=email")), hash);
+  for (const u of [
+    PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=signup",
+    PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=email&type=email",
+    PUBLIC_CONFIRMATION_URL + "?token_hash=invalid&type=email",
+    PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=email&return_to=https://evil.test",
+    PUBLIC_ORIGIN + "/auth/login?token_hash=" + hash + "&type=email",
+  ]) assert.equal(parseSignupConfirmation(new URL(u)), null);
+});
 
 test("gateway configuration is strict https and exact public account gateway path", () => {
   assert.equal(normalizeGatewayUrl(GATEWAY)?.origin, "https://example.supabase.co");
