@@ -93,7 +93,7 @@ test("Vercel rewritten signup callback preserves only exact one-time OTP params"
     assert.equal(response.status, 303);
     assert.equal(response.headers.get("referrer-policy"), "no-referrer");
     assert.equal(response.headers.get("location"), "/login/?cadastro=confirmado");
-    assert.match(upstreamUrl, /auth\\/confirm\\?token_hash=/);
+    assert.ok(upstreamUrl.includes("/auth/confirm?token_hash="));
     assert.match(upstreamUrl, /type=email/);
   } finally {
     globalThis.fetch = original;
