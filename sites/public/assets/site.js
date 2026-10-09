@@ -220,6 +220,8 @@
       erro: {
         formulario: ["error", "Revise o e-mail e a senha informados."],
         credenciais: ["error", "Não foi possível entrar. Confira suas credenciais e tente novamente."],
+        "verificacao-falhou": ["error", "A verificação de segurança não foi concluída. Refaça a verificação e tente entrar novamente."],
+        "seguranca-indisponivel": ["error", "A verificação de segurança está temporariamente indisponível. Tente novamente mais tarde."],
         "validacao-conta-indisponivel": ["error", "A validação da conta está indisponível. Tente novamente mais tarde."],
         "conta-requer-reconciliacao": ["error", "Sua conta precisa de validação adicional antes do acesso público."],
       },
@@ -231,11 +233,16 @@
         senha: ["error", "Escolha uma senha com pelo menos 12 caracteres."],
         "senha-comprometida": ["error", "Essa senha foi encontrada em vazamentos. Escolha outra."],
         "seguranca-indisponivel": ["error", "A verificação de segurança está indisponível. Tente novamente mais tarde."],
+        "verificacao-falhou": ["error", "A verificação de segurança não foi concluída. Refaça a verificação antes de criar sua conta."],
         "politica-legal-indisponivel": ["error", "A política de cadastro está indisponível. O cadastro não foi concluído."],
         cadastro: ["error", "Não foi possível concluir o cadastro. Revise os dados e tente novamente."],
       },
     },
-    recover: { erro: { formulario: ["error", "Informe um e-mail válido."] } },
+    recover: { erro: {
+      formulario: ["error", "Informe um e-mail válido."],
+      "verificacao-falhou": ["error", "A verificação de segurança falhou. Tente novamente."],
+      "seguranca-indisponivel": ["error", "A verificação de segurança está indisponível. Tente novamente mais tarde."],
+    } },
   });
 
   function showIdentityNotice(kind, available) {
