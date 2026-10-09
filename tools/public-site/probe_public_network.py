@@ -43,7 +43,7 @@ def resolve_v4(hostname: str) -> set[str]:
         fail("dns-resolution-failed:" + hostname)
 
 
-def fetch(hostname: str, path: str):
+def fetch(hostname: str, path: str, *, accept: str = "text/html"):
     opener = build_opener(
         ProxyHandler({}),
         HTTPSHandler(context=ssl.create_default_context()),
@@ -52,13 +52,61 @@ def fetch(hostname: str, path: str):
     try:
         return opener.open(Request(
             f"https://{hostname}{path}",
-            headers={"Accept": "text/html", "User-Agent": "OrdaX-Public-Network-Proof/1"},
+            headers={"Accept": accept, "User-Agent": "OrdaX-Public-Network-Proof/1"},
         ), timeout=TIMEOUT_SECONDS)
     except HTTPError as error:
         return error
     except (URLError, OSError, TimeoutError):
         fail("https-connection-failed:" + hostname + path)
 
+
+
+def bounded_json(response, *, path: str) -> dict:
+    """Read a small anonymous document; disallow HTML masquerading as JSON."""
+    content_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+    if content_type != "application/json":
+        fail("json-content-type:" + path)
+    if "no-store" not in response.headers.get("Cache-Control", "").lower():
+        fail("json-no-store:" + path)
+    raw = response.read(128 * 1024 + 1)
+    if len(raw) > 128 * 1024:
+        fail("json-too-large:" + path)
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeError):
+        fail("invalid-json:" + path)
+    if not isinstance(value, dict):
+        fail("json-object-required:" + path)
+    return value
+
+
+def check_anonymous_account_boundary() -> None:
+    """The portal must serve an honest, anonymous, non-cached session result."""
+    config_path = "/config/public-site.json"
+    with fetch(CANONICAL_HOST, config_path, accept="application/json") as response:
+        if response.status != 200:
+            fail("config-http-status")
+        config = bounded_json(response, path=config_path)
+    if config.get("$schema") != "prototype-ordax.public-site-runtime/1":
+        fail("config-schema")
+    legal = config.get("legal")
+    if not isinstance(legal, dict) or type(legal.get("account_activation_ready")) is not bool:
+        fail("config-legal-activation-invalid")
+
+    session_path = "/auth/session"
+    with fetch(CANONICAL_HOST, session_path, accept="application/json") as response:
+        print("ORDAX_PUBLIC_SESSION_STATUS=" + str(response.status), flush=True)
+        if response.status != 200:
+            fail("session-http-status")
+        session = bounded_json(response, path=session_path)
+    if session.get("$schema") != "prototype-ordax.public-identity-session/1":
+        fail("session-schema")
+    if session.get("authenticated") is not False or session.get("status") != "anonymous":
+        fail("unexpected-public-session")
+    expected_provider = "supabase" if legal["account_activation_ready"] else "gated"
+    if session.get("provider") != expected_provider:
+        fail("public-session-provider-gate-mismatch")
+    print("ORDAX_PUBLIC_ACCOUNT_GATE=" + expected_provider, flush=True)
 
 def main() -> int:
     if CONTRACT["cloudflare_dns_migration"]["destination_public_site_proxy_mode"] != "dns-only":
@@ -85,6 +133,8 @@ def main() -> int:
             if "nosniff" not in response.headers.get("X-Content-Type-Options", ""):
                 fail("missing-content-security:" + path)
             response.read(256)
+
+    check_anonymous_account_boundary()
 
     with fetch(WWW_HOST, "/") as response:
         print("ORDAX_PUBLIC_WWW_STATUS=" + str(response.status), flush=True)
