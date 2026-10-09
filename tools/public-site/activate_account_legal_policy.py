@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 LEGAL = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
+CANONICAL_ACCOUNT_DESTINATION = ROOT / "infra" / "supabase" / "product" / "account_destination_migration_plan.json"
 SITE = ROOT / "sites" / "public"
 SCHEMA = "prototype-ordax.account-legal-policy-candidate/1"
 RECEIPT_SCHEMA = "prototype-ordax.account-legal-policy-activation-receipt/1"
@@ -32,6 +33,24 @@ SOURCE_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
 def fail(reason: str) -> "NoReturn":
     raise SystemExit(f"ACCOUNT_LEGAL_POLICY_ACTIVATION=FAIL reason={reason}")
+
+
+def canonical_provider_url() -> str:
+    """Use the migration destination contract as the single account provider ref."""
+    try:
+        destination = json.loads(
+            CANONICAL_ACCOUNT_DESTINATION.read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError) as exc:
+        fail("canonical-account-destination-unavailable")
+    ref = destination.get("destination_project_ref")
+    if (
+        destination.get("destination_project_name") != "ordax-platform"
+        or not isinstance(ref, str)
+        or not re.fullmatch(r"[a-z0-9]{20}", ref)
+    ):
+        fail("canonical-account-destination-invalid")
+    return f"https://{ref}.supabase.co"
 
 
 def clean_origin(raw: str) -> str:
@@ -126,6 +145,8 @@ def apply_candidate(candidate: dict) -> str:
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.netloc or parsed.path or parsed.query or parsed.fragment:
         fail("provider-url-invalid")
+    if url != canonical_provider_url():
+        fail("provider-project-mismatch")
 
     privacy = candidate["privacy"]
     terms = candidate["terms"]
