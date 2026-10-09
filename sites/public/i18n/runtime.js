@@ -99,7 +99,11 @@
   function translateTextNode(node) {
     const record = textRecord(node);
     if (!record) return;
-    node.nodeValue = `${record.leading}${t(record.id)}${record.trailing}`;
+    const next = `${record.leading}${t(record.id)}${record.trailing}`;
+    // Writing an unchanged value still creates a characterData MutationRecord.
+    // Without this guard the observer re-enqueues itself indefinitely,
+    // starving clicks and navigation on every page.
+    if (node.nodeValue !== next) node.nodeValue = next;
   }
 
   function attrRecord(element, name) {
@@ -123,11 +127,17 @@
   function translateAttributes(element) {
     for (const name of ["aria-label", "placeholder", "title", "alt"]) {
       const record = attrRecord(element, name);
-      if (record) element.setAttribute(name, t(record.id));
+      if (record) {
+        const next = t(record.id);
+        if (element.getAttribute(name) !== next) element.setAttribute(name, next);
+      }
     }
     if (element.tagName === "META" && element.getAttribute("name") === "description") {
       const record = attrRecord(element, "content");
-      if (record) element.setAttribute("content", t(record.id));
+      if (record) {
+        const next = t(record.id);
+        if (element.getAttribute("content") !== next) element.setAttribute("content", next);
+      }
     }
   }
 
@@ -240,7 +250,10 @@
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === "characterData") {
-        translateTextNode(mutation.target);
+        // Script/style/locale switcher mutations are never translated.
+        if (!mutation.target.parentElement?.closest?.("script, style, [data-public-locale-switcher]")) {
+          translateTextNode(mutation.target);
+        }
         continue;
       }
       for (const node of mutation.addedNodes) translateTree(node);
