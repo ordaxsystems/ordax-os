@@ -75,6 +75,13 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                         "$schema": "prototype-ordax.public-legal-readiness/1",
                         "status": "ready",
                         "account_activation_ready": True,
+                        "operator": {
+                            "legal_form": "natural_person",
+                            "legal_name": "Operador Exemplo",
+                            "privacy_contact_email": "privacy@example.invalid",
+                            "identity_reviewed": True,
+                            "privacy_contact_verified": True,
+                        },
                         "documents": {
                             "privacy": {
                                 "route": "/privacidade/",
@@ -120,6 +127,39 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
         self.assertRegex(candidate["privacy"]["sha256"], r"^[0-9a-f]{64}$")
         self.assertRegex(candidate["terms"]["sha256"], r"^[0-9a-f]{64}$")
         self.assertNotEqual(candidate["privacy"]["sha256"], candidate["terms"]["sha256"])
+
+    def test_operator_identity_is_required_even_when_documents_are_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            legal = Path(tmp) / "legal.json"
+            ready = {
+                "$schema": "prototype-ordax.public-legal-readiness/1",
+                "status": "ready",
+                "account_activation_ready": True,
+                "operator": {
+                    "legal_form": "natural_person",
+                    "legal_name": None,
+                    "privacy_contact_email": None,
+                    "identity_reviewed": False,
+                    "privacy_contact_verified": False,
+                },
+                "documents": {},
+            }
+            legal.write_text(json.dumps(ready), encoding="utf-8")
+            from unittest.mock import patch
+            with patch.object(activation, "LEGAL", legal):
+                with self.assertRaisesRegex(ValueError, "identity or contact not approved"):
+                    activation.build_candidate("https://ordax.com.br")
+                ready["operator"].update({
+                    "identity_reviewed": True,
+                    "privacy_contact_verified": True,
+                })
+                legal.write_text(json.dumps(ready), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "name missing"):
+                    activation.build_candidate("https://ordax.com.br")
+                ready["operator"]["legal_name"] = "Operador Exemplo"
+                legal.write_text(json.dumps(ready), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "contact invalid"):
+                    activation.build_candidate("https://ordax.com.br")
 
     def test_origin_must_be_clean_https_origin(self):
         self.assertEqual(
