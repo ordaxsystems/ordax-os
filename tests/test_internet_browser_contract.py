@@ -241,6 +241,13 @@ class InternetBrowserContractTests(unittest.TestCase):
         self.assertNotIn('window.', policy)
         self.assertNotIn('fetch(', policy)
 
+    def test_invalid_native_target_fails_before_tab_creation_or_activation(self):
+        host = self.text(NATIVE_HOST)
+        open_tab = host.split("    def open_tab(", 1)[1].split("    def close_tab(", 1)[0]
+        validation = open_tab.index("not allowed_external_uri(url_value)")
+        self.assertLess(validation, open_tab.index("if tab_id in self.tabs:"))
+        self.assertLess(validation, open_tab.index("self.create_external_view(tab_id)"))
+
     def test_native_surface_runtime_owns_webkit_dependencies_directly(self):
         launcher = self.text(SURFACE_LAUNCHER)
         self.assertIn('RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1', launcher)
