@@ -6,7 +6,9 @@ versões, data de vigência nem switches de cadastro.
 
 | Decisão | Responsável | Estado |
 | --- | --- | --- |
-| Entidade controladora/prestadora real, CNPJ se aplicável, endereço e contato de suporte | Operador | PENDENTE |
+| Forma inicial de operação: **pessoa física sem empresa** | Operador | **DEFINIDO** (declarado pelo operador) |
+| Nome civil do operador/controlador e canal oficial de suporte, com confirmação de identidade | Operador | PENDENTE |
+| Contato público funcional de privacidade; endereço ou outros dados apenas se juridicamente necessários | Operador e jurídico | PENDENTE |
 | Canal de privacidade/titulares e encarregado quando aplicável | Operador e jurídico | PENDENTE |
 | Mapeamento real dos dados/fluxos e bases legais LGPD por finalidade | Produto e jurídico | PENDENTE |
 | Fornecedores, regiões, compartilhamento e transferência internacional | Operação e jurídico | PENDENTE |
@@ -17,6 +19,20 @@ versões, data de vigência nem switches de cadastro.
 | Textos jurídicos completos, versão e data de vigência | Jurídico e operador | PENDENTE |
 | Validação dos HTML publicados e ativação via workflow, com recibo sanitizado | Operação | BLOQUEADO ATÉ APROVAÇÃO |
 | E2E de cadastro, confirmação e recuperação com aceite real e logs sanitizados | QA/Segurança | BLOQUEADO ATÉ APROVAÇÃO |
+
+## Identificação e futura constituição de empresa
+
+O único SSOT técnico do operador é `docs/contracts/public-legal-readiness.json`
+no objeto `operator`. Nesta etapa, `legal_form=natural_person`, sem CNPJ.
+Nome civil e e-mail público ainda não foram informados; não inferir
+identidade a partir do GitHub ou do chat.
+
+Não publicar CPF ou residência por padrão. Validar quais informações
+jurídicas precisam constar nos documentos finais com o responsável
+e o revisor. Se houver futura constituição de empresa, não fazer
+substituição silenciosa no frontend nem reaproveitar recibos de aceite
+para outra versão contratual; executar atualização jurídica/versionada,
+comunicação adequada e revisão dos responsáveis pelo tratamento.
 
 ## Sequência de ativação sem bypass
 
