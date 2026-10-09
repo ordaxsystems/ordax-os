@@ -20,7 +20,7 @@ CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs/contracts/public-sit
 CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 CANONICAL_HOST = CONTRACT["vercel_migration"]["target_canonical_domain"]
 WWW_HOST = CONTRACT["vercel_migration"]["target_www_domain"]
-CANONICAL_VERCEL_IPV4 = CONTRACT["cloudflare_dns_migration"]["destination_apex_a_address"]
+CANONICAL_VERCEL_IPV4 = frozenset(CONTRACT["cloudflare_dns_migration"]["destination_apex_a_addresses"])
 PATHS = ("/", "/login/", "/cadastro/", "/privacidade/", "/termos/")
 TIMEOUT_SECONDS = 10
 
@@ -132,8 +132,8 @@ def main() -> int:
         fail("noncanonical-domain")
     addresses = resolve_v4(CANONICAL_HOST)
     print("ORDAX_PUBLIC_DNS_APEX_A=" + ",".join(sorted(addresses)), flush=True)
-    if addresses != {CANONICAL_VERCEL_IPV4}:
-        fail("dns-apex-not-direct-vercel")
+    if addresses != CANONICAL_VERCEL_IPV4:
+        fail("dns-apex-not-vercel-preferred-ipv4-pair")
 
     www_addresses = resolve_v4(WWW_HOST)
     print("ORDAX_PUBLIC_DNS_WWW_IPV4=" + ",".join(sorted(www_addresses)), flush=True)

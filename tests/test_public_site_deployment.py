@@ -115,14 +115,15 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(migration["destination_zone_status"], "active")
         self.assertEqual(migration["destination_dns_records_count"], 4)
         self.assertEqual(migration["destination_public_site_proxy_mode"], "dns-only")
-        self.assertEqual(migration["destination_apex_a_address"], "76.76.21.21")
+        self.assertEqual(migration["destination_apex_a_addresses"], ["216.198.79.1", "64.29.17.1"])
+        self.assertEqual(migration["destination_vercel_ipv4_status"], "no-change")
         self.assertEqual(
             migration["destination_www_cname"],
             "41ba9f63fdc43df6.vercel-dns-017.com",
         )
         self.assertTrue(migration["destination_dns_only_independent_http_proof_passed"])
         self.assertEqual(
-            migration["destination_dns_only_independent_http_proof_url"],
+            migration["destination_previous_dns_only_http_proof_url"],
             "https://github.com/ordaxsystems/ordax-os/actions/runs/37883115797",
         )
         self.assertEqual(
