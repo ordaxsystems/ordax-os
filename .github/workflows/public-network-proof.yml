@@ -15,6 +15,10 @@ on:
       - 'tests/test_public_site_network_proof.py'
       - 'docs/contracts/public-site-deployment.json'
   workflow_dispatch:
+  # Independent uptime check even when no source files have changed.
+  # GitHub schedules are best-effort; this is not a real-time SLA monitor.
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
