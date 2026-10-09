@@ -180,7 +180,7 @@ def build_candidate(origin: str) -> dict:
     contact = operator.get("privacy_contact_email")
     if not isinstance(name, str) or not name.strip():
         raise ValueError("legal operator name missing")
-    if not isinstance(contact, str) or re.fullmatch(r"[^@\\s]+@[^@\\s]+\\.[^@\\s]+", contact) is None:
+    if not isinstance(contact, str) or re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", contact) is None:
         raise ValueError("legal operator contact invalid")
 
     clean = clean_origin(origin)
