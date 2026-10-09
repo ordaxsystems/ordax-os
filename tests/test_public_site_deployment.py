@@ -347,18 +347,29 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_turnstile_is_server_verified_and_secret_never_belongs_to_site_source(self):
         bot = self.contract["bot_protection"]
         self.assertEqual(bot["provider"], "cloudflare-turnstile")
-        self.assertEqual(bot["sitekey"], "0x4AAAAAAFP2xxwpJ9Bl_5Ka")
+        # The deployed public-site config owns the widget's public identity.
+        # Deployment/readiness projections may not invent alternate sitekeys.
+        runtime = json.loads((ROOT / "sites/public/config/public-site.json").read_text(encoding="utf-8"))
+        public_contract = json.loads((ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8"))
+        hardening = json.loads((ROOT / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8"))
+        canonical_key = runtime["identity"]["turnstile_sitekey"]
+        self.assertEqual(bot["sitekey"], canonical_key)
+        self.assertEqual(public_contract["identity"]["turnstile"]["sitekey"], canonical_key)
+        self.assertEqual(hardening["current_observation"]["bot_protection_sitekey"], canonical_key)
         self.assertEqual(bot["hostname_allowlist"], ["ordax.com.br"])
-        self.assertFalse(bot["production_hostname_verified"])
-        self.assertIn("pending real Cloudflare Turnstile", bot["production_hostname_verification_evidence"])
+        self.assertTrue(bot["production_hostname_verified"])
+        self.assertIn("Cloudflare dedicated OrdaX account", bot["production_hostname_verification_evidence"])
+        # Vercel project metadata confirms the production secret exists, but
+        # its value is never read here and no Siteverify E2E is inferred.
+        self.assertTrue(bot["production_secret_configured"])
+        self.assertTrue(hardening["current_observation"]["bot_protection_production_secret_configured"])
+        self.assertFalse(bot["production_e2e_verified"])
         self.assertEqual(bot["action"], "ordax-account")
         self.assertEqual(bot["protected_paths"], ["/auth/login", "/auth/register", "/auth/recover"])
         self.assertTrue(bot["server_side_verification_required"])
         self.assertEqual(bot["secret_environment_variable"], "ORDAX_TURNSTILE_SECRET_KEY")
         self.assertFalse(bot["secret_may_exist_in_repository"])
         self.assertFalse(bot["token_forwarded_to_inner_gateway"])
-        self.assertFalse(bot["production_secret_configured"])
-        self.assertFalse(bot["production_e2e_verified"])
         self.assertTrue(self.contract["production_requirements"]["public_auth_turnstile_required"])
         self.assertTrue(self.contract["production_requirements"]["turnstile_server_side_siteverify_required"])
 

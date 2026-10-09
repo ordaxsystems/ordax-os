@@ -410,8 +410,8 @@
   },
   "bot_protection": {
     "provider": "cloudflare-turnstile",
-    "widget_name": "OrdaX Account Production",
-    "sitekey": "0x4AAAAAAFP2xxwpJ9Bl_5Ka",
+    "widget_name": "OrdaX OS - public account production",
+    "sitekey": "0x4AAAAAAFR-Kz0Uc9rNW_iE",
     "hostname_allowlist": [
       "ordax.com.br"
     ],
@@ -428,10 +428,10 @@
     "secret_may_exist_in_repository": false,
     "token_max_bytes": 2048,
     "token_forwarded_to_inner_gateway": false,
-    "production_secret_configured": false,
+    "production_secret_configured": true,
     "production_e2e_verified": false,
-    "production_hostname_verified": false,
-    "production_hostname_verification_evidence": "pending real Cloudflare Turnstile widget hostname configuration for ordax.com.br; source target corrected on 2026-10-08"
+    "production_hostname_verified": true,
+    "production_hostname_verification_evidence": "Cloudflare dedicated OrdaX account GET /accounts/{account_id}/challenges/widgets returned this managed widget with domains ordax.com.br and www.ordax.com.br on 2026-10-09; real Siteverify E2E remains pending"
   },
   "cloudflare_dns_migration": {
     "status": "dedicated-zone-active-post-delegation-http-revalidation-pending",
