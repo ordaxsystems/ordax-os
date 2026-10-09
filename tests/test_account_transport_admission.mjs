@@ -8,7 +8,7 @@ import {
   isPublicBridgeRoute,
 } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 
-const bridgeName = "ordax-account-public-bridge";
+const bridgeName = "ordax_account_public_bridge";
 const bridgeKey = "sb_secret_" + "a".repeat(48);
 const adminKey = "sb_secret_" + "z".repeat(48);
 const bridgeEnv = JSON.stringify({ default: adminKey, [bridgeName]: bridgeKey });
