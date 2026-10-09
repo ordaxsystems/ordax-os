@@ -1208,13 +1208,13 @@ class OrdaXBrowserHost:
         if not isinstance(download_id, str) or not re.fullmatch(r"download-[0-9a-f]{16}", download_id):
             raise ValueError("invalid download identifier")
         item = self.downloads.get(download_id)
-        if item is None or item["status"] != "pending":
-            raise ValueError("unknown or no-longer-pending download")
+        if item is None or item["status"] not in {"pending", "downloading"}:
+            raise ValueError("unknown or no-longer-active download")
         if command == "download.cancel":
             self.cancel_download_item(item)
             return
-        if command != "download.approve":
-            raise ValueError("unsupported download decision")
+        if command != "download.approve" or item["status"] != "pending":
+            raise ValueError("approval requires a pending download")
         # The website never supplies this path. Only the explicit Surface
         # approval can allocate an opaque no-clobber destination in user Files.
         try:
