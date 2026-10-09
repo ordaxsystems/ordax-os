@@ -34,6 +34,7 @@ on:
       - 'docs/BUILD-AUTONOMY.md'
       - 'tests/test_public_site_contract.py'
       - 'tests/test_public_site_localization.mjs'
+      - 'tests/test_public_site_localization_runtime.mjs'
       - 'tests/test_public_release_catalog.py'
       - 'tests/test_public_identity_backend_prep.py'
       - 'tests/test_public_identity_gateway.py'
@@ -98,6 +99,7 @@ on:
       - 'docs/BUILD-AUTONOMY.md'
       - 'tests/test_public_site_contract.py'
       - 'tests/test_public_site_localization.mjs'
+      - 'tests/test_public_site_localization_runtime.mjs'
       - 'tests/test_public_release_catalog.py'
       - 'tests/test_public_identity_backend_prep.py'
       - 'tests/test_public_identity_gateway.py'
@@ -157,6 +159,7 @@ jobs:
           python tools/public-site/build.py check
           python tools/public-site/auth_activation_preflight.py check
           node tests/test_public_site_localization.mjs
+          node --test tests/test_public_site_localization_runtime.mjs
           node --test tests/test_public_site_vercel_proxy.mjs
           node --test tests/test_public_proxy_request_context.mjs
           node --test tests/test_public_proxy_vercel_oidc.mjs
