@@ -1,10 +1,18 @@
 // Shared browser navigation policy. The native host is the final network boundary.
 // This module converts user-entered text into a public URL or an explicit search.
-export const BROWSER_SEARCH_PROVIDER = Object.freeze({
-  id: "duckduckgo",
-  origin: "https://duckduckgo.com/",
-  queryParameter: "q",
-});
+export const BROWSER_SEARCH_PROVIDERS = Object.freeze([
+  Object.freeze({ id: "duckduckgo", name: "DuckDuckGo", origin: "https://duckduckgo.com/", queryParameter: "q" }),
+  Object.freeze({ id: "brave", name: "Brave Search", origin: "https://search.brave.com/search", queryParameter: "q" }),
+  Object.freeze({ id: "google", name: "Google", origin: "https://www.google.com/search", queryParameter: "q" }),
+  Object.freeze({ id: "bing", name: "Bing", origin: "https://www.bing.com/search", queryParameter: "q" }),
+]);
+export const BROWSER_SEARCH_PROVIDER = BROWSER_SEARCH_PROVIDERS[0];
+
+export function browserSearchProvider(value) {
+  const provider = BROWSER_SEARCH_PROVIDERS.find((item) => item.id === value);
+  if (!provider) throw new TypeError("Unsupported browser search provider");
+  return provider;
+}
 
 export const MAX_BROWSER_ADDRESS_INPUT = 2048;
 export const MAX_BROWSER_SEARCH_QUERY = 512;
@@ -63,18 +71,22 @@ function browserUrl(input) {
   return parsed.href;
 }
 
-function searchUrl(query) {
+function searchUrl(query, providerId = BROWSER_SEARCH_PROVIDER.id) {
   if (!query || query.length > MAX_BROWSER_SEARCH_QUERY) {
     throw new TypeError("Browser search query is invalid");
   }
-  const target = new URL(BROWSER_SEARCH_PROVIDER.origin);
-  target.searchParams.set(BROWSER_SEARCH_PROVIDER.queryParameter, query);
+  const provider = browserSearchProvider(providerId);
+  const target = new URL(provider.origin);
+  target.searchParams.set(provider.queryParameter, query);
   return target.href;
 }
 
 // Internal application targets must request a URL explicitly; they may never
 // cause an implicit third-party search or silently reinterpret a rejected URI.
-export function resolveBrowserNavigation(value, { allowSearch = true } = {}) {
+export function resolveBrowserNavigation(value, {
+  allowSearch = true,
+  searchProviderId = BROWSER_SEARCH_PROVIDER.id,
+} = {}) {
   if (typeof value !== "string") throw new TypeError("Browser input must be text");
   const input = value.trim();
   if (!input) return null;
@@ -100,5 +112,5 @@ export function resolveBrowserNavigation(value, { allowSearch = true } = {}) {
   }
   // Whitespace-delimited terms are a search, not a guessed hostname.
   const query = input.replace(/\s+/gu, " ");
-  return Object.freeze({ kind: "search", query, url: searchUrl(query) });
+  return Object.freeze({ kind: "search", query, url: searchUrl(query, searchProviderId) });
 }
