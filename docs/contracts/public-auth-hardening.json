@@ -32,9 +32,9 @@
     "leaked_password_protection": "enabled-product-gateway",
     "public_login_enabled": false,
     "edge_gateway": "v28-deployed-native-rate-limit-live-public-login-legal-receipt-guard-live-registration-disabled-close-disabled-recovery-isolated",
-    "public_edge_gateway": "active-v7-production-oidc-cookie-envelope-shared-rate-limit-vercel-proxy-deploy-pending",
+    "public_edge_gateway": "canonical-supabase-v1-20261009-oidc-boundary-deployed-production-bridge-policy-and-e2e-pending",
     "public_edge_gateway_deployed": true,
-    "public_edge_gateway_version": 7,
+    "public_edge_gateway_version": 1,
     "public_edge_oidc_source_ready": true,
     "public_edge_oidc_deployed": true,
     "public_edge_oidc_runtime_verified": false,
@@ -110,10 +110,10 @@
     "account_registration_policy_projection_applied": true,
     "account_registration_policy_active": false,
     "account_registration_ui_source_ready": true,
-    "bot_protection": "cloudflare-turnstile-widget-live-hostname-bound-source-integration-ready-production-secret-and-e2e-pending",
+    "bot_protection": "canonical-cloudflare-turnstile-widget-created-and-vercel-production-secret-configured-live-site-e2e-pending",
     "bot_protection_provider": "cloudflare-turnstile",
-    "bot_protection_sitekey": "0x4AAAAAAFP2xxwpJ9Bl_5Ka",
-    "bot_protection_hostname": "ordax-os-public.vercel.app",
+    "bot_protection_sitekey": "0x4AAAAAAFR-Kz0Uc9rNW_iE",
+    "bot_protection_hostname": "ordax.com.br",
     "bot_protection_action": "ordax-account",
     "bot_protection_widget_provisioned": true,
     "bot_protection_source_server_verification": true,
@@ -122,16 +122,17 @@
       "register",
       "recovery"
     ],
-    "bot_protection_production_secret_configured": false,
+    "bot_protection_production_secret_configured": true,
     "bot_protection_e2e_tested": false,
     "password_recovery_session_isolated": true,
     "password_recovery_cookie_path": "/auth/recover",
     "bot_protection_widget_live_verified": true,
     "bot_protection_widget_mode": "managed",
     "bot_protection_widget_domains": [
-      "ordax-os-public.vercel.app"
+      "ordax.com.br",
+      "www.ordax.com.br"
     ],
-    "bot_protection_widget_verified_date": "2026-10-07",
+    "bot_protection_widget_verified_date": "2026-10-09",
     "email_confirmation_provider_evidence": "supabase-auth-v1-settings-mailer-autoconfirm-false",
     "email_confirmation_provider_verified_date": "2026-10-07",
     "provider_signup_api_enabled": true,
@@ -164,7 +165,8 @@
     "public_edge_product_cookie_envelope_deployed": true,
     "public_edge_product_cookie_envelope_header": "x-ordax-cookie-envelope",
     "vercel_product_cookie_envelope_source_merged": true,
-    "vercel_product_cookie_envelope_deployed": false
+    "vercel_product_cookie_envelope_deployed": false,
+    "destination_vercel_oidc_observation": "Canonical Supabase project jhfphsjptrpmtnzkpwud public Edge gateway v1 deployed with Vercel signed OIDC validation; Vercel production has ORDAX_ACCOUNT_GATEWAY_URL and a private Turnstile secret. Signed service to service transport, named bridge provisioning and login/registration E2E remain unverified."
   },
   "postgresql_destination": {
     "project_name": "ordax-platform",
