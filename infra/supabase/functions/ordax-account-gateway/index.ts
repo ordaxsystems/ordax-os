@@ -43,8 +43,20 @@ const MAX_REGISTRATION_PASSWORD_CHARS = 256;
 const PWNED_PASSWORDS_ORIGIN = "https://api.pwnedpasswords.com";
 const PWNED_PASSWORDS_MAX_RESPONSE = 256 * 1024;
 const PWNED_PASSWORDS_USER_AGENT = "OrdaX-Account-Gateway/1";
-const PUBLIC_SITE_ACCOUNT_ENABLED = true;
-const ACCOUNT_REGISTRATION_ENABLED = true;
+const PUBLIC_SITE_ACCOUNT_ENABLED = false;
+const ACCOUNT_REGISTRATION_ENABLED = false;
+const PUBLIC_WEB_AUTH_ENABLED = true;
+// Limit public login/registration to explicit methods and routes; sync,
+// memory, Network and account-data operations remain behind their own gates.
+const PUBLIC_WEB_AUTH_ROUTES = new Set([
+  "GET /auth/session",
+  "GET /auth/registration-policy",
+  "GET /auth/login",
+  "GET /auth/register",
+  "POST /auth/login",
+  "POST /auth/register",
+  "POST /auth/logout",
+]);
 const LEGAL_ACCEPTANCE_FIELD = "legal_acceptance";
 const LEGAL_ACCEPTANCE_VALUE = "accepted";
 const REGISTRATION_INTENT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -247,7 +259,7 @@ function accountAdminRpc(name: string, args: Record<string, unknown> = {}) {
   return accountPrivilegedRpc({ url, key, name, args });
 }
 
-async function registrationLegalPolicy() {
+async function registrationLegalPolicy(publicRequest = false) {
   const { data, error: rpcError } = await accountAdminRpc(
     "ordax_get_account_registration_legal_policy_v1",
     {},
@@ -295,7 +307,7 @@ async function registrationLegalPolicy() {
   return {
     $schema: REGISTRATION_POLICY_SCHEMA,
     active: true,
-    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED,
+    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED || (publicRequest && PUBLIC_WEB_AUTH_ENABLED),
     policyId: item.policy_id,
     privacy: {
       version: item.privacy_version,
@@ -803,7 +815,7 @@ async function closeAccount(req: Request) {
 }
 
 async function credentials(req: Request, register: boolean) {
-  if (register && !ACCOUNT_REGISTRATION_ENABLED) {
+  if (register && !(ACCOUNT_REGISTRATION_ENABLED || (PUBLIC_WEB_AUTH_ENABLED && publicSiteRequest(req)))) {
     return error(
       503,
       "account-registration-disabled",
@@ -1077,7 +1089,8 @@ Deno.serve(async (req: Request) => {
     return error(503, "public-network-access-disabled", "A Rede OrdaX pública ainda não foi ativada.");
   }
 
-  if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED) {
+  if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED
+    && !(PUBLIC_WEB_AUTH_ENABLED && PUBLIC_WEB_AUTH_ROUTES.has(req.method + " " + path))) {
     if (path === "/auth/login" && req.method === "GET") return redirectResponse("/login/");
     if (path === "/auth/register" && req.method === "GET") return redirectResponse("/cadastro/");
     if (path === "/auth/logout" && req.method === "POST") {
@@ -1087,7 +1100,7 @@ Deno.serve(async (req: Request) => {
     }
     if (path === "/auth/registration-policy" && req.method === "GET") {
       try {
-        return json(200, await registrationLegalPolicy());
+        return json(200, await registrationLegalPolicy(publicSiteRequest(req)));
       } catch {
         return error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.");
       }
@@ -1116,7 +1129,7 @@ Deno.serve(async (req: Request) => {
 
   if (path === "/auth/registration-policy" && req.method === "GET") {
     try {
-      return json(200, await registrationLegalPolicy());
+      return json(200, await registrationLegalPolicy(publicSiteRequest(req)));
     } catch {
       return error(503, "registration-legal-policy-unavailable", "A política legal de cadastro ainda não está disponível.");
     }
