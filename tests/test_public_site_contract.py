@@ -126,7 +126,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn('href="/cadastro/"', (SITE / "index.html").read_text(encoding="utf-8"))
         self.assertIn('href="/recuperar/"', login)
         self.assertIn("Esqueci minha senha", login)
-        self.assertIn("Cadastro ainda não configurado", register)
+        self.assertIn("Verificando conexão segura", register)
         self.assertIn("Recuperação ainda não configurada", recovery)
         self.assertIn("Conclusão da recuperação ainda não ativada", recovery_complete)
         self.assertIn("Área da conta ainda indisponível", account)
