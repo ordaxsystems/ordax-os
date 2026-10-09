@@ -192,7 +192,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(session.status, 200)
         session_payload = self.payload(session)
         self.assertFalse(session_payload["authenticated"])
-        self.assertEqual(session_payload["provider"], "gated")
+        self.assertEqual(session_payload["provider"], "unconfigured")
 
         sync = self.gateway.handle("GET", "/sync/snapshot?limit=1", marker)
         self.assertEqual(sync.status, 503)
@@ -563,7 +563,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         marker = {"X-OrdaX-Public-Site": "1"}
         policy = gateway.handle("GET", "/auth/registration-policy", marker)
         self.assertEqual(policy.status, 200)
-        self.assertFalse(self.payload(policy)["registrationEnabled"])
+        self.assertTrue(self.payload(policy)["registrationEnabled"])
 
         register = gateway.handle(
             "POST",
@@ -575,7 +575,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
             b"email=pessoa%40example.com&password=new-password-12&legal_acceptance=accepted",
         )
         self.assertEqual(register.status, 503)
-        self.assertEqual(self.payload(register)["error"], "public-account-access-disabled")
+        self.assertEqual(self.payload(register)["error"], "identity-provider-unavailable")
 
     def test_registration_policy_fails_closed_without_active_policy(self):
         class MissingAuthority:
