@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { productCookiesFromUpstream } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
 
-import { PUBLIC_ACCOUNT_ORIGIN, PUBLIC_SIGNUP_REDIRECT, PUBLIC_CONFIRMATION_URL, parseSignupConfirmation } from "../infra/supabase/functions/_shared/account_email_confirmation.mjs";
+import { PUBLIC_ACCOUNT_ORIGIN, PUBLIC_SIGNUP_REDIRECT, PUBLIC_CONFIRMATION_URL, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../infra/supabase/functions/_shared/account_email_confirmation.mjs";
 
 import {
   normalizeGatewayUrl,
   forwardPublicConfirmationQuery,
+  forwardPublicRecoveryQuery,
   normalizeProductPath,
   normalizePublicOrigin,
   normalizeTrustedEdgeAddress,
@@ -121,6 +122,46 @@ test("Vercel rewritten signup callback preserves only exact one-time OTP params"
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("password recovery callback accepts provider OTP hashes but rejects signup hashes and conflicting values", async () => {
+  const hash = "a".repeat(56);
+  const link = PUBLIC_RECOVERY_VERIFY_URL + "?token_hash=" + hash + "&type=recovery";
+  assert.equal(parseRecoveryLink(new URL(link)), hash);
+  assert.equal(parseSignupConfirmation(new URL(link)), null);
+  assert.equal(parseRecoveryLink(new URL(PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=recovery")), null);
+  for (const bad of [
+    PUBLIC_RECOVERY_VERIFY_URL + "?token_hash=" + hash + "&type=email",
+    PUBLIC_RECOVERY_VERIFY_URL + "?token_hash=" + hash + "&type=recovery&next=https://evil.invalid",
+    PUBLIC_RECOVERY_VERIFY_URL + "?token_hash=" + "z".repeat(56) + "&type=recovery",
+  ]) assert.equal(parseRecoveryLink(new URL(bad)), null);
+
+  const valid = new URLSearchParams({ ordax_path: "/auth/recover/verify", token_hash: hash, type: "recovery" });
+  assert.equal(forwardPublicRecoveryQuery("/auth/recover/verify", valid), "/auth/recover/verify?token_hash=" + hash + "&type=recovery");
+  const duplicate = new URLSearchParams("ordax_path=/auth/recover/verify&ordax_path=/auth/recover/verify&token_hash=" + hash + "&type=recovery");
+  assert.equal(forwardPublicRecoveryQuery("/auth/recover/verify", duplicate), "/auth/recover/verify?token_hash=" + hash + "&type=recovery");
+  const conflicting = new URLSearchParams("ordax_path=/auth/recover/verify&token_hash=" + hash + "&token_hash=" + "b".repeat(56) + "&type=recovery");
+  assert.equal(forwardPublicRecoveryQuery("/auth/recover/verify", conflicting), null);
+  assert.equal(forwardPublicRecoveryQuery("/auth/recover/verify", new URLSearchParams({ordax_path:"/auth/recover/verify",token_hash:hash,type:"email"})), null);
+
+  const oldFetch = globalThis.fetch;
+  let passedUrl = "";
+  globalThis.fetch = async url => {
+    passedUrl = String(url);
+    return new Response(JSON.stringify({ $schema:"prototype-ordax.public-identity-error/1", error:"account-recovery-completion-disabled"}), {
+      status:503,headers:{"content-type":"application/json"},
+    });
+  };
+  try {
+    const req = new Request(PUBLIC_ORIGIN + "/api/account-proxy?" + valid, {
+      headers:{"x-forwarded-for":"203.0.113.15"},
+    });
+    const response = await proxyPublicAccountRequest(req, options());
+    assert.equal(response.status, 503); // remains intentionally feature-gated
+    assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+    assert.ok(passedUrl.includes("/auth/recover/verify?token_hash="));
+    assert.ok(passedUrl.includes("&type=recovery"));
+  } finally { globalThis.fetch = oldFetch; }
 });
 
 test("ordinary auth routes survive Vercel rewrite metadata without OTP parsing", async () => {

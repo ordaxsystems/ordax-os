@@ -4,7 +4,7 @@ import {
 } from "../infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs";
 import { readBoundedBody } from "../infra/supabase/functions/_shared/bounded_body.mjs";
 import { isPublicBridgeRoute } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
-import { PUBLIC_ACCOUNT_ORIGIN, PUBLIC_CONFIRMATION_PATH, parseSignupConfirmation } from "../infra/supabase/functions/_shared/account_email_confirmation.mjs";
+import { PUBLIC_ACCOUNT_ORIGIN, PUBLIC_CONFIRMATION_PATH, PUBLIC_RECOVERY_VERIFY_PATH, parseSignupConfirmation, parseRecoveryLink } from "../infra/supabase/functions/_shared/account_email_confirmation.mjs";
 import { trustedCookieEnvelope } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
 export { trustedCookieEnvelope, trustedSetCookie } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
 
@@ -100,26 +100,34 @@ export function normalizeProductPath(raw, method) {
 // and unrelated URL parameters are never sent to the identity provider.
 // This avoids Vercel's internal query-shape differences without weakening
 // the one-time token validation or allowing arbitrary redirect targets.
-export function forwardPublicConfirmationQuery(normalizedPath, params) {
+// One strict OTP forwarding owner shared by signup and password recovery.
+// Only canonical one-time hash/type pairs are forwarded; Vercel rewrite
+// metadata never becomes a redirect or a user-selected upstream URL.
+function forwardPublicOtpQuery(normalizedPath, params, callbackPath, verifyTokenHash) {
   if (typeof normalizedPath !== "string"
     || !params
     || typeof params.getAll !== "function") return null;
   const route = new URL(normalizedPath, PUBLIC_ACCOUNT_ORIGIN);
-  if (route.pathname !== PUBLIC_CONFIRMATION_PATH) return null;
-
+  if (route.pathname !== callbackPath) return null;
   const query = new URLSearchParams(route.search);
   const hashes = [...query.getAll("token_hash"), ...params.getAll("token_hash")];
   const types = [...query.getAll("type"), ...params.getAll("type")];
-  if (hashes.length === 0 && types.length === 0) return PUBLIC_CONFIRMATION_PATH;
+  if (hashes.length === 0 && types.length === 0) return callbackPath;
   if (hashes.length === 0 || types.length === 0) return null;
-  // A rewrite can duplicate the same value in both path and query metadata.
-  // Contradictory values are untrusted and never forwarded.
   if (!hashes.every(hash => hash === hashes[0])
     || !types.every(type => type === types[0])) return null;
-  const canonical = new URL(PUBLIC_CONFIRMATION_PATH, PUBLIC_ACCOUNT_ORIGIN);
+  const canonical = new URL(callbackPath, PUBLIC_ACCOUNT_ORIGIN);
   canonical.searchParams.set("token_hash", hashes[0]);
   canonical.searchParams.set("type", types[0]);
-  return parseSignupConfirmation(canonical) ? canonical.pathname + canonical.search : null;
+  return verifyTokenHash(canonical) ? canonical.pathname + canonical.search : null;
+}
+
+export function forwardPublicConfirmationQuery(normalizedPath, params) {
+  return forwardPublicOtpQuery(normalizedPath, params, PUBLIC_CONFIRMATION_PATH, parseSignupConfirmation);
+}
+
+export function forwardPublicRecoveryQuery(normalizedPath, params) {
+  return forwardPublicOtpQuery(normalizedPath, params, PUBLIC_RECOVERY_VERIFY_PATH, parseRecoveryLink);
 }
 
 export function normalizeVercelOidcToken(raw) {
@@ -364,15 +372,14 @@ export async function proxyPublicAccountRequest(
   if (!browserContext.ok) return error(403, browserContext.code);
 
   const route = normalizeProductPath(incoming.searchParams.get("ordax_path"), request.method);
-  // Production Vercel rewrites may contribute extra query parameters. Only
-  // the email-confirmation callback needs their strict OTP validation. Every
-  // other already-allowlisted route must retain its normalized path unchanged.
-  // Passing ordinary /auth/session or /auth/registration-policy through the
-  // OTP parser caused a production 404 and incorrectly gated both forms.
-  const isConfirmation = route && new URL(route, PUBLIC_ACCOUNT_ORIGIN).pathname === PUBLIC_CONFIRMATION_PATH;
-  const productPath = isConfirmation
+  // Only fixed OTP callbacks need strict token forwarding. Every other
+  // authorized route retains its normalized path, including session/registration.
+  const callbackPath = route && new URL(route, PUBLIC_ACCOUNT_ORIGIN).pathname;
+  const productPath = callbackPath === PUBLIC_CONFIRMATION_PATH
     ? forwardPublicConfirmationQuery(route, incoming.searchParams)
-    : route;
+    : callbackPath === PUBLIC_RECOVERY_VERIFY_PATH && request.method === "GET"
+      ? forwardPublicRecoveryQuery(route, incoming.searchParams)
+      : route;
   if (!productPath) return error(404, "unsupported-account-route");
 
   const gateway = normalizeGatewayUrl(gatewayUrl);
@@ -462,7 +469,9 @@ export async function proxyPublicAccountRequest(
     return error(502, "unsafe-account-gateway-response");
   }
 
-  if (request.method === "GET" && new URL(productPath, PUBLIC_ACCOUNT_ORIGIN).pathname === PUBLIC_CONFIRMATION_PATH) {
+  if (request.method === "GET" && [PUBLIC_CONFIRMATION_PATH, PUBLIC_RECOVERY_VERIFY_PATH].includes(
+    new URL(productPath, PUBLIC_ACCOUNT_ORIGIN).pathname
+  )) {
     responseHeaders.set("referrer-policy", "no-referrer");
   }
   return new Response(upstream.body, {

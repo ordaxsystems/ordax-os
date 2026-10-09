@@ -119,3 +119,28 @@ select the former project from incomplete cutover contracts; do not cite it
 as the destination's production proof until the provider SSOT is reconciled.
 A real new-email signup, confirmation and login end-to-end test is still
 required after SMTP activation.
+
+## Password recovery transport (2026-10-09)
+
+The canonical recovery email uses the same server-side, isolated Auth gateway
+pattern as the confirmed signup flow. Source of truth:
+`../functions/_shared/account_email_confirmation.mjs` (one-time hash parsing
+and fixed HTTPS `https://ordax.com.br/auth/recover/verify`).
+The public Vercel proxy forwards only the exact `token_hash` and
+`type=recovery` to the signed Supabase chain, with `Referrer-Policy:
+no-referrer`. The token hash is never stored in browser JavaScript, session
+storage, analytics or logs. Its validity is verified by Supabase Auth, not
+by matching the hash length alone.
+
+**Operational gate remains closed on purpose**: both
+`ACCOUNT_RECOVERY_REQUEST_ENABLED` and
+`ACCOUNT_RECOVERY_COMPLETION_ENABLED` are false and the public runtime
+still lists `recovery_url: null` / `recovery_complete_url: null`.
+Publish `email-templates/recovery.html` into the hosted Supabase
+**Reset Password** Auth email template, subject
+`Redefina sua senha — Conta OrdaX`, and verify the provider redirect
+allowlist includes the exact canonical URL (not localhost). Check the
+provider's custom SMTP Resend settings before activation. Once proven,
+activate both server gates and the public form configuration in a reviewed
+follow-up and test real reset end-to-end with a disposable account. A
+synthetic token test cannot prove real recovery delivery or password update.

@@ -85,7 +85,8 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("registration-password-policy", text)
         self.assertIn("ACCOUNT_RECOVERY_REQUEST_ENABLED = false", text)
         self.assertIn("ACCOUNT_RECOVERY_COMPLETION_ENABLED = false", text)
-        self.assertIn("ORDAX_ACCOUNT_RECOVERY_REDIRECT_URL", text)
+        self.assertIn("return PUBLIC_RECOVERY_VERIFY_URL;", text)
+        self.assertIn("parseRecoveryLink(url, PUBLIC_RECOVERY_VERIFY_PATH)", text)
         self.assertIn("resetPasswordForEmail", text)
         self.assertIn('path === "/auth/recover" && req.method === "POST"', text)
         self.assertIn('path === "/auth/recover/verify" && req.method === "GET"', text)
@@ -275,7 +276,8 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
 
     def test_recovery_email_template_uses_server_side_token_hash(self):
         text = RECOVERY_EMAIL_TEMPLATE.read_text(encoding="utf-8")
-        self.assertIn("{{ .RedirectTo }}?token_hash={{ .TokenHash }}", text)
+        self.assertIn("https://ordax.com.br/auth/recover/verify?token_hash={{ .TokenHash }}", text)
+        self.assertNotIn("{{ .RedirectTo }}", text)
         self.assertIn("type=recovery", text)
         self.assertNotIn("{{ .ConfirmationURL }}", text)
         self.assertNotIn("access_token", text)
