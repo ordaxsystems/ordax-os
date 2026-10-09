@@ -273,6 +273,38 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
         self.assertIsNone(handler.redirect_request(None, None, 302, "Moved", {},
                                                    "https://attacker.invalid"))
 
+    def test_activation_workflow_never_interpolates_dispatch_inputs_into_shell_source(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        steps = workflow.split("    steps:", 1)[1]
+        self.assertIn('ORDAX_REQUESTED_ORIGIN: ${{ inputs.origin }}', workflow)
+        self.assertIn('ORDAX_ACTIVATION_CONFIRMATION: ${{ inputs.confirmation }}', workflow)
+        self.assertNotIn("${{ inputs.", steps)
+        self.assertIn('test "${ORDAX_ACTIVATION_CONFIRMATION}" = "activate-reviewed-legal-policy"', steps)
+        self.assertEqual(steps.count('--origin "${ORDAX_REQUESTED_ORIGIN}"'), 2)
+        self.assertIn('"${ORDAX_REQUESTED_ORIGIN}" "${GITHUB_SHA}"', steps)
+
+    def test_activation_secret_is_scoped_only_to_check_and_apply_steps(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        job_env = workflow.split("    env:", 1)[1].split("    steps:", 1)[0]
+        self.assertNotIn("ORDAX_SUPABASE_SECRET_KEY", job_env)
+        self.assertEqual(
+            workflow.count('ORDAX_SUPABASE_SECRET_KEY: ${{ secrets.ORDAX_SUPABASE_SECRET_KEY }}'),
+            2,
+        )
+        steps = workflow.split("    steps:", 1)[1]
+        for name in (
+            "Require server-only provider credential without printing it",
+            "Apply exact candidate through service-role-only RPC",
+        ):
+            segment = steps.split("      - name: " + name, 1)[1].split("      - name:", 1)[0]
+            self.assertIn("ORDAX_SUPABASE_SECRET_KEY: ${{ secrets.ORDAX_SUPABASE_SECRET_KEY }}", segment)
+        for name in (
+            "Build reviewed activation candidate",
+            "Validate sanitized activation receipt",
+        ):
+            segment = steps.split("      - name: " + name, 1)[1].split("      - name:", 1)[0]
+            self.assertNotIn("ORDAX_SUPABASE_SECRET_KEY: ${{", segment)
+
     def test_workflow_is_manual_confirmed_secret_backed_and_receipt_only(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", text)
