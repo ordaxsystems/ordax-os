@@ -66,3 +66,21 @@ Surface. A etapa de publicação gerenciada requer segredo e autorização; sem
 eles, o pipeline apenas prepara/valida artefatos, não afirma sincronização
 com o Supabase em produção. E-mails dependem de estilos inline compatíveis
 com clientes de e-mail; layouts de tela Web/OS não são copiados literalmente.
+
+## Publicação contínua após integração inicial
+
+O workflow `.github/workflows/ordax-auth-email-templates.yml` é acionado
+**somente após** sucesso de `Public Site Candidate` na `main`, e rejeita
+um SHA que já não seja o HEAD da branch. Usa o ambiente GitHub protegido
+`ordax-auth-templates-production`, com secret
+`SUPABASE_AUTH_TEMPLATES_TOKEN` (token de gestão Supabase de permissão
+mínima), sem criar ou expor credenciais na execução. O workflow também permite
+republicação por acionamento explícito (sempre do HEAD da main).
+
+Se o ambiente/secret não estiver configurado, a saída é explicitamente
+`AUTH_EMAIL_TEMPLATES=NOT_PUBLISHED`, sem fingir sincronização com produção.
+Depois que o responsável configurar o ambiente e suas aprovações, novas
+alterações de tokens/templates aprovadas e compiladas são publicadas sem
+recopiar HTML no dashboard. Revisões estruturais do layout Web não
+alteram automaticamente a estrutura dos e-mails: compartilham somente os
+valores semânticos da marca.
