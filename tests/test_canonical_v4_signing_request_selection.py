@@ -98,7 +98,11 @@ class CanonicalSigningRequestSelectionTests(unittest.TestCase):
         import hashlib
         import subprocess
 
-        for path in (selector.HISTORICAL_PATH, selector.ACTIVE_PATH):
+        for path in (
+            selector.HISTORICAL_PATH,
+            selector.ACTIVE_PATH,
+            Path("docs/evidence/rename-ordax-os/canonical-v4-pre-rename-request.json"),
+        ):
             relative = path.as_posix()
             attrs = subprocess.check_output(
                 ["git", "check-attr", "text", "eol", "--", relative],
