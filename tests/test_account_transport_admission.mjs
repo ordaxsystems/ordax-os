@@ -5,6 +5,7 @@ import {
   accountGatewayRoutePath,
   stripEdgeFunctionPrefix,
   isNativeBootstrapRoute,
+  isPublicBridgeRoute,
 } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 
 const bridgeName = "ordax-account-public-bridge";
@@ -40,6 +41,39 @@ test("valid named service key is the only way to enter the public-site transport
     else assert.equal(result.code === "public-account-boundary-authentication-required" ||
       result.code === "native-account-session-required", true);
     assert.equal(called, variant.marker === undefined ? 1 : 0);
+  }
+});
+
+test("public bridge is constrained to same exact route policy at all three hops", async () => {
+  const allowed = [
+    ["GET", "/auth/session"], ["POST", "/auth/login"],
+    ["GET", "/sync/snapshot"], ["POST", "/sync/mutate"],
+    ["GET", "/account/export"], ["GET", "/account/spaces"],
+    ["GET", "/account/entitlements/memory-cloud"], ["POST", "/account/close"],
+  ];
+  for (const [method, path] of allowed) {
+    assert.equal(isPublicBridgeRoute(method, path), true, method + " " + path);
+    const result = await authorizeAccountTransport(
+      make(path, method, { "x-ordax-public-site": "1", apikey: bridgeKey }),
+      path, { rawBridgeSecretKeys: bridgeEnv },
+    );
+    assert.deepEqual(result, { ok: true, mode: "service" });
+  }
+  const denied = [
+    ["GET", "/account/close"], ["POST", "/account/export"],
+    ["GET", "/account/admin"], ["POST", "/network/v2/messages/send"],
+    ["POST", "/health"], ["DELETE", "/auth/session"],
+    ["GET", "/account/export/other"], ["POST", "/account/spaces"],
+    ["GET", "/other/auth/login"], ["GET", "/sync?x=1"],
+  ];
+  for (const [method, path] of denied) {
+    assert.equal(isPublicBridgeRoute(method, path), false, method + " " + path);
+    const result = await authorizeAccountTransport(
+      make("/auth/session", method === "DELETE" ? "GET" : method,
+        { "x-ordax-public-site": "1", apikey: bridgeKey }),
+      path, { rawBridgeSecretKeys: bridgeEnv },
+    );
+    assert.deepEqual(result, { ok: false, code: "public-account-route-not-allowed" });
   }
 });
 
