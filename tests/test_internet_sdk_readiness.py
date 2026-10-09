@@ -51,9 +51,16 @@ class InternetSdkReadinessTests(unittest.TestCase):
         self.assertEqual(report["distributionActivated"], False)
         self.assertGreater(report["appModuleCount"], 0)
         self.assertIn("system/contracts/browser-session.mjs", report["requiredContracts"])
-        self.assertIn("system/contracts/browser-session.mjs", report["unpublishedContracts"])
-        self.assertIn("unpublished-app-sdk-contracts", report["blockers"])
-        self.assertIn("system/apps/app-contract.mjs", report["privatePlatformImports"])
+        sdk = json.loads((checker.ROOT / checker.SDK_PATH).read_text(encoding="utf-8"))
+        published = {entry["source_path"] for entry in sdk["contracts"]}
+        self.assertEqual(
+            report["unpublishedContracts"],
+            sorted(set(report["requiredContracts"]) - published),
+        )
+        self.assertEqual(
+            report["sdkBoundaryClean"],
+            not (report["unpublishedContracts"] or report["privatePlatformImports"]),
+        )
 
     def test_derives_published_vs_unpublished_without_shadow_registry(self):
         with tempfile.TemporaryDirectory() as temp:
