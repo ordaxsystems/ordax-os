@@ -107,7 +107,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIsNone(config["identity"]["register_url"])
         self.assertIsNone(config["identity"]["recovery_url"])
         self.assertIsNone(config["identity"]["recovery_complete_url"])
-        self.assertEqual(config["identity"]["turnstile_sitekey"], "0x4AAAAAAFP2xxwpJ9Bl_5Ka")
+        self.assertEqual(config["identity"]["turnstile_sitekey"], "0x4AAAAAAFR-Kz0Uc9rNW_iE")
         self.assertEqual(config["downloads"]["catalog_url"], "/releases/catalog.json")
         self.assertFalse(config["legal"]["account_activation_ready"])
         self.assertEqual(config["legal"]["privacy_url"], "/privacidade/")
