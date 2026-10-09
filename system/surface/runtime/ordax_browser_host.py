@@ -1193,11 +1193,12 @@ class OrdaXBrowserHost:
             if response is None or not allowed_external_uri(response.get_uri()):
                 raise ValueError("unsafe download response")
             response_bytes = response.get_content_length()
-            # Unknown Content-Length (-1) is legitimate: check the target
-            # filesystem continuously while WebKit streams data to disk.
+            # WebKitGTK URIResponse reports 0 when Content-Length is absent
+            # or incorrect. Treat 0 as unknown and keep checking free space
+            # while the engine streams data to disk.
             if not isinstance(response_bytes, int) or response_bytes < -1:
                 raise ValueError("invalid download content length")
-            item["declared_bytes"] = response_bytes if response_bytes >= 0 else None
+            item["declared_bytes"] = response_bytes if response_bytes > 0 else None
             item["file_name"] = safe_download_name(suggested_name)
             item["timeout"] = GLib.timeout_add_seconds(60, self.timeout_download, download_id)
             self.emit_download_state(item, "pending")
