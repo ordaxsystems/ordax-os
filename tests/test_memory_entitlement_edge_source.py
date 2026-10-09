@@ -46,7 +46,7 @@ class MemoryEntitlementEdgeSourceTests(unittest.TestCase):
         self.assertIn('return error(502, "memory-entitlement-read-failed"', self.route)
 
     def test_public_account_gate_runs_before_entitlement_resolution(self):
-        gate = self.source.index('if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED)')
+        gate = self.source.index('if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED')
         route = self.source.index(self.route_marker)
         self.assertLess(gate, route)
         gated_block = self.source[gate:route]

@@ -54,6 +54,16 @@ RECOVERY_REFRESH_COOKIE = "ordax_recovery_refresh"
 RECOVERY_SESSION_MAX_AGE = 10 * 60
 PUBLIC_SITE_ACCOUNT_ENABLED = False
 ACCOUNT_REGISTRATION_ENABLED = False
+PUBLIC_WEB_AUTH_ENABLED = True
+PUBLIC_WEB_AUTH_ROUTES = frozenset({
+    ("GET", "/auth/session"),
+    ("GET", "/auth/registration-policy"),
+    ("GET", "/auth/login"),
+    ("GET", "/auth/register"),
+    ("POST", "/auth/login"),
+    ("POST", "/auth/register"),
+    ("POST", "/auth/logout"),
+})
 LEGAL_ACCEPTANCE_FIELD = "legal_acceptance"
 LEGAL_ACCEPTANCE_VALUE = "accepted"
 ACCOUNT_CLOSE_ENABLED = False
@@ -267,7 +277,9 @@ def _public_site_request(headers: Mapping[str, str]) -> bool:
 
 
 def _public_site_disabled_response(method: str, path: str) -> GatewayResponse | None:
-    if PUBLIC_SITE_ACCOUNT_ENABLED:
+    if PUBLIC_SITE_ACCOUNT_ENABLED or (
+        PUBLIC_WEB_AUTH_ENABLED and (method, path) in PUBLIC_WEB_AUTH_ROUTES
+    ):
         return None
     if path == "/auth/login" and method == "GET":
         return _redirect("/login/")
@@ -527,7 +539,7 @@ class PublicIdentityGateway:
             )
         return None
 
-    def _registration_policy(self) -> GatewayResponse:
+    def _registration_policy(self, public_request: bool = False) -> GatewayResponse:
         if self.registration_legal_authority is None:
             return _error(
                 503,
@@ -547,7 +559,7 @@ class PublicIdentityGateway:
             {
                 "$schema": REGISTRATION_POLICY_SCHEMA,
                 "active": True,
-                "registrationEnabled": ACCOUNT_REGISTRATION_ENABLED,
+                "registrationEnabled": ACCOUNT_REGISTRATION_ENABLED or (public_request and PUBLIC_WEB_AUTH_ENABLED),
                 "policyId": policy.policy_id,
                 "privacy": {
                     "version": policy.privacy_version,
@@ -571,7 +583,7 @@ class PublicIdentityGateway:
         request_headers: Mapping[str, str],
         body: bytes,
     ) -> GatewayResponse:
-        if registration and not ACCOUNT_REGISTRATION_ENABLED:
+        if registration and not (ACCOUNT_REGISTRATION_ENABLED or (PUBLIC_WEB_AUTH_ENABLED and _public_site_request(request_headers))):
             return _error(
                 503,
                 "account-registration-disabled",
@@ -1184,7 +1196,7 @@ class PublicIdentityGateway:
         if path == "/auth/registration-policy":
             if method != "GET":
                 return self._method_not_allowed("GET")
-            return self._registration_policy()
+            return self._registration_policy(_public_site_request(request_headers))
 
         if path == "/auth/login":
             if method == "GET":
