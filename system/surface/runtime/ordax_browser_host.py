@@ -71,6 +71,10 @@ HOST_SHORTCUTS = (
 def public_network_uri(uri: str, schemes: frozenset[str]) -> bool:
     if not isinstance(uri, str) or not uri or len(uri) > MAX_URI_LENGTH:
         return False
+    # URL parsers and WebKit can interpret backslashes, embedded controls and
+    # userinfo differently. Reject ambiguity before validating the destination.
+    if "\\" in uri or any(ord(char) < 0x20 or ord(char) == 0x7f for char in uri):
+        return False
     try:
         parsed = urlsplit(uri)
         # Accessing .port validates malformed/out-of-range explicit ports.
@@ -79,8 +83,19 @@ def public_network_uri(uri: str, schemes: frozenset[str]) -> bool:
         return False
     if parsed.scheme.lower() not in schemes or not parsed.hostname:
         return False
-
-    host = parsed.hostname.rstrip(".").lower()
+    if parsed.username is not None or parsed.password is not None:
+        return False
+    # WebKit applies WHATWG host normalization, including percent-decoding.
+    # urlsplit does not: a host such as %31%32%37.0.0.1 must never bypass
+    # the private-network boundary before WebKit resolves it to 127.0.0.1.
+    if "%" in parsed.netloc:
+        return False
+    try:
+        # Unicode dot variants and IDNA compatibility characters can also
+        # normalize into local hosts or numeric IPs in the browser engine.
+        host = parsed.hostname.encode("idna").decode("ascii").rstrip(".").lower()
+    except (UnicodeError, ValueError):
+        return False
     if (
         host == "localhost"
         or host.endswith(LOCAL_HOST_SUFFIXES)
@@ -117,6 +132,15 @@ def allowed_external_resource_uri(uri: str) -> bool:
     if scheme in INTERNAL_RESOURCE_SCHEMES:
         return True
     return public_network_uri(uri, RESOURCE_NETWORK_SCHEMES)
+
+
+def allocate_popup_tab_id(existing_ids: object) -> str:
+    """Give page-opened tabs their own namespace, apart from Surface tab IDs."""
+    for index in range(1, MAX_TABS + 1):
+        candidate = f"popup-{index}"
+        if candidate not in existing_ids:
+            return candidate
+    raise ValueError("tab limit reached")
 
 
 def bounded_int(value: object, minimum: int, maximum: int) -> int | None:
@@ -682,6 +706,10 @@ class OrdaXBrowserHost:
 
     def open_tab(self, tab_id_value: object, url_value: object) -> None:
         tab_id = self.valid_tab_id(tab_id_value)
+        # Reject first: an invalid external target must not create a ghost tab
+        # or activate a different existing tab before the host rejects it.
+        if not isinstance(url_value, str) or (url_value and not allowed_external_uri(url_value)):
+            raise ValueError("only public external http/https addresses are allowed")
         if tab_id in self.tabs:
             self.activate_tab(tab_id)
             return
@@ -830,17 +858,29 @@ class OrdaXBrowserHost:
             WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION,
         }:
             return False
+        new_window = decision_type == WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION
         try:
             action = decision.get_navigation_action()
             uri = action.get_request().get_uri()
+            user_gesture = bool(action.is_user_gesture()) if new_window else False
         except Exception:
             decision.ignore()
             return True
         if not allowed_external_uri(uri):
             decision.ignore()
             return True
-        if decision_type == WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION:
+        if new_window:
+            # A page can request a popup, but it cannot create arbitrary browser
+            # windows or gain the privileged Surface bridge. Only explicit
+            # user-initiated links enter a regular isolated browser tab.
             decision.ignore()
+            if not user_gesture or _tab_id not in self.tabs or len(self.tabs) >= MAX_TABS:
+                return True
+            try:
+                self.open_tab(allocate_popup_tab_id(self.tabs), uri)
+            except (TypeError, ValueError):
+                # The native tab host remains authoritative for the limit and URI.
+                return True
             return True
         return False
 

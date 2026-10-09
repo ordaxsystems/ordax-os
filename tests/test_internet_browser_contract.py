@@ -181,6 +181,8 @@ class InternetBrowserContractTests(unittest.TestCase):
         allowed_resource = policy["allowed_external_resource_uri"]
 
         self.assertTrue(allowed_navigation("https://example.com/path"))
+        self.assertTrue(allowed_navigation("https://bücher.de/docs"))
+        self.assertTrue(allowed_navigation("https://example。com/docs"))
         self.assertTrue(allowed_navigation("https://8.8.8.8/"))
         self.assertTrue(allowed_resource("wss://example.com/socket"))
         self.assertTrue(allowed_resource("data:text/plain,ok"))
@@ -204,6 +206,18 @@ class InternetBrowserContractTests(unittest.TestCase):
             "http://127.1/",
             "http://0x7f.0.0.1/",
             "http://2130706433/",
+            # WHATWG/IDNA host normalization must not expose loopback or LAN.
+            "http://%31%32%37.0.0.1/",
+            "http://%6cocalhost/",
+            "http://127%2e0.0.1/",
+            "http://127。0.0.1/",
+            "http://127．0.0.1/",
+            "http://127｡0.0.1/",
+            "http://router。local/",
+            "http://printer．home.arpa/",
+            "http://192。168.0.1/",
+            "http://127%EF%BC%8E0.0.1/",
+
             "http://0300.0250.0001.0001/",
             "http://0xc0.0xa8.0x1.0x1/",
         )
@@ -211,6 +225,42 @@ class InternetBrowserContractTests(unittest.TestCase):
             with self.subTest(uri=uri):
                 self.assertFalse(allowed_navigation(uri))
                 self.assertFalse(allowed_resource(uri))
+
+    def test_native_policy_rejects_credential_and_parser_ambiguity(self):
+        navigation = self.browser_uri_policy()["allowed_external_uri"]
+        resource = self.browser_uri_policy()["allowed_external_resource_uri"]
+        rejected = (
+            "https://user:password@example.com/",
+            "https://user@example.com/",
+            "https://@example.com/",
+            "https://example.com\\@internal.example/",
+            "https://example.com/\\internal.example/",
+            "https://example.com/\x00admin",
+            "https://example.com/\nheader",
+            "https://example.com/\tpath",
+        )
+        for url in rejected:
+            with self.subTest(url=repr(url)):
+                self.assertFalse(navigation(url))
+                self.assertFalse(resource(url))
+
+    def test_shared_address_policy_is_an_explicit_pure_contract(self):
+        controls = self.text(CONTROLS)
+        policy = self.text(ROOT / "system" / "contracts" / "browser-navigation.mjs")
+        self.assertIn('resolveBrowserNavigation(input.value)?.url', controls)
+        self.assertIn('resolveBrowserNavigation(target, { allowSearch: false })?.url', controls)
+        self.assertNotIn('function normalizedAddress(', controls)
+        self.assertIn('BROWSER_SEARCH_PROVIDER = Object.freeze(', policy)
+        self.assertIn('new URL(BROWSER_SEARCH_PROVIDER.origin)', policy)
+        self.assertNotIn('window.', policy)
+        self.assertNotIn('fetch(', policy)
+
+    def test_invalid_native_target_fails_before_tab_creation_or_activation(self):
+        host = self.text(NATIVE_HOST)
+        open_tab = host.split("    def open_tab(", 1)[1].split("    def close_tab(", 1)[0]
+        validation = open_tab.index("not allowed_external_uri(url_value)")
+        self.assertLess(validation, open_tab.index("if tab_id in self.tabs:"))
+        self.assertLess(validation, open_tab.index("self.create_external_view(tab_id)"))
 
     def test_native_surface_runtime_owns_webkit_dependencies_directly(self):
         launcher = self.text(SURFACE_LAUNCHER)

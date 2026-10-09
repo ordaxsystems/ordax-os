@@ -72,6 +72,7 @@ on:
       - 'system/contracts/mobile-companion.mjs'
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/browser-session.mjs'
+      - 'system/contracts/browser-navigation.mjs'
       - 'system/surface/**'
       - 'system/apps/**'
       - 'system/services/account/**'
@@ -128,6 +129,7 @@ on:
       - 'tests/test_browser_favorites.mjs'
       - 'tests/test_internet_favorites_contract.py'
       - 'tests/test_browser_history.mjs'
+      - 'tests/test_internet_navigation.mjs'
       - 'tests/test_internet_history_contract.py'
       - 'tests/test_internet_deep_localization.py'
       - 'tests/test_project_file_space_continuity.mjs'
@@ -155,6 +157,7 @@ on:
       - 'tests/test_browser_session_store.py'
       - 'tests/test_internet_accessibility_contract.py'
       - 'tests/test_internet_browser_contract.py'
+      - 'tests/test_internet_popup_policy.py'
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
       - 'tests/test_native_account_gateway.py'
@@ -268,6 +271,7 @@ on:
       - 'system/contracts/mobile-companion.mjs'
       - 'system/contracts/notification-store.mjs'
       - 'system/contracts/browser-session.mjs'
+      - 'system/contracts/browser-navigation.mjs'
       - 'system/surface/**'
       - 'system/apps/**'
       - 'system/services/account/**'
@@ -321,6 +325,7 @@ on:
       - 'tests/test_browser_favorites.mjs'
       - 'tests/test_internet_favorites_contract.py'
       - 'tests/test_browser_history.mjs'
+      - 'tests/test_internet_navigation.mjs'
       - 'tests/test_internet_history_contract.py'
       - 'tests/test_internet_deep_localization.py'
       - 'tests/test_project_file_space_continuity.mjs'
@@ -347,6 +352,7 @@ on:
       - 'tests/test_browser_session_store.py'
       - 'tests/test_internet_accessibility_contract.py'
       - 'tests/test_internet_browser_contract.py'
+      - 'tests/test_internet_popup_policy.py'
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
       - 'tests/test_native_request_boundary.py'
@@ -456,6 +462,7 @@ jobs:
           node --test tests/test_project_web_references.mjs
           node --test tests/test_browser_favorites.mjs
           node --test tests/test_browser_history.mjs
+          node --test tests/test_internet_navigation.mjs
           node --test tests/test_project_file_space_continuity.mjs
           node --test tests/test_home_continuation.mjs
           node --test tests/test_notifications.mjs
@@ -541,6 +548,7 @@ jobs:
           python -m unittest tests.test_browser_session_store -v
           python -m unittest tests.test_internet_accessibility_contract -v
           python -m unittest tests.test_internet_browser_contract -v
+          python -m unittest tests.test_internet_popup_policy -v
           python -m unittest tests.test_internet_project_context_contract -v
           python -m unittest tests.test_internet_favorites_contract -v
           python -m unittest tests.test_internet_history_contract -v

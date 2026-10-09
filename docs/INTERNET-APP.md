@@ -128,6 +128,40 @@ It is currently a baseline capability of `usb` and `native-disk`. The Web mode i
 
 Desktop and mobile remain unclaimed until their adapters provide an equivalent isolation contract.
 
+## Navegação e busca na barra de endereço
+
+A barra única do OrdaX Internet agora distingue endereços HTTP(S) explícitos,
+domínios públicos digitados sem protocolo e consultas de pesquisa. A política
+tipada é `system/contracts/browser-navigation.mjs` e é reutilizada pelos
+controles compartilhados; não existe parser de endereços paralelo na UI.
+
+- Domínios digitados sem protocolo usam HTTPS; endereços HTTP(S) mantêm o protocolo informado.
+- Consultas textuais usam o provedor inicial DuckDuckGo, declarado uma única vez no contrato; ainda não há seletor persistido de provedor.
+- Links internos de outros aplicativos devem solicitar navegação explícita e **não** se transformam silenciosamente em consultas de pesquisa.
+- Esquemas não web, URLs com credenciais, entradas malformadas, caracteres de controle e campos excessivos falham antes de chegar ao host.
+- O host Native/WebKit continua sendo a autoridade de rede; a resolução no chrome não concede acesso a localhost, IPs privados ou aos recursos privilegiados do sistema.
+- O host recusa credenciais em URLs externas, barras invertidas e controles; rejeita autoridades com percent-encoding e normaliza IDNA antes de verificar endereços locais (inclusive variantes Unicode de pontos). A verificação também se aplica às requisições de recursos.
+
+**Provas:** `node --test tests/test_internet_navigation.mjs` e
+`python3 -m unittest tests.test_internet_browser_contract`, além da verificação
+física já documentada abaixo. A presença dos testes não significa que foram
+executados em hardware neste PR.
+
+## Links que solicitam nova janela
+
+No host Native/WebKit, uma navegação `NEW_WINDOW_ACTION` deixa de ser
+descartada incondicionalmente. Quando originada de uma ação explícita do
+usuário e de uma aba ainda válida, um destino HTTP(S) público é aberto como
+outra aba isolada no mesmo `WebContext` externo, **sem** receber a ponte
+privilegiada da Surface.
+
+- A decisão original é consumida com `decision.ignore()`; não abre uma janela GTK genérica.
+- `NavigationAction.is_user_gesture()` precisa ser verdadeiro; tentativas programáticas não ganham criação irrestrita de abas.
+- O destino passa pela mesma `allowed_external_uri` do host, inclusive limites de credenciais e acesso à rede local.
+- O limite de 16 abas continua autoritativo no host; abas de páginas usam o namespace `popup-*` sem colidir com `tab-*` da Surface.
+- O modo Web continua sem incorporar páginas externas e não simula a funcionalidade.
+- `tests/test_internet_popup_policy.py` executa a função de política extraída da implementação real em ambiente sem GTK. Prova física de comportamento, foco e compatibilidade no WebKit permanece pendente.
+
 ## First implementation slice
 
 Implemented in source:
