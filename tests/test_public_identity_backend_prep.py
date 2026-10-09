@@ -187,10 +187,10 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(observation["password_recovery_completion_enabled"])
         self.assertFalse(observation["password_recovery_email_template_applied"])
         self.assertFalse(observation["account_recovery_flow_tested"])
-        self.assertEqual(observation["observed_date"], "2026-10-07")
-        self.assertEqual(observation["public_edge_gateway_version"], 7)
+        self.assertEqual(observation["observed_date"], "2026-10-09")
+        self.assertEqual(observation["public_edge_gateway_version"], 1)
         self.assertIn("v28-deployed", observation["edge_gateway"])
-        self.assertIn("active-v7", observation["public_edge_gateway"])
+        self.assertIn("canonical-supabase-v1", observation["public_edge_gateway"])
         self.assertTrue(observation["public_edge_product_cookie_envelope_deployed"])
         self.assertEqual(
             observation["public_edge_product_cookie_envelope_header"],
@@ -200,12 +200,12 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(observation["vercel_product_cookie_envelope_deployed"])
         self.assertTrue(observation["password_recovery_session_isolated"])
         self.assertEqual(observation["password_recovery_cookie_path"], "/auth/recover")
-        self.assertTrue(observation["bot_protection_widget_live_verified"])
+        self.assertFalse(observation["bot_protection_widget_live_verified"])
         self.assertEqual(
             observation["bot_protection_widget_domains"],
-            ["ordax-os-public.vercel.app"],
+            ["ordax.com.br", "www.ordax.com.br"],
         )
-        self.assertFalse(observation["bot_protection_production_secret_configured"])
+        self.assertTrue(observation["bot_protection_production_secret_configured"])
         self.assertFalse(observation["public_adapter_rate_limit_deployed"])
         self.assertTrue(
             hardening["required_before_public_login"][

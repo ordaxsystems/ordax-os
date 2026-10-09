@@ -90,12 +90,12 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "recovery-email-template",
             "recovery-e2e-proof",
             "session-revocation-proof",
-            "bot-protection-production-secret",
             "bot-protection-e2e-proof",
             "turnstile-canonical-hostname-provider-proof",
             "turnstile-canonical-runtime-proof",
         ):
             self.assertIn(expected, blockers)
+        self.assertNotIn("bot-protection-production-secret", blockers)
         self.assertNotIn("legacy-account-legal-receipt-reconciliation", blockers)
         self.assertEqual(preflight.main(["check", "--root", str(ROOT)]), 0)
         self.assertEqual(preflight.main(["require-ready", "--root", str(ROOT)]), 1)

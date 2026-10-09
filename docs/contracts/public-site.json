@@ -55,7 +55,7 @@
     "recovery_forms_enabled": false,
     "turnstile": {
       "provider": "cloudflare-turnstile",
-      "sitekey": "0x4AAAAAAFP2xxwpJ9Bl_5Ka",
+      "sitekey": "0x4AAAAAAFR-Kz0Uc9rNW_iE",
       "hostname": "ordax.com.br",
       "action": "ordax-account",
       "protected_forms": [

@@ -6,12 +6,12 @@
   <meta name="description" content="Criação da futura Conta OrdaX.">
   <title>Criar conta — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
-  <link rel="stylesheet" href="/assets/cadastro.css?v=titanium-1">
+  <link rel="stylesheet" href="/assets/account.css?v=account-shell-1">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
   <script src="/assets/site.js?v=identity-copy-2" defer></script>
 </head>
-<body data-page="cadastro">
+<body data-page="cadastro" class="account-ui">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
   <header class="site-header">
     <a class="brand" href="/" aria-label="OrdaX — início"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a>
@@ -23,19 +23,25 @@
     <section class="signup-story" aria-labelledby="signup-story-title">
       <div>
         <p class="eyebrow">CONTA ORDA X / PRIMEIRO PASSO</p>
-        <h1 id="signup-story-title">Comece pelo<br><span>seu espaço.</span></h1>
-        <p class="story-lead">Uma futura identidade para organizar projetos, preferências e acesso aos modos OrdaX quando o serviço público estiver pronto.</p>
-        <div class="signup-points"><div><span>01</span><p>Uma conta para os modos do produto.</p></div><div><span>02</span><p>Sessão e recuperação sob o mesmo contrato.</p></div></div>
+        <h1 id="signup-story-title">Uma conta.<br><span>Novas possibilidades.</span></h1>
+        <p class="story-lead">Seu acesso começa com um cadastro verificável: documentos vigentes, proteção contra abuso e uma sessão real. Sem contas simuladas.</p>
+        <ul class="account-benefits" aria-label="Proteções necessárias para criar uma conta">
+          <li><strong>01 / IDENTIDADE</strong><span>E-mail e senha protegidos</span></li>
+          <li><strong>02 / CONFIANÇA</strong><span>Documentos vigentes e aceite informado</span></li>
+          <li><strong>03 / SEGURANÇA</strong><span>Verificação contra abuso</span></li>
+        </ul>
       </div>
-      <div class="signup-promise"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Seu acesso começa com clareza.</strong><p>O portal só cria contas quando a identidade real e os documentos públicos estiverem prontos.</p></div></div>
+      <div class="account-side-footer"><div class="signup-promise"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Seu acesso começa com clareza.</strong><p>O portal só cria contas quando a identidade real e os documentos públicos estiverem prontos.</p></div></div>
+        <nav class="account-quicklinks" aria-label="Atalhos para sua conta"><a href="/login/">Já tenho uma conta</a><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav>
+      </div>
       <div class="signup-orbit" aria-hidden="true"><i></i></div>
     </section>
 
     <section class="signup-access" aria-labelledby="auth-title">
       <div class="signup-card">
-        <header class="signup-card-header"><p class="eyebrow">NOVA CONTA</p><span aria-hidden="true">02</span></header>
+        <header class="signup-card-header"><p class="eyebrow">NOVA CONTA</p><span class="account-card-index" aria-hidden="true">02 / 02</span></header>
         <h2 id="auth-title">Crie sua<br>Conta OrdaX.</h2>
-        <p class="signup-intro">Registre seu acesso quando o cadastro público estiver disponível.</p>
+        <p class="signup-intro">Os campos aparecem somente após a confirmação da identidade, da segurança e das políticas de cadastro.</p>
 
         <div class="identity-state" data-identity-state="register" aria-live="polite">
           <span class="state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-3a8 8 0 0 1 16 0v3Z"/></svg></span>

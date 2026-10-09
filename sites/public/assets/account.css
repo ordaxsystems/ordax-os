@@ -1,0 +1,152 @@
+/* One presentation owner for both public Account entry pages.
+   Authentication readiness, consent and session authority live in site.js/Backend. */
+.account-ui{
+  --account-bg:#080f1b;--account-surface:#0f1b2d;--account-ink:#eef4ff;
+  --account-muted:#aebdd2;--account-line:#344963;--account-accent:#b7d7ff;
+  background:var(--account-bg);color:var(--account-ink);color-scheme:dark;
+}
+.account-ui a{text-decoration:none}
+.account-ui a:hover{color:#ecf5ff}
+.account-ui :focus-visible{outline:3px solid #badcff;outline-offset:4px}
+.account-ui svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.account-ui .site-header{position:relative;z-index:2;max-width:1440px;min-height:86px;padding:21px clamp(20px,4vw,64px);border-bottom:1px solid #283951;gap:30px}
+.account-ui .brand{gap:10px}
+.account-ui .brand-name{font:500 26px var(--sans);letter-spacing:-1.3px;color:#f0f5ff}
+.account-ui .brand-mark{width:30px;height:30px;transform:none}
+.account-ui .brand-mark span{inset:2px;width:25px;height:25px;border:1px solid #c9dcf5;border-radius:50%;transform:none;background:none}
+.account-ui .brand-mark i{position:absolute;left:auto;right:0;top:0;width:1px;height:30px;background:#b9cdeb;transform:none}
+.account-ui .site-nav{display:flex;gap:28px;font-size:13px;margin-right:auto}
+.account-ui :is(.login-nav-actions,.signup-nav-actions){display:flex;gap:16px;align-items:center;font-size:13px}
+.account-ui .nav-cta{display:inline-flex;gap:13px;align-items:center;padding:11px 16px;border:1px solid #7798bd;border-radius:10px;background:#b6d5ff12;color:#f1f7ff;white-space:nowrap}
+.account-ui .nav-cta:hover{background:#b6d5ff22}
+.account-ui .eyebrow{font:700 10px/1.5 ui-monospace,monospace;letter-spacing:.21em;color:#a8c9f7;margin:0 0 23px}
+:is(.login-stage,.signup-stage){
+  position:relative;isolation:isolate;max-width:1440px;min-height:700px;
+  margin:auto;display:grid;grid-template-columns:minmax(0,1.06fr) minmax(405px,.94fr);
+  overflow:hidden;border-bottom:1px solid #283a54;
+  background:linear-gradient(115deg,#0a1424 0%,#0b1625 47%,#0d1726 100%);
+}
+:is(.login-stage,.signup-stage)::before{
+  content:"";position:absolute;inset:0 35% 0 0;z-index:-2;
+  background:linear-gradient(90deg,#08121ecc,#08121e55 70%),linear-gradient(0deg,#091321,transparent 45%),url('/assets/aurora-titanium.png') center/cover no-repeat;
+  opacity:.41;pointer-events:none;
+}
+:is(.login-stage,.signup-stage)::after{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(ellipse at 64% 40%,#8aaee01b,transparent 43%),linear-gradient(90deg,transparent 40%,#090f1a77 63%);
+}
+:is(.login-story,.signup-story){
+  position:relative;min-width:0;padding:clamp(66px,7vw,105px) 46px 58px clamp(24px,6.6vw,95px);
+  display:flex;flex-direction:column;justify-content:space-between;gap:60px;
+}
+:is(.login-story,.signup-story) h1{
+  max-width:720px;font:440 clamp(48px,5.4vw,78px)/1.045 var(--sans);
+  letter-spacing:-.058em;margin:0 0 24px;text-wrap:balance;
+}
+:is(.login-story,.signup-story) h1 span{color:#add0ff}
+.account-ui .story-lead{font-size:16px;line-height:1.75;color:#c0d0e4;max-width:575px;margin:0}
+.account-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:36px;max-width:570px}
+.account-benefits>li{list-style:none;min-height:100px;padding:15px 12px;display:flex;flex-direction:column;gap:13px;border:1px solid #607da155;border-radius:12px;background:#10243c70;backdrop-filter:blur(6px)}
+.account-benefits strong{font:700 11px/1.4 ui-monospace,monospace;color:#a7ceff;letter-spacing:.08em}
+.account-benefits span{font-size:12px;line-height:1.45;color:#e3eeff}
+.account-benefits{padding:0}
+.account-side-footer{position:relative;z-index:1;max-width:570px;display:grid;gap:16px}
+:is(.identity-promise,.signup-promise){display:flex;gap:14px;align-items:flex-start;padding-top:21px;border-top:1px solid #58769870}
+:is(.promise-icon,.signup-promise>span){width:42px;height:42px;border:1px solid #7298bf;border-radius:12px;display:grid;place-items:center;color:#b7d9ff;flex:0 0 auto;background:#132c48}
+:is(.identity-promise,.signup-promise) strong{display:block;font-size:13px;font-weight:650;color:#e2efff}
+:is(.identity-promise,.signup-promise) p{font-size:12px;line-height:1.6;color:#abbfd9;margin:6px 0 0}
+.account-quicklinks{display:flex;gap:12px 23px;flex-wrap:wrap;align-items:center}
+.account-quicklinks a{font-size:12px;color:#c7ddfa;text-decoration:underline;text-decoration-color:#94b9ec88;text-underline-offset:5px}
+:is(.story-orbit,.signup-orbit){position:absolute;z-index:-1;width:340px;height:340px;border:1px solid #a2c4e624;border-radius:50%;right:-70px;bottom:-135px;pointer-events:none}
+:is(.story-orbit,.signup-orbit)::before,:is(.story-orbit,.signup-orbit)::after{content:"";position:absolute;border:1px solid #a2c4e61d;border-radius:50%;inset:50px}
+:is(.story-orbit,.signup-orbit)::after{inset:107px}
+:is(.login-access,.signup-access){position:relative;z-index:1;display:flex;align-items:center;justify-content:center;padding:60px clamp(24px,4.4vw,64px) 60px 20px}
+:is(.login-card,.signup-card){
+  width:100%;max-width:520px;padding:clamp(26px,3.1vw,42px);
+  border:1px solid #49617f;border-radius:21px;background:linear-gradient(155deg,#172840fa,#0c1728fa 82%);
+  box-shadow:0 28px 85px #0008,inset 0 1px 0 #dceaff1c;
+}
+:is(.login-card-header,.signup-card-header){display:flex;justify-content:space-between;align-items:center;gap:15px}
+:is(.login-card-header,.signup-card-header) .eyebrow{margin:0}
+.account-card-index{font:11px ui-monospace,monospace;letter-spacing:.15em;color:#a3b8d2}
+:is(.login-card,.signup-card) h2{font:500 clamp(35px,3.6vw,52px)/1.08 var(--sans);letter-spacing:-.055em;margin:24px 0 14px;text-wrap:balance}
+:is(.login-intro,.signup-intro){font-size:14px;line-height:1.65;color:#b8cbe4;margin:0;max-width:450px}
+.account-ui .identity-state{display:flex;gap:15px;align-items:flex-start;margin:28px 0 0;padding:18px;border:1px solid #6383a3;border-radius:12px;background:linear-gradient(115deg,#203a59b8,#10243bb8)}
+.account-ui .state-icon{width:39px;height:39px;border:1px solid #7b9dc2;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;color:#c3e0ff;background:#162a44}
+.account-ui .state-icon svg{width:22px;height:22px}
+.account-ui .identity-state strong{display:block;font-size:14px;font-weight:650;line-height:1.4;color:#ecf6ff}
+.account-ui .identity-state p{font-size:12px;line-height:1.6;color:#bbcfeb;margin:6px 0 0}
+.account-ui .identity-form{display:grid;gap:19px;margin:26px 0 0}
+.account-ui .identity-form[hidden]{display:none}
+.account-ui .identity-field{display:grid;gap:9px;font-size:13px;font-weight:600;color:#e4effe}
+.account-ui .identity-field input{min-height:54px;width:100%;border:1px solid #6a84a1;border-radius:10px;background:#0c1828;color:#f1f7ff;font:400 15px var(--sans);padding:0 15px}
+.account-ui .identity-field input::placeholder{color:#9aafc9}
+.account-ui .identity-field input:focus-visible{outline:3px solid #a8d2ff;outline-offset:2px;border-color:#aad4ff}
+.account-ui .identity-field small{font-size:12px;font-weight:400;color:#b1c4df}
+.account-ui .form-support{text-align:right;font-size:12px}
+.account-ui .form-support a{text-decoration:underline;text-underline-offset:4px}
+.account-ui .identity-submit{width:100%;min-height:54px;border:0;border-radius:11px;background:linear-gradient(110deg,#e6f2ff,#add2ff);color:#0c1b30;font:650 14px var(--sans);display:flex;justify-content:space-between;align-items:center;padding:0 18px}
+.account-ui .identity-submit:hover{color:#08192e}
+.account-ui .identity-submit:disabled{opacity:.6;cursor:not-allowed}
+.account-ui .registration-legal{display:grid;gap:14px;padding:17px;border:1px solid #466181;border-radius:11px;background:#0b1a2b}
+.account-ui .registration-legal[hidden]{display:none}
+.account-ui .registration-legal p{margin:0;font-size:12px;line-height:1.6;color:#c4d3e9}
+.account-ui .registration-legal-documents{display:flex;gap:13px;flex-wrap:wrap}
+.account-ui .registration-legal-documents a{font-size:12px;text-decoration:underline;text-underline-offset:4px}
+.account-ui .registration-legal-documents span{color:#9eb9d9}
+.account-ui .registration-legal-acceptance{display:flex;gap:12px;align-items:start;font-size:12px;line-height:1.6;color:#d5e5f8}
+.account-ui .registration-legal-acceptance input{width:19px;height:19px;min-height:0;margin:0;flex:0 0 auto}
+.account-ui .gated-guidance{display:flex;gap:12px;align-items:flex-start;margin:20px 0 0;padding:0 1px;color:#9eb6d3}
+.account-ui .gated-guidance svg{width:19px;height:19px;flex:0 0 auto}
+.account-ui .gated-guidance p{font-size:12px;line-height:1.6;margin:0}
+.account-ui .account-entry{display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #3b506b;border-bottom:1px solid #3b506b;margin-top:26px;padding:22px 0}
+.account-ui .account-entry div>span{display:block;font:10px ui-monospace,monospace;letter-spacing:.13em;color:#a5beda;margin-bottom:7px}
+.account-ui .account-entry strong{font-size:13px;font-weight:650;color:#e5f1ff}
+.account-ui .account-entry>a{font-size:13px;color:#d6e9ff;white-space:nowrap;text-decoration:underline;text-underline-offset:5px}
+.account-ui :is(.login-legal,.signup-legal){display:flex;gap:10px 22px;flex-wrap:wrap;margin-top:20px;font-size:12px;color:#bbd1eb}
+.account-ui .site-footer{max-width:1440px;padding:30px clamp(20px,4vw,64px) 38px;border-top:0;align-items:center;justify-content:space-between}
+.account-ui .site-footer p{font-size:12px;color:#a9beda;margin:10px 0 0}
+.account-ui .site-footer nav{display:flex;flex-wrap:wrap;gap:12px 24px;font-size:12px;color:#bcd1ef}
+.account-ui [hidden]{display:none!important}
+@media(max-width:1100px){
+  :is(.login-stage,.signup-stage){grid-template-columns:minmax(0,.95fr) minmax(395px,1fr)}
+  :is(.login-story,.signup-story){padding:75px 28px 50px 34px}
+  :is(.login-access,.signup-access){padding:42px 30px 42px 10px}
+  :is(.login-story,.signup-story) h1{font-size:clamp(46px,5.5vw,65px)}
+  .account-benefits{grid-template-columns:1fr;gap:8px}
+  .account-benefits>li{min-height:0;flex-direction:row;align-items:center}
+}
+@media(max-width:780px){
+  .account-ui .site-header{flex-wrap:wrap;gap:14px;min-height:0;padding:19px 21px}
+  .account-ui .site-nav{order:3;width:100%;gap:20px;padding-top:14px;border-top:1px solid #34465b;justify-content:space-between}
+  .account-ui :is(.login-nav-actions,.signup-nav-actions){margin-left:auto;font-size:12px}
+  :is(.login-stage,.signup-stage){display:block;min-height:0}
+  :is(.login-stage,.signup-stage)::before{inset:0 0 40% 0;opacity:.25}
+  :is(.login-stage,.signup-stage)::after{background:linear-gradient(180deg,transparent 0%,#0a1321 55%,#0a1321 100%)}
+  :is(.login-story,.signup-story){padding:58px 22px 25px;gap:28px}
+  :is(.login-story,.signup-story) h1{font-size:clamp(42px,10vw,63px)}
+  .account-ui .story-lead{font-size:14px}
+  .account-benefits{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:22px}
+  .account-benefits>li{display:block;padding:12px;min-height:85px}
+  .account-benefits strong{display:block;margin-bottom:7px}
+  .account-side-footer{gap:13px}
+  :is(.login-access,.signup-access){padding:22px 18px 44px}
+  :is(.login-card,.signup-card){max-width:640px}
+  :is(.story-orbit,.signup-orbit){display:none}
+  .account-ui .site-footer{padding:27px 22px;display:block}
+  .account-ui .site-footer nav{margin-top:22px}
+}
+@media(max-width:440px){
+  .account-ui .site-nav{gap:12px;font-size:11px}
+  .account-ui .brand-name{font-size:23px}
+  .account-ui .nav-cta{padding:10px 12px;gap:8px}
+  .account-benefits{grid-template-columns:1fr}
+  .account-benefits>li{min-height:0;display:flex;flex-direction:row;gap:14px}
+  .account-benefits strong{margin:0}
+  :is(.login-card,.signup-card){padding:23px}
+  :is(.login-card,.signup-card) h2{font-size:38px}
+  .account-ui .account-entry{align-items:start;flex-direction:column}
+}
+@media(prefers-reduced-motion:reduce){
+  .account-ui *{scroll-behavior:auto!important;animation:none!important;transition:none!important}
+}
