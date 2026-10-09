@@ -24,6 +24,9 @@ export const SURFACE_ENGLISH_TARGET_LOCALE = "en-US";
 
 const SOURCE = Object.freeze({
   "shell.rail.aria": "Aplicativos principais",
+  "shell.home.title": "Início",
+  "shell.home.tagline": "Inteligência no centro.",
+  "shell.home.quickAccess": "Acesso rápido",
   "shell.home.loadingDate": "Carregando data…",
   "shell.launcher.command": "Abrir aplicativo…",
   "shell.space.title": "Seu espaço",
@@ -116,7 +119,7 @@ const SOURCE = Object.freeze({
   "app.projects.panel.0.title": "Seu trabalho",
   "app.projects.panel.0.body": "O catálogo de projetos não está disponível nesta composição.",
   "app.studio.title": "ORDAX Studio",
-  "app.studio.description": "Crie e opere projetos com o runtime agentic do ORDAX e ferramentas locais tipadas.",
+  "app.studio.description": "Acesse seus projetos e confira a integração do Studio com este host.",
   "app.studio.panel.0.label": "Studio",
   "app.studio.panel.0.title": "ORDAX Studio",
   "app.studio.panel.0.body": "O runtime do Studio ainda não está disponível nesta composição.",
@@ -174,6 +177,9 @@ const SOURCE = Object.freeze({
 
 const ENGLISH = Object.freeze({
   "shell.rail.aria": "Main applications",
+  "shell.home.title": "Home",
+  "shell.home.tagline": "Intelligence at the core.",
+  "shell.home.quickAccess": "Quick access",
   "shell.home.loadingDate": "Loading date…",
   "shell.launcher.command": "Open application…",
   "shell.space.title": "Your space",
@@ -266,7 +272,7 @@ const ENGLISH = Object.freeze({
   "app.projects.panel.0.title": "Your work",
   "app.projects.panel.0.body": "The project catalog is unavailable in this composition.",
   "app.studio.title": "ORDAX Studio",
-  "app.studio.description": "Create and operate projects with the ORDAX agentic runtime and typed local tools.",
+  "app.studio.description": "Access your projects and check Studio integration with this host.",
   "app.studio.panel.0.label": "Studio",
   "app.studio.panel.0.title": "ORDAX Studio",
   "app.studio.panel.0.body": "The Studio runtime is not yet available in this composition.",

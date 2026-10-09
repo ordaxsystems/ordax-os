@@ -4,7 +4,7 @@ import { studioComponent } from "./component.mjs";
 export const studioApp = defineFirstPartyApp({
   id: "studio",
   title: "ORDAX Studio",
-  description: "Crie e opere projetos com o runtime agentic do ORDAX e ferramentas locais tipadas.",
+  description: "Acesse seus projetos e confira a integração do Studio com este host.",
   monogram: "ST",
   singleton: true,
   component: studioComponent,

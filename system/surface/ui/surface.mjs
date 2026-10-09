@@ -617,6 +617,12 @@ export function mountSurface(
   const renderSidebar = () => {
     const area = getActiveArea(state);
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
+    const homeButton = root.querySelector("[data-show-desktop]");
+    if (homeButton) {
+      homeButton.dataset.active = String(activeWindow === null);
+      if (activeWindow === null) homeButton.setAttribute("aria-current", "page");
+      else homeButton.removeAttribute("aria-current");
+    }
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
       const appId = button.dataset.sidebarApp;
       const app = getFirstPartyApp(appId);
