@@ -1,6 +1,8 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import hashlib
+import os
+import tarfile
 import json
 import tempfile
 import unittest
@@ -125,6 +127,97 @@ def write_provenance_fixture(root: Path, source_commit: str = SOURCE):
 
 
 class DevBaseProducerTests(unittest.TestCase):
+    def test_large_hardlink_fanout_is_serialized_once_and_verified_by_both_sides(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tree = root / "rootfs"
+            for relative in builder.REQUIRED_ROOTFS_PATHS:
+                item = tree / relative
+                item.parent.mkdir(parents=True, exist_ok=True)
+                item.write_bytes(b"executable fixture\\n")
+                item.chmod(0o755)
+            for relative in builder.REQUIRED_ROOTFS_DIRS:
+                (tree / relative).mkdir(parents=True, exist_ok=True)
+            library = tree / "usr/lib"
+            library.mkdir(parents=True)
+            original = library / "shared.bin"
+            original.write_bytes(b"X" * (1024 * 1024))
+            original.chmod(0o644)
+            for index in range(390):
+                os.link(original, library / f"alias-{index:04d}.bin")
+            self.assertGreater(390 * (1024 * 1024), builder.MAX_ROOTFS_EXPANDED_BYTES)
+            archive = root / "rootfs.tar"
+            builder.build_rootfs_tar(tree, archive)
+            builder.verify_rootfs_tar(archive)
+            members = consumer._validate_rootfs_archive(archive)
+            self.assertEqual(sum(member.islnk() for member in members), 390)
+            self.assertLess(archive.stat().st_size, 8 * 1024 * 1024)
+            self.assertLess(
+                sum(member.size for member in members if member.isreg()),
+                2 * 1024 * 1024,
+            )
+
+    def test_rejects_unsafe_forward_or_cross_mode_hardlinks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tree = root / "rootfs"
+            for relative in builder.REQUIRED_ROOTFS_PATHS:
+                item = tree / relative
+                item.parent.mkdir(parents=True, exist_ok=True)
+                item.write_bytes(b"fixture")
+                item.chmod(0o755)
+            for relative in builder.REQUIRED_ROOTFS_DIRS:
+                (tree / relative).mkdir(parents=True, exist_ok=True)
+            for target, mode in [
+                ("../../escape", 0o755),
+                ("future/not-yet-seen", 0o755),
+                ("bin/sh", 0o644),
+            ]:
+                archive = root / "rootfs.tar"
+                builder.build_rootfs_tar(tree, archive)
+                with tarfile.open(archive, "a") as output:
+                    link = tarfile.TarInfo("zzz-unsafe")
+                    link.type = tarfile.LNKTYPE
+                    link.linkname = target
+                    link.mode = mode
+                    link.size = 0
+                    output.addfile(link)
+                with self.assertRaisesRegex(builder.CandidateError, "unsafe hardlink"):
+                    builder.verify_rootfs_tar(archive)
+                with self.assertRaisesRegex(consumer.DevBaseChannelError, "unsafe hardlink"):
+                    consumer._validate_rootfs_archive(archive)
+
+    @unittest.skipUnless(os.name == "posix", "hardlink materialization requires POSIX fsync")
+    def test_materialize_safe_internal_hardlinks_preserves_inode(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            kernel_dir, initramfs_dir, rootfs_dir, _kernel, _initramfs = (
+                write_provenance_fixture(root)
+            )
+            tree = rootfs_dir / "rootfs"
+            original = tree / "bin/busybox"
+            os.link(original, tree / "bin/busybox-peer")
+            candidate = root / "candidate"
+            builder.build(
+                source_commit=SOURCE,
+                kernel_dir=kernel_dir,
+                initramfs_dir=initramfs_dir,
+                rootfs_dir=rootfs_dir,
+                out_dir=candidate,
+            )
+            materialized, reused = consumer.materialize_versioned_rootfs(
+                candidate, SOURCE, root / "versions"
+            )
+            self.assertFalse(reused)
+            self.assertEqual(
+                (materialized / "bin/busybox").stat().st_ino,
+                (materialized / "bin/busybox-peer").stat().st_ino,
+            )
+            self.assertEqual(
+                (materialized / "bin/busybox").read_bytes(),
+                (materialized / "bin/busybox-peer").read_bytes(),
+            )
+
     def test_build_binds_exact_commit_and_standard_asset_names(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

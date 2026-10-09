@@ -7,7 +7,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
@@ -151,13 +151,29 @@ def validate_rootfs_source(rootfs_dir: Path, source_commit: str) -> Path:
     return rootfs
 
 
+
+def _canonical_archive_path(value: str) -> bool:
+    if not isinstance(value, str) or not value or "\\" in value:
+        return False
+    path = PurePosixPath(value)
+    return (
+        not path.is_absolute()
+        and path.as_posix() == value
+        and all(part not in (".", "..") for part in path.parts)
+    )
+
+
 def build_rootfs_tar(rootfs: Path, destination: Path) -> None:
+    # Flattened APK symlinks are actual filesystem hardlinks. Serialize the
+    # already-present inode identity instead of copying applet bytes hundreds
+    # of times. The reader validates every hardlink before extraction.
+    regular_owners: dict[tuple[int, int], str] = {}
     with tarfile.open(destination, "w", format=tarfile.GNU_FORMAT) as archive:
         for path in sorted(rootfs.rglob("*"), key=lambda item: item.relative_to(rootfs).as_posix()):
             relative = path.relative_to(rootfs).as_posix()
             metadata = path.lstat()
-            if stat.S_ISLNK(metadata.st_mode):
-                raise CandidateError(f"development rootfs contains symlink: {relative}")
+            if not _canonical_archive_path(relative) or stat.S_ISLNK(metadata.st_mode):
+                raise CandidateError(f"development rootfs contains unsafe path: {relative}")
             info = tarfile.TarInfo(relative)
             info.uid = 0
             info.gid = 0
@@ -170,10 +186,19 @@ def build_rootfs_tar(rootfs: Path, destination: Path) -> None:
                 info.size = 0
                 archive.addfile(info)
             elif stat.S_ISREG(metadata.st_mode):
-                info.type = tarfile.REGTYPE
-                info.size = metadata.st_size
-                with path.open("rb") as handle:
-                    archive.addfile(info, handle)
+                inode = (metadata.st_dev, metadata.st_ino)
+                owner = regular_owners.get(inode)
+                if owner is not None:
+                    info.type = tarfile.LNKTYPE
+                    info.linkname = owner
+                    info.size = 0
+                    archive.addfile(info)
+                else:
+                    regular_owners[inode] = relative
+                    info.type = tarfile.REGTYPE
+                    info.size = metadata.st_size
+                    with path.open("rb") as handle:
+                        archive.addfile(info, handle)
             else:
                 raise CandidateError(f"development rootfs contains unsafe object: {relative}")
     regular_file(destination, "development rootfs tar", MAX_ROOTFS_BYTES)
@@ -182,35 +207,42 @@ def build_rootfs_tar(rootfs: Path, destination: Path) -> None:
 def verify_rootfs_tar(path: Path) -> None:
     regular_file(path, "development rootfs tar", MAX_ROOTFS_BYTES)
     names: list[str] = []
-    total = 0
+    unique_payload_bytes = 0
     required = set(REQUIRED_ROOTFS_PATHS)
     required_dirs = set(REQUIRED_ROOTFS_DIRS)
     seen: set[str] = set()
     seen_dirs: set[str] = set()
+    regular_modes: dict[str, int] = {}
     try:
         with tarfile.open(path, "r:") as archive:
             for member in archive.getmembers():
                 name = member.name
-                relative = Path(name)
-                if (
-                    not name
-                    or relative.is_absolute()
-                    or ".." in relative.parts
-                    or name in seen
-                ):
+                if not _canonical_archive_path(name) or name in seen:
                     raise CandidateError("development rootfs tar contains unsafe or duplicate path")
                 seen.add(name)
                 names.append(name)
                 if member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.mtime != 0:
                     raise CandidateError("development rootfs tar metadata is not deterministic")
                 if member.isdir():
+                    if member.linkname or member.size != 0:
+                        raise CandidateError("development rootfs tar directory is malformed")
                     seen_dirs.add(name)
-                    continue
-                if not member.isreg():
+                elif member.isreg():
+                    if member.linkname:
+                        raise CandidateError("development rootfs regular member has a link target")
+                    unique_payload_bytes += member.size
+                    if unique_payload_bytes > MAX_ROOTFS_EXPANDED_BYTES:
+                        raise CandidateError("development rootfs tar expanded bytes exceed channel limit")
+                    regular_modes[name] = member.mode
+                elif member.islnk():
+                    # Only canonical, already-seen *regular* targets are valid;
+                    # no external paths, link chains, or forward references.
+                    target = member.linkname
+                    if (not _canonical_archive_path(target) or target not in regular_modes
+                            or member.size != 0 or member.mode != regular_modes[target]):
+                        raise CandidateError("development rootfs tar has unsafe hardlink")
+                else:
                     raise CandidateError(f"development rootfs tar contains unsafe member: {name}")
-                total += member.size
-                if total > MAX_ROOTFS_EXPANDED_BYTES:
-                    raise CandidateError("development rootfs tar expanded bytes exceed channel limit")
     except tarfile.TarError as exc:
         raise CandidateError("development rootfs tar is invalid") from exc
     if names != sorted(names):
@@ -223,6 +255,7 @@ def verify_rootfs_tar(path: Path) -> None:
         raise CandidateError(
             f"development rootfs tar is missing required directories: {missing_dirs}"
         )
+
 
 def binding(name: str, path: Path, source_commit: str) -> dict:
     tag = f"ordax-dev-base-{source_commit}"
