@@ -284,6 +284,55 @@
       );
   }
 
+  // One verified session request per page. No parallel client-side auth state.
+  let sessionPromise = null;
+  let sessionRevision = 0;
+
+  function verifiedIdentitySession() {
+    if (!sessionPromise) {
+      sessionPromise = loadJson("/auth/session").then(session => {
+        if (!validSessionReadiness(session)) throw new Error("invalid-identity-session");
+        return session;
+      });
+    }
+    return sessionPromise;
+  }
+
+  async function renderAuthHeader() {
+    const header = document.querySelector(".site-header");
+    const login = header?.querySelector('[data-auth-nav="login"]');
+    const register = header?.querySelector('[data-auth-nav="register"]');
+    if (!login && !register) return;
+    const label = link => link?.querySelector("[data-auth-nav-label]");
+    const revision = sessionRevision;
+    // Fail closed and restore anonymous navigation before revalidation.
+    if (login) {
+      login.href = "/login/";
+      login.removeAttribute("aria-current");
+      const caption = label(login);
+      if (caption) caption.textContent = i18n.fromSource("Entrar");
+    }
+    if (register) {
+      register.href = "/cadastro/";
+      register.hidden = false;
+      register.removeAttribute("aria-current");
+      const caption = label(register);
+      if (caption) caption.textContent = i18n.fromSource("Criar conta");
+    }
+    try {
+      const session = await verifiedIdentitySession();
+      if (revision !== sessionRevision || !session.authenticated) return;
+      const accountLink = login || register;
+      accountLink.href = "/conta/";
+      const caption = label(accountLink);
+      if (caption) caption.textContent = t("account.navigation.account");
+      if (document.body?.dataset?.page === "conta") accountLink.setAttribute("aria-current", "page");
+      if (login && register) register.hidden = true;
+    } catch {
+      // No connection or no valid session: only public links remain.
+    }
+  }
+
   // The account page displays only identity data returned by the same-origin
   // verified session owner. No locally inferred or simulated account state.
   async function renderAccount() {
@@ -306,8 +355,9 @@
     setStatus("[data-account-state]", t("account.session.checking.title"), t("account.session.checking.detail"));
 
     try {
-      const session = await loadJson("/auth/session");
-      if (!validSessionReadiness(session)) throw new Error("invalid-identity-session");
+      const revision = sessionRevision;
+      const session = await verifiedIdentitySession();
+      if (revision !== sessionRevision) return;
       if (session.authenticated === true) {
         // This text is never HTML: remote identity attributes are untrusted.
         email.textContent = typeof session.email === "string" && session.email.length <= 254
@@ -358,7 +408,7 @@
       try {
         // The server is authoritative: a static configuration alone cannot
         // enable forms when the public identity gateway is unavailable.
-        available = validSessionReadiness(await loadJson("/auth/session"));
+        available = !!(await verifiedIdentitySession());
       } catch {
         available = false;
       }
@@ -668,6 +718,8 @@
   }
 
   async function start() {
+    // Navigation does not block the page; the account portal shares its read.
+    void renderAuthHeader();
     let config = null;
     try {
       config = await loadConfig();
@@ -698,6 +750,14 @@
   }
 
   document.addEventListener("ordax:localechange", () => {
+    void start();
+  });
+
+  // Back navigation after logout must never show a cached authenticated view.
+  window.addEventListener("pageshow", event => {
+    if (!event.persisted) return;
+    sessionRevision++;
+    sessionPromise = null;
     void start();
   });
 
