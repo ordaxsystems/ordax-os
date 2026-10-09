@@ -6,6 +6,7 @@ import { PUBLIC_ACCOUNT_ORIGIN, PUBLIC_SIGNUP_REDIRECT, PUBLIC_CONFIRMATION_URL,
 
 import {
   normalizeGatewayUrl,
+  forwardPublicConfirmationQuery,
   normalizeProductPath,
   normalizePublicOrigin,
   normalizeTrustedEdgeAddress,
@@ -63,6 +64,40 @@ test("signup confirmation allows only one email token hash and canonical OrdaX p
     PUBLIC_CONFIRMATION_URL + "?token_hash=" + hash + "&type=email&return_to=https://evil.test",
     PUBLIC_ORIGIN + "/auth/login?token_hash=" + hash + "&type=email",
   ]) assert.equal(parseSignupConfirmation(new URL(u)), null);
+});
+
+test("Vercel rewritten signup callback preserves only exact one-time OTP params", async () => {
+  const hash = "a".repeat(64);
+  const valid = new URLSearchParams({ordax_path: "/auth/confirm", token_hash: hash, type:"email"});
+  const result = forwardPublicConfirmationQuery("/auth/confirm", valid);
+  assert.equal(result, "/auth/confirm?token_hash=" + hash + "&type=email");
+  assert.equal(forwardPublicConfirmationQuery("/auth/confirm", new URLSearchParams({ordax_path: "/auth/confirm"})), "/auth/confirm");
+  for(const invalid of [
+    new URLSearchParams({ordax_path: "/auth/login", token_hash:hash, type:"email"}),
+    new URLSearchParams("ordax_path=/auth/confirm&token_hash=" + hash + "&type=email&redirect_to=https://evil.test"),
+    new URLSearchParams("ordax_path=/auth/confirm&ordax_path=/auth/confirm&token_hash=" + hash + "&type=email"),
+  ]) {
+    assert.equal(forwardPublicConfirmationQuery(invalid.get("ordax_path"), invalid), null);
+  }
+  const original = globalThis.fetch;
+  let upstreamUrl;
+  globalThis.fetch = async (url) => {
+    upstreamUrl = String(url);
+    return new Response(null, {status:303,headers:{"location":"/login/?cadastro=confirmado"}});
+  };
+  try {
+    const req = new Request(PUBLIC_ORIGIN + "/api/account-proxy?" + valid.toString(), {
+      headers: { "x-forwarded-for": "203.0.113.15" },
+    });
+    const response = await proxyPublicAccountRequest(req, options());
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+    assert.equal(response.headers.get("location"), "/login/?cadastro=confirmado");
+    assert.match(upstreamUrl, /auth\\/confirm\\?token_hash=/);
+    assert.match(upstreamUrl, /type=email/);
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 test("gateway configuration is strict https and exact public account gateway path", () => {

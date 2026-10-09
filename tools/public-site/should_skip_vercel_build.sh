@@ -22,6 +22,7 @@ if git diff --quiet "$previous" "$current" -- \
   api/account-proxy.mjs \
   infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs \
   infra/supabase/functions/_shared/bounded_body.mjs \
+  infra/supabase/functions/_shared/account_email_confirmation.mjs \
   package.json \
   package-lock.json \
   vercel.json \
