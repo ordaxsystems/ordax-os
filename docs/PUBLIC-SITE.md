@@ -441,10 +441,15 @@ On 2026-10-09, a read-only PostgreSQL inspection confirmed one active
 `active:true, registrationEnabled:true`. **Both recorded digests differed
 from the currently served HTML** at `/privacidade/` and `/termos/`.
 The public pages contained a design-token stylesheet injection absent from
-the corresponding versioned source HTML, while the persisted digests also
-did not match the source files. Treat this as a **release blocker for
-legal-policy consistency** until the live documents, reviewed legal version,
-published artifact SHA and stored policy can be reconciled with new evidence.
+the corresponding raw source HTML, while the persisted digests also did not
+match either representation. To prevent recurrence, the public builder and the
+legal activation candidate now consume the **same pure render_public_html()**
+owner. Activation hashes the exact bytes produced by this shared public build
+transform, not the unrendered HTML. This does **not** rewrite the currently
+active database policy; treat the existing mismatch as a **release blocker
+for legal-policy consistency** until the actual live documents, reviewed/new
+legal version, published artifact SHA and stored policy can be reconciled with
+fresh evidence.
 Do not mutate historical acceptance receipts, patch production hashes in
 place, or flip `account_activation_ready` to conceal the drift. Changes to
 document bytes require a reviewed/versioned policy activation using the
