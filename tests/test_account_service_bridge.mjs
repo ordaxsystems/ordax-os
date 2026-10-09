@@ -18,7 +18,7 @@ const headers = (marker, apikey) => new Headers({
 });
 
 test("only the dedicated named Supabase secret authenticates a marked service request", () => {
-  assert.equal(ACCOUNT_BRIDGE_KEY_NAME, "ordax-account-public-bridge");
+  assert.equal(ACCOUNT_BRIDGE_KEY_NAME, "ordax_account_public_bridge");
   assert.equal(accountBridgeSecret(json), secret);
   assert.equal(authenticatedAccountBridge(headers("1", secret), json), true);
   assert.equal(authenticatedAccountBridge(headers("1", other), json), false);
@@ -26,6 +26,14 @@ test("only the dedicated named Supabase secret authenticates a marked service re
   assert.equal(authenticatedAccountBridge(headers("0", secret), json), false);
   assert.equal(authenticatedAccountBridge(headers(undefined, secret), json), false);
   assert.equal(authenticatedAccountBridge(headers("1", undefined), json), false);
+});
+
+test("Supabase named API key identifier uses the allowed Dashboard charset", () => {
+  assert.match(ACCOUNT_BRIDGE_KEY_NAME, /^[a-z0-9_]+$/);
+  assert.equal(ACCOUNT_BRIDGE_KEY_NAME, "ordax_account_public_bridge");
+  const legacyName = "ordax-account-public-bridge";
+  assert.equal(accountBridgeSecret(JSON.stringify({ [legacyName]: secret })), null);
+  assert.equal(authenticatedAccountBridge(headers("1", secret), JSON.stringify({ [legacyName]: secret })), false);
 });
 
 test("missing named key, invalid shapes, or legacy JWTs do not authorize the bridge", () => {
